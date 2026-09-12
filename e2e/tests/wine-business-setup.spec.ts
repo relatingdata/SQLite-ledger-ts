@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { login } from './helpers.js';
 
 test('run real transactions for Wine Retail Company entirely through the real web UI, from a fresh database', async ({ page }) => {

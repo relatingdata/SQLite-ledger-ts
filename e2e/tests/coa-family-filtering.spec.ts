@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { login } from './helpers.js';
 
 test('the General Journal account dropdown shows only accounts from the current business\'s own real CoA family', async ({ page }) => {

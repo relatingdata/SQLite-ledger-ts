@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 
 // Shares the exact, same real database used by `make test-e2e` -
 // per direct instruction, this does NOT rebuild Wine Retail Company

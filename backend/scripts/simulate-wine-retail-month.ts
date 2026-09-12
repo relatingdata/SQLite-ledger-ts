@@ -56,7 +56,7 @@ import {
   ensureProductInventoryAccount,
 } from '../src/db.js';
 import { getItemLocation } from '../src/db-stock.js';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 const BUSINESS = process.env.SIM_BUSINESS ?? fixtures.business;
 const LEDGER = fixtures.ledger;
 const VENDOR = fixtures.vendor;

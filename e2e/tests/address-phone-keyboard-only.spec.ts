@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { login } from './helpers.js';
 
 test('AddressList and PhoneList work with keyboard only, no visible Add/Remove buttons', async ({ page }) => {

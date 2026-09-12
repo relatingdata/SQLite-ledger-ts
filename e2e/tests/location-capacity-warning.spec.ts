@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { login } from './helpers.js';
 
 test('Stock Listing shows a real, visible "Over capacity" warning on a real location genuinely over its own configured capacity', async ({ page }) => {

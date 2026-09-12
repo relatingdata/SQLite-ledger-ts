@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { login } from './helpers.js';
 
 test('HR/Payroll: pays a real hourly employee and a real salaried one, with real Medicare/superannuation math, and shows the real org chart', async ({ page }) => {

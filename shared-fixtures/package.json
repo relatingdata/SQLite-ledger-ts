@@ -1,0 +1,5 @@
+{
+  "name": "shared-fixtures",
+  "private": true,
+  "type": "module"
+}

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { login } from './helpers.js';
 
 test('the 9 complex help texts (embedded <code>, dynamic session names, and true AR/AP word-choice branches) all render correctly in German', async ({ page }) => {

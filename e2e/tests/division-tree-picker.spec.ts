@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { login } from './helpers.js';
 
 test('P&L division picker shows the real, nested hierarchy — Consolidated -> city division -> location division, any level directly selectable', async ({ page }) => {

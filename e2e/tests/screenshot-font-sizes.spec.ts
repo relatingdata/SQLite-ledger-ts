@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 
 test('Screenshot AP Purchase and P&L with expanded rows, to show the new font-size scale', async ({ page }) => {
   test.setTimeout(60000);

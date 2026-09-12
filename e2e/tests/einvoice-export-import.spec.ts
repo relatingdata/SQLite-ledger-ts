@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { login } from './helpers.js';
 
 test('e-invoicing: a real, posted invoice can be exported as a real UBL 2.1 document and imported back as a real, draft Purchase Invoice', async ({ page }) => {

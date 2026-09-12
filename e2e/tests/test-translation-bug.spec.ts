@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 
 test('Try saving a real translation', async ({ page }) => {
   test.setTimeout(30000);

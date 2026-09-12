@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 
 test('Storage origin (Hot/Cold) displays correctly on Cash Sale through the real UI', async ({ page, request }) => {
   test.setTimeout(60000);

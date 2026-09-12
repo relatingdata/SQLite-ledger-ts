@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { login } from './helpers.js';
 
 test('Year End Close: posts a real, unclosed expense through the real General Journal, closes it, and shows the real, honest error on a second attempt', async ({ page }) => {
