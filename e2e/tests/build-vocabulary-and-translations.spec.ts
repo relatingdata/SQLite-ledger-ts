@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
 import { login } from './helpers.js';
 import fs from 'fs';
 import path from 'path';
@@ -32,7 +33,7 @@ const entries: Entry[] = JSON.parse(
 test('Create every real, new vocabulary word and apply every real translation, from one, single, real data file', async ({ page }) => {
   test.setTimeout(20 * 60 * 1000);
   await login(page);
-  await page.locator('select').first().selectOption({ label: 'Wine Retail Company' });
+  await page.locator('select').first().selectOption({ label: fixtures.business });
   await page.waitForTimeout(800);
   await page.getByRole('button', { name: /continue/i }).click();
   await page.waitForURL((url) => url.pathname === '/');

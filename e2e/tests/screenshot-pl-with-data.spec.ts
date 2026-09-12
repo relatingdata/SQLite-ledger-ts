@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
 
 test('Post a real sale, then screenshot the P&L with expanded rows', async ({ page }) => {
   test.setTimeout(60000);
@@ -10,7 +11,7 @@ test('Post a real sale, then screenshot the P&L with expanded rows', async ({ pa
   await page.getByRole('button', { name: /log in/i }).click();
   await page.waitForURL((url) => !url.pathname.includes('/login'));
   await page.waitForTimeout(500);
-  await page.locator('select').first().selectOption({ label: 'Wine Retail Company' });
+  await page.locator('select').first().selectOption({ label: fixtures.business });
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: /continue/i }).click();
   await page.waitForURL((url) => url.pathname === '/');

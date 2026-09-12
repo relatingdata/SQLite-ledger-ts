@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
 import { login } from './helpers.js';
 
 test('Restock Retail Outlets: a real, pre-filled restocking list, a real shelf-ordered picking list, refuses to dispatch until every line is ticked, then moves real stock', async ({ page }) => {
   await login(page);
-  await page.locator('select').first().selectOption({ label: 'Wine Retail Company' });
+  await page.locator('select').first().selectOption({ label: fixtures.business });
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: /continue/i }).click();
   await page.waitForURL((url) => url.pathname === '/');

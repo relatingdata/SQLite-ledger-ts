@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
 import { login } from './helpers.js';
 
 test('Contacts page is context-aware — the real, focused category shown depends on which real menu link was used', async ({ page }) => {
   await login(page);
-  await page.locator('select').first().selectOption({ label: 'Wine Retail Company' });
+  await page.locator('select').first().selectOption({ label: fixtures.business });
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: /continue/i }).click();
   await page.waitForURL((url) => url.pathname === '/');

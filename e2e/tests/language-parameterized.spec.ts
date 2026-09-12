@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
 import { login } from './helpers.js';
 
 // Every real, supported language — no separate, hardcoded list to
@@ -29,7 +30,7 @@ for (const language of LANGUAGES) {
     const realTranslations: Record<string, string> = await response.json();
 
     await login(page);
-    await page.locator('select').first().selectOption({ label: 'Wine Retail Company' });
+    await page.locator('select').first().selectOption({ label: fixtures.business });
     await page.waitForTimeout(300);
     if (language !== 'English') {
       // English is the default; only switch away from it explicitly.

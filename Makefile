@@ -1,10 +1,11 @@
 .PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg
 
-# A real, direct, explicit RUNTIME variable, per direct instruction -
-# no PATH modification at all. Every real recipe below invokes bun via
-# this variable's own, full, real path, not a bare "bun" that would
-# require PATH to already resolve it.
-RUNTIME := $(HOME)/.bun/bin/bun
+# A real, direct, explicit RUNTIME variable, per direct instruction.
+# This project uses bun, not npm - RUNTIME is just "bun" itself,
+# matching how node/npm are referenced elsewhere in this file: the
+# real, standard expectation that the tool is genuinely on whoever's
+# own, real PATH, same as any other Makefile dependency.
+RUNTIME := bun
 
 # Builds everything the project produces: a fresh install, the full
 # test suite, and both real manuals (User + Programmer) - a genuine,
@@ -92,6 +93,15 @@ test-e2e: reset-db
 	@echo ""
 	@echo "Verifying against exact, documented expected results..."
 	cd backend && node --import tsx scripts/verify-simulation.ts
+
+# Per direct instruction: shares the exact same real, already-populated
+# database test-e2e itself creates - simulate-wine-retail-month.ts runs
+# first, then Playwright verifies every real language is present and
+# exercises the UI against that same, real, already-built business,
+# rather than rebuilding it from scratch via slow UI clicks.
+test-e2e-playwright: reset-db
+	cd backend && node --import tsx scripts/simulate-wine-retail-month.ts
+	cd e2e && $(RUNTIME) x playwright test full-e2e-with-languages --reporter=list
 	@echo ""
 
 # Real, end-to-end browser tests (Playwright) — genuinely different
@@ -108,14 +118,14 @@ test-e2e: reset-db
 # backend it auto-starts too).
 playwright-tutorial: reset-db
 	@echo "Running the real Wine Retail Company tutorial walkthrough in a real browser, built entirely from scratch (login through the first General Journal transaction)..."
-	cd e2e && SEED_DEMO_BUSINESSES=false npx playwright test tutorial-walkthrough --reporter=list
+	cd e2e && SEED_DEMO_BUSINESSES=false $(RUNTIME) x playwright test tutorial-walkthrough --reporter=list
 
 # The full, real Playwright browser suite — every real .spec.ts file
 # in e2e/tests. Takes several minutes. Use playwright-tutorial above
 # for a quick, targeted check instead.
 playwright-all: reset-db
 	@echo "Running the full, real Playwright browser suite..."
-	cd e2e && npx playwright test --reporter=list
+	cd e2e && $(RUNTIME) x playwright test --reporter=list
 
 # The full, real demo dataset: one detailed month (as above) plus a
 # real, 12-month Budget and 11 more real, summary-level Actual months
@@ -182,172 +192,172 @@ manual: docs/build-user-manual.py $(USER_MANUAL_CHAPTERS) manual-screenshots
 # script itself, so touching one Svelte file only invalidates the
 # screenshots that genuinely depend on it, not all of them.
 docs/manual-images/setup_chart_of_accounts.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/chart-of-accounts/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_chart_of_accounts npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_chart_of_accounts $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_periods.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/periods/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_periods npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_periods $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_translations.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/translations/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_translations npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_translations $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_users.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/users/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_users npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_users $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_vocabulary.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/vocabulary/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_vocabulary npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_vocabulary $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_yearend.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/yearend/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_yearend npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_yearend $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_listing.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/listing/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_listing npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_listing $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_restock.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/restock/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_restock npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_restock $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_new_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-pl/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_new_pl npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_new_pl $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_new_stock_on_hand.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-stock-on-hand/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_new_stock_on_hand npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_new_stock_on_hand $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_old_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/old-pl/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_old_pl npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_old_pl $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_profit_and_loss.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/profit-and-loss/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_profit_and_loss npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_profit_and_loss $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_reminders.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/reminders/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_reminders npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_reminders $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_sales.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/sales/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_sales npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_sales $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_statement.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/statement/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_statement npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_statement $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_stock_movement.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/stock-movement/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_stock_movement npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_stock_movement $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_trial_balance.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/trial-balance/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_trial_balance npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_trial_balance $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_bank_accounts.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/bank-accounts/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_bank_accounts npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_bank_accounts $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/account_password.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/account/password/+page.svelte
-	cd e2e && MANUAL_SCREEN=account_password npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=account_password $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/customer_terminal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/customer-terminal/+page.svelte
-	cd e2e && MANUAL_SCREEN=customer_terminal npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=customer_terminal $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/editor.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/editor/+page.svelte
-	cd e2e && MANUAL_SCREEN=editor npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=editor $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/invoices.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/invoices/+page.svelte
-	cd e2e && MANUAL_SCREEN=invoices npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=invoices $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/journal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/journal/+page.svelte
-	cd e2e && MANUAL_SCREEN=journal npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=journal $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_aged.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/aged/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_aged npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_aged $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_below_reorder.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/below-reorder/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_below_reorder npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_below_reorder $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_cash_flow_forecast.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/cash-flow-forecast/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_cash_flow_forecast npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_cash_flow_forecast $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_compare.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/compare/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_compare npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_compare $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_new_new_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-new-pl/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_new_new_pl npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_new_new_pl $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ar_sale.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ar-sale/+page.svelte
-	cd e2e && MANUAL_SCREEN=ar_sale npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ar_sale $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ar_receipt.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ar-receipt/+page.svelte frontend/src/lib/components/PaymentReceipt.svelte
-	cd e2e && MANUAL_SCREEN=ar_receipt npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ar_receipt $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ap_purchase.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ap-purchase/+page.svelte
-	cd e2e && MANUAL_SCREEN=ap_purchase npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ap_purchase $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ap_payment.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ap-payment/+page.svelte frontend/src/lib/components/PaymentReceipt.svelte
-	cd e2e && MANUAL_SCREEN=ap_payment npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ap_payment $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/cash_sale.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/cash-sale/+page.svelte frontend/src/lib/components/CashTransaction.svelte
-	cd e2e && MANUAL_SCREEN=cash_sale npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=cash_sale $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/cash_purchase.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/cash-purchase/+page.svelte frontend/src/lib/components/CashTransaction.svelte
-	cd e2e && MANUAL_SCREEN=cash_purchase npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=cash_purchase $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/projects.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/projects/+page.svelte
-	cd e2e && MANUAL_SCREEN=projects npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=projects $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/hr_wages.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/hr/+page.svelte
-	cd e2e && MANUAL_SCREEN=hr_wages npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=hr_wages $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/write_offs.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/write-offs/+page.svelte
-	cd e2e && MANUAL_SCREEN=write_offs npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=write_offs $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_take.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-take/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_take npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_take $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_transfer.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/transfer/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_transfer npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_transfer $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_dispatch.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-dispatch/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_dispatch npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_dispatch $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_receipt.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-receipt/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_receipt npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_receipt $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/sales_order.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/so/+page.svelte
-	cd e2e && MANUAL_SCREEN=sales_order npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=sales_order $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/general_journal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/post/+page.svelte
-	cd e2e && MANUAL_SCREEN=general_journal npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=general_journal $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/pos_terminal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/pos/+page.svelte
-	cd e2e && MANUAL_SCREEN=pos_terminal npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=pos_terminal $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/purchase_order.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/po/+page.svelte
-	cd e2e && MANUAL_SCREEN=purchase_order npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=purchase_order $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_multi_location_schedule.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/business-setup/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_multi_location_schedule npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_multi_location_schedule $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_contact_persons.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/contacts/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_contact_persons npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_contact_persons $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_balance_sheet.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/balance-sheet/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_balance_sheet npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_balance_sheet $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_items_new_category_full.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/items/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_items_new_category_full npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_items_new_category_full $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_locations.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/locations/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_locations npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_locations $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_business_setup.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/business-setup/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_business_setup npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_business_setup $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_new_business.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/new-business/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_new_business npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_new_business $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_configuration_landing.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_configuration_landing npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_configuration_landing $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_login.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/login/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_login npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_login $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_home.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_home npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_home $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_choose_business.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/session/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_choose_business npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_choose_business $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
 # Real, live screenshot capture for the manual, in each real,
 # supported language — a real, shared Playwright script
@@ -358,23 +368,23 @@ docs/manual-images/m_choose_business.png: e2e/tests/capture-manual-screenshots.s
 # real target also runs the real, direct crop step the tall Parts
 # Catalog screenshot needs.
 manual-screenshots:
-	cd e2e && MANUAL_LANGUAGE=English npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_LANGUAGE=English $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 	cd docs && python3 crop-parts-screenshot.py
 
 manual-screenshots-german:
-	cd e2e && MANUAL_LANGUAGE=German npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_LANGUAGE=German $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 	cd docs && python3 crop-parts-screenshot.py -german
 
 manual-screenshots-french:
-	cd e2e && MANUAL_LANGUAGE=French npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_LANGUAGE=French $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 	cd docs && python3 crop-parts-screenshot.py -french
 
 manual-screenshots-danish:
-	cd e2e && MANUAL_LANGUAGE=Danish npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_LANGUAGE=Danish $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 	cd docs && python3 crop-parts-screenshot.py -danish
 
 manual-screenshots-italian:
-	cd e2e && MANUAL_LANGUAGE=Italian npx playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_LANGUAGE=Italian $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 	cd docs && python3 crop-parts-screenshot.py -italian
 
 # Assembles and builds the real, complete Programmer's Manual — a

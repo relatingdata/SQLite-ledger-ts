@@ -56,6 +56,10 @@ import {
   ensureProductInventoryAccount,
 } from '../src/db.js';
 import { getItemLocation } from '../src/db-stock.js';
+import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
+const BUSINESS = process.env.SIM_BUSINESS ?? fixtures.business;
+const LEDGER = fixtures.ledger;
+const VENDOR = fixtures.vendor;
 
 function listLocations() {
   const entities = getEntityTree();
@@ -63,10 +67,6 @@ function listLocations() {
   const locationEntities = locationsParent ? entities.filter((e) => e.parent_id === locationsParent.id) : [];
   return locationEntities.map((e) => ({ name: e.name, ...getLocation(e.name)! }));
 }
-
-const BUSINESS = process.env.SIM_BUSINESS ?? 'Wine Retail Company';
-const LEDGER = `Actual`;
-const VENDOR = 'Boutique Wine Importers Pty Ltd';
 const today = (offsetDays: number) => {
   const d = new Date('2027-03-01T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + offsetDays);

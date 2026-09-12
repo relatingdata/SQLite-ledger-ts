@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -29,7 +30,7 @@ async function loginAndChooseBusiness(page: any) {
     await languageSelect.selectOption({ label: LANGUAGE });
     await page.waitForTimeout(500);
   }
-  await page.locator('select').first().selectOption({ label: 'Wine Retail Company' });
+  await page.locator('select').first().selectOption({ label: fixtures.business });
   await page.waitForTimeout(500);
 }
 

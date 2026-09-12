@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';

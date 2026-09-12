@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
 
 test('debug journal', async ({ page }) => {
   test.setTimeout(30000);
@@ -11,7 +12,7 @@ test('debug journal', async ({ page }) => {
   await page.locator('input[autocomplete="current-password"]').fill('changeme123');
   await page.getByRole('button', { name: /log in/i }).click();
   await page.waitForURL((url) => !url.pathname.includes('/login'));
-  await page.locator('select').first().selectOption({ label: 'Wine Retail Company' });
+  await page.locator('select').first().selectOption({ label: fixtures.business });
   await page.getByRole('button', { name: /continue/i }).click();
   await page.waitForURL((url) => url.pathname === '/');
 

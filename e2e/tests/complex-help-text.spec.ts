@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import fixtures from '../../shared-fixtures/wine-retail.json' with { type: 'json' };
 import { login } from './helpers.js';
 
 test('the 9 complex help texts (embedded <code>, dynamic session names, and true AR/AP word-choice branches) all render correctly in German', async ({ page }) => {
   await login(page);
-  await page.locator('select').first().selectOption({ label: 'Wine Retail Company' });
+  await page.locator('select').first().selectOption({ label: fixtures.business });
   await page.waitForTimeout(300);
   await page.locator('select').nth(2).selectOption({ label: 'German' });
   await page.waitForTimeout(300);
