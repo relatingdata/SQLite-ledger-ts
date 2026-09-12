@@ -1,7 +1,7 @@
 import { db } from './db.js';
 import { createEntity, updateEntity, deleteEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, setContactType, setItemLocationLevels, receiveStockAtLocation, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, type UserId } from './db.js';
 import { loadAllTranslations } from '../../shared-fixtures/translations.js';
-import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels } from '../../shared-fixtures/wine-retail-demo-data.js';
+import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels, loadDemoUpcs } from '../../shared-fixtures/wine-retail-demo-data.js';
 
 // Every real seed function below acts as this one, real, direct admin
 // user — cast once, here, rather than at each of the many, real,
@@ -1164,9 +1164,11 @@ function migrateForCashSaleCustomer() {
 migrateForCashSaleCustomer();
 
 function migrateForWineRetailUpcs() {
+  const upcs = loadDemoUpcs();
+  const upcByName = new Map(upcs.map((u) => [u.name, u.upc]));
   const items = db
     .prepare(
-      `SELECT p.entity_id FROM contact p
+      `SELECT p.entity_id, e.name FROM contact p
        JOIN current_entities e ON e.id = p.entity_id
        WHERE p.item_upc IS NULL
        AND e.parent_id IN (
@@ -1175,10 +1177,10 @@ function migrateForWineRetailUpcs() {
          )
        )`
     )
-    .all() as { entity_id: number }[];
-  for (const { entity_id } of items) {
-    const upc = `614141${String(entity_id).padStart(6, '0')}`;
-    db.prepare(`UPDATE contact SET item_upc = ? WHERE entity_id = ?`).run(upc, entity_id);
+    .all() as { entity_id: number; name: string }[];
+  for (const { entity_id, name } of items) {
+    const upc = upcByName.get(name);
+    if (upc) db.prepare(`UPDATE contact SET item_upc = ? WHERE entity_id = ?`).run(upc, entity_id);
   }
 }
 if (SEED_DEMO_BUSINESSES) migrateForWineRetailUpcs();

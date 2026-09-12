@@ -57,6 +57,13 @@ import {
 } from '../src/db.js';
 import { getItemLocation } from '../src/db-stock.js';
 import { fixtures } from '../../shared-fixtures/wine-retail.js';
+import { readCsv } from '../../shared-fixtures/csv.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+const __simDir = path.dirname(fileURLToPath(import.meta.url));
+const pricingRows = readCsv(fs.readFileSync(path.join(__simDir, '../../shared-fixtures/pricing.csv'), 'utf-8'));
+const wholesaleCostBySubcategory = new Map(pricingRows.map((r) => [r.subcategory, Number(r.wholesaleCostMinor)]));
 const BUSINESS = process.env.SIM_BUSINESS ?? fixtures.business;
 const LEDGER = fixtures.ledger;
 const VENDOR = fixtures.vendor;
@@ -229,7 +236,7 @@ async function main() {
   let purchaseCount = 0;
   const unitCostMinor: Record<string, number> = {};
   for (const p of dozen) {
-    unitCostMinor[p.name] = rand(800, 6500); // realistic per-bottle wholesale cost, $8-$65
+    unitCostMinor[p.name] = wholesaleCostBySubcategory.get(categoryOf(p.name)!) ?? (() => { throw new Error(`No real, fixed wholesale cost found for subcategory "${categoryOf(p.name)}" (product "${p.name}").`); })();
     addOrUpdateItemSource({
       itemName: p.name,
       vendorName: VENDOR,

@@ -24,12 +24,22 @@ export function loadDemoLocations(): DemoLocation[] {
   return readCsv(text).map((row) => ({
     name: row.name,
     city: row.city,
-    locationType: row.locationType as 'retail' | 'warehouse',
+    locationType: row.locationType as 'Retail' | 'Warehouse',
     isBilling: row.isBilling === 'true',
     bottleCap: row.bottleCap ? Number(row.bottleCap) : null,
     cartonCap: row.cartonCap ? Number(row.cartonCap) : null,
     timezone: row.timezone,
   }));
+}
+
+export interface DemoUpc {
+  name: string;
+  upc: string;
+}
+
+export function loadDemoUpcs(): DemoUpc[] {
+  const text = fs.readFileSync(path.join(here, 'upcs.csv'), 'utf-8');
+  return readCsv(text).map((row) => ({ name: row.name, upc: row.upc }));
 }
 
 export interface DemoCategory {
