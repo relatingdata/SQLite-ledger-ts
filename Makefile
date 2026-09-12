@@ -1,11 +1,10 @@
 .PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg
 
-# A real, direct, explicit PATH export - per direct instruction, this
-# project uses bun, not npm. bun is installed to ~/.bun/bin, which is
-# not necessarily on a fresh shell's own PATH, so every real recipe
-# below exports this itself rather than assuming the person running
-# `make` has already, separately configured their own shell for it.
-export PATH := $(HOME)/.bun/bin:$(PATH)
+# A real, direct, explicit RUNTIME variable, per direct instruction -
+# no PATH modification at all. Every real recipe below invokes bun via
+# this variable's own, full, real path, not a bare "bun" that would
+# require PATH to already resolve it.
+RUNTIME := $(HOME)/.bun/bin/bun
 
 # Builds everything the project produces: a fresh install, the full
 # test suite, and both real manuals (User + Programmer) - a genuine,
@@ -17,7 +16,7 @@ all: install test manual programmer-manual
 # in the root package.json's own "workspaces" array) - one real,
 # shared node_modules at the root, not three separate ones.
 install:
-	bun install
+	$(RUNTIME) install
 
 clean:
 	rm -rf node_modules package-lock.json bun.lockb
@@ -29,9 +28,9 @@ clean:
 dev:
 	@echo "Starting backend (:3001) and frontend (:5173) — Ctrl+C stops both."
 	@( \
-	  cd backend && bun run dev & \
+	  cd backend && $(RUNTIME) run dev & \
 	  BACKEND_PID=$$!; \
-	  cd frontend && bun run dev & \
+	  cd frontend && $(RUNTIME) run dev & \
 	  FRONTEND_PID=$$!; \
 	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
 	  wait \
@@ -47,9 +46,9 @@ dev:
 dev-no-demo:
 	@echo "Starting backend (:3001, only 'My Business' — no demo businesses) and frontend (:5173) — Ctrl+C stops both."
 	@( \
-	  cd backend && SEED_DEMO_BUSINESSES=false bun run dev & \
+	  cd backend && SEED_DEMO_BUSINESSES=false $(RUNTIME) run dev & \
 	  BACKEND_PID=$$!; \
-	  cd frontend && bun run dev & \
+	  cd frontend && $(RUNTIME) run dev & \
 	  FRONTEND_PID=$$!; \
 	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
 	  wait \
@@ -58,26 +57,26 @@ dev-no-demo:
 dev-verbose:
 	@echo "Starting backend (:3001, every SQL statement printed) and frontend (:5173) — Ctrl+C stops both."
 	@( \
-	  cd backend && DB_VERBOSE=1 bun run dev & \
+	  cd backend && DB_VERBOSE=1 $(RUNTIME) run dev & \
 	  BACKEND_PID=$$!; \
-	  cd frontend && bun run dev & \
+	  cd frontend && $(RUNTIME) run dev & \
 	  FRONTEND_PID=$$!; \
 	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
 	  wait \
 	)
 
 backend:
-	cd backend && bun run dev
+	cd backend && $(RUNTIME) run dev
 
 backend-verbose:
-	cd backend && DB_VERBOSE=1 bun run dev
+	cd backend && DB_VERBOSE=1 $(RUNTIME) run dev
 
 frontend:
-	cd frontend && bun run dev
+	cd frontend && $(RUNTIME) run dev
 
 test:
-	cd backend && bun run test
-	cd frontend && bun run test
+	cd backend && $(RUNTIME) run test
+	cd frontend && $(RUNTIME) run test
 
 # End-to-end verification against real, deterministic business data —
 # genuinely different from `test` above (which only exercises small,
@@ -104,7 +103,7 @@ test-e2e: reset-db
 # first, since the tutorial genuinely creates a new business (Wine
 # Retail Company itself) from scratch and expects a clean starting
 # point — SEED_DEMO_BUSINESSES=false so it doesn't already exist
-# (Playwright's own webServer spawns bun run dev as a child process,
+# (Playwright's own webServer spawns $(RUNTIME) run dev as a child process,
 # inheriting this shell's own environment, so the flag reaches the
 # backend it auto-starts too).
 playwright-tutorial: reset-db
