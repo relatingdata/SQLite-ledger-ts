@@ -1402,10 +1402,10 @@ Total owed:,French,Total d\u{fb} :
 Total owed:,Danish,Total skyldig:
 Total owed:,Italian,Totale dovuto:
 Trial Balance,Italian,Bilancio di verifica
-Unit Price,German,Einzelpreis
-Unit Price,French,Prix unitaire
-Unit Price,Danish,Enhedspris
-Unit Price,Italian,Prezzo unitario
+Unit price,German,Einzelpreis
+Unit price,French,Prix unitaire
+Unit price,Danish,Enhedspris
+Unit price,Italian,Prezzo unitario
 User:,German,Benutzer:
 User:,French,Utilisateur :
 User:,Danish,Bruger:
@@ -1449,8 +1449,8 @@ Amount,German,Betrag
 Amount,French,Montant
 Amount,Danish,Bel\u{f8}b
 Tax,German,Steuer
-Tax,French,Taxe
-Tax,Danish,Moms
+Tax,French,taxe
+Tax,Danish,afgift
 Invoice,German,Rechnung
 Invoice,French,Facture
 Invoice,Danish,Faktura
@@ -1782,10 +1782,6 @@ Invoice Date,German,Rechnungsdatum
 Invoice Date,French,Date de facture
 Invoice Date,Danish,Fakturadato
 Invoice Date,Italian,Data fattura
-Invoice date,German,Rechnungsdatum
-Invoice date,French,Date de facture
-Invoice date,Danish,Fakturadato
-Invoice date,Italian,Data fattura
 Item / cost account,German,Artikel / Kostenkonto
 Item / cost account,French,Article / compte de co\u{fb}ts
 Item / cost account,Danish,Vare / omkostningskonto
@@ -2163,10 +2159,7 @@ of,German,von
 of,French,de
 of,Danish,af
 of,Italian,di
-tax,German,Steuer
-tax,French,taxe
-tax,Danish,afgift
-tax,Italian,imposta
+Tax,Italian,Imposta
 this pays one real month,German,dies bezahlt einen realen Monat
 this pays one real month,French,cela couvre un mois r\u{e9}el
 this pays one real month,Danish,dette betaler en reel m\u{e5}ned
@@ -2185,7 +2178,7 @@ whole business,Danish,hele virksomheden
 whole business,Italian,intera azienda
 Welcome to Better Brighter Multi-Ledger \u{2014} please log in.,Danish,Velkommen til Better Brighter Multi-Ledger \u{2014} log ind.
 Total Liabilities + Equity,Danish,Passiver i alt + Egenkapital i alt
-Unit Cost,Danish,Enhedspris
+Unit cost,Danish,Enhedspris (kost)
 Italian,Danish,Italiensk
 Accounting Periods,Danish,Regnskabsperioder
 Assembly BOM Transfer,Danish,Stykliste-overf\u{f8}rsel
@@ -2242,7 +2235,6 @@ Reject,Danish,Afvis
 Sale complete,Danish,Salg gennemf\u{f8}rt
 Scan or search a product,Danish,Scan eller s\u{f8}g efter et produkt
 Store,Danish,Butik
-Unit price,Danish,Enhedspris
 AP Payment,Danish,Kreditorbetaling
 AP Purchase,Danish,Indk\u{f8}b
 AR / AP,Danish,Debitor / Kreditor
@@ -2301,7 +2293,6 @@ For {NAME} only.,Danish,Kun for {NAME}.
 Saving,Danish,Gemmer\u{2026}
 Tax %,Danish,Moms %
 UPC,Danish,UPC
-Unit cost,Danish,Enhedspris (kost)
 Unit of measure,Danish,M\u{e5}leenhed
 Value,Danish,V\u{e6}rdi
 Vendor,Danish,Leverand\u{f8}r
@@ -2347,7 +2338,7 @@ Cash Sale,English,Cash Sale
 Cash Purchase,English,Cash Purchase
 Welcome to Better Brighter Multi-Ledger \u{2014} please log in.,French,Bienvenue sur Better Brighter Multi-Ledger \u{2014} veuillez vous connecter.
 Total Liabilities + Equity,French,Total des passifs + Total des capitaux propres
-Unit Cost,French,Co\u{fb}t unitaire
+Unit cost,French,Co\u{fb}t unitaire
 Italian,French,Italien
 Banca c/c,French,Compte bancaire
 Cassa e valori,French,Caisse et valeurs
@@ -2437,7 +2428,6 @@ Reject,French,Refuser
 Sale complete,French,Vente termin\u{e9}e
 Scan or search a product,French,Scanner ou rechercher un produit
 Store,French,Magasin
-Unit price,French,Prix unitaire
 AP Payment,French,Paiement fournisseur
 AP Purchase,French,Achat fournisseur
 AR / AP,French,Clients / Fournisseurs
@@ -2496,7 +2486,6 @@ For {NAME} only.,French,Uniquement pour {NAME}.
 Saving,French,Enregistrement\u{2026}
 Tax %,French,Taxe %
 UPC,French,UPC
-Unit cost,French,Co\u{fb}t unitaire
 Unit of measure,French,Unit\u{e9} de mesure
 Value,French,Valeur
 Vendor,French,Fournisseur
@@ -2506,7 +2495,7 @@ Cash Purchase,French,Achat au comptant
 POS Terminal (retail register),French,Terminal de caisse (caisse magasin)
 Welcome to Better Brighter Multi-Ledger \u{2014} please log in.,German,Willkommen bei Better Brighter Multi-Ledger \u{2014} bitte melden Sie sich an.
 Total Liabilities + Equity,German,Verbindlichkeiten gesamt + Eigenkapital gesamt
-Unit Cost,German,St\u{fc}ckkosten
+Unit cost,German,St\u{fc}ckkosten
 Italian,German,Italienisch
 Banca c/c,German,Bankkonto
 Cassa e valori,German,Kasse und Wertsachen
@@ -2579,7 +2568,6 @@ Reject,German,Ablehnen
 Sale complete,German,Verkauf abgeschlossen
 Scan or search a product,German,Produkt scannen oder suchen
 Store,German,Filiale
-Unit price,German,Einzelpreis
 AP Payment,German,Kreditorenzahlung
 AP Purchase,German,Einkauf
 AR / AP,German,Debitoren / Kreditoren
@@ -2638,7 +2626,6 @@ For {NAME} only.,German,Nur f\u{fc}r {NAME}.
 Saving,German,Wird gespeichert\u{2026}
 Tax %,German,Steuer %
 UPC,German,UPC
-Unit cost,German,St\u{fc}ckkosten
 Unit of measure,German,Ma\u{df}einheit
 Value,German,Wert
 Vendor,German,Lieferant
@@ -2768,7 +2755,6 @@ Stock Transfer,Italian,Trasferimento scorte
 Structured Editor,Italian,Editor strutturato
 Subtotal,Italian,Subtotale
 Switch,Italian,Cambia
-Tax,Italian,Imposta
 To,Italian,A
 Total due,Italian,Totale dovuto
 Type,Italian,Tipo
@@ -2831,7 +2817,6 @@ Reject,Italian,Rifiuta
 Sale complete,Italian,Vendita completata
 Scan or search a product,Italian,Scansiona o cerca un prodotto
 Store,Italian,Negozio
-Unit price,Italian,Prezzo unitario
 AP Payment,Italian,Pagamento fornitore
 AP Purchase,Italian,Acquisto
 AR / AP,Italian,Clienti / Fornitori
