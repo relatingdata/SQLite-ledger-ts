@@ -1,4 +1,4 @@
-import { test, before, after } from 'node:test';
+import { test, beforeAll as before, afterAll as after } from 'bun:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -191,7 +191,6 @@ const {
 } = await import('../src/db.ts');
 
 after(() => {
-  db.close();
   for (const suffix of ['', '-wal', '-shm']) {
     try {
       fs.unlinkSync(tmpDbPath + suffix);

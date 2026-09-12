@@ -1,4 +1,4 @@
-import { test, before, after } from 'node:test';
+import { test, beforeAll as before, afterAll as after } from 'bun:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';

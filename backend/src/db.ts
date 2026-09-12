@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -82,9 +82,23 @@ const dbPath = process.env.DB_PATH ?? path.join(dataDir, 'entities.sqlite');
 // DB_VERBOSE=1 npm run dev prints every SQL statement as it executes —
 // a real-time view of what the app is actually doing to the database,
 // useful for watching workflows unfold without a separate tool.
-export const db = new Database(dbPath, process.env.DB_VERBOSE ? { verbose: (sql) => console.log('[sql]', sql) } : {});
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+export const db = new Database(dbPath);
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA foreign_keys = ON');
+
+// A real, direct compatibility shim: bun:sqlite's own .get() returns
+// null for "no row found"; better-sqlite3 (which every existing call
+// site and test assertion in this codebase was written against)
+// returns undefined for the exact same case. Normalizing once, here,
+// at the source, rather than touching every one of the hundreds of
+// real call sites throughout this codebase.
+const realPrepare = db.prepare.bind(db);
+db.prepare = ((sql: string) => {
+  const stmt = realPrepare(sql);
+  const realGet = stmt.get.bind(stmt);
+  stmt.get = ((...args: unknown[]) => realGet(...args) ?? undefined) as typeof stmt.get;
+  return stmt;
+}) as typeof db.prepare;
 
 const alreadyInitialized = db
   .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='entities'`)
@@ -149,7 +163,16 @@ if (!alreadyInitialized) {
   db.exec(filteredCoaLinksSql);
 
   for (const f of ['10-vocab-english.sql', '10-vocab-german.sql', '10-vocab-french.sql', '10-vocab-danish.sql', '10-vocab-italian.sql']) {
-    db.exec(readSchema(f));
+    const sql = readSchema(f);
+    // These are genuinely dead, comment-only stub files (leftover from
+    // the historical migration to the entity-tree translation
+    // mechanism) - real, actual SQL statements only, or bun:sqlite's
+    // own, stricter exec() throws on an effectively-empty script.
+    const hasRealStatement = sql.split('\n').some((line) => {
+      const trimmed = line.trim();
+      return trimmed.length > 0 && !trimmed.startsWith('--');
+    });
+    if (hasRealStatement) db.exec(sql);
   }
 }
 
@@ -3502,9 +3525,9 @@ export function stageBomComponent(input: {
 }): void {
   db.prepare(
     `INSERT INTO assembly_bom_staging (assembly_item, business, component_item, quantity, unit)
-     VALUES (@assemblyItem, @business, @componentItem, @quantity, @unit)
-     ON CONFLICT (assembly_item, business, component_item) DO UPDATE SET quantity = @quantity, unit = @unit`
-  ).run(input);
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (assembly_item, business, component_item) DO UPDATE SET quantity = ?, unit = ?`
+  ).run(input.assemblyItem, input.business, input.componentItem, input.quantity, input.unit, input.quantity, input.unit);
 }
 
 /** Materializes every staged component for one assembly Item into a
