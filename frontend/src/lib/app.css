@@ -1,0 +1,309 @@
+:root {
+  --ink: #1e2430;
+  --ink-soft: #5a6472;
+  --paper: #ffffff;
+  --paper-raised: #f7f8fa;
+  --paper-dim: #f9f5ec;
+  --stripe: #eaf2f8;
+  --rule: #e2e5ea;
+  --rule-strong: #c7ccd4;
+  --brass: #a9812f;
+  --brass-dark: #8a6a24;
+  --debit: #b1442e;
+  --credit: #1d4e8f;
+  --danger-bg: #fbeae7;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: 'Source Serif 4', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  /* A real, deliberate 4-tier body-text scale, replacing 26 separate
+     near-duplicate values (0.7rem through 1.3rem, many differing by
+     just 0.01-0.02rem) that had drifted apart with no real design
+     intent behind the differences. Display/heading sizes (2rem+) are
+     deliberately outside this scale - this covers body text only. */
+  --font-size-small: 0.8rem;
+  --font-size-base: 0.85rem;
+  --font-size-medium: 0.9rem;
+  --font-size-large: 1.1rem;
+}
+
+/* The centered, boxed intro/description text used at the top of
+   nearly every page — was copy-pasted identically into 14 separate
+   <style> blocks before being moved here. Pages needing a different
+   max-width than the 65ch default can override just that one
+   declaration locally, rather than duplicating the whole block. */
+.intro-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.2rem;
+}
+
+.intro {
+  max-width: 65ch;
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: var(--font-size-base);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 0.7rem 1.1rem;
+  margin: 0;
+  background: var(--paper-dim);
+}
+
+/* A lifted, boxed heading — for pages with no descriptive intro text
+   at all (unlike .intro-wrap above, which boxes description text
+   below a plain heading). */
+.heading-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.2rem;
+}
+
+.heading-wrap h2 {
+  margin: 0;
+  text-align: center;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 0.6rem 1.4rem;
+  background: var(--paper-dim);
+}
+
+/* A title genuinely embedded on a panel's own top border, like a
+   fieldset legend — because it IS one. The real, native browser
+   mechanism for exactly this: a <fieldset> genuinely, natively
+   straddles its own top border with its own <legend>, left-justified
+   by default, with no custom positioning CSS needed at all. Used for
+   the Login and Choose-Business cards, and any other panel that
+   wants its own title embedded this way rather than floating above
+   as a separate box. */
+fieldset.card-legend {
+  display: block;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0 1.2rem 1rem;
+  margin: 0;
+}
+
+/* The instructions themselves get their own real, contained box —
+   border and tinted background both — sitting inside the panel now
+   instead of floating above it as a separate element, but still a
+   real, distinct, visibly boxed area of its own, not just plain text
+   loose inside the panel, and never the whole, outer panel itself
+   adopting the tint. */
+fieldset.card-legend > .intro {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--paper-dim);
+  padding: 0.7rem 1.1rem;
+  margin: 0.6rem 0 0.9rem;
+  text-align: left;
+  max-width: none;
+}
+
+/* A real, direct, safe replacement for the old .heading-wrap
+   floating-pill title — a page's own title, genuinely embedded on
+   its own box's top border, left-justified, the same real, native
+   fieldset/legend mechanism as fieldset.card-legend above, but sized
+   for a standalone page title with no other real content inside it
+   (a real page's own main content stays exactly where it already
+   is, right after this, not wrapped inside it — a direct,
+   1-for-1 swap, not a restructure). */
+fieldset.page-title {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--paper);
+  padding: 0 1.2rem 0.9rem;
+  margin: -14px 0 0;
+}
+
+fieldset.page-title > .intro {
+  /* Per direct instruction: no longer a fully separate bordered box -
+     the tinted background alone now signals "this is the
+     instructional text", while the panel reads as one continuous
+     whole rather than two stacked boxes. */
+  border-radius: 6px;
+  background: var(--paper-dim);
+  padding: 0.7rem 1.1rem;
+  margin: 0.6rem auto 0;
+  text-align: center;
+}
+
+fieldset.card-legend > legend,
+fieldset.page-title > legend {
+  padding: 0 0.6rem;
+  margin-left: -0.2rem;
+  font-size: var(--font-size-large);
+  font-weight: 700;
+  color: var(--ink);
+  font-family: var(--font-display);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 1rem 1.2rem;
+}
+
+.card > h2:first-child,
+.card > h3:first-child,
+.card > h4:first-child {
+  margin-top: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Alternating row shading, matching classic "green-bar"/"blue-bar"
+   continuous-feed computer paper — makes it much easier to follow a
+   row across a wide table. Applies to any real data table in the app
+   automatically; a table that's purely for layout (no real rows of
+   data) simply won't have enough <tr> children for this to matter. */
+tbody tr:nth-child(even) {
+  background: var(--stripe);
+}
+
+th, td {
+  text-align: left;
+  padding: 0.5em 0.7em;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--font-size-medium);
+}
+
+th {
+  font-size: var(--font-size-small);
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+}
+
+.num {
+  text-align: right;
+}
+
+.amount-debit {
+  color: var(--debit);
+}
+
+.amount-credit {
+  color: var(--credit);
+}
+
+input, select, button {
+  font-family: inherit;
+  font-size: var(--font-size-medium);
+}
+
+input, select {
+  padding: 0.45em 0.6em;
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.5em 1.1em;
+  border-radius: 5px;
+  border: 1px solid var(--brass-dark);
+  background: var(--brass);
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.secondary {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+
+.error {
+  color: var(--debit);
+}
+
+a {
+  color: var(--brass-dark);
+}
+
+/* The embedded-label bordered-box pattern — a fieldset with its legend
+   sitting in the border line itself, like "+-Business------+". Global,
+   not duplicated per-page, so every form across the app gets the same
+   look automatically and stays consistent by construction. */
+fieldset {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem 0.5rem;
+  margin: 0;
+  min-width: 0;
+}
+
+fieldset legend {
+  padding: 0 0.4rem;
+  margin-left: -0.3rem;
+  font-size: var(--font-size-small);
+  color: var(--ink-soft);
+}
+
+fieldset select,
+fieldset input,
+fieldset textarea {
+  border: none;
+  padding: 0.1rem 0;
+  font-size: var(--font-size-medium);
+  /* A real, solid, plain background of its own — not transparent.
+     A transparent field lets whatever's behind it show straight
+     through, so a tinted, instructions-carrying panel's own color
+     bled directly onto every real input/select nested inside it,
+     not just staying confined to the instructions text itself. */
+  background: var(--paper);
+  width: 100%;
+}
+
+fieldset select:focus,
+fieldset input:focus,
+fieldset textarea:focus {
+  outline: none;
+}
+
+fieldset:focus-within {
+  border-color: var(--brass);
+}

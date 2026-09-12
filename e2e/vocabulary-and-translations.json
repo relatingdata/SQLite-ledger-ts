@@ -1,0 +1,1802 @@
+[
+ {
+  "word": "(No division)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "(Keine Abteilung)",
+   "French": "(Aucune division)",
+   "Danish": "(Ingen afdeling)",
+   "Italian": "(Nessuna divisione)"
+  }
+ },
+ {
+  "word": "(no division)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "(keine Abteilung)",
+   "French": "(aucune division)",
+   "Danish": "(ingen afdeling)",
+   "Italian": "(nessuna divisione)"
+  }
+ },
+ {
+  "word": "Accept additional currencies (cash only)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Zusätzliche Währungen akzeptieren (nur bar)",
+   "French": "Accepter des devises supplémentaires (espèces uniquement)",
+   "Danish": "Accepter yderligere valutaer (kun kontant)",
+   "Italian": "Accetta valute aggiuntive (solo contanti)"
+  }
+ },
+ {
+  "word": "Accept and close",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Akzeptieren und schließen",
+   "French": "Accepter et clôturer",
+   "Danish": "Accepter og luk",
+   "Italian": "Accetta e chiudi"
+  }
+ },
+ {
+  "word": "Account (what this purchase was for)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Konto (wofür dieser Einkauf war)",
+   "French": "Compte (objet de cet achat)",
+   "Danish": "Konto (hvad dette køb var til)",
+   "Italian": "Conto (per cosa era questo acquisto)"
+  }
+ },
+ {
+  "word": "Account invoices only",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Nur Kontorechnungen",
+   "French": "Factures de compte uniquement",
+   "Danish": "Kun kontofakturaer",
+   "Italian": "Solo fatture su conto"
+  }
+ },
+ {
+  "word": "Accounts zeroed",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Konten auf null gesetzt",
+   "French": "Comptes mis à zéro",
+   "Danish": "Konti nulstillet",
+   "Italian": "Conti azzerati"
+  }
+ },
+ {
+  "word": "Add a location",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Standort hinzufügen",
+   "French": "Ajouter un emplacement",
+   "Danish": "Tilføj en placering",
+   "Italian": "Aggiungi una sede"
+  }
+ },
+ {
+  "word": "Add a new language",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Neue Sprache hinzufügen",
+   "French": "Ajouter une nouvelle langue",
+   "Danish": "Tilføj et nyt sprog",
+   "Italian": "Aggiungi una nuova lingua"
+  }
+ },
+ {
+  "word": "Add language",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Sprache hinzufügen",
+   "French": "Ajouter une langue",
+   "Danish": "Tilføj sprog",
+   "Italian": "Aggiungi lingua"
+  }
+ },
+ {
+  "word": "Add line",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Zeile hinzufügen",
+   "French": "Ajouter une ligne",
+   "Danish": "Tilføj linje",
+   "Italian": "Aggiungi riga"
+  }
+ },
+ {
+  "word": "Additional currencies accepted as cash",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Zusätzliche Währungen als Bargeld akzeptiert",
+   "French": "Devises supplémentaires acceptées en espèces",
+   "Danish": "Yderligere valutaer accepteret som kontant",
+   "Italian": "Valute aggiuntive accettate come contanti"
+  }
+ },
+ {
+  "word": "Additional locations",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Zusätzliche Standorte",
+   "French": "Emplacements supplémentaires",
+   "Danish": "Yderligere placeringer",
+   "Italian": "Sedi aggiuntive"
+  }
+ },
+ {
+  "word": "Addresses",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Adressen",
+   "French": "Adresses",
+   "Danish": "Adresser",
+   "Italian": "Indirizzi"
+  }
+ },
+ {
+  "word": "Allocate",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Zuordnen",
+   "French": "Affecter",
+   "Danish": "Allokere",
+   "Italian": "Assegna"
+  }
+ },
+ {
+  "word": "Already exists:",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Existiert bereits:",
+   "French": "Existe déjà :",
+   "Danish": "Findes allerede:",
+   "Italian": "Esiste già:"
+  }
+ },
+ {
+  "word": "Annual salary",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Jahresgehalt",
+   "French": "Salaire annuel",
+   "Danish": "Årsløn",
+   "Italian": "Stipendio annuale"
+  }
+ },
+ {
+  "word": "Anticipated movements",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Erwartete Bewegungen",
+   "French": "Mouvements anticipés",
+   "Danish": "Forventede bevægelser",
+   "Italian": "Movimenti previsti"
+  }
+ },
+ {
+  "word": "As of",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Stand",
+   "French": "Au",
+   "Danish": "Pr.",
+   "Italian": "Al"
+  }
+ },
+ {
+  "word": "As of date",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Stichtag",
+   "French": "Date de référence",
+   "Danish": "Pr. dato",
+   "Italian": "Data di riferimento"
+  }
+ },
+ {
+  "word": "Balance Sheet",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Bilanz",
+   "French": "Bilan",
+   "Danish": "Balance",
+   "Italian": "Stato patrimoniale"
+  }
+ },
+ {
+  "word": "Business Setup",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Unternehmenseinrichtung",
+   "French": "Configuration de l'entreprise",
+   "Danish": "Virksomhedsopsætning",
+   "Italian": "Configurazione azienda"
+  }
+ },
+ {
+  "word": "By division/location profit center",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Nach Abteilung/Standort-Profitcenter",
+   "French": "Par centre de profit division/emplacement",
+   "Danish": "Efter afdeling/lokations-profitcenter",
+   "Italian": "Per centro di profitto divisione/sede"
+  }
+ },
+ {
+  "word": "Cash Flow Forecast",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Liquiditätsprognose",
+   "French": "Prévision de trésorerie",
+   "Danish": "Likviditetsprognose",
+   "Italian": "Previsione di flusso di cassa"
+  }
+ },
+ {
+  "word": "Chart of Accounts family to reuse",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Wiederzuverwendende Kontenrahmen-Familie",
+   "French": "Famille de plan comptable à réutiliser",
+   "Danish": "Kontoplanfamilie der skal genbruges",
+   "Italian": "Famiglia di piano dei conti da riutilizzare"
+  }
+ },
+ {
+  "word": "Choose a business, ledger, and language",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Unternehmen, Hauptbuch und Sprache wählen",
+   "French": "Choisir une entreprise, un grand livre et une langue",
+   "Danish": "Vælg en virksomhed, en hovedbog og et sprog",
+   "Italian": "Scegli un'azienda, un libro mastro e una lingua"
+  }
+ },
+ {
+  "word": "Clear (show all time)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Löschen (gesamten Zeitraum anzeigen)",
+   "French": "Effacer (afficher toute la période)",
+   "Danish": "Ryd (vis hele perioden)",
+   "Italian": "Cancella (mostra tutto il periodo)"
+  }
+ },
+ {
+  "word": "Closed",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Geschlossen",
+   "French": "Clôturé",
+   "Danish": "Lukket",
+   "Italian": "Chiuso"
+  }
+ },
+ {
+  "word": "Columns",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Spalten",
+   "French": "Colonnes",
+   "Danish": "Kolonner",
+   "Italian": "Colonne"
+  }
+ },
+ {
+  "word": "Company-wide staff",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Unternehmensweites Personal",
+   "French": "Personnel de toute l'entreprise",
+   "Danish": "Medarbejdere på tværs af virksomheden",
+   "Italian": "Personale a livello aziendale"
+  }
+ },
+ {
+  "word": "Compare Ledgers",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Hauptbücher vergleichen",
+   "French": "Comparer les grands livres",
+   "Danish": "Sammenlign hovedbøger",
+   "Italian": "Confronta libri mastri"
+  }
+ },
+ {
+  "word": "Complete purchase",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Einkauf abschließen",
+   "French": "Finaliser l'achat",
+   "Danish": "Fuldfør køb",
+   "Italian": "Completa acquisto"
+  }
+ },
+ {
+  "word": "Complete sale",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Verkauf abschließen",
+   "French": "Finaliser la vente",
+   "Danish": "Fuldfør salg",
+   "Italian": "Completa vendita"
+  }
+ },
+ {
+  "word": "Configuration",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Konfiguration",
+   "French": "Configuration",
+   "Danish": "Konfiguration",
+   "Italian": "Configurazione"
+  }
+ },
+ {
+  "word": "Consolidated",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Konsolidiert",
+   "French": "Consolidé",
+   "Danish": "Konsolideret",
+   "Italian": "Consolidato"
+  }
+ },
+ {
+  "word": "Contacts",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Kontakte",
+   "French": "Contacts",
+   "Danish": "Kontakter",
+   "Italian": "Contatti"
+  }
+ },
+ {
+  "word": "Credit limit",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Kreditlimit",
+   "French": "Limite de crédit",
+   "Danish": "Kreditgrænse",
+   "Italian": "Limite di credito"
+  }
+ },
+ {
+  "word": "Currency",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Währung",
+   "French": "Devise",
+   "Danish": "Valuta",
+   "Italian": "Valuta"
+  }
+ },
+ {
+  "word": "Current cash position",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Aktuelle Kassenposition",
+   "French": "Position de trésorerie actuelle",
+   "Danish": "Nuværende likviditetsposition",
+   "Italian": "Posizione di cassa attuale"
+  }
+ },
+ {
+  "word": "Customer",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Kunde",
+   "French": "Client",
+   "Danish": "Kunde",
+   "Italian": "Cliente"
+  }
+ },
+ {
+  "word": "Customer Statement",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Kundenauszug",
+   "French": "Relevé client",
+   "Danish": "Kundeoversigt",
+   "Italian": "Estratto conto cliente"
+  }
+ },
+ {
+  "word": "Details",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Details",
+   "French": "Détails",
+   "Danish": "Detaljer",
+   "Italian": "Dettagli"
+  }
+ },
+ {
+  "word": "Dispatch from location",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Versand ab Standort",
+   "French": "Expédition depuis l'emplacement",
+   "Danish": "Afsendelse fra placering",
+   "Italian": "Spedizione dalla sede"
+  }
+ },
+ {
+  "word": "Dispatch — move real stock now",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Versand — Bestand jetzt real bewegen",
+   "French": "Expédition — déplacer le stock réel maintenant",
+   "Danish": "Afsendelse — flyt reelt lager nu",
+   "Italian": "Spedizione — sposta ora la scorta reale"
+  }
+ },
+ {
+  "word": "Division",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Abteilung",
+   "French": "Division",
+   "Danish": "Afdeling",
+   "Italian": "Divisione"
+  }
+ },
+ {
+  "word": "Due date",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Fälligkeitsdatum",
+   "French": "Date d'échéance",
+   "Danish": "Forfaldsdato",
+   "Italian": "Data di scadenza"
+  }
+ },
+ {
+  "word": "EFT",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Überweisung",
+   "French": "Virement",
+   "Danish": "Bankoverførsel",
+   "Italian": "Bonifico"
+  }
+ },
+ {
+  "word": "Employee",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Mitarbeiter",
+   "French": "Employé",
+   "Danish": "Medarbejder",
+   "Italian": "Dipendente"
+  }
+ },
+ {
+  "word": "Equity",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Eigenkapital",
+   "French": "Capitaux propres",
+   "Danish": "Egenkapital",
+   "Italian": "Patrimonio netto"
+  }
+ },
+ {
+  "word": "Everything",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Alles",
+   "French": "Tout",
+   "Danish": "Alt",
+   "Italian": "Tutto"
+  }
+ },
+ {
+  "word": "Export as e-invoice (UBL 2.1)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Als E-Rechnung exportieren (UBL 2.1)",
+   "French": "Exporter en facture électronique (UBL 2.1)",
+   "Danish": "Eksporter som e-faktura (UBL 2.1)",
+   "Italian": "Esporta come fattura elettronica (UBL 2.1)"
+  }
+ },
+ {
+  "word": "First",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Erste",
+   "French": "Premier",
+   "Danish": "Første",
+   "Italian": "Primo"
+  }
+ },
+ {
+  "word": "Generate picking list",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Kommissionierliste erstellen",
+   "French": "Générer la liste de préparation",
+   "Danish": "Generer plukliste",
+   "Italian": "Genera lista di prelievo"
+  }
+ },
+ {
+  "word": "Gross",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Brutto",
+   "French": "Brut",
+   "Danish": "Brutto",
+   "Italian": "Lordo"
+  }
+ },
+ {
+  "word": "Gross Margin",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Bruttomarge",
+   "French": "Marge brute",
+   "Danish": "Bruttoavance",
+   "Italian": "Margine lordo"
+  }
+ },
+ {
+  "word": "Group by",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gruppieren nach",
+   "French": "Regrouper par",
+   "Danish": "Gruppér efter",
+   "Italian": "Raggruppa per"
+  }
+ },
+ {
+  "word": "Headroom",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Spielraum",
+   "French": "Marge disponible",
+   "Danish": "Råderum",
+   "Italian": "Margine disponibile"
+  }
+ },
+ {
+  "word": "Horizon (days)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Zeithorizont (Tage)",
+   "French": "Horizon (jours)",
+   "Danish": "Horisont (dage)",
+   "Italian": "Orizzonte (giorni)"
+  }
+ },
+ {
+  "word": "Hourly wage",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Stundenlohn",
+   "French": "Salaire horaire",
+   "Danish": "Timeløn",
+   "Italian": "Paga oraria"
+  }
+ },
+ {
+  "word": "Hours worked",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Geleistete Stunden",
+   "French": "Heures travaillées",
+   "Danish": "Arbejdstimer",
+   "Italian": "Ore lavorate"
+  }
+ },
+ {
+  "word": "Import",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Importieren",
+   "French": "Importer",
+   "Danish": "Importer",
+   "Italian": "Importa"
+  }
+ },
+ {
+  "word": "Import e-invoice",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "E-Rechnung importieren",
+   "French": "Importer une facture électronique",
+   "Danish": "Importer e-faktura",
+   "Italian": "Importa fattura elettronica"
+  }
+ },
+ {
+  "word": "Import e-invoice (UBL 2.1)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "E-Rechnung importieren (UBL 2.1)",
+   "French": "Importer une facture électronique (UBL 2.1)",
+   "Danish": "Importer e-faktura (UBL 2.1)",
+   "Italian": "Importa fattura elettronica (UBL 2.1)"
+  }
+ },
+ {
+  "word": "Imported successfully",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Erfolgreich importiert",
+   "French": "Importé avec succès",
+   "Danish": "Importeret med succes",
+   "Italian": "Importato con successo"
+  }
+ },
+ {
+  "word": "Imported with discrepancies",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Mit Abweichungen importiert",
+   "French": "Importé avec des écarts",
+   "Danish": "Importeret med afvigelser",
+   "Italian": "Importato con discrepanze"
+  }
+ },
+ {
+  "word": "Income",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Ertrag",
+   "French": "Produits",
+   "Danish": "Indtægt",
+   "Italian": "Ricavi"
+  }
+ },
+ {
+  "word": "Income from Retail Sales of Goods",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Erträge aus dem Einzelhandelsverkauf von Waren",
+   "French": "Produits des ventes au détail de marchandises",
+   "Danish": "Indtægter fra detailsalg af varer",
+   "Italian": "Ricavi dalle vendite al dettaglio di merci"
+  }
+ },
+ {
+  "word": "Inner grouping",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Innere Gruppierung",
+   "French": "Regroupement interne",
+   "Danish": "Indre gruppering",
+   "Italian": "Raggruppamento interno"
+  }
+ },
+ {
+  "word": "Invoice Date",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Rechnungsdatum",
+   "French": "Date de facture",
+   "Danish": "Fakturadato",
+   "Italian": "Data fattura"
+  }
+ },
+ {
+  "word": "Invoice date",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Rechnungsdatum",
+   "French": "Date de facture",
+   "Danish": "Fakturadato",
+   "Italian": "Data fattura"
+  }
+ },
+ {
+  "word": "Item",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Artikel",
+   "French": "Article",
+   "Danish": "Vare",
+   "Italian": "Articolo"
+  }
+ },
+ {
+  "word": "Item / cost account",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Artikel / Kostenkonto",
+   "French": "Article / compte de coûts",
+   "Danish": "Vare / omkostningskonto",
+   "Italian": "Articolo / conto di costo"
+  }
+ },
+ {
+  "word": "Known suppliers only",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Nur bekannte Lieferanten",
+   "French": "Fournisseurs connus uniquement",
+   "Danish": "Kun kendte leverandører",
+   "Italian": "Solo fornitori conosciuti"
+  }
+ },
+ {
+  "word": "Last",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Letzte",
+   "French": "Dernier",
+   "Danish": "Sidste",
+   "Italian": "Ultimo"
+  }
+ },
+ {
+  "word": "Less Costs of Goods Sold",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Abzüglich Herstellungskosten",
+   "French": "Moins coût des marchandises vendues",
+   "Danish": "Fratrukket vareforbrug",
+   "Italian": "Meno costo del venduto"
+  }
+ },
+ {
+  "word": "Less Other Direct Operating Expenses",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Abzüglich sonstiger direkter Betriebsaufwendungen",
+   "French": "Moins autres charges d'exploitation directes",
+   "Danish": "Fratrukket andre direkte driftsomkostninger",
+   "Italian": "Meno altri costi operativi diretti"
+  }
+ },
+ {
+  "word": "Location",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Standort",
+   "French": "Emplacement",
+   "Danish": "Placering",
+   "Italian": "Sede"
+  }
+ },
+ {
+  "word": "Locations",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Standorte",
+   "French": "Emplacements",
+   "Danish": "Placeringer",
+   "Italian": "Sedi"
+  }
+ },
+ {
+  "word": "Lowest projected balance",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Niedrigster prognostizierter Saldo",
+   "French": "Solde projeté le plus bas",
+   "Danish": "Laveste forventede saldo",
+   "Italian": "Saldo previsto più basso"
+  }
+ },
+ {
+  "word": "Matching PO reference (optional)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Passende Bestellreferenz (optional)",
+   "French": "Référence de bon de commande correspondante (facultatif)",
+   "Danish": "Matchende PO-reference (valgfrit)",
+   "Italian": "Riferimento ordine d'acquisto corrispondente (opzionale)"
+  }
+ },
+ {
+  "word": "Max",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Max",
+   "French": "Max",
+   "Danish": "Maks",
+   "Italian": "Max"
+  }
+ },
+ {
+  "word": "Medicare levy withheld",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Einbehaltene Medicare-Abgabe",
+   "French": "Prélèvement Medicare retenu",
+   "Danish": "Tilbageholdt Medicare-afgift",
+   "Italian": "Trattenuta Medicare"
+  }
+ },
+ {
+  "word": "Min",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Min",
+   "French": "Min",
+   "Danish": "Min",
+   "Italian": "Min"
+  }
+ },
+ {
+  "word": "Net income",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Nettoertrag",
+   "French": "Résultat net",
+   "Danish": "Nettoresultat",
+   "Italian": "Utile netto"
+  }
+ },
+ {
+  "word": "Net paid to employee",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "An Mitarbeiter netto ausgezahlt",
+   "French": "Net versé à l'employé",
+   "Danish": "Netto udbetalt til medarbejder",
+   "Italian": "Netto pagato al dipendente"
+  }
+ },
+ {
+  "word": "New New P&L",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Neue neue GuV",
+   "French": "Nouveau nouveau compte de résultat",
+   "Danish": "Ny ny resultatopgørelse",
+   "Italian": "Nuovo nuovo conto economico"
+  }
+ },
+ {
+  "word": "New P&L (Matrix)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Neue GuV (Matrix)",
+   "French": "Nouveau compte de résultat (matrice)",
+   "Danish": "Ny resultatopgørelse (matrix)",
+   "Italian": "Nuovo conto economico (matrice)"
+  }
+ },
+ {
+  "word": "New Stock on Hand (Matrix)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Neuer Lagerbestand (Matrix)",
+   "French": "Nouveau stock disponible (matrice)",
+   "Danish": "Nyt lager på hånden (matrix)",
+   "Italian": "Nuova giacenza di magazzino (matrice)"
+  }
+ },
+ {
+  "word": "No additional locations yet.",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Noch keine zusätzlichen Standorte.",
+   "French": "Pas encore d'emplacements supplémentaires.",
+   "Danish": "Endnu ingen yderligere placeringer.",
+   "Italian": "Nessuna sede aggiuntiva ancora."
+  }
+ },
+ {
+  "word": "No bank accounts registered yet.",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Noch keine Bankkonten registriert.",
+   "French": "Aucun compte bancaire enregistré pour le moment.",
+   "Danish": "Ingen bankkonti registreret endnu.",
+   "Italian": "Nessun conto bancario ancora registrato."
+  }
+ },
+ {
+  "word": "No division",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Keine Abteilung",
+   "French": "Aucune division",
+   "Danish": "Ingen afdeling",
+   "Italian": "Nessuna divisione"
+  }
+ },
+ {
+  "word": "No real activity for this combination.",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Keine reale Aktivität für diese Kombination.",
+   "French": "Aucune activité réelle pour cette combinaison.",
+   "Danish": "Ingen reel aktivitet for denne kombination.",
+   "Italian": "Nessuna attività reale per questa combinazione."
+  }
+ },
+ {
+  "word": "None",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Keine",
+   "French": "Aucun",
+   "Danish": "Ingen",
+   "Italian": "Nessuno"
+  }
+ },
+ {
+  "word": "Number and date format",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Zahlen- und Datumsformat",
+   "French": "Format des nombres et des dates",
+   "Danish": "Tal- og datoformat",
+   "Italian": "Formato numeri e date"
+  }
+ },
+ {
+  "word": "On account (pay later)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Auf Rechnung (später bezahlen)",
+   "French": "Sur compte (payer plus tard)",
+   "Danish": "På konto (betal senere)",
+   "Italian": "A credito (paga più tardi)"
+  }
+ },
+ {
+  "word": "On hand",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Am Lager",
+   "French": "En stock",
+   "Danish": "På lager",
+   "Italian": "In giacenza"
+  }
+ },
+ {
+  "word": "Open hours",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Öffnungszeiten",
+   "French": "Heures d'ouverture",
+   "Danish": "Åbningstider",
+   "Italian": "Orari di apertura"
+  }
+ },
+ {
+  "word": "Org Chart",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Organigramm",
+   "French": "Organigramme",
+   "Danish": "Organisationsdiagram",
+   "Italian": "Organigramma"
+  }
+ },
+ {
+  "word": "Outer grouping",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Äußere Gruppierung",
+   "French": "Regroupement externe",
+   "Danish": "Ydre gruppering",
+   "Italian": "Raggruppamento esterno"
+  }
+ },
+ {
+  "word": "Over capacity",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Über Kapazität",
+   "French": "Au-delà de la capacité",
+   "Danish": "Over kapacitet",
+   "Italian": "Sopra la capacità"
+  }
+ },
+ {
+  "word": "Over credit limit",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Über dem Kreditlimit",
+   "French": "Au-delà de la limite de crédit",
+   "Danish": "Over kreditgrænsen",
+   "Italian": "Oltre il limite di credito"
+  }
+ },
+ {
+  "word": "Overdraft limit",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Überziehungslimit",
+   "French": "Limite de découvert",
+   "Danish": "Overtræksgrænse",
+   "Italian": "Limite di scoperto"
+  }
+ },
+ {
+  "word": "Overdraft limit (optional)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Überziehungslimit (optional)",
+   "French": "Limite de découvert (facultatif)",
+   "Danish": "Overtræksgrænse (valgfrit)",
+   "Italian": "Limite di scoperto (opzionale)"
+  }
+ },
+ {
+  "word": "POS sales only",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Nur Kassenverkäufe",
+   "French": "Ventes en caisse uniquement",
+   "Danish": "Kun POS-salg",
+   "Italian": "Solo vendite POS"
+  }
+ },
+ {
+  "word": "Paid",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Bezahlt",
+   "French": "Payé",
+   "Danish": "Betalt",
+   "Italian": "Pagato"
+  }
+ },
+ {
+  "word": "Part",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Artikel",
+   "French": "Pièce",
+   "Danish": "Vare",
+   "Italian": "Articolo"
+  }
+ },
+ {
+  "word": "Pay Wages",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Löhne zahlen",
+   "French": "Payer les salaires",
+   "Danish": "Betal løn",
+   "Italian": "Paga stipendi"
+  }
+ },
+ {
+  "word": "Pay employee",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Mitarbeiter bezahlen",
+   "French": "Payer l'employé",
+   "Danish": "Betal medarbejder",
+   "Italian": "Paga dipendente"
+  }
+ },
+ {
+  "word": "Per Division",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Pro Abteilung",
+   "French": "Par division",
+   "Danish": "Pr. afdeling",
+   "Italian": "Per divisione"
+  }
+ },
+ {
+  "word": "Phone numbers",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Telefonnummern",
+   "French": "Numéros de téléphone",
+   "Danish": "Telefonnumre",
+   "Italian": "Numeri di telefono"
+  }
+ },
+ {
+  "word": "Picking List",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Kommissionierliste",
+   "French": "Liste de préparation",
+   "Danish": "Plukliste",
+   "Italian": "Lista di prelievo"
+  }
+ },
+ {
+  "word": "Preview the close",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Vorschau des Abschlusses",
+   "French": "Aperçu de la clôture",
+   "Danish": "Forhåndsvisning af lukning",
+   "Italian": "Anteprima della chiusura"
+  }
+ },
+ {
+  "word": "Print",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Drucken",
+   "French": "Imprimer",
+   "Danish": "Udskriv",
+   "Italian": "Stampa"
+  }
+ },
+ {
+  "word": "Profit and Loss Statement",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Gewinn- und Verlustrechnung",
+   "French": "Compte de résultat",
+   "Danish": "Resultatopgørelse",
+   "Italian": "Conto economico"
+  }
+ },
+ {
+  "word": "Profit and Loss for:",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gewinn und Verlust für:",
+   "French": "Compte de résultat pour :",
+   "Danish": "Resultatopgørelse for:",
+   "Italian": "Conto economico per:"
+  }
+ },
+ {
+  "word": "Profit and Loss per Division for:",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gewinn und Verlust nach Abteilung für:",
+   "French": "Compte de résultat par division pour :",
+   "Danish": "Resultatopgørelse pr. afdeling for:",
+   "Italian": "Conto economico per divisione per:"
+  }
+ },
+ {
+  "word": "Projected ending cash",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Prognostizierter Endbestand an liquiden Mitteln",
+   "French": "Trésorerie finale projetée",
+   "Danish": "Forventet slutlikviditet",
+   "Italian": "Liquidità finale prevista"
+  }
+ },
+ {
+  "word": "Projected shortfall",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Prognostizierter Fehlbetrag",
+   "French": "Déficit projeté",
+   "Danish": "Forventet underskud",
+   "Italian": "Carenza prevista"
+  }
+ },
+ {
+  "word": "Proposed general journal entry",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Vorgeschlagene Hauptbuchbuchung",
+   "French": "Écriture de journal général proposée",
+   "Danish": "Foreslået bogføringspost",
+   "Italian": "Registrazione contabile proposta"
+  }
+ },
+ {
+  "word": "Purchase completed",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Einkauf abgeschlossen",
+   "French": "Achat terminé",
+   "Danish": "Køb gennemført",
+   "Italian": "Acquisto completato"
+  }
+ },
+ {
+  "word": "Purchases",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Einkäufe",
+   "French": "Achats",
+   "Danish": "Køb",
+   "Italian": "Acquisti"
+  }
+ },
+ {
+  "word": "Quantity",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Menge",
+   "French": "Quantité",
+   "Danish": "Mængde",
+   "Italian": "Quantità"
+  }
+ },
+ {
+  "word": "Reached via a dimension link by:",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Erreicht über eine Dimensionsverknüpfung von:",
+   "French": "Atteint via un lien de dimension par :",
+   "Danish": "Nået via et dimensionslink af:",
+   "Italian": "Raggiunto tramite un collegamento dimensionale da:"
+  }
+ },
+ {
+  "word": "Receive at location",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Am Standort empfangen",
+   "French": "Réceptionner à l'emplacement",
+   "Danish": "Modtag på placering",
+   "Italian": "Ricevi presso la sede"
+  }
+ },
+ {
+  "word": "Register",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Registrieren",
+   "French": "Enregistrer",
+   "Danish": "Registrer",
+   "Italian": "Registra"
+  }
+ },
+ {
+  "word": "Register a bank account",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Ein Bankkonto registrieren",
+   "French": "Enregistrer un compte bancaire",
+   "Danish": "Registrer en bankkonto",
+   "Italian": "Registra un conto bancario"
+  }
+ },
+ {
+  "word": "Registered bank accounts",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Registrierte Bankkonten",
+   "French": "Comptes bancaires enregistrés",
+   "Danish": "Registrerede bankkonti",
+   "Italian": "Conti bancari registrati"
+  }
+ },
+ {
+  "word": "Reorder level",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Meldebestand",
+   "French": "Seuil de réapprovisionnement",
+   "Danish": "Genbestillingsniveau",
+   "Italian": "Livello di riordino"
+  }
+ },
+ {
+  "word": "Restock Retail Outlets",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Einzelhandelsfilialen auffüllen",
+   "French": "Réapprovisionner les points de vente",
+   "Danish": "Genopfyld detailbutikker",
+   "Italian": "Rifornisci punti vendita al dettaglio"
+  }
+ },
+ {
+  "word": "Retail outlet",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Einzelhandelsgeschäft",
+   "French": "Point de vente au détail",
+   "Danish": "Detailbutik",
+   "Italian": "Punto vendita al dettaglio"
+  }
+ },
+ {
+  "word": "Retained earnings account",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gewinnrücklagenkonto",
+   "French": "Compte de report à nouveau",
+   "Danish": "Overført resultat-konto",
+   "Italian": "Conto utili portati a nuovo"
+  }
+ },
+ {
+  "word": "Review the draft",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Entwurf überprüfen",
+   "French": "Vérifier le brouillon",
+   "Danish": "Gennemgå udkastet",
+   "Italian": "Rivedi la bozza"
+  }
+ },
+ {
+  "word": "Rows",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Zeilen",
+   "French": "Lignes",
+   "Danish": "Rækker",
+   "Italian": "Righe"
+  }
+ },
+ {
+  "word": "Running balance",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Laufender Saldo",
+   "French": "Solde courant",
+   "Danish": "Løbende saldo",
+   "Italian": "Saldo progressivo"
+  }
+ },
+ {
+  "word": "Salary per year",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gehalt pro Jahr",
+   "French": "Salaire par an",
+   "Danish": "Løn pr. år",
+   "Italian": "Stipendio all'anno"
+  }
+ },
+ {
+  "word": "Sale completed",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Verkauf abgeschlossen",
+   "French": "Vente terminée",
+   "Danish": "Salg gennemført",
+   "Italian": "Vendita completata"
+  }
+ },
+ {
+  "word": "Sale price per unit",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Verkaufspreis pro Einheit",
+   "French": "Prix de vente unitaire",
+   "Danish": "Salgspris pr. enhed",
+   "Italian": "Prezzo di vendita unitario"
+  }
+ },
+ {
+  "word": "Sales",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Verkäufe",
+   "French": "Ventes",
+   "Danish": "Salg",
+   "Italian": "Vendite"
+  }
+ },
+ {
+  "word": "Scope",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Geltungsbereich",
+   "French": "Portée",
+   "Danish": "Omfang",
+   "Italian": "Ambito"
+  }
+ },
+ {
+  "word": "Scope (business or division)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Geltungsbereich (Unternehmen oder Abteilung)",
+   "French": "Portée (entreprise ou division)",
+   "Danish": "Omfang (virksomhed eller afdeling)",
+   "Italian": "Ambito (azienda o divisione)"
+  }
+ },
+ {
+  "word": "Search",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Suchen",
+   "French": "Rechercher",
+   "Danish": "Søg",
+   "Italian": "Cerca"
+  }
+ },
+ {
+  "word": "Select employee…",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Mitarbeiter auswählen…",
+   "French": "Sélectionner un employé…",
+   "Danish": "Vælg medarbejder…",
+   "Italian": "Seleziona dipendente…"
+  }
+ },
+ {
+  "word": "Select…",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Auswählen…",
+   "French": "Sélectionner…",
+   "Danish": "Vælg…",
+   "Italian": "Seleziona…"
+  }
+ },
+ {
+  "word": "Shelf",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Regal",
+   "French": "Étagère",
+   "Danish": "Hylde",
+   "Italian": "Scaffale"
+  }
+ },
+ {
+  "word": "Show",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Anzeigen",
+   "French": "Afficher",
+   "Danish": "Vis",
+   "Italian": "Mostra"
+  }
+ },
+ {
+  "word": "Show all vendors",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Alle Lieferanten anzeigen",
+   "French": "Afficher tous les fournisseurs",
+   "Danish": "Vis alle leverandører",
+   "Italian": "Mostra tutti i fornitori"
+  }
+ },
+ {
+  "word": "Source",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Quelle",
+   "French": "Source",
+   "Danish": "Kilde",
+   "Italian": "Fonte"
+  }
+ },
+ {
+  "word": "Starting cash",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Anfangsbestand an Kasse",
+   "French": "Trésorerie de départ",
+   "Danish": "Startlikviditet",
+   "Italian": "Liquidità iniziale"
+  }
+ },
+ {
+  "word": "Statement of Account",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Kontoauszug",
+   "French": "Relevé de compte",
+   "Danish": "Kontoudtog",
+   "Italian": "Estratto conto"
+  }
+ },
+ {
+  "word": "Stock Listing",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Bestandsliste",
+   "French": "Liste des stocks",
+   "Danish": "Lageroversigt",
+   "Italian": "Elenco scorte"
+  }
+ },
+ {
+  "word": "Stock Movement Report",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Bestandsbewegungsbericht",
+   "French": "Rapport de mouvement de stock",
+   "Danish": "Lagerbevægelsesrapport",
+   "Italian": "Report movimenti di magazzino"
+  }
+ },
+ {
+  "word": "Stock quantity account",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Bestandsmengenkonto",
+   "French": "Compte de quantité de stock",
+   "Danish": "Lagermængdekonto",
+   "Italian": "Conto quantità di magazzino"
+  }
+ },
+ {
+  "word": "Superannuation (employer cost)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Altersvorsorge (Arbeitgeberkosten)",
+   "French": "Retraite (coût employeur)",
+   "Danish": "Pension (arbejdsgiverudgift)",
+   "Italian": "Previdenza (costo datore di lavoro)"
+  }
+ },
+ {
+  "word": "This business prefers:",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Dieses Unternehmen bevorzugt:",
+   "French": "Cette entreprise préfère :",
+   "Danish": "Denne virksomhed foretrækker:",
+   "Italian": "Questa azienda preferisce:"
+  }
+ },
+ {
+  "word": "Total COGS",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gesamte Herstellungskosten",
+   "French": "Total du coût des marchandises vendues",
+   "Danish": "Samlet vareforbrug",
+   "Italian": "Totale costo del venduto"
+  }
+ },
+ {
+  "word": "Total Profit/(Loss)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gesamtgewinn/(Verlust)",
+   "French": "Total du résultat/(perte)",
+   "Danish": "Samlet resultat/(tab)",
+   "Italian": "Totale utile/(perdita)"
+  }
+ },
+ {
+  "word": "Total Realizable Value",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gesamter realisierbarer Wert",
+   "French": "Valeur de réalisation totale",
+   "Danish": "Samlet realisationsværdi",
+   "Italian": "Valore realizzabile totale"
+  }
+ },
+ {
+  "word": "Total Sales",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gesamtumsatz",
+   "French": "Total des ventes",
+   "Danish": "Samlet salg",
+   "Italian": "Totale vendite"
+  }
+ },
+ {
+  "word": "Total Value at Cost",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gesamtwert zu Anschaffungskosten",
+   "French": "Valeur totale au coût",
+   "Danish": "Samlet værdi til kostpris",
+   "Italian": "Valore totale al costo"
+  }
+ },
+ {
+  "word": "Total allocated",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Insgesamt zugeordnet",
+   "French": "Total affecté",
+   "Danish": "Samlet allokeret",
+   "Italian": "Totale assegnato"
+  }
+ },
+ {
+  "word": "Total outstanding",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Insgesamt ausstehend",
+   "French": "Total en attente",
+   "Danish": "Samlet udestående",
+   "Italian": "Totale in sospeso"
+  }
+ },
+ {
+  "word": "Total owed",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Insgesamt geschuldet",
+   "French": "Total dû",
+   "Danish": "Samlet skyldigt",
+   "Italian": "Totale dovuto"
+  }
+ },
+ {
+  "word": "Total to pay",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Gesamtbetrag zu zahlen",
+   "French": "Total à payer",
+   "Danish": "Samlet at betale",
+   "Italian": "Totale da pagare"
+  }
+ },
+ {
+  "word": "Transfers",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Umbuchungen",
+   "French": "Transferts",
+   "Danish": "Overførsler",
+   "Italian": "Trasferimenti"
+  }
+ },
+ {
+  "word": "Translations",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Übersetzungen",
+   "French": "Traductions",
+   "Danish": "Oversættelser",
+   "Italian": "Traduzioni"
+  }
+ },
+ {
+  "word": "Trial Balance",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Summen- und Saldenliste",
+   "French": "Balance générale",
+   "Danish": "Saldobalance",
+   "Italian": "Bilancio di verifica"
+  }
+ },
+ {
+  "word": "Unregister",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Registrierung aufheben",
+   "French": "Désenregistrer",
+   "Danish": "Fjern registrering",
+   "Italian": "Annulla registrazione"
+  }
+ },
+ {
+  "word": "View",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Ansehen",
+   "French": "Voir",
+   "Danish": "Vis",
+   "Italian": "Visualizza"
+  }
+ },
+ {
+  "word": "Vocabulary",
+  "createUnderVocabulary": false,
+  "translations": {
+   "German": "Vokabular",
+   "French": "Vocabulaire",
+   "Danish": "Ordforråd",
+   "Italian": "Vocabolario"
+  }
+ },
+ {
+  "word": "Wage per hour",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Lohn pro Stunde",
+   "French": "Salaire par heure",
+   "Danish": "Løn pr. time",
+   "Italian": "Paga oraria"
+  }
+ },
+ {
+  "word": "Weekly schedule",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Wochenplan",
+   "French": "Planning hebdomadaire",
+   "Danish": "Ugeplan",
+   "Italian": "Programma settimanale"
+  }
+ },
+ {
+  "word": "Why (not required to be about price)",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Warum (muss nicht mit dem Preis zusammenhängen)",
+   "French": "Pourquoi (pas nécessairement lié au prix)",
+   "Danish": "Hvorfor (behøver ikke handle om pris)",
+   "Italian": "Perché (non deve riguardare il prezzo)"
+  }
+ },
+ {
+  "word": "XML file",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "XML-Datei",
+   "French": "Fichier XML",
+   "Danish": "XML-fil",
+   "Italian": "File XML"
+  }
+ },
+ {
+  "word": "by",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "nach",
+   "French": "par",
+   "Danish": "efter",
+   "Italian": "per"
+  }
+ },
+ {
+  "word": "of",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "von",
+   "French": "de",
+   "Danish": "af",
+   "Italian": "di"
+  }
+ },
+ {
+  "word": "tax",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "Steuer",
+   "French": "taxe",
+   "Danish": "afgift",
+   "Italian": "imposta"
+  }
+ },
+ {
+  "word": "this pays one real month",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "dies bezahlt einen realen Monat",
+   "French": "cela couvre un mois réel",
+   "Danish": "dette betaler en reel måned",
+   "Italian": "questo paga un mese reale"
+  }
+ },
+ {
+  "word": "under",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "unter",
+   "French": "sous",
+   "Danish": "under",
+   "Italian": "sotto"
+  }
+ },
+ {
+  "word": "unknown",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "unbekannt",
+   "French": "inconnu",
+   "Danish": "ukendt",
+   "Italian": "sconosciuto"
+  }
+ },
+ {
+  "word": "whole business",
+  "createUnderVocabulary": true,
+  "translations": {
+   "German": "gesamtes Unternehmen",
+   "French": "toute l'entreprise",
+   "Danish": "hele virksomheden",
+   "Italian": "intera azienda"
+  }
+ }
+]

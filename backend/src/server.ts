@@ -1,0 +1,68 @@
+import express from 'express';
+import cors from 'cors';
+import { entitiesRouter } from './routes/entities.js';
+import { reportsRouter } from './routes/reports.js';
+import { matrixReportsRouter } from './routes/matrix-reports.js';
+import { menuRouter } from './routes/menu.js';
+import { i18nRouter } from './routes/i18n.js';
+import { businessesRouter } from './routes/businesses.js';
+import { journalRouter } from './routes/journal.js';
+import { contactsRouter } from './routes/contacts.js';
+import { itemsRouter } from './routes/items.js';
+import { productsRouter } from './routes/products.js';
+import { invoicesRouter, agedRouter, historyRouter, remindersRouter, statementRouter } from './routes/invoices.js';
+import { stockLotsRouter } from './routes/stock-lots.js';
+import { locationsRouter, belowReorderRouter, stockOutRiskRouter, stockListingRouter, stockTakesRouter } from './routes/locations.js';
+import { divisionsRouter } from './routes/divisions.js';
+import { posRouter } from './routes/pos.js';
+import { customerRegistrationRouter, customerVerificationRouter } from './routes/customer-registration.js';
+import { arApRouter } from './routes/arap.js';
+import { authRouter } from './routes/auth.js';
+import { stockRouter } from './routes/stock.js';
+import { invoiceRouter } from './routes/invoice.js';
+import { periodRouter } from './routes/period.js';
+import { projectsRouter } from './routes/projects.js';
+import { attachUser, requireAuth, requireRole } from './auth-middleware.js';
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(attachUser);
+
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.use('/api/auth', authRouter); // has its own per-route requireAuth — /login must stay public
+app.use('/api/entities', requireAuth, entitiesRouter);
+app.use('/api/reports', requireAuth, reportsRouter);
+app.use('/api/reports/matrix', requireAuth, matrixReportsRouter);
+app.use('/api/menu', requireAuth, menuRouter);
+app.use('/api/i18n', i18nRouter);
+app.use('/api/businesses', requireAuth, businessesRouter);
+app.use('/api/journal', requireAuth, journalRouter);
+app.use('/api/contacts', requireAuth, contactsRouter);
+app.use('/api/items', requireAuth, itemsRouter);
+app.use('/api/products', requireAuth, productsRouter);
+app.use('/api/invoices', requireAuth, invoicesRouter);
+app.use('/api/reports/aged', requireAuth, agedRouter);
+app.use('/api/reports/statement', requireAuth, statementRouter);
+app.use('/api/reports/history', requireAuth, historyRouter);
+app.use('/api/reminders', requireAuth, remindersRouter);
+app.use('/api/stock-lots', requireAuth, stockLotsRouter);
+app.use('/api/locations', requireAuth, locationsRouter);
+app.use('/api/reports/below-reorder', requireAuth, belowReorderRouter);
+app.use('/api/reports/stock-out-risk', requireAuth, stockOutRiskRouter);
+app.use('/api/stock-listing', requireAuth, stockListingRouter);
+app.use('/api/stock-takes', requireAuth, stockTakesRouter);
+app.use('/api/pos', requireAuth, posRouter);
+app.use('/api/customers', customerRegistrationRouter); // public — self-service terminal, no staff login
+app.use('/api/customer-verification', requireAuth, customerVerificationRouter);
+app.use('/api/arap', requireAuth, requireRole('Administrator', 'Bookkeeper'), arApRouter);
+app.use('/api/projects', requireAuth, projectsRouter);
+app.use('/api/stock', requireAuth, requireRole('Administrator', 'Bookkeeper'), stockRouter);
+app.use('/api/invoice', requireAuth, requireRole('Administrator', 'Bookkeeper'), invoiceRouter);
+app.use('/api/period', requireAuth, periodRouter);
+app.use('/api/divisions', requireAuth, divisionsRouter);
+
+const PORT = 3001;
+app.listen(PORT, () => {
+  console.log(`Entities backend listening on http://localhost:${PORT}`);
+});

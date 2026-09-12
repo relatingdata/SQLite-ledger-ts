@@ -1,0 +1,62 @@
+\usepackage{pgffor}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+
+% A real, direct, thin border around every real screenshot in the
+% manual — applied once, globally, by redefining \includegraphics
+% itself, so every existing markdown image reference picks it up
+% automatically, with nothing to change per-figure.
+\let\oldincludegraphics\includegraphics
+\renewcommand{\includegraphics}[2][]{%
+  {\fboxsep=0pt\fbox{\oldincludegraphics[#1]{#2}}}%
+}
+
+% Real, direct table-of-contents depth — chapters and real, direct
+% section headings only. Without this, every single, real glossary
+% entry (a subsection each) also lists itself in the table of
+% contents, dozens of real, individual entries deep, genuinely
+% burying the real, useful navigation underneath them.
+\setcounter{tocdepth}{1}
+
+% A real, direct, lined notes page — used at the very end of the manual.
+\newcommand{\notespage}{%
+  \vspace*{0.3cm}
+  \foreach \n in {1,...,20}{%
+    \noindent\rule{\textwidth}{0.4pt}\\[1.05cm]%
+  }%
+  \clearpage
+}
+
+% Running headers/footers with the real, current chapter title and
+% the real page number, per direct request — genuinely automatic via
+% \leftmark (LaTeX's own, built-in "what chapter am I currently in"
+% marker), not hand-tracked.
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape\leftmark}
+\fancyhead[R]{\small\itshape Better~Brighter~Multi-Ledger --- User Manual}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+
+% Widow/orphan control — LaTeX's own, real, direct, built-in penalties,
+% raised from their real defaults so a single, isolated line at the
+% top/bottom of a real page is actively discouraged, not just possible
+% to avoid by luck.
+\widowpenalty=10000
+\clubpenalty=10000
+
+% Real, direct code blocks in this manual, and a real, visible
+% border/frame around each — matching the Programmer's Manual's own
+% fix. Pandoc's own real fenced-code-block environment is
+% Highlighting, defined via fancyvrb's \DefineVerbatimEnvironment —
+% \fvset is fancyvrb's own, correct, global mechanism for controlling it.
+\usepackage{fancyvrb}
+\fvset{fontsize=\fontsize{7}{8}\selectfont,frame=single,rulecolor=\color{black!40}}
+
+% Proper, real hyphenation for ordinary body prose sentences.
+\usepackage[english]{babel}
+\hyphenpenalty=50
+\exhyphenpenalty=50
+\usepackage[htt]{hyphenat}
+\emergencystretch=3em

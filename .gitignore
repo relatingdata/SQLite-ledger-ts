@@ -1,0 +1,27 @@
+node_modules/
+dist/
+.svelte-kit/
+backend/data/*.sqlite
+backend/data/*.sqlite-wal
+backend/data/*.sqlite-shm
+backend/data/archive/
+*.log
+.DS_Store
+__pycache__/
+*.pyc
+
+# Real, generated build artifacts — regenerate via `make manual` /
+# `make programmer-manual` rather than committing the output itself.
+docs/programmer-manual.md
+sql-ledger-ts_User_Manual.pdf
+sql-ledger-ts_Programmer_Manual.pdf
+
+# Per direct, absolute instruction: never commit manuals or
+# screenshots of any kind, ever - regenerate locally via `make
+# manual-screenshots` / `make manual` / `make programmer-manual`.
+docs/manual-images/
+docs/manual-images-*/
+*.pdf
+
+e2e/test-results/
+test-results/

@@ -1,0 +1,210 @@
+<!--
+PROMPT (reconstructed after the fact — see wine-store-layout-prompt.md
+for the full write-up, including what no prompt could have caught):
+
+Using JSCAD's actual boolean/additive geometry (not three.js for
+modeling — three.js only as the final rendering layer, converting
+JSCAD's baked polygon output via geom3.toPolygons()), build a wine
+store floor plan:
+
+Bottle (built once per wine color, then reused everywhere via cheap
+translate()/rotateZ() — never recompute the booleans per instance): a
+cylinder body (~60% of total height) plus a narrower cylinder neck
+(~40% height, ~35% of body radius), a dark screw cap covering only the
+top ~30% of the neck, and a white half-cylinder label (built via
+subtract then intersect with a half-space) on the correct front-facing
+side.
+
+Shelf unit: subtract(outer box, inner cavity) where the cavity is open
+only at the front face — solid back, top, bottom, and sides — tall
+enough to clear the bottle plus cap with real hand-room above, holding
+a 6-wide x 4-deep grid, all one wine color per unit.
+
+Assembly: stack 4 units vertically = one level-column; tile 3
+level-columns side by side = one row-face (3 wide x 4 tall). A
+double-sided (free-standing) row is two row-faces mirrored back-to-back
+sharing a middle divider; a single-sided (wall) row is one row-face
+with its back flush against a wall.
+
+Floor plan: single-sided rows at the top and bottom (backed against
+those walls, facing into the store), 6 double-sided free-standing rows
+between them with human-sized aisles, each row split into a left group
+and right group by a central cross-aisle wider than one row-unit. A
+single floor plane sized from the actual placed geometry's real
+extents, not an assumed formula.
+
+Track each row's Y-extent explicitly when placing it, rather than
+assuming symmetric bounds.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wine Store Shelving Layout</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #f4f1ea; font-family: system-ui, sans-serif; }
+  #c { width: 100%; height: 100%; display: block; cursor: grab; }
+  #hint { position: fixed; top: 10px; left: 10px; font-size: 0.8rem; color: #665; background: #fffc; padding: 4px 8px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="hint">Drag to rotate</div>
+<canvas id="c"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module">
+import { primitives, booleans, transforms, colors, geometries } from 'https://esm.sh/@jscad/modeling@2.12.5';
+const { cylinder, cuboid } = primitives;
+const { subtract, intersect } = booleans;
+const { translate, translateZ, rotateZ } = transforms;
+const { colorize } = colors;
+const { toPolygons } = geometries.geom3;
+
+const bottleR = 0.08, bottleH = 0.5, bodyH = bottleH * 0.6, neckH = bottleH * 0.4, neckR = bottleR * 0.35, capH = neckH * 0.3;
+const handRoom = 0.15, wall = 0.05;
+const cellH = wall * 2 + bottleH + handRoom;
+const unitCellD = 4 * (bottleR * 2 + 0.05) + wall * 2;
+
+function buildBottleTemplate(color) {
+  const body = colorize(color, cylinder({ radius: bottleR, height: bodyH, segments: 8 }));
+  const neck = colorize(color, translateZ(bodyH / 2 + neckH / 2, cylinder({ radius: neckR, height: neckH, segments: 6 })));
+  const cap = colorize([0.17, 0.17, 0.16], translateZ(bodyH / 2 + neckH - capH / 2, cylinder({ radius: neckR * 1.05, height: capH, segments: 6 })));
+  const ring = subtract(cylinder({ radius: bottleR + 0.005, height: bodyH * 0.4, segments: 8 }), cylinder({ radius: bottleR, height: bodyH * 0.5, segments: 8 }));
+  const halfRing = intersect(ring, cuboid({ size: [bottleR * 3, bottleR * 3, bodyH], center: [0, bottleR * 1.5, 0] }));
+  const label = colorize([1, 1, 1], halfRing);
+  return [body, neck, cap, label].map(p => translateZ(bodyH / 2, p));
+}
+
+// Shelf unit: back panel at local y=[0,wall] (solid, against a wall),
+// cavity open at the front edge y=unitCellD (where a customer stands).
+function buildFrame() {
+  const w = 6 * (bottleR * 2 + 0.05) + wall * 2;
+  const outer = cuboid({ size: [w, unitCellD, cellH], center: [0, unitCellD / 2, cellH / 2] });
+  const cavity = cuboid({ size: [w - wall * 2, unitCellD - wall, cellH - wall * 2], center: [0, (wall + unitCellD) / 2, cellH / 2] });
+  return { width: w, frame: colorize([0.54, 0.42, 0.29], subtract(outer, cavity)) };
+}
+const { width: cellW, frame: frameTemplate } = buildFrame();
+const WINE_COLORS = [[0.31, 0.07, 0.07], [0.24, 0.13, 0.35], [0.83, 0.33, 0.49], [0.94, 0.9, 0.78]];
+const bottleTemplates = WINE_COLORS.map(buildBottleTemplate);
+
+function shelfUnit(colorIndex) {
+  const parts = [frameTemplate];
+  const gapX = (cellW - wall * 2) / 6, gapY = (unitCellD - wall) / 4;
+  const template = bottleTemplates[colorIndex];
+  for (let c = 0; c < 6; c++) {
+    for (let r = 0; r < 4; r++) {
+      const x = -cellW / 2 + wall + gapX * (c + 0.5);
+      const y = wall + gapY * (r + 0.5);
+      template.forEach(p => parts.push(translate([x, y, wall], p)));
+    }
+  }
+  return parts;
+}
+function stackedFace() {
+  const all = [];
+  for (let level = 0; level < 4; level++) {
+    for (let w = 0; w < 3; w++) {
+      const dx = (w - 1) * cellW;
+      shelfUnit(level).forEach(p => all.push(translate([dx, 0, level * cellH], p)));
+    }
+  }
+  return all;
+}
+const unitW = cellW * 3, unitH = cellH * 4;
+
+const singleTpl = stackedFace();
+const doubleTpl = [...stackedFace(), ...stackedFace().map(p => rotateZ(Math.PI, p))];
+
+const aisleWidth = unitCellD * 2.2;
+const crossAisle = unitW * 1.4;
+
+const storeParts = [];
+let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+function place(tpl, x, y, yLo, yHi, rot) {
+  tpl.forEach(p => storeParts.push(translate([x, y, 0], rot ? rotateZ(rot, p) : p)));
+  minX = Math.min(minX, x - unitW / 2); maxX = Math.max(maxX, x + unitW / 2);
+  minY = Math.min(minY, y + yLo); maxY = Math.max(maxY, y + yHi);
+}
+
+const rightX0 = crossAisle / 2 + unitW / 2, leftX0 = -crossAisle / 2 - unitW / 2;
+let y = 0;
+
+place(singleTpl, leftX0, y, 0, unitCellD, 0);
+place(singleTpl, leftX0 - unitW, y, 0, unitCellD, 0);
+place(singleTpl, rightX0, y, 0, unitCellD, 0);
+place(singleTpl, rightX0 + unitW, y, 0, unitCellD, 0);
+y += unitCellD + aisleWidth;
+
+for (let r = 0; r < 6; r++) {
+  const cy = y + unitCellD;
+  place(doubleTpl, leftX0, cy, -unitCellD, unitCellD, 0);
+  place(doubleTpl, leftX0 - unitW, cy, -unitCellD, unitCellD, 0);
+  place(doubleTpl, rightX0, cy, -unitCellD, unitCellD, 0);
+  place(doubleTpl, rightX0 + unitW, cy, -unitCellD, unitCellD, 0);
+  y = cy + unitCellD + aisleWidth;
+}
+
+place(singleTpl, leftX0, y + unitCellD, -unitCellD, 0, Math.PI);
+place(singleTpl, leftX0 - unitW, y + unitCellD, -unitCellD, 0, Math.PI);
+place(singleTpl, rightX0, y + unitCellD, -unitCellD, 0, Math.PI);
+place(singleTpl, rightX0 + unitW, y + unitCellD, -unitCellD, 0, Math.PI);
+
+const margin = aisleWidth * 0.4;
+const floorW = (maxX - minX) + margin * 2, floorD = (maxY - minY) + margin * 2;
+const floorCx = (minX + maxX) / 2, floorCy = (minY + maxY) / 2;
+storeParts.push(colorize([0.72, 0.7, 0.65], translate([floorCx, floorCy, -0.02], cuboid({ size: [floorW, floorD, 0.04] }))));
+
+function toMesh(geom) {
+  const positions = [];
+  for (const poly of toPolygons(geom)) {
+    const v = poly.vertices;
+    for (let i = 1; i < v.length - 1; i++) positions.push(...v[0], ...v[i], ...v[i + 1]);
+  }
+  const bufferGeo = new THREE.BufferGeometry();
+  bufferGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  bufferGeo.computeVertexNormals();
+  const [r, g, b] = geom.color || [0.6, 0.6, 0.6];
+  return new THREE.Mesh(bufferGeo, new THREE.MeshStandardMaterial({ color: new THREE.Color(r, g, b), side: THREE.DoubleSide }));
+}
+
+const canvas = document.getElementById('c');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 300);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+const dl = new THREE.DirectionalLight(0xffffff, 0.55);
+dl.position.set(10, 14, 10);
+scene.add(dl);
+
+const group = new THREE.Group();
+storeParts.forEach(p => group.add(toMesh(p)));
+group.rotation.x = -Math.PI / 2;
+scene.add(group);
+
+camera.position.set(floorCx + floorW * 0.05, floorD * 1.0, floorCy);
+camera.lookAt(floorCx, 0, floorCy);
+renderer.render(scene, camera);
+
+let dragging = false, lastX = 0, angle = 0.001;
+canvas.addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; });
+window.addEventListener('pointerup', () => dragging = false);
+window.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  angle += (e.clientX - lastX) * 0.01;
+  lastX = e.clientX;
+  const r = floorD;
+  camera.position.x = floorCx + r * Math.sin(angle);
+  camera.position.z = floorCy + r * Math.cos(angle);
+  camera.lookAt(floorCx, 0, floorCy);
+  renderer.render(scene, camera);
+});
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,468 @@
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg
+
+# Builds everything the project produces: a fresh install, the full
+# test suite, and both real manuals (User + Programmer) - a genuine,
+# single command matching the common Makefile 'all' convention.
+all: install test manual programmer-manual
+
+# Always removes node_modules/lockfiles first, then installs fresh. This
+# project's dependencies have changed more than once across its history
+# (a Svelte 4 -> 5 upgrade among them) — a plain `npm install` on top of
+# node_modules/package-lock.json left over from an older version of this
+# project tries to reconcile new package.json declarations against old
+# installed state, and fails with an ERESOLVE conflict citing package
+# versions that don't even appear in the current package.json anymore
+# (e.g. @sveltejs/kit@2.5.18, from before the Svelte 5 upgrade). Doing a
+# clean install every time costs a little speed but makes this whole
+# class of problem impossible.
+install:
+	cd backend && npm install
+	cd frontend && npm install
+
+clean:
+	rm -rf backend/node_modules backend/package-lock.json
+	rm -rf frontend/node_modules frontend/package-lock.json frontend/.svelte-kit
+	rm -f sql-ledger-ts_User_Manual.pdf sql-ledger-ts_Programmer_Manual.pdf
+	rm -f docs/programmer-manual.md
+	rm -rf docs/manual-images docs/manual-images-german docs/manual-images-french docs/manual-images-danish docs/manual-images-italian
+
+dev:
+	@echo "Starting backend (:3001) and frontend (:5173) — Ctrl+C stops both."
+	@( \
+	  cd backend && npm run dev & \
+	  BACKEND_PID=$$!; \
+	  cd frontend && npm run dev & \
+	  FRONTEND_PID=$$!; \
+	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
+	  wait \
+	)
+
+# Same as `dev` above, but with only the one, real, dummy "My
+# Business" for login — no Wine Retail Company, no BMW/Peugeot/Ditta/
+# Schweizer. Use this to build a real business entirely from scratch
+# via the UI or Playwright, with nothing pre-populated. This flag must
+# genuinely be set on every real backend start (not just the first) —
+# seedRemainingData runs every time the backend loads, so a plain
+# `make dev` afterwards would silently re-seed the demo businesses.
+dev-no-demo:
+	@echo "Starting backend (:3001, only 'My Business' — no demo businesses) and frontend (:5173) — Ctrl+C stops both."
+	@( \
+	  cd backend && SEED_DEMO_BUSINESSES=false npm run dev & \
+	  BACKEND_PID=$$!; \
+	  cd frontend && npm run dev & \
+	  FRONTEND_PID=$$!; \
+	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
+	  wait \
+	)
+
+dev-verbose:
+	@echo "Starting backend (:3001, every SQL statement printed) and frontend (:5173) — Ctrl+C stops both."
+	@( \
+	  cd backend && DB_VERBOSE=1 npm run dev & \
+	  BACKEND_PID=$$!; \
+	  cd frontend && npm run dev & \
+	  FRONTEND_PID=$$!; \
+	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
+	  wait \
+	)
+
+backend:
+	cd backend && npm run dev
+
+backend-verbose:
+	cd backend && DB_VERBOSE=1 npm run dev
+
+frontend:
+	cd frontend && npm run dev
+
+test:
+	cd backend && npm test
+	cd frontend && npm test
+
+# End-to-end verification against real, deterministic business data —
+# genuinely different from `test` above (which only exercises small,
+# synthetic scenarios). Resets the database, runs the real Wine Retail
+# Company simulation (a seeded PRNG, never Math.random() — always
+# produces exactly the same numbers), then checks the result against
+# exact, documented expected figures (see docs/testing.md). A real
+# regression in a posting path, closeBooks, or a report silently
+# excluding real accounts fails loudly here with a non-zero exit code.
+test-e2e: reset-db
+	@echo "Running the real Wine Retail Company simulation (deterministic — same numbers every time)..."
+	cd backend && node --import tsx scripts/simulate-wine-retail-month.ts
+	@echo ""
+	@echo "Verifying against exact, documented expected results..."
+	cd backend && node --import tsx scripts/verify-simulation.ts
+	@echo ""
+
+# Real, end-to-end browser tests (Playwright) — genuinely different
+# from test-e2e above (a backend-only, headless simulation). This
+# drives an actual browser through the actual running app. Playwright's
+# own config (e2e/playwright.config.ts) already starts both the
+# backend and frontend dev servers itself if they aren't already
+# running — no need to `make dev` first. Always resets the database
+# first, since the tutorial genuinely creates a new business (Wine
+# Retail Company itself) from scratch and expects a clean starting
+# point — SEED_DEMO_BUSINESSES=false so it doesn't already exist
+# (Playwright's own webServer spawns npm run dev as a child process,
+# inheriting this shell's own environment, so the flag reaches the
+# backend it auto-starts too).
+playwright-tutorial: reset-db
+	@echo "Running the real Wine Retail Company tutorial walkthrough in a real browser, built entirely from scratch (login through the first General Journal transaction)..."
+	cd e2e && SEED_DEMO_BUSINESSES=false npx playwright test tutorial-walkthrough --reporter=list
+
+# The full, real Playwright browser suite — every real .spec.ts file
+# in e2e/tests. Takes several minutes. Use playwright-tutorial above
+# for a quick, targeted check instead.
+playwright-all: reset-db
+	@echo "Running the full, real Playwright browser suite..."
+	cd e2e && npx playwright test --reporter=list
+
+# The full, real demo dataset: one detailed month (as above) plus a
+# real, 12-month Budget and 11 more real, summary-level Actual months
+# either side of it, so a full year's real Budget vs. Actual
+# comparison exists. Kept as its own, separate target — not part of
+# test-e2e above — since it changes real, exact figures test-e2e's own
+# verify-simulation.ts checks against; run this when you want the
+# fuller dataset to explore, not as part of routine verification.
+demo-full-year: reset-db
+	@echo "Running the real Wine Retail Company simulation..."
+	cd backend && node --import tsx scripts/simulate-wine-retail-month.ts
+	@echo ""
+	@echo "Adding a real Budget and 11 more real Actual months..."
+	cd backend && node --import tsx scripts/add-wine-retail-budget-and-year.ts
+	@echo ""
+	@echo "Setting real, varied payment terms and credit limits..."
+	cd backend && node --import tsx scripts/set-wine-retail-credit-terms.ts
+	@echo ""
+
+	@echo "Checking database consistency (balanced entries, no orphans, referential integrity)..."
+	cd backend && node --import tsx scripts/verify-db-consistency.ts
+
+check-db-consistency:
+	cd backend && node --import tsx scripts/verify-db-consistency.ts
+
+reset-db:
+	@if [ -f backend/data/entities.sqlite ]; then \
+		mkdir -p backend/data/archive; \
+		cp backend/data/entities.sqlite backend/data/archive/entities-$$(date +%Y%m%d-%H%M%S).sqlite; \
+		echo "Preserved the outgoing database at backend/data/archive/ before removing it."; \
+	fi
+	rm -f backend/data/entities.sqlite backend/data/entities.sqlite-wal backend/data/entities.sqlite-shm
+	@echo "Database removed — it will reinitialize from backend/schema/*.sql on next backend start."
+
+# Builds the User Manual PDF from its own, single, real Markdown
+# source (docs/user-manual.md) — pandoc + xelatex, real, automatic
+# Table of Contents, List of Figures, running headers/footers, and
+# widow/orphan control, all genuinely handled by LaTeX itself, not
+# hand-tracked. See docs/user-manual.md's own front matter for why
+# this replaced an earlier, hand-written reportlab script.
+# Real, explicit prerequisites: every chapter/appendix .md file
+# build-user-manual.py actually gathers, so touching any one chapter
+# genuinely makes this target stale - matching the same, established
+# pattern already used for programmer-manual.
+USER_MANUAL_CHAPTERS := \
+	docs/user-manual-frontmatter.md \
+	docs/user-manual-ch0-how-it-started.md \
+	docs/user-manual-ch1-introduction.md \
+	docs/user-manual-ch2-configuration.md \
+	docs/user-manual-ch3-tutorial.md \
+	docs/user-manual-appendix-screens.md \
+	docs/user-manual-glossary.md \
+	docs/user-manual-contributors-suggestions-notes.md
+
+manual: docs/build-user-manual.py $(USER_MANUAL_CHAPTERS) manual-screenshots
+	cd docs && python3 build-user-manual.py
+	cd docs && pandoc user-manual.md -o ../sql-ledger-ts_User_Manual.pdf \
+	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
+	  -H manual-header-includes.tex -f markdown+raw_tex --resource-path=.
+	@echo "Built sql-ledger-ts_User_Manual.pdf"
+
+# Real, individual, per-screenshot targets - each depends on the
+# actual +page.svelte source file(s) it captures, plus the capture
+# script itself, so touching one Svelte file only invalidates the
+# screenshots that genuinely depend on it, not all of them.
+docs/manual-images/setup_chart_of_accounts.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/chart-of-accounts/+page.svelte
+	cd e2e && MANUAL_SCREEN=setup_chart_of_accounts npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/setup_periods.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/periods/+page.svelte
+	cd e2e && MANUAL_SCREEN=setup_periods npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/setup_translations.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/translations/+page.svelte
+	cd e2e && MANUAL_SCREEN=setup_translations npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/setup_users.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/users/+page.svelte
+	cd e2e && MANUAL_SCREEN=setup_users npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/setup_vocabulary.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/vocabulary/+page.svelte
+	cd e2e && MANUAL_SCREEN=setup_vocabulary npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/setup_yearend.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/yearend/+page.svelte
+	cd e2e && MANUAL_SCREEN=setup_yearend npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/stock_listing.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/listing/+page.svelte
+	cd e2e && MANUAL_SCREEN=stock_listing npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/stock_restock.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/restock/+page.svelte
+	cd e2e && MANUAL_SCREEN=stock_restock npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_new_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-pl/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_new_pl npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_new_stock_on_hand.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-stock-on-hand/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_new_stock_on_hand npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_old_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/old-pl/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_old_pl npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_profit_and_loss.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/profit-and-loss/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_profit_and_loss npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_reminders.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/reminders/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_reminders npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_sales.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/sales/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_sales npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_statement.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/statement/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_statement npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_stock_movement.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/stock-movement/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_stock_movement npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_trial_balance.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/trial-balance/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_trial_balance npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/setup_bank_accounts.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/bank-accounts/+page.svelte
+	cd e2e && MANUAL_SCREEN=setup_bank_accounts npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/account_password.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/account/password/+page.svelte
+	cd e2e && MANUAL_SCREEN=account_password npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/customer_terminal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/customer-terminal/+page.svelte
+	cd e2e && MANUAL_SCREEN=customer_terminal npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/editor.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/editor/+page.svelte
+	cd e2e && MANUAL_SCREEN=editor npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/invoices.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/invoices/+page.svelte
+	cd e2e && MANUAL_SCREEN=invoices npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/journal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/journal/+page.svelte
+	cd e2e && MANUAL_SCREEN=journal npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_aged.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/aged/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_aged npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_below_reorder.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/below-reorder/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_below_reorder npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_cash_flow_forecast.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/cash-flow-forecast/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_cash_flow_forecast npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_compare.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/compare/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_compare npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/reports_new_new_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-new-pl/+page.svelte
+	cd e2e && MANUAL_SCREEN=reports_new_new_pl npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/ar_sale.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ar-sale/+page.svelte
+	cd e2e && MANUAL_SCREEN=ar_sale npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/ar_receipt.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ar-receipt/+page.svelte frontend/src/lib/components/PaymentReceipt.svelte
+	cd e2e && MANUAL_SCREEN=ar_receipt npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/ap_purchase.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ap-purchase/+page.svelte
+	cd e2e && MANUAL_SCREEN=ap_purchase npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/ap_payment.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ap-payment/+page.svelte frontend/src/lib/components/PaymentReceipt.svelte
+	cd e2e && MANUAL_SCREEN=ap_payment npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/cash_sale.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/cash-sale/+page.svelte frontend/src/lib/components/CashTransaction.svelte
+	cd e2e && MANUAL_SCREEN=cash_sale npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/cash_purchase.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/cash-purchase/+page.svelte frontend/src/lib/components/CashTransaction.svelte
+	cd e2e && MANUAL_SCREEN=cash_purchase npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/projects.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/projects/+page.svelte
+	cd e2e && MANUAL_SCREEN=projects npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/hr_wages.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/hr/+page.svelte
+	cd e2e && MANUAL_SCREEN=hr_wages npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/write_offs.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/write-offs/+page.svelte
+	cd e2e && MANUAL_SCREEN=write_offs npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/stock_take.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-take/+page.svelte
+	cd e2e && MANUAL_SCREEN=stock_take npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/stock_transfer.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/transfer/+page.svelte
+	cd e2e && MANUAL_SCREEN=stock_transfer npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/stock_dispatch.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-dispatch/+page.svelte
+	cd e2e && MANUAL_SCREEN=stock_dispatch npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/stock_receipt.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-receipt/+page.svelte
+	cd e2e && MANUAL_SCREEN=stock_receipt npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/sales_order.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/so/+page.svelte
+	cd e2e && MANUAL_SCREEN=sales_order npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/general_journal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/post/+page.svelte
+	cd e2e && MANUAL_SCREEN=general_journal npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/pos_terminal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/pos/+page.svelte
+	cd e2e && MANUAL_SCREEN=pos_terminal npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/purchase_order.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/po/+page.svelte
+	cd e2e && MANUAL_SCREEN=purchase_order npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_multi_location_schedule.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/business-setup/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_multi_location_schedule npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_contact_persons.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/contacts/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_contact_persons npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_balance_sheet.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/balance-sheet/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_balance_sheet npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_items_new_category_full.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/items/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_items_new_category_full npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_locations.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/locations/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_locations npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_business_setup.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/business-setup/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_business_setup npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_new_business.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/new-business/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_new_business npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_configuration_landing.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_configuration_landing npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_login.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/login/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_login npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_home.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_home npx playwright test capture-manual-screenshots --reporter=list
+
+docs/manual-images/m_choose_business.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/session/+page.svelte
+	cd e2e && MANUAL_SCREEN=m_choose_business npx playwright test capture-manual-screenshots --reporter=list
+
+# Real, live screenshot capture for the manual, in each real,
+# supported language — a real, shared Playwright script
+# (e2e/tests/capture-manual-screenshots.spec.ts), driven by a real,
+# direct MANUAL_LANGUAGE environment variable, so the same, one real
+# script produces the real, correct set for whichever language is
+# asked for, rather than four, separate, near-duplicate scripts. Each
+# real target also runs the real, direct crop step the tall Parts
+# Catalog screenshot needs.
+manual-screenshots:
+	cd e2e && MANUAL_LANGUAGE=English npx playwright test capture-manual-screenshots --reporter=list
+	cd docs && python3 crop-parts-screenshot.py
+
+manual-screenshots-german:
+	cd e2e && MANUAL_LANGUAGE=German npx playwright test capture-manual-screenshots --reporter=list
+	cd docs && python3 crop-parts-screenshot.py -german
+
+manual-screenshots-french:
+	cd e2e && MANUAL_LANGUAGE=French npx playwright test capture-manual-screenshots --reporter=list
+	cd docs && python3 crop-parts-screenshot.py -french
+
+manual-screenshots-danish:
+	cd e2e && MANUAL_LANGUAGE=Danish npx playwright test capture-manual-screenshots --reporter=list
+	cd docs && python3 crop-parts-screenshot.py -danish
+
+manual-screenshots-italian:
+	cd e2e && MANUAL_LANGUAGE=Italian npx playwright test capture-manual-screenshots --reporter=list
+	cd docs && python3 crop-parts-screenshot.py -italian
+
+# Assembles and builds the real, complete Programmer's Manual — a
+# real, direct concatenation of this project's own, already-existing,
+# real technical documents (docs/build-programmer-manual.py), then the
+# exact, same, real pandoc + LaTeX pipeline the User Manual itself
+# uses (its own, separate, correctly-titled running header/footer —
+# docs/programmer-manual-header-includes.tex).
+# Real, explicit prerequisites: every chapter .md file
+# build-programmer-manual.py actually gathers, so touching any one
+# chapter genuinely makes this target stale - not just the assembler
+# script itself.
+PROGRAMMER_MANUAL_CHAPTERS := \
+	docs/business-evolution-plan.md \
+	docs/cash-flow-and-growth-planning.md \
+	docs/chart-of-accounts-hierarchy-editor-plan.md \
+	docs/coa-class-instance-plan.md \
+	docs/coding-standards.md \
+	docs/cold-shelf-storage-inventory-model-plan.md \
+	docs/contact-types-and-translations.md \
+	docs/css-styling-and-data-entry.md \
+	docs/entity-chains.md \
+	docs/entity-identity-resolution.md \
+	docs/entity-model.md \
+	docs/expansion-walker-design.md \
+	docs/foreign-currency-receipts-and-payments.md \
+	docs/lessons-learned.md \
+	docs/menu-as-entity-tree-plan.md \
+	docs/money-model.md \
+	docs/multi-dimensional-reporting.md \
+	docs/multicurrency-design.md \
+	docs/one-file-per-page-consolidation-plan.md \
+	docs/orm-and-commit-path.md \
+	docs/pglite-migration-plan.md \
+	docs/programmer-tooling.md \
+	docs/scoped-uniqueness-and-location-accounting.md \
+	docs/screens-inventory.md \
+	docs/screens-staging-triggers-functions.md \
+	docs/simulation-prompt.md \
+	docs/skill-sql-ledger-ui-conventions.md \
+	docs/skill-wine-retail-e2e-and-docs.md \
+	docs/sql-ledger-comparison.md \
+	docs/svelte-5-runes-migration-plan.md \
+	docs/svelte-usage.md \
+	docs/testing.md \
+	docs/translator-form-and-guard-rails-plan.md \
+	docs/ui-completeness-plan.md \
+	docs/user-manual-plan.md \
+	docs/vocabulary-vs-sample-data.md \
+	docs/wine-bar-assemblies-plan.md \
+	docs/construction-project-management-plan.md
+
+# docs/screens-staging-triggers-functions.md references 17 specific
+# screenshots directly - a real, explicit Make dependency, so this
+# chapter is genuinely stale if any of them are missing or updated.
+docs/screens-staging-triggers-functions.md: \
+	docs/manual-images/ar_sale.png \
+	docs/manual-images/ar_receipt.png \
+	docs/manual-images/ap_purchase.png \
+	docs/manual-images/ap_payment.png \
+	docs/manual-images/cash_sale.png \
+	docs/manual-images/cash_purchase.png \
+	docs/manual-images/pos_terminal.png \
+	docs/manual-images/general_journal.png \
+	docs/manual-images/purchase_order.png \
+	docs/manual-images/sales_order.png \
+	docs/manual-images/stock_receipt.png \
+	docs/manual-images/stock_dispatch.png \
+	docs/manual-images/stock_transfer.png \
+	docs/manual-images/stock_take.png \
+	docs/manual-images/write_offs.png \
+	docs/manual-images/hr_wages.png \
+	docs/manual-images/projects.png
+
+programmer-manual: docs/build-programmer-manual.py $(PROGRAMMER_MANUAL_CHAPTERS)
+	cd docs && python3 build-programmer-manual.py
+	cd docs && pandoc programmer-manual.md -o ../sql-ledger-ts_Programmer_Manual.pdf \
+	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
+	  -H programmer-manual-header-includes.tex -f markdown+raw_tex --resource-path=.
+	@echo "Built sql-ledger-ts_Programmer_Manual.pdf"
+
+# Renders a real, complete, vector (SVG) illustration of the entire,
+# live entity tree -- every real (id, name, parent_id) triple, plus
+# every real, labelled relationship link, overlaid as dashed edges.
+# Requires `dot` (graphviz) on PATH; run against whatever database is
+# currently loaded, so a genuinely minimal, freshly-reset database
+# produces a genuinely minimal tree.
+entity-tree-svg:
+	cd backend && node --import tsx scripts/generate-entity-tree-svg.ts ../entity_tree.svg
+	@echo "Built entity_tree.svg"

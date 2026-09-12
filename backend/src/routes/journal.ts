@@ -1,0 +1,199 @@
+import { Router } from 'express';
+import { requireRole } from '../auth-middleware.js';
+import { z } from 'zod';
+import {
+  stageLine,
+  getStagedLines,
+  removeStagedLine,
+  postJournalEntry,
+  createRecurringJournal,
+  reverseJournalEntry,
+  closeBooks,
+  previewCloseBooks,
+  listJournalEntries,
+  countJournalEntries,
+  getJournalEntry,
+  PostingError,
+  ValidationError,
+  NotFoundError,
+  asBusinessName,
+  asLedgerName,
+  asAccountName,
+  asUserId,
+} from '../db.js';
+
+export const journalRouter = Router();
+
+journalRouter.get('/', (req, res) => {
+  const business = req.query.business as string;
+  const ledger = req.query.ledger as string;
+  if (!business || !ledger) return res.status(400).json({ error: 'business and ledger are required.' });
+  const limit = req.query.limit ? Number(req.query.limit) : 100;
+  const offset = req.query.offset ? Number(req.query.offset) : 0;
+  res.json({ rows: listJournalEntries(asBusinessName(business), asLedgerName(ledger), limit, offset), totalCount: countJournalEntries(asBusinessName(business), asLedgerName(ledger)) });
+});
+
+journalRouter.get('/:id/:date', (req, res) => {
+  const business = req.query.business as string;
+  const ledger = req.query.ledger as string;
+  if (!business || !ledger) return res.status(400).json({ error: 'business and ledger are required.' });
+  const entry = getJournalEntry(asBusinessName(business), asLedgerName(ledger), Number(req.params.id), req.params.date);
+  if (!entry) return res.status(404).json({ error: 'Not found.' });
+  res.json(entry);
+});
+
+const stageLineSchema = z.object({
+  reference: z.string().min(1),
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  description: z.string().optional(),
+  transdate: z.string().optional(),
+  account: z.string().min(1),
+  amount_minor: z.number().int(),
+  memo: z.string().optional(),
+});
+
+journalRouter.post('/staging', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = stageLineSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    stageLine({
+      ...parsed.data,
+      business: asBusinessName(parsed.data.business),
+      ledger: asLedgerName(parsed.data.ledger),
+      account: asAccountName(parsed.data.account),
+    });
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not stage line.' });
+  }
+});
+
+journalRouter.get('/staging/:reference/:business/:ledger', (req, res) => {
+  res.json(getStagedLines(req.params.reference, asBusinessName(req.params.business), asLedgerName(req.params.ledger)));
+});
+
+journalRouter.delete('/staging/:reference/:business/:ledger/:account', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  removeStagedLine(req.params.reference, asBusinessName(req.params.business), asLedgerName(req.params.ledger), asAccountName(req.params.account));
+  res.status(204).end();
+});
+
+const postSchema = z.object({
+  reference: z.string().min(1),
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+});
+
+journalRouter.post('/post', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = postSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    postJournalEntry(parsed.data.reference, asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger), asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof PostingError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not post entry.' });
+  }
+});
+
+const recurringJournalSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  reference: z.string().min(1),
+  startDate: z.string().min(1),
+  recurrence: z.enum(['once', 'weekly', 'monthly', 'yearly']),
+  description: z.string().optional(),
+  recurrenceCount: z.number().int().positive().nullable().optional(),
+  lines: z
+    .array(
+      z.object({
+        account: z.string().min(1),
+        amount_minor: z.number().int(),
+        memo: z.string().optional(),
+        effective_date: z.string().optional(),
+      })
+    )
+    .min(2, 'An entry needs at least two lines.'),
+});
+
+journalRouter.post('/recurring', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = recurringJournalSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    createRecurringJournal(
+      asBusinessName(parsed.data.business),
+      asLedgerName(parsed.data.ledger),
+      parsed.data.reference,
+      parsed.data.startDate,
+      parsed.data.recurrence,
+      parsed.data.lines,
+      asUserId(req.user!.id),
+      parsed.data.description,
+      parsed.data.recurrenceCount ?? undefined
+    );
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof PostingError || err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not create recurring entry.' });
+  }
+});
+
+const reverseSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  reversalDate: z.string().optional(),
+});
+
+journalRouter.post('/:id/:date/reverse', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = reverseSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    reverseJournalEntry(asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger), Number(req.params.id), req.params.date, asUserId(req.user!.id), parsed.data.reversalDate);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    if (err instanceof PostingError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not reverse entry.' });
+  }
+});
+
+const closeBooksSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  asOfDate: z.string().min(1),
+  retainedEarningsAccount: z.string().min(1),
+});
+const previewCloseBooksSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  asOfDate: z.string().min(1),
+  retainedEarningsAccount: z.string().min(1),
+});
+journalRouter.post('/preview-close-books', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = previewCloseBooksSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const preview = previewCloseBooks(asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger), parsed.data.asOfDate, parsed.data.retainedEarningsAccount);
+    res.json(preview);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not preview the close.' });
+  }
+});
+journalRouter.post('/close-books', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = closeBooksSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const result = closeBooks(asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger), parsed.data.asOfDate, parsed.data.retainedEarningsAccount, asUserId(req.user!.id));
+    res.status(201).json(result);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not close books.' });
+  }
+});

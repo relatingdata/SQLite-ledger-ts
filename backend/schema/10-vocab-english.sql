@@ -1,0 +1,1 @@
+-- English vocabulary — every real translation_entry row for this language.

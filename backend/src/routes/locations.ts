@@ -1,0 +1,396 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { requireRole } from '../auth-middleware.js';
+import {
+  getEntityTree,
+  setLocation,
+  getLocation,
+  getItemLocation,
+  setItemLocationLevels,
+  receiveStockAtLocation,
+  dispatchStockFromLocation,
+  transferStock,
+  getBelowReorderStock,
+  getStockOutRiskReport,
+  setItemSourceLeadTime,
+  getStockListing,
+  getStockListingByLocation,
+  getStockMovementReport,
+  countStockListing,
+  createStockTake,
+  getStockTake,
+  recordStockTakeCount,
+  completeStockTake,
+  getRestockPickingList,
+  confirmRestockPickedLine,
+  dispatchRestockFromPickingList,
+  setLocationOpenHours,
+  getLocationOpenHours,
+  setEmployeeSchedule,
+  getEmployeeSchedule,
+  getScheduleAtLocation,
+  ValidationError,
+  NotFoundError,
+  asBusinessName,
+  asLedgerName,
+  asAccountName,
+  asItemName,
+  asLocationName,
+  asUserId,
+  getLocationTypes,
+  createLocationType,
+} from '../db.js';
+
+export const locationsRouter = Router();
+
+locationsRouter.get('/', (req, res) => {
+  const business = req.query.business as string;
+  if (!business) return res.status(400).json({ error: 'business query parameter is required — locations are scoped per business.' });
+  const entities = getEntityTree();
+  const locationsParent = entities.find((e) => e.name === `${business} Locations`);
+  const locationEntities = locationsParent ? entities.filter((e) => e.parent_id === locationsParent.id) : [];
+  const result = locationEntities.map((e) => ({ name: e.name, ...getLocation(e.name) }));
+  res.json(result);
+});
+
+locationsRouter.get('/types', (_req, res) => {
+  res.json(getLocationTypes());
+});
+
+const createLocationTypeSchema = z.object({ name: z.string().min(1) });
+
+locationsRouter.post('/types', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = createLocationTypeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    createLocationType(parsed.data.name, asUserId(req.user!.id));
+    res.status(201).json({ name: parsed.data.name });
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not create location type.' });
+  }
+});
+
+locationsRouter.get('/:name', (req, res) => {
+  const location = getLocation(req.params.name);
+  if (!location) return res.status(404).json({ error: 'No such location.' });
+  res.json({ name: req.params.name, ...location });
+});
+
+const locationSchema = z.object({
+  city: z.string().min(1),
+  location_type: z.string().min(1),
+  is_billing_address: z.boolean(),
+  bottle_capacity: z.number().int().nullable().optional(),
+  carton_capacity: z.number().int().nullable().optional(),
+  // A real, direct IANA timezone identifier — required, since a real,
+  // physical location's own transactions must record against that
+  // location's own real, local calendar day, never the server's own.
+  timezone: z.string().min(1),
+});
+
+locationsRouter.put('/:name', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = locationSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    setLocation(req.params.name, {
+      city: parsed.data.city,
+      location_type: parsed.data.location_type,
+      is_billing_address: parsed.data.is_billing_address,
+      bottle_capacity: parsed.data.bottle_capacity ?? null,
+      carton_capacity: parsed.data.carton_capacity ?? null,
+      timezone: parsed.data.timezone,
+    });
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not save location.' });
+  }
+});
+
+locationsRouter.get('/:name/items/:itemName', (req, res) => {
+  res.json(getItemLocation(req.params.itemName, req.params.name));
+});
+
+const levelsSchema = z.object({
+  minLevel: z.number().int().nullable().optional(),
+  maxLevel: z.number().int().nullable().optional(),
+  reorderLevel: z.number().int().nullable().optional(),
+  shelfSide: z.string().nullable().optional(),
+  rack: z.string().nullable().optional(),
+  level: z.number().int().nullable().optional(),
+});
+
+locationsRouter.put('/:name/items/:itemName', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = levelsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    setItemLocationLevels(req.params.itemName, req.params.name, parsed.data);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not save levels.' });
+  }
+});
+
+const movementSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  reference: z.string().min(1),
+  itemName: z.string().min(1),
+  quantity: z.number().int().positive(),
+  transdate: z.string().optional(),
+});
+
+locationsRouter.post('/:name/receive', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = movementSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    receiveStockAtLocation(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), asLocationName(req.params.name), d.quantity, asUserId(req.user!.id), d.transdate);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not receive stock.' });
+  }
+});
+
+locationsRouter.post('/:name/dispatch', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = movementSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    dispatchStockFromLocation(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), asLocationName(req.params.name), d.quantity, asUserId(req.user!.id), d.transdate);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not dispatch stock.' });
+  }
+});
+
+const transferSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  itemName: z.string().min(1),
+  fromLocationName: z.string().min(1),
+  toLocationName: z.string().min(1),
+  quantity: z.number().int().positive(),
+  reference: z.string().min(1),
+  transdate: z.string().optional(),
+});
+
+locationsRouter.post('/transfer', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = transferSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    transferStock(asBusinessName(d.business), asLedgerName(d.ledger), asItemName(d.itemName), asLocationName(d.fromLocationName), asLocationName(d.toLocationName), d.quantity, d.reference, asUserId(req.user!.id), d.transdate);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not transfer stock.' });
+  }
+});
+
+const restockLinesSchema = z.array(z.object({ item: z.string().min(1), quantity: z.number().int().positive() }));
+
+locationsRouter.post('/restock/:runReference/picking-list', (req, res) => {
+  const warehouseName = req.body.warehouseName as string;
+  const linesParsed = restockLinesSchema.safeParse(req.body.lines);
+  if (!warehouseName || !linesParsed.success) return res.status(400).json({ error: 'warehouseName and lines are required.' });
+  try {
+    res.json(getRestockPickingList(req.params.runReference, warehouseName, linesParsed.data));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not load the real restocking picking list.' });
+  }
+});
+
+const confirmRestockSchema = z.object({ item: z.string().min(1), business: z.string().min(1), ledger: z.string().min(1) });
+locationsRouter.post('/restock/:runReference/confirm-picked', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = confirmRestockSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    confirmRestockPickedLine(req.params.runReference, d.item, asBusinessName(d.business), asLedgerName(d.ledger), asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not confirm this line as picked.' });
+  }
+});
+
+const dispatchRestockSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  warehouseName: z.string().min(1),
+  retailOutletName: z.string().min(1),
+  lines: restockLinesSchema,
+  transdate: z.string().optional(),
+});
+locationsRouter.post('/restock/:runReference/dispatch', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = dispatchRestockSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    dispatchRestockFromPickingList(req.params.runReference, asBusinessName(d.business), asLedgerName(d.ledger), d.warehouseName, d.retailOutletName, d.lines, asUserId(req.user!.id), d.transdate);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not dispatch this restocking run.' });
+  }
+});
+
+const openHoursSchema = z.object({
+  hours: z.array(z.object({ day: z.string().min(1), opens_at: z.string().min(1), closes_at: z.string().min(1) })),
+});
+locationsRouter.put('/:name/open-hours', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = openHoursSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    setLocationOpenHours(req.params.name, parsed.data.hours);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not set open hours.' });
+  }
+});
+locationsRouter.get('/:name/open-hours', (req, res) => {
+  res.json(getLocationOpenHours(req.params.name));
+});
+locationsRouter.get('/:name/schedule', (req, res) => {
+  res.json(getScheduleAtLocation(req.params.name));
+});
+
+const employeeScheduleSchema = z.object({
+  locationName: z.string().min(1),
+  schedule: z.array(z.object({ day: z.string().min(1), starts_at: z.string().min(1), ends_at: z.string().min(1) })),
+});
+locationsRouter.put('/employees/:employeeName/schedule', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = employeeScheduleSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    setEmployeeSchedule(req.params.employeeName, parsed.data.locationName, parsed.data.schedule);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Could not set this employee's schedule." });
+  }
+});
+locationsRouter.get('/employees/:employeeName/schedule', (req, res) => {
+  res.json(getEmployeeSchedule(req.params.employeeName));
+});
+
+export const belowReorderRouter = Router();
+belowReorderRouter.get('/', (_req, res) => {
+  res.json(getBelowReorderStock());
+});
+
+export const stockOutRiskRouter = Router();
+stockOutRiskRouter.get('/', (req, res) => {
+  const windowDays = req.query.windowDays ? Number(req.query.windowDays) : 2;
+  res.json(getStockOutRiskReport(windowDays));
+});
+
+const setLeadTimeSchema = z.object({ item: z.string().min(1), vendor: z.string().min(1), days: z.number().int().positive() });
+stockOutRiskRouter.post('/lead-time', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = setLeadTimeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    setItemSourceLeadTime(parsed.data.item, parsed.data.vendor, parsed.data.days, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not save this lead time.' });
+  }
+});
+
+export const stockListingRouter = Router();
+stockListingRouter.get('/', (req, res) => {
+  const limit = req.query.limit ? Number(req.query.limit) : 100;
+  const offset = req.query.offset ? Number(req.query.offset) : 0;
+  res.json({ rows: getStockListing(limit, offset), totalCount: countStockListing() });
+});
+stockListingRouter.get('/by-location', (_req, res) => {
+  res.json(getStockListingByLocation());
+});
+stockListingRouter.get('/movement', (req, res) => {
+  const ledger = req.query.ledger;
+  if (typeof ledger !== 'string' || !ledger) return res.status(400).json({ error: 'ledger is required.' });
+  const fromDate = typeof req.query.fromDate === 'string' ? req.query.fromDate : undefined;
+  const toDate = typeof req.query.toDate === 'string' ? req.query.toDate : undefined;
+  try {
+    res.json(getStockMovementReport(ledger, fromDate, toDate));
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not load the stock movement report.' });
+  }
+});
+
+export const stockTakesRouter = Router();
+
+const createTakeSchema = z.object({ locationName: z.string().min(1), takeDate: z.string().min(1) });
+stockTakesRouter.post('/', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = createTakeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const id = createStockTake(parsed.data.locationName, parsed.data.takeDate, asUserId(req.user!.id));
+    res.status(201).json({ id });
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not create stock take.' });
+  }
+});
+
+stockTakesRouter.get('/:id', (req, res) => {
+  const take = getStockTake(Number(req.params.id));
+  if (!take) return res.status(404).json({ error: 'No such stock take.' });
+  res.json(take);
+});
+
+const countSchema = z.object({ itemName: z.string().min(1), countedQuantity: z.number().int().nonnegative() });
+stockTakesRouter.post('/:id/count', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = countSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    recordStockTakeCount(Number(req.params.id), parsed.data.itemName, parsed.data.countedQuantity);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not record count.' });
+  }
+});
+
+const completeSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  varianceExpenseAccount: z.string().min(1),
+  inventoryAccount: z.string().min(1),
+  unitCostMinorByItem: z.record(z.number().int()),
+});
+stockTakesRouter.post('/:id/complete', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = completeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    completeStockTake(Number(req.params.id), asBusinessName(d.business), asLedgerName(d.ledger), asAccountName(d.varianceExpenseAccount), d.inventoryAccount, d.unitCostMinorByItem, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not complete stock take.' });
+  }
+});

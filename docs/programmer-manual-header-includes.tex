@@ -1,0 +1,72 @@
+\usepackage{pgffor}
+\usepackage{fancyhdr}
+
+% A real, direct, lined notes page — used at the very end of the manual.
+\newcommand{\notespage}{%
+  \vspace*{0.3cm}
+  \foreach \n in {1,...,20}{%
+    \noindent\rule{\textwidth}{0.4pt}\\[1.05cm]%
+  }%
+  \clearpage
+}
+
+% Running headers/footers with the real, current chapter title and
+% the real page number, per direct request — genuinely automatic via
+% \leftmark (LaTeX's own, built-in "what chapter am I currently in"
+% marker), not hand-tracked.
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape\leftmark}
+\fancyhead[R]{\small\itshape Better Brighter Multi-Ledger --- Programmer's Manual}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\chaptermark}[1]{\markboth{#1}{}}
+
+% Widow/orphan control — LaTeX's own, real, direct, built-in penalties,
+% raised from their real defaults so a single, isolated line at the
+% top/bottom of a real page is actively discouraged, not just possible
+% to avoid by luck.
+\widowpenalty=10000
+\clubpenalty=10000
+
+% Real, direct code blocks (SQL, TypeScript) throughout this manual
+% are often genuinely long-lined — reducing the monospaced font size
+% globally lets a real, honest, unmodified line fit within the page
+% width, rather than needing every long line manually re-wrapped by
+% hand and drifting out of sync with the actual, real source over time.
+% Pandoc's own real fenced-code-block environment is Highlighting,
+% defined via fancyvrb's \DefineVerbatimEnvironment — not plain
+% verbatim (a real, earlier, confirmed mistake: \renewenvironment on
+% plain verbatim never actually applied to a real code block at all,
+% since Highlighting is its own, separate fancyvrb environment).
+% \fvset is fancyvrb's own, correct, global mechanism, and adds a
+% real, visible frame/border around every real code block too, per
+% direct request.
+\fvset{fontsize=\fontsize{6}{7}\selectfont,frame=single,rulecolor=\color{black!40}}
+
+% Proper, real hyphenation for ordinary body prose sentences (not just
+% the inline-code/verbatim handling below) — loaded explicitly rather
+% than assumed present, so a long, ordinary English word can genuinely
+% break at a real syllable boundary instead of forcing loose,
+% \sloppy-style inter-word spacing to avoid overflow.
+\usepackage[english]{babel}
+\hyphenpenalty=50
+\exhyphenpenalty=50
+
+% Long, unhyphenatable inline code spans (a real, long file path with
+% no spaces, e.g. e2e/tests/build-vocabulary-and-translations.spec.ts)
+% otherwise can't wrap at all within justified prose, and genuinely
+% overflow the page margin instead. hyphenat below applies to every
+% real \texttt span pandoc generates for inline code, allowing a break
+% at each real slash/hyphen/underscore rather than forcing the whole,
+% long token to fit on one line unbroken.
+\usepackage[htt]{hyphenat}
+\emergencystretch=3em
+
+% A real, visible border around every real screenshot in the manual,
+% per direct request — applied once, globally, by wrapping every real
+% \includegraphics call pandoc generates, rather than needing each
+% individual markdown image reference edited by hand.
+\usepackage{graphicx}
+\let\oldincludegraphics\includegraphics
+\renewcommand{\includegraphics}[2][]{\fbox{\oldincludegraphics[#1]{#2}}}

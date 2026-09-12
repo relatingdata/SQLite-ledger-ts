@@ -1,0 +1,22 @@
+import { test } from '@playwright/test';
+
+test('Screenshot BOM section on Items page', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto('/login');
+  await page.waitForTimeout(3000);
+  await page.locator('input[autocomplete="username"]').fill('admin');
+  await page.locator('input[autocomplete="current-password"]').fill('changeme123');
+  await page.getByRole('button', { name: /log in/i }).click();
+  await page.waitForURL((url) => !url.pathname.includes('/login'));
+  await page.waitForTimeout(500);
+  await page.locator('select').first().selectOption({ label: 'Wine Retail Company' });
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: /continue/i }).click();
+  await page.waitForURL((url) => url.pathname === '/');
+  await page.waitForTimeout(500);
+  await page.goto('/items');
+  await page.waitForTimeout(3000);
+  await page.getByText('Amber Ale 330ml', { exact: true }).first().click();
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: '/tmp/screenshot_bom.png', fullPage: true });
+});
