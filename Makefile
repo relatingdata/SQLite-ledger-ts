@@ -1,27 +1,27 @@
 .PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg
 
+# A real, direct, explicit PATH export - per direct instruction, this
+# project uses bun, not npm. bun is installed to ~/.bun/bin, which is
+# not necessarily on a fresh shell's own PATH, so every real recipe
+# below exports this itself rather than assuming the person running
+# `make` has already, separately configured their own shell for it.
+export PATH := $(HOME)/.bun/bin:$(PATH)
+
 # Builds everything the project produces: a fresh install, the full
 # test suite, and both real manuals (User + Programmer) - a genuine,
 # single command matching the common Makefile 'all' convention.
 all: install test manual programmer-manual
 
-# Always removes node_modules/lockfiles first, then installs fresh. This
-# project's dependencies have changed more than once across its history
-# (a Svelte 4 -> 5 upgrade among them) — a plain `npm install` on top of
-# node_modules/package-lock.json left over from an older version of this
-# project tries to reconcile new package.json declarations against old
-# installed state, and fails with an ERESOLVE conflict citing package
-# versions that don't even appear in the current package.json anymore
-# (e.g. @sveltejs/kit@2.5.18, from before the Svelte 5 upgrade). Doing a
-# clean install every time costs a little speed but makes this whole
-# class of problem impossible.
+# One real, single, root-level install, per direct instruction: this
+# project is a genuine bun workspace (backend/frontend/e2e all listed
+# in the root package.json's own "workspaces" array) - one real,
+# shared node_modules at the root, not three separate ones.
 install:
-	cd backend && npm install
-	cd frontend && npm install
+	bun install
 
 clean:
-	rm -rf backend/node_modules backend/package-lock.json
-	rm -rf frontend/node_modules frontend/package-lock.json frontend/.svelte-kit
+	rm -rf node_modules package-lock.json bun.lockb
+	rm -rf frontend/.svelte-kit
 	rm -f sql-ledger-ts_User_Manual.pdf sql-ledger-ts_Programmer_Manual.pdf
 	rm -f docs/programmer-manual.md
 	rm -rf docs/manual-images docs/manual-images-german docs/manual-images-french docs/manual-images-danish docs/manual-images-italian
@@ -29,9 +29,9 @@ clean:
 dev:
 	@echo "Starting backend (:3001) and frontend (:5173) — Ctrl+C stops both."
 	@( \
-	  cd backend && npm run dev & \
+	  cd backend && bun run dev & \
 	  BACKEND_PID=$$!; \
-	  cd frontend && npm run dev & \
+	  cd frontend && bun run dev & \
 	  FRONTEND_PID=$$!; \
 	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
 	  wait \
@@ -47,9 +47,9 @@ dev:
 dev-no-demo:
 	@echo "Starting backend (:3001, only 'My Business' — no demo businesses) and frontend (:5173) — Ctrl+C stops both."
 	@( \
-	  cd backend && SEED_DEMO_BUSINESSES=false npm run dev & \
+	  cd backend && SEED_DEMO_BUSINESSES=false bun run dev & \
 	  BACKEND_PID=$$!; \
-	  cd frontend && npm run dev & \
+	  cd frontend && bun run dev & \
 	  FRONTEND_PID=$$!; \
 	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
 	  wait \
@@ -58,26 +58,26 @@ dev-no-demo:
 dev-verbose:
 	@echo "Starting backend (:3001, every SQL statement printed) and frontend (:5173) — Ctrl+C stops both."
 	@( \
-	  cd backend && DB_VERBOSE=1 npm run dev & \
+	  cd backend && DB_VERBOSE=1 bun run dev & \
 	  BACKEND_PID=$$!; \
-	  cd frontend && npm run dev & \
+	  cd frontend && bun run dev & \
 	  FRONTEND_PID=$$!; \
 	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
 	  wait \
 	)
 
 backend:
-	cd backend && npm run dev
+	cd backend && bun run dev
 
 backend-verbose:
-	cd backend && DB_VERBOSE=1 npm run dev
+	cd backend && DB_VERBOSE=1 bun run dev
 
 frontend:
-	cd frontend && npm run dev
+	cd frontend && bun run dev
 
 test:
-	cd backend && npm test
-	cd frontend && npm test
+	cd backend && bun run test
+	cd frontend && bun run test
 
 # End-to-end verification against real, deterministic business data —
 # genuinely different from `test` above (which only exercises small,
@@ -104,7 +104,7 @@ test-e2e: reset-db
 # first, since the tutorial genuinely creates a new business (Wine
 # Retail Company itself) from scratch and expects a clean starting
 # point — SEED_DEMO_BUSINESSES=false so it doesn't already exist
-# (Playwright's own webServer spawns npm run dev as a child process,
+# (Playwright's own webServer spawns bun run dev as a child process,
 # inheriting this shell's own environment, so the flag reaches the
 # backend it auto-starts too).
 playwright-tutorial: reset-db

@@ -1,0 +1,10 @@
+{
+  "name": "sql-ledger-ts",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend",
+    "e2e"
+  ]
+}
