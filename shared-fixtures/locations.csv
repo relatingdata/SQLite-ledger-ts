@@ -1,0 +1,8 @@
+name,city,locationType,isBilling,bottleCap,cartonCap,timezone
+Head Office,Springfield,Warehouse,true,,6000,Australia/Sydney
+Riverside Cellars,Springfield,Retail,false,2200,100,Australia/Sydney
+Uptown Wine & Spirits,Springfield,Retail,false,1600,75,Australia/Sydney
+Warehouse B,Rivertown,Warehouse,false,,5000,Australia/Brisbane
+Harbourside Bottle Shop,Rivertown,Retail,false,1900,85,Australia/Brisbane
+Market Square Liquor,Rivertown,Retail,false,1400,65,Australia/Brisbane
+Eastside Cellar Door,Rivertown,Retail,false,1100,50,Australia/Brisbane

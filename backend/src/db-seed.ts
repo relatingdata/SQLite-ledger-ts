@@ -1,6 +1,7 @@
 import { db } from './db.js';
 import { createEntity, updateEntity, deleteEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, setContactType, setItemLocationLevels, receiveStockAtLocation, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, type UserId } from './db.js';
 import { loadAllTranslations } from '../../shared-fixtures/translations.js';
+import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels } from '../../shared-fixtures/wine-retail-demo-data.js';
 
 // Every real seed function below acts as this one, real, direct admin
 // user — cast once, here, rather than at each of the many, real,
@@ -68,163 +69,34 @@ function loadTranslationsFromSharedCsv(): void {
 loadTranslationsFromSharedCsv();
 
 function migrateForWineRetailDemoData() {
-  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get('Head Office')) return; // already seeded
+  // Per direct, confirmed finding: Head Office (and the entire real
+  // product catalog) is already, permanently seeded directly in
+  // schema.sql - checking for it here always, silently skipped this
+  // whole function, meaning the real stock-seeding below never once
+  // actually ran. Checking for a real, direct stock-seed marker
+  // instead - genuinely absent on a fresh database, genuinely present
+  // after this function has actually run once.
+  if (db.prepare(`SELECT 1 FROM journal WHERE reference LIKE 'WINE-SEED-%' LIMIT 1`).get()) return;
 
-  for (const cat of ['Red Wine', 'White Wine', 'Sparkling Wine', 'Beer', 'Spirits']) {
+  const categories = loadDemoCategories();
+  const catNames = Array.from(new Set(categories.map((c) => c.category)));
+  for (const cat of catNames) {
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(cat)) createEntity({ name: cat, parent: 'Items' }, SEED_USER_ID);
   }
-
-  const subcatDefs: Record<string, string[]> = {
-    'Red Wine': ['Merlot', 'Cabernet Sauvignon', 'Pinot Noir', 'Shiraz'],
-    'White Wine': ['Chardonnay', 'Sauvignon Blanc', 'Chablis', 'Riesling'],
-    'Sparkling Wine': ['Champagne', 'Prosecco', 'Cava'],
-    'Beer': ['Lager', 'Ale', 'Stout'],
-    'Spirits': ['Whisky', 'Vodka', 'Gin', 'Rum'],
-  };
-  for (const [cat, subs] of Object.entries(subcatDefs)) {
-    for (const sub of subs) {
-      if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(sub)) createEntity({ name: sub, parent: cat }, SEED_USER_ID);
-    }
+  for (const { category, subcategory } of categories) {
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(subcategory)) createEntity({ name: subcategory, parent: category }, SEED_USER_ID);
   }
 
-  const locations: [string, string, 'retail' | 'warehouse', boolean, number | null, number | null, string][] = [
-    ['Head Office', 'Springfield', 'warehouse', true, null, null, 'Australia/Sydney'],
-    ['Riverside Cellars', 'Springfield', 'retail', false, 2200, 320, 'Australia/Sydney'],
-    ['Uptown Wine & Spirits', 'Springfield', 'retail', false, 1600, 240, 'Australia/Sydney'],
-    // A real, deliberate choice, not an oversight: Rivertown sits in a
-    // genuinely different, real Australian timezone from Springfield
-    // — Queensland never observes daylight saving, while NSW does, so
-    // these two, real, otherwise-ordinary cities are a real, direct
-    // hour aitem every Southern Hemisphere summer. Exercises the real
-    // fix directly, rather than leaving it untested by only ever
-    // using one timezone throughout the whole demo.
-    ['Warehouse B', 'Rivertown', 'warehouse', false, null, null, 'Australia/Brisbane'],
-    ['Harbourside Bottle Shop', 'Rivertown', 'retail', false, 1900, 280, 'Australia/Brisbane'],
-    ['Market Square Liquor', 'Rivertown', 'retail', false, 1400, 200, 'Australia/Brisbane'],
-    ['Eastside Cellar Door', 'Rivertown', 'retail', false, 1100, 160, 'Australia/Brisbane'],
-  ];
-  for (const [name, city, locationType, isBilling, bottleCap, cartonCap, timezone] of locations) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) createEntity({ name, parent: 'Locations' }, SEED_USER_ID);
-    setLocation(name, { city, location_type: locationType, is_billing_address: isBilling, bottle_capacity: bottleCap, carton_capacity: cartonCap, timezone });
+  for (const loc of loadDemoLocations()) {
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(loc.name)) createEntity({ name: loc.name, parent: 'Locations' }, SEED_USER_ID);
+    setLocation(loc.name, { city: loc.city, location_type: loc.locationType, is_billing_address: loc.isBilling, bottle_capacity: loc.bottleCap, carton_capacity: loc.cartonCap, timezone: loc.timezone });
   }
 
-  const products: [string, string][] = [
-    ['Château Dubois Merlot 2021', 'Merlot'],
-    ['Barossa Valley Merlot 2022', 'Merlot'],
-    ['Napa Ridge Cabernet Sauvignon 2020', 'Cabernet Sauvignon'],
-    ['Coonawarra Cabernet 2021', 'Cabernet Sauvignon'],
-    ['Central Otago Pinot Noir 2022', 'Pinot Noir'],
-    ['Côte de Nuits Pinot Noir 2021', 'Pinot Noir'],
-    ['Barossa Shiraz 2021', 'Shiraz'],
-    ['Hunter Valley Shiraz 2020', 'Shiraz'],
-    ['Margaret River Chardonnay 2022', 'Chardonnay'],
-    ['Sonoma Chardonnay 2021', 'Chardonnay'],
-    ['Marlborough Sauvignon Blanc 2023', 'Sauvignon Blanc'],
-    ['Loire Valley Sauvignon Blanc 2022', 'Sauvignon Blanc'],
-    ['Chablis Premier Cru 2021', 'Chablis'],
-    ['Petit Chablis 2022', 'Chablis'],
-    ['Mosel Riesling 2022', 'Riesling'],
-    ['Clare Valley Riesling 2021', 'Riesling'],
-    ['Grande Maison Champagne Brut', 'Champagne'],
-    ['Grande Maison Champagne Rosé', 'Champagne'],
-    ['Veneto Prosecco DOC', 'Prosecco'],
-    ['Prosecco Extra Dry', 'Prosecco'],
-    ['Penedès Cava Brut', 'Cava'],
-    ['Cava Rosé', 'Cava'],
-    ['Golden Lager 330ml', 'Lager'],
-    ['Premium Pilsner 330ml', 'Lager'],
-    ['Amber Ale 330ml', 'Ale'],
-    ['Pale Ale 330ml', 'Ale'],
-    ['Classic Stout 330ml', 'Stout'],
-    ['Imperial Stout 330ml', 'Stout'],
-    ['Highland Single Malt 700ml', 'Whisky'],
-    ['Blended Scotch 700ml', 'Whisky'],
-    ['Premium Vodka 700ml', 'Vodka'],
-    ['Craft Vodka 700ml', 'Vodka'],
-    ['London Dry Gin 700ml', 'Gin'],
-    ['Botanical Gin 700ml', 'Gin'],
-    ['Spiced Rum 700ml', 'Rum'],
-    ['Dark Rum 700ml', 'Rum'],
-  ];
-  for (const [name, subcat] of products) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) createItem(name, subcat, SEED_USER_ID);
+  for (const { name, subcategory } of loadDemoProducts()) {
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) createItem(name, subcategory, SEED_USER_ID);
   }
 
-  const stockRows: [string, string, number, number, number, number, string | null, string | null, number | null][] = [
-    ['Château Dubois Merlot 2021', 'Head Office', 447, 48, 720, 96, null, null, null],
-    ['Château Dubois Merlot 2021', 'Riverside Cellars', 13, 12, 60, 18, 'Front', 'A', 1],
-    ['Barossa Valley Merlot 2022', 'Warehouse B', 132, 48, 720, 96, null, null, null],
-    ['Barossa Valley Merlot 2022', 'Uptown Wine & Spirits', 23, 12, 60, 18, 'Back', 'B', 2],
-    ['Napa Ridge Cabernet Sauvignon 2020', 'Head Office', 245, 48, 720, 96, null, null, null],
-    ['Napa Ridge Cabernet Sauvignon 2020', 'Eastside Cellar Door', 20, 12, 60, 18, 'Front', 'C', 3],
-    ['Coonawarra Cabernet 2021', 'Warehouse B', 191, 48, 720, 96, null, null, null],
-    ['Coonawarra Cabernet 2021', 'Harbourside Bottle Shop', 12, 12, 60, 18, 'Back', 'D', 4],
-    ['Central Otago Pinot Noir 2022', 'Head Office', 466, 48, 720, 96, null, null, null],
-    ['Central Otago Pinot Noir 2022', 'Riverside Cellars', 40, 12, 60, 18, 'Front', 'A', 5],
-    ['Côte de Nuits Pinot Noir 2021', 'Warehouse B', 164, 48, 720, 96, null, null, null],
-    ['Côte de Nuits Pinot Noir 2021', 'Uptown Wine & Spirits', 43, 12, 60, 18, 'Back', 'B', 1],
-    ['Barossa Shiraz 2021', 'Head Office', 336, 48, 720, 96, null, null, null],
-    ['Barossa Shiraz 2021', 'Harbourside Bottle Shop', 8, 12, 60, 18, 'Front', 'C', 2],
-    ['Hunter Valley Shiraz 2020', 'Warehouse B', 135, 48, 720, 96, null, null, null],
-    ['Hunter Valley Shiraz 2020', 'Market Square Liquor', 11, 12, 60, 18, 'Back', 'D', 3],
-    ['Margaret River Chardonnay 2022', 'Head Office', 231, 48, 720, 96, null, null, null],
-    ['Margaret River Chardonnay 2022', 'Riverside Cellars', 20, 12, 60, 18, 'Front', 'A', 4],
-    ['Sonoma Chardonnay 2021', 'Warehouse B', 378, 48, 720, 96, null, null, null],
-    ['Sonoma Chardonnay 2021', 'Uptown Wine & Spirits', 44, 12, 60, 18, 'Back', 'B', 5],
-    ['Marlborough Sauvignon Blanc 2023', 'Head Office', 133, 48, 720, 96, null, null, null],
-    ['Marlborough Sauvignon Blanc 2023', 'Market Square Liquor', 41, 12, 60, 18, 'Front', 'C', 1],
-    ['Loire Valley Sauvignon Blanc 2022', 'Warehouse B', 221, 48, 720, 96, null, null, null],
-    ['Loire Valley Sauvignon Blanc 2022', 'Eastside Cellar Door', 47, 12, 60, 18, 'Back', 'D', 2],
-    ['Chablis Premier Cru 2021', 'Head Office', 479, 48, 720, 96, null, null, null],
-    ['Chablis Premier Cru 2021', 'Riverside Cellars', 40, 12, 60, 18, 'Front', 'A', 3],
-    ['Petit Chablis 2022', 'Warehouse B', 334, 48, 720, 96, null, null, null],
-    ['Petit Chablis 2022', 'Uptown Wine & Spirits', 20, 12, 60, 18, 'Back', 'B', 4],
-    ['Mosel Riesling 2022', 'Head Office', 349, 48, 720, 96, null, null, null],
-    ['Mosel Riesling 2022', 'Eastside Cellar Door', 43, 12, 60, 18, 'Front', 'C', 5],
-    ['Clare Valley Riesling 2021', 'Warehouse B', 262, 48, 720, 96, null, null, null],
-    ['Clare Valley Riesling 2021', 'Harbourside Bottle Shop', 6, 12, 60, 18, 'Back', 'D', 1],
-    ['Grande Maison Champagne Brut', 'Head Office', 201, 48, 720, 96, null, null, null],
-    ['Grande Maison Champagne Brut', 'Riverside Cellars', 33, 12, 60, 18, 'Front', 'A', 2],
-    ['Grande Maison Champagne Rosé', 'Warehouse B', 294, 48, 720, 96, null, null, null],
-    ['Grande Maison Champagne Rosé', 'Uptown Wine & Spirits', 23, 12, 60, 18, 'Back', 'B', 3],
-    ['Veneto Prosecco DOC', 'Head Office', 199, 48, 720, 96, null, null, null],
-    ['Veneto Prosecco DOC', 'Harbourside Bottle Shop', 19, 12, 60, 18, 'Front', 'C', 4],
-    ['Prosecco Extra Dry', 'Warehouse B', 292, 48, 720, 96, null, null, null],
-    ['Prosecco Extra Dry', 'Market Square Liquor', 12, 12, 60, 18, 'Back', 'D', 5],
-    ['Penedès Cava Brut', 'Head Office', 167, 48, 720, 96, null, null, null],
-    ['Penedès Cava Brut', 'Riverside Cellars', 30, 12, 60, 18, 'Front', 'A', 1],
-    ['Cava Rosé', 'Warehouse B', 169, 48, 720, 96, null, null, null],
-    ['Cava Rosé', 'Uptown Wine & Spirits', 28, 12, 60, 18, 'Back', 'B', 2],
-    ['Golden Lager 330ml', 'Head Office', 296, 48, 720, 96, null, null, null],
-    ['Golden Lager 330ml', 'Market Square Liquor', 44, 12, 60, 18, 'Front', 'C', 3],
-    ['Premium Pilsner 330ml', 'Warehouse B', 255, 48, 720, 96, null, null, null],
-    ['Premium Pilsner 330ml', 'Eastside Cellar Door', 8, 12, 60, 18, 'Back', 'D', 4],
-    ['Amber Ale 330ml', 'Head Office', 355, 48, 720, 96, null, null, null],
-    ['Amber Ale 330ml', 'Riverside Cellars', 40, 12, 60, 18, 'Front', 'A', 5],
-    ['Pale Ale 330ml', 'Warehouse B', 183, 48, 720, 96, null, null, null],
-    ['Pale Ale 330ml', 'Uptown Wine & Spirits', 30, 12, 60, 18, 'Back', 'B', 1],
-    ['Classic Stout 330ml', 'Head Office', 160, 48, 720, 96, null, null, null],
-    ['Classic Stout 330ml', 'Eastside Cellar Door', 41, 12, 60, 18, 'Front', 'C', 2],
-    ['Imperial Stout 330ml', 'Warehouse B', 270, 48, 720, 96, null, null, null],
-    ['Imperial Stout 330ml', 'Harbourside Bottle Shop', 46, 12, 60, 18, 'Back', 'D', 3],
-    ['Highland Single Malt 700ml', 'Head Office', 436, 48, 720, 96, null, null, null],
-    ['Highland Single Malt 700ml', 'Riverside Cellars', 29, 12, 60, 18, 'Front', 'A', 4],
-    ['Blended Scotch 700ml', 'Warehouse B', 415, 48, 720, 96, null, null, null],
-    ['Blended Scotch 700ml', 'Uptown Wine & Spirits', 18, 12, 60, 18, 'Back', 'B', 5],
-    ['Premium Vodka 700ml', 'Head Office', 480, 48, 720, 96, null, null, null],
-    ['Premium Vodka 700ml', 'Harbourside Bottle Shop', 10, 12, 60, 18, 'Front', 'C', 1],
-    ['Craft Vodka 700ml', 'Warehouse B', 143, 48, 720, 96, null, null, null],
-    ['Craft Vodka 700ml', 'Market Square Liquor', 48, 12, 60, 18, 'Back', 'D', 2],
-    ['London Dry Gin 700ml', 'Head Office', 236, 48, 720, 96, null, null, null],
-    ['London Dry Gin 700ml', 'Riverside Cellars', 24, 12, 60, 18, 'Front', 'A', 3],
-    ['Botanical Gin 700ml', 'Warehouse B', 160, 48, 720, 96, null, null, null],
-    ['Botanical Gin 700ml', 'Uptown Wine & Spirits', 20, 12, 60, 18, 'Back', 'B', 4],
-    ['Spiced Rum 700ml', 'Head Office', 171, 48, 720, 96, null, null, null],
-    ['Spiced Rum 700ml', 'Market Square Liquor', 30, 12, 60, 18, 'Front', 'C', 5],
-    ['Dark Rum 700ml', 'Warehouse B', 262, 48, 720, 96, null, null, null],
-    ['Dark Rum 700ml', 'Eastside Cellar Door', 35, 12, 60, 18, 'Back', 'D', 1],
-  ];
-  for (const [itemName, locationName, qty, minLevel, maxLevel, reorderLevel, shelfSide, rack, level] of stockRows) {
+  for (const { itemName, locationName, qty, minLevel, maxLevel, reorderLevel, shelfSide, rack, level } of loadDemoStockLevels()) {
     receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), `WINE-SEED-${itemName}-${locationName}`, asItemName(itemName), asLocationName(locationName), qty, SEED_USER_ID, '2026-01-01');
     setItemLocationLevels(itemName, locationName, { minLevel, maxLevel, reorderLevel, shelfSide, rack, level });
   }
