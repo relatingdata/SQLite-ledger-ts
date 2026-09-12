@@ -435,7 +435,8 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/user-manual-plan.md \
 	docs/vocabulary-vs-sample-data.md \
 	docs/wine-bar-assemblies-plan.md \
-	docs/construction-project-management-plan.md
+	docs/construction-project-management-plan.md \
+	docs/file-inventory-appendix.md
 
 # docs/screens-staging-triggers-functions.md references 17 specific
 # screenshots directly - a real, explicit Make dependency, so this

@@ -54,6 +54,7 @@ PARTS = [
         "business-evolution-plan.md",
         "cash-flow-and-growth-planning.md",
         "construction-project-management-plan.md",
+        "file-inventory-appendix.md",
         "user-manual-plan.md",
     ]),
     ("Part V --- Testing and Simulation", [
