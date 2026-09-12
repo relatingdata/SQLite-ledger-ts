@@ -89,10 +89,10 @@ test:
 # excluding real accounts fails loudly here with a non-zero exit code.
 test-e2e: reset-db
 	@echo "Running the real Wine Retail Company simulation (deterministic — same numbers every time)..."
-	cd backend && node --import tsx scripts/simulate-wine-retail-month.ts
+	cd backend && $(RUNTIME) scripts/simulate-wine-retail-month.ts
 	@echo ""
 	@echo "Verifying against exact, documented expected results..."
-	cd backend && node --import tsx scripts/verify-simulation.ts
+	cd backend && $(RUNTIME) scripts/verify-simulation.ts
 
 # Per direct instruction: shares the exact same real, already-populated
 # database test-e2e itself creates - simulate-wine-retail-month.ts runs
@@ -100,7 +100,7 @@ test-e2e: reset-db
 # exercises the UI against that same, real, already-built business,
 # rather than rebuilding it from scratch via slow UI clicks.
 test-e2e-playwright: reset-db
-	cd backend && node --import tsx scripts/simulate-wine-retail-month.ts
+	cd backend && $(RUNTIME) scripts/simulate-wine-retail-month.ts
 	cd e2e && $(RUNTIME) x playwright test full-e2e-with-languages --reporter=list
 	@echo ""
 
@@ -136,20 +136,20 @@ playwright-all: reset-db
 # fuller dataset to explore, not as part of routine verification.
 demo-full-year: reset-db
 	@echo "Running the real Wine Retail Company simulation..."
-	cd backend && node --import tsx scripts/simulate-wine-retail-month.ts
+	cd backend && $(RUNTIME) scripts/simulate-wine-retail-month.ts
 	@echo ""
 	@echo "Adding a real Budget and 11 more real Actual months..."
-	cd backend && node --import tsx scripts/add-wine-retail-budget-and-year.ts
+	cd backend && $(RUNTIME) scripts/add-wine-retail-budget-and-year.ts
 	@echo ""
 	@echo "Setting real, varied payment terms and credit limits..."
-	cd backend && node --import tsx scripts/set-wine-retail-credit-terms.ts
+	cd backend && $(RUNTIME) scripts/set-wine-retail-credit-terms.ts
 	@echo ""
 
 	@echo "Checking database consistency (balanced entries, no orphans, referential integrity)..."
-	cd backend && node --import tsx scripts/verify-db-consistency.ts
+	cd backend && $(RUNTIME) scripts/verify-db-consistency.ts
 
 check-db-consistency:
-	cd backend && node --import tsx scripts/verify-db-consistency.ts
+	cd backend && $(RUNTIME) scripts/verify-db-consistency.ts
 
 reset-db:
 	@if [ -f backend/data/entities.sqlite ]; then \
@@ -474,5 +474,5 @@ programmer-manual: docs/build-programmer-manual.py $(PROGRAMMER_MANUAL_CHAPTERS)
 # currently loaded, so a genuinely minimal, freshly-reset database
 # produces a genuinely minimal tree.
 entity-tree-svg:
-	cd backend && node --import tsx scripts/generate-entity-tree-svg.ts ../entity_tree.svg
+	cd backend && $(RUNTIME) scripts/generate-entity-tree-svg.ts ../entity_tree.svg
 	@echo "Built entity_tree.svg"

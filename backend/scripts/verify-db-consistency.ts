@@ -145,17 +145,30 @@ const badAccountRefs = db
   .get() as { c: number };
 check('every journal_line references a real, current account entity', badAccountRefs.c === 0, badAccountRefs.c ? `${badAccountRefs.c} dangling references` : undefined);
 
-console.log('\n=== 7. Every real location referenced by item_location still exists as a real entity ===');
+console.log('\n=== 7. Every real item/location Levels link references a real, current location entity ===');
 const badLocationRefs = db
   .prepare(
-    `SELECT COUNT(*) AS c FROM item_location pl
-     WHERE NOT EXISTS (SELECT 1 FROM current_entities e WHERE e.id = pl.location_id)`
+    `SELECT COUNT(*) AS c FROM current_entities child
+     WHERE child.name LIKE '% — % — Levels'
+     AND child.relation_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM current_entities e WHERE e.id = child.relation_id)`
   )
   .get() as { c: number };
-check('every item_location references a real, current location entity', badLocationRefs.c === 0, badLocationRefs.c ? `${badLocationRefs.c} dangling references` : undefined);
+check('every item/location Levels link references a real, current location entity', badLocationRefs.c === 0, badLocationRefs.c ? `${badLocationRefs.c} dangling references` : undefined);
 
 console.log('\n=== 8. No negative on-hand stock quantities (a real, physical impossibility) ===');
-const negativeStock = db.prepare(`SELECT COUNT(*) AS c FROM item_location WHERE quantity_on_hand < 0`).get() as { c: number };
+const negativeStock = db
+  .prepare(
+    `SELECT COUNT(*) AS c FROM (
+       SELECT p.name, l.name, SUM(jl.amount_minor) AS qty
+       FROM journal_line jl
+       JOIN current_entities p ON p.id = jl.account_id
+       JOIN current_entities l ON l.id = jl.location_id
+       GROUP BY p.name, l.name
+       HAVING qty < 0
+     )`
+  )
+  .get() as { c: number };
 check('no negative on-hand quantities anywhere', negativeStock.c === 0, negativeStock.c ? `${negativeStock.c} real rows with negative quantity` : undefined);
 
 console.log('\n' + '='.repeat(70));
