@@ -514,7 +514,8 @@ checkpoint:
 	git add -A
 	git commit -F COMMIT_MSG.txt
 	rm -f COMMIT_MSG.txt
-	git bundle create /mnt/user-data/outputs/sql-ledger-ts_$(CHECKPOINT).bundle --all --quiet < /dev/null
+	git bundle create /tmp/sql-ledger-ts_$(CHECKPOINT).bundle --all --quiet
+	cp /tmp/sql-ledger-ts_$(CHECKPOINT).bundle /mnt/user-data/outputs/sql-ledger-ts_$(CHECKPOINT).bundle
 	rm -rf /tmp/checkpoint-verify
 	git clone -q /mnt/user-data/outputs/sql-ledger-ts_$(CHECKPOINT).bundle /tmp/checkpoint-verify
 	cd /tmp/checkpoint-verify && git log --oneline -1
