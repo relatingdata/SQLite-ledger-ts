@@ -125,6 +125,62 @@ const allTranslations: [string, string, string][] = [
 }
 migrateForCompleteTranslations();
 
+/** Hebrew and Arabic — the same real Login/Choose Business words every
+ * other language already has, per direct correction. These exact
+ * translations were already, directly proven correct via a real
+ * Playwright screenshot walkthrough earlier — this just makes them
+ * genuinely permanent (runs every startup, idempotent) instead of a
+ * separate, removable script. */
+function seedHebrewArabicTranslations(): void {
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Hebrew'`).get()) {
+    createEntity({ name: 'Hebrew', parent: 'Languages' }, SEED_USER_ID);
+  }
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Arabic'`).get()) {
+    createEntity({ name: 'Arabic', parent: 'Languages' }, SEED_USER_ID);
+  }
+  const entries: [string, string, string][] = [
+    ['Business', 'Hebrew', 'עסק'],
+    ['Business', 'Arabic', 'النشاط التجاري'],
+    ['Continue', 'Hebrew', 'המשך'],
+    ['Continue', 'Arabic', 'متابعة'],
+    ['Language', 'Hebrew', 'שפה'],
+    ['Language', 'Arabic', 'اللغة'],
+    ['Ledger', 'Hebrew', 'יומן'],
+    ['Ledger', 'Arabic', 'دفتر الأستاذ'],
+    ['Log in', 'Hebrew', 'התחברות'],
+    ['Log in', 'Arabic', 'تسجيل الدخول'],
+    ['Password', 'Hebrew', 'סיסמה'],
+    ['Password', 'Arabic', 'كلمة المرور'],
+    ['Username', 'Hebrew', 'שם משתמש'],
+    ['Username', 'Arabic', 'اسم المستخدم'],
+    ['Logging in…', 'Hebrew', 'מתחבר…'],
+    ['Logging in…', 'Arabic', 'جارٍ تسجيل الدخول…'],
+    ['Choose a business, ledger, and language', 'Hebrew', 'בחרו עסק, יומן ושפה'],
+    ['Choose a business, ledger, and language', 'Arabic', 'اختر نشاطًا تجاريًا ودفتر أستاذ ولغة'],
+    ['Could Not Log In', 'Hebrew', 'ההתחברות נכשלה'],
+    ['Could Not Log In', 'Arabic', 'تعذر تسجيل الدخول'],
+    ['Welcome to Better Brighter Multi-Ledger — please log in.', 'Hebrew', 'ברוכים הבאים ל-Better Brighter Multi-Ledger — אנא התחברו.'],
+    ['Welcome to Better Brighter Multi-Ledger — please log in.', 'Arabic', 'مرحبًا بكم في Better Brighter Multi-Ledger — يرجى تسجيل الدخول.'],
+    ['Username And Password Required', 'Hebrew', 'נדרשים שם משתמש וסיסמה'],
+    ['Username And Password Required', 'Arabic', 'اسم المستخدم وكلمة المرور مطلوبان'],
+    ['Hebrew', 'Hebrew', 'עברית'],
+    ['Hebrew', 'Arabic', 'العبرية'],
+    ['Arabic', 'Hebrew', 'ערבית'],
+    ['Arabic', 'Arabic', 'العربية'],
+  ];
+  for (const [concept, language, text] of entries) {
+    try {
+      if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(concept)) {
+        createEntity({ name: concept, parent: 'Vocabulary' }, SEED_USER_ID);
+      }
+      setTranslation(concept, language, text, SEED_USER_ID);
+    } catch (e) {
+      console.error(`Could not translate "${concept}" (${language}):`, e instanceof Error ? e.message : e);
+    }
+  }
+}
+seedHebrewArabicTranslations();
+
 function migrateForNewScreenVocabulary() {
   const hasEntity = (name: string) => !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name);
 

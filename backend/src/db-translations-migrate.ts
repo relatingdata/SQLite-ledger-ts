@@ -2099,6 +2099,7 @@ export function migrateAllTranslationsToEntities() {
     ["Cash Sale", "Italian", "Vendita in contanti"],
     ["Cash Purchase", "Italian", "Acquisto in contanti"],
     ["POS Terminal (retail register)", "Italian", "Terminale cassa (cassa del negozio)"],
+
   ];
   let collisions = 0;
   for (const [concept, language, text] of entries) {
