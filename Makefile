@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -150,6 +150,22 @@ demo-full-year: reset-db
 
 check-db-consistency:
 	cd backend && $(RUNTIME) scripts/verify-db-consistency.ts
+
+# A real, permanent, repeatable check - per direct, absolute
+# instruction, replaces any one-off manual grep sweep of the Makefile
+# for stray, unconverted "node" invocations that would break now that
+# db.ts imports bun:sqlite (which plain node cannot resolve at all).
+check-node-refs:
+	@echo "Real 'node' references in this Makefile (review each - a legitimate one, like 'node dist/server.js' in a comment, is fine; a script invocation that should say \$$(RUNTIME) is not):"
+	@grep -n "node" Makefile || echo "(none found)"
+
+# A real, single, repeatable command combining what had been several,
+# separate, manual steps: reset the database, let it reinitialize
+# fresh, then run the full test suite - the real, standard "start from
+# nothing, prove it all still works" sequence.
+verify-fresh: reset-db
+	cd backend && $(RUNTIME) -e "import('./src/db.ts')"
+	$(MAKE) test
 
 reset-db:
 	@if [ -f backend/data/entities.sqlite ]; then \
@@ -476,3 +492,30 @@ programmer-manual: docs/build-programmer-manual.py $(PROGRAMMER_MANUAL_CHAPTERS)
 entity-tree-svg:
 	cd backend && $(RUNTIME) scripts/generate-entity-tree-svg.ts ../entity_tree.svg
 	@echo "Built entity_tree.svg"
+
+# A real, permanent, repeatable checkpoint: commit + a real, verified
+# git bundle + a real zip, all in one command, replacing what had been
+# several, separate, manual steps. The real, detailed commit message
+# goes in COMMIT_MSG.txt (not a single-line Make variable) - write that
+# file first, then run this. CHECKPOINT must be set to a real,
+# sequential number (e.g. `make checkpoint CHECKPOINT=274`).
+checkpoint:
+	@if [ -z "$(CHECKPOINT)" ]; then echo "Usage: make checkpoint CHECKPOINT=<number> (after writing COMMIT_MSG.txt)"; exit 1; fi
+	@if [ ! -f COMMIT_MSG.txt ]; then echo "Write the real, detailed commit message to COMMIT_MSG.txt first."; exit 1; fi
+	rm -f backend/data/entities.sqlite backend/data/entities.sqlite-wal backend/data/entities.sqlite-shm
+	git add -A
+	git commit -F COMMIT_MSG.txt
+	rm -f COMMIT_MSG.txt
+	git bundle create /mnt/user-data/outputs/sql-ledger-ts_$(CHECKPOINT).bundle --all
+	rm -rf /tmp/checkpoint-verify
+	git clone -q /mnt/user-data/outputs/sql-ledger-ts_$(CHECKPOINT).bundle /tmp/checkpoint-verify
+	cd /tmp/checkpoint-verify && git log --oneline -1
+	rm -rf /tmp/checkpoint-verify
+	rm -f /mnt/user-data/outputs/sql-ledger-ts_$(CHECKPOINT).zip
+	cd .. && zip -rq /mnt/user-data/outputs/sql-ledger-ts_$(CHECKPOINT).zip sql-ledger-ts \
+	  -x "*/node_modules/*" "*/.svelte-kit/*" "*/.git/*" "*/__pycache__/*" \
+	     "*/data/*.sqlite-wal" "*/data/*.sqlite-shm" "*/data/archive/*" \
+	     "*/e2e/test-results/*" "*/playwright-report/*" "*/test-results/*" \
+	     "*/docs/manual-images*" "*.pdf"
+	@echo "Checkpoint $(CHECKPOINT): committed, bundled, and zipped."
+

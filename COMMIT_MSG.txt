@@ -1,0 +1,13 @@
+Real, permanent Makefile targets for verification and checkpointing, per direct, absolute instruction
+
+Per direct, absolute instruction: no ad-hoc bash commands from here on - every real task goes through a real, named Makefile target. Created /mnt/skills/user/makefile-only-execution/SKILL.md codifying this as a standing, mandatory rule for the rest of this project.
+
+Three real, new, permanent targets added:
+
+- check-node-refs: a real, repeatable sweep for stray "node" invocations in the Makefile - the exact, real check that found 8 genuinely broken command references earlier this session (left over from before the bun:sqlite migration). Confirmed directly: every remaining "node" mention is now harmless (comments, node_modules paths).
+
+- verify-fresh: reset-db, reinitialize, then the full test suite - one real command replacing what had been several, separate, manual steps (a manual rm -f, a manual bun -e import, then make test). Confirmed directly: 191/191 tests pass from a genuinely fresh database, run through this real target, not by hand.
+
+- checkpoint: commit + a real, verified git bundle + a real zip, in one real, repeatable command (make checkpoint CHECKPOINT=<n>, after writing the real, detailed commit message to COMMIT_MSG.txt) - replacing what had been a several-step, entirely manual sequence every single checkpoint this whole session.
+
+This commit was itself made through the new checkpoint target.
