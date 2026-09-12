@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -499,6 +499,14 @@ entity-tree-svg:
 # goes in COMMIT_MSG.txt (not a single-line Make variable) - write that
 # file first, then run this. CHECKPOINT must be set to a real,
 # sequential number (e.g. `make checkpoint CHECKPOINT=274`).
+# A real, generic, reusable correction: removes a file from git
+# tracking (e.g. one that should have been gitignored from the start)
+# without deleting it from disk. Usage: make untrack FILE=<path>
+untrack:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make untrack FILE=<path>"; exit 1; fi
+	git rm --cached "$(FILE)"
+	git commit -m "Untrack $(FILE) - should have been gitignored from the start"
+
 checkpoint:
 	@if [ -z "$(CHECKPOINT)" ]; then echo "Usage: make checkpoint CHECKPOINT=<number> (after writing COMMIT_MSG.txt)"; exit 1; fi
 	@if [ ! -f COMMIT_MSG.txt ]; then echo "Write the real, detailed commit message to COMMIT_MSG.txt first."; exit 1; fi

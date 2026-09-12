@@ -25,3 +25,9 @@ docs/manual-images-*/
 
 e2e/test-results/
 test-results/
+
+# A real, temporary, per-checkpoint file - written fresh before each
+# `make checkpoint` run, deleted immediately after. Never meant to be
+# tracked.
+COMMIT_MSG.txt
+
