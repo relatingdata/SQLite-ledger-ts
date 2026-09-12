@@ -6290,5 +6290,4 @@ export function reverseJournalEntry(business: BusinessName, ledger: LedgerName, 
 // mechanism — must run after every function above (setTranslation,
 // createEntity, etc.) is defined, and after seedRemainingData() has
 // already created every real concept entity.
-import { migrateAllTranslationsToEntities } from './db-translations-migrate.js';
-migrateAllTranslationsToEntities();
+

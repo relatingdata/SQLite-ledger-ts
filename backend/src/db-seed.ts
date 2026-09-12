@@ -1,5 +1,6 @@
 import { db } from './db.js';
 import { createEntity, updateEntity, deleteEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, setContactType, setItemLocationLevels, receiveStockAtLocation, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, type UserId } from './db.js';
+import { loadAllTranslations } from '../../shared-fixtures/translations.js';
 
 // Every real seed function below acts as this one, real, direct admin
 // user — cast once, here, rather than at each of the many, real,
@@ -44,328 +45,27 @@ const SEED_DEMO_BUSINESSES = process.env.SEED_DEMO_BUSINESSES !== 'false';
 // ---------------------------------------------------------------------------
 
 export function seedRemainingData(): void {
-function migrateForCompleteTranslations() {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'French'`).get()) {
-    createEntity({ name: 'French', parent: 'Languages' }, SEED_USER_ID);
-  }
 
-const allTranslations: [string, string, string][] = [
-    ['Account', 'Konto', 'Compte'],
-    ['Account Number', 'Kontonummer', 'Numéro de compte'],
-    ['Add', 'Hinzufügen', 'Ajouter'],
-    ['Assets', 'Vermögenswerte', 'Actifs'],
-    ['Balance', 'Saldo', 'Solde'],
-    ['Business', 'Unternehmen', 'Entreprise'],
-    ['Cancel', 'Abbrechen', 'Annuler'],
-    ['Category', 'Kategorie', 'Catégorie'],
-    ['Continue', 'Weiter', 'Continuer'],
-    ['Could Not Log In', 'Anmeldung fehlgeschlagen.', 'Connexion impossible.'],
-    ['Credit', 'Haben', 'Crédit'],
-    ['Customers', 'Kunden', 'Clients'],
-    ['Date', 'Datum', 'Date'],
-    ['Debit', 'Soll', 'Débit'],
-    ['Delete', 'Löschen', 'Supprimer'],
-    ['Description', 'Beschreibung', 'Description'],
-    ['Edit', 'Bearbeiten', 'Modifier'],
-    ['Email', 'E-Mail', 'E-mail'],
-    ['Entity Tree', 'Entitätsbaum', 'Arborescence des entités'],
-    ['Expenses', 'Aufwendungen', 'Charges'],
-    ['General Journal', 'Hauptjournal', 'Journal général'],
-    ['Journal Entries', 'Journalbuchungen', 'Écritures de journal'],
-    ['Language', 'Sprache', 'Langue'],
-    ['Ledger', 'Hauptbuch', 'Grand livre'],
-    ['Liabilities', 'Verbindlichkeiten', 'Passifs'],
-    ['Logging In', 'Anmeldung läuft…', 'Connexion en cours…'],
-    ['Memo', 'Notiz', 'Mémo'],
-    ['Name', 'Name', 'Nom'],
-    ['Net Loss', 'Reinverlust', 'Perte nette'],
-    ['New', 'Neu', 'Nouveau'],
-    ['No Entries Yet', 'Noch keine Einträge', 'Aucune écriture pour l’instant'],
-    ['Parent', 'Übergeordnet', 'Parent'],
-    ['Password', 'Passwort', 'Mot de passe'],
-    ['Password Changed', 'Passwort geändert.', 'Mot de passe modifié.'],
-    ['Phone', 'Telefon', 'Téléphone'],
-    ['Record The First One', 'Die erste erfassen', 'Enregistrer la première'],
-    ['Reference', 'Referenz', 'Référence'],
-    ['Reports', 'Berichte', 'Rapports'],
-    ['Save', 'Speichern', 'Enregistrer'],
-    ['Setup', 'Einrichtung', 'Configuration'],
-    ['Configuration', 'Konfiguration', 'Configuration'],
-    ['Relation', 'Beziehung', 'Relation'],
-    ['Structured Editor', 'Strukturierter Editor', 'Éditeur structuré'],
-    ['Switch', 'Wechseln', 'Changer'],
-    ['Total', 'Summe', 'Total'],
-    ['Total Assets', 'Vermögenswerte gesamt', 'Total des actifs'],
-    ['Total Equity', 'Eigenkapital gesamt', 'Total des capitaux propres'],
-    ['Total Expenses', 'Aufwendungen gesamt', 'Total des charges'],
-    ['Total Income', 'Erträge gesamt', 'Total des produits'],
-    ['Total Liabilities', 'Verbindlichkeiten gesamt', 'Total des passifs'],
-    ['Username', 'Benutzername', 'Nom d’utilisateur'],
-    ['Username And Password Required', 'Benutzername und Passwort sind erforderlich.', 'Le nom d’utilisateur et le mot de passe sont requis.'],
-    ['Variance', 'Abweichung', 'Écart'],
-    ['Vendors', 'Lieferanten', 'Fournisseurs'],
-    ['Trial Balance', 'Summen- und Saldenliste', 'Balance de vérification'],
-    ['Balance Sheet', 'Bilanz', 'Bilan'],
-    ['Profit and Loss Statement', 'Gewinn- und Verlustrechnung', 'Compte de résultat'],
-    ['Compare Ledgers', 'Kontenvergleich', 'Comparer les grands livres'],
-    ['Equity', 'Eigenkapital', 'Capitaux propres'],
-    ['Income', 'Ertrag', 'Produits'],
-  ];
-
-  for (const [word, german, french] of allTranslations) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(word)) continue; // word doesn't exist on this database yet, skip rather than fail
-    setTranslation(word, 'German', german);
-    setTranslation(word, 'French', french);
-  }
-
-  const klingon = db.prepare(`SELECT id FROM current_entities WHERE name = 'Klingon'`).get() as { id: number } | undefined;
-  if (klingon) {
-    deleteEntity(klingon.id, SEED_USER_ID);
-  }
-}
-migrateForCompleteTranslations();
-
-/** Hebrew and Arabic — the same real Login/Choose Business words every
- * other language already has, per direct correction. These exact
- * translations were already, directly proven correct via a real
- * Playwright screenshot walkthrough earlier — this just makes them
- * genuinely permanent (runs every startup, idempotent) instead of a
- * separate, removable script. */
-function seedHebrewArabicTranslations(): void {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Hebrew'`).get()) {
-    createEntity({ name: 'Hebrew', parent: 'Languages' }, SEED_USER_ID);
-  }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Arabic'`).get()) {
-    createEntity({ name: 'Arabic', parent: 'Languages' }, SEED_USER_ID);
-  }
-  const entries: [string, string, string][] = [
-    ['Business', 'Hebrew', 'עסק'],
-    ['Business', 'Arabic', 'النشاط التجاري'],
-    ['Continue', 'Hebrew', 'המשך'],
-    ['Continue', 'Arabic', 'متابعة'],
-    ['Language', 'Hebrew', 'שפה'],
-    ['Language', 'Arabic', 'اللغة'],
-    ['Ledger', 'Hebrew', 'יומן'],
-    ['Ledger', 'Arabic', 'دفتر الأستاذ'],
-    ['Log in', 'Hebrew', 'התחברות'],
-    ['Log in', 'Arabic', 'تسجيل الدخول'],
-    ['Password', 'Hebrew', 'סיסמה'],
-    ['Password', 'Arabic', 'كلمة المرور'],
-    ['Username', 'Hebrew', 'שם משתמש'],
-    ['Username', 'Arabic', 'اسم المستخدم'],
-    ['Logging in…', 'Hebrew', 'מתחבר…'],
-    ['Logging in…', 'Arabic', 'جارٍ تسجيل الدخول…'],
-    ['Choose a business, ledger, and language', 'Hebrew', 'בחרו עסק, יומן ושפה'],
-    ['Choose a business, ledger, and language', 'Arabic', 'اختر نشاطًا تجاريًا ودفتر أستاذ ولغة'],
-    ['Could Not Log In', 'Hebrew', 'ההתחברות נכשלה'],
-    ['Could Not Log In', 'Arabic', 'تعذر تسجيل الدخول'],
-    ['Welcome to Better Brighter Multi-Ledger — please log in.', 'Hebrew', 'ברוכים הבאים ל-Better Brighter Multi-Ledger — אנא התחברו.'],
-    ['Welcome to Better Brighter Multi-Ledger — please log in.', 'Arabic', 'مرحبًا بكم في Better Brighter Multi-Ledger — يرجى تسجيل الدخول.'],
-    ['Username And Password Required', 'Hebrew', 'נדרשים שם משתמש וסיסמה'],
-    ['Username And Password Required', 'Arabic', 'اسم المستخدم وكلمة المرور مطلوبان'],
-    ['Hebrew', 'Hebrew', 'עברית'],
-    ['Hebrew', 'Arabic', 'العبرية'],
-    ['Arabic', 'Hebrew', 'ערבית'],
-    ['Arabic', 'Arabic', 'العربية'],
-  ];
-  for (const [concept, language, text] of entries) {
+// The single, real, comprehensive translation loader, per direct,
+// absolute instruction: replaces migrateForCompleteTranslations,
+// seedHebrewArabicTranslations, and migrateForDanish (formerly
+// three, separate, hardcoded functions here) plus
+// migrateAllTranslationsToEntities (formerly in db.ts) - every real
+// translation this application uses now comes from one, real, plain
+// ASCII CSV file (shared-fixtures/translations.csv).
+function loadTranslationsFromSharedCsv(): void {
+  for (const { concept, language, text } of loadAllTranslations()) {
     try {
       if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(concept)) {
         createEntity({ name: concept, parent: 'Vocabulary' }, SEED_USER_ID);
       }
       setTranslation(concept, language, text, SEED_USER_ID);
     } catch (e) {
-      console.error(`Could not translate "${concept}" (${language}):`, e instanceof Error ? e.message : e);
+      console.error(`FLAGGED COLLISION, for further study: could not translate "${concept}" (${language}):`, e instanceof Error ? e.message : e);
     }
   }
 }
-seedHebrewArabicTranslations();
-
-function migrateForNewScreenVocabulary() {
-  const hasEntity = (name: string) => !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name);
-
-const newScreenVocab: [string, string, string][] = [
-    ['Stock Transfer', 'Lagerumbuchung', 'Transfert de stock'],
-    ['Below Reorder', 'Unter Meldebestand', 'Sous le seuil de commande'],
-    ['Stock Take', 'Inventur', 'Inventaire'],
-    ['City', 'Stadt', 'Ville'],
-    ['Type', 'Typ', 'Type'],
-    ['Warehouse', 'Lager', 'Entrepôt'],
-    ['Retail', 'Einzelhandel', 'Détail'],
-    ['Billing Address', 'Rechnungsadresse', 'Adresse de facturation'],
-    ['From', 'Von', 'De'],
-    ['To', 'Nach', 'À'],
-    ['Complete', 'Abschließen', 'Terminer'],
-    ['Draft', 'Entwurf', 'Brouillon'],
-    ['Status', 'Status', 'Statut'],
-    ['Counted', 'Gezählt', 'Compté'],
-    ['Expected', 'Erwartet', 'Attendu'],
-    ['Shelf Side', 'Regalseite', 'Côté rayon'],
-    ['Rack', 'Regal', 'Rayonnage'],
-    ['Level', 'Ebene', 'Niveau'],
-    ['Outstanding', 'Offen', 'En attente'],
-    ['Aged Receivables', 'Offene Forderungen', 'Créances échues'],
-    ['Aged Payables', 'Offene Verbindlichkeiten', 'Dettes échues'],
-    ['Reminders', 'Mahnungen', 'Relances'],
-    ['Sales Invoices', 'Verkaufsrechnungen', 'Factures de vente'],
-    ['Purchase Invoices', 'Einkaufsrechnungen', 'Factures d\'achat'],
-    ['Send', 'Senden', 'Envoyer'],
-    ['Reset', 'Zurücksetzen', 'Réinitialiser'],
-    ['Write-offs & Expiration', 'Abschreibungen & Verfall', 'Radiations et péremption'],
-    ['Reason', 'Grund', 'Raison'],
-    ['Expiring Stock', 'Ablaufender Bestand', 'Stock arrivant à expiration'],
-    ['Sold', 'Verkauft', 'Vendu'],
-    ['Bought', 'Gekauft', 'Acheté'],
-    ['History', 'Verlauf', 'Historique'],
-  ];
-  for (const [word] of newScreenVocab) {
-    if (!hasEntity(word)) createEntity({ name: word, parent: 'Vocabulary' }, SEED_USER_ID);
-  }
-  for (const [word, german, french] of newScreenVocab) {
-    setTranslation(word, 'German', german);
-    setTranslation(word, 'French', french);
-  }
-}
-migrateForNewScreenVocabulary();
-
-function migrateForBatch2Vocabulary() {
-  const hasEntity = (name: string) => !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name);
-
-const batch2Vocab: [string, string, string][] = [
-    ['Current Year Earnings', 'Gewinn des laufenden Jahres', 'Résultat de l\'exercice en cours'],
-    ['Sale', 'Verkauf', 'Vente'],
-    ['Receipt', 'Beleg', 'Reçu'],
-    ['Purchase', 'Einkauf', 'Achat'],
-    ['Payment', 'Zahlung', 'Paiement'],
-    ['Accounts Receivable', 'Forderungen aus Lieferungen und Leistungen', 'Comptes clients'],
-    ['Accounts Payable', 'Verbindlichkeiten aus Lieferungen und Leistungen', 'Comptes fournisseurs'],
-  ];
-  const newlyCreated = ['Current Year Earnings', 'Sale', 'Receipt', 'Purchase', 'Payment'];
-  for (const word of newlyCreated) {
-    if (!hasEntity(word)) createEntity({ name: word, parent: 'Vocabulary' }, SEED_USER_ID);
-  }
-  for (const [word, german, french] of batch2Vocab) {
-    setTranslation(word, 'German', german);
-    setTranslation(word, 'French', french);
-  }
-}
-migrateForBatch2Vocabulary();
-
-function migrateForDanish() {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Danish'`).get()) {
-    createEntity({ name: 'Danish', parent: 'Languages' }, SEED_USER_ID);
-  }
-
-const danishVocab: [string, string][] = [
-    ['Account', 'Konto'],
-    ['Account Number', 'Kontonummer'],
-    ['Accounts Payable', 'Kreditor'],
-    ['Accounts Receivable', 'Debitor'],
-    ['Add', 'Tilføj'],
-    ['Aged Payables', 'Forfaldne kreditorer'],
-    ['Aged Receivables', 'Forfaldne debitorer'],
-    ['Assets', 'Aktiver'],
-    ['Balance', 'Balance'],
-    ['Balance Sheet', 'Status'],
-    ['Below Reorder', 'Under genbestillingsniveau'],
-    ['Billing Address', 'Faktureringsadresse'],
-    ['Bought', 'Købt'],
-    ['Business', 'Forretning'],
-    ['Cancel', 'Annulér'],
-    ['Category', 'Kategori'],
-    ['City', 'By'],
-    ['Compare Ledgers', 'Sammenlign bøger'],
-    ['Complete', 'Afslut'],
-    ['Continue', 'Fortsæt'],
-    ['Could Not Log In', 'Kunne ikke logge ind'],
-    ['Counted', 'Talt'],
-    ['Credit', 'Kredit'],
-    ['Current Year Earnings', 'Årets resultat'],
-    ['Customers', 'Kunder'],
-    ['Date', 'Dato'],
-    ['Debit', 'Debet'],
-    ['Delete', 'Fjern'],
-    ['Description', 'Beskrivelse'],
-    ['Draft', 'Kladde'],
-    ['Edit', 'Redigér'],
-    ['Email', 'E-mail'],
-    ['Entity Tree', 'Enhedstræ'],
-    ['Equity', 'Egenkapital'],
-    ['Expected', 'Forventet'],
-    ['Expenses', 'Udgifter'],
-    ['Expiring Stock', 'Udløbende lager'],
-    ['From', 'Fra'],
-    ['General Journal', 'Finanskladde'],
-    ['History', 'Historik'],
-    ['Income', 'Indtægt'],
-    ['Journal Entries', 'Journalposteringer'],
-    ['Language', 'Sprog'],
-    ['Ledger', 'Hovedbog'],
-    ['Level', 'Niveau'],
-    ['Liabilities', 'Passiver'],
-    ['Log In', 'Log på'],
-    ['Log Out', 'Log af'],
-    ['Logging In', 'Logger ind'],
-    ['Memo', 'Note'],
-    ['Name', 'Navn'],
-    ['Net Income', 'Nettooverskud'],
-    ['Net Loss', 'Nettotab'],
-    ['New', 'Ny'],
-    ['No Entries Yet', 'Endnu ingen posteringer'],
-    ['Outstanding', 'Udestående'],
-    ['Parent', 'Overordnet'],
-    ['Password', 'Adgangskode'],
-    ['Password Changed', 'Adgangskode ændret'],
-    ['Payment', 'Betaling'],
-    ['Phone', 'Tel.'],
-    ['Profit and Loss Statement', 'Resultatopgørelse'],
-    ['Purchase', 'Indkøb'],
-    ['Purchase Invoices', 'Købsfakturaer'],
-    ['Rack', 'Reol'],
-    ['Reason', 'Årsag'],
-    ['Receipt', 'Kvittering'],
-    ['Record The First One', 'Registrer den første'],
-    ['Reference', 'Reference'],
-    ['Reminders', 'Rykkere'],
-    ['Reports', 'Rapporter'],
-    ['Reset', 'Nulstil'],
-    ['Retail', 'Detailhandel'],
-    ['Sale', 'Salg'],
-    ['Sales Invoices', 'Salgsfakturaer'],
-    ['Save', 'Gem'],
-    ['Send', 'Send'],
-    ['Setup', 'Opsætning'],
-    ['Shelf Side', 'Hyldeside'],
-    ['Relation', 'Relation'],
-    ['Sold', 'Solgt'],
-    ['Status', 'Status'],
-    ['Stock Take', 'Lagertælling'],
-    ['Stock Transfer', 'Lageroverførsel'],
-    ['Structured Editor', 'Struktureret editor'],
-    ['Switch', 'Skift'],
-    ['To', 'til'],
-    ['Total', 'I alt'],
-    ['Total Assets', 'Aktiver i alt'],
-    ['Total Equity', 'Egenkapital i alt'],
-    ['Total Expenses', 'Udgifter i alt'],
-    ['Total Income', 'Indtægter i alt'],
-    ['Total Liabilities', 'Passiver i alt'],
-    ['Trial Balance', 'Foreløbig status'],
-    ['Type', 'Type'],
-    ['Username', 'Brugernavn'],
-    ['Username And Password Required', 'Brugernavn og adgangskode er påkrævet'],
-    ['Variance', 'Afvigelse'],
-    ['Vendors', 'Leverandører'],
-    ['Warehouse', 'Lager'],
-    ['Write-offs & Expiration', 'Nedskrivninger og udløb'],
-  ];
-
-  for (const [word, danish] of danishVocab) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(word)) continue;
-    setTranslation(word, 'Danish', danish);
-  }
-}
-migrateForDanish();
+loadTranslationsFromSharedCsv();
 
 function migrateForWineRetailDemoData() {
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get('Head Office')) return; // already seeded
