@@ -359,11 +359,20 @@
   {#if auth.current && session.current}
     <div class="top-row">
       <div class="brand-box">
-        <div class="brand">{translations.current['Better Brighter Multi-Ledger'] ?? 'Better Brighter Multi-Ledger'}</div>
+        <div class="brand">
+          {#each (translations.current['Better Brighter Multi-Ledger'] ?? 'Better Brighter Multi-Ledger').split(' ') as word}
+            <div class="brand-line">{word}</div>
+          {/each}
+        </div>
       </div>
       <fieldset class="top-bar">
         <legend>
-          <span class="legend-left">{#if !isAutomatedTest}<span class="live-clock">{liveClockText}</span> - {/if}<strong>{translations.current['User:'] ?? 'User:'}</strong> {auth.current.user.username} ({session.current.languageName}) - <strong>{translations.current['Company:'] ?? 'Company:'}</strong> {session.current.businessName} - <strong>{translations.current['Ledger:'] ?? 'Ledger:'}</strong> {session.current.ledgerName.startsWith(session.current.businessName) ? session.current.ledgerName.slice(session.current.businessName.length).trim() : session.current.ledgerName}</span>
+          <span class="legend-left">
+            {#if !isAutomatedTest}<span class="legend-segment"><span class="live-clock">{liveClockText}</span></span>{/if}
+            <span class="legend-segment"><strong>{translations.current['User:'] ?? 'User:'}</strong> {auth.current.user.username} ({session.current.languageName})</span>
+            <span class="legend-segment"><strong>{translations.current['Business:'] ?? 'Business:'}</strong> {session.current.businessName}</span>
+            <span class="legend-segment"><strong>{translations.current['Ledger:'] ?? 'Ledger:'}</strong> {(() => { const l = session.current.ledgerName.startsWith(session.current.businessName) ? session.current.ledgerName.slice(session.current.businessName.length).trim() : session.current.ledgerName; return translations.current[l] ?? l; })()}</span>
+          </span>
           <span class="legend-right"><a href="/account/password" class="link">{translations.current['Change password'] ?? 'Change password'}</a> - <button type="button" class="link" onclick={logout}>{translations.current['Log out'] ?? 'Log out'}</button></span>
         </legend>
         <div class="top-bar-inner">
@@ -486,10 +495,29 @@
     margin: 0.6rem 0.6rem 0;
   }
 
+  .legend-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .legend-segment {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .legend-segment:not(:first-child)::before {
+    content: "-";
+    margin: 0 0.4rem;
+    color: var(--ink-faint, #888);
+  }
+
   .brand-box {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    align-items: center;
     gap: 0.2rem;
     background: var(--paper);
     border: 1px solid var(--rule);
@@ -498,6 +526,14 @@
     width: 220px;
     box-sizing: border-box;
     flex-shrink: 0;
+  }
+
+  .brand {
+    text-align: center;
+  }
+
+  .brand-line {
+    white-space: nowrap;
   }
 
   .top-bar {

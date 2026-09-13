@@ -1631,18 +1631,27 @@ FROM current_entities e
 CROSS JOIN current_entities l
 LEFT JOIN current_entities tr ON tr.parent_id = l.id AND tr.relation_id = e.id
 WHERE l.parent_id = (SELECT id FROM current_entities WHERE name = 'Languages')
-  -- A real, confirmed bug fix: without this, any entity that is
-  -- itself a translation-word under some other language (e.g. the
-  -- Italian word for something else happening to literally be spelled
-  -- "Password", a real loanword) gets treated as its own, spurious
-  -- pseudo-concept here too - and since it has no Hebrew translation
-  -- of its own, its COALESCE fallback (its own, untranslated name) can
-  -- silently overwrite the real concept's correct translation,
-  -- depending on row iteration order. Confirmed directly: this exact
-  -- bug affected "Password" in Hebrew/Arabic, both real entities
-  -- (concept id 104, Italian-translation id 4323) sharing the literal
-  -- name "Password".
-  AND e.parent_id NOT IN (SELECT id FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Languages'));
+  -- A real, confirmed, THIRD bug fix, correcting an over-correction
+  -- the second fix caused. Restricting e to Vocabulary's own children
+  -- only (the second fix) correctly stopped "Actual" (6 real,
+  -- ambiguous ledger entities) from colliding with its own, real
+  -- Vocabulary concept - but it also silently excluded every genuine,
+  -- reused, non-Vocabulary concept (e.g. "Trial Balance" - a real,
+  -- existing report entity, reused directly as its own translation
+  -- target rather than duplicated under Vocabulary) from this view
+  -- entirely, since such entities are never Vocabulary's own
+  -- children. Confirmed directly: "Trial Balance" had real, correct
+  -- Hebrew/Arabic translation links attached, but genuinely never
+  -- appeared through this view at all. Fixed correctly this time: e
+  -- qualifies if it is a genuine Vocabulary word, OR if some real
+  -- translation link already, genuinely points to it (avoiding the
+  -- combinatorial explosion of treating every real entity in the
+  -- whole tree as a translatable concept, which is what the original,
+  -- pre-first-fix version of this view effectively did).
+  AND (
+    e.parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary')
+    OR EXISTS (SELECT 1 FROM current_entities t WHERE t.relation_id = e.id)
+  );
 
 -- business_reports: the parallel, DERIVED grouping over the exact same
 -- Chart of Accounts tree — see the note at the top of this file for why

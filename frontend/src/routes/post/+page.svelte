@@ -263,17 +263,17 @@
       </fieldset>
       <fieldset class="grow">
         <legend>{translations.current['Description'] ?? 'Description'}</legend>
-        <input bind:value={description} placeholder="optional" />
+        <input bind:value={description} placeholder={translations.current['optional'] ?? 'optional'} />
       </fieldset>
       {#if periodStatus}
         <div class="period-status" class:closed={periodStatus.locked_through_date}>
           {#if periodStatus.locked_through_date}
-            Closed through {periodStatus.locked_through_date}
+            {translations.current['Closed through'] ?? 'Closed through'} {periodStatus.locked_through_date}
           {:else}
-            Period open
+            {translations.current['Period open'] ?? 'Period open'}
           {/if}
           {#if hasRole(auth.current, 'Administrator')}
-            <a href="/setup/periods">manage</a>
+            <a href="/setup/periods">{translations.current['manage'] ?? 'manage'}</a>
           {/if}
         </div>
       {/if}
@@ -318,7 +318,7 @@
                 </select>
               </td>
               <td>
-                <input bind:value={row.memo} placeholder="optional" />
+                <input bind:value={row.memo} placeholder={translations.current['optional'] ?? 'optional'} />
               </td>
               <td>
                 <input
@@ -356,24 +356,23 @@
       </table>
     </div>
 
-    <p class="hint">Press Insert to add a line; Delete on an empty field or the account picker to remove one.</p>
+    <p class="hint">{translations.current['Press Insert to add a line; Delete on an empty field or the account picker to remove one.'] ?? 'Press Insert to add a line; Delete on an empty field or the account picker to remove one.'}</p>
 
     <div class="balance-row" class:balanced={entryIsBalanced} class:neutral={activeRows(rows).length === 0}>
       {#if activeRows(rows).length === 0}
-        Add at least two lines to begin.
+        {translations.current['Add at least two lines to begin.'] ?? 'Add at least two lines to begin.'}
       {:else if entryIsBalanced}
-        ✓ Balanced
+        ✓ {translations.current['Balanced'] ?? 'Balanced'}
       {:else if difference === 0}
-        Pick an account for every line to finish.
+        {translations.current['Pick an account for every line to finish.'] ?? 'Pick an account for every line to finish.'}
       {:else}
-        Out of balance by {fmt(Math.abs(difference))}
+        {translations.current['Out of balance by'] ?? 'Out of balance by'} {fmt(Math.abs(difference))}
       {/if}
     </div>
 
     {#if isClosedForTransdate}
       <p class="error">
-        {transdate} falls within a closed period (through {periodStatus?.locked_through_date}) — this will be rejected
-        unless the period is reopened first.
+        {transdate} {translations.current['falls within a closed period (through'] ?? 'falls within a closed period (through'} {periodStatus?.locked_through_date}) — {translations.current['this will be rejected unless the period is reopened first.'] ?? 'this will be rejected unless the period is reopened first.'}
       </p>
     {/if}
 

@@ -55,10 +55,27 @@ export function seedRemainingData(): void {
 // translation this application uses now comes from one, real, plain
 // ASCII CSV file (shared-fixtures/translations.csv).
 function loadTranslationsFromSharedCsv(): void {
+  const vocabularyId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Vocabulary'`).get() as { id: number }).id;
   for (const { concept, language, text } of loadAllTranslations()) {
     try {
-      if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(concept)) {
-        createEntity({ name: concept, parent: 'Vocabulary' }, SEED_USER_ID);
+      const underVocabulary = db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(concept, vocabularyId);
+      if (!underVocabulary) {
+        // A real, confirmed, two-part bug fix. Part 1 (the original
+        // fix): a concept whose name happens to collide with several,
+        // real, genuinely ambiguous entities elsewhere (e.g. "Actual"
+        // - every real business has its own, separate "Actual" ledger
+        // entity, 6 real ones at once) must get its own, real,
+        // dedicated Vocabulary entity - reusing any one of the 6
+        // would be arbitrary and wrong. Part 2 (fixing a real
+        // regression Part 1 caused): a concept with exactly ONE real,
+        // unambiguous, existing entity elsewhere (e.g. "Employees",
+        // the real, structural branch) should reuse that one directly
+        // - always creating a new one regardless duplicated real,
+        // structural entities that must stay singular.
+        const matchCount = (db.prepare(`SELECT COUNT(*) AS c FROM current_entities WHERE name = ?`).get(concept) as { c: number }).c;
+        if (matchCount !== 1) {
+          createEntity({ name: concept, parent: 'Vocabulary' }, SEED_USER_ID);
+        }
       }
       setTranslation(concept, language, text, SEED_USER_ID);
     } catch (e) {

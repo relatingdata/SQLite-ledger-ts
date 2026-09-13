@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -185,8 +185,20 @@ add-menu-translations:
 add-journal-translations:
 	$(RUNTIME) shared-fixtures/add-journal-translations.ts
 
+add-journal-remaining-translations:
+	$(RUNTIME) shared-fixtures/add-journal-remaining-translations.ts
+
+add-header-translations:
+	$(RUNTIME) shared-fixtures/add-header-translations.ts
+
+add-brand-translation:
+	$(RUNTIME) shared-fixtures/add-brand-translation.ts
+
 check-frontend:
 	cd frontend && $(RUNTIME) run check
+
+check-backend-types:
+	cd backend && $(RUNTIME) x tsc --noEmit
 
 reset-db:
 	@if [ -f backend/data/entities.sqlite ]; then \
@@ -496,6 +508,69 @@ docs/screens-staging-triggers-functions.md: \
 	docs/manual-images/write_offs.png \
 	docs/manual-images/hr_wages.png \
 	docs/manual-images/projects.png
+
+# The same, real, explicit treatment for the 5 other real,
+# screenshot-embedding chapters found to be missing it - confirmed
+# directly, per direct request, none of these had individual Make
+# dependencies on their own specific screenshots before this.
+docs/user-manual-ch1-introduction.md: \
+	docs/manual-images/m_login.png \
+	docs/manual-images/m_choose_business.png \
+	docs/manual-images/m_home.png
+
+docs/user-manual-ch2-configuration.md: \
+	docs/manual-images/m_configuration_landing.png \
+	docs/manual-images/m_new_business.png \
+	docs/manual-images/m_business_setup.png \
+	docs/manual-images/m_multi_location_schedule.png \
+	docs/manual-images/m_locations.png \
+	docs/manual-images/m_parts_cropped.png \
+	docs/manual-images/storage_origin_verified.png \
+	docs/manual-images/m_po_supplier_matching.png \
+	docs/manual-images/m_balance_sheet.png \
+	docs/manual-images/m_contact_persons.png
+
+docs/user-manual-ch3-tutorial.md: \
+	docs/manual-images/t01_login_landing.png \
+	docs/manual-images/t02_new_business_form.png \
+	docs/manual-images/t03_new_business_created.png \
+	docs/manual-images/t04_locations_empty.png \
+	docs/manual-images/t05_locations_new_form.png \
+	docs/manual-images/t06_locations_created.png \
+	docs/manual-images/t07_business_setup_landing.png \
+	docs/manual-images/t08_first_division_created.png \
+	docs/manual-images/t09_first_warehouse_created.png \
+	docs/manual-images/t10_first_employee_created.png \
+	docs/manual-images/t11_items_empty.png \
+	docs/manual-images/t12_new_category_and_product_form.png \
+	docs/manual-images/t13_first_product_created.png \
+	docs/manual-images/t14_general_journal_empty.png \
+	docs/manual-images/t15_general_journal_filled.png \
+	docs/manual-images/t16_general_journal_posted.png \
+	docs/manual-images/t17_trial_balance_after_first_transaction.png
+
+docs/user-manual-appendix-screens.md: \
+	docs/manual-images/pos_terminal.png \
+	docs/manual-images/general_journal.png \
+	docs/manual-images/ar_sale.png \
+	docs/manual-images/ar_receipt.png \
+	docs/manual-images/sales_order.png \
+	docs/manual-images/stock_dispatch.png \
+	docs/manual-images/ap_purchase.png \
+	docs/manual-images/ap_payment.png \
+	docs/manual-images/purchase_order.png \
+	docs/manual-images/stock_receipt.png \
+	docs/manual-images/stock_take.png \
+	docs/manual-images/write_offs.png \
+	docs/manual-images/cash_sale.png \
+	docs/manual-images/cash_purchase.png \
+	docs/manual-images/hr_wages.png \
+	docs/manual-images/stock_transfer.png \
+	docs/manual-images/projects.png
+
+docs/scoped-uniqueness-and-location-accounting.md: \
+	docs/manual-images/pm_new_new_pl_location_axis.png \
+	docs/manual-images/pm_translations_add_word.png
 
 programmer-manual: docs/build-programmer-manual.py $(PROGRAMMER_MANUAL_CHAPTERS)
 	cd docs && python3 build-programmer-manual.py

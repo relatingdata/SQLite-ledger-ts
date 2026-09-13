@@ -4989,7 +4989,16 @@ export function getLocalizedText(language: string, opts?: { businessName?: strin
 }
 
 export function setTranslation(conceptName: string, languageName: string, text: string, userId: UserId = asUserId(1)): void {
-  const conceptId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined)?.id;
+  // A real, confirmed bug fix: multiple, real, unrelated entities can
+  // share a name (e.g. "Actual" - every real business has its own,
+  // separate "Actual" ledger entity) - preferring the real Vocabulary
+  // concept when one exists avoids attaching a translation to the
+  // wrong, unrelated entity, while still falling back to any match
+  // for any other, legitimate, non-Vocabulary use of this function.
+  const conceptId = (
+    db.prepare(`SELECT e.id FROM current_entities e WHERE e.name = ? AND e.parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary')`).get(conceptName) as { id: number } | undefined
+    ?? db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined
+  )?.id;
   if (!conceptId) throw new ValidationError(`No real entity named "${conceptName}".`);
   const languageId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(languageName) as { id: number } | undefined)?.id;
   if (!languageId) throw new ValidationError(`No real language named "${languageName}".`);
@@ -5029,7 +5038,27 @@ export function setTranslation(conceptName: string, languageName: string, text: 
     );
     return;
   }
-  updateEntity(created.id, { relation: conceptName }, userId);
+  // A real, confirmed bug fix: updateEntity(created.id, { relation:
+  // conceptName }, userId) would re-resolve conceptName as a plain
+  // string, all over again, through updateEntity's own, separate,
+  // genuinely shared, general-purpose relation-resolution helper -
+  // which is NOT Vocabulary-scoped, and so silently threw away the
+  // correct, already-resolved conceptId computed above, replacing it
+  // with whichever real, unrelated, ambiguously-named entity that
+  // helper happened to find first (confirmed directly: "Actual" -
+  // one of six, real, separate ledger entities sharing that name).
+  // Setting relation_id directly from the already-correct conceptId,
+  // via the same, real entity_update audit-trail mechanism
+  // updateEntity itself uses, avoids this re-resolution entirely.
+  db.prepare(`INSERT INTO entity_update (entity_id, name, parent, parent_id, relation, relation_id, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
+    created.id,
+    created.name,
+    languageName,
+    languageId,
+    conceptName,
+    conceptId,
+    userId
+  );
 }
 
 /** Every real translation this application has, for one real
@@ -5055,7 +5084,10 @@ export function getTranslation(conceptName: string, languageName: string): strin
       `SELECT e.name
        FROM current_entities e
        JOIN current_entities c ON c.id = e.relation_id
-       WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = ?) AND c.name = ?`
+       WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = ?)
+         AND c.name = ?
+       ORDER BY (c.parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary')) DESC
+       LIMIT 1`
     )
     .get(languageName, conceptName) as { name: string } | undefined;
   return row?.name ?? null;
