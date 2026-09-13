@@ -2432,6 +2432,47 @@ test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free tex
   assert.throws(() => completeStockTake(takeId2, 'My Business', 'Actual', 'Miscellaneous', 'Inventory', {}, 1), ValidationError);
 });
 
+test('createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree', () => {
+  // Per direct, reported bug: test-e2e's month-end stock take threw
+  // "Amber Ale 330ml is not on this stock take sheet" - traced to
+  // createStockTake building its own item-name-to-id map from every
+  // single entity in the whole database, silently resolving to the
+  // wrong one whenever any other real entity anywhere shares an
+  // item's exact name. Reproduced here at the real, correct, lowest
+  // level per the backend-first-testing skill - a direct function
+  // call, no browser, no Playwright - deliberately creating the exact
+  // same class of collision (a real, same-named entity of a
+  // genuinely different kind) the reported bug depended on.
+  createEntity({ name: 'STTest Outlet 2', parent: 'Locations' }, 1);
+  setLocation('STTest Outlet 2', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
+  createItem('STTest Collide', 'Items', 1); // the real item, created first
+
+  receiveStockAtLocation('My Business', 'Actual', 'STTEST-REC-COLLIDE', 'STTest Collide', 'STTest Outlet 2', 40, 1, '2027-01-01');
+
+  // Created AFTER the real item, deliberately, per direct confirmation
+  // this ordering matters: the old, buggy code built its lookup from
+  // a single, unscoped "every entity" query with no ORDER BY, and a
+  // later-inserted row can silently overwrite an earlier one sharing
+  // the same name in the resulting map. The real, reported bug's own
+  // colliding entity was created after the item during a long-running
+  // simulation - reproduced here with the same, real ordering.
+  createEntity({ name: 'STTest Collide', parent: 'Locations' }, 1);
+
+  const takeId = createStockTake('STTest Outlet 2', '2027-02-01', 1);
+  const take = getStockTake(takeId)!;
+  assert.equal(take.lines.length, 1, 'the real item genuinely present at this location must appear on its own real stock take sheet');
+  assert.equal(take.lines[0].item, 'STTest Collide');
+
+  // The real, direct proof: recording a count against this exact item
+  // name must genuinely succeed, not throw "not on this stock take
+  // sheet" - which is exactly what happens if the sheet's own line
+  // was created against the wrong, colliding entity's id instead of
+  // the real item's own, correctly-scoped id.
+  recordStockTakeCount(takeId, 'STTest Collide', 38);
+  const updated = getStockTake(takeId)!;
+  assert.equal(updated.lines[0].counted_quantity, 38, 'the count genuinely attached to the real item on this real sheet');
+});
+
 test('POS terminal: a complete register sale posts the invoice, dispatches stock from the exact location sold at, and allocates payment atomically, with change due calculated correctly', () => {
   createEntity({ name: 'POSTest Outlet', parent: 'Locations' }, 1);
   setLocation('POSTest Outlet', { city: 'POSTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
