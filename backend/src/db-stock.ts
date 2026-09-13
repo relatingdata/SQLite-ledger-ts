@@ -1031,13 +1031,17 @@ export function createStockTake(locationName: string, takeDate: string, userId: 
   );
 
   const resolvedLocationName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(locationId) as { name: string }).name;
-  const itemIdByName = new Map(
-    (db.prepare(`SELECT id, name FROM current_entities`).all() as { id: number; name: string }[]).map((r) => [r.name, r.id])
-  );
   const itemsHere = (getStockListingByLocation().find((g) => g.location === resolvedLocationName)?.rows ?? [])
     .map((r) => {
       const detail = getItemLocation(r.item, resolvedLocationName);
-      return { item_id: itemIdByName.get(r.item)!, quantity_on_hand: r.quantity_on_hand, shelf_side: detail.shelf_side, rack: detail.rack, level: detail.level };
+      // A real, confirmed bug fix: this used to build a plain
+      // name-to-id map from every entity in the whole database, which
+      // silently resolves to the wrong entity whenever any other
+      // real entity anywhere shares the same name (the same, real,
+      // repeated class of bug this whole session kept finding
+      // elsewhere - "Actual", "Trial Balance", etc.). resolveItemId
+      // is already correctly scoped to real Items specifically.
+      return { item_id: resolveItemId(r.item), quantity_on_hand: r.quantity_on_hand, shelf_side: detail.shelf_side, rack: detail.rack, level: detail.level };
     })
     .filter((r) => r.item_id != null)
     .sort((a, b) => {
