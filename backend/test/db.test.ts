@@ -2432,6 +2432,42 @@ test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free tex
   assert.throws(() => completeStockTake(takeId2, 'My Business', 'Actual', 'Miscellaneous', 'Inventory', {}, 1), ValidationError);
 });
 
+test('completeStockTake: multiple real, different products sharing the same variance expense account in one real stock take must all post, keeping debit == credit', () => {
+  // Per direct, reported real-world discrepancy: a full simulation run
+  // (test-e2e, outside this sandbox's own resource limits) reported a
+  // genuine trial-balance imbalance (debit != credit) after a month-end
+  // stock take involving many, real, different products all sharing
+  // the same, real "Miscellaneous" variance account - exactly this
+  // scenario, at a larger scale. Reproduced here directly, at the real,
+  // correct, backend-function level, per the backend-first-testing
+  // skill - no browser, no full simulation.
+  createEntity({ name: 'STTest Outlet 3', parent: 'Locations' }, 1);
+  setLocation('STTest Outlet 3', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100, timezone: 'UTC' });
+
+  createItem('STTest Shiraz', 'Items', 1);
+  createItem('STTest Riesling', 'Items', 1);
+  createItem('STTest Pinot', 'Items', 1);
+  receiveStockAtLocation('My Business', 'Actual', 'STTEST-REC-A', 'STTest Shiraz', 'STTest Outlet 3', 50, 1, '2027-01-01');
+  receiveStockAtLocation('My Business', 'Actual', 'STTEST-REC-B', 'STTest Riesling', 'STTest Outlet 3', 30, 1, '2027-01-01');
+  receiveStockAtLocation('My Business', 'Actual', 'STTEST-REC-C', 'STTest Pinot', 'STTest Outlet 3', 20, 1, '2027-01-01');
+
+  const takeId = createStockTake('STTest Outlet 3', '2027-02-01', 1);
+  recordStockTakeCount(takeId, 'STTest Shiraz', 48); // shortage of 2
+  recordStockTakeCount(takeId, 'STTest Riesling', 33); // gain of 3
+  recordStockTakeCount(takeId, 'STTest Pinot', 19); // shortage of 1
+
+  const before = getTrialBalance('My Business', 'Actual', '2027-02-01');
+  completeStockTake(takeId, 'My Business', 'Actual', 'Miscellaneous', 'Inventory', { 'STTest Shiraz': 1500, 'STTest Riesling': 2000, 'STTest Pinot': 1800 }, 1);
+  const after = getTrialBalance('My Business', 'Actual', '2027-02-01');
+
+  assert.equal(after.total_debit_minor, after.total_credit_minor, 'the fundamental accounting identity must hold after real, multiple, same-account variance postings');
+  assert.ok(after.total_debit_minor > before.total_debit_minor, 'the real postings genuinely happened, not silently skipped');
+
+  assert.equal(getItemLocation('STTest Shiraz', 'STTest Outlet 3').quantity_on_hand, 48);
+  assert.equal(getItemLocation('STTest Riesling', 'STTest Outlet 3').quantity_on_hand, 33);
+  assert.equal(getItemLocation('STTest Pinot', 'STTest Outlet 3').quantity_on_hand, 19);
+});
+
 test('createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree', () => {
   // Per direct, reported bug: test-e2e's month-end stock take threw
   // "Amber Ale 330ml is not on this stock take sheet" - traced to
