@@ -2468,6 +2468,39 @@ test('completeStockTake: multiple real, different products sharing the same vari
   assert.equal(getItemLocation('STTest Pinot', 'STTest Outlet 3').quantity_on_hand, 19);
 });
 
+test('completeStockTake and writeOffStock: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side', () => {
+  // Per direct, real report: a real, full simulation run (outside this
+  // sandbox) found genuinely unbalanced "Quantity movement" journal
+  // entries, referenced <item>-QTY, after a real month-end stock take.
+  // The earlier test above only checked the dollar-value side's own
+  // Trial Balance - it never actually queried the real, separate
+  // quantity-movement journal entries this test checks directly.
+  createEntity({ name: 'QTYBalTest Outlet', parent: 'Locations' }, 1);
+  setLocation('QTYBalTest Outlet', { city: 'QTYBalTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
+  createItem('QTYBalTest Wine', 'Items', 1);
+  receiveStockAtLocation('My Business', 'Actual', 'QTYBALTEST-REC', 'QTYBalTest Wine', 'QTYBalTest Outlet', 40, 1, '2027-01-01');
+
+  const takeId = createStockTake('QTYBalTest Outlet', '2027-02-01', 1);
+  recordStockTakeCount(takeId, 'QTYBalTest Wine', 37); // shortage of 3
+  completeStockTake(takeId, 'My Business', 'Actual', 'Miscellaneous', 'Inventory', { 'QTYBalTest Wine': 1000 }, 1);
+
+  const qtyRef = `STOCKTAKE-${takeId}-QTYBalTest Wine-QTY`;
+  const qtyBalance = db
+    .prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ?`)
+    .get(qtyRef) as { total: number };
+  assert.equal(qtyBalance.total, 0, 'the real quantity-movement journal entry for this stock-take variance must itself be balanced');
+
+  // The same, real check for writeOffStock's own quantity movement.
+  createEntity({ name: 'QTYBalTest Write-off Expense', parent: 'Expense' }, 1);
+  createItem('QTYBalTest Beer', 'Items', 1);
+  receiveStockAtLocation('My Business', 'Actual', 'QTYBALTEST-REC-2', 'QTYBalTest Beer', 'QTYBalTest Outlet', 24, 1, '2027-01-01');
+  writeOffStock('My Business', 'Actual', 'QTYBALTEST-WO', 'QTYBalTest Beer', 4, 500, 'QTYBalTest Write-off Expense', 'Inventory', 'Broken in transit', 1, '2027-02-01');
+  const woQtyBalance = db
+    .prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ?`)
+    .get('QTYBALTEST-WO-QTY') as { total: number };
+  assert.equal(woQtyBalance.total, 0, 'the real quantity-movement journal entry for this write-off must itself be balanced');
+});
+
 test('createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree', () => {
   // Per direct, reported bug: test-e2e's month-end stock take threw
   // "Amber Ale 330ml is not on this stock take sheet" - traced to

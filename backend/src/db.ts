@@ -2345,12 +2345,16 @@ export function getDivisionForAccount(accountName: string): string | undefined {
  * on-hand, a real, balanced pair. Parented directly under the
  * product itself, the same real pattern Sales-/COGS- accounts
  * already use to stay obviously, nameably tied to their own product. */
-export function ensureProductQuantityAccounts(itemName: string, userId: UserId): { onOrderAccount: string; unitsSoldAccount: string } {
+export function ensureProductQuantityAccounts(itemName: string, userId: UserId): { onOrderAccount: string; unitsSoldAccount: string; countAdjustmentAccount: string; writeOffAccount: string } {
   const onOrderAccount = `${itemName} — On Order`;
   const unitsSoldAccount = `${itemName} — Units Sold`;
+  const countAdjustmentAccount = `${itemName} — Count Adjustment`;
+  const writeOffAccount = `${itemName} — Write-off`;
   if (!Entity.get(onOrderAccount)) Entity.create(onOrderAccount, itemName, userId);
   if (!Entity.get(unitsSoldAccount)) Entity.create(unitsSoldAccount, itemName, userId);
-  return { onOrderAccount, unitsSoldAccount };
+  if (!Entity.get(countAdjustmentAccount)) Entity.create(countAdjustmentAccount, itemName, userId);
+  if (!Entity.get(writeOffAccount)) Entity.create(writeOffAccount, itemName, userId);
+  return { onOrderAccount, unitsSoldAccount, countAdjustmentAccount, writeOffAccount };
 }
 
 /** A location's own real city, if a real division with that exact

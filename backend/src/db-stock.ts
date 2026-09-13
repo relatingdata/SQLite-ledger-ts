@@ -1145,7 +1145,19 @@ export function completeStockTake(
     const currentOnHand = getItemLocation(line.item, take.location).quantity_on_hand;
     const delta = line.counted_quantity! - currentOnHand;
     if (delta !== 0) {
+      // A real, confirmed bug fix: this used to stage only one, real
+      // line (the item's own quantity account) with no counter-item
+      // at all - genuinely unbalanced, unlike every other real
+      // quantity movement in this codebase (receipt uses On Order,
+      // dispatch uses Units Sold, transfer uses the same item at the
+      // other location - all real, balanced, two-line postings). A
+      // physical stock count discovering a real difference is exactly
+      // as real an event as those - it gets its own, equally real
+      // counter-account (Count Adjustment), not an exemption from
+      // the same, correct, established pattern.
+      const { countAdjustmentAccount } = ensureProductQuantityAccounts(line.item, userId);
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(line.item), delta, take.take_date, take.location as LocationName);
+      stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(countAdjustmentAccount), -delta, take.take_date);
       postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
     }
     postJournalEntry(reference, business, ledger, userId);
@@ -1186,7 +1198,14 @@ export function writeOffStock(
   { const inv = ensureProductInventoryAccount(itemName, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: -totalMinor }); }
   postJournalEntry(reference, business, ledger, userId);
 
-  postQuantityMovement(business, ledger, `${reference}-QTY`, asAccountName(itemName), -quantity, userId, date);
+  // A real, confirmed bug fix, the same class as the stock-take
+  // variance fix: this used to post a single, unbalanced quantity
+  // line with no counter-item at all, unlike every other real
+  // quantity movement in this codebase.
+  const { writeOffAccount } = ensureProductQuantityAccounts(itemName, userId);
+  stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(itemName), -quantity, date);
+  stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(writeOffAccount), quantity, date);
+  postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
 }
 
 /** Records a specific batch/lot of a item arriving, with its own

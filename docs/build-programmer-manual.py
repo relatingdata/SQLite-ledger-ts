@@ -77,6 +77,7 @@ PARTS = [
         "skill-test-driven-development.md",
         "skill-design-driven-development.md",
         "skill-continual-skill-improvement.md",
+        "skill-explicit-skill-attribution.md",
     ]),
 ]
 
