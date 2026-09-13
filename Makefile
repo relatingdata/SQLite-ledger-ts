@@ -498,6 +498,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/vocabulary-vs-sample-data.md \
 	docs/wine-bar-assemblies-plan.md \
 	docs/construction-project-management-plan.md \
+	docs/stock-lifecycle-review-plan.md \
 	docs/file-inventory-appendix.md
 
 # docs/screens-staging-triggers-functions.md references 17 specific

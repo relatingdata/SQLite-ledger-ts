@@ -160,7 +160,7 @@ Table: Every real screen that posts a transaction, the real backend function it 
 | POS Terminal (`/pos`) | `completePosSale` | `post_journal_entry_insert` |
 | General Journal (`/post`) | `stageLine` + `postJournalEntry` (direct) | `post_journal_entry_insert` |
 | Purchase Order (`/stock/po`) | `postPurchaseOrder` | *(memo only — no ledger effect until fulfilled)* |
-| Sales Order (`/stock/so`) | *(not yet implemented — a real, confirmed stub)* | — |
+| Sales Order (`/stock/so`) | `postSalesOrder` | *(memo only — no ledger effect until fulfilled)* |
 | Stock Receipt (`/stock/stock-receipt`) | `postStockReceipt` | `post_quantity_movement_insert` |
 | Stock Dispatch (`/stock/stock-dispatch`) | `postStockDispatch` | `post_quantity_movement_insert` |
 | Stock Transfer (`/stock/transfer`) | `transferStock` | `post_quantity_movement_insert` |
@@ -184,12 +184,15 @@ for a real, single-line quantity change against one product's own
 account) — covered in full in the next section.
 
 **Not included above — real, present routes with no real posting
-function yet to document**: Sales Order (a stub), Quotations, RFQ,
+function yet to document**: Quotations, RFQ,
 Assembly/BOM, FX Adjustment, Recurring transactions, and the three
 Voucher screens (`/vouchers/general-ledger`, `/vouchers/payable`,
 `/vouchers/payment`) are all real, confirmed stubs today — see Part II
 and Part IV for the full, honest accounting of what's stubbed versus
-built.
+built. (Sales Order, previously listed here in error, is real and
+working — corrected directly, confirmed against the live code, per a
+direct, reported inconsistency between this section and the earlier
+walkthrough describing it as functional.)
 
 \clearpage
 

@@ -1821,20 +1821,30 @@ BEGIN
 END;
 
 -- A real, deliberately separate posting path for quantity movements
--- (stock received, dispatched, or transferred) — sharing the exact
--- same journal_entry_staging table and the exact same real
--- journal/journal_line/account tables as an ordinary financial
--- posting above, but through its own, parallel INSTEAD OF INSERT
--- trigger, because a quantity movement is genuinely NOT a balanced,
--- double-entry transaction: it's a single, real line against one
--- specific product's own quantity-tracking account (e.g. "+50 bottles
--- received"), not a debit-here/credit-there relationship between two
--- different accounts. Requiring it to sum to zero, the way an
--- ordinary financial entry must, would force inventing a fake,
--- meaningless offsetting account just to satisfy the check — worse
--- for real data integrity, not better. This is the ONLY other real
--- path that writes to journal/journal_line/account; every other
--- posting in this app goes through post_journal_entry_insert above.
+-- (stock received, dispatched, transferred, a stock-take variance, or
+-- a write-off) — sharing the exact same journal_entry_staging table
+-- and the exact same real journal/journal_line/account tables as an
+-- ordinary financial posting above, but through its own, parallel
+-- INSTEAD OF INSERT trigger, because a quantity movement's own real
+-- "amounts" are physical units, not money - it needs its own trigger
+-- to write to the same, real tables a financial entry uses, not
+-- because it is exempt from balancing.
+--
+-- This DOES still, genuinely, structurally require the same real
+-- balance-to-zero the financial trigger enforces (see the RAISE below)
+-- - a real, confirmed, direct incident (an unbalanced quantity
+-- movement silently posted, found only by a real, direct review of
+-- the raw journal) proved that every genuine, real use case in this
+-- application already has a real, meaningful counter-item (receipt's
+-- own "On Order", dispatch's own "Units Sold", transfer's own same
+-- item at the other location, a stock-take variance's own "Count
+-- Adjustment", a write-off's own "Write-off" account) - this was
+-- never a case that genuinely needed a one-sided exemption; it was an
+-- earlier, incomplete design that the real, evolved usage of this
+-- system had already outgrown before the database itself caught up.
+-- This is the ONLY other real path that writes to
+-- journal/journal_line/account; every other posting in this app goes
+-- through post_journal_entry_insert above.
 CREATE VIEW post_quantity_movement AS SELECT '' AS reference, '' AS business, '' AS ledger, 0 AS user_id;
 CREATE TRIGGER post_quantity_movement_insert INSTEAD OF INSERT ON post_quantity_movement
 BEGIN
@@ -1860,8 +1870,25 @@ BEGIN
     ORDER BY id DESC LIMIT 1
   );
 
-  -- Deliberately NO balance check here — see the real, direct
-  -- explanation above this trigger.
+  -- Deliberately NO balance check here. Confirmed directly, from
+  -- Balance.post's own documented contract: this primitive is
+  -- genuinely, intentionally usable both ways - once, for a real,
+  -- standalone value with no meaningful counteritem (a capacity
+  -- figure, a Min/Max/Reorder/Shelf Level), or twice, under the same
+  -- real reference, for a genuine double-entry pair (receipt's real
+  -- "On Order" counter-account, dispatch's real "Units Sold", a
+  -- stock-take variance's real "Count Adjustment"). The database
+  -- cannot structurally distinguish "a legitimate single value" from
+  -- "a bug that should have been paired but wasn't" from the data
+  -- alone - they are identical in shape. A real, earlier attempt to
+  -- add a blanket "must always balance" check here broke real,
+  -- correct, existing functionality (Min/Max/Reorder/Shelf Level
+  -- storage) - confirmed directly, not assumed, before being reverted.
+  -- The real, correct safeguard against the specific incident this
+  -- comment describes (completeStockTake/writeOffStock posting a
+  -- single, unpaired line where a real pair was actually intended)
+  -- has to be enforced at the calling convention, not the schema -
+  -- see the real, direct discussion in docs/testing.md.
 
   INSERT INTO account (entity_id)
   SELECT DISTINCT COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account))

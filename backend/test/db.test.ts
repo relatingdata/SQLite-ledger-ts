@@ -169,6 +169,8 @@ const {
   getBelowReorderStock,
   createItem,
   createStockTake,
+  stageQuantityMovementLine,
+  postStagedQuantityMovement,
   getStockTake,
   recordStockTakeCount,
   completeStockTake,
