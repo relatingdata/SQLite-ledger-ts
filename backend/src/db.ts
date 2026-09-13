@@ -5019,7 +5019,14 @@ export function setTranslation(conceptName: string, languageName: string, text: 
     created = createEntity({ name: text, parentId: languageId }, userId);
   } catch (e) {
     const existing = db.prepare(`SELECT c.name AS concept FROM current_entities e JOIN current_entities c ON c.id = e.relation_id WHERE e.parent_id = ? AND e.name = ?`).get(languageId, text) as { concept: string } | undefined;
-    console.error(`FLAGGED COLLISION, for further study: "${conceptName}" and "${existing?.concept ?? '(unknown)'}" both genuinely translate to "${text}" in ${languageName} — a real, human-language ambiguity, not silently resolved. Keeping the existing translation.`);
+    // Per direct instruction: temporarily suppressed from stderr (100+
+    // genuine ambiguities cluttered every command's output) - still
+    // recorded, just to a real log file instead, not silently
+    // discarded. See docs/flagged-translation-collisions.log.
+    fs.appendFileSync(
+      path.join(dataDir, '..', '..', 'docs', 'flagged-translation-collisions.log'),
+      `"${conceptName}" and "${existing?.concept ?? '(unknown)'}" both genuinely translate to "${text}" in ${languageName} — a real, human-language ambiguity, not silently resolved. Keeping the existing translation.\n`
+    );
     return;
   }
   updateEntity(created.id, { relation: conceptName }, userId);

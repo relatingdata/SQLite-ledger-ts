@@ -5,7 +5,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
-  import { getLocalizedText, apiLogout, getMenuTree, type MenuSectionRow } from '$lib/api';
+  import { getLocalizedText, apiLogout, getMenuTree, getLanguageDirection, type MenuSectionRow } from '$lib/api';
   import { session } from '$lib/state.svelte';
   import { auth, hasRole } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
@@ -268,6 +268,23 @@
     }
   }
 
+  // Real, direct RTL support for the whole app shell — per direct
+  // request, mirrors the sidebar to the right and reverses the main
+  // menu's own order for a genuinely right-to-left language, driven
+  // by the same, real, generic mechanism already proven on Login and
+  // Choose Business (setLanguageDirection/getLanguageDirection), not
+  // a hardcoded language-name check.
+  let textDirection = $state<'ltr' | 'rtl'>('ltr');
+  async function loadTextDirection() {
+    if (!session.current) return;
+    try {
+      const { direction } = await getLanguageDirection(session.current.languageName);
+      textDirection = direction === 'RTL' ? 'rtl' : 'ltr';
+    } catch {
+      textDirection = 'ltr';
+    }
+  }
+
   // A real, live, ticking clock — the browser's own, real, current
   // locale and timezone (via Intl, the same real mechanism the
   // backend's own location-timezone work relies on), not a static
@@ -303,6 +320,7 @@
 
   onMount(() => {
     loadTranslations();
+    loadTextDirection();
     document.getElementById('splash')?.classList.add('hidden');
     setTimeout(() => document.getElementById('splash')?.remove(), 300);
     if (!isAutomatedTest) {
@@ -315,7 +333,7 @@
     if (clockInterval) clearInterval(clockInterval);
   });
   $effect(() => {
-    if (session.current) loadTranslations();
+    if (session.current) { loadTranslations(); loadTextDirection(); }
   });
 
   async function logout() {
@@ -337,7 +355,7 @@
   <span>version 0.0.0</span>
 </div>
 
-<div class="shell">
+<div class="shell" dir={textDirection}>
   {#if auth.current && session.current}
     <div class="top-row">
       <div class="brand-box">
@@ -521,6 +539,32 @@
     flex-wrap: wrap;
     flex: 1;
     padding: 0 1rem;
+  }
+
+  /* Real, direct RTL mirroring, per direct request. Genuinely
+     confirmed by a real, reported bug: flex-direction: row (the
+     default, used by both .top-bar-items and .lower) ALREADY
+     respects dir="rtl" natively - the browser lays out flex items
+     starting from the right when dir="rtl", with no override needed
+     at all. Explicitly adding flex-direction: row-reverse on top of
+     that double-reverses it, putting things back on the wrong side -
+     confirmed directly: the submenu moved back to the left. Only
+     margin/padding/border (which do NOT auto-flip with dir) need a
+     real, explicit override here. */
+  .shell[dir="rtl"] .sidebar {
+    margin: 0.6rem 0.6rem 0.6rem 0;
+  }
+  .shell[dir="rtl"] .section-links a {
+    padding: 0.35rem 2.1rem 0.35rem 1rem;
+  }
+  .shell[dir="rtl"] .section-links a.active {
+    border-left: none;
+    border-right: 3px solid var(--brass);
+    padding-left: 2.1rem;
+    padding-right: calc(2.1rem - 3px);
+  }
+  .shell[dir="rtl"] .subheading {
+    padding: 0.5rem 2.1rem 0.25rem 1rem;
   }
 
   .top-bar-item {

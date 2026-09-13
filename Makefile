@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -127,6 +127,15 @@ playwright-all: reset-db
 	@echo "Running the full, real Playwright browser suite..."
 	cd e2e && $(RUNTIME) x playwright test --reporter=list
 
+# A real, generic, reusable target for running one, specific, named
+# Playwright test against whatever is already running - does NOT
+# reset the database, per the many real cases (a screenshot for
+# approval, a targeted regression check) where the current, live data
+# is exactly what's needed. Usage: make playwright-one TEST=<name>
+playwright-one:
+	@if [ -z "$(TEST)" ]; then echo "Usage: make playwright-one TEST=<spec-file-name>"; exit 1; fi
+	cd e2e && $(RUNTIME) x playwright test $(TEST) --reporter=list --workers=1
+
 # The full, real demo dataset: one detailed month (as above) plus a
 # real, 12-month Budget and 11 more real, summary-level Actual months
 # either side of it, so a full year's real Budget vs. Actual
@@ -166,6 +175,18 @@ check-node-refs:
 verify-fresh: reset-db
 	cd backend && $(RUNTIME) -e "import('./src/db.ts')"
 	$(MAKE) test
+
+list-menu-labels:
+	cd backend && $(RUNTIME) scripts/list-menu-labels.ts
+
+add-menu-translations:
+	$(RUNTIME) shared-fixtures/add-menu-translations.ts
+
+add-journal-translations:
+	$(RUNTIME) shared-fixtures/add-journal-translations.ts
+
+check-frontend:
+	cd frontend && $(RUNTIME) run check
 
 reset-db:
 	@if [ -f backend/data/entities.sqlite ]; then \
@@ -492,6 +513,12 @@ programmer-manual: docs/build-programmer-manual.py $(PROGRAMMER_MANUAL_CHAPTERS)
 entity-tree-svg:
 	cd backend && $(RUNTIME) scripts/generate-entity-tree-svg.ts ../entity_tree.svg
 	@echo "Built entity_tree.svg"
+# A real, generic, reusable search across real source files, per the
+# absolute Makefile-only-execution rule - replaces ad-hoc grep.
+# Usage: make search PATTERN=foo [DIR=frontend/src]
+search:
+	@if [ -z "$(PATTERN)" ]; then echo "Usage: make search PATTERN=<pattern> [DIR=<dir>]"; exit 1; fi
+	grep -rn "$(PATTERN)" $(if $(DIR),$(DIR),backend/src backend/scripts frontend/src shared-fixtures docs Makefile) 2>/dev/null || echo "(no matches)"
 
 # A real, permanent, repeatable checkpoint: commit + a real, verified
 # git bundle + a real zip, all in one command, replacing what had been

@@ -254,7 +254,7 @@
     </p>
     <div class="row">
       <fieldset>
-        <legend>{recurrence === 'once' ? (translations.current['Date'] ?? 'Date') : 'Start Date'}</legend>
+        <legend>{recurrence === 'once' ? (translations.current['Date'] ?? 'Date') : (translations.current['Start Date'] ?? 'Start Date')}</legend>
         <input type="date" bind:value={transdate} />
       </fieldset>
       <fieldset>
