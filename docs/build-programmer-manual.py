@@ -70,6 +70,10 @@ PARTS = [
     ("Part VI --- Claude Skills for This Project", [
         "skill-wine-retail-e2e-and-docs.md",
         "skill-sql-ledger-ui-conventions.md",
+        "skill-git-history-safety.md",
+        "skill-makefile-only-execution.md",
+        "skill-backend-first-testing.md",
+        "skill-manual-as-source-of-truth.md",
     ]),
 ]
 

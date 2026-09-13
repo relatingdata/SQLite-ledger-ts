@@ -4,6 +4,43 @@ Two genuinely different kinds of testing exist in this project, and
 they catch genuinely different kinds of bugs. Both matter; neither
 substitutes for the other.
 
+## -1. The real testing pyramid — pick the lowest level that can prove it
+
+Per direct, absolute instruction, confirmed by a real, own mistake in
+this project's history: before reaching for Playwright/browser
+testing, always ask whether the thing being tested is provably
+backend-only. If so, reproduce and verify it at the lowest possible
+level first:
+
+1. **Database level.** Raw SQL directly against the real schema -
+   `INSERT`/`UPDATE` statements hitting real tables, checking that
+   views and triggers produce the right result. No TypeScript at all.
+   The fastest, most isolated layer - and exactly where several real
+   bugs in this project's own history actually lived (the
+   `localized_text` view's own name-collision bugs, `createStockTake`
+   silently resolving to the wrong entity).
+2. **Backend function level.** Calling real `db.ts`/`db-stock.ts`
+   functions directly - no HTTP, no browser. Milliseconds, not
+   minutes.
+3. **HTTP/API level.** Real requests against the real Express routes.
+4. **Browser/E2E level (Playwright).** Reserved for what is genuinely,
+   irreducibly about the UI itself - layout, RTL mirroring, translation
+   rendering, interactive widgets. Confirmed, directly, a real mistake
+   in this project's own history: a pure backend validation-error bug
+   (a name-collision bug inside `createStockTake`) was first, wrongly,
+   investigated via a Playwright browser test - adding a real login
+   flow, real DOM selectors, real dev-server timing, and real
+   duplicate-process risk, none of it relevant to a bug a single,
+   direct function call could have exposed instantly.
+
+**Shared ASCII fixtures across every level.** When one scenario needs
+testing at more than one level, every level reads the exact same,
+small, named, ASCII fixture - the same real discipline already
+established for this project's seed data
+(`shared-fixtures/*.csv`, read identically by backend scripts and
+Playwright tests). Never let each test level invent its own, separate
+copy of "similar enough" test data.
+
 ## 0. The one, real, non-negotiable check every transaction must pass
 
 Per direct instruction: every real transaction in this application —

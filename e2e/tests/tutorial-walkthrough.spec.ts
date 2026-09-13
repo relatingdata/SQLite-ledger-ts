@@ -9,7 +9,7 @@ const OUT_DIR = path.join(__dirname, '..', '..', 'docs', 'manual-images-tutorial
 const BIZ = 'Wine Retail Company';
 
 test('Tutorial: build a real wine retail business from scratch through the UI', async ({ page }) => {
-  test.setTimeout(180000);
+  test.setTimeout(420000);
   fs.mkdirSync(OUT_DIR, { recursive: true });
   let n = 1;
   const shot = async (name: string) => {
@@ -161,4 +161,171 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.goto('/reports/trial-balance');
   await page.waitForTimeout(1000);
   await shot('trial_balance_after_first_transaction');
+
+  // === Set real, physical details on Amber Ale 330ml: glass bottle, ===
+  // === cold storage - per direct request, before ordering it       ===
+  await page.goto('/items');
+  await page.waitForTimeout(800);
+  await page.locator('button.entry', { hasText: 'Amber Ale 330ml' }).click();
+  await page.waitForTimeout(500);
+  await page.locator('input[placeholder="e.g. each"]').fill('glass bottle');
+  await page.getByRole('textbox').filter({ hasText: '' }).first().fill('Requires cold storage (refrigerated display).').catch(() => {});
+  await page.waitForTimeout(500);
+  await shot('item_glass_bottle_cold');
+
+  // === Register the real vendor this item is ordered from ===
+  await page.goto('/editor');
+  await page.waitForSelector('table');
+  await page.locator('input[placeholder="e.g. Gamma LLC"]').fill('Highland Brewing Co');
+  await page.locator('.card, .form-card', { hasText: 'New entity' }).locator('select').first().selectOption({ label: 'Accounts Payable' });
+  await page.getByRole('button', { name: 'Create' }).click();
+  await page.waitForTimeout(800);
+  await shot('vendor_created');
+
+  // === Order it: a real Purchase Order, delivered to the warehouse ===
+  await page.goto('/stock/po');
+  await page.waitForTimeout(800);
+  await page.locator('select').filter({ has: page.locator('option', { hasText: 'Amber Ale 330ml' }) }).selectOption({ label: 'Amber Ale 330ml' }).catch(async () => {
+    await page.getByRole('combobox').filter({ hasText: /Item/ }).selectOption({ label: 'Amber Ale 330ml' });
+  });
+  await page.waitForTimeout(300);
+  await page.locator('select', { hasText: 'Select vendor' }).selectOption({ label: 'Highland Brewing Co' }).catch(() => {});
+  await page.locator('input[placeholder="0"]').first().fill('96');
+  await page.locator('input[placeholder="0.00"]').first().fill('3.50');
+  await page.locator('input[placeholder="e.g. PO-1001"]').fill('PO-AMBER-1');
+  await page.locator('select').filter({ has: page.locator('option', { hasText: 'Warehouse Hub' }) }).selectOption({ label: 'Warehouse Hub' }).catch(() => {});
+  await page.waitForTimeout(300);
+  await shot('purchase_order_filled');
+  await page.getByRole('button', { name: /Save/i }).click();
+  await page.waitForTimeout(1200);
+  await shot('purchase_order_placed');
+
+  // === Purchase it and receive it into the warehouse - a real Cash ===
+  // === Purchase, the same, real, proven, direct receiving path     ===
+  await page.goto('/arap/cash-purchase');
+  await page.waitForTimeout(700);
+  await page.locator('select').first().selectOption({ label: 'Highland Brewing Co' });
+  await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub (warehouse)' }).catch(async () => {
+    await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub' });
+  });
+  await page.getByRole('button', { name: /add line/i }).click();
+  await page.waitForTimeout(300);
+  await page.locator('input[placeholder="e.g. Golden Lager 330ml"]').fill('Amber Ale 330ml');
+  await page.locator('.num-input').first().fill('96');
+  await page.locator('.lines-table input').nth(2).fill('3.50');
+  await page.waitForTimeout(300);
+  await shot('purchase_received_filled');
+  await page.getByRole('button', { name: /complete purchase/i }).click();
+  await page.waitForTimeout(1500);
+  await shot('purchase_received_done');
+
+  // === Create a second retail location ===
+  await page.goto('/locations');
+  await page.waitForTimeout(800);
+  await page.getByRole('button', { name: '+ New Location' }).click();
+  await page.waitForTimeout(300);
+  await page.getByRole('group', { name: 'Location name, e.g. Downtown Cellar', exact: true }).locator('input').fill('Rundle Street Bottleshop');
+  await page.getByRole('group', { name: 'City', exact: true }).locator('input').fill('Adelaide');
+  await page.getByRole('group', { name: 'Type', exact: true }).locator('select').selectOption('Retail');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await page.waitForTimeout(800);
+  await page.locator('input[placeholder="e.g. 2000"]').fill('1500');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.waitForTimeout(800);
+  await shot('second_retail_location_created');
+
+  // === Create a third retail location — this one never stocks the ===
+  // === item at all, per direct request, to distinguish a real,    ===
+  // === expected absence from the reported bug (a real item wrongly ===
+  // === missing from a sheet it should genuinely be on)             ===
+  await page.goto('/locations');
+  await page.waitForTimeout(800);
+  await page.getByRole('button', { name: '+ New Location' }).click();
+  await page.waitForTimeout(300);
+  await page.getByRole('group', { name: 'Location name, e.g. Downtown Cellar', exact: true }).locator('input').fill('Glenelg Beachside Store');
+  await page.getByRole('group', { name: 'City', exact: true }).locator('input').fill('Glenelg');
+  await page.getByRole('group', { name: 'Type', exact: true }).locator('select').selectOption('Retail');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await page.waitForTimeout(800);
+  await page.locator('input[placeholder="e.g. 2000"]').fill('1200');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.waitForTimeout(800);
+  await shot('third_retail_location_never_stocked');
+
+  // === Transfer to the first retail location (Main Street Cellar) ===
+  await page.goto('/stock/transfer');
+  await page.waitForTimeout(700);
+  await page.locator('select').first().selectOption({ label: 'Amber Ale 330ml' });
+  await page.waitForTimeout(300);
+  await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub' });
+  await page.locator('select').nth(2).selectOption({ label: 'Main Street Cellar' });
+  await page.locator('input[placeholder="e.g. 240"]').fill('24');
+  await page.locator('input[placeholder="e.g. XFER-1001"]').fill('XFER-AMBER-1');
+  await page.waitForTimeout(300);
+  await shot('transfer_to_main_street_filled');
+  await page.getByRole('button', { name: 'Stock Transfer' }).click();
+  await page.waitForTimeout(1200);
+  await shot('transfer_to_main_street_done');
+
+  // === Transfer to the second retail location (Rundle Street) ===
+  await page.goto('/stock/transfer');
+  await page.waitForTimeout(700);
+  await page.locator('select').first().selectOption({ label: 'Amber Ale 330ml' });
+  await page.waitForTimeout(300);
+  await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub' });
+  await page.locator('select').nth(2).selectOption({ label: 'Rundle Street Bottleshop' });
+  await page.locator('input[placeholder="e.g. 240"]').fill('24');
+  await page.locator('input[placeholder="e.g. XFER-1001"]').fill('XFER-AMBER-2');
+  await page.waitForTimeout(300);
+  await shot('transfer_to_rundle_street_filled');
+  await page.getByRole('button', { name: 'Stock Transfer' }).click();
+  await page.waitForTimeout(1200);
+  await shot('transfer_to_rundle_street_done');
+
+  // === Stock take #1: Main Street Cellar (has real stock) ===
+  await page.goto('/stock/stock-take');
+  await page.waitForTimeout(700);
+  await page.locator('select').first().selectOption({ label: 'Main Street Cellar' });
+  await page.locator('input[type="date"]').fill('2027-01-31');
+  await page.getByRole('button', { name: 'Create sheet' }).click();
+  await page.waitForTimeout(1000);
+  await shot('stocktake_main_street_sheet');
+  await page.locator('.count-input').first().fill('24');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.waitForTimeout(800);
+  await page.locator('input[placeholder="e.g. Miscellaneous"]').fill('Miscellaneous');
+  await page.getByRole('button', { name: 'Complete', exact: true }).click();
+  await page.waitForTimeout(1200);
+  await shot('stocktake_main_street_done');
+
+  // === Stock take #2: Rundle Street Bottleshop (has real stock) ===
+  await page.goto('/stock/stock-take');
+  await page.waitForTimeout(700);
+  await page.locator('select').first().selectOption({ label: 'Rundle Street Bottleshop' });
+  await page.locator('input[type="date"]').fill('2027-01-31');
+  await page.getByRole('button', { name: 'Create sheet' }).click();
+  await page.waitForTimeout(1000);
+  await shot('stocktake_rundle_street_sheet');
+  await page.locator('.count-input').first().fill('24');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.waitForTimeout(800);
+  await page.locator('input[placeholder="e.g. Miscellaneous"]').fill('Miscellaneous');
+  await page.getByRole('button', { name: 'Complete', exact: true }).click();
+  await page.waitForTimeout(1200);
+  await shot('stocktake_rundle_street_done');
+
+  // === Stock take #3: Glenelg Beachside Store — never stocked this ===
+  // === item at all. The real, expected, correct behavior: a genuine, ===
+  // === empty sheet (or a sheet with no Amber Ale line at all) — NOT ===
+  // === the reported bug (a "not on this stock take sheet" error     ===
+  // === thrown when trying to count a real, present item).           ===
+  await page.goto('/stock/stock-take');
+  await page.waitForTimeout(700);
+  await page.locator('select').first().selectOption({ label: 'Glenelg Beachside Store' });
+  await page.locator('input[type="date"]').fill('2027-01-31');
+  await page.getByRole('button', { name: 'Create sheet' }).click();
+  await page.waitForTimeout(1000);
+  await shot('stocktake_glenelg_never_stocked_sheet');
+  const amberRowAtGlenelg = await page.locator('tr', { hasText: 'Amber Ale 330ml' }).count();
+  expect(amberRowAtGlenelg).toBe(0);
 });

@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -199,6 +199,9 @@ check-frontend:
 
 check-backend-types:
 	cd backend && $(RUNTIME) x tsc --noEmit
+
+check-e2e-types:
+	cd e2e && $(RUNTIME) x tsc --noEmit
 
 reset-db:
 	@if [ -f backend/data/entities.sqlite ]; then \
@@ -475,6 +478,10 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/simulation-prompt.md \
 	docs/skill-sql-ledger-ui-conventions.md \
 	docs/skill-wine-retail-e2e-and-docs.md \
+	docs/skill-git-history-safety.md \
+	docs/skill-makefile-only-execution.md \
+	docs/skill-backend-first-testing.md \
+	docs/skill-manual-as-source-of-truth.md \
 	docs/sql-ledger-comparison.md \
 	docs/svelte-5-runes-migration-plan.md \
 	docs/svelte-usage.md \
