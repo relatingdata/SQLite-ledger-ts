@@ -484,6 +484,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/skill-manual-as-source-of-truth.md \
 	docs/skill-test-driven-development.md \
 	docs/skill-design-driven-development.md \
+	docs/skill-continual-skill-improvement.md \
 	docs/sql-ledger-comparison.md \
 	docs/svelte-5-runes-migration-plan.md \
 	docs/svelte-usage.md \

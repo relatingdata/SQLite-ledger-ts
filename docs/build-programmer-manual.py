@@ -76,6 +76,7 @@ PARTS = [
         "skill-manual-as-source-of-truth.md",
         "skill-test-driven-development.md",
         "skill-design-driven-development.md",
+        "skill-continual-skill-improvement.md",
     ]),
 ]
 
