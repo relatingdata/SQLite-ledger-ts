@@ -78,6 +78,8 @@ PARTS = [
         "skill-design-driven-development.md",
         "skill-continual-skill-improvement.md",
         "skill-explicit-skill-attribution.md",
+        "skill-test-writing-standard.md",
+        "skill-skill-review-after-failure.md",
     ]),
 ]
 

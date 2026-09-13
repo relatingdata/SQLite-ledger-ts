@@ -486,6 +486,8 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/skill-design-driven-development.md \
 	docs/skill-continual-skill-improvement.md \
 	docs/skill-explicit-skill-attribution.md \
+	docs/skill-test-writing-standard.md \
+	docs/skill-skill-review-after-failure.md \
 	docs/sql-ledger-comparison.md \
 	docs/svelte-5-runes-migration-plan.md \
 	docs/svelte-usage.md \
