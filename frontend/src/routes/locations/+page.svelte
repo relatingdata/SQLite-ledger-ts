@@ -81,6 +81,7 @@
       await createLocationType(newLocationType.trim());
       locationTypes = await getLocationTypes();
       locationType = newLocationType.trim();
+      newLocationValues.locationType = newLocationType.trim();
       newLocationType = '';
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to add location type.';
@@ -228,11 +229,22 @@
       </button>
     </div>
     {#if creatingNew}
+      <div class="new-type-row">
+        <input
+          type="text"
+          placeholder={translations.current['New type…'] ?? 'New type…'}
+          bind:value={newLocationType}
+          onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLocationType(); } }}
+        />
+        <button type="button" onclick={addLocationType} disabled={addingLocationType || !newLocationType.trim()}>
+          {translations.current['+ Add type'] ?? '+ Add type'}
+        </button>
+      </div>
       <Form
         fields={[
           { name: 'name', label: 'Location name, e.g. Downtown Cellar', type: 'text' },
           { name: 'city', label: 'City', type: 'text' },
-          { name: 'locationType', label: 'Type', type: 'select', options: ['Retail', 'Warehouse'] },
+          { name: 'locationType', label: 'Type', type: 'select', options: locationTypes },
           { name: 'timezone', label: 'Timezone', type: 'select', options: ALL_TIMEZONES },
         ]}
         bind:values={newLocationValues}

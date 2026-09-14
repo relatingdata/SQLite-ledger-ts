@@ -142,17 +142,14 @@ export interface Location {
  * Vocabulary words, user-extensible via createLocationType, never a
  * fixed, built-in list. */
 export function getLocationTypes(): string[] {
-  return (
-    db
-      .prepare(
-        `WITH RECURSIVE marks(id) AS (
-           SELECT relation_id FROM current_entities
-           WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Location Type') AND relation_id IS NOT NULL
-         )
-         SELECT DISTINCT e.name FROM current_entities e JOIN marks m ON m.id = e.id ORDER BY e.name`
-      )
-      .all() as { name: string }[]
-  ).map((r) => r.name);
+  return (db
+    .prepare(
+      `SELECT child.name FROM current_entities child
+       JOIN current_entities parent ON parent.id = child.parent_id AND parent.name = 'Location Types'
+       ORDER BY child.name`
+    )
+    .all() as { name: string }[])
+    .map((r) => r.name);
 }
 
 /** Adds a brand-new, real location type — a plain Vocabulary word, a
@@ -160,12 +157,19 @@ export function getLocationTypes(): string[] {
  * "Warehouse", or any real, custom kind a business needs), per
  * direct, non-negotiable instruction: every real "type" a human sees
  * must be user-extensible and translatable, never a fixed,
- * compile-time list. */
+ * compile-time list.
+ *
+ * A real, confirmed bug fix: this used to query getLocationTypes via
+ * whatever real entities already had a "Location Type -> X" relation
+ * link - a genuine chicken-and-egg problem, since a brand-new type,
+ * by definition, has no real location using it yet, so it could never
+ * appear in the list until after being assigned somewhere. Fixed to
+ * use the exact same, simple, already-proven, working pattern as
+ * listAddressTypes/ensureAddressType - a real, dedicated "Location
+ * Types" container entity, listing its own direct children. */
 export function createLocationType(name: string, userId: UserId): void {
-  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) {
-    throw new ValidationError(`"${name}" already exists.`);
-  }
-  createEntity({ name, parent: 'Vocabulary' }, userId);
+  if (Entity.get(name)) throw new ValidationError(`"${name}" already exists.`);
+  Entity.create(name, 'Location Types', userId);
 }
 
 export function setLocation(name: string, location: Location): void {
@@ -193,7 +197,7 @@ export function setLocation(name: string, location: Location): void {
   // instruction: every real "type" a real, human administrator sees
   // must be user-extensible and translatable, never a fixed,
   // compile-time set of choices.
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary')`).get(location.location_type)) {
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Location Types')`).get(location.location_type)) {
     throw new ValidationError(`No location type named "${location.location_type}" — add it first (a real, user-extensible Vocabulary word, not a fixed, built-in list).`);
   }
   const typeRecordName = `Location Type — ${name} → ${location.location_type}`;
