@@ -133,6 +133,23 @@ test run, not assumed correct, and fixed by moving the `const`
 declarations (but not the hoisted function declarations that
 reference them) to before that call.
 
+## Real, complete eradication of createEntity from db.ts and db-stock.ts
+
+Every real, internal `createEntity` call in these two core files has
+been migrated to `create`/`fetch`/`fetchById` - confirmed directly,
+zero remaining real calls (one, historical, illustrative comment about
+a past bug scenario remains, correctly untouched, since it isn't real
+code). `fetchById` was added alongside `fetch` for the real cases that
+already hold a numeric id (from a route param, a prior query) rather
+than a name. Real, named descriptors now exist for every distinct kind
+this migration touched: type markers (Location Type, Storage Origin,
+Text Direction, Is Billing Address), record kinds (relationship,
+open-hours, schedule, entity-link, menu-override, hidden-marker,
+translation-concept, project-task), and Chart-of-Accounts nodes
+(Equity/Asset accounts, the per-business root, recursive mirror
+nodes). All 163 backend tests pass; the full backend+frontend suite
+and documentation-coverage check are clean.
+
 ## Real, open items before wider adoption
 
 1. Each descriptor's own `validate` needs its real, correct check —

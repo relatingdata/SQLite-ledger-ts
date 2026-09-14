@@ -21,6 +21,12 @@ import {
   updateEntity,
   createEntity,
   deleteEntity,
+  create,
+  fetch,
+  typeRootName,
+  typeLocationTypeMarkerName,
+  typeIsBillingAddressMarkerName,
+  type TypeDescriptor,
   asBusinessName,
   asLedgerName,
   asItemName,
@@ -215,7 +221,7 @@ export function setLocation(name: string, location: Location): void {
     .all(name, typeRecordName) as { id: number; name: string }[];
   for (const s of staleType) deleteEntity(s.id, asUserId(1));
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(typeRecordName)) {
-    createEntity({ name: typeRecordName, parent: 'Location Type' }, asUserId(1));
+    create(fetch('Location Type', typeRootName), typeLocationTypeMarkerName, typeRecordName, asUserId(1));
   }
   const typeRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(typeRecordName) as { id: number };
   updateEntity(typeRecord.id, { relation: location.location_type }, asUserId(1));
@@ -235,7 +241,7 @@ export function setLocation(name: string, location: Location): void {
       .all(billingRecordName) as { id: number; name: string }[];
     for (const other of others) deleteEntity(other.id, asUserId(1));
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(billingRecordName)) {
-      createEntity({ name: billingRecordName, parent: 'Is Billing Address' }, asUserId(1));
+      create(fetch('Is Billing Address', typeRootName), typeIsBillingAddressMarkerName, billingRecordName, asUserId(1));
     }
     const billingRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(billingRecordName) as { id: number };
     updateEntity(billingRecord.id, { relation: 'Billing Address' }, asUserId(1));

@@ -229,6 +229,24 @@ export const typeLedgerName: TypeDescriptor<'LedgerName'> = { brand: 'LedgerName
 export const typeBusinessLocationsRootName: TypeDescriptor<'BusinessLocationsRootName'> = { brand: 'BusinessLocationsRootName' };
 export const typeBusinessItemsRootName: TypeDescriptor<'BusinessItemsRootName'> = { brand: 'BusinessItemsRootName' };
 export const typeBusinessContactsRootName: TypeDescriptor<'BusinessContactsRootName'> = { brand: 'BusinessContactsRootName' };
+export const typeLineTypeMarkerName: TypeDescriptor<'LineTypeMarkerName'> = { brand: 'LineTypeMarkerName' };
+export const typeStorageOriginMarkerName: TypeDescriptor<'StorageOriginMarkerName'> = { brand: 'StorageOriginMarkerName' };
+export const typeTextDirectionMarkerName: TypeDescriptor<'TextDirectionMarkerName'> = { brand: 'TextDirectionMarkerName' };
+export const typeVocabularyWordName: TypeDescriptor<'VocabularyWordName'> = { brand: 'VocabularyWordName' };
+export const typeRelationshipRecordName: TypeDescriptor<'RelationshipRecordName'> = { brand: 'RelationshipRecordName' };
+export const typeOpenHoursRecordName: TypeDescriptor<'OpenHoursRecordName'> = { brand: 'OpenHoursRecordName' };
+export const typeScheduleRecordName: TypeDescriptor<'ScheduleRecordName'> = { brand: 'ScheduleRecordName' };
+export const typeEntityLinkRecordName: TypeDescriptor<'EntityLinkRecordName'> = { brand: 'EntityLinkRecordName' };
+export const typeProjectTaskName: TypeDescriptor<'ProjectTaskName'> = { brand: 'ProjectTaskName' };
+export const typeMenuOverrideName: TypeDescriptor<'MenuOverrideName'> = { brand: 'MenuOverrideName' };
+export const typeHiddenMarkerName: TypeDescriptor<'HiddenMarkerName'> = { brand: 'HiddenMarkerName' };
+export const typeTranslationConceptName: TypeDescriptor<'TranslationConceptName'> = { brand: 'TranslationConceptName' };
+export const typeEquityAccountName: TypeDescriptor<'EquityAccountName'> = { brand: 'EquityAccountName' };
+export const typeAssetAccountName: TypeDescriptor<'AssetAccountName'> = { brand: 'AssetAccountName' };
+export const typeChartOfAccountsNodeName: TypeDescriptor<'ChartOfAccountsNodeName'> = { brand: 'ChartOfAccountsNodeName' };
+export const typeChartOfAccountsRootName: TypeDescriptor<'ChartOfAccountsRootName'> = { brand: 'ChartOfAccountsRootName' };
+export const typeLocationTypeMarkerName: TypeDescriptor<'LocationTypeMarkerName'> = { brand: 'LocationTypeMarkerName' };
+export const typeIsBillingAddressMarkerName: TypeDescriptor<'IsBillingAddressMarkerName'> = { brand: 'IsBillingAddressMarkerName' };
 
 import { seedRemainingData } from './db-seed.js';
 seedRemainingData();
@@ -497,6 +515,18 @@ export function fetch<TBrand extends string>(name: string, type: TypeDescriptor<
   return { id: asEntityId(id), name: name as string & { __brand: TBrand } };
 }
 
+/** The real, numeric-id counterpart to fetch - for the real, existing
+ * cases that already hold an id (from a route param, a prior query),
+ * not a name, per no-generic-functions. */
+export function fetchById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand> {
+  const row = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(id) as { name: string } | undefined;
+  if (!row) throw new ValidationError(`No entity with id ${id}.`);
+  if (type.validate && !type.validate(row.name)) {
+    throw new ValidationError(`"${row.name}" exists, but is not a genuine ${type.brand}.`);
+  }
+  return { id: asEntityId(id), name: row.name as string & { __brand: TBrand } };
+}
+
 /** The one, real, generic creation primitive - per direct
  * instruction, no dependency on the generic createEntity. Allocates
  * the next node directly via entity_entry (the real, low-level,
@@ -668,7 +698,7 @@ export function setLineType(entityName: string, lineType: string | null, userId:
     return;
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(lineType)) {
-    createEntity({ name: lineType, parent: 'Chart of Accounts Line Types' }, userId);
+    create(fetch('Chart of Accounts Line Types', typeRootName), typeLineTypeMarkerName, lineType, userId);
   }
   setEntityLink(entityName, 'Line Type', lineType, userId);
 }
@@ -698,7 +728,7 @@ export function setItemStorageOrigin(itemName: ItemName, origin: 'Hot' | 'Cold' 
     return;
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Storage Origin Types')`).get(origin)) {
-    createEntity({ name: origin, parent: 'Storage Origin Types' }, userId);
+    create(fetch('Storage Origin Types', typeRootName), typeStorageOriginMarkerName, origin, userId);
   }
   setEntityLink(itemName, 'Storage Origin', origin, userId);
 }
@@ -720,7 +750,7 @@ export function setLanguageDirection(languageName: string, direction: 'LTR' | 'R
     return;
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Text Direction Types')`).get(direction)) {
-    createEntity({ name: direction, parent: 'Text Direction Types' }, userId);
+    create(fetch('Text Direction Types', typeRootName), typeTextDirectionMarkerName, direction, userId);
   }
   setEntityLink(languageName, 'Text Direction', direction, userId);
 }
@@ -872,7 +902,7 @@ function relinkDisplayOrderChain(orderedSiblings: { id: number; name: string }[]
 export function setRelationship(entityName: string, relationshipType: string, targetName: string, userId: UserId): void {
   const recordName = `${relationshipType} — ${entityName} → ${targetName}`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
-    createEntity({ name: recordName, parent: relationshipType }, userId);
+    create(fetch(relationshipType, typeRootName), typeRelationshipRecordName, recordName, userId);
   }
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
   updateEntity(record.id, { relation: targetName }, userId);
@@ -3282,7 +3312,7 @@ export function setLocationOpenHours(locationName: string, hours: OpenHoursLine[
   }
   for (const h of hours) {
     const recordName = `${locationName} — ${h.day}: ${h.opens_at}–${h.closes_at}`;
-    createEntity({ name: recordName, parent: locationName }, asUserId(1));
+    create(fetch(locationName, typeRootName), typeOpenHoursRecordName, recordName, asUserId(1));
     const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
     updateEntity(record.id, { relation: h.day }, asUserId(1));
   }
@@ -3398,7 +3428,7 @@ export function setEmployeeSchedule(employeeName: string, locationName: string, 
   }
   for (const s of schedule) {
     const recordName = `${employeeName} — ${s.day} at ${locationName}: ${s.starts_at}–${s.ends_at}`;
-    createEntity({ name: recordName, parent: employeeName }, asUserId(1));
+    create(fetch(employeeName, typeRootName), typeScheduleRecordName, recordName, asUserId(1));
     const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
     updateEntity(record.id, { relation: s.day }, asUserId(1));
   }
@@ -3615,7 +3645,7 @@ export function deleteTypedContactPerson(entityName: string, contactType: string
 function addTyped<T>(entityName: string, thingSuffix: string, type: string, value: T, save: (recordName: string, value: T) => void, userId: UserId): string {
   const recordName = `${entityName} — ${type} ${thingSuffix}`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
-    createEntity({ name: recordName, parent: entityName }, userId);
+    create(fetch(entityName, typeRootName), typeEntityLinkRecordName, recordName, userId);
   }
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
   updateEntity(record.id, { relation: type }, userId);
@@ -3671,7 +3701,7 @@ function deleteTyped(entityName: string, thingSuffix: string, type: string, user
 export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId): string {
   const recordName = `${entityName} — ${linkType}`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
-    createEntity({ name: recordName, parent: entityName }, userId);
+    create(fetch(entityName, typeRootName), typeEntityLinkRecordName, recordName, userId);
   }
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
   updateEntity(record.id, { relation: targetName }, userId);
@@ -3796,7 +3826,7 @@ export function createProjectTask(
   userId: UserId
 ): void {
   const name = `${taskName} (${plannedStart} to ${plannedEnd})`;
-  createEntity({ name, parent: `${projectName} Tasks` }, userId);
+  create(fetch(`${projectName} Tasks`, typeRootName), typeProjectTaskName, name, userId);
 }
 
 /** Every real task under one real project, with its own schedule
@@ -4340,7 +4370,7 @@ export function registerCustomer(input: CustomerRegistrationInput, userId: UserI
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(input.name)) {
     throw new ValidationError(`"${input.name}" already exists — choose a different name, or ask staff to look up the existing account.`);
   }
-  createEntity({ name: input.name, parent: 'Customers' }, userId);
+  create(fetch('Customers', typeRootName), typeCustomerName, input.name, userId);
   setContact(input.name, {
     email: input.email,
     phone: input.phone ?? null,
@@ -4471,7 +4501,7 @@ export function listProducts(): ProductSummary[] {
  * directly under "Items"; it just has to be the real, direct parent
  * of the Items eventually created under it. */
 export function createProduct(name: string, parent: string, userId: UserId): void {
-  createEntity({ name, parent }, userId);
+  create(fetch(parent, typeCategoryOrItemsRootName), typeItemName, name, userId);
 }
 
 /** The real, current Product an Item belongs to, or null if this
@@ -4944,7 +4974,7 @@ export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user',
   if (!menuItemName) throw new NotFoundError(`No real menu item with id ${entityId}.`);
   const overrideName = `${menuItemName} — Override: ${scope} ${scopeId}`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(overrideName, entityId)) {
-    createEntity({ name: overrideName, parentId: entityId }, userId);
+    create(fetchById(entityId, typeRootName), typeMenuOverrideName, overrideName, userId);
   }
   if (overrideLabel) {
     // A real override label is a real Vocabulary word first — the
@@ -4952,7 +4982,7 @@ export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user',
     // already uses — ensured to exist before linking to it, never a
     // bare string on the override record itself.
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(overrideLabel)) {
-      createEntity({ name: overrideLabel, parent: 'Vocabulary' }, userId);
+      create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, overrideLabel, userId);
     }
     setEntityLink(overrideName, 'Label', overrideLabel, userId);
   } else {
@@ -4960,7 +4990,7 @@ export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user',
   }
   const hiddenMarkerName = `${overrideName} — Hidden`;
   const hiddenMarkerExists = !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(hiddenMarkerName);
-  if (hidden && !hiddenMarkerExists) createEntity({ name: hiddenMarkerName, parent: overrideName }, userId);
+  if (hidden && !hiddenMarkerExists) create(fetch(overrideName, typeMenuOverrideName), typeHiddenMarkerName, hiddenMarkerName, userId);
   if (!hidden && hiddenMarkerExists) {
     const markerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(hiddenMarkerName) as { id: number }).id;
     deleteEntity(markerId, userId);
@@ -5058,7 +5088,7 @@ export function createDivisionType(name: string, userId: UserId): void {
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) {
     throw new ValidationError(`"${name}" already exists.`);
   }
-  createEntity({ name, parent: 'Vocabulary' }, userId);
+  create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, name, userId);
 }
 
 /** Every real, known alternate name for the same, real concept
@@ -5259,7 +5289,7 @@ export function setTranslation(conceptName: string, languageName: string, text: 
   // allowed to halt every other, real, unrelated translation.
   let created;
   try {
-    created = createEntity({ name: text, parentId: languageId }, userId);
+    created = create(fetchById(languageId, typeRootName), typeTranslationConceptName, text, userId);
   } catch (e) {
     const existing = db.prepare(`SELECT c.name AS concept FROM current_entities e JOIN current_entities c ON c.id = e.relation_id WHERE e.parent_id = ? AND e.name = ?`).get(languageId, text) as { concept: string } | undefined;
     // Per direct instruction: temporarily suppressed from stderr (100+
@@ -5434,7 +5464,7 @@ export function setupEquityStructure(businessName: BusinessName, structure: Enti
   };
   const ensure = (accountName: string) => {
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(accountName)) {
-      createEntity({ name: accountName, parent: 'Equity' }, userId);
+      create(fetch('Equity', typeRootName), typeEquityAccountName, accountName, userId);
       tag(accountName);
     }
   };
@@ -5547,7 +5577,7 @@ export function copyChartOfAccountsInto(destRootName: string, coaFamily: string 
         // duplicated test account before this fix).
         if (child.relation_id === familyId) {
           const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
-          if (!existing) createEntity({ name: child.name, parentId: destParentId }, userId);
+          if (!existing) create(fetchById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
         }
       } else {
         // A non-leaf, structural category (Asset/Liability/...) is
@@ -5573,7 +5603,7 @@ export function copyChartOfAccountsInto(destRootName: string, coaFamily: string 
         if (!hasChildren) continue;
         let mirror = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(mirrorName, destParentId) as { id: number } | undefined;
         if (!mirror) {
-          mirror = createEntity({ name: mirrorName, parentId: destParentId }, userId);
+          mirror = create(fetchById(destParentId, typeRootName), typeChartOfAccountsNodeName, mirrorName, userId);
           updateEntity(mirror.id, { relation: child.name }, userId);
         }
         copyChildren(child.id, mirror.id);
@@ -5587,7 +5617,7 @@ export function copyChartOfAccountsInto(destRootName: string, coaFamily: string 
 export function instantiateChartOfAccounts(businessName: BusinessName, coaFamily: string | undefined, userId: UserId): void {
   const rootName = `${businessName} Chart of Accounts`;
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(rootName)) return;
-  createEntity({ name: rootName, parent: businessName }, userId);
+  create(fetch(businessName, typeBusinessName), typeChartOfAccountsRootName, rootName, userId);
   copyChartOfAccountsInto(rootName, coaFamily, userId);
 }
 
@@ -5668,7 +5698,7 @@ export function createBusiness(
   for (const currency of secondaryCurrencies ?? []) {
     const accountName = `Cash at Bank (${currency})`;
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(accountName)) {
-      createEntity({ name: accountName, parent: 'Asset' }, userId);
+      create(fetch('Asset', typeRootName), typeAssetAccountName, accountName, userId);
     }
     // The same real logic as setAccountCurrency (backend/src/db-reports.ts)
     // — inlined here rather than imported, since db-reports.ts already
