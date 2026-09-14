@@ -4,7 +4,7 @@
 // door. Real, working code, not a plan: uses the real, existing
 // createEntity/setLocation/setItemStorageOrigin/stageBomComponent/
 // postBomComponents functions already built and tested this session.
-import { createEntity, getEntityTree, updateEntity, setItem, setItemStorageOrigin, stageBomComponent, postBomComponents, asUserId } from '../src/db.js';
+import { createEntity, create, fetch, typeRootName, getEntityTree, updateEntity, setItem, setItemStorageOrigin, stageBomComponent, postBomComponents, asUserId } from '../src/db.js';
 import { setLocation } from '../src/db-stock.js';
 
 const BUSINESS = 'Wine Retail Company';
@@ -19,7 +19,7 @@ function entityId(name: string): number {
 
 function ensureEntity(name: string, parent: string): void {
   try {
-    createEntity({ name, parent }, USER);
+    create(fetch(parent, typeRootName), typeRootName, name, USER);
   } catch {
     // already exists from a prior run — genuinely fine, not an error
   }

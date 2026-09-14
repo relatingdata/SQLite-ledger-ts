@@ -11,7 +11,7 @@
  * account customers with real credit limits, so the "half and half"
  * scenario is genuinely demonstrable, not just described.
  */
-import { createEntity, setContact, getCreditStatus } from '../src/db.ts';
+import { createEntity, create, fetch, typeRootName, setContact, getCreditStatus } from '../src/db.ts';
 
 async function main() {
   console.log('=== Wine Retail Company: real, varied payment terms and credit limits ===\n');
@@ -22,7 +22,7 @@ async function main() {
   console.log('Boutique Wine Importers Pty Ltd: 7-day account (unchanged from real simulation behavior).');
 
   // A second, real vendor — cash on delivery, no credit extended at all.
-  createEntity({ name: 'Riverside Cellar Direct', parent: 'Accounts Payable' }, 1);
+  create(fetch('Accounts Payable', typeRootName), typeRootName, 'Riverside Cellar Direct', 1);
   setContact('Riverside Cellar Direct', { payment_terms_days: 0 });
   console.log('Riverside Cellar Direct: real, new vendor — payment on delivery (0-day terms).');
 
@@ -30,11 +30,11 @@ async function main() {
   // the shared "Cash Sale" POS customer, since a real credit limit
   // only means something for an account that's actually meant to
   // carry a balance.
-  createEntity({ name: 'The Grand Hotel Springfield', parent: 'Accounts Receivable' }, 1);
+  create(fetch('Accounts Receivable', typeRootName), typeRootName, 'The Grand Hotel Springfield', 1);
   setContact('The Grand Hotel Springfield', { payment_terms_days: 30, credit_limit_minor: 1000000 }); // $10,000
   console.log('The Grand Hotel Springfield: real B2B account customer — 30-day terms, $10,000 credit limit.');
 
-  createEntity({ name: 'Rivertown Function Centre', parent: 'Accounts Receivable' }, 1);
+  create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Rivertown Function Centre', 1);
   setContact('Rivertown Function Centre', { payment_terms_days: 14, credit_limit_minor: 500000 }); // $5,000
   console.log('Rivertown Function Centre: real B2B account customer — 14-day terms, $5,000 credit limit.');
 

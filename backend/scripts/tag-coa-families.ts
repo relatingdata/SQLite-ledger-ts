@@ -1,4 +1,4 @@
-import { createEntity, getCoaFamilyAccounts, updateEntity, db, getBusinesses } from '../src/db.js';
+import { createEntity, create, fetch, typeRootName, typeVocabularyWordName, getCoaFamilyAccounts, updateEntity, db, getBusinesses } from '../src/db.js';
 
 // Real, confirmed representative business+ledger for each real CoA
 // family — getCoaFamilyAccounts on each returns exactly the real
@@ -32,7 +32,7 @@ let familiesCreated = 0;
 for (const familyName of Object.keys(familyRepresentatives)) {
   const exists = db.prepare('SELECT 1 FROM current_entities WHERE name = ?').get(familyName);
   if (!exists) {
-    createEntity({ name: familyName, parent: 'Vocabulary' }, 1);
+    create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, familyName, 1);
     familiesCreated++;
   }
 }

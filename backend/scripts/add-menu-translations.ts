@@ -1,4 +1,4 @@
-import { setTranslation, createEntity, db } from '../src/db.js';
+import { setTranslation, createEntity, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
 
 // The 39 real menu labels confirmed missing from the vocabulary
 // entirely, across all four non-English languages this app supports.
@@ -50,7 +50,7 @@ let added = 0;
 for (const [english, langs] of Object.entries(translations)) {
   const exists = db.prepare('SELECT 1 FROM current_entities WHERE name = ?').get(english);
   if (!exists) {
-    createEntity({ name: english, parent: 'Vocabulary' }, 1);
+    create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, english, 1);
   }
   for (const [lang, text] of Object.entries(langs)) {
     setTranslation(english, lang, text);

@@ -10,23 +10,23 @@
  *
  * Run with: node --import tsx backend/scripts/prototype-relationship-type.ts
  */
-import { createEntity, updateEntity, db } from '../src/db.js';
+import { createEntity, create, fetch, typeRootName, typeVocabularyWordName, updateEntity, db } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: Relationship Types tree ===');
-  createEntity({ name: 'Relationship Types', parent: 'Vocabulary' }, 1);
-  createEntity({ name: 'Trustee Of', parent: 'Relationship Types' }, 1);
-  createEntity({ name: 'Subsidiary Of', parent: 'Relationship Types' }, 1);
+  create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'Relationship Types', 1);
+  create(fetch('Relationship Types', typeRootName), typeRootName, 'Trustee Of', 1);
+  create(fetch('Relationship Types', typeRootName), typeRootName, 'Subsidiary Of', 1);
 
   console.log('\n=== Real businesses ===');
-  createEntity({ name: 'Smith Family Trust', parent: 'Businesses' }, 1);
-  createEntity({ name: 'Jones Family Trust', parent: 'Businesses' }, 1);
-  createEntity({ name: 'Boutique Wine Company', parent: 'Businesses' }, 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'Smith Family Trust', 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'Jones Family Trust', 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'Boutique Wine Company', 1);
 
   console.log('\n=== The relationship itself: an intermediate entity, type via parent_id, target via its own relation_id ===');
-  const rel1 = createEntity({ name: 'Trustee relationship — Smith Family Trust', parent: 'Trustee Of' }, 1);
+  const rel1 = create(fetch('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Smith Family Trust', 1);
   updateEntity(rel1.id, { relation: 'Boutique Wine Company' }, 1);
-  const rel2 = createEntity({ name: 'Trustee relationship — Jones Family Trust', parent: 'Trustee Of' }, 1);
+  const rel2 = create(fetch('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Jones Family Trust', 1);
   updateEntity(rel2.id, { relation: 'Boutique Wine Company' }, 1);
 
   console.log('=== The trust points at its own relationship record — the same relation_id mechanism, one recursive hop deeper ===');

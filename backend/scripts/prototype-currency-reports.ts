@@ -18,7 +18,7 @@
  *
  * Run with: DB_PATH=/tmp/proto3.db node --import tsx backend/scripts/prototype-currency-reports.ts
  */
-import { db, createEntity, stageLine, listJournalEntries } from '../src/db.js';
+import { db, createEntity, create, fetch, typeRootName, typeVocabularyWordName, stageLine, listJournalEntries } from '../src/db.js';
 
 db.exec(`ALTER TABLE account ADD COLUMN currency TEXT`);
 
@@ -48,11 +48,11 @@ function validateGroupedByCurrency(lines: { account: string; amount_minor: numbe
 
 async function main() {
   console.log('=== Setup: real, currency-specific accounts ===');
-  createEntity({ name: 'Cash at Bank (EUR)', parent: 'Asset' }, 1);
-  createEntity({ name: 'Cash at Bank (USD)', parent: 'Asset' }, 1);
-  createEntity({ name: 'FX Conversion Clearing (EUR)', parent: 'Asset' }, 1);
-  createEntity({ name: 'FX Conversion Clearing (USD)', parent: 'Asset' }, 1);
-  createEntity({ name: 'Delivery Fees (USD)', parent: 'Expense' }, 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'Cash at Bank (EUR)', 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'Cash at Bank (USD)', 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'FX Conversion Clearing (EUR)', 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'FX Conversion Clearing (USD)', 1);
+  create(fetch('Expense', typeRootName), typeRootName, 'Delivery Fees (USD)', 1);
   setAccountCurrency('Cash at Bank (EUR)', 'EUR');
   setAccountCurrency('Cash at Bank (USD)', 'USD');
   setAccountCurrency('FX Conversion Clearing (EUR)', 'EUR');

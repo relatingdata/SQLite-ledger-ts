@@ -1,14 +1,14 @@
 // Adds a real dozen cocktails to The Vinyl Room, per direct request —
 // built on the real spirits already in the catalog, plus a handful of
 // new, real mixer components this required.
-import { createEntity, setItem, setItemStorageOrigin, stageBomComponent, postBomComponents, asUserId } from '../src/db.js';
+import { createEntity, create, fetch, typeRootName, setItem, setItemStorageOrigin, stageBomComponent, postBomComponents, asUserId } from '../src/db.js';
 
 const BUSINESS = 'Wine Retail Company';
 const USER = asUserId(1);
 
 function ensureEntity(name: string, parent: string): void {
   try {
-    createEntity({ name, parent }, USER);
+    create(fetch(parent, typeRootName), typeRootName, name, USER);
   } catch {
     // already exists from a prior run
   }

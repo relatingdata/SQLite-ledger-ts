@@ -13,26 +13,26 @@
  *
  * Run with: node --import tsx backend/scripts/prototype-typed-contacts.ts
  */
-import { createEntity, setContact, getContact, updateEntity, db } from '../src/db.js';
+import { createEntity, create, fetch, typeRootName, typeVocabularyWordName, setContact, getContact, updateEntity, db } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: Address Types and Phone Types categories ===');
-  createEntity({ name: 'Address Types', parent: 'Vocabulary' }, 1);
+  create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'Address Types', 1);
   for (const t of ['Registered Office', 'Billing', 'Delivery', 'Shipping']) {
-    createEntity({ name: t, parent: 'Address Types' }, 1);
+    create(fetch('Address Types', typeRootName), typeRootName, t, 1);
   }
-  createEntity({ name: 'Phone Types', parent: 'Vocabulary' }, 1);
+  create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'Phone Types', 1);
   for (const t of ['Landline', 'Mobile', 'Home', 'Fax', 'Toll-Free']) {
-    createEntity({ name: t, parent: 'Phone Types' }, 1);
+    create(fetch('Phone Types', typeRootName), typeRootName, t, 1);
   }
 
   console.log('\n=== A real store with multiple typed addresses and phones ===');
-  createEntity({ name: 'PrototypeTestStore', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'PrototypeTestStore', 1);
 
   function addAddress(entityName: string, addressType: string, value: { address_line1: string; city: string; region?: string; postal_code?: string; country?: string }) {
     const childName = `${entityName} — ${addressType} Address`;
     try {
-      createEntity({ name: childName, parent: entityName }, 1);
+      create(fetch(entityName, typeRootName), typeRootName, childName, 1);
     } catch {
       // already exists
     }
@@ -45,7 +45,7 @@ async function main() {
   function addPhone(entityName: string, phoneType: string, number: string) {
     const childName = `${entityName} — ${phoneType} Phone`;
     try {
-      createEntity({ name: childName, parent: entityName }, 1);
+      create(fetch(entityName, typeRootName), typeRootName, childName, 1);
     } catch {
       // already exists
     }

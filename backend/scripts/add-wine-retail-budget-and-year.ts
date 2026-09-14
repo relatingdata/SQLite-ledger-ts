@@ -13,6 +13,9 @@
  */
 import {
   createEntity,
+  create,
+  fetch,
+  typeRootName,
   stageLine,
   postJournalEntry,
 } from '../src/db.ts';
@@ -28,7 +31,7 @@ function round1000(minor: number): number {
 async function main() {
   console.log('=== Wine Retail Company: real Budget + 11 more real, summary-level Actual months ===\n');
 
-  createEntity({ name: BUDGET_LEDGER, parent: BUSINESS }, 1);
+  create(fetch(BUSINESS, typeRootName), typeRootName, BUDGET_LEDGER, 1);
   console.log(`Created real ledger: ${BUDGET_LEDGER}`);
 
   // A real, monthly Budget — rounded to the nearest $1,000 throughout,
