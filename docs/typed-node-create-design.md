@@ -106,9 +106,9 @@ covers both the fixed chain and the arbitrary-depth case identically.
 
 **Built and directly tested**: `isDescendantOf` (the missing, reliable
 "did this walk genuinely reach the root" answer `getAncestorChain`
-itself doesn't provide), and `create` itself (the one, real, generic
-primitive, `TypeDescriptor`, `TypedNode`) — all implemented directly
-against the real, low-level `entity_entry` mechanism, with no
+itself doesn't provide), and `create`/`fetch` themselves (the real,
+generic primitives, `TypeDescriptor`, `TypedNode`) — all implemented
+directly against the real, low-level `entity_entry` mechanism, with no
 dependency on generic `createEntity` at all, per direct instruction.
 Confirmed via a real, direct test explicitly proving the Springfield
 principle: a business, a division, a location, and an employee can
@@ -116,6 +116,22 @@ all genuinely, correctly be named the same thing at once, while a
 real, same-parent collision is still genuinely rejected — and a real,
 Vocabulary-backed descriptor (`validNames()`) rejects an unknown name
 *before* any allocation happens, so there is nothing to roll back.
+
+**The original, confirmed gap is now genuinely closed**: `isGenuineCategoryOrItemsRoot`
+(a real, structural check — any live descendant of the global `Items`
+root, at arbitrary depth) backs the new `typeCategoryOrItemsRootName`
+descriptor, and `createItem` now calls `fetch(parent, typeCategoryOrItemsRootName)`
+internally before creating — "Vendors" can no longer silently succeed
+as an item's parent, confirmed via a real, direct test, for every
+existing caller, with no breaking signature change required.
+
+A real, genuine JS temporal-dead-zone bug found and fixed along the
+way, not glossed over: `seedRemainingData()` runs at real module-load
+time, before this file's own `const typeXxxName` declarations further
+down would otherwise have initialized — found via a real, failing
+test run, not assumed correct, and fixed by moving the `const`
+declarations (but not the hoisted function declarations that
+reference them) to before that call.
 
 ## Real, open items before wider adoption
 

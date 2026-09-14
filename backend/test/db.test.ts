@@ -4883,3 +4883,19 @@ test('create<T>: the real, generic, typed-descriptor creation primitive - genuin
   const validDay = create(employeesRoot, typeRealDayOfWeek, 'Monday', 1);
   assert.ok(validDay.id > 0, 'a real, valid, known name is genuinely accepted');
 });
+
+test('createItem: the original, confirmed gap is now genuinely closed - a non-Category, non-Items-root parent is rejected', () => {
+  // Per direct investigation this session: createItem's own parent
+  // used to be checked only by createEntity's generic "does some real
+  // entity exist with this name" - "Vendors" could silently succeed
+  // as an item's parent. Confirmed now genuinely fixed.
+  assert.throws(
+    () => createItem('GapClosedTest Widget', 'Vendors', 1),
+    /is not a genuine CategoryOrItemsRootName/,
+    'a real, non-Category, non-Items-root parent is now genuinely rejected, not silently accepted'
+  );
+  // A real, genuine Category (arbitrary depth) still works correctly.
+  createItem('GapClosedTest Wine', 'Merlot', 1);
+  const created = db.prepare(`SELECT 1 FROM current_entities WHERE name = 'GapClosedTest Wine'`).get();
+  assert.ok(created, 'a real, genuine, existing Category is still genuinely accepted as a valid parent');
+});

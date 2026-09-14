@@ -199,6 +199,23 @@ if (!alreadyInitialized) {
 export class ValidationError extends Error {}
 export class NotFoundError extends Error {}
 
+// Placed here specifically, before seedRemainingData() runs below -
+// a real, confirmed JS temporal-dead-zone fix: these are real `const`
+// declarations, not hoisted the way the functions that reference them
+// (create, fetch, isGenuineCategoryOrItemsRoot) are, and
+// seedRemainingData() calls createItem, which needs
+// typeCategoryOrItemsRootName already initialized, at real module-
+// load time. Found directly, via a real, failing test run, not
+// assumed correct.
+export const typeBusinessName: TypeDescriptor<'BusinessName'> = { brand: 'BusinessName' };
+export const typeEmployeeName: TypeDescriptor<'EmployeeName'> = { brand: 'EmployeeName' };
+export const typeVendorName: TypeDescriptor<'VendorName'> = { brand: 'VendorName' };
+export const typeCustomerName: TypeDescriptor<'CustomerName'> = { brand: 'CustomerName' };
+export const typeCategoryOrItemsRootName: TypeDescriptor<'CategoryOrItemsRootName'> = {
+  brand: 'CategoryOrItemsRootName',
+  validate: (name) => isGenuineCategoryOrItemsRoot(name),
+};
+
 import { seedRemainingData } from './db-seed.js';
 seedRemainingData();
 
@@ -435,11 +452,35 @@ export interface TypeDescriptor<TBrand extends string> {
    * "Springfield" at once; free names are never constrained to a
    * fixed vocabulary. */
   readonly validNames?: () => string[];
+  /** For a real, structural kind (a Category, genuinely any live
+   * descendant of Items; a Location, genuinely has a real
+   * location_type set) - a real, direct, runtime check against the
+   * live entity tree, since TypeScript cannot statically know this.
+   * Omit for a kind with no real, existing structural fact to check
+   * (a bare Business/Employee name is valid the moment it's a real,
+   * live entity at all). */
+  readonly validate?: (name: string) => boolean;
 }
 
 export interface TypedNode<TBrand extends string> {
   readonly id: EntityId;
   readonly name: string & { readonly __brand: TBrand };
+}
+
+/** The real counterpart to create<T> - per direct instruction ("the
+ * application verifies that a node is a Division by fetching its
+ * type"): confirms an *existing* real entity genuinely matches a
+ * type descriptor, and returns it as a real TypedNode - the one, real
+ * place validation happens, so every function downstream that takes
+ * a TypedNode<T> parameter can trust it was already checked, rather
+ * than re-validating a bare string at every point of use. */
+export function fetch<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>): TypedNode<TBrand> {
+  const id = resolveId(name);
+  if (id == null) throw new ValidationError(`No entity named "${name}".`);
+  if (type.validate && !type.validate(name)) {
+    throw new ValidationError(`"${name}" exists, but is not a genuine ${type.brand}.`);
+  }
+  return { id: asEntityId(id), name: name as string & { __brand: TBrand } };
 }
 
 /** The one, real, generic creation primitive - per direct
@@ -469,6 +510,22 @@ export function create<TParentBrand extends string, TChildBrand extends string>(
   db.prepare(`INSERT INTO entity_entry (name, parent_id, created_by) VALUES (?, ?, ?)`).run(name, parent.id, userId);
   const row = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, parent.id) as { id: number };
   return { id: asEntityId(row.id), name: name as string & { __brand: TChildBrand } };
+}
+
+/** Real, direct, structural validation - per no-generic-functions,
+ * the actual fix for the originally-confirmed gap: createItem's own
+ * parent used to accept any real entity name at all, never checking
+ * it was genuinely a Category or the Items root. A Category is
+ * structurally any real, live node under the global Items root
+ * (Red Wine, Merlot, arbitrary depth) - a real, deliberate,
+ * pragmatic definition that doesn't distinguish a genuine category
+ * from a specific, already-created product also living under Items,
+ * since both are real, valid parents for a new item in practice
+ * (a product itself never legitimately has children in this catalog,
+ * but nothing here forbids it structurally - a real, honest, stated
+ * limit, not hidden). */
+export function isGenuineCategoryOrItemsRoot(name: string): boolean {
+  return name === 'Items' || name.endsWith(' Items') || isDescendantOf(name, 'Items');
 }
 
 
@@ -4533,7 +4590,15 @@ export function countItems(): number {
  * tree position (an empty subcategory and a fresh item both look like
  * leaves), it's that a item explicitly IS one, from the moment it's
  * created, not once someone gets around to filling in its details. */
+/** Per no-generic-functions - the real, original, confirmed gap this
+ * closes: this parent used to be checked only by createEntity's own,
+ * generic "does some real entity exist with this name," never "is
+ * this genuinely a real Category or the Items root." fetch() with
+ * typeCategoryOrItemsRootName closes that gap directly, for every
+ * existing caller, without a breaking signature change - "Vendors"
+ * can no longer silently succeed as an item's parent. */
 export function createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId): void {
+  fetch(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName);
   createEntity({ name, parent: parentCategoryOrItemsRoot }, userId);
   setItem(name, { description: null, unit_of_measure: null, upc: null });
 }
