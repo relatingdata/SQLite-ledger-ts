@@ -488,6 +488,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/skill-explicit-skill-attribution.md \
 	docs/skill-test-writing-standard.md \
 	docs/skill-skill-review-after-failure.md \
+	docs/skill-no-new-tables.md \
 	docs/sql-ledger-comparison.md \
 	docs/svelte-5-runes-migration-plan.md \
 	docs/svelte-usage.md \

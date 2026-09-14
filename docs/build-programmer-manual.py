@@ -82,6 +82,7 @@ PARTS = [
         "skill-explicit-skill-attribution.md",
         "skill-test-writing-standard.md",
         "skill-skill-review-after-failure.md",
+        "skill-no-new-tables.md",
     ]),
 ]
 
