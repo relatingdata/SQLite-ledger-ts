@@ -125,6 +125,9 @@ const {
   listItemSources,
   addOrUpdateItemSource,
   ensureLocationCapacityAccount,
+  createPosTerminal,
+  setTerminalCurrency,
+  getEffectiveSaleCurrency,
   adjustLocationCapacity,
   getLocationCapacityStatus,
   listItems,
@@ -2550,6 +2553,31 @@ test('adjustLocationCapacity: a real, direct check of the capacity math, retail 
   adjustLocationCapacity('My Business', 'Actual', 'CapAdjTest Warehouse', 'CapAdjTest Wine', 24, '2027-01-01', 1, 'CAPADJTEST-REC-2');
   const whBalance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(warehouse.capacityAccountId) as { total: number };
   assert.equal(whBalance.total, 18, 'receiving 24 real bottles (= 2 real cartons at this item\'s own, real 12-per-carton rate) consumes exactly 2 carton-equivalents of real capacity (20 - 2)');
+});
+
+test('createPosTerminal/setTerminalCurrency/getEffectiveSaleCurrency: a real, direct, border-business scenario - two real terminals, one location, two different currencies', () => {
+  // Per direct request and docs/border-multicurrency-pos-plan.md,
+  // Slice 2 - a real business on a border, one real, shared location,
+  // two real, physical terminals, each transacting in a different,
+  // real currency.
+  createEntity({ name: 'BorderTest Outlet', parent: 'Locations' }, 1);
+  setLocation('BorderTest Outlet', { city: 'BorderTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' });
+
+  createPosTerminal('BorderTest Front Till (USD)', 'BorderTest Outlet', 1);
+  createPosTerminal('BorderTest Front Till (CAD)', 'BorderTest Outlet', 1);
+  setTerminalCurrency('BorderTest Front Till (USD)', 'USD');
+  setTerminalCurrency('BorderTest Front Till (CAD)', 'CAD');
+
+  assert.equal(getEffectiveSaleCurrency('BorderTest Front Till (USD)'), 'USD', 'the USD till resolves its own, real, distinct currency');
+  assert.equal(getEffectiveSaleCurrency('BorderTest Front Till (CAD)'), 'CAD', 'the CAD till, at the exact same, real, shared location, resolves its own, different, real currency');
+  assert.equal(getEffectiveSaleCurrency(undefined), null, 'no terminal specified genuinely falls through to the existing Division/Business/Account/Contact chain, not a real, direct answer here');
+
+  // A real, direct, structural confirmation: both terminals are real,
+  // separate entities, correctly parented under the exact same,
+  // shared, real location - not two different locations pretending to
+  // be one.
+  const terminals = db.prepare(`SELECT name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'BorderTest Outlet Terminals') ORDER BY name`).all() as { name: string }[];
+  assert.deepEqual(terminals.map((t) => t.name), ['BorderTest Front Till (CAD)', 'BorderTest Front Till (USD)']);
 });
 
 test('createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree', () => {

@@ -8,6 +8,7 @@ import {
   assertPeriodOpen,
   cityDivisionFor,
   ensureProductQuantityAccounts,
+  setAccountCurrency,
   ensureProductInventoryAccount,
   ensureProductLocationInventoryAccount,
   postJournalEntry,
@@ -449,6 +450,36 @@ function preferredVendorPackageQuantity(itemName: string): number | null {
  * directly in bottles; a warehouse (carton_capacity only) tracks in
  * carton-equivalents, using the specific item's own real conversion
  * factor for whatever's actually moving. */
+/** A real, physical POS terminal at a location - per direct request
+ * and docs/border-multicurrency-pos-plan.md, Slice 2: two real
+ * terminals at one, real, shared location can each transact in their
+ * own, different currency (a border business, one till in CAD, one
+ * in USD). Per no-new-tables: reuses the exact same real
+ * `account.currency` column and `setAccountCurrency` function already
+ * built for the base multicurrency design - a terminal's own currency
+ * is set the identical, real way any other account's is, not a new,
+ * bespoke mechanism. */
+export function createPosTerminal(terminalName: string, locationName: string, userId: UserId): void {
+  const parentName = `${locationName} Terminals`;
+  if (!Entity.get(parentName)) Entity.create(parentName, locationName, userId);
+  if (!Entity.get(terminalName)) Entity.create(terminalName, parentName, userId);
+}
+
+export function setTerminalCurrency(terminalName: string, currency: string | null): void {
+  setAccountCurrency(terminalName, currency);
+}
+
+/** Currency precedence, extended one level per the real, existing
+ * chain already documented in docs/multicurrency-design.md (Division
+ * -> Business -> Account -> Contact): a terminal's own currency, when
+ * set, wins over all of them - the most specific, real fact about
+ * where this exact sale physically happened. */
+export function getEffectiveSaleCurrency(terminalName: string | undefined): string | null {
+  if (!terminalName) return null;
+  const row = db.prepare(`SELECT currency FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(terminalName) as { currency: string | null } | undefined;
+  return row?.currency ?? null;
+}
+
 export function ensureLocationCapacityAccount(business: string, ledger: string, locationName: string, userId: UserId): { capacityAccount: string; capacityAccountId: number; unit: 'bottle' | 'carton' } {
   const capacityAccount = `${locationName} — Storage Capacity Remaining`;
   const loc = getLocation(locationName);

@@ -86,6 +86,7 @@ PARTS = [
         "skill-skill-review-after-failure.md",
         "skill-no-new-tables.md",
         "skill-documentation-coverage-enforcement.md",
+        "skill-pattern-recognition-to-tooling.md",
         "documentation-coverage-baseline.md",
     ]),
 ]

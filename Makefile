@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -201,6 +201,13 @@ verify-fresh: reset-db
 check-docs-coverage:
 	cd docs && python3 build-programmer-manual.py
 	$(RUNTIME) scripts/check-docs-coverage.ts
+
+# A real, direct, static call-graph analysis - per direct request, to
+# replace ad-hoc grepping with one, real, comprehensive tool. Every
+# real exported backend function, and how many real times it's
+# actually invoked across the whole codebase.
+call-graph:
+	$(RUNTIME) scripts/call-graph.ts
 
 list-menu-labels:
 	cd backend && $(RUNTIME) scripts/list-menu-labels.ts
@@ -516,6 +523,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/skill-skill-review-after-failure.md \
 	docs/skill-no-new-tables.md \
 	docs/skill-documentation-coverage-enforcement.md \
+	docs/skill-pattern-recognition-to-tooling.md \
 	docs/documentation-coverage-baseline.md \
 	docs/sql-ledger-comparison.md \
 	docs/svelte-5-runes-migration-plan.md \

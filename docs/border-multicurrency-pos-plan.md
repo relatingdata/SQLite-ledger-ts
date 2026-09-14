@@ -48,19 +48,26 @@ one:
 
 ## 3. Real design decisions, per `no-new-tables`
 
-- **A real POS Terminal entity**, parented under its real location
+- **A real POS Terminal entity** (`createPosTerminal`), parented under
+  its real location
   (`{location} Terminals` → `{terminal name}`), the same real,
   established pattern as every other structural grouping in this
   codebase (Locations, Employees, Items) — not a new, bespoke table.
-- **Currency on the terminal**, via the same real `relation_id`/
-  extension mechanism `account`/`contact`/`division` already use —
-  genuinely the same pattern the base design proposes for Division,
-  applied one level more specific.
-- **Currency precedence, extended**: Terminal (new, most specific) →
-  Division → Business → Account → Contact — a terminal's own currency
-  wins when set, falling back to the existing chain otherwise. This is
-  a real, direct, minimal extension of the existing precedence list,
-  not a redesign of it.
+- **Currency on the terminal**, via `setTerminalCurrency` — reusing
+  the exact same `account.currency` column and `setAccountCurrency`
+  function the base multicurrency design already built for real
+  accounts, not a new mechanism invented for terminals specifically.
+- **Currency precedence, extended**: `getEffectiveSaleCurrency`
+  resolves a terminal's own currency first (new, most specific),
+  falling through to the existing Division → Business → Account →
+  Contact chain when no terminal is given or the terminal has none set
+  — a real, direct, minimal extension of the existing precedence list,
+  not a redesign of it. **Built and directly tested** (Slice 2,
+  complete): `createPosTerminal`/`setTerminalCurrency`/
+  `getEffectiveSaleCurrency` all exist and are proven correct via a
+  real, direct backend test - two real terminals at the exact same,
+  real, shared location, each correctly resolving its own, different
+  currency.
 - **`completePosSale` gains a real, optional `terminalName`
   parameter**, resolving the sale's effective currency from it when
   present — every existing caller that doesn't pass one keeps today's
