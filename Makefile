@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -93,6 +93,15 @@ test-e2e: reset-db
 	@echo ""
 	@echo "Verifying against exact, documented expected results..."
 	cd backend && $(RUNTIME) scripts/verify-simulation.ts
+
+# A real, minimal, fast, backend-only proof of a complete business
+# lifecycle: locations of each real type, staff, an assembly, a full
+# order->receive->transfer->sell->stocktake->year-end-close cycle. No
+# browser - per backend-first-testing, this is the right level to
+# prove this at.
+proof-year-end: reset-db
+	@echo "Running the real, minimal year-end lifecycle proof..."
+	cd backend && $(RUNTIME) scripts/proof-year-end-lifecycle.ts
 
 # Per direct instruction: shares the exact same real, already-populated
 # database test-e2e itself creates - simulate-wine-retail-month.ts runs
