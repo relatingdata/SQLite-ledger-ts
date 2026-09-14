@@ -22,6 +22,8 @@ const {
   closePeriod,
   reopenPeriod,
   createEntity,
+  fetch,
+  typeRootName,
   updateEntity,
   setRelationship,
   setEntityLink,
@@ -221,17 +223,18 @@ test('the bootstrap tree loads with exactly one root', () => {
 });
 
 test('creating an entity by name works and rejects duplicates', () => {
-  const created = createEntity({ name: 'Gamma LLC', parent: 'Accounts Receivable' }, 1);
-  assert.equal(created.parent_id, getEntity(created.id)!.parent_id);
-  assert.throws(() => createEntity({ name: 'Gamma LLC', parent: 'Accounts Receivable' }, 1));
+  const arNode = fetch('Accounts Receivable', typeRootName);
+  const created = create(arNode, typeRootName, 'Gamma LLC', 1);
+  assert.equal(getEntity(created.id)!.parent_id, arNode.id);
+  assert.throws(() => create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Gamma LLC', 1));
 });
 
 test('creating an entity with a nonexistent parent is rejected', () => {
-  assert.throws(() => createEntity({ name: 'Orphan', parent: 'Nonexistent Parent Name' }, 1));
+  assert.throws(() => create(fetch('Nonexistent Parent Name', typeRootName), typeRootName, 'Orphan', 1));
 });
 
 test('updateEntity can rename, reparent, and assign an account number', () => {
-  const e = createEntity({ name: 'Delta Pty Ltd', parent: 'Accounts Receivable' }, 1);
+  const e = create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Delta Pty Ltd', 1);
   const renamed = updateEntity(e.id, { name: 'Delta Pty Ltd (renamed)' }, 1);
   assert.equal(renamed.name, 'Delta Pty Ltd (renamed)');
 
@@ -244,7 +247,7 @@ test('updateEntity can rename, reparent, and assign an account number', () => {
 });
 
 test('an entity cannot be made its own parent', () => {
-  const e = createEntity({ name: 'Self Parent Test', parent: 'Accounts Receivable' }, 1);
+  const e = create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Self Parent Test', 1);
   assert.throws(() => updateEntity(e.id, { parent: 'Self Parent Test' }, 1));
 });
 
@@ -253,15 +256,15 @@ test('deleteEntity refuses to delete an entity with children', () => {
 });
 
 test('deleteEntity works for a genuinely childless, unposted entity', () => {
-  const e = createEntity({ name: 'Temporary Test Entity', parent: 'Accounts Receivable' }, 1);
+  const e = create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Temporary Test Entity', 1);
   deleteEntity(e.id, 1);
   assert.equal(getEntity(e.id), undefined);
 });
 
 test('deleteEntity refuses to delete a business\'s last real Actual or last real Budget ledger, but allows removing a real, genuine duplicate', () => {
-  createEntity({ name: 'LedgerRuleTest Business', parent: 'Businesses' }, 1);
-  createEntity({ name: 'LedgerRuleTest Business Actual', parent: 'LedgerRuleTest Business' }, 1);
-  createEntity({ name: 'LedgerRuleTest Business Budget 2026-27', parent: 'LedgerRuleTest Business' }, 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'LedgerRuleTest Business', 1);
+  create(fetch('LedgerRuleTest Business', typeRootName), typeRootName, 'LedgerRuleTest Business Actual', 1);
+  create(fetch('LedgerRuleTest Business', typeRootName), typeRootName, 'LedgerRuleTest Business Budget 2026-27', 1);
 
   const actual = getEntity(getEntityTree().find((e) => e.name === 'LedgerRuleTest Business Actual')!.id)!;
   const budget = getEntity(getEntityTree().find((e) => e.name === 'LedgerRuleTest Business Budget 2026-27')!.id)!;
@@ -272,7 +275,7 @@ test('deleteEntity refuses to delete a business\'s last real Actual or last real
   // A real, genuine second Actual-type ledger for the same business
   // CAN be deleted — the rule protects the last one of each real
   // kind, not every real ledger unconditionally.
-  const dup = createEntity({ name: 'LedgerRuleTest Business Second Actual', parent: 'LedgerRuleTest Business' }, 1);
+  const dup = create(fetch('LedgerRuleTest Business', typeRootName), typeRootName, 'LedgerRuleTest Business Second Actual', 1);
   deleteEntity(dup.id, 1);
   assert.equal(getEntity(dup.id), undefined);
 
@@ -456,8 +459,8 @@ test('profit and loss computes real totals and net income', () => {
 });
 
 test('profit and loss excludes a Year End Close entry from its own totals, even when the close happened within the requested date range — a real, direct bug report: "the consolidated p&l shows zero"', () => {
-  createEntity({ name: 'PLCloseTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'PLCloseTest Revenue', parent: 'Income' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'PLCloseTest Ledger', 1);
+  create(fetch('Income', typeRootName), typeRootName, 'PLCloseTest Revenue', 1);
 
   stageLine({ reference: 'PLCT-1', business: 'My Business', ledger: 'PLCloseTest Ledger', transdate: '2027-04-01', account: 'PLCloseTest Revenue', amount_minor: -50000 });
   stageLine({ reference: 'PLCT-1', business: 'My Business', ledger: 'PLCloseTest Ledger', transdate: '2027-04-01', account: 'Cash and Bank', amount_minor: 50000 });
@@ -480,11 +483,11 @@ test('profit and loss income_tree groups by the real category hierarchy, with co
   // Self-contained, not dependent on the wine simulation ever having
   // been run — creates its own real, two-level category chain, its
   // own real products under it, and posts real sales directly.
-  createEntity({ name: 'PL Tree Test Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'PL Tree Beverages', parent: 'Items' }, 1);
-  createEntity({ name: 'PL Tree Cider', parent: 'PL Tree Beverages' }, 1);
-  createEntity({ name: 'PL Tree Dry Cider 500ml', parent: 'PL Tree Cider' }, 1);
-  createEntity({ name: 'PL Tree Sweet Cider 500ml', parent: 'PL Tree Cider' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'PL Tree Test Ledger', 1);
+  create(fetch('Items', typeRootName), typeRootName, 'PL Tree Beverages', 1);
+  create(fetch('PL Tree Beverages', typeRootName), typeRootName, 'PL Tree Cider', 1);
+  create(fetch('PL Tree Cider', typeRootName), typeRootName, 'PL Tree Dry Cider 500ml', 1);
+  create(fetch('PL Tree Cider', typeRootName), typeRootName, 'PL Tree Sweet Cider 500ml', 1);
   const dry = ensureProductSalesCogsAccounts('PL Tree Dry Cider 500ml', 1);
   const sweet = ensureProductSalesCogsAccounts('PL Tree Sweet Cider 500ml', 1);
 
@@ -604,7 +607,7 @@ test('profit and loss comparison computes variance in the conventional direction
 });
 
 test('a new entity has no contact until one is set', () => {
-  createEntity({ name: 'Gamma Contact Test', parent: 'Accounts Receivable' }, 1);
+  create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Gamma Contact Test', 1);
   assert.equal(getContact('Gamma Contact Test'), undefined);
 });
 
@@ -634,7 +637,7 @@ test('setContact is a full replace, not a partial merge — calling it again wit
 });
 
 test('deleteEntity closes the entity out but deliberately keeps its contact record — a historical fact about a now-closed entity, not something that disappears', () => {
-  const e = createEntity({ name: 'Delta Contact Test', parent: 'Accounts Receivable' }, 1);
+  const e = create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Delta Contact Test', 1);
   setContact('Delta Contact Test', { phone: '555-1111' });
   deleteEntity(e.id, 1);
   assert.equal(getEntity(e.id), undefined, 'the entity itself is closed out — no longer current');
@@ -735,7 +738,7 @@ test('a realistic set of transactions — cash purchase, cash sale, AR sale, a r
   // A fresh, dedicated ledger for this test so its numbers are easy to
   // reason about in isolation from everything else already posted
   // elsewhere in this test run.
-  createEntity({ name: 'Worked Set Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Worked Set Ledger', 1);
 
   function post(reference: string, lines: { account: string; amount_minor: number; memo?: string }[]) {
     for (const line of lines) {
@@ -855,7 +858,7 @@ test('AR/AP forms reuse the same atomic posting mechanism — an unbalanced-by-c
 });
 
 test('reversing a posted entry creates a new entry with every line negated, and the net effect on balances is exactly zero', () => {
-  createEntity({ name: 'Reversal Test Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Reversal Test Ledger', 1);
   stageLine({ reference: 'REV-SOURCE', business: 'My Business', ledger: 'Reversal Test Ledger', transdate: '2027-09-01', account: 'Cash and Bank', amount_minor: 7500 });
   stageLine({ reference: 'REV-SOURCE', business: 'My Business', ledger: 'Reversal Test Ledger', transdate: '2027-09-01', account: 'Sales Revenue', amount_minor: -7500 });
   postJournalEntry('REV-SOURCE', 'My Business', 'Reversal Test Ledger', 1);
@@ -888,9 +891,9 @@ test('complete end-to-end lifecycle: purchase order -> receipt -> sales order ->
   // A fresh, dedicated ledger and a fresh batch of Widget accounts, so
   // this test's numbers are easy to verify in isolation from anything
   // else posted elsewhere in this test run.
-  createEntity({ name: 'Lifecycle Test Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'LTWidget Batch Qty', parent: 'Stock Quantities' }, 1);
-  createEntity({ name: 'LTWidget Batch Value', parent: 'Inventory' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Lifecycle Test Ledger', 1);
+  create(fetch('Stock Quantities', typeRootName), typeRootName, 'LTWidget Batch Qty', 1);
+  create(fetch('Inventory', typeRootName), typeRootName, 'LTWidget Batch Value', 1);
   const business = 'My Business';
   const ledger = 'Lifecycle Test Ledger';
 
@@ -960,9 +963,9 @@ test('complete end-to-end lifecycle: purchase order -> receipt -> sales order ->
 });
 
 test('a partial receipt against a purchase order leaves a genuine, correctly-sized back order', () => {
-  createEntity({ name: 'Backorder Test Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'BOWidget Batch Qty', parent: 'Stock Quantities' }, 1);
-  createEntity({ name: 'BOWidget Batch Value', parent: 'Inventory' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Backorder Test Ledger', 1);
+  create(fetch('Stock Quantities', typeRootName), typeRootName, 'BOWidget Batch Qty', 1);
+  create(fetch('Inventory', typeRootName), typeRootName, 'BOWidget Batch Value', 1);
   const business = 'My Business';
   const ledger = 'Backorder Test Ledger';
 
@@ -984,8 +987,8 @@ test('a partial receipt against a purchase order leaves a genuine, correctly-siz
 });
 
 test('a real Purchase Order still knows its real vendor and item after posting — no extra table, the same real relation every entity already has', () => {
-  createEntity({ name: 'PORelationTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'PORelationTest Vendor', parent: 'Vendors' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'PORelationTest Ledger', 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'PORelationTest Vendor', 1);
   createItem('PORelationTest Wine', 'Items', 1);
 
   stagePurchaseOrder({
@@ -1016,9 +1019,9 @@ test('a real Purchase Order still knows its real vendor and item after posting �
 });
 
 test('getLocationCapacityStatus: a real location\'s own, current real stock checked against its own, real configured capacity — found to be purely informational and never enforced anywhere, per docs/TODO.md', () => {
-  createEntity({ name: 'CapTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'CapTest Outlet', 1);
   setLocation('CapTest Outlet', { city: 'CapTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10 , timezone: 'UTC'});
-  createEntity({ name: 'CapTest Vendor', parent: 'Vendors' }, 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'CapTest Vendor', 1);
   createItem('CapTest Wine', 'Items', 1);
   addOrUpdateItemSource({ itemName: 'CapTest Wine', vendorName: 'CapTest Vendor', priceMinor: 1500, packageQuantity: 12, isPreferred: true }); // 12 bottles per real carton
 
@@ -1037,7 +1040,7 @@ test('getLocationCapacityStatus: a real location\'s own, current real stock chec
   assert.equal(after.cartonOverCapacity, true, 'a real 10.83 cartons against a real 10-carton capacity must correctly show as over');
 
   // A real location with no configured capacity at all — never silently treated as "over" just because none was set.
-  createEntity({ name: 'CapTest No Capacity Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'CapTest No Capacity Outlet', 1);
   setLocation('CapTest No Capacity Outlet', { city: 'CapTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'});
   const noCapacity = getLocationCapacityStatus('CapTest No Capacity Outlet');
   assert.equal(noCapacity.bottleCapacity, null);
@@ -1045,8 +1048,8 @@ test('getLocationCapacityStatus: a real location\'s own, current real stock chec
 });
 
 test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picking list, requires every real line ticked off before it can dispatch, and reduces real, physical stock at the exact location it was actually picked from', () => {
-  createEntity({ name: 'PickTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'PickTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'PickTest Ledger', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'PickTest Outlet', 1);
   setLocation('PickTest Outlet', { city: 'PickTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
   createItem('PickTest Front Wine', 'Items', 1);
   createItem('PickTest Back Wine', 'Items', 1);
@@ -1054,7 +1057,7 @@ test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picki
   receiveStockAtLocation('My Business', 'PickTest Ledger', 'PICKTEST-REC-2', 'PickTest Back Wine', 'PickTest Outlet', 50, 1, '2027-06-01');
   setItemLocationLevels('PickTest Front Wine', 'PickTest Outlet', { shelfSide: 'Front', rack: 'A', level: 1 });
   setItemLocationLevels('PickTest Back Wine', 'PickTest Outlet', { shelfSide: 'Back', rack: 'B', level: 2 });
-  createEntity({ name: 'PickTest Customer', parent: 'Customers' }, 1);
+  create(fetch('Customers', typeRootName), typeRootName, 'PickTest Customer', 1);
 
   const invoiceId = createInvoice(
     {
@@ -1100,10 +1103,10 @@ test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picki
 });
 
 test('restocking retail outlets from warehouses: the same real, shelf-ordered picking and refuse-until-complete pattern, but a real internal transfer, not an invoice — a real, distinct reference per real line, since a shared reference across different real products in the same run would genuinely collide', () => {
-  createEntity({ name: 'RestockTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'RestockTest Warehouse', parent: 'Locations' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'RestockTest Ledger', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'RestockTest Warehouse', 1);
   setLocation('RestockTest Warehouse', { city: 'RestockTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'});
-  createEntity({ name: 'RestockTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'RestockTest Outlet', 1);
   setLocation('RestockTest Outlet', { city: 'RestockTest City', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
   createItem('RestockTest Wine A', 'Items', 1);
   createItem('RestockTest Wine B', 'Items', 1);
@@ -1137,11 +1140,11 @@ test('restocking retail outlets from warehouses: the same real, shelf-ordered pi
 });
 
 test('the four real entry screens: PO -> receipt -> SO -> dispatch, using the actual staging/post functions a person would use, not just the underlying primitives', () => {
-  createEntity({ name: 'Screens Test Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Screens Test Ledger', 1);
   const inventoryId = (db.prepare(`SELECT id FROM current_entities WHERE name='Inventory'`).get() as { id: number }).id;
   const stockQtyId = (db.prepare(`SELECT id FROM current_entities WHERE name='Stock Quantities'`).get() as { id: number }).id;
-  createEntity({ name: 'SCWidget Batch Qty', parent: 'Stock Quantities' }, 1);
-  createEntity({ name: 'SCWidget Batch Value', parent: 'Inventory' }, 1);
+  create(fetch('Stock Quantities', typeRootName), typeRootName, 'SCWidget Batch Qty', 1);
+  create(fetch('Inventory', typeRootName), typeRootName, 'SCWidget Batch Value', 1);
   const business = 'My Business';
   const ledger = 'Screens Test Ledger';
 
@@ -1200,7 +1203,7 @@ test('entities are append-only: renaming closes out the old row and appends a re
   db.prepare(`INSERT INTO users (username, password_hash) VALUES ('renamer1', 'x:y')`).run();
   const user2 = (db.prepare(`SELECT id FROM users WHERE username='renamer1'`).get() as { id: number }).id;
 
-  const created = createEntity({ name: 'Epsilon Test Co', parent: 'Accounts Receivable' }, 1);
+  const created = create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Epsilon Test Co', 1);
   updateEntity(created.id, { name: 'Epsilon Test Corporation' }, user2);
 
   const current = getEntity(created.id)!;
@@ -1218,17 +1221,17 @@ test('entities are append-only: renaming closes out the old row and appends a re
 });
 
 test('a renamed-away-from name can be reused immediately for an unrelated new entity', () => {
-  const original = createEntity({ name: 'Zeta Test Co', parent: 'Accounts Receivable' }, 1);
+  const original = create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Zeta Test Co', 1);
   updateEntity(original.id, { name: 'Zeta Test Corporation' }, 1);
 
-  const reused = createEntity({ name: 'Zeta Test Co', parent: 'Accounts Payable' }, 1);
+  const reused = create(fetch('Accounts Payable', typeRootName), typeRootName, 'Zeta Test Co', 1);
   assert.notEqual(reused.id, original.id, 'this must be a genuinely different logical entity, not the same one resurrected');
   assert.equal(getEntity(original.id)!.name, 'Zeta Test Corporation', 'the original entity keeps its new name, unaffected');
 });
 
 test('renaming a parent never orphans its children — a childs parent_id keeps resolving correctly with zero other changes', () => {
-  const parent = createEntity({ name: 'Eta Parent Co', parent: 'Accounts Receivable' }, 1);
-  const child = createEntity({ name: 'Eta Child Contact', parent: 'Eta Parent Co' }, 1);
+  const parent = create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Eta Parent Co', 1);
+  const child = create(fetch('Eta Parent Co', typeRootName), typeRootName, 'Eta Child Contact', 1);
 
   updateEntity(parent.id, { name: 'Eta Parent Corporation' }, 1);
 
@@ -1240,7 +1243,7 @@ test('renaming a parent never orphans its children — a childs parent_id keeps 
 });
 
 test('deleteEntity closes out the entity permanently, with who and when recorded — it never reappears, even in history queries as "current"', () => {
-  const e = createEntity({ name: 'Theta Test Co', parent: 'Accounts Receivable' }, 1);
+  const e = create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Theta Test Co', 1);
   deleteEntity(e.id, 1);
   assert.equal(getEntity(e.id), undefined);
   const history = getEntityHistory(e.id);
@@ -1280,7 +1283,7 @@ test('a recurring journal records who created it — every occurrence it generat
 });
 
 test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable, everything balances', () => {
-  createEntity({ name: 'Tax Test Ledger AR', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Tax Test Ledger AR', 1);
   stageArSale({ reference: 'TAX-AR-1', business: 'My Business', ledger: 'Tax Test Ledger AR', customer: 'Acme Corp', amount_minor: 100000, tax_minor: 10000, transdate: '2027-12-01' });
   postArSale('TAX-AR-1', 'My Business', 'Tax Test Ledger AR', 1);
 
@@ -1292,7 +1295,7 @@ test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable
 });
 
 test('AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amount+tax, everything balances', () => {
-  createEntity({ name: 'Tax Test Ledger AP', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Tax Test Ledger AP', 1);
   stageApPurchase({ reference: 'TAX-AP-1', business: 'My Business', ledger: 'Tax Test Ledger AP', vendor: 'Acme Supplies Pty Ltd', expense_account: 'Office', amount_minor: 50000, tax_minor: 5000, transdate: '2027-12-01' });
   postApPurchase('TAX-AP-1', 'My Business', 'Tax Test Ledger AP', 1);
 
@@ -1304,7 +1307,7 @@ test('AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amo
 });
 
 test('a service dispatch (no item, no item_qty, no unit_cost) skips COGS and quantity movement entirely — matches the exact worked example: 10 hours @ 150.00 with 10% tax', () => {
-  createEntity({ name: 'Service Test Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Service Test Ledger', 1);
   const business = 'My Business';
   const ledger = 'Service Test Ledger';
 
@@ -1325,7 +1328,7 @@ test('a service dispatch (no item, no item_qty, no unit_cost) skips COGS and qua
 });
 
 test('a service receipt (no item_qty) skips the quantity movement, still posts the monetary and tax legs correctly', () => {
-  createEntity({ name: 'Service Receipt Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Service Receipt Ledger', 1);
   const business = 'My Business';
   const ledger = 'Service Receipt Ledger';
 
@@ -1345,13 +1348,13 @@ test('a service receipt (no item_qty) skips the quantity movement, still posts t
 });
 
 test('invoice_line records genuinely per-line tax, never assumed uniform — one line exempt, another at a different rate entirely', () => {
-  createEntity({ name: 'Invoice Line Test Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Invoice Line Test Ledger', 1);
   const business = 'My Business';
   const ledger = 'Invoice Line Test Ledger';
-  createEntity({ name: 'ILWidget Batch Qty', parent: 'Stock Quantities' }, 1);
-  createEntity({ name: 'ILWidget Batch Value', parent: 'Inventory' }, 1);
-  createEntity({ name: 'ILGadget Batch Qty', parent: 'Stock Quantities' }, 1);
-  createEntity({ name: 'ILGadget Batch Value', parent: 'Inventory' }, 1);
+  create(fetch('Stock Quantities', typeRootName), typeRootName, 'ILWidget Batch Qty', 1);
+  create(fetch('Inventory', typeRootName), typeRootName, 'ILWidget Batch Value', 1);
+  create(fetch('Stock Quantities', typeRootName), typeRootName, 'ILGadget Batch Qty', 1);
+  create(fetch('Inventory', typeRootName), typeRootName, 'ILGadget Batch Value', 1);
   postQuantityMovement(business, ledger, 'IL-STOCK-IN-1', 'ILWidget Batch Qty', 100, 1, '2027-05-01');
   postQuantityMovement(business, ledger, 'IL-STOCK-IN-2', 'ILGadget Batch Qty', 50, 1, '2027-05-01');
 
@@ -1384,7 +1387,7 @@ test('invoice_line records genuinely per-line tax, never assumed uniform — one
 });
 
 test('AR Sale and AP Purchase also record an invoice_line, with no quantity/unit price concept at all (both null)', () => {
-  createEntity({ name: 'Invoice Line Flat Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Invoice Line Flat Ledger', 1);
   const business = 'My Business';
   const ledger = 'Invoice Line Flat Ledger';
   stageArSale({ reference: 'IL-FLAT-AR', business, ledger, customer: 'Acme Corp', amount_minor: 10000, tax_minor: 1000, transdate: '2027-05-01', description: 'Flat sale' });
@@ -1397,7 +1400,7 @@ test('AR Sale and AP Purchase also record an invoice_line, with no quantity/unit
 });
 
 test('an ordinary General Journal posting records no invoice_line at all — it has no invoice concept', () => {
-  createEntity({ name: 'No Invoice Line Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'No Invoice Line Ledger', 1);
   const business = 'My Business';
   const ledger = 'No Invoice Line Ledger';
   stageLine({ reference: 'GJ-NO-INV', business, ledger, transdate: '2027-05-01', account: 'Cash and Bank', amount_minor: 500 });
@@ -1407,7 +1410,7 @@ test('an ordinary General Journal posting records no invoice_line at all — it 
 });
 
 test('closing a period rejects normal posting into it, and reopening lifts that immediately for a correction', () => {
-  createEntity({ name: 'Period Test Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Period Test Ledger', 1);
   const business = 'My Business';
   const ledger = 'Period Test Ledger';
 
@@ -1440,10 +1443,10 @@ test('closing a period rejects normal posting into it, and reopening lifts that 
 });
 
 test('quantity movements and recurring journal start dates are also protected by a closed period, not just ordinary posting', () => {
-  createEntity({ name: 'Period Test Ledger 2', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Period Test Ledger 2', 1);
   const business = 'My Business';
   const ledger = 'Period Test Ledger 2';
-  createEntity({ name: 'PeriodTest Batch Qty', parent: 'Stock Quantities' }, 1);
+  create(fetch('Stock Quantities', typeRootName), typeRootName, 'PeriodTest Batch Qty', 1);
 
   closePeriod(business, ledger, '2027-03-31', 1);
 
@@ -1463,7 +1466,7 @@ test('quantity movements and recurring journal start dates are also protected by
 });
 
 test('Trial Balance and Balance Sheet asOfDate correctly excludes postings after the cutoff, without needing a period to be closed at all', () => {
-  createEntity({ name: 'AsOf Test Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'AsOf Test Ledger', 1);
   const business = 'My Business';
   const ledger = 'AsOf Test Ledger';
 
@@ -1489,7 +1492,7 @@ test('Trial Balance and Balance Sheet asOfDate correctly excludes postings after
 });
 
 test('Profit and Loss fromDate/toDate is a genuine range, not just a single cutoff — excludes postings both before AND after the window', () => {
-  createEntity({ name: 'PL Range Test Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'PL Range Test Ledger', 1);
   const business = 'My Business';
   const ledger = 'PL Range Test Ledger';
 
@@ -1517,7 +1520,7 @@ test('Profit and Loss fromDate/toDate is a genuine range, not just a single cuto
 });
 
 test('reversing the same occurrence twice is rejected clearly — the real bug this prevents silently corrupted journal_line by attaching a second reversals lines to the first one, since the reversal reference is deterministic', () => {
-  createEntity({ name: 'Double Reversal Test Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Double Reversal Test Ledger', 1);
   const business = 'My Business';
   const ledger = 'Double Reversal Test Ledger';
 
@@ -1551,7 +1554,7 @@ test('reversing the same occurrence twice is rejected clearly — the real bug t
 });
 
 test('Balance Sheet and P&L split each line into debit/credit columns per accounting convention, and flag a line whose balance sits opposite its normal side', () => {
-  createEntity({ name: 'Contra Test Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'Contra Test Ledger', 1);
   const business = 'My Business';
   const ledger = 'Contra Test Ledger';
 
@@ -1586,8 +1589,8 @@ test('Balance Sheet and P&L split each line into debit/credit columns per accoun
 });
 
 test('getProfitAndLossComparison correctly reconstructs each lines actual amount from debit_minor/credit_minor, not a stale removed field', () => {
-  createEntity({ name: 'PLC Fix Test A', parent: 'My Business' }, 1);
-  createEntity({ name: 'PLC Fix Test B', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'PLC Fix Test A', 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'PLC Fix Test B', 1);
   stageLine({ reference: 'PLCFIX-A', business: 'My Business', ledger: 'PLC Fix Test A', transdate: '2027-01-01', account: 'Cash and Bank', amount_minor: 2500 });
   stageLine({ reference: 'PLCFIX-A', business: 'My Business', ledger: 'PLC Fix Test A', transdate: '2027-01-01', account: 'Sales Revenue', amount_minor: -2500 });
   postJournalEntry('PLCFIX-A', 'My Business', 'PLC Fix Test A', 1);
@@ -1629,7 +1632,7 @@ test('getAgingBuckets derives 1x/2x/3x buckets from a single term, matching real
 });
 
 test('getCreditStatus: a real customer/vendor\'s own real balance checked against their own real, configured credit limit', () => {
-  createEntity({ name: 'CreditStatusTest Vendor', parent: 'Vendors' }, 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'CreditStatusTest Vendor', 1);
   setContact('CreditStatusTest Vendor', { payment_terms_days: 0, credit_limit_minor: 500000 });
 
   const before = getCreditStatus('CreditStatusTest Vendor');
@@ -1638,7 +1641,7 @@ test('getCreditStatus: a real customer/vendor\'s own real balance checked agains
   assert.equal(before.overLimit, false);
   assert.equal(before.remainingMinor, 500000);
 
-  createEntity({ name: 'CreditStatusTest Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'CreditStatusTest Ledger', 1);
   stageLine({ reference: 'CST-1', business: 'My Business', ledger: 'CreditStatusTest Ledger', account: 'Inventory', amount_minor: 600000 });
   stageLine({ reference: 'CST-1', business: 'My Business', ledger: 'CreditStatusTest Ledger', account: 'CreditStatusTest Vendor', amount_minor: -600000 });
   postJournalEntry('CST-1', 'My Business', 'CreditStatusTest Ledger', 1);
@@ -1649,7 +1652,7 @@ test('getCreditStatus: a real customer/vendor\'s own real balance checked agains
   assert.equal(after.remainingMinor, -100000, 'a real, negative remaining amount once genuinely over');
 
   // A real entity with no configured limit at all — never silently treated as "over" just because it has no limit.
-  createEntity({ name: 'CreditStatusTest No Limit', parent: 'Vendors' }, 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'CreditStatusTest No Limit', 1);
   const noLimit = getCreditStatus('CreditStatusTest No Limit');
   assert.equal(noLimit.limitMinor, null);
   assert.equal(noLimit.overLimit, false);
@@ -1657,12 +1660,12 @@ test('getCreditStatus: a real customer/vendor\'s own real balance checked agains
 });
 
 test('a item can be sourced from multiple manufacturer/vendor combinations, and preference is never derived from price', () => {
-  createEntity({ name: 'PT-M6x20 Hex Bolt', parent: 'Items' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'PT-M6x20 Hex Bolt', 1);
   setItem('PT-M6x20 Hex Bolt', { description: 'Zinc-plated steel hex bolt', unit_of_measure: 'each', upc: '012345678905' });
-  createEntity({ name: 'PT-Acme Fasteners', parent: 'Manufacturers' }, 1);
-  createEntity({ name: 'PT-Beta Fasteners', parent: 'Manufacturers' }, 1);
-  createEntity({ name: 'PT-Local Hardware', parent: 'Accounts Payable' }, 1);
-  createEntity({ name: 'PT-Bulk Wholesale', parent: 'Accounts Payable' }, 1);
+  create(fetch('Manufacturers', typeRootName), typeRootName, 'PT-Acme Fasteners', 1);
+  create(fetch('Manufacturers', typeRootName), typeRootName, 'PT-Beta Fasteners', 1);
+  create(fetch('Accounts Payable', typeRootName), typeRootName, 'PT-Local Hardware', 1);
+  create(fetch('Accounts Payable', typeRootName), typeRootName, 'PT-Bulk Wholesale', 1);
 
   addOrUpdateItemSource({
     itemName: 'PT-M6x20 Hex Bolt', manufacturerName: 'PT-Acme Fasteners', vendorName: 'PT-Local Hardware',
@@ -1725,9 +1728,9 @@ test('Developer role, Employees/Manufacturers/Items branches, and item/item_sour
 });
 
 test('divisions/profit centers: the same account can be posted to by multiple divisions, and reports can filter to just one', () => {
-  createEntity({ name: 'DivTest Manufacturing', parent: 'Divisions' }, 1);
-  createEntity({ name: 'DivTest Services', parent: 'Divisions' }, 1);
-  createEntity({ name: 'DivTest Ledger', parent: 'My Business' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'DivTest Manufacturing', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'DivTest Services', 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'DivTest Ledger', 1);
 
   stageLine({ reference: 'DIVT-1', business: 'My Business', ledger: 'DivTest Ledger', transdate: '2027-01-01', account: 'Cash and Bank', amount_minor: 1000, division: 'DivTest Manufacturing' });
   stageLine({ reference: 'DIVT-1', business: 'My Business', ledger: 'DivTest Ledger', transdate: '2027-01-01', account: 'Sales Revenue', amount_minor: -1000, division: 'DivTest Manufacturing' });
@@ -1748,8 +1751,8 @@ test('divisions/profit centers: the same account can be posted to by multiple di
 
 test('proves the concept: BMW M GmbH\'s real, published 2020 HGB balance sheet and P&L reproduce exactly through this system', () => {
   const B = 'BMW M GmbH Proof', L = 'BMW M GmbH Proof Actual';
-  createEntity({ name: B, parent: 'Application' }, 1);
-  createEntity({ name: L, parent: B }, 1);
+  create(fetch('Application', typeRootName), typeRootName, B, 1);
+  create(fetch(B, typeRootName), typeRootName, L, 1);
 
   const eur = (t: number) => Math.round(t * 1000 * 100);
 
@@ -1778,7 +1781,7 @@ test('proves the concept: BMW M GmbH\'s real, published 2020 HGB balance sheet a
     ['Proof: Sonstige Steuern', 'Expense'],
     ['Proof: Gewinnabführung', 'Expense'],
   ];
-  for (const [name, category] of accounts) createEntity({ name, parent: category }, 1);
+  for (const [name, category] of accounts) create(fetch(category, typeRootName), typeRootName, name, 1);
 
   const bsLines: [string, number][] = [
     ['Proof: Immaterielle Vermögensgegenstände', eur(372)],
@@ -1829,8 +1832,8 @@ test('proves the concept: BMW M GmbH\'s real, published 2020 HGB balance sheet a
 
 test('proves the concept: Peugeot Citroën Sochaux SNC\'s real, filed 2020 French (PCG) balance sheet and P&L reproduce exactly, as one genuinely balanced transaction', () => {
   const B = 'PCS Proof', L = 'PCS Proof Actual';
-  createEntity({ name: B, parent: 'Application' }, 1);
-  createEntity({ name: L, parent: B }, 1);
+  create(fetch('Application', typeRootName), typeRootName, B, 1);
+  create(fetch(B, typeRootName), typeRootName, L, 1);
   const c = (eur: number) => Math.round(eur * 100);
 
   const accounts: [string, string][] = [
@@ -1850,7 +1853,7 @@ test('proves the concept: Peugeot Citroën Sochaux SNC\'s real, filed 2020 Frenc
     ['Proof: Autres charges', 'Expense'], ['Proof: Charges financières', 'Expense'],
     ['Proof: Charges exceptionnelles', 'Expense'], ['Proof: Impôts sur les bénéfices', 'Expense'],
   ];
-  for (const [name, category] of accounts) createEntity({ name, parent: category }, 1);
+  for (const [name, category] of accounts) create(fetch(category, typeRootName), typeRootName, name, 1);
 
   const lines: [string, number][] = [
     ['Proof: Stocks et en-cours', c(87405871.03)],
@@ -2031,9 +2034,9 @@ test('aged invoices: bucketed by each customer\'s own payment terms, and partial
 });
 
 test('Cost Centers apply to purchasing only, Profit Centers apply to both — matching SQL-Ledger\'s actual Department distinction, not a generic undifferentiated division', () => {
-  createEntity({ name: 'CPTest Factory Floor', parent: 'Divisions' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'CPTest Factory Floor', 1);
   setDivisionType('CPTest Factory Floor', 'Cost Center');
-  createEntity({ name: 'CPTest Product Sales', parent: 'Divisions' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'CPTest Product Sales', 1);
   setDivisionType('CPTest Product Sales', 'Profit Center');
 
   assert.equal(getDivisionType('CPTest Factory Floor'), 'Cost Center');
@@ -2054,7 +2057,7 @@ test('Cost Centers apply to purchasing only, Profit Centers apply to both — ma
 });
 
 test('Credit Invoice (restocks) vs Credit Note (does not) — matching SQL-Ledger\'s real distinction, applied per-line based on whether restocking was actually requested', () => {
-  createEntity({ name: 'RSTest Widget', parent: 'Items' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'RSTest Widget', 1);
 
   const invId = createInvoice({
     invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'RSTEST-INV',
@@ -2116,7 +2119,7 @@ test('Reminders: escalate per customer, cap at level 3, and reset independently 
 });
 
 test('aged summary rolls up per customer (matching SQL-Ledger\'s Summary aging view), and counterparty history shows real line-item activity', () => {
-  createEntity({ name: 'HistTest Customer', parent: 'Accounts Receivable' }, 1);
+  create(fetch('Accounts Receivable', typeRootName), typeRootName, 'HistTest Customer', 1);
   setContact('HistTest Customer', { payment_terms_days: 30 });
 
   const inv1 = createInvoice({
@@ -2144,8 +2147,8 @@ test('aged summary rolls up per customer (matching SQL-Ledger\'s Summary aging v
 });
 
 test('stock write-offs (breakage/spoilage): a real dual-effect transaction, reducing quantity on hand AND recognizing the actual loss in the GL, not just an adjustment with no accounting consequence', () => {
-  createEntity({ name: 'WOTest Perishable', parent: 'Items' }, 1);
-  createEntity({ name: 'WOTest Write-off Expense', parent: 'Expense' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'WOTest Perishable', 1);
+  create(fetch('Expense', typeRootName), typeRootName, 'WOTest Write-off Expense', 1);
 
   postQuantityMovement('My Business', 'Actual', 'WOTEST-RECEIVE-QTY', 'WOTest Perishable', 100, 1, '2027-01-01');
 
@@ -2166,7 +2169,7 @@ test('stock write-offs (breakage/spoilage): a real dual-effect transaction, redu
 });
 
 test('lot/expiration tracking: consumption is genuinely FIFO by expiration date, not receipt order, and the expiring-stock report only shows what actually still has quantity', () => {
-  createEntity({ name: 'LotTest Dairy', parent: 'Items' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'LotTest Dairy', 1);
 
   // Received in this order: B, A, C — but A expires soonest.
   receiveLot('My Business', 'Actual', 'LOTTEST-R1', 'LotTest Dairy', 'LOT-B', '2027-01-05', '2027-03-15', 50, 1);
@@ -2195,13 +2198,13 @@ test('lot/expiration tracking: consumption is genuinely FIFO by expiration date,
 });
 
 test('Locations: per-location stock, exactly one billing address, warehouse-direct dispatch for large orders, same-city transfers, and below-reorder reporting', () => {
-  createEntity({ name: 'LocTest Head Office', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'LocTest Head Office', 1);
   setLocation('LocTest Head Office', { city: 'LocTest City A', location_type: 'Warehouse', is_billing_address: true, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'});
 
-  createEntity({ name: 'LocTest Retail A1', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'LocTest Retail A1', 1);
   setLocation('LocTest Retail A1', { city: 'LocTest City A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 2000, carton_capacity: 300 , timezone: 'UTC'});
 
-  createEntity({ name: 'LocTest Retail B1', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'LocTest Retail B1', 1);
   setLocation('LocTest Retail B1', { city: 'LocTest City B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1800, carton_capacity: 280 , timezone: 'UTC'});
 
   const billingCount = (
@@ -2209,7 +2212,7 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
   ).c;
   assert.equal(billingCount, 1, 'exactly one billing address, even with multiple locations defined');
 
-  createEntity({ name: 'LocTest Lager', parent: 'Items' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'LocTest Lager', 1);
 
   // 48 cartons at 24 bottles each, received at the warehouse.
   receiveStockAtLocation('My Business', 'Actual', 'LOCTEST-REC-1', 'LocTest Lager', 'LocTest Head Office', 48 * 24, 1, '2027-01-01');
@@ -2255,9 +2258,9 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
 });
 
 test('quantity movements carry a real, queryable location — receive, dispatch, and transfer (both legs) each record where it actually happened, not just updating the current-state snapshot', () => {
-  createEntity({ name: 'MoveLocTest Warehouse', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'MoveLocTest Warehouse', 1);
   setLocation('MoveLocTest Warehouse', { city: 'MoveLocTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'});
-  createEntity({ name: 'MoveLocTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'MoveLocTest Outlet', 1);
   setLocation('MoveLocTest Outlet', { city: 'MoveLocTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
   createItem('MoveLocTest Wine', 'Items', 1);
 
@@ -2293,12 +2296,12 @@ test('quantity movements carry a real, queryable location — receive, dispatch,
 });
 
 test('true double-entry quantity tracking: a real "on order" account for receipts and a real "units sold" account for dispatches — the genuine counteritem, not derived arithmetic, per direct confirmation', () => {
-  createEntity({ name: 'DblEntryQty Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'DblEntryQty Warehouse', parent: 'Locations' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'DblEntryQty Ledger', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'DblEntryQty Warehouse', 1);
   setLocation('DblEntryQty Warehouse', { city: 'DblEntryQty City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'});
-  createEntity({ name: 'DblEntryQty Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'DblEntryQty Outlet', 1);
   setLocation('DblEntryQty Outlet', { city: 'DblEntryQty City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
-  createEntity({ name: 'DblEntryQty Vendor', parent: 'Vendors' }, 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'DblEntryQty Vendor', 1);
   createItem('DblEntryQty Wine', 'Items', 1);
 
   function balanceOf(accountName: string): number {
@@ -2340,17 +2343,17 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
 });
 
 test('getStockMovementReport: the real, physical journey of stock — purchases into a warehouse, a real transfer on to a retail outlet, and a real sale, each correctly enriched with its own real category, division, and vendor', () => {
-  createEntity({ name: 'SMRTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'SMRTest Region', parent: 'Divisions' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'SMRTest Ledger', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'SMRTest Region', 1);
   setDivisionType('SMRTest Region', 'Profit Center');
-  createEntity({ name: 'SMRTest Warehouse', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'SMRTest Warehouse', 1);
   setLocation('SMRTest Warehouse', { city: 'SMRTest Region', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'});
-  createEntity({ name: 'SMRTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'SMRTest Outlet', 1);
   setLocation('SMRTest Outlet', { city: 'SMRTest Region', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
-  createEntity({ name: 'SMRTest Category', parent: 'Items' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'SMRTest Category', 1);
   createItem('SMRTest Wine', 'SMRTest Category', 1);
-  createEntity({ name: 'SMRTest Vendor', parent: 'Vendors' }, 1);
-  createEntity({ name: 'SMRTest Wine Customer', parent: 'Customers' }, 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'SMRTest Vendor', 1);
+  create(fetch('Customers', typeRootName), typeRootName, 'SMRTest Wine Customer', 1);
   const { salesAccount, salesAccountId } = ensureProductSalesCogsAccounts('SMRTest Wine', 1);
   db.prepare(`INSERT INTO item_source (item_id, vendor_id, is_preferred) VALUES ((SELECT id FROM current_entities WHERE name = 'SMRTest Wine'), (SELECT id FROM current_entities WHERE name = 'SMRTest Vendor'), 1)`).run();
 
@@ -2395,10 +2398,10 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
 });
 
 test('item categories: nested arbitrarily deep in the existing entity tree, and an empty subcategory never shows up as a fake item', () => {
-  createEntity({ name: 'CatTest Red Wine', parent: 'Items' }, 1);
-  createEntity({ name: 'CatTest White Wine', parent: 'Items' }, 1);
-  createEntity({ name: 'CatTest Merlot', parent: 'CatTest Red Wine' }, 1);
-  createEntity({ name: 'CatTest Chablis', parent: 'CatTest White Wine' }, 1); // deliberately left empty
+  create(fetch('Items', typeRootName), typeRootName, 'CatTest Red Wine', 1);
+  create(fetch('Items', typeRootName), typeRootName, 'CatTest White Wine', 1);
+  create(fetch('CatTest Red Wine', typeRootName), typeRootName, 'CatTest Merlot', 1);
+  create(fetch('CatTest White Wine', typeRootName), typeRootName, 'CatTest Chablis', 1); // deliberately left empty
 
   createItem('CatTest Château Merlot 2020', 'CatTest Merlot', 1);
 
@@ -2410,7 +2413,7 @@ test('item categories: nested arbitrarily deep in the existing entity tree, and 
 });
 
 test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free text) then level numerically (top to bottom), and completing posts genuine loss/gain variance while leaving uncounted lines untouched', () => {
-  createEntity({ name: 'STTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'STTest Outlet', 1);
   setLocation('STTest Outlet', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100 , timezone: 'UTC'});
 
   createItem('STTest Merlot', 'Items', 1);
@@ -2453,7 +2456,7 @@ test('completeStockTake: multiple real, different products sharing the same vari
   // scenario, at a larger scale. Reproduced here directly, at the real,
   // correct, backend-function level, per the backend-first-testing
   // skill - no browser, no full simulation.
-  createEntity({ name: 'STTest Outlet 3', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'STTest Outlet 3', 1);
   setLocation('STTest Outlet 3', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100, timezone: 'UTC' });
 
   createItem('STTest Shiraz', 'Items', 1);
@@ -2487,7 +2490,7 @@ test('completeStockTake and writeOffStock: the real quantity-movement journal en
   // The earlier test above only checked the dollar-value side's own
   // Trial Balance - it never actually queried the real, separate
   // quantity-movement journal entries this test checks directly.
-  createEntity({ name: 'QTYBalTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'QTYBalTest Outlet', 1);
   setLocation('QTYBalTest Outlet', { city: 'QTYBalTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
   createItem('QTYBalTest Wine', 'Items', 1);
   receiveStockAtLocation('My Business', 'Actual', 'QTYBALTEST-REC', 'QTYBalTest Wine', 'QTYBalTest Outlet', 40, 1, '2027-01-01');
@@ -2503,7 +2506,7 @@ test('completeStockTake and writeOffStock: the real quantity-movement journal en
   assert.equal(qtyBalance.total, 0, 'the real quantity-movement journal entry for this stock-take variance must itself be balanced');
 
   // The same, real check for writeOffStock's own quantity movement.
-  createEntity({ name: 'QTYBalTest Write-off Expense', parent: 'Expense' }, 1);
+  create(fetch('Expense', typeRootName), typeRootName, 'QTYBalTest Write-off Expense', 1);
   createItem('QTYBalTest Beer', 'Items', 1);
   receiveStockAtLocation('My Business', 'Actual', 'QTYBALTEST-REC-2', 'QTYBalTest Beer', 'QTYBalTest Outlet', 24, 1, '2027-01-01');
   writeOffStock('My Business', 'Actual', 'QTYBALTEST-WO', 'QTYBalTest Beer', 4, 500, 'QTYBalTest Write-off Expense', 'Inventory', 'Broken in transit', 1, '2027-02-01');
@@ -2514,14 +2517,14 @@ test('completeStockTake and writeOffStock: the real quantity-movement journal en
 });
 
 test('ensureLocationCapacityAccount: a real, one-time opening balance from the location\'s own static capacity, retail tracks bottles, warehouse tracks carton-equivalents', () => {
-  createEntity({ name: 'CapAcctTest Retail', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'CapAcctTest Retail', 1);
   setLocation('CapAcctTest Retail', { city: 'CapAcctTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' });
   const retail = ensureLocationCapacityAccount('My Business', 'Actual', 'CapAcctTest Retail', 1);
   assert.equal(retail.unit, 'bottle', 'a location with a real bottle_capacity set tracks in bottles');
   const retailBalance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(retail.capacityAccountId) as { total: number };
   assert.equal(retailBalance.total, 200);
 
-  createEntity({ name: 'CapAcctTest Warehouse', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'CapAcctTest Warehouse', 1);
   setLocation('CapAcctTest Warehouse', { city: 'CapAcctTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 50, timezone: 'UTC' });
   const warehouse = ensureLocationCapacityAccount('My Business', 'Actual', 'CapAcctTest Warehouse', 1);
   assert.equal(warehouse.unit, 'carton', 'a location with no bottle_capacity, only carton_capacity, tracks in carton-equivalents');
@@ -2535,7 +2538,7 @@ test('ensureLocationCapacityAccount: a real, one-time opening balance from the l
 });
 
 test('adjustLocationCapacity: a real, direct check of the capacity math, retail (1:1 bottles) and warehouse (real, per-item carton conversion)', () => {
-  createEntity({ name: 'CapAdjTest Retail', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'CapAdjTest Retail', 1);
   setLocation('CapAdjTest Retail', { city: 'CapAdjTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' });
   createItem('CapAdjTest Wine', 'Items', 1);
   const retail = ensureLocationCapacityAccount('My Business', 'Actual', 'CapAdjTest Retail', 1);
@@ -2549,9 +2552,9 @@ test('adjustLocationCapacity: a real, direct check of the capacity math, retail 
   assert.equal(balance.total, 80, 'dispatching 10 real bottles frees exactly 10 units of real capacity back up (70 + 10)');
 
   // Warehouse: a real, specific item with a real, known package_quantity of 12.
-  createEntity({ name: 'CapAdjTest Warehouse', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'CapAdjTest Warehouse', 1);
   setLocation('CapAdjTest Warehouse', { city: 'CapAdjTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 20, timezone: 'UTC' });
-  createEntity({ name: 'CapAdjTest Vendor', parent: 'Vendors' }, 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'CapAdjTest Vendor', 1);
   addOrUpdateItemSource({ itemName: 'CapAdjTest Wine', vendorName: 'CapAdjTest Vendor', priceMinor: 1500, packageQuantity: 12, isPreferred: true });
   const warehouse = ensureLocationCapacityAccount('My Business', 'Actual', 'CapAdjTest Warehouse', 1);
 
@@ -2565,7 +2568,7 @@ test('createPosTerminal/setTerminalCurrency/getEffectiveSaleCurrency: a real, di
   // Slice 2 - a real business on a border, one real, shared location,
   // two real, physical terminals, each transacting in a different,
   // real currency.
-  createEntity({ name: 'BorderTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'BorderTest Outlet', 1);
   setLocation('BorderTest Outlet', { city: 'BorderTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' });
 
   createPosTerminal('BorderTest Front Till (USD)', 'BorderTest Outlet', 1);
@@ -2591,7 +2594,7 @@ test('addOrUpdateItemSource/getItemPriceForCurrency: a real, direct, dual-curren
   // (a border business posts real, round prices per currency, not a
   // number that drifts with the market).
   createItem('BorderTest Bottled Water', 'Items', 1);
-  createEntity({ name: 'BorderTest Vendor', parent: 'Accounts Payable' }, 1);
+  create(fetch('Accounts Payable', typeRootName), typeRootName, 'BorderTest Vendor', 1);
   addOrUpdateItemSource({ itemName: 'BorderTest Bottled Water', vendorName: 'BorderTest Vendor', priceMinor: 150, isPreferred: true, currency: 'USD' });
   addOrUpdateItemSource({ itemName: 'BorderTest Bottled Water', vendorName: 'BorderTest Vendor', priceMinor: 200, isPreferred: true, currency: 'CAD' });
 
@@ -2611,7 +2614,7 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
   // on a border, one real, shared location, two real, physical
   // terminals, one real product, each sale automatically priced in
   // the selling terminal's own, real, correct currency.
-  createEntity({ name: 'BorderE2E Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'BorderE2E Outlet', 1);
   setLocation('BorderE2E Outlet', { city: 'BorderE2E City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' });
   createPosTerminal('BorderE2E Till (USD)', 'BorderE2E Outlet', 1);
   createPosTerminal('BorderE2E Till (CAD)', 'BorderE2E Outlet', 1);
@@ -2619,12 +2622,12 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
   setTerminalCurrency('BorderE2E Till (CAD)', 'CAD');
 
   createItem('BorderE2E Water', 'Items', 1);
-  createEntity({ name: 'BorderE2E Vendor', parent: 'Accounts Payable' }, 1);
+  create(fetch('Accounts Payable', typeRootName), typeRootName, 'BorderE2E Vendor', 1);
   addOrUpdateItemSource({ itemName: 'BorderE2E Water', vendorName: 'BorderE2E Vendor', priceMinor: 150, isPreferred: true, currency: 'USD' });
   addOrUpdateItemSource({ itemName: 'BorderE2E Water', vendorName: 'BorderE2E Vendor', priceMinor: 200, isPreferred: true, currency: 'CAD' });
   receiveStockAtLocation('My Business', 'Actual', 'BORDERE2E-REC', 'BorderE2E Water', 'BorderE2E Outlet', 20, 1, '2027-01-01');
 
-  createEntity({ name: 'BorderE2E Write-off Expense', parent: 'Expense' }, 1);
+  create(fetch('Expense', typeRootName), typeRootName, 'BorderE2E Write-off Expense', 1);
 
   const usdSale = completePosSale(
     {
@@ -2672,7 +2675,7 @@ test('createStockTake resolves an item by its real, scoped item identity, never 
   // call, no browser, no Playwright - deliberately creating the exact
   // same class of collision (a real, same-named entity of a
   // genuinely different kind) the reported bug depended on.
-  createEntity({ name: 'STTest Outlet 2', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'STTest Outlet 2', 1);
   setLocation('STTest Outlet 2', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
   createItem('STTest Collide', 'Items', 1); // the real item, created first
 
@@ -2685,7 +2688,7 @@ test('createStockTake resolves an item by its real, scoped item identity, never 
   // the same name in the resulting map. The real, reported bug's own
   // colliding entity was created after the item during a long-running
   // simulation - reproduced here with the same, real ordering.
-  createEntity({ name: 'STTest Collide', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'STTest Collide', 1);
 
   const takeId = createStockTake('STTest Outlet 2', '2027-02-01', 1);
   const take = getStockTake(takeId)!;
@@ -2703,7 +2706,7 @@ test('createStockTake resolves an item by its real, scoped item identity, never 
 });
 
 test('POS terminal: a complete register sale posts the invoice, dispatches stock from the exact location sold at, and allocates payment atomically, with change due calculated correctly', () => {
-  createEntity({ name: 'POSTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'POSTest Outlet', 1);
   setLocation('POSTest Outlet', { city: 'POSTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('POSTest Merlot', 'Items', 1);
   setItem('POSTest Merlot', { upc: '0123456789012' });
@@ -2742,7 +2745,7 @@ test('POS terminal: a complete register sale posts the invoice, dispatches stock
 
   // An on-account sale (existing customer, no immediate payment) must
   // NOT auto-allocate payment — it's a normal outstanding invoice.
-  createEntity({ name: 'POSTest Account Customer', parent: 'Customers' }, 1);
+  create(fetch('Customers', typeRootName), typeRootName, 'POSTest Account Customer', 1);
   setContact('POSTest Account Customer', { payment_terms_days: 30 });
   const onAccountResult = completePosSale(
     {
@@ -2814,7 +2817,7 @@ test('customer self-registration: a customer is a customer — same contact invo
 
   // The real gate: still pending, so on-account selling must be
   // rejected outright — even though the customer/contact fully exists.
-  createEntity({ name: 'RegTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'RegTest Outlet', 1);
   setLocation('RegTest Outlet', { city: 'RegTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('RegTest Wine', 'Items', 1);
   receiveStockAtLocation('My Business', 'Actual', 'REGTEST-REC-1', 'RegTest Wine', 'RegTest Outlet', 10, 1, '2027-01-01');
@@ -2860,7 +2863,7 @@ test('customer self-registration: a customer is a customer — same contact invo
   // A staff-created account customer (no self-registration at all) has
   // no verification_status and must remain unrestricted — staff
   // already verified who they are by creating the account directly.
-  createEntity({ name: 'RegTest Staff Created Customer', parent: 'Customers' }, 1);
+  create(fetch('Customers', typeRootName), typeRootName, 'RegTest Staff Created Customer', 1);
   setContact('RegTest Staff Created Customer', { payment_terms_days: 30 });
   assert.equal(getContact('RegTest Staff Created Customer')!.verification_status, null);
   const staffResult = completePosSale(
@@ -2904,9 +2907,9 @@ test('customer self-registration: a customer is a customer — same contact invo
 });
 
 test('closeBooks: year-end close zeroes every Income/Expense account into Retained Earnings as one reversible entry, with the correct sign for both profit and loss', () => {
-  createEntity({ name: 'CloseBooks Test Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'CloseTest Revenue', parent: 'Income' }, 1);
-  createEntity({ name: 'CloseTest Expense', parent: 'Expense' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'CloseBooks Test Ledger', 1);
+  create(fetch('Income', typeRootName), typeRootName, 'CloseTest Revenue', 1);
+  create(fetch('Expense', typeRootName), typeRootName, 'CloseTest Expense', 1);
 
   stageLine({ reference: 'CLOSETEST-1', business: 'My Business', ledger: 'CloseBooks Test Ledger', transdate: '2027-01-01', account: 'CloseTest Revenue', amount_minor: -100000 }); // $1,000 revenue
   stageLine({ reference: 'CLOSETEST-1', business: 'My Business', ledger: 'CloseBooks Test Ledger', transdate: '2027-01-01', account: 'Cash and Bank', amount_minor: 100000 });
@@ -2945,8 +2948,8 @@ test('closeBooks: year-end close zeroes every Income/Expense account into Retain
 });
 
 test('getBalanceSheet: a real close must not leave Current Year Earnings still showing the closed period\'s net income — a real, direct regression: the Balance Sheet stopped balancing after excludeCloseEntries was added to getProfitAndLoss for report pages', () => {
-  createEntity({ name: 'BSCloseTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'BSCloseTest Revenue', parent: 'Income' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'BSCloseTest Ledger', 1);
+  create(fetch('Income', typeRootName), typeRootName, 'BSCloseTest Revenue', 1);
 
   stageLine({ reference: 'BSCT-1', business: 'My Business', ledger: 'BSCloseTest Ledger', transdate: '2027-08-01', account: 'BSCloseTest Revenue', amount_minor: -70000 });
   stageLine({ reference: 'BSCT-1', business: 'My Business', ledger: 'BSCloseTest Ledger', transdate: '2027-08-01', account: 'Cash and Bank', amount_minor: 70000 });
@@ -2970,13 +2973,13 @@ test('getBalanceSheet: a real close must not leave Current Year Earnings still s
 
 test("closeBooks: per direct correction, division is only a real, pure sub-totaling/reporting dimension - every division's net income rolls into the exact same, single, chosen Retained Earnings account, never a separate, division-specific one", () => {
   const biz = createBusiness('MultiDivCloseTest Co', '2027-28', 1);
-  createEntity({ name: 'MultiDivCloseTest Retail Division', parent: 'Divisions' }, 1);
-  createEntity({ name: 'MultiDivCloseTest Wholesale Division', parent: 'Divisions' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'MultiDivCloseTest Retail Division', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'MultiDivCloseTest Wholesale Division', 1);
   setDivisionType('MultiDivCloseTest Retail Division', 'Profit Center');
   setDivisionType('MultiDivCloseTest Wholesale Division', 'Profit Center');
-  createEntity({ name: 'MultiDivCloseTest Retail Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'MultiDivCloseTest Retail Outlet', 1);
   setLocation('MultiDivCloseTest Retail Outlet', { city: 'MultiDivCloseTest Retail Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  createEntity({ name: 'MultiDivCloseTest Wholesale Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'MultiDivCloseTest Wholesale Outlet', 1);
   setLocation('MultiDivCloseTest Wholesale Outlet', { city: 'MultiDivCloseTest Wholesale Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('MultiDivCloseTest Merlot', 'Items', 1);
   receiveStockAtLocation(biz.business, biz.actualLedger, 'MDCT-REC-A', 'MultiDivCloseTest Merlot', 'MultiDivCloseTest Retail Outlet', 20, 1, '2027-01-01');
@@ -3016,8 +3019,8 @@ test("closeBooks: per direct correction, division is only a real, pure sub-total
 });
 
 test('getBalanceSheet includes real AR/AP posted directly to customer/vendor names — without this, any ledger with outstanding AR/AP silently fails to balance', () => {
-  createEntity({ name: 'BSTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'BSTest Vendor', parent: 'Vendors' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'BSTest Ledger', 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'BSTest Vendor', 1);
   setContact('BSTest Vendor', { payment_terms_days: 30 });
 
   stageLine({ reference: 'BSTEST-1', business: 'My Business', ledger: 'BSTest Ledger', transdate: '2027-01-01', account: 'Inventory', amount_minor: 50000 });
@@ -3041,7 +3044,7 @@ test('getBalanceSheet includes real AR/AP posted directly to customer/vendor nam
 });
 
 test('completePosSale honors an explicit transdate instead of always using the real current date — the actual bug that broke every backdated/simulated sale', () => {
-  createEntity({ name: 'POSDateTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'POSDateTest Outlet', 1);
   setLocation('POSDateTest Outlet', { city: 'POSDateTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('POSDateTest Wine', 'Items', 1);
   receiveStockAtLocation('My Business', 'Actual', 'POSDATETEST-REC-1', 'POSDateTest Wine', 'POSDateTest Outlet', 10, 1, '2027-01-01');
@@ -3081,11 +3084,11 @@ test('completePosSale honors an explicit transdate instead of always using the r
 });
 
 test('completePosSale: a real, immediate cash sale never touches the customer\'s own AR balance at all, even momentarily — the exact question directly asked and confirmed: "why are cash sales going through the AR system in any way?"', () => {
-  createEntity({ name: 'CashARTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'CashARTest Outlet', 1);
   setLocation('CashARTest Outlet', { city: 'CashARTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('CashARTest Wine', 'Items', 1);
   receiveStockAtLocation('My Business', 'Actual', 'CASHARTEST-REC-1', 'CashARTest Wine', 'CashARTest Outlet', 10, 1, '2027-01-01');
-  createEntity({ name: 'CashARTest Customer', parent: 'Customers' }, 1);
+  create(fetch('Customers', typeRootName), typeRootName, 'CashARTest Customer', 1);
 
   const result = completePosSale(
     {
@@ -3127,9 +3130,9 @@ test('completePosSale: a real, immediate cash sale never touches the customer\'s
 });
 
 test('completeCashPurchase: a real, immediate cash purchase never touches the vendor\'s own AP balance at all, even momentarily — the direct counteritem to completePosSale, for a real, immediate purchase', () => {
-  createEntity({ name: 'CashPurTest Warehouse', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'CashPurTest Warehouse', 1);
   setLocation('CashPurTest Warehouse', { city: 'CashPurTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'});
-  createEntity({ name: 'CashPurTest Vendor', parent: 'Vendors' }, 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'CashPurTest Vendor', 1);
   createItem('CashPurTest Wine', 'Items', 1);
 
   const before = getItemLocation('CashPurTest Wine', 'CashPurTest Warehouse').quantity_on_hand;
@@ -3166,7 +3169,7 @@ test('completeCashPurchase: a real, immediate cash purchase never touches the ve
 });
 
 test('payEmployeeWages: a real employee treated as AP — real Medicare levy withheld from their own pay, real superannuation as a genuine, separate employer cost, hourly or salaried', () => {
-  createEntity({ name: 'WageTest Employee', parent: 'Employees' }, 1);
+  create(fetch('Employees', typeRootName), typeRootName, 'WageTest Employee', 1);
   setContact('WageTest Employee', { wage_minor_per_hour: 3000 }); // $30.00/hour
 
   function balanceOf(accountName: string): number {
@@ -3178,7 +3181,7 @@ test('payEmployeeWages: a real employee treated as AP — real Medicare levy wit
   }
 
   // No real wage or salary configured yet — a real, clear error, not a silent $0.
-  createEntity({ name: 'WageTest No Rate Employee', parent: 'Employees' }, 1);
+  create(fetch('Employees', typeRootName), typeRootName, 'WageTest No Rate Employee', 1);
   assert.throws(
     () => payEmployeeWages({ business: 'My Business', ledger: 'Actual', employeeName: 'WageTest No Rate Employee', hours: 8 }, 1),
     ValidationError,
@@ -3209,7 +3212,7 @@ test('payEmployeeWages: a real employee treated as AP — real Medicare levy wit
   assert.equal(getInvoiceOutstandingMinor(cashResult.invoiceId), cashResult.grossMinor - cashResult.netMinor, 'an immediate cash wage payment pays only the real NET amount — the invoice itself still shows the real Medicare levy portion as its own, separate, already-settled reduction, not literally zero');
 
   // A real, salaried manager — no hours, a real, fixed monthly amount instead.
-  createEntity({ name: 'WageTest Manager', parent: 'Employees' }, 1);
+  create(fetch('Employees', typeRootName), typeRootName, 'WageTest Manager', 1);
   setContact('WageTest Manager', { salary_minor_per_year: 9600000 }); // $96,000.00/year
   assert.throws(
     () => payEmployeeWages({ business: 'My Business', ledger: 'Actual', employeeName: 'WageTest Manager', hours: 10 }, 1),
@@ -3221,11 +3224,11 @@ test('payEmployeeWages: a real employee treated as AP — real Medicare levy wit
 });
 
 test('getOrganizationChart: the real, complete chain — Business belongs-to Division belongs-to Location, employees placed at either a real location or the business itself', () => {
-  createEntity({ name: 'OrgChartTest Co', parent: 'Businesses' }, 1);
-  createEntity({ name: 'OrgChartTest Region', parent: 'Divisions' }, 1);
-  createEntity({ name: 'OrgChartTest Store', parent: 'Locations' }, 1);
-  createEntity({ name: 'OrgChartTest Retail Staff', parent: 'Employees' }, 1);
-  createEntity({ name: 'OrgChartTest CEO', parent: 'Employees' }, 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'OrgChartTest Co', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'OrgChartTest Region', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'OrgChartTest Store', 1);
+  create(fetch('Employees', typeRootName), typeRootName, 'OrgChartTest Retail Staff', 1);
+  create(fetch('Employees', typeRootName), typeRootName, 'OrgChartTest CEO', 1);
 
   setRelationship('OrgChartTest Region', 'Belongs To Business', 'OrgChartTest Co', 1);
   setRelationship('OrgChartTest Store', 'Belongs To Division', 'OrgChartTest Region', 1);
@@ -3253,8 +3256,8 @@ test('getOrganizationChart: the real, complete chain — Business belongs-to Div
 
 
 test('e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, and a real, incoming one round-trips back through a genuinely separate ledger as a draft, never auto-posted', () => {
-  createEntity({ name: 'EInvTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'EInvTest Customer', parent: 'Customers' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'EInvTest Ledger', 1);
+  create(fetch('Customers', typeRootName), typeRootName, 'EInvTest Customer', 1);
   const invoiceId = createInvoice(
     {
       invoiceType: 'AR',
@@ -3275,8 +3278,8 @@ test('e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, an
   assert.ok(xml.includes('450.00'), 'the real line amount must appear as a real, formatted currency value');
 
   // A genuinely separate receiving ledger — the real, realistic case, not importing back into the same books it came from.
-  createEntity({ name: 'EInvTest Receiving Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'EInvTest Vendor', parent: 'Vendors' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'EInvTest Receiving Ledger', 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'EInvTest Vendor', 1);
   const result = importUblInvoiceAsDraft(xml, 'My Business', 'EInvTest Receiving Ledger', 'EInvTest Vendor', 1);
 
   const imported = getInvoice(result.invoiceId)!;
@@ -3290,9 +3293,9 @@ test('e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, an
 });
 
 test('e-invoicing: a real 3-way match catches a genuine mismatch between a purchase order and an incoming e-invoice', () => {
-  createEntity({ name: 'EInvDiscTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'EInvDiscTest Vendor', parent: 'Vendors' }, 1);
-  createEntity({ name: 'EInvDiscTest Item', parent: 'Items' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'EInvDiscTest Ledger', 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'EInvDiscTest Vendor', 1);
+  create(fetch('Items', typeRootName), typeRootName, 'EInvDiscTest Item', 1);
 
   stagePurchaseOrder({ reference: 'EIDT-PO-1', business: 'My Business', ledger: 'EInvDiscTest Ledger', vendor: 'EInvDiscTest Vendor', item: 'EInvDiscTest Item', quantity: 10, price_minor: 5000, transdate: '2027-05-01' });
   postPurchaseOrder('EIDT-PO-1', 'My Business', 'EInvDiscTest Ledger', 1);
@@ -3316,7 +3319,7 @@ test('e-invoicing: a real 3-way match catches a genuine mismatch between a purch
 });
 
 test('getStockListing/countStockListing: a real, paginated listing of every item/location combination with stock', () => {
-  createEntity({ name: 'StockListTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'StockListTest Outlet', 1);
   setLocation('StockListTest Outlet', { city: 'StockListTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('StockListTest Wine', 'Items', 1);
   receiveStockAtLocation('My Business', 'Actual', 'STOCKLISTTEST-REC-1', 'StockListTest Wine', 'StockListTest Outlet', 15, 1, '2027-01-01');
@@ -3348,9 +3351,9 @@ test('getStockListing/countStockListing: a real, paginated listing of every item
 });
 
 test('getStockListingByLocation: groups the same real stock data by real location, tagging each with its real division where one exists', () => {
-  createEntity({ name: 'StockGroupTest City Division', parent: 'Divisions' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'StockGroupTest City Division', 1);
   setDivisionType('StockGroupTest City Division', 'Profit Center');
-  createEntity({ name: 'StockGroupTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'StockGroupTest Outlet', 1);
   setLocation('StockGroupTest Outlet', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('StockGroupTest Wine A', 'Items', 1);
   createItem('StockGroupTest Wine B', 'Items', 1);
@@ -3367,7 +3370,7 @@ test('getStockListingByLocation: groups the same real stock data by real locatio
   assert.equal(group!.total_on_hand, 17, "a group's own total must be the real sum of its real rows' on-hand quantities");
 
   // A location whose city has no matching real division must still appear as a real group — just with division: null, not silently dropped.
-  createEntity({ name: 'StockGroupTest Outlet No Division', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'StockGroupTest Outlet No Division', 1);
   setLocation('StockGroupTest Outlet No Division', { city: 'A City With No Real Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   receiveStockAtLocation('My Business', 'Actual', 'STOCKGROUPTEST-REC-3', 'StockGroupTest Wine A', 'StockGroupTest Outlet No Division', 3, 1, '2027-01-01');
   const groupsAfter = getStockListingByLocation();
@@ -3377,7 +3380,7 @@ test('getStockListingByLocation: groups the same real stock data by real locatio
 });
 
 test('getLedgerDateRange: reports the real, earliest and latest transdate of what has actually been posted', () => {
-  createEntity({ name: 'DateRangeTest Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'DateRangeTest Ledger', 1);
   const empty = getLedgerDateRange('My Business', 'DateRangeTest Ledger');
   assert.equal(empty.earliest, null, 'a real ledger with nothing posted yet must report a real null range, not a misleading fallback date');
   assert.equal(empty.latest, null);
@@ -3407,8 +3410,8 @@ test('getLedgerDateRange: reports the real, earliest and latest transdate of wha
 });
 
 test('getAccountsPostedTo: finds the real, actual accounts a given reference posted to — used to correct a return to the exact same account the original sale used, not a different, plain fallback', () => {
-  createEntity({ name: 'AcctsPostedTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'AcctsPostedTest Revenue (Tier A)', parent: 'Income' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'AcctsPostedTest Ledger', 1);
+  create(fetch('Income', typeRootName), typeRootName, 'AcctsPostedTest Revenue (Tier A)', 1);
   stageLine({ reference: 'APT-1', business: 'My Business', ledger: 'AcctsPostedTest Ledger', transdate: '2027-06-01', account: 'AcctsPostedTest Revenue (Tier A)', amount_minor: -5000 });
   stageLine({ reference: 'APT-1', business: 'My Business', ledger: 'AcctsPostedTest Ledger', transdate: '2027-06-01', account: 'Cash and Bank', amount_minor: 5000 });
   postJournalEntry('APT-1', 'My Business', 'AcctsPostedTest Ledger', 1);
@@ -3422,12 +3425,12 @@ test('getAccountsPostedTo: finds the real, actual accounts a given reference pos
 });
 
 test('a real, nested division hierarchy: filtering a report by a coarser division must include a finer, nested division\'s own real activity too, not just an exact division_id match', () => {
-  createEntity({ name: 'HierarchyTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'HierarchyTest Region', parent: 'Divisions' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'HierarchyTest Ledger', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'HierarchyTest Region', 1);
   setDivisionType('HierarchyTest Region', 'Profit Center');
-  createEntity({ name: 'HierarchyTest Outlet', parent: 'HierarchyTest Region' }, 1);
+  create(fetch('HierarchyTest Region', typeRootName), typeRootName, 'HierarchyTest Outlet', 1);
   setDivisionType('HierarchyTest Outlet', 'Profit Center');
-  createEntity({ name: 'HierarchyTest Revenue', parent: 'Income' }, 1);
+  create(fetch('Income', typeRootName), typeRootName, 'HierarchyTest Revenue', 1);
 
   function post(reference: string, division: string, amount: number) {
     stageLine({ reference, business: 'My Business', ledger: 'HierarchyTest Ledger', transdate: '2027-07-01', account: 'HierarchyTest Revenue', amount_minor: -amount, division });
@@ -3445,11 +3448,11 @@ test('a real, nested division hierarchy: filtering a report by a coarser divisio
 });
 
 test('postJournalEntry: a real multi-currency entry must balance independently per currency — the exact danger this catches: an EUR imbalance masked by an offsetting USD imbalance must never pass', () => {
-  createEntity({ name: 'CcyTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'CcyTest Cash (EUR)', parent: 'Asset' }, 1);
-  createEntity({ name: 'CcyTest Clearing (EUR)', parent: 'Asset' }, 1);
-  createEntity({ name: 'CcyTest Cash (USD)', parent: 'Asset' }, 1);
-  createEntity({ name: 'CcyTest Clearing (USD)', parent: 'Asset' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'CcyTest Ledger', 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'CcyTest Cash (EUR)', 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'CcyTest Clearing (EUR)', 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'CcyTest Cash (USD)', 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'CcyTest Clearing (USD)', 1);
   setAccountCurrency('CcyTest Cash (EUR)', 'EUR');
   setAccountCurrency('CcyTest Clearing (EUR)', 'EUR');
   setAccountCurrency('CcyTest Cash (USD)', 'USD');
@@ -3479,7 +3482,7 @@ test('postJournalEntry: a real multi-currency entry must balance independently p
 });
 
 test('getProfitAndLoss: Gross Profit is a real subtotal (Revenue minus COGS specifically), Net Profit unchanged — via the real, bootstrap-tagged COGS account, not a test-only setup', () => {
-  createEntity({ name: 'GrossProfit Test Ledger', parent: 'My Business' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'GrossProfit Test Ledger', 1);
 
   stageLine({ reference: 'GPTEST-1', business: 'My Business', ledger: 'GrossProfit Test Ledger', transdate: '2027-01-01', account: 'Sales Revenue', amount_minor: -100000 });
   stageLine({ reference: 'GPTEST-1', business: 'My Business', ledger: 'GrossProfit Test Ledger', transdate: '2027-01-01', account: 'Cash and Bank', amount_minor: 100000 });
@@ -3504,8 +3507,8 @@ test('getProfitAndLoss: Gross Profit is a real subtotal (Revenue minus COGS spec
 });
 
 test('getTrialBalance: must always balance, even with real posted AR/AP — Customers/Vendors live outside the Chart of Accounts but their real monetary postings must still be included', () => {
-  createEntity({ name: 'TBBalance Test Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'TBBalance Test Customer', parent: 'Customers' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'TBBalance Test Ledger', 1);
+  create(fetch('Customers', typeRootName), typeRootName, 'TBBalance Test Customer', 1);
 
   // A real AR-style posting: Accounts Receivable debited, Sales Revenue
   // credited, but the AR side posts to the customer's own name directly
@@ -3522,8 +3525,8 @@ test('getTrialBalance: must always balance, even with real posted AR/AP — Cust
 });
 
 test('allocatePayment: actually posts the real GL movement, not just a tracking record — confirmed directly, since this exact gap once let $920,626.23 in "paid" sales never reach Cash and Bank', () => {
-  createEntity({ name: 'AllocGL Test Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'AllocGL Test Customer', parent: 'Customers' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'AllocGL Test Ledger', 1);
+  create(fetch('Customers', typeRootName), typeRootName, 'AllocGL Test Customer', 1);
 
   const inv = createInvoice({
     invoiceType: 'AR', business: 'My Business', ledger: 'AllocGL Test Ledger', reference: 'ALLOCGL-1',
@@ -3542,7 +3545,7 @@ test('allocatePayment: actually posts the real GL movement, not just a tracking 
 });
 
 test('completePosSale defaults to real, per-product Sales accounts — not one shared aggregate that could never distinguish one product\'s margin from another\'s', () => {
-  createEntity({ name: 'PerProductTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'PerProductTest Outlet', 1);
   setLocation('PerProductTest Outlet', { city: 'PerProductTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('PerProductTest Wine A', 'Items', 1);
   createItem('PerProductTest Wine B', 'Items', 1);
@@ -3596,8 +3599,8 @@ test('a item\'s real retail_price_minor is a genuine lookup field, reachable via
 });
 
 test('getSalesReport: detailed lines and a genuine category rollup (via the real entity tree, not a hand-maintained list) that both sum to the same real total', () => {
-  createEntity({ name: 'SalesReportTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'SalesReportTest Customer', parent: 'Customers' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'SalesReportTest Ledger', 1);
+  create(fetch('Customers', typeRootName), typeRootName, 'SalesReportTest Customer', 1);
   createItem('SalesReportTest Merlot', 'Merlot', 1);
   createItem('SalesReportTest Shiraz', 'Shiraz', 1);
 
@@ -3628,9 +3631,9 @@ test('getSalesReport: detailed lines and a genuine category rollup (via the real
 });
 
 test('setRelationship/getRelationship/getEntitiesWithRelationship: the real relationship-type pattern, confirmed the same shape as an ordinary relation_id tag, not a special case', () => {
-  createEntity({ name: 'RelTest Smith Family Trust', parent: 'Businesses' }, 1);
-  createEntity({ name: 'RelTest Jones Family Trust', parent: 'Businesses' }, 1);
-  createEntity({ name: 'RelTest Boutique Wine Company', parent: 'Businesses' }, 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'RelTest Smith Family Trust', 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'RelTest Jones Family Trust', 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'RelTest Boutique Wine Company', 1);
 
   setRelationship('RelTest Smith Family Trust', 'Trustee Of', 'RelTest Boutique Wine Company', 1);
   setRelationship('RelTest Jones Family Trust', 'Trustee Of', 'RelTest Boutique Wine Company', 1);
@@ -3646,12 +3649,12 @@ test('setRelationship/getRelationship/getEntitiesWithRelationship: the real rela
   assert.equal(jonesRow?.target, 'RelTest Boutique Wine Company');
 
   // An entity with no relationship set must genuinely return undefined, not a false match.
-  createEntity({ name: 'RelTest Unrelated Company', parent: 'Businesses' }, 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'RelTest Unrelated Company', 1);
   assert.equal(getRelationship('RelTest Unrelated Company'), undefined);
 });
 
 test('addTypedAddress/getTypedAddresses/addTypedPhone/getTypedPhones: multiple, genuinely typed addresses and phones per entity, zero new tables — reusing parent_id + relation_id + contact recursively', () => {
-  createEntity({ name: 'TypedContactTest Store', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'TypedContactTest Store', 1);
 
   addTypedAddress('TypedContactTest Store', 'Registered Office', { address_line1: '1 Corporate Way', city: 'Springfield' }, 1);
   addTypedAddress('TypedContactTest Store', 'Delivery', { address_line1: '42 Market Street', city: 'Springfield' }, 1);
@@ -3770,8 +3773,8 @@ test('createBusiness: real, optional secondary currencies each get a real, autom
 });
 
 test('ensureProductSalesCogsAccounts: mirrors the real, existing product category tree onto the GL side, not a flat or hardcoded structure', () => {
-  createEntity({ name: 'CategoryMirrorTest Category', parent: 'Items' }, 1);
-  createEntity({ name: 'CategoryMirrorTest SubCategory', parent: 'CategoryMirrorTest Category' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'CategoryMirrorTest Category', 1);
+  create(fetch('CategoryMirrorTest Category', typeRootName), typeRootName, 'CategoryMirrorTest SubCategory', 1);
   createItem('CategoryMirrorTest Product', 'CategoryMirrorTest SubCategory', 1);
 
   const { salesAccount, salesAccountId, cogsAccount, cogsAccountId } = ensureProductSalesCogsAccounts('CategoryMirrorTest Product', 1);
@@ -3794,7 +3797,7 @@ test('ensureProductSalesCogsAccounts: mirrors the real, existing product categor
   assert.equal(cogsSubCat.name, 'CategoryMirrorTest SubCategory', 'COGS mirrors the exact same real category chain, independently, on the Expense side');
 
   // A product with NO sub-category (flat, one level only) must still work correctly — proving this isn't hardcoded to a fixed depth.
-  createEntity({ name: 'CategoryMirrorTest FlatCategory', parent: 'Items' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'CategoryMirrorTest FlatCategory', 1);
   createItem('CategoryMirrorTest FlatProduct', 'CategoryMirrorTest FlatCategory', 1);
   const flatResult = ensureProductSalesCogsAccounts('CategoryMirrorTest FlatProduct', 1);
   const flatLeaf = getEntityTree().find((e) => e.id === flatResult.salesAccountId)!;
@@ -3805,9 +3808,9 @@ test('ensureProductSalesCogsAccounts: mirrors the real, existing product categor
 });
 
 test('POS clerk sign-on/sign-off: a real employee needs a real PIN, can only be signed on at one real location at a time, and signing off closes the real shift record cleanly', () => {
-  createEntity({ name: 'ShiftTest Employee', parent: 'Employees' }, 1);
-  createEntity({ name: 'ShiftTest Location A', parent: 'Locations' }, 1);
-  createEntity({ name: 'ShiftTest Location B', parent: 'Locations' }, 1);
+  create(fetch('Employees', typeRootName), typeRootName, 'ShiftTest Employee', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'ShiftTest Location A', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'ShiftTest Location B', 1);
 
   assert.throws(() => signOn('ShiftTest Employee', 'ShiftTest Location A'), /no real PIN set yet/, 'must refuse to sign on an employee with no real PIN configured at all');
 
@@ -3844,9 +3847,9 @@ test('POS clerk sign-on/sign-off: a real employee needs a real PIN, can only be 
 });
 
 test('previewCloseBooks: the real, proposed lines it returns exactly match what closeBooks itself actually posts, and nothing is staged or posted by the preview itself', () => {
-  createEntity({ name: 'PreviewCloseTest Ledger', parent: 'My Business' }, 1);
-  createEntity({ name: 'PreviewCloseTest Revenue', parent: 'Income' }, 1);
-  createEntity({ name: 'PreviewCloseTest Retained Earnings', parent: 'Equity' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'PreviewCloseTest Ledger', 1);
+  create(fetch('Income', typeRootName), typeRootName, 'PreviewCloseTest Revenue', 1);
+  create(fetch('Equity', typeRootName), typeRootName, 'PreviewCloseTest Retained Earnings', 1);
 
   stageLine({ reference: 'PCT-1', business: 'My Business', ledger: 'PreviewCloseTest Ledger', transdate: '2027-01-01', account: 'PreviewCloseTest Revenue', amount_minor: -50000 });
   stageLine({ reference: 'PCT-1', business: 'My Business', ledger: 'PreviewCloseTest Ledger', transdate: '2027-01-01', account: 'Cash and Bank', amount_minor: 50000 });
@@ -3877,8 +3880,8 @@ test('previewCloseBooks: the real, proposed lines it returns exactly match what 
 });
 
 test('Location open hours and employee weekly scheduling, built entirely on the real entity tree — no new table, each real record is its own, real, named child entity', () => {
-  createEntity({ name: 'ScheduleTest Location', parent: 'Locations' }, 1);
-  createEntity({ name: 'ScheduleTest Employee', parent: 'Employees' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'ScheduleTest Location', 1);
+  create(fetch('Employees', typeRootName), typeRootName, 'ScheduleTest Employee', 1);
 
   setLocationOpenHours('ScheduleTest Location', [
     { day: 'Monday', opens_at: '09:00', closes_at: '17:00' },
@@ -3959,7 +3962,7 @@ test('Location open hours and employee weekly scheduling, built entirely on the 
 });
 
 test('getCustomerStatement: shows every real, posted invoice for one customer — paid, partially paid, and outstanding — correctly respecting a real, historical "as of" date, not just the current, real-time balance', () => {
-  createEntity({ name: 'StatementTest Customer', parent: 'Accounts Receivable' }, 1);
+  create(fetch('Accounts Receivable', typeRootName), typeRootName, 'StatementTest Customer', 1);
 
   const inv1 = createInvoice({ invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'STMTTEST-1', counterpartyName: 'StatementTest Customer', invoiceDate: '2027-01-01', description: 'Fully paid', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 10000, amountMinor: 10000, taxMinor: 0 }] }, 1);
   postInvoice(inv1, 'Sales Revenue', 'Sales Tax Payable', 1);
@@ -3995,9 +3998,9 @@ test('getCustomerStatement: shows every real, posted invoice for one customer �
 });
 
 test("setEntityLink/getEntityLink/deleteEntityLink: a real, pure link between two entities that never touches the source entity's own relation_id, unlike setRelationship", () => {
-  createEntity({ name: 'EntityLinkTest Account', parent: 'Asset' }, 1);
-  createEntity({ name: 'EntityLinkTest Division', parent: 'Divisions' }, 1);
-  createEntity({ name: 'EntityLinkTest Other Division', parent: 'Divisions' }, 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'EntityLinkTest Account', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'EntityLinkTest Division', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'EntityLinkTest Other Division', 1);
 
   // Confirm the real, critical property directly: tag the account's
   // own relation_id first (the same real way createBusiness tags a
@@ -4031,9 +4034,9 @@ test("setEntityLink/getEntityLink/deleteEntityLink: a real, pure link between tw
 });
 
 test('stageBomComponent/postBomComponents/getBomComponents: a real Bill of Materials, built on setEntityLink, per the wine-bar-assemblies-plan design', () => {
-  createEntity({ name: 'BomTest Gin & Tonic', parent: 'Items' }, 1);
-  createEntity({ name: 'BomTest Gin', parent: 'Items' }, 1);
-  createEntity({ name: 'BomTest Tonic Water', parent: 'Items' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'BomTest Gin & Tonic', 1);
+  create(fetch('Items', typeRootName), typeRootName, 'BomTest Gin', 1);
+  create(fetch('Items', typeRootName), typeRootName, 'BomTest Tonic Water', 1);
 
   stageBomComponent({ assemblyItem: 'BomTest Gin & Tonic', business: 'My Business', componentItem: 'BomTest Gin', quantity: 30, unit: 'ml' });
   stageBomComponent({ assemblyItem: 'BomTest Gin & Tonic', business: 'My Business', componentItem: 'BomTest Tonic Water', quantity: 150, unit: 'ml' });
@@ -4064,8 +4067,8 @@ test('stageBomComponent/postBomComponents/getBomComponents: a real Bill of Mater
 });
 
 test('createProjectTask/getProjectTasks/addTaskDependency/getTaskDependencies: real project scheduling with zero new tables, per direct, absolute instruction', () => {
-  createEntity({ name: 'PmTest Riverside Build', parent: 'Projects' }, 1);
-  createEntity({ name: 'PmTest Riverside Build Tasks', parent: 'PmTest Riverside Build' }, 1);
+  create(fetch('Projects', typeRootName), typeRootName, 'PmTest Riverside Build', 1);
+  create(fetch('PmTest Riverside Build', typeRootName), typeRootName, 'PmTest Riverside Build Tasks', 1);
 
   createProjectTask('PmTest Riverside Build', 'Pour the foundation', '2026-09-01', '2026-09-05', 1);
   createProjectTask('PmTest Riverside Build', 'Frame the walls', '2026-09-06', '2026-09-12', 1);
@@ -4092,7 +4095,7 @@ test('createProjectTask/getProjectTasks/addTaskDependency/getTaskDependencies: r
 });
 
 test('setLanguageDirection/getLanguageDirection: a real, generic RTL property any language can have, per direct instruction (Hebrew/Arabic on par with every other language, not a hardcoded special case)', () => {
-  createEntity({ name: 'LangDirTest Klingon', parent: 'Languages' }, 1);
+  create(fetch('Languages', typeRootName), typeRootName, 'LangDirTest Klingon', 1);
   assert.equal(getLanguageDirection('LangDirTest Klingon'), undefined, 'no real direction set yet');
 
   setLanguageDirection('LangDirTest Klingon', 'RTL', 1);
@@ -4112,10 +4115,10 @@ test('setLanguageDirection/getLanguageDirection: a real, generic RTL property an
 test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this genuinely run out before a fresh order could arrive?', () => {
   const today = new Date().toISOString().slice(0, 10);
 
-  createEntity({ name: 'RiskTest Keg', parent: 'Items' }, 1);
-  createEntity({ name: 'RiskTest Brewery', parent: 'Vendors' }, 1);
-  createEntity({ name: 'RiskTest Slow Brewery', parent: 'Vendors' }, 1);
-  createEntity({ name: 'RiskTest Bar', parent: 'Locations' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'RiskTest Keg', 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'RiskTest Brewery', 1);
+  create(fetch('Vendors', typeRootName), typeRootName, 'RiskTest Slow Brewery', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'RiskTest Bar', 1);
   setLocation('RiskTest Bar', { city: 'RiskTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 0, carton_capacity: 10, timezone: 'UTC' });
 
   // Two real, known vendors for the same item - the risk calculation
@@ -4138,11 +4141,11 @@ test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this ge
 });
 
 test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, dedicated cash-flow/growth-planning design — real, registered bank accounts scoped correctly to one real business, grouped by real currency, with honest overdraft headroom', () => {
-  createEntity({ name: 'BankRegTest AUD Account', parent: 'Asset' }, 1);
-  createEntity({ name: 'BankRegTest AUD Account 2', parent: 'Asset' }, 1);
-  createEntity({ name: 'BankRegTest EUR Account', parent: 'Asset' }, 1);
-  createEntity({ name: 'BankRegTest Not A Bank Account', parent: 'Asset' }, 1);
-  createEntity({ name: 'BankRegTest Division', parent: 'Divisions' }, 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'BankRegTest AUD Account', 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'BankRegTest AUD Account 2', 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'BankRegTest EUR Account', 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'BankRegTest Not A Bank Account', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'BankRegTest Division', 1);
 
   // A real, required scope — no free-floating bank account without one.
   assert.throws(() => registerBankAccount('BankRegTest AUD Account', 'My Business', 'No Such Scope', null, 1), /No real business\/division named/);
@@ -4216,10 +4219,10 @@ test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, 
 });
 
 test('getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-planning design — anticipated AR receipts, committed AP payments, and genuinely recurring cash movements, never one-off historical postings', () => {
-  createEntity({ name: 'ForecastTest Account', parent: 'Asset' }, 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'ForecastTest Account', 1);
   registerBankAccount('ForecastTest Account', 'My Business', 'My Business', 100000, 1);
-  createEntity({ name: 'ForecastTest Customer', parent: 'Accounts Receivable' }, 1);
-  createEntity({ name: 'ForecastTest Vendor', parent: 'Accounts Payable' }, 1);
+  create(fetch('Accounts Receivable', typeRootName), typeRootName, 'ForecastTest Customer', 1);
+  create(fetch('Accounts Payable', typeRootName), typeRootName, 'ForecastTest Vendor', 1);
 
   // A real, ordinary, one-off ('once') posting touching this same
   // real bank account — must NEVER appear in the forecast's own
@@ -4280,8 +4283,8 @@ test('getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-plann
 
 test('getCashFlowForecast: Layer 3 — a real, honest first-shortfall date and amount, evaluated against the real, arranged overdraft limit, never a bare "goes negative" check', () => {
   const biz = createBusiness('ShortfallTest2 Co', '2027-28', 1);
-  createEntity({ name: 'ShortfallTest2 Account', parent: 'Asset' }, 1);
-  createEntity({ name: 'ShortfallTest2 Vendor', parent: 'Accounts Payable' }, 1);
+  create(fetch('Asset', typeRootName), typeRootName, 'ShortfallTest2 Account', 1);
+  create(fetch('Accounts Payable', typeRootName), typeRootName, 'ShortfallTest2 Vendor', 1);
 
   // No real, known overdraft limit at all — a real shortfall can
   // never be honestly reported against an unknown limit.
@@ -4315,10 +4318,10 @@ test('getCashFlowForecast: Layer 3 — a real, honest first-shortfall date and a
 });
 
 test("setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAncestorChain: the generic, reusable multi-dimension mechanism (docs/multi-dimensional-reporting.md) — a real, reversible up/down index per named dimension, never touching an entity's own relation_id", () => {
-  createEntity({ name: 'DimTest2 Springfield', parent: 'My Business' }, 1);
-  createEntity({ name: 'DimTest2 Riverside Cellars', parent: 'My Business' }, 1);
-  createEntity({ name: 'DimTest2 Uptown Wine', parent: 'My Business' }, 1);
-  createEntity({ name: 'DimTest2 Amber Ale Sales', parent: 'Income' }, 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'DimTest2 Springfield', 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'DimTest2 Riverside Cellars', 1);
+  create(fetch('My Business', typeRootName), typeRootName, 'DimTest2 Uptown Wine', 1);
+  create(fetch('Income', typeRootName), typeRootName, 'DimTest2 Amber Ale Sales', 1);
 
   setDimensionParent('DimTest2 Riverside Cellars', 'Division/Location', 'DimTest2 Springfield', 1);
   setDimensionParent('DimTest2 Uptown Wine', 'Division/Location', 'DimTest2 Springfield', 1);
@@ -4344,7 +4347,7 @@ test("setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAnc
   // A second, genuinely independent, real dimension on the exact same
   // entity must not interfere with the first at all — the entire,
   // real point of "multiple, equal accumulation paths".
-  createEntity({ name: 'DimTest2 Beer', parent: 'Income' }, 1);
+  create(fetch('Income', typeRootName), typeRootName, 'DimTest2 Beer', 1);
   setDimensionParent('DimTest2 Amber Ale Sales', 'Product Category', 'DimTest2 Beer', 1);
   assert.equal(getDimensionParent('DimTest2 Amber Ale Sales', 'Division/Location'), 'DimTest2 Uptown Wine', 'a second, independent dimension must never disturb the first');
   assert.equal(getDimensionParent('DimTest2 Amber Ale Sales', 'Product Category'), 'DimTest2 Beer');
@@ -4355,9 +4358,9 @@ test("setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAnc
 });
 
 test('ensureProductTierItem: the confirmed product/tier/leaf design (docs/multi-dimensional-reporting.md §10) — each real tier its own, distinct, sellable item, the base product name genuinely untouched, no shared-parent corruption across multiple tiers', () => {
-  createEntity({ name: 'TierTest2 Beer', parent: 'Items' }, 1);
-  createEntity({ name: 'TierTest2 Ale', parent: 'TierTest2 Beer' }, 1);
-  createEntity({ name: 'TierTest2 Amber Ale 330ml', parent: 'TierTest2 Ale' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'TierTest2 Beer', 1);
+  create(fetch('TierTest2 Beer', typeRootName), typeRootName, 'TierTest2 Ale', 1);
+  create(fetch('TierTest2 Ale', typeRootName), typeRootName, 'TierTest2 Amber Ale 330ml', 1);
 
   const bottle = ensureProductTierItem('TierTest2 Amber Ale 330ml', 'Bottle', 1);
   const carton = ensureProductTierItem('TierTest2 Amber Ale 330ml', 'Carton', 1);
@@ -4396,11 +4399,11 @@ test('ensureProductTierItem: the confirmed product/tier/leaf design (docs/multi-
 });
 
 test('getProfitAndLossByDivision: "Consolidated per Division" — one real, full P&L per real division actually active in this ledger/date range, income/COGS/operating split intact per division, derived structurally from real, live sales at real locations', () => {
-  createEntity({ name: 'PLDivTest3 Division A', parent: 'Divisions' }, 1);
-  createEntity({ name: 'PLDivTest3 Division B', parent: 'Divisions' }, 1);
-  createEntity({ name: 'PLDivTest3 Outlet A', parent: 'Locations' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division A', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division B', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'PLDivTest3 Outlet A', 1);
   setLocation('PLDivTest3 Outlet A', { city: 'PLDivTest3 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  createEntity({ name: 'PLDivTest3 Outlet B', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'PLDivTest3 Outlet B', 1);
   setLocation('PLDivTest3 Outlet B', { city: 'PLDivTest3 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('PLDivTest3 Merlot', 'Items', 1);
   const today = new Date().toISOString().slice(0, 10);
@@ -4441,18 +4444,18 @@ test('getProfitAndLossByDivision: "Consolidated per Division" — one real, full
   // A real division that exists in the app but has no real activity
   // within this real ledger/date range must never appear at all — an
   // empty, meaningless report is worse than no report.
-  createEntity({ name: 'PLDivTest3 Division Unused', parent: 'Divisions' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division Unused', 1);
   const result2 = getProfitAndLossByDivision('My Business', 'Actual', today, today);
   assert.ok(!result2.some((r) => r.division === 'PLDivTest3 Division Unused'));
 });
 
 test('getProfitAndLossByDivisionTree: "Consolidated per Division per Location" — real divisions nested under their own real parent, a genuinely empty node synthesized for a real, top-level division with no direct activity of its own', () => {
-  createEntity({ name: 'PLTreeTest City', parent: 'Divisions' }, 1);
-  createEntity({ name: 'PLTreeTest Store A', parent: 'PLTreeTest City' }, 1);
-  createEntity({ name: 'PLTreeTest Store B', parent: 'PLTreeTest City' }, 1);
-  createEntity({ name: 'PLTreeTest Outlet A', parent: 'Locations' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'PLTreeTest City', 1);
+  create(fetch('PLTreeTest City', typeRootName), typeRootName, 'PLTreeTest Store A', 1);
+  create(fetch('PLTreeTest City', typeRootName), typeRootName, 'PLTreeTest Store B', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'PLTreeTest Outlet A', 1);
   setLocation('PLTreeTest Outlet A', { city: 'PLTreeTest Store A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  createEntity({ name: 'PLTreeTest Outlet B', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'PLTreeTest Outlet B', 1);
   setLocation('PLTreeTest Outlet B', { city: 'PLTreeTest Store B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('PLTreeTest Merlot', 'Items', 1);
   const today = new Date().toISOString().slice(0, 10);
@@ -4485,13 +4488,13 @@ test('getProfitAndLossByDivisionTree: "Consolidated per Division per Location" �
 
 test('closeBooks: "the whole point of the restructuring" — Retained Earnings itself now carries a real, detailed journal line per real, active profit center, each correctly, independently tagged, still summing to the exact same, single, correct total', () => {
   const biz = createBusiness('DetailedCloseTest Co', '2027-28', 1);
-  createEntity({ name: 'DetailedCloseTest Division A', parent: 'Divisions' }, 1);
-  createEntity({ name: 'DetailedCloseTest Division B', parent: 'Divisions' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'DetailedCloseTest Division A', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'DetailedCloseTest Division B', 1);
   setDivisionType('DetailedCloseTest Division A', 'Profit Center');
   setDivisionType('DetailedCloseTest Division B', 'Profit Center');
-  createEntity({ name: 'DetailedCloseTest Outlet A', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'DetailedCloseTest Outlet A', 1);
   setLocation('DetailedCloseTest Outlet A', { city: 'DetailedCloseTest Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  createEntity({ name: 'DetailedCloseTest Outlet B', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'DetailedCloseTest Outlet B', 1);
   setLocation('DetailedCloseTest Outlet B', { city: 'DetailedCloseTest Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('DetailedCloseTest Merlot', 'Items', 1);
   receiveStockAtLocation(biz.business, biz.actualLedger, 'DCT-REC-A', 'DetailedCloseTest Merlot', 'DetailedCloseTest Outlet A', 20, 1, '2027-01-01');
@@ -4542,7 +4545,7 @@ test('closeBooks: "the whole point of the restructuring" — Retained Earnings i
 });
 
 test('completePosSale: the real, live wiring — a real sale with a real tier now genuinely ensures its own, real tier-level item, not just its own Sales/COGS accounts', () => {
-  createEntity({ name: 'PosWireTest2 Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'PosWireTest2 Outlet', 1);
   setLocation('PosWireTest2 Outlet', { city: 'PosWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('PosWireTest2 Merlot', 'Items', 1);
   receiveStockAtLocation('My Business', 'Actual', 'POSWIRE2-REC-1', 'PosWireTest2 Merlot', 'PosWireTest2 Outlet', 20, 1, '2027-01-01');
@@ -4586,11 +4589,11 @@ test('completePosSale: the real, live wiring — a real sale with a real tier no
 
 test('reverseJournalEntry: a real, confirmed bug fix — reversing a year-end close with multiple, real, division-tagged Retained Earnings lines must genuinely reverse ALL of them, not silently collapse onto just the last one', () => {
   const biz = createBusiness('ReverseCloseTest2 Co', '2027-28', 1);
-  createEntity({ name: 'ReverseCloseTest2 Division A', parent: 'Divisions' }, 1);
-  createEntity({ name: 'ReverseCloseTest2 Division B', parent: 'Divisions' }, 1);
-  createEntity({ name: 'ReverseCloseTest2 Outlet A', parent: 'Locations' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'ReverseCloseTest2 Division A', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'ReverseCloseTest2 Division B', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'ReverseCloseTest2 Outlet A', 1);
   setLocation('ReverseCloseTest2 Outlet A', { city: 'ReverseCloseTest2 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  createEntity({ name: 'ReverseCloseTest2 Outlet B', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'ReverseCloseTest2 Outlet B', 1);
   setLocation('ReverseCloseTest2 Outlet B', { city: 'ReverseCloseTest2 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('ReverseCloseTest2 Merlot', 'Items', 1);
   receiveStockAtLocation(biz.business, biz.actualLedger, 'RCT2-REC-A', 'ReverseCloseTest2 Merlot', 'ReverseCloseTest2 Outlet A', 20, 1, '2027-06-01');
@@ -4629,12 +4632,12 @@ test('reverseJournalEntry: a real, confirmed bug fix — reversing a year-end cl
 });
 
 test('ensureProductTierLocationLeaf: location becomes structural, the same real pattern already proven for tier — a real, new, distinct leaf per (tier, location), never re-parenting the shared tier-level item, avoiding the exact bug that broke an earlier tier-restructuring attempt', () => {
-  createEntity({ name: 'LocTest2 Beer', parent: 'Items' }, 1);
-  createEntity({ name: 'LocTest2 Ale', parent: 'LocTest2 Beer' }, 1);
-  createEntity({ name: 'LocTest2 Amber Ale 330ml', parent: 'LocTest2 Ale' }, 1);
-  createEntity({ name: 'LocTest2 Riverside Cellars', parent: 'Locations' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'LocTest2 Beer', 1);
+  create(fetch('LocTest2 Beer', typeRootName), typeRootName, 'LocTest2 Ale', 1);
+  create(fetch('LocTest2 Ale', typeRootName), typeRootName, 'LocTest2 Amber Ale 330ml', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'LocTest2 Riverside Cellars', 1);
   setLocation('LocTest2 Riverside Cellars', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  createEntity({ name: 'LocTest2 Uptown Wine', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'LocTest2 Uptown Wine', 1);
   setLocation('LocTest2 Uptown Wine', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
 
   const bottle = ensureProductTierItem('LocTest2 Amber Ale 330ml', 'Bottle', 1);
@@ -4668,7 +4671,7 @@ test('ensureProductTierLocationLeaf: location becomes structural, the same real 
 });
 
 test('completePosSale: the real, live wiring — a real sale with both a real tier and a real, known location now genuinely ensures its own, real (tier, location) leaf, the real, actual posting target', () => {
-  createEntity({ name: 'LiveWireTest2 Outlet', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'LiveWireTest2 Outlet', 1);
   setLocation('LiveWireTest2 Outlet', { city: 'LiveWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('LiveWireTest2 Merlot', 'Items', 1);
   receiveStockAtLocation('My Business', 'Actual', 'LWT2-REC-1', 'LiveWireTest2 Merlot', 'LiveWireTest2 Outlet', 20, 1, '2027-01-01');
@@ -4710,12 +4713,12 @@ test('completePosSale: the real, live wiring — a real sale with both a real ti
 });
 
 test('getLocationForAccount/getDivisionForAccount: the real, structural replacement for journal_line.division_id — walking a real account to its own, real, structural location and division, not reading a separate tag', () => {
-  createEntity({ name: 'DeriveTest2 Springfield', parent: 'Divisions' }, 1);
-  createEntity({ name: 'DeriveTest2 Outlet', parent: 'Locations' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'DeriveTest2 Springfield', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'DeriveTest2 Outlet', 1);
   setLocation('DeriveTest2 Outlet', { city: 'DeriveTest2 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  createEntity({ name: 'DeriveTest2 Beer', parent: 'Items' }, 1);
-  createEntity({ name: 'DeriveTest2 Ale', parent: 'DeriveTest2 Beer' }, 1);
-  createEntity({ name: 'DeriveTest2 Amber Ale 330ml', parent: 'DeriveTest2 Ale' }, 1);
+  create(fetch('Items', typeRootName), typeRootName, 'DeriveTest2 Beer', 1);
+  create(fetch('DeriveTest2 Beer', typeRootName), typeRootName, 'DeriveTest2 Ale', 1);
+  create(fetch('DeriveTest2 Ale', typeRootName), typeRootName, 'DeriveTest2 Amber Ale 330ml', 1);
 
   const bottle = ensureProductTierItem('DeriveTest2 Amber Ale 330ml', 'Bottle', 1);
   const leaf = ensureProductTierLocationLeaf(bottle.tierItemName, 'DeriveTest2 Outlet', 1);
@@ -4734,11 +4737,11 @@ test('getLocationForAccount/getDivisionForAccount: the real, structural replacem
 
 test('getLedgerBalancesByDivisionStructural: the real, new, structural version must agree exactly with the existing, tag-based one on real, live sales that carry both', () => {
   const biz = createBusiness('StructTest6 Co', '2027-28', 1);
-  createEntity({ name: 'StructTest6 Springfield', parent: 'Divisions' }, 1);
-  createEntity({ name: 'StructTest6 Rivertown', parent: 'Divisions' }, 1);
-  createEntity({ name: 'StructTest6 Outlet A', parent: 'Locations' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'StructTest6 Springfield', 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'StructTest6 Rivertown', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'StructTest6 Outlet A', 1);
   setLocation('StructTest6 Outlet A', { city: 'StructTest6 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  createEntity({ name: 'StructTest6 Outlet B', parent: 'Locations' }, 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'StructTest6 Outlet B', 1);
   setLocation('StructTest6 Outlet B', { city: 'StructTest6 Rivertown', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('StructTest6 Merlot', 'Items', 1);
   const today = new Date().toISOString().slice(0, 10);
@@ -4774,8 +4777,8 @@ test('getLedgerBalancesByDivisionStructural: the real, new, structural version m
 test('getProfitAndLossByAxis: real, direct reproducibility — every real division and every real location must exactly reproduce the original, division-filtered P&L (Sales AND COGS both), per direct, reported concern', async () => {
   const { getProfitAndLossByAxis } = await import('../src/db-matrix-reports.ts');
   const biz = createBusiness('ReproTest Co', '2027-28', 1);
-  createEntity({ name: 'ReproTest Division', parent: 'Divisions' }, 1);
-  createEntity({ name: 'ReproTest Outlet', parent: 'Locations' }, 1);
+  create(fetch('Divisions', typeRootName), typeRootName, 'ReproTest Division', 1);
+  create(fetch('Locations', typeRootName), typeRootName, 'ReproTest Outlet', 1);
   setLocation('ReproTest Outlet', { city: 'ReproTest Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('ReproTest Merlot', 'Items', 1);
   const today = new Date().toISOString().slice(0, 10);
@@ -4813,14 +4816,14 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
 });
 
 test('createEntity: scoped, not global, uniqueness — the exact, same real rule everywhere else in the entity tree, verified specifically for Vocabulary and its own real translations', () => {
-  createEntity({ name: 'VocabDupeTest', parent: 'Vocabulary' }, 1);
+  create(fetch('Vocabulary', typeRootName), typeRootName, 'VocabDupeTest', 1);
   assert.throws(
-    () => createEntity({ name: 'VocabDupeTest', parent: 'Vocabulary' }, 1),
+    () => create(fetch('Vocabulary', typeRootName), typeRootName, 'VocabDupeTest', 1),
     /already exists/,
     'a real, direct, second Vocabulary word with the exact same name under the exact same, real parent must still be rejected'
   );
 
-  const businessCopy = createEntity({ name: 'VocabDupeTest', parent: 'Businesses' }, 1);
+  const businessCopy = create(fetch('Businesses', typeRootName), typeRootName, 'VocabDupeTest', 1);
   assert.ok(businessCopy, 'the exact, same real name must genuinely be allowed again under a real, different parent — a Vocabulary word and a business are not real siblings of each other');
 
   setTranslation('VocabDupeTest', 'English', 'First real translation', 1);

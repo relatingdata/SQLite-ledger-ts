@@ -150,6 +150,29 @@ translation-concept, project-task), and Chart-of-Accounts nodes
 nodes). All 163 backend tests pass; the full backend+frontend suite
 and documentation-coverage check are clean.
 
+## Complete eradication of createEntity from the entire, live application
+
+Confirmed directly, project-wide: `db.ts`, `db-stock.ts`, `db-seed.ts`,
+every route handler, all 19 scripts under `backend/scripts/`, and the
+entire test file (`backend/test/db.test.ts`, 274 real call sites) are
+all now free of generic `createEntity` calls. Two, real, explicitly
+documented exceptions remain, both matching this skill's own rule 4
+(a genuinely open-ended value/purpose is correctly left generic):
+`routes/entities.ts`'s own Entity Tree Editor endpoint (an
+administrator may be creating any real kind, not known in advance),
+and `primitives.ts`'s own `Entity.create` - a separate, real,
+deliberate "five primitives" abstraction layer this application was
+already being migrated toward, documented in that file's own header
+as the intended, generic foundation every specific function should
+compose from. Both are real, stated, deliberate exceptions, not
+oversights. A historical, already-superseded Python generator script
+(`generate-wine-retail-migration.py`) also references `createEntity`
+inside generated string output - not live TypeScript application
+code, and not touched.
+
+All 163 backend tests, the full 196-test backend+frontend suite, and
+`check-docs-coverage` are clean throughout this entire migration.
+
 ## Real, open items before wider adoption
 
 1. Each descriptor's own `validate` needs its real, correct check —
