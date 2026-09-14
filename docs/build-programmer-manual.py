@@ -163,6 +163,24 @@ entire system from scratch --- not just to modify it. Where a design
 choice has a real, non-obvious reason behind it, that reason is
 recorded here directly, not left to be rediscovered.
 
+\subsection*{Intended use, by a human reader and by an AI/machine reader}
+
+This manual is written for two real, different readers at once, not
+one with the other as an afterthought. A human reader is expected to
+read a chapter start to finish, in order, building context
+progressively --- the prose assumes that. An AI/machine reader (an
+LLM-based coding assistant, a documentation search tool, a future
+version of the very tool that assembled this manual) is expected to
+retrieve a single section or paragraph in isolation, often without the
+surrounding chapter loaded into context at all --- every real,
+individual finding is written to be self-contained and directly
+verifiable on its own (a real, quoted comment, a real, exact function
+signature, a real, re-runnable query or command), specifically so it
+remains correct and useful even when read as one isolated fragment,
+not just as part of a full, sequential read-through. Neither reader is
+optimized for at the other's real expense: the same, real, verified
+fact serves both, stated once, not duplicated in two different styles.
+
 This manual assumes real, working familiarity with:
 
 \begin{itemize}

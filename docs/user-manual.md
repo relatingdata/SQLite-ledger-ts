@@ -247,7 +247,7 @@ Switching the active session into the new business, **Locations** is where a rea
 
 ![Locations, empty, for a genuinely new business with nothing set up yet.](manual-images/t04_locations_empty.png)
 
-**+ New Location** opens a real, inline form --- a name, a real city (locations sharing a city can transfer stock directly between each other), and whether this is a retail outlet or a warehouse.
+**+ New Location** opens a real, inline form --- a name, a real city (locations sharing a city can transfer stock directly between each other), and a real, user-extensible type (Retail and Warehouse exist from the start; a business can add its own, further real kinds directly from this same form --- a wine bar, a pop-up stall, whatever a real business actually needs, never a fixed, closed list).
 
 ![The new-location form, filled in for this tutorial's own first retail outlet.](manual-images/t05_locations_new_form.png)
 
@@ -256,6 +256,12 @@ Switching the active session into the new business, **Locations** is where a rea
 Immediately after creation, the location's own real shelf capacity (bottles) and carton capacity are set directly on the same screen, then saved — ready for the location's own real stock levels to be tracked against once product arrives.
 
 ![The new location created, with its own real shelf and carton capacity now set.](manual-images/t06_locations_created.png)
+
+## A real location can have more than one real address
+
+The same, real, typed-address mechanism already used for a customer or vendor (Chapter 2) applies directly to a location too --- genuinely useful the moment a shop's own, real, physical layout is more than a single front door. Take a real, common case: a retail premises with its own real street address for customers out front, and a separate, real rear "store room" whose own back door opens onto a lane with a genuinely different address --- exactly where a delivery driver actually needs to be sent, not the shop's own, public-facing front address.
+
+Selecting the location and adding a second, real address here --- one tagged **Registered Office** (or simply left as the location's own, primary address) for the shop front, a second, real one tagged **Delivery** for the lane-facing store room --- means staff, and a real delivery driver told which address to use, have the correct, physical door recorded directly against this location, not just the one customers walk through. Nothing here is location-specific plumbing built just for this case: it is the identical, real mechanism (`addTypedAddress`) already covering customers, vendors, and employees, applied to one more real, structural kind of entity. A real, honest note: no order-entry screen currently reads this typed address automatically to pre-fill a delivery instruction --- recording it here is real and available today; wiring a purchase order to pull it in directly is real, separate, future work.
 
 ## Creating the first division, warehouse, and employee
 
