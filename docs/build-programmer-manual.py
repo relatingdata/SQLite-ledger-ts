@@ -61,6 +61,7 @@ PARTS = [
         "naming-conventions-and-entity-glossary.md",
         "skill-branded-types-not-primitives.md",
         "border-multicurrency-pos-plan.md",
+        "typed-node-create-design.md",
         "inventory-lifecycle-blow-by-blow.md",
         "file-inventory-appendix.md",
         "user-manual-plan.md",

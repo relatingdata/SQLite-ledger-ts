@@ -1,4 +1,5 @@
 import { test, beforeAll as before, afterAll as after } from 'bun:test';
+import type { TypeDescriptor, TypedNode } from '../src/db.ts';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,6 +10,9 @@ process.env.DB_PATH = tmpDbPath;
 
 const {
   getEntityTree,
+  isDescendantOf,
+  create,
+  asEntityId,
   getEntity,
   getEntityHistory,
   getInvoiceLine,
@@ -4832,4 +4836,50 @@ test('createEntity: scoped, not global, uniqueness — the exact, same real rule
     .prepare(`SELECT COUNT(*) AS c FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'English') AND relation_id = (SELECT id FROM current_entities WHERE name = 'VocabDupeTest')`)
     .get() as { c: number };
   assert.equal(englishChildren.c, 1, 'exactly one real, live child entity exists for this (concept, language) pair — the stale, prior translation was genuinely removed, not left behind as a second, orphaned entity');
+});
+
+test('create<T>: the real, generic, typed-descriptor creation primitive - genuinely preserves the Springfield principle (scoped, not global, uniqueness)', () => {
+  // Per direct instruction: no dependency on generic createEntity, no
+  // bare string kind arguments. Real, named type descriptors, passed
+  // as values.
+  const typeSpringfieldBusinessName: TypeDescriptor<'SpringfieldBusinessName'> = { brand: 'SpringfieldBusinessName' };
+  const typeSpringfieldDivisionName: TypeDescriptor<'SpringfieldDivisionName'> = { brand: 'SpringfieldDivisionName' };
+  const typeSpringfieldLocationName: TypeDescriptor<'SpringfieldLocationName'> = { brand: 'SpringfieldLocationName' };
+  const typeSpringfieldEmployeeName: TypeDescriptor<'SpringfieldEmployeeName'> = { brand: 'SpringfieldEmployeeName' };
+
+  const businessesRoot: TypedNode<'Root'> = { id: asEntityId((db.prepare(`SELECT id FROM current_entities WHERE name = 'Businesses'`).get() as { id: number }).id), name: 'Businesses' as any };
+  const employeesRoot: TypedNode<'Root'> = { id: asEntityId((db.prepare(`SELECT id FROM current_entities WHERE name = 'Employees'`).get() as { id: number }).id), name: 'Employees' as any };
+
+  // Per direct instruction, quoting the real, existing, established
+  // principle directly (backend/src/db.ts, createEntity's own
+  // comment): "a company, a division, a location, and an employee can
+  // all genuinely, correctly be called 'Springfield' at once."
+  const business = create(businessesRoot, typeSpringfieldBusinessName, 'CreateTTest Springfield', 1);
+  const division = create(business, typeSpringfieldDivisionName, 'CreateTTest Springfield', 1);
+  const location = create(division, typeSpringfieldLocationName, 'CreateTTest Springfield Loc', 1);
+  const employee = create(employeesRoot, typeSpringfieldEmployeeName, 'CreateTTest Springfield Employee', 1);
+
+  assert.ok(business.id > 0);
+  assert.ok(division.id > 0);
+  assert.notEqual(business.id, division.id, 'the exact, same real name under two real, different parents genuinely produces two, real, distinct entities, not a collision');
+
+  // The real, direct rejection: a genuine, real sibling collision
+  // under the exact, same real parent must still fail.
+  assert.throws(
+    () => create(businessesRoot, typeSpringfieldBusinessName, 'CreateTTest Springfield', 1),
+    /already exists under this real, same parent/,
+    'a real, direct, same-parent name collision is still genuinely rejected - only cross-parent reuse is allowed'
+  );
+
+  // A real, Vocabulary-backed descriptor rejects a name outside its
+  // own, real, known set, before any allocation happens - nothing to
+  // roll back.
+  const typeRealDayOfWeek: TypeDescriptor<'RealDayOfWeek'> = { brand: 'RealDayOfWeek', validNames: () => ['Monday', 'Tuesday'] };
+  assert.throws(
+    () => create(employeesRoot, typeRealDayOfWeek, 'Blursday', 1),
+    /is not a real, known RealDayOfWeek/,
+    'a real, Vocabulary-backed descriptor genuinely rejects an unknown name before any allocation happens'
+  );
+  const validDay = create(employeesRoot, typeRealDayOfWeek, 'Monday', 1);
+  assert.ok(validDay.id > 0, 'a real, valid, known name is genuinely accepted');
 });

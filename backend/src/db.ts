@@ -419,6 +419,59 @@ export interface NewEntity {
   accountnumber?: string | null;
 }
 
+/** A real type descriptor - a value, never a bare string kind
+ * argument, per no-generic-functions and direct instruction. Carries
+ * both the compile-time brand and the real, runtime check together,
+ * as one thing, since TypeScript has no reflection on generic type
+ * parameters at runtime. */
+export interface TypeDescriptor<TBrand extends string> {
+  readonly brand: TBrand;
+  /** For a real, Vocabulary-backed kind marker (a Location Type, an
+   * Address Type), the exact set of valid names - checked against
+   * before insertion, never after. Omit entirely for a genuinely
+   * freely-named entity (a business's own chosen name, "Riverside
+   * Cellars") - per direct instruction, there is no barrier to
+   * naming a business, a division, a location, and an employee all
+   * "Springfield" at once; free names are never constrained to a
+   * fixed vocabulary. */
+  readonly validNames?: () => string[];
+}
+
+export interface TypedNode<TBrand extends string> {
+  readonly id: EntityId;
+  readonly name: string & { readonly __brand: TBrand };
+}
+
+/** The one, real, generic creation primitive - per direct
+ * instruction, no dependency on the generic createEntity. Allocates
+ * the next node directly via entity_entry (the real, low-level,
+ * trigger-backed mechanism createEntity itself is built on), doing
+ * its own, real, scoped-not-global uniqueness check first - the
+ * exact, same rule as createEntity's own (two real siblings under the
+ * same real parent can't share a name; the exact same name is
+ * genuinely fine under a different parent - a business, a division, a
+ * location, and an employee can all correctly be "Springfield" at
+ * once) - and, when the type descriptor carries a real, Vocabulary-
+ * backed validNames() list, checking the given name against it
+ * *before* allocating, never after, so there is nothing to roll back
+ * on a real, rejected name. */
+export function create<TParentBrand extends string, TChildBrand extends string>(
+  parent: TypedNode<TParentBrand>,
+  type: TypeDescriptor<TChildBrand>,
+  name: string,
+  userId: UserId
+): TypedNode<TChildBrand> {
+  if (type.validNames && !type.validNames().includes(name)) {
+    throw new ValidationError(`"${name}" is not a real, known ${type.brand} — use one of: ${type.validNames().join(', ')}.`);
+  }
+  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, parent.id);
+  if (existing) throw new ValidationError(`"${name}" already exists under this real, same parent.`);
+  db.prepare(`INSERT INTO entity_entry (name, parent_id, created_by) VALUES (?, ?, ?)`).run(name, parent.id, userId);
+  const row = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, parent.id) as { id: number };
+  return { id: asEntityId(row.id), name: name as string & { __brand: TChildBrand } };
+}
+
+
 export function createEntity(input: NewEntity, userId: UserId): EntityNode {
   const parentId = input.parentId ?? (input.parent ? resolveId(input.parent) : null);
   // Scoped, not global: two real, direct siblings under the same real
@@ -2064,6 +2117,28 @@ export interface PosSaleResult {
  * genuinely user-configurable through the Entity Tree Editor with
  * zero code changes needed to reorganize it. Returns the chain from
  * the top level down to the entity's immediate parent. */
+/** A real, direct, reliable answer to "is this entity genuinely a
+ * descendant of that root" - per no-generic-functions, the missing
+ * piece getAncestorChain doesn't provide: that function returns
+ * whatever partial chain it collected whether or not it actually
+ * reached the real root, so it can't itself distinguish "genuinely a
+ * descendant" from "ran out of real ancestors first." Walks up to
+ * 100 real levels (matching getDimensionAncestorChain's own, existing
+ * real safety bound) before giving up. */
+export function isDescendantOf(entityName: string, rootName: string): boolean {
+  const entities = getEntityTree();
+  const start = entities.find((e) => e.name === entityName);
+  if (!start) return false;
+  if (entityName === rootName) return true;
+  const isRoot = (name: string) => name === rootName || (rootName === 'Items' && name.endsWith(' Items'));
+  let current = entities.find((e) => e.id === start.parent_id);
+  for (let i = 0; i < 100 && current; i++) {
+    if (isRoot(current.name)) return true;
+    current = entities.find((e) => e.id === current!.parent_id);
+  }
+  return false;
+}
+
 export function getAncestorChain(entityName: string, rootName: string): string[] {
   const entities = getEntityTree();
   const start = entities.find((e) => e.name === entityName);

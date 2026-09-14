@@ -557,6 +557,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/naming-conventions-and-entity-glossary.md \
 	docs/skill-branded-types-not-primitives.md \
 	docs/border-multicurrency-pos-plan.md \
+	docs/typed-node-create-design.md \
 	docs/inventory-lifecycle-blow-by-blow.md \
 	docs/file-inventory-appendix.md
 
