@@ -2219,6 +2219,8 @@ INSERT INTO entity_ids (id) VALUES (249);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (249, 249, 'Warehouse', (SELECT id FROM current_entities WHERE name = 'Location Types'), '2026-01-01', 1);
 INSERT INTO entity_ids (id) VALUES (250);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (250, 250, 'Retail', (SELECT id FROM current_entities WHERE name = 'Location Types'), '2026-01-01', 1);
+INSERT INTO entity_ids (id) VALUES (832);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (832, 832, 'Wine Bar', (SELECT id FROM current_entities WHERE name = 'Location Types'), '2026-01-01', 1);
 INSERT INTO entity_ids (id) VALUES (251);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (251, 251, 'Billing Address', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entity_ids (id) VALUES (252);

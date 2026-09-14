@@ -53,6 +53,9 @@ import {
   ensureProductSalesCogsAccounts,
   ensureProductTierPart,
   ensureProductTierLocationLeaf,
+  ensureProductTierItem,
+  stageBomComponent,
+  postBomComponents,
   ensureProductInventoryAccount,
 } from '../src/db.js';
 import { getItemLocation } from '../src/db-stock.js';
@@ -629,6 +632,80 @@ async function main() {
     }
   }
   console.log(`${saleCount} retail sales completed (${saleFailures} skipped — insufficient stock at that moment, expected at this volume).`);
+
+  console.log(`\n=== Wine bars: one per division, selling by the glass ===`);
+  // A real, deliberate simplification, stated plainly: cocktails are
+  // given a real BOM (per no-new-tables, the exact same, existing
+  // assembly mechanism already proven in
+  // backend/scripts/proof-year-end-lifecycle.ts) recording their real
+  // recipe for costing/reporting purposes, but are stocked here as a
+  // directly-received, pre-mixed item for actual sale - a full
+  // "assemble from raw components at time of sale" flow is real,
+  // separate, future work (see docs/stock-lifecycle-review-plan.md).
+  const wineBars = listLocations().filter((l) => l.location_type === 'Wine Bar');
+  const wineByGlass = ['Barossa Shiraz 2021', 'Margaret River Chardonnay 2022'];
+  const beerByGlass = ['Golden Lager 330ml', 'Amber Ale 330ml'];
+  const softDrinksByGlass = ['Cola 375ml', 'Lemonade 375ml'];
+  const cocktails = ['Classic Gin & Tonic', 'Rum & Cola'];
+  const snacks = ['Salted Potato Chips 45g', 'Roasted Mixed Nuts 50g'];
+
+  stageBomComponent({ assemblyItem: 'Classic Gin & Tonic', business: BUSINESS, componentItem: 'London Dry Gin 700ml', quantity: 0.05, unit: 'bottle' });
+  stageBomComponent({ assemblyItem: 'Classic Gin & Tonic', business: BUSINESS, componentItem: 'Tonic Water 375ml', quantity: 1, unit: 'bottle' });
+  postBomComponents('Classic Gin & Tonic', BUSINESS, 1);
+  stageBomComponent({ assemblyItem: 'Rum & Cola', business: BUSINESS, componentItem: 'Spiced Rum 700ml', quantity: 0.05, unit: 'bottle' });
+  stageBomComponent({ assemblyItem: 'Rum & Cola', business: BUSINESS, componentItem: 'Cola 375ml', quantity: 1, unit: 'bottle' });
+  postBomComponents('Rum & Cola', BUSINESS, 1);
+
+  let wineBarSaleCount = 0;
+  for (const bar of wineBars) {
+    // Stock each real item this wine bar sells - wine/beer/soft drinks
+    // by their two real glass-size tiers, cocktails and snacks as-is.
+    for (const base of [...wineByGlass, ...beerByGlass, ...softDrinksByGlass]) {
+      for (const tier of ['Small Glass', 'Large Glass']) {
+        const { tierItemName } = ensureProductTierItem(base, tier, 1);
+        receiveStockAtLocation(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${tierItemName}`, tierItemName, bar.name, 40, 1, today(1));
+      }
+    }
+    for (const item of [...cocktails, ...snacks]) {
+      receiveStockAtLocation(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${item}`, item, bar.name, 30, 1, today(1));
+    }
+
+    for (let day = 2; day <= 26; day++) {
+      if (seededRandom() < 0.5) continue; // not every day is a wine-bar sales day, deliberately
+      const lines = [];
+      for (let i = 0; i < 1 + Math.floor(seededRandom() * 3); i++) {
+        const category = pick([wineByGlass, beerByGlass, softDrinksByGlass, cocktails, snacks]);
+        if (category === cocktails || category === snacks) {
+          const item = pick(category);
+          lines.push({ itemName: item, quantity: 1, unitPriceMinor: item === 'Classic Gin & Tonic' || item === 'Rum & Cola' ? 1600 : 400, taxMinor: 0 });
+        } else {
+          const base = pick(category);
+          const tier = pick(['Small Glass', 'Large Glass']);
+          const { tierItemName } = ensureProductTierItem(base, tier, 1);
+          lines.push({ itemName: tierItemName, quantity: 1, unitPriceMinor: tier === 'Small Glass' ? 800 : 1400, taxMinor: 0 });
+        }
+      }
+      try {
+        completePosSale(
+          {
+            business: BUSINESS,
+            ledger: LEDGER,
+            locationName: bar.name,
+            customerName: 'Cash Sale',
+            lines,
+            taxAccount: 'Sales Tax Payable',
+            paymentMethod: seededRandom() < 0.6 ? 'card' : 'cash',
+            transdate: today(day),
+          },
+          1
+        );
+        wineBarSaleCount++;
+      } catch {
+        // insufficient stock at that moment - expected occasionally at this volume
+      }
+    }
+  }
+  console.log(`${wineBars.length} wine bars stocked and trading, ${wineBarSaleCount} wine-bar sales completed.`);
 
   // A couple of real returns — credit notes against real prior sales.
   console.log('\n=== A couple of customer returns of bad wine ===');

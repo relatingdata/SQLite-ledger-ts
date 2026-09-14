@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -144,6 +144,14 @@ playwright-all: reset-db
 playwright-one:
 	@if [ -z "$(TEST)" ]; then echo "Usage: make playwright-one TEST=<spec-file-name>"; exit 1; fi
 	cd e2e && $(RUNTIME) x playwright test $(TEST) --reporter=list --workers=1
+
+# A real, fast, minimal smoke layer - every real route visited once,
+# checking only that it loads without a real, unhandled error. See
+# docs/min-e2e-coverage-plan.md for the full, real rationale. Distinct
+# from playwright-all (the full, detailed, existing suite) and
+# playwright-tutorial (the from-scratch business walkthrough).
+playwright-smoke:
+	cd e2e && $(RUNTIME) x playwright test min-e2e-route-smoke --reporter=list --workers=1
 
 # The full, real demo dataset: one detailed month (as above) plus a
 # real, 12-month Budget and 11 more real, summary-level Actual months
@@ -509,6 +517,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/wine-bar-assemblies-plan.md \
 	docs/construction-project-management-plan.md \
 	docs/stock-lifecycle-review-plan.md \
+	docs/min-e2e-coverage-plan.md \
 	docs/inventory-lifecycle-blow-by-blow.md \
 	docs/file-inventory-appendix.md
 
