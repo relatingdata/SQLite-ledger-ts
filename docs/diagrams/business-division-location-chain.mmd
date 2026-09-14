@@ -1,0 +1,15 @@
+graph LR
+    A["typeRootName<br/>'Businesses'"] -->|create| B["TypedNode BusinessName<br/>'Wine Retail Company'"]
+    B -->|create + typeDivisionName| C["TypedNode DivisionName<br/>'Sydney Division'"]
+    C -->|create + typeLocationEntityName| D["TypedNode LocationName<br/>'Riverside Cellars'"]
+    B -->|create + typeEmployeeName| E["TypedNode EmployeeName<br/>direct business employee"]
+    C -->|create + typeEmployeeName| F["TypedNode EmployeeName<br/>division employee"]
+    D -->|create + typeEmployeeName| G["TypedNode EmployeeName<br/>location employee"]
+
+    style A fill:#eee
+    style B fill:#dfd
+    style C fill:#dfd
+    style D fill:#dfd
+    style E fill:#fdd
+    style F fill:#fdd
+    style G fill:#fdd

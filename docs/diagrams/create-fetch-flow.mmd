@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant Caller
+    participant fetchFn as fetch(name, type)
+    participant createFn as create(parent, type, name, userId)
+    participant DB as entity_entry (real, low-level)
+
+    Caller->>fetchFn: fetch('Businesses', typeRootName)
+    fetchFn->>DB: does 'Businesses' really exist?
+    DB-->>fetchFn: yes, real entity found
+    fetchFn-->>Caller: TypedNode of RootName
+
+    Caller->>createFn: create(businessesNode, typeBusinessName, 'Acme', userId)
+    createFn->>createFn: scoped uniqueness check (same rule as createEntity)
+    createFn->>DB: INSERT INTO entity_entry
+    DB-->>createFn: real, new entity_id allocated
+    createFn-->>Caller: TypedNode of BusinessName
+
+    Note over Caller,DB: A TypedNode of VendorName can never be passed where a TypedNode of DivisionName parent is expected - a compile error, not a runtime check.

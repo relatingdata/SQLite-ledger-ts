@@ -1,0 +1,10 @@
+graph TB
+    subgraph "Parent Link (structural — 'lives under')"
+        A["Wine Retail Company"] --> B["Wine Retail Company Locations"]
+        B --> C["Riverside Cellars"]
+        C --> D["Riverside Cellars — On Hand: Merlot"]
+    end
+    subgraph "Relation Link (lateral — 'refers to')"
+        E["Riverside Cellars<br/>(Location Type marker)"] -.relation_id.-> F["Retail<br/>(under Location Types)"]
+        G["Merlot 2021 — Sales"] -.relation_id.-> H["COGS<br/>(marks it as Cost of Goods Sold)"]
+    end

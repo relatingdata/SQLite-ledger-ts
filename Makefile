@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -223,6 +223,13 @@ svelte-call-trace:
 # scripts/source-reference.ts for the real, stated scope.
 source-reference:
 	$(RUNTIME) scripts/source-reference.ts > docs/source-reference.md
+
+# A real, generated architectural diagram set - per direct request,
+# "a picture is worth a thousand words." Renders every real .mmd
+# source under docs/diagrams/ to a real .svg, using the sandbox's own,
+# already-cached Chrome (mmdc's own bundled one isn't available here).
+manual-diagrams:
+	cd docs/diagrams && for f in *.mmd; do mmdc -i "$$f" -o "$${f%.mmd}.svg" -b white -p puppeteer-config.json; done
 
 list-menu-labels:
 	cd backend && $(RUNTIME) scripts/list-menu-labels.ts

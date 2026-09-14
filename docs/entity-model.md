@@ -6,6 +6,10 @@ otherwise-independent entities, never a parent/child or sibling
 relationship. (See the Lessons Learned appendix for the real story of
 how this column was renamed from an earlier, misleading name.)
 
+![Parent link (structural, "lives under") versus relation link (lateral, "refers to") — the same, real distinction this whole document is built around.](diagrams/parent-vs-relation-link.svg)
+
+*(Regenerated via `make manual-diagrams` whenever a real `.mmd` source under `docs/diagrams/` changes.)*
+
 ---
 
 This document exists because a direct, honest question deserves a
@@ -459,6 +463,8 @@ succeeding, an item with a vendor as its structural parent.
 
 **The real, generic pair**:
 
+![The real create/fetch flow — fetch confirms an existing, typed parent; create allocates a new, typed child against the same, real, low-level mechanism createEntity itself uses.](diagrams/create-fetch-flow.svg)
+
 ```ts
 interface TypeDescriptor<TBrand extends string> {
   readonly brand: TBrand;
@@ -490,6 +496,8 @@ inherited — `create` does its own, direct, scoped-not-global
 uniqueness check.
 
 ### The real, named descriptors this migration produced
+
+![The real Business → Division → Location chain, each level a real, typed parent for the next, plus employees attachable at any of the three real levels.](diagrams/business-division-location-chain.svg)
 
 Roughly three dozen real, distinct `TypeDescriptor` constants now
 exist (`typeBusinessName`, `typeDivisionName`, `typeLocationEntityName`,
