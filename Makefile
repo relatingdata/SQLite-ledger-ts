@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -208,6 +208,13 @@ check-docs-coverage:
 # actually invoked across the whole codebase.
 call-graph:
 	$(RUNTIME) scripts/call-graph.ts
+
+# A real, direct, static trace of what each real frontend screen
+# calls, and roughly when (on load vs on interaction) - tracing the
+# real Svelte 5 source, not compiled JS. See
+# scripts/svelte-call-trace.ts for the real, stated limits.
+svelte-call-trace:
+	$(RUNTIME) scripts/svelte-call-trace.ts
 
 list-menu-labels:
 	cd backend && $(RUNTIME) scripts/list-menu-labels.ts
@@ -537,6 +544,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/construction-project-management-plan.md \
 	docs/stock-lifecycle-review-plan.md \
 	docs/min-e2e-coverage-plan.md \
+	docs/svelte-call-trace.md \
 	docs/border-multicurrency-pos-plan.md \
 	docs/inventory-lifecycle-blow-by-blow.md \
 	docs/file-inventory-appendix.md
