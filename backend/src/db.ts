@@ -2252,6 +2252,33 @@ export function isDescendantOf(entityName: string, rootName: string): boolean {
   return false;
 }
 
+/** Per direct correction: not a generic, per-kind TypeDescriptor walk
+ * - a Division and a real, user-created Sub-Division are structurally
+ * the exact, same kind of thing, just at different real depths, and
+ * forcing a separate, branded TypeScript type onto each level would
+ * be artificial, not a genuine distinction. The real, right model:
+ * one, uniform, non-generic node shape, and a single walk from a real
+ * leaf (an Item or a Location) up an arbitrary, real, user-defined
+ * chain of named entities, however many real levels exist, until it
+ * reaches the real Business node itself. */
+export interface HierarchyChainNode {
+  readonly id: EntityId;
+  readonly name: string;
+}
+
+export function getHierarchyChain(leafName: ItemName | LocationName): HierarchyChainNode[] {
+  const entities = getEntityTree();
+  const businessesRootId = entities.find((e) => e.name === 'Businesses')?.id;
+  const chain: HierarchyChainNode[] = [];
+  let current = entities.find((e) => e.name === leafName);
+  for (let i = 0; i < 100 && current; i++) {
+    chain.push({ id: asEntityId(current.id), name: current.name });
+    if (current.parent_id === businessesRootId) break; // current IS the real Business node itself, already pushed
+    current = entities.find((e) => e.id === current!.parent_id);
+  }
+  return chain;
+}
+
 export function getAncestorChain(entityName: string, rootName: string): string[] {
   const entities = getEntityTree();
   const start = entities.find((e) => e.name === entityName);
@@ -3710,6 +3737,47 @@ function deleteTyped(entityName: string, thingSuffix: string, type: string, user
  * child entity for the link itself (the exact same real shape
  * addTyped<T> already uses), so the source entity's own relation_id
  * is never touched at all, whatever it's already being used for. */
+/** Per docs/general-typed-hierarchy-resolution-plan.md - the real,
+ * settled design: a hierarchy's kind is identified by what a real
+ * entity's own relation_id directly points at (an abstract prototype
+ * node), never by parent_id depth or a compile-time type parameter.
+ * Works identically for a real, top-level Division and a real,
+ * user-created Sub-Division - both point at the exact, same real
+ * "Division" prototype. */
+export function getPrototypeOf(entityName: string): string | undefined {
+  const row = db
+    .prepare(
+      `SELECT proto.name FROM current_entities e
+       JOIN current_entities proto ON proto.id = e.relation_id
+       WHERE e.name = ?`
+    )
+    .get(entityName) as { name: string } | undefined;
+  return row?.name;
+}
+
+/** Tags a real, actual node with the real prototype it represents -
+ * directly on the entity's own relation_id, per the settled design,
+ * not via setEntityLink's separate, intermediate record (that pattern
+ * is for a named *relationship* between two otherwise-independent
+ * entities; this is a direct, structural "what kind is this" fact
+ * about the entity itself). */
+export function setPrototype(entityName: string, prototypeName: string, userId: UserId): void {
+  updateEntity(resolveIdOrThrow(entityName), { relation: prototypeName }, userId);
+}
+
+/** Seeds the real, default, recommended hierarchy prototypes for a
+ * new business - per direct instruction, nothing here is special or
+ * privileged: a business is free to rename, delete, or add further
+ * real prototypes immediately, and no other real code may ever
+ * special-case these four names specifically. */
+export function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName'>, userId: UserId): void {
+  const hierarchies = create(business, typeRootName, 'Hierarchies', userId);
+  const division = create(hierarchies, typeRootName, 'Division', userId);
+  create(division, typeRootName, 'Location', userId);
+  const category = create(hierarchies, typeRootName, 'Category', userId);
+  create(category, typeRootName, 'Item', userId);
+}
+
 export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId): string {
   const recordName = `${entityName} — ${linkType}`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
@@ -5390,8 +5458,8 @@ export function getBusinesses(): { id: number; name: BusinessName }[] {
  * select and then find no real accounts postable to it. */
 export function getLedgers(businessName: BusinessName): { id: number; name: LedgerName }[] {
   return db
-    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = ?) AND name NOT IN (?, ?, ?, ?)`)
-    .all(businessName, `${businessName} Locations`, `${businessName} Items`, `${businessName} Contacts`, `${businessName} Chart of Accounts`) as { id: number; name: LedgerName }[];
+    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = ?) AND name NOT IN (?, ?, ?, ?, ?)`)
+    .all(businessName, `${businessName} Locations`, `${businessName} Items`, `${businessName} Contacts`, `${businessName} Chart of Accounts`, 'Hierarchies') as { id: number; name: LedgerName }[];
 }
 
 /** Creates a brand-new business, real and ready to actually transact
@@ -5729,6 +5797,10 @@ export function createBusiness(
   if (entityStructure) {
     setupEquityStructure(businessName, entityStructure, userId, coaFamily, partnerNames);
   }
+  // Per docs/general-typed-hierarchy-resolution-plan.md - a real,
+  // recommended, non-privileged starting point every new business
+  // gets, immediately renameable/deletable/extensible.
+  seedDefaultHierarchyPrototypes(business, userId);
   return { business: businessName, actualLedger, budgetLedger };
 }
 

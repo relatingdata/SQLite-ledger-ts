@@ -1,4 +1,5 @@
 import { db } from './db.js';
+import { getDimensionParent } from './db.js';
 import { buildProfitAndLossFromBalances, getLedgerBalances, type ProfitAndLoss } from './db-reports.js';
 import type { BusinessName, LedgerName } from './db.js';
 
@@ -21,7 +22,15 @@ import type { BusinessName, LedgerName } from './db.js';
  * real, direct, structural operation, not a tag lookup.
  */
 
-export type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Division' | 'Consolidated';
+/** The four, real, pre-seeded, recommended axes remain directly
+ * named for IDE autocomplete - but per direct request, proving out a
+ * genuinely arbitrary, user-defined hierarchy, this is not a closed
+ * set: any real, other string is treated as a genuine, user-defined
+ * dimension name, resolved the exact, same, already-generic way
+ * getDimensionParent/setDimensionParent already support (see
+ * resolveKey below) - "Bottle Size," or anything else a real business
+ * defines, works identically to the four recommended defaults. */
+export type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Division' | 'Consolidated' | (string & {});
 
 export interface MatrixCell {
   rowKey: string;
@@ -194,9 +203,16 @@ function resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number
   const accountName = entityIndex.get(accountId)?.name ?? '';
   const location = locationForAccount(accountName);
   if (axis === 'Location') return location ?? NO_LOCATION_KEY;
-  // axis === 'Division'
-  if (!location) return NO_DIVISION_KEY;
-  return divisionForLocation(location, entityIndex) ?? NO_DIVISION_KEY;
+  if (axis === 'Division') {
+    if (!location) return NO_DIVISION_KEY;
+    return divisionForLocation(location, entityIndex) ?? NO_DIVISION_KEY;
+  }
+  // A real, genuinely user-defined axis - not one of the four,
+  // recommended defaults above. Resolved the exact, same, already-
+  // generic way any dimension already works - no new mechanism, no
+  // special case for a "recognized" axis name.
+  const baseProductName = stripLocationSuffix(entityIndex.get(accountId)?.name ?? '');
+  return getDimensionParent(baseProductName, axis) ?? `No ${axis}`;
 }
 
 /** The real, core matrix computation both getSalesCogsMatrix and

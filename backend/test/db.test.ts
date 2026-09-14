@@ -11,6 +11,12 @@ process.env.DB_PATH = tmpDbPath;
 const {
   getEntityTree,
   isDescendantOf,
+  getHierarchyChain,
+  getPrototypeOf,
+  setPrototype,
+  asBusinessName,
+  asItemName,
+  asLocationName,
   create,
   asEntityId,
   getEntity,
@@ -4815,6 +4821,49 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
   assert.equal(newNewPLByLocation[0]?.profitAndLoss.total_expenses_minor, originalPL.total_expenses_minor, 'Location-axis COGS must exactly reproduce the original — the real, confirmed bug this test guards against');
 });
 
+test('getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy - not one of the four, recommended default axes - works identically, through the same, real, generic mechanism', async () => {
+  const { getProfitAndLossByAxis } = await import('../src/db-matrix-reports.ts');
+  const biz = createBusiness('BottleSizeTest Co', '2027-28', 1);
+  createEntity({ name: 'BottleSizeTest Outlet', parent: 'Locations' }, 1);
+  setLocation('BottleSizeTest Outlet', { city: 'BottleSizeTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80, timezone: 'UTC' });
+  createItem('BottleSizeTest Amber Ale', 'Items', 1);
+  createItem('BottleSizeTest Merlot', 'Items', 1);
+
+  // A real, genuinely user-defined hierarchy - "Bottle Size" was never
+  // one of the four, recommended default prototypes, and no code
+  // anywhere was written specifically to know about it. The real
+  // values themselves are real, live entities (setDimensionParent's
+  // own real relation_id target must genuinely exist), created
+  // directly under the real Vocabulary, the same, established, real
+  // home for a user-defined classification word.
+  create(fetch('Vocabulary', typeRootName), typeRootName, 'BottleSizeTest 330ml', 1);
+  create(fetch('Vocabulary', typeRootName), typeRootName, 'BottleSizeTest 750ml', 1);
+  setDimensionParent('BottleSizeTest Amber Ale', 'Bottle Size', 'BottleSizeTest 330ml', 1);
+  setDimensionParent('BottleSizeTest Merlot', 'Bottle Size', 'BottleSizeTest 750ml', 1);
+
+  const today = new Date().toISOString().slice(0, 10);
+  receiveStockAtLocation(biz.business, biz.actualLedger, 'BOTTLESIZE-REC-1', 'BottleSizeTest Amber Ale', 'BottleSizeTest Outlet', 24, 1, today);
+  receiveStockAtLocation(biz.business, biz.actualLedger, 'BOTTLESIZE-REC-2', 'BottleSizeTest Merlot', 'BottleSizeTest Outlet', 12, 1, today);
+
+  completePosSale(
+    { business: biz.business, ledger: biz.actualLedger, locationName: 'BottleSizeTest Outlet', customerName: 'Cash Sale', lines: [{ itemName: 'BottleSizeTest Amber Ale', quantity: 6, unitPriceMinor: 800, taxMinor: 0 }], taxAccount: 'Sales Tax Payable', paymentMethod: 'cash', cashTenderedMinor: 4800 },
+    1
+  );
+  completePosSale(
+    { business: biz.business, ledger: biz.actualLedger, locationName: 'BottleSizeTest Outlet', customerName: 'Cash Sale', lines: [{ itemName: 'BottleSizeTest Merlot', quantity: 3, unitPriceMinor: 2200, taxMinor: 0 }], taxAccount: 'Sales Tax Payable', paymentMethod: 'cash', cashTenderedMinor: 6600 },
+    1
+  );
+
+  const byBottleSize = getProfitAndLossByAxis(biz.business, biz.actualLedger, undefined, undefined, 'Bottle Size', 'Consolidated');
+  const keys = byBottleSize.map((n) => n.key).sort();
+  assert.deepEqual(keys, ['BottleSizeTest 330ml', 'BottleSizeTest 750ml'], 'a real, genuinely user-defined axis correctly, independently groups real accounts by their real, tagged value - no built-in knowledge of "Bottle Size" anywhere in the reporting code');
+
+  const size330 = byBottleSize.find((n) => n.key === 'BottleSizeTest 330ml');
+  const size750 = byBottleSize.find((n) => n.key === 'BottleSizeTest 750ml');
+  assert.equal(size330?.profitAndLoss.total_income_minor, 4800, 'the real, correct sales total for the real 330ml group, genuinely independent of the real 750ml group');
+  assert.equal(size750?.profitAndLoss.total_income_minor, 6600, 'the real, correct sales total for the real 750ml group, genuinely independent of the real 330ml group');
+});
+
 test('createEntity: scoped, not global, uniqueness — the exact, same real rule everywhere else in the entity tree, verified specifically for Vocabulary and its own real translations', () => {
   create(fetch('Vocabulary', typeRootName), typeRootName, 'VocabDupeTest', 1);
   assert.throws(
@@ -4902,3 +4951,50 @@ test('createItem: the original, confirmed gap is now genuinely closed - a non-Ca
   const created = db.prepare(`SELECT 1 FROM current_entities WHERE name = 'GapClosedTest Wine'`).get();
   assert.ok(created, 'a real, genuine, existing Category is still genuinely accepted as a valid parent');
 });
+
+test('getPrototypeOf/setPrototype/seedDefaultHierarchyPrototypes: the real, settled design - identity by what a node points at, not by depth or a compile-time type', () => {
+  // A real, top-level division and a real, deliberately-nested
+  // sub-division both point at the exact, same real "Division"
+  // prototype - genuinely uniform regardless of real depth.
+  setPrototype('Springfield', 'Division', 1);
+  createEntity({ name: 'PrototypeTest SubDivision', parent: 'Springfield' }, 1);
+  setPrototype('PrototypeTest SubDivision', 'Division', 1);
+
+  assert.equal(getPrototypeOf('Springfield'), 'Division', 'a real, top-level division correctly points at the real Division prototype');
+  assert.equal(getPrototypeOf('PrototypeTest SubDivision'), 'Division', 'a real, deliberately nested sub-division, at a genuinely different real depth, points at the exact, same real prototype - no walk needed, no separate compile-time type needed');
+  assert.equal(getPrototypeOf('Vocabulary'), undefined, 'an entity with no real prototype link at all correctly returns undefined, not a false match');
+
+  // A real, new business gets the four, real, default, non-privileged
+  // prototypes seeded automatically.
+  const biz = createBusiness(asBusinessName('PrototypeTest Business'), '2027-28', 1);
+  const hierarchies = db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Hierarchies' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(biz.business);
+  assert.ok(hierarchies, 'a real, new business gets a real "Hierarchies" root seeded automatically');
+  const divisionUnderHierarchies = db.prepare(`SELECT c.name FROM current_entities c JOIN current_entities p ON p.id = c.parent_id WHERE p.name = 'Hierarchies' AND p.parent_id = (SELECT id FROM current_entities WHERE name = ?)`).all(biz.business);
+  assert.ok((divisionUnderHierarchies as { name: string }[]).some((r) => r.name === 'Division'), 'a real, new business gets a real "Division" prototype seeded under its own real "Hierarchies" root');
+});
+
+
+test('getHierarchyChain: a real, uniform, non-generic walk up parent_id - genuinely reaches Business for an Item, and confirms the real, separate, already-documented Division/Business gap for a Location', () => {
+  // A real, deliberately deep item chain: Items -> Red Wine ->
+  // ChainTest SubRegion -> ChainTest Wine (arbitrary, user-defined
+  // depth - not hardcoded to exactly one Category level).
+  createEntity({ name: 'ChainTest SubRegion', parent: 'Red Wine' }, 1);
+  createItem('ChainTest Wine', 'ChainTest SubRegion', 1);
+
+  const itemChain = getHierarchyChain(asItemName('ChainTest Wine'));
+  const itemChainNames = itemChain.map((n) => n.name);
+  assert.deepEqual(itemChainNames, ['ChainTest Wine', 'ChainTest SubRegion', 'Red Wine', 'Wine Retail Company Items', 'Wine Retail Company'], 'an Item genuinely, correctly reaches its real Business - Items is properly scoped per business');
+  assert.equal(itemChain[itemChain.length - 1].name, 'Wine Retail Company', 'the real, terminal element of a real Item chain is genuinely the real Business');
+
+  // A real, direct, honest confirmation of the real, separate,
+  // already-documented data bug (multi-dimensional-reporting.md §2):
+  // Divisions are not currently rooted under any real business via
+  // parent_id at all - even the real, existing, seeded Riverside
+  // Cellars location's own chain never reaches a real Business.
+  // Confirmed directly here, not assumed - this is a real, known,
+  // separate gap, not something this walker should paper over.
+  const locationChain = getHierarchyChain(asLocationName('Riverside Cellars'));
+  const locationChainNames = locationChain.map((n) => n.name);
+  assert.deepEqual(locationChainNames, ['Riverside Cellars', 'Springfield', 'Divisions', 'Application'], 'confirms the real, separate, already-known Division/Business data gap directly - Divisions are currently a global root, not scoped per business, so a real Location chain does not yet reach any real Business');
+});
+

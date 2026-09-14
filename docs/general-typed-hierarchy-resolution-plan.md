@@ -1,87 +1,114 @@
-# A General, Typed Hierarchy-Resolution Plan: Expanding on the Existing Category and Division Code
+# User-Defined Hierarchies as Reporting Structures — Prototype Nodes and Real, Pointing Data
 
-Per direct request: a real plan reusing and expanding the existing Chart-of-Accounts (Category) and Division code, unified through `create<T>`/`fetch<T>`'s own typed-parameter mechanism — not a replacement, not a new, separate system built alongside them.
+Per direct, iterative correction — the earlier drafts of this document (a generic `TypeDescriptor<TBrand>` walk, then a plain, uniform parent_id chain-walker) are both superseded by this, the real, settled design. Kept in git history for the record of how the design arrived here, not deleted.
 
-## 1. Confirm reality first
+## 1. The core idea, in the user's own words
 
-- **Category resolution genuinely has a bug**: `categoryForAccount` (`db-matrix-reports.ts`) walks exactly one real `parent_id` level, not the full ancestor chain — confirmed directly by reading the function. A deeper real nesting (a hypothetical category under a broader category) would resolve to the wrong, immediate parent, not the true top-level category.
-- **Division nesting is structurally already possible, but not resolved correctly**: confirmed directly, `Springfield`/`Rivertown` are real, live children of a real `Divisions` root via `parent_id`, and `routes/divisions.ts` already lets a caller specify any real parent (`parsed.data.parent ?? 'Divisions'`) — a sub-division nested under another division is already a real, buildable structure today. But `divisionForLocation` resolves a location's division via the separate "Belongs To Division" `relation_id` link, which is a flat, single-hop lookup — it does not walk a `parent_id` chain, so a genuine division-under-division nesting wouldn't be correctly attributed to its own top-level division by the existing reporting code.
-- **Both real bugs are the same, real, underlying gap**: neither resolver genuinely walks an arbitrary-depth `parent_id` chain up to a real, typed root. Two separate, ad-hoc functions, each with its own, different, incomplete answer to the same real question: "what is this entity's ancestor of kind X."
+**Hierarchies are merely useful reporting structures for P&L formatting, in exactly the same way the Chart of Accounts is a formatting/business-reporting structure — with a real caveat, covered in §5.**
 
-## 2. The one, real, generic primitive this plan is built around
+Nothing here identifies "is this a Division" by *where* an entity sits (its `parent_id` depth) or by a TypeScript generic type parameter. Instead, identity comes from *what a real entity points at* — a real, lateral `relation_id` link back to an abstract **prototype node** that names the kind. This works identically no matter how deep the real entity actually is, because the pointer is direct, not a walk.
 
-A single, generic, arbitrary-depth ancestor walker, parameterized by a real `TypeDescriptor` — reusing `create<T>`/`fetch<T>`'s own, established pattern directly, not inventing a parallel one:
+## 2. Two, real, separate concepts
+
+1. **Prototype nodes** — abstract, few in number, define the *shape* of a hierarchy type. Not real business data; the schema for a hierarchy, not an instance of one.
+2. **Actual, named, real nodes** — the real, live data ("Springfield," "Red Wine," "Riverside Cellars") — each one points back, via `relation_id`, to whichever prototype node describes what kind of thing it genuinely is.
+
+## 3. The real, default prototype structure
+
+```
+"Hierarchies" --(relation_id)--> "Wine Retail Business"
+
+"Division" --(relation_id)--> "Hierarchies"
+"Location" --(relation_id)--> "Division"
+
+"Category" --(relation_id)--> "Hierarchies"
+"Item"     --(relation_id)--> "Category"
+```
+
+Four small, real prototype nodes, defining two real hierarchy types for this business: Division -> Location, and Category -> Item.
+
+**Real, actual data then uses these prototypes** — every real node in a real hierarchy points, via its own `relation_id`, at the one, real prototype node describing its kind:
+
+```
+"Springfield"           --(relation_id)--> "Division"
+"ChainTest SubDivision" --(relation_id)--> "Division"    (a real sub-division - same prototype, deeper in the real tree)
+"Riverside Cellars"     --(relation_id)--> "Location"
+
+"Red Wine"              --(relation_id)--> "Category"
+"Merlot 2021"           --(relation_id)--> "Item"
+```
+
+A sub-division and a top-level division both point at the exact same "Division" prototype — genuinely uniform regardless of real depth, with no walk required to answer "what kind of thing is this," only one, direct `relation_id` lookup.
+
+## 4. Nothing "built in" — Division/Location/Category/Item are a recommended default, not a privileged special case
+
+Per direct, important correction: the real mechanism must never special-case "is this the Division prototype specifically." It only ever asks the one, generic, real question — *"what prototype does this real node's `relation_id` point at"* — treating every hierarchy type, pre-seeded or user-invented, identically. A business renaming "Division" to "Region," deleting it, or defining a genuinely new, third hierarchy type (say, a real org chart, or a regional-sales grouping independent of the cost-accounting division) is exactly the same, unremarkable operation as using the default one. The four prototypes above are simply what a new business gets seeded with by default, for convenience — not a fixed, closed set the code itself is aware of.
+
+## 5. The real caveat — the Chart of Accounts is the *same* mechanism, but not *only* a reporting structure
+
+The Chart of Accounts (Balance Sheet / P&L, Assets / Liabilities / Equity / Income / Expense) is itself just another real instance of this identical, generic prototype-pointer mechanism — not structurally special, seeded by default exactly like Division/Location.
+
+The real, honest caveat: unlike a user-invented hierarchy such as "Division," which carries no meaning beyond grouping and presentation, the CoA's specific prototype nodes carry real, functional accounting weight that is not optional or reporting-only:
+
+- **Debit/credit normal balance** — whether an account under "Assets" versus "Liabilities" increases with a debit or a credit is load-bearing double-entry mechanics, not a display choice.
+- **Year-end close behavior** — Income/Expense accounts genuinely zero out to Retained Earnings at close; Balance Sheet accounts genuinely carry forward. Real, required behavior.
+- **Statutory shape** — a real Balance Sheet and P&L have to reconcile in ways regulators and auditors actually check; a "Division" report has no such external obligation.
+
+**Every hierarchy is a reporting structure, but not every reporting structure is only a reporting structure.** The CoA's prototype nodes carry extra, real, functional metadata (normal balance side, close behavior) a generic, user-invented prototype never needs — the pointer mechanism is identical either way; only the CoA's specific prototypes have real consequences attached beyond formatting.
+
+## 6. Real, concrete, no-new-tables implementation
+
+Per `no-new-tables`: the entire mechanism is `relation_id` links between real entities — no new table, no new column, reusing the exact, same primitives `create<T>`/`fetch<T>`/`updateEntity` already provide.
 
 ```ts
-/** Walks entityId's own real parent_id chain, arbitrarily deep, until
- * it finds a real ancestor whose own name the given TypeDescriptor
- * validates - returning that ancestor as a real, typed node. Reused
- * directly for Category, Division, and any future dimension that is
- * genuinely parent_id-structural, rather than each dimension writing
- * its own, separate, ad-hoc walk. */
-function resolveAncestorOfType<TBrand extends string>(
-  entityId: number,
-  type: TypeDescriptor<TBrand>,
-  entityIndex: Map<number, { name: string; parent_id: number | null }>
-): TypedNode<TBrand> | undefined {
-  let current = entityIndex.get(entityId);
-  let currentId = entityId;
-  for (let i = 0; i < 100 && current; i++) {
-    if (type.validate?.(current.name)) {
-      return { id: asEntityId(currentId), name: current.name as string & { __brand: TBrand } };
-    }
-    if (current.parent_id == null) return undefined;
-    currentId = current.parent_id;
-    current = entityIndex.get(currentId);
-  }
-  return undefined;
+/** Per direct design: the real, generic question this whole mechanism
+ * answers - "what real prototype does this real node point at,"
+ * never "is this specifically a Division." Works identically for a
+ * pre-seeded or a genuinely user-invented hierarchy type. */
+function getPrototypeOf(entityName: string): string | undefined {
+  const row = db.prepare(
+    `SELECT proto.name FROM current_entities e
+     JOIN current_entities proto ON proto.id = e.relation_id
+     WHERE e.name = ?`
+  ).get(entityName) as { name: string } | undefined;
+  return row?.name;
+}
+
+/** Seeds the four, real, default prototypes for a new business - a
+ * real, recommended starting point, never treated specially by any
+ * other real code. A business is free to rename, delete, or add to
+ * these immediately. */
+function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName'>, userId: UserId): void {
+  const hierarchies = create(business, typeRootName, 'Hierarchies', userId);
+  const division = create(hierarchies, typeRootName, 'Division', userId);
+  create(division, typeRootName, 'Location', userId);
+  const category = create(hierarchies, typeRootName, 'Category', userId);
+  create(category, typeRootName, 'Item', userId);
 }
 ```
 
-This is a real, direct generalization of `isDescendantOf` (already built for `create<T>`) — the same, real walk, but returning the matching ancestor itself, not just a boolean.
-
-## 3. Real, concrete `TypeDescriptor`s this enables — reusing, not replacing, the existing concepts
+Tagging a real, actual node with its prototype reuses the direct `setPrototype` function shown above — no separate, new mechanism, and no `setEntityLink`-style intermediate record:
 
 ```ts
-// Real, already-existing concepts, now given a real, typed identity
-// each can be resolved *by*, not just created *as*.
-const typeCategoryBucketName: TypeDescriptor<'CategoryBucketName'> = {
-  brand: 'CategoryBucketName',
-  // A real, direct category bucket: its own parent is genuinely
-  // "Items" (or a business's own "{Business} Items"), matching
-  // isGenuineCategoryOrItemsRoot's own, already-proven definition -
-  // reused directly, not reimplemented.
-  validate: (name) => {
-    const row = /* real, direct parent_id lookup */;
-    return row != null && isGenuineCategoryOrItemsRoot(row.parentName);
-  },
-};
-
-const typeDivisionBucketName: TypeDescriptor<'DivisionBucketName'> = {
-  brand: 'DivisionBucketName',
-  // A real division is genuinely a live child of the real Divisions
-  // root, or of another real division (a real sub-division) - reuses
-  // typeDivisionName's own, existing brand concept, generalized to
-  // "any real ancestor that is itself a Division," not just the
-  // immediate one.
-  validate: (name) => isDescendantOf(name, 'Divisions') || name === 'Divisions',
-};
+setPrototype('Springfield', 'Division', userId); // real entity, real prototype it points at
 ```
 
-## 4. Replacing the two, real, separate, ad-hoc resolvers
+## 7. What this replaces, and why
 
-- `categoryForAccount(accountId, ...)` becomes `resolveAncestorOfType(accountId, typeCategoryBucketName, entityIndex)?.name` — genuinely arbitrary-depth now, the one-level bug fixed by construction, not by a special case.
-- `divisionForLocation(locationName, ...)` gets a second, real, direct path added alongside its existing "Belongs To Division" relation-link check (kept, since that's a real, deliberate, explicit override mechanism, not obsolete) — falling back to `resolveAncestorOfType` on the location's own `parent_id` chain when no explicit relation link exists, correctly attributing a location under a real, nested sub-division to its own real division ancestor, not just its immediate parent.
+Supersedes both earlier drafts of this document directly:
 
-## 5. What this means for `MatrixAxis` and `getProfitAndLossByAxis`
+- The generic `TypeDescriptor<TBrand>`-per-kind approach forced an artificial, compile-time distinction between things (a Division and a genuine sub-Division) that are structurally, and now conceptually, the exact same real kind of node — wrong per direct correction.
+- The plain, uniform `parent_id`-walk-to-Business approach (`getHierarchyChain`) correctly identified that every level is the same kind of thing, but revealed a real, separate, deeper problem: Divisions are not currently rooted under any business via `parent_id` at all (a real, pre-existing, already-documented data bug, confirmed directly against live data — see `docs/multi-dimensional-reporting.md` §2). The prototype-pointer mechanism sidesteps this entirely — knowing "what kind is this real node" no longer depends on successfully walking all the way to a Business at all.
 
-The fixed, closed `MatrixAxis` union (`'Product' | 'Category' | 'Location' | 'Division' | 'Consolidated'`) is **not** replaced by this plan — per the original design document's own Section 9, deliberately left undecided whether to generalize the axis set itself now or defer it. This plan closes the two, real, confirmed *resolution* bugs within the existing four axes; it does not, on its own, make the axis set open-ended. A real, separate, later decision, not conflated with this one.
+## 8. Real, concrete next steps
 
-## 6. Real, concrete sequencing
+1. Build `getPrototypeOf`/`seedDefaultHierarchyPrototypes` directly, with a real, direct test proving a sub-division and a top-level division both correctly resolve to the same "Division" prototype.
+2. Wire `createBusiness` to call `seedDefaultHierarchyPrototypes` for every new, real business.
+3. Migrate `categoryForAccount`/`divisionForLocation` (`db-matrix-reports.ts`) to use `getPrototypeOf` plus a real, generic ancestor-search (walk `parent_id` up, stopping at the nearest real ancestor whose prototype matches), rather than their own, separate, ad-hoc, differently-incomplete logic.
+4. Leave the real, separate Division/Business `parent_id` data bug (§7) as its own, distinct, not-yet-decided fix — not conflated with this mechanism, which does not depend on it being fixed first.
 
-1. Build `resolveAncestorOfType` directly in `db.ts` (alongside `isDescendantOf`, which it generalizes), with a real, direct backend test proving arbitrary depth on both a real, multi-level category and a real, deliberately-constructed sub-division.
-2. Fix `categoryForAccount` to use it — a real, non-breaking change, since a single-level category still resolves identically; only genuinely deeper nesting changes behavior, and only correctly.
-3. Extend `divisionForLocation` to fall back to it — kept behind the existing "Belongs To Division" override, so no real, current behavior changes for the existing, flat two-division data.
-4. Add one real, direct test reproducing the original plan's own example structure (a division containing a sub-division containing a location leaf) end to end through `getProfitAndLossByAxis`, confirming the Division axis now attributes correctly through the nested case.
+## 9. Real, direct proof: a genuinely user-defined axis, through the real P&L report
 
-Not started — this is the real, honest plan, per direct instruction, execution to follow.
+Confirmed directly, not just designed: `MatrixAxis` (in `db-matrix-reports.ts`) was extended from a closed, four-value union to also accept any real, user-defined string, with `resolveKey` falling through to the already-generic `getDimensionParent` for anything it doesn't recognize as one of the four recommended defaults. A real, direct test proves a genuinely user-invented "Bottle Size" hierarchy — never one of the four defaults, never known to any reporting code — correctly, independently groups real P&L income through `getProfitAndLossByAxis`, exactly like Division or Location would. This directly answers the open question `multi-dimensional-reporting.md` §9 left undecided: the axis set is no longer closed.
+
+Not started before this — this is real, built, and directly tested.
