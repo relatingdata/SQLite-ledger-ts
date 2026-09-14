@@ -554,6 +554,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/min-e2e-coverage-plan.md \
 	docs/svelte-call-trace.md \
 	docs/source-reference-tool.md \
+	docs/naming-conventions-and-entity-glossary.md \
 	docs/border-multicurrency-pos-plan.md \
 	docs/inventory-lifecycle-blow-by-blow.md \
 	docs/file-inventory-appendix.md

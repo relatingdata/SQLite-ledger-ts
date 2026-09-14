@@ -58,6 +58,7 @@ PARTS = [
         "min-e2e-coverage-plan.md",
         "svelte-call-trace.md",
         "source-reference-tool.md",
+        "naming-conventions-and-entity-glossary.md",
         "border-multicurrency-pos-plan.md",
         "inventory-lifecycle-blow-by-blow.md",
         "file-inventory-appendix.md",

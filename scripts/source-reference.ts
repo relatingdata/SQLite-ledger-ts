@@ -18,7 +18,9 @@ interface FileInfo {
   path: string;
   group: 'common' | 'backend' | 'frontend';
   functions: string[];
+  functionSignatures: string[];
   types: string[];
+  typeDefinitions: string[];
   exportedVars: string[];
   imports: string[];
 }
@@ -26,13 +28,46 @@ interface FileInfo {
 function extractInfo(filePath: string, group: FileInfo['group']): FileInfo {
   const content = fs.readFileSync(filePath, 'utf-8');
   const functions = [...content.matchAll(/^export function (\w+)/gm)].map((m) => m[1]);
+
+  // A real, full signature - name, every real parameter (with its own
+  // real type), and the real return type, per direct request, not
+  // just the bare name.
+  const functionSignatures: string[] = [];
+  for (const m of content.matchAll(/^export function (\w+)\(([\s\S]*?)\)(?:\s*:\s*([^{]+))?\s*\{/gm)) {
+    const [, name, rawParams, returnType] = m;
+    const params = rawParams
+      .split(/,(?![^<]*>)(?![^{]*\})/)
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .join(', ');
+    functionSignatures.push(`${name}(${params}): ${(returnType ?? 'void').trim()}`);
+  }
+
   const types = [
     ...[...content.matchAll(/^export interface (\w+)/gm)].map((m) => m[1]),
     ...[...content.matchAll(/^export type (\w+)/gm)].map((m) => m[1]),
   ];
+
+  // A real, full type definition - every real field, one per line, per
+  // direct request, not just the type's own bare name.
+  const typeDefinitions: string[] = [];
+  for (const m of content.matchAll(/^export interface (\w+)\s*\{([\s\S]*?)\n\}/gm)) {
+    const [, name, body] = m;
+    const fields = body
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('//') && !l.startsWith('*') && !l.startsWith('/*'));
+    typeDefinitions.push(`interface ${name} {`);
+    for (const field of fields) typeDefinitions.push(`  ${field}`);
+    typeDefinitions.push('}');
+  }
+  for (const m of content.matchAll(/^export type (\w+)\s*=\s*([^;]+);/gm)) {
+    typeDefinitions.push(`type ${m[1]} = ${m[2].trim()};`);
+  }
+
   const exportedVars = [...content.matchAll(/^export const (\w+)/gm)].map((m) => m[1]);
   const imports = [...content.matchAll(/from ['"](\.[^'"]+)['"]/g)].map((m) => m[1]);
-  return { path: filePath, group, functions, types, exportedVars, imports };
+  return { path: filePath, group, functions, functionSignatures, types, typeDefinitions, exportedVars, imports };
 }
 
 const files: FileInfo[] = [];
@@ -74,11 +109,47 @@ for (const group of ['common', 'backend', 'frontend'] as const) {
   console.log(`\n## ${group[0].toUpperCase()}${group.slice(1)} Files\n`);
   for (const f of files.filter((f) => f.group === group)) {
     console.log(`### \`${shortName(f)}\`\n`);
-    if (f.functions.length) console.log(`**Functions**: ${f.functions.map((n) => `\`${n}\``).join(', ')}`);
-    if (f.types.length) console.log(`**Types**: ${f.types.map((n) => `\`${n}\``).join(', ')}`);
-    if (f.exportedVars.length) console.log(`**Exported variables**: ${f.exportedVars.map((n) => `\`${n}\``).join(', ')}`);
-    console.log('');
+    if (f.functionSignatures.length) {
+      console.log('**Functions**:\n');
+      console.log('```ts');
+      for (const sig of f.functionSignatures) console.log(sig);
+      console.log('```\n');
+    }
+    if (f.typeDefinitions.length) {
+      console.log('**Types**:\n');
+      console.log('```ts');
+      for (const line of f.typeDefinitions) console.log(line);
+      console.log('```\n');
+    }
+    if (f.exportedVars.length) {
+      console.log('**Exported variables**:\n');
+      for (const n of f.exportedVars) console.log(`- \`${n}\``);
+      console.log('');
+    }
   }
+}
+
+// === Parent link / sibling (relation) link index ===
+// Per docs/naming-conventions-and-entity-glossary.md: parent_id is a
+// real, structural fact ("lives under"); relation_id is a real,
+// lateral fact ("refers to / is a translation of"). This extracts
+// every real, direct createEntity({ parent: ... }) and
+// updateEntity(..., { relation: ... }) call across these files.
+console.log('\n## Parent Link / Sibling (Relation) Link Index\n');
+console.log('See `docs/naming-conventions-and-entity-glossary.md` for what these two, real, distinct link kinds mean.\n');
+console.log('### Real `parent:` usages (structural — "this entity lives under that one")\n');
+for (const f of files) {
+  const content = fs.readFileSync(f.path, 'utf-8');
+  const matches = [...content.matchAll(/parent:\s*([^,}\n]+)/g)];
+  if (matches.length === 0) continue;
+  console.log(`- \`${shortName(f)}\`: ${matches.map((m) => m[1].trim()).join('; ')}`);
+}
+console.log('\n### Real `relation:` usages (lateral — "this entity refers to / is a translation of that one")\n');
+for (const f of files) {
+  const content = fs.readFileSync(f.path, 'utf-8');
+  const matches = [...content.matchAll(/relation:\s*([^,}\n]+)/g)];
+  if (matches.length === 0) continue;
+  console.log(`- \`${shortName(f)}\`: ${matches.map((m) => m[1].trim()).join('; ')}`);
 }
 
 // === The real index — every name, alphabetical, pointing back to its file ===
