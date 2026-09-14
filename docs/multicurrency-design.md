@@ -1,9 +1,18 @@
 # Multi-Currency Design
 
-Status: design complete, not yet implemented. This document is the
-single source of truth for the design worked out iteratively; the
-prototype (`backend/scripts/prototype-multicurrency.ts`) tests it
-against real numbers before any schema/migration work begins.
+Status: partially built, confirmed directly, not the blanket "not yet
+implemented" this document previously claimed. Real, already-built:
+`account.currency` (the schema column), `setAccountCurrency` (sets
+it), and the core validator itself (`post_journal_entry_insert`
+already groups by `COALESCE(account.currency, '')` and requires each
+group to independently balance to zero — the single most important
+piece of this whole design). Genuinely still not built: a `business`
+extension table for `home_currency`/`country` (no such table exists),
+the currency-as-commodity/`stock_lot` mechanism, and both realized and
+unrealized gain/loss. This document remains the single source of
+truth for the *remaining* design; the prototype
+(`backend/scripts/prototype-multicurrency.ts`) tests the not-yet-built
+parts against real numbers before any further schema/migration work.
 
 ## The core principle
 
