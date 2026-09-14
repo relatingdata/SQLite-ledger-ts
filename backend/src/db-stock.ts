@@ -430,6 +430,55 @@ function preferredVendorPackageQuantity(itemName: string): number | null {
   return row?.package_quantity ?? null;
 }
 
+/** A location's own, actively-tracked remaining storage capacity - a
+ * real, meaningful double-entry counteritem for every physical stock
+ * movement (space consumed <-> stock held), per direct instruction,
+ * the same real relationship as Owner's Capital <-> Cash. Reuses the
+ * exact same real bottle/carton conversion (preferredVendorPackageQuantity)
+ * that getLocationCapacityStatus's own, separate, derived check
+ * already uses - per no-new-tables, no new exchange-rate table, the
+ * existing item_source.package_quantity field IS the real conversion
+ * "rate" between a carton and its bottles, one-directional (a carton
+ * broken open becomes bottles; bottles are never reassembled back
+ * into a carton), matching docs/cold-shelf-storage-inventory-model-plan.md's
+ * own domain rule. A retail outlet (bottle_capacity set) tracks
+ * directly in bottles; a warehouse (carton_capacity only) tracks in
+ * carton-equivalents, using the specific item's own real conversion
+ * factor for whatever's actually moving. */
+export function ensureLocationCapacityAccount(business: string, ledger: string, locationName: string, userId: UserId): { capacityAccount: string; capacityAccountId: number; unit: 'bottle' | 'carton' } {
+  const capacityAccount = `${locationName} — Storage Capacity Remaining`;
+  const loc = getLocation(locationName);
+  const unit: 'bottle' | 'carton' = loc?.bottle_capacity != null ? 'bottle' : 'carton';
+  let entity = Entity.get(capacityAccount);
+  if (!entity) {
+    entity = Entity.create(capacityAccount, locationName, userId);
+    const opening = unit === 'bottle' ? loc?.bottle_capacity ?? 0 : loc?.carton_capacity ?? 0;
+    if (opening > 0) Balance.post(business, ledger, `${locationName}-CAPACITY-OPENING`, capacityAccount, entity.id, opening, userId);
+  }
+  return { capacityAccount, capacityAccountId: entity.id, unit };
+}
+
+/** Adjusts a location's own real, tracked remaining capacity by
+ * whatever a real stock movement actually consumed or freed.
+ * itemQuantityDelta is in the item's own base unit (bottles) - positive
+ * when stock is arriving (receipt, transfer-in), negative when leaving
+ * (dispatch, write-off, transfer-out, a stock-take shortfall).
+ * Capacity moves the opposite direction: arriving stock consumes real,
+ * remaining space; leaving stock frees it back up. */
+export function adjustLocationCapacity(business: string, ledger: string, locationName: string, itemName: string, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void {
+  if (itemQuantityDelta === 0) return;
+  const { capacityAccount, capacityAccountId, unit } = ensureLocationCapacityAccount(business, ledger, locationName, userId);
+  const conversionFactor = unit === 'carton' ? preferredVendorPackageQuantity(itemName) ?? 12 : 1;
+  const capacityDelta = -(itemQuantityDelta / conversionFactor);
+  // A real, direct bug fix: transferStock genuinely calls this twice
+  // for the SAME base reference (once per real location involved) -
+  // the location's own name must be part of this capacity posting's
+  // own reference, or the second call collides with the first on the
+  // real, unique (reference, business, ledger) constraint every real
+  // journal entry already enforces.
+  Balance.post(business, ledger, `${referenceSuffix}-CAPACITY-${locationName}`, capacityAccount, capacityAccountId, capacityDelta, userId);
+}
+
 export interface StockListingRow {
   item: string;
   location: string;
@@ -797,6 +846,7 @@ export function receiveStockAtLocation(
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, locationName);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(onOrderAccount), -quantity, date);
   postStagedQuantityMovement(business, ledger, reference, userId);
+  adjustLocationCapacity(business, ledger, locationName, itemName, quantity, date, userId, reference);
 }
 
 /** Dispatches stock from a specific location — the mirror of
@@ -829,6 +879,7 @@ export function dispatchStockFromLocation(
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), -quantity, date, locationName);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(unitsSoldAccount), quantity, date);
   postStagedQuantityMovement(business, ledger, reference, userId);
+  adjustLocationCapacity(business, ledger, locationName, itemName, -quantity, date, userId, reference);
 }
 
 /** Transfers stock between two locations in the same city — the
@@ -885,6 +936,8 @@ export function transferStock(
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), -quantity, date, fromLocationName);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, toLocationName);
   postStagedQuantityMovement(business, ledger, reference, asUserId(userId));
+  adjustLocationCapacity(business, ledger, fromLocationName, itemName, -quantity, date, asUserId(userId), reference);
+  adjustLocationCapacity(business, ledger, toLocationName, itemName, quantity, date, asUserId(userId), reference);
 }
 
 export interface BelowReorderRow {
@@ -1159,6 +1212,7 @@ export function completeStockTake(
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(line.item), delta, take.take_date, take.location as LocationName);
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(countAdjustmentAccount), -delta, take.take_date);
       postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
+      adjustLocationCapacity(business, ledger, take.location as LocationName, line.item, delta, take.take_date, userId, reference);
     }
     postJournalEntry(reference, business, ledger, userId);
   }
@@ -1188,7 +1242,8 @@ export function writeOffStock(
   inventoryAccount: string,
   reason: string,
   userId: UserId,
-  transdate?: string
+  transdate?: string,
+  locationName?: LocationName
 ): void {
   if (quantity <= 0) throw new ValidationError('Write-off quantity must be positive — it is always a reduction, never a gain.');
   const totalMinor = quantity * unitCostMinor;
@@ -1206,6 +1261,12 @@ export function writeOffStock(
   stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(itemName), -quantity, date);
   stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(writeOffAccount), quantity, date);
   postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
+
+  // A real write-off genuinely happens AT a specific, physical
+  // location (a bottle breaks on a specific shelf) - when the caller
+  // knows and provides it, the space it occupied is genuinely freed
+  // back up, the same real principle as dispatch/transfer.
+  if (locationName) adjustLocationCapacity(business, ledger, locationName, itemName, -quantity, date, userId, reference);
 }
 
 /** Records a specific batch/lot of a item arriving, with its own

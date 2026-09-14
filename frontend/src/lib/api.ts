@@ -539,6 +539,8 @@ export interface ContactPerson {
 }
 export const listContactPersonTypes = () => request<string[]>('/contacts/contact-person-types');
 export const listAddressTypes = () => request<string[]>('/contacts/address-types');
+export const getLocationTypes = () => request<string[]>('/locations/types');
+export const createLocationType = (name: string) => request<{ name: string }>('/locations/types', { method: 'POST', body: JSON.stringify({ name }) });
 export const listPhoneTypes = () => request<string[]>('/contacts/phone-types');
 export const getTypedContactPersons = (name: string) => request<ContactPerson[]>(`/contacts/${encodeURIComponent(name)}/contact-persons`);
 export const setTypedContactPerson = (name: string, contactType: string, value: { name: string; phone?: string | null; email?: string | null }) =>

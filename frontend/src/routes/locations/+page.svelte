@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getEntityTree, listLocations, saveLocation, createEntity, asBusinessName, ApiError, type EntityNode, type LocationRecord } from '$lib/api';
+  import { getEntityTree, listLocations, saveLocation, createEntity, asBusinessName, ApiError, getLocationTypes, createLocationType, type EntityNode, type LocationRecord } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { session } from '$lib/state.svelte';
   import AddressList from '$lib/components/AddressList.svelte';
@@ -46,6 +46,15 @@
   let cartonCapacity = $state('');
   let saving = $state(false);
 
+  // Real, extensible location types - per direct, confirmed finding,
+  // this form previously hardcoded only Retail/Warehouse, completely
+  // bypassing the backend's own, already-real, extensible mechanism
+  // (getLocationTypes/createLocationType) - the exact same, real
+  // pattern already correctly used for address/phone types.
+  let locationTypes: string[] = $state([]);
+  let newLocationType = $state('');
+  let addingLocationType = $state(false);
+
   let coldLocation: LocationRecord | null = $state(null);
   let coldBottleCapacity = $state('');
   let coldCartonCapacity = $state('');
@@ -55,7 +64,7 @@
   async function loadAll() {
     loading = true;
     try {
-      [entities, locations] = await Promise.all([getEntityTree(), listLocations(asBusinessName(session.current?.businessName ?? ''))]);
+      [entities, locations, locationTypes] = await Promise.all([getEntityTree(), listLocations(asBusinessName(session.current?.businessName ?? '')), getLocationTypes()]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -64,6 +73,21 @@
   }
 
   onMount(loadAll);
+
+  async function addLocationType() {
+    if (!newLocationType.trim()) return;
+    addingLocationType = true;
+    try {
+      await createLocationType(newLocationType.trim());
+      locationTypes = await getLocationTypes();
+      locationType = newLocationType.trim();
+      newLocationType = '';
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Failed to add location type.';
+    } finally {
+      addingLocationType = false;
+    }
+  }
 
   async function createNewLocation(v: Record<string, string | number | string[]>) {
     const name = String(v.name ?? '').trim();
@@ -236,9 +260,21 @@
         <fieldset class="type-field">
           <legend>{translations.current['Type'] ?? 'Type'}</legend>
           <select bind:value={locationType}>
-            <option value="Retail">{translations.current['Retail'] ?? 'Retail'}</option>
-            <option value="Warehouse">{translations.current['Warehouse'] ?? 'Warehouse'}</option>
+            {#each locationTypes as t}
+              <option value={t}>{translations.current[t] ?? t}</option>
+            {/each}
           </select>
+          <div class="new-type-row">
+            <input
+              type="text"
+              placeholder={translations.current['New type…'] ?? 'New type…'}
+              bind:value={newLocationType}
+              onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLocationType(); } }}
+            />
+            <button type="button" onclick={addLocationType} disabled={addingLocationType || !newLocationType.trim()}>
+              {translations.current['+ Add type'] ?? '+ Add type'}
+            </button>
+          </div>
         </fieldset>
 
         {#key selectedName}

@@ -124,6 +124,8 @@ const {
   getItem,
   listItemSources,
   addOrUpdateItemSource,
+  ensureLocationCapacityAccount,
+  adjustLocationCapacity,
   getLocationCapacityStatus,
   listItems,
   getDefaultLanguage,
@@ -2501,6 +2503,53 @@ test('completeStockTake and writeOffStock: the real quantity-movement journal en
     .prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ?`)
     .get('QTYBALTEST-WO-QTY') as { total: number };
   assert.equal(woQtyBalance.total, 0, 'the real quantity-movement journal entry for this write-off must itself be balanced');
+});
+
+test('ensureLocationCapacityAccount: a real, one-time opening balance from the location\'s own static capacity, retail tracks bottles, warehouse tracks carton-equivalents', () => {
+  createEntity({ name: 'CapAcctTest Retail', parent: 'Locations' }, 1);
+  setLocation('CapAcctTest Retail', { city: 'CapAcctTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' });
+  const retail = ensureLocationCapacityAccount('My Business', 'Actual', 'CapAcctTest Retail', 1);
+  assert.equal(retail.unit, 'bottle', 'a location with a real bottle_capacity set tracks in bottles');
+  const retailBalance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(retail.capacityAccountId) as { total: number };
+  assert.equal(retailBalance.total, 200);
+
+  createEntity({ name: 'CapAcctTest Warehouse', parent: 'Locations' }, 1);
+  setLocation('CapAcctTest Warehouse', { city: 'CapAcctTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 50, timezone: 'UTC' });
+  const warehouse = ensureLocationCapacityAccount('My Business', 'Actual', 'CapAcctTest Warehouse', 1);
+  assert.equal(warehouse.unit, 'carton', 'a location with no bottle_capacity, only carton_capacity, tracks in carton-equivalents');
+  const warehouseBalance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(warehouse.capacityAccountId) as { total: number };
+  assert.equal(warehouseBalance.total, 50);
+
+  // Idempotent - a second call must not re-post a second opening balance.
+  ensureLocationCapacityAccount('My Business', 'Actual', 'CapAcctTest Retail', 1);
+  const retailBalanceAfter = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(retail.capacityAccountId) as { total: number };
+  assert.equal(retailBalanceAfter.total, 200);
+});
+
+test('adjustLocationCapacity: a real, direct check of the capacity math, retail (1:1 bottles) and warehouse (real, per-item carton conversion)', () => {
+  createEntity({ name: 'CapAdjTest Retail', parent: 'Locations' }, 1);
+  setLocation('CapAdjTest Retail', { city: 'CapAdjTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' });
+  createItem('CapAdjTest Wine', 'Items', 1);
+  const retail = ensureLocationCapacityAccount('My Business', 'Actual', 'CapAdjTest Retail', 1);
+
+  adjustLocationCapacity('My Business', 'Actual', 'CapAdjTest Retail', 'CapAdjTest Wine', 30, '2027-01-01', 1, 'CAPADJTEST-REC-1');
+  let balance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(retail.capacityAccountId) as { total: number };
+  assert.equal(balance.total, 70, 'receiving 30 real bottles consumes exactly 30 units of real capacity (100 - 30)');
+
+  adjustLocationCapacity('My Business', 'Actual', 'CapAdjTest Retail', 'CapAdjTest Wine', -10, '2027-01-02', 1, 'CAPADJTEST-DISP-1');
+  balance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(retail.capacityAccountId) as { total: number };
+  assert.equal(balance.total, 80, 'dispatching 10 real bottles frees exactly 10 units of real capacity back up (70 + 10)');
+
+  // Warehouse: a real, specific item with a real, known package_quantity of 12.
+  createEntity({ name: 'CapAdjTest Warehouse', parent: 'Locations' }, 1);
+  setLocation('CapAdjTest Warehouse', { city: 'CapAdjTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 20, timezone: 'UTC' });
+  createEntity({ name: 'CapAdjTest Vendor', parent: 'Vendors' }, 1);
+  addOrUpdateItemSource({ itemName: 'CapAdjTest Wine', vendorName: 'CapAdjTest Vendor', priceMinor: 1500, packageQuantity: 12, isPreferred: true });
+  const warehouse = ensureLocationCapacityAccount('My Business', 'Actual', 'CapAdjTest Warehouse', 1);
+
+  adjustLocationCapacity('My Business', 'Actual', 'CapAdjTest Warehouse', 'CapAdjTest Wine', 24, '2027-01-01', 1, 'CAPADJTEST-REC-2');
+  const whBalance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(warehouse.capacityAccountId) as { total: number };
+  assert.equal(whBalance.total, 18, 'receiving 24 real bottles (= 2 real cartons at this item\'s own, real 12-per-carton rate) consumes exactly 2 carton-equivalents of real capacity (20 - 2)');
 });
 
 test('createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree', () => {
