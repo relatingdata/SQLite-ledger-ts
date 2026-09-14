@@ -529,6 +529,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/construction-project-management-plan.md \
 	docs/stock-lifecycle-review-plan.md \
 	docs/min-e2e-coverage-plan.md \
+	docs/border-multicurrency-pos-plan.md \
 	docs/inventory-lifecycle-blow-by-blow.md \
 	docs/file-inventory-appendix.md
 

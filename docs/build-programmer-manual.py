@@ -56,6 +56,7 @@ PARTS = [
         "construction-project-management-plan.md",
         "stock-lifecycle-review-plan.md",
         "min-e2e-coverage-plan.md",
+        "border-multicurrency-pos-plan.md",
         "inventory-lifecycle-blow-by-blow.md",
         "file-inventory-appendix.md",
         "user-manual-plan.md",
