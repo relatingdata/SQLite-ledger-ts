@@ -37,7 +37,7 @@ navigation — but genuinely not yet implemented behind them:
 
 - **Quotations** (`/arap/quotations`) — SQL-Ledger's own "Quotations and Order Management"
 - **RFQ** (`/arap/rfq`) — SQL-Ledger's own "Requests for Quotation"
-- **Assembly/BOM** (`/logistics/assembly-bom`) — SQL-Ledger's own "Assemblies and Manufacturing"
+- **Assembly/BOM** (`/logistics/assembly-bom`) — the *frontend management screen* is still a real, confirmed stub, but the *backend mechanism itself* is real, working, and already used directly (`stageBomComponent`/`postBomComponents`/`getBomComponents`) — see the real, working example below, no longer purely aspirational
 - **FX Adjustment** (`/gl/fx-adjustment`) — SQL-Ledger's own foreign-currency revaluation
 - **Recurring transactions** (`/recurring`) — SQL-Ledger's own "Recurring Invoices"
 - **Projects**, **Jobs** — SQL-Ledger's own "Projects" module (project basics, timecards, project-linked invoices)

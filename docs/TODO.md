@@ -235,10 +235,13 @@ Software gaps identified and their status:
   carton capacity (5,000-6,000) reflects a real distribution center. Refrigerated-display capacity now scales
   proportionally to each outlet's own size (a real beverage cooler is roughly 8-10% of a shop's total capacity)
   rather than a flat number regardless of shop size.
-- ❌ **Capacity is still purely informational — not enforced anywhere.** Confirmed directly: no purchase,
-  transfer, or receiving function checks `bottle_capacity`/`carton_capacity` before completing. A real "brand
-  new shop" walkthrough would eventually want this to matter (a transfer that would overflow a small outlet's
-  actual shelf space should at least warn, if not block) — not built yet.
+- ⚠️ **Capacity is now actively, structurally tracked, but still not enforced/blocking.** A real, per-location
+  "Storage Capacity Remaining" account (`ensureLocationCapacityAccount`/`adjustLocationCapacity`) is genuinely
+  decremented/incremented on every real receipt, transfer, dispatch, write-off, and stock-take variance, reusing
+  the existing `item_source.package_quantity` field for real, one-directional carton-to-bottle conversion at
+  warehouses. What's still genuinely open: whether exceeding it should warn or block (a real, separate design
+  decision, not yet made — see `docs/stock-lifecycle-review-plan.md`), and whether refrigerated-vs-room-temperature
+  capacity needs its own, separate, third tracked dimension alongside bottle/carton.
 - ✅ **Real per-product Sales/COGS accounts now mirror the real, existing, user-configurable product category
   tree**, not a flat list. Confirmed directly before fixing: `Income` had 97 flat direct children (81 of them
   real per-product Sales accounts), genuinely unusable as a real P&L read. The product catalog already has a
@@ -259,10 +262,6 @@ Software gaps identified and their status:
 - ❌ **Inventory is still one, single aggregate account**, not per-product or per-category — a real, separate
   question from the Sales/COGS fix above, since per-product inventory *valuation* isn't tracked as its own GL
   fact anywhere yet (only quantity, via a real, direct journal_line quantity movement/`stock_lot`). Not addressed here.
-- ❌ **Capacity is still purely informational — not enforced anywhere.** Confirmed directly: no purchase,
-  transfer, or receiving function checks `bottle_capacity`/`carton_capacity` before completing. A real "brand
-  new shop" walkthrough would eventually want this to matter (a transfer that would overflow a small outlet's
-  actual shelf space should at least warn, if not block) — not built yet.
 - ❌ **The actual Playwright scripts** — `e2e/` has a real, working config and a login helper (confirmed the
   browser launches correctly in this sandboxed environment via a pre-cached binary), but no real day-by-day
   simulation flow written yet.
