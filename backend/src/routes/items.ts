@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
-import { listItems, countItems, getItem, setItem, setItemStorageOrigin, getItemStorageOrigin, listItemSources, addOrUpdateItemSource, deleteItemSource, stageBomComponent, postBomComponents, getBomComponents, deleteBomComponent, ValidationError, NotFoundError, asUserId } from '../db.js';
+import { listItems, countItems, getItem, setItem, setItemStorageOrigin, getItemStorageOrigin, listItemSources, addOrUpdateItemSource, deleteItemSource, stageBomComponent, postBomComponents, getBomComponents, deleteBomComponent, ValidationError, NotFoundError, asUserId, asItemName } from '../db.js';
 
 export const itemsRouter = Router();
 
@@ -109,7 +109,7 @@ itemsRouter.delete('/:name/bom/:componentItem', requireRole('Administrator', 'Bo
 });
 
 itemsRouter.get('/:name/storage-origin', (req, res) => {
-  res.json({ origin: getItemStorageOrigin(req.params.name) ?? null });
+  res.json({ origin: getItemStorageOrigin(asItemName(req.params.name)) ?? null });
 });
 
 const setStorageOriginSchema = z.object({ origin: z.enum(['Hot', 'Cold']).nullable() });
@@ -118,7 +118,7 @@ itemsRouter.put('/:name/storage-origin', requireRole('Administrator', 'Bookkeepe
   const parsed = setStorageOriginSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    setItemStorageOrigin(req.params.name, parsed.data.origin, asUserId(req.user!.id));
+    setItemStorageOrigin(asItemName(req.params.name), parsed.data.origin, asUserId(req.user!.id));
     res.status(204).end();
   } catch (err) {
     console.error(err);

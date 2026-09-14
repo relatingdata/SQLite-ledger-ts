@@ -1132,7 +1132,7 @@ export function createStockTake(locationName: LocationName, takeDate: string, us
       // repeated class of bug this whole session kept finding
       // elsewhere - "Actual", "Trial Balance", etc.). resolveItemId
       // is already correctly scoped to real Items specifically.
-      return { item_id: resolveItemId(r.item), quantity_on_hand: r.quantity_on_hand, shelf_side: detail.shelf_side, rack: detail.rack, level: detail.level };
+      return { item_id: resolveItemId(asItemName(r.item)), quantity_on_hand: r.quantity_on_hand, shelf_side: detail.shelf_side, rack: detail.rack, level: detail.level };
     })
     .filter((r) => r.item_id != null)
     .sort((a, b) => {
@@ -1230,7 +1230,7 @@ export function completeStockTake(
     // Positive variance (found more) is a gain: debit inventory,
     // credit the variance account. Negative (shortage) is a loss: the
     // reverse.
-    { const inv = ensureProductLocationInventoryAccount(line.item, take.location, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: valueMinor, memo: `Stock take variance: ${line.item}` }); }
+    { const inv = ensureProductLocationInventoryAccount(asItemName(line.item), take.location as LocationName, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: valueMinor, memo: `Stock take variance: ${line.item}` }); }
     stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(varianceExpenseAccount), amount_minor: -valueMinor });
 
     const currentOnHand = getItemLocation(asItemName(line.item), take.location as LocationName).quantity_on_hand;
@@ -1246,7 +1246,7 @@ export function completeStockTake(
       // as real an event as those - it gets its own, equally real
       // counter-account (Count Adjustment), not an exemption from
       // the same, correct, established pattern.
-      const { countAdjustmentAccount } = ensureProductQuantityAccounts(line.item, userId);
+      const { countAdjustmentAccount } = ensureProductQuantityAccounts(asItemName(line.item), userId);
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(line.item), delta, take.take_date, take.location as LocationName);
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(countAdjustmentAccount), -delta, take.take_date);
       postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
@@ -1428,9 +1428,9 @@ export function placeOrder(
   priceMinor: number,
   userId: UserId,
   transdate?: string,
-  vendor?: string,
-  item?: string,
-  location?: string
+  vendor?: VendorName,
+  item?: ItemName,
+  location?: LocationName
 ): void {
   const qtyName = `${orderReference} Qty`;
   const valueName = `${orderReference} Value`;

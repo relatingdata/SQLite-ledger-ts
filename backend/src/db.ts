@@ -394,7 +394,7 @@ function resolveId(name: string | null | undefined): number | null {
  * text prefix, since the real, structural parent already conveys
  * this). A real product always, genuinely, structurally descends
  * from Items; its own financial accounts never do. */
-export function resolveItemId(itemName: string): number | undefined {
+export function resolveItemId(itemName: ItemName): number | undefined {
   return (
     db
       .prepare(
@@ -568,7 +568,7 @@ export function getLineType(entityName: string): string | undefined {
  * proven for Address Types/Phone Types/Chart of Accounts Line Types.
  * Passing null removes the link entirely — a real, valid "not yet
  * assigned a storage origin" state, not an error. */
-export function setItemStorageOrigin(itemName: string, origin: 'Hot' | 'Cold' | null, userId: UserId): void {
+export function setItemStorageOrigin(itemName: ItemName, origin: 'Hot' | 'Cold' | null, userId: UserId): void {
   if (origin === null) {
     deleteEntityLink(itemName, 'Storage Origin', userId);
     return;
@@ -581,7 +581,7 @@ export function setItemStorageOrigin(itemName: string, origin: 'Hot' | 'Cold' | 
 
 /** The real, currently-set storage origin for one Item, or undefined
  * if it's never been explicitly assigned one yet. */
-export function getItemStorageOrigin(itemName: string): 'Hot' | 'Cold' | undefined {
+export function getItemStorageOrigin(itemName: ItemName): 'Hot' | 'Cold' | undefined {
   return getEntityLink(itemName, 'Storage Origin') as 'Hot' | 'Cold' | undefined;
 }
 
@@ -654,7 +654,7 @@ function orderSiblingsByDisplayOrder<T extends { id: number; name: string }>(sib
  * orderSiblingsByDisplayOrder above already produces). Lazily
  * converts every visible sibling from alphabetical to an explicit
  * chain the first time any of them is ever moved. */
-export function reorderSiblings(entityId: number, direction: 'up' | 'down', userId: UserId): void {
+export function reorderSiblings(entityId: EntityId, direction: 'up' | 'down', userId: UserId): void {
   const entity = getEntity(entityId);
   if (!entity) throw new NotFoundError(`Entity ${entityId} not found.`);
   const rawSiblings = db
@@ -1118,7 +1118,7 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
   const invoiceId = result.lastInsertRowid as number;
 
   input.lines.forEach((line, i) => {
-    const itemId = line.itemName ? resolveItemId(line.itemName) : null;
+    const itemId = line.itemName ? resolveItemId(asItemName(line.itemName)) : null;
     db.prepare(
       `INSERT INTO invoice_detail_line (invoice_id, line_order, item_id, description, quantity, unit_price_minor, amount_minor, tax_minor, dispatch_reference)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -2132,7 +2132,7 @@ export function ensureCategoryChain(rootName: string, prefix: string, chain: str
  * a carton's margin are real, different facts, not the same number
  * shown twice — blending them back into one account would silently
  * undo the whole point of splitting by product in the first place. */
-export function ensureProductSalesCogsAccounts(itemName: string, userId: UserId, tier?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
+export function ensureProductSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
   const suffix = tier ? ` (${tier})` : '';
   const salesAccount = `${itemName}${suffix}`;
   const cogsAccount = `${itemName}${suffix}`;
@@ -2157,7 +2157,7 @@ export function ensureProductSalesCogsAccounts(itemName: string, userId: UserId,
  * Sheet category-tree walk (already proven for Accounts Receivable)
  * picks this up automatically and shows it as genuinely expandable,
  * with no further, separate reporting code needed at all. */
-export function ensureProductInventoryAccount(itemName: string, userId: UserId): { inventoryAccount: string; inventoryAccountId: number } {
+export function ensureProductInventoryAccount(itemName: ItemName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number } {
   const inventoryParentId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Inventory'`).get() as { id: number }).id;
   const row = Entity.ensureUnder(itemName, inventoryParentId, userId);
   return { inventoryAccount: itemName, inventoryAccountId: row.id };
@@ -2169,7 +2169,7 @@ export function ensureProductInventoryAccount(itemName: string, userId: UserId):
  * in accounts that are determined by the cartesian product of
  * products and locations" — Inventory is not a special case exempt
  * from this. */
-export function ensureProductLocationInventoryAccount(itemName: string, locationName: string, userId: UserId): { inventoryAccount: string; inventoryAccountId: number } {
+export function ensureProductLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number } {
   const { inventoryAccountId: baseId } = ensureProductInventoryAccount(itemName, userId);
   const locationAccount = `${itemName} — ${locationName}`;
   const existing = Entity.getUnder(locationAccount, baseId);
@@ -2187,7 +2187,7 @@ export function ensureProductLocationInventoryAccount(itemName: string, location
  * genuinely new product with no supplier registered yet has no real
  * cost to post, and COGS/Inventory simply won't move for it until one
  * is. */
-export function getProductUnitCostMinor(itemName: string): number | null {
+export function getProductUnitCostMinor(itemName: ItemName): number | null {
   const sources = listItemSources(itemName);
   if (sources.length === 0) return null;
   const source = sources.find((s) => s.is_preferred) ?? sources[0];
@@ -2215,7 +2215,7 @@ export function getProductUnitCostMinor(itemName: string): number | null {
  * tier as its own, separate, brand-new entity instead, there is
  * nothing shared to break — every tier's own real leaf has exactly
  * one real Sales leaf of its own, from the moment it's first created. */
-export function ensureProductTierItem(baseProductName: string, tier: string, userId: UserId): { tierItemName: string; tierItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
+export function ensureProductTierItem(baseProductName: ItemName, tier: string, userId: UserId): { tierItemName: string; tierItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
   const { salesAccount, salesAccountId, cogsAccount, cogsAccountId } = ensureProductSalesCogsAccounts(baseProductName, userId, tier);
   const tierItemName = `${baseProductName} (${tier})`;
 
@@ -2251,7 +2251,7 @@ export function ensureProductTierItem(baseProductName: string, tier: string, use
  * existing, shared tierItemName entity is never touched here at all,
  * only ever read from, so there is no shared, ambiguous parent for a
  * second, real, different location to corrupt. */
-export function ensureProductTierLocationLeaf(tierItemName: string, locationName: string, userId: UserId, tierItemId?: number): { leafItemName: string; leafItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
+export function ensureProductTierLocationLeaf(tierItemName: string, locationName: LocationName, userId: UserId, tierItemId?: number): { leafItemName: string; leafItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
   const tree = getEntityTree();
   const tierItem = tierItemId != null ? tree.find((e) => e.id === tierItemId) : tree.find((e) => e.name === tierItemName);
   if (!tierItem) throw new ValidationError(`No real item named "${tierItemName}".`);
@@ -2303,7 +2303,7 @@ export function ensureProductTierLocationLeaf(tierItemName: string, locationName
  * location dimension are independent of each other; a product having
  * only one real selling unit doesn't mean it's only ever sold from
  * one real place. */
-export function ensureProductLocationLeaf(itemName: string, locationName: string, userId: UserId): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
+export function ensureProductLocationLeaf(itemName: ItemName, locationName: LocationName, userId: UserId): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
   const { salesAccount: baseSales, salesAccountId: baseSalesId, cogsAccount: baseCogs, cogsAccountId: baseCogsId } = ensureProductSalesCogsAccounts(itemName, userId);
   const salesAccount = `${baseSales} — ${locationName}`;
   const cogsAccount = `${baseCogs} — ${locationName}`;
@@ -2332,7 +2332,7 @@ export function ensureProductLocationLeaf(itemName: string, locationName: string
  * real, known location — an ordinary, non-product account (Cash and
  * Bank, Owner's Equity), or a real Sales/COGS leaf that predates this
  * design and has no real per-location leaf of its own yet. */
-export function getLocationForAccount(accountName: string): string | undefined {
+export function getLocationForAccount(accountName: AccountName): string | undefined {
   return getDimensionParent(accountName, 'Location');
 }
 
@@ -2342,7 +2342,7 @@ export function getLocationForAccount(accountName: string): string | undefined {
  * proven location-to-division resolution cityDivisionFor already
  * provides. undefined under the same, real conditions
  * getLocationForAccount itself is. */
-export function getDivisionForAccount(accountName: string): string | undefined {
+export function getDivisionForAccount(accountName: AccountName): string | undefined {
   const location = getLocationForAccount(accountName);
   if (!location) return undefined;
   return cityDivisionFor(location);
@@ -2359,7 +2359,7 @@ export function getDivisionForAccount(accountName: string): string | undefined {
  * on-hand, a real, balanced pair. Parented directly under the
  * product itself, the same real pattern Sales-/COGS- accounts
  * already use to stay obviously, nameably tied to their own product. */
-export function ensureProductQuantityAccounts(itemName: string, userId: UserId): { onOrderAccount: string; unitsSoldAccount: string; countAdjustmentAccount: string; writeOffAccount: string } {
+export function ensureProductQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; unitsSoldAccount: string; countAdjustmentAccount: string; writeOffAccount: string } {
   const onOrderAccount = `${itemName} — On Order`;
   const unitsSoldAccount = `${itemName} — Units Sold`;
   const countAdjustmentAccount = `${itemName} — Count Adjustment`;
@@ -2509,19 +2509,19 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
           // real location isn't known, so an ordinary, non-POS sale
           // with no real location on it is genuinely unaffected.
           if (tier && input.locationName) {
-            const tierItem = ensureProductTierItem(line.itemName, tier, userId);
+            const tierItem = ensureProductTierItem(asItemName(line.itemName), tier, userId);
             const leaf = ensureProductTierLocationLeaf(tierItem.tierItemName, input.locationName, userId, tierItem.tierItemId);
             return { name: leaf.salesAccount, id: leaf.salesAccountId };
           }
           if (tier) {
-            const tierItem = ensureProductTierItem(line.itemName, tier, userId);
+            const tierItem = ensureProductTierItem(asItemName(line.itemName), tier, userId);
             return { name: tierItem.salesAccount, id: tierItem.salesAccountId };
           }
           if (input.locationName) {
-            const leaf = ensureProductLocationLeaf(line.itemName, input.locationName, userId);
+            const leaf = ensureProductLocationLeaf(asItemName(line.itemName), input.locationName, userId);
             return { name: leaf.salesAccount, id: leaf.salesAccountId };
           }
-          const base = ensureProductSalesCogsAccounts(line.itemName, userId);
+          const base = ensureProductSalesCogsAccounts(asItemName(line.itemName), userId);
           return { name: base.salesAccount, id: base.salesAccountId };
         }),
       input.taxAccount,
@@ -2557,33 +2557,33 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
     let cogsTotal = 0;
     const cogsDivision = cityDivisionFor(input.locationName);
     for (const line of input.lines) {
-      const unitCostMinor = getProductUnitCostMinor(line.itemName);
+      const unitCostMinor = getProductUnitCostMinor(asItemName(line.itemName));
       if (unitCostMinor == null) continue;
       const lineCogsMinor = line.quantity * unitCostMinor;
       if (lineCogsMinor <= 0) continue;
       let cogsAccount: string;
       let cogsAccountId: number;
       if (line.tier && input.locationName) {
-        const tierItem = ensureProductTierItem(line.itemName, line.tier, userId);
+        const tierItem = ensureProductTierItem(asItemName(line.itemName), line.tier, userId);
         const leaf = ensureProductTierLocationLeaf(tierItem.tierItemName, input.locationName, userId, tierItem.tierItemId);
         cogsAccount = leaf.cogsAccount;
         cogsAccountId = leaf.cogsAccountId;
       } else if (line.tier) {
-        const tierItem = ensureProductTierItem(line.itemName, line.tier, userId);
+        const tierItem = ensureProductTierItem(asItemName(line.itemName), line.tier, userId);
         cogsAccount = tierItem.cogsAccount;
         cogsAccountId = tierItem.cogsAccountId;
       } else if (input.locationName) {
-        const leaf = ensureProductLocationLeaf(line.itemName, input.locationName, userId);
+        const leaf = ensureProductLocationLeaf(asItemName(line.itemName), input.locationName, userId);
         cogsAccount = leaf.cogsAccount;
         cogsAccountId = leaf.cogsAccountId;
       } else {
-        const base = ensureProductSalesCogsAccounts(line.itemName, userId);
+        const base = ensureProductSalesCogsAccounts(asItemName(line.itemName), userId);
         cogsAccount = base.cogsAccount;
         cogsAccountId = base.cogsAccountId;
       }
       const inv = input.locationName
-        ? ensureProductLocationInventoryAccount(line.itemName, input.locationName, userId)
-        : ensureProductInventoryAccount(line.itemName, userId);
+        ? ensureProductLocationInventoryAccount(asItemName(line.itemName), input.locationName, userId)
+        : ensureProductInventoryAccount(asItemName(line.itemName), userId);
       stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(cogsAccount), accountId: cogsAccountId, amount_minor: lineCogsMinor, division: cogsDivision ? asDivisionName(cogsDivision) : undefined });
       stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: -lineCogsMinor, division: cogsDivision ? asDivisionName(cogsDivision) : undefined });
       cogsTotal += lineCogsMinor;
@@ -2679,7 +2679,7 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
 
     postInvoice(
       invoiceId,
-      (line) => (line.itemName ? (() => { const inv = ensureProductLocationInventoryAccount(line.itemName!, input.locationName, userId); return { name: inv.inventoryAccount, id: inv.inventoryAccountId }; })() : 'Inventory'),
+      (line) => (line.itemName ? (() => { const inv = ensureProductLocationInventoryAccount(asItemName(line.itemName!), input.locationName, userId); return { name: inv.inventoryAccount, id: inv.inventoryAccountId }; })() : 'Inventory'),
       input.taxAccount,
       userId,
       false,
@@ -4428,7 +4428,7 @@ export function listItems(limit?: number, offset = 0): ItemSummary[] {
        LIMIT ? OFFSET ?`
     )
     .all(limit ?? -1, offset) as (ItemSummary & { parentName: string })[];
-  return rows.map((r) => ({ ...r, storage_origin: getItemStorageOrigin(r.name) ?? null, product: r.parentName === 'Items' || r.parentName.endsWith(' Items') ? null : r.parentName }));
+  return rows.map((r) => ({ ...r, storage_origin: getItemStorageOrigin(asItemName(r.name)) ?? null, product: r.parentName === 'Items' || r.parentName.endsWith(' Items') ? null : r.parentName }));
 }
 
 /** The real, total count of every real item — used by the frontend
@@ -5888,7 +5888,7 @@ export function postPurchaseOrder(reference: string, business: BusinessName, led
     .prepare(`SELECT * FROM po_staging WHERE reference = ? AND business = ? AND ledger = ?`)
     .get(reference, business, ledger) as PurchaseOrderInput | undefined;
   if (!staged) throw new NotFoundError(`Nothing staged for purchase order ${reference}.`);
-  placeOrder(reference, business, ledger, staged.quantity, staged.quantity * staged.price_minor, userId, staged.transdate, staged.vendor, staged.item, staged.location ?? undefined);
+  placeOrder(reference, business, ledger, staged.quantity, staged.quantity * staged.price_minor, userId, staged.transdate, asVendorName(staged.vendor), asItemName(staged.item), staged.location ? asLocationName(staged.location) : undefined);
   db.prepare(`DELETE FROM po_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
 }
 
@@ -6080,7 +6080,7 @@ export function postSalesOrder(reference: string, business: BusinessName, ledger
     .prepare(`SELECT * FROM so_staging WHERE reference = ? AND business = ? AND ledger = ?`)
     .get(reference, business, ledger) as SalesOrderInput | undefined;
   if (!staged) throw new NotFoundError(`Nothing staged for sales order ${reference}.`);
-  placeOrder(reference, business, ledger, staged.quantity, staged.quantity * staged.price_minor, userId, staged.transdate, undefined, staged.item, staged.location ?? undefined);
+  placeOrder(reference, business, ledger, staged.quantity, staged.quantity * staged.price_minor, userId, staged.transdate, undefined, asItemName(staged.item), staged.location ? asLocationName(staged.location) : undefined);
   db.prepare(`DELETE FROM so_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
 }
 

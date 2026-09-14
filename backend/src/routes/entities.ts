@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getEntityTree, getEntity, getEntityHistory, createEntity, updateEntity, deleteEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, ValidationError, NotFoundError,
+import { getEntityTree, getEntity, getEntityHistory, createEntity, updateEntity, deleteEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
   asUserId,
 } from '../db.js';
 import { requireRole } from '../auth-middleware.js';
@@ -98,7 +98,7 @@ entitiesRouter.post('/reorder', requireRole('Administrator', 'Bookkeeper'), (req
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     if (parsed.data.ids.length === 1) {
-      reorderSiblings(parsed.data.ids[0], parsed.data.direction, asUserId(req.user!.id));
+      reorderSiblings(asEntityId(parsed.data.ids[0]), parsed.data.direction, asUserId(req.user!.id));
     } else {
       reorderSiblingsBulk(parsed.data.ids, parsed.data.direction, asUserId(req.user!.id));
     }

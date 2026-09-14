@@ -209,7 +209,7 @@ export function getLedgerBalancesByDivisionStructural(
   }[];
   const result = new Map<number, Map<string | null, number>>();
   for (const r of rows) {
-    const division = getDivisionForAccount(r.account_name) ?? null;
+    const division = getDivisionForAccount(asAccountName(r.account_name)) ?? null;
     if (!result.has(r.id)) result.set(r.id, new Map());
     result.get(r.id)!.set(division, r.balance_minor);
   }
