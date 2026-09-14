@@ -84,6 +84,8 @@ PARTS = [
         "skill-test-writing-standard.md",
         "skill-skill-review-after-failure.md",
         "skill-no-new-tables.md",
+        "skill-documentation-coverage-enforcement.md",
+        "documentation-coverage-baseline.md",
     ]),
 ]
 

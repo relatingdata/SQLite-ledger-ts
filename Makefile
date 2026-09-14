@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -192,6 +192,15 @@ check-node-refs:
 verify-fresh: reset-db
 	cd backend && $(RUNTIME) -e "import('./src/db.ts')"
 	$(MAKE) test
+	$(MAKE) check-docs-coverage
+
+# A real, mechanical, structural check - per
+# /mnt/skills/user/documentation-coverage-enforcement/SKILL.md. Fails
+# loudly if any real, exported backend function, Makefile target, or
+# frontend route is never mentioned anywhere in the assembled manual.
+check-docs-coverage:
+	cd docs && python3 build-programmer-manual.py
+	$(RUNTIME) scripts/check-docs-coverage.ts
 
 list-menu-labels:
 	cd backend && $(RUNTIME) scripts/list-menu-labels.ts
@@ -506,6 +515,8 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/skill-test-writing-standard.md \
 	docs/skill-skill-review-after-failure.md \
 	docs/skill-no-new-tables.md \
+	docs/skill-documentation-coverage-enforcement.md \
+	docs/documentation-coverage-baseline.md \
 	docs/sql-ledger-comparison.md \
 	docs/svelte-5-runes-migration-plan.md \
 	docs/svelte-usage.md \

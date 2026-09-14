@@ -1,0 +1,164 @@
+# Documentation Coverage Baseline
+
+A real, honest, tracked list of every name `make check-docs-coverage`
+found genuinely undocumented the day this check was introduced. Per
+`documentation-coverage-enforcement`, this is not a permanent
+exemption list — it is expected to shrink, over real, separate
+documentation work, never to grow. A name should only ever be added
+here for a genuine, deliberate, temporary reason, stated directly next
+to it — never as a routine way to make the check pass.
+
+Several of these are small, self-explanatory type-branding helpers
+(`asUserId`, `asEntityId`, etc.) genuinely low priority to write prose
+about; many others are real, substantial, undocumented functions and
+should be prioritized first.
+
+- `getLocationTypes`
+- `createLocationType`
+- `todayAtLocation`
+- `getItemLocation`
+- `setItemLocationLevelDetails`
+- `getLocationCapacityStatus`
+- `ensureLocationCapacityAccount`
+- `adjustLocationCapacity`
+- `getStockListingByLocation`
+- `getStockMovementReport`
+- `countStockListing`
+- `setItemLocationLevels`
+- `setItemSourceLeadTime`
+- `getItemLeadTimes`
+- `getStockOutRiskReport`
+- `getStockTake`
+- `getExpiringStock`
+- `createSystemEntity`
+- `getChartOfAccounts`
+- `getLedgerBalancesByDivision`
+- `getLedgerBalancesByDivisionStructural`
+- `buildProfitAndLossFromBalances`
+- `getProfitAndLossByDivision`
+- `getProfitAndLossByDivisionTree`
+- `previewCloseBooks`
+- `getSalesReport`
+- `listUsers`
+- `listRoles`
+- `setUserRoles`
+- `setUserActive`
+- `changePassword`
+- `changeOwnPassword`
+- `logout`
+- `getSessionUser`
+- `setOwnPageSize`
+- `setOwnNumberFormat`
+- `setOwnDateFormat`
+- `asUserId`
+- `asEntityId`
+- `asDivisionName`
+- `asLocationName`
+- `asEmployeeName`
+- `asCustomerName`
+- `asVendorName`
+- `asItemName`
+- `getCreditStatus`
+- `getAgingBuckets`
+- `exportInvoiceAsUbl`
+- `parseUblInvoice`
+- `checkEInvoiceDiscrepancies`
+- `getPickingList`
+- `dispatchOrderFromPickingList`
+- `getInvoiceOutstandingMinor`
+- `getItemByUpc`
+- `getProductUnitCostMinor`
+- `ensureProductTierItem`
+- `recordReminderSent`
+- `resetReminderLevel`
+- `getAccountsPostedTo`
+- `setPosPin`
+- `signOn`
+- `verifyPosPin`
+- `signOff`
+- `getActiveShiftsAtLocation`
+- `getOpenShiftForEmployee`
+- `setLocationOpenHours`
+- `getLocationOpenHours`
+- `setEmployeeSchedule`
+- `getEmployeeSchedule`
+- `getScheduleAtLocation`
+- `ensureAddressType`
+- `listAddressTypes`
+- `addTypedAddress`
+- `deleteTypedAddress`
+- `ensurePhoneType`
+- `listPhoneTypes`
+- `addTypedPhone`
+- `deleteTypedPhone`
+- `ensureContactPersonType`
+- `listContactPersonTypes`
+- `addTypedContactPerson`
+- `deleteTypedContactPerson`
+- `deleteBomComponent`
+- `deleteDimensionParent`
+- `removeContactType`
+- `getDimensionLinksPointingAt`
+- `getDimensionAncestorChain`
+- `registerBankAccount`
+- `unregisterBankAccount`
+- `getBankAccounts`
+- `getCashFlowForecast`
+- `registerCustomer`
+- `listPendingCustomers`
+- `verifyCustomer`
+- `authenticateCustomer`
+- `createProduct`
+- `getItemProduct`
+- `setItemProduct`
+- `listItemSources`
+- `addOrUpdateItemSource`
+- `deleteItemSource`
+- `getLanguages`
+- `getDivisions`
+- `getMenuTree`
+- `getScreenTitle`
+- `setMenuOverride`
+- `deleteMenuOverride`
+- `setDivisionType`
+- `getDivisionType`
+- `getDivisionTypes`
+- `createDivisionType`
+- `getVocabularyAlternates`
+- `getConceptsWithAlternates`
+- `setVocabularyPreference`
+- `deleteVocabularyPreference`
+- `getLocalizedText`
+- `getAllTranslations`
+- `getBusinesses`
+- `getLedgers`
+- `getLedgerDateRange`
+- `getSalesCogsMatrix`
+- `getStockOnHandMatrix`
+- `getProfitAndLossByAxis`
+- `getAxisValues`
+- `attachUser`
+- `requireAuth`
+- `hashPassword`
+- `verifyPassword`
+- `backend-verbose`
+- `proof-year-end`
+- `test-e2e-playwright`
+- `playwright-one`
+- `verify-fresh`
+- `check-docs-coverage`
+- `list-menu-labels`
+- `add-menu-translations`
+- `add-journal-translations`
+- `add-journal-remaining-translations`
+- `add-header-translations`
+- `add-brand-translation`
+- `check-frontend`
+- `check-backend-types`
+- `check-e2e-types`
+- `manual-screenshots`
+- `manual-screenshots-german`
+- `manual-screenshots-french`
+- `manual-screenshots-danish`
+- `manual-screenshots-italian`
+- `/reports/stock-out-risk`
