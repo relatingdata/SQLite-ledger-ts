@@ -42,6 +42,13 @@ entitiesRouter.post('/', requireRole('Administrator', 'Bookkeeper'), (req, res) 
   const parsed = newEntitySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
+    // A real, deliberate exception to no-generic-functions, per that
+    // skill's own rule 4: this is the Entity Tree Editor's own,
+    // genuinely generic "create anything, anywhere" endpoint - an
+    // administrator using it may be creating a brand-new Vocabulary
+    // word, a new custom category, or any other real kind not known
+    // in advance. Forcing a specific TypeDescriptor here would defeat
+    // this tool's own, real, intended purpose.
     res.status(201).json(createEntity(parsed.data, asUserId(req.user!.id)));
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });

@@ -258,6 +258,7 @@ export const typeMenuLinkFlagName: TypeDescriptor<'MenuLinkFlagName'> = { brand:
 export const typeBusinessTypeName: TypeDescriptor<'BusinessTypeName'> = { brand: 'BusinessTypeName' };
 export const typeBusinessTypeQuestionsRootName: TypeDescriptor<'BusinessTypeQuestionsRootName'> = { brand: 'BusinessTypeQuestionsRootName' };
 export const typeBusinessTypeQuestionName: TypeDescriptor<'BusinessTypeQuestionName'> = { brand: 'BusinessTypeQuestionName' };
+export const typeDivisionName: TypeDescriptor<'DivisionName'> = { brand: 'DivisionName' };
 
 import { seedRemainingData } from './db-seed.js';
 seedRemainingData();
