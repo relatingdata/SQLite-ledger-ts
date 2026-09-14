@@ -36,6 +36,7 @@ import {
   asAccountName,
   asItemName,
   asLocationName,
+  asVendorName,
   asUserId,
   getLocationTypes,
   createLocationType,
@@ -111,7 +112,7 @@ locationsRouter.put('/:name', requireRole('Administrator', 'Bookkeeper'), (req, 
 });
 
 locationsRouter.get('/:name/items/:itemName', (req, res) => {
-  res.json(getItemLocation(req.params.itemName, req.params.name));
+  res.json(getItemLocation(asItemName(req.params.itemName), asLocationName(req.params.name)));
 });
 
 const levelsSchema = z.object({
@@ -127,7 +128,7 @@ locationsRouter.put('/:name/items/:itemName', requireRole('Administrator', 'Book
   const parsed = levelsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    setItemLocationLevels(req.params.itemName, req.params.name, parsed.data);
+    setItemLocationLevels(asItemName(req.params.itemName), asLocationName(req.params.name), parsed.data);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
@@ -205,7 +206,7 @@ locationsRouter.post('/restock/:runReference/picking-list', (req, res) => {
   const linesParsed = restockLinesSchema.safeParse(req.body.lines);
   if (!warehouseName || !linesParsed.success) return res.status(400).json({ error: 'warehouseName and lines are required.' });
   try {
-    res.json(getRestockPickingList(req.params.runReference, warehouseName, linesParsed.data));
+    res.json(getRestockPickingList(req.params.runReference, asLocationName(warehouseName), linesParsed.data));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not load the real restocking picking list.' });
@@ -239,7 +240,7 @@ locationsRouter.post('/restock/:runReference/dispatch', requireRole('Administrat
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const d = parsed.data;
-    dispatchRestockFromPickingList(req.params.runReference, asBusinessName(d.business), asLedgerName(d.ledger), d.warehouseName, d.retailOutletName, d.lines, asUserId(req.user!.id), d.transdate);
+    dispatchRestockFromPickingList(req.params.runReference, asBusinessName(d.business), asLedgerName(d.ledger), asLocationName(d.warehouseName), asLocationName(d.retailOutletName), d.lines, asUserId(req.user!.id), d.transdate);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
@@ -306,7 +307,7 @@ stockOutRiskRouter.post('/lead-time', requireRole('Administrator', 'Bookkeeper')
   const parsed = setLeadTimeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    setItemSourceLeadTime(parsed.data.item, parsed.data.vendor, parsed.data.days, asUserId(req.user!.id));
+    setItemSourceLeadTime(asItemName(parsed.data.item), asVendorName(parsed.data.vendor), parsed.data.days, asUserId(req.user!.id));
     res.status(204).end();
   } catch (err) {
     console.error(err);
@@ -344,7 +345,7 @@ stockTakesRouter.post('/', requireRole('Administrator', 'Bookkeeper'), (req, res
   const parsed = createTakeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const id = createStockTake(parsed.data.locationName, parsed.data.takeDate, asUserId(req.user!.id));
+    const id = createStockTake(asLocationName(parsed.data.locationName), parsed.data.takeDate, asUserId(req.user!.id));
     res.status(201).json({ id });
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
@@ -364,7 +365,7 @@ stockTakesRouter.post('/:id/count', requireRole('Administrator', 'Bookkeeper'), 
   const parsed = countSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    recordStockTakeCount(Number(req.params.id), parsed.data.itemName, parsed.data.countedQuantity);
+    recordStockTakeCount(Number(req.params.id), asItemName(parsed.data.itemName), parsed.data.countedQuantity);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });

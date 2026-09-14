@@ -1404,7 +1404,7 @@ export interface PickingListLine {
  * far right so the whole shelf/rack/level column can be torn off
  * before the list goes out with the delivery, without a customer ever
  * seeing the real warehouse layout. */
-export function getPickingList(invoiceId: number, locationName: string): PickingListLine[] {
+export function getPickingList(invoiceId: number, locationName: LocationName): PickingListLine[] {
   const invoice = getInvoice(invoiceId);
   if (!invoice) throw new NotFoundError(`No invoice with id ${invoiceId}.`);
   if (invoice.status !== 'draft') throw new ValidationError(`Invoice ${invoice.reference} is already ${invoice.status} — a picking list is for a real, still-unfulfilled order.`);
@@ -1416,7 +1416,7 @@ export function getPickingList(invoiceId: number, locationName: string): Picking
   const lines = invoice.lines
     .filter((l) => l.itemName)
     .map((l) => {
-      const shelf = getItemLocation(l.itemName!, locationName);
+      const shelf = getItemLocation(asItemName(l.itemName!), locationName);
       return {
         invoiceLineId: l.id,
         item: l.itemName!,
@@ -1472,7 +1472,7 @@ export function confirmPickedLine(invoiceId: number, invoiceLineId: number, busi
  * location it was actually picked from — the same, real, already-
  * tested dispatchStockFromLocation mechanism this app's own POS sales
  * already use, not a separate, parallel dispatch path. */
-export function dispatchOrderFromPickingList(invoiceId: number, locationName: string, revenueAccount: string, taxAccount: string, userId: UserId): void {
+export function dispatchOrderFromPickingList(invoiceId: number, locationName: LocationName, revenueAccount: string, taxAccount: string, userId: UserId): void {
   const invoice = getInvoice(invoiceId);
   if (!invoice) throw new NotFoundError(`No invoice with id ${invoiceId}.`);
   const pickingList = getPickingList(invoiceId, locationName);
@@ -1511,13 +1511,13 @@ export interface RestockLineInput {
  * a real, explicit list of (item, quantity) since there's no real
  * "order" entity a restocking run is derived from the way a customer
  * order derives from a real invoice. */
-export function getRestockPickingList(runReference: string, warehouseName: string, lines: RestockLineInput[]): PickingListLine[] {
+export function getRestockPickingList(runReference: string, warehouseName: LocationName, lines: RestockLineInput[]): PickingListLine[] {
   const pickedRefs = new Set(
     (db.prepare(`SELECT DISTINCT reference FROM journal WHERE reference LIKE ?`).all(`${runReference}-PICK-%`) as { reference: string }[]).map((r) => r.reference)
   );
 
   const rows = lines.map((l, i) => {
-    const shelf = getItemLocation(l.item, warehouseName);
+    const shelf = getItemLocation(asItemName(l.item), warehouseName);
     return {
       invoiceLineId: i, // a real, stable index within this run — there's no real invoice_line row to key off for a restocking run
       item: l.item,
@@ -1562,8 +1562,8 @@ export function dispatchRestockFromPickingList(
   runReference: string,
   business: BusinessName,
   ledger: LedgerName,
-  warehouseName: string,
-  retailOutletName: string,
+  warehouseName: LocationName,
+  retailOutletName: LocationName,
   lines: RestockLineInput[],
   userId: UserId,
   transdate?: string
@@ -2412,7 +2412,7 @@ export function cityDivisionFor(locationName: string): string | undefined {
  * otherwise, the logical outlet itself. Never assumes a cold sub-
  * location exists just because the product is cold — falls back
  * honestly to the real, given location if it doesn't. */
-export function resolveDispatchLocation(itemName: string, logicalLocationName: string): string {
+export function resolveDispatchLocation(itemName: ItemName, logicalLocationName: LocationName): LocationName {
   if (getItemStorageOrigin(itemName) !== 'Cold') return logicalLocationName;
   const coldSubLocation = db
     .prepare(
@@ -2422,7 +2422,7 @@ export function resolveDispatchLocation(itemName: string, logicalLocationName: s
        WHERE logical.name = ? AND cold.name LIKE '%Refrigerated%'`
     )
     .get(logicalLocationName) as { name: string } | undefined;
-  return coldSubLocation?.name ?? logicalLocationName;
+  return coldSubLocation ? asLocationName(coldSubLocation.name) : logicalLocationName;
 }
 
 export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleResult {
@@ -2459,7 +2459,7 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
 
   for (const line of input.lines) {
     if (line.quantity <= 0) throw new ValidationError(`Quantity for "${line.itemName}" must be positive.`);
-    const current = getItemLocation(line.itemName, resolveDispatchLocation(line.itemName, input.locationName));
+    const current = getItemLocation(asItemName(line.itemName), resolveDispatchLocation(asItemName(line.itemName), input.locationName));
     if (line.quantity > current.quantity_on_hand) {
       throw new ValidationError(`Only ${current.quantity_on_hand} of "${line.itemName}" on hand at "${input.locationName}" — cannot sell ${line.quantity}.`);
     }
@@ -2538,7 +2538,7 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
     );
 
     for (const line of input.lines) {
-      dispatchStockFromLocation(input.business, input.ledger, `${reference}-DISPATCH-${line.itemName}`, asItemName(line.itemName), asLocationName(resolveDispatchLocation(line.itemName, input.locationName)), line.quantity, userId, today);
+      dispatchStockFromLocation(input.business, input.ledger, `${reference}-DISPATCH-${line.itemName}`, asItemName(line.itemName), asLocationName(resolveDispatchLocation(asItemName(line.itemName), input.locationName)), line.quantity, userId, today);
     }
 
     // Real COGS + Inventory-value reduction — per direct, confirmed

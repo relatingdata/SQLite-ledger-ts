@@ -23,6 +23,8 @@ import {
   deleteEntity,
   asBusinessName,
   asLedgerName,
+  asItemName,
+  asLocationName,
   asUserId,
   asAccountName,
   type BusinessName,
@@ -30,6 +32,7 @@ import {
   type UserId,
   type AccountName,
   type ItemName,
+  type VendorName,
   type LocationName,
 } from './db.js';
 
@@ -283,7 +286,7 @@ export function getLocation(name: string): Location | undefined {
  * happens to be running in a different time zone, or because UTC has
  * already rolled over while the clerk's own, local wall-clock has
  * not. */
-export function todayAtLocation(locationName: string): string {
+export function todayAtLocation(locationName: LocationName): string {
   const location = getLocation(locationName);
   const timezone = location?.timezone ?? 'UTC';
   return DateTime.now().setZone(timezone).toFormat('yyyy-MM-dd');
@@ -299,7 +302,7 @@ export interface ItemLocationLevels {
   level: number | null;
 }
 
-export function getItemLocation(itemName: string, locationName: string): ItemLocationLevels {
+export function getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels {
   const quantity_on_hand = Balance.getScoped(itemName, 'location_id', locationName);
   const levelsRecordName = `${itemName} — ${locationName} — Levels`;
   const levelsRow = Entity.get(levelsRecordName);
@@ -337,7 +340,7 @@ function postItemLevelFigure(figureName: string, figureId: number, value: number
   db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, 'Wine Retail Company', 'Actual', userId);
 }
 
-export function setItemLocationLevelDetails(itemName: string, locationName: string, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, userId: UserId): void {
+export function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, userId: UserId): void {
   const item = Entity.get(itemName);
   if (!item) throw new ValidationError(`No item named "${itemName}".`);
   const levelsRecordName = `${itemName} — ${locationName} — Levels`;
@@ -390,7 +393,7 @@ export interface LocationCapacityStatus {
  * package_quantity (not a flat, assumed bottles-per-carton figure,
  * since that genuinely varies by product — wine/spirits at 12,
  * beer at 24). */
-export function getLocationCapacityStatus(locationName: string): LocationCapacityStatus {
+export function getLocationCapacityStatus(locationName: LocationName): LocationCapacityStatus {
   const location = getLocation(locationName);
   const rows = db
     .prepare(
@@ -405,7 +408,7 @@ export function getLocationCapacityStatus(locationName: string): LocationCapacit
 
   const bottleQuantity = rows.reduce((s, r) => s + r.qty, 0);
   const cartonQuantity = rows.reduce((s, r) => {
-    const packageQty = preferredVendorPackageQuantity(r.item) ?? 12; // a real, reasonable default when no real vendor relationship exists at all
+    const packageQty = preferredVendorPackageQuantity(asItemName(r.item)) ?? 12; // a real, reasonable default when no real vendor relationship exists at all
     return s + r.qty / packageQty;
   }, 0);
 
@@ -421,7 +424,7 @@ export function getLocationCapacityStatus(locationName: string): LocationCapacit
   };
 }
 
-function preferredVendorPackageQuantity(itemName: string): number | null {
+function preferredVendorPackageQuantity(itemName: ItemName): number | null {
   const row = db
     .prepare(
       `SELECT ps.package_quantity
@@ -459,7 +462,7 @@ function preferredVendorPackageQuantity(itemName: string): number | null {
  * built for the base multicurrency design - a terminal's own currency
  * is set the identical, real way any other account's is, not a new,
  * bespoke mechanism. */
-export function createPosTerminal(terminalName: string, locationName: string, userId: UserId): void {
+export function createPosTerminal(terminalName: string, locationName: LocationName, userId: UserId): void {
   const parentName = `${locationName} Terminals`;
   if (!Entity.get(parentName)) Entity.create(parentName, locationName, userId);
   if (!Entity.get(terminalName)) Entity.create(terminalName, parentName, userId);
@@ -480,7 +483,7 @@ export function getEffectiveSaleCurrency(terminalName: string | undefined): stri
   return row?.currency ?? null;
 }
 
-export function ensureLocationCapacityAccount(business: string, ledger: string, locationName: string, userId: UserId): { capacityAccount: string; capacityAccountId: number; unit: 'bottle' | 'carton' } {
+export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; unit: 'bottle' | 'carton' } {
   const capacityAccount = `${locationName} — Storage Capacity Remaining`;
   const loc = getLocation(locationName);
   const unit: 'bottle' | 'carton' = loc?.bottle_capacity != null ? 'bottle' : 'carton';
@@ -500,7 +503,7 @@ export function ensureLocationCapacityAccount(business: string, ledger: string, 
  * (dispatch, write-off, transfer-out, a stock-take shortfall).
  * Capacity moves the opposite direction: arriving stock consumes real,
  * remaining space; leaving stock frees it back up. */
-export function adjustLocationCapacity(business: string, ledger: string, locationName: string, itemName: string, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void {
+export function adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void {
   if (itemQuantityDelta === 0) return;
   const { capacityAccount, capacityAccountId, unit } = ensureLocationCapacityAccount(business, ledger, locationName, userId);
   const conversionFactor = unit === 'carton' ? preferredVendorPackageQuantity(itemName) ?? 12 : 1;
@@ -565,7 +568,7 @@ export function getStockListingByLocation(): StockListingLocationGroup[] {
     )
     .all() as { item: string; location: string; quantity_on_hand: number }[];
   const rows: StockListingRow[] = qtyRows.map((r) => {
-    const levels = getItemLocation(r.item, r.location);
+    const levels = getItemLocation(asItemName(r.item), asLocationName(r.location));
     return {
       item: r.item,
       location: r.location,
@@ -582,7 +585,7 @@ export function getStockListingByLocation(): StockListingLocationGroup[] {
     if (!group) {
       const location = getLocation(row.location);
       const division = cityDivisionFor(row.location) ?? null;
-      group = { location: row.location, city: location?.city ?? null, division, rows: [], total_on_hand: 0, capacity: getLocationCapacityStatus(row.location) };
+      group = { location: row.location, city: location?.city ?? null, division, rows: [], total_on_hand: 0, capacity: getLocationCapacityStatus(asLocationName(row.location)) };
       groups.set(row.location, group);
     }
     group.rows.push(row);
@@ -816,8 +819,8 @@ export function countStockListing(): number {
 }
 
 export function setItemLocationLevels(
-  itemName: string,
-  locationName: string,
+  itemName: ItemName,
+  locationName: LocationName,
   levels: {
     minLevel?: number | null;
     maxLevel?: number | null;
@@ -1001,7 +1004,7 @@ export function getBelowReorderStock(): BelowReorderRow[] {
  * encoded directly into a real, named link-entity, matching BOM's
  * own, exact, already-proven pattern: "{item} — Lead Time: {vendor}
  * (14 days)". */
-export function setItemSourceLeadTime(itemName: string, vendorName: string, days: number, userId: UserId): void {
+export function setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName, days: number, userId: UserId): void {
   const existing = db
     .prepare(
       `SELECT child.name AS link_name
@@ -1019,7 +1022,7 @@ export function setItemSourceLeadTime(itemName: string, vendorName: string, days
 
 /** Every real, known lead time for one item, across all its real
  * vendors, parsed back out of each one's own link-entity name. */
-export function getItemLeadTimes(itemName: string): { vendor: string; days: number }[] {
+export function getItemLeadTimes(itemName: ItemName): { vendor: string; days: number }[] {
   const rows = db
     .prepare(
       `SELECT child.name AS link_name
@@ -1069,7 +1072,7 @@ export function getStockOutRiskReport(windowDays: number = 2): StockOutRiskRow[]
       )
       .get(row.item, row.location, windowDays) as { consumed: number };
     const dailyRate = consumed.consumed / windowDays;
-    const leadTimes = getItemLeadTimes(row.item);
+    const leadTimes = getItemLeadTimes(asItemName(row.item));
     const shortestLeadTime = leadTimes.length > 0 ? Math.min(...leadTimes.map((l) => l.days)) : null;
     const daysUntilStockout = dailyRate > 0 ? row.quantity_on_hand / dailyRate : null;
     const atRisk = daysUntilStockout !== null && shortestLeadTime !== null && daysUntilStockout < shortestLeadTime;
@@ -1109,7 +1112,7 @@ export interface StockTake {
  * shelf_side/rack/level at this moment, ordered the way someone
  * actually walks the floor (shelf side, then rack, then top to
  * bottom), not alphabetically by item name. */
-export function createStockTake(locationName: string, takeDate: string, userId: UserId): number {
+export function createStockTake(locationName: LocationName, takeDate: string, userId: UserId): number {
   const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
@@ -1121,7 +1124,7 @@ export function createStockTake(locationName: string, takeDate: string, userId: 
   const resolvedLocationName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(locationId) as { name: string }).name;
   const itemsHere = (getStockListingByLocation().find((g) => g.location === resolvedLocationName)?.rows ?? [])
     .map((r) => {
-      const detail = getItemLocation(r.item, resolvedLocationName);
+      const detail = getItemLocation(asItemName(r.item), asLocationName(resolvedLocationName));
       // A real, confirmed bug fix: this used to build a plain
       // name-to-id map from every entity in the whole database, which
       // silently resolves to the wrong entity whenever any other
@@ -1166,7 +1169,7 @@ export function getStockTake(id: number): StockTake | undefined {
   return { ...header, lines };
 }
 
-export function recordStockTakeCount(stockTakeId: number, itemName: string, countedQuantity: number): void {
+export function recordStockTakeCount(stockTakeId: number, itemName: ItemName, countedQuantity: number): void {
   const take = getStockTake(stockTakeId);
   if (!take) throw new NotFoundError(`No stock take with id ${stockTakeId}.`);
   if (take.status !== 'draft') throw new ValidationError(`Stock take ${stockTakeId} is already completed.`);
@@ -1230,7 +1233,7 @@ export function completeStockTake(
     { const inv = ensureProductLocationInventoryAccount(line.item, take.location, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: valueMinor, memo: `Stock take variance: ${line.item}` }); }
     stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(varianceExpenseAccount), amount_minor: -valueMinor });
 
-    const currentOnHand = getItemLocation(line.item, take.location).quantity_on_hand;
+    const currentOnHand = getItemLocation(asItemName(line.item), take.location as LocationName).quantity_on_hand;
     const delta = line.counted_quantity! - currentOnHand;
     if (delta !== 0) {
       // A real, confirmed bug fix: this used to stage only one, real
@@ -1247,7 +1250,7 @@ export function completeStockTake(
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(line.item), delta, take.take_date, take.location as LocationName);
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(countAdjustmentAccount), -delta, take.take_date);
       postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
-      adjustLocationCapacity(business, ledger, take.location as LocationName, line.item, delta, take.take_date, userId, reference);
+      adjustLocationCapacity(business, ledger, take.location as LocationName, asItemName(line.item), delta, take.take_date, userId, reference);
     }
     postJournalEntry(reference, business, ledger, userId);
   }
@@ -1340,7 +1343,7 @@ export function receiveLot(
  * silently going negative. Returns which lots were actually drawn
  * from and how much, for a real audit trail of what specifically was
  * used. */
-export function consumeFromLots(itemName: string, quantity: number): { lot_number: string; consumed: number; expiration_date: string | null }[] {
+export function consumeFromLots(itemName: ItemName, quantity: number): { lot_number: string; consumed: number; expiration_date: string | null }[] {
   if (quantity <= 0) throw new ValidationError('Quantity to consume must be positive.');
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);

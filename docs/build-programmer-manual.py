@@ -59,6 +59,7 @@ PARTS = [
         "svelte-call-trace.md",
         "source-reference-tool.md",
         "naming-conventions-and-entity-glossary.md",
+        "skill-branded-types-not-primitives.md",
         "border-multicurrency-pos-plan.md",
         "inventory-lifecycle-blow-by-blow.md",
         "file-inventory-appendix.md",

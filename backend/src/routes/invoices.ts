@@ -174,7 +174,7 @@ invoicesRouter.get('/:id/picking-list', (req, res) => {
   const locationName = req.query.location as string;
   if (!locationName) return res.status(400).json({ error: 'location is required.' });
   try {
-    res.json(getPickingList(Number(req.params.id), locationName));
+    res.json(getPickingList(Number(req.params.id), asLocationName(locationName)));
   } catch (err) {
     if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
@@ -204,7 +204,7 @@ invoicesRouter.post('/:id/dispatch-order', requireRole('Administrator', 'Bookkee
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const d = parsed.data;
-    dispatchOrderFromPickingList(Number(req.params.id), d.locationName, d.revenueAccount, d.taxAccount, asUserId(req.user!.id));
+    dispatchOrderFromPickingList(Number(req.params.id), asLocationName(d.locationName), d.revenueAccount, d.taxAccount, asUserId(req.user!.id));
     res.status(204).end();
   } catch (err) {
     if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });

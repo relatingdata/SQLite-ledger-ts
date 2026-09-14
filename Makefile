@@ -555,6 +555,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/svelte-call-trace.md \
 	docs/source-reference-tool.md \
 	docs/naming-conventions-and-entity-glossary.md \
+	docs/skill-branded-types-not-primitives.md \
 	docs/border-multicurrency-pos-plan.md \
 	docs/inventory-lifecycle-blow-by-blow.md \
 	docs/file-inventory-appendix.md

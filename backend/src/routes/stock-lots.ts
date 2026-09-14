@@ -65,7 +65,7 @@ stockLotsRouter.post('/lots/consume', requireRole('Administrator', 'Bookkeeper')
   const parsed = consumeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    res.json(consumeFromLots(parsed.data.itemName, parsed.data.quantity));
+    res.json(consumeFromLots(asItemName(parsed.data.itemName), parsed.data.quantity));
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);

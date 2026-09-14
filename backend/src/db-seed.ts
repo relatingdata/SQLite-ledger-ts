@@ -115,7 +115,7 @@ function migrateForWineRetailDemoData() {
 
   for (const { itemName, locationName, qty, minLevel, maxLevel, reorderLevel, shelfSide, rack, level } of loadDemoStockLevels()) {
     receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), `WINE-SEED-${itemName}-${locationName}`, asItemName(itemName), asLocationName(locationName), qty, SEED_USER_ID, '2026-01-01');
-    setItemLocationLevels(itemName, locationName, { minLevel, maxLevel, reorderLevel, shelfSide, rack, level });
+    setItemLocationLevels(asItemName(itemName), asLocationName(locationName), { minLevel, maxLevel, reorderLevel, shelfSide, rack, level });
   }
 }
 if (SEED_DEMO_BUSINESSES) migrateForWineRetailDemoData();

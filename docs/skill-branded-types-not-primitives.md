@@ -1,0 +1,23 @@
+*A Claude Code skill for this project — lives at `/mnt/skills/user/branded-types-not-primitives/SKILL.md`, reproduced here so it's part of this manual's own, single, complete source. Description: MANDATORY, absolute, for this project - never use plain `string` or `number` for a function parameter, return type, or interface field that represents a specific, real, named kind of thing (an item name, a location name, a user id, an entity id, a currency code). Use this project's own, existing, real branded/nominal types (ItemName, BusinessName, LedgerName, UserId, EntityId, etc., created via their own real `asXxx()` functions) instead. A bare `string` or `number` in these positions is effectively `any` with extra steps - TypeScript cannot catch a LocationName being passed where an ItemName is expected if both are just `string`. Applies retroactively - existing bare-primitive parameters are real, confirmed violations to fix, not grandfathered in.*
+
+
+# Branded Types, Not Primitives
+
+## Why a bare `string`/`number` is effectively `any`
+
+Per direct, absolute instruction: this project already has real, established branded/nominal types for exactly this reason — `ItemName`, `BusinessName`, `LedgerName`, `LocationName`, `EmployeeName`, `CustomerName`, `VendorName`, `UserId`, `EntityId`, `DivisionName`, each created via its own real `asXxx()` function. A function parameter typed as plain `string` where one of these applies throws away everything that type existed for — TypeScript happily lets a `LocationName` be passed where an `ItemName` was meant, an `EntityId` where a `UserId` was meant, because both are, underneath, indistinguishable bare strings or numbers. This is not a stylistic nitpick; it is the exact same class of real, silent bug `any` invites, just spelled differently.
+
+## The real, absolute rule
+
+1. **Before writing or reviewing any function signature or interface field**, ask: does this `string`/`number` represent a specific, real, named kind of thing this project already has a branded type for? If yes, use that real type, not the bare primitive.
+2. **If no branded type exists yet** for a real, specific kind of value that's used this way in more than one place, create one — following the exact, established pattern (a real type alias plus its own real `asXxx()` constructor function) — rather than continuing to pass it as a bare primitive.
+3. **This applies retroactively.** An existing function using bare `string`/`number` where a real branded type already exists elsewhere in the codebase for that exact kind of value is a real, confirmed violation — to be fixed as real, ongoing work, not grandfathered in because it predates this skill.
+4. **A genuinely generic value** (free text with no real, specific identity — a description, a memo, a search query) is correctly `string` — this skill targets values that *do* have a real, specific identity elsewhere in the codebase, not everything that happens to be textual.
+
+## The real, first, direct pass — per direct instruction, no tooling, straight to the code
+
+Per direct, immediate correction: no tool was built for this — straight to the real function definitions and current types instead. Confirmed and fixed directly, in one pass, immediately after this skill was written — `getItemLocation`, `setItemLocationLevelDetails`, `setItemLocationLevels`, `getLocationCapacityStatus`, `createPosTerminal`, `ensureLocationCapacityAccount`, `adjustLocationCapacity`, `setItemSourceLeadTime`, `getItemLeadTimes`, `createStockTake`, `recordStockTakeCount`, `consumeFromLots`, `getPickingList`, `dispatchOrderFromPickingList`, `getRestockPickingList`, `dispatchRestockFromPickingList`, and `resolveDispatchLocation` — each changed from bare `string`/`number` parameters to the real, correct branded type, with every real, cascading call site (both internal and across the real HTTP route handlers in `backend/src/routes/`) fixed with the matching `asItemName`/`asLocationName`/`asVendorName`/`asBusinessName`/`asLedgerName` cast, confirmed by a clean, full backend type-check afterward, not assumed correct.
+
+## Real, honest scope
+
+Retroactive enforcement across a codebase of this size is real, substantial, ongoing work, not something completed in one pass — per `continual-skill-improvement`, this is a real, standing discipline applied to new code immediately and existing code progressively, not a claim that every bare primitive is fixed the moment this skill is written.
