@@ -41,11 +41,16 @@ function findFiles(dir: string, ext: string, out: string[] = []): string[] {
   return out;
 }
 
-// 1. Every real exported backend function.
+// 1. Every real exported backend function AND every real exported
+// const - per direct, confirmed finding, this used to check functions
+// only, leaving every real, exported const (the many typeXxxName
+// TypeDescriptor values built for no-generic-functions, among others)
+// completely invisible to this check, however undocumented.
 const backendFunctions = new Set<string>();
 for (const file of findFiles(path.join(root, 'backend', 'src'), '.ts')) {
   const content = fs.readFileSync(file, 'utf-8');
   for (const m of content.matchAll(/^export function (\w+)/gm)) backendFunctions.add(m[1]);
+  for (const m of content.matchAll(/^export const (\w+)/gm)) backendFunctions.add(m[1]);
 }
 
 // 2. Every real Makefile target.
@@ -101,7 +106,7 @@ if (fs.existsSync(baselinePath)) {
   }
 }
 
-const fnResult = checkCoverage('Backend exported functions', backendFunctions, baselineNames);
+const fnResult = checkCoverage('Backend exported functions/consts', backendFunctions, baselineNames);
 const targetResult = checkCoverage('Makefile targets', makefileTargets, baselineNames);
 const routeResult = checkCoverage('Frontend routes', frontendRoutes, baselineNames);
 

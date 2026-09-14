@@ -13,6 +13,80 @@ Several of these are small, self-explanatory type-branding helpers
 about; many others are real, substantial, undocumented functions and
 should be prioritized first.
 
+The `typeXxxName` `TypeDescriptor` constants listed below follow the
+exact, single, documented pattern in `docs/entity-model.md`'s own
+`create<T>`/`fetch<T>` section (a representative sample is named
+there directly) - real, but not individually described in prose to
+avoid an unreadable, repetitive list; the complete, current set is
+always available via `make source-reference`. Every `xxxRouter`
+constant is a real, standard Express router instance, one per real
+route file - structurally identical, self-explanatory from its own
+file name, and not a business concept worth prose on its own.
+
+- `typeVendorName`
+- `typeCustomerName`
+- `typeItemName`
+- `typeRootName`
+- `typeLedgerName`
+- `typeBusinessLocationsRootName`
+- `typeBusinessItemsRootName`
+- `typeBusinessContactsRootName`
+- `typeLineTypeMarkerName`
+- `typeStorageOriginMarkerName`
+- `typeTextDirectionMarkerName`
+- `typeRelationshipRecordName`
+- `typeOpenHoursRecordName`
+- `typeScheduleRecordName`
+- `typeEntityLinkRecordName`
+- `typeProjectTaskName`
+- `typeMenuOverrideName`
+- `typeHiddenMarkerName`
+- `typeTranslationConceptName`
+- `typeEquityAccountName`
+- `typeAssetAccountName`
+- `typeChartOfAccountsNodeName`
+- `typeChartOfAccountsRootName`
+- `typeLocationTypeMarkerName`
+- `typeIsBillingAddressMarkerName`
+- `typeExpenseCategoryName`
+- `typeMenuSectionName`
+- `typeMenuLinkName`
+- `typeMenuLinkFlagName`
+- `typeBusinessTypeName`
+- `typeBusinessTypeQuestionsRootName`
+- `typeBusinessTypeQuestionName`
+- `periodRouter`
+- `projectsRouter`
+- `businessesRouter`
+- `posRouter`
+- `itemsRouter`
+- `matrixReportsRouter`
+- `authRouter`
+- `i18nRouter`
+- `divisionsRouter`
+- `invoiceRouter`
+- `entitiesRouter`
+- `locationsRouter`
+- `belowReorderRouter`
+- `stockOutRiskRouter`
+- `stockListingRouter`
+- `stockTakesRouter`
+- `arApRouter`
+- `stockRouter`
+- `productsRouter`
+- `invoicesRouter`
+- `agedRouter`
+- `statementRouter`
+- `historyRouter`
+- `remindersRouter`
+- `reportsRouter`
+- `stockLotsRouter`
+- `journalRouter`
+- `customerRegistrationRouter`
+- `customerVerificationRouter`
+- `contactsRouter`
+- `menuRouter`
+
 - `getLocationTypes`
 - `createLocationType`
 - `todayAtLocation`

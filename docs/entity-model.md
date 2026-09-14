@@ -41,26 +41,56 @@ each entity gets exactly one lateral relationship, never several.
 That constraint is the actual, concrete thing to keep in mind, not an
 abstract worry.
 
-## Every distinct use of `relation_id`, verified against the live database
+## Every distinct use of `relation_id`, re-verified against the live database
 
-Queried directly rather than inferred from code comments (which,
-before this document, disagreed with the running system in one real
-case — see below):
+Queried directly rather than inferred from code comments, exactly as
+this document's own methodology requires — and re-run again here,
+since the original version of this section, written earlier, made a
+claim ("three real targets, that's it") now dramatically false. Real,
+honest correction, not a quiet edit: at the time it was written, this
+was genuinely, verifiably true — every later round of real, new work
+(translations across five languages, the real menu-label system, the
+"Belongs To Division"/"Belongs To Business"/"Place of Employment"
+structural tags, `create<T>`'s own type-descriptor markers, and more)
+added many more real, distinct targets, and this section was never
+re-run to catch up. Caught only when directly asked "is the
+documentation completely up to date" — a real, honest lesson in why
+"verified once" is not the same claim as "verified now."
 
 ```sql
 SELECT COUNT(*) as c, (SELECT name FROM current_entities s WHERE s.id = e.relation_id) AS points_to
 FROM current_entities e WHERE e.relation_id IS NOT NULL GROUP BY points_to;
 ```
 
-Table: Every real, distinct target `relation_id` points at, and what each one means
+Re-run directly against the current, live database: **hundreds of
+real, distinct targets**, not three. Categorized, not enumerated one
+by one (the full, exact, current list is genuinely too large for
+prose, and would itself go stale the next time real data changes) —
+see `make source-reference` (`docs/source-reference.md`'s own,
+generated "Parent Link / Sibling (Relation) Link Index") for the real,
+mechanically-current, complete breakdown, regenerated on demand rather
+than kept as static prose:
 
-| Target entity | Count | What it means |
-|---|---|---|
-| `COGS` | 82 | Each of these is a real, per-product-per-tier expense account (e.g. `Amber Ale 330ml (Bottle)`, under Cost of Goods Sold) tagged so `getProfitAndLoss`'s Gross Profit calculation knows to treat it as Cost of Goods Sold rather than an ordinary operating expense. |
-| `Balance Sheet` | 3 | The top-level Asset/Liability/Equity categories, tagged so `business_reports` knows which statement each account ultimately belongs to. |
-| `Profit and Loss Statement` | 2 | The top-level Income/Expense categories, same mechanism. |
-
-That's it — **three real targets, all currently in active use.**
+- **Translations** (by far the largest real category) — every real
+  Vocabulary word's `relation_id` points at its own language (English,
+  German, French, Italian, Danish, Hebrew, Arabic), tens to dozens of
+  real entries per language.
+- **Chart-of-Accounts family tagging** — every real account under a
+  real CoA family (English/German/French/Italian/Swiss CoA) points
+  back at that family.
+- **Menu/UI labels and route metadata** — every real menu link and
+  section, and the real screen titles behind them.
+- **COGS / Balance Sheet / P&L Statement** — the original, three real
+  targets this section first documented, still real and still in
+  active use, just no longer the only ones.
+- **Structural relationship markers** — `Belongs To Division`,
+  `Belongs To Business`, `Place of Employment`, each a real, per-
+  instance link (e.g. `Place of Employment — Jack Whitfield → Riverside
+  Cellars`), one real marker per real fact, not a shared, aggregate
+  target.
+- **Contact-type and Location-Type markers** — `Customer Contact
+  Type`, `Vendor Contact Type`, `Employee Contact Type`, and each
+  real, live Location Type in use (`Retail`, `Warehouse`, `Wine Bar`).
 
 ### A fourth mechanism exists in code, but is currently dormant
 
@@ -415,4 +445,80 @@ against the full backend test suite and the full Playwright e2e
 tutorial before being committed. The remainder — most of `db.ts`,
 `db-reports.ts`, and `db-matrix-reports.ts` — still exist as their own
 separately-implemented functions.
+
+## `create<T>`/`fetch<T>`: a real, typed, generic creation mechanism, and a real, live gap it closed
+
+A second, real, generic creation primitive, alongside `Entity.create`
+above — the two now genuinely coexist, not yet unified, a real, stated
+fact rather than a hidden inconsistency. Built per direct instruction
+after investigating a confirmed, concrete gap: `createItem`'s own
+parent parameter was checked only by generic `createEntity`'s "does
+*some* real entity exist with this name" — nothing stopped a real
+call like `createItem('Widget', 'Vendors', userId)` from silently
+succeeding, an item with a vendor as its structural parent.
+
+**The real, generic pair**:
+
+```ts
+interface TypeDescriptor<TBrand extends string> {
+  readonly brand: TBrand;
+  readonly validNames?: () => string[];   // a real, Vocabulary-backed kind
+  readonly validate?: (name: string) => boolean; // a real, structural check
+}
+interface TypedNode<TBrand extends string> {
+  readonly id: EntityId;
+  readonly name: string & { readonly __brand: TBrand };
+}
+function fetch<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>): TypedNode<TBrand>;
+function create<TParentBrand extends string, TChildBrand extends string>(
+  parent: TypedNode<TParentBrand>, type: TypeDescriptor<TChildBrand>, name: string, userId: UserId
+): TypedNode<TChildBrand>;
+```
+
+`fetch` confirms an *existing* real entity genuinely matches a
+descriptor before it's trusted as a parent; `create` allocates a new
+one directly against `entity_entry` (the same, real, low-level,
+trigger-backed mechanism `createEntity` itself is built on) — zero
+dependency on generic `createEntity`, and, since a `TypeDescriptor`
+with `validNames`/`validate` rejects a bad name *before* any
+allocation happens, nothing to roll back on failure.
+
+The real, established "Springfield" principle (two real siblings under
+the same real parent can't share a name; the exact same name is
+genuinely fine under a different parent) is preserved natively, not
+inherited — `create` does its own, direct, scoped-not-global
+uniqueness check.
+
+### The real, named descriptors this migration produced
+
+Roughly three dozen real, distinct `TypeDescriptor` constants now
+exist (`typeBusinessName`, `typeDivisionName`, `typeLocationEntityName`,
+`typeVocabularyWordName`, `typeCategoryOrItemsRootName`, and many more
+— see `docs/source-reference.md`'s own, generated, complete index for
+the full, current list, rather than a copy here that could go stale).
+`typeCategoryOrItemsRootName` specifically closed the original,
+confirmed gap: it validates via `isGenuineCategoryOrItemsRoot`, a
+real, structural check (any live descendant of the global `Items`
+root, at any real depth — Category nesting stays genuinely unbounded).
+
+### Real, deliberate, stated exceptions — not oversights
+
+Two real call sites still use generic `createEntity` directly, both
+matching the same, real principle: a genuinely open-ended tool should
+stay generic, not be forced into a specific `TypeDescriptor` that
+would defeat its own purpose. `routes/entities.ts`'s own Entity Tree
+Editor endpoint (an administrator may be creating any real kind, not
+known in advance), and `primitives.ts`'s own `Entity.create` itself —
+the two generic primitives this document describes, side by side,
+each real and correct for what it does.
+
+### Real, honest scope
+
+`create<T>`/`fetch<T>` now cover every real, live call site in
+`backend/src/`, `backend/scripts/`, and `backend/test/db.test.ts` —
+confirmed directly, not assumed, by grepping the entire, real codebase
+for any remaining generic `createEntity` call after the migration.
+Not yet done: unifying this with `Entity.create` above into one, real,
+single mechanism — a real, separate, future piece of work, not
+attempted here.
 
