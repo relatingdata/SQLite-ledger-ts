@@ -565,6 +565,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/skill-branded-types-not-primitives.md \
 	docs/border-multicurrency-pos-plan.md \
 	docs/typed-node-create-design.md \
+	docs/general-typed-hierarchy-resolution-plan.md \
 	docs/inventory-lifecycle-blow-by-blow.md \
 	docs/file-inventory-appendix.md
 
