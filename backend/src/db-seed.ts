@@ -1,5 +1,5 @@
 import { db } from './db.js';
-import { createEntity, updateEntity, deleteEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, setContactType, setItemLocationLevels, receiveStockAtLocation, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, type UserId } from './db.js';
+import { createEntity, updateEntity, deleteEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, setContactType, setItemLocationLevels, receiveStockAtLocation, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, fetch, fetchById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId } from './db.js';
 import { loadAllTranslations } from '../../shared-fixtures/translations.js';
 import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels, loadDemoUpcs } from '../../shared-fixtures/wine-retail-demo-data.js';
 
@@ -74,7 +74,7 @@ function loadTranslationsFromSharedCsv(): void {
         // structural entities that must stay singular.
         const matchCount = (db.prepare(`SELECT COUNT(*) AS c FROM current_entities WHERE name = ?`).get(concept) as { c: number }).c;
         if (matchCount !== 1) {
-          createEntity({ name: concept, parent: 'Vocabulary' }, SEED_USER_ID);
+          create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, concept, SEED_USER_ID);
         }
       }
       setTranslation(concept, language, text, SEED_USER_ID);
@@ -98,14 +98,14 @@ function migrateForWineRetailDemoData() {
   const categories = loadDemoCategories();
   const catNames = Array.from(new Set(categories.map((c) => c.category)));
   for (const cat of catNames) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(cat)) createEntity({ name: cat, parent: 'Items' }, SEED_USER_ID);
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(cat)) create(fetch('Items', typeRootName), typeCategoryOrItemsRootName, cat, SEED_USER_ID);
   }
   for (const { category, subcategory } of categories) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(subcategory)) createEntity({ name: subcategory, parent: category }, SEED_USER_ID);
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(subcategory)) create(fetch(category, typeCategoryOrItemsRootName), typeCategoryOrItemsRootName, subcategory, SEED_USER_ID);
   }
 
   for (const loc of loadDemoLocations()) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(loc.name)) createEntity({ name: loc.name, parent: 'Locations' }, SEED_USER_ID);
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(loc.name)) create(fetch('Locations', typeRootName), typeLocationEntityName, loc.name, SEED_USER_ID);
     setLocation(loc.name, { city: loc.city, location_type: loc.locationType, is_billing_address: loc.isBilling, bottle_capacity: loc.bottleCap, carton_capacity: loc.cartonCap, timezone: loc.timezone });
   }
 
@@ -383,13 +383,13 @@ function migrateForUtilitiesRestructure() {
     }
   }
 
-  if (!hasEntity('Electricity')) createEntity({ name: 'Electricity', parent: 'Utilities' }, SEED_USER_ID);
-  if (!hasEntity('Refrigeration')) createEntity({ name: 'Refrigeration', parent: 'Electricity' }, SEED_USER_ID);
-  if (!hasEntity('Lighting & General')) createEntity({ name: 'Lighting & General', parent: 'Electricity' }, SEED_USER_ID);
-  if (!hasEntity('Gas')) createEntity({ name: 'Gas', parent: 'Utilities' }, SEED_USER_ID);
-  if (!hasEntity('Water')) createEntity({ name: 'Water', parent: 'Utilities' }, SEED_USER_ID);
-  if (!hasEntity('Internet')) createEntity({ name: 'Internet', parent: 'Utilities' }, SEED_USER_ID);
-  if (!hasEntity('Telephone')) createEntity({ name: 'Telephone', parent: 'Utilities' }, SEED_USER_ID);
+  if (!hasEntity('Electricity')) create(fetch('Utilities', typeRootName), typeExpenseCategoryName, 'Electricity', SEED_USER_ID);
+  if (!hasEntity('Refrigeration')) create(fetch('Electricity', typeRootName), typeExpenseCategoryName, 'Refrigeration', SEED_USER_ID);
+  if (!hasEntity('Lighting & General')) create(fetch('Electricity', typeRootName), typeExpenseCategoryName, 'Lighting & General', SEED_USER_ID);
+  if (!hasEntity('Gas')) create(fetch('Utilities', typeRootName), typeExpenseCategoryName, 'Gas', SEED_USER_ID);
+  if (!hasEntity('Water')) create(fetch('Utilities', typeRootName), typeExpenseCategoryName, 'Water', SEED_USER_ID);
+  if (!hasEntity('Internet')) create(fetch('Utilities', typeRootName), typeExpenseCategoryName, 'Internet', SEED_USER_ID);
+  if (!hasEntity('Telephone')) create(fetch('Utilities', typeRootName), typeExpenseCategoryName, 'Telephone', SEED_USER_ID);
 
   for (const name of ['Refrigeration', 'Lighting & General', 'Gas', 'Water', 'Internet', 'Telephone']) {
     if (!db.prepare(`SELECT 1 FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(name)) {
@@ -428,10 +428,10 @@ migrateForUtilitiesRestructure();
 
 function migrateForWineRetailCompany() {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Wine Retail Company'`).get()) {
-    createEntity({ name: 'Wine Retail Company', parent: 'Businesses' }, SEED_USER_ID);
+    create(fetch('Businesses', typeRootName), typeBusinessName, 'Wine Retail Company', SEED_USER_ID);
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Actual' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Wine Retail Company')`).get()) {
-    createEntity({ name: 'Actual', parent: 'Wine Retail Company' }, SEED_USER_ID);
+    create(fetch('Wine Retail Company', typeBusinessName), typeLedgerName, 'Actual', SEED_USER_ID);
   }
 }
 if (SEED_DEMO_BUSINESSES) migrateForWineRetailCompany();
@@ -497,7 +497,7 @@ function seedWineRetailEmployees() {
 
   for (const s of staff) {
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(s.name)) {
-      createEntity({ name: s.name, parent: 'Employees' }, SEED_USER_ID);
+      create(fetch('Employees', typeRootName), typeEmployeeName, s.name, SEED_USER_ID);
     }
     setContact(s.name, {
       phone: s.phone,
@@ -558,7 +558,7 @@ if (SEED_DEMO_BUSINESSES) seedWineRetailEmployees();
 function migrateForPagerVocabulary() {
   const hasEntity = (name: string) => !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name);
   for (const word of ['Newer', 'Older', 'Page']) {
-    if (!hasEntity(word)) createEntity({ name: word, parent: 'Vocabulary' }, SEED_USER_ID);
+    if (!hasEntity(word)) create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, word, SEED_USER_ID);
   }
 const pagerVocab: [string, string, string][] = [
     ['Newer', 'German', 'Neuere'],
@@ -698,7 +698,7 @@ function migrateForEnglishStringAuditGap() {
   ];
   for (const [entity, german, french, danish, italian] of short) {
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entity)) {
-      createEntity({ name: entity, parent: 'Vocabulary' }, SEED_USER_ID);
+      create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, entity, SEED_USER_ID);
     }
     setTranslation(entity, 'German', german);
     setTranslation(entity, 'French', french);
@@ -780,7 +780,7 @@ function migrateForEnglishStringAuditGap() {
   ];
   for (const [entity, german, french, danish, italian] of longer) {
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entity)) {
-      createEntity({ name: entity, parent: 'Vocabulary' }, SEED_USER_ID);
+      create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, entity, SEED_USER_ID);
     }
     setTranslation(entity, 'German', german);
     setTranslation(entity, 'French', french);
@@ -974,7 +974,7 @@ function migrateForEnglishStringAuditGap() {
   ];
   for (const [entity, german, french, danish, italian] of paragraphs) {
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entity)) {
-      createEntity({ name: entity, parent: 'Vocabulary' }, SEED_USER_ID);
+      create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, entity, SEED_USER_ID);
     }
     setTranslation(entity, 'German', german);
     setTranslation(entity, 'French', french);
@@ -1107,7 +1107,7 @@ function migrateForEnglishStringAuditTranslations() {
   ];
   for (const [entity, de, fr, da, it] of words) {
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entity)) {
-      createEntity({ name: entity, parent: 'Vocabulary' }, SEED_USER_ID);
+      create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, entity, SEED_USER_ID);
     }
     setTranslation(entity, 'German', de);
     setTranslation(entity, 'French', fr);
@@ -1121,7 +1121,7 @@ migrateForEnglishStringAuditTranslations();
 function migrateForInvoicePdfVocabulary() {
   const hasEntity = (name: string) => !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name);
   for (const word of ['Qty', 'Amount', 'Tax', 'Invoice', 'Posted by', 'Bill to', 'Subtotal', 'Total due']) {
-    if (!hasEntity(word)) createEntity({ name: word, parent: 'Vocabulary' }, SEED_USER_ID);
+    if (!hasEntity(word)) create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, word, SEED_USER_ID);
   }
 const invoicePdfVocab: [string, string, string][] = [
     ['Qty', 'German', 'Menge'],
@@ -1166,7 +1166,7 @@ function migrateForCogsTag() {
   const cogs = db.prepare(`SELECT id, relation_id FROM current_entities WHERE name = 'Cost of Goods Sold'`).get() as { id: number; relation_id: number | null } | undefined;
   if (!cogs || cogs.relation_id != null) return; // no such account yet, or already tagged
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'COGS'`).get()) {
-    createEntity({ name: 'COGS', parent: 'Business Reports' }, SEED_USER_ID);
+    create(fetch('Business Reports', typeRootName), typeRootName, 'COGS', SEED_USER_ID);
   }
   updateEntity(cogs.id, { relation: 'COGS' }, SEED_USER_ID);
 }
@@ -1174,7 +1174,7 @@ migrateForCogsTag();
 
 function migrateForCashSaleCustomer() {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Cash Sale'`).get()) {
-    createEntity({ name: 'Cash Sale', parent: 'Customers' }, SEED_USER_ID);
+    create(fetch('Customers', typeRootName), typeCustomerName, 'Cash Sale', SEED_USER_ID);
     setContact('Cash Sale', { payment_terms_days: 0 });
   }
 }
@@ -1359,7 +1359,7 @@ function migrateForMenuEntities() {
   ];
 
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Menu'`).get()) return;
-  createEntity({ name: 'Menu', parent: 'Application' }, SEED_USER_ID);
+  create(fetch('Application', typeRootName), typeRootName, 'Menu', SEED_USER_ID);
 
   for (const section of sections) {
     // Confirmed directly: several, real section labels (Cash, HR,
@@ -1371,7 +1371,7 @@ function migrateForMenuEntities() {
     // append-only creation order already, genuinely is the real
     // sibling order, since these are seeded in the exact, intended
     // display order. No separate mechanism needed.
-    const sectionEntity = createEntity({ name: sectionName, parent: 'Menu' }, SEED_USER_ID);
+    const sectionEntity = create(fetch('Menu', typeRootName), typeMenuSectionName, sectionName, SEED_USER_ID);
     const existingSectionVocabWord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(section.label) as { id: number } | undefined;
     if (existingSectionVocabWord) {
       updateEntity(sectionEntity.id, { relation: section.label }, SEED_USER_ID);
@@ -1379,7 +1379,7 @@ function migrateForMenuEntities() {
 
     for (const link of section.links) {
       const linkName = `Menu Link: ${section.label} — ${link.label}`;
-      const linkEntity = createEntity({ name: linkName, parent: sectionName }, SEED_USER_ID);
+      const linkEntity = create(fetch(sectionName, typeMenuSectionName), typeMenuLinkName, linkName, SEED_USER_ID);
 
       // A real link's own real target route — its own, real, direct
       // link record, the exact, same, established setEntityLink
@@ -1389,10 +1389,10 @@ function migrateForMenuEntities() {
       // string on the link itself.
       if (link.href) {
         if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Routes'`).get()) {
-          createEntity({ name: 'Routes', parent: 'Application' }, SEED_USER_ID);
+          create(fetch('Application', typeRootName), typeRootName, 'Routes', SEED_USER_ID);
         }
         if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Routes')`).get(link.href)) {
-          createEntity({ name: link.href, parent: 'Routes' }, SEED_USER_ID);
+          create(fetch('Routes', typeRootName), typeRootName, link.href, SEED_USER_ID);
         }
         setEntityLink(linkName, 'Route', link.href, SEED_USER_ID);
       }
@@ -1400,8 +1400,8 @@ function migrateForMenuEntities() {
       // Real, presence-only marker entities — existence itself is
       // the real, true value, the exact, same pattern already used
       // for a real CoA family tag.
-      if (link.notImplemented) createEntity({ name: `${linkName} — Not Implemented`, parentId: linkEntity.id }, SEED_USER_ID);
-      if (link.isSubheading) createEntity({ name: `${linkName} — Is Subheading`, parentId: linkEntity.id }, SEED_USER_ID);
+      if (link.notImplemented) create(fetchById(linkEntity.id, typeMenuLinkName), typeMenuLinkFlagName, `${linkName} — Not Implemented`, SEED_USER_ID);
+      if (link.isSubheading) create(fetchById(linkEntity.id, typeMenuLinkName), typeMenuLinkFlagName, `${linkName} — Is Subheading`, SEED_USER_ID);
 
       // A real, genuine one-to-many — one real, direct child entity
       // per real required role, the exact, same, established shape
@@ -1409,7 +1409,7 @@ function migrateForMenuEntities() {
       // contact types.
       if (link.requiredRoles) {
         for (const role of link.requiredRoles.split(',')) {
-          createEntity({ name: `${linkName} — Required Role: ${role}`, parentId: linkEntity.id }, SEED_USER_ID);
+          create(fetchById(linkEntity.id, typeMenuLinkName), typeMenuLinkFlagName, `${linkName} — Required Role: ${role}`, SEED_USER_ID);
         }
       }
 
@@ -1439,7 +1439,7 @@ migrateForMenuEntities();
  * assumed, by the same review. */
 function migrateForVocabularyAlternates() {
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Suppliers'`).get()) return;
-  createEntity({ name: 'Suppliers', parent: 'Vocabulary' }, SEED_USER_ID);
+  create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'Suppliers', SEED_USER_ID);
   setDimensionParent('Suppliers', 'Header Account', 'Accounts Payable', SEED_USER_ID);
   for (const lang of getLanguages()) {
     const text = getTranslation('Vendors', lang.name);
@@ -1457,15 +1457,15 @@ migrateForVocabularyAlternates();
  * genuinely shared, global structural parents before this fix. */
 function migrateForContactTypesAndPerBusinessContacts() {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Customer Contact Type'`).get()) {
-    createEntity({ name: 'Customer Contact Type', parent: 'Vocabulary' }, SEED_USER_ID);
+    create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'Customer Contact Type', SEED_USER_ID);
     setDimensionParent('Customer Contact Type', 'Header Account', 'Accounts Receivable', SEED_USER_ID);
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Vendor Contact Type'`).get()) {
-    createEntity({ name: 'Vendor Contact Type', parent: 'Vocabulary' }, SEED_USER_ID);
+    create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'Vendor Contact Type', SEED_USER_ID);
     setDimensionParent('Vendor Contact Type', 'Header Account', 'Accounts Payable', SEED_USER_ID);
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Employee Contact Type'`).get()) {
-    createEntity({ name: 'Employee Contact Type', parent: 'Vocabulary' }, SEED_USER_ID);
+    create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'Employee Contact Type', SEED_USER_ID);
     setDimensionParent('Employee Contact Type', 'Header Account', 'Accounts Payable', SEED_USER_ID);
   }
 
@@ -1473,7 +1473,7 @@ function migrateForContactTypesAndPerBusinessContacts() {
   for (const b of businesses) {
     const contactsName = `${b.name} Contacts`;
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(contactsName)) {
-      createEntity({ name: contactsName, parent: b.name }, SEED_USER_ID);
+      create(fetch(b.name, typeBusinessName), typeBusinessContactsRootName, contactsName, SEED_USER_ID);
     }
   }
 
@@ -1523,7 +1523,7 @@ migrateForContactTypesAndPerBusinessContacts();
  * business UI itself is real, separate, future work. */
 function migrateForBusinessTypes() {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Business Type'`).get()) {
-    createEntity({ name: 'Business Type', parent: 'Application' }, SEED_USER_ID);
+    create(fetch('Application', typeRootName), typeRootName, 'Business Type', SEED_USER_ID);
   }
   const businessTypes: { name: string; coaFamily: string; questions: string[] }[] = [
     {
@@ -1549,21 +1549,21 @@ function migrateForBusinessTypes() {
   ];
   for (const bt of businessTypes) {
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Business Type')`).get(bt.name)) {
-      createEntity({ name: bt.name, parent: 'Business Type' }, SEED_USER_ID);
+      create(fetch('Business Type', typeRootName), typeBusinessTypeName, bt.name, SEED_USER_ID);
     }
     const coaRootName = `${bt.name} CoA`;
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(coaRootName, bt.name)) {
-      createEntity({ name: coaRootName, parent: bt.name }, SEED_USER_ID);
+      create(fetch(bt.name, typeBusinessTypeName), typeChartOfAccountsRootName, coaRootName, SEED_USER_ID);
       copyChartOfAccountsInto(coaRootName, bt.coaFamily, SEED_USER_ID);
     }
     const questionsRootName = `${bt.name} Questions`;
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(questionsRootName, bt.name)) {
-      const questionsRoot = createEntity({ name: questionsRootName, parent: bt.name }, SEED_USER_ID);
+      const questionsRoot = create(fetch(bt.name, typeBusinessTypeName), typeBusinessTypeQuestionsRootName, questionsRootName, SEED_USER_ID);
       for (const q of bt.questions) {
         if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(q)) {
-          createEntity({ name: q, parent: 'Vocabulary' }, SEED_USER_ID);
+          create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, q, SEED_USER_ID);
         }
-        createEntity({ name: `${bt.name} — Question: ${q}`, parentId: questionsRoot.id }, SEED_USER_ID);
+        create(fetchById(questionsRoot.id, typeBusinessTypeQuestionsRootName), typeBusinessTypeQuestionName, `${bt.name} — Question: ${q}`, SEED_USER_ID);
       }
     }
   }

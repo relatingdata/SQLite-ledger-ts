@@ -247,6 +247,17 @@ export const typeChartOfAccountsNodeName: TypeDescriptor<'ChartOfAccountsNodeNam
 export const typeChartOfAccountsRootName: TypeDescriptor<'ChartOfAccountsRootName'> = { brand: 'ChartOfAccountsRootName' };
 export const typeLocationTypeMarkerName: TypeDescriptor<'LocationTypeMarkerName'> = { brand: 'LocationTypeMarkerName' };
 export const typeIsBillingAddressMarkerName: TypeDescriptor<'IsBillingAddressMarkerName'> = { brand: 'IsBillingAddressMarkerName' };
+// Raw, unvalidated creation step - a location isn't genuinely "real"
+// (has a real location_type) until setLocation runs afterward; this
+// covers the bare allocation moment only.
+export const typeLocationEntityName: TypeDescriptor<'LocationEntityName'> = { brand: 'LocationEntityName' };
+export const typeExpenseCategoryName: TypeDescriptor<'ExpenseCategoryName'> = { brand: 'ExpenseCategoryName' };
+export const typeMenuSectionName: TypeDescriptor<'MenuSectionName'> = { brand: 'MenuSectionName' };
+export const typeMenuLinkName: TypeDescriptor<'MenuLinkName'> = { brand: 'MenuLinkName' };
+export const typeMenuLinkFlagName: TypeDescriptor<'MenuLinkFlagName'> = { brand: 'MenuLinkFlagName' };
+export const typeBusinessTypeName: TypeDescriptor<'BusinessTypeName'> = { brand: 'BusinessTypeName' };
+export const typeBusinessTypeQuestionsRootName: TypeDescriptor<'BusinessTypeQuestionsRootName'> = { brand: 'BusinessTypeQuestionsRootName' };
+export const typeBusinessTypeQuestionName: TypeDescriptor<'BusinessTypeQuestionName'> = { brand: 'BusinessTypeQuestionName' };
 
 import { seedRemainingData } from './db-seed.js';
 seedRemainingData();
