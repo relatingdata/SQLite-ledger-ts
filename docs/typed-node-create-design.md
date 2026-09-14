@@ -1,5 +1,7 @@
 # Design Note: `create<T>` with Type Descriptors, Not Strings
 
+The real, complete design and implementation record for `create<T>`/`fetch<T>` — the generic, typed entity-creation mechanism that replaced generic `createEntity` throughout this application's entire, live codebase. See `docs/entity-model.md`'s own, integrated section for the settled, current summary; this document is the fuller, real design history, including the corrections made along the way.
+
 ## Corrected per direct instruction
 
 No `createChildNode`. No bare string kind arguments (`'Category'`,

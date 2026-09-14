@@ -1,5 +1,7 @@
 # Construction/Multi-Site Project Management: Real Scope, Honestly Assessed
 
+A real, honest assessment of what it would genuinely take to extend this application beyond retail into construction/multi-site project management — a real, different business shape (jobs, phases, subcontractors, progress billing) evaluated on its own real terms, not assumed to be a small extension of what already exists.
+
 ## The real business scenario
 
 A building/construction company runs many real projects at once, each

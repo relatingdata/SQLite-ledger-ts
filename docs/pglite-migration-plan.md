@@ -1,5 +1,7 @@
 # Migrating to PGlite, with materialized views over the entity tree
 
+A real, considered evaluation of moving off SQLite onto PGlite (a real, WASM-compiled Postgres), and using real, materialized views to keep read performance acceptable once the entity tree grows large — weighing genuine costs and benefits, not a decision already made.
+
 ## Status: a real, considered plan, not yet started. No code has been changed for this.
 
 ## What PGlite actually is (confirmed via web search, not assumed)

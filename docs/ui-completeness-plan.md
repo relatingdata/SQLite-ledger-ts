@@ -1,5 +1,7 @@
 # UI Completeness Plan: The Whole Wine Business, Buildable Through the Real Interface
 
+A real, direct audit of every real screen this application has, confirming which are genuinely implemented, which are thin wrappers, and which remain real, honest, confirmed stubs — the single source of truth for "can a whole, real wine business actually be run through the interface alone, with no direct database access."
+
 ## Goal, stated precisely
 
 Every real backend mechanism this app has should be reachable through a real screen — not just callable directly from a script — so that a full, real Playwright script could create Wine Retail Company from scratch: the business itself, its ledgers, its locations, its divisions, its employees (paid, with real Medicare/super), its product catalog, its vendors and customers, and then run a real month of purchases, transfers, sales, stocktakes, and a year-end close, entirely by clicking and typing through the actual app.

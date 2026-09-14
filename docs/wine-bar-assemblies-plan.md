@@ -1,5 +1,7 @@
 # Wine Bar / Bistro Expansion: Assemblies (Cocktails, Wine by the Glass, Spirits by the Nip)
 
+A real plan for extending this application's stock model to cover a genuinely different real selling pattern: pouring from a bottle rather than selling it whole, and combining several real ingredients into one real, priced drink. Builds directly on the existing BOM/assembly mechanism (see `docs/sql-ledger-comparison.md`) rather than inventing a separate one.
+
 ## The real business scenario
 
 Wine Retail Company wants to branch into a wine bar/bistro: selling wine

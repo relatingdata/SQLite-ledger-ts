@@ -1,3 +1,7 @@
+# Scoped Uniqueness, and the Real, Physical (Product × Location) Recording Grid
+
+Two, real, related facts about how this application's own entity tree behaves: names are unique only among real, direct siblings, never globally (the "Springfield" principle — see `docs/entity-model.md`), and every real, physical stock fact is recorded against a genuine (product, location) pair, never a product alone.
+
 ## Scoped entity name uniqueness, and the real, physical (product × location) recording grid
 
 ### Entity name uniqueness is scoped, not global

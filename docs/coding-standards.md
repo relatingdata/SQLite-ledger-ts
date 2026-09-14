@@ -1,5 +1,7 @@
 # Coding Standards
 
+Real, specific conventions this codebase follows consistently, each one adopted for a stated, direct reason rather than by habit — covering bracing style, naming, and the handful of formatting choices that recur throughout every real file in this project. A new contributor (human or AI) should match these exactly, not substitute a more familiar, different convention.
+
 ## Bracing style: modified LISP, not Allman, not K&R
 
 Per direct instruction: this codebase's own real bracing convention is

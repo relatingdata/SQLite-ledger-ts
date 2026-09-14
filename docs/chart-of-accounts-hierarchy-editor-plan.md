@@ -1,5 +1,7 @@
 # Chart of Accounts Hierarchy Editor — Requirements, Current State, and Implementation Plan
 
+A real, direct plan for letting a user reshape their own Chart of Accounts hierarchy through the real interface, rather than only through the Entity Tree Editor's own, more generic screen — covering what's already possible today, and what a purpose-built editor would still need to add.
+
 ## Requirements, as captured directly
 
 Per direct instruction, this is a standard hierarchy/tree editor for

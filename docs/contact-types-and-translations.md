@@ -1,5 +1,7 @@
 # Language-neutral translation, and contact types — one real entity, many real, coexisting facts
 
+Two, real, related design decisions covered together: how this application translates every real, user-facing word without treating English as a privileged, untranslated default, and how one real entity (a person, a company) can genuinely be a customer, a vendor, and an employee all at once, each real role coexisting rather than forcing a choice.
+
 ## Language-neutral translation: every real language, including English, a peer
 
 An earlier design treated `translation` as its own dedicated database

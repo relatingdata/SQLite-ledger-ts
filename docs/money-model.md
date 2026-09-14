@@ -1,5 +1,7 @@
 # Money Representation: Integer Minor Units, Not "Cents"
 
+Every real monetary value in this codebase is stored and passed around as a real, integer count of the currency's own smallest unit (a "minor unit" — a cent, a pence, an öre) — never a floating-point dollar amount, and never assumed to be specifically "cents," since not every real currency divides the same way. This document covers why, and the real, direct naming convention (`*_minor`) that makes the choice visible at every call site.
+
 ## Naming history — `*_cents` was renamed to `*_minor`
 
 Every monetary column and variable in this codebase used to end in
