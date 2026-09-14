@@ -1993,7 +1993,11 @@ export function getItemByUpc(upc: string): ItemSummary | undefined {
 export interface PosSaleLineInput {
   itemName: string;
   quantity: number;
-  unitPriceMinor: number;
+  /** Omit when a real terminalName is given below and this item has a
+   * real, matching item_source row for that terminal's own currency
+   * (getItemPriceForCurrency) - the price is then resolved
+   * automatically, not hand-entered per sale. Required otherwise. */
+  unitPriceMinor?: number;
   taxMinor: number;
   /** Optional — which real selling unit this line represents (e.g.
    * "Bottle", "Six-Pack", "Carton"), when the same product genuinely
@@ -2026,6 +2030,16 @@ export interface PosSaleInput {
    * happens right now. Only needed explicitly for backdated data
    * (simulations, corrections), never for an ordinary live sale. */
   transdate?: string;
+  /** A real, specific, physical POS terminal this sale happened at -
+   * per docs/border-multicurrency-pos-plan.md, Slice 4. When given,
+   * resolves its own real currency (getEffectiveSaleCurrency) and
+   * auto-fills any line's unitPriceMinor left unspecified from that
+   * item's own real, matching item_source row for that currency
+   * (getItemPriceForCurrency). Two real terminals at the exact same,
+   * real location can each transact in a genuinely different
+   * currency this way. Omit for the ordinary, single-currency case -
+   * completely unaffected, real, existing behavior. */
+  terminalName?: string;
 }
 
 export interface PosSaleResult {
@@ -2413,6 +2427,22 @@ export function resolveDispatchLocation(itemName: string, logicalLocationName: s
 
 export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleResult {
   if (input.lines.length === 0) throw new ValidationError('A sale needs at least one line.');
+
+  // Per docs/border-multicurrency-pos-plan.md, Slice 4: a real,
+  // specific terminal resolves its own real currency; any line that
+  // didn't hand-enter a price gets one resolved from that item's own,
+  // real, matching item_source row for that currency. Two real
+  // terminals at the exact same, real location can each transact in a
+  // genuinely different currency this way — completely unaffected,
+  // real, existing behavior when terminalName is omitted.
+  const effectiveCurrency = getEffectiveSaleCurrency(input.terminalName);
+  for (const line of input.lines) {
+    if (line.unitPriceMinor === undefined) {
+      const resolved = getItemPriceForCurrency(line.itemName, effectiveCurrency);
+      if (resolved === null) throw new ValidationError(`No real price found for "${line.itemName}" in ${effectiveCurrency ?? 'the home currency'}, and none was given directly.`);
+      line.unitPriceMinor = resolved;
+    }
+  }
 
   if (input.paymentMethod === undefined) {
     // On-account sale — the customer must actually be verified if
@@ -5820,7 +5850,7 @@ export function postApPayment(reference: string, business: BusinessName, ledger:
 }
 
 export * from './db-stock.js';
-import { getLocation, getItemLocation, dispatchStockFromLocation, receiveStockAtLocation, transferStock, placeOrder, fulfillOrder, postQuantityMovement, getOrderStatus, todayAtLocation } from './db-stock.js';
+import { getLocation, getItemLocation, dispatchStockFromLocation, receiveStockAtLocation, transferStock, placeOrder, fulfillOrder, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency } from './db-stock.js';
 
 // The four stock/order entry screens. Each stages into its own table,
 // then "post" reads the staged row, does the real work (placing or

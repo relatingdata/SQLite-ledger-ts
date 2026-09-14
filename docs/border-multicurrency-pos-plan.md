@@ -99,7 +99,7 @@ calls with no currency would silently create a duplicate row instead
 of updating the first — caught immediately when it broke a real,
 pre-existing test, not assumed away.
 
-## 5. Real, concrete example, for the eventual test
+## 5. Real, concrete example — built and directly proven (Slice 4, complete)
 
 One real location on the border. Two real terminals: "Front Till
 (USD)" and "Front Till (CAD)". One real product, "Bottled Water",
@@ -107,7 +107,12 @@ with two real `item_source` rows: $1.50 USD, $2.00 CAD. A sale at the
 USD terminal posts in USD, at $1.50; the same product, same location,
 sold seconds later at the CAD terminal, posts in CAD, at $2.00 — two,
 real, independent, correctly-currencied transactions, at one, real,
-shared physical place.
+shared physical place. `completePosSale` itself now accepts a real,
+optional `terminalName`; any line that doesn't hand-enter a price gets
+one resolved automatically from `getEffectiveSaleCurrency` +
+`getItemPriceForCurrency` — confirmed directly, via a real, direct,
+end-to-end backend test, exactly this scenario, both currencies
+correctly resolved with zero explicit pricing given to either sale.
 
 ## 6. Sequencing, stated honestly
 

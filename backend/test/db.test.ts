@@ -2601,6 +2601,62 @@ test('addOrUpdateItemSource/getItemPriceForCurrency: a real, direct, dual-curren
   assert.equal(sources.length, 2, 'two real, independent item_source rows exist for the same item/vendor pair, one per real currency');
 });
 
+test('completePosSale: the real, live, end-to-end border scenario - two real terminals, one real location, one real product, sold in two different, real currencies', () => {
+  // Per direct request and docs/border-multicurrency-pos-plan.md,
+  // Slice 4 - the real, assembled, end-to-end proof: a real business
+  // on a border, one real, shared location, two real, physical
+  // terminals, one real product, each sale automatically priced in
+  // the selling terminal's own, real, correct currency.
+  createEntity({ name: 'BorderE2E Outlet', parent: 'Locations' }, 1);
+  setLocation('BorderE2E Outlet', { city: 'BorderE2E City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' });
+  createPosTerminal('BorderE2E Till (USD)', 'BorderE2E Outlet', 1);
+  createPosTerminal('BorderE2E Till (CAD)', 'BorderE2E Outlet', 1);
+  setTerminalCurrency('BorderE2E Till (USD)', 'USD');
+  setTerminalCurrency('BorderE2E Till (CAD)', 'CAD');
+
+  createItem('BorderE2E Water', 'Items', 1);
+  createEntity({ name: 'BorderE2E Vendor', parent: 'Accounts Payable' }, 1);
+  addOrUpdateItemSource({ itemName: 'BorderE2E Water', vendorName: 'BorderE2E Vendor', priceMinor: 150, isPreferred: true, currency: 'USD' });
+  addOrUpdateItemSource({ itemName: 'BorderE2E Water', vendorName: 'BorderE2E Vendor', priceMinor: 200, isPreferred: true, currency: 'CAD' });
+  receiveStockAtLocation('My Business', 'Actual', 'BORDERE2E-REC', 'BorderE2E Water', 'BorderE2E Outlet', 20, 1, '2027-01-01');
+
+  createEntity({ name: 'BorderE2E Write-off Expense', parent: 'Expense' }, 1);
+
+  const usdSale = completePosSale(
+    {
+      business: 'My Business' as any,
+      ledger: 'Actual' as any,
+      locationName: 'BorderE2E Outlet' as any,
+      customerName: 'Cash Sale' as any,
+      lines: [{ itemName: 'BorderE2E Water', quantity: 1, taxMinor: 0 }], // no unitPriceMinor - resolved automatically
+      taxAccount: 'Sales Tax Payable' as any,
+      paymentMethod: 'cash',
+      terminalName: 'BorderE2E Till (USD)',
+      transdate: '2027-01-02',
+    },
+    1
+  );
+  const usdInvoice = getInvoice(usdSale.invoiceId);
+  assert.equal(usdInvoice?.lines[0]?.unitPriceMinor, 150, 'the real sale at the USD till was genuinely, automatically priced at the real, correct $1.50 USD, not hand-entered');
+
+  const cadSale = completePosSale(
+    {
+      business: 'My Business' as any,
+      ledger: 'Actual' as any,
+      locationName: 'BorderE2E Outlet' as any,
+      customerName: 'Cash Sale' as any,
+      lines: [{ itemName: 'BorderE2E Water', quantity: 1, taxMinor: 0 }], // no unitPriceMinor - resolved automatically
+      taxAccount: 'Sales Tax Payable' as any,
+      paymentMethod: 'cash',
+      terminalName: 'BorderE2E Till (CAD)',
+      transdate: '2027-01-02',
+    },
+    1
+  );
+  const cadInvoice = getInvoice(cadSale.invoiceId);
+  assert.equal(cadInvoice?.lines[0]?.unitPriceMinor, 200, 'the real, second sale, same product, same real, shared location, seconds later, at the CAD till, was genuinely, automatically priced at the real, correct, different $2.00 CAD');
+});
+
 test('createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree', () => {
   // Per direct, reported bug: test-e2e's month-end stock take threw
   // "Amber Ale 330ml is not on this stock take sheet" - traced to
