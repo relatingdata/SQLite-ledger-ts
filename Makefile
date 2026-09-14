@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -215,6 +215,14 @@ call-graph:
 # scripts/svelte-call-trace.ts for the real, stated limits.
 svelte-call-trace:
 	$(RUNTIME) scripts/svelte-call-trace.ts
+
+# A real, generated, comprehensive source reference - functions,
+# types, and exported variables, arranged by file (common, then
+# backend, then frontend), with a real include graph, call graph
+# summary, and a full, alphabetical index. See
+# scripts/source-reference.ts for the real, stated scope.
+source-reference:
+	$(RUNTIME) scripts/source-reference.ts > docs/source-reference.md
 
 list-menu-labels:
 	cd backend && $(RUNTIME) scripts/list-menu-labels.ts
@@ -545,6 +553,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/stock-lifecycle-review-plan.md \
 	docs/min-e2e-coverage-plan.md \
 	docs/svelte-call-trace.md \
+	docs/source-reference-tool.md \
 	docs/border-multicurrency-pos-plan.md \
 	docs/inventory-lifecycle-blow-by-blow.md \
 	docs/file-inventory-appendix.md
