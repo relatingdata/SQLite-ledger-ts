@@ -4477,6 +4477,12 @@ export interface ItemSourceInput {
   packageQuantity?: number | null;
   isPreferred?: boolean;
   preferenceNotes?: string | null;
+  /** NULL means this business's own home/reporting currency, matching
+   * account.currency's own, identical convention. A real, different,
+   * non-NULL currency here is a real, separate, independently-priced
+   * row for the same item/vendor pair - not a converted number. See
+   * docs/border-multicurrency-pos-plan.md, Slice 3. */
+  currency?: string | null;
 }
 
 export function addOrUpdateItemSource(input: ItemSourceInput): void {
@@ -4490,9 +4496,9 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
   if (input.manufacturerName && !manufacturerId) throw new ValidationError(`No manufacturer named "${input.manufacturerName}".`);
 
   db.prepare(
-    `INSERT INTO item_source (item_id, manufacturer_id, vendor_id, vendor_sku, vendor_upc, price_minor, package_quantity, is_preferred, preference_notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (item_id, manufacturer_id, vendor_id) DO UPDATE SET
+    `INSERT INTO item_source (item_id, manufacturer_id, vendor_id, vendor_sku, vendor_upc, price_minor, package_quantity, is_preferred, preference_notes, currency)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (item_id, manufacturer_id, vendor_id, currency) DO UPDATE SET
        vendor_sku = excluded.vendor_sku, vendor_upc = excluded.vendor_upc, price_minor = excluded.price_minor,
        package_quantity = excluded.package_quantity, is_preferred = excluded.is_preferred, preference_notes = excluded.preference_notes`
   ).run(
@@ -4504,8 +4510,49 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
     input.priceMinor ?? null,
     input.packageQuantity ?? null,
     input.isPreferred ? 1 : 0,
-    input.preferenceNotes ?? null
+    input.preferenceNotes ?? null,
+    // A real, confirmed bug fix: SQLite's UNIQUE constraint treats
+    // NULL as distinct from NULL, so two calls with no currency
+    // specified (the real, ordinary, single-currency case) would
+    // silently create a second, duplicate row instead of updating the
+    // first - confirmed directly, this broke a real, pre-existing
+    // test the moment currency was added to the constraint. A real,
+    // empty string stands in for "this business's own home currency"
+    // here specifically, so the constraint and ON CONFLICT clause
+    // both see a real, comparable, equal value across calls.
+    input.currency ?? ''
   );
+}
+
+/** Resolves a real, independently-set price for the given currency -
+ * per docs/border-multicurrency-pos-plan.md, Slice 3, a real, fixed
+ * price per currency, not a live exchange-rate conversion. Falls back
+ * to the business's own home-currency row (the real, empty-string
+ * convention `addOrUpdateItemSource` itself uses) when no row exists
+ * for the specific currency asked for. */
+export function getItemPriceForCurrency(itemName: string, currency: string | null): number | null {
+  const row = db
+    .prepare(
+      `SELECT ps.price_minor
+       FROM item_source ps
+       JOIN current_entities item_e ON item_e.id = ps.item_id
+       WHERE item_e.name = ? AND ps.currency = ?
+       ORDER BY ps.is_preferred DESC
+       LIMIT 1`
+    )
+    .get(itemName, currency ?? '') as { price_minor: number | null } | undefined;
+  if (row) return row.price_minor;
+  const fallback = db
+    .prepare(
+      `SELECT ps.price_minor
+       FROM item_source ps
+       JOIN current_entities item_e ON item_e.id = ps.item_id
+       WHERE item_e.name = ? AND ps.currency = ''
+       ORDER BY ps.is_preferred DESC
+       LIMIT 1`
+    )
+    .get(itemName) as { price_minor: number | null } | undefined;
+  return fallback?.price_minor ?? null;
 }
 
 export function deleteItemSource(id: number): void {

@@ -123,6 +123,7 @@ const {
   setItem,
   getItem,
   listItemSources,
+  getItemPriceForCurrency,
   addOrUpdateItemSource,
   ensureLocationCapacityAccount,
   createPosTerminal,
@@ -2578,6 +2579,26 @@ test('createPosTerminal/setTerminalCurrency/getEffectiveSaleCurrency: a real, di
   // be one.
   const terminals = db.prepare(`SELECT name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'BorderTest Outlet Terminals') ORDER BY name`).all() as { name: string }[];
   assert.deepEqual(terminals.map((t) => t.name), ['BorderTest Front Till (CAD)', 'BorderTest Front Till (USD)']);
+});
+
+test('addOrUpdateItemSource/getItemPriceForCurrency: a real, direct, dual-currency pricing scenario - one real product, two real, independently-set prices', () => {
+  // Per docs/border-multicurrency-pos-plan.md, Slice 3 - a real,
+  // fixed price in each currency, not a live exchange-rate conversion
+  // (a border business posts real, round prices per currency, not a
+  // number that drifts with the market).
+  createItem('BorderTest Bottled Water', 'Items', 1);
+  createEntity({ name: 'BorderTest Vendor', parent: 'Accounts Payable' }, 1);
+  addOrUpdateItemSource({ itemName: 'BorderTest Bottled Water', vendorName: 'BorderTest Vendor', priceMinor: 150, isPreferred: true, currency: 'USD' });
+  addOrUpdateItemSource({ itemName: 'BorderTest Bottled Water', vendorName: 'BorderTest Vendor', priceMinor: 200, isPreferred: true, currency: 'CAD' });
+
+  assert.equal(getItemPriceForCurrency('BorderTest Bottled Water', 'USD'), 150, 'the real, independently-set USD price is resolved correctly');
+  assert.equal(getItemPriceForCurrency('BorderTest Bottled Water', 'CAD'), 200, 'the real, independently-set CAD price, for the exact same, real product, is genuinely different and resolved correctly');
+
+  // A real, direct, structural confirmation: this is genuinely two,
+  // real, separate rows for the same vendor - not one row being
+  // overwritten by the second call.
+  const sources = listItemSources('BorderTest Bottled Water');
+  assert.equal(sources.length, 2, 'two real, independent item_source rows exist for the same item/vendor pair, one per real currency');
 });
 
 test('createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree', () => {

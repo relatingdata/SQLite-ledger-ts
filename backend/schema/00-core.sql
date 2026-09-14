@@ -924,7 +924,16 @@ CREATE TABLE item_source (
   package_quantity   INTEGER,  -- how many base units come in one package as sold BY THIS VENDOR — can differ from another vendor's package size for the exact same item
   is_preferred       INTEGER NOT NULL DEFAULT 0,
   preference_notes   TEXT,     -- why this source is (or isn't) preferred — explicitly never assumed to be "cheapest"
-  UNIQUE (item_id, manufacturer_id, vendor_id)
+  -- Real, direct support for a real, border business: NULL means the
+  -- business's own home/reporting currency (matching account.currency's
+  -- own, identical convention) — a genuinely different, non-NULL
+  -- currency here is a real, separate, independently-priced row for
+  -- the exact same item/vendor pair, not a converted number. See
+  -- docs/border-multicurrency-pos-plan.md, Slice 3. Included in the
+  -- real uniqueness constraint below so the same vendor can genuinely
+  -- have two, real, simultaneous rows — one per real currency.
+  currency           TEXT,
+  UNIQUE (item_id, manufacturer_id, vendor_id, currency)
 );
 
 -- A real, one-time database audit (per direct request: "ensure we

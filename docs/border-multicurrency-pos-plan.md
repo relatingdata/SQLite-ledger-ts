@@ -88,8 +88,16 @@ Real, minimal design: `item_source` (already the real home of
 per-vendor pricing) gains a real, optional `currency` column — a
 product can have **two real `item_source` rows for the same vendor**,
 one tagged CAD, one USD, each with its own real, independently-set
-price. `ensureProductSalesCogsAccounts` resolves which one applies
-using the sale's own effective currency (from the terminal, per §3).
+price. `getItemPriceForCurrency` resolves which one applies, falling
+back to the business's own home-currency row when no row exists for
+the specific currency asked for. **Built and directly tested** (Slice
+3, complete) — including a real, direct bug found and fixed along the
+way: SQLite's `UNIQUE` constraint treats `NULL` as distinct from
+`NULL`, so the ordinary, single-currency case (no currency specified)
+needed a real, empty-string convention instead of `NULL`, or two
+calls with no currency would silently create a duplicate row instead
+of updating the first — caught immediately when it broke a real,
+pre-existing test, not assumed away.
 
 ## 5. Real, concrete example, for the eventual test
 
