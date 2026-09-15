@@ -2,14 +2,14 @@ import { test, expect } from '@playwright/test';
 import { fixtures } from '../../shared-fixtures/wine-retail.js';
 
 // Shares the exact, same real database used by `make test-e2e` -
-// per direct instruction, this does NOT rebuild Wine Retail Company
+// per direct instruction, this does NOT rebuild Wine Retail Business
 // from scratch via slow UI clicks; it exercises the UI against the
 // same, real, already-populated business simulate-wine-retail-month.ts
 // creates, run first by the real Makefile target this test belongs to.
 
 const EXPECTED_LANGUAGES = ['English', 'German', 'French', 'Danish', 'Italian', 'Hebrew', 'Arabic'];
 
-test('All real languages are present, then Wine Retail Company (already populated) is exercised through the UI', async ({ page }) => {
+test('All real languages are present, then Wine Retail Business (already populated) is exercised through the UI', async ({ page }) => {
   test.setTimeout(90000);
 
   // === Login ===
@@ -44,7 +44,7 @@ test('All real languages are present, then Wine Retail Company (already populate
   await page.goto('/items');
   await page.waitForTimeout(2000);
   const itemCount = await page.locator('button.entry').count();
-  expect(itemCount, 'Wine Retail Company must genuinely have real items, from the simulation already run').toBeGreaterThan(30);
+  expect(itemCount, 'Wine Retail Business must genuinely have real items, from the simulation already run').toBeGreaterThan(30);
 
   await page.goto('/reports/trial-balance');
   await page.waitForTimeout(2000);
@@ -57,5 +57,5 @@ test('All real languages are present, then Wine Retail Company (already populate
   await page.goto('/locations');
   await page.waitForTimeout(2000);
   const locationCount = await page.locator('button.entry').count();
-  expect(locationCount, 'Wine Retail Company must genuinely have real locations, from the simulation already run').toBeGreaterThan(3);
+  expect(locationCount, 'Wine Retail Business must genuinely have real locations, from the simulation already run').toBeGreaterThan(3);
 });

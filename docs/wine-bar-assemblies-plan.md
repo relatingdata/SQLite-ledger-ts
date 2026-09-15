@@ -4,7 +4,7 @@ A real plan for extending this application's stock model to cover a genuinely di
 
 ## The real business scenario
 
-Wine Retail Company wants to branch into a wine bar/bistro: selling wine
+Wine Retail Business wants to branch into a wine bar/bistro: selling wine
 by the glass, cocktails, and spirits by the nip with mixers and ice —
 none of which exist as their own stocked, orderable products. Each one
 is *assembled at the moment of sale* from existing stock: a bottle of

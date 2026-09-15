@@ -41,7 +41,7 @@ test('Min-e2e route smoke: every real route loads without a real, unhandled erro
   await page.getByRole('button', { name: /log in/i }).click();
   await page.waitForURL((url) => !url.pathname.includes('/login'));
   await page.waitForTimeout(500);
-  await page.locator('select').first().selectOption({ label: 'Wine Retail Company' }).catch(() => {});
+  await page.locator('select').first().selectOption({ label: 'Wine Retail Business' }).catch(() => {});
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: /continue/i }).click().catch(() => {});
   await page.waitForTimeout(1000);

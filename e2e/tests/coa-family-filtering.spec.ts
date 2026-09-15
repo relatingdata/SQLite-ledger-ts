@@ -17,7 +17,7 @@ test('the General Journal account dropdown shows only accounts from the current 
   console.log('Total real options shown:', options.length);
 
   // Real, known accounts from OTHER real CoA families — must never
-  // appear when Wine Retail Company (English) is selected.
+  // appear when Wine Retail Business (English) is selected.
   const otherFamilyAccounts = ['Bankkontokorrent', 'Umsatzerlöse', 'Disponibilités', 'Cassa e valori', 'Kasse'];
   for (const name of otherFamilyAccounts) {
     const found = options.some((o) => o.includes(name));

@@ -2,7 +2,7 @@
 
 Two real, existing documents already exist and shouldn't be thrown away or duplicated:
 
-- **`docs/user-manual.md`** — a real, narrative-style opening (Lars and Mette, Wine Retail Company's own story), 27 lines, explicitly marked "(Continued in later sections...)". Good, real prose; genuinely incomplete.
+- **`docs/user-manual.md`** — a real, narrative-style opening (Lars and Mette, Wine Retail Business's own story), 27 lines, explicitly marked "(Continued in later sections...)". Good, real prose; genuinely incomplete.
 - **`USER_GUIDE.md`** — a real, technical, step-by-step walkthrough, 176 lines, 8 sections, covering first run, business/ledger setup, posting, and budget comparison. No screenshots. Covers only the earliest, most basic workflows — nothing on payroll, POS, invoicing, stock, or anything built since.
 
 Neither is wrong; both are real starts. The plan below is for finishing the job properly — one real, complete manual, narrative where `user-manual.md` already leads, technical and screenshot-illustrated everywhere `USER_GUIDE.md` was heading.
@@ -47,7 +47,7 @@ Not included as their own chapter, cross-referenced instead where relevant: `/ex
 
 ## How screenshots actually get captured
 
-This project already has a real, working `make demo-full-year` dataset and a full Playwright suite. The practical path: a real, dedicated Playwright script (not a test — no assertions, just navigation + `page.screenshot()`) that walks every real route above against the real, populated Wine Retail Company data, saving each screenshot to a real, predictable path (`docs/screenshots/{chapter}/{route-slug}.png`). This reuses proven infrastructure rather than manual, one-off capture — the same real pattern already used throughout this session for verifying UI work live.
+This project already has a real, working `make demo-full-year` dataset and a full Playwright suite. The practical path: a real, dedicated Playwright script (not a test — no assertions, just navigation + `page.screenshot()`) that walks every real route above against the real, populated Wine Retail Business data, saving each screenshot to a real, predictable path (`docs/screenshots/{chapter}/{route-slug}.png`). This reuses proven infrastructure rather than manual, one-off capture — the same real pattern already used throughout this session for verifying UI work live.
 
 ## Real, honest scope note
 

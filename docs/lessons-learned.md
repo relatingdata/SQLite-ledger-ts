@@ -460,26 +460,26 @@ and `getProfitAndLoss`'s own `toLine` functions, and again inside
 Verified: full backend suite (187/187), and — critically, since this
 touches the exact reports the CoA-mirror bug broke earlier — a direct
 regression check against the pre-fix commit confirmed a real,
-pre-existing, unrelated gap (Wine Retail Company's own real P&L
+pre-existing, unrelated gap (Wine Retail Business's own real P&L
 frontend e2e test already failed identically before any of this
 session's changes, a date-range/demo-data issue, not a real
 regression from this work) before trusting the fix as safe.
 
-### SEED_DEMO_BUSINESSES: building Wine Retail Company from scratch via Playwright, for real
+### SEED_DEMO_BUSINESSES: building Wine Retail Business from scratch via Playwright, for real
 
 Direct instruction: "very definitely not load the foreign businesses,
-or Wine Retail Company — I want to see this company built from
+or Wine Retail Business — I want to see this company built from
 scratch via Playwright — I assume we only need the one dummy company
 'Company' for login purposes only."
 
 A real, honest confusion surfaced first: the existing Playwright
 tutorial built a business named `Tutorial Wine Retail Co` — a
 different, real, separate name from the actual, pre-seeded
-`Wine Retail Company` — so "built via Playwright" was never quite
+`Wine Retail Business` — so "built via Playwright" was never quite
 true of the real one. Fixed by renaming the tutorial's own target
-business to `Wine Retail Company` itself, and switching its login
+business to `Wine Retail Business` itself, and switching its login
 step to `My Business` (the one, real, always-present dummy company)
-rather than `Wine Retail Company`, which may not exist at all now.
+rather than `Wine Retail Business`, which may not exist at all now.
 
 Added `SEED_DEMO_BUSINESSES=false` (default: unset, existing behavior
 unchanged) to skip seeding every demo business except `My Business`.
@@ -503,14 +503,14 @@ A real, genuine debugging detour worth recording honestly: this flag
 must be set on every real backend start, not just the first —
 `seedRemainingData()` runs every time the backend loads, not only
 when the database is first created — and a test run without it set
-consistently re-seeds `Wine Retail Company` even after it was
+consistently re-seeds `Wine Retail Business` even after it was
 correctly skipped once. Added `make dev-no-demo` and made
 `make playwright-tutorial` always set the flag (since the tutorial's
 whole point is to build this business from scratch — it would
 otherwise fail because the business already exists) specifically so a
 person doesn't have to remember the raw environment variable
 themselves. A second, real false alarm during this same debugging
-session — `Wine Retail Company` appearing to still exist after a
+session — `Wine Retail Business` appearing to still exist after a
 `playwright-tutorial` run that had genuinely hung — turned out to be
 stale screenshot/test-result output from an earlier, interrupted run,
 not a real, live regression; resolved by wiping those directories and
@@ -518,7 +518,7 @@ re-running from a genuinely clean state before trusting the result.
 
 Verified: full backend suite (187/187), and the full tutorial —
 resumed and re-run from a genuinely clean state, not assumed — shows
-`Company: Wine Retail Company`, `$100,000` balanced, built entirely
+`Company: Wine Retail Business`, `$100,000` balanced, built entirely
 from scratch through the UI.
 
 ### Business Type / prototype CoA: a first, real go

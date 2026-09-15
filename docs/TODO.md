@@ -42,7 +42,7 @@ history.
 
 - ✅ **A real employee is a real AP counterparty** — `wage_minor_per_hour`/`salary_minor_per_year` on `contact`, `payEmployeeWages`, treating pay the same real way a vendor invoice already works (debit an expense, credit the counterparty's own balance).
 - ✅ **Real Medicare levy (1.5%) withheld from the employee's own pay**, and **real superannuation (12%) as a genuine, additional employer cost** — a real, three-line posting (gross expense, employee's net balance, two separate real liabilities), not a simple two-sided one. Australian rates specifically, flat percentages.
-- ✅ **A real, complete 18-person roster** for Wine Retail Company — two staff per retail outlet, warehouse staff, office staff, and two salaried managers.
+- ✅ **A real, complete 18-person roster** for Wine Retail Business — two staff per retail outlet, warehouse staff, office staff, and two salaried managers.
 - ❌ **No timecards/rostering** — hours are a direct input to `payEmployeeWages`, not derived from any real, recorded shift.
 - ❌ **No PAYG income tax withholding** — only the Medicare levy, deliberately, per the original direct request ("not including tax at the moment").
 - ❌ **No leave accrual** (annual/sick leave balances) at all.
@@ -208,11 +208,11 @@ Software gaps identified and their status:
 - ✅ **Guided new-business setup** — `createBusiness(businessName, financialYearLabel, userId)`, a real route, and a
   real UI at `/setup/new-business`. Creates two real ledgers from day one, not one — a real Actual ledger and a
   real Budget ledger for the financial year (Budget is just another ledger, the same proven pattern already
-  used for My Business and Wine Retail Company). A genuine correction made along the way, not initially understood
+  used for My Business and Wine Retail Business). A genuine correction made along the way, not initially understood
   correctly: the Chart of Accounts is **not** uniformly shared across every business — confirmed directly, not
   assumed. Only the five top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely
   global; the real, named leaf accounts underneath are country-specific families that already exist as real,
-  distinct entities (English/generic for My Business and Wine Retail Company, German for BMW M GmbH, French
+  distinct entities (English/generic for My Business and Wine Retail Business, German for BMW M GmbH, French
   for Peugeot, Italian for Ditta Italiana Srl, Swiss for Schweizer KMU AG — confirmed by entity_id, not just
   different display names). `getCoaFamilyAccounts` surfaces which real accounts an existing ledger actually
   uses, so a person setting up a new business can see and choose a matching family before creating anything,
@@ -305,9 +305,9 @@ Software gaps identified and their status:
   and save addresses against. Migrating this would mean a genuinely different, two-step registration flow
   (create the bare customer first, then show the shared components) — a real, separate piece of design work,
   not done here.
-- ✅ **A real Playwright script for Wine Retail Company, driven entirely through the actual web UI** — a
+- ✅ **A real Playwright script for Wine Retail Business, driven entirely through the actual web UI** — a
   request from earlier in this project that had never actually been fulfilled. `e2e/tests/wine-business-setup.spec.ts`:
-  from a completely fresh database, selects the real, already-bootstrapped Wine Retail Company (confirmed
+  from a completely fresh database, selects the real, already-bootstrapped Wine Retail Business (confirmed
   directly: creating a *new* business with that exact name correctly fails, since it already exists in
   `schema.sql`), creates a real new location through the real `/locations` UI, posts a real $1,000 owner's
   capital contribution through the real `/post` General Journal UI, and confirms it lands correctly on the real

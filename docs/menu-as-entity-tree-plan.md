@@ -95,7 +95,7 @@ Table: The proposed `menu_override` table's own real columns, with an example ro
 
 | menu_item | scope | scope_id | override_label | hidden |
 |---|---|---|---|---|
-| Profit and Loss | business | Wine Retail Company | Income Statement | false |
+| Profit and Loss | business | Wine Retail Business | Income Statement | false |
 | Reconciliation | user | admin | (unset) | true |
 
 A real, resolved label for a given user, at request time: look for a

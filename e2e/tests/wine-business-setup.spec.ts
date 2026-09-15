@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { login } from './helpers.js';
 
-test('run real transactions for Wine Retail Company entirely through the real web UI, from a fresh database', async ({ page }) => {
+test('run real transactions for Wine Retail Business entirely through the real web UI, from a fresh database', async ({ page }) => {
   await login(page);
-  // Wine Retail Company already exists as real, bootstrapped demo data
+  // Wine Retail Business already exists as real, bootstrapped demo data
   // in schema.sql (its own business, ledger, product catalog, and
   // Chart of Accounts) — select it directly rather than creating a
   // duplicate.

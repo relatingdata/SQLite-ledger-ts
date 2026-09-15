@@ -16,7 +16,7 @@ would actually need it, see [`docs/user-manual.md`](./docs/user-manual.md).
 For a real design (not yet built) on how a foreign-currency receipt or
 payment should work in this app's own architecture, see
 [`docs/foreign-currency-receipts-and-payments.md`](./docs/foreign-currency-receipts-and-payments.md).
-For a real, staged plan (not yet built) taking Wine Retail Company from
+For a real, staged plan (not yet built) taking Wine Retail Business from
 a sole trader through a partnership to an incorporated company —
 written specifically to exercise the parts of this app a routine month
 of trading doesn't reach — see

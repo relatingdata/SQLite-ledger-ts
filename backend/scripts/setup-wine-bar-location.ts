@@ -7,7 +7,7 @@
 import { createEntity, create, fetch, typeRootName, getEntityTree, updateEntity, setItem, setItemStorageOrigin, stageBomComponent, postBomComponents, asUserId } from '../src/db.js';
 import { setLocation } from '../src/db-stock.js';
 
-const BUSINESS = 'Wine Retail Company';
+const BUSINESS = 'Wine Retail Business';
 const USER = asUserId(1);
 const SUPPLIER_OUTLET = 'Market Square Liquor'; // the real, existing retail outlet "next door"
 

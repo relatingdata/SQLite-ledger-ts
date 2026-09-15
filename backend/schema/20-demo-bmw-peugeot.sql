@@ -58,17 +58,17 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entity_ids (id) VALUES (551);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (551, 551, 'Peugeot Citroën Sochaux SNC Budget 2026-27', (SELECT id FROM current_entities WHERE name = 'Peugeot Citroën Sochaux SNC'), '2026-01-01', 1);
 
--- Wine Retail Company — a real, selectable business (not just the
+-- Wine Retail Business — a real, selectable business (not just the
 -- global Locations/Items data, which stays accessible via its own
 -- dedicated screens regardless of which business is selected) so
 -- there's an actual home to post invoices and other transactions
 -- against for the wine/beer/spirits scenario, same as BMW/PCS.
 INSERT INTO entity_ids (id) VALUES (296);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (296, 296, 'Wine Retail Company', (SELECT id FROM current_entities WHERE name = 'Businesses'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (296, 296, 'Wine Retail Business', (SELECT id FROM current_entities WHERE name = 'Businesses'), '2026-01-01', 1);
 
 -- Real per-business Locations, not the one, global "Locations" node
 -- every business used to share (a real, confirmed bug: selecting a
--- different business's session still showed Wine Retail Company's
+-- different business's session still showed Wine Retail Business's
 -- own locations, since they were never actually scoped to it).
 -- Re-parented via new history rows for the same real entity_id, not a
 -- destructive UPDATE — the exact same append-only mechanism
@@ -79,21 +79,21 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- to exist at that point in the script; only their real, current
 -- parent changes, exactly as a real re-parent through the UI would.
 INSERT INTO entity_ids (id) VALUES (363);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (363, 363, 'Wine Retail Company Locations', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (363, 363, 'Wine Retail Business Locations', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 122 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (364, 122, 'Head Office', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Locations'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (364, 122, 'Head Office', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Locations'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 123 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (365, 123, 'Riverside Cellars', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Locations'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (365, 123, 'Riverside Cellars', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Locations'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 124 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (366, 124, 'Uptown Wine & Spirits', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Locations'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (366, 124, 'Uptown Wine & Spirits', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Locations'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 125 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (367, 125, 'Warehouse B', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Locations'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (367, 125, 'Warehouse B', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Locations'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 126 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (368, 126, 'Harbourside Bottle Shop', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Locations'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (368, 126, 'Harbourside Bottle Shop', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Locations'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 127 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (369, 127, 'Market Square Liquor', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Locations'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (369, 127, 'Market Square Liquor', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Locations'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 128 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (370, 128, 'Eastside Cellar Door', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Locations'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (370, 128, 'Eastside Cellar Door', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Locations'), '2026-01-01', 1);
 
 -- The same real fix, applied to Items: per direct instruction, this
 -- data has to be per-business too, nothing to do with the shared,
@@ -104,21 +104,21 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- changes. Every sub-category and Item underneath (entity_id
 -- 134-187) needs no change at all here - their own parent_id already
 -- points at one of these 5 categories, which now itself lives under
--- Wine Retail Company Items, so the whole real tree moves with them.
+-- Wine Retail Business Items, so the whole real tree moves with them.
 INSERT INTO entity_ids (id) VALUES (813);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50813, 813, 'Wine Retail Company Items', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50813, 813, 'Wine Retail Business Items', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 129 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50814, 129, 'Red Wine', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Items'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50814, 129, 'Red Wine', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 130 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50815, 130, 'White Wine', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Items'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50815, 130, 'White Wine', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 131 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50816, 131, 'Sparkling Wine', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Items'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50816, 131, 'Sparkling Wine', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 132 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50817, 132, 'Beer', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Items'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50817, 132, 'Beer', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 133 AND deleted_at IS NULL;
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50818, 133, 'Spirits', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company Items'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50818, 133, 'Spirits', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
 INSERT INTO entity_ids (id) VALUES (297);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (297, 297, 'Actual', (SELECT id FROM current_entities WHERE name = 'Wine Retail Company'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (297, 297, 'Actual', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business'), '2026-01-01', 1);
 INSERT INTO entity_ids (id) VALUES (215);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (215, 215, 'Stocks et en-cours', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
 INSERT INTO entity_ids (id) VALUES (216);

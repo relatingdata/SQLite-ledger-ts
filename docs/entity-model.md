@@ -242,7 +242,7 @@ accounting still groups into the same five buckets, so
 *named leaf accounts* underneath are genuinely country-specific
 families, confirmed by `entity_id` (not just different display
 names): "Cash and Bank" (id 11) and "Cassa e valori" (id 315) are
-different entities, one used by My Business and Wine Retail Company,
+different entities, one used by My Business and Wine Retail Business,
 the other by Ditta Italiana Srl. German (BMW M GmbH), French
 (Peugeot), Italian, and Swiss businesses each have their own real,
 distinct sets of leaf accounts already bootstrapped.

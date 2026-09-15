@@ -4,7 +4,7 @@
 
 Better Brighter Multi-Ledger is a double-entry accounting and retail operations application, built around one, simple, central idea: everything in it --- every account, every business, every division, every location, every product, every employee, even every menu label --- is genuinely the same kind of thing underneath: an *entity*, sitting in one, single, shared tree. There is no separate "customers table" or "products table" living apart from everything else --- a customer, a product, and a bank account are all real rows in the same, one, underlying structure, each simply positioned differently within it.
 
-This manual walks through the application as it actually exists today, using the bundled example business --- Wine Retail Company, a small, multi-location wine and spirits retailer --- to show every real screen with real, live data on it.
+This manual walks through the application as it actually exists today, using the bundled example business --- Wine Retail Business, a small, multi-location wine and spirits retailer --- to show every real screen with real, live data on it.
 
 ## Logging in
 

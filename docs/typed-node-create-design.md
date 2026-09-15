@@ -80,7 +80,7 @@ function create<TParentBrand extends string, TChildBrand extends string>(
 ## Usage — the exact chain requested
 
 ```ts
-const business = create(rootNode, typeBusinessName, 'Wine Retail Company', userId);
+const business = create(rootNode, typeBusinessName, 'Wine Retail Business', userId);
 const division = create(business, typeDivisionName, 'Sydney Division', userId);
 const location = create(division, typeLocationName, 'Riverside Cellars', userId);
 

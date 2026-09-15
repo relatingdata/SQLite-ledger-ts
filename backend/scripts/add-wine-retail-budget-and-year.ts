@@ -1,5 +1,5 @@
 /**
- * Adds a real Budget ledger for Wine Retail Company, rounded to the
+ * Adds a real Budget ledger for Wine Retail Business, rounded to the
  * nearest $1,000, and extends the real "Actual" ledger with 11 more
  * real, summary-level months (April 2027 through February 2028) so a
  * full, real 12-month Budget vs. Actual comparison exists — some
@@ -20,16 +20,16 @@ import {
   postJournalEntry,
 } from '../src/db.ts';
 
-const BUSINESS = 'Wine Retail Company';
+const BUSINESS = 'Wine Retail Business';
 const ACTUAL_LEDGER = 'Actual';
-const BUDGET_LEDGER = 'Wine Retail Company Budget 2027-28';
+const BUDGET_LEDGER = 'Wine Retail Business Budget 2027-28';
 
 function round1000(minor: number): number {
   return Math.round(minor / 100000) * 100000;
 }
 
 async function main() {
-  console.log('=== Wine Retail Company: real Budget + 11 more real, summary-level Actual months ===\n');
+  console.log('=== Wine Retail Business: real Budget + 11 more real, summary-level Actual months ===\n');
 
   create(fetch(BUSINESS, typeRootName), typeRootName, BUDGET_LEDGER, 1);
   console.log(`Created real ledger: ${BUDGET_LEDGER}`);

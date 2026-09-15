@@ -1,4 +1,4 @@
-// The real, comprehensive loader for Wine Retail Company's demo
+// The real, comprehensive loader for Wine Retail Business's demo
 // data - locations, product catalog, and initial stock levels - per
 // direct, absolute instruction: plain ASCII CSV, not hardcoded
 // TypeScript arrays.

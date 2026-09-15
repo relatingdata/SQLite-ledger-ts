@@ -78,7 +78,7 @@ import {
  * lines under one shared reference before posting once, as one, true,
  * balanced entry, rather than two separate, merely-netting-to-zero
  * postings. */
-export function stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, locationName?: LocationName): void {
+export function stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, locationName?: LocationName, accountId?: number): void {
   // A real, direct product entity always, genuinely, structurally
   // descends from Items — its own Sales/COGS/Inventory accounts never
   // do (they live under Sales Revenue/Cost of Goods Sold/Inventory
@@ -88,10 +88,18 @@ export function stageQuantityMovementLine(business: BusinessName, ledger: Ledger
   // reliable, structural way to tell "the real product itself" aitem
   // from its own, same-named financial accounts, not dependent on a
   // item table row every real entity under Items isn't guaranteed to
-  // have yet.
-  const itemRow = db
-    .prepare(
-      `WITH RECURSIVE ancestors(id, orig) AS (
+  // have yet. Per direct correction: this fragile, name-based fallback
+  // is now only used when the caller doesn't already know the exact,
+  // real account id — every account genuinely scoped under a specific
+  // item/location (On Order, Units Sold, Storage Capacity Remaining,
+  // etc.) now has a real, simple, non-globally-unique name, so passing
+  // the id explicitly is what actually keeps posting correct.
+  const resolvedAccountId =
+    accountId ??
+    (
+      db
+        .prepare(
+          `WITH RECURSIVE ancestors(id, orig) AS (
          SELECT id, id FROM current_entities WHERE name = ?
          UNION ALL
          SELECT e.parent_id, a.orig FROM current_entities e JOIN ancestors a ON e.id = a.id WHERE e.parent_id IS NOT NULL
@@ -99,12 +107,13 @@ export function stageQuantityMovementLine(business: BusinessName, ledger: Ledger
        SELECT DISTINCT orig AS entity_id FROM ancestors a
        JOIN current_entities e ON e.id = a.id
        WHERE e.name = 'Items'`
-    )
-    .get(account) as { entity_id: number } | undefined;
+        )
+        .get(account) as { entity_id: number } | undefined
+    )?.entity_id ?? null;
   db.prepare(
     `INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, account_id, amount_minor, memo, location)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(reference, business, ledger, 'Quantity movement', transdate, account, itemRow?.entity_id ?? null, deltaQuantity, '', locationName ?? '');
+  ).run(reference, business, ledger, 'Quantity movement', transdate, account, resolvedAccountId, deltaQuantity, '', locationName ?? '');
 }
 
 /** Posts every real line already staged under this reference —
@@ -128,11 +137,12 @@ export function postQuantityMovement(
   deltaQuantity: number,
   userId: UserId,
   transdate?: string,
-  locationName?: LocationName
+  locationName?: LocationName,
+  accountId?: number
 ): void {
   const date = transdate ?? (locationName ? todayAtLocation(locationName) : new Date().toISOString().slice(0, 10));
   assertPeriodOpen(business, ledger, date);
-  stageQuantityMovementLine(business, ledger, reference, account, deltaQuantity, date, locationName);
+  stageQuantityMovementLine(business, ledger, reference, account, deltaQuantity, date, locationName, accountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
 }
 
@@ -342,8 +352,8 @@ function postItemLevelFigure(figureName: string, figureId: number, value: number
   const current = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(figureId) as { balance_minor: number } | undefined)?.balance_minor ?? 0;
   const delta = value - current;
   if (delta === 0) return;
-  stageLine({ reference, business: asBusinessName('Wine Retail Company'), ledger: asLedgerName('Actual'), transdate: undefined, account: asAccountName(figureName), accountId: figureId, amount_minor: delta });
-  db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, 'Wine Retail Company', 'Actual', userId);
+  stageLine({ reference, business: asBusinessName('Wine Retail Business'), ledger: asLedgerName('Actual'), transdate: undefined, account: asAccountName(figureName), accountId: figureId, amount_minor: delta });
+  db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, 'Wine Retail Business', 'Actual', userId);
 }
 
 export function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, userId: UserId): void {
@@ -360,7 +370,7 @@ export function setItemLocationLevelDetails(itemName: ItemName, locationName: Lo
     }
     const figure = existing ?? Entity.create(figureName, levelsRecord.id, userId);
     const delta = value - Balance.get(figure.id);
-    if (delta !== 0) Balance.post('Wine Retail Company', 'Actual', `LEVEL-${figure.id}-${Date.now()}`, figureName, figure.id, delta, userId);
+    if (delta !== 0) Balance.post('Wine Retail Business', 'Actual', `LEVEL-${figure.id}-${Date.now()}`, figureName, figure.id, delta, userId);
   }
   setLevelFigure('Min Level', levels.min_level);
   setLevelFigure('Max Level', levels.max_level);
@@ -886,9 +896,9 @@ export function receiveStockAtLocation(
   // which is itself a real, meaningful signal, not an error.
   const date = transdate ?? todayAtLocation(locationName);
   assertPeriodOpen(business, ledger, date);
-  const { onOrderAccount } = ensureProductQuantityAccounts(itemName, userId);
+  const { onOrderAccount, onOrderAccountId } = ensureProductQuantityAccounts(itemName, userId);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, locationName);
-  stageQuantityMovementLine(business, ledger, reference, asAccountName(onOrderAccount), -quantity, date);
+  stageQuantityMovementLine(business, ledger, reference, asAccountName(onOrderAccount), -quantity, date, undefined, onOrderAccountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
   adjustLocationCapacity(business, ledger, locationName, itemName, quantity, date, userId, reference);
 }
@@ -919,9 +929,9 @@ export function dispatchStockFromLocation(
   const itemId = resolveItemId(itemName);
   const date = transdate ?? todayAtLocation(locationName);
   assertPeriodOpen(business, ledger, date);
-  const { unitsSoldAccount } = ensureProductQuantityAccounts(itemName, userId);
+  const { unitsSoldAccount, unitsSoldAccountId } = ensureProductQuantityAccounts(itemName, userId);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), -quantity, date, locationName);
-  stageQuantityMovementLine(business, ledger, reference, asAccountName(unitsSoldAccount), quantity, date);
+  stageQuantityMovementLine(business, ledger, reference, asAccountName(unitsSoldAccount), quantity, date, undefined, unitsSoldAccountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
   adjustLocationCapacity(business, ledger, locationName, itemName, -quantity, date, userId, reference);
 }
@@ -1252,9 +1262,9 @@ export function completeStockTake(
       // as real an event as those - it gets its own, equally real
       // counter-account (Count Adjustment), not an exemption from
       // the same, correct, established pattern.
-      const { countAdjustmentAccount } = ensureProductQuantityAccounts(asItemName(line.item), userId);
+      const { countAdjustmentAccount, countAdjustmentAccountId } = ensureProductQuantityAccounts(asItemName(line.item), userId);
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(line.item), delta, take.take_date, take.location as LocationName);
-      stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(countAdjustmentAccount), -delta, take.take_date);
+      stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(countAdjustmentAccount), -delta, take.take_date, undefined, countAdjustmentAccountId);
       postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
       adjustLocationCapacity(business, ledger, take.location as LocationName, asItemName(line.item), delta, take.take_date, userId, reference);
     }
@@ -1301,9 +1311,9 @@ export function writeOffStock(
   // variance fix: this used to post a single, unbalanced quantity
   // line with no counter-item at all, unlike every other real
   // quantity movement in this codebase.
-  const { writeOffAccount } = ensureProductQuantityAccounts(itemName, userId);
+  const { writeOffAccount, writeOffAccountId } = ensureProductQuantityAccounts(itemName, userId);
   stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(itemName), -quantity, date);
-  stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(writeOffAccount), quantity, date);
+  stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(writeOffAccount), quantity, date, undefined, writeOffAccountId);
   postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
 
   // A real write-off genuinely happens AT a specific, physical
@@ -1473,8 +1483,8 @@ export function placeOrder(
   // one, single-sided line is correct — the offsetting credit happens
   // at the real, later moment the stock actually arrives.
   if (item) {
-    const { onOrderAccount } = ensureProductQuantityAccounts(item, userId);
-    postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(onOrderAccount), quantity, userId, transdate);
+    const { onOrderAccount, onOrderAccountId } = ensureProductQuantityAccounts(item, userId);
+    postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(onOrderAccount), quantity, userId, transdate, undefined, onOrderAccountId);
   }
 }
 

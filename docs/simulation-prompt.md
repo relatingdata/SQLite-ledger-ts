@@ -1,4 +1,4 @@
-# Prompt: Wine Retail Company — Full Month Simulation
+# Prompt: Wine Retail Business — Full Month Simulation
 
 This is the single, comprehensive prompt, reconstructed after the fact,
 that would have produced `simulate-wine-retail-month.ts` as it stands

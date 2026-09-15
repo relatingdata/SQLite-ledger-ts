@@ -21,7 +21,7 @@ Table: Every real Makefile target and what it actually does
 | `make dev` | Starts backend (`:3001`) and frontend (`:5173`) together, one `Ctrl+C` stops both |
 | `make dev-verbose` | The same, with `DB_VERBOSE=1` — every real SQL statement the backend executes is printed live |
 | `make test` | Runs the backend's own unit tests (Node's built-in test runner) and the frontend's own tests |
-| `make test-e2e` | Resets the database, runs the real Wine Retail Company simulation (a seeded PRNG — never `Math.random()`, so it produces the exact, same numbers every real run), then checks the result against exact, documented expected figures |
+| `make test-e2e` | Resets the database, runs the real Wine Retail Business simulation (a seeded PRNG — never `Math.random()`, so it produces the exact, same numbers every real run), then checks the result against exact, documented expected figures |
 | `make demo-full-year` | The fuller, real dataset — one detailed month plus a real Budget and 11 more summary-level Actual months, so a full year's Budget-vs-Actual comparison genuinely exists to explore. A real, separate target from `test-e2e`, since it changes the exact figures `test-e2e`'s own checks depend on |
 | `make check-db-consistency` | Just the consistency check on whatever database currently exists — balanced entries, no orphaned references, referential integrity |
 | `make reset-db` | Deletes the SQLite database file; it reinitializes from `backend/schema/*.sql` on the next backend start |
@@ -89,7 +89,7 @@ longer and re-running.
 **A real, reproducible, still-open discrepancy worth documenting
 plainly**: the exact, same UI sequence (create a location, fill its
 own shelf capacity, save) passed reliably, repeatedly, in isolation
-against the bundled Wine Retail Company, but hung — not slowly, but
+against the bundled Wine Retail Business, but hung — not slowly, but
 genuinely, indefinitely, past even Playwright's own internal timeout
 — every time it was run as part of a longer script that first created
 a brand-new business and switched the live session into it. This was
@@ -111,12 +111,12 @@ exactly which real step a hang or failure occurs at, and what the
 real, live network traffic looked like at that moment, far faster
 than staring at a full script's own combined failure.
 
-## 5. The Wine Retail Company simulation
+## 5. The Wine Retail Business simulation
 
 `backend/scripts/simulate-wine-retail-month.ts` — the real, single
 largest script in this project (over 32,000 bytes). Generates one
 full, real, detailed month of retail activity for the bundled
-example business (Wine Retail Company): real POS sales, real
+example business (Wine Retail Business): real POS sales, real
 purchases, real stock receipts and dispatches, real COGS recognition,
 all using a seeded random-number generator so the exact, same
 scenario reproduces identically on every real run — never

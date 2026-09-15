@@ -16,7 +16,7 @@ The original request: add "Consolidated per Division" and "Consolidated per Divi
 ## 2. The corrected entity model
 
 ```
-Wine Retail Company                         (the business — a real root)
+Wine Retail Business                         (the business — a real root)
     │
     ├── Springfield                          (a real division)
     │       ├── Head Office                  (a real location — a leaf)
@@ -37,7 +37,7 @@ Both layers — division and location — may go several levels deep for a more 
 ## 3. The Chart of Accounts, corrected
 
 ```
-Wine Retail Company                         (business A — the real root)
+Wine Retail Business                         (business A — the real root)
     │
     └── Chart of Accounts
             │
@@ -60,7 +60,7 @@ Wine Retail Company                         (business A — the real root)
          side, not on the category path itself)
 ```
 
-The Chart of Accounts really is just another dimension in exactly this sense — Balance Sheet and P&L are its own two, real, equal branches, both eventually terminating in the same leaf accounts a business actually posts to. It is genuinely rooted at the business (confirmed: `Wine Retail Company`, not the application), even though the underlying GL account *rows* happen to be physically shared storage across every business (a real, separate implementation fact, not a conceptual one — see the earlier, corrected wrong turn #5).
+The Chart of Accounts really is just another dimension in exactly this sense — Balance Sheet and P&L are its own two, real, equal branches, both eventually terminating in the same leaf accounts a business actually posts to. It is genuinely rooted at the business (confirmed: `Wine Retail Business`, not the application), even though the underlying GL account *rows* happen to be physically shared storage across every business (a real, separate implementation fact, not a conceptual one — see the earlier, corrected wrong turn #5).
 
 A CoA *family* (English CoA, and any other prototype/locale-translated CoA) is a separate, real thing — a template a business's own CoA gets built from at creation time, not itself a business, and not part of any one business's own, live hierarchy once instantiated.
 
@@ -68,8 +68,8 @@ A CoA *family* (English CoA, and any other prototype/locale-translated CoA) is a
 
 A single, real leaf account (e.g. "Amber Ale 330ml — Sales") is reachable via at least two real, independent, equally-valid paths back to the business:
 
-- **Division/location path**: leaf → Riverside Cellars → Springfield → Wine Retail Company
-- **Product-category path**: leaf → Ale → Beer → Sales (Income) → Wine Retail Company
+- **Division/location path**: leaf → Riverside Cellars → Springfield → Wine Retail Business
+- **Product-category path**: leaf → Ale → Beer → Sales (Income) → Wine Retail Business
 
 Neither is the account's "real" parent with the other as a lesser, secondary link. Both are genuine, complete, independent summation paths. A report walking either path aggregates correctly and completely to the same root; which one you choose depends only on which dimension you want the report to accumulate by.
 
@@ -151,7 +151,7 @@ A real, fourth attempt, structured differently from the first three specifically
 
 A direct, real concern raised after the above was built: "sales of cartons v bottles must be recorded accurately." Confirmed directly, worth recording plainly, since it's easy to assume otherwise: this was never genuinely at risk, and does not depend on §10's own part/tier restructuring at all.
 
-The real, posted GL account a sale posts to has always, correctly distinguished tier from tier — `"Sales - Amber Ale 330ml (Bottle)"` is a real, distinct account from `"Sales - Amber Ale 330ml (Carton)"`, and every real sale, from the very first one ever simulated, posted to the correct one. Confirmed directly against the real, full Wine Retail Company simulation: querying real, posted `journal_line` activity by tier-specific account, excluding the year-end close's own zeroing entry, shows a real, accurate, already-correct breakdown (25 real Bottle sales, 7 real Carton sales, 18 real Six-Pack sales, each with its own real, distinct total) — with no restructuring, no migration, nothing beyond what already existed before §10 was ever written.
+The real, posted GL account a sale posts to has always, correctly distinguished tier from tier — `"Sales - Amber Ale 330ml (Bottle)"` is a real, distinct account from `"Sales - Amber Ale 330ml (Carton)"`, and every real sale, from the very first one ever simulated, posted to the correct one. Confirmed directly against the real, full Wine Retail Business simulation: querying real, posted `journal_line` activity by tier-specific account, excluding the year-end close's own zeroing entry, shows a real, accurate, already-correct breakdown (25 real Bottle sales, 7 real Carton sales, 18 real Six-Pack sales, each with its own real, distinct total) — with no restructuring, no migration, nothing beyond what already existed before §10 was ever written.
 
 What §10's own, newer part/tier structure adds is a real, separate, further capability — a genuine, distinct `part` record per tier, with its own real UPC, price, and stock count — useful for things like scanning a carton's own barcode at POS or tracking carton stock separately from bottle stock. It is not, and was never, a fix for a real, existing sales-accuracy problem, because no such problem existed.
 

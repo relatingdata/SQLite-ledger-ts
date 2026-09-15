@@ -3443,7 +3443,7 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- Translations UI (169 of them) or directly (the 11 that live
 -- outside Vocabulary, under Business Reports, Chart of Accounts,
 -- or Application -- no real UI screen currently reaches those).
--- Two real divisions for Wine Retail Company, per direct request
+-- Two real divisions for Wine Retail Business, per direct request
 -- ("add a division to the Wine Business, just per city is fine") —
 -- Springfield and Rivertown, the two real cities its own real
 -- locations already sit in. Both real profit centers. row_id
@@ -3460,7 +3460,7 @@ INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES
 INSERT INTO entity_ids (id) VALUES (787);
 INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (787, 'Division Type — Rivertown → Profit Center', (SELECT id FROM current_entities WHERE name = 'Division Type'), (SELECT id FROM current_entities WHERE name = 'Profit Center'), '2026-01-01', 1);
 
--- Seven real, per-location divisions for Wine Retail Company, per
+-- Seven real, per-location divisions for Wine Retail Business, per
 -- direct request ("per location P&L") — nested under their real city
 -- division (Springfield/Rivertown), and explicitly linked to their
 -- real location via relation, not by name. Each genuinely shares its

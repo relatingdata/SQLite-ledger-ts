@@ -7,7 +7,7 @@ than English, not because it's been translated, but because that
 specific business genuinely operates in that language. (Several
 additional demo businesses exist specifically to exercise this in
 multiple real languages at once — see the language/i18n testing
-discussion in Part V, not here; this section uses Wine Retail Company
+discussion in Part V, not here; this section uses Wine Retail Business
 throughout as the one, real, illustrative example.)
 
 ### Two, genuinely different things that could easily be confused
@@ -41,7 +41,7 @@ single, shared `translation` table, keyed by `(entity_id,
 language_id)` — one, real row per vocabulary word, per real language.
 
 **Sample business data** lives as real, direct child entities of the
-business's own, real, separate entity (`Wine Retail Company`) —
+business's own, real, separate entity (`Wine Retail Business`) —
 structurally, completely separate from `Vocabulary`, from the very
 first, real, direct parent link. A demo business's own, real account
 or product name is never a real, translated vocabulary word at all,
@@ -62,7 +62,7 @@ single-purpose files, one per real language, containing nothing else:
 - `backend/schema/10-vocab-danish.sql`
 - `backend/schema/10-vocab-italian.sql`
 
-Wine Retail Company's own sample data lives inside `00-core.sql`
+Wine Retail Business's own sample data lives inside `00-core.sql`
 itself, alongside the foundational entity tree and vocabulary
 definitions, not in its own, separate, demo-specific file. A concrete,
 worthwhile next step: split it into its own, clearly-named file (e.g.

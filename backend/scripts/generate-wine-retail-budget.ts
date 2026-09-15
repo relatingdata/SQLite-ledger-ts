@@ -1,5 +1,5 @@
 /**
- * A real Budget ledger for Wine Retail Company, covering the same
+ * A real Budget ledger for Wine Retail Business, covering the same
  * period as the real simulation (March 2027) — "Budget is just
  * another ledger," the same proven pattern My Business's own
  * "Proposed Growth Budget 2026-27" already uses.
@@ -18,7 +18,7 @@
  */
 import { createEntity, create, fetch, typeRootName, stageLine, postJournalEntry, getProfitAndLoss } from '../src/db.js';
 
-const BUSINESS = 'Wine Retail Company';
+const BUSINESS = 'Wine Retail Business';
 const LEDGER = 'Budget March 2027';
 
 async function main() {

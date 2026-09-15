@@ -5,7 +5,7 @@
  * account... we need to consider credit limits and terms for both
  * vendors and customers."
  *
- * Wine Retail Company only ever had one real vendor (Boutique Wine
+ * Wine Retail Business only ever had one real vendor (Boutique Wine
  * Importers Pty Ltd) and the one, shared "Cash Sale" POS customer —
  * this adds a second, real vendor (COD terms) and two real, named B2B
  * account customers with real credit limits, so the "half and half"
@@ -14,7 +14,7 @@
 import { createEntity, create, fetch, typeRootName, setContact, getCreditStatus } from '../src/db.ts';
 
 async function main() {
-  console.log('=== Wine Retail Company: real, varied payment terms and credit limits ===\n');
+  console.log('=== Wine Retail Business: real, varied payment terms and credit limits ===\n');
 
   // Existing vendor: real, 7-day account terms (matches the real
   // 7-21 day payment scheduling the simulation itself already uses).

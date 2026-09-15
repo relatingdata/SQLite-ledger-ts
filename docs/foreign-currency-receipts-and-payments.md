@@ -31,7 +31,7 @@ Every account in this app already carries a real, optional currency
 (`account.currency`, `NULL` meaning "this account's own home currency" —
 see `backend/schema.sql`'s own comment on the column, which is explicit
 that this is never inferred from a locale code, only ever set directly).
-Wine Retail Company's own Bank Account (DKK) and Bank Account (EUR) are
+Wine Retail Business's own Bank Account (DKK) and Bank Account (EUR) are
 real, live examples of this already in the demo data.
 
 What doesn't exist yet is a real place to *store* an exchange rate. The
@@ -54,7 +54,7 @@ reporting, for example, since a real business's bank rarely trades at
 the exact rate its tax authority publishes.
 
 This app doesn't have that distinction yet, and for a business the size
-of Wine Retail Company, one real, single rate per currency pair per day
+of Wine Retail Business, one real, single rate per currency pair per day
 is a reasonable, honest starting point — but the design should leave
 room for it: a real `exchange_rate` table keyed by `(currency, date,
 class)` rather than just `(currency, date)`, with `class` defaulting to
@@ -82,7 +82,7 @@ this app already uses — no special-cased posting path needed.
 
 ## User workflow (proposed)
 
-Concretely, for Wine Retail Company paying a real French wine supplier
+Concretely, for Wine Retail Business paying a real French wine supplier
 in EUR:
 
 1. The AP Purchase invoice is entered against the vendor in EUR, using

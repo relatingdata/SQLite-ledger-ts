@@ -1,5 +1,5 @@
 /**
- * End-to-end verification for the Wine Retail Company simulation.
+ * End-to-end verification for the Wine Retail Business simulation.
  *
  * The simulation is fully deterministic (a seeded PRNG, never
  * Math.random()) — running it against the same schema always
@@ -30,24 +30,24 @@ function check(label: string, actual: unknown, expected: unknown) {
 }
 
 async function main() {
-  console.log('=== Verifying the real Wine Retail Company simulation against exact, documented expected results ===\n');
+  console.log('=== Verifying the real Wine Retail Business simulation against exact, documented expected results ===\n');
 
   console.log('--- Trial Balance @ 2027-03-28 ---');
-  const tb = getTrialBalance('Wine Retail Company', 'Actual', '2027-03-28');
+  const tb = getTrialBalance('Wine Retail Business', 'Actual', '2027-03-28');
   check('total_debit_minor', tb.total_debit_minor, 94533593);
   check('total_credit_minor', tb.total_credit_minor, 94533593);
   check('debit == credit (the fundamental accounting identity)', tb.total_debit_minor === tb.total_credit_minor, true);
   check('row count', tb.rows.length, 389);
 
   console.log('\n--- Balance Sheet (all time) ---');
-  const bs = getBalanceSheet('Wine Retail Company', 'Actual');
+  const bs = getBalanceSheet('Wine Retail Business', 'Actual');
   check('total_assets_minor', bs.total_assets_minor, 56357648);
   check('total_liabilities_minor', bs.total_liabilities_minor, 38628794);
   check('total_equity_minor', bs.total_equity_minor, 17728854);
   check('balanced', bs.balanced, true);
 
   console.log('\n--- Profit & Loss, 2027-03-01 to 2027-03-28 ---');
-  const pl = getProfitAndLoss('Wine Retail Company', 'Actual', '2027-03-01', '2027-03-28');
+  const pl = getProfitAndLoss('Wine Retail Business', 'Actual', '2027-03-01', '2027-03-28');
   check('total_income_minor', pl.total_income_minor, 19547533);
   check('total_expenses_minor', pl.total_expenses_minor, 11843192);
   check('gross_profit_minor', pl.gross_profit_minor, 7729331);
@@ -63,9 +63,9 @@ async function main() {
   // shared entity across every business in this app, not one per
   // business. Using it directly here would silently verify a
   // contaminated, multi-business figure while looking like it proves
-  // something specific to Wine Retail Company. getTrialBalance is
+  // something specific to Wine Retail Business. getTrialBalance is
   // correctly ledger-scoped, exactly like every real report does.
-  const tbForCash = getTrialBalance('Wine Retail Company', 'Actual', '2027-03-28');
+  const tbForCash = getTrialBalance('Wine Retail Business', 'Actual', '2027-03-28');
   const cashRow = tbForCash.rows.find((r) => r.name === 'Cash and Bank');
   const cashBankMinor = cashRow ? cashRow.debit_minor - cashRow.credit_minor : undefined;
   check('Cash and Bank, ledger-scoped (real money genuinely moved, not just tracked)', cashBankMinor, -14503285);
@@ -76,7 +76,7 @@ async function main() {
   check('Vendor balance_minor (partially, realistically paid — not zero, not never-paid)', vendor?.balance_minor, -36715404);
 
   console.log('\n--- Sales Report, 2027-03-01 to 2027-03-28 ---');
-  const sales = getSalesReport('Wine Retail Company', 'Actual', '2027-03-01', '2027-03-28');
+  const sales = getSalesReport('Wine Retail Business', 'Actual', '2027-03-01', '2027-03-28');
   check('detailed line count', sales.detailed.length, 986);
   check('real category count (every product category actually sold)', sales.category_summary.length, 14);
   check('total_quantity', sales.total_quantity, 3726);

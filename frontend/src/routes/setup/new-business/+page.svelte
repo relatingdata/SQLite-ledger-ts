@@ -12,7 +12,7 @@
   // Expense) are actually shared across every business; these leaf
   // accounts are real, country-specific families.
   const COA_FAMILIES = [
-    { label: 'English / generic', business: 'Wine Retail Company', ledger: 'Actual', familyName: 'English CoA' },
+    { label: 'English / generic', business: 'Wine Retail Business', ledger: 'Actual', familyName: 'English CoA' },
     { label: 'German (BMW M GmbH)', business: 'BMW M GmbH', ledger: 'Actual', familyName: 'German CoA' },
     { label: 'French (Peugeot Citroën Sochaux SNC)', business: 'Peugeot Citroën Sochaux SNC', ledger: 'Actual', familyName: 'French CoA' },
   ];

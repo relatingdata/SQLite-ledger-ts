@@ -2608,7 +2608,7 @@ See `docs/naming-conventions-and-entity-glossary.md` for what these two, real, d
 
 - `backend/src/db-stock.ts`: 'Location Type'; 'Is Billing Address'
 - `backend/src/db.ts`: 'Chart of Accounts Line Types'; 'Storage Origin Types'; 'Text Direction Types'; relationshipType; locationName; employeeName; entityName; entityName; `${projectName; 'Customers'; string; productName ?? 'Items'; parentCategoryOrItemsRoot; 'Vocabulary'; overrideName; 'Vocabulary'; 'Equity'; // 'Equity'; businessName; 'Businesses'; businessName; businessName; businessName; businessName; businessName; 'Asset'
-- `backend/src/db-seed.ts`: 'Vocabulary'; 'Items'; category; 'Locations'; 'Utilities'; 'Electricity'; 'Electricity'; 'Utilities'; 'Utilities'; 'Utilities'; 'Utilities'; 'Businesses'; 'Wine Retail Company'; 'Employees'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; 'Business Reports'; 'Customers'; 'Application'; 'Menu'; sectionName; 'Application'; 'Routes'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; b.name; 'Application'; 'Business Type'; bt.name; bt.name; 'Vocabulary'
+- `backend/src/db-seed.ts`: 'Vocabulary'; 'Items'; category; 'Locations'; 'Utilities'; 'Electricity'; 'Electricity'; 'Utilities'; 'Utilities'; 'Utilities'; 'Utilities'; 'Businesses'; 'Wine Retail Business'; 'Employees'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; 'Business Reports'; 'Customers'; 'Application'; 'Menu'; sectionName; 'Application'; 'Routes'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; 'Vocabulary'; b.name; 'Application'; 'Business Type'; bt.name; bt.name; 'Vocabulary'
 - `backend/src/primitives.ts`: string | number; string
 - `frontend/src/lib/api.ts`: string | null
 

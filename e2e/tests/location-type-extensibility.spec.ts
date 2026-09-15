@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 // A minimal, direct e2e test against 'My Business' - the one, real,
-// always-present dummy company - not the larger Wine Retail Company
+// always-present dummy company - not the larger Wine Retail Business
 // dataset. Backend math for capacity tracking is already thoroughly,
 // directly verified via 4 real backend tests (no browser needed for
 // that); this test's real job is narrower: confirm the Location Type

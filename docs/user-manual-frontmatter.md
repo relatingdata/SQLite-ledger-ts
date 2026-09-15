@@ -23,7 +23,7 @@ supports all five languages live, today.\\
 \vspace{1cm}
 {\footnotesize\itshape
 Every screenshot in this manual was captured directly from the running\\
-application --- the real Wine Retail Company example business, with\\
+application --- the real Wine Retail Business example business, with\\
 real, live simulation data --- not invented or mocked up.\par}
 \end{titlepage}
 

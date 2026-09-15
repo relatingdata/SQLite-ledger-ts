@@ -1,4 +1,4 @@
-# Plan: Wine Retail Company's legal evolution — sole trader → partnership → incorporated company
+# Plan: Wine Retail Business's legal evolution — sole trader → partnership → incorporated company
 
 *Not yet built. A real plan, written to be picked up directly by a
 local Claude Code session — grounded in real accounting consequences
@@ -18,7 +18,7 @@ that* — the real, structural journey from a single person with a cash
 box to the multi-location company the existing simulation already
 assumes. It's a prequel, not a replacement, and the two should
 eventually connect: the incorporated company this arc ends with should
-be recognizably the same Wine Retail Company `docs/user-manual.md`
+be recognizably the same Wine Retail Business `docs/user-manual.md`
 already tells the origin story of (Lars and Mette, one shop in
 Springfield).
 
@@ -35,7 +35,7 @@ taxed on it.
 - A genuinely tiny Chart of Accounts — this is the moment to prove the
   CoA-family mechanism (see `docs/glossary.md`'s "CoA family" entry)
   scales *down* as well as up: a sole trader needs perhaps 15 real
-  accounts, not the 150+ Wine Retail Company already has.
+  accounts, not the 150+ Wine Retail Business already has.
 - Real "Drawings" as its own, distinct equity-contra account, not
   conflated with a wage expense — a real, common bookkeeping mistake
   worth the app actively distinguishing correctly.

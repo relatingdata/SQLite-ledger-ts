@@ -23,7 +23,7 @@ supports all five languages live, today.\\
 \vspace{1cm}
 {\footnotesize\itshape
 Every screenshot in this manual was captured directly from the running\\
-application --- the real Wine Retail Company example business, with\\
+application --- the real Wine Retail Business example business, with\\
 real, live simulation data --- not invented or mocked up.\par}
 \end{titlepage}
 
@@ -39,7 +39,7 @@ real, live simulation data --- not invented or mocked up.\par}
 
 # Chapter 0 --- How It Started
 
-Wine Retail Company didn't start as a company at all. It started as one shop.
+Wine Retail Business didn't start as a company at all. It started as one shop.
 
 Eight years ago, a couple — we'll call them Lars and Mette, though their real names don't matter — left Denmark and England behind and moved to Switzerland, to Brig, a small town in the canton of Valais where the Rhône valley narrows toward the Simplon Pass. It's a genuinely, officially bilingual town, French and German both, and a short train ride from the Italian-speaking valleys on the far side of the pass — the kind of place where a shop's own till receipt might reasonably need to speak three languages before lunch. Lars had spent a decade working for a wine importer back in Denmark and knew the trade; Mette, English, had a background in retail management and ran the shop floor. Between them they knew wine and they knew customers. What neither of them had much appetite for was the paperwork — and Valais, it turned out, had no shortage of that either: Swiss bookkeeping conventions to learn, a real, genuine multilingual environment to trade in from day one, and a supplier list that, almost immediately, spanned three of the country's four national languages.
 
@@ -53,7 +53,7 @@ That's the moment this kind of software earns its place in the story — not as 
 
 The business kept growing. A second shop opened in nearby Visp two years later, run day-to-day by their first real employee, with Mette overseeing both from what had become, by then, a genuine back office. Two years after that, they expanded again — this time south, through the Simplon, to a shop in the Italian-speaking valley on the other side, far enough away that "popping in to check the till" stopped being realistic and a real, computerised system stopped being optional. Somewhere around this point, on their accountant's advice, they incorporated: what had been a sole trader's shop became a real, limited company, with its own real Chart of Accounts, its own real fiscal year, and its own real obligations to file accounts properly — in a canton where "properly" genuinely means being ready to produce them in more than one official language — rather than reconstruct them from memory and a folder each year.
 
-That company is Wine Retail Company as it exists in this application today — three real retail outlets and a warehouse, spanning a German-speaking outlet, a French-speaking one, and an Italian-speaking one within a single canton's own real, genuine linguistic reach; real vendors (some local, some importing from France, Germany, and Italy); real customers; and real books that close cleanly at year end, regardless of which of Valais's own languages a given day's paperwork arrived in.
+That company is Wine Retail Business as it exists in this application today — three real retail outlets and a warehouse, spanning a German-speaking outlet, a French-speaking one, and an Italian-speaking one within a single canton's own real, genuine linguistic reach; real vendors (some local, some importing from France, Germany, and Italy); real customers; and real books that close cleanly at year end, regardless of which of Valais's own languages a given day's paperwork arrived in.
 
 Lars and Mette still have expansion plans. A wine bar — pouring glasses, not just selling bottles, with a cocktail list besides — is the nearest one, tucked away for "next year, maybe." Further out, and admittedly more of a dream than a plan right now, is the idea of growing their own grapes on the steep, terraced slopes above the valley and eventually producing a wine of their own, rather than only importing and reselling other people's; Lars has mentioned, more than once and usually after a glass of something good, that a small microbrewery wouldn't be a bad idea either. None of that exists yet. But everything this application is built to do — real entities that can be reparented and regrouped as a business's real shape changes, real product categories that can grow a manufacturing arm without redesigning the database, real divisions that can separate a wine bar's or a winery's own profit-and-loss from the retail business it grew out of, and a real, genuine ability to let three, real, different languages coexist honestly rather than forcing one, single, "official" version of every word — is there specifically so that when Lars and Mette are ready, the software won't be the thing standing in their way.
 
@@ -63,7 +63,7 @@ There's a real, honest wrinkle in the story above worth pausing on, because it s
 
 When Mette first sat down with a supplier's invoice and this software's own vocabulary, she found herself asking a question that seemed, at first, almost too simple to matter: is the business she buys wine from a "vendor," or a "supplier"? Her accountant used one word. The software's own English labels, at the time, used the other. Neither was wrong — they meant the exact, same real thing — but the mismatch nagged at her every time she opened the Purchasing screen.
 
-It would be easy to treat that as a translation problem — the same kind of problem as English "Customers" needing a German word and a French word. But it isn't, quite. "Vendor" and "Supplier" are both already English. The real difference between them isn't language at all; it's *which real business, in which real context, is looking at the word*. A wine importer selling cases to Wine Retail Company might, in one document, be called a vendor; in another, a supplier; in a third — if Wine Retail Company were ever the one selling wholesale to a restaurant, rather than buying — the exact, same kind of relationship, looked at from the other side, might reasonably be called a customer's own account instead. Manufacturing, wholesale, and retail businesses, it turns out, don't all draw these lines in the exact, same place, and a business-to-business relationship carries a genuinely different shape of meaning than a business-to-consumer one, even when the underlying software concept — "an entity we transact with" — is the same.
+It would be easy to treat that as a translation problem — the same kind of problem as English "Customers" needing a German word and a French word. But it isn't, quite. "Vendor" and "Supplier" are both already English. The real difference between them isn't language at all; it's *which real business, in which real context, is looking at the word*. A wine importer selling cases to Wine Retail Business might, in one document, be called a vendor; in another, a supplier; in a third — if Wine Retail Business were ever the one selling wholesale to a restaurant, rather than buying — the exact, same kind of relationship, looked at from the other side, might reasonably be called a customer's own account instead. Manufacturing, wholesale, and retail businesses, it turns out, don't all draw these lines in the exact, same place, and a business-to-business relationship carries a genuinely different shape of meaning than a business-to-consumer one, even when the underlying software concept — "an entity we transact with" — is the same.
 
 So this software's own real answer, worked out carefully rather than assumed, is this: a *word* — "Vendor," "Supplier," "Kunden" — is never, itself, the real, underlying thing. It's one, real, named path to a *concept* — a genuine, structural piece of the business (Accounts Payable, say) that the word is only ever pointing at. The same, real concept can have more than one, real, valid English name, the same way it can have a German name and a French name; which one a given business, or even a given user, sees is a genuine, real choice, not a fixed, single truth baked into the software.
 
@@ -102,7 +102,7 @@ Checking German, French, Danish, and Italian directly, one at a time, against th
 
 Better Brighter Multi-Ledger is a double-entry accounting and retail operations application, built around one, simple, central idea: everything in it --- every account, every business, every division, every location, every product, every employee, even every menu label --- is genuinely the same kind of thing underneath: an *entity*, sitting in one, single, shared tree. There is no separate "customers table" or "products table" living apart from everything else --- a customer, a product, and a bank account are all real rows in the same, one, underlying structure, each simply positioned differently within it.
 
-This manual walks through the application as it actually exists today, using the bundled example business --- Wine Retail Company, a small, multi-location wine and spirits retailer --- to show every real screen with real, live data on it.
+This manual walks through the application as it actually exists today, using the bundled example business --- Wine Retail Business, a small, multi-location wine and spirits retailer --- to show every real screen with real, live data on it.
 
 ## Logging in
 
@@ -178,7 +178,7 @@ The **Items Catalog**, under Accounts Payable, is where real inventory items are
 
 ![The Items Catalog, with "+ New category..." selected, ready to create a real, new category inline.](manual-images/m_parts_cropped.png)
 
-Every business now gets its own, real, separate items catalog --- selecting Wine Retail Company shows only Wine Retail Company's own real items, never another business's. This mirrors the same fix already made for warehouse/retail locations: each business's own catalog lives under its own real "{Business Name} Items" home, rather than one, single, shared list every business used to see.
+Every business now gets its own, real, separate items catalog --- selecting Wine Retail Business shows only Wine Retail Business's own real items, never another business's. This mirrors the same fix already made for warehouse/retail locations: each business's own catalog lives under its own real "{Business Name} Items" home, rather than one, single, shared list every business used to see.
 
 ### A deeper hierarchy for real reporting: category, product, and item
 

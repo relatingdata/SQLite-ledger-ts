@@ -151,5 +151,5 @@ INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Warenaufwand'), 'Warenaufwand', 'Expense', 'German CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Warenertrag'), 'Warenertrag', 'Income', 'German CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Water'), 'Water', 'Utilities', 'English CoA', 1);
-INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Wine Retail Company'), 'Wine Retail Company', 'Businesses', 'English CoA', 1);
+INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Wine Retail Business'), 'Wine Retail Business', 'Businesses', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Zinsergebnis'), 'Zinsergebnis', 'Expense', 'German CoA', 1);

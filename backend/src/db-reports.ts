@@ -714,7 +714,7 @@ export interface ProfitAndLossByDivision {
  * A real, confirmed performance fix: an earlier version called the
  * plain getProfitAndLoss once per real division, each call
  * independently re-querying the full, real dataset from scratch — a
- * real, measured ~20 seconds against the full Wine Retail Company
+ * real, measured ~20 seconds against the full Wine Retail Business
  * simulation, confirmed live, not estimated. Fixed here by querying
  * getLedgerBalancesByDivisionStructural exactly once (the same,
  * already efficient, single-pass query the year-end close's own

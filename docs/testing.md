@@ -114,7 +114,7 @@ non-English sample data at once, not as part of the core
 vocabulary-vs-sample-data architecture (see Part II) — each one's own
 account and product names are genuinely written in its own real
 language, since that's what that business would actually use, not a
-translated version of Wine Retail Company's own English data:
+translated version of Wine Retail Business's own English data:
 
 Table: The 4 additional demo businesses used for language/i18n testing, and their own modeled language/country
 
@@ -135,7 +135,7 @@ in its own, clearly-named file.
 
 ### Why exact numbers, not ranges
 
-The Wine Retail Company simulation
+The Wine Retail Business simulation
 (`backend/scripts/simulate-wine-retail-month.ts`) uses a seeded
 pseudo-random number generator — never `Math.random()`. Given the
 same code, it produces **exactly** the same purchases, sales,
@@ -149,7 +149,7 @@ test checks an exact expected value.
 1. `make reset-db` — a clean, empty database, reinitialized from
    `schema.sql`.
 2. The real simulation (`simulate-wine-retail-month.ts`) — a full
-   month of real trading for Wine Retail Company, posted through the
+   month of real trading for Wine Retail Business, posted through the
    exact same functions the real frontend calls (never raw SQL). See
    `docs/simulation-prompt.md` for the full, detailed specification
    of what it does.
@@ -159,7 +159,7 @@ test checks an exact expected value.
 
 ### The exact expected results
 
-These are the real, current, correct numbers for Wine Retail Company
+These are the real, current, correct numbers for Wine Retail Business
 after the simulation runs — not estimates, the literal values the
 verification script checks:
 
@@ -208,12 +208,12 @@ for browsing the hierarchy, not meant for financial statements") —
 `Cash and Bank` is one real, shared entity across every business in
 this app, not one per business, and My Business's own real $500
 bootstrap sale into the same account was silently included in what
-this check called "Wine Retail Company's" cash movement. Found by
+this check called "Wine Retail Business's" cash movement. Found by
 directly tracing every `journal_line` ever posted to that entity,
 grouped by business, not assumed correct because the number happened
 to match. Fixed to use `getTrialBalance` (correctly ledger-scoped,
 exactly like every real financial report already does) instead — the
-genuinely correct, Wine-Retail-Company-only figure is $188,614.90, not
+genuinely correct, Wine-Retail-Business-only figure is $188,614.90, not
 the previously-recorded $189,114.90.
 
 ### If a check fails

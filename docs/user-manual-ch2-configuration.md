@@ -40,7 +40,7 @@ The **Items Catalog**, under Accounts Payable, is where real inventory items are
 
 ![The Items Catalog, with "+ New category..." selected, ready to create a real, new category inline.](manual-images/m_parts_cropped.png)
 
-Every business now gets its own, real, separate items catalog --- selecting Wine Retail Company shows only Wine Retail Company's own real items, never another business's. This mirrors the same fix already made for warehouse/retail locations: each business's own catalog lives under its own real "{Business Name} Items" home, rather than one, single, shared list every business used to see.
+Every business now gets its own, real, separate items catalog --- selecting Wine Retail Business shows only Wine Retail Business's own real items, never another business's. This mirrors the same fix already made for warehouse/retail locations: each business's own catalog lives under its own real "{Business Name} Items" home, rather than one, single, shared list every business used to see.
 
 ### A deeper hierarchy for real reporting: category, product, and item
 

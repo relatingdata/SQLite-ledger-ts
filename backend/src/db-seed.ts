@@ -8,7 +8,7 @@ import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockL
 // individual call sites throughout this file.
 const SEED_USER_ID: UserId = asUserId(1);
 
-// Controls whether Wine Retail Company (and its full, real demo
+// Controls whether Wine Retail Business (and its full, real demo
 // dataset — products, stock, employees, UPCs) is seeded at all. Per
 // direct instruction: the person wants to build this business from
 // scratch, from an empty starting point, via Playwright — not have it
@@ -427,16 +427,16 @@ function migrateForUtilitiesRestructure() {
 migrateForUtilitiesRestructure();
 
 function migrateForWineRetailCompany() {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Wine Retail Company'`).get()) {
-    create(fetch('Businesses', typeRootName), typeBusinessName, 'Wine Retail Company', SEED_USER_ID);
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Wine Retail Business'`).get()) {
+    create(fetch('Businesses', typeRootName), typeBusinessName, 'Wine Retail Business', SEED_USER_ID);
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Actual' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Wine Retail Company')`).get()) {
-    create(fetch('Wine Retail Company', typeBusinessName), typeLedgerName, 'Actual', SEED_USER_ID);
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Actual' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Wine Retail Business')`).get()) {
+    create(fetch('Wine Retail Business', typeBusinessName), typeLedgerName, 'Actual', SEED_USER_ID);
   }
 }
 if (SEED_DEMO_BUSINESSES) migrateForWineRetailCompany();
 
-// Real employee roster for Wine Retail Company — per direct request:
+// Real employee roster for Wine Retail Business — per direct request:
 // "we need employees in all retail locations at least two plus office
 // staff and warehouse staff on hourly wages and 38.5 hours per week
 // with 1.5% Medicare levy and 12% superannuation employer
@@ -445,7 +445,7 @@ if (SEED_DEMO_BUSINESSES) migrateForWineRetailCompany();
 // in), and phone numbers, since none of this is sensitive, real
 // personal data — it's entirely fictional, generated for a demo.
 function seedWineRetailEmployees() {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Wine Retail Company'`).get()) return; // not this business's database
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Wine Retail Business'`).get()) return; // not this business's database
 
   interface StaffDef {
     name: string;
@@ -488,11 +488,11 @@ function seedWineRetailEmployees() {
     { name: 'Marcus Ihejirika', role: 'Warehouse Hand', location: 'Warehouse B', city: 'Rivertown', address: '6 Wharf Road', phone: '0458 172 934', wageMinorPerHour: 2950, employedAt: 'Warehouse B' },
     { name: 'Freya Sandvik', role: 'Warehouse Hand', location: 'Warehouse B', city: 'Rivertown', address: '23 Container Court', phone: '0424 693 517', wageMinorPerHour: 2950, employedAt: 'Warehouse B' },
     // Office staff — a real, company-wide role, not tied to one location
-    { name: 'Beatrix Solano', role: 'Accounts Clerk', location: 'Head Office', city: 'Springfield', address: '41 Fernhill Avenue', phone: '0439 815 062', wageMinorPerHour: 3200, employedAt: 'Wine Retail Company' },
-    { name: 'Harun Demir', role: 'Administration Assistant', location: 'Head Office', city: 'Springfield', address: '5 Redgum Place', phone: '0461 274 908', wageMinorPerHour: 3000, employedAt: 'Wine Retail Company' },
+    { name: 'Beatrix Solano', role: 'Accounts Clerk', location: 'Head Office', city: 'Springfield', address: '41 Fernhill Avenue', phone: '0439 815 062', wageMinorPerHour: 3200, employedAt: 'Wine Retail Business' },
+    { name: 'Harun Demir', role: 'Administration Assistant', location: 'Head Office', city: 'Springfield', address: '5 Redgum Place', phone: '0461 274 908', wageMinorPerHour: 3000, employedAt: 'Wine Retail Business' },
     // Management, on a real, fixed salary rather than an hourly wage — real, company-wide roles
-    { name: 'Isla Fairweather', role: 'Retail Operations Manager', location: 'Head Office', city: 'Springfield', address: '2 Hillcrest Avenue', phone: '0410 526 837', salaryMinorPerYear: 8800000, employedAt: 'Wine Retail Company' },
-    { name: 'Victor Casagrande', role: 'Warehouse & Logistics Manager', location: 'Warehouse B', city: 'Rivertown', address: '17 Riverbank Way', phone: '0473 148 259', salaryMinorPerYear: 9200000, employedAt: 'Wine Retail Company' },
+    { name: 'Isla Fairweather', role: 'Retail Operations Manager', location: 'Head Office', city: 'Springfield', address: '2 Hillcrest Avenue', phone: '0410 526 837', salaryMinorPerYear: 8800000, employedAt: 'Wine Retail Business' },
+    { name: 'Victor Casagrande', role: 'Warehouse & Logistics Manager', location: 'Warehouse B', city: 'Rivertown', address: '17 Riverbank Way', phone: '0473 148 259', salaryMinorPerYear: 9200000, employedAt: 'Wine Retail Business' },
   ];
 
   for (const s of staff) {
@@ -527,13 +527,13 @@ function seedWineRetailEmployees() {
   // real, queryable link to which business they actually belong to.
   for (const divisionName of ['Springfield', 'Rivertown']) {
     if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(divisionName)) {
-      setRelationship(divisionName, 'Belongs To Business', 'Wine Retail Company', SEED_USER_ID);
+      setRelationship(divisionName, 'Belongs To Business', 'Wine Retail Business', SEED_USER_ID);
     }
   }
 
   // A real location "belongs to" its own real division — same
-  // mechanism again. Every real Wine Retail Company location keeps
-  // its existing parent_id (under "Wine Retail Company Locations",
+  // mechanism again. Every real Wine Retail Business location keeps
+  // its existing parent_id (under "Wine Retail Business Locations",
   // unchanged), but now also carries a real, queryable link to its
   // own real city division, closing the real chain: Business ->
   // (belongs to) Division -> (belongs to) Location -> (place of
@@ -1477,7 +1477,7 @@ function migrateForContactTypesAndPerBusinessContacts() {
     }
   }
 
-  const defaultBusiness = 'Wine Retail Company';
+  const defaultBusiness = 'Wine Retail Business';
   const destName = `${defaultBusiness} Contacts`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(destName)) return; // demo business not seeded (yet) in this environment
 

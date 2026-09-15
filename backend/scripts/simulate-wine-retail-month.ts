@@ -1,5 +1,5 @@
 /**
- * A full month of real trading for Wine Retail Company, end to end,
+ * A full month of real trading for Wine Retail Business, end to end,
  * through the exact same functions the real frontend calls — not raw
  * SQL. Committed (per this project's "never throw away" discipline),
  * not a one-off throwaway.

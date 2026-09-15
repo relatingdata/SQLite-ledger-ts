@@ -53,10 +53,10 @@ Every real business is its own, top-level entity under `Businesses`, and where a
 
 - **Schweizer KMU AG Actual**
 
-### Wine Retail Company
+### Wine Retail Business
 
-- **Wine Retail Company Actual**
-- **Wine Retail Company Locations** (7 real children: Eastside Cellar Door, Harbourside Bottle Shop, Head Office, Market Square Liquor, Riverside Cellars, Uptown Wine & Spirits, Warehouse B)
+- **Wine Retail Business Actual**
+- **Wine Retail Business Locations** (7 real children: Eastside Cellar Door, Harbourside Bottle Shop, Head Office, Market Square Liquor, Riverside Cellars, Uptown Wine & Spirits, Warehouse B)
 
 ## Real, deeper chains — a sample of each
 
@@ -109,11 +109,11 @@ Table: A sample of 5 real employees, out of 18 total, with their configured pay 
 
 ### Locations — the real, business-specific sub-tree, not the generic root
 
-A real, important structural note: `Locations` (the generic, top-level class above) has zero real, direct children in a live database. Every real, actual location lives reparented under its own business — e.g. `Wine Retail Company Locations` — confirmed directly, not assumed.
+A real, important structural note: `Locations` (the generic, top-level class above) has zero real, direct children in a live database. Every real, actual location lives reparented under its own business — e.g. `Wine Retail Business Locations` — confirmed directly, not assumed.
 
-**Wine Retail Company Locations** (7 real locations):
+**Wine Retail Business Locations** (7 real locations):
 
-Table: The 7 real locations under Wine Retail Company
+Table: The 7 real locations under Wine Retail Business
 
 | Location | Type | City |
 |---|---|---|

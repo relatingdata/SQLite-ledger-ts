@@ -15,7 +15,7 @@ test('the redesigned P&L renders correctly with the real category hierarchy', as
   await page.locator('input[type="date"]').nth(1).fill('2027-03-28');
   await page.waitForTimeout(800);
 
-  await expect(page.locator('.company')).toContainText('Wine Retail Company');
+  await expect(page.locator('.company')).toContainText('Wine Retail Business');
   await expect(page.locator('.report')).toContainText('Consolidated');
   await expect(page.locator('.report')).toContainText('Income from Retail Sales of Goods');
   await expect(page.locator('.report')).toContainText('Less Costs of Goods Sold');

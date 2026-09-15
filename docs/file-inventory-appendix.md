@@ -49,7 +49,7 @@ real, single source of truth for each.
 | Column | Meaning |
 |---|---|
 | `kind` | One of: `business`, `ledger`, `vendor`, `alternateVendor`, `trainingBusiness`, `warehouse`, `retailOutlet` |
-| `value` | The real name for that kind (e.g. `Wine Retail Company`) |
+| `value` | The real name for that kind (e.g. `Wine Retail Business`) |
 
 ### `categories.csv` — product taxonomy (18 rows)
 | Column | Meaning |
@@ -108,7 +108,7 @@ real, single source of truth for each.
 | File | Real purpose |
 |---|---|
 | `db.ts` | The real, central database module — schema init, the entity-tree primitives (`createEntity`, `setTranslation`, `setEntityLink`, etc.), and the great majority of real business logic |
-| `db-seed.ts` | Runs once, automatically, at every startup — seeds translations and (if enabled) Wine Retail Company's full demo dataset, all from the shared CSV fixtures |
+| `db-seed.ts` | Runs once, automatically, at every startup — seeds translations and (if enabled) Wine Retail Business's full demo dataset, all from the shared CSV fixtures |
 | `db-stock.ts` | Real stock/inventory movement — locations, receiving, dispatching, stock takes, reorder/risk reports |
 | `db-reports.ts` / `db-matrix-reports.ts` | Real P&L, balance sheet, and multi-dimensional (division × location) reporting |
 | `auth.ts` / `auth-middleware.ts` | Real login, sessions, roles, password handling |

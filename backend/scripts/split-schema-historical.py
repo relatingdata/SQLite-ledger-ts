@@ -64,7 +64,7 @@ print(f"Real BMW/Peugeot demo block: lines {bmw_start+1}-{bmw_end+1} ({len(demo_
 # split was trusted: a real, separate "link every real, existing
 # business to its own real Chart of Accounts family" block —
 # confirmed directly, not limited to BMW/Peugeot at all, it also
-# touches Wine Retail Company — genuinely depends on entities from
+# touches Wine Retail Business — genuinely depends on entities from
 # BOTH the core file and the demo block already existing, so it must
 # load last, after everything else.
 coa_links_start, coa_links_end = None, None

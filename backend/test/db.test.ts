@@ -2317,26 +2317,38 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
         | undefined)?.balance_minor ?? 0
     );
   }
+  function balanceOfUnder(childName: string, parentName: string): number {
+    return (
+      (db
+        .prepare(
+          `SELECT balance_minor FROM account WHERE entity_id = (
+             SELECT c.id FROM current_entities c JOIN current_entities p ON p.id = c.parent_id
+             WHERE c.name = ? AND p.name = ?
+           )`
+        )
+        .get(childName, parentName) as { balance_minor: number } | undefined)?.balance_minor ?? 0
+    );
+  }
 
   // Placing a real PO builds up a real, genuine "on order" balance —
   // an independently meaningful fact, not derived from anything else.
   stagePurchaseOrder({ reference: 'DEQ-PO-1', business: 'My Business', ledger: 'DblEntryQty Ledger', vendor: 'DblEntryQty Vendor', item: 'DblEntryQty Wine', quantity: 60, price_minor: 1500, transdate: '2027-08-01' });
   postPurchaseOrder('DEQ-PO-1', 'My Business', 'DblEntryQty Ledger', 1);
-  assert.equal(balanceOf('DblEntryQty Wine — On Order'), 60, 'placing a real PO must build up a real, genuine on-order balance');
+  assert.equal(balanceOfUnder('On Order', 'DblEntryQty Wine'), 60, 'placing a real PO must build up a real, genuine on-order balance');
 
   // Receiving stock is now a real, balanced, two-line posting.
   receiveStockAtLocation('My Business', 'DblEntryQty Ledger', 'DEQ-RECV-1', 'DblEntryQty Wine', 'DblEntryQty Warehouse', 60, 1, '2027-08-05');
   const receiptJournalId = (db.prepare(`SELECT id FROM journal WHERE reference = 'DEQ-RECV-1'`).get() as { id: number }).id;
   const receiptSum = (db.prepare(`SELECT SUM(amount_minor) AS total FROM journal_line WHERE journal_id = ?`).get(receiptJournalId) as { total: number }).total;
   assert.equal(receiptSum, 0, 'a real receipt must be a genuinely balanced, two-line entry — debit on-hand, credit on-order');
-  assert.equal(balanceOf('DblEntryQty Wine — On Order'), 0, 'a real receipt that exactly fulfills the real, matching PO must bring on-order back to exactly zero');
+  assert.equal(balanceOfUnder('On Order', 'DblEntryQty Wine'), 0, 'a real receipt that exactly fulfills the real, matching PO must bring on-order back to exactly zero');
   assert.equal(getItemLocation('DblEntryQty Wine', 'DblEntryQty Warehouse').quantity_on_hand, 60);
 
   // A real receipt with no matching PO ever placed — a real, honest
   // possibility (an emergency, unplanned purchase) — must not be
   // refused; on-order simply, correctly goes negative.
   receiveStockAtLocation('My Business', 'DblEntryQty Ledger', 'DEQ-RECV-2', 'DblEntryQty Wine', 'DblEntryQty Warehouse', 10, 1, '2027-08-06');
-  assert.equal(balanceOf('DblEntryQty Wine — On Order'), -10, 'a real, unplanned receipt with no matching PO must correctly drive on-order negative, not be refused');
+  assert.equal(balanceOfUnder('On Order', 'DblEntryQty Wine'), -10, 'a real, unplanned receipt with no matching PO must correctly drive on-order negative, not be refused');
 
   // Dispatching stock (a real sale) is also now a real, balanced, two-line posting.
   transferStock('My Business', 'DblEntryQty Ledger', 'DblEntryQty Wine', 'DblEntryQty Warehouse', 'DblEntryQty Outlet', 20, 'DEQ-XFER-1', 1, '2027-08-07');
@@ -2344,7 +2356,7 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
   const dispatchJournalId = (db.prepare(`SELECT id FROM journal WHERE reference = 'DEQ-DISP-1'`).get() as { id: number }).id;
   const dispatchSum = (db.prepare(`SELECT SUM(amount_minor) AS total FROM journal_line WHERE journal_id = ?`).get(dispatchJournalId) as { total: number }).total;
   assert.equal(dispatchSum, 0, 'a real dispatch must be a genuinely balanced, two-line entry — debit units sold, credit on-hand');
-  assert.equal(balanceOf('DblEntryQty Wine — Units Sold'), 15, "a real dispatch must build up a real, genuine units-sold balance, mirroring COGS on the quantity side");
+  assert.equal(balanceOfUnder('Units Sold', 'DblEntryQty Wine'), 15, "a real dispatch must build up a real, genuine units-sold balance, mirroring COGS on the quantity side");
   assert.equal(getItemLocation('DblEntryQty Wine', 'DblEntryQty Outlet').quantity_on_hand, 5);
 });
 
@@ -4983,8 +4995,8 @@ test('getHierarchyChain: a real, uniform, non-generic walk up parent_id - genuin
 
   const itemChain = getHierarchyChain(asItemName('ChainTest Wine'));
   const itemChainNames = itemChain.map((n) => n.name);
-  assert.deepEqual(itemChainNames, ['ChainTest Wine', 'ChainTest SubRegion', 'Red Wine', 'Wine Retail Company Items', 'Wine Retail Company'], 'an Item genuinely, correctly reaches its real Business - Items is properly scoped per business');
-  assert.equal(itemChain[itemChain.length - 1].name, 'Wine Retail Company', 'the real, terminal element of a real Item chain is genuinely the real Business');
+  assert.deepEqual(itemChainNames, ['ChainTest Wine', 'ChainTest SubRegion', 'Red Wine', 'Wine Retail Business Items', 'Wine Retail Business'], 'an Item genuinely, correctly reaches its real Business - Items is properly scoped per business');
+  assert.equal(itemChain[itemChain.length - 1].name, 'Wine Retail Business', 'the real, terminal element of a real Item chain is genuinely the real Business');
 
   // A real, direct, honest confirmation of the real, separate,
   // already-documented data bug (multi-dimensional-reporting.md §2):

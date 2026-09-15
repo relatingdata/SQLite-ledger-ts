@@ -37,7 +37,7 @@ echo "EXIT CODE: $?"
 
 **A direct API call via `curl` or `fetch` is never a substitute for this step**, even to "verify the same thing faster." The whole point of Playwright here is confirming the change works through the actual rendered UI a person clicks through — a backend function returning the right JSON is necessary but not sufficient.
 
-If `tutorial-walkthrough.spec.ts` (which builds Wine Retail Company from scratch) isn't part of the default suite run, run it explicitly:
+If `tutorial-walkthrough.spec.ts` (which builds Wine Retail Business from scratch) isn't part of the default suite run, run it explicitly:
 
 ```bash
 cd e2e && timeout 90 npx playwright test tutorial-walkthrough --reporter=list --timeout=30000 --workers=1
@@ -48,7 +48,7 @@ If the change is business-creation-adjacent (new-business form, business types, 
 2. Goes to `/setup/new-business`, creates a second business (any distinguishing name, e.g. "Training Wine Business")
 3. Confirms via a real screenshot and/or the live `/api/businesses` endpoint that it was genuinely created
 
-**A real exit code 0 is required.** Read the actual reporter output — don't infer success from "no errors in my edit." If a test fails, the failure could be a real regression from this change; investigate before claiming the checklist is complete. Re-running the exact same test twice in a row without resetting the database is expected to hit "already exists" errors (Wine Retail Company/Training Wine Business persist between runs) — that's not itself a regression, but confirm this by checking the actual error, not by assuming.
+**A real exit code 0 is required.** Read the actual reporter output — don't infer success from "no errors in my edit." If a test fails, the failure could be a real regression from this change; investigate before claiming the checklist is complete. Re-running the exact same test twice in a row without resetting the database is expected to hit "already exists" errors (Wine Retail Business/Training Wine Business persist between runs) — that's not itself a regression, but confirm this by checking the actual error, not by assuming.
 
 ### 3. Update the documentation that genuinely needs it — check both files explicitly
 

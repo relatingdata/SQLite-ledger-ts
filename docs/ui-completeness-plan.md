@@ -4,7 +4,7 @@ A real, direct audit of every real screen this application has, confirming which
 
 ## Goal, stated precisely
 
-Every real backend mechanism this app has should be reachable through a real screen — not just callable directly from a script — so that a full, real Playwright script could create Wine Retail Company from scratch: the business itself, its ledgers, its locations, its divisions, its employees (paid, with real Medicare/super), its product catalog, its vendors and customers, and then run a real month of purchases, transfers, sales, stocktakes, and a year-end close, entirely by clicking and typing through the actual app.
+Every real backend mechanism this app has should be reachable through a real screen — not just callable directly from a script — so that a full, real Playwright script could create Wine Retail Business from scratch: the business itself, its ledgers, its locations, its divisions, its employees (paid, with real Medicare/super), its product catalog, its vendors and customers, and then run a real month of purchases, transfers, sales, stocktakes, and a year-end close, entirely by clicking and typing through the actual app.
 
 This document is a real, honest audit, not a wishlist — every line below reflects what was actually checked against the live codebase on 2026-08-16, not assumed. Status conventions: **✅ ready** (backend exists, tested, just needs a screen), **🔧 partial** (some backend exists, real gaps remain), **❌ unbuilt** (no backend at all — this is a two-part job, not a UI-only one).
 
@@ -65,7 +65,7 @@ Zero backend, and none of these are part of a wine retail business's real, ordin
 
 A real, honest point made earlier in this project and still true: literally replaying an entire month transaction-by-transaction through a real browser (thousands of real page loads) is impractical — it would take hours and be fragile. The right, achievable version:
 
-1. **A real, single "full lifecycle" Playwright spec** — `e2e/tests/full-business-lifecycle.spec.ts` — that creates a *brand-new* business from an empty database (not reusing the bootstrapped Wine Retail Company), through the real UI, in this real order:
+1. **A real, single "full lifecycle" Playwright spec** — `e2e/tests/full-business-lifecycle.spec.ts` — that creates a *brand-new* business from an empty database (not reusing the bootstrapped Wine Retail Business), through the real UI, in this real order:
    - `/setup/new-business` → creates the business and its ledgers
    - `/locations` → creates 2-3 real locations (a warehouse, 1-2 retail outlets)
    - `/setup/divisions` → creates the real divisions

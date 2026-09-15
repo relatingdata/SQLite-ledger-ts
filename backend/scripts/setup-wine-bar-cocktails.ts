@@ -3,7 +3,7 @@
 // new, real mixer components this required.
 import { createEntity, create, fetch, typeRootName, setItem, setItemStorageOrigin, stageBomComponent, postBomComponents, asUserId } from '../src/db.js';
 
-const BUSINESS = 'Wine Retail Company';
+const BUSINESS = 'Wine Retail Business';
 const USER = asUserId(1);
 
 function ensureEntity(name: string, parent: string): void {

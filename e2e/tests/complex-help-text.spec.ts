@@ -18,7 +18,7 @@ test('the 9 complex help texts (embedded <code>, dynamic session names, and true
 
   // {NAME} placeholder correctly embeds the live business name, natural German word order
   await page.goto('/reports/sales');
-  await expect(page.locator('.intro')).toContainText('Wine Retail Company', { timeout: 10000 });
+  await expect(page.locator('.intro')).toContainText('Wine Retail Business', { timeout: 10000 });
   await expect(page.locator('.intro')).toContainText('Jeder reale', { timeout: 10000 });
 
   await page.goto('/reports/balance-sheet');

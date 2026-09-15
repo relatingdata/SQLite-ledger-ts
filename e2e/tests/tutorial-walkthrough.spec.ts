@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(__dirname, '..', '..', 'docs', 'manual-images-tutorial');
-const BIZ = 'Wine Retail Company';
+const BIZ = 'Wine Retail Business';
 
 test('Tutorial: build a real wine retail business from scratch through the UI', async ({ page }) => {
   test.setTimeout(420000);
@@ -30,7 +30,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   // Choose any real, existing business first — the app's own real
   // session requirement, before creating a new one. Always 'My
   // Business' — the one, real, always-present dummy company for
-  // login purposes — never Wine Retail Company, which may not exist
+  // login purposes — never Wine Retail Business, which may not exist
   // at all (SEED_DEMO_BUSINESSES=false).
   await page.locator('select').first().selectOption({ label: 'My Business' });
   await page.waitForTimeout(300);

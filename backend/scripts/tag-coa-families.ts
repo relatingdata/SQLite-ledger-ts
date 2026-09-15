@@ -7,7 +7,7 @@ import { createEntity, create, fetch, typeRootName, typeVocabularyWordName, getC
 // itself). Ledger names are no longer business-prefixed, so both are
 // needed to correctly scope the lookup.
 const familyRepresentatives: Record<string, { business: string; ledger: string }> = {
-  'English CoA': { business: 'Wine Retail Company', ledger: 'Actual' },
+  'English CoA': { business: 'Wine Retail Business', ledger: 'Actual' },
   'German CoA': { business: 'BMW M GmbH', ledger: 'Actual' },
   'French CoA': { business: 'Peugeot Citroën Sochaux SNC', ledger: 'Actual' },
   'Italian CoA': { business: 'Ditta Italiana Srl', ledger: 'Actual' },
@@ -19,7 +19,7 @@ const familyRepresentatives: Record<string, { business: string; ledger: string }
 // without re-deriving it from posting history every time.
 const businessFamilies: Record<string, string> = {
   'My Business': 'English CoA',
-  'Wine Retail Company': 'English CoA',
+  'Wine Retail Business': 'English CoA',
   'BMW M GmbH': 'German CoA',
   'Peugeot Citroën Sochaux SNC': 'French CoA',
   'Ditta Italiana Srl': 'Italian CoA',

@@ -124,9 +124,9 @@ if (!alreadyInitialized) {
   // Controls whether the foreign demo businesses (BMW M GmbH, Peugeot
   // Citroën Sochaux SNC, Ditta Italiana Srl, Schweizer KMU AG) are
   // seeded at all — the exact, same, real flag db-seed.ts uses for
-  // Wine Retail Company. Per direct instruction: only 'My Business'
+  // Wine Retail Business. Per direct instruction: only 'My Business'
   // (the one dummy company for login) should exist, so a person can
-  // build Wine Retail Company from scratch via Playwright rather than
+  // build Wine Retail Business from scratch via Playwright rather than
   // have it pre-populated.
   const seedDemoBusinesses = process.env.SEED_DEMO_BUSINESSES !== 'false';
   const readSchema = (f: string) => fs.readFileSync(path.join(schemaDir, f), 'utf8');
@@ -2286,7 +2286,7 @@ export function getAncestorChain(entityName: string, rootName: string): string[]
   const chain: string[] = [];
   // A real, direct fix, confirmed empirically: when rootName is
   // exactly "Items", a real, business-scoped "{business} Items" root
-  // (e.g. "Wine Retail Company Items") must terminate the walk just
+  // (e.g. "Wine Retail Business Items") must terminate the walk just
   // as much as the plain, global "Items" name does — otherwise the
   // chain walks straight past it and pollutes whatever it feeds into
   // (a mirrored Sales Revenue/Cost of Goods Sold category, for
@@ -2574,16 +2574,44 @@ export function getDivisionForAccount(accountName: AccountName): string | undefi
  * on-hand, a real, balanced pair. Parented directly under the
  * product itself, the same real pattern Sales-/COGS- accounts
  * already use to stay obviously, nameably tied to their own product. */
-export function ensureProductQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; unitsSoldAccount: string; countAdjustmentAccount: string; writeOffAccount: string } {
-  const onOrderAccount = `${itemName} — On Order`;
-  const unitsSoldAccount = `${itemName} — Units Sold`;
-  const countAdjustmentAccount = `${itemName} — Count Adjustment`;
-  const writeOffAccount = `${itemName} — Write-off`;
-  if (!Entity.get(onOrderAccount)) Entity.create(onOrderAccount, itemName, userId);
-  if (!Entity.get(unitsSoldAccount)) Entity.create(unitsSoldAccount, itemName, userId);
-  if (!Entity.get(countAdjustmentAccount)) Entity.create(countAdjustmentAccount, itemName, userId);
-  if (!Entity.get(writeOffAccount)) Entity.create(writeOffAccount, itemName, userId);
-  return { onOrderAccount, unitsSoldAccount, countAdjustmentAccount, writeOffAccount };
+/** Per direct correction: an entity's own stored name should never
+ * bake in its parent's name too - the parent relationship (parent_id)
+ * already supplies that, structurally. This reconstructs the
+ * familiar, human-readable "Parent — Child" display form at
+ * lookup/display time instead, from the real, live entity tree -
+ * never stored as the entity's own, literal name. Real, direct
+ * account resolution stays entirely safe doing this, since
+ * post_journal_entry_insert's own trigger already prefers a real,
+ * explicit accountId over a name lookup everywhere it posts. */
+export function getQualifiedDisplayName(entityId: number): string {
+  const entity = getEntity(entityId);
+  if (!entity || entity.parent_id == null) return entity?.name ?? '';
+  const parent = getEntity(entity.parent_id);
+  if (!parent) return entity.name;
+  return `${parent.name} — ${entity.name}`;
+}
+
+export function ensureProductQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number } {
+  const itemId = resolveIdOrThrow(itemName);
+  function ensureChild(childName: string): { name: string; id: number } {
+    let entity = Entity.getUnder(childName, itemId);
+    if (!entity) entity = Entity.create(childName, itemId, userId);
+    return { name: entity.name, id: entity.id };
+  }
+  const onOrder = ensureChild('On Order');
+  const unitsSold = ensureChild('Units Sold');
+  const countAdjustment = ensureChild('Count Adjustment');
+  const writeOff = ensureChild('Write-off');
+  return {
+    onOrderAccount: onOrder.name,
+    onOrderAccountId: onOrder.id,
+    unitsSoldAccount: unitsSold.name,
+    unitsSoldAccountId: unitsSold.id,
+    countAdjustmentAccount: countAdjustment.name,
+    countAdjustmentAccountId: countAdjustment.id,
+    writeOffAccount: writeOff.name,
+    writeOffAccountId: writeOff.id,
+  };
 }
 
 /** A location's own real city, if a real division with that exact
@@ -5450,7 +5478,7 @@ export function getBusinesses(): { id: number; name: BusinessName }[] {
 /** Every real ledger under a business — deliberately excludes
  * "{business} Locations", the one other real, direct child every
  * business now has (see createBusiness). Confirmed as a real, live
- * bug, not assumed: before this fix, "Wine Retail Company Locations"
+ * bug, not assumed: before this fix, "Wine Retail Business Locations"
  * showed up as a selectable option in the Trial Balance/General
  * Journal/every other ledger dropdown throughout the app, right next
  * to "Actual" — a genuinely different real
@@ -5474,7 +5502,7 @@ export function getLedgers(businessName: BusinessName): { id: number; name: Ledg
  * real, named LEAF accounts underneath are genuinely country-specific
  * families that already exist as real, distinct entities: "Cash and
  * Bank"/"Sales Revenue" (English/generic, used by My Business and
- * Wine Retail Company), "Bankkontokorrent"/"Umsatzerlöse" (German,
+ * Wine Retail Business), "Bankkontokorrent"/"Umsatzerlöse" (German,
  * BMW M GmbH), "Autres créances"/"Achats de marchandises" (French,
  * Peugeot), "Cassa e valori"/"Ricavi cessione beni" (Italian, Ditta
  * Italiana Srl), "Kasse"/"Kassenbestand und Bankguthaben" (Swiss,
@@ -5515,7 +5543,7 @@ export function getLedgers(businessName: BusinessName): { id: number; name: Ledg
  * ledger," the same proven pattern My Business's own real "Proposed
  * Growth Budget 2026-27" ledger already uses, and the same one this
  * project already built a real, working Budget-vs-Actual comparison
- * against for Wine Retail Company (see
+ * against for Wine Retail Business (see
  * scripts/generate-wine-retail-budget.ts). A new business genuinely
  * needs both from day one: a real, ongoing Actual ledger to post real
  * transactions to, and a real Budget ledger for the financial year to
