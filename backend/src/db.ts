@@ -2177,6 +2177,19 @@ export interface PosSaleLineInput {
    * "Bottle", "Six-Pack", "Carton"), when the same product genuinely
    * sells more than one way. Omit for a product with only one. */
   tier?: string;
+  /** Optional — per the real Hierarchy/Product cartesian mechanism: a
+   * real, specific combination (e.g. ["Riverside Cellars", "Lager",
+   * "330ml", "can", "single", "Cold"]) this line represents. When
+   * provided (together with combinationShape), Sales/COGS/Inventory
+   * each get a real, new leaf pointing at this combination's own,
+   * shared identity — taking priority over tier/location resolution,
+   * since the combination already, structurally includes the
+   * location. */
+  combinationValues?: string[];
+  /** Required alongside combinationValues — the exact, same, real,
+   * ordered [dimensionName, groupingName] pairs the values line up
+   * against (see defineProductShape). */
+  combinationShape?: [string, string][];
 }
 
 export interface PosSaleInput {
@@ -2810,7 +2823,8 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
   const effectiveCurrency = getEffectiveSaleCurrency(input.terminalName);
   for (const line of input.lines) {
     if (line.unitPriceMinor === undefined) {
-      const resolved = getItemPriceForCurrency(line.itemName, effectiveCurrency);
+      const instanceId = line.combinationValues && line.combinationShape ? ensureProductInstance(input.business, line.combinationShape, line.combinationValues, userId).id : undefined;
+      const resolved = getItemPriceForCurrency(line.itemName, effectiveCurrency, instanceId);
       if (resolved === null) throw new ValidationError(`No real price found for "${line.itemName}" in ${effectiveCurrency ?? 'the home currency'}, and none was given directly.`);
       line.unitPriceMinor = resolved;
     }
@@ -2869,17 +2883,12 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
         ((line) => {
           if (!line.itemName) return 'Sales Revenue';
           const tier = input.lines.find((l) => l.itemName === line.itemName)?.tier;
-          // Per direct confirmation: location becomes structural the
-          // same, real way tier already did — journal_line.division_id
-          // is a real, separate tag mechanism being retired, not the
-          // real, structural source of truth. A real sale carrying
-          // both a real tier and a real, known location now genuinely
-          // ensures its own, new, distinct (tier, location) leaf —
-          // the real, actual posting target — not just its own,
-          // shared tier-level Sales/COGS accounts. Falls back to the
-          // real, existing tier-only (or plain) resolution when the
-          // real location isn't known, so an ordinary, non-POS sale
-          // with no real location on it is genuinely unaffected.
+          const combo = input.lines.find((l) => l.itemName === line.itemName);
+          if (combo?.combinationValues && combo?.combinationShape) {
+            const instanceTop = ensureProductInstance(input.business, combo.combinationShape, combo.combinationValues, userId);
+            const leaf = ensureCombinationAccountLeaf('Sales Revenue', instanceTop, userId);
+            return { name: leaf.name, id: leaf.id };
+          }
           if (tier && input.locationName) {
             const tierItem = ensureProductTierItem(asItemName(line.itemName), tier, userId);
             const leaf = ensureProductTierLocationLeaf(tierItem.tierItemName, input.locationName, userId, tierItem.tierItemId);
@@ -2935,7 +2944,15 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       if (lineCogsMinor <= 0) continue;
       let cogsAccount: string;
       let cogsAccountId: number;
-      if (line.tier && input.locationName) {
+      let inv: { inventoryAccount: string; inventoryAccountId: number } | undefined;
+      if (line.combinationValues && line.combinationShape) {
+        const instanceTop = ensureProductInstance(input.business, line.combinationShape, line.combinationValues, userId);
+        const cogsLeaf = ensureCombinationAccountLeaf('Cost of Goods Sold', instanceTop, userId);
+        const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId);
+        cogsAccount = cogsLeaf.name;
+        cogsAccountId = cogsLeaf.id;
+        inv = { inventoryAccount: invLeaf.name, inventoryAccountId: invLeaf.id };
+      } else if (line.tier && input.locationName) {
         const tierItem = ensureProductTierItem(asItemName(line.itemName), line.tier, userId);
         const leaf = ensureProductTierLocationLeaf(tierItem.tierItemName, input.locationName, userId, tierItem.tierItemId);
         cogsAccount = leaf.cogsAccount;
@@ -2953,11 +2970,14 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
         cogsAccount = base.cogsAccount;
         cogsAccountId = base.cogsAccountId;
       }
-      const inv = input.locationName
-        ? ensureProductLocationInventoryAccount(asItemName(line.itemName), input.locationName, userId)
-        : ensureProductInventoryAccount(asItemName(line.itemName), userId);
+      if (!(line.combinationValues && line.combinationShape)) {
+        const resolved = input.locationName
+          ? ensureProductLocationInventoryAccount(asItemName(line.itemName), input.locationName, userId)
+          : ensureProductInventoryAccount(asItemName(line.itemName), userId);
+        inv = resolved;
+      }
       stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(cogsAccount), accountId: cogsAccountId, amount_minor: lineCogsMinor, division: cogsDivision ? asDivisionName(cogsDivision) : undefined });
-      stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: -lineCogsMinor, division: cogsDivision ? asDivisionName(cogsDivision) : undefined });
+      stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(inv!.inventoryAccount), accountId: inv!.inventoryAccountId, amount_minor: -lineCogsMinor, division: cogsDivision ? asDivisionName(cogsDivision) : undefined });
       cogsTotal += lineCogsMinor;
     }
     if (cogsTotal > 0) postJournalEntry(cogsRef, input.business, input.ledger, userId);
@@ -4935,6 +4955,11 @@ export interface ItemSourceInput {
    * row for the same item/vendor pair - not a converted number. See
    * docs/border-multicurrency-pos-plan.md, Slice 3. */
   currency?: string | null;
+  /** Omit for a real, ordinary price that applies to the base item
+   * generally. Provide a real Product Instance's own top node id
+   * (see ensureProductInstance) for a price specific to one, exact
+   * combination — a cold beer genuinely costs more than a warm one. */
+  productInstanceId?: number;
 }
 
 export function addOrUpdateItemSource(input: ItemSourceInput): void {
@@ -4948,9 +4973,9 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
   if (input.manufacturerName && !manufacturerId) throw new ValidationError(`No manufacturer named "${input.manufacturerName}".`);
 
   db.prepare(
-    `INSERT INTO item_source (item_id, manufacturer_id, vendor_id, vendor_sku, vendor_upc, price_minor, package_quantity, is_preferred, preference_notes, currency)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (item_id, manufacturer_id, vendor_id, currency) DO UPDATE SET
+    `INSERT INTO item_source (item_id, manufacturer_id, vendor_id, vendor_sku, vendor_upc, price_minor, package_quantity, is_preferred, preference_notes, currency, product_instance_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (item_id, manufacturer_id, vendor_id, currency, product_instance_id) DO UPDATE SET
        vendor_sku = excluded.vendor_sku, vendor_upc = excluded.vendor_upc, price_minor = excluded.price_minor,
        package_quantity = excluded.package_quantity, is_preferred = excluded.is_preferred, preference_notes = excluded.preference_notes`
   ).run(
@@ -4972,7 +4997,11 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
     // empty string stands in for "this business's own home currency"
     // here specifically, so the constraint and ON CONFLICT clause
     // both see a real, comparable, equal value across calls.
-    input.currency ?? ''
+    input.currency ?? '',
+    // The exact, same, real fix, applied to the exact, same, real
+    // problem, for the exact, same reason - 0 stands in for "no real,
+    // specific Product Instance combination" here.
+    input.productInstanceId ?? 0
   );
 }
 
@@ -4982,13 +5011,33 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
  * to the business's own home-currency row (the real, empty-string
  * convention `addOrUpdateItemSource` itself uses) when no row exists
  * for the specific currency asked for. */
-export function getItemPriceForCurrency(itemName: string, currency: string | null): number | null {
+export function getItemPriceForCurrency(itemName: string, currency: string | null, productInstanceId?: number): number | null {
+  // Per direct instruction: the most specific, real fact wins - a
+  // real, combination-specific price (a cold beer costs more than a
+  // warm one) is checked first, exactly the same, established
+  // principle already used for currency-specific pricing here,
+  // generalized to any real, applicable combination, not currency
+  // alone. Falls through cleanly to the exact, same, existing
+  // behavior when no productInstanceId is given at all.
+  if (productInstanceId != null) {
+    const comboRow = db
+      .prepare(
+        `SELECT ps.price_minor
+         FROM item_source ps
+         JOIN current_entities item_e ON item_e.id = ps.item_id
+         WHERE item_e.name = ? AND ps.currency = ? AND ps.product_instance_id = ?
+         ORDER BY ps.is_preferred DESC
+         LIMIT 1`
+      )
+      .get(itemName, currency ?? '', productInstanceId) as { price_minor: number | null } | undefined;
+    if (comboRow) return comboRow.price_minor;
+  }
   const row = db
     .prepare(
       `SELECT ps.price_minor
        FROM item_source ps
        JOIN current_entities item_e ON item_e.id = ps.item_id
-       WHERE item_e.name = ? AND ps.currency = ?
+       WHERE item_e.name = ? AND ps.currency = ? AND ps.product_instance_id = 0
        ORDER BY ps.is_preferred DESC
        LIMIT 1`
     )
@@ -4999,7 +5048,7 @@ export function getItemPriceForCurrency(itemName: string, currency: string | nul
       `SELECT ps.price_minor
        FROM item_source ps
        JOIN current_entities item_e ON item_e.id = ps.item_id
-       WHERE item_e.name = ? AND ps.currency = ''
+       WHERE item_e.name = ? AND ps.currency = '' AND ps.product_instance_id = 0
        ORDER BY ps.is_preferred DESC
        LIMIT 1`
     )

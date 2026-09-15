@@ -18,6 +18,8 @@ import {
   addOrUpdateItemSource,
   createItem,
   completePosSale,
+  ensureProductInstance,
+  getItemPriceForCurrency,
 } from '../src/db.ts';
 import {
   setLocation,
@@ -98,6 +100,36 @@ const saleResult = completePosSale(
   USER as any
 );
 check('Sale completed', !!saleResult);
+
+console.log(`\n=== 7b. A real, hierarchy-varied combination sale, with its own real, combination-specific price ===`);
+createItem('Proof Lager', `${BIZ} Items`, USER as any);
+addOrUpdateItemSource({ itemName: 'Proof Lager', vendorName: 'Proof Vendor', priceMinor: 500, isPreferred: true });
+receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-LAGER-1', 'Proof Lager', 'Proof Retail Outlet', 24, USER as any, '2026-07-10');
+const comboShape: [string, string][] = [
+  ['Location', 'Location'],
+  ['Item', 'Beer'],
+  ['Storage', 'Storage'],
+];
+const coldInstance = ensureProductInstance(BIZ as any, comboShape, ['Proof Retail Outlet', 'Proof Lager', 'Cold'], USER as any);
+addOrUpdateItemSource({ itemName: 'Proof Lager', vendorName: 'Proof Vendor', priceMinor: 800, isPreferred: true, productInstanceId: coldInstance.id });
+const comboSaleResult = completePosSale(
+  {
+    business: BIZ as any,
+    ledger: LEDGER as any,
+    locationName: 'Proof Retail Outlet' as any,
+    customerName: 'Cash Sale' as any,
+    lines: [{ itemName: 'Proof Lager', quantity: 3, taxMinor: 0, combinationValues: ['Proof Retail Outlet', 'Proof Lager', 'Cold'], combinationShape: comboShape }],
+    taxAccount: 'GST Collected' as any,
+    paymentMethod: 'Cash',
+    cashTenderedMinor: 2400,
+    transdate: '2026-07-16',
+  },
+  USER as any
+);
+check('Combination sale completed', !!comboSaleResult);
+check('Combination-specific price (800/unit, not the base 500) correctly resolved (total 2400)', comboSaleResult.totalMinor === 2400);
+const basePrice = getItemPriceForCurrency('Proof Lager', null);
+check(`Base item price genuinely unaffected (still 500, got ${basePrice})`, basePrice === 500);
 
 console.log(`\n=== 8. Month/year-end stock take, with a real, deliberate variance ===`);
 const takeId = createStockTake('Proof Retail Outlet', '2027-06-30', USER as any);

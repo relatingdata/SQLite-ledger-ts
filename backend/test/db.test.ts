@@ -5055,8 +5055,8 @@ test('The real Hierarchy/Product cartesian mechanism - the full, settled design,
   // intermediate per-item grouping node - each pointing at the exact,
   // same, real, shared Product Instance top node.
   const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, 1);
-  const salesLeaf = ensureCombinationAccountLeaf('Sales', instanceTop, 1);
-  const cogsLeaf = ensureCombinationAccountLeaf('COGS', instanceTop, 1);
+  const salesLeaf = ensureCombinationAccountLeaf('Sales Revenue', instanceTop, 1);
+  const cogsLeaf = ensureCombinationAccountLeaf('Cost of Goods Sold', instanceTop, 1);
 
   for (const leaf of [invLeaf, salesLeaf, cogsLeaf]) {
     const link = getDimensionParent(leaf.name, 'Product Instance');
@@ -5069,5 +5069,63 @@ test('The real Hierarchy/Product cartesian mechanism - the full, settled design,
   // every real financial statement.
   const invParentName = (db.prepare(`SELECT p.name FROM current_entities e JOIN current_entities p ON p.id = e.parent_id WHERE e.id = ?`).get(invLeaf.id) as { name: string }).name;
   assert.equal(invParentName, 'Inventory', 'the new Inventory leaf is a real, direct, structural child of the real Inventory account, genuinely reachable by business_reports');
+});
+
+test('getItemPriceForCurrency: a real, combination-specific price wins over the base item price, per direct instruction (a cold beer costs more than a warm one)', () => {
+  createItem('PricingComboTest Lager', 'Items', 1);
+  createEntity({ name: 'PricingComboTest Vendor', parent: 'Vendors' }, 1);
+  addOrUpdateItemSource({ itemName: 'PricingComboTest Lager', vendorName: 'PricingComboTest Vendor', priceMinor: 500, isPreferred: true });
+
+  const biz = asBusinessName('Wine Retail Business');
+  const shape: [string, string][] = [
+    ['Location', 'Location'],
+    ['Item', 'Beer'],
+    ['Storage', 'Storage'],
+  ];
+  const coldInstance = ensureProductInstance(biz, shape, ['Riverside Cellars', 'PricingComboTest Lager', 'Cold'], 1);
+
+  assert.equal(getItemPriceForCurrency('PricingComboTest Lager', null), 500, 'with no real, combination-specific price registered yet, the real, base item price is correctly used');
+
+  addOrUpdateItemSource({ itemName: 'PricingComboTest Lager', vendorName: 'PricingComboTest Vendor', priceMinor: 700, isPreferred: true, productInstanceId: coldInstance.id });
+
+  assert.equal(getItemPriceForCurrency('PricingComboTest Lager', null, coldInstance.id), 700, 'a real, combination-specific price (Cold) correctly wins over the real, base item price');
+  assert.equal(getItemPriceForCurrency('PricingComboTest Lager', null), 500, 'the real, base item price is genuinely unaffected — a real, different combination, or no combination at all, still sees the original, base price');
+});
+
+test('completePosSale: a real, genuine combination sale correctly resolves its own, real, combination-specific price, and posts through the new Sales/COGS/Inventory leaves, per direct instruction', () => {
+  const biz = asBusinessName('Wine Retail Business');
+  createItem('ComboSaleTest Lager', 'Items', 1);
+  createEntity({ name: 'ComboSaleTest Vendor', parent: 'Vendors' }, 1);
+  addOrUpdateItemSource({ itemName: 'ComboSaleTest Lager', vendorName: 'ComboSaleTest Vendor', priceMinor: 500, isPreferred: true });
+  receiveStockAtLocation(biz, 'Actual' as any, 'COMBOSALE-REC-1', asItemName('ComboSaleTest Lager'), asLocationName('Riverside Cellars'), 24, 1);
+
+  const shape: [string, string][] = [
+    ['Location', 'Location'],
+    ['Item', 'Beer'],
+    ['Storage', 'Storage'],
+  ];
+  const coldInstance = ensureProductInstance(biz, shape, ['Riverside Cellars', 'ComboSaleTest Lager', 'Cold'], 1);
+  addOrUpdateItemSource({ itemName: 'ComboSaleTest Lager', vendorName: 'ComboSaleTest Vendor', priceMinor: 800, isPreferred: true, productInstanceId: coldInstance.id });
+
+  const result = completePosSale(
+    {
+      business: biz,
+      ledger: 'Actual' as any,
+      locationName: asLocationName('Riverside Cellars'),
+      customerName: 'Cash Sale' as any,
+      lines: [{ itemName: 'ComboSaleTest Lager', quantity: 2, taxMinor: 0, combinationValues: ['Riverside Cellars', 'ComboSaleTest Lager', 'Cold'], combinationShape: shape }],
+      taxAccount: 'Sales Tax Payable' as any,
+      paymentMethod: 'cash',
+      cashTenderedMinor: 1600,
+    },
+    1
+  );
+  assert.ok(result, 'a real combination sale genuinely completes');
+
+  const invoice = getInvoice(result.invoiceId);
+  assert.equal(invoice?.total_amount_minor, 1600, 'the real, combination-specific price (800/unit, not the base 500) was genuinely, correctly resolved and used, per direct instruction');
+
+  const salesLeafBalance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Riverside Cellars' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Sales Revenue'))`).get() as { balance_minor: number } | undefined;
+  assert.equal(salesLeafBalance?.balance_minor, -1600, 'the real sale posted through the new, real leaf under Sales, pointing at the shared Product Instance - not the old, per-item-only Sales account');
 });
 

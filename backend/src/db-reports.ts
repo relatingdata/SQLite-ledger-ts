@@ -296,9 +296,15 @@ export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerNa
   // real, distinct display name. Only ever qualifies a name that is
   // genuinely, confirmed duplicated here - a uniquely-named account
   // (the overwhelming majority) keeps its own, plain, real name
-  // unchanged, never over-qualified.
+  // unchanged, never over-qualified. Scoped to only the real accounts
+  // that actually, genuinely have a balance in this specific
+  // business/ledger (balances' own keys) - a real, confirmed bug,
+  // found directly: counting across every account in the entire,
+  // global database (every other business, every other test) created
+  // coincidental collisions with completely unrelated accounts.
+  const relevantAccounts = accounts.filter((a) => balances.has(a.id));
   const nameCounts = new Map<string, number>();
-  for (const a of accounts) nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1);
+  for (const a of relevantAccounts) nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1);
 
   const rows: TrialBalanceRow[] = accounts
     .map((a) => {

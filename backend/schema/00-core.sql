@@ -933,7 +933,20 @@ CREATE TABLE item_source (
   -- real uniqueness constraint below so the same vendor can genuinely
   -- have two, real, simultaneous rows — one per real currency.
   currency           TEXT,
-  UNIQUE (item_id, manufacturer_id, vendor_id, currency)
+  -- Per direct instruction: a cold beer, or a large glass pour,
+  -- genuinely costs more than a warm one/a small one - a real price
+  -- specific to one, exact Product Instance combination (see
+  -- ensureProductInstance), not just the base item/currency. 0 means
+  -- "this row's price applies to the base item generally" - the
+  -- exact, same, existing, unchanged behavior for every real item
+  -- that has no combination-specific pricing at all. A real, direct
+  -- 0-as-sentinel choice, not NULL, for the exact, same reason
+  -- currency above uses '' rather than NULL - SQLite's own, real
+  -- uniqueness check treats every NULL as distinct from every other
+  -- NULL, which would silently defeat this constraint for every row
+  -- with no real, specific combination at all.
+  product_instance_id INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (item_id, manufacturer_id, vendor_id, currency, product_instance_id)
 );
 
 -- A real, one-time database audit (per direct request: "ensure we
