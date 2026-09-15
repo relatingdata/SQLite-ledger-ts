@@ -2501,20 +2501,26 @@ export function ensureProductInstance(businessName: BusinessName, definitionDime
   const definitionChain = defineProductShape(businessName, definitionDimensions, userId);
   const product = ensureBusinessRoot(businessName, 'Product', userId);
   let parentId = product.id;
-  let topNode: { id: number; name: string } | undefined;
+  let node: { id: number; name: string } | undefined;
   for (let i = 0; i < values.length; i++) {
     const groupingName = definitionDimensions[i][1];
     const hierarchyValue = ensureHierarchyValue(businessName, groupingName, values[i], userId);
-    let node = Entity.getUnder(values[i], parentId);
-    if (!node) {
-      node = Entity.create(values[i], parentId, userId);
-      Entity.relate(node.id, hierarchyValue.name, userId, hierarchyValue.id);
-      if (i === 0) setDimensionParent(node.name, 'Product Definition', definitionChain[0].name, userId, node.id, definitionChain[0].id);
+    let existing = Entity.getUnder(values[i], parentId);
+    if (!existing) {
+      existing = Entity.create(values[i], parentId, userId);
+      Entity.relate(existing.id, hierarchyValue.name, userId, hierarchyValue.id);
+      if (i === 0) setDimensionParent(existing.name, 'Product Definition', definitionChain[0].name, userId, existing.id, definitionChain[0].id);
     }
-    if (i === 0) topNode = node;
+    node = existing;
     parentId = node.id;
   }
-  return topNode!;
+  // Per direct, confirmed correction: the real, canonical identity a
+  // financial account leaf points at is this chain's own, real,
+  // terminal node - not its first/top one. The first node (always the
+  // Location dimension's value) is genuinely shared across every real
+  // item using that same location; only the full, complete chain's
+  // own end is genuinely unique to one, specific combination.
+  return node!;
 }
 
 /** Creates one real, new leaf directly under a real, existing,
@@ -2526,12 +2532,24 @@ export function ensureProductInstance(businessName: BusinessName, definitionDime
 export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId): { id: number; name: string } {
   const baseId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(baseAccountName) as { id: number } | undefined)?.id;
   if (!baseId) throw new ValidationError(`No real account named "${baseAccountName}".`);
-  const leafName = instanceTopNode.name;
-  let leaf = Entity.getUnder(leafName, baseId);
-  if (!leaf) {
-    leaf = Entity.create(leafName, baseId, userId);
-    setDimensionParent(leafName, 'Product Instance', instanceTopNode.name, userId, leaf.id, instanceTopNode.id);
-  }
+  // A real, confirmed bug, found directly, before this fix: even a
+  // genuinely unique combination's own terminal value (e.g. "Cold")
+  // can still, correctly, be shared by real, different, unrelated
+  // items whose own combinations happen to end in the same, real
+  // value. Looks up by which real leaf's own "Product Instance"
+  // dimension link already points at this specific instance's own,
+  // real, unique id - never by bare name alone.
+  const existing = db
+    .prepare(
+      `SELECT e.id, e.name FROM current_entities e
+       JOIN current_entities rec ON rec.name = e.name || ' — Dimension: Product Instance' AND rec.parent_id = e.id
+       WHERE e.parent_id = ? AND rec.relation_id = ?`
+    )
+    .get(baseId, instanceTopNode.id) as { id: number; name: string } | undefined;
+  if (existing) return existing;
+  const leafName = Entity.getUnder(instanceTopNode.name, baseId) ? `${instanceTopNode.name} (${instanceTopNode.id})` : instanceTopNode.name;
+  const leaf = Entity.create(leafName, baseId, userId);
+  setDimensionParent(leafName, 'Product Instance', instanceTopNode.name, userId, leaf.id, instanceTopNode.id);
   return leaf;
 }
 

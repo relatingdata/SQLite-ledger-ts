@@ -19,7 +19,9 @@ import {
   createItem,
   completePosSale,
   ensureProductInstance,
+  ensureCombinationAccountLeaf,
   getItemPriceForCurrency,
+  db,
 } from '../src/db.ts';
 import {
   setLocation,
@@ -42,6 +44,10 @@ const LEDGER = 'Actual';
 function check(label: string, condition: boolean) {
   console.log(`${condition ? '✅' : '❌'} ${label}`);
   if (!condition) process.exitCode = 1;
+}
+
+function getAccountBalance(entityId: number): number {
+  return (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(entityId) as { balance_minor: number } | undefined)?.balance_minor ?? 0;
 }
 
 console.log(`\n=== 1. Create the business ===`);
@@ -130,6 +136,23 @@ check('Combination sale completed', !!comboSaleResult);
 check('Combination-specific price (800/unit, not the base 500) correctly resolved (total 2400)', comboSaleResult.totalMinor === 2400);
 const basePrice = getItemPriceForCurrency('Proof Lager', null);
 check(`Base item price genuinely unaffected (still 500, got ${basePrice})`, basePrice === 500);
+
+console.log(`\n=== 7c. Combination-tagged receiving (from a PO-style receipt) and warehouse transfer, per direct instruction ===`);
+createItem('Proof Ale', `${BIZ} Items`, USER as any);
+addOrUpdateItemSource({ itemName: 'Proof Ale', vendorName: 'Proof Vendor', priceMinor: 400, packageQuantity: 1, isPreferred: true });
+receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-ALE-1', 'Proof Ale', 'Proof Warehouse', 48, USER as any, '2026-07-11', ['Proof Warehouse', 'Proof Ale', 'Cold'], comboShape);
+const warehouseInstance = ensureProductInstance(BIZ as any, comboShape, ['Proof Warehouse', 'Proof Ale', 'Cold'], USER as any);
+const warehouseInvLeaf = ensureCombinationAccountLeaf('Inventory', warehouseInstance, USER as any);
+const warehouseBalanceAfterReceipt = getAccountBalance(warehouseInvLeaf.id);
+check(`Combination-tagged receipt built up the real Inventory value (48 x 400 = 19200, got ${warehouseBalanceAfterReceipt})`, warehouseBalanceAfterReceipt === 48 * 400);
+
+transferStock(BIZ as any, LEDGER as any, 'Proof Ale', 'Proof Warehouse', 'Proof Retail Outlet', 20, 'XFER-PROOF-ALE-1', USER as any, '2026-07-12', comboShape, ['Proof Ale', 'Cold']);
+const retailInstance = ensureProductInstance(BIZ as any, comboShape, ['Proof Retail Outlet', 'Proof Ale', 'Cold'], USER as any);
+const retailInvLeaf = ensureCombinationAccountLeaf('Inventory', retailInstance, USER as any);
+const warehouseBalanceAfterTransfer = getAccountBalance(warehouseInvLeaf.id);
+const retailBalanceAfterTransfer = getAccountBalance(retailInvLeaf.id);
+check(`Combination-tagged transfer correctly reduced the real warehouse Inventory value (28 x 400 = 11200, got ${warehouseBalanceAfterTransfer})`, warehouseBalanceAfterTransfer === 28 * 400);
+check(`Combination-tagged transfer correctly increased the real retail Inventory value (20 x 400 = 8000, got ${retailBalanceAfterTransfer})`, retailBalanceAfterTransfer === 20 * 400);
 
 console.log(`\n=== 8. Month/year-end stock take, with a real, deliberate variance ===`);
 const takeId = createStockTake('Proof Retail Outlet', '2027-06-30', USER as any);

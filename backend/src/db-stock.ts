@@ -12,6 +12,9 @@ import {
   ensureProductInventoryAccount,
   ensureProductLocationInventoryAccount,
   postJournalEntry,
+  getProductUnitCostMinor,
+  ensureProductInstance,
+  ensureCombinationAccountLeaf,
   resolveItemId,
   setDimensionParent,
   setEntityLink,
@@ -879,7 +882,9 @@ export function receiveStockAtLocation(
   locationName: LocationName,
   quantity: number,
   userId: UserId,
-  transdate?: string
+  transdate?: string,
+  combinationValues?: string[],
+  combinationShape?: [string, string][]
 ): void {
   if (quantity <= 0) throw new ValidationError('Received quantity must be positive.');
   const itemId = resolveItemId(itemName);
@@ -903,6 +908,36 @@ export function receiveStockAtLocation(
   stageQuantityMovementLine(business, ledger, reference, asAccountName(onOrderAccount), -quantity, date, undefined, onOrderAccountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
   adjustLocationCapacity(business, ledger, locationName, itemName, quantity, date, userId, reference);
+
+  // Per direct instruction: "the moment stock is first received for
+  // this exact, real combination" - a real, financial Inventory value
+  // build-up for the specific, real combination this stock is, not
+  // merely the quantity movement above. Uses this item's own, real,
+  // known unit cost (the same, real source ensureProductLocationLeaf
+  // itself uses for COGS) - a genuinely new item with no known cost
+  // registered yet simply doesn't build up a real, fabricated value.
+  if (combinationValues && combinationShape) {
+    const instanceTop = ensureProductInstance(business, combinationShape, combinationValues, userId);
+    const unitCostMinor = getProductUnitCostMinor(itemName);
+    if (unitCostMinor != null) {
+      const valueMinor = quantity * unitCostMinor;
+      const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId);
+      const valueRef = `${reference}-VALUE`;
+      // A real, balanced, two-line entry - the same, real, standard
+      // double-entry counter-account any real inventory receipt uses:
+      // debit Inventory (a real asset just arrived), credit Accounts
+      // Payable (a real, corresponding liability - the business now
+      // genuinely owes its vendor for this stock). Resolved by its
+      // own, real, explicit id - per direct, confirmed finding,
+      // "Accounts Payable" is genuinely ambiguous by bare name alone
+      // (a real Vocabulary word and its own translation both share
+      // the identical name).
+      const apId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Accounts Payable' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Liability')`).get() as { id: number }).id;
+      stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(invLeaf.name), accountId: invLeaf.id, amount_minor: valueMinor, memo: `Combination stock receipt: ${itemName}` });
+      stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName('Accounts Payable'), accountId: apId, amount_minor: -valueMinor, memo: `Combination stock receipt: ${itemName}` });
+      postJournalEntry(valueRef, business, ledger, userId);
+    }
+  }
 }
 
 /** Dispatches stock from a specific location — the mirror of
@@ -953,7 +988,9 @@ export function transferStock(
   quantity: number,
   reference: string,
   userId = 1,
-  transdate?: string
+  transdate?: string,
+  combinationShape?: [string, string][],
+  combinationValuesAfterLocation?: string[]
 ): void {
   if (quantity <= 0) throw new ValidationError('Transfer quantity must be positive.');
   const fromLoc = getLocation(fromLocationName);
@@ -994,6 +1031,28 @@ export function transferStock(
   postStagedQuantityMovement(business, ledger, reference, asUserId(userId));
   adjustLocationCapacity(business, ledger, fromLocationName, itemName, -quantity, date, asUserId(userId), reference);
   adjustLocationCapacity(business, ledger, toLocationName, itemName, quantity, date, asUserId(userId), reference);
+
+  // Per direct instruction: a real, hierarchy-varied combination is
+  // per-location (Location is always the combination chain's own
+  // first, real dimension) — transferring it genuinely moves the real
+  // financial value from the source location's own instance to a
+  // real, new (or existing) instance at the destination, the same
+  // real combination in every other respect (same item, same
+  // storage/size/container/quantity values), just relocated.
+  if (combinationShape && combinationValuesAfterLocation) {
+    const unitCostMinor = getProductUnitCostMinor(itemName);
+    if (unitCostMinor != null) {
+      const valueMinor = quantity * unitCostMinor;
+      const fromInstance = ensureProductInstance(business, combinationShape, [fromLocationName, ...combinationValuesAfterLocation], asUserId(userId));
+      const toInstance = ensureProductInstance(business, combinationShape, [toLocationName, ...combinationValuesAfterLocation], asUserId(userId));
+      const fromLeaf = ensureCombinationAccountLeaf('Inventory', fromInstance, asUserId(userId));
+      const toLeaf = ensureCombinationAccountLeaf('Inventory', toInstance, asUserId(userId));
+      const valueRef = `${reference}-VALUE`;
+      stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(fromLeaf.name), accountId: fromLeaf.id, amount_minor: -valueMinor, memo: `Combination transfer: ${itemName}` });
+      stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(toLeaf.name), accountId: toLeaf.id, amount_minor: valueMinor, memo: `Combination transfer: ${itemName}` });
+      postJournalEntry(valueRef, business, ledger, asUserId(userId));
+    }
+  }
 }
 
 export interface BelowReorderRow {

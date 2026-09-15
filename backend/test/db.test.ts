@@ -5034,7 +5034,7 @@ test('The real Hierarchy/Product cartesian mechanism - the full, settled design,
   ];
 
   const instanceTop = ensureProductInstance(biz, shape, ['Riverside Cellars', 'Lager', '330ml', 'can', 'single', 'Cold'], 1);
-  assert.equal(instanceTop.name, 'Riverside Cellars', 'the real, returned top node is the instance chain own, real, first node');
+  assert.equal(instanceTop.name, 'Cold', 'per direct correction, the real, returned node is the instance chain\'s own, real, terminal node - genuinely unique to this full combination, unlike the first/Location node, which is shared across every item at that same location');
 
   // A definition node's own relation_id lands on a real Hierarchy
   // grouping (Beer itself) - never one of that grouping's own children.
@@ -5043,24 +5043,26 @@ test('The real Hierarchy/Product cartesian mechanism - the full, settled design,
 
   // An instance node's own relation_id lands on a real value under
   // that grouping - never the grouping itself.
-  const itemInstRow = db.prepare(`SELECT rel.name FROM current_entities e JOIN current_entities rel ON rel.id = e.relation_id WHERE e.name = 'Lager' AND e.parent_id = ?`).get(instanceTop.id) as { name: string } | undefined;
-  assert.equal(itemInstRow?.name, 'Lager', 'a real Instance node points at the real Hierarchy value itself, one level deeper than its Definition counterpart');
+  const itemInstRow = db.prepare(`SELECT rel.name FROM current_entities e JOIN current_entities rel ON rel.id = e.relation_id WHERE e.name = 'Cold' AND e.id = ?`).get(instanceTop.id) as { name: string } | undefined;
+  assert.equal(itemInstRow?.name, 'Cold', 'a real Instance node points at the real Hierarchy value itself, one level deeper than its Definition counterpart');
 
-  // The instance's own top node also records which real Definition
-  // shape it follows.
+  // The instance chain's own first (Location) node still records
+  // which real Definition shape the whole chain follows - a real,
+  // structural fact about the chain overall, recorded once, at its
+  // own start, not repeated at every level.
   const definitionLink = getDimensionParent('Riverside Cellars', 'Product Definition');
-  assert.equal(definitionLink, 'Location', 'the real instance top node correctly records which real Definition shape it follows');
+  assert.equal(definitionLink, 'Location', 'the real instance chain\'s own first node correctly records which real Definition shape the whole chain follows');
 
   // Real, new leaves under Inventory, Sales, and COGS - never an
   // intermediate per-item grouping node - each pointing at the exact,
-  // same, real, shared Product Instance top node.
+  // same, real, shared Product Instance terminal node.
   const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, 1);
   const salesLeaf = ensureCombinationAccountLeaf('Sales Revenue', instanceTop, 1);
   const cogsLeaf = ensureCombinationAccountLeaf('Cost of Goods Sold', instanceTop, 1);
 
   for (const leaf of [invLeaf, salesLeaf, cogsLeaf]) {
     const link = getDimensionParent(leaf.name, 'Product Instance');
-    assert.equal(link, 'Riverside Cellars', 'every real, new leaf under Inventory/Sales/COGS points at the exact, same, real, shared Product Instance top node');
+    assert.equal(link, 'Cold', 'every real, new leaf under Inventory/Sales/COGS points at the exact, same, real, shared Product Instance terminal node');
   }
 
   // Real, direct confirmation these three leaves are genuinely,
@@ -5125,7 +5127,51 @@ test('completePosSale: a real, genuine combination sale correctly resolves its o
   const invoice = getInvoice(result.invoiceId);
   assert.equal(invoice?.total_amount_minor, 1600, 'the real, combination-specific price (800/unit, not the base 500) was genuinely, correctly resolved and used, per direct instruction');
 
-  const salesLeafBalance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Riverside Cellars' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Sales Revenue'))`).get() as { balance_minor: number } | undefined;
+  const salesLeaf = ensureCombinationAccountLeaf('Sales Revenue', coldInstance, 1);
+  const salesLeafBalance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(salesLeaf.id) as { balance_minor: number } | undefined;
   assert.equal(salesLeafBalance?.balance_minor, -1600, 'the real sale posted through the new, real leaf under Sales, pointing at the shared Product Instance - not the old, per-item-only Sales account');
+});
+
+test('receiveStockAtLocation: a real, combination-tagged receipt builds up a real, distinct Inventory value at the exact, right leaf, per direct instruction', () => {
+  const biz = asBusinessName('Wine Retail Business');
+  createItem('ReceiveComboTest Lager', 'Items', 1);
+  createEntity({ name: 'ReceiveComboTest Vendor', parent: 'Vendors' }, 1);
+  addOrUpdateItemSource({ itemName: 'ReceiveComboTest Lager', vendorName: 'ReceiveComboTest Vendor', priceMinor: 600, packageQuantity: 1, isPreferred: true });
+
+  const shape: [string, string][] = [
+    ['Location', 'Location'],
+    ['Item', 'Beer'],
+    ['Storage', 'Storage'],
+  ];
+  receiveStockAtLocation(biz, 'Actual' as any, 'RECEIVECOMBO-REC-1', asItemName('ReceiveComboTest Lager'), asLocationName('Riverside Cellars'), 24, 1, undefined, ['Riverside Cellars', 'ReceiveComboTest Lager', 'Cold'], shape);
+
+  const instanceTop = ensureProductInstance(biz, shape, ['Riverside Cellars', 'ReceiveComboTest Lager', 'Cold'], 1);
+  const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, 1);
+  const balance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(invLeaf.id) as { balance_minor: number } | undefined;
+  assert.equal(balance?.balance_minor, 24 * 600, 'the real, combination-specific Inventory leaf correctly built up 24 units x 600/unit, at the real, correct account - not the base, per-item Inventory account');
+});
+
+test('transferStock: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction', () => {
+  const biz = asBusinessName('Wine Retail Business');
+  createItem('TransferComboTest Lager', 'Items', 1);
+  createEntity({ name: 'TransferComboTest Vendor', parent: 'Vendors' }, 1);
+  addOrUpdateItemSource({ itemName: 'TransferComboTest Lager', vendorName: 'TransferComboTest Vendor', priceMinor: 600, packageQuantity: 1, isPreferred: true });
+
+  const shape: [string, string][] = [
+    ['Location', 'Location'],
+    ['Item', 'Beer'],
+    ['Storage', 'Storage'],
+  ];
+  receiveStockAtLocation(biz, 'Actual' as any, 'TRANSFERCOMBO-REC-1', asItemName('TransferComboTest Lager'), asLocationName('Head Office'), 24, 1, undefined, ['Head Office', 'TransferComboTest Lager', 'Cold'], shape);
+  transferStock(biz, 'Actual' as any, asItemName('TransferComboTest Lager'), asLocationName('Head Office'), asLocationName('Riverside Cellars'), 10, 'TRANSFERCOMBO-XFER-1', 1, undefined, shape, ['TransferComboTest Lager', 'Cold']);
+
+  const fromInstance = ensureProductInstance(biz, shape, ['Head Office', 'TransferComboTest Lager', 'Cold'], 1);
+  const toInstance = ensureProductInstance(biz, shape, ['Riverside Cellars', 'TransferComboTest Lager', 'Cold'], 1);
+  const fromLeaf = ensureCombinationAccountLeaf('Inventory', fromInstance, 1);
+  const toLeaf = ensureCombinationAccountLeaf('Inventory', toInstance, 1);
+  const fromBalance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(fromLeaf.id) as { balance_minor: number } | undefined;
+  const toBalance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(toLeaf.id) as { balance_minor: number } | undefined;
+  assert.equal(fromBalance?.balance_minor, 14 * 600, 'the real, source location instance correctly reduced by the real, transferred value (24 - 10 = 14 units remaining)');
+  assert.equal(toBalance?.balance_minor, 10 * 600, 'the real, destination location instance correctly received the real, transferred value (10 units)');
 });
 
