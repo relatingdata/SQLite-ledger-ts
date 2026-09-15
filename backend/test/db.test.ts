@@ -14,6 +14,11 @@ const {
   getHierarchyChain,
   getPrototypeOf,
   setPrototype,
+  ensureHierarchyGrouping,
+  ensureHierarchyValue,
+  defineProductShape,
+  ensureProductInstance,
+  ensureCombinationAccountLeaf,
   asBusinessName,
   asItemName,
   asLocationName,
@@ -5008,5 +5013,61 @@ test('getHierarchyChain: a real, uniform, non-generic walk up parent_id - genuin
   const locationChain = getHierarchyChain(asLocationName('Riverside Cellars'));
   const locationChainNames = locationChain.map((n) => n.name);
   assert.deepEqual(locationChainNames, ['Riverside Cellars', 'Springfield', 'Divisions', 'Application'], 'confirms the real, separate, already-known Division/Business data gap directly - Divisions are currently a global root, not scoped per business, so a real Location chain does not yet reach any real Business');
+});
+
+test('The real Hierarchy/Product cartesian mechanism - the full, settled design, built and verified end to end', () => {
+  const biz = asBusinessName('Wine Retail Business');
+
+  // A real Hierarchy: Beer -> Lager/Ale, Storage -> Hot/Cold.
+  ensureHierarchyValue(biz, 'Beer', 'Lager', 1);
+  ensureHierarchyValue(biz, 'Beer', 'Ale', 1);
+  ensureHierarchyValue(biz, 'Storage', 'Hot', 1);
+  ensureHierarchyValue(biz, 'Storage', 'Cold', 1);
+
+  const shape: [string, string][] = [
+    ['Location', 'Location'],
+    ['Item', 'Beer'],
+    ['Size', 'Size'],
+    ['Container', 'Container'],
+    ['Quantity', 'Quantity'],
+    ['Storage', 'Storage'],
+  ];
+
+  const instanceTop = ensureProductInstance(biz, shape, ['Riverside Cellars', 'Lager', '330ml', 'can', 'single', 'Cold'], 1);
+  assert.equal(instanceTop.name, 'Riverside Cellars', 'the real, returned top node is the instance chain own, real, first node');
+
+  // A definition node's own relation_id lands on a real Hierarchy
+  // grouping (Beer itself) - never one of that grouping's own children.
+  const itemDefRelation = db.prepare(`SELECT rel.name FROM current_entities e JOIN current_entities rel ON rel.id = e.relation_id WHERE e.name = 'Item'`).get() as { name: string } | undefined;
+  assert.equal(itemDefRelation?.name, 'Beer', 'a real Definition node points at the real Hierarchy grouping itself');
+
+  // An instance node's own relation_id lands on a real value under
+  // that grouping - never the grouping itself.
+  const itemInstRow = db.prepare(`SELECT rel.name FROM current_entities e JOIN current_entities rel ON rel.id = e.relation_id WHERE e.name = 'Lager' AND e.parent_id = ?`).get(instanceTop.id) as { name: string } | undefined;
+  assert.equal(itemInstRow?.name, 'Lager', 'a real Instance node points at the real Hierarchy value itself, one level deeper than its Definition counterpart');
+
+  // The instance's own top node also records which real Definition
+  // shape it follows.
+  const definitionLink = getDimensionParent('Riverside Cellars', 'Product Definition');
+  assert.equal(definitionLink, 'Location', 'the real instance top node correctly records which real Definition shape it follows');
+
+  // Real, new leaves under Inventory, Sales, and COGS - never an
+  // intermediate per-item grouping node - each pointing at the exact,
+  // same, real, shared Product Instance top node.
+  const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, 1);
+  const salesLeaf = ensureCombinationAccountLeaf('Sales', instanceTop, 1);
+  const cogsLeaf = ensureCombinationAccountLeaf('COGS', instanceTop, 1);
+
+  for (const leaf of [invLeaf, salesLeaf, cogsLeaf]) {
+    const link = getDimensionParent(leaf.name, 'Product Instance');
+    assert.equal(link, 'Riverside Cellars', 'every real, new leaf under Inventory/Sales/COGS points at the exact, same, real, shared Product Instance top node');
+  }
+
+  // Real, direct confirmation these three leaves are genuinely,
+  // structurally reachable from Chart of Accounts - business_reports'
+  // own recursive walk requires this, or they'd silently vanish from
+  // every real financial statement.
+  const invParentName = (db.prepare(`SELECT p.name FROM current_entities e JOIN current_entities p ON p.id = e.parent_id WHERE e.id = ?`).get(invLeaf.id) as { name: string }).name;
+  assert.equal(invParentName, 'Inventory', 'the new Inventory leaf is a real, direct, structural child of the real Inventory account, genuinely reachable by business_reports');
 });
 

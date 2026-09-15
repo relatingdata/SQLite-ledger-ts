@@ -38,7 +38,7 @@ dev:
 	)
 
 # Same as `dev` above, but with only the one, real, dummy "My
-# Business" for login — no Wine Retail Company, no BMW/Peugeot/Ditta/
+# Business" for login — no Wine Retail Business, no BMW/Peugeot/Ditta/
 # Schweizer. Use this to build a real business entirely from scratch
 # via the UI or Playwright, with nothing pre-populated. This flag must
 # genuinely be set on every real backend start (not just the first) —
@@ -88,7 +88,7 @@ test:
 # regression in a posting path, closeBooks, or a report silently
 # excluding real accounts fails loudly here with a non-zero exit code.
 test-e2e: reset-db
-	@echo "Running the real Wine Retail Company simulation (deterministic — same numbers every time)..."
+	@echo "Running the real Wine Retail Business simulation (deterministic — same numbers every time)..."
 	cd backend && $(RUNTIME) scripts/simulate-wine-retail-month.ts
 	@echo ""
 	@echo "Verifying against exact, documented expected results..."
@@ -126,7 +126,7 @@ test-e2e-playwright: reset-db
 # inheriting this shell's own environment, so the flag reaches the
 # backend it auto-starts too).
 playwright-tutorial: reset-db
-	@echo "Running the real Wine Retail Company tutorial walkthrough in a real browser, built entirely from scratch (login through the first General Journal transaction)..."
+	@echo "Running the real Wine Retail Business tutorial walkthrough in a real browser, built entirely from scratch (login through the first General Journal transaction)..."
 	cd e2e && SEED_DEMO_BUSINESSES=false $(RUNTIME) x playwright test tutorial-walkthrough --reporter=list
 
 # The full, real Playwright browser suite — every real .spec.ts file
@@ -161,7 +161,7 @@ playwright-smoke:
 # verify-simulation.ts checks against; run this when you want the
 # fuller dataset to explore, not as part of routine verification.
 demo-full-year: reset-db
-	@echo "Running the real Wine Retail Company simulation..."
+	@echo "Running the real Wine Retail Business simulation..."
 	cd backend && $(RUNTIME) scripts/simulate-wine-retail-month.ts
 	@echo ""
 	@echo "Adding a real Budget and 11 more real Actual months..."

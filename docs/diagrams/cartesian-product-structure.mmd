@@ -1,0 +1,51 @@
+graph LR
+    BIZ["Wine Retail Business"]
+
+    subgraph HIERARCHY["Hierarchy"]
+        direction TB
+        HBEER["Beer"] --> HLAGER["Lager"]
+        HBEER --> HALE["Ale"]
+        HSTORAGE["Storage"] --> HHOT["Hot"]
+        HSTORAGE --> HCOLD["Cold"]
+        HSIZE["Size"]
+        HCONTAINER["Container"]
+        HQTY["Quantity"]
+        HLOCATION["Location"]
+    end
+
+    subgraph PRODUCT["Product"]
+        direction TB
+        DEF1["Location"] --> DEF2["Item"] --> DEF3["Size"] --> DEF4["Container"] --> DEF5["Quantity"] --> DEF6["Storage"]
+        INST1["Riverside Cellars"] --> INST2["Lager"] --> INST3["330ml"] --> INST4["can"] --> INST5["single"] --> INST6["Cold"]
+    end
+
+    subgraph ACCOUNTS["Business Reports / Chart of Accounts"]
+        direction TB
+        BS["Balance Sheet"] --> INV["Inventory"] --> INVLEAF["new leaf"]
+        PL["Profit and Loss"] --> SAL["Sales"] --> SALLEAF["new leaf"]
+        PL --> COGSACC["COGS"] --> COGSLEAF["new leaf"]
+    end
+
+    BIZ --> HIERARCHY
+    BIZ --> PRODUCT
+    BIZ --> ACCOUNTS
+
+    DEF1 -.relation_id.-> HLOCATION
+    DEF2 -.relation_id.-> HBEER
+    DEF3 -.relation_id.-> HSIZE
+    DEF4 -.relation_id.-> HCONTAINER
+    DEF5 -.relation_id.-> HQTY
+    DEF6 -.relation_id.-> HSTORAGE
+
+    INST1 -.relation_id.-> DEF1
+    INST1 -.relation_id.-> HLOCATION
+    INST2 -.relation_id.-> HLAGER
+    INST6 -.relation_id.-> HCOLD
+
+    INVLEAF -.relation_id.-> INST1
+    SALLEAF -.relation_id.-> INST1
+    COGSLEAF -.relation_id.-> INST1
+
+    style HIERARCHY fill:#fdd
+    style PRODUCT fill:#eef
+    style ACCOUNTS fill:#dfd

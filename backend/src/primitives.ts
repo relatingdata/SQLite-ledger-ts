@@ -77,8 +77,8 @@ export const Entity = {
   reparent(id: number, parent: string, userId: UserId): void {
     _updateEntity(id, { parent }, userId);
   },
-  relate(id: number, target: string | null, userId: UserId): void {
-    _updateEntity(id, { relation: target }, userId);
+  relate(id: number, target: string | null, userId: UserId, targetId?: number): void {
+    _updateEntity(id, targetId !== undefined ? { relationId: targetId } : { relation: target }, userId);
   },
   delete(id: number, userId: UserId): void {
     _deleteEntity(id, userId);

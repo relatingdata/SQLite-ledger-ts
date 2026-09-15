@@ -635,6 +635,14 @@ export interface EntityUpdate {
   name?: string;
   parent?: string | null;
   relation?: string | null;
+  /** Per direct, confirmed finding: resolving `relation` by bare name
+   * is genuinely ambiguous once two, real, differently-scoped
+   * entities share the same name (e.g. a real Location and a real
+   * Product Instance node both named "Riverside Cellars"). Provide
+   * this instead, when the exact, real target id is already known,
+   * to bypass that ambiguity entirely - the same, now-proven pattern
+   * already used for accountId/entityId elsewhere this session. */
+  relationId?: number;
   accountnumber?: string | null;
 }
 
@@ -649,10 +657,10 @@ export function updateEntity(id: number, input: EntityUpdate, userId: UserId): E
 
   const name = input.name !== undefined ? input.name : current.name;
   const parentId = input.parent !== undefined ? resolveId(input.parent) : current.parent_id;
-  const relationId = input.relation !== undefined ? resolveId(input.relation) : current.relation_id;
+  const relationId = input.relationId !== undefined ? input.relationId : input.relation !== undefined ? resolveId(input.relation) : current.relation_id;
   if (parentId === id) throw new ValidationError('An entity cannot be its own parent.');
 
-  if (input.name !== undefined || input.parent !== undefined || input.relation !== undefined) {
+  if (input.name !== undefined || input.parent !== undefined || input.relation !== undefined || input.relationId !== undefined) {
     const parentName = parentId != null ? (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(parentId) as { name: string }).name : null;
     const relationName = relationId != null ? (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(relationId) as { name: string }).name : null;
     db.prepare(`INSERT INTO entity_update (entity_id, name, parent, parent_id, relation, relation_id, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
@@ -2393,6 +2401,127 @@ export function ensureProductLocationInventoryAccount(itemName: ItemName, locati
   return { inventoryAccount: locationAccount, inventoryAccountId: row.id };
 }
 
+// ---------------------------------------------------------------------------
+// The Hierarchy / Product cartesian mechanism, per the settled design in
+// docs/cartesian-account-linking-plan.md:
+//
+// - Hierarchy: real, named groupings and values (Beer -> Lager/Ale,
+//   Storage -> Hot/Cold), living under a real business's own
+//   "Hierarchy" root - a real, user-extensible vocabulary of facts,
+//   never hardcoded, never privileged.
+// - Product: one real node, holding both real Product Definitions
+//   (a chain of dimension nodes - Location, Item, Size, Container,
+//   Quantity, Storage - each pointing, via relation_id, at the real
+//   Hierarchy *grouping* it represents) and real Product Instances
+//   (one real, specific combination - e.g. Riverside Cellars, Lager,
+//   330ml, can, single, Cold - each node pointing, via relation_id,
+//   at the real Hierarchy *value* it represents; the instance's own
+//   first node additionally points at the Definition's own first
+//   node, recording which shape this instance follows).
+// - A definition node and an instance node need no separate flag to
+//   tell them apart: a definition's relation_id always lands on a
+//   real Hierarchy grouping; an instance's always lands on one of
+//   that grouping's own, real children.
+// - New, real leaves under Inventory/Sales/COGS point directly (via
+//   relation_id) at a real Product Instance's own first node - the
+//   one, real, shared, canonical identity all three financial
+//   accounts refer back to, per direct instruction, rather than each
+//   independently re-deriving the same combination.
+// ---------------------------------------------------------------------------
+
+function ensureBusinessRoot(businessName: BusinessName, rootName: string, userId: UserId): { id: number; name: string } {
+  const business = fetch(businessName, typeBusinessName);
+  return Entity.getUnder(rootName, business.id) ?? Entity.create(rootName, business.id, userId);
+}
+
+/** Ensures a real Hierarchy grouping exists (e.g. "Beer," "Storage")
+ * directly under a business's own real "Hierarchy" root. */
+export function ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): { id: number; name: string } {
+  const hierarchyRoot = ensureBusinessRoot(businessName, 'Hierarchy', userId);
+  return Entity.getUnder(groupingName, hierarchyRoot.id) ?? Entity.create(groupingName, hierarchyRoot.id, userId);
+}
+
+/** Ensures a real, named value (e.g. "Lager," "Cold") exists under a
+ * real Hierarchy grouping - the grouping itself must already exist
+ * (created via ensureHierarchyGrouping first). */
+export function ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): { id: number; name: string } {
+  const grouping = ensureHierarchyGrouping(businessName, groupingName, userId);
+  return Entity.getUnder(valueName, grouping.id) ?? Entity.create(valueName, grouping.id, userId);
+}
+
+/** Defines the real, ordered shape of a Product combination for a
+ * business - a real chain of dimension nodes, each one's own
+ * relation_id pointing at the real Hierarchy grouping it represents.
+ * `dimensions` is an ordered array of [dimensionName, groupingName]
+ * pairs (dimensionName is this chain link's own, real, generic name -
+ * "Item," "Storage" - groupingName is the real Hierarchy grouping it
+ * points at - "Beer," "Storage"). Idempotent: calling this again with
+ * the exact, same shape returns the exact, same, existing chain. */
+export function defineProductShape(businessName: BusinessName, dimensions: [string, string][], userId: UserId): { id: number; name: string }[] {
+  const product = ensureBusinessRoot(businessName, 'Product', userId);
+  const chain: { id: number; name: string }[] = [];
+  let parentId = product.id;
+  for (const [dimensionName, groupingName] of dimensions) {
+    const grouping = ensureHierarchyGrouping(businessName, groupingName, userId);
+    let node = Entity.getUnder(dimensionName, parentId);
+    if (!node) {
+      node = Entity.create(dimensionName, parentId, userId);
+      Entity.relate(node.id, grouping.name, userId, grouping.id);
+    }
+    chain.push(node);
+    parentId = node.id;
+  }
+  return chain;
+}
+
+/** Ensures one real, specific Product Instance exists - a real chain
+ * of value nodes (e.g. "Riverside Cellars," "Lager," "330ml," "can,"
+ * "single," "Cold"), each one's own relation_id pointing at the real
+ * Hierarchy value it represents, with the instance's own first node
+ * additionally pointing (via relation_id) at the real Definition's
+ * own first node - recording which real shape this instance follows.
+ * Returns the instance's own, real, first (top) node - the one,
+ * shared, canonical identity every real, related financial account
+ * leaf should point back to. */
+export function ensureProductInstance(businessName: BusinessName, definitionDimensions: [string, string][], values: string[], userId: UserId): { id: number; name: string } {
+  if (values.length !== definitionDimensions.length) throw new ValidationError('A real Product Instance needs exactly one, real value per real dimension in its Definition.');
+  const definitionChain = defineProductShape(businessName, definitionDimensions, userId);
+  const product = ensureBusinessRoot(businessName, 'Product', userId);
+  let parentId = product.id;
+  let topNode: { id: number; name: string } | undefined;
+  for (let i = 0; i < values.length; i++) {
+    const groupingName = definitionDimensions[i][1];
+    const hierarchyValue = ensureHierarchyValue(businessName, groupingName, values[i], userId);
+    let node = Entity.getUnder(values[i], parentId);
+    if (!node) {
+      node = Entity.create(values[i], parentId, userId);
+      Entity.relate(node.id, hierarchyValue.name, userId, hierarchyValue.id);
+      if (i === 0) setDimensionParent(node.name, 'Product Definition', definitionChain[0].name, userId, node.id, definitionChain[0].id);
+    }
+    if (i === 0) topNode = node;
+    parentId = node.id;
+  }
+  return topNode!;
+}
+
+/** Creates one real, new leaf directly under a real, existing,
+ * top-level account (Inventory, Sales, or COGS) — never an
+ * intermediate per-item grouping node, per direct correction — whose
+ * own relation_id points at a real Product Instance's own top node.
+ * This is the one, real, shared, canonical link all three financial
+ * accounts for the same, real combination refer back to. */
+export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId): { id: number; name: string } {
+  const baseId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(baseAccountName) as { id: number } | undefined)?.id;
+  if (!baseId) throw new ValidationError(`No real account named "${baseAccountName}".`);
+  const leafName = instanceTopNode.name;
+  let leaf = Entity.getUnder(leafName, baseId);
+  if (!leaf) {
+    leaf = Entity.create(leafName, baseId, userId);
+    setDimensionParent(leafName, 'Product Instance', instanceTopNode.name, userId, leaf.id, instanceTopNode.id);
+  }
+  return leaf;
+}
+
 /** A real product's own, genuine unit cost — the preferred, known
  * item_source's own price_minor, divided by its own package_quantity
  * (a source is priced per real, physical package/carton, not per
@@ -3806,7 +3935,7 @@ export function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName
   create(category, typeRootName, 'Item', userId);
 }
 
-export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number): string {
+export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number, targetId?: number): string {
   const recordName = `${entityName} — ${linkType}`;
   const parentNode = entityId != null ? fetchById(entityId, typeRootName) : fetch(entityName, typeRootName);
   let record = Entity.getUnder(recordName, parentNode.id);
@@ -3814,7 +3943,7 @@ export function setEntityLink(entityName: string, linkType: string, targetName: 
     const created = create(parentNode, typeEntityLinkRecordName, recordName, userId);
     record = { id: created.id, name: created.name };
   }
-  updateEntity(record.id, { relation: targetName }, userId);
+  updateEntity(record.id, targetId != null ? { relationId: targetId } : { relation: targetName }, userId);
   return recordName;
 }
 
@@ -4021,8 +4150,8 @@ export function getTaskDependencies(dependentTask: string): { predecessor: strin
  * the same real property this needs, since a GL account's own
  * relation_id may already be spoken for by its real CoA-family tag,
  * exactly the conflict setEntityLink itself was built to avoid. */
-export function setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number): void {
-  setEntityLink(entityName, `Dimension: ${dimensionName}`, parentName, userId, entityId);
+export function setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void {
+  setEntityLink(entityName, `Dimension: ${dimensionName}`, parentName, userId, entityId, targetId);
 }
 
 export function getDimensionParent(entityName: string, dimensionName: string): string | undefined {
