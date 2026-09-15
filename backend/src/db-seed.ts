@@ -1352,6 +1352,7 @@ function migrateForMenuEntities() {
         { label: 'Currencies', href: '/setup/currencies', notImplemented: true, requiredRoles: 'Administrator' },
         { label: 'Exchange Rates', href: '/exchange-rates', notImplemented: true, requiredRoles: 'Administrator' },
         { label: 'Hierarchies', href: '', isSubheading: true, requiredRoles: 'Administrator' },
+        { label: 'Hierarchies & Products', href: '/setup/hierarchy', requiredRoles: 'Administrator' },
         { label: 'Vocabulary', href: '/setup/vocabulary', requiredRoles: 'Administrator' },
         { label: 'Translations', href: '/setup/translations', requiredRoles: 'Administrator' },
       ],

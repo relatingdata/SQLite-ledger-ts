@@ -363,6 +363,19 @@ export const getDivisions = () => request<DivisionRecord[]>('/divisions');
 export const createDivision = (name: string, parent: string | null, centerType: string) =>
   request<{ name: string }>('/divisions', { method: 'POST', body: JSON.stringify({ name, parent, centerType }) });
 
+export interface HierarchyGroupingWithValues {
+  grouping: string;
+  values: string[];
+}
+export const getHierarchy = (business: string) => request<HierarchyGroupingWithValues[]>(`/hierarchy?business=${encodeURIComponent(business)}`);
+export const getProductShapes = (business: string) => request<[string, string][][]>(`/hierarchy/shapes?business=${encodeURIComponent(business)}`);
+export const createHierarchyGrouping = (business: string, groupingName: string) =>
+  request<{ name: string }>('/hierarchy/groupings', { method: 'POST', body: JSON.stringify({ business, groupingName }) });
+export const createHierarchyValue = (business: string, groupingName: string, valueName: string) =>
+  request<{ name: string }>('/hierarchy/values', { method: 'POST', body: JSON.stringify({ business, groupingName, valueName }) });
+export const defineProductShape = (business: string, dimensions: [string, string][]) =>
+  request<{ dimensions: [string, string][] }>('/hierarchy/shapes', { method: 'POST', body: JSON.stringify({ business, dimensions }) });
+
 export const getBusinesses = () => request<{ id: number; name: string }[]>('/businesses');
 export const getBusinessTypes = () => request<{ name: string; questions: string[] }[]>('/businesses/types');
 export const saveBusinessTypeAnswers = (businessName: string, answers: Record<string, string>) =>

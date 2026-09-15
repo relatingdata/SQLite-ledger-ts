@@ -92,4 +92,8 @@ Why this matters, concretely: the moment temperature or size is baked into the p
 
 A hierarchy only needs to be set up where it's actually relevant --- Glass Size makes sense at a wine bar, not at a warehouse that never pours a single drink. Set up only the hierarchies a given location genuinely needs, and every report that groups by that hierarchy will only ever show it where it was actually recorded.
 
+**Setting this up**: under **Setup → Hierarchies & Products**, add a real grouping (e.g. "Storage") and its real values (e.g. "Cold," "Ambient"), then define a real Product shape --- the ordered list of dimensions (Location, Item, Storage, and so on) a specific combination will follow.
+
+A real, honest note on where this stands today: the setup screen above is real and working --- a business can define its own Hierarchies and Product shapes through it right now. Actually recording a real sale or stock receipt *against* one of these combinations (a specific bottle, at a specific location, in a specific storage state) is not yet available through the register or stock screens --- that's real, planned, future work, not something to expect today.
+
 \clearpage

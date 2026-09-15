@@ -22,7 +22,7 @@ const ROUTES = [
   '/reports/stock-out-risk', '/reports/trial-balance', '/session', '/setup',
   '/setup/bank-accounts', '/setup/business-setup', '/setup/chart-of-accounts',
   '/setup/currencies', '/setup/new-business', '/setup/periods', '/setup/taxes',
-  '/setup/translations', '/setup/tree', '/setup/users', '/setup/vocabulary',
+  '/setup/translations', '/setup/tree', '/setup/users', '/setup/vocabulary', '/setup/hierarchy',
   '/setup/yearend', '/shipping', '/stock', '/stock/listing', '/stock/po',
   '/stock/restock', '/stock/so', '/stock/stock-dispatch', '/stock/stock-receipt',
   '/stock/stock-take', '/stock/transfer', '/stock/write-offs',

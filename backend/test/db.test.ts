@@ -19,6 +19,8 @@ const {
   defineProductShape,
   ensureProductInstance,
   ensureCombinationAccountLeaf,
+  getBusinessHierarchy,
+  getBusinessProductShapes,
   asBusinessName,
   asItemName,
   asLocationName,
@@ -5173,5 +5175,26 @@ test('transferStock: a real, combination-tagged transfer correctly moves the rea
   const toBalance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(toLeaf.id) as { balance_minor: number } | undefined;
   assert.equal(fromBalance?.balance_minor, 14 * 600, 'the real, source location instance correctly reduced by the real, transferred value (24 - 10 = 14 units remaining)');
   assert.equal(toBalance?.balance_minor, 10 * 600, 'the real, destination location instance correctly received the real, transferred value (10 units)');
+});
+
+test('getBusinessHierarchy/getBusinessProductShapes: real, business-scoped listing functions, for the frontend to actually use this mechanism through', () => {
+  const biz = asBusinessName('Wine Retail Business');
+  ensureHierarchyValue(biz, 'ListingTest Beer', 'ListingTest Lager', 1);
+  ensureHierarchyValue(biz, 'ListingTest Beer', 'ListingTest Ale', 1);
+
+  const hierarchy = getBusinessHierarchy(biz);
+  const beerGrouping = hierarchy.find((g) => g.grouping === 'ListingTest Beer');
+  assert.ok(beerGrouping, 'the real, new grouping is genuinely listed');
+  assert.deepEqual(beerGrouping?.values.sort(), ['ListingTest Ale', 'ListingTest Lager'], 'the real, new values are genuinely, correctly listed under their real grouping');
+
+  const shape: [string, string][] = [
+    ['ListingTest Location', 'Location'],
+    ['ListingTest Item', 'ListingTest Beer'],
+  ];
+  defineProductShape(biz, shape, 1);
+  const shapes = getBusinessProductShapes(biz);
+  const found = shapes.find((s) => s.some(([dim]) => dim === 'ListingTest Location'));
+  assert.ok(found, 'the real, new Definition shape is genuinely listed');
+  assert.deepEqual(found, shape, 'the real, listed shape exactly matches the real, defined dimension/grouping pairs, in the real, correct order');
 });
 

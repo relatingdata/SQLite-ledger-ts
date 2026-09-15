@@ -220,6 +220,20 @@ Beyond a party's own address and phone number, a real, named person can be attac
 
 ![A real "Credit Manager" contact attached to a real vendor, with name, phone, and email all shown together.](manual-images/m_contact_persons.png)
 
+## Making your reports insightful and more useful with Hierarchies
+
+A **Hierarchy** is a real, business-defined way of grouping things for reporting --- separate from what a product is actually called. Two are set up for you from the start: **Division** (grouping locations --- a region, a city, however the business is structured) and **Category** (grouping products --- Red Wine, White Wine, and so on). Neither is special or fixed: they're simply the two most businesses need on day one. A business is free to rename them, remove them, or add real, further ones of its own --- Storage temperature, glass size, a seasonal range, anything that's actually useful to see broken out on a report.
+
+**The one rule that makes hierarchies genuinely useful: keep it out of the product's own name.** If a lager is sold both cold and at room temperature, and cold pours for more, the temptation is to create two separate products --- "Lager" and "Cold Lager." Don't. Keep one real product, "Lager," and add a real **Storage** hierarchy with values like "Cold" and "Ambient." The same goes for a wine bar pouring beer by the glass in two sizes --- one product, "Lager," with a real **Glass Size** hierarchy ("Small," "Large"), not two differently-named products that happen to be the same beer.
+
+Why this matters, concretely: the moment temperature or size is baked into the product's own name, there is no longer any single report that can show "total Lager sold, broken down by temperature" or "total Lager sold, broken down by size" --- the sales are scattered across differently-named products with no shared thread connecting them. Keep the product name to the one, real thing being sold, and let a Hierarchy carry every fact that's genuinely a variant of it. Every one of these facts can carry its own, real, different price too --- a cold pour costs more than a warm one, a large glass costs more than a small one --- exactly as it should, without ever touching the product's own identity.
+
+A hierarchy only needs to be set up where it's actually relevant --- Glass Size makes sense at a wine bar, not at a warehouse that never pours a single drink. Set up only the hierarchies a given location genuinely needs, and every report that groups by that hierarchy will only ever show it where it was actually recorded.
+
+**Setting this up**: under **Setup → Hierarchies & Products**, add a real grouping (e.g. "Storage") and its real values (e.g. "Cold," "Ambient"), then define a real Product shape --- the ordered list of dimensions (Location, Item, Storage, and so on) a specific combination will follow.
+
+A real, honest note on where this stands today: the setup screen above is real and working --- a business can define its own Hierarchies and Product shapes through it right now. Actually recording a real sale or stock receipt *against* one of these combinations (a specific bottle, at a specific location, in a specific storage state) is not yet available through the register or stock screens --- that's real, planned, future work, not something to expect today.
+
 \clearpage
 # Chapter 3 --- Tutorial: Building a Real Wine Retail Business, Start to Finish
 

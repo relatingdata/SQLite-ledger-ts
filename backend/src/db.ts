@@ -2553,6 +2553,71 @@ export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTo
   return leaf;
 }
 
+/** Per direct instruction: real, business-scoped listing functions
+ * for the frontend to actually use this mechanism through -
+ * "Hierarchy" and "Product" are real, bare, non-globally-unique names
+ * (one real root per business), so both resolve their own real
+ * business's own root directly, never via a global, ambiguous
+ * bare-name lookup. */
+export interface HierarchyGroupingWithValues {
+  grouping: string;
+  values: string[];
+}
+
+export function getBusinessHierarchy(businessName: BusinessName): HierarchyGroupingWithValues[] {
+  const hierarchyId = (
+    db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(businessName) as
+      | { id: number }
+      | undefined
+  )?.id;
+  if (!hierarchyId) return [];
+  const groupings = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ?`).all(hierarchyId) as { id: number; name: string }[];
+  return groupings.map((g) => ({
+    grouping: g.name,
+    values: (db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(g.id) as { name: string }[]).map((v) => v.name),
+  }));
+}
+
+/** A real, direct, single Product shape - one real dimension chain,
+ * each entry the dimension's own real name paired with the real
+ * Hierarchy grouping it points at. */
+export function getBusinessProductShapes(businessName: BusinessName): [string, string][][] {
+  const productId = (
+    db.prepare(`SELECT id FROM current_entities WHERE name = 'Product' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(businessName) as
+      | { id: number }
+      | undefined
+  )?.id;
+  const hierarchyId = (
+    db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(businessName) as
+      | { id: number }
+      | undefined
+  )?.id;
+  if (!productId || !hierarchyId) return [];
+  // A real Definition's own first node is a direct child of Product
+  // whose own relation_id lands on a real Hierarchy grouping itself
+  // (Hierarchy's own direct id) - a real Instance's own first node is
+  // also a direct child of Product, but its own relation_id lands one
+  // level deeper (a real value under a grouping, never the grouping
+  // itself) - the one, sufficient, already-established distinction.
+  const definitionRoots = db
+    .prepare(`SELECT e.id, e.name FROM current_entities e JOIN current_entities rel ON rel.id = e.relation_id WHERE e.parent_id = ? AND rel.parent_id = ?`)
+    .all(productId, hierarchyId) as { id: number; name: string }[];
+  return definitionRoots.map((root) => {
+    const chain: [string, string][] = [];
+    let node: { id: number; name: string } | undefined = root;
+    while (node) {
+      const row = db.prepare(`SELECT e.name AS own_name, rel.name AS relation_name FROM current_entities e LEFT JOIN current_entities rel ON rel.id = e.relation_id WHERE e.id = ?`).get(node.id) as
+        | { own_name: string; relation_name: string | null }
+        | undefined;
+      if (!row) break;
+      chain.push([row.own_name, row.relation_name ?? '']);
+      const child = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ?`).get(node.id) as { id: number; name: string } | undefined;
+      node = child;
+    }
+    return chain;
+  });
+}
+
 /** A real product's own, genuine unit cost — the preferred, known
  * item_source's own price_minor, divided by its own package_quantity
  * (a source is priced per real, physical package/carton, not per
