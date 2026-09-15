@@ -89,7 +89,18 @@
       existing.quantity += 1;
       cart = [...cart];
     } else {
-      cart = [...cart, { id: crypto.randomUUID(), itemName: asItemName(item.name), quantity: 1, unitPriceMinor: item.retail_price_minor ?? 0, taxMinor: 0 }];
+      cart = [
+        ...cart,
+        {
+          id: crypto.randomUUID(),
+          itemName: asItemName(item.name),
+          quantity: 1,
+          unitPriceMinor: item.retail_price_minor ?? 0,
+          taxMinor: 0,
+          combinationValues: item.combinationValues,
+          combinationShape: item.combinationShape,
+        },
+      ];
     }
     productInput = '';
     searchResults = [];

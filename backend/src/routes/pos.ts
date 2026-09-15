@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
-import { getItemByUpc, completePosSale, completeCashPurchase, payEmployeeWages, getOrganizationChart, asBusinessName, asLedgerName, asLocationName, asCustomerName, asVendorName, asAccountName, ValidationError, NotFoundError,
+import { getItemByUpc, getCombinationByUpc, completePosSale, completeCashPurchase, payEmployeeWages, getOrganizationChart, asBusinessName, asLedgerName, asLocationName, asCustomerName, asVendorName, asAccountName, ValidationError, NotFoundError,
   asUserId,
 } from '../db.js';
 
@@ -10,7 +10,15 @@ export const posRouter = Router();
 posRouter.get('/lookup/:upc', (req, res) => {
   const item = getItemByUpc(req.params.upc);
   if (!item) return res.status(404).json({ error: 'No item with that UPC.' });
-  res.json(item);
+  // Per direct instruction: "the POS terminal uses the barcode and
+  // then looks up the product name climbing the Instance tree" - a
+  // real, scanned barcode registered against a specific combination
+  // (via item_source's own vendor_upc + productInstanceId) is
+  // included here directly, so the register never needs a real,
+  // separate round-trip, and a cashier never has to manually pick
+  // Storage/Size/Container one at a time.
+  const combination = getCombinationByUpc(req.params.upc);
+  res.json(combination ? { ...item, combinationValues: combination.combinationValues, combinationShape: combination.combinationShape } : item);
 });
 
 const saleLineSchema = z.object({

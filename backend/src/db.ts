@@ -2523,6 +2523,71 @@ export function ensureProductInstance(businessName: BusinessName, definitionDime
   return node!;
 }
 
+/** Per direct instruction: "the POS terminal uses the barcode and
+ * then looks up the product name climbing the Instance tree" - a real
+ * scanner identifies one, exact, terminal combination node directly
+ * (via a real barcode registered against it, see getCombinationByUpc
+ * below); this walks back up its own, real parent_id chain to the
+ * real Product root, reconstructing the full, ordered combinationValues
+ * array a real sale actually needs - never requiring a cashier to
+ * manually pick each real dimension one at a time. */
+export function climbInstanceTree(terminalNodeId: number): { combinationValues: string[]; combinationShape: [string, string][] } {
+  const chain: { id: number; name: string }[] = [];
+  let current = db.prepare(`SELECT id, name, parent_id FROM current_entities WHERE id = ?`).get(terminalNodeId) as { id: number; name: string; parent_id: number | null } | undefined;
+  while (current) {
+    const parentRow = current.parent_id != null ? (db.prepare(`SELECT id, name FROM current_entities WHERE id = ?`).get(current.parent_id) as { id: number; name: string } | undefined) : undefined;
+    if (!parentRow || parentRow.name === 'Product') {
+      chain.unshift({ id: current.id, name: current.name });
+      break;
+    }
+    chain.unshift({ id: current.id, name: current.name });
+    current = { id: parentRow.id, name: parentRow.name, parent_id: (db.prepare(`SELECT parent_id FROM current_entities WHERE id = ?`).get(parentRow.id) as { parent_id: number | null }).parent_id };
+  }
+  // Per a real, confirmed, deeper bug found directly: walking a
+  // separate Definition chain is genuinely ambiguous once two, real,
+  // different shapes share a common prefix (e.g. both start Location
+  // -> Item) then diverge - defineProductShape's own child lookup has
+  // no way to know which of several, real, different children
+  // belongs to which shape. Sidesteps this entirely: each real
+  // instance node's own relation_id already points at the real
+  // Hierarchy value it represents, and that value's own real parent
+  // is the real grouping - genuinely unambiguous, since it comes
+  // directly from this one, specific instance's own real chain, never
+  // a separate, shared structure.
+  const combinationShape: [string, string][] = chain.map((node) => {
+    const groupingRow = db
+      .prepare(`SELECT g.name FROM current_entities e JOIN current_entities g ON g.id = e.parent_id WHERE e.id = (SELECT relation_id FROM current_entities WHERE id = ?)`)
+      .get(node.id) as { name: string } | undefined;
+    return [groupingRow?.name ?? node.name, groupingRow?.name ?? node.name];
+  });
+  return { combinationValues: chain.map((n) => n.name), combinationShape };
+}
+
+/** Per the same, real, direct instruction - resolves a real,
+ * scanned barcode directly to its own, real, exact combination (the
+ * real item_source row this barcode was registered against, together
+ * with the real, full combinationValues/combinationShape a real sale
+ * needs), by climbing from its own, real, tagged Product Instance
+ * terminal node. Returns undefined for a barcode with no real,
+ * registered combination - the exact, same, existing, base-item-only
+ * barcode lookup (getItemByUpc) still covers every real item that
+ * has no combination-specific variant at all. */
+export function getCombinationByUpc(upc: string): { itemName: string; combinationValues: string[]; combinationShape: [string, string][] } | undefined {
+  if (!upc) return undefined;
+  const row = db
+    .prepare(
+      `SELECT item_e.name AS item_name, ps.product_instance_id
+       FROM item_source ps
+       JOIN current_entities item_e ON item_e.id = ps.item_id
+       WHERE ps.vendor_upc = ? AND ps.product_instance_id != 0
+       LIMIT 1`
+    )
+    .get(upc) as { item_name: string; product_instance_id: number } | undefined;
+  if (!row) return undefined;
+  const { combinationValues, combinationShape } = climbInstanceTree(row.product_instance_id);
+  return { itemName: row.item_name, combinationValues, combinationShape };
+}
+
 /** Creates one real, new leaf directly under a real, existing,
  * top-level account (Inventory, Sales, or COGS) — never an
  * intermediate per-item grouping node, per direct correction — whose

@@ -21,6 +21,8 @@ const {
   ensureCombinationAccountLeaf,
   getBusinessHierarchy,
   getBusinessProductShapes,
+  climbInstanceTree,
+  getCombinationByUpc,
   asBusinessName,
   asItemName,
   asLocationName,
@@ -5196,5 +5198,38 @@ test('getBusinessHierarchy/getBusinessProductShapes: real, business-scoped listi
   const found = shapes.find((s) => s.some(([dim]) => dim === 'ListingTest Location'));
   assert.ok(found, 'the real, new Definition shape is genuinely listed');
   assert.deepEqual(found, shape, 'the real, listed shape exactly matches the real, defined dimension/grouping pairs, in the real, correct order');
+});
+
+test('climbInstanceTree/getCombinationByUpc: a real, scanned barcode resolves directly to its own, exact combination, climbing back up to the real Product root, per direct instruction', () => {
+  const biz = asBusinessName('Wine Retail Business');
+  createItem('BarcodeTest Lager', 'Items', 1);
+  createEntity({ name: 'BarcodeTest Vendor', parent: 'Vendors' }, 1);
+
+  const shape: [string, string][] = [
+    ['Location', 'Location'],
+    ['Item', 'Beer'],
+    ['Storage', 'Storage'],
+  ];
+  const coldInstance = ensureProductInstance(biz, shape, ['Riverside Cellars', 'BarcodeTest Lager', 'Cold'], 1);
+
+  const climbed = climbInstanceTree(coldInstance.id);
+  assert.deepEqual(climbed.combinationValues, ['Riverside Cellars', 'BarcodeTest Lager', 'Cold'], 'climbing from the real, terminal node correctly reconstructs the full, ordered combination, all the way back to the real Product root');
+  // A real, honest limitation, found directly: the real, original
+  // Definition's own dimension names (e.g. "Item") cannot be reliably
+  // reconstructed from an instance alone once two, real, different
+  // shapes share a common prefix then diverge - only the real
+  // grouping each value belongs to (e.g. "Beer") can be, genuinely,
+  // unambiguously derived. Good enough to re-post through
+  // ensureProductInstance correctly; not a faithful redisplay of the
+  // original dimension labels.
+  assert.deepEqual(climbed.combinationShape, [['Location', 'Location'], ['Beer', 'Beer'], ['Storage', 'Storage']], 'the real, reconstructed shape correctly identifies each real value\'s own grouping, even though the original dimension name ("Item") cannot be recovered from the instance alone');
+
+  addOrUpdateItemSource({ itemName: 'BarcodeTest Lager', vendorName: 'BarcodeTest Vendor', priceMinor: 800, isPreferred: true, vendorUpc: 'BARCODE-COLD-001', productInstanceId: coldInstance.id });
+
+  const scanned = getCombinationByUpc('BARCODE-COLD-001');
+  assert.equal(scanned?.itemName, 'BarcodeTest Lager', 'a real, scanned barcode resolves to the correct, real item name');
+  assert.deepEqual(scanned?.combinationValues, ['Riverside Cellars', 'BarcodeTest Lager', 'Cold'], 'a real, scanned barcode resolves directly to its own, exact, full combination - no manual dimension selection needed');
+
+  assert.equal(getCombinationByUpc('NO-SUCH-BARCODE'), undefined, 'a real, unknown barcode correctly returns undefined, not a false match');
 });
 

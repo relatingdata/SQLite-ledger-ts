@@ -758,6 +758,12 @@ export interface ItemSummary {
   source_count: number;
   storage_origin: 'Hot' | 'Cold' | null;
   product: string | null;
+  /** Present only when the scanned barcode is registered against a
+   * real, specific combination (see climbInstanceTree/getCombinationByUpc) -
+   * the register uses these directly, rather than asking a cashier to
+   * manually pick each real dimension one at a time. */
+  combinationValues?: string[];
+  combinationShape?: [string, string][];
 }
 export const getItemStorageOrigin = (itemName: string) => request<{ origin: 'Hot' | 'Cold' | null }>(`/items/${encodeURIComponent(itemName)}/storage-origin`);
 export const setItemStorageOrigin = (itemName: string, origin: 'Hot' | 'Cold' | null) =>
@@ -1220,6 +1226,12 @@ export interface PosSaleLineInput {
   quantity: number;
   unitPriceMinor: number;
   taxMinor: number;
+  tier?: string;
+  /** Present only when this line represents a real, specific
+   * combination (see climbInstanceTree/getCombinationByUpc) — set
+   * automatically when a barcode registered against one is scanned. */
+  combinationValues?: string[];
+  combinationShape?: [string, string][];
 }
 export interface PosSaleResult {
   invoiceId: number;
