@@ -8,24 +8,31 @@ import { getItemByUpc, getCombinationByUpc, completePosSale, completeCashPurchas
 export const posRouter = Router();
 
 posRouter.get('/lookup/:upc', (req, res) => {
-  const item = getItemByUpc(req.params.upc);
-  if (!item) return res.status(404).json({ error: 'No item with that UPC.' });
   // Per direct instruction: "the POS terminal uses the barcode and
   // then looks up the product name climbing the Instance tree" - a
-  // real, scanned barcode registered against a specific combination
-  // (via item_source's own vendor_upc + productInstanceId) is
-  // included here directly, so the register never needs a real,
-  // separate round-trip, and a cashier never has to manually pick
-  // Storage/Size/Container one at a time.
+  // real, combination-specific barcode (registered via item_source's
+  // own vendor_upc, not the base item's own item_upc) is genuinely
+  // more specific, so it's checked first - a cashier scanning a cold
+  // beer's own, distinct barcode should never fall back to the base
+  // item's plain price by accident.
   const combination = getCombinationByUpc(req.params.upc);
-  res.json(combination ? { ...item, combinationValues: combination.combinationValues, combinationShape: combination.combinationShape } : item);
+  if (combination) {
+    const item = getItemByUpc(req.params.upc) ?? { name: combination.itemName, description: null, unit_of_measure: null, upc: req.params.upc, retail_price_minor: null, source_count: 0, storage_origin: null, product: null };
+    return res.json({ ...item, name: combination.itemName, combinationValues: combination.combinationValues, combinationShape: combination.combinationShape });
+  }
+  const item = getItemByUpc(req.params.upc);
+  if (!item) return res.status(404).json({ error: 'No item with that UPC.' });
+  res.json(item);
 });
 
 const saleLineSchema = z.object({
   itemName: z.string().min(1),
   quantity: z.number().int().positive(),
-  unitPriceMinor: z.number().int().nonnegative(),
+  unitPriceMinor: z.number().int().nonnegative().optional(),
   taxMinor: z.number().int().nonnegative(),
+  tier: z.string().min(1).optional(),
+  combinationValues: z.array(z.string().min(1)).optional(),
+  combinationShape: z.array(z.tuple([z.string().min(1), z.string().min(1)])).optional(),
 });
 
 const saleSchema = z.object({

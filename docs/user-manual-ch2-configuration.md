@@ -94,6 +94,6 @@ A hierarchy only needs to be set up where it's actually relevant --- Glass Size 
 
 **Setting this up**: under **Setup → Hierarchies & Products**, add a real grouping (e.g. "Storage") and its real values (e.g. "Cold," "Ambient"), then define a real Product shape --- the ordered list of dimensions (Location, Item, Storage, and so on) a specific combination will follow.
 
-A real, honest note on where this stands today: the setup screen above is real and working --- a business can define its own Hierarchies and Product shapes through it right now. Actually recording a real sale or stock receipt *against* one of these combinations (a specific bottle, at a specific location, in a specific storage state) is not yet available through the register or stock screens --- that's real, planned, future work, not something to expect today.
+A real, honest note on where this stands today: the setup screen above is real and working --- a business can define its own Hierarchies and Product shapes through it right now. Recording a real sale *against* one of these combinations works too, but only through **a real, registered barcode** --- when a real product barcode is registered against a specific combination (a cold beer's own, distinct barcode, different from a warm one's), scanning it at the register automatically finds the correct, exact combination and its own, real price, with nothing to pick manually. There is not yet a screen for choosing a combination by hand, or for tagging stock received without scanning --- that's real, planned, future work.
 
 \clearpage

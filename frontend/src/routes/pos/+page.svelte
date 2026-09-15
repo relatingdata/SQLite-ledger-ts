@@ -95,7 +95,12 @@
           id: crypto.randomUUID(),
           itemName: asItemName(item.name),
           quantity: 1,
-          unitPriceMinor: item.retail_price_minor ?? 0,
+          // A real, combination-tagged item's own, real price is
+          // resolved server-side (getItemPriceForCurrency, checked
+          // against its exact combination first) - omitted here
+          // entirely, rather than defaulting to a real item's own,
+          // separate, base retail price (or, worse, a bare 0).
+          unitPriceMinor: item.combinationValues ? undefined : (item.retail_price_minor ?? 0),
           taxMinor: 0,
           combinationValues: item.combinationValues,
           combinationShape: item.combinationShape,
@@ -128,7 +133,7 @@
     cart = cart.filter((l) => l.id !== id);
   }
 
-  $: subtotalMinor = cart.reduce((s, l) => s + l.quantity * l.unitPriceMinor, 0);
+  $: subtotalMinor = cart.reduce((s, l) => s + l.quantity * (l.unitPriceMinor ?? 0), 0);
   $: taxMinor = cart.reduce((s, l) => s + l.taxMinor, 0);
   $: totalMinor = subtotalMinor + taxMinor;
   $: cashTenderedMinor = Math.round(Math.abs(Number(cashTendered) || 0) * 100);
@@ -284,7 +289,7 @@
                     type="number"
                     min="0"
                     step="0.01"
-                    value={(line.unitPriceMinor / 100).toFixed(2)}
+                    value={((line.unitPriceMinor ?? 0) / 100).toFixed(2)}
                     onchange={(e) => (line.unitPriceMinor = Math.round(Number((e.target as HTMLInputElement).value) * 100))}
                   />
                 </td>
@@ -298,7 +303,7 @@
                     onchange={(e) => (line.taxMinor = Math.round(Number((e.target as HTMLInputElement).value) * 100))}
                   />
                 </td>
-                <td class="num mono">{fmt(line.quantity * line.unitPriceMinor + line.taxMinor)}</td>
+                <td class="num mono">{fmt(line.quantity * (line.unitPriceMinor ?? 0) + line.taxMinor)}</td>
                 <td><button class="btn secondary small" onclick={() => removeLine(line.id)}>&times;</button></td>
               </tr>
             {/each}

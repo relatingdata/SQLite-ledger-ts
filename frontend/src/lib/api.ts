@@ -1224,7 +1224,7 @@ export const lookupItemByUpc = (upc: string) => request<ItemSummary>(`/pos/looku
 export interface PosSaleLineInput {
   itemName: ItemName;
   quantity: number;
-  unitPriceMinor: number;
+  unitPriceMinor?: number;
   taxMinor: number;
   tier?: string;
   /** Present only when this line represents a real, specific
