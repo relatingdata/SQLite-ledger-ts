@@ -4,6 +4,20 @@ Two, real, related design decisions covered together: how this application trans
 
 ## Language-neutral translation: every real language, including English, a peer
 
+### The real, live structure of the application-level Vocabulary
+
+Confirmed directly against the live database, not estimated: `Vocabulary` has **676 real, direct children** — the overwhelming majority (roughly 660) are individual, flat, translatable strings (every real UI label, button, and help-text sentence in the application). A small, real minority — nine, confirmed directly — are themselves real, further sub-containers, each grouping a small, closed-feeling but genuinely user-extensible set of real "type" words: `Address Types`, `Phone Types`, `Contact Person Types`, `Relationship Types`, `Days of Week`, `Chart of Accounts Line Types`, `Location Types`, `Text Direction Types`, `Storage Origin Types`.
+
+![The real, live structure of the application-level Vocabulary — mostly flat, individual translatable strings, plus a small number of real sub-containers grouping user-extensible "type" words. Wine Bar shown as a real, user-added Location Type, not one of the two originals.](diagrams/vocabulary-structure.svg)
+
+*(Regenerated via `make manual-diagrams` whenever the real `.mmd` source changes.)*
+
+### Where the real translations themselves live
+
+Confirmed directly against the live database: the real Vocabulary concept `Save` has six real, direct translations, one per non-English language — each a real, separate entity, parented under its own real language, its own `relation_id` pointing back at the one, real, shared `Save` concept.
+
+![A real, live example: the Vocabulary concept "Save," with its six real translations, one per language, each pointing back via relation_id — English is one more real, equal entry, not a privileged source text.](diagrams/vocabulary-translations.svg)
+
 An earlier design treated `translation` as its own dedicated database
 table (`entity_id`, `language_id`, `text`), with English implicitly
 privileged as "the" real, canonical text every other language

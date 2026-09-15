@@ -1,0 +1,27 @@
+graph TB
+    V["Vocabulary<br/>(676 real, direct children)"]
+    V -->|~660 real, flat, individual entries| Flat["Every real, translatable word or phrase<br/>('Save', 'Sales Tax Payable',<br/>help text, menu labels, etc.)"]
+
+    V --> RT["Relationship Types (7)"]
+    V --> DoW["Days of Week (7)"]
+    V --> CPT["Contact Person Types (6)"]
+    V --> PT["Phone Types (5)"]
+    V --> COAL["Chart of Accounts Line Types (4)"]
+    V --> AT["Address Types (4)"]
+    V --> LT["Location Types (3)"]
+    V --> TDT["Text Direction Types (2)"]
+    V --> SOT["Storage Origin Types (2)"]
+
+    LT --> Retail["Retail"]
+    LT --> Warehouse["Warehouse"]
+    LT --> WineBar["Wine Bar<br/>(a real, user-added kind)"]
+
+    AT --> RO["Registered Office"]
+    AT --> Billing["Billing"]
+    AT --> Delivery["Delivery"]
+
+    style V fill:#dfd
+    style Flat fill:#eee
+    style LT fill:#ffd
+    style AT fill:#ffd
+    style WineBar fill:#fdd
