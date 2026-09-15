@@ -3806,12 +3806,14 @@ export function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName
   create(category, typeRootName, 'Item', userId);
 }
 
-export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId): string {
+export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number): string {
   const recordName = `${entityName} — ${linkType}`;
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
-    create(fetch(entityName, typeRootName), typeEntityLinkRecordName, recordName, userId);
+  const parentNode = entityId != null ? fetchById(entityId, typeRootName) : fetch(entityName, typeRootName);
+  let record = Entity.getUnder(recordName, parentNode.id);
+  if (!record) {
+    const created = create(parentNode, typeEntityLinkRecordName, recordName, userId);
+    record = { id: created.id, name: created.name };
   }
-  const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
   updateEntity(record.id, { relation: targetName }, userId);
   return recordName;
 }
@@ -4019,8 +4021,8 @@ export function getTaskDependencies(dependentTask: string): { predecessor: strin
  * the same real property this needs, since a GL account's own
  * relation_id may already be spoken for by its real CoA-family tag,
  * exactly the conflict setEntityLink itself was built to avoid. */
-export function setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId): void {
-  setEntityLink(entityName, `Dimension: ${dimensionName}`, parentName, userId);
+export function setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number): void {
+  setEntityLink(entityName, `Dimension: ${dimensionName}`, parentName, userId, entityId);
 }
 
 export function getDimensionParent(entityName: string, dimensionName: string): string | undefined {
