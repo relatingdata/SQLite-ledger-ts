@@ -500,16 +500,18 @@ export function getEffectiveSaleCurrency(terminalName: string | undefined): stri
 }
 
 export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; unit: 'bottle' | 'carton' } {
-  const capacityAccount = `${locationName} — Storage Capacity Remaining`;
+  const capacityAccountName = 'Storage Capacity Remaining';
+  const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
+  if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   const loc = getLocation(locationName);
   const unit: 'bottle' | 'carton' = loc?.bottle_capacity != null ? 'bottle' : 'carton';
-  let entity = Entity.get(capacityAccount);
+  let entity = Entity.getUnder(capacityAccountName, locationId);
   if (!entity) {
-    entity = Entity.create(capacityAccount, locationName, userId);
+    entity = Entity.create(capacityAccountName, locationId, userId);
     const opening = unit === 'bottle' ? loc?.bottle_capacity ?? 0 : loc?.carton_capacity ?? 0;
-    if (opening > 0) Balance.post(business, ledger, `${locationName}-CAPACITY-OPENING`, capacityAccount, entity.id, opening, userId);
+    if (opening > 0) Balance.post(business, ledger, `${locationName}-CAPACITY-OPENING`, capacityAccountName, entity.id, opening, userId);
   }
-  return { capacityAccount, capacityAccountId: entity.id, unit };
+  return { capacityAccount: capacityAccountName, capacityAccountId: entity.id, unit };
 }
 
 /** Adjusts a location's own real, tracked remaining capacity by
