@@ -1,4 +1,4 @@
-import { db } from './db.js';
+import { db, getQualifiedDisplayName } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
 import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, asDivisionName, type BusinessName, type LedgerName, type UserId } from './db.js';
 
@@ -285,15 +285,29 @@ export interface TrialBalance {
 export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): TrialBalance {
   const balances = getLedgerBalances(businessName, ledgerName, undefined, asOfDate, divisionName);
   const accounts = db
-    .prepare(`SELECT e.id, e.name, a.accountnumber FROM account a JOIN current_entities e ON e.id = a.entity_id`)
-    .all() as { id: number; name: string; accountnumber: string | null }[];
+    .prepare(`SELECT e.id, e.name, e.parent_id, a.accountnumber FROM account a JOIN current_entities e ON e.id = a.entity_id`)
+    .all() as { id: number; name: string; parent_id: number | null; accountnumber: string | null }[];
+
+  // Per direct correction: several real, per-parent-scoped accounts
+  // (a tier/location Sales-COGS leaf, among others) now genuinely,
+  // correctly share the same, real, simple, bare name across
+  // different real parents - the parent relationship distinguishes
+  // them structurally, but a real, human-facing report still needs a
+  // real, distinct display name. Only ever qualifies a name that is
+  // genuinely, confirmed duplicated here - a uniquely-named account
+  // (the overwhelming majority) keeps its own, plain, real name
+  // unchanged, never over-qualified.
+  const nameCounts = new Map<string, number>();
+  for (const a of accounts) nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1);
 
   const rows: TrialBalanceRow[] = accounts
     .map((a) => {
       const balance_minor = balances.get(a.id) ?? 0;
+      const isDuplicated = (nameCounts.get(a.name) ?? 0) > 1;
+      const displayName = isDuplicated ? getQualifiedDisplayName(a.id) : a.name;
       return {
         id: a.id,
-        name: a.name,
+        name: displayName,
         accountnumber: a.accountnumber,
         debit_minor: balance_minor > 0 ? balance_minor : 0,
         credit_minor: balance_minor < 0 ? -balance_minor : 0,
@@ -623,10 +637,23 @@ export function buildProfitAndLossFromBalances(balances: Map<number, number>): P
     .map((r) => ({ ...r, balance_minor: balances.get(r.account_id) ?? 0 }))
     .filter((r) => r.balance_minor !== 0);
 
+  // Per direct correction: several real, per-parent-scoped accounts
+  // (a tier/location Sales-COGS leaf, among others) now genuinely,
+  // correctly share the same, real, simple, bare name across
+  // different real parents. Only ever qualifies a name genuinely,
+  // confirmed duplicated within this real, current report's own rows
+  // - a uniquely-named account (the overwhelming majority) keeps its
+  // own, plain, real name unchanged, never over-qualified (a real
+  // account named "Cash at Bank" must never become "Assets — Cash at
+  // Bank").
+  const nameCounts = new Map<string, number>();
+  for (const r of rows) nameCounts.set(r.account, (nameCounts.get(r.account) ?? 0) + 1);
+
   const toLine = (r: (typeof rows)[number], normalSide: 'debit' | 'credit'): StatementLine => {
     const { debit_minor, credit_minor, is_contra } = Currency.toDebitCredit(r.balance_minor, normalSide);
+    const isDuplicated = (nameCounts.get(r.account) ?? 0) > 1;
     return {
-      name: r.account,
+      name: isDuplicated ? getQualifiedDisplayName(r.account_id) : r.account,
       accountnumber: r.accountnumber,
       debit_minor,
       credit_minor,

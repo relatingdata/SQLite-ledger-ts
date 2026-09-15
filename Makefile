@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual manual-screenshots manual-screenshots-german manual-screenshots-french manual-screenshots-danish manual-screenshots-italian programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams
 
 # A real, direct, explicit RUNTIME variable, per direct instruction.
 # This project uses bun, not npm - RUNTIME is just "bun" itself,
@@ -287,7 +287,72 @@ USER_MANUAL_CHAPTERS := \
 	docs/user-manual-glossary.md \
 	docs/user-manual-contributors-suggestions-notes.md
 
-manual: docs/build-user-manual.py $(USER_MANUAL_CHAPTERS) manual-screenshots
+# Every real screenshot file every real chapter/appendix actually
+# references - a real, explicit, individual dependency list, per
+# direct correction, replacing an earlier, blanket "capture every
+# screenshot" step that ran regardless of which chapters actually
+# needed one. Touching this list only when a real, new screenshot
+# reference is added to a chapter keeps it honest.
+USER_MANUAL_SCREENSHOTS := \
+	docs/manual-images/ap_payment.png \
+	docs/manual-images/ap_purchase.png \
+	docs/manual-images/ar_receipt.png \
+	docs/manual-images/ar_sale.png \
+	docs/manual-images/cash_purchase.png \
+	docs/manual-images/cash_sale.png \
+	docs/manual-images/general_journal.png \
+	docs/manual-images/hr_wages.png \
+	docs/manual-images/m_balance_sheet.png \
+	docs/manual-images/m_business_setup.png \
+	docs/manual-images/m_choose_business.png \
+	docs/manual-images/m_configuration_landing.png \
+	docs/manual-images/m_contact_persons.png \
+	docs/manual-images/m_home.png \
+	docs/manual-images/m_locations.png \
+	docs/manual-images/m_login.png \
+	docs/manual-images/m_multi_location_schedule.png \
+	docs/manual-images/m_new_business.png \
+	docs/manual-images/m_parts_cropped.png \
+	docs/manual-images/m_po_supplier_matching.png \
+	docs/manual-images/pos_terminal.png \
+	docs/manual-images/projects.png \
+	docs/manual-images/purchase_order.png \
+	docs/manual-images/sales_order.png \
+	docs/manual-images/stock_dispatch.png \
+	docs/manual-images/stock_receipt.png \
+	docs/manual-images/stock_take.png \
+	docs/manual-images/stock_transfer.png \
+	docs/manual-images/storage_origin_verified.png \
+	docs/manual-images/t01_login_landing.png \
+	docs/manual-images/t02_new_business_form.png \
+	docs/manual-images/t03_new_business_created.png \
+	docs/manual-images/t04_locations_empty.png \
+	docs/manual-images/t05_locations_new_form.png \
+	docs/manual-images/t06_locations_created.png \
+	docs/manual-images/t07_business_setup_landing.png \
+	docs/manual-images/t08_first_division_created.png \
+	docs/manual-images/t09_first_warehouse_created.png \
+	docs/manual-images/t10_first_employee_created.png \
+	docs/manual-images/t11_items_empty.png \
+	docs/manual-images/t12_new_category_and_product_form.png \
+	docs/manual-images/t13_first_product_created.png \
+	docs/manual-images/t14_general_journal_empty.png \
+	docs/manual-images/t15_general_journal_filled.png \
+	docs/manual-images/t16_general_journal_posted.png \
+	docs/manual-images/t17_trial_balance_after_first_transaction.png \
+	docs/manual-images/write_offs.png
+
+# A real screenshot not yet captured falls back to a real, correctly
+# sized (1280x720), clearly labelled "Coming Soon" placeholder - kept
+# so the manual always builds and lays out correctly, never blocked
+# on a screenshot that doesn't exist yet. Make's own, real file-
+# existence check means this recipe only ever runs for a file that
+# genuinely doesn't exist - a real, once-captured screenshot is never
+# overwritten by this rule.
+docs/manual-images/%.png:
+	cp docs/manual-images/coming-soon.png $@
+
+manual: docs/build-user-manual.py $(USER_MANUAL_CHAPTERS) $(USER_MANUAL_SCREENSHOTS)
 	cd docs && python3 build-user-manual.py
 	cd docs && pandoc user-manual.md -o ../sql-ledger-ts_User_Manual.pdf \
 	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
@@ -445,6 +510,9 @@ docs/manual-images/m_balance_sheet.png: e2e/tests/capture-manual-screenshots.spe
 docs/manual-images/m_items_new_category_full.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/items/+page.svelte
 	cd e2e && MANUAL_SCREEN=m_items_new_category_full $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
+docs/manual-images/m_parts_cropped.png: docs/manual-images/m_items_new_category_full.png docs/crop-parts-screenshot.py
+	cd docs && python3 crop-parts-screenshot.py
+
 docs/manual-images/m_locations.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/locations/+page.svelte
 	cd e2e && MANUAL_SCREEN=m_locations $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
 
@@ -468,31 +536,11 @@ docs/manual-images/m_choose_business.png: e2e/tests/capture-manual-screenshots.s
 
 # Real, live screenshot capture for the manual, in each real,
 # supported language — a real, shared Playwright script
-# (e2e/tests/capture-manual-screenshots.spec.ts), driven by a real,
-# direct MANUAL_LANGUAGE environment variable, so the same, one real
-# script produces the real, correct set for whichever language is
-# asked for, rather than four, separate, near-duplicate scripts. Each
-# real target also runs the real, direct crop step the tall Parts
-# Catalog screenshot needs.
-manual-screenshots:
-	cd e2e && MANUAL_LANGUAGE=English $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
-	cd docs && python3 crop-parts-screenshot.py
-
-manual-screenshots-german:
-	cd e2e && MANUAL_LANGUAGE=German $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
-	cd docs && python3 crop-parts-screenshot.py -german
-
-manual-screenshots-french:
-	cd e2e && MANUAL_LANGUAGE=French $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
-	cd docs && python3 crop-parts-screenshot.py -french
-
-manual-screenshots-danish:
-	cd e2e && MANUAL_LANGUAGE=Danish $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
-	cd docs && python3 crop-parts-screenshot.py -danish
-
-manual-screenshots-italian:
-	cd e2e && MANUAL_LANGUAGE=Italian $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
-	cd docs && python3 crop-parts-screenshot.py -italian
+# Per direct correction: no blanket "capture every screenshot"
+# target - each real screenshot has its own, individual, real rule
+# above, depending only on the specific frontend route file(s) it
+# actually captures, so `make manual` only ever regenerates the
+# screenshots whose own real source changed, never all of them.
 
 # Assembles and builds the real, complete Programmer's Manual — a
 # real, direct concatenation of this project's own, already-existing,
@@ -566,6 +614,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/border-multicurrency-pos-plan.md \
 	docs/typed-node-create-design.md \
 	docs/general-typed-hierarchy-resolution-plan.md \
+	docs/cartesian-account-linking-plan.md \
 	docs/inventory-lifecycle-blow-by-blow.md \
 	docs/file-inventory-appendix.md
 

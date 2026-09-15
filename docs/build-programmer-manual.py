@@ -63,6 +63,7 @@ PARTS = [
         "border-multicurrency-pos-plan.md",
         "typed-node-create-design.md",
         "general-typed-hierarchy-resolution-plan.md",
+        "cartesian-account-linking-plan.md",
         "inventory-lifecycle-blow-by-blow.md",
         "file-inventory-appendix.md",
         "user-manual-plan.md",
