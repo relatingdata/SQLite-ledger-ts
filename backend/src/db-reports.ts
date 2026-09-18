@@ -1,4 +1,4 @@
-import { db, getQualifiedDisplayName } from './db.js';
+import { db, getQualifiedDisplayName, getCombinationDisplayName } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
 import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, asDivisionName, type BusinessName, type LedgerName, type UserId } from './db.js';
 
@@ -12,6 +12,7 @@ export interface ReportRow {
   account: string;
   account_id: number;
   depth: number;
+  combination_ids: string | null;
   accountnumber: string | null;
   balance_minor: number | null;
 }
@@ -285,8 +286,8 @@ export interface TrialBalance {
 export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): TrialBalance {
   const balances = getLedgerBalances(businessName, ledgerName, undefined, asOfDate, divisionName);
   const accounts = db
-    .prepare(`SELECT e.id, e.name, e.parent_id, a.accountnumber FROM account a JOIN current_entities e ON e.id = a.entity_id`)
-    .all() as { id: number; name: string; parent_id: number | null; accountnumber: string | null }[];
+    .prepare(`SELECT e.id, e.name, e.parent_id, e.combination_ids, a.accountnumber FROM account a JOIN current_entities e ON e.id = a.entity_id`)
+    .all() as { id: number; name: string; parent_id: number | null; combination_ids: string | null; accountnumber: string | null }[];
 
   // Per direct correction: several real, per-parent-scoped accounts
   // (a tier/location Sales-COGS leaf, among others) now genuinely,
@@ -309,8 +310,13 @@ export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerNa
   const rows: TrialBalanceRow[] = accounts
     .map((a) => {
       const balance_minor = balances.get(a.id) ?? 0;
-      const isDuplicated = (nameCounts.get(a.name) ?? 0) > 1;
-      const displayName = isDuplicated ? getQualifiedDisplayName(a.id) : a.name;
+      // A real, combination-tagged leaf (Inventory/Sales/COGS under
+      // the Hierarchy/Product mechanism) always displays its own,
+      // live, real combination name - never the duplicate-count
+      // heuristic below, since combination_ids already, genuinely
+      // distinguishes it from every other, real combination on its
+      // own terms.
+      const displayName = a.combination_ids != null ? getCombinationDisplayName(a.id) : (nameCounts.get(a.name) ?? 0) > 1 ? getQualifiedDisplayName(a.id) : a.name;
       return {
         id: a.id,
         name: displayName,
@@ -658,8 +664,9 @@ export function buildProfitAndLossFromBalances(balances: Map<number, number>): P
   const toLine = (r: (typeof rows)[number], normalSide: 'debit' | 'credit'): StatementLine => {
     const { debit_minor, credit_minor, is_contra } = Currency.toDebitCredit(r.balance_minor, normalSide);
     const isDuplicated = (nameCounts.get(r.account) ?? 0) > 1;
+    const name = r.combination_ids != null ? getCombinationDisplayName(r.account_id) : isDuplicated ? getQualifiedDisplayName(r.account_id) : r.account;
     return {
-      name: isDuplicated ? getQualifiedDisplayName(r.account_id) : r.account,
+      name,
       accountnumber: r.accountnumber,
       debit_minor,
       credit_minor,

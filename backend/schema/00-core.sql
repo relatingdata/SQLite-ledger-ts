@@ -79,6 +79,17 @@ CREATE TABLE entities (
   name       TEXT NOT NULL,
   parent_id  INTEGER REFERENCES entity_ids(id),
   relation_id INTEGER REFERENCES entity_ids(id),
+  -- A real, flat, ordered JSON array of real Hierarchy value ids
+  -- (e.g. "[41,88,103]") - set only on a Product Instance's own,
+  -- single entity and on each of its own combination leaves under
+  -- Inventory/Sales Revenue/Cost of Goods Sold. Genuinely rename-safe
+  -- by construction: each id is this table's own, stable entity_id,
+  -- which a rename or reparent never changes (only the row itself
+  -- gets replaced) - so this array never needs an update of its own
+  -- when a real Hierarchy value is renamed. The real, live display
+  -- name is always recomputed from these ids at read time
+  -- (getCombinationDisplayName), never trusted from a stored string.
+  combination_ids TEXT,
   created_at TEXT NOT NULL,
   created_by INTEGER NOT NULL REFERENCES users(id),
   deleted_at TEXT,
@@ -112,7 +123,7 @@ CREATE INDEX entities_name_lookup ON entities(name) WHERE deleted_at IS NULL;
 CREATE INDEX entities_entity_id_current ON entities(entity_id) WHERE deleted_at IS NULL;
 
 CREATE VIEW current_entities AS
-  SELECT entity_id AS id, name, parent_id, relation_id, created_at, created_by, deleted_at, deleted_by
+  SELECT entity_id AS id, name, parent_id, relation_id, combination_ids, created_at, created_by, deleted_at, deleted_by
   FROM entities WHERE deleted_at IS NULL;
 
 -- =====================================================================
@@ -1560,12 +1571,19 @@ BEGIN
   );
   UPDATE entities SET deleted_at = datetime('now'), deleted_by = NEW.updated_by
   WHERE entity_id = NEW.entity_id AND deleted_at IS NULL;
-  INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by)
+  -- combination_ids carried forward from the row just closed out - a
+  -- rename or reparent must never silently drop a real Product
+  -- Instance's or combination leaf's own, real identity array. The
+  -- array itself only ever changes via the real, dedicated functions
+  -- that set it in the first place (ensureProductInstance,
+  -- ensureCombinationAccountLeaf), never as a side effect of a rename.
+  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, created_at, created_by)
   VALUES (
     NEW.entity_id,
     NEW.name,
     COALESCE(NEW.parent_id, (SELECT id FROM current_entities WHERE name = NEW.parent)),
     COALESCE(NEW.relation_id, (SELECT id FROM current_entities WHERE name = NEW.relation)),
+    (SELECT combination_ids FROM entities WHERE entity_id = NEW.entity_id AND deleted_at IS NOT NULL ORDER BY row_id DESC LIMIT 1),
     datetime('now'),
     NEW.updated_by
   );
@@ -1683,11 +1701,11 @@ WHERE l.parent_id = (SELECT id FROM current_entities WHERE name = 'Languages')
 -- relation_id — a real, editable relationship, not hardcoded logic.
 --   SELECT * FROM business_reports WHERE report = 'Balance Sheet';
 CREATE VIEW business_reports AS
-WITH RECURSIVE coa_walk(id, name, depth, category_id) AS (
-  SELECT e.id, e.name, 0, e.id
+WITH RECURSIVE coa_walk(id, name, depth, category_id, combination_ids) AS (
+  SELECT e.id, e.name, 0, e.id, e.combination_ids
   FROM current_entities e WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = 'Chart of Accounts')
   UNION ALL
-  SELECT e.id, e.name, w.depth + 1, w.category_id
+  SELECT e.id, e.name, w.depth + 1, w.category_id, e.combination_ids
   FROM current_entities e JOIN coa_walk w ON e.parent_id = w.id
 )
 SELECT
@@ -1696,6 +1714,7 @@ SELECT
   w.name AS account,
   w.id AS account_id,
   w.depth,
+  w.combination_ids,
   a.accountnumber,
   a.balance_minor
 FROM coa_walk w

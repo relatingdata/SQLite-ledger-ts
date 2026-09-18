@@ -22,6 +22,7 @@ const {
   getBusinessHierarchy,
   getBusinessProductShapes,
   climbInstanceTree,
+  getCombinationDisplayName,
   getCombinationByUpc,
   asBusinessName,
   asItemName,
@@ -5019,7 +5020,7 @@ test('getHierarchyChain: a real, uniform, non-generic walk up parent_id - genuin
   assert.deepEqual(locationChainNames, ['Riverside Cellars', 'Springfield', 'Divisions', 'Application'], 'confirms the real, separate, already-known Division/Business data gap directly - Divisions are currently a global root, not scoped per business, so a real Location chain does not yet reach any real Business');
 });
 
-test('The real Hierarchy/Product cartesian mechanism - the full, settled design, built and verified end to end', () => {
+test('The real Hierarchy/Product cartesian mechanism - the full, settled, flat combination_ids design, built and verified end to end', () => {
   const biz = asBusinessName('Wine Retail Business');
 
   // A real Hierarchy: Beer -> Lager/Ale, Storage -> Hot/Cold.
@@ -5037,36 +5038,37 @@ test('The real Hierarchy/Product cartesian mechanism - the full, settled design,
     ['Storage', 'Storage'],
   ];
 
-  const instanceTop = ensureProductInstance(biz, shape, ['Riverside Cellars', 'Lager', '330ml', 'can', 'single', 'Cold'], 1);
-  assert.equal(instanceTop.name, 'Cold', 'per direct correction, the real, returned node is the instance chain\'s own, real, terminal node - genuinely unique to this full combination, unlike the first/Location node, which is shared across every item at that same location');
+  const instance = ensureProductInstance(biz, shape, ['Riverside Cellars', 'Lager', '330ml', 'can', 'single', 'Cold'], 1);
+  assert.equal(instance.name, 'Riverside Cellars — Lager — 330ml — can — single — Cold', 'a real Product Instance is one, single, flat entity, named from its full, real combination directly, not a chain of intermediate nodes');
 
-  // A definition node's own relation_id lands on a real Hierarchy
-  // grouping (Beer itself) - never one of that grouping's own children.
-  const itemDefRelation = db.prepare(`SELECT rel.name FROM current_entities e JOIN current_entities rel ON rel.id = e.relation_id WHERE e.name = 'Item'`).get() as { name: string } | undefined;
-  assert.equal(itemDefRelation?.name, 'Beer', 'a real Definition node points at the real Hierarchy grouping itself');
+  // Its own, real, flat combination_ids array holds each real
+  // Hierarchy value's own, stable id, in order - the entire identity,
+  // with no chain of intermediate entities underneath it at all.
+  const row = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(instance.id) as { combination_ids: string | null };
+  const ids = JSON.parse(row.combination_ids!) as number[];
+  assert.equal(ids.length, 6, 'the real, flat combination_ids array holds exactly one, real, stable id per real dimension');
 
-  // An instance node's own relation_id lands on a real value under
-  // that grouping - never the grouping itself.
-  const itemInstRow = db.prepare(`SELECT rel.name FROM current_entities e JOIN current_entities rel ON rel.id = e.relation_id WHERE e.name = 'Cold' AND e.id = ?`).get(instanceTop.id) as { name: string } | undefined;
-  assert.equal(itemInstRow?.name, 'Cold', 'a real Instance node points at the real Hierarchy value itself, one level deeper than its Definition counterpart');
+  // Calling it again with the exact, same, real combination reuses
+  // the exact, same, real entity - looked up by exact array match,
+  // genuinely idempotent.
+  const again = ensureProductInstance(biz, shape, ['Riverside Cellars', 'Lager', '330ml', 'can', 'single', 'Cold'], 1);
+  assert.equal(again.id, instance.id, 'the exact, same, real combination is genuinely, correctly reused, not duplicated');
 
-  // The instance chain's own first (Location) node still records
-  // which real Definition shape the whole chain follows - a real,
-  // structural fact about the chain overall, recorded once, at its
-  // own start, not repeated at every level.
-  const definitionLink = getDimensionParent('Riverside Cellars', 'Product Definition');
-  assert.equal(definitionLink, 'Location', 'the real instance chain\'s own first node correctly records which real Definition shape the whole chain follows');
+  // getCombinationDisplayName always recomputes the name live, from
+  // the real, current names behind these ids - never a stored string.
+  assert.equal(getCombinationDisplayName(instance.id), instance.name, 'the real, live display name matches the real name computed at creation, since nothing has been renamed yet');
 
   // Real, new leaves under Inventory, Sales, and COGS - never an
-  // intermediate per-item grouping node - each pointing at the exact,
-  // same, real, shared Product Instance terminal node.
-  const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, 1);
-  const salesLeaf = ensureCombinationAccountLeaf('Sales Revenue', instanceTop, 1);
-  const cogsLeaf = ensureCombinationAccountLeaf('Cost of Goods Sold', instanceTop, 1);
+  // intermediate per-item grouping node - each carrying the exact,
+  // same, real, shared combination_ids array.
+  const invLeaf = ensureCombinationAccountLeaf('Inventory', instance, 1);
+  const salesLeaf = ensureCombinationAccountLeaf('Sales Revenue', instance, 1);
+  const cogsLeaf = ensureCombinationAccountLeaf('Cost of Goods Sold', instance, 1);
 
   for (const leaf of [invLeaf, salesLeaf, cogsLeaf]) {
-    const link = getDimensionParent(leaf.name, 'Product Instance');
-    assert.equal(link, 'Cold', 'every real, new leaf under Inventory/Sales/COGS points at the exact, same, real, shared Product Instance terminal node');
+    const leafRow = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(leaf.id) as { combination_ids: string | null };
+    assert.equal(leafRow.combination_ids, row.combination_ids, 'every real, new leaf under Inventory/Sales/COGS carries the exact, same, real, shared combination_ids array');
+    assert.equal(getCombinationDisplayName(leaf.id), instance.name, 'every real, new leaf displays the exact, same, real, live combination name');
   }
 
   // Real, direct confirmation these three leaves are genuinely,
@@ -5075,6 +5077,16 @@ test('The real Hierarchy/Product cartesian mechanism - the full, settled design,
   // every real financial statement.
   const invParentName = (db.prepare(`SELECT p.name FROM current_entities e JOIN current_entities p ON p.id = e.parent_id WHERE e.id = ?`).get(invLeaf.id) as { name: string }).name;
   assert.equal(invParentName, 'Inventory', 'the new Inventory leaf is a real, direct, structural child of the real Inventory account, genuinely reachable by business_reports');
+
+  // The real, defining rename-safety guarantee: renaming a Hierarchy
+  // value must never require any update to combination_ids anywhere -
+  // the id is stable, so every real display name recomputes correctly
+  // and automatically.
+  const coldHierarchyId = db.prepare(`SELECT id FROM current_entities WHERE name = 'Cold' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Storage' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`).get(biz) as { id: number } | undefined;
+  assert.ok(coldHierarchyId, 'the real Cold Hierarchy value exists and is directly resolvable');
+  updateEntity(coldHierarchyId!.id, { name: 'Chilled' }, 1);
+  assert.equal(getCombinationDisplayName(instance.id), 'Riverside Cellars — Lager — 330ml — can — single — Chilled', 'renaming a real Hierarchy value is correctly, automatically reflected everywhere, with zero writes to combination_ids itself');
+  assert.equal(getCombinationDisplayName(invLeaf.id), 'Riverside Cellars — Lager — 330ml — can — single — Chilled', 'the real Inventory leaf, sharing the exact, same, real combination_ids array, reflects the rename identically');
 });
 
 test('getItemPriceForCurrency: a real, combination-specific price wins over the base item price, per direct instruction (a cold beer costs more than a warm one)', () => {

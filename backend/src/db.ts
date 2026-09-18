@@ -2547,31 +2547,47 @@ export function defineProductShape(businessName: BusinessName, dimensions: [stri
  * Returns the instance's own, real, first (top) node - the one,
  * shared, canonical identity every real, related financial account
  * leaf should point back to. */
+/** Per direct design decision: a real Product Instance is now one,
+ * single, real entity directly under Product - no chain of
+ * intermediate nodes at all. Its own identity is a real, flat,
+ * ordered JSON array of the real Hierarchy values' own, stable ids
+ * (combination_ids) - genuinely rename-safe by construction, since
+ * entity_id never changes across a rename (see the entity_update
+ * trigger, which now explicitly carries this array forward). Looked
+ * up by exact array match - genuinely unambiguous, since two,
+ * different, real combinations can never produce the identical,
+ * ordered id array. */
 export function ensureProductInstance(businessName: BusinessName, definitionDimensions: [string, string][], values: string[], userId: UserId): { id: number; name: string } {
   if (values.length !== definitionDimensions.length) throw new ValidationError('A real Product Instance needs exactly one, real value per real dimension in its Definition.');
-  const definitionChain = defineProductShape(businessName, definitionDimensions, userId);
+  defineProductShape(businessName, definitionDimensions, userId);
   const product = ensureBusinessRoot(businessName, 'Product', userId);
-  let parentId = product.id;
-  let node: { id: number; name: string } | undefined;
+  const hierarchyValueIds: number[] = [];
   for (let i = 0; i < values.length; i++) {
     const groupingName = definitionDimensions[i][1];
     const hierarchyValue = ensureHierarchyValue(businessName, groupingName, values[i], userId);
-    let existing = Entity.getUnder(values[i], parentId);
-    if (!existing) {
-      existing = Entity.create(values[i], parentId, userId);
-      Entity.relate(existing.id, hierarchyValue.name, userId, hierarchyValue.id);
-      if (i === 0) setDimensionParent(existing.name, 'Product Definition', definitionChain[0].name, userId, existing.id, definitionChain[0].id);
-    }
-    node = existing;
-    parentId = node.id;
+    hierarchyValueIds.push(hierarchyValue.id);
   }
-  // Per direct, confirmed correction: the real, canonical identity a
-  // financial account leaf points at is this chain's own, real,
-  // terminal node - not its first/top one. The first node (always the
-  // Location dimension's value) is genuinely shared across every real
-  // item using that same location; only the full, complete chain's
-  // own end is genuinely unique to one, specific combination.
-  return node!;
+  const combinationIdsJson = JSON.stringify(hierarchyValueIds);
+  const existing = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(product.id, combinationIdsJson) as { id: number; name: string } | undefined;
+  if (existing) return existing;
+  const name = values.join(' — ');
+  const created = Entity.create(name, product.id, userId);
+  db.prepare(`UPDATE entities SET combination_ids = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(combinationIdsJson, created.id);
+  return created;
+}
+
+/** The one, real, live place a combination's own display name is ever
+ * computed - always from its own, real, stable combination_ids array,
+ * never trusted from a stored name column. Genuinely rename-safe:
+ * even if every real Hierarchy value in the chain has since been
+ * renamed, this always reflects their current, real names. */
+export function getCombinationDisplayName(entityId: number): string {
+  const row = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(entityId) as { combination_ids: string | null } | undefined;
+  if (!row?.combination_ids) throw new ValidationError(`Entity ${entityId} has no real combination_ids set.`);
+  const ids = JSON.parse(row.combination_ids) as number[];
+  const rows = db.prepare(`SELECT id, name FROM current_entities WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids) as { id: number; name: string }[];
+  const byId = new Map(rows.map((r) => [r.id, r.name]));
+  return ids.map((id) => byId.get(id) ?? '?').join(' — ');
 }
 
 /** Per direct instruction: "the POS terminal uses the barcode and
@@ -2582,36 +2598,30 @@ export function ensureProductInstance(businessName: BusinessName, definitionDime
  * real Product root, reconstructing the full, ordered combinationValues
  * array a real sale actually needs - never requiring a cashier to
  * manually pick each real dimension one at a time. */
-export function climbInstanceTree(terminalNodeId: number): { combinationValues: string[]; combinationShape: [string, string][] } {
-  const chain: { id: number; name: string }[] = [];
-  let current = db.prepare(`SELECT id, name, parent_id FROM current_entities WHERE id = ?`).get(terminalNodeId) as { id: number; name: string; parent_id: number | null } | undefined;
-  while (current) {
-    const parentRow = current.parent_id != null ? (db.prepare(`SELECT id, name FROM current_entities WHERE id = ?`).get(current.parent_id) as { id: number; name: string } | undefined) : undefined;
-    if (!parentRow || parentRow.name === 'Product') {
-      chain.unshift({ id: current.id, name: current.name });
-      break;
-    }
-    chain.unshift({ id: current.id, name: current.name });
-    current = { id: parentRow.id, name: parentRow.name, parent_id: (db.prepare(`SELECT parent_id FROM current_entities WHERE id = ?`).get(parentRow.id) as { parent_id: number | null }).parent_id };
-  }
-  // Per a real, confirmed, deeper bug found directly: walking a
-  // separate Definition chain is genuinely ambiguous once two, real,
-  // different shapes share a common prefix (e.g. both start Location
-  // -> Item) then diverge - defineProductShape's own child lookup has
-  // no way to know which of several, real, different children
-  // belongs to which shape. Sidesteps this entirely: each real
-  // instance node's own relation_id already points at the real
-  // Hierarchy value it represents, and that value's own real parent
-  // is the real grouping - genuinely unambiguous, since it comes
-  // directly from this one, specific instance's own real chain, never
-  // a separate, shared structure.
-  const combinationShape: [string, string][] = chain.map((node) => {
-    const groupingRow = db
-      .prepare(`SELECT g.name FROM current_entities e JOIN current_entities g ON g.id = e.parent_id WHERE e.id = (SELECT relation_id FROM current_entities WHERE id = ?)`)
-      .get(node.id) as { name: string } | undefined;
-    return [groupingRow?.name ?? node.name, groupingRow?.name ?? node.name];
+/** Per direct instruction: "the POS terminal uses the barcode and
+ * then looks up the product name climbing the Instance tree" - now a
+ * real, single, direct lookup rather than a real, multi-step walk:
+ * a real scanner identifies one, exact Product Instance directly (via
+ * a real barcode registered against it, see getCombinationByUpc
+ * below), whose own, real, flat combination_ids array already holds
+ * everything needed - the full, ordered combinationValues array a
+ * real sale actually needs, and each real value's own grouping, for
+ * combinationShape - never requiring a cashier to manually pick each
+ * real dimension one at a time. */
+export function climbInstanceTree(instanceId: number): { combinationValues: string[]; combinationShape: [string, string][] } {
+  const row = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(instanceId) as { combination_ids: string | null } | undefined;
+  if (!row?.combination_ids) return { combinationValues: [], combinationShape: [] };
+  const ids = JSON.parse(row.combination_ids) as number[];
+  const rows = db
+    .prepare(`SELECT e.id, e.name, g.name AS grouping_name FROM current_entities e LEFT JOIN current_entities g ON g.id = e.parent_id WHERE e.id IN (${ids.map(() => '?').join(',')})`)
+    .all(...ids) as { id: number; name: string; grouping_name: string | null }[];
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const combinationValues = ids.map((id) => byId.get(id)?.name ?? '?');
+  const combinationShape: [string, string][] = ids.map((id) => {
+    const grouping = byId.get(id)?.grouping_name ?? '?';
+    return [grouping, grouping];
   });
-  return { combinationValues: chain.map((n) => n.name), combinationShape };
+  return { combinationValues, combinationShape };
 }
 
 /** Per the same, real, direct instruction - resolves a real,
@@ -2648,35 +2658,33 @@ export function getCombinationByUpc(upc: string): { itemName: string; combinatio
 export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId): { id: number; name: string } {
   const baseId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(baseAccountName) as { id: number } | undefined)?.id;
   if (!baseId) throw new ValidationError(`No real account named "${baseAccountName}".`);
+  const instanceRow = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(instanceTopNode.id) as { combination_ids: string | null } | undefined;
+  const combinationIds = instanceRow?.combination_ids ?? null;
   // A real, confirmed bug, found directly, before this fix: even a
   // genuinely unique combination's own terminal value (e.g. "Cold")
   // can still, correctly, be shared by real, different, unrelated
   // items whose own combinations happen to end in the same, real
-  // value. Looks up by which real leaf's own "Product Instance"
-  // dimension link already points at this specific instance's own,
-  // real, unique id - never by bare name alone.
-  const existing = db
-    .prepare(
-      `SELECT e.id, e.name FROM current_entities e
-       JOIN current_entities rec ON rec.name = e.name || ' — Dimension: Product Instance' AND rec.parent_id = e.id
-       WHERE e.parent_id = ? AND rec.relation_id = ?`
-    )
-    .get(baseId, instanceTopNode.id) as { id: number; name: string } | undefined;
+  // value. Looks up by the leaf's own, real combination_ids array
+  // matching exactly - genuinely unambiguous, since it's the same,
+  // stable array copied directly from the real Product Instance this
+  // leaf represents, never a bare name.
+  const existing = combinationIds != null ? (db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(baseId, combinationIds) as { id: number; name: string } | undefined) : undefined;
   if (existing) return existing;
   // A real, second, genuine issue found directly, per direct
   // question: the bare terminal value alone ("Cold") is a real,
   // meaningless name in a report once two, real, different items'
   // own combinations happen to share it - and the earlier, numeric-id
   // fallback ("Cold (7350)") is no more meaningful to a real, human
-  // reader. Uses the instance's own, real, full combination chain
-  // instead (e.g. "Riverside Cellars — DupCheck Lager — Cold") -
-  // genuinely unique on its own, and genuinely readable, since it
-  // names every real value that makes this one, specific combination
-  // what it is.
-  const { combinationValues } = climbInstanceTree(instanceTopNode.id);
-  const leafName = combinationValues.length > 0 ? combinationValues.join(' — ') : instanceTopNode.name;
+  // reader. Uses the instance's own, real, full combination
+  // (getCombinationDisplayName) instead (e.g. "Riverside Cellars —
+  // DupCheck Lager — Cold") - genuinely unique on its own, and
+  // genuinely readable, since it names every real value that makes
+  // this one, specific combination what it is. Computed once here for
+  // the leaf's own, real, initial name; never trusted as authoritative
+  // afterward - a report re-derives it live from combination_ids.
+  const leafName = combinationIds != null ? getCombinationDisplayName(instanceTopNode.id) : instanceTopNode.name;
   const leaf = Entity.create(leafName, baseId, userId);
-  setDimensionParent(leafName, 'Product Instance', instanceTopNode.name, userId, leaf.id, instanceTopNode.id);
+  if (combinationIds != null) db.prepare(`UPDATE entities SET combination_ids = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(combinationIds, leaf.id);
   return leaf;
 }
 
