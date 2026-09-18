@@ -226,10 +226,24 @@ source-reference:
 
 # A real, generated architectural diagram set - per direct request,
 # "a picture is worth a thousand words." Renders every real .mmd
-# source under docs/diagrams/ to a real .svg, using the sandbox's own,
-# already-cached Chrome (mmdc's own bundled one isn't available here).
+# source under docs/diagrams/ to a real .svg. Real, portable fix: no
+# hardcoded, machine-specific Chrome path - finds whatever real,
+# already-cached chrome-headless-shell exists under this machine's own
+# $HOME (needed in a sandbox with no internet access to let mmdc
+# download its own), and falls through cleanly to mmdc's own, real,
+# bundled Chrome when none is found (the normal, real case on a
+# real developer's own machine).
 manual-diagrams:
-	cd docs/diagrams && for f in *.mmd; do mmdc -i "$$f" -o "$${f%.mmd}.svg" -b white -p puppeteer-config.json; done
+	@CHROME_PATH=$$(find /home/*/.cache/puppeteer /root/.cache/puppeteer "$$HOME/.cache/puppeteer" -type f -name 'chrome-headless-shell' 2>/dev/null | head -1); \
+	cd docs/diagrams && for f in *.mmd; do \
+	  if [ -n "$$CHROME_PATH" ]; then \
+	    echo "{\"executablePath\": \"$$CHROME_PATH\", \"args\": [\"--no-sandbox\"]}" > .puppeteer-config.generated.json; \
+	    mmdc -i "$$f" -o "$${f%.mmd}.svg" -b white -p .puppeteer-config.generated.json; \
+	  else \
+	    mmdc -i "$$f" -o "$${f%.mmd}.svg" -b white; \
+	  fi; \
+	done; \
+	rm -f .puppeteer-config.generated.json
 
 list-menu-labels:
 	cd backend && $(RUNTIME) scripts/list-menu-labels.ts

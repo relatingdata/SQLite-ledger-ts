@@ -31,3 +31,4 @@ test-results/
 # tracked.
 COMMIT_MSG.txt
 
+docs/diagrams/.puppeteer-config.generated.json

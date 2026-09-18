@@ -138,7 +138,7 @@ async function main() {
     ['Wine Returns', 'Expense'],
   ] as const) {
     try {
-      create(fetch(category, typeCategoryOrItemsRootName), typeItemName, name, 1);
+      create(fetch(category, typeRootName), typeRootName, name, 1);
     } catch {
       // already exists from a prior run — fine, this script is safe to re-run
     }

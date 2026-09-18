@@ -379,16 +379,30 @@ export function getEntityTree(): (EntityNode & { depth: number; is_postable_acco
          WHERE NOT EXISTS (SELECT 1 FROM contact WHERE entity_id = r.id)
        )
        SELECT e.id, e.name, e.parent_id, e.relation_id, a.accountnumber, a.balance_minor, a.currency, w.depth,
-              (ra.id IS NOT NULL AND p.entity_id IS NULL) AS is_postable_account
+              (ra.id IS NOT NULL AND p.entity_id IS NULL) AS is_postable_account,
+              lt_target.name AS line_type,
+              do_target.name AS display_order_next
        FROM walk w
        JOIN current_entities e ON e.id = w.id
        LEFT JOIN account a ON a.entity_id = e.id
        LEFT JOIN real_accounts ra ON ra.id = e.id
        LEFT JOIN contact p ON p.entity_id = e.id
+       LEFT JOIN current_entities lt_record ON lt_record.name = e.name || ' — Line Type'
+       LEFT JOIN current_entities lt_target ON lt_target.id = lt_record.relation_id
+       LEFT JOIN current_entities do_record ON do_record.name = e.name || ' — Display Order'
+       LEFT JOIN current_entities do_target ON do_target.id = do_record.relation_id
        ORDER BY w.depth, e.name`
     )
-    .all() as (EntityNode & { depth: number; is_postable_account: number })[];
-  const withFlags = rows.map((r) => ({ ...r, is_postable_account: !!r.is_postable_account, line_type: getLineType(r.name) ?? null }));
+    .all() as (EntityNode & { depth: number; is_postable_account: number; line_type: string | null; display_order_next: string | null })[];
+  // Per direct question, confirmed a real, second, even larger N+1
+  // query problem, the genuine, dominant cost of this whole function:
+  // orderSiblingsByDisplayOrder called getEntityLink(s.name, 'Display
+  // Order') - a real, separate SQL query - once per real entity,
+  // across the entire tree, even though the overwhelming majority
+  // never have one set. Display Order is now joined directly into the
+  // one, single query above instead, and passed through rather than
+  // looked up again per sibling.
+  const withFlags = rows.map((r) => ({ ...r, is_postable_account: !!r.is_postable_account }));
   // Re-order every real, individual level of siblings via the real
   // Display Order chain, only for levels that actually have one set —
   // everything else keeps today's exact, existing alphabetical order
@@ -405,9 +419,44 @@ export function getEntityTree(): (EntityNode & { depth: number; is_postable_acco
     if (seenParents.has(r.parent_id)) continue;
     seenParents.add(r.parent_id);
     const siblings = byParent.get(r.parent_id)!;
-    result.push(...orderSiblingsByDisplayOrder(siblings));
+    result.push(...orderSiblingsByDisplayOrderPreJoined(siblings));
   }
   return result;
+}
+
+/** The exact, same, real ordering logic as orderSiblingsByDisplayOrder
+ * below, but using the display_order_next field getEntityTree's own
+ * query already joined in directly - never a real, separate,
+ * per-sibling getEntityLink query, which was this whole function's
+ * genuine, dominant cost (confirmed directly, via a real, isolated
+ * timing comparison). */
+function orderSiblingsByDisplayOrderPreJoined<T extends { id: number; name: string; display_order_next: string | null }>(siblings: T[]): T[] {
+  const nextByName = new Map<string, string>();
+  const pointedAt = new Set<string>();
+  for (const s of siblings) {
+    const next = s.display_order_next;
+    if (next && siblings.some((x) => x.name === next)) {
+      nextByName.set(s.name, next);
+      pointedAt.add(next);
+    }
+  }
+  const ordered = siblings.filter((s) => nextByName.has(s.name) || pointedAt.has(s.name));
+  if (ordered.length === 0) {
+    return [...siblings].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  const byName = new Map(ordered.map((s) => [s.name, s]));
+  const first = ordered.find((s) => !pointedAt.has(s.name)) ?? ordered[0];
+  const chain: T[] = [];
+  const seen = new Set<string>();
+  let current: T | undefined = first;
+  while (current && !seen.has(current.name)) {
+    chain.push(current);
+    seen.add(current.name);
+    const nextName = nextByName.get(current.name);
+    current = nextName ? byName.get(nextName) : undefined;
+  }
+  const unordered = siblings.filter((s) => !seen.has(s.name)).sort((a, b) => a.name.localeCompare(b.name));
+  return [...chain, ...unordered];
 }
 
 export function getEntity(id: number): EntityNode | undefined {
@@ -2614,7 +2663,18 @@ export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTo
     )
     .get(baseId, instanceTopNode.id) as { id: number; name: string } | undefined;
   if (existing) return existing;
-  const leafName = Entity.getUnder(instanceTopNode.name, baseId) ? `${instanceTopNode.name} (${instanceTopNode.id})` : instanceTopNode.name;
+  // A real, second, genuine issue found directly, per direct
+  // question: the bare terminal value alone ("Cold") is a real,
+  // meaningless name in a report once two, real, different items'
+  // own combinations happen to share it - and the earlier, numeric-id
+  // fallback ("Cold (7350)") is no more meaningful to a real, human
+  // reader. Uses the instance's own, real, full combination chain
+  // instead (e.g. "Riverside Cellars — DupCheck Lager — Cold") -
+  // genuinely unique on its own, and genuinely readable, since it
+  // names every real value that makes this one, specific combination
+  // what it is.
+  const { combinationValues } = climbInstanceTree(instanceTopNode.id);
+  const leafName = combinationValues.length > 0 ? combinationValues.join(' — ') : instanceTopNode.name;
   const leaf = Entity.create(leafName, baseId, userId);
   setDimensionParent(leafName, 'Product Instance', instanceTopNode.name, userId, leaf.id, instanceTopNode.id);
   return leaf;
@@ -6847,6 +6907,7 @@ export function listJournalEntries(business: BusinessName, ledger: LedgerName, l
        JOIN current_entities led ON led.id = jo.ledger_id
        JOIN users u ON u.id = jo.user_id
        WHERE biz.name = ? AND led.name = ?
+         AND jo.reference NOT LIKE '%-QTY'
        GROUP BY jo.journal_id, jo.transdate
        ORDER BY jo.transdate DESC, jo.journal_id DESC
        LIMIT ? OFFSET ?`
@@ -6866,6 +6927,7 @@ export function countJournalEntries(business: BusinessName, ledger: LedgerName):
          JOIN current_entities biz ON biz.id = jo.business_id
          JOIN current_entities led ON led.id = jo.ledger_id
          WHERE biz.name = ? AND led.name = ?
+           AND jo.reference NOT LIKE '%-QTY'
          GROUP BY jo.journal_id, jo.transdate
        )`
     )
