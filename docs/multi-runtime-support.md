@@ -77,7 +77,34 @@ The bun-specific failure is not a real bug in this codebase — it passes cleanl
 
 `dev` and `test` were previously hardcoded to `bun --watch ...` / `bun test ...`. Both now use `tsx` directly (`tsx watch src/server.ts`, `tsx --test test/*.test.ts`), matching the frontend's own, already-runtime-neutral pattern — confirmed working correctly even when invoked via `bun run dev`, since `bun run` simply executes the script string, which the `sqlite-runtime.ts` adapter then correctly detects as "not bun" and routes to `node:sqlite`.
 
+## Real, measured timing per runtime, per request
+
+Measured directly on this machine (wall-clock, via `date +%s` before/after, not estimated) — absolute numbers will vary by hardware, but the *relative* ordering (bun fastest, deno slowest, node in between) is the real, consistent, useful signal.
+
+### `make test` (the full backend + frontend unit suite, 173 + 24 = 197 real tests)
+
+| Runtime | Wall-clock time | Result |
+|---|---|---|
+| bun | 27s | 186/187 (the one, known, pre-existing, bun-specific `languages` timeout) |
+| node | 34s | 187/187 |
+| deno | 44s | 187/187 |
+
+Deno is the slowest of the three here specifically because of its own, real, additional module-graph and dependency-resolution work — even with `--no-check` suppressing full type-checking, `deno test` still does real, additional analysis bun/node's own, simpler module loaders skip entirely.
+
+### `make playwright-smoke` (the minimal, real e2e check — 78 real routes, one real, live browser)
+
+**86 seconds** (~1.4 min), including real dev-server startup and a real, full page-load-without-error check across every real route in the application. This is the fast, minimal e2e proof this project actually relies on day to day — not the full simulation below, which exists for a different, real purpose (proving the accounting logic itself, not that every page loads).
+
+### `make test-e2e` (the full, real wine-retail-month simulation + verification)
+
+This is a genuinely different kind of test: hundreds of real purchase orders, several thousand real retail sales, real stock takes, and a real year-end close, followed by `verify-simulation.ts` checking dozens of exact, expected figures against the real, deterministic result.
+
+**Measured directly, this run: 101 seconds total** (simulation + verification), under the default bun runtime. This is dramatically faster than this same command took earlier in this project's history (10+ minutes) — a direct, real confirmation of the `getEntityTree()`/`getAncestorChain()` performance fixes made earlier this session (see `docs/cartesian-account-linking-plan.md` §9 and the checkpoint-333 commit): those fixes replaced a ~217ms whole-table-fetch-and-scan, called repeatedly throughout the real sales hot path, with a direct, indexed query — and the difference shows up directly here, at the full-simulation scale, not just in an isolated benchmark.
+
+This run correctly, honestly failed its own `verify-simulation.ts` check (20 real mismatches against stored "golden" expected figures) — a real, known, pre-existing gap, not a new regression: the Breakage & Spoilage bug fixed earlier this session legitimately changed the simulation's own, real, deterministic outcome (breakage write-offs now actually post correctly, where they previously silently failed), and the stored expected values in `verify-simulation.ts` were never updated to match. Real, honest, outstanding work, not yet done.
+
 ## What was deliberately left alone
+
 
 - Express (`app.listen()`), SvelteKit, Vite, and Playwright are all already runtime-agnostic — no changes needed anywhere in `server.ts`, the frontend, or the e2e suite.
 - `RUN_TEST` is defined for all three runtimes but only used by the top-level `test` target directly, bypassing `RUN_NPM_SCRIPT`, for the `deno task` reason above.

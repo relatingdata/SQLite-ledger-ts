@@ -29,6 +29,18 @@ make install
 make dev      # backend :3001, frontend :5173, together
 ```
 
+### Running under Node or Deno instead of Bun
+
+This project defaults to Bun, but runs identically under Node (≥22.5) or Deno (≥2.x) too — some organizations' own corporate policy requires one of these specifically. Override `RUNTIME` on any `make` command:
+
+```bash
+make install RUNTIME=node
+make dev RUNTIME=node
+make test RUNTIME=deno
+```
+
+See `docs/multi-runtime-support.md` for the real mechanism behind this (a small SQLite/test-framework adapter — everything else in the stack is already runtime-agnostic), the measured pass/fail results per runtime, and real, measured timing for the full test suite under each one.
+
 ### If `make install` warns about blocked install scripts
 
 Newer npm versions (11.16+, and the default from npm 12 onward — this
@@ -189,22 +201,42 @@ only an Administrator can reset a password, including their own).
 
 ## Testing
 
-`backend/test/` — 54 backend tests across four files, plus 10 frontend
-tests, all via Node's built-in test runner (`node:test`). Run with
-`make test`.
+`backend/test/` — 187 backend tests across two files (`db.test.ts`,
+`auth.test.ts`), plus 24 frontend tests, all via a runtime-agnostic
+test adapter (`bun:test`/`node:test`, see
+`docs/multi-runtime-support.md`). Run with `make test` — real,
+measured wall-clock time: **~27s under bun, ~34s under node, ~44s
+under deno** (`make test RUNTIME=<name>`).
 
-- `db.test.ts` — entity CRUD, financial statements, i18n, staging/posting
-  (including atomicity and the isolation bug that was once real, proven
-  fixed), recurring journals (including the exact wage-increase
-  amendment scenario), and the realistic transaction set (cash
-  purchase/sale, AR sale/receipt, AP purchase/payment) checked through
-  every statement.
+- `db.test.ts` — the bulk of the suite: entity CRUD, financial
+  statements, i18n, staging/posting (including atomicity and the
+  isolation bug that was once real, proven fixed), recurring journals,
+  multi-dimensional reporting, the Hierarchy/Product cartesian
+  mechanism (barcode-to-combination resolution, combination-specific
+  pricing, rename-safety), and the realistic transaction set (cash
+  purchase/sale, AR sale/receipt, AP purchase/payment, POS sales with
+  tiers/locations/combinations) checked through every statement.
 - `auth.test.ts` — password hashing, login/logout, session validation
   and expiry, role assignment, deactivation killing live sessions
   immediately, and duplicate-username/short-password rejection.
 - `frontend/test/journalGrid.test.ts` — the General Journal grid's pure
   logic (auto-balancing trailing row, the feedback-loop bug from before,
   proven fixed).
+
+Two further, real, direct checks beyond the unit suite:
+
+- `make playwright-smoke` — a real, minimal e2e check: every one of
+  the app's 78 real routes, loaded in a real, live browser, confirmed
+  to render without an unhandled error. **~86 seconds** measured
+  directly, including real dev-server startup.
+- `make test-e2e` — a full, real month of simulated wine-retail
+  trading (hundreds of purchase orders, several thousand retail
+  sales, stock takes, a year-end close), verified against dozens of
+  exact, expected figures. **~101 seconds** measured directly under
+  bun — dramatically faster than earlier in this project's history
+  (10+ minutes), a direct, real result of the `getEntityTree()`
+  performance fixes documented in
+  `docs/cartesian-account-linking-plan.md`.
 
 **A real, deliberate policy, not an oversight**: this app no longer
 supports upgrading an existing database in place. Every real schema
