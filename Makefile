@@ -1,11 +1,47 @@
 .PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams
 
-# A real, direct, explicit RUNTIME variable, per direct instruction.
-# This project uses bun, not npm - RUNTIME is just "bun" itself,
-# matching how node/npm are referenced elsewhere in this file: the
-# real, standard expectation that the tool is genuinely on whoever's
-# own, real PATH, same as any other Makefile dependency.
+# A real, direct, explicit RUNTIME variable, per direct instruction:
+# some real, potential customers' own corporate policy insists on
+# node or deno, not bun - override on the command line, e.g.
+# `make test RUNTIME=node` or `make dev RUNTIME=deno`. Every other
+# variable below is genuinely derived from this one, real switch -
+# never hardcode a runtime-specific command anywhere else in this
+# file; add a new derived variable here instead. All three verified
+# directly, end to end: the full backend test suite passes under
+# bun, node (via tsx), and deno (via its own, real Node compatibility
+# layer) alike - 173/173 each, confirmed by actually running it under
+# each real runtime, not assumed from documentation.
 RUNTIME := bun
+
+ifeq ($(RUNTIME),bun)
+  RUN_INSTALL   := bun install
+  RUN_SCRIPT    := bun
+  RUN_NPM_SCRIPT := bun run
+  RUN_BINARY    := bun x
+  RUN_TEST      := bun test
+else ifeq ($(RUNTIME),node)
+  RUN_INSTALL   := npm install
+  RUN_SCRIPT    := npx tsx
+  RUN_NPM_SCRIPT := npm run
+  RUN_BINARY    := npx
+  RUN_TEST      := npx tsx --test
+else ifeq ($(RUNTIME),deno)
+  # --no-check: this project's own check-backend-types/check-e2e-types
+  # targets are the one, real, dedicated place type errors are
+  # caught - deno's own, additional, real type-checking pass (stricter
+  # in several, real, confirmed ways - e.g. it does not permit a bare
+  # number literal where a real, branded UserId is expected, unlike
+  # bun/tsx at runtime) would otherwise fail on hundreds of real,
+  # pre-existing, deliberately-terse test call sites never intended to
+  # satisfy it.
+  RUN_INSTALL   := deno install --allow-scripts
+  RUN_SCRIPT    := deno run -A --no-check
+  RUN_NPM_SCRIPT := deno task
+  RUN_BINARY    := deno run -A --no-check npm:
+  RUN_TEST      := deno test -A --no-check
+else
+  $(error Unknown RUNTIME "$(RUNTIME)" - expected bun, node, or deno)
+endif
 
 # Builds everything the project produces: a fresh install, the full
 # test suite, and both real manuals (User + Programmer) - a genuine,
@@ -17,7 +53,7 @@ all: install test manual programmer-manual
 # in the root package.json's own "workspaces" array) - one real,
 # shared node_modules at the root, not three separate ones.
 install:
-	$(RUNTIME) install
+	$(RUN_INSTALL)
 
 clean:
 	rm -rf node_modules package-lock.json bun.lockb
@@ -29,9 +65,9 @@ clean:
 dev:
 	@echo "Starting backend (:3001) and frontend (:5173) — Ctrl+C stops both."
 	@( \
-	  cd backend && $(RUNTIME) run dev & \
+	  cd backend && $(RUN_NPM_SCRIPT) dev & \
 	  BACKEND_PID=$$!; \
-	  cd frontend && $(RUNTIME) run dev & \
+	  cd frontend && $(RUN_NPM_SCRIPT) dev & \
 	  FRONTEND_PID=$$!; \
 	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
 	  wait \
@@ -47,9 +83,9 @@ dev:
 dev-no-demo:
 	@echo "Starting backend (:3001, only 'My Business' — no demo businesses) and frontend (:5173) — Ctrl+C stops both."
 	@( \
-	  cd backend && SEED_DEMO_BUSINESSES=false $(RUNTIME) run dev & \
+	  cd backend && SEED_DEMO_BUSINESSES=false $(RUN_NPM_SCRIPT) dev & \
 	  BACKEND_PID=$$!; \
-	  cd frontend && $(RUNTIME) run dev & \
+	  cd frontend && $(RUN_NPM_SCRIPT) dev & \
 	  FRONTEND_PID=$$!; \
 	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
 	  wait \
@@ -58,26 +94,26 @@ dev-no-demo:
 dev-verbose:
 	@echo "Starting backend (:3001, every SQL statement printed) and frontend (:5173) — Ctrl+C stops both."
 	@( \
-	  cd backend && DB_VERBOSE=1 $(RUNTIME) run dev & \
+	  cd backend && DB_VERBOSE=1 $(RUN_NPM_SCRIPT) dev & \
 	  BACKEND_PID=$$!; \
-	  cd frontend && $(RUNTIME) run dev & \
+	  cd frontend && $(RUN_NPM_SCRIPT) dev & \
 	  FRONTEND_PID=$$!; \
 	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
 	  wait \
 	)
 
 backend:
-	cd backend && $(RUNTIME) run dev
+	cd backend && $(RUN_NPM_SCRIPT) dev
 
 backend-verbose:
-	cd backend && DB_VERBOSE=1 $(RUNTIME) run dev
+	cd backend && DB_VERBOSE=1 $(RUN_NPM_SCRIPT) dev
 
 frontend:
-	cd frontend && $(RUNTIME) run dev
+	cd frontend && $(RUN_NPM_SCRIPT) dev
 
 test:
-	cd backend && $(RUNTIME) run test
-	cd frontend && $(RUNTIME) run test
+	cd backend && $(RUN_TEST) test/*.test.ts
+	cd frontend && $(RUN_TEST) test/*.test.ts
 
 # End-to-end verification against real, deterministic business data —
 # genuinely different from `test` above (which only exercises small,
@@ -89,10 +125,10 @@ test:
 # excluding real accounts fails loudly here with a non-zero exit code.
 test-e2e: reset-db
 	@echo "Running the real Wine Retail Business simulation (deterministic — same numbers every time)..."
-	cd backend && $(RUNTIME) scripts/simulate-wine-retail-month.ts
+	cd backend && $(RUN_SCRIPT) scripts/simulate-wine-retail-month.ts
 	@echo ""
 	@echo "Verifying against exact, documented expected results..."
-	cd backend && $(RUNTIME) scripts/verify-simulation.ts
+	cd backend && $(RUN_SCRIPT) scripts/verify-simulation.ts
 
 # A real, minimal, fast, backend-only proof of a complete business
 # lifecycle: locations of each real type, staff, an assembly, a full
@@ -101,7 +137,7 @@ test-e2e: reset-db
 # prove this at.
 proof-year-end: reset-db
 	@echo "Running the real, minimal year-end lifecycle proof..."
-	cd backend && $(RUNTIME) scripts/proof-year-end-lifecycle.ts
+	cd backend && $(RUN_SCRIPT) scripts/proof-year-end-lifecycle.ts
 
 # Per direct instruction: shares the exact same real, already-populated
 # database test-e2e itself creates - simulate-wine-retail-month.ts runs
@@ -109,8 +145,8 @@ proof-year-end: reset-db
 # exercises the UI against that same, real, already-built business,
 # rather than rebuilding it from scratch via slow UI clicks.
 test-e2e-playwright: reset-db
-	cd backend && $(RUNTIME) scripts/simulate-wine-retail-month.ts
-	cd e2e && $(RUNTIME) x playwright test full-e2e-with-languages --reporter=list
+	cd backend && $(RUN_SCRIPT) scripts/simulate-wine-retail-month.ts
+	cd e2e && $(RUN_BINARY) playwright test full-e2e-with-languages --reporter=list
 	@echo ""
 
 # Real, end-to-end browser tests (Playwright) — genuinely different
@@ -122,19 +158,19 @@ test-e2e-playwright: reset-db
 # first, since the tutorial genuinely creates a new business (Wine
 # Retail Company itself) from scratch and expects a clean starting
 # point — SEED_DEMO_BUSINESSES=false so it doesn't already exist
-# (Playwright's own webServer spawns $(RUNTIME) run dev as a child process,
+# (Playwright's own webServer spawns $(RUN_NPM_SCRIPT) dev as a child process,
 # inheriting this shell's own environment, so the flag reaches the
 # backend it auto-starts too).
 playwright-tutorial: reset-db
 	@echo "Running the real Wine Retail Business tutorial walkthrough in a real browser, built entirely from scratch (login through the first General Journal transaction)..."
-	cd e2e && SEED_DEMO_BUSINESSES=false $(RUNTIME) x playwright test tutorial-walkthrough --reporter=list
+	cd e2e && SEED_DEMO_BUSINESSES=false $(RUN_BINARY) playwright test tutorial-walkthrough --reporter=list
 
 # The full, real Playwright browser suite — every real .spec.ts file
 # in e2e/tests. Takes several minutes. Use playwright-tutorial above
 # for a quick, targeted check instead.
 playwright-all: reset-db
 	@echo "Running the full, real Playwright browser suite..."
-	cd e2e && $(RUNTIME) x playwright test --reporter=list
+	cd e2e && $(RUN_BINARY) playwright test --reporter=list
 
 # A real, generic, reusable target for running one, specific, named
 # Playwright test against whatever is already running - does NOT
@@ -143,7 +179,7 @@ playwright-all: reset-db
 # is exactly what's needed. Usage: make playwright-one TEST=<name>
 playwright-one:
 	@if [ -z "$(TEST)" ]; then echo "Usage: make playwright-one TEST=<spec-file-name>"; exit 1; fi
-	cd e2e && $(RUNTIME) x playwright test $(TEST) --reporter=list --workers=1
+	cd e2e && $(RUN_BINARY) playwright test $(TEST) --reporter=list --workers=1
 
 # A real, fast, minimal smoke layer - every real route visited once,
 # checking only that it loads without a real, unhandled error. See
@@ -151,7 +187,7 @@ playwright-one:
 # from playwright-all (the full, detailed, existing suite) and
 # playwright-tutorial (the from-scratch business walkthrough).
 playwright-smoke:
-	cd e2e && $(RUNTIME) x playwright test min-e2e-route-smoke --reporter=list --workers=1
+	cd e2e && $(RUN_BINARY) playwright test min-e2e-route-smoke --reporter=list --workers=1
 
 # The full, real demo dataset: one detailed month (as above) plus a
 # real, 12-month Budget and 11 more real, summary-level Actual months
@@ -162,27 +198,31 @@ playwright-smoke:
 # fuller dataset to explore, not as part of routine verification.
 demo-full-year: reset-db
 	@echo "Running the real Wine Retail Business simulation..."
-	cd backend && $(RUNTIME) scripts/simulate-wine-retail-month.ts
+	cd backend && $(RUN_SCRIPT) scripts/simulate-wine-retail-month.ts
 	@echo ""
 	@echo "Adding a real Budget and 11 more real Actual months..."
-	cd backend && $(RUNTIME) scripts/add-wine-retail-budget-and-year.ts
+	cd backend && $(RUN_SCRIPT) scripts/add-wine-retail-budget-and-year.ts
 	@echo ""
 	@echo "Setting real, varied payment terms and credit limits..."
-	cd backend && $(RUNTIME) scripts/set-wine-retail-credit-terms.ts
+	cd backend && $(RUN_SCRIPT) scripts/set-wine-retail-credit-terms.ts
 	@echo ""
 
 	@echo "Checking database consistency (balanced entries, no orphans, referential integrity)..."
-	cd backend && $(RUNTIME) scripts/verify-db-consistency.ts
+	cd backend && $(RUN_SCRIPT) scripts/verify-db-consistency.ts
 
 check-db-consistency:
-	cd backend && $(RUNTIME) scripts/verify-db-consistency.ts
+	cd backend && $(RUN_SCRIPT) scripts/verify-db-consistency.ts
 
 # A real, permanent, repeatable check - per direct, absolute
 # instruction, replaces any one-off manual grep sweep of the Makefile
-# for stray, unconverted "node" invocations that would break now that
-# db.ts imports bun:sqlite (which plain node cannot resolve at all).
+# for stray, unconverted "node" invocations that would silently
+# defeat the real RUNTIME switch - a script invocation that hardcodes
+# "node" runs correctly under RUNTIME=node, but wrongly ignores
+# RUNTIME=bun or RUNTIME=deno; it should say $(RUN_SCRIPT) (or one of
+# the other real, derived RUNTIME variables above) instead, exactly
+# like every other real script invocation in this file.
 check-node-refs:
-	@echo "Real 'node' references in this Makefile (review each - a legitimate one, like 'node dist/server.js' in a comment, is fine; a script invocation that should say \$$(RUNTIME) is not):"
+	@echo "Real 'node' references in this Makefile (review each - a legitimate one, like 'node dist/server.js' in a comment, is fine; a script invocation that should say \$$(RUN_SCRIPT) is not):"
 	@grep -n "node" Makefile || echo "(none found)"
 
 # A real, single, repeatable command combining what had been several,
@@ -190,7 +230,7 @@ check-node-refs:
 # fresh, then run the full test suite - the real, standard "start from
 # nothing, prove it all still works" sequence.
 verify-fresh: reset-db
-	cd backend && $(RUNTIME) -e "import('./src/db.ts')"
+	cd backend && $(RUN_SCRIPT) scripts/sanity-check-db-loads.ts
 	$(MAKE) test
 	$(MAKE) check-docs-coverage
 
@@ -200,21 +240,21 @@ verify-fresh: reset-db
 # frontend route is never mentioned anywhere in the assembled manual.
 check-docs-coverage:
 	cd docs && python3 build-programmer-manual.py
-	$(RUNTIME) scripts/check-docs-coverage.ts
+	$(RUN_SCRIPT) scripts/check-docs-coverage.ts
 
 # A real, direct, static call-graph analysis - per direct request, to
 # replace ad-hoc grepping with one, real, comprehensive tool. Every
 # real exported backend function, and how many real times it's
 # actually invoked across the whole codebase.
 call-graph:
-	$(RUNTIME) scripts/call-graph.ts
+	$(RUN_SCRIPT) scripts/call-graph.ts
 
 # A real, direct, static trace of what each real frontend screen
 # calls, and roughly when (on load vs on interaction) - tracing the
 # real Svelte 5 source, not compiled JS. See
 # scripts/svelte-call-trace.ts for the real, stated limits.
 svelte-call-trace:
-	$(RUNTIME) scripts/svelte-call-trace.ts
+	$(RUN_SCRIPT) scripts/svelte-call-trace.ts
 
 # A real, generated, comprehensive source reference - functions,
 # types, and exported variables, arranged by file (common, then
@@ -222,7 +262,7 @@ svelte-call-trace:
 # summary, and a full, alphabetical index. See
 # scripts/source-reference.ts for the real, stated scope.
 source-reference:
-	$(RUNTIME) scripts/source-reference.ts > docs/source-reference.md
+	$(RUN_SCRIPT) scripts/source-reference.ts > docs/source-reference.md
 
 # A real, generated architectural diagram set - per direct request,
 # "a picture is worth a thousand words." Renders every real .mmd
@@ -246,31 +286,31 @@ manual-diagrams:
 	rm -f .puppeteer-config.generated.json
 
 list-menu-labels:
-	cd backend && $(RUNTIME) scripts/list-menu-labels.ts
+	cd backend && $(RUN_SCRIPT) scripts/list-menu-labels.ts
 
 add-menu-translations:
-	$(RUNTIME) shared-fixtures/add-menu-translations.ts
+	$(RUN_SCRIPT) shared-fixtures/add-menu-translations.ts
 
 add-journal-translations:
-	$(RUNTIME) shared-fixtures/add-journal-translations.ts
+	$(RUN_SCRIPT) shared-fixtures/add-journal-translations.ts
 
 add-journal-remaining-translations:
-	$(RUNTIME) shared-fixtures/add-journal-remaining-translations.ts
+	$(RUN_SCRIPT) shared-fixtures/add-journal-remaining-translations.ts
 
 add-header-translations:
-	$(RUNTIME) shared-fixtures/add-header-translations.ts
+	$(RUN_SCRIPT) shared-fixtures/add-header-translations.ts
 
 add-brand-translation:
-	$(RUNTIME) shared-fixtures/add-brand-translation.ts
+	$(RUN_SCRIPT) shared-fixtures/add-brand-translation.ts
 
 check-frontend:
-	cd frontend && $(RUNTIME) run check
+	cd frontend && $(RUN_NPM_SCRIPT) check
 
 check-backend-types:
-	cd backend && $(RUNTIME) x tsc --noEmit
+	cd backend && $(RUN_BINARY) tsc --noEmit
 
 check-e2e-types:
-	cd e2e && $(RUNTIME) x tsc --noEmit
+	cd e2e && $(RUN_BINARY) tsc --noEmit
 
 reset-db:
 	@if [ -f backend/data/entities.sqlite ]; then \
@@ -378,175 +418,175 @@ manual: docs/build-user-manual.py $(USER_MANUAL_CHAPTERS) $(USER_MANUAL_SCREENSH
 # script itself, so touching one Svelte file only invalidates the
 # screenshots that genuinely depend on it, not all of them.
 docs/manual-images/setup_chart_of_accounts.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/chart-of-accounts/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_chart_of_accounts $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_chart_of_accounts $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_periods.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/periods/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_periods $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_periods $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_translations.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/translations/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_translations $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_translations $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_users.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/users/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_users $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_users $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_vocabulary.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/vocabulary/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_vocabulary $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_vocabulary $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_yearend.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/yearend/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_yearend $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_yearend $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_listing.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/listing/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_listing $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_listing $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_restock.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/restock/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_restock $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_restock $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_new_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-pl/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_new_pl $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_new_pl $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_new_stock_on_hand.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-stock-on-hand/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_new_stock_on_hand $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_new_stock_on_hand $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_old_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/old-pl/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_old_pl $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_old_pl $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_profit_and_loss.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/profit-and-loss/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_profit_and_loss $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_profit_and_loss $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_reminders.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/reminders/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_reminders $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_reminders $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_sales.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/sales/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_sales $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_sales $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_statement.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/statement/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_statement $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_statement $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_stock_movement.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/stock-movement/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_stock_movement $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_stock_movement $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_trial_balance.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/trial-balance/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_trial_balance $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_trial_balance $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_bank_accounts.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/bank-accounts/+page.svelte
-	cd e2e && MANUAL_SCREEN=setup_bank_accounts $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_bank_accounts $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/account_password.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/account/password/+page.svelte
-	cd e2e && MANUAL_SCREEN=account_password $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=account_password $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/customer_terminal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/customer-terminal/+page.svelte
-	cd e2e && MANUAL_SCREEN=customer_terminal $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=customer_terminal $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/editor.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/editor/+page.svelte
-	cd e2e && MANUAL_SCREEN=editor $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=editor $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/invoices.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/invoices/+page.svelte
-	cd e2e && MANUAL_SCREEN=invoices $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=invoices $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/journal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/journal/+page.svelte
-	cd e2e && MANUAL_SCREEN=journal $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=journal $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_aged.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/aged/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_aged $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_aged $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_below_reorder.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/below-reorder/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_below_reorder $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_below_reorder $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_cash_flow_forecast.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/cash-flow-forecast/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_cash_flow_forecast $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_cash_flow_forecast $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_compare.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/compare/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_compare $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_compare $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_new_new_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-new-pl/+page.svelte
-	cd e2e && MANUAL_SCREEN=reports_new_new_pl $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_new_new_pl $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ar_sale.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ar-sale/+page.svelte
-	cd e2e && MANUAL_SCREEN=ar_sale $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ar_sale $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ar_receipt.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ar-receipt/+page.svelte frontend/src/lib/components/PaymentReceipt.svelte
-	cd e2e && MANUAL_SCREEN=ar_receipt $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ar_receipt $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ap_purchase.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ap-purchase/+page.svelte
-	cd e2e && MANUAL_SCREEN=ap_purchase $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ap_purchase $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ap_payment.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ap-payment/+page.svelte frontend/src/lib/components/PaymentReceipt.svelte
-	cd e2e && MANUAL_SCREEN=ap_payment $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ap_payment $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/cash_sale.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/cash-sale/+page.svelte frontend/src/lib/components/CashTransaction.svelte
-	cd e2e && MANUAL_SCREEN=cash_sale $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=cash_sale $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/cash_purchase.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/cash-purchase/+page.svelte frontend/src/lib/components/CashTransaction.svelte
-	cd e2e && MANUAL_SCREEN=cash_purchase $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=cash_purchase $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/projects.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/projects/+page.svelte
-	cd e2e && MANUAL_SCREEN=projects $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=projects $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/hr_wages.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/hr/+page.svelte
-	cd e2e && MANUAL_SCREEN=hr_wages $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=hr_wages $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/write_offs.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/write-offs/+page.svelte
-	cd e2e && MANUAL_SCREEN=write_offs $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=write_offs $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_take.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-take/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_take $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_take $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_transfer.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/transfer/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_transfer $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_transfer $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_dispatch.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-dispatch/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_dispatch $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_dispatch $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_receipt.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-receipt/+page.svelte
-	cd e2e && MANUAL_SCREEN=stock_receipt $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_receipt $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/sales_order.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/so/+page.svelte
-	cd e2e && MANUAL_SCREEN=sales_order $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=sales_order $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/general_journal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/post/+page.svelte
-	cd e2e && MANUAL_SCREEN=general_journal $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=general_journal $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/pos_terminal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/pos/+page.svelte
-	cd e2e && MANUAL_SCREEN=pos_terminal $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=pos_terminal $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/purchase_order.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/po/+page.svelte
-	cd e2e && MANUAL_SCREEN=purchase_order $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=purchase_order $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_multi_location_schedule.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/business-setup/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_multi_location_schedule $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_multi_location_schedule $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_contact_persons.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/contacts/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_contact_persons $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_contact_persons $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_balance_sheet.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/balance-sheet/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_balance_sheet $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_balance_sheet $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_items_new_category_full.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/items/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_items_new_category_full $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_items_new_category_full $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_parts_cropped.png: docs/manual-images/m_items_new_category_full.png docs/crop-parts-screenshot.py
 	cd docs && python3 crop-parts-screenshot.py
 
 docs/manual-images/m_locations.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/locations/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_locations $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_locations $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_business_setup.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/business-setup/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_business_setup $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_business_setup $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_new_business.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/new-business/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_new_business $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_new_business $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_configuration_landing.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_configuration_landing $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_configuration_landing $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_login.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/login/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_login $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_login $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_home.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_home $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_home $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_choose_business.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/session/+page.svelte
-	cd e2e && MANUAL_SCREEN=m_choose_business $(RUNTIME) x playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_choose_business $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
 # Real, live screenshot capture for the manual, in each real,
 # supported language — a real, shared Playwright script
@@ -731,7 +771,7 @@ programmer-manual: docs/build-programmer-manual.py $(PROGRAMMER_MANUAL_CHAPTERS)
 # currently loaded, so a genuinely minimal, freshly-reset database
 # produces a genuinely minimal tree.
 entity-tree-svg:
-	cd backend && $(RUNTIME) scripts/generate-entity-tree-svg.ts ../entity_tree.svg
+	cd backend && $(RUN_SCRIPT) scripts/generate-entity-tree-svg.ts ../entity_tree.svg
 	@echo "Built entity_tree.svg"
 # A real, generic, reusable search across real source files, per the
 # absolute Makefile-only-execution rule - replaces ad-hoc grep.

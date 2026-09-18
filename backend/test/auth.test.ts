@@ -1,4 +1,4 @@
-import { test, beforeAll as before, afterAll as after } from 'bun:test';
+import { test, before, after } from './test-runtime.ts';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
