@@ -55,6 +55,7 @@ PARTS = [
         "business-evolution-plan.md",
         "cash-flow-and-growth-planning.md",
         "future-dated-projection-and-capacity-planning.md",
+        "pl-pivot-builder-dnd-plan.md",
         "construction-project-management-plan.md",
         "stock-lifecycle-review-plan.md",
         "min-e2e-coverage-plan.md",
