@@ -273,12 +273,48 @@ export interface TrialBalanceRow {
   accountnumber: string | null;
   debit_minor: number;
   credit_minor: number;
+  // Per direct request: an account's own, real, fixed currency (see
+  // account.currency in the schema - NULL means the business's own
+  // home/reporting currency, never inferred). Surfaced directly on
+  // each row so a caller can genuinely tell them apart, rather than
+  // silently mixing DKK, EUR, and home-currency minor units into one,
+  // meaningless sum.
+  currency: string | null;
+  // Per direct request: true when this exact account has ever
+  // received a real, direct quantity-tracking posting (a "-QTY"
+  // reference - unit counts, never dollars) alongside whatever real,
+  // ordinary value postings it may also carry. Surfaced so a reader
+  // can immediately see whether a row's own balance is genuinely,
+  // purely monetary, or a real, confirmed mix that needs its own,
+  // separate investigation before being trusted as a dollar figure.
+  has_quantity_postings: boolean;
+}
+
+export interface TrialBalanceCurrencySubtotal {
+  currency: string | null;
+  total_debit_minor: number;
+  total_credit_minor: number;
+  balanced: boolean;
 }
 
 export interface TrialBalance {
   rows: TrialBalanceRow[];
   total_debit_minor: number;
   total_credit_minor: number;
+  // Per direct request: the same rows, genuinely separated by their
+  // own, real, fixed currency - each currency's own debit and credit
+  // totals, checked independently for balance, matching this
+  // schema's own, established rule (see account.currency) that a
+  // single journal entry may span multiple currencies, but every
+  // distinct currency present must independently balance to zero.
+  // Summing across currencies (as total_debit_minor/total_credit_minor
+  // above do, for backward compatibility) is only ever meaningful when
+  // every business's accounts share one currency - genuinely
+  // confirmed false here (DKK and EUR are both real, live, non-home
+  // currencies in use elsewhere in this system) - so a caller
+  // checking for a genuine imbalance should always prefer this
+  // breakdown over the single, combined total.
+  by_currency: TrialBalanceCurrencySubtotal[];
 }
 
 /** Every account with a non-zero balance *in the given ledger*, split
@@ -286,8 +322,8 @@ export interface TrialBalance {
 export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): TrialBalance {
   const balances = getLedgerBalances(businessName, ledgerName, undefined, asOfDate, divisionName);
   const accounts = db
-    .prepare(`SELECT e.id, e.name, e.parent_id, e.combination_ids, a.accountnumber FROM account a JOIN current_entities e ON e.id = a.entity_id`)
-    .all() as { id: number; name: string; parent_id: number | null; combination_ids: string | null; accountnumber: string | null }[];
+    .prepare(`SELECT e.id, e.name, e.parent_id, e.combination_ids, a.accountnumber, a.currency FROM account a JOIN current_entities e ON e.id = a.entity_id`)
+    .all() as { id: number; name: string; parent_id: number | null; combination_ids: string | null; accountnumber: string | null; currency: string | null }[];
 
   // Per direct correction: several real, per-parent-scoped accounts
   // (a tier/location Sales-COGS leaf, among others) now genuinely,
@@ -307,6 +343,20 @@ export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerNa
   const nameCounts = new Map<string, number>();
   for (const a of relevantAccounts) nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1);
 
+  // Per direct request: which of these exact accounts has ever
+  // received a real, direct quantity-tracking posting (unit counts,
+  // never dollars) - checked once, for every relevant account at
+  // once, rather than one query per row.
+  const quantityAccountIds = new Set(
+    relevantAccounts.length === 0
+      ? []
+      : (
+          db
+            .prepare(`SELECT DISTINCT account_id FROM journal_occurrences WHERE reference LIKE '%-QTY' AND account_id IN (${relevantAccounts.map(() => '?').join(',')})`)
+            .all(...relevantAccounts.map((a) => a.id)) as { account_id: number }[]
+        ).map((r) => r.account_id)
+  );
+
   const rows: TrialBalanceRow[] = accounts
     .map((a) => {
       const balance_minor = balances.get(a.id) ?? 0;
@@ -323,15 +373,29 @@ export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerNa
         accountnumber: a.accountnumber,
         debit_minor: balance_minor > 0 ? balance_minor : 0,
         credit_minor: balance_minor < 0 ? -balance_minor : 0,
+        currency: a.currency,
+        has_quantity_postings: quantityAccountIds.has(a.id),
       };
     })
     .filter((r) => r.debit_minor !== 0 || r.credit_minor !== 0)
     .sort((a, b) => (a.accountnumber ?? '').localeCompare(b.accountnumber ?? '') || a.name.localeCompare(b.name));
 
+  const currencyTotals = new Map<string | null, { debit: number; credit: number }>();
+  for (const r of rows) {
+    const entry = currencyTotals.get(r.currency) ?? { debit: 0, credit: 0 };
+    entry.debit += r.debit_minor;
+    entry.credit += r.credit_minor;
+    currencyTotals.set(r.currency, entry);
+  }
+  const by_currency: TrialBalanceCurrencySubtotal[] = [...currencyTotals.entries()]
+    .map(([currency, { debit, credit }]) => ({ currency, total_debit_minor: debit, total_credit_minor: credit, balanced: debit === credit }))
+    .sort((a, b) => (a.currency ?? '').localeCompare(b.currency ?? ''));
+
   return {
     rows,
     total_debit_minor: rows.reduce((s, r) => s + r.debit_minor, 0),
     total_credit_minor: rows.reduce((s, r) => s + r.credit_minor, 0),
+    by_currency,
   };
 }
 

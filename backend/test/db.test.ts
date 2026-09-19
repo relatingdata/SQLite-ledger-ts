@@ -3515,6 +3515,56 @@ test('postJournalEntry: a real multi-currency entry must balance independently p
   postJournalEntry('CCY-HOME-1', asBusinessName('My Business'), asLedgerName('CcyTest Ledger'), asUserId(1));
 });
 
+test('getTrialBalance: by_currency genuinely separates each real currency\'s own debit/credit totals - a combined, cross-currency sum can look balanced or unbalanced for entirely the wrong reason', () => {
+  create(fetch('My Business', typeRootName), typeRootName, 'CcyTBTest Ledger', asUserId(1));
+  create(fetch('Asset', typeRootName), typeRootName, 'CcyTBTest Cash (EUR)', asUserId(1));
+  create(fetch('Asset', typeRootName), typeRootName, 'CcyTBTest Clearing (EUR)', asUserId(1));
+  setAccountCurrency('CcyTBTest Cash (EUR)', 'EUR');
+  setAccountCurrency('CcyTBTest Clearing (EUR)', 'EUR');
+
+  // A real, genuine, EUR-only entry, plus a real, ordinary home-currency one.
+  stageLine({ reference: 'CCYTB-EUR-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('CcyTBTest Cash (EUR)'), amount_minor: 20000 });
+  stageLine({ reference: 'CCYTB-EUR-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('CcyTBTest Clearing (EUR)'), amount_minor: -20000 });
+  postJournalEntry('CCYTB-EUR-1', asBusinessName('My Business'), asLedgerName('CcyTBTest Ledger'), asUserId(1));
+  stageLine({ reference: 'CCYTB-HOME-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('Cash and Bank'), amount_minor: 7500 });
+  stageLine({ reference: 'CCYTB-HOME-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('Sales Revenue'), amount_minor: -7500 });
+  postJournalEntry('CCYTB-HOME-1', asBusinessName('My Business'), asLedgerName('CcyTBTest Ledger'), asUserId(1));
+
+  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('CcyTBTest Ledger'));
+  assert.equal(tb.by_currency.length, 2, 'two real, genuinely distinct currency groups present here - home (null) and EUR - each gets its own, real subtotal row');
+  const home = tb.by_currency.find((c) => c.currency === null);
+  const eur = tb.by_currency.find((c) => c.currency === 'EUR');
+  assert.equal(home?.total_debit_minor, 7500, 'the home-currency subtotal reflects only the real, home-currency postings, never mixed with EUR minor units');
+  assert.equal(home?.total_credit_minor, 7500);
+  assert.equal(home?.balanced, true);
+  assert.equal(eur?.total_debit_minor, 20000, 'the EUR subtotal reflects only the real EUR postings');
+  assert.equal(eur?.total_credit_minor, 20000);
+  assert.equal(eur?.balanced, true);
+
+  const eurCashRow = tb.rows.find((r) => r.name === 'CcyTBTest Cash (EUR)');
+  assert.equal(eurCashRow?.currency, 'EUR', 'each real row states its own, real, fixed currency directly, not just the aggregate');
+  const homeCashRow = tb.rows.find((r) => r.name === 'Cash and Bank');
+  assert.equal(homeCashRow?.currency, null, 'a real, home-currency account correctly reports null, never a guessed or inferred currency code');
+
+  assert.equal(tb.rows.every((r) => r.has_quantity_postings === false), true, 'none of these real, ordinary financial accounts have ever received a real, direct quantity-tracking ("-QTY") posting');
+});
+
+test('getTrialBalance: has_quantity_postings correctly flags an account that has genuinely received a real, direct quantity-tracking ("-QTY") posting alongside its own, ordinary value postings', () => {
+  create(fetch('Asset', typeRootName), typeRootName, 'QtyFlagTest Account', asUserId(1));
+  stageLine({ reference: 'QTYFLAG-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('QtyFlagTest Account'), amount_minor: 500 });
+  stageLine({ reference: 'QTYFLAG-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('Sales Revenue'), amount_minor: -500 });
+  postJournalEntry('QTYFLAG-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  // A real, direct, single-sided quantity-tracking posting - genuinely, deliberately not part of a balanced journal entry at all, the exact, real pattern postQuantityMovement itself uses.
+  stageLine({ reference: 'QTYFLAG-1-QTY', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('QtyFlagTest Account'), amount_minor: 12 });
+  db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run('QTYFLAG-1-QTY', 'My Business', 'Actual', 1);
+
+  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
+  const row = tb.rows.find((r) => r.name === 'QtyFlagTest Account');
+  assert.equal(row?.has_quantity_postings, true, 'a real account that has genuinely received a "-QTY" posting is correctly flagged, so a reader knows its own balance may be a real, confirmed mix, not purely monetary');
+  const salesRow = tb.rows.find((r) => r.name === 'Sales Revenue');
+  assert.equal(salesRow?.has_quantity_postings, false, 'a real, ordinary account that has never received a "-QTY" posting is correctly left unflagged');
+});
+
 test('getProfitAndLoss: Gross Profit is a real subtotal (Revenue minus COGS specifically), Net Profit unchanged — via the real, bootstrap-tagged COGS account, not a test-only setup', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'GrossProfit Test Ledger', asUserId(1));
 
