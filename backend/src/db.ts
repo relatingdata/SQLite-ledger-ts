@@ -2797,7 +2797,7 @@ export function ensureProductTierItem(baseProductName: ItemName, tier: string, u
   const existing = Entity.getUnder(tierItemName, salesAccountId);
   const tierItemRow = existing ?? Entity.create(tierItemName, salesAccountId, userId);
   if (!existing) {
-    db.prepare(`INSERT INTO contact (entity_id) VALUES (?)`).run(tierItemRow.id);
+    mergeContactDetail(tierItemRow.id, {});
     setDimensionParent(tierItemName, 'COGS Product', cogsAccount, userId);
   }
   return { tierItemName, tierItemId: tierItemRow.id, salesAccount, salesAccountId, cogsAccount, cogsAccountId };
@@ -2861,7 +2861,7 @@ export function ensureProductTierLocationLeaf(tierItemName: string, locationName
       Entity.relate(cogsRow.id, 'COGS', userId);
     }
     const createdLeaf = Entity.create(leafItemName, salesRow.id, userId);
-    db.prepare(`INSERT INTO contact (entity_id) VALUES (?)`).run(createdLeaf.id);
+    mergeContactDetail(createdLeaf.id, {});
     setDimensionParent(leafItemName, 'COGS Product', cogsAccount, userId);
     // The real, structural fact a real journal_line.account_id can now
     // be walked from directly — which real location this real Sales
@@ -3454,10 +3454,10 @@ export function payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): 
 export function recordReminderSent(customerName: string): number {
   const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(customerName) as { id: number } | undefined)?.id;
   if (!id) throw new ValidationError(`No customer/vendor named "${customerName}".`);
-  db.prepare(
-    `INSERT INTO contact (entity_id, reminder_level) VALUES (?, 1) ON CONFLICT (entity_id) DO UPDATE SET reminder_level = MIN(3, reminder_level + 1)`
-  ).run(id);
-  return (db.prepare(`SELECT reminder_level FROM contact WHERE entity_id = ?`).get(id) as { reminder_level: number }).reminder_level;
+  const current = (db.prepare(`SELECT reminder_level FROM contact WHERE entity_id = ?`).get(id) as { reminder_level: number } | undefined)?.reminder_level ?? 0;
+  const next = current === 0 ? 1 : Math.min(3, current + 1);
+  mergeContactDetail(id, { reminder_level: next });
+  return next;
 }
 
 /** Resets a customer's reminder level back to 0 — once they've paid,
@@ -3467,7 +3467,7 @@ export function recordReminderSent(customerName: string): number {
 export function resetReminderLevel(customerName: string): void {
   const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(customerName) as { id: number } | undefined)?.id;
   if (!id) throw new ValidationError(`No customer/vendor named "${customerName}".`);
-  db.prepare(`INSERT INTO contact (entity_id, reminder_level) VALUES (?, 0) ON CONFLICT (entity_id) DO UPDATE SET reminder_level = 0`).run(id);
+  mergeContactDetail(id, { reminder_level: 0 });
 }
 
 export interface ReminderCandidate {
@@ -3606,28 +3606,40 @@ export function getAccountsPostedTo(reference: string): string[] {
   return rows.map((r) => r.name);
 }
 
+/** A real, direct read-merge-write into the entity's own detail_json -
+ * per direct, absolute instruction (contact eliminated as its own
+ * table). Merges only the real, given fields, leaving every other
+ * real, already-set field untouched - the exact, same, real "partial
+ * upsert" shape the removed table's own ON CONFLICT DO UPDATE clause
+ * always had. __is_contact: true marks this entity as a real contact
+ * record for the compatibility view to find. */
+export function mergeContactDetail(entityId: number, fields: Record<string, unknown>): void {
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(entityId) as { detail_json: string | null } | undefined;
+  const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
+  const merged = { ...current, __is_contact: true, ...fields };
+  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(merged), entityId);
+}
+
 export function setContact(entityName: string, contact: Partial<Contact>): void {
-  db.prepare(
-    `INSERT INTO contact_entry (name, person_name, phone, email, address_line1, address_line2, city, region, postal_code, country, payment_terms_days, credit_limit_minor, wage_minor_per_hour, salary_minor_per_year, preferred_language, card_label)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    entityName,
-    contact.person_name ?? null,
-    contact.phone ?? null,
-    contact.email ?? null,
-    contact.address_line1 ?? null,
-    contact.address_line2 ?? null,
-    contact.city ?? null,
-    contact.region ?? null,
-    contact.postal_code ?? null,
-    contact.country ?? null,
-    contact.payment_terms_days ?? null,
-    contact.credit_limit_minor ?? null,
-    contact.wage_minor_per_hour ?? null,
-    contact.salary_minor_per_year ?? null,
-    contact.preferred_language ?? null,
-    contact.card_label ?? null
-  );
+  const entityId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(entityName) as { id: number } | undefined)?.id;
+  if (!entityId) throw new ValidationError(`No entity named "${entityName}".`);
+  mergeContactDetail(entityId, {
+    person_name: contact.person_name ?? null,
+    phone: contact.phone ?? null,
+    email: contact.email ?? null,
+    address_line1: contact.address_line1 ?? null,
+    address_line2: contact.address_line2 ?? null,
+    city: contact.city ?? null,
+    region: contact.region ?? null,
+    postal_code: contact.postal_code ?? null,
+    country: contact.country ?? null,
+    payment_terms_days: contact.payment_terms_days ?? null,
+    credit_limit_minor: contact.credit_limit_minor ?? null,
+    wage_minor_per_hour: contact.wage_minor_per_hour ?? null,
+    salary_minor_per_year: contact.salary_minor_per_year ?? null,
+    preferred_language: contact.preferred_language ?? null,
+    card_label: contact.card_label ?? null,
+  });
 }
 
 /** Sets a real employee's own real PIN for signing on at a POS
@@ -3640,7 +3652,7 @@ export function setContact(entityName: string, contact: Partial<Contact>): void 
 export function setPosPin(employeeName: string, pin: string): void {
   const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number } | undefined)?.id;
   if (!id) throw new ValidationError(`No employee named "${employeeName}".`);
-  db.prepare(`INSERT INTO contact (entity_id, pos_pin) VALUES (?, ?) ON CONFLICT (entity_id) DO UPDATE SET pos_pin = excluded.pos_pin`).run(id, pin);
+  mergeContactDetail(id, { pos_pin: pin });
 }
 
 export interface PosShift {
@@ -4890,7 +4902,7 @@ export function registerCustomer(input: CustomerRegistrationInput, userId: UserI
     card_label: input.card_label ?? null,
   });
   const entityId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.name) as { id: number }).id;
-  db.prepare(`UPDATE contact SET password_hash = ?, verification_status = 'pending' WHERE entity_id = ?`).run(hashPassword(input.password), entityId);
+  mergeContactDetail(entityId, { password_hash: hashPassword(input.password), verification_status: 'pending' });
 }
 
 export interface PendingCustomer {
@@ -4923,7 +4935,7 @@ export function verifyCustomer(customerName: string, approve: boolean): void {
   const current = (db.prepare(`SELECT verification_status FROM contact WHERE entity_id = ?`).get(entityId) as { verification_status: string | null } | undefined)
     ?.verification_status;
   if (current !== 'pending') throw new ValidationError(`"${customerName}" is not awaiting verification.`);
-  db.prepare(`UPDATE contact SET verification_status = ? WHERE entity_id = ?`).run(approve ? 'active' : 'rejected', entityId);
+  mergeContactDetail(entityId, { verification_status: approve ? 'active' : 'rejected' });
 }
 
 /** For the customer terminal's own login — verifies a self-registered
@@ -5063,13 +5075,12 @@ export function getItem(entityName: string): Item | undefined {
 export function setItem(entityName: string, item: Partial<Item>): void {
   const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(entityName) as { id: number } | undefined)?.id;
   if (!id) throw new ValidationError(`No entity named "${entityName}".`);
-  db.prepare(
-    `INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc, item_retail_price_minor)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (entity_id) DO UPDATE SET
-       item_description = excluded.item_description, item_unit_of_measure = excluded.item_unit_of_measure,
-       item_upc = excluded.item_upc, item_retail_price_minor = excluded.item_retail_price_minor`
-  ).run(id, item.description ?? null, item.unit_of_measure ?? null, item.upc ?? null, item.retail_price_minor ?? null);
+  mergeContactDetail(id, {
+    item_description: item.description ?? null,
+    item_unit_of_measure: item.unit_of_measure ?? null,
+    item_upc: item.upc ?? null,
+    item_retail_price_minor: item.retail_price_minor ?? null,
+  });
 }
 
 export interface ItemSummary {

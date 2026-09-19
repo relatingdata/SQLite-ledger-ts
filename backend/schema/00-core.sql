@@ -504,120 +504,49 @@ CREATE TABLE account (
 -- plain, separate fields rather than one free-text "address" blob: a
 -- structured address is what makes a mailing-label or a report actually
 -- usable later, and splitting it now costs nothing.
-CREATE TABLE contact (
-  entity_id     INTEGER PRIMARY KEY,
-  -- A real, human contact-person's own real name — distinct from the
-  -- entity's own "name" itself, which for a contact-person record is
-  -- the real, structural record key (e.g. "Vendor X — Credit Manager
-  -- Contact"), never the person's own real name. NULL for every
-  -- other, real use of this same table (a customer/vendor/location's
-  -- own contact details), where the entity's own name already is
-  -- that real party's own name directly.
-  person_name   TEXT,
-  phone         TEXT,
-  email         TEXT,
-  address_line1 TEXT,
-  address_line2 TEXT,
-  city          TEXT,
-  region        TEXT,
-  postal_code   TEXT,
-  country       TEXT,
-  -- The base credit term in days — NULL means not yet configured, 0
-  -- explicitly means cash only (due on receipt, no credit extended).
-  -- Deliberately a single number, not three: account management
-  -- practice genuinely does vary per customer/vendor (30/60/90 for
-  -- one, 7/14/21 for another, 14/28/42 for a third), but every
-  -- observed case is a term and its own 2x/3x multiples — so aging
-  -- buckets are DERIVED from this one value (term, 2*term, 3*term)
-  -- rather than three separately-editable numbers that could drift
-  -- out of that relationship for no real reason.
-  payment_terms_days INTEGER,
-  -- The real, maximum outstanding balance this specific customer or
-  -- vendor is allowed to carry before further credit sales/purchases
-  -- are flagged — NULL means no real limit has been set (an existing,
-  -- ordinary account, not silently exempted). A real, separate
-  -- dimension from payment_terms_days: a customer can have generous
-  -- 30-day terms but still a real, capped total exposure, or tight
-  -- 7-day terms with a much larger limit — the two genuinely vary
-  -- independently in real account management practice.
-  credit_limit_minor INTEGER,
-  -- A real employee's own real wage rate, per hour — per direct
-  -- request: "consider employees as AP at a normal price/wage per
-  -- hour, not including tax at the moment." NULL for any real
-  -- contact that isn't an employee at all, or an employee whose wage
-  -- hasn't been set up yet. Deliberately gross only, no tax
-  -- withholding modeled — a real, stated simplification, not an
-  -- oversight.
-  wage_minor_per_hour INTEGER,
-  -- A real, fixed annual salary — for management, per direct request:
-  -- "management on a salary rather than wage." A real, separate
-  -- payment structure from wage_minor_per_hour, not a derived rate;
-  -- an employee has exactly one of the two set, never both, and
-  -- payEmployeeWages branches on which one is actually present.
-  salary_minor_per_year INTEGER,
-  -- Which reminder level (0 = none sent yet, 1-3 = escalating) this
-  -- customer is currently at. Advances automatically each time a
-  -- reminder is recorded as sent — the next reminder for the same
-  -- customer is pre-set to the following level, matching SQL-Ledger's
-  -- own behavior, rather than needing to be picked manually every time.
-  reminder_level INTEGER NOT NULL DEFAULT 0 CHECK (reminder_level BETWEEN 0 AND 3),
-  -- A specific customer/vendor's own preferred language for printed
-  -- documents (invoices) — genuinely necessary in multilingual
-  -- markets (Canada, Switzerland, etc.) where a business's own default
-  -- language doesn't tell you what a specific customer wants their
-  -- invoice in. NULL means no preference recorded — falls back to the
-  -- business's own default language, then English.
-  preferred_language TEXT,
-  -- Set when a customer registers themself (in-store terminal or,
-  -- later, online) — a contact created by staff for an existing
-  -- account customer has none of this and is simply usable, since
-  -- staff already verified who they are by doing the setup. NULL
-  -- password_hash means this contact cannot log in at all.
-  password_hash TEXT,
-  -- 'pending' immediately after self-registration, until staff checks
-  -- ID/card and approves; 'active' once approved; 'rejected' if not.
-  -- NULL for contacts that were never a self-registration in the first
-  -- place. The real gate: only 'active' may be sold to on account.
-  verification_status TEXT CHECK (verification_status IN ('pending', 'active', 'rejected')),
-  -- Card type + last 4 digits only, e.g. "Visa ending 4242" — never a
-  -- full card number. Real card numbers need specialized, audited
-  -- payment infrastructure, not a database column, even for a demo.
-  card_label TEXT,
-  -- A real, short PIN an employee types to sign on at a POS terminal
-  -- — deliberately separate from the app's own users/roles login
-  -- entirely, and deliberately not hashed: this is a real,
-  -- low-stakes, physical-terminal identification mechanism (matching
-  -- how real retail POS terminals actually work — one shared
-  -- terminal login, individual clerk PINs on top), not a real
-  -- authentication credential for the app itself. NULL means this
-  -- employee has no PIN set yet and cannot sign on to sell.
-  pos_pin TEXT,
-  -- A real, physical location's own real shelving capacity (bottles)
-  -- and floor-area capacity (cartons) — NULL for any real contact
-  -- that isn't a location. See docs/scoped-uniqueness-and-location-
-  -- accounting.md for why these are two, genuinely separate,
-  -- distinct real estates, not a subdivision of the same shelf space.
-  bottle_capacity INTEGER,
-  carton_capacity INTEGER,
-  -- A real, direct IANA timezone identifier (e.g. 'Australia/Sydney')
-  -- — never a fixed UTC offset, since a fixed offset can't correctly
-  -- represent a real, DST-observing region. NULL for any real contact
-  -- that isn't a location. Necessary for a real, correct audit trail
-  -- and to not confuse a real, physical store's own sales clerk.
-  timezone TEXT,
-  -- A real, sellable item's own canonical description, unit of
-  -- measure (the base unit everything else — package quantities,
-  -- prices — is expressed in terms of), universal barcode (if it has
-  -- one independent of any vendor's packaging), and current real
-  -- retail/selling price per unit_of_measure — genuinely different
-  -- from item_source.price_minor, which is what a vendor charges US
-  -- to buy it, not what WE charge a customer to sell it. NULL for any
-  -- real contact that isn't a item.
-  item_description TEXT,
-  item_unit_of_measure TEXT,
-  item_upc TEXT,
-  item_retail_price_minor INTEGER
-);
+-- contact eliminated as its own table, per direct, absolute
+-- instruction. A true 1:1 extension needs no child entity at all -
+-- every real field lives directly in the parent entity's own, real
+-- detail_json (the same, real, established pattern already proven
+-- for item_source/stock_lot). This compatibility view recomputes the
+-- exact, same, real column shape the removed table used to provide,
+-- so this codebase's own, many, real, existing read queries against
+-- "contact" keep working completely unchanged - only the real write
+-- paths (setContact and its own, dedicated siblings - setReminderLevel,
+-- registerCustomer, verifyCustomer, setPosPin, setLocation,
+-- clockInToProject's own wage lookup, item description setters) needed
+-- rewriting to merge into detail_json directly instead.
+CREATE VIEW contact AS
+SELECT
+  e.id AS entity_id,
+  json_extract(e.detail_json, '$.person_name') AS person_name,
+  json_extract(e.detail_json, '$.phone') AS phone,
+  json_extract(e.detail_json, '$.email') AS email,
+  json_extract(e.detail_json, '$.address_line1') AS address_line1,
+  json_extract(e.detail_json, '$.address_line2') AS address_line2,
+  json_extract(e.detail_json, '$.city') AS city,
+  json_extract(e.detail_json, '$.region') AS region,
+  json_extract(e.detail_json, '$.postal_code') AS postal_code,
+  json_extract(e.detail_json, '$.country') AS country,
+  CAST(json_extract(e.detail_json, '$.payment_terms_days') AS INTEGER) AS payment_terms_days,
+  CAST(json_extract(e.detail_json, '$.credit_limit_minor') AS INTEGER) AS credit_limit_minor,
+  CAST(json_extract(e.detail_json, '$.wage_minor_per_hour') AS INTEGER) AS wage_minor_per_hour,
+  CAST(json_extract(e.detail_json, '$.salary_minor_per_year') AS INTEGER) AS salary_minor_per_year,
+  COALESCE(CAST(json_extract(e.detail_json, '$.reminder_level') AS INTEGER), 0) AS reminder_level,
+  json_extract(e.detail_json, '$.preferred_language') AS preferred_language,
+  json_extract(e.detail_json, '$.password_hash') AS password_hash,
+  json_extract(e.detail_json, '$.verification_status') AS verification_status,
+  json_extract(e.detail_json, '$.card_label') AS card_label,
+  json_extract(e.detail_json, '$.pos_pin') AS pos_pin,
+  CAST(json_extract(e.detail_json, '$.bottle_capacity') AS INTEGER) AS bottle_capacity,
+  CAST(json_extract(e.detail_json, '$.carton_capacity') AS INTEGER) AS carton_capacity,
+  json_extract(e.detail_json, '$.timezone') AS timezone,
+  json_extract(e.detail_json, '$.item_description') AS item_description,
+  json_extract(e.detail_json, '$.item_unit_of_measure') AS item_unit_of_measure,
+  json_extract(e.detail_json, '$.item_upc') AS item_upc,
+  CAST(json_extract(e.detail_json, '$.item_retail_price_minor') AS INTEGER) AS item_retail_price_minor
+FROM current_entities e
+WHERE e.detail_json IS NOT NULL AND json_extract(e.detail_json, '$.__is_contact') = 1;
 
 -- pos_shift: a real, timestamped clerk sign-on/sign-off record — per
 -- direct requirement, this genuinely IS the real timecard
@@ -1485,37 +1414,17 @@ BEGIN
   ON CONFLICT (entity_id) DO UPDATE SET accountnumber = excluded.accountnumber;
 END;
 
--- contact_entry: add or update contact details for an entity, by name —
--- upsert, same as account_entry/translation_entry.
---   INSERT INTO contact_entry (name, phone, email, address_line1, city, region, postal_code, country)
---   VALUES ('Acme Corp', '555-0100', 'ap@acme.example', '1 Main St', 'Springfield', 'IL', '62701', 'USA');
+-- contact_entry: a real, direct read view over contact (itself now a
+-- real, direct compatibility view over entities.detail_json) - kept
+-- for getContact's own, real, existing read query. The real, former
+-- INSTEAD OF INSERT trigger here is gone: setContact and its own,
+-- real, dedicated siblings (setReminderLevel, registerCustomer,
+-- verifyCustomer, setPosPin, setItem) all write directly via
+-- mergeContactDetail now, never through this view.
 CREATE VIEW contact_entry AS
 SELECT e.name, c.person_name, c.phone, c.email, c.address_line1, c.address_line2, c.city, c.region, c.postal_code, c.country, c.payment_terms_days, c.credit_limit_minor, c.wage_minor_per_hour, c.salary_minor_per_year, c.reminder_level, c.preferred_language, c.verification_status, c.card_label, c.pos_pin, c.bottle_capacity, c.carton_capacity, c.timezone, c.item_description, c.item_unit_of_measure, c.item_upc, c.item_retail_price_minor
 FROM contact c
 JOIN current_entities e ON e.id = c.entity_id;
-
-CREATE TRIGGER contact_entry_insert INSTEAD OF INSERT ON contact_entry
-BEGIN
-  INSERT INTO contact (entity_id, person_name, phone, email, address_line1, address_line2, city, region, postal_code, country, payment_terms_days, credit_limit_minor, wage_minor_per_hour, salary_minor_per_year, preferred_language, card_label, bottle_capacity, carton_capacity, timezone, item_description, item_unit_of_measure, item_upc, item_retail_price_minor)
-  VALUES (
-    (SELECT id FROM current_entities WHERE name = NEW.name),
-    NEW.person_name, NEW.phone, NEW.email, NEW.address_line1, NEW.address_line2, NEW.city, NEW.region, NEW.postal_code, NEW.country, NEW.payment_terms_days, NEW.credit_limit_minor, NEW.wage_minor_per_hour, NEW.salary_minor_per_year, NEW.preferred_language, NEW.card_label, NEW.bottle_capacity, NEW.carton_capacity, NEW.timezone, NEW.item_description, NEW.item_unit_of_measure, NEW.item_upc, NEW.item_retail_price_minor
-  )
-  ON CONFLICT (entity_id) DO UPDATE SET
-    person_name = excluded.person_name,
-    phone = excluded.phone, email = excluded.email,
-    address_line1 = excluded.address_line1, address_line2 = excluded.address_line2,
-    city = excluded.city, region = excluded.region, postal_code = excluded.postal_code, country = excluded.country,
-    payment_terms_days = excluded.payment_terms_days, credit_limit_minor = excluded.credit_limit_minor, wage_minor_per_hour = excluded.wage_minor_per_hour, salary_minor_per_year = excluded.salary_minor_per_year, preferred_language = excluded.preferred_language,
-    card_label = excluded.card_label,
-    bottle_capacity = excluded.bottle_capacity, carton_capacity = excluded.carton_capacity, timezone = excluded.timezone,
-    item_description = excluded.item_description, item_unit_of_measure = excluded.item_unit_of_measure, item_upc = excluded.item_upc, item_retail_price_minor = excluded.item_retail_price_minor;
-    -- reminder_level, password_hash, verification_status, and
-    -- pos_pin deliberately NOT included here — each has its own
-    -- targeted update path (setReminderLevel, registerCustomer,
-    -- verifyCustomer, setPosPin), never touched by an ordinary
-    -- contact edit that has nothing to do with them.
-END;
 
 -- item_entry: add or update a item's canonical details, by name —
 -- upsert, same as account_entry/contact_entry.
@@ -1924,13 +1833,13 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- records themselves are created further down, after Location
 -- Type/Is Billing Address (their own real parent categories) are
 -- actually defined, near Relationship Types.
-INSERT INTO contact (entity_id, city, bottle_capacity, carton_capacity, timezone) VALUES (122, 'Springfield', NULL, 6000, 'Australia/Sydney');
-INSERT INTO contact (entity_id, city, bottle_capacity, carton_capacity, timezone) VALUES (123, 'Springfield', 2200, 100, 'Australia/Sydney');
-INSERT INTO contact (entity_id, city, bottle_capacity, carton_capacity, timezone) VALUES (124, 'Springfield', 1600, 75, 'Australia/Sydney');
-INSERT INTO contact (entity_id, city, bottle_capacity, carton_capacity, timezone) VALUES (125, 'Rivertown', NULL, 5000, 'Australia/Brisbane');
-INSERT INTO contact (entity_id, city, bottle_capacity, carton_capacity, timezone) VALUES (126, 'Rivertown', 1900, 85, 'Australia/Brisbane');
-INSERT INTO contact (entity_id, city, bottle_capacity, carton_capacity, timezone) VALUES (127, 'Rivertown', 1400, 65, 'Australia/Brisbane');
-INSERT INTO contact (entity_id, city, bottle_capacity, carton_capacity, timezone) VALUES (128, 'Rivertown', 1100, 50, 'Australia/Brisbane');
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Springfield', '$.bottle_capacity', NULL, '$.carton_capacity', 6000, '$.timezone', 'Australia/Sydney') WHERE entity_id = 122 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Springfield', '$.bottle_capacity', 2200, '$.carton_capacity', 100, '$.timezone', 'Australia/Sydney') WHERE entity_id = 123 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Springfield', '$.bottle_capacity', 1600, '$.carton_capacity', 75, '$.timezone', 'Australia/Sydney') WHERE entity_id = 124 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Rivertown', '$.bottle_capacity', NULL, '$.carton_capacity', 5000, '$.timezone', 'Australia/Brisbane') WHERE entity_id = 125 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Rivertown', '$.bottle_capacity', 1900, '$.carton_capacity', 85, '$.timezone', 'Australia/Brisbane') WHERE entity_id = 126 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Rivertown', '$.bottle_capacity', 1400, '$.carton_capacity', 65, '$.timezone', 'Australia/Brisbane') WHERE entity_id = 127 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Rivertown', '$.bottle_capacity', 1100, '$.carton_capacity', 50, '$.timezone', 'Australia/Brisbane') WHERE entity_id = 128 AND deleted_at IS NULL;
 
 -- Categories and subcategories
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (129, 129, 'Red Wine', (SELECT id FROM current_entities WHERE name = 'Items'), '2026-01-01', 1);
@@ -1995,42 +1904,42 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (186, 186, 'Spiced Rum 700ml', (SELECT id FROM current_entities WHERE name = 'Rum'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (187, 187, 'Dark Rum 700ml', (SELECT id FROM current_entities WHERE name = 'Rum'), '2026-01-01', 1);
 
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (152, NULL, 'bottle', '9300001000001');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (153, NULL, 'bottle', '9300001000018');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (154, NULL, 'bottle', '9300001000025');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (155, NULL, 'bottle', '9300001000032');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (156, NULL, 'bottle', '9300001000049');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (157, NULL, 'bottle', '9300001000056');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (158, NULL, 'bottle', '9300001000063');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (159, NULL, 'bottle', '9300001000070');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (160, NULL, 'bottle', '9300001000087');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (161, NULL, 'bottle', '9300001000094');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (162, NULL, 'bottle', '9300001000100');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (163, NULL, 'bottle', '9300001000117');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (164, NULL, 'bottle', '9300001000124');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (165, NULL, 'bottle', '9300001000131');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (166, NULL, 'bottle', '9300001000148');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (167, NULL, 'bottle', '9300001000155');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (168, NULL, 'bottle', '9300001000162');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (169, NULL, 'bottle', '9300001000179');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (170, NULL, 'bottle', '9300001000186');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (171, NULL, 'bottle', '9300001000193');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (172, NULL, 'bottle', '9300001000209');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (173, NULL, 'bottle', '9300001000216');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (174, NULL, 'bottle', '9300001000223');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (175, NULL, 'bottle', '9300001000230');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (176, NULL, 'bottle', '9300001000247');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (177, NULL, 'bottle', '9300001000254');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (178, NULL, 'bottle', '9300001000261');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (179, NULL, 'bottle', '9300001000278');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (180, NULL, 'bottle', '9300001000285');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (181, NULL, 'bottle', '9300001000292');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (182, NULL, 'bottle', '9300001000308');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (183, NULL, 'bottle', '9300001000315');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (184, NULL, 'bottle', '9300001000322');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (185, NULL, 'bottle', '9300001000339');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (186, NULL, 'bottle', '9300001000346');
-INSERT INTO contact (entity_id, item_description, item_unit_of_measure, item_upc) VALUES (187, NULL, 'bottle', '9300001000353');
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000001') WHERE entity_id = 152 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000018') WHERE entity_id = 153 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000025') WHERE entity_id = 154 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000032') WHERE entity_id = 155 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000049') WHERE entity_id = 156 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000056') WHERE entity_id = 157 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000063') WHERE entity_id = 158 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000070') WHERE entity_id = 159 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000087') WHERE entity_id = 160 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000094') WHERE entity_id = 161 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000100') WHERE entity_id = 162 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000117') WHERE entity_id = 163 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000124') WHERE entity_id = 164 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000131') WHERE entity_id = 165 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000148') WHERE entity_id = 166 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000155') WHERE entity_id = 167 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000162') WHERE entity_id = 168 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000179') WHERE entity_id = 169 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000186') WHERE entity_id = 170 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000193') WHERE entity_id = 171 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000209') WHERE entity_id = 172 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000216') WHERE entity_id = 173 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000223') WHERE entity_id = 174 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000230') WHERE entity_id = 175 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000247') WHERE entity_id = 176 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000254') WHERE entity_id = 177 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000261') WHERE entity_id = 178 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000278') WHERE entity_id = 179 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000285') WHERE entity_id = 180 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000292') WHERE entity_id = 181 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000308') WHERE entity_id = 182 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000315') WHERE entity_id = 183 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000322') WHERE entity_id = 184 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000339') WHERE entity_id = 185 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000346') WHERE entity_id = 186 AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000353') WHERE entity_id = 187 AND deleted_at IS NULL;
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (244, 244, 'Stock Transfer', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (245, 245, 'Below Reorder', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (246, 246, 'Stock Take', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
@@ -2092,7 +2001,7 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- account — a real contact entity (needed since createInvoice requires
 -- an existing counterparty), not a special-cased null customer.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (309, 309, 'Cash Sale', (SELECT id FROM current_entities WHERE name = 'Customers'), '2026-01-01', 1);
-INSERT INTO contact_entry (name, payment_terms_days) VALUES ('Cash Sale', 0);
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.payment_terms_days', 0) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Cash Sale') AND deleted_at IS NULL;
 
 -- Italian and Swiss (German/French/Italian) chart of accounts —
 -- adapted from Tekki's real SQL-Ledger fork (GPLv3, see NOTICE.md
@@ -2407,43 +2316,42 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- Real, deterministic retail (selling) prices for every seed product
 -- — a POS screen must be able to look this up, never ask the operator
 -- to type a price in from memory (the real, reported bug this fixes).
-UPDATE contact SET item_retail_price_minor = 785 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Amber Ale 330ml');
-UPDATE contact SET item_retail_price_minor = 5200 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Barossa Shiraz 2021');
-UPDATE contact SET item_retail_price_minor = 2650 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Barossa Valley Merlot 2022');
-UPDATE contact SET item_retail_price_minor = 3800 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Blended Scotch 700ml');
-UPDATE contact SET item_retail_price_minor = 6850 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Botanical Gin 700ml');
-UPDATE contact SET item_retail_price_minor = 6600 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Cava Rosé');
-UPDATE contact SET item_retail_price_minor = 3350 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Central Otago Pinot Noir 2022');
-UPDATE contact SET item_retail_price_minor = 5400 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Chablis Premier Cru 2021');
-UPDATE contact SET item_retail_price_minor = 5500 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Château Dubois Merlot 2021');
-UPDATE contact SET item_retail_price_minor = 3250 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Clare Valley Riesling 2021');
-UPDATE contact SET item_retail_price_minor = 1030 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Classic Stout 330ml');
-UPDATE contact SET item_retail_price_minor = 5250 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Coonawarra Cabernet 2021');
-UPDATE contact SET item_retail_price_minor = 5000 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Craft Vodka 700ml');
-UPDATE contact SET item_retail_price_minor = 3200 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Côte de Nuits Pinot Noir 2021');
-UPDATE contact SET item_retail_price_minor = 4750 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Dark Rum 700ml');
-UPDATE contact SET item_retail_price_minor = 1200 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Golden Lager 330ml');
-UPDATE contact SET item_retail_price_minor = 3300 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Grande Maison Champagne Brut');
-UPDATE contact SET item_retail_price_minor = 2400 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Grande Maison Champagne Rosé');
-UPDATE contact SET item_retail_price_minor = 4600 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Highland Single Malt 700ml');
-UPDATE contact SET item_retail_price_minor = 2250 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Hunter Valley Shiraz 2020');
-UPDATE contact SET item_retail_price_minor = 865 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Imperial Stout 330ml');
-UPDATE contact SET item_retail_price_minor = 4150 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Loire Valley Sauvignon Blanc 2022');
-UPDATE contact SET item_retail_price_minor = 6150 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'London Dry Gin 700ml');
-UPDATE contact SET item_retail_price_minor = 4150 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Margaret River Chardonnay 2022');
-UPDATE contact SET item_retail_price_minor = 3150 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Marlborough Sauvignon Blanc 2023');
-UPDATE contact SET item_retail_price_minor = 2250 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Mosel Riesling 2022');
-UPDATE contact SET item_retail_price_minor = 2500 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Napa Ridge Cabernet Sauvignon 2020');
-UPDATE contact SET item_retail_price_minor = 840 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Pale Ale 330ml');
-UPDATE contact SET item_retail_price_minor = 4150 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Penedès Cava Brut');
-UPDATE contact SET item_retail_price_minor = 4100 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Petit Chablis 2022');
-UPDATE contact SET item_retail_price_minor = 810 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Premium Pilsner 330ml');
-UPDATE contact SET item_retail_price_minor = 8400 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Premium Vodka 700ml');
-UPDATE contact SET item_retail_price_minor = 6850 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Prosecco Extra Dry');
-UPDATE contact SET item_retail_price_minor = 2850 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Sonoma Chardonnay 2021');
-UPDATE contact SET item_retail_price_minor = 4550 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Spiced Rum 700ml');
-UPDATE contact SET item_retail_price_minor = 5200 WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Veneto Prosecco DOC');
-
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 785) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Amber Ale 330ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5200) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Barossa Shiraz 2021') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2650) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Barossa Valley Merlot 2022') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3800) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Blended Scotch 700ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 6850) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Botanical Gin 700ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 6600) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Cava Rosé') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3350) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Central Otago Pinot Noir 2022') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5400) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Chablis Premier Cru 2021') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5500) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Château Dubois Merlot 2021') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3250) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Clare Valley Riesling 2021') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 1030) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Classic Stout 330ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5250) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Coonawarra Cabernet 2021') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5000) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Craft Vodka 700ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3200) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Côte de Nuits Pinot Noir 2021') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4750) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Dark Rum 700ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 1200) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Golden Lager 330ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3300) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Grande Maison Champagne Brut') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2400) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Grande Maison Champagne Rosé') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4600) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Highland Single Malt 700ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2250) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Hunter Valley Shiraz 2020') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 865) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Imperial Stout 330ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4150) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Loire Valley Sauvignon Blanc 2022') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 6150) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'London Dry Gin 700ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4150) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Margaret River Chardonnay 2022') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3150) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Marlborough Sauvignon Blanc 2023') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2250) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Mosel Riesling 2022') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2500) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Napa Ridge Cabernet Sauvignon 2020') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 840) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Pale Ale 330ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4150) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Penedès Cava Brut') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4100) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Petit Chablis 2022') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 810) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Premium Pilsner 330ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 8400) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Premium Vodka 700ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 6850) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Prosecco Extra Dry') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2850) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Sonoma Chardonnay 2021') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4550) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Spiced Rum 700ml') AND deleted_at IS NULL;
+UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5200) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Veneto Prosecco DOC') AND deleted_at IS NULL;
 -- Relationship Types — the real category tree the relationship-type
 -- pattern hangs off (setRelationship/getRelationship/
 -- getEntitiesWithRelationship, see docs/entity-model.md). Confirmed

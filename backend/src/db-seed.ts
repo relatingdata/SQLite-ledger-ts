@@ -1,5 +1,5 @@
 import { db } from './db.js';
-import { createEntity, updateEntity, deleteEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, setContactType, setItemLocationLevels, receiveStockAtLocation, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, fetch, fetchById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId } from './db.js';
+import { createEntity, updateEntity, deleteEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveStockAtLocation, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, fetch, fetchById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId } from './db.js';
 import { loadAllTranslations } from '../../shared-fixtures/translations.js';
 import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels, loadDemoUpcs } from '../../shared-fixtures/wine-retail-demo-data.js';
 
@@ -1197,7 +1197,7 @@ function migrateForWineRetailUpcs() {
     .all() as { entity_id: number; name: string }[];
   for (const { entity_id, name } of items) {
     const upc = upcByName.get(name);
-    if (upc) db.prepare(`UPDATE contact SET item_upc = ? WHERE entity_id = ?`).run(upc, entity_id);
+    if (upc) mergeContactDetail(entity_id, { item_upc: upc });
   }
 }
 if (SEED_DEMO_BUSINESSES) migrateForWineRetailUpcs();

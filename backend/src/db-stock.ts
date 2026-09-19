@@ -5,6 +5,7 @@ import {
   NotFoundError,
   ValidationError,
   PostingError,
+  mergeContactDetail,
   assertPeriodOpen,
   cityDivisionFor,
   ensureProductQuantityAccounts,
@@ -203,12 +204,7 @@ export function setLocation(name: string, location: Location): void {
   // genuinely just more, ordinary, per-entity data, stored on contact
   // (the established, general-purpose table every real party's own
   // details already live on), not a dedicated location table.
-  db.prepare(
-    `INSERT INTO contact (entity_id, city, bottle_capacity, carton_capacity, timezone)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (entity_id) DO UPDATE SET
-       city = excluded.city, bottle_capacity = excluded.bottle_capacity, carton_capacity = excluded.carton_capacity, timezone = excluded.timezone`
-  ).run(id, location.city, location.bottle_capacity, location.carton_capacity, location.timezone);
+  mergeContactDetail(id, { city: location.city, bottle_capacity: location.bottle_capacity, carton_capacity: location.carton_capacity, timezone: location.timezone });
   // location_type and is_billing_address are each a real, direct
   // "kind" tag — recorded as a real, named relationship record
   // ("Location Type — {location} → {marker}"), found by its own
