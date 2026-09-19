@@ -190,7 +190,7 @@ playwright-one:
 # got reused by something else entirely) is correctly treated as "not
 # running" either way. Real, direct answer to "is the backend up and
 # healthy" without guessing from `ps` output or trusting a pid alone.
-PID_DIR := /tmp/sql-ledger-ts-pids
+PID_DIR ?= /tmp/sql-ledger-ts-pids
 BACKEND_PID := $(PID_DIR)/backend.pid
 FRONTEND_PID := $(PID_DIR)/frontend.pid
 
