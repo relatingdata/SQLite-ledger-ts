@@ -6,8 +6,7 @@ edit made on a real, on-screen panel actually reaches the database.
 
 ## 1. There is, genuinely, no ORM at all
 
-The honest, direct answer: this application uses `better-sqlite3`
-directly — a real, synchronous SQLite driver, not an Object-
+The honest, direct answer: this application uses a real, synchronous SQLite driver directly — `better-sqlite3` under Node and Deno, `bun:sqlite` under Bun (see `backend/src/sqlite-runtime.ts` and `docs/multi-runtime-support.md` for the real adapter bridging the two) — never an Object-
 Relational Mapper. There is no Prisma, no TypeORM, no Drizzle, no
 query builder of any kind standing between the application code and
 SQL. Every real read and every real write is a real, hand-written SQL

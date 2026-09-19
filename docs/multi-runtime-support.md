@@ -43,13 +43,13 @@ Two real things, and only two — everything else (Express, SvelteKit, Vite, Pla
 
 ### 1. The SQLite driver — `backend/src/sqlite-runtime.ts`
 
-`bun:sqlite` is a real, bun-only module specifier; plain Node and Deno cannot resolve it at all. Node 22.5+ and Deno 2.x (via its own, real Node compatibility layer) both provide the same, real `node:sqlite` module instead — no third-party dependency (`better-sqlite3`) needed.
+`bun:sqlite` is a real, bun-only module specifier; plain Node and Deno cannot resolve it at all. Per direct instruction, following recommended practice for each real runtime: Node and Deno both use the real, mature, widely-used `better-sqlite3` package instead — Deno resolves the identical, real npm package via its own, built-in npm compatibility (`npm:better-sqlite3`), no code difference needed between the two. This is a real, deliberate choice over Node's own built-in `node:sqlite`: `node:sqlite` still carries a real experimental-feature warning on the Node versions this project targets, and has real, confirmed behavioral differences from `better-sqlite3` (e.g. `node:sqlite` throws on an unused named parameter; `better-sqlite3` silently ignores it) that this project has no real, direct need to take on.[^sqlite-driver-sources]
 
-Every file in this codebase imports `Database` from `sqlite-runtime.ts`, never from `bun:sqlite` or `node:sqlite` directly. The adapter detects the runtime (`typeof globalThis.Bun !== 'undefined'`) and re-exports the right class.
+Every file in this codebase imports `Database` from `sqlite-runtime.ts`, never from `bun:sqlite` or `better-sqlite3` directly. The adapter detects the runtime (`typeof globalThis.Bun !== 'undefined'`) and re-exports the right class.
 
 Two real, confirmed API differences bridged here:
 - The exported class is named `Database` in bun, `DatabaseSync` in node — aliased to a single `Database` export.
-- `node:sqlite` has no built-in `.transaction()` method at all. Implemented manually here with `BEGIN`/`COMMIT`/`ROLLBACK`, matching `bun:sqlite`'s own, real, immediately-invoked-callback semantics (`db.transaction(fn)()`) — the only pattern this codebase actually uses.
+- `better-sqlite3` already provides a real, native, built-in `.transaction()` method with the exact, same, real semantics `bun:sqlite`'s own `db.transaction(fn)()` pattern uses — no adapter method needed for it at all (an earlier version of this adapter used Node's own `node:sqlite`, which has no such method, and needed one implemented manually with `BEGIN`/`COMMIT`/`ROLLBACK`).
 
 ### 2. The test framework — `backend/test/test-runtime.ts`
 
@@ -75,7 +75,7 @@ The bun-specific failure is not a real bug in this codebase — it passes cleanl
 
 ## `backend/package.json`'s own scripts, made runtime-neutral
 
-`dev` and `test` were previously hardcoded to `bun --watch ...` / `bun test ...`. Both now use `tsx` directly (`tsx watch src/server.ts`, `tsx --test test/*.test.ts`), matching the frontend's own, already-runtime-neutral pattern — confirmed working correctly even when invoked via `bun run dev`, since `bun run` simply executes the script string, which the `sqlite-runtime.ts` adapter then correctly detects as "not bun" and routes to `node:sqlite`.
+`dev` and `test` were previously hardcoded to `bun --watch ...` / `bun test ...`. Both now use `tsx` directly (`tsx watch src/server.ts`, `tsx --test test/*.test.ts`), matching the frontend's own, already-runtime-neutral pattern — confirmed working correctly even when invoked via `bun run dev`, since `bun run` simply executes the script string, which the `sqlite-runtime.ts` adapter then correctly detects as "not bun" and routes to `better-sqlite3`.
 
 ## Real, measured timing per runtime, per request
 
@@ -116,3 +116,5 @@ This run correctly, honestly failed its own `verify-simulation.ts` check (20 rea
 
 - Express (`app.listen()`), SvelteKit, Vite, and Playwright are all already runtime-agnostic — no changes needed anywhere in `server.ts`, the frontend, or the e2e suite.
 - `RUN_TEST` is defined for all three runtimes but only used by the top-level `test` target directly, bypassing `RUN_NPM_SCRIPT`, for the `deno task` reason above.
+
+[^sqlite-driver-sources]: `better-sqlite3` (WiseLibs/better-sqlite3, github.com/WiseLibs/better-sqlite3) describes itself as "the fastest and simplest library for SQLite3 in Node.js," in production use for years. A real, direct, independent benchmark (SQG, "SQLite Driver Benchmark: Comparing better-sqlite3, node:sqlite, libSQL, Turso," sqg.dev/blog/sqlite-driver-benchmark, Jan 2026) confirms this production track record directly against `node:sqlite`, which it describes as "Node.js 22+ includes a built-in SQLite module (**still experimental**)." A second, independent source (jangwook.net, "Node.js Built-in SQLite: A Practical Guide," Jun 2026) confirms directly: "As of v22.22.0, it runs with an experimental warning" — matching what this project's own dependency floor actually targets — while noting Node v26 stabilizes it fully, a version this project does not require. The same source's own, direct recommendation for a new project is nuanced ("start with `node:sqlite` and fall back to `better-sqlite3` the moment you hit a missing feature"); this project instead chose `better-sqlite3` uniformly for Node and Deno from the start, for one, real, consistent, mature driver across both non-Bun runtimes rather than two different experimental-vs-stable stories to track.

@@ -181,8 +181,13 @@ conclusions were absorbed into the main application.
 ## 10. Other real, direct tooling used across this project
 
 - **`better-sqlite3`** — the real, direct, synchronous SQLite driver
-  the entire backend is built on; see `docs/orm-and-commit-path.md`
-  for why there's no ORM layered on top of it.
+  used under Node and Deno (Bun uses its own, real, built-in
+  `bun:sqlite` instead) — see `backend/src/sqlite-runtime.ts` and
+  `docs/multi-runtime-support.md` for the real adapter that bridges
+  the two, and the sourced reasoning behind this choice over Node's
+  own, still-experimental built-in `node:sqlite`; see
+  `docs/orm-and-commit-path.md` for why there's no ORM layered on top
+  of either.
 - **Playwright** (`@playwright/test`) — both for the `e2e/` suite
   above, and for capturing real, live screenshots used throughout
   this project's own documentation (the User Manual among them) —
