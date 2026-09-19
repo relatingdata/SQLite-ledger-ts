@@ -1,6 +1,5 @@
 import { test, before, after, asUserId } from './test-runtime.ts';
 import type { TypeDescriptor, TypedNode } from '../src/db.ts';
-import { createUser } from '../src/auth.ts';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -230,6 +229,14 @@ const {
   asCustomerName,
   asVendorName,
 } = await import('../src/db.ts');
+// Deferred, per the exact, same, real reason db.ts itself is deferred
+// above - a static, top-level import of auth.ts (which itself imports
+// db.ts) would hoist above the real process.env.DB_PATH assignment,
+// silently connecting to the real, main/shared database file instead
+// of this test file's own, real, isolated tmpDbPath - a real,
+// confirmed, direct cause of a real, hard-to-diagnose cross-test
+// interference bug, found directly by reproducing it, not guessed.
+const { createUser } = await import('../src/auth.ts');
 
 after(() => {
   for (const suffix of ['', '-wal', '-shm']) {
