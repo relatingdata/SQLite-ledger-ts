@@ -1365,13 +1365,13 @@ export function getInvoice(id: number): Invoice | undefined {
   const row = db
     .prepare(
       `SELECT i.id, i.invoice_type, i.document_type, i.references_invoice_id, biz.name AS business, led.name AS ledger, i.reference,
-              cp.name AS counterparty, i.invoice_date, i.due_date, i.description, i.status, u.username AS posted_by, i.source
+              cp.name AS counterparty, i.invoice_date, i.due_date, i.description, i.status, u.name AS posted_by, i.source
        FROM invoice i
        JOIN current_entities biz ON biz.id = i.business_id
        JOIN current_entities led ON led.id = i.ledger_id
        JOIN current_entities cp ON cp.id = i.counterparty_id
        LEFT JOIN journal j ON j.id = i.posted_journal_id
-       LEFT JOIN users u ON u.id = j.user_id
+       LEFT JOIN current_entities u ON u.id = j.user_id
        WHERE i.id = ?`
     )
     .get(id) as Omit<Invoice, 'lines' | 'total_amount_minor' | 'total_tax_minor'> | undefined;
@@ -7109,14 +7109,14 @@ export function listJournalEntries(business: BusinessName, ledger: LedgerName, l
   return db
     .prepare(
       `SELECT jo.journal_id, jo.transdate AS occurrence_date, jo.reference, jo.description,
-              biz.name AS business, led.name AS ledger, j.recurrence, u.username AS posted_by,
+              biz.name AS business, led.name AS ledger, j.recurrence, u.name AS posted_by,
               COALESCE(SUM(CASE WHEN jo.amount_minor > 0 THEN jo.amount_minor ELSE 0 END), 0) AS total_debit_minor,
               COALESCE(SUM(CASE WHEN jo.amount_minor < 0 THEN -jo.amount_minor ELSE 0 END), 0) AS total_credit_minor
        FROM journal_occurrences jo
        JOIN journal j ON j.id = jo.journal_id
        JOIN current_entities biz ON biz.id = jo.business_id
        JOIN current_entities led ON led.id = jo.ledger_id
-       JOIN users u ON u.id = jo.user_id
+       JOIN current_entities u ON u.id = jo.user_id
        WHERE biz.name = ? AND led.name = ?
          AND jo.reference NOT LIKE '%-QTY'
        GROUP BY jo.journal_id, jo.transdate
@@ -7157,12 +7157,12 @@ export function getJournalEntry(business: BusinessName, ledger: LedgerName, jour
   const header = db
     .prepare(
       `SELECT jo.journal_id, jo.transdate AS occurrence_date, jo.reference, jo.description,
-              biz.name AS business, led.name AS ledger, j.recurrence, u.username AS posted_by
+              biz.name AS business, led.name AS ledger, j.recurrence, u.name AS posted_by
        FROM journal_occurrences jo
        JOIN journal j ON j.id = jo.journal_id
        JOIN current_entities biz ON biz.id = jo.business_id
        JOIN current_entities led ON led.id = jo.ledger_id
-       JOIN users u ON u.id = jo.user_id
+       JOIN current_entities u ON u.id = jo.user_id
        WHERE jo.journal_id = ? AND jo.transdate = ? AND biz.name = ? AND led.name = ?
        LIMIT 1`
     )
