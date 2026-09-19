@@ -3667,11 +3667,20 @@ export function signOn(employeeName: string, locationName: string): PosShift {
   if (!location) throw new ValidationError(`No location named "${locationName}".`);
   const contact = db.prepare(`SELECT pos_pin FROM contact WHERE entity_id = ?`).get(employee.id) as { pos_pin: string | null } | undefined;
   if (!contact?.pos_pin) throw new ValidationError(`"${employeeName}" has no real PIN set yet — cannot sign on.`);
-  const alreadyOpen = db.prepare(`SELECT 1 FROM pos_shift WHERE employee_id = ? AND signed_off_at IS NULL`).get(employee.id);
+  const alreadyOpen = db
+    .prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? AND name LIKE '% — Open'`)
+    .get(employee.id);
   if (alreadyOpen) throw new ValidationError(`"${employeeName}" is already signed on somewhere — sign off first.`);
   const signedOnAt = new Date().toISOString();
-  const result = db.prepare(`INSERT INTO pos_shift (employee_id, location_id, signed_on_at) VALUES (?, ?, ?)`).run(employee.id, location.id, signedOnAt);
-  return { id: Number(result.lastInsertRowid), employee: employeeName, location: locationName, signed_on_at: signedOnAt, signed_off_at: null };
+  // A real Shift entity, one per real sign-on event - never reused
+  // across shifts, unlike the Period Lock entity, since this
+  // application's own, real timecard needs every real, past shift
+  // kept as its own, distinct, queryable record, not just the latest
+  // state. relation_id points directly at the real location - no
+  // string-encoding needed for that part, unlike the timestamp.
+  const shiftEntity = Entity.create(`${employeeName} — Shift — ${signedOnAt} — Open`, employee.id, asUserId(1));
+  updateEntity(shiftEntity.id, { relation: locationName }, asUserId(1));
+  return { id: shiftEntity.id, employee: employeeName, location: locationName, signed_on_at: signedOnAt, signed_off_at: null };
 }
 
 /** Verifies a real PIN against a real employee's own, stored PIN —
@@ -3688,10 +3697,19 @@ export function verifyPosPin(employeeName: string, pin: string): boolean {
  * genuine end timestamp against that same shift, closing the real
  * timecard record it started. */
 export function signOff(shiftId: number): void {
-  const shift = db.prepare(`SELECT signed_off_at FROM pos_shift WHERE id = ?`).get(shiftId) as { signed_off_at: string | null } | undefined;
+  const shift = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(shiftId) as { name: string } | undefined;
   if (!shift) throw new ValidationError(`No real shift with id ${shiftId}.`);
-  if (shift.signed_off_at) throw new ValidationError(`This shift is already signed off.`);
-  db.prepare(`UPDATE pos_shift SET signed_off_at = ? WHERE id = ?`).run(new Date().toISOString(), shiftId);
+  if (!shift.name.endsWith(' — Open')) throw new ValidationError(`This shift is already signed off.`);
+  const signedOffAt = new Date().toISOString();
+  updateEntity(shiftId, { name: `${shift.name.slice(0, -' — Open'.length)} — Closed at ${signedOffAt}` }, asUserId(1));
+}
+
+function parseShiftEntity(row: { id: number; employee: string; location: string; name: string }): PosShift {
+  // Real shift entity name shape: "<employee> — Shift — <signed_on_at> — Open" or "... — Closed at <signed_off_at>".
+  const afterShiftMarker = row.name.split(' — Shift — ')[1];
+  const [signedOnAt, statusPart] = afterShiftMarker.split(' — ');
+  const signed_off_at = statusPart.startsWith('Closed at ') ? statusPart.slice('Closed at '.length) : null;
+  return { id: row.id, employee: row.employee, location: row.location, signed_on_at: signedOnAt, signed_off_at };
 }
 
 /** Every real, currently-open shift at a given location — the real,
@@ -3702,15 +3720,15 @@ export function signOff(shiftId: number): void {
 export function getActiveShiftsAtLocation(locationName: string): PosShift[] {
   const rows = db
     .prepare(
-      `SELECT s.id, emp.name AS employee, loc.name AS location, s.signed_on_at, s.signed_off_at
-       FROM pos_shift s
-       JOIN current_entities emp ON emp.id = s.employee_id
-       JOIN current_entities loc ON loc.id = s.location_id
-       WHERE loc.name = ? AND s.signed_off_at IS NULL
-       ORDER BY s.signed_on_at`
+      `SELECT s.id, emp.name AS employee, loc.name AS location, s.name
+       FROM current_entities s
+       JOIN current_entities emp ON emp.id = s.parent_id
+       JOIN current_entities loc ON loc.id = s.relation_id
+       WHERE loc.name = ? AND s.name LIKE '% — Shift — % — Open'
+       ORDER BY s.created_at`
     )
-    .all(locationName) as PosShift[];
-  return rows;
+    .all(locationName) as { id: number; employee: string; location: string; name: string }[];
+  return rows.map(parseShiftEntity);
 }
 
 /** A real employee's own, real, currently-open shift, if any —
@@ -3718,15 +3736,16 @@ export function getActiveShiftsAtLocation(locationName: string): PosShift[] {
  * genuinely signed on before letting them act as the active clerk on
  * a real sale. */
 export function getOpenShiftForEmployee(employeeName: string): PosShift | undefined {
-  return db
+  const row = db
     .prepare(
-      `SELECT s.id, emp.name AS employee, loc.name AS location, s.signed_on_at, s.signed_off_at
-       FROM pos_shift s
-       JOIN current_entities emp ON emp.id = s.employee_id
-       JOIN current_entities loc ON loc.id = s.location_id
-       WHERE emp.name = ? AND s.signed_off_at IS NULL`
+      `SELECT s.id, emp.name AS employee, loc.name AS location, s.name
+       FROM current_entities s
+       JOIN current_entities emp ON emp.id = s.parent_id
+       JOIN current_entities loc ON loc.id = s.relation_id
+       WHERE emp.name = ? AND s.name LIKE '% — Shift — % — Open'`
     )
-    .get(employeeName) as PosShift | undefined;
+    .get(employeeName) as { id: number; employee: string; location: string; name: string } | undefined;
+  return row ? parseShiftEntity(row) : undefined;
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -5839,19 +5858,32 @@ export function getConceptsWithAlternates(): ConceptWithAlternates[] {
 
 export function setVocabularyPreference(conceptName: string, scope: 'business' | 'user', scopeId: number, preferredAlternateName: string): void {
   const conceptId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined)?.id;
-  const alternateId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(preferredAlternateName) as { id: number } | undefined)?.id;
   if (!conceptId) throw new ValidationError(`No real entity named "${conceptName}".`);
-  if (!alternateId) throw new ValidationError(`No real entity named "${preferredAlternateName}".`);
-  db.prepare(
-    `INSERT INTO vocabulary_preference (concept_id, scope, scope_id, preferred_alternate_id) VALUES (?, ?, ?, ?)
-     ON CONFLICT (concept_id, scope, scope_id) DO UPDATE SET preferred_alternate_id = excluded.preferred_alternate_id`
-  ).run(conceptId, scope, scopeId, alternateId);
+  const alternate = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(preferredAlternateName) as { id: number } | undefined;
+  if (!alternate) throw new ValidationError(`No real entity named "${preferredAlternateName}".`);
+  // A real, direct child entity under the concept itself, one per
+  // (scope, scopeId) - never a separate table. scopeId genuinely isn't
+  // always a real entity id (a 'user' scope is a plain users.id, not
+  // part of the entity tree at all), so it's encoded directly in the
+  // preference entity's own name rather than as a structural parent/
+  // relation link. relation_id points directly at the real, preferred
+  // alternate - the one, real fact this preference actually records.
+  const prefName = `${conceptName} — Preference — ${scope}:${scopeId}`;
+  const existing = Entity.getUnder(prefName, conceptId);
+  if (existing) {
+    updateEntity(existing.id, { relation: preferredAlternateName }, asUserId(1));
+  } else {
+    const created = Entity.create(prefName, conceptId, asUserId(1));
+    updateEntity(created.id, { relation: preferredAlternateName }, asUserId(1));
+  }
 }
 
 export function deleteVocabularyPreference(conceptName: string, scope: 'business' | 'user', scopeId: number): void {
   const conceptId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined)?.id;
   if (!conceptId) return;
-  db.prepare(`DELETE FROM vocabulary_preference WHERE concept_id = ? AND scope = ? AND scope_id = ?`).run(conceptId, scope, scopeId);
+  const prefName = `${conceptName} — Preference — ${scope}:${scopeId}`;
+  const existing = Entity.getUnder(prefName, conceptId);
+  if (existing) deleteEntity(existing.id, asUserId(1));
 }
 
 /** getLocalizedText, extended with the real, 3-tier vocabulary-
@@ -5874,10 +5906,11 @@ export function getLocalizedText(language: string, opts?: { businessName?: strin
   const businessId = opts.businessName ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(opts.businessName) as { id: number } | undefined)?.id : undefined;
   const preferences = db
     .prepare(
-      `SELECT vp.concept_id, vp.scope, alt.name AS alternate_name
-       FROM vocabulary_preference vp
-       JOIN current_entities alt ON alt.id = vp.preferred_alternate_id
-       WHERE (vp.scope = 'user' AND vp.scope_id = ?) OR (vp.scope = 'business' AND vp.scope_id = ?)`
+      `SELECT pref.parent_id AS concept_id, alt.name AS alternate_name,
+              CASE WHEN pref.name LIKE '% — Preference — user:%' THEN 'user' ELSE 'business' END AS scope
+       FROM current_entities pref
+       JOIN current_entities alt ON alt.id = pref.relation_id
+       WHERE (pref.name LIKE '% — Preference — user:' || ?) OR (pref.name LIKE '% — Preference — business:' || ?)`
     )
     .all(opts.userId ?? -1, businessId ?? -1) as { concept_id: number; scope: 'business' | 'user'; alternate_name: string }[];
   if (preferences.length === 0) return map;
@@ -6754,7 +6787,9 @@ export function clockInToProject(employeeName: EmployeeName, projectExpenseAccou
   const contact = getContact(employeeName);
   if (!contact) throw new ValidationError(`No real contact named "${employeeName}".`);
   if (!contact.wage_minor_per_hour) throw new ValidationError(`"${employeeName}" has no real, configured hourly wage rate yet — set one on the Contacts page first.`);
-  const alreadyClocked = db.prepare(`SELECT 1 FROM employee_clock WHERE employee_id = (SELECT id FROM current_entities WHERE name = ?)`).get(employeeName);
+  const employee = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number } | undefined;
+  if (!employee) throw new ValidationError(`No employee named "${employeeName}".`);
+  const alreadyClocked = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? AND name LIKE 'Clocked In — %'`).get(employee.id);
   if (alreadyClocked) throw new ValidationError(`"${employeeName}" is already clocked in on a real project — clock out first.`);
 
   const clockedInAt = new Date().toISOString();
@@ -6772,9 +6807,26 @@ export function clockInToProject(employeeName: EmployeeName, projectExpenseAccou
   });
   postPurchaseOrder(poReference, business, ledger, userId);
 
-  const employeeId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number }).id;
-  db.prepare(`INSERT INTO employee_clock (employee_id, po_reference, project_expense_account, clocked_in_at) VALUES (?, ?, ?, ?)`).run(employeeId, poReference, projectExpenseAccount, clockedInAt);
+  // A real, single "Clocked In" entity under the employee - deleted on
+  // clock-out (per direct instruction, no permanent tables beyond the
+  // real four) rather than kept as its own, real, permanent history,
+  // matching this table's own, prior DELETE-on-clock-out semantics
+  // exactly (never an append-only log the way Period Lock/Shift are).
+  Entity.create(`Clocked In — ${poReference} — ${projectExpenseAccount} — ${clockedInAt}`, employee.id, userId);
   return { employee: employeeName, po_reference: poReference, project_expense_account: projectExpenseAccount, clocked_in_at: clockedInAt };
+}
+
+function getOpenProjectClockEntity(employeeName: string): { id: number; po_reference: string; project_expense_account: string; clocked_in_at: string } | undefined {
+  const row = db
+    .prepare(
+      `SELECT c.id, c.name FROM current_entities c
+       JOIN current_entities emp ON emp.id = c.parent_id
+       WHERE emp.name = ? AND c.name LIKE 'Clocked In — %'`
+    )
+    .get(employeeName) as { id: number; name: string } | undefined;
+  if (!row) return undefined;
+  const [, poReference, projectExpenseAccount, clockedInAt] = row.name.split(' — ');
+  return { id: row.id, po_reference: poReference, project_expense_account: projectExpenseAccount, clocked_in_at: clockedInAt };
 }
 
 /** Clocks a real, currently clocked-in employee out — completes the
@@ -6787,13 +6839,7 @@ export function clockInToProject(employeeName: EmployeeName, projectExpenseAccou
  * nothing physical to receive, the same way any other real service
  * already works with this same, established mechanism. */
 export function clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  const open = db
-    .prepare(
-      `SELECT e.po_reference, e.project_expense_account, e.clocked_in_at
-       FROM employee_clock e JOIN current_entities emp ON emp.id = e.employee_id
-       WHERE emp.name = ?`
-    )
-    .get(employeeName) as { po_reference: string; project_expense_account: string; clocked_in_at: string } | undefined;
+  const open = getOpenProjectClockEntity(employeeName);
   if (!open) throw new ValidationError(`"${employeeName}" is not currently clocked in on any real project.`);
 
   const contact = getContact(employeeName)!;
@@ -6817,18 +6863,14 @@ export function clockOutOfProject(employeeName: EmployeeName, business: Business
   });
   postStockReceipt(receiptReference, business, ledger, userId);
 
-  db.prepare(`DELETE FROM employee_clock WHERE employee_id = (SELECT id FROM current_entities WHERE name = ?)`).run(employeeName);
+  deleteEntity(open.id, asUserId(1));
 }
 
 /** A real employee's own, currently-open project clock-in, if any. */
 export function getOpenProjectClockForEmployee(employeeName: EmployeeName): EmployeeClock | undefined {
-  return db
-    .prepare(
-      `SELECT emp.name AS employee, e.po_reference, e.project_expense_account, e.clocked_in_at
-       FROM employee_clock e JOIN current_entities emp ON emp.id = e.employee_id
-       WHERE emp.name = ?`
-    )
-    .get(employeeName) as EmployeeClock | undefined;
+  const open = getOpenProjectClockEntity(employeeName);
+  if (!open) return undefined;
+  return { employee: employeeName, po_reference: open.po_reference, project_expense_account: open.project_expense_account, clocked_in_at: open.clocked_in_at };
 }
 
 export interface StockReceiptInput {

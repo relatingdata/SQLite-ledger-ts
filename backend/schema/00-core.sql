@@ -763,15 +763,11 @@ CREATE TABLE contact (
 -- any per-browser store — signing on at any one terminal in a
 -- location is meant to activate that clerk everywhere at that same
 -- location.
-CREATE TABLE pos_shift (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  employee_id    INTEGER NOT NULL REFERENCES entity_ids(id),
-  location_id    INTEGER NOT NULL REFERENCES entity_ids(id),
-  signed_on_at   TEXT NOT NULL,
-  signed_off_at  TEXT
-);
-CREATE INDEX idx_pos_shift_open ON pos_shift(location_id) WHERE signed_off_at IS NULL;
-CREATE INDEX idx_pos_shift_employee ON pos_shift(employee_id, signed_on_at);
+-- pos_shift eliminated as its own table, per direct, absolute
+-- instruction. A real "Shift" entity, one per real sign-on event,
+-- created directly under the employee's own entity, its own real
+-- name carrying "Open" or "Closed at <time>" directly, relation_id
+-- pointing at the real location - see signOn/signOff in db.ts.
 
 -- Per direct, explicit principle: an employee clocking in is placing a
 -- real, standing Purchase Order for their own real product — their
@@ -785,12 +781,11 @@ CREATE INDEX idx_pos_shift_employee ON pos_shift(employee_id, signed_on_at);
 -- real, simple, direct "who is currently clocked in, against which
 -- real PO" state tracker, the same, established role pos_shift
 -- already plays — not itself a financial posting mechanism.
-CREATE TABLE employee_clock (
-  employee_id    INTEGER PRIMARY KEY REFERENCES entity_ids(id),
-  po_reference   TEXT NOT NULL,
-  project_expense_account TEXT NOT NULL,
-  clocked_in_at  TEXT NOT NULL
-);
+-- employee_clock eliminated as its own table, per direct, absolute
+-- instruction. A single "Clocked In — ..." entity under the
+-- employee, deleted on clock-out - matching this table's own, prior
+-- DELETE-on-clock-out semantics exactly - see clockInToProject/
+-- clockOutOfProject in db.ts.
 
 
 -- division: a 1:1 extension of a Division entity — the real
@@ -843,14 +838,13 @@ CREATE TABLE employee_clock (
 -- just in the menu, unlike menu_override above. The exact, same,
 -- real, established scope shape as menu_override, deliberately kept
 -- consistent rather than inventing a new one.
-CREATE TABLE vocabulary_preference (
-  id                     INTEGER PRIMARY KEY AUTOINCREMENT,
-  concept_id             INTEGER NOT NULL REFERENCES entity_ids(id),
-  scope                  TEXT NOT NULL CHECK (scope IN ('business', 'user')),
-  scope_id               INTEGER NOT NULL,
-  preferred_alternate_id INTEGER NOT NULL REFERENCES entity_ids(id),
-  UNIQUE (concept_id, scope, scope_id)
-);
+-- vocabulary_preference eliminated as its own table, per direct,
+-- absolute instruction. A real, direct child entity under the
+-- concept itself, one per (scope, scopeId), its own name encoding
+-- both directly (scopeId isn't always a real entity id - a 'user'
+-- scope is a plain users.id), relation_id pointing at the real,
+-- preferred alternate - see setVocabularyPreference/
+-- deleteVocabularyPreference in db.ts.
 
 -- location: a 1:1 extension of a Location entity — a retail outlet or
 -- warehouse. city groups locations that can transfer stock between
