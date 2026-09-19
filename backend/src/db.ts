@@ -5284,6 +5284,141 @@ export function getItemPriceForCurrency(itemName: string, currency: string | nul
   return fallback?.price_minor ?? null;
 }
 
+// ---------------------------------------------------------------------------
+// Currency exchange - genuinely a cartesian product, not one rate per
+// currency. Per direct instruction: with N real, distinct currencies
+// in active use, there are N*N real, ordered pairs (From x To), of
+// which exactly N are trivial self-pairs (always exactly 1 - USD to
+// USD is not a real exchange), leaving N*(N-1) real, distinct,
+// independently-configurable rates. Three currencies (e.g. a business
+// genuinely spanning the US/Canada border, with USD, CAD, and EUR
+// both held and traded) means 9 total pairs, 3 trivial, 6 real ones -
+// confirmed directly, per direct instruction, as the exact, correct
+// count. Reuses the exact, same Hierarchy/Product cartesian mechanism
+// already built and proven for wine combinations - a currency pair is
+// a real Product Instance whose own two dimensions ("From Currency,"
+// "To Currency") both point at the exact, same real "Currency"
+// Hierarchy grouping, exactly as defineProductShape already supports
+// today, with no change needed to it at all. Buy and sell prices per
+// pair reuse item_source directly (two real, standing vendor rows -
+// "FX Market (Buy)" and "FX Market (Sell)" - keyed by the pair's own
+// real productInstanceId), the exact, same mechanism as any other
+// item's own, independently-priced sources - per direct instruction,
+// buying or selling a currency is no different from buying or selling
+// any other item.
+// ---------------------------------------------------------------------------
+
+const CURRENCY_EXCHANGE_ITEM_NAME = 'Currency Exchange';
+const CURRENCY_EXCHANGE_SHAPE: [string, string][] = [
+  ['From Currency', 'Currency'],
+  ['To Currency', 'Currency'],
+];
+
+function ensureCurrencyExchangeItem(userId: UserId): void {
+  if (!Entity.get(CURRENCY_EXCHANGE_ITEM_NAME)) createItem(CURRENCY_EXCHANGE_ITEM_NAME, 'Items', userId);
+  for (const vendorName of ['FX Market (Buy)', 'FX Market (Sell)']) {
+    if (!Entity.get(vendorName)) createEntity({ name: vendorName, parent: 'Vendors' }, userId);
+  }
+}
+
+/** Ensures the real, specific (From, To) currency pair exists as its
+ * own, real Product Instance - the one, real place this pair's own
+ * identity lives, whether or not a rate has been configured for it
+ * yet. A genuine self-pair (fromCurrency === toCurrency) is real and
+ * valid to ensure too (its own combination_ids will simply hold the
+ * same, real Hierarchy value id twice), even though its own rate is
+ * always, trivially 1 and never needs configuring - see
+ * getCurrencyExchangeRate below. */
+export function ensureCurrencyPair(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId): { id: number; name: string } {
+  ensureCurrencyExchangeItem(userId);
+  return ensureProductInstance(businessName, CURRENCY_EXCHANGE_SHAPE, [fromCurrency, toCurrency], userId);
+}
+
+/** Sets a real (From, To) currency pair's own, real, configured buy
+ * and/or sell rate - each expressed as "how many minor units of the
+ * home/reporting currency equal one minor unit of fromCurrency," per
+ * direct instruction that every currency, as configured, needs its
+ * own real buy AND real sell rate (a real, genuine bid/ask spread,
+ * never a single, shared number). Either side may be set
+ * independently; omitting one leaves that side's own, existing,
+ * configured rate (if any) untouched. A genuine self-pair is
+ * rejected outright - its own rate is always, definitionally 1, never
+ * a real, separate, configurable fact. */
+export function setCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId, buyRateMinor?: number, sellRateMinor?: number): void {
+  if (fromCurrency === toCurrency) throw new ValidationError(`A currency's own exchange rate against itself ("${fromCurrency}" to "${fromCurrency}") is always, definitionally 1 - never a real, separate, configurable rate.`);
+  const pair = ensureCurrencyPair(businessName, fromCurrency, toCurrency, userId);
+  if (buyRateMinor != null) addOrUpdateItemSource({ itemName: CURRENCY_EXCHANGE_ITEM_NAME, vendorName: 'FX Market (Buy)', priceMinor: buyRateMinor, isPreferred: true, productInstanceId: pair.id });
+  if (sellRateMinor != null) addOrUpdateItemSource({ itemName: CURRENCY_EXCHANGE_ITEM_NAME, vendorName: 'FX Market (Sell)', priceMinor: sellRateMinor, isPreferred: true, productInstanceId: pair.id });
+}
+
+/** Resolves a real, specific (From, To) currency pair's own,
+ * currently-configured rate, on whichever real side was asked for.
+ * A genuine self-pair short-circuits to exactly 1 always - the one,
+ * real, trivial case direct instruction confirmed needs no
+ * configuration and no lookup at all. Returns null when the real,
+ * distinct pair has never been configured on the requested side -
+ * never a synthetic, reconstructed, or averaged rate. */
+export function getCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, side: 'buy' | 'sell'): number | null {
+  if (fromCurrency === toCurrency) return 1;
+  // A real, direct, read-only lookup - never creates the pair, its
+  // Hierarchy grouping, or its Hierarchy values just to check them,
+  // unlike ensureCurrencyPair (which a real configuration step,
+  // setCurrencyExchangeRate, genuinely needs to call). Walks the
+  // exact, same, real structure ensureProductInstance itself builds -
+  // business -> Hierarchy -> "Currency" -> value, and business ->
+  // Product -> the pair's own instance, found by its own, real,
+  // exact combination_ids match - never a guessed, composed name.
+  const business = fetch(businessName, typeBusinessName);
+  const hierarchyRoot = Entity.getUnder('Hierarchy', business.id);
+  if (!hierarchyRoot) return null;
+  const currencyGrouping = Entity.getUnder('Currency', hierarchyRoot.id);
+  if (!currencyGrouping) return null;
+  const fromValue = Entity.getUnder(fromCurrency, currencyGrouping.id);
+  if (!fromValue) return null;
+  const toValue = Entity.getUnder(toCurrency, currencyGrouping.id);
+  if (!toValue) return null;
+  const product = Entity.getUnder('Product', business.id);
+  if (!product) return null;
+  const combinationIdsJson = JSON.stringify([fromValue.id, toValue.id]);
+  const pair = db.prepare(`SELECT id FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(product.id, combinationIdsJson) as { id: number } | undefined;
+  if (!pair) return null;
+  // A real, direct, vendor-specific lookup - getItemPriceForCurrency
+  // itself has no concept of "which vendor," and picking whichever
+  // row merely happens to be marked preferred would silently return
+  // either side at random once both a real buy and a real sell row
+  // exist for the exact, same pair. Queries item_source directly,
+  // filtered to the exact, real vendor this side actually means.
+  const vendorName = side === 'buy' ? 'FX Market (Buy)' : 'FX Market (Sell)';
+  const row = db
+    .prepare(
+      `SELECT ps.price_minor
+       FROM item_source ps
+       JOIN current_entities item_e ON item_e.id = ps.item_id
+       JOIN current_entities vendor_e ON vendor_e.id = ps.vendor_id
+       WHERE item_e.name = ? AND vendor_e.name = ? AND ps.product_instance_id = ?`
+    )
+    .get(CURRENCY_EXCHANGE_ITEM_NAME, vendorName, pair.id) as { price_minor: number | null } | undefined;
+  return row?.price_minor ?? null;
+}
+
+/** Lists every real, distinct, non-trivial (From, To) pair among the
+ * given currencies, in the real, exact count direct instruction
+ * confirmed: N*(N-1) pairs for N real, distinct currencies (9 total
+ * ordered pairs for 3 currencies, 3 of them the trivial self-pairs
+ * excluded here, leaving 6 real, distinct ones) - a real, direct,
+ * enumerable checklist for confirming every real pair this business
+ * actually needs has been genuinely configured, rather than assuming
+ * or guessing which ones matter. */
+export function listCurrencyPairs(currencies: string[]): { from: string; to: string }[] {
+  const pairs: { from: string; to: string }[] = [];
+  for (const from of currencies) {
+    for (const to of currencies) {
+      if (from !== to) pairs.push({ from, to });
+    }
+  }
+  return pairs;
+}
+
 export function deleteItemSource(id: number): void {
   const result = db.prepare(`DELETE FROM item_source WHERE id = ?`).run(id);
   if (result.changes === 0) throw new NotFoundError(`No item source with id ${id}.`);

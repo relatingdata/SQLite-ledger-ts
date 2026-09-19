@@ -1398,17 +1398,20 @@ export function receiveLot(
   receivedDate: string,
   expirationDate: string | null,
   quantity: number,
-  userId: UserId
+  userId: UserId,
+  costBasisMinor?: number
 ): void {
   if (quantity <= 0) throw new ValidationError('Received quantity must be positive.');
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
 
   db.prepare(
-    `INSERT INTO stock_lot (item_id, lot_number, received_date, expiration_date, quantity_on_hand)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (item_id, lot_number) DO UPDATE SET quantity_on_hand = quantity_on_hand + excluded.quantity_on_hand`
-  ).run(itemId, lotNumber, receivedDate, expirationDate, quantity);
+    `INSERT INTO stock_lot (item_id, lot_number, received_date, expiration_date, quantity_on_hand, cost_basis_minor)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (item_id, lot_number) DO UPDATE SET
+       quantity_on_hand = quantity_on_hand + excluded.quantity_on_hand,
+       cost_basis_minor = COALESCE(stock_lot.cost_basis_minor, 0) + COALESCE(excluded.cost_basis_minor, 0)`
+  ).run(itemId, lotNumber, receivedDate, expirationDate, quantity, costBasisMinor ?? null);
 
   postQuantityMovement(business, ledger, reference, asAccountName(itemName), quantity, userId, receivedDate);
 }
@@ -1420,31 +1423,49 @@ export function receiveLot(
  * silently going negative. Returns which lots were actually drawn
  * from and how much, for a real audit trail of what specifically was
  * used. */
-export function consumeFromLots(itemName: ItemName, quantity: number): { lot_number: string; consumed: number; expiration_date: string | null }[] {
+export function consumeFromLots(itemName: ItemName, quantity: number): { lot_number: string; consumed: number; expiration_date: string | null; cost_basis_minor: number | null }[] {
   if (quantity <= 0) throw new ValidationError('Quantity to consume must be positive.');
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
 
   const lots = db
     .prepare(
-      `SELECT id, lot_number, expiration_date, quantity_on_hand FROM stock_lot
+      // A real, direct fix, per direct instruction (buying/selling a
+      // currency needs the exact, same real FIFO discipline as wine,
+      // by real acquisition order, not expiration - since a real
+      // currency lot never expires at all): "id ASC" is a real,
+      // deterministic tiebreaker among every lot sharing the same
+      // (null) expiration_date, so FIFO genuinely means "oldest
+      // acquired first," not an unspecified SQLite row order.
+      `SELECT id, lot_number, expiration_date, quantity_on_hand, cost_basis_minor FROM stock_lot
        WHERE item_id = ? AND quantity_on_hand > 0
-       ORDER BY (expiration_date IS NULL), expiration_date ASC`
+       ORDER BY (expiration_date IS NULL), expiration_date ASC, id ASC`
     )
-    .all(itemId) as { id: number; lot_number: string; expiration_date: string | null; quantity_on_hand: number }[];
+    .all(itemId) as { id: number; lot_number: string; expiration_date: string | null; quantity_on_hand: number; cost_basis_minor: number | null }[];
 
   const totalAvailable = lots.reduce((s, l) => s + l.quantity_on_hand, 0);
   if (quantity > totalAvailable) {
     throw new ValidationError(`Only ${totalAvailable} of "${itemName}" available across all lots — cannot consume ${quantity}.`);
   }
 
-  const consumed: { lot_number: string; consumed: number; expiration_date: string | null }[] = [];
+  const consumed: { lot_number: string; consumed: number; expiration_date: string | null; cost_basis_minor: number | null }[] = [];
   let remaining = quantity;
   for (const lot of lots) {
     if (remaining <= 0) break;
     const take = Math.min(remaining, lot.quantity_on_hand);
-    db.prepare(`UPDATE stock_lot SET quantity_on_hand = quantity_on_hand - ? WHERE id = ?`).run(take, lot.id);
-    consumed.push({ lot_number: lot.lot_number, consumed: take, expiration_date: lot.expiration_date });
+    // Per direct instruction: the exact, proportional share of this
+    // lot's own, real, actual cost basis that's leaving with it - the
+    // one, real number a genuine FIFO gain/loss calculation needs.
+    // Rounds to the nearest whole minor unit; the lot's own remaining
+    // cost_basis_minor is reduced by the exact same amount, so
+    // repeated partial consumption never drifts the total.
+    const costBasisTaken = lot.cost_basis_minor != null ? Math.round((lot.cost_basis_minor * take) / lot.quantity_on_hand) : null;
+    db.prepare(`UPDATE stock_lot SET quantity_on_hand = quantity_on_hand - ?, cost_basis_minor = ? WHERE id = ?`).run(
+      take,
+      costBasisTaken != null ? lot.cost_basis_minor! - costBasisTaken : lot.cost_basis_minor,
+      lot.id
+    );
+    consumed.push({ lot_number: lot.lot_number, consumed: take, expiration_date: lot.expiration_date, cost_basis_minor: costBasisTaken });
     remaining -= take;
   }
   return consumed;

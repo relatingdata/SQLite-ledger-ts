@@ -85,6 +85,7 @@ PARTS = [
         "skill-makefile-only-execution.md",
         "skill-backend-first-testing.md",
         "skill-manual-as-source-of-truth.md",
+        "skill-specification-driven-design.md",
         "skill-test-driven-development.md",
         "skill-design-driven-development.md",
         "skill-continual-skill-improvement.md",

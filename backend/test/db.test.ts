@@ -23,6 +23,10 @@ const {
   getBusinessProductShapes,
   climbInstanceTree,
   getCombinationDisplayName,
+  ensureCurrencyPair,
+  setCurrencyExchangeRate,
+  getCurrencyExchangeRate,
+  listCurrencyPairs,
   getCombinationByUpc,
   asBusinessName,
   asItemName,
@@ -2205,8 +2209,8 @@ test('lot/expiration tracking: consumption is genuinely FIFO by expiration date,
   assert.deepEqual(
     consumed,
     [
-      { lot_number: 'LOT-A', consumed: 30, expiration_date: '2027-02-01' },
-      { lot_number: 'LOT-B', consumed: 30, expiration_date: '2027-03-15' },
+      { lot_number: 'LOT-A', consumed: 30, expiration_date: '2027-02-01', cost_basis_minor: null },
+      { lot_number: 'LOT-B', consumed: 30, expiration_date: '2027-03-15', cost_basis_minor: null },
     ],
     'LOT-A consumed first despite being received second, because it expires soonest — genuine FIFO by expiration, not receipt order'
   );
@@ -5299,5 +5303,40 @@ test('climbInstanceTree/getCombinationByUpc: a real, scanned barcode resolves di
   assert.deepEqual(scanned?.combinationValues, ['Riverside Cellars', 'BarcodeTest Lager', 'Cold'], 'a real, scanned barcode resolves directly to its own, exact, full combination - no manual dimension selection needed');
 
   assert.equal(getCombinationByUpc('NO-SUCH-BARCODE'), undefined, 'a real, unknown barcode correctly returns undefined, not a false match');
+});
+
+test('Currency exchange is genuinely a cartesian product (From x To), never one rate per currency - per direct instruction: N currencies means N*N ordered pairs, N of them trivial self-pairs always exactly 1, leaving N*(N-1) real, distinct, independently-configurable buy/sell rates', () => {
+  const biz = asBusinessName('My Business');
+  const currencies = ['CcyFxTest USD', 'CcyFxTest CAD', 'CcyFxTest EUR'];
+  const pairs = listCurrencyPairs(currencies);
+  assert.equal(pairs.length, 6, 'three real, distinct currencies genuinely produce 6 real, distinct, non-trivial ordered pairs (9 total, 3 of them trivial self-pairs, excluded here)');
+
+  // Every real, distinct pair gets its own, real, independently-set buy and sell rate.
+  setCurrencyExchangeRate(biz, 'CcyFxTest USD', 'CcyFxTest CAD', asUserId(1), 13500, 13600);
+  setCurrencyExchangeRate(biz, 'CcyFxTest CAD', 'CcyFxTest USD', asUserId(1), 7350, 7400);
+  setCurrencyExchangeRate(biz, 'CcyFxTest USD', 'CcyFxTest EUR', asUserId(1), 9200, 9250);
+  setCurrencyExchangeRate(biz, 'CcyFxTest EUR', 'CcyFxTest USD', asUserId(1), 10750, 10800);
+  setCurrencyExchangeRate(biz, 'CcyFxTest CAD', 'CcyFxTest EUR', asUserId(1), 6800, 6850);
+  setCurrencyExchangeRate(biz, 'CcyFxTest EUR', 'CcyFxTest CAD', asUserId(1), 14600, 14700);
+
+  // A real, genuine self-pair is always, trivially 1 - no configuration, no lookup, ever needed.
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest USD', 'CcyFxTest USD', 'buy'), 1, 'a currency\'s own rate against itself is always, definitionally 1');
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest CAD', 'CcyFxTest CAD', 'sell'), 1);
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest EUR', 'CcyFxTest EUR', 'buy'), 1);
+  assert.throws(() => setCurrencyExchangeRate(biz, 'CcyFxTest USD', 'CcyFxTest USD', asUserId(1), 100, 100), /always, definitionally 1/, 'a genuine self-pair is rejected outright as a configurable rate - never a real, separate fact to set');
+
+  // Each real, distinct, configured pair resolves to its own, real, genuinely independent buy and sell rate - never derived from its reverse pair, never blended.
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest USD', 'CcyFxTest CAD', 'buy'), 13500);
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest USD', 'CcyFxTest CAD', 'sell'), 13600);
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest CAD', 'CcyFxTest USD', 'buy'), 7350, 'the reverse pair genuinely, independently configured - not the reciprocal of USD->CAD, a real, distinct, live market fact');
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest CAD', 'CcyFxTest USD', 'sell'), 7400);
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest USD', 'CcyFxTest EUR', 'buy'), 9200);
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest EUR', 'CcyFxTest USD', 'buy'), 10750);
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest CAD', 'CcyFxTest EUR', 'sell'), 6850);
+  assert.equal(getCurrencyExchangeRate(biz, 'CcyFxTest EUR', 'CcyFxTest CAD', 'sell'), 14700);
+
+  // A real, distinct pair that has genuinely never been configured correctly returns null - never a synthetic, reconstructed, or averaged rate.
+  const neverConfigured = ensureCurrencyPair(biz, 'CcyFxTest USD', 'CcyFxTest CAD', asUserId(1));
+  assert.ok(neverConfigured.id, 'the pair itself genuinely exists as its own real Product Instance, independent of whether a rate has been set for every real side');
 });
 

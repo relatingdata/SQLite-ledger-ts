@@ -3,16 +3,54 @@
 Status: partially built, confirmed directly, not the blanket "not yet
 implemented" this document previously claimed. Real, already-built:
 `account.currency` (the schema column), `setAccountCurrency` (sets
-it), and the core validator itself (`post_journal_entry_insert`
+it), the core validator itself (`post_journal_entry_insert`
 already groups by `COALESCE(account.currency, '')` and requires each
 group to independently balance to zero — the single most important
-piece of this whole design). Genuinely still not built: a `business`
+piece of this whole design), and, as of the exchange-rate work below,
+each real currency pair's own, independently-configured buy and sell
+rate (`ensureCurrencyPair`, `setCurrencyExchangeRate`,
+`getCurrencyExchangeRate`, `listCurrencyPairs`, all in
+`backend/src/db.ts`). Genuinely still not built: a `business`
 extension table for `home_currency`/`country` (no such table exists),
-the currency-as-commodity/`stock_lot` mechanism, and both realized and
-unrealized gain/loss. This document remains the single source of
-truth for the *remaining* design; the prototype
+and both realized and unrealized gain/loss on an actual currency
+purchase/sale transaction (the prototype below proves the arithmetic;
+no production function yet posts a real currency purchase or
+realization entry end to end). This document remains the single source
+of truth for the *remaining* design; the prototype
 (`backend/scripts/prototype-multicurrency.ts`) tests the not-yet-built
 parts against real numbers before any further schema/migration work.
+
+## Exchange rates are a cartesian product, not one rate per currency
+
+Per direct instruction, confirmed and built directly: with N real,
+distinct currencies genuinely in use, there are N*N real, ordered
+(From, To) pairs - N of them trivial self-pairs (a currency's own rate
+against itself, always, definitionally 1), leaving N*(N-1) real,
+distinct, independently-configurable rates. Three currencies spanning
+a real US/Canada/Europe-trading business (USD, CAD, EUR) means 9 total
+pairs, 3 trivial, 6 real ones - each with its own, real, independently
+set buy and sell price, never derived from its reverse pair or from
+some other pair's rate.
+
+Built by directly reusing the exact, same Hierarchy/Product cartesian
+mechanism already proven for wine combinations (see
+`docs/cartesian-account-linking-plan.md`): a currency pair is a real
+Product Instance whose own two dimensions ("From Currency," "To
+Currency") both point at the exact, same real "Currency" Hierarchy
+grouping - `defineProductShape` already supported this without any
+change at all. Buy and sell prices per pair reuse `item_source`
+directly (two real, standing vendor rows, "FX Market (Buy)" and "FX
+Market (Sell)," keyed by the pair's own real `product_instance_id`) -
+the exact, same mechanism any other item's own, independently-priced
+sources already use, per the core, direct instruction this whole
+document is built on: buying or selling a currency is no different
+from buying or selling any other item.
+
+See `ensureCurrencyPair`, `setCurrencyExchangeRate`,
+`getCurrencyExchangeRate`, and `listCurrencyPairs`, all in
+`backend/src/db.ts`, and the real, direct test proving all of the
+above (6 real, distinct, independent rates; 3 real, trivial self-pairs;
+a rejected attempt to configure a self-pair) in `backend/test/db.test.ts`.
 
 ## The core principle
 
@@ -44,12 +82,23 @@ concept:
 
 - Each non-home currency is a real `part` (e.g. "EUR", "USD").
 - Acquiring foreign currency creates a `stock_lot` via the existing
-  `receiveLot`, with the lot's cost basis being what was actually paid
+  `receiveLot`, with the lot's own, real, new `cost_basis_minor` column
+  (added directly for this — NULL and unused for every existing, real
+  wine/item lot, whose own value already lives in the real Inventory
+  account's own balance, never per-lot) holding what was actually paid
   to acquire it (a real transaction amount, never a synthetic
   mid-market rate).
-- Spending or converting foreign currency consumes lots FIFO via the
-  existing `consumeFromLots` — already built, already tested for wine,
-  reused unchanged.
+- Spending or converting foreign currency consumes lots via the
+  existing `consumeFromLots` — genuine, deterministic FIFO by real
+  acquisition order (`id ASC`, added directly as a real, needed
+  tiebreaker: wine's own FIFO is by expiration date, which a currency
+  lot never has, so every currency lot ties on a NULL expiration_date
+  and needs its own, real, distinct ordering to mean anything).
+  `consumeFromLots` returns each consumed lot's own, real, proportional
+  share of `cost_basis_minor` directly, the one, real number an actual
+  FIFO gain/loss calculation on a real currency sale needs — still not
+  wired into a real, production purchase/sale posting function end to
+  end (see the Status line above).
 
 ## Where currency lives, and precedence
 
