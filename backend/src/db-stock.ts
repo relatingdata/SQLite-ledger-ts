@@ -1193,23 +1193,17 @@ export function createStockTake(locationName: LocationName, takeDate: string, us
   const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
-  const takeId = Number(
-    db.prepare(`INSERT INTO stock_take (location_id, take_date, status, user_id) VALUES (?, ?, 'draft', ?)`).run(locationId, takeDate, userId)
-      .lastInsertRowid
-  );
+  // A real "Stock Take" entity under the location, one per real event
+  // - its own, real name carrying take_date and status directly.
+  // Never a separate table, per direct, absolute instruction.
+  const takeEntity = Entity.create(`Stock Take — ${takeDate} — ${Date.now()} — draft`, locationId, userId);
+  const takeId = takeEntity.id;
 
   const resolvedLocationName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(locationId) as { name: string }).name;
   const itemsHere = (getStockListingByLocation().find((g) => g.location === resolvedLocationName)?.rows ?? [])
     .map((r) => {
       const detail = getItemLocation(asItemName(r.item), asLocationName(resolvedLocationName));
-      // A real, confirmed bug fix: this used to build a plain
-      // name-to-id map from every entity in the whole database, which
-      // silently resolves to the wrong entity whenever any other
-      // real entity anywhere shares the same name (the same, real,
-      // repeated class of bug this whole session kept finding
-      // elsewhere - "Actual", "Trial Balance", etc.). resolveItemId
-      // is already correctly scoped to real Items specifically.
-      return { item_id: resolveItemId(asItemName(r.item)), quantity_on_hand: r.quantity_on_hand, shelf_side: detail.shelf_side, rack: detail.rack, level: detail.level };
+      return { item_id: resolveItemId(asItemName(r.item)), item_name: r.item, quantity_on_hand: r.quantity_on_hand, shelf_side: detail.shelf_side, rack: detail.rack, level: detail.level };
     })
     .filter((r) => r.item_id != null)
     .sort((a, b) => {
@@ -1221,29 +1215,61 @@ export function createStockTake(locationName: LocationName, takeDate: string, us
       return (a.level ?? 0) - (b.level ?? 0);
     });
 
+  // Each real line: a real, direct child entity under the Stock Take
+  // itself, one per real item, relation_id pointing at that item,
+  // its own real name carrying shelf_side/rack/level/expected/counted
+  // directly - counted starts genuinely empty (never yet counted).
   for (const p of itemsHere) {
-    db.prepare(
-      `INSERT INTO stock_take_line (stock_take_id, item_id, shelf_side, rack, level, expected_quantity) VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(takeId, p.item_id, p.shelf_side, p.rack, p.level, p.quantity_on_hand);
+    const lineEntity = Entity.create(
+      `Line — ${p.item_name} — shelf:${p.shelf_side ?? ''} — rack:${p.rack ?? ''} — level:${p.level ?? ''} — expected:${p.quantity_on_hand} — counted:`,
+      takeId,
+      userId
+    );
+    updateEntity(lineEntity.id, { relation: p.item_name }, userId);
   }
 
   return takeId;
 }
 
+function parseStockTakeLine(row: { id: number; item: string; name: string }): StockTakeLine {
+  const m = row.name.match(/^Line — .* — shelf:([^—]*)— rack:([^—]*)— level:([^—]*)— expected:(\d+) — counted:(\d*)$/);
+  if (!m) throw new ValidationError(`Malformed real stock take line name: "${row.name}".`);
+  const [, shelfSide, rack, level, expected, counted] = m;
+  return {
+    id: row.id,
+    item: row.item,
+    shelf_side: shelfSide.trim() || null,
+    rack: rack.trim() || null,
+    level: level.trim() ? Number(level.trim()) : null,
+    expected_quantity: Number(expected),
+    counted_quantity: counted.trim() ? Number(counted.trim()) : null,
+  };
+}
+
 export function getStockTake(id: number): StockTake | undefined {
   const header = db
-    .prepare(`SELECT st.id, l.name AS location, st.take_date, st.status FROM stock_take st JOIN current_entities l ON l.id = st.location_id WHERE st.id = ?`)
-    .get(id) as Omit<StockTake, 'lines'> | undefined;
+    .prepare(`SELECT t.id, l.name AS location, t.name FROM current_entities t JOIN current_entities l ON l.id = t.parent_id WHERE t.id = ? AND t.name LIKE 'Stock Take — %'`)
+    .get(id) as { id: number; location: string; name: string } | undefined;
   if (!header) return undefined;
+  const headerMatch = header.name.match(/^Stock Take — (\S+) — \d+ — (draft|completed)$/);
+  if (!headerMatch) throw new ValidationError(`Malformed real stock take header name: "${header.name}".`);
   const lines = db
     .prepare(
-      `SELECT stl.id, p.name AS item, stl.shelf_side, stl.rack, stl.level, stl.expected_quantity, stl.counted_quantity
-       FROM stock_take_line stl JOIN current_entities p ON p.id = stl.item_id
-       WHERE stl.stock_take_id = ?
-       ORDER BY (stl.shelf_side IS NULL), stl.shelf_side, (stl.rack IS NULL), stl.rack, (stl.level IS NULL), stl.level`
+      `SELECT l.id, item.name AS item, l.name
+       FROM current_entities l
+       JOIN current_entities item ON item.id = l.relation_id
+       WHERE l.parent_id = ? AND l.name LIKE 'Line — %'`
     )
-    .all(id) as StockTakeLine[];
-  return { ...header, lines };
+    .all(id) as { id: number; item: string; name: string }[];
+  const parsedLines = lines.map(parseStockTakeLine).sort((a, b) => {
+    if ((a.shelf_side === null) !== (b.shelf_side === null)) return a.shelf_side === null ? 1 : -1;
+    if (a.shelf_side !== b.shelf_side) return (a.shelf_side ?? '').localeCompare(b.shelf_side ?? '');
+    if ((a.rack === null) !== (b.rack === null)) return a.rack === null ? 1 : -1;
+    if (a.rack !== b.rack) return (a.rack ?? '').localeCompare(b.rack ?? '');
+    if ((a.level === null) !== (b.level === null)) return a.level === null ? 1 : -1;
+    return (a.level ?? 0) - (b.level ?? 0);
+  });
+  return { id: header.id, location: header.location, take_date: headerMatch[1], status: headerMatch[2] as 'draft' | 'completed', lines: parsedLines };
 }
 
 export function recordStockTakeCount(stockTakeId: number, itemName: ItemName, countedQuantity: number): void {
@@ -1251,10 +1277,11 @@ export function recordStockTakeCount(stockTakeId: number, itemName: ItemName, co
   if (!take) throw new NotFoundError(`No stock take with id ${stockTakeId}.`);
   if (take.status !== 'draft') throw new ValidationError(`Stock take ${stockTakeId} is already completed.`);
   if (countedQuantity < 0) throw new ValidationError('Counted quantity cannot be negative.');
-  const result = db
-    .prepare(`UPDATE stock_take_line SET counted_quantity = ? WHERE stock_take_id = ? AND item_id = ?`)
-    .run(countedQuantity, stockTakeId, resolveItemId(itemName) ?? null);
-  if (result.changes === 0) throw new ValidationError(`"${itemName}" is not on this stock take sheet.`);
+  const line = take.lines.find((l) => l.item === itemName);
+  if (!line) throw new ValidationError(`"${itemName}" is not on this stock take sheet.`);
+  const row = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(line.id) as { name: string };
+  const newName = row.name.replace(/counted:\d*$/, `counted:${countedQuantity}`);
+  updateEntity(line.id, { name: newName }, asUserId(1));
 }
 
 /** Completes a stock take — every counted line's variance (counted vs
@@ -1332,7 +1359,8 @@ export function completeStockTake(
     postJournalEntry(reference, business, ledger, userId);
   }
 
-  db.prepare(`UPDATE stock_take SET status = 'completed' WHERE id = ?`).run(stockTakeId);
+  const takeRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(stockTakeId) as { name: string };
+  updateEntity(stockTakeId, { name: takeRow.name.replace(/ — draft$/, ' — completed') }, userId);
 }
 
 /** Writes off stock that's been broken, spoiled, expired, or otherwise

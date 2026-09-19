@@ -876,25 +876,13 @@ CREATE TABLE contact (
 -- point any variance (counted vs expected) is a genuine loss or gain,
 -- posted to the ledger, and item_location.quantity_on_hand is
 -- corrected to match what was actually counted.
-CREATE TABLE stock_take (
-  id          INTEGER PRIMARY KEY,
-  location_id INTEGER NOT NULL REFERENCES entity_ids(id),
-  take_date   TEXT NOT NULL,
-  status      TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'completed')),
-  user_id     INTEGER NOT NULL REFERENCES users(id)
-);
-
-CREATE TABLE stock_take_line (
-  id                INTEGER PRIMARY KEY,
-  stock_take_id     INTEGER NOT NULL REFERENCES stock_take(id),
-  item_id           INTEGER NOT NULL REFERENCES entity_ids(id),
-  shelf_side        TEXT,
-  rack              TEXT,
-  level             INTEGER,
-  expected_quantity INTEGER NOT NULL,
-  counted_quantity  INTEGER,
-  UNIQUE (stock_take_id, item_id)
-);
+-- stock_take / stock_take_line eliminated as separate tables, per
+-- direct, absolute instruction. A real "Stock Take" entity under the
+-- location, one per real event, its own name carrying take_date and
+-- status directly; each real line a real, direct child entity under
+-- it, one per item, relation_id pointing at that item, its own name
+-- carrying shelf_side/rack/level/expected/counted directly - see
+-- createStockTake/getStockTake/recordStockTakeCount in db-stock.ts.
 
 -- stock_lot: a specific batch/lot of a item, with its own received and
 -- expiration date — genuinely separate information from the item's
