@@ -7184,25 +7184,51 @@ export function getLedgerDateRange(businessName: BusinessName, ledgerName: Ledge
 }
 
 export function getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus {
+  // A real "Period Lock" entity, one per (business, ledger) - its own,
+  // real, established rename history (per entity_update_insert) IS
+  // the real, append-only audit trail period_lock_history used to be
+  // a separate table for; entity_id stays fixed, each rename closes
+  // out the old row and appends a new one, exactly the same, real
+  // shape. Never created ahead of time - a business/ledger that has
+  // never been locked correctly, genuinely has no such entity yet.
+  // The entity's own, real, current name always carries its current,
+  // live status as a suffix (never a fixed, bare name), so this is a
+  // real, direct prefix match, not an exact one.
+  const ledgerEntity = db
+    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`)
+    .get(ledger, business) as { id: number } | undefined;
+  if (!ledgerEntity) return { locked_through_date: null, changed_by: null, changed_at: null };
+  const lockEntityPrefix = `${business} — ${ledger} — Period Lock`;
   const row = db
-    .prepare(
-      `SELECT locked_through_date, changed_by, changed_at FROM period_lock_history
-       WHERE business = ? AND ledger = ? ORDER BY id DESC LIMIT 1`
-    )
-    .get(business, ledger) as PeriodLockStatus | undefined;
-  return row ?? { locked_through_date: null, changed_by: null, changed_at: null };
+    .prepare(`SELECT name, created_at, created_by FROM current_entities WHERE name LIKE ? AND parent_id = ?`)
+    .get(`${lockEntityPrefix}%`, ledgerEntity.id) as { name: string; created_at: string; created_by: number } | undefined;
+  if (!row) return { locked_through_date: null, changed_by: null, changed_at: null };
+  const suffix = row.name.slice(lockEntityPrefix.length);
+  const throughDate = suffix.startsWith(' — Locked through ') ? suffix.slice(' — Locked through '.length) : null;
+  return { locked_through_date: throughDate, changed_by: row.created_by, changed_at: row.created_at };
+}
+
+function ensurePeriodLockEntity(business: BusinessName, ledger: LedgerName, userId: UserId): { id: number; name: string } {
+  const ledgerEntity = db
+    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`)
+    .get(ledger, business) as { id: number } | undefined;
+  if (!ledgerEntity) throw new ValidationError(`No real ledger "${ledger}" under business "${business}".`);
+  const lockEntityPrefix = `${business} — ${ledger} — Period Lock`;
+  const existing = db
+    .prepare(`SELECT id, name FROM current_entities WHERE name LIKE ? AND parent_id = ?`)
+    .get(`${lockEntityPrefix}%`, ledgerEntity.id) as { id: number; name: string } | undefined;
+  if (existing) return existing;
+  return Entity.create(`${lockEntityPrefix} — Open`, ledgerEntity.id, userId);
 }
 
 export function closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string, userId: UserId): void {
-  db.prepare(
-    `INSERT INTO period_lock_history (business, ledger, locked_through_date, changed_by, changed_at) VALUES (?, ?, ?, ?, datetime('now'))`
-  ).run(business, ledger, throughDate, userId);
+  const lockEntity = ensurePeriodLockEntity(business, ledger, userId);
+  updateEntity(lockEntity.id, { name: `${business} — ${ledger} — Period Lock — Locked through ${throughDate}` }, userId);
 }
 
 export function reopenPeriod(business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  db.prepare(
-    `INSERT INTO period_lock_history (business, ledger, locked_through_date, changed_by, changed_at) VALUES (?, ?, NULL, ?, datetime('now'))`
-  ).run(business, ledger, userId);
+  const lockEntity = ensurePeriodLockEntity(business, ledger, userId);
+  updateEntity(lockEntity.id, { name: `${business} — ${ledger} — Period Lock — Open` }, userId);
 }
 
 /** Shared enforcement for the two direct-insert paths that bypass

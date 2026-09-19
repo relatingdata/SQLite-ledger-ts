@@ -1519,25 +1519,30 @@ CREATE TABLE invoice_payment_allocation (
   allocation_date    TEXT NOT NULL
 );
 
--- period_lock_history: append-only, same self-auditing shape as
--- entities and journal — a period close/reopen is never a silent
--- state flip, it's a permanent record of who changed it and when.
--- The CURRENT lock for a business/ledger is simply whichever row for
--- that pair has the highest id; there's no separate "current status"
--- field to ever drift out of sync with the history. locked_through_date
--- NULL means fully open (or reopened) — anything with transdate <= the
--- most recent non-null locked_through_date is rejected by normal
--- posting; reopening (a fresh row with NULL) lifts that immediately,
--- for exactly the amendments (reversals, reposting, corrected entries,
--- contras) that closing a period should never permanently prevent.
-CREATE TABLE period_lock_history (
-  id                  INTEGER PRIMARY KEY,
-  business            TEXT NOT NULL,
-  ledger              TEXT NOT NULL,
-  locked_through_date TEXT,
-  changed_by          INTEGER NOT NULL REFERENCES users(id),
-  changed_at          TEXT NOT NULL
-);
+-- period_lock_history: eliminated as its own table, per direct,
+-- absolute instruction (no permanent tables beyond entities, account,
+-- journal, journal_line). A "Period Lock" entity, one per real
+-- (business, ledger), now carries this exact, same fact directly on
+-- its own, real, current name - "Locked through <date>" or "Open" -
+-- with its own, real, established rename history (entity_update_insert
+-- already closes out the old row and appends a new one on every
+-- rename) providing the exact, same, real, append-only audit trail
+-- this table used to be a separate table for. This view recomputes
+-- the current lock status directly from that entity, for the two,
+-- real posting triggers below that need it.
+CREATE VIEW current_period_lock_status AS
+SELECT
+  biz.name AS business,
+  ledg.name AS ledger,
+  CASE
+    WHEN e.name LIKE (biz.name || ' — ' || ledg.name || ' — Period Lock — Locked through %')
+    THEN SUBSTR(e.name, LENGTH(biz.name || ' — ' || ledg.name || ' — Period Lock — Locked through ') + 1)
+    ELSE NULL
+  END AS locked_through_date
+FROM current_entities e
+JOIN current_entities ledg ON ledg.id = e.parent_id
+JOIN current_entities biz ON biz.id = ledg.parent_id
+WHERE e.name LIKE (biz.name || ' — ' || ledg.name || ' — Period Lock — %');
 
 -- =====================================================================
 -- DATA-ENTRY VIEWS + TRIGGERS — for the running application to create
@@ -1785,18 +1790,16 @@ BEGIN
 
   SELECT RAISE(ABORT, 'this period is closed to normal posting — reopen it first if this is a genuine correction')
   WHERE (
-    SELECT locked_through_date FROM period_lock_history
+    SELECT locked_through_date FROM current_period_lock_status
     WHERE business = NEW.business AND ledger = NEW.ledger
-    ORDER BY id DESC LIMIT 1
   ) IS NOT NULL
   AND COALESCE(
     (SELECT transdate FROM journal_entry_staging
      WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
     date('now')
   ) <= (
-    SELECT locked_through_date FROM period_lock_history
+    SELECT locked_through_date FROM current_period_lock_status
     WHERE business = NEW.business AND ledger = NEW.ledger
-    ORDER BY id DESC LIMIT 1
   );
 
   -- Every distinct currency present in this entry must independently
@@ -1913,18 +1916,16 @@ BEGIN
 
   SELECT RAISE(ABORT, 'this period is closed to normal posting — reopen it first if this is a genuine correction')
   WHERE (
-    SELECT locked_through_date FROM period_lock_history
+    SELECT locked_through_date FROM current_period_lock_status
     WHERE business = NEW.business AND ledger = NEW.ledger
-    ORDER BY id DESC LIMIT 1
   ) IS NOT NULL
   AND COALESCE(
     (SELECT transdate FROM journal_entry_staging
      WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
     date('now')
   ) <= (
-    SELECT locked_through_date FROM period_lock_history
+    SELECT locked_through_date FROM current_period_lock_status
     WHERE business = NEW.business AND ledger = NEW.ledger
-    ORDER BY id DESC LIMIT 1
   );
 
   -- Deliberately NO balance check here. Confirmed directly, from
