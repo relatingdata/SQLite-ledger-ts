@@ -192,3 +192,45 @@ conclusions were absorbed into the main application.
   (`docs/user-manual.md`); see the manual-build documentation for the
   real, direct reasoning behind this choice over a hand-written LaTeX
   document or a more limited PDF-generation library.
+
+## 11. Real dev-server lifecycle management for repeated, real tasks (screenshots, targeted Playwright runs)
+
+`make servers-status`, `make ensure-servers`, and `make stop-servers`
+(all in the root `Makefile`) give a real, direct, explicit answer to
+"are the backend/frontend dev servers already up and genuinely
+healthy" — a real pid file per server (`/tmp/sql-ledger-ts-pids/`,
+written when this Makefile itself starts one), checked against both a
+real, live `kill -0` (the pid still owns a real process) and a real,
+live health check (`curl -sf http://localhost:3001/api/health` for the
+backend, a plain root-page fetch for the frontend) — never trusting a
+pid file alone, since a stale one (a crashed server, a rebooted
+machine) would otherwise look "running" when it genuinely isn't.
+
+`ensure-servers` starts only whichever real server (if either) isn't
+already healthy, using `setsid nohup ... &` so the started process
+survives past the end of the Make recipe's own subshell (a real,
+confirmed gotcha found directly: a bare `cmd &` inside a Make recipe
+dies the moment that recipe line's subshell exits). Every one of the
+56 real, individual `docs/manual-images/*.png` screenshot-capture
+targets depends on `ensure-servers` directly, so running many of them
+back to back reuses the same, real, already-running servers instead
+of paying a real, ~10-second startup cost on every single one —
+confirmed directly: the first capture in a fresh run took ~22s
+(server startup included), the next, immediately after, ~12s (servers
+reused). `make stop-servers` cleanly stops whichever real servers
+this Makefile itself started, via their own, real, recorded pids.
+
+## 12. Real ASCII seed-data dependencies (`SEED_DATA_FILES`)
+
+The `SEED_DATA_FILES` variable (root `Makefile`) lists the real,
+plain-ASCII CSV files (`shared-fixtures/*.csv`) and the real
+TypeScript "programs" that load them at runtime
+(`shared-fixtures/wine-retail.ts`, `wine-retail-demo-data.ts`,
+`csv.ts`) — the same, real relationship a compiled `.o` file has to
+its own `.c` source, just running the other direction (a real program
+reading real data at runtime, `fs.readFileSync`, never a compile
+step). Every one of the 56 real screenshot-capture targets also
+depends on `$(SEED_DATA_FILES)` directly, so a real, direct edit to
+any of this seed data is never silently missed by Make's own
+staleness check when deciding whether a screenshot needs
+re-capturing.
