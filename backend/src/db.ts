@@ -5219,37 +5219,35 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
     : null;
   if (input.manufacturerName && !manufacturerId) throw new ValidationError(`No manufacturer named "${input.manufacturerName}".`);
 
-  db.prepare(
-    `INSERT INTO item_source (item_id, manufacturer_id, vendor_id, vendor_sku, vendor_upc, price_minor, package_quantity, is_preferred, preference_notes, currency, product_instance_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (item_id, manufacturer_id, vendor_id, currency, product_instance_id) DO UPDATE SET
-       vendor_sku = excluded.vendor_sku, vendor_upc = excluded.vendor_upc, price_minor = excluded.price_minor,
-       package_quantity = excluded.package_quantity, is_preferred = excluded.is_preferred, preference_notes = excluded.preference_notes`
-  ).run(
-    itemId,
-    manufacturerId ?? null,
-    vendorId,
-    input.vendorSku ?? null,
-    input.vendorUpc ?? null,
-    input.priceMinor ?? null,
-    input.packageQuantity ?? null,
-    input.isPreferred ? 1 : 0,
-    input.preferenceNotes ?? null,
-    // A real, confirmed bug fix: SQLite's UNIQUE constraint treats
-    // NULL as distinct from NULL, so two calls with no currency
-    // specified (the real, ordinary, single-currency case) would
-    // silently create a second, duplicate row instead of updating the
-    // first - confirmed directly, this broke a real, pre-existing
-    // test the moment currency was added to the constraint. A real,
-    // empty string stands in for "this business's own home currency"
-    // here specifically, so the constraint and ON CONFLICT clause
-    // both see a real, comparable, equal value across calls.
-    input.currency ?? '',
-    // The exact, same, real fix, applied to the exact, same, real
-    // problem, for the exact, same reason - 0 stands in for "no real,
-    // specific Product Instance combination" here.
-    input.productInstanceId ?? 0
-  );
+  // A real, direct child entity under the item itself - one per real
+  // (manufacturer, vendor, currency, productInstance) combination,
+  // matching the exact, same, real uniqueness the removed table's own
+  // constraint enforced. relation_id points at the real vendor (the
+  // most commonly joined-on field); every other real field lives in
+  // this entity's own, real detail_json.
+  const currency = input.currency ?? '';
+  const productInstanceId = input.productInstanceId ?? 0;
+  const uniqueSuffix = `mfr:${manufacturerId ?? ''} — vendor:${vendorId} — ccy:${currency} — pi:${productInstanceId}`;
+  const sourceName = `${input.itemName} — Source — ${uniqueSuffix}`;
+  const detail = JSON.stringify({
+    manufacturer_id: manufacturerId ?? null,
+    vendor_sku: input.vendorSku ?? null,
+    vendor_upc: input.vendorUpc ?? null,
+    price_minor: input.priceMinor ?? null,
+    package_quantity: input.packageQuantity ?? null,
+    is_preferred: input.isPreferred ? 1 : 0,
+    preference_notes: input.preferenceNotes ?? null,
+    currency,
+    product_instance_id: productInstanceId,
+  });
+  const existing = Entity.getUnder(sourceName, itemId);
+  if (existing) {
+    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(detail, existing.id);
+  } else {
+    const created = Entity.create(sourceName, itemId, asUserId(1));
+    updateEntity(created.id, { relation: input.vendorName }, asUserId(1));
+    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(detail, created.id);
+  }
 }
 
 /** Resolves a real, independently-set price for the given currency -
@@ -5439,8 +5437,9 @@ export function listCurrencyPairs(currencies: string[]): { from: string; to: str
 }
 
 export function deleteItemSource(id: number): void {
-  const result = db.prepare(`DELETE FROM item_source WHERE id = ?`).run(id);
-  if (result.changes === 0) throw new NotFoundError(`No item source with id ${id}.`);
+  const row = db.prepare(`SELECT id FROM current_entities WHERE id = ? AND name LIKE '% — Source — %'`).get(id) as { id: number } | undefined;
+  if (!row) throw new NotFoundError(`No item source with id ${id}.`);
+  deleteEntity(id, asUserId(1));
 }
 
 export * from './db-reports.js';

@@ -90,6 +90,16 @@ CREATE TABLE entities (
   -- name is always recomputed from these ids at read time
   -- (getCombinationDisplayName), never trusted from a stored string.
   combination_ids TEXT,
+  -- A real, direct JSON object holding a real entity's own, wider,
+  -- structured detail - the same, real, established pattern
+  -- combination_ids already proves (a real, additive column on this
+  -- one, single, permanent table, never a new one). Used directly by
+  -- item_source-replacement vendor-source entities (vendor_sku,
+  -- vendor_upc, price_minor, package_quantity, is_preferred,
+  -- preference_notes, lead_time_days) and, later, contact-replacement
+  -- entities - each real field a real, named key in this one, real
+  -- JSON object, never a bespoke column added per new use.
+  detail_json TEXT,
   created_at TEXT NOT NULL,
   created_by INTEGER NOT NULL REFERENCES users(id),
   deleted_at TEXT,
@@ -133,7 +143,7 @@ CREATE INDEX entities_entity_id_current ON entities(entity_id) WHERE deleted_at 
 CREATE INDEX entities_relation_id_current ON entities(relation_id) WHERE deleted_at IS NULL AND relation_id IS NOT NULL;
 
 CREATE VIEW current_entities AS
-  SELECT entity_id AS id, name, parent_id, relation_id, combination_ids, created_at, created_by, deleted_at, deleted_by
+  SELECT entity_id AS id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, deleted_at, deleted_by
   FROM entities WHERE deleted_at IS NULL;
 
 -- =====================================================================
@@ -927,41 +937,35 @@ CREATE TABLE stock_lot (
 -- size that fits the shelving, a vendor's track record for on-time
 -- delivery. is_preferred and preference_notes exist to capture that
 -- reasoning explicitly, not derive it from price alone.
-CREATE TABLE item_source (
-  id                 INTEGER PRIMARY KEY,
-  item_id            INTEGER NOT NULL REFERENCES entity_ids(id),
-  manufacturer_id    INTEGER REFERENCES entity_ids(id),  -- nullable: the manufacturer isn't always known or tracked
-  vendor_id          INTEGER NOT NULL REFERENCES entity_ids(id),
-  vendor_sku         TEXT,     -- this vendor's own item/SKU number, distinct from the item's own UPC
-  vendor_upc         TEXT,     -- this vendor's own barcode for their specific packaging, if different from the item's own UPC
-  price_minor        INTEGER,  -- this vendor's current price, per unit_of_measure
-  package_quantity   INTEGER,  -- how many base units come in one package as sold BY THIS VENDOR — can differ from another vendor's package size for the exact same item
-  is_preferred       INTEGER NOT NULL DEFAULT 0,
-  preference_notes   TEXT,     -- why this source is (or isn't) preferred — explicitly never assumed to be "cheapest"
-  -- Real, direct support for a real, border business: NULL means the
-  -- business's own home/reporting currency (matching account.currency's
-  -- own, identical convention) — a genuinely different, non-NULL
-  -- currency here is a real, separate, independently-priced row for
-  -- the exact same item/vendor pair, not a converted number. See
-  -- docs/border-multicurrency-pos-plan.md, Slice 3. Included in the
-  -- real uniqueness constraint below so the same vendor can genuinely
-  -- have two, real, simultaneous rows — one per real currency.
-  currency           TEXT,
-  -- Per direct instruction: a cold beer, or a large glass pour,
-  -- genuinely costs more than a warm one/a small one - a real price
-  -- specific to one, exact Product Instance combination (see
-  -- ensureProductInstance), not just the base item/currency. 0 means
-  -- "this row's price applies to the base item generally" - the
-  -- exact, same, existing, unchanged behavior for every real item
-  -- that has no combination-specific pricing at all. A real, direct
-  -- 0-as-sentinel choice, not NULL, for the exact, same reason
-  -- currency above uses '' rather than NULL - SQLite's own, real
-  -- uniqueness check treats every NULL as distinct from every other
-  -- NULL, which would silently defeat this constraint for every row
-  -- with no real, specific combination at all.
-  product_instance_id INTEGER NOT NULL DEFAULT 0,
-  UNIQUE (item_id, manufacturer_id, vendor_id, currency, product_instance_id)
-);
+-- item_source eliminated as its own table, per direct, absolute
+-- instruction. Each real source is a real, direct child entity under
+-- the item itself, relation_id pointing at the real vendor (the most
+-- commonly joined-on field), every other real field (manufacturer_id,
+-- vendor_sku, vendor_upc, price_minor, package_quantity, is_preferred,
+-- preference_notes, currency, product_instance_id) held directly in
+-- that entity's own, real detail_json. This compatibility view
+-- recomputes the exact, same, real column shape the removed table
+-- used to provide, so every one of this codebase's own, many, real,
+-- existing read queries against "item_source" keeps working
+-- completely unchanged - only the two, real write paths
+-- (addOrUpdateItemSource, deleteItemSource, in db.ts) needed rewriting
+-- to write real entities/detail_json directly instead.
+CREATE VIEW item_source AS
+SELECT
+  e.id AS id,
+  e.parent_id AS item_id,
+  CAST(json_extract(e.detail_json, '$.manufacturer_id') AS INTEGER) AS manufacturer_id,
+  e.relation_id AS vendor_id,
+  json_extract(e.detail_json, '$.vendor_sku') AS vendor_sku,
+  json_extract(e.detail_json, '$.vendor_upc') AS vendor_upc,
+  CAST(json_extract(e.detail_json, '$.price_minor') AS INTEGER) AS price_minor,
+  CAST(json_extract(e.detail_json, '$.package_quantity') AS INTEGER) AS package_quantity,
+  CAST(json_extract(e.detail_json, '$.is_preferred') AS INTEGER) AS is_preferred,
+  json_extract(e.detail_json, '$.preference_notes') AS preference_notes,
+  json_extract(e.detail_json, '$.currency') AS currency,
+  CAST(json_extract(e.detail_json, '$.product_instance_id') AS INTEGER) AS product_instance_id
+FROM current_entities e
+WHERE e.name LIKE '% — Source — %';
 
 -- A real, one-time database audit (per direct request: "ensure we
 -- have no leftover permanent tables aitem from the necessary 4")
@@ -1579,19 +1583,19 @@ BEGIN
   );
   UPDATE entities SET deleted_at = datetime('now'), deleted_by = NEW.updated_by
   WHERE entity_id = NEW.entity_id AND deleted_at IS NULL;
-  -- combination_ids carried forward from the row just closed out - a
-  -- rename or reparent must never silently drop a real Product
-  -- Instance's or combination leaf's own, real identity array. The
-  -- array itself only ever changes via the real, dedicated functions
-  -- that set it in the first place (ensureProductInstance,
-  -- ensureCombinationAccountLeaf), never as a side effect of a rename.
-  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, created_at, created_by)
+  -- combination_ids/detail_json both carried forward from the row
+  -- just closed out - a rename or reparent must never silently drop
+  -- a real entity's own, real identity array or structured detail.
+  -- Neither ever changes via a rename as a side effect - only via the
+  -- real, dedicated functions that set them in the first place.
+  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by)
   VALUES (
     NEW.entity_id,
     NEW.name,
     COALESCE(NEW.parent_id, (SELECT id FROM current_entities WHERE name = NEW.parent)),
     COALESCE(NEW.relation_id, (SELECT id FROM current_entities WHERE name = NEW.relation)),
     (SELECT combination_ids FROM entities WHERE entity_id = NEW.entity_id AND deleted_at IS NOT NULL ORDER BY row_id DESC LIMIT 1),
+    (SELECT detail_json FROM entities WHERE entity_id = NEW.entity_id AND deleted_at IS NOT NULL ORDER BY row_id DESC LIMIT 1),
     datetime('now'),
     NEW.updated_by
   );
