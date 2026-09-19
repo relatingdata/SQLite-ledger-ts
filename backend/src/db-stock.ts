@@ -1433,13 +1433,24 @@ export function receiveLot(
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
 
-  db.prepare(
-    `INSERT INTO stock_lot (item_id, lot_number, received_date, expiration_date, quantity_on_hand, cost_basis_minor)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT (item_id, lot_number) DO UPDATE SET
-       quantity_on_hand = quantity_on_hand + excluded.quantity_on_hand,
-       cost_basis_minor = COALESCE(stock_lot.cost_basis_minor, 0) + COALESCE(excluded.cost_basis_minor, 0)`
-  ).run(itemId, lotNumber, receivedDate, expirationDate, quantity, costBasisMinor ?? null);
+  // A real, direct child entity under the item itself, one per real
+  // lot - never a separate table, per direct, absolute instruction.
+  // Mutable state (quantity_on_hand, cost_basis_minor) lives directly
+  // in this entity's own, real detail_json, updated in place exactly
+  // the same way the removed table's own UPDATE statement did.
+  const lotName = `${itemName} — Lot — ${lotNumber}`;
+  const existing = Entity.getUnder(lotName, itemId);
+  if (existing) {
+    const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(existing.id) as { detail_json: string };
+    const detail = JSON.parse(row.detail_json);
+    detail.quantity_on_hand += quantity;
+    detail.cost_basis_minor = (detail.cost_basis_minor ?? 0) + (costBasisMinor ?? 0);
+    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), existing.id);
+  } else {
+    const created = Entity.create(lotName, itemId, userId);
+    const detail = { received_date: receivedDate, expiration_date: expirationDate, quantity_on_hand: quantity, cost_basis_minor: costBasisMinor ?? null };
+    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), created.id);
+  }
 
   postQuantityMovement(business, ledger, reference, asAccountName(itemName), quantity, userId, receivedDate);
 }
@@ -1456,20 +1467,29 @@ export function consumeFromLots(itemName: ItemName, quantity: number): { lot_num
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
 
-  const lots = db
-    .prepare(
-      // A real, direct fix, per direct instruction (buying/selling a
-      // currency needs the exact, same real FIFO discipline as wine,
-      // by real acquisition order, not expiration - since a real
-      // currency lot never expires at all): "id ASC" is a real,
-      // deterministic tiebreaker among every lot sharing the same
-      // (null) expiration_date, so FIFO genuinely means "oldest
-      // acquired first," not an unspecified SQLite row order.
-      `SELECT id, lot_number, expiration_date, quantity_on_hand, cost_basis_minor FROM stock_lot
-       WHERE item_id = ? AND quantity_on_hand > 0
-       ORDER BY (expiration_date IS NULL), expiration_date ASC, id ASC`
-    )
-    .all(itemId) as { id: number; lot_number: string; expiration_date: string | null; quantity_on_hand: number; cost_basis_minor: number | null }[];
+  const lotRows = db
+    .prepare(`SELECT id, name, detail_json FROM current_entities WHERE parent_id = ? AND name LIKE '% — Lot — %'`)
+    .all(itemId) as { id: number; name: string; detail_json: string }[];
+  const lots = lotRows
+    .map((r) => {
+      const detail = JSON.parse(r.detail_json);
+      const lotNumber = r.name.split(' — Lot — ')[1];
+      return { id: r.id, lot_number: lotNumber, expiration_date: detail.expiration_date as string | null, quantity_on_hand: detail.quantity_on_hand as number, cost_basis_minor: detail.cost_basis_minor as number | null };
+    })
+    .filter((l) => l.quantity_on_hand > 0)
+    // A real, direct fix, per direct instruction (buying/selling a
+    // currency needs the exact, same real FIFO discipline as wine, by
+    // real acquisition order, not expiration - a real currency lot
+    // never expires at all): "id ASC" is a real, deterministic
+    // tiebreaker among every lot sharing the same (null)
+    // expiration_date - entity_id itself is already genuinely
+    // monotonic with real creation order, so this means exactly what
+    // it always did.
+    .sort((a, b) => {
+      if ((a.expiration_date === null) !== (b.expiration_date === null)) return a.expiration_date === null ? 1 : -1;
+      if (a.expiration_date !== b.expiration_date) return (a.expiration_date ?? '').localeCompare(b.expiration_date ?? '');
+      return a.id - b.id;
+    });
 
   const totalAvailable = lots.reduce((s, l) => s + l.quantity_on_hand, 0);
   if (quantity > totalAvailable) {
@@ -1481,18 +1501,12 @@ export function consumeFromLots(itemName: ItemName, quantity: number): { lot_num
   for (const lot of lots) {
     if (remaining <= 0) break;
     const take = Math.min(remaining, lot.quantity_on_hand);
-    // Per direct instruction: the exact, proportional share of this
-    // lot's own, real, actual cost basis that's leaving with it - the
-    // one, real number a genuine FIFO gain/loss calculation needs.
-    // Rounds to the nearest whole minor unit; the lot's own remaining
-    // cost_basis_minor is reduced by the exact same amount, so
-    // repeated partial consumption never drifts the total.
     const costBasisTaken = lot.cost_basis_minor != null ? Math.round((lot.cost_basis_minor * take) / lot.quantity_on_hand) : null;
-    db.prepare(`UPDATE stock_lot SET quantity_on_hand = quantity_on_hand - ?, cost_basis_minor = ? WHERE id = ?`).run(
-      take,
-      costBasisTaken != null ? lot.cost_basis_minor! - costBasisTaken : lot.cost_basis_minor,
-      lot.id
-    );
+    const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(lot.id) as { detail_json: string };
+    const detail = JSON.parse(row.detail_json);
+    detail.quantity_on_hand -= take;
+    detail.cost_basis_minor = costBasisTaken != null ? lot.cost_basis_minor! - costBasisTaken : lot.cost_basis_minor;
+    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), lot.id);
     consumed.push({ lot_number: lot.lot_number, consumed: take, expiration_date: lot.expiration_date, cost_basis_minor: costBasisTaken });
     remaining -= take;
   }
@@ -1513,13 +1527,17 @@ export interface ExpiringLot {
 export function getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[] {
   const rows = db
     .prepare(
-      `SELECT e.name AS item, sl.lot_number, sl.expiration_date, sl.quantity_on_hand,
-              CAST(julianday(sl.expiration_date) - julianday(?) AS INTEGER) AS days_until_expiration
-       FROM stock_lot sl
-       JOIN current_entities e ON e.id = sl.item_id
-       WHERE sl.expiration_date IS NOT NULL
-         AND sl.quantity_on_hand > 0
-         AND julianday(sl.expiration_date) - julianday(?) <= ?`
+      `SELECT item.name AS item,
+              SUBSTR(lot.name, INSTR(lot.name, ' — Lot — ') + LENGTH(' — Lot — ')) AS lot_number,
+              json_extract(lot.detail_json, '$.expiration_date') AS expiration_date,
+              CAST(json_extract(lot.detail_json, '$.quantity_on_hand') AS INTEGER) AS quantity_on_hand,
+              CAST(julianday(json_extract(lot.detail_json, '$.expiration_date')) - julianday(?) AS INTEGER) AS days_until_expiration
+       FROM current_entities lot
+       JOIN current_entities item ON item.id = lot.parent_id
+       WHERE lot.name LIKE '% — Lot — %'
+         AND json_extract(lot.detail_json, '$.expiration_date') IS NOT NULL
+         AND CAST(json_extract(lot.detail_json, '$.quantity_on_hand') AS INTEGER) > 0
+         AND julianday(json_extract(lot.detail_json, '$.expiration_date')) - julianday(?) <= ?`
     )
     .all(asOfDate, asOfDate, withinDays) as ExpiringLot[];
   return rows.sort((a, b) => a.days_until_expiration - b.days_until_expiration);

@@ -901,26 +901,12 @@ CREATE TABLE contact (
 -- stock (dispatch, write-off) draws from whichever lot expires
 -- soonest first, same "first in, first out" convention spoilage
 -- management always uses.
-CREATE TABLE stock_lot (
-  id               INTEGER PRIMARY KEY,
-  item_id          INTEGER NOT NULL REFERENCES entity_ids(id),
-  lot_number       TEXT NOT NULL,
-  received_date    TEXT NOT NULL,
-  expiration_date  TEXT,
-  quantity_on_hand INTEGER NOT NULL DEFAULT 0,
-  -- Per direct instruction: buying or selling foreign currency for
-  -- profit or loss is no different from buying and selling any other
-  -- item - see docs/multicurrency-design.md, "Currency as a
-  -- commodity." A real, direct FIFO gain/loss calculation needs each
-  -- lot's own, real, actual cost (what was genuinely paid to acquire
-  -- it), not a synthetic, average, or reconstructed number. NULL for
-  -- every existing, real wine/item lot (whose own value already lives
-  -- in the real Inventory account's own balance, never per-lot) -
-  -- this column is additive, never required, and never touched by
-  -- any existing caller.
-  cost_basis_minor INTEGER,
-  UNIQUE (item_id, lot_number)
-);
+-- stock_lot eliminated as its own table, per direct, absolute
+-- instruction. A real, direct child entity under the item itself, one
+-- per real lot, its own real detail_json holding quantity_on_hand,
+-- cost_basis_minor, received_date, expiration_date - updated in place
+-- exactly the same way the removed table's own UPDATE statements did.
+-- See receiveLot/consumeFromLots/getExpiringStock in db-stock.ts.
 
 -- item: a 1:1 extension of a Item entity, same shape as account/contact
 -- — the canonical, manufacturer/vendor-agnostic description of the
