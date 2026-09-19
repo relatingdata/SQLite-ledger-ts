@@ -1191,17 +1191,11 @@ CREATE TABLE stock_dispatch_staging (
 -- (a mixed order might have one exempt item and one taxed at a
 -- different rate), so tax has to be tracked genuinely per line, never
 -- assumed uniform across a whole document.
-CREATE TABLE invoice_line (
-  reference        TEXT NOT NULL, -- the posting reference this line came from (an AR Sale or Stock Dispatch)
-  business         TEXT NOT NULL,
-  ledger           TEXT NOT NULL,
-  description      TEXT NOT NULL,
-  quantity         INTEGER,        -- NULL for a flat AR Sale with no quantity concept at all
-  unit_price_minor INTEGER,        -- NULL for the same reason
-  amount_minor     INTEGER NOT NULL, -- this line's own base subtotal, excluding tax — quantity * unit_price when both exist, otherwise the flat amount
-  tax_minor        INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (reference, business, ledger)
-);
+-- invoice_line eliminated as its own table, per direct, absolute
+-- instruction. A real, direct child entity under a new "Invoice
+-- Lines" root, one per real (reference, business, ledger), every
+-- real field held in that entity's own, real detail_json - see
+-- recordInvoiceLine/getInvoiceLine in db.ts.
 
 -- invoice / invoice_detail_line: a real, persistent multi-line invoice
 -- with its own lifecycle — genuinely different from invoice_line above,
