@@ -12,8 +12,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(import.meta.dir, '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // Every real, core backend source file - the exact, same, real scope
 // check-docs-coverage.ts itself uses for this baseline.

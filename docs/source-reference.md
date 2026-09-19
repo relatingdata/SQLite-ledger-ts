@@ -2,36 +2,36 @@
 
 ## Include Graph (real, direct, relative imports between these files)
 
-- `shared-fixtures/wine-retail.ts` imports: `./csv.js`
 - `shared-fixtures/add-brand-translation.ts` imports: `./csv.js`
-- `shared-fixtures/translations.ts` imports: `./csv.js`
-- `shared-fixtures/add-journal-translations.ts` imports: `./csv.js`
 - `shared-fixtures/add-header-translations.ts` imports: `./csv.js`
-- `shared-fixtures/add-menu-translations.ts` imports: `./csv.js`
-- `shared-fixtures/wine-retail-demo-data.ts` imports: `./csv.js`
 - `shared-fixtures/add-journal-remaining-translations.ts` imports: `./csv.js`
-- `backend/src/db-stock.ts` imports: `./db.js`, `./primitives.js`, `./db.js`
-- `backend/src/db-reports.ts` imports: `./db.js`, `./primitives.js`, `./db.js`
-- `backend/src/auth.ts` imports: `./db.js`, `./password.js`
-- `backend/src/db.ts` imports: `./sqlite-runtime.js`, `./password.js`, `./primitives.js`, `./db-reports.js`, `./db-seed.js`, `./db-reports.js`, `./db-stock.js`, `./db-stock.js`
-- `backend/src/server.ts` imports: `./routes/entities.js`, `./routes/reports.js`, `./routes/matrix-reports.js`, `./routes/menu.js`, `./routes/i18n.js`, `./routes/businesses.js`, `./routes/journal.js`, `./routes/contacts.js`, `./routes/items.js`, `./routes/products.js`, `./routes/invoices.js`, `./routes/stock-lots.js`, `./routes/locations.js`, `./routes/divisions.js`, `./routes/hierarchy.js`, `./routes/pos.js`, `./routes/customer-registration.js`, `./routes/arap.js`, `./routes/auth.js`, `./routes/stock.js`, `./routes/invoice.js`, `./routes/period.js`, `./routes/projects.js`, `./auth-middleware.js`
-- `backend/src/db-matrix-reports.ts` imports: `./db.js`, `./db.js`, `./db-reports.js`, `./db.js`
-- `backend/src/invoice.ts` imports: `./db.js`
+- `shared-fixtures/add-journal-translations.ts` imports: `./csv.js`
+- `shared-fixtures/add-menu-translations.ts` imports: `./csv.js`
+- `shared-fixtures/translations.ts` imports: `./csv.js`
+- `shared-fixtures/wine-retail-demo-data.ts` imports: `./csv.js`
+- `shared-fixtures/wine-retail.ts` imports: `./csv.js`
 - `backend/src/auth-middleware.ts` imports: `./auth.js`
+- `backend/src/auth.ts` imports: `./db.js`, `./primitives.js`, `./password.js`
+- `backend/src/db-matrix-reports.ts` imports: `./db.js`, `./db.js`, `./db-reports.js`, `./db.js`
+- `backend/src/db-reports.ts` imports: `./db.js`, `./primitives.js`, `./db.js`
 - `backend/src/db-seed.ts` imports: `./db.js`, `./db.js`, `../../shared-fixtures/translations.js`, `../../shared-fixtures/wine-retail-demo-data.js`
+- `backend/src/db-stock.ts` imports: `./db.js`, `./primitives.js`, `./db.js`
+- `backend/src/db.ts` imports: `./sqlite-runtime.js`, `./password.js`, `./primitives.js`, `./db-reports.js`, `./db-seed.js`, `./db-reports.js`, `./db-stock.js`, `./db-stock.js`
+- `backend/src/invoice.ts` imports: `./db.js`
 - `backend/src/primitives.ts` imports: `./db.js`, `./db.js`
+- `backend/src/server.ts` imports: `./routes/entities.js`, `./routes/reports.js`, `./routes/matrix-reports.js`, `./routes/menu.js`, `./routes/i18n.js`, `./routes/businesses.js`, `./routes/journal.js`, `./routes/contacts.js`, `./routes/items.js`, `./routes/products.js`, `./routes/invoices.js`, `./routes/stock-lots.js`, `./routes/locations.js`, `./routes/divisions.js`, `./routes/hierarchy.js`, `./routes/pos.js`, `./routes/customer-registration.js`, `./routes/arap.js`, `./routes/auth.js`, `./routes/stock.js`, `./routes/invoice.js`, `./routes/period.js`, `./routes/projects.js`, `./auth-middleware.js`
 - `frontend/src/lib/api.ts` imports: `./state.svelte`
-- `frontend/src/lib/session.ts` imports: `./api`
-- `frontend/src/lib/pagination.ts` imports: `./state.svelte`
 - `frontend/src/lib/entityTree.ts` imports: `./api`
-- `frontend/src/lib/treeAdapter.ts` imports: `./api`
-- `frontend/src/lib/state.svelte.ts` imports: `./api`, `./api`
 - `frontend/src/lib/menu.ts` imports: `./state.svelte`
+- `frontend/src/lib/pagination.ts` imports: `./state.svelte`
+- `frontend/src/lib/session.ts` imports: `./api`
+- `frontend/src/lib/state.svelte.ts` imports: `./api`, `./api`
+- `frontend/src/lib/treeAdapter.ts` imports: `./api`
 
 ## Call Graph Summary (real, direct invocation counts — see `make call-graph` for the complete, standalone report)
 
 Top 15 most-referenced functions across these 35 real, core files:
-- `create`: 119
+- `create`: 137
 - `fetch`: 72
 - `asAccountName`: 56
 - `asAccountName`: 56
@@ -39,23 +39,25 @@ Top 15 most-referenced functions across these 35 real, core files:
 - `asLedgerName`: 49
 - `asBusinessName`: 48
 - `asBusinessName`: 48
+- `asUserId`: 47
+- `updateEntity`: 42
 - `asItemName`: 39
 - `asItemName`: 39
 - `stageLine`: 37
 - `setEntityLink`: 36
 - `requireAuth`: 33
-- `setTranslation`: 32
-- `asUserId`: 31
 
 ## Common Files
 
-### `shared-fixtures/wine-retail.ts`
-
-**Exported variables**:
-
-- `fixtures`
-
 ### `shared-fixtures/add-brand-translation.ts`
+
+### `shared-fixtures/add-header-translations.ts`
+
+### `shared-fixtures/add-journal-remaining-translations.ts`
+
+### `shared-fixtures/add-journal-translations.ts`
+
+### `shared-fixtures/add-menu-translations.ts`
 
 ### `shared-fixtures/csv.ts`
 
@@ -85,12 +87,6 @@ interface TranslationRow {
   text: string;
 }
 ```
-
-### `shared-fixtures/add-journal-translations.ts`
-
-### `shared-fixtures/add-header-translations.ts`
-
-### `shared-fixtures/add-menu-translations.ts`
 
 ### `shared-fixtures/wine-retail-demo-data.ts`
 
@@ -141,188 +137,119 @@ interface DemoStockLevel {
 }
 ```
 
-### `shared-fixtures/add-journal-remaining-translations.ts`
+### `shared-fixtures/wine-retail.ts`
+
+**Exported variables**:
+
+- `fixtures`
 
 
 ## Backend Files
 
-### `backend/src/sqlite-runtime.ts`
-
-**Types**:
-
-```ts
-interface RuntimeDatabase {
-  exec(sql: string): void;
-  prepare(sql: string): RuntimeStatement;
-  transaction<T extends (...args: never[]) => unknown>(fn: T): (...args: Parameters<T>) => ReturnType<T>;
-  close(): void;
-}
-interface RuntimeStatement {
-  get(...params: unknown[]): unknown;
-  all(...params: unknown[]): unknown[];
-  run(...params: unknown[]): { changes: number | bigint; lastInsertRowid: number | bigint };
-}
-```
-
-**Exported variables**:
-
-- `Database`
-
-### `backend/src/db-stock.ts`
+### `backend/src/auth-middleware.ts`
 
 **Functions**:
 
 ```ts
-stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, locationName?: LocationName, accountId?: number): void
-postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void
-postQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, userId: UserId, transdate?: string, locationName?: LocationName, accountId?: number): void
-getLocationTypes(): string[]
-createLocationType(name: string, userId: UserId): void
-setLocation(name: string, location: Location): void
-getLocation(name: string): Location | undefined
-todayAtLocation(locationName: LocationName): string
-getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels
-setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, userId: UserId): void
-getLocationCapacityStatus(locationName: LocationName): LocationCapacityStatus
-createPosTerminal(terminalName: string, locationName: LocationName, userId: UserId): void
-setTerminalCurrency(terminalName: string, currency: string | null): void
-getEffectiveSaleCurrency(terminalName: string | undefined): string | null
-ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): 
-adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void
-getStockListingByLocation(): StockListingLocationGroup[]
-getStockMovementReport(ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport
-getStockListing(limit = 100, offset = 0): StockListingRow[]
-countStockListing(): number
-setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: {
-    minLevel?: number | null;
-    maxLevel?: number | null;
-    reorderLevel?: number | null;
-    shelfSide?: string | null;
-    rack?: string | null;
-    level?: number | null;
-  }): void
-receiveStockAtLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void
-dispatchStockFromLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string): void
-transferStock(business: BusinessName, ledger: LedgerName, itemName: ItemName, fromLocationName: LocationName, toLocationName: LocationName, quantity: number, reference: string, userId = 1, transdate?: string, combinationShape?: [string, string][], combinationValuesAfterLocation?: string[]): void
-getBelowReorderStock(): BelowReorderRow[]
-setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName, days: number, userId: UserId): void
-getItemLeadTimes(itemName: ItemName): 
-getStockOutRiskReport(windowDays: number = 2): StockOutRiskRow[]
-createStockTake(locationName: LocationName, takeDate: string, userId: UserId): number
-getStockTake(id: number): StockTake | undefined
-recordStockTakeCount(stockTakeId: number, itemName: ItemName, countedQuantity: number): void
-completeStockTake(stockTakeId: number, business: BusinessName, ledger: LedgerName, varianceExpenseAccount: AccountName, /** @deprecated No longer used — each line now resolves its own, * real, per-product Inventory account directly, the same, real, * structural fix already applied to Purchases and Sales/COGS.
-   * Kept only so existing callers (the real, live Stock Take UI, the
-   * simulation) don't need a breaking API change to keep working. */
-  inventoryAccount: string, unitCostMinorByItem: Record<string, number>, userId: UserId): void
-writeOffStock(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, quantity: number, unitCostMinor: number, writeOffExpenseAccount: AccountName, /** @deprecated No longer used — resolves to that same, real
-   * product's own, real Inventory sub-account directly. Kept only so
-   * existing callers don't need a breaking API change. */
-  inventoryAccount: string, reason: string, userId: UserId, transdate?: string, locationName?: LocationName): void
-receiveLot(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, lotNumber: string, receivedDate: string, expirationDate: string | null, quantity: number, userId: UserId, costBasisMinor?: number): void
-consumeFromLots(itemName: ItemName, quantity: number): 
-getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[]
-createSystemEntity(name: string, parentId: number | null): number
-placeOrder(orderReference: string, business: BusinessName, ledger: LedgerName, quantity: number, priceMinor: number, userId: UserId, transdate?: string, vendor?: VendorName, item?: ItemName, location?: LocationName): void
-fulfillOrder(orderReference: string, fulfillingReference: string, business: BusinessName, ledger: LedgerName, quantityFulfilled: number, valueFulfilledMinor: number, userId: UserId, transdate?: string): void
-getOrderStatus(orderReference: string): 
+attachUser(req: Request, _res: Response, next: NextFunction): void
+requireAuth(req: Request, res: Response, next: NextFunction): void
+requireRole(...roles: string[]): void
+```
+
+### `backend/src/auth.ts`
+
+**Functions**:
+
+```ts
+listUsers(): UserSummary[]
+listRoles(): 
+createUser(username: string, password: string, roleNames: string[]): UserSummary
+setUserRoles(userId: number, roleNames: string[]): void
+setUserActive(userId: number, active: boolean): void
+changePassword(userId: number, newPassword: string): void
+changeOwnPassword(userId: number, currentPassword: string, newPassword: string): void
+login(username: string, password: string): 
+logout(token: string): void
+getSessionUser(token: string | undefined): AuthenticatedUser | null
+setOwnPageSize(userId: number, pageSize: number): void
+setOwnNumberFormat(userId: number, numberFormat: string): void
+setOwnDateFormat(userId: number, dateFormat: string): void
 ```
 
 **Types**:
 
 ```ts
-interface Location {
-  city: string;
-  location_type: string;
-  is_billing_address: boolean;
-  bottle_capacity: number | null;
-  carton_capacity: number | null;
-  timezone: string;
-}
-interface ItemLocationLevels {
-  quantity_on_hand: number;
-  min_level: number | null;
-  max_level: number | null;
-  reorder_level: number | null;
-  shelf_side: string | null;
-  rack: string | null;
-  level: number | null;
-}
-interface LocationCapacityStatus {
-  bottleQuantity: number;
-  bottleCapacity: number | null;
-  bottleOverCapacity: boolean;
-  cartonQuantity: number;
-  cartonCapacity: number | null;
-  cartonOverCapacity: boolean;
-}
-interface StockListingRow {
-  item: string;
-  location: string;
-  quantity_on_hand: number;
-  min_level: number | null;
-  max_level: number | null;
-  reorder_level: number | null;
-}
-interface StockListingLocationGroup {
-  location: string;
-  city: string | null;
-  division: string | null;
-  rows: StockListingRow[];
-  total_on_hand: number;
-  capacity: LocationCapacityStatus;
-}
-interface StockMovementRow {
-  item: string;
-  category: string | null;
-  quantity: number;
-  date: string;
-}
-interface StockMovementReport {
-  receipts: StockReceiptRow[];
-  transfers: StockTransferRow[];
-  sales: StockSaleRow[];
-}
-interface BelowReorderRow {
-  item: string;
-  location: string;
-  quantity_on_hand: number;
-  reorder_level: number;
-  min_level: number | null;
-  max_level: number | null;
-}
-interface StockOutRiskRow {
-  item: string;
-  location: string;
-  quantity_on_hand: number;
-  daily_consumption_rate: number;
-  days_until_stockout: number | null;
-  shortest_lead_time_days: number | null;
-  at_risk: boolean;
-}
-interface StockTakeLine {
+interface UserSummary {
   id: number;
-  item: string;
-  shelf_side: string | null;
-  rack: string | null;
-  level: number | null;
-  expected_quantity: number;
-  counted_quantity: number | null;
+  username: string;
+  active: boolean;
+  roles: string[];
 }
-interface StockTake {
+interface AuthenticatedUser {
   id: number;
-  location: string;
-  take_date: string;
-  status: 'draft' | 'completed';
-  lines: StockTakeLine[];
+  username: string;
+  roles: string[];
+  page_size: number;
+  number_format: string;
+  date_format: string;
 }
-interface ExpiringLot {
-  item: string;
-  lot_number: string;
-  expiration_date: string;
-  quantity_on_hand: number;
-  days_until_expiration: number;
+```
+
+### `backend/src/db-matrix-reports.ts`
+
+**Functions**:
+
+```ts
+getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix
+getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): StockOnHandMatrix
+getProfitAndLossByAxis(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, outerAxis: MatrixAxis, innerAxis: MatrixAxis, outerFilter?: string, innerFilter?: string): ProfitAndLossByAxisNode[]
+getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues
+```
+
+**Types**:
+
+```ts
+interface MatrixCell {
+  rowKey: string;
+  colKey: string;
+  salesMinor: number;
+  cogsMinor: number;
 }
+interface SalesCogsMatrix {
+  rowAxis: MatrixAxis;
+  colAxis: MatrixAxis;
+  cells: MatrixCell[];
+  totalSalesMinor: number;
+  totalCogsMinor: number;
+}
+interface StockOnHandCell {
+  rowKey: string;
+  colKey: string;
+  quantityBottles: number;
+  valueAtCostMinor: number;
+  lastCostMinor: number | null;
+  averageCostMinor: number | null;
+  realizableValueMinor: number;
+}
+interface StockOnHandMatrix {
+  rowAxis: MatrixAxis;
+  colAxis: MatrixAxis;
+  cells: StockOnHandCell[];
+  totalValueAtCostMinor: number;
+  totalRealizableValueMinor: number;
+}
+interface ProfitAndLossByAxisNode {
+  key: string;
+  profitAndLoss: ProfitAndLoss;
+  children: ProfitAndLossByAxisNode[];
+}
+interface AxisValues {
+  Product: string[];
+  Category: string[];
+  Location: string[];
+  Division: string[];
+}
+type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Division' | 'Consolidated' | (string & {});
 ```
 
 ### `backend/src/db-reports.ts`
@@ -511,42 +438,168 @@ interface SalesReport {
 }
 ```
 
-### `backend/src/auth.ts`
+### `backend/src/db-seed.ts`
 
 **Functions**:
 
 ```ts
-listUsers(): UserSummary[]
-listRoles(): 
-createUser(username: string, password: string, roleNames: string[]): UserSummary
-setUserRoles(userId: number, roleNames: string[]): void
-setUserActive(userId: number, active: boolean): void
-changePassword(userId: number, newPassword: string): void
-changeOwnPassword(userId: number, currentPassword: string, newPassword: string): void
-login(username: string, password: string): 
-logout(token: string): void
-getSessionUser(token: string | undefined): AuthenticatedUser | null
-setOwnPageSize(userId: number, pageSize: number): void
-setOwnNumberFormat(userId: number, numberFormat: string): void
-setOwnDateFormat(userId: number, dateFormat: string): void
+seedRemainingData(): void
+```
+
+### `backend/src/db-stock.ts`
+
+**Functions**:
+
+```ts
+stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, locationName?: LocationName, accountId?: number): void
+postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void
+postQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, userId: UserId, transdate?: string, locationName?: LocationName, accountId?: number): void
+getLocationTypes(): string[]
+createLocationType(name: string, userId: UserId): void
+setLocation(name: string, location: Location): void
+getLocation(name: string): Location | undefined
+todayAtLocation(locationName: LocationName): string
+getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels
+setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, userId: UserId): void
+getLocationCapacityStatus(locationName: LocationName): LocationCapacityStatus
+createPosTerminal(terminalName: string, locationName: LocationName, userId: UserId): void
+setTerminalCurrency(terminalName: string, currency: string | null): void
+getEffectiveSaleCurrency(terminalName: string | undefined): string | null
+ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): 
+adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void
+getStockListingByLocation(): StockListingLocationGroup[]
+getStockMovementReport(ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport
+getStockListing(limit = 100, offset = 0): StockListingRow[]
+countStockListing(): number
+setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: {
+    minLevel?: number | null;
+    maxLevel?: number | null;
+    reorderLevel?: number | null;
+    shelfSide?: string | null;
+    rack?: string | null;
+    level?: number | null;
+  }): void
+receiveStockAtLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void
+dispatchStockFromLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string): void
+transferStock(business: BusinessName, ledger: LedgerName, itemName: ItemName, fromLocationName: LocationName, toLocationName: LocationName, quantity: number, reference: string, userId = 1, transdate?: string, combinationShape?: [string, string][], combinationValuesAfterLocation?: string[]): void
+getBelowReorderStock(): BelowReorderRow[]
+setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName, days: number, userId: UserId): void
+getItemLeadTimes(itemName: ItemName): 
+getStockOutRiskReport(windowDays: number = 2): StockOutRiskRow[]
+createStockTake(locationName: LocationName, takeDate: string, userId: UserId): number
+getStockTake(id: number): StockTake | undefined
+recordStockTakeCount(stockTakeId: number, itemName: ItemName, countedQuantity: number): void
+completeStockTake(stockTakeId: number, business: BusinessName, ledger: LedgerName, varianceExpenseAccount: AccountName, /** @deprecated No longer used — each line now resolves its own, * real, per-product Inventory account directly, the same, real, * structural fix already applied to Purchases and Sales/COGS.
+   * Kept only so existing callers (the real, live Stock Take UI, the
+   * simulation) don't need a breaking API change to keep working. */
+  inventoryAccount: string, unitCostMinorByItem: Record<string, number>, userId: UserId): void
+writeOffStock(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, quantity: number, unitCostMinor: number, writeOffExpenseAccount: AccountName, /** @deprecated No longer used — resolves to that same, real
+   * product's own, real Inventory sub-account directly. Kept only so
+   * existing callers don't need a breaking API change. */
+  inventoryAccount: string, reason: string, userId: UserId, transdate?: string, locationName?: LocationName): void
+receiveLot(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, lotNumber: string, receivedDate: string, expirationDate: string | null, quantity: number, userId: UserId, costBasisMinor?: number): void
+consumeFromLots(itemName: ItemName, quantity: number): 
+getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[]
+createSystemEntity(name: string, parentId: number | null): number
+placeOrder(orderReference: string, business: BusinessName, ledger: LedgerName, quantity: number, priceMinor: number, userId: UserId, transdate?: string, vendor?: VendorName, item?: ItemName, location?: LocationName): void
+fulfillOrder(orderReference: string, fulfillingReference: string, business: BusinessName, ledger: LedgerName, quantityFulfilled: number, valueFulfilledMinor: number, userId: UserId, transdate?: string): void
+getOrderStatus(orderReference: string): 
 ```
 
 **Types**:
 
 ```ts
-interface UserSummary {
-  id: number;
-  username: string;
-  active: boolean;
-  roles: string[];
+interface Location {
+  city: string;
+  location_type: string;
+  is_billing_address: boolean;
+  bottle_capacity: number | null;
+  carton_capacity: number | null;
+  timezone: string;
 }
-interface AuthenticatedUser {
+interface ItemLocationLevels {
+  quantity_on_hand: number;
+  min_level: number | null;
+  max_level: number | null;
+  reorder_level: number | null;
+  shelf_side: string | null;
+  rack: string | null;
+  level: number | null;
+}
+interface LocationCapacityStatus {
+  bottleQuantity: number;
+  bottleCapacity: number | null;
+  bottleOverCapacity: boolean;
+  cartonQuantity: number;
+  cartonCapacity: number | null;
+  cartonOverCapacity: boolean;
+}
+interface StockListingRow {
+  item: string;
+  location: string;
+  quantity_on_hand: number;
+  min_level: number | null;
+  max_level: number | null;
+  reorder_level: number | null;
+}
+interface StockListingLocationGroup {
+  location: string;
+  city: string | null;
+  division: string | null;
+  rows: StockListingRow[];
+  total_on_hand: number;
+  capacity: LocationCapacityStatus;
+}
+interface StockMovementRow {
+  item: string;
+  category: string | null;
+  quantity: number;
+  date: string;
+}
+interface StockMovementReport {
+  receipts: StockReceiptRow[];
+  transfers: StockTransferRow[];
+  sales: StockSaleRow[];
+}
+interface BelowReorderRow {
+  item: string;
+  location: string;
+  quantity_on_hand: number;
+  reorder_level: number;
+  min_level: number | null;
+  max_level: number | null;
+}
+interface StockOutRiskRow {
+  item: string;
+  location: string;
+  quantity_on_hand: number;
+  daily_consumption_rate: number;
+  days_until_stockout: number | null;
+  shortest_lead_time_days: number | null;
+  at_risk: boolean;
+}
+interface StockTakeLine {
   id: number;
-  username: string;
-  roles: string[];
-  page_size: number;
-  number_format: string;
-  date_format: string;
+  item: string;
+  shelf_side: string | null;
+  rack: string | null;
+  level: number | null;
+  expected_quantity: number;
+  counted_quantity: number | null;
+}
+interface StockTake {
+  id: number;
+  location: string;
+  take_date: string;
+  status: 'draft' | 'completed';
+  lines: StockTakeLine[];
+}
+interface ExpiringLot {
+  item: string;
+  lot_number: string;
+  expiration_date: string;
+  quantity_on_hand: number;
+  days_until_expiration: number;
 }
 ```
 
@@ -649,6 +702,7 @@ getReminderCandidates(business: BusinessName, ledger: LedgerName, asOfDate: stri
 getContact(entityName: string): Contact | undefined
 getInvoiceLine(reference: string, business: BusinessName, ledger: LedgerName): InvoiceLine | undefined
 getAccountsPostedTo(reference: string): string[]
+mergeContactDetail(entityId: number, fields: Record<string, unknown>): void
 setContact(entityName: string, contact: Partial<Contact>): void
 setPosPin(employeeName: string, pin: string): void
 signOn(employeeName: string, locationName: string): PosShift
@@ -1440,65 +1494,6 @@ type Recurrence = 'once' | 'weekly' | 'monthly' | 'yearly';
 - `typeBusinessTypeQuestionName`
 - `typeDivisionName`
 
-### `backend/src/server.ts`
-
-### `backend/src/db-matrix-reports.ts`
-
-**Functions**:
-
-```ts
-getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix
-getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): StockOnHandMatrix
-getProfitAndLossByAxis(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, outerAxis: MatrixAxis, innerAxis: MatrixAxis, outerFilter?: string, innerFilter?: string): ProfitAndLossByAxisNode[]
-getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues
-```
-
-**Types**:
-
-```ts
-interface MatrixCell {
-  rowKey: string;
-  colKey: string;
-  salesMinor: number;
-  cogsMinor: number;
-}
-interface SalesCogsMatrix {
-  rowAxis: MatrixAxis;
-  colAxis: MatrixAxis;
-  cells: MatrixCell[];
-  totalSalesMinor: number;
-  totalCogsMinor: number;
-}
-interface StockOnHandCell {
-  rowKey: string;
-  colKey: string;
-  quantityBottles: number;
-  valueAtCostMinor: number;
-  lastCostMinor: number | null;
-  averageCostMinor: number | null;
-  realizableValueMinor: number;
-}
-interface StockOnHandMatrix {
-  rowAxis: MatrixAxis;
-  colAxis: MatrixAxis;
-  cells: StockOnHandCell[];
-  totalValueAtCostMinor: number;
-  totalRealizableValueMinor: number;
-}
-interface ProfitAndLossByAxisNode {
-  key: string;
-  profitAndLoss: ProfitAndLoss;
-  children: ProfitAndLossByAxisNode[];
-}
-interface AxisValues {
-  Product: string[];
-  Category: string[];
-  Location: string[];
-  Division: string[];
-}
-type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Division' | 'Consolidated' | (string & {});
-```
-
 ### `backend/src/invoice.ts`
 
 **Types**:
@@ -1515,16 +1510,6 @@ interface InvoiceOptions {
 }
 ```
 
-### `backend/src/auth-middleware.ts`
-
-**Functions**:
-
-```ts
-attachUser(req: Request, _res: Response, next: NextFunction): void
-requireAuth(req: Request, res: Response, next: NextFunction): void
-requireRole(...roles: string[]): void
-```
-
 ### `backend/src/password.ts`
 
 **Functions**:
@@ -1532,14 +1517,6 @@ requireRole(...roles: string[]): void
 ```ts
 hashPassword(password: string): string
 verifyPassword(password: string, stored: string): boolean
-```
-
-### `backend/src/db-seed.ts`
-
-**Functions**:
-
-```ts
-seedRemainingData(): void
 ```
 
 ### `backend/src/primitives.ts`
@@ -1565,63 +1542,32 @@ interface HierarchyTreeNode {
 - `Currency`
 - `Detail`
 
+### `backend/src/server.ts`
 
-## Frontend Files
-
-### `frontend/src/lib/matrix-api.ts`
+### `backend/src/sqlite-runtime.ts`
 
 **Types**:
 
 ```ts
-interface MatrixCell {
-  rowKey: string;
-  colKey: string;
-  salesMinor: number;
-  cogsMinor: number;
+interface RuntimeDatabase {
+  exec(sql: string): void;
+  prepare(sql: string): RuntimeStatement;
+  transaction<T extends (...args: never[]) => unknown>(fn: T): (...args: Parameters<T>) => ReturnType<T>;
+  close(): void;
 }
-interface SalesCogsMatrix {
-  rowAxis: MatrixAxis;
-  colAxis: MatrixAxis;
-  cells: MatrixCell[];
-  totalSalesMinor: number;
-  totalCogsMinor: number;
+interface RuntimeStatement {
+  get(...params: unknown[]): unknown;
+  all(...params: unknown[]): unknown[];
+  run(...params: unknown[]): { changes: number | bigint; lastInsertRowid: number | bigint };
 }
-interface StockOnHandCell {
-  rowKey: string;
-  colKey: string;
-  quantityBottles: number;
-  valueAtCostMinor: number;
-  lastCostMinor: number | null;
-  averageCostMinor: number | null;
-  realizableValueMinor: number;
-}
-interface StockOnHandMatrix {
-  rowAxis: MatrixAxis;
-  colAxis: MatrixAxis;
-  cells: StockOnHandCell[];
-  totalValueAtCostMinor: number;
-  totalRealizableValueMinor: number;
-}
-interface ProfitAndLossByAxisNode {
-  key: string;
-  profitAndLoss: ProfitAndLoss;
-  children: ProfitAndLossByAxisNode[];
-}
-interface AxisValues {
-  Product: string[];
-  Category: string[];
-  Location: string[];
-  Division: string[];
-}
-type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Division' | 'Consolidated';
 ```
 
 **Exported variables**:
 
-- `getSalesCogsMatrix`
-- `getStockOnHandMatrix`
-- `getProfitAndLossByAxis`
-- `getAxisValues`
+- `Database`
+
+
+## Frontend Files
 
 ### `frontend/src/lib/api.ts`
 
@@ -2528,47 +2474,6 @@ type BomComponent = { component: string;
 - `getStockListingByLocation`
 - `getStockMovementReport`
 
-### `frontend/src/lib/session.ts`
-
-**Types**:
-
-```ts
-interface SessionContext {
-  businessId: number;
-  businessName: BusinessName;
-  ledgerId: number;
-  ledgerName: LedgerName;
-  languageId: number;
-  languageName: string;
-}
-```
-
-**Exported variables**:
-
-- `session`
-
-### `frontend/src/lib/format.ts`
-
-**Functions**:
-
-```ts
-todayIsoDate(): string
-decimalPlacesFor(unitCode: string | undefined): number
-formatAmount(smallestUnits: number, numberFormat: string, unitCode?: string): string
-formatDate(isoDate: string | null | undefined, dateFormat: string): string
-```
-
-### `frontend/src/lib/pagination.ts`
-
-### `frontend/src/lib/entityTree.ts`
-
-**Functions**:
-
-```ts
-isDescendantOf(entity: EntityNode, ancestorName: string, allEntities: EntityNode[], matchSuffix = false): boolean
-filterToItems(entities: EntityNode[]): EntityNode[]
-```
-
 ### `frontend/src/lib/auth.ts`
 
 **Functions**:
@@ -2598,11 +2503,121 @@ interface AuthState {
 
 - `auth`
 
-### `frontend/src/lib/translations.ts`
+### `frontend/src/lib/dirty-state.ts`
 
 **Exported variables**:
 
-- `translations`
+- `hasUnsavedEdit`
+
+### `frontend/src/lib/entityTree.ts`
+
+**Functions**:
+
+```ts
+isDescendantOf(entity: EntityNode, ancestorName: string, allEntities: EntityNode[], matchSuffix = false): boolean
+filterToItems(entities: EntityNode[]): EntityNode[]
+```
+
+### `frontend/src/lib/format.ts`
+
+**Functions**:
+
+```ts
+todayIsoDate(): string
+decimalPlacesFor(unitCode: string | undefined): number
+formatAmount(smallestUnits: number, numberFormat: string, unitCode?: string): string
+formatDate(isoDate: string | null | undefined, dateFormat: string): string
+```
+
+### `frontend/src/lib/journalGrid.ts`
+
+**Functions**:
+
+```ts
+emptyRow(): Row
+isRowEmpty(row: Row): boolean
+isRowFilled(row: Row): boolean
+activeRows(rows: Row[]): Row[]
+debitTotalMinor(rows: Row[]): number
+creditTotalMinor(rows: Row[]): number
+differenceMinor(rows: Row[]): number
+isBalanced(rows: Row[]): boolean
+canSave(rows: Row[]): boolean
+ensureAtLeastOneRow(rows: Row[]): Row[]
+addRow(rows: Row[]): Row[]
+removeRowAt(rows: Row[], index: number): Row[]
+computeSuggestedFill(rows: Row[], trailingIndex: number): number | null
+autoBalanceTrailingRow(rows: Row[], changedIndex: number): Row[]
+autoExpandIfTrailingRowFilled(rows: Row[]): Row[]
+```
+
+**Types**:
+
+```ts
+interface Row {
+  account: string;
+  debit: string; // kept as the raw text the person typed, not a number,
+  credit: string; // so "12.5" vs "12.50" vs an empty field are distinct
+  memo: string;
+}
+```
+
+### `frontend/src/lib/matrix-api.ts`
+
+**Types**:
+
+```ts
+interface MatrixCell {
+  rowKey: string;
+  colKey: string;
+  salesMinor: number;
+  cogsMinor: number;
+}
+interface SalesCogsMatrix {
+  rowAxis: MatrixAxis;
+  colAxis: MatrixAxis;
+  cells: MatrixCell[];
+  totalSalesMinor: number;
+  totalCogsMinor: number;
+}
+interface StockOnHandCell {
+  rowKey: string;
+  colKey: string;
+  quantityBottles: number;
+  valueAtCostMinor: number;
+  lastCostMinor: number | null;
+  averageCostMinor: number | null;
+  realizableValueMinor: number;
+}
+interface StockOnHandMatrix {
+  rowAxis: MatrixAxis;
+  colAxis: MatrixAxis;
+  cells: StockOnHandCell[];
+  totalValueAtCostMinor: number;
+  totalRealizableValueMinor: number;
+}
+interface ProfitAndLossByAxisNode {
+  key: string;
+  profitAndLoss: ProfitAndLoss;
+  children: ProfitAndLossByAxisNode[];
+}
+interface AxisValues {
+  Product: string[];
+  Category: string[];
+  Location: string[];
+  Division: string[];
+}
+type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Division' | 'Consolidated';
+```
+
+**Exported variables**:
+
+- `getSalesCogsMatrix`
+- `getStockOnHandMatrix`
+- `getProfitAndLossByAxis`
+- `getAxisValues`
+
+### `frontend/src/lib/menu.ts`
 
 ### `frontend/src/lib/money.ts`
 
@@ -2613,25 +2628,26 @@ parseMinorUnits(text: string): number
 parseQuantity(text: string): number
 ```
 
-### `frontend/src/lib/treeAdapter.ts`
+### `frontend/src/lib/pagination.ts`
 
-**Functions**:
-
-```ts
-toTreePaths(entities: EntityNode[]): TreeItem[]
-```
+### `frontend/src/lib/session.ts`
 
 **Types**:
 
 ```ts
-interface TreeItem {
-  path: string;
-  id: number;
-  name: string;
-  accountnumber: string | null;
-  balance_minor: number | null;
+interface SessionContext {
+  businessId: number;
+  businessName: BusinessName;
+  ledgerId: number;
+  ledgerName: LedgerName;
+  languageId: number;
+  languageName: string;
 }
 ```
+
+**Exported variables**:
+
+- `session`
 
 ### `frontend/src/lib/state.svelte.ts`
 
@@ -2675,46 +2691,31 @@ interface SessionContext {
 - `session`
 - `translations`
 
-### `frontend/src/lib/journalGrid.ts`
+### `frontend/src/lib/translations.ts`
+
+**Exported variables**:
+
+- `translations`
+
+### `frontend/src/lib/treeAdapter.ts`
 
 **Functions**:
 
 ```ts
-emptyRow(): Row
-isRowEmpty(row: Row): boolean
-isRowFilled(row: Row): boolean
-activeRows(rows: Row[]): Row[]
-debitTotalMinor(rows: Row[]): number
-creditTotalMinor(rows: Row[]): number
-differenceMinor(rows: Row[]): number
-isBalanced(rows: Row[]): boolean
-canSave(rows: Row[]): boolean
-ensureAtLeastOneRow(rows: Row[]): Row[]
-addRow(rows: Row[]): Row[]
-removeRowAt(rows: Row[], index: number): Row[]
-computeSuggestedFill(rows: Row[], trailingIndex: number): number | null
-autoBalanceTrailingRow(rows: Row[], changedIndex: number): Row[]
-autoExpandIfTrailingRowFilled(rows: Row[]): Row[]
+toTreePaths(entities: EntityNode[]): TreeItem[]
 ```
 
 **Types**:
 
 ```ts
-interface Row {
-  account: string;
-  debit: string; // kept as the raw text the person typed, not a number,
-  credit: string; // so "12.5" vs "12.50" vs an empty field are distinct
-  memo: string;
+interface TreeItem {
+  path: string;
+  id: number;
+  name: string;
+  accountnumber: string | null;
+  balance_minor: number | null;
 }
 ```
-
-### `frontend/src/lib/dirty-state.ts`
-
-**Exported variables**:
-
-- `hasUnsavedEdit`
-
-### `frontend/src/lib/menu.ts`
 
 
 ## Parent Link / Sibling (Relation) Link Index
@@ -2729,9 +2730,10 @@ See `docs/naming-conventions-and-entity-glossary.md` for what these two, real, d
 
 ### Real `relation:` usages (lateral — "this entity refers to / is a translation of that one")
 
-- `backend/src/db-stock.ts`: location.location_type; 'Billing Address'; vendor; item
-- `backend/src/db.ts`: targetName; recordName; h.day; s.day; type; prototypeName; targetName; languageName; // conceptName; coaFamily; child.name; coaFamily; coaFamily
+- `backend/src/auth.ts`: role.name; username
 - `backend/src/db-seed.ts`: 'COGS'; section.label; link.label
+- `backend/src/db-stock.ts`: location.location_type; 'Billing Address'; p.item_name; vendor; item
+- `backend/src/db.ts`: targetName; recordName; input.counterpartyName; line.itemName; locationName; h.day; s.day; type; prototypeName; targetName; input.vendorName; languageName; preferredAlternateName; preferredAlternateName; // conceptName; coaFamily; child.name; coaFamily; coaFamily
 - `backend/src/primitives.ts`: target
 
 ## Reference Index
@@ -2768,8 +2770,8 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `BelowReorderRow` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `interface BelowReorderRow {   item: string;   location: string;   quantity_on_hand: number;   reorder_level: number;   min_level: number \| null;   max_level: number \| null; }` |
 | `BelowReorderRow` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts` | `interface BelowReorderRow {   item: string;   location: string;   quantity_on_hand: number;   reorder_level: number;   min_level: number \| null;   max_level: number \| null; }` |
 | `BomComponent` | `frontend/src/lib/api.ts` | (none) | `type BomComponent = { component: string;` |
-| `BusinessName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-reports.ts`, `backend/src/db-matrix-reports.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type BusinessName = string & { readonly __brand: 'BusinessName' };` |
-| `BusinessName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db-reports.ts`, `backend/src/db.ts`, `backend/src/db-matrix-reports.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type BusinessName = string & { readonly __brand: 'BusinessName' };` |
+| `BusinessName` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type BusinessName = string & { readonly __brand: 'BusinessName' };` |
+| `BusinessName` | `frontend/src/lib/api.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type BusinessName = string & { readonly __brand: 'BusinessName' };` |
 | `BusinessTypeInfo` | `backend/src/db.ts` | (none) | `interface BusinessTypeInfo {   name: string;   questions: string[]; }` |
 | `CashFlowForecast` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface CashFlowForecast {   as_of_date: string;   horizon_end_date: string;   starting_cash_minor: number;   overdraft_limit_minor: number \| null;   lines: ForecastLine[];   ending_cash_minor: number;   lowest_projected_balance_minor: number;   lowest_balance_date: string;   first_shortfall_date: string \| null;   first_shortfall_amount_minor: number \| null; }` |
 | `CashFlowForecast` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface CashFlowForecast {   as_of_date: string;   horizon_end_date: string;   starting_cash_minor: number;   overdraft_limit_minor: number \| null;   lines: ForecastLine[];   ending_cash_minor: number;   lowest_projected_balance_minor: number;   lowest_balance_date: string;   first_shortfall_date: string \| null;   first_shortfall_amount_minor: number \| null; }` |
@@ -2791,8 +2793,8 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `CloseBooksResult` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts` | `interface CloseBooksResult {   reference: string;   netIncomeMinor: number;   accountsZeroed: number;   divisionBreakdown: { division: DivisionName \| null; netIncomeMinor: number }[]; }` |
 | `ConceptWithAlternates` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ConceptWithAlternates {   headerAccountName: string;   alternates: string[];   defaultAlternate: string; }` |
 | `ConceptWithAlternates` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ConceptWithAlternates {   headerAccountName: string;   alternates: string[];   defaultAlternate: string; }` |
-| `Contact` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `interface Contact {   person_name: string \| null;   phone: string \| null;   email: string \| null;   address_line1: string \| null;   address_line2: string \| null;   city: string \| null;   region: string \| null;   postal_code: string \| null;   country: string \| null;   payment_terms_days: number \| null;   credit_limit_minor: number \| null;   wage_minor_per_hour: number \| null;   salary_minor_per_year: number \| null;   reminder_level: number;   preferred_language: string \| null;   verification_status: 'pending' \| 'active' \| 'rejected' \| null;   card_label: string \| null;   pos_pin: string \| null; }` |
-| `Contact` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/db-seed.ts` | `interface Contact {   phone: string \| null;   email: string \| null;   address_line1: string \| null;   address_line2: string \| null;   city: string \| null;   region: string \| null;   postal_code: string \| null;   country: string \| null;   payment_terms_days: number \| null;   credit_limit_minor: number \| null;   wage_minor_per_hour: number \| null;   salary_minor_per_year: number \| null;   reminder_level: number;   preferred_language: string \| null; }` |
+| `Contact` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `interface Contact {   person_name: string \| null;   phone: string \| null;   email: string \| null;   address_line1: string \| null;   address_line2: string \| null;   city: string \| null;   region: string \| null;   postal_code: string \| null;   country: string \| null;   payment_terms_days: number \| null;   credit_limit_minor: number \| null;   wage_minor_per_hour: number \| null;   salary_minor_per_year: number \| null;   reminder_level: number;   preferred_language: string \| null;   verification_status: 'pending' \| 'active' \| 'rejected' \| null;   card_label: string \| null;   pos_pin: string \| null; }` |
+| `Contact` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `interface Contact {   phone: string \| null;   email: string \| null;   address_line1: string \| null;   address_line2: string \| null;   city: string \| null;   region: string \| null;   postal_code: string \| null;   country: string \| null;   payment_terms_days: number \| null;   credit_limit_minor: number \| null;   wage_minor_per_hour: number \| null;   salary_minor_per_year: number \| null;   reminder_level: number;   preferred_language: string \| null; }` |
 | `ContactPerson` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ContactPerson {   contact_type: string;   record_name: string;   name: string \| null;   phone: string \| null;   email: string \| null; }` |
 | `ContactPerson` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ContactPerson {   contact_type: string;   record_name: string;   name: string \| null;   phone: string \| null;   email: string \| null; }` |
 | `CreditStatus` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface CreditStatus {   balanceMinor: number;   limitMinor: number \| null;   overLimit: boolean;   remainingMinor: number \| null; }` |
@@ -2836,8 +2838,8 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `HistoryLine` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface HistoryLine {   invoice_reference: string;   invoice_date: string;   document_type: 'invoice' \| 'credit_note' \| 'debit_memo';   description: string;   quantity: number \| null;   unit_price_minor: number \| null;   amount_minor: number; }` |
 | `HistoryLine` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface HistoryLine {   invoice_reference: string;   invoice_date: string;   document_type: 'invoice' \| 'credit_note' \| 'debit_memo';   description: string;   quantity: number \| null;   unit_price_minor: number \| null;   amount_minor: number; }` |
 | `ImportEInvoiceResult` | `frontend/src/lib/api.ts` | (none) | `interface ImportEInvoiceResult {   invoiceId: number;   discrepancies: EInvoiceDiscrepancy[]; }` |
-| `Invoice` | `backend/src/db.ts` | `backend/src/invoice.ts`, `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `interface Invoice {   id: number;   invoice_type: 'AR' \| 'AP';   document_type: 'invoice' \| 'credit_note' \| 'debit_memo';   references_invoice_id: number \| null;   business: string;   ledger: string;   reference: string;   counterparty: string;   invoice_date: string;   due_date: string \| null;   description: string;   status: 'draft' \| 'posted' \| 'void';   posted_by: string \| null;   source: 'manual' \| 'pos';   lines: (InvoiceLineInput & { id: number })[];   total_amount_minor: number;   total_tax_minor: number; }` |
-| `Invoice` | `frontend/src/lib/api.ts` | `backend/src/db.ts`, `backend/src/invoice.ts`, `backend/src/db-seed.ts` | `interface Invoice {   id: number;   invoice_type: 'AR' \| 'AP';   document_type: 'invoice' \| 'credit_note' \| 'debit_memo';   references_invoice_id: number \| null;   business: BusinessName;   ledger: LedgerName;   reference: string;   counterparty: string;   invoice_date: string;   due_date: string \| null;   description: string;   status: 'draft' \| 'posted' \| 'void';   posted_by: string \| null;   source: 'manual' \| 'pos';   lines: (InvoiceLine & { id: number })[];   total_amount_minor: number;   total_tax_minor: number; }` |
+| `Invoice` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/invoice.ts`, `frontend/src/lib/api.ts` | `interface Invoice {   id: number;   invoice_type: 'AR' \| 'AP';   document_type: 'invoice' \| 'credit_note' \| 'debit_memo';   references_invoice_id: number \| null;   business: string;   ledger: string;   reference: string;   counterparty: string;   invoice_date: string;   due_date: string \| null;   description: string;   status: 'draft' \| 'posted' \| 'void';   posted_by: string \| null;   source: 'manual' \| 'pos';   lines: (InvoiceLineInput & { id: number })[];   total_amount_minor: number;   total_tax_minor: number; }` |
+| `Invoice` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db.ts`, `backend/src/invoice.ts` | `interface Invoice {   id: number;   invoice_type: 'AR' \| 'AP';   document_type: 'invoice' \| 'credit_note' \| 'debit_memo';   references_invoice_id: number \| null;   business: BusinessName;   ledger: LedgerName;   reference: string;   counterparty: string;   invoice_date: string;   due_date: string \| null;   description: string;   status: 'draft' \| 'posted' \| 'void';   posted_by: string \| null;   source: 'manual' \| 'pos';   lines: (InvoiceLine & { id: number })[];   total_amount_minor: number;   total_tax_minor: number; }` |
 | `InvoiceInput` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface InvoiceInput {   invoiceType: 'AR' \| 'AP';   documentType?: 'invoice' \| 'credit_note' \| 'debit_memo';   referencesInvoiceId?: number \| null;   business: string;   ledger: string;   reference: string;   counterpartyName: string;   invoiceDate: string;   description?: string;   lines: InvoiceLineInput[];   source?: 'manual' \| 'pos'; }` |
 | `InvoiceInput` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface InvoiceInput {   invoiceType: 'AR' \| 'AP';   documentType?: 'invoice' \| 'credit_note' \| 'debit_memo';   referencesInvoiceId?: number \| null;   business: BusinessName;   ledger: LedgerName;   reference: string;   counterpartyName: string;   invoiceDate: string;   description?: string;   lines: InvoiceLine[]; }` |
 | `InvoiceLine` | `backend/src/db.ts` | `backend/src/invoice.ts`, `frontend/src/lib/api.ts` | `interface InvoiceLine {   reference: string;   description: string;   quantity: number \| null;   unit_price_minor: number \| null;   amount_minor: number;   tax_minor: number; }` |
@@ -2845,7 +2847,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `InvoiceLineInput` | `backend/src/db.ts` | (none) | `interface InvoiceLineInput {   description: string;   quantity?: number \| null;   unitPriceMinor?: number \| null;   amountMinor: number;   taxMinor?: number;   itemName?: string \| null;   dispatchReference?: string \| null; }` |
 | `InvoiceOptions` | `backend/src/invoice.ts` | (none) | `interface InvoiceOptions {   invoiceReference: string; // the display reference for the whole document   customerName: string;   date: string;   postedBy: string;   lineReferences: string[]; // the underlying posting references that make up this invoice   business: string;   ledger: string; }` |
 | `Item` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/entityTree.ts` | `interface Item {   description: string \| null;   unit_of_measure: string \| null;   upc: string \| null;   retail_price_minor: number \| null; }` |
-| `Item` | `frontend/src/lib/api.ts` | `backend/src/db.ts`, `backend/src/db-seed.ts`, `frontend/src/lib/entityTree.ts` | `interface Item {   description: string \| null;   unit_of_measure: string \| null;   upc: string \| null; }` |
+| `Item` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db.ts`, `frontend/src/lib/entityTree.ts` | `interface Item {   description: string \| null;   unit_of_measure: string \| null;   upc: string \| null; }` |
 | `ItemLocationLevels` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `interface ItemLocationLevels {   quantity_on_hand: number;   min_level: number \| null;   max_level: number \| null;   reorder_level: number \| null;   shelf_side: string \| null;   rack: string \| null;   level: number \| null; }` |
 | `ItemLocationLevels` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts` | `interface ItemLocationLevels {   quantity_on_hand: number;   min_level: number \| null;   max_level: number \| null;   reorder_level: number \| null;   shelf_side: string \| null;   rack: string \| null;   level: number \| null; }` |
 | `ItemName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `type ItemName = string & { readonly __brand: 'ItemName' };` |
@@ -2860,15 +2862,15 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `JournalSummary` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface JournalSummary {   journal_id: number;   occurrence_date: string \| null;   reference: string;   description: string;   business: BusinessName;   ledger: LedgerName;   recurrence: string;   total_debit_minor: number;   total_credit_minor: number; }` |
 | `LedgerDateRange` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface LedgerDateRange {   earliest: string \| null;   latest: string \| null; }` |
 | `LedgerDateRange` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface LedgerDateRange {   earliest: string \| null;   latest: string \| null; }` |
-| `LedgerName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-reports.ts`, `backend/src/db-matrix-reports.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type LedgerName = string & { readonly __brand: 'LedgerName' };` |
-| `LedgerName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db-reports.ts`, `backend/src/db.ts`, `backend/src/db-matrix-reports.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type LedgerName = string & { readonly __brand: 'LedgerName' };` |
+| `LedgerName` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type LedgerName = string & { readonly __brand: 'LedgerName' };` |
+| `LedgerName` | `frontend/src/lib/api.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type LedgerName = string & { readonly __brand: 'LedgerName' };` |
 | `ListInvoicesOptions` | `backend/src/db.ts` | (none) | `interface ListInvoicesOptions {   invoiceType?: 'AR' \| 'AP';   source?: 'manual' \| 'pos' \| 'all';   limit?: number;   offset?: number; }` |
-| `Location` | `backend/src/db-stock.ts` | `backend/src/db-reports.ts`, `backend/src/db.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-seed.ts`, `frontend/src/lib/matrix-api.ts` | `interface Location {   city: string;   location_type: string;   is_billing_address: boolean;   bottle_capacity: number \| null;   carton_capacity: number \| null;   timezone: string; }` |
+| `Location` | `backend/src/db-stock.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db.ts`, `frontend/src/lib/matrix-api.ts` | `interface Location {   city: string;   location_type: string;   is_billing_address: boolean;   bottle_capacity: number \| null;   carton_capacity: number \| null;   timezone: string; }` |
 | `LocationCapacityStatus` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `interface LocationCapacityStatus {   bottleQuantity: number;   bottleCapacity: number \| null;   bottleOverCapacity: boolean;   cartonQuantity: number;   cartonCapacity: number \| null;   cartonOverCapacity: boolean; }` |
 | `LocationCapacityStatus` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts` | `interface LocationCapacityStatus {   bottleQuantity: number;   bottleCapacity: number \| null;   bottleOverCapacity: boolean;   cartonQuantity: number;   cartonCapacity: number \| null;   cartonOverCapacity: boolean; }` |
 | `LocationInput` | `frontend/src/lib/api.ts` | (none) | `interface LocationInput {   city: string;   location_type: string;   is_billing_address: boolean;   bottle_capacity?: number \| null;   carton_capacity?: number \| null;   timezone: string; }` |
-| `LocationName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-matrix-reports.ts`, `frontend/src/lib/api.ts` | `type LocationName = string & { readonly __brand: 'LocationName' };` |
-| `LocationName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/db-matrix-reports.ts` | `type LocationName = string & { readonly __brand: 'LocationName' };` |
+| `LocationName` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `type LocationName = string & { readonly __brand: 'LocationName' };` |
+| `LocationName` | `frontend/src/lib/api.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `type LocationName = string & { readonly __brand: 'LocationName' };` |
 | `LoginResponse` | `frontend/src/lib/api.ts` | (none) | `interface LoginResponse {   token: string;   user: { id: number; username: string; roles: string[]; page_size: number; number_format: string; date_format: string }; }` |
 | `MatrixAxis` | `backend/src/db-matrix-reports.ts` | `frontend/src/lib/matrix-api.ts` | `type MatrixAxis = 'Product' \| 'Category' \| 'Location' \| 'Division' \| 'Consolidated' \| (string & {});` |
 | `MatrixAxis` | `frontend/src/lib/matrix-api.ts` | `backend/src/db-matrix-reports.ts` | `type MatrixAxis = 'Product' \| 'Category' \| 'Location' \| 'Division' \| 'Consolidated';` |
@@ -2901,8 +2903,8 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `PosShift` | `backend/src/db.ts` | (none) | `interface PosShift {   id: number;   employee: string;   location: string;   signed_on_at: string;   signed_off_at: string \| null; }` |
 | `ProductSummary` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ProductSummary {   name: string;   itemCount: number; }` |
 | `ProductSummary` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ProductSummary {   name: string;   itemCount: number; }` |
-| `ProfitAndLoss` | `backend/src/db-reports.ts` | `backend/src/db-matrix-reports.ts`, `frontend/src/lib/matrix-api.ts`, `frontend/src/lib/api.ts` | `interface ProfitAndLoss {   income: StatementLine[];   expenses: StatementLine[];   cogs_expenses: StatementLine[];   operating_expenses: StatementLine[];   income_tree: CategoryTreeNode[];   cogs_tree: CategoryTreeNode[];   operating_expenses_tree: CategoryTreeNode[];   total_income_minor: number;   total_expenses_minor: number;   gross_profit_minor: number;   net_income_minor: number; }` |
-| `ProfitAndLoss` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts`, `backend/src/db-matrix-reports.ts`, `frontend/src/lib/matrix-api.ts` | `interface ProfitAndLoss {   income: StatementLine[];   expenses: StatementLine[];   cogs_expenses: StatementLine[];   operating_expenses: StatementLine[];   income_tree: CategoryTreeNode[];   cogs_tree: CategoryTreeNode[];   operating_expenses_tree: CategoryTreeNode[];   total_income_minor: number;   total_expenses_minor: number;   gross_profit_minor: number;   net_income_minor: number; }` |
+| `ProfitAndLoss` | `backend/src/db-reports.ts` | `backend/src/db-matrix-reports.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/matrix-api.ts` | `interface ProfitAndLoss {   income: StatementLine[];   expenses: StatementLine[];   cogs_expenses: StatementLine[];   operating_expenses: StatementLine[];   income_tree: CategoryTreeNode[];   cogs_tree: CategoryTreeNode[];   operating_expenses_tree: CategoryTreeNode[];   total_income_minor: number;   total_expenses_minor: number;   gross_profit_minor: number;   net_income_minor: number; }` |
+| `ProfitAndLoss` | `frontend/src/lib/api.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `frontend/src/lib/matrix-api.ts` | `interface ProfitAndLoss {   income: StatementLine[];   expenses: StatementLine[];   cogs_expenses: StatementLine[];   operating_expenses: StatementLine[];   income_tree: CategoryTreeNode[];   cogs_tree: CategoryTreeNode[];   operating_expenses_tree: CategoryTreeNode[];   total_income_minor: number;   total_expenses_minor: number;   gross_profit_minor: number;   net_income_minor: number; }` |
 | `ProfitAndLossByAxisNode` | `backend/src/db-matrix-reports.ts` | `frontend/src/lib/matrix-api.ts` | `interface ProfitAndLossByAxisNode {   key: string;   profitAndLoss: ProfitAndLoss;   children: ProfitAndLossByAxisNode[]; }` |
 | `ProfitAndLossByAxisNode` | `frontend/src/lib/matrix-api.ts` | `backend/src/db-matrix-reports.ts` | `interface ProfitAndLossByAxisNode {   key: string;   profitAndLoss: ProfitAndLoss;   children: ProfitAndLossByAxisNode[]; }` |
 | `ProfitAndLossByDivision` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `interface ProfitAndLossByDivision {   division: string \| null;   profitAndLoss: ProfitAndLoss; }` |
@@ -2984,7 +2986,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `TypedPhone` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface TypedPhone {   phone_type: string;   record_name: string;   phone: string \| null; }` |
 | `UblImportLine` | `backend/src/db.ts` | (none) | `interface UblImportLine {   description: string;   quantity: number;   unitPriceMinor: number;   amountMinor: number; }` |
 | `UblImportResult` | `backend/src/db.ts` | (none) | `interface UblImportResult {   reference: string;   issueDate: string;   supplierName: string;   totalMinor: number;   taxMinor: number;   lines: UblImportLine[]; }` |
-| `UserId` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/primitives.ts` | `type UserId = number & { readonly __brand: 'UserId' };` |
+| `UserId` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `type UserId = number & { readonly __brand: 'UserId' };` |
 | `UserSummary` | `backend/src/auth.ts` | `frontend/src/lib/api.ts` | `interface UserSummary {   id: number;   username: string;   active: boolean;   roles: string[]; }` |
 | `UserSummary` | `frontend/src/lib/api.ts` | `backend/src/auth.ts` | `interface UserSummary {   id: number;   username: string;   active: boolean;   roles: string[]; }` |
 | `VendorName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `type VendorName = string & { readonly __brand: 'VendorName' };` |
@@ -2992,7 +2994,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `VocabularyWord` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface VocabularyWord {   name: string;   translations: Record<string, string>; }` |
 | `VocabularyWord` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface VocabularyWord {   name: string;   translations: Record<string, string>; }` |
 
-### Functions (362, alphabetical)
+### Functions (363, alphabetical)
 
 | Name | Defined in | Referenced in | Prototype |
 |---|---|---|---|
@@ -3005,10 +3007,10 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `addTypedPhone` | `backend/src/db.ts` | (none) | `addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId): string` |
 | `adjustLocationCapacity` | `backend/src/db-stock.ts` | (none) | `adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void` |
 | `allocatePayment` | `backend/src/db.ts` | (none) | `allocatePayment(invoiceId: number, paymentReference: string, allocatedMinor: number, allocationDate: string, paymentAccount: string, userId: UserId, skipJournalPosting = false): void` |
-| `asAccountName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-reports.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `asAccountName(name: string): AccountName` |
-| `asAccountName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db-reports.ts`, `backend/src/db.ts`, `backend/src/primitives.ts` | `asAccountName(name: string): AccountName` |
-| `asBusinessName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/invoice.ts`, `backend/src/db-seed.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asBusinessName(name: string): BusinessName` |
-| `asBusinessName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/invoice.ts`, `backend/src/db-seed.ts`, `backend/src/primitives.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asBusinessName(name: string): BusinessName` |
+| `asAccountName` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `asAccountName(name: string): AccountName` |
+| `asAccountName` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/primitives.ts` | `asAccountName(name: string): AccountName` |
+| `asBusinessName` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asBusinessName(name: string): BusinessName` |
+| `asBusinessName` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asBusinessName(name: string): BusinessName` |
 | `asCustomerName` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `asCustomerName(name: string): CustomerName` |
 | `asCustomerName` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `asCustomerName(name: string): CustomerName` |
 | `asDivisionName` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `frontend/src/lib/api.ts` | `asDivisionName(name: string): DivisionName` |
@@ -3016,14 +3018,14 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `asEmployeeName` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `asEmployeeName(name: string): EmployeeName` |
 | `asEmployeeName` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `asEmployeeName(name: string): EmployeeName` |
 | `asEntityId` | `backend/src/db.ts` | (none) | `asEntityId(id: number): EntityId` |
-| `asItemName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `asItemName(name: string): ItemName` |
-| `asItemName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/db-seed.ts` | `asItemName(name: string): ItemName` |
-| `asLedgerName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/invoice.ts`, `backend/src/db-seed.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asLedgerName(name: string): LedgerName` |
-| `asLedgerName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/invoice.ts`, `backend/src/db-seed.ts`, `backend/src/primitives.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asLedgerName(name: string): LedgerName` |
-| `asLocationName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `asLocationName(name: string): LocationName` |
-| `asLocationName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/db-seed.ts` | `asLocationName(name: string): LocationName` |
+| `asItemName` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `asItemName(name: string): ItemName` |
+| `asItemName` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `asItemName(name: string): ItemName` |
+| `asLedgerName` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asLedgerName(name: string): LedgerName` |
+| `asLedgerName` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asLedgerName(name: string): LedgerName` |
+| `asLocationName` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `asLocationName(name: string): LocationName` |
+| `asLocationName` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `asLocationName(name: string): LocationName` |
 | `assertPeriodOpen` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `assertPeriodOpen(business: BusinessName, ledger: LedgerName, transdate: string): void` |
-| `asUserId` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-seed.ts` | `asUserId(id: number): UserId` |
+| `asUserId` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts` | `asUserId(id: number): UserId` |
 | `asVendorName` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `asVendorName(name: string): VendorName` |
 | `asVendorName` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `asVendorName(name: string): VendorName` |
 | `attachUser` | `backend/src/auth-middleware.ts` | `backend/src/server.ts` | `attachUser(req: Request, _res: Response, next: NextFunction): void` |
@@ -3036,7 +3038,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `changeOwnPassword` | `backend/src/auth.ts` | `frontend/src/lib/api.ts` | `changeOwnPassword(userId: number, currentPassword: string, newPassword: string): void` |
 | `changePassword` | `backend/src/auth.ts` | (none) | `changePassword(userId: number, newPassword: string): void` |
 | `checkEInvoiceDiscrepancies` | `backend/src/db.ts` | (none) | `checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[]` |
-| `cityDivisionFor` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-matrix-reports.ts` | `cityDivisionFor(locationName: string): string \| undefined` |
+| `cityDivisionFor` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-stock.ts` | `cityDivisionFor(locationName: string): string \| undefined` |
 | `climbInstanceTree` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `climbInstanceTree(instanceId: number): ` |
 | `clockInToProject` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `clockInToProject(employeeName: EmployeeName, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): EmployeeClock` |
 | `clockOutOfProject` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
@@ -3056,7 +3058,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `countStockListing` | `backend/src/db-stock.ts` | (none) | `countStockListing(): number` |
 | `createBusiness` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaFamily?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[]): ` |
 | `createDivisionType` | `backend/src/db.ts` | (none) | `createDivisionType(name: string, userId: UserId): void` |
-| `createEntity` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-seed.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `createEntity(input: NewEntity, userId: UserId): EntityNode` |
+| `createEntity` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `createEntity(input: NewEntity, userId: UserId): EntityNode` |
 | `createInvoice` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `createInvoice(input: InvoiceInput, userId: UserId): number` |
 | `createItem` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId): void` |
 | `createLocationType` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `createLocationType(name: string, userId: UserId): void` |
@@ -3073,7 +3075,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `defineProductShape` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `defineProductShape(businessName: BusinessName, dimensions: [string, string][], userId: UserId): ` |
 | `deleteBomComponent` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `deleteBomComponent(assemblyItem: string, componentItem: string, userId: UserId): void` |
 | `deleteDimensionParent` | `backend/src/db.ts` | (none) | `deleteDimensionParent(entityName: string, dimensionName: string, userId: UserId): void` |
-| `deleteEntity` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-seed.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `deleteEntity(id: number, userId: UserId): void` |
+| `deleteEntity` | `backend/src/db.ts` | `backend/src/auth.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `deleteEntity(id: number, userId: UserId): void` |
 | `deleteEntityLink` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `deleteEntityLink(entityName: string, linkType: string, userId: UserId): void` |
 | `deleteItemSource` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `deleteItemSource(id: number): void` |
 | `deleteMenuOverride` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `deleteMenuOverride(menuItemKey: string, scope: 'business' \| 'user', scopeId: number, userId: UserId = asUserId(1)): void` |
@@ -3158,14 +3160,14 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `getEntity` | `backend/src/db.ts` | `backend/src/primitives.ts` | `getEntity(id: number): EntityNode \| undefined` |
 | `getEntityHistory` | `backend/src/db.ts` | (none) | `getEntityHistory(id: number): EntityHistoryRow[]` |
 | `getEntityLink` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `getEntityLink(entityName: string, linkType: string): string \| undefined` |
-| `getEntityTree` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-matrix-reports.ts`, `frontend/src/lib/api.ts` | `getEntityTree(): (EntityNode &` |
+| `getEntityTree` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `frontend/src/lib/api.ts` | `getEntityTree(): (EntityNode &` |
 | `getExpiringStock` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[]` |
 | `getHierarchy` | `backend/src/db.ts` | `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `getHierarchy(rootName: string, relationshipType?: string): HierarchyNode` |
 | `getHierarchyChain` | `backend/src/db.ts` | (none) | `getHierarchyChain(leafName: ItemName \| LocationName): HierarchyChainNode[]` |
 | `getInvoice` | `backend/src/db.ts` | (none) | `getInvoice(id: number): Invoice \| undefined` |
 | `getInvoiceLine` | `backend/src/db.ts` | `backend/src/invoice.ts` | `getInvoiceLine(reference: string, business: BusinessName, ledger: LedgerName): InvoiceLine \| undefined` |
 | `getInvoiceOutstandingMinor` | `backend/src/db.ts` | (none) | `getInvoiceOutstandingMinor(invoiceId: number): number` |
-| `getItem` | `backend/src/db.ts` | `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/auth.ts`, `frontend/src/lib/state.svelte.ts` | `getItem(entityName: string): Item \| undefined` |
+| `getItem` | `backend/src/db.ts` | `frontend/src/lib/api.ts`, `frontend/src/lib/auth.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `getItem(entityName: string): Item \| undefined` |
 | `getItemByUpc` | `backend/src/db.ts` | (none) | `getItemByUpc(upc: string): ItemSummary \| undefined` |
 | `getItemLeadTimes` | `backend/src/db-stock.ts` | (none) | `getItemLeadTimes(itemName: ItemName): ` |
 | `getItemLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels` |
@@ -3175,7 +3177,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `getJournalEntry` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string): JournalDetail \| undefined` |
 | `getLanguageDirection` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getLanguageDirection(languageName: string): 'LTR' \| 'RTL' \| undefined` |
 | `getLanguages` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `getLanguages(): ` |
-| `getLedgerBalances` | `backend/src/db-reports.ts` | `backend/src/db.ts`, `backend/src/db-matrix-reports.ts` | `getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries = false): Map<number, number>` |
+| `getLedgerBalances` | `backend/src/db-reports.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db.ts` | `getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries = false): Map<number, number>` |
 | `getLedgerBalancesByDivision` | `backend/src/db-reports.ts` | (none) | `getLedgerBalancesByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
 | `getLedgerBalancesByDivisionStructural` | `backend/src/db-reports.ts` | (none) | `getLedgerBalancesByDivisionStructural(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
 | `getLedgerDateRange` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getLedgerDateRange(businessName: BusinessName, ledgerName: LedgerName): LedgerDateRange` |
@@ -3257,8 +3259,9 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `loadDemoProducts` | `shared-fixtures/wine-retail-demo-data.ts` | `backend/src/db-seed.ts` | `loadDemoProducts(): DemoProduct[]` |
 | `loadDemoStockLevels` | `shared-fixtures/wine-retail-demo-data.ts` | `backend/src/db-seed.ts` | `loadDemoStockLevels(): DemoStockLevel[]` |
 | `loadDemoUpcs` | `shared-fixtures/wine-retail-demo-data.ts` | `backend/src/db-seed.ts` | `loadDemoUpcs(): DemoUpc[]` |
-| `login` | `backend/src/auth.ts` | `backend/src/db.ts`, `backend/src/server.ts`, `backend/src/auth-middleware.ts`, `frontend/src/lib/api.ts` | `login(username: string, password: string): ` |
+| `login` | `backend/src/auth.ts` | `backend/src/auth-middleware.ts`, `backend/src/db.ts`, `backend/src/server.ts`, `frontend/src/lib/api.ts` | `login(username: string, password: string): ` |
 | `logout` | `backend/src/auth.ts` | `frontend/src/lib/api.ts` | `logout(token: string): void` |
+| `mergeContactDetail` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts` | `mergeContactDetail(entityId: number, fields: Record<string, unknown>): void` |
 | `parseMinorUnits` | `frontend/src/lib/money.ts` | (none) | `parseMinorUnits(text: string): number` |
 | `parseQuantity` | `frontend/src/lib/money.ts` | (none) | `parseQuantity(text: string): number` |
 | `parseUblInvoice` | `backend/src/db.ts` | (none) | `parseUblInvoice(xml: string): UblImportResult` |
@@ -3270,7 +3273,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `postArSale` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postArSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `postBomComponents` | `backend/src/db.ts` | (none) | `postBomComponents(assemblyItem: string, business: string, userId: UserId): void` |
 | `postInvoice` | `backend/src/db.ts` | (none) | `postInvoice(id: number,   revenueOrExpenseAccount: string \| { name: string; id: number } \| ((line: InvoiceLineInput & { id: number }) => string \| { name: string; id: number }), taxAccount: string, userId: UserId, restockInventory = false, divisionName?: string, counterpartyAccountOverride?: string): void` |
-| `postJournalEntry` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-reports.ts`, `frontend/src/lib/api.ts` | `postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `postJournalEntry` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `postPurchaseOrder` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `postQuantityMovement` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `backend/src/primitives.ts` | `postQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, userId: UserId, transdate?: string, locationName?: LocationName, accountId?: number): void` |
 | `postSalesOrder` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
@@ -3278,9 +3281,9 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `postStockDispatch` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postStockDispatch(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `postStockReceipt` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postStockReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `previewCloseBooks` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `previewCloseBooks(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string): CloseBooksPreview` |
-| `readCsv` | `shared-fixtures/csv.ts` | `shared-fixtures/wine-retail.ts`, `shared-fixtures/add-brand-translation.ts`, `shared-fixtures/translations.ts`, `shared-fixtures/add-journal-translations.ts`, `shared-fixtures/add-header-translations.ts`, `shared-fixtures/add-menu-translations.ts`, `shared-fixtures/wine-retail-demo-data.ts`, `shared-fixtures/add-journal-remaining-translations.ts` | `readCsv(text: string): Record<string, string>[]` |
+| `readCsv` | `shared-fixtures/csv.ts` | `shared-fixtures/add-brand-translation.ts`, `shared-fixtures/add-header-translations.ts`, `shared-fixtures/add-journal-remaining-translations.ts`, `shared-fixtures/add-journal-translations.ts`, `shared-fixtures/add-menu-translations.ts`, `shared-fixtures/translations.ts`, `shared-fixtures/wine-retail-demo-data.ts`, `shared-fixtures/wine-retail.ts` | `readCsv(text: string): Record<string, string>[]` |
 | `receiveLot` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `receiveLot(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, lotNumber: string, receivedDate: string, expirationDate: string \| null, quantity: number, userId: UserId, costBasisMinor?: number): void` |
-| `receiveStockAtLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `receiveStockAtLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void` |
+| `receiveStockAtLocation` | `backend/src/db-stock.ts` | `backend/src/db-seed.ts`, `backend/src/db.ts`, `frontend/src/lib/api.ts` | `receiveStockAtLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void` |
 | `recordReminderSent` | `backend/src/db.ts` | (none) | `recordReminderSent(customerName: string): number` |
 | `recordStockTakeCount` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `recordStockTakeCount(stockTakeId: number, itemName: ItemName, countedQuantity: number): void` |
 | `registerBankAccount` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `registerBankAccount(accountName: string, business: string, scopeName: string, overdraftLimitMinor: number \| null, userId: UserId): void` |
@@ -3306,11 +3309,11 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `setContactType` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/primitives.ts` | `setContactType(contactName: string, typeName: string, userId: UserId): void` |
 | `setCurrencyExchangeRate` | `backend/src/db.ts` | (none) | `setCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId, buyRateMinor?: number, sellRateMinor?: number): void` |
 | `setDefaultLanguage` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setDefaultLanguage(languageName: string, userId: UserId): void` |
-| `setDimensionParent` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-seed.ts`, `backend/src/primitives.ts` | `setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void` |
+| `setDimensionParent` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void` |
 | `setDivisionType` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `setDivisionType(divisionNameOrId: string \| EntityId, typeMarkerName: string): void` |
 | `setEmployeeSchedule` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setEmployeeSchedule(employeeName: string, locationName: string, schedule: ScheduleLine[]): void` |
-| `setEntityLink` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-seed.ts`, `backend/src/primitives.ts` | `setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number, targetId?: number): string` |
-| `setItem` | `backend/src/db.ts` | `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/auth.ts`, `frontend/src/lib/state.svelte.ts` | `setItem(entityName: string, item: Partial<Item>): void` |
+| `setEntityLink` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number, targetId?: number): string` |
+| `setItem` | `backend/src/db.ts` | `frontend/src/lib/api.ts`, `frontend/src/lib/auth.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `setItem(entityName: string, item: Partial<Item>): void` |
 | `setItemLocationLevelDetails` | `backend/src/db-stock.ts` | (none) | `setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, userId: UserId): void` |
 | `setItemLocationLevels` | `backend/src/db-stock.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: {     minLevel?: number \| null;     maxLevel?: number \| null;     reorderLevel?: number \| null;     shelfSide?: string \| null;     rack?: string \| null;     level?: number \| null;   }): void` |
 | `setItemProduct` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setItemProduct(itemName: string, productName: string \| null, userId: UserId): void` |
@@ -3318,7 +3321,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `setItemStorageOrigin` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setItemStorageOrigin(itemName: ItemName, origin: 'Hot' \| 'Cold' \| null, userId: UserId): void` |
 | `setLanguageDirection` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setLanguageDirection(languageName: string, direction: 'LTR' \| 'RTL' \| null, userId: UserId): void` |
 | `setLineType` | `backend/src/db.ts` | (none) | `setLineType(entityName: string, lineType: string \| null, userId: UserId): void` |
-| `setLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `backend/src/db-seed.ts` | `setLocation(name: string, location: Location): void` |
+| `setLocation` | `backend/src/db-stock.ts` | `backend/src/db-seed.ts`, `backend/src/db.ts` | `setLocation(name: string, location: Location): void` |
 | `setLocationOpenHours` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setLocationOpenHours(locationName: string, hours: OpenHoursLine[]): void` |
 | `setMenuOverride` | `backend/src/db.ts` | `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `setMenuOverride(menuItemKey: string, scope: 'business' \| 'user', scopeId: number, overrideLabel: string \| null, hidden: boolean, userId: UserId = asUserId(1)): void` |
 | `setOwnDateFormat` | `backend/src/auth.ts` | `frontend/src/lib/api.ts` | `setOwnDateFormat(userId: number, dateFormat: string): void` |
@@ -3340,7 +3343,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `stageArReceipt` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stageArReceipt(input: ArReceiptInput): void` |
 | `stageArSale` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stageArSale(input: ArSaleInput): void` |
 | `stageBomComponent` | `backend/src/db.ts` | (none) | `stageBomComponent(input: {   assemblyItem: string; business: string; componentItem: string; quantity: number; unit: string; }): void` |
-| `stageLine` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-reports.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `stageLine(line: StagedLine): void` |
+| `stageLine` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `stageLine(line: StagedLine): void` |
 | `stagePurchaseOrder` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stagePurchaseOrder(input: PurchaseOrderInput): void` |
 | `stageQuantityMovementLine` | `backend/src/db-stock.ts` | (none) | `stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, locationName?: LocationName, accountId?: number): void` |
 | `stageSalesOrder` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stageSalesOrder(input: SalesOrderInput): void` |
@@ -3352,11 +3355,11 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `transferStock` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `transferStock(business: BusinessName, ledger: LedgerName, itemName: ItemName, fromLocationName: LocationName, toLocationName: LocationName, quantity: number, reference: string, userId = 1, transdate?: string, combinationShape?: [string, string][], combinationValuesAfterLocation?: string[]): void` |
 | `unescapeAscii` | `shared-fixtures/csv.ts` | (none) | `unescapeAscii(text: string): string` |
 | `unregisterBankAccount` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `unregisterBankAccount(accountName: string, userId: UserId): void` |
-| `updateEntity` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-seed.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `updateEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode` |
+| `updateEntity` | `backend/src/db.ts` | `backend/src/auth.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `updateEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode` |
 | `verifyCustomer` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `verifyCustomer(customerName: string, approve: boolean): void` |
 | `verifyPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/db.ts` | `verifyPassword(password: string, stored: string): boolean` |
 | `verifyPosPin` | `backend/src/db.ts` | (none) | `verifyPosPin(employeeName: string, pin: string): boolean` |
-| `writeCsv` | `shared-fixtures/csv.ts` | `shared-fixtures/add-brand-translation.ts`, `shared-fixtures/add-journal-translations.ts`, `shared-fixtures/add-header-translations.ts`, `shared-fixtures/add-menu-translations.ts`, `shared-fixtures/add-journal-remaining-translations.ts` | `writeCsv(rows: Record<string, string>[], headers: string[]): string` |
+| `writeCsv` | `shared-fixtures/csv.ts` | `shared-fixtures/add-brand-translation.ts`, `shared-fixtures/add-header-translations.ts`, `shared-fixtures/add-journal-remaining-translations.ts`, `shared-fixtures/add-journal-translations.ts`, `shared-fixtures/add-menu-translations.ts` | `writeCsv(rows: Record<string, string>[], headers: string[]): string` |
 | `writeOffStock` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `writeOffStock(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, quantity: number, unitCostMinor: number, writeOffExpenseAccount: AccountName, /** @deprecated No longer used — resolves to that same, real    * product's own, real Inventory sub-account directly. Kept only so    * existing callers don't need a breaking API change. */   inventoryAccount: string, reason: string, userId: UserId, transdate?: string, locationName?: LocationName): void` |
 
-611 real, indexed names (249 types, 362 functions) across 35 real, core files.
+612 real, indexed names (249 types, 363 functions) across 35 real, core files.

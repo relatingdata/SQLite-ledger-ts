@@ -1,4 +1,4 @@
-*Not built yet — a real, direct design proposal, per direct request, checked against the current, live implementation first rather than assumed. Nothing here is installed or wired up; this is the plan a real implementation should follow, per `specification-driven-design`.*
+*Built. Live at `frontend/src/routes/reports/pl-pivot/+page.svelte` (route: `/reports/pl-pivot`), alongside `new-new-pl`, not replacing it. Checked against `svelte-dnd-action`'s actual, live behavior before this was considered done, per `specification-driven-design`.*
 
 # A Real, Drag-and-Drop Pivot Builder for the Profit & Loss Report, on `svelte-dnd-action`
 

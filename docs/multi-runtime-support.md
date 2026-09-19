@@ -14,7 +14,7 @@ make dev RUNTIME=node
 Every Makefile target that runs a script, an installed binary, or a package.json script goes through one of the derived variables below — never a hardcoded `bun`/`npm`/`deno` command anywhere else in the file.
 
 ```makefile
-RUNTIME := bun   # override on the command line
+RUNTIME ?= bun   # override on the command line (RUNTIME=node make test) or via `export RUNTIME=node` first
 
 ifeq ($(RUNTIME),bun)
   RUN_INSTALL    := bun install
@@ -112,6 +112,15 @@ This is a genuinely different kind of test: hundreds of real purchase orders, se
 This run correctly, honestly failed its own `verify-simulation.ts` check (20 real mismatches against stored "golden" expected figures) — a real, known, pre-existing gap, not a new regression: the Breakage & Spoilage bug fixed earlier this session legitimately changed the simulation's own, real, deterministic outcome (breakage write-offs now actually post correctly, where they previously silently failed), and the stored expected values in `verify-simulation.ts` were never updated to match. Real, honest, outstanding work, not yet done.
 
 ## What was deliberately left alone
+
+
+## Two real, confirmed bugs in this same mechanism, found directly and fixed
+
+Per direct report ("I export RUNTIME=node and Makefile still uses bun"): `RUNTIME := bun` (simple assignment) unconditionally overwrote any exported `RUNTIME` environment variable — only the command-line form (`make test RUNTIME=node`) ever actually worked; `export RUNTIME=node` followed by a plain `make test` silently ran under bun regardless. Confirmed directly via `make -n`, not assumed: fixed by changing to `RUNTIME ?= bun` (conditional assignment — set only if not already defined, which includes being set via the environment).
+
+Fixing that surfaced a second, real, separate bug: six scripts (`call-graph.ts`, `check-docs-coverage.ts`, `check-schema-table-count.ts`, `documentation-baseline-report.ts`, `source-reference.ts`, `svelte-call-trace.ts`) used `import.meta.dir` — a real, Bun-only property, `undefined` under Node — to locate the project root. Because the `RUNTIME` bug above meant `export RUNTIME=node` never actually took effect, none of these six had ever genuinely run under Node via that path before; the bug had been masking the bug. Fixed directly, consistently, across all six: `path.dirname(fileURLToPath(import.meta.url))`, the standard, real, cross-runtime ESM equivalent (`fileURLToPath` imported from `node:url`).
+
+Verified directly, thoroughly, given two real bugs compounding: `export RUNTIME=node` (no command-line argument at all) followed by a plain `make verify-fresh` — the full, real, complete pipeline (reset-db, sanity check, full test suite, check-docs-coverage, check-schema-table-count) — now passes cleanly end to end (confirmed: Exit 0, ~30s). All three runtimes re-confirmed individually afterward, both via `export` and via the command-line form, for every one of the six affected scripts.
 
 
 - Express (`app.listen()`), SvelteKit, Vite, and Playwright are all already runtime-agnostic — no changes needed anywhere in `server.ts`, the frontend, or the e2e suite.

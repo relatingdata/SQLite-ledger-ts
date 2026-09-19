@@ -11,8 +11,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(import.meta.dir, '..', 'frontend', 'src', 'routes');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'frontend', 'src', 'routes');
 
 function findPages(dir: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
