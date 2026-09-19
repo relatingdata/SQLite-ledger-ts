@@ -93,7 +93,15 @@ Deno is the slowest of the three here specifically because of its own, real, add
 
 ### `make playwright-smoke` (the minimal, real e2e check — 78 real routes, one real, live browser)
 
-**86 seconds** (~1.4 min), including real dev-server startup and a real, full page-load-without-error check across every real route in the application. This is the fast, minimal e2e proof this project actually relies on day to day — not the full simulation below, which exists for a different, real purpose (proving the accounting logic itself, not that every page loads).
+| Runtime | Result |
+|---|---|
+| bun | 78/78 routes pass, **86s** |
+| node | 78/78 routes pass, **~71s** |
+| deno | **Does not run** — a real, confirmed, external, open Playwright/Deno incompatibility, not something fixable in this codebase |
+
+Deno's own Node-compatibility layer reports an unrealistic `process.version` (`v26.3.0` — Node has never released a v26) that Playwright's own version-detection logic rejects outright: `Playwright requires Node.js 18.19 or higher`. Confirmed this is a known, open, external issue — Deno's own community forum has an identical, unresolved report (Deno 2.5.3, Node 20/22/24 all separately installed, same failure) — not something specific to this project's setup, and not something `--no-check` or any Makefile-level fix can work around, since the failure happens inside Playwright's own runtime code, before any of this project's code runs at all.
+
+A real, separate Makefile bug was found and fixed along the way, independent of the above: the original `RUN_BINARY` for Deno (`deno run -A --no-check npm:`) relied on concatenating directly with the next word with no space, to form the single token `npm:playwright` — but every real call site in this Makefile (`$(RUN_BINARY) playwright test ...`) inserts a literal space there, which bun's `bun x` and Node's `npx` both tolerate (they resolve a name after a space just fine) but Deno's `npm:` specifier cannot. Fixed with `scripts/deno-run-bin.sh`, a small wrapper that resolves the named binary directly from wherever the workspace's package manager hoisted it and runs it with `deno run -A --no-check <resolved-path>` — no `npm:` specifier needed. Confirmed working for `tsc` (`make check-backend-types RUNTIME=deno` correctly locates and runs it, surfacing only the same, pre-existing, known `pdfmake` type-noise, nothing new). The playwright-smoke failure above is unrelated to this fix and remains open, upstream.
 
 ### `make test-e2e` (the full, real wine-retail-month simulation + verification)
 

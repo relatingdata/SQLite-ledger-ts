@@ -37,7 +37,7 @@ else ifeq ($(RUNTIME),deno)
   RUN_INSTALL   := deno install --allow-scripts
   RUN_SCRIPT    := deno run -A --no-check
   RUN_NPM_SCRIPT := deno task
-  RUN_BINARY    := deno run -A --no-check npm:
+  RUN_BINARY    := sh $(CURDIR)/scripts/deno-run-bin.sh
   RUN_TEST      := deno test -A --no-check
 else
   $(error Unknown RUNTIME "$(RUNTIME)" - expected bun, node, or deno)
