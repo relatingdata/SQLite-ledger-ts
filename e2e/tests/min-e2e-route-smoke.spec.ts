@@ -16,7 +16,7 @@ const ROUTES = [
   '/order-entry/generate-po', '/pos', '/post', '/projects', '/reconciliation',
   '/recurring', '/reports', '/reports/aged', '/reports/balance-sheet',
   '/reports/below-reorder', '/reports/cash-flow-forecast', '/reports/compare',
-  '/reports/new-new-pl', '/reports/new-pl', '/reports/new-stock-on-hand',
+  '/reports/new-new-pl', '/reports/new-pl', '/reports/pl-pivot', '/reports/new-stock-on-hand',
   '/reports/old-pl', '/reports/profit-and-loss', '/reports/reminders',
   '/reports/sales', '/reports/statement', '/reports/stock-movement',
   '/reports/stock-out-risk', '/reports/trial-balance', '/session', '/setup',

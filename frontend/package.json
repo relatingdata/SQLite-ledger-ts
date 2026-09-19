@@ -14,7 +14,8 @@
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@keenmate/svelte-treeview": "4.8.0"
+    "@keenmate/svelte-treeview": "4.8.0",
+    "svelte-dnd-action": "^0.9.79"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "7.0.1",
