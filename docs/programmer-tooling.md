@@ -262,3 +262,7 @@ list) right after the raw baseline file it complements. A real file-
 target rule (root `Makefile`) regenerates it automatically whenever
 the baseline list, the script itself, or any real backend source file
 changes — never left stale between manual builds.
+
+## 14. `make check-schema-table-count` (`scripts/check-schema-table-count.ts`)
+
+Per direct, absolute instruction, following a real, confirmed incident: this project's own schema had genuinely accumulated far more real `CREATE TABLE` statements than `no-new-tables`'s own text accounted for. A pure, mechanical grep and count of every real `CREATE TABLE` statement across every real `.sql` file in the entire project, with zero per-table judgment or accounting of any kind. Staging tables (name contains `staging`) are counted and reported separately, each with a plain, mechanical fact — whether any real `CREATE TRIGGER` anywhere in the project references it by name — reported, never required. Every other (permanent) table is counted directly; the check fails outright unless that count is exactly 4, matching exactly `entities`, `account`, `journal`, `journal_line` by name. Wired directly into `verify-fresh` — unbypassable, run every time, not an optional or occasional check.

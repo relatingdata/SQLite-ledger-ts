@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -286,6 +286,10 @@ verify-fresh: reset-db
 	cd backend && $(RUN_SCRIPT) scripts/sanity-check-db-loads.ts
 	$(MAKE) test
 	$(MAKE) check-docs-coverage
+	$(MAKE) check-schema-table-count
+
+check-schema-table-count:
+	$(RUN_SCRIPT) scripts/check-schema-table-count.ts
 
 # A real, mechanical, structural check - per
 # /mnt/skills/user/documentation-coverage-enforcement/SKILL.md. Fails
