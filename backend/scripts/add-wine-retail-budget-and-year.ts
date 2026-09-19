@@ -11,14 +11,7 @@
  * designed to be run immediately after that script, against the same
  * database.
  */
-import {
-  createEntity,
-  create,
-  fetch,
-  typeRootName,
-  stageLine,
-  postJournalEntry,
-} from '../src/db.ts';
+import { createEntity, create, fetch, typeRootName, stageLine, postJournalEntry, asUserId, asBusinessName, asLedgerName, asAccountName } from '../src/db.ts';
 
 const BUSINESS = 'Wine Retail Business';
 const ACTUAL_LEDGER = 'Actual';
@@ -31,7 +24,7 @@ function round1000(minor: number): number {
 async function main() {
   console.log('=== Wine Retail Business: real Budget + 11 more real, summary-level Actual months ===\n');
 
-  create(fetch(BUSINESS, typeRootName), typeRootName, BUDGET_LEDGER, 1);
+  create(fetch(BUSINESS, typeRootName), typeRootName, BUDGET_LEDGER, asUserId(1));
   console.log(`Created real ledger: ${BUDGET_LEDGER}`);
 
   // A real, monthly Budget — rounded to the nearest $1,000 throughout,
@@ -60,12 +53,12 @@ async function main() {
     const ref = `BUDGET-${monthLabel}`;
     for (const line of budgetLines) {
       // Income accounts are credited (negative amount_minor); expense accounts are debited (positive).
-      stageLine({ reference: ref, business: BUSINESS, ledger: BUDGET_LEDGER, transdate: budgetDate, account: line.account, amount_minor: line.isIncome ? -line.amountMinor : line.amountMinor });
+      stageLine({ reference: ref, business: asBusinessName(BUSINESS), ledger: asLedgerName(BUDGET_LEDGER), transdate: budgetDate, account: asAccountName(line.account), amount_minor: line.isIncome ? -line.amountMinor : line.amountMinor });
     }
     // Balance the entry against Retained Earnings (Budget/Actual entries always need to net to zero, same as any real posting).
     const netMinor = budgetLines.reduce((s, l) => s + (l.isIncome ? -l.amountMinor : l.amountMinor), 0);
-    stageLine({ reference: ref, business: BUSINESS, ledger: BUDGET_LEDGER, transdate: budgetDate, account: "Owner's Equity", amount_minor: -netMinor });
-    postJournalEntry(ref, BUSINESS, BUDGET_LEDGER, 1);
+    stageLine({ reference: ref, business: asBusinessName(BUSINESS), ledger: asLedgerName(BUDGET_LEDGER), transdate: budgetDate, account: asAccountName("Owner's Equity"), amount_minor: -netMinor });
+    postJournalEntry(ref, asBusinessName(BUSINESS), asLedgerName(BUDGET_LEDGER), asUserId(1));
   }
   console.log(`Posted a real, monthly budget for all 12 months (${BUDGET_LEDGER}): Sales $${(budgetLines[0].amountMinor / 100).toLocaleString()}, COGS $${(budgetLines[1].amountMinor / 100).toLocaleString()}, Rent $${(budgetLines[2].amountMinor / 100).toLocaleString()}, Wages $${(budgetLines[3].amountMinor / 100).toLocaleString()}, Telephone $${(budgetLines[4].amountMinor / 100).toLocaleString()}, each rounded to the nearest $1,000.`);
 
@@ -92,11 +85,11 @@ async function main() {
       return { ...l, amountMinor: Math.round(l.amountMinor * factor) };
     });
     for (const line of actualLines) {
-      stageLine({ reference: ref, business: BUSINESS, ledger: ACTUAL_LEDGER, transdate: actualDate, account: line.account, amount_minor: line.isIncome ? -line.amountMinor : line.amountMinor });
+      stageLine({ reference: ref, business: asBusinessName(BUSINESS), ledger: asLedgerName(ACTUAL_LEDGER), transdate: actualDate, account: asAccountName(line.account), amount_minor: line.isIncome ? -line.amountMinor : line.amountMinor });
     }
     const netMinor = actualLines.reduce((s, l) => s + (l.isIncome ? -l.amountMinor : l.amountMinor), 0);
-    stageLine({ reference: ref, business: BUSINESS, ledger: ACTUAL_LEDGER, transdate: actualDate, account: "Owner's Equity", amount_minor: -netMinor });
-    postJournalEntry(ref, BUSINESS, ACTUAL_LEDGER, 1);
+    stageLine({ reference: ref, business: asBusinessName(BUSINESS), ledger: asLedgerName(ACTUAL_LEDGER), transdate: actualDate, account: asAccountName("Owner's Equity"), amount_minor: -netMinor });
+    postJournalEntry(ref, asBusinessName(BUSINESS), asLedgerName(ACTUAL_LEDGER), asUserId(1));
     monthsPosted++;
     console.log(`${monthLabel}: ${variancePct >= 0 ? '+' : ''}${variancePct}% vs. budget on income — Sales $${(actualLines[0].amountMinor / 100).toLocaleString()}`);
   }

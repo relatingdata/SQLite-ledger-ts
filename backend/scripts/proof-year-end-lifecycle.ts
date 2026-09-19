@@ -5,24 +5,7 @@
 // per the backend-first-testing skill - no browser, no Playwright,
 // direct function calls, checking every real balance/quantity along
 // the way, not just the final result.
-import {
-  createBusiness,
-  createEntity,
-  create,
-  fetch,
-  typeRootName,
-  getTrialBalance,
-  stageBomComponent,
-  postBomComponents,
-  getBomComponents,
-  addOrUpdateItemSource,
-  createItem,
-  completePosSale,
-  ensureProductInstance,
-  ensureCombinationAccountLeaf,
-  getItemPriceForCurrency,
-  db,
-} from '../src/db.ts';
+import { createBusiness, createEntity, create, fetch, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asVendorName, asItemName } from '../src/db.ts';
 import {
   setLocation,
   placeOrder,
@@ -80,14 +63,14 @@ const bom = getBomComponents('Proof Gift Pack');
 check('Assembly (Proof Gift Pack) has exactly 2 real components', bom.length === 2);
 
 console.log(`\n=== 5. Order and receive stock at the warehouse ===`);
-placeOrder('PO-PROOF-1', BIZ as any, LEDGER as any, 96, 500, USER as any, '2026-07-01', 'Proof Vendor', 'Proof Component A', 'Proof Warehouse');
-receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-1', 'Proof Component A', 'Proof Warehouse', 96, USER as any, '2026-07-05');
+placeOrder('PO-PROOF-1', BIZ as any, LEDGER as any, 96, 500, USER as any, '2026-07-01', asVendorName('Proof Vendor'), asItemName('Proof Component A'), asLocationName('Proof Warehouse'));
+receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-1', asItemName('Proof Component A'), asLocationName('Proof Warehouse'), 96, USER as any, '2026-07-05');
 fulfillOrder('PO-PROOF-1', 'REC-PROOF-1', BIZ as any, LEDGER as any, 96, 500, USER as any, '2026-07-05');
 const orderStatus = getOrderStatus('PO-PROOF-1');
 check('Purchase order fully fulfilled (0 remaining)', orderStatus.quantity === 0);
 
 console.log(`\n=== 6. Transfer stock from warehouse to retail ===`);
-transferStock(BIZ as any, LEDGER as any, 'Proof Component A', 'Proof Warehouse', 'Proof Retail Outlet', 24, 'XFER-PROOF-1', USER as any, '2026-07-10');
+transferStock(BIZ as any, LEDGER as any, asItemName('Proof Component A'), asLocationName('Proof Warehouse'), asLocationName('Proof Retail Outlet'), 24, 'XFER-PROOF-1', USER as any, '2026-07-10');
 check('Transfer completed', true);
 
 console.log(`\n=== 7. A real sale, giving the business a real, non-zero P&L to close ===`);
@@ -110,7 +93,7 @@ check('Sale completed', !!saleResult);
 console.log(`\n=== 7b. A real, hierarchy-varied combination sale, with its own real, combination-specific price ===`);
 createItem('Proof Lager', `${BIZ} Items`, USER as any);
 addOrUpdateItemSource({ itemName: 'Proof Lager', vendorName: 'Proof Vendor', priceMinor: 500, isPreferred: true });
-receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-LAGER-1', 'Proof Lager', 'Proof Retail Outlet', 24, USER as any, '2026-07-10');
+receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-LAGER-1', asItemName('Proof Lager'), asLocationName('Proof Retail Outlet'), 24, USER as any, '2026-07-10');
 const comboShape: [string, string][] = [
   ['Location', 'Location'],
   ['Item', 'Beer'],
@@ -140,13 +123,13 @@ check(`Base item price genuinely unaffected (still 500, got ${basePrice})`, base
 console.log(`\n=== 7c. Combination-tagged receiving (from a PO-style receipt) and warehouse transfer, per direct instruction ===`);
 createItem('Proof Ale', `${BIZ} Items`, USER as any);
 addOrUpdateItemSource({ itemName: 'Proof Ale', vendorName: 'Proof Vendor', priceMinor: 400, packageQuantity: 1, isPreferred: true });
-receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-ALE-1', 'Proof Ale', 'Proof Warehouse', 48, USER as any, '2026-07-11', ['Proof Warehouse', 'Proof Ale', 'Cold'], comboShape);
+receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-ALE-1', asItemName('Proof Ale'), asLocationName('Proof Warehouse'), 48, USER as any, '2026-07-11', ['Proof Warehouse', 'Proof Ale', 'Cold'], comboShape);
 const warehouseInstance = ensureProductInstance(BIZ as any, comboShape, ['Proof Warehouse', 'Proof Ale', 'Cold'], USER as any);
 const warehouseInvLeaf = ensureCombinationAccountLeaf('Inventory', warehouseInstance, USER as any);
 const warehouseBalanceAfterReceipt = getAccountBalance(warehouseInvLeaf.id);
 check(`Combination-tagged receipt built up the real Inventory value (48 x 400 = 19200, got ${warehouseBalanceAfterReceipt})`, warehouseBalanceAfterReceipt === 48 * 400);
 
-transferStock(BIZ as any, LEDGER as any, 'Proof Ale', 'Proof Warehouse', 'Proof Retail Outlet', 20, 'XFER-PROOF-ALE-1', USER as any, '2026-07-12', comboShape, ['Proof Ale', 'Cold']);
+transferStock(BIZ as any, LEDGER as any, asItemName('Proof Ale'), asLocationName('Proof Warehouse'), asLocationName('Proof Retail Outlet'), 20, 'XFER-PROOF-ALE-1', USER as any, '2026-07-12', comboShape, ['Proof Ale', 'Cold']);
 const retailInstance = ensureProductInstance(BIZ as any, comboShape, ['Proof Retail Outlet', 'Proof Ale', 'Cold'], USER as any);
 const retailInvLeaf = ensureCombinationAccountLeaf('Inventory', retailInstance, USER as any);
 const warehouseBalanceAfterTransfer = getAccountBalance(warehouseInvLeaf.id);
@@ -155,10 +138,10 @@ check(`Combination-tagged transfer correctly reduced the real warehouse Inventor
 check(`Combination-tagged transfer correctly increased the real retail Inventory value (20 x 400 = 8000, got ${retailBalanceAfterTransfer})`, retailBalanceAfterTransfer === 20 * 400);
 
 console.log(`\n=== 8. Month/year-end stock take, with a real, deliberate variance ===`);
-const takeId = createStockTake('Proof Retail Outlet', '2027-06-30', USER as any);
-recordStockTakeCount(takeId, 'Proof Component A', 13); // real, deliberate shortage of 1 (14 on hand -> 13 counted)
-const capBefore = ensureLocationCapacityAccount(BIZ, LEDGER, 'Proof Retail Outlet', USER as any);
-completeStockTake(takeId, BIZ as any, LEDGER as any, 'Miscellaneous', 'Inventory', { 'Proof Component A': 500 }, USER as any);
+const takeId = createStockTake(asLocationName('Proof Retail Outlet'), '2027-06-30', USER as any);
+recordStockTakeCount(takeId, asItemName('Proof Component A'), 13); // real, deliberate shortage of 1 (14 on hand -> 13 counted)
+const capBefore = ensureLocationCapacityAccount(asBusinessName(BIZ), asLedgerName(LEDGER), asLocationName('Proof Retail Outlet'), USER as any);
+completeStockTake(takeId, BIZ as any, LEDGER as any, asAccountName('Miscellaneous'), 'Inventory', { 'Proof Component A': 500 }, USER as any);
 check('Stock take completed', true);
 
 console.log(`\n=== 9. Trial balance must be genuinely, exactly balanced before closing ===`);
