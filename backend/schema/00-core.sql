@@ -103,9 +103,9 @@ CREATE TABLE entities (
   -- JSON object, never a bespoke column added per new use.
   detail_json TEXT,
   created_at TEXT NOT NULL,
-  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_by INTEGER NOT NULL,
   deleted_at TEXT,
-  deleted_by INTEGER REFERENCES users(id)
+  deleted_by INTEGER
 );
 
 -- Uniqueness only among LIVE rows — the old, closed-out version of a
@@ -158,63 +158,19 @@ CREATE VIEW current_entities AS
 -- collision this schema has worked to avoid elsewhere.
 -- =====================================================================
 
-CREATE TABLE roles (
-  id   INTEGER PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE
-);
-
-CREATE TABLE users (
-  id            INTEGER PRIMARY KEY,
-  username      TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL, -- 'salt:hash', both hex, scrypt — see auth.ts
-  active        INTEGER NOT NULL DEFAULT 1,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  -- How many rows this user sees per page on any paginated list —
-  -- their own preference, not a fixed system-wide constant.
-  page_size     INTEGER NOT NULL DEFAULT 20,
-  -- Explicit, fixed-choice display patterns (the same design SQL-Ledger
-  -- itself uses — a user picks the literal pattern they want, never
-  -- inferred from a "locale" code, which sidesteps a real mismatch:
-  -- ICU's own en-AU data uses commas, not the space this business
-  -- actually wants). '1 000.00' is the one option the real SQL-Ledger
-  -- doesn't offer at all.
-  number_format TEXT NOT NULL DEFAULT '1 000.00'
-    CHECK (number_format IN ('1,000.00', '1 000.00', '1.000,00', '1000,00', '1000.00', '1''000.00')),
-  date_format   TEXT NOT NULL DEFAULT 'dd/mm/yyyy'
-    CHECK (date_format IN ('dd/mm/yyyy', 'mm/dd/yyyy', 'dd.mm.yyyy', 'dd-mm-yyyy', 'yyyy-mm-dd'))
-);
-
-CREATE TABLE user_roles (
-  user_id INTEGER NOT NULL REFERENCES users(id),
-  role_id INTEGER NOT NULL REFERENCES roles(id),
-  PRIMARY KEY (user_id, role_id)
-);
-
-CREATE TABLE sessions (
-  token      TEXT PRIMARY KEY,
-  user_id    INTEGER NOT NULL REFERENCES users(id),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  expires_at TEXT NOT NULL
-);
-
--- Three roles: Administrator (everything, including user management),
--- Bookkeeper (day-to-day entry and reporting, no user management),
--- Read-Only (reports and viewing only, no posting, no editing).
-INSERT INTO roles (id, name) VALUES (1, 'Administrator');
-INSERT INTO roles (id, name) VALUES (2, 'Bookkeeper');
-INSERT INTO roles (id, name) VALUES (3, 'Read-Only');
-INSERT INTO roles (id, name) VALUES (4, 'Developer');
-
--- One default account so the app is usable immediately after install —
--- username 'admin', password 'changeme123'. This password is
--- intentionally not a secret (it's sitting in this file in plain sight)
--- — it exists purely so the very first login works at all; changing it
--- immediately is expected, not optional, and is called out clearly in
--- the user guide.
-INSERT INTO users (id, username, password_hash, active) VALUES (
-  1, 'admin', '9449e240ea040d81cce78dcf91e50ffb:b4eaa553abe22de695e080aad6d24828f6eccb7cd1a4b1177affd4e925437cf7c6babe4741221068334450a454e0db24dcabad0694a432272d7b3f3912270da7', 1
-);
-INSERT INTO user_roles (user_id, role_id) VALUES (1, 1);
+-- roles/users/user_roles/sessions eliminated as separate tables, per
+-- direct, absolute instruction. Real, plain entities under
+-- "Roles"/"Users"/"Sessions" (siblings of "Languages"/"Chart of
+-- Accounts" under "Application") - deliberately real entities now,
+-- not the earlier, deliberate exception this schema once made for
+-- auth infrastructure. entities.created_by/deleted_by (and every
+-- other real "user_id"-shaped column) had their own, real FK to
+-- users(id) stripped - decoupled from any specific, live user
+-- entity's own entity_id, since the historical "userId=1 means
+-- admin" convention is hardcoded pervasively throughout this
+-- codebase's own tests/scripts and cannot safely be renumbered to
+-- match wherever the new User entity naturally lands in the real,
+-- shared entity_id allocation sequence.
 
 
 -- The whole tree — languages, the real Chart of Accounts hierarchy,
@@ -225,6 +181,33 @@ INSERT INTO user_roles (user_id, role_id) VALUES (1, 1);
 -- itself.
 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (1, 1, 'Application', NULL, '2026-01-01', 1);
+
+-- roles/users/sessions, as real, plain entities under "Application" -
+-- see the real, direct comment above (where the removed tables used
+-- to be defined) for why this schema no longer makes an exception
+-- for auth infrastructure. Placed at a real, deliberately high
+-- row_id/entity_id range (900+) to avoid colliding with any of this
+-- same bootstrap block's own, many, real, hardcoded lower ids.
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (900, 900, 'System Roles', 1, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (901, 901, 'Administrator', 900, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (902, 902, 'Bookkeeper', 900, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (903, 903, 'Read-Only', 900, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (904, 904, 'Developer', 900, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (905, 905, 'System Users', 1, '2026-01-01', 1);
+-- One default account so the app is usable immediately after install —
+-- username 'admin', password 'changeme123'. This password is
+-- intentionally not a secret (it's sitting in this file in plain sight)
+-- — it exists purely so the very first login works at all; changing it
+-- immediately is expected, not optional, and is called out clearly in
+-- the user guide. detail_json holds password_hash/active/page_size/
+-- number_format/date_format directly - the same, real, established
+-- pattern combination_ids/detail_json already proves elsewhere.
+INSERT INTO entities (row_id, entity_id, name, parent_id, detail_json, created_at, created_by) VALUES (906, 906, 'admin', 905, '{"password_hash":"9449e240ea040d81cce78dcf91e50ffb:b4eaa553abe22de695e080aad6d24828f6eccb7cd1a4b1177affd4e925437cf7c6babe4741221068334450a454e0db24dcabad0694a432272d7b3f3912270da7","active":1,"page_size":20,"number_format":"1 000.00","date_format":"dd/mm/yyyy"}', '2026-01-01', 1);
+-- A real, direct child entity under the user itself, one per real
+-- role granted, relation_id pointing at that real role - the exact,
+-- same, real pattern already proven for vocabulary_preference.
+INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (907, 907, 'admin — Role — Administrator', 906, 901, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (908, 908, 'System Sessions', 1, '2026-01-01', 1);
 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (2, 2, 'Languages', 1, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (3, 3, 'English', 2, '2026-01-01', 1);
@@ -854,7 +837,7 @@ CREATE TABLE journal (
   -- alongside entities' own append-only history: an entity's changes
   -- are self-auditing via created_by/deleted_by, and journal postings
   -- get the same guarantee here, permanently, never reassignable.
-  user_id          INTEGER NOT NULL REFERENCES users(id),
+  user_id          INTEGER NOT NULL,
   reversal_of      INTEGER REFERENCES journal(id),
   generated_from   INTEGER REFERENCES journal(id),
   -- An ordinary entry is recurrence = 'once' — not a special case, the
@@ -1321,7 +1304,7 @@ CREATE TABLE invoice (
   due_date           TEXT,           -- computed from the counterparty's payment_terms_days at creation, editable after
   description        TEXT NOT NULL DEFAULT '',
   status             TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'posted', 'void')),
-  user_id            INTEGER NOT NULL REFERENCES users(id),
+  user_id            INTEGER NOT NULL,
   posted_journal_id  INTEGER REFERENCES journal(id), -- set once actually posted to the GL; NULL while still a draft
   -- Which real screen actually created this invoice — 'manual' for a
   -- deliberate, account-based invoice created directly (Accounts

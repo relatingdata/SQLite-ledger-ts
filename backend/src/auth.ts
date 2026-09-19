@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
-import { db, ValidationError, NotFoundError } from './db.js';
+import { db, ValidationError, NotFoundError, updateEntity, deleteEntity } from './db.js';
+import { Entity } from './primitives.js';
 import { hashPassword, verifyPassword } from './password.js';
 
 const SESSION_LIFETIME_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -12,8 +13,39 @@ const SESSION_LIFETIME_MS = 24 * 60 * 60 * 1000; // 24 hours
 export { hashPassword, verifyPassword };
 
 // ---------------------------------------------------------------------------
-// Users and roles
+// Users and roles — real, plain entities under "Users"/"Roles", per
+// direct, absolute instruction (no permanent tables beyond the real
+// four). A user's own detail (password_hash, active, page_size,
+// number_format, date_format) lives in that entity's own, real
+// detail_json. Each granted role is a real, direct child entity under
+// the user itself, relation_id pointing at the real role - the same,
+// real, proven pattern already used for vocabulary_preference.
 // ---------------------------------------------------------------------------
+
+interface UserDetail {
+  password_hash: string;
+  active: number;
+  page_size: number;
+  number_format: string;
+  date_format: string;
+}
+
+function getUserDetail(userId: number): UserDetail | undefined {
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')`).get(userId) as { detail_json: string } | undefined;
+  return row ? JSON.parse(row.detail_json) : undefined;
+}
+
+function setUserDetail(userId: number, detail: UserDetail): void {
+  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), userId);
+}
+
+function getUserRoleNames(userId: number): string[] {
+  return (
+    db
+      .prepare(`SELECT role.name FROM current_entities link JOIN current_entities role ON role.id = link.relation_id WHERE link.parent_id = ? AND link.name LIKE '% — Role — %'`)
+      .all(userId) as { name: string }[]
+  ).map((r) => r.name);
+}
 
 export interface UserSummary {
   id: number;
@@ -23,94 +55,88 @@ export interface UserSummary {
 }
 
 export function listUsers(): UserSummary[] {
-  const users = db.prepare(`SELECT id, username, active FROM users ORDER BY username`).all() as {
-    id: number;
-    username: string;
-    active: number;
-  }[];
-  return users.map((u) => ({
-    id: u.id,
-    username: u.username,
-    active: !!u.active,
-    roles: (db
-      .prepare(`SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ?`)
-      .all(u.id) as { name: string }[]).map((r) => r.name),
-  }));
+  const users = db
+    .prepare(`SELECT id, name AS username, detail_json FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'System Users') ORDER BY name`)
+    .all() as { id: number; username: string; detail_json: string }[];
+  return users.map((u) => {
+    const detail: UserDetail = JSON.parse(u.detail_json);
+    return { id: u.id, username: u.username, active: !!detail.active, roles: getUserRoleNames(u.id) };
+  });
 }
 
 export function listRoles(): { id: number; name: string }[] {
-  return db.prepare(`SELECT id, name FROM roles ORDER BY id`).all() as { id: number; name: string }[];
+  return db
+    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'System Roles') ORDER BY id`)
+    .all() as { id: number; name: string }[];
 }
 
 export function createUser(username: string, password: string, roleNames: string[]): UserSummary {
-  const existing = db.prepare(`SELECT id FROM users WHERE username = ?`).get(username);
+  const usersRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'System Users'`).get() as { id: number };
+  const existing = Entity.getUnder(username, usersRoot.id);
   if (existing) throw new ValidationError(`A user named "${username}" already exists.`);
   if (password.length < 8) throw new ValidationError('Password must be at least 8 characters.');
 
-  const info = db.prepare(`INSERT INTO users (username, password_hash) VALUES (?, ?)`).run(username, hashPassword(password));
-  const userId = Number(info.lastInsertRowid);
-  setUserRoles(userId, roleNames);
-  return listUsers().find((u) => u.id === userId)!;
+  const created = Entity.create(username, usersRoot.id, 1 as never);
+  const detail: UserDetail = { password_hash: hashPassword(password), active: 1, page_size: 20, number_format: '1 000.00', date_format: 'dd/mm/yyyy' };
+  setUserDetail(created.id, detail);
+  setUserRoles(created.id, roleNames);
+  return listUsers().find((u) => u.id === created.id)!;
 }
 
 export function setUserRoles(userId: number, roleNames: string[]): void {
   const roleIds = roleNames.map((name) => {
-    const row = db.prepare(`SELECT id FROM roles WHERE name = ?`).get(name) as { id: number } | undefined;
+    const row = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Roles')`).get(name) as { id: number } | undefined;
     if (!row) throw new ValidationError(`No such role "${name}".`);
-    return row.id;
+    return { id: row.id, name };
   });
-  db.prepare(`DELETE FROM user_roles WHERE user_id = ?`).run(userId);
-  const insert = db.prepare(`INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)`);
-  for (const roleId of roleIds) insert.run(userId, roleId);
+  const existingLinks = db.prepare(`SELECT id FROM current_entities WHERE parent_id = ? AND name LIKE '% — Role — %'`).all(userId) as { id: number }[];
+  for (const link of existingLinks) deleteEntity(link.id, 1 as never);
+  const userRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(userId) as { name: string };
+  for (const role of roleIds) {
+    const created = Entity.create(`${userRow.name} — Role — ${role.name}`, userId, 1 as never);
+    updateEntity(created.id, { relation: role.name }, 1 as never);
+  }
 }
 
 export function setUserActive(userId: number, active: boolean): void {
-  const result = db.prepare(`UPDATE users SET active = ? WHERE id = ?`).run(active ? 1 : 0, userId);
-  if (result.changes === 0) throw new NotFoundError(`User ${userId} not found.`);
+  const detail = getUserDetail(userId);
+  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
+  detail.active = active ? 1 : 0;
+  setUserDetail(userId, detail);
   if (!active) {
-    // Deactivating a user should also kill any session they're currently using.
-    db.prepare(`DELETE FROM sessions WHERE user_id = ?`).run(userId);
+    const sessions = db.prepare(`SELECT id FROM current_entities WHERE relation_id = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`).all(userId) as { id: number }[];
+    for (const s of sessions) deleteEntity(s.id, 1 as never);
   }
 }
 
 export function changePassword(userId: number, newPassword: string): void {
   if (newPassword.length < 8) throw new ValidationError('Password must be at least 8 characters.');
-  const result = db.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(hashPassword(newPassword), userId);
-  if (result.changes === 0) throw new NotFoundError(`User ${userId} not found.`);
+  const detail = getUserDetail(userId);
+  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
+  detail.password_hash = hashPassword(newPassword);
+  setUserDetail(userId, detail);
 }
 
-/** Self-service password change — unlike changePassword (Administrator
- * resetting someone else's, no verification needed since an admin
- * already has that authority), this requires proving you know the
- * CURRENT password first. Without that check, anyone who got hold of
- * a logged-in session (a shared computer, a stolen token) could lock
- * the real owner out permanently just by knowing they were signed in —
- * a real, meaningful difference from the admin path, not a redundant
- * extra step. */
 export function changeOwnPassword(userId: number, currentPassword: string, newPassword: string): void {
-  const user = db.prepare(`SELECT password_hash FROM users WHERE id = ?`).get(userId) as { password_hash: string } | undefined;
-  if (!user) throw new NotFoundError(`User ${userId} not found.`);
-  if (!verifyPassword(currentPassword, user.password_hash)) {
+  const detail = getUserDetail(userId);
+  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
+  if (!verifyPassword(currentPassword, detail.password_hash)) {
     throw new ValidationError('Current password is incorrect.');
   }
   changePassword(userId, newPassword);
 }
 
 // ---------------------------------------------------------------------------
-// Sessions
+// Sessions — real, plain entities under "Sessions", named by their own
+// real token, relation_id pointing at the real user, detail_json
+// holding expires_at.
 // ---------------------------------------------------------------------------
 
 export interface AuthenticatedUser {
   id: number;
   username: string;
   roles: string[];
-  /** How many rows this user sees per page on any paginated list —
-   * their own preference, defaulting to 20. */
   page_size: number;
-  /** Explicit, fixed-choice display patterns — never inferred from a
-   * locale code, which real ICU data can get wrong for a business's
-   * actual convention (e.g. en-AU using commas, not the space this
-   * business wants). See schema.sql for the exact allowed values. */
   number_format: string;
   date_format: string;
 }
@@ -118,68 +144,66 @@ export interface AuthenticatedUser {
 export class AuthError extends Error {}
 
 export function login(username: string, password: string): { token: string; user: AuthenticatedUser } {
-  const row = db.prepare(`SELECT id, username, password_hash, active, page_size, number_format, date_format FROM users WHERE username = ?`).get(username) as
-    | { id: number; username: string; password_hash: string; active: number; page_size: number; number_format: string; date_format: string }
-    | undefined;
-  if (!row || !row.active || !verifyPassword(password, row.password_hash)) {
-    // Deliberately the same error for "no such user" and "wrong password" —
-    // distinguishing them would tell an attacker which usernames exist.
+  const usersRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'System Users'`).get() as { id: number } | undefined;
+  const userRow = usersRoot ? (db.prepare(`SELECT id, name FROM current_entities WHERE name = ? AND parent_id = ?`).get(username, usersRoot.id) as { id: number; name: string } | undefined) : undefined;
+  const detail = userRow ? getUserDetail(userRow.id) : undefined;
+  if (!userRow || !detail || !detail.active || !verifyPassword(password, detail.password_hash)) {
     throw new AuthError('Invalid username or password.');
   }
 
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + SESSION_LIFETIME_MS).toISOString();
-  db.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)`).run(token, row.id, expiresAt);
+  const sessionsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'System Sessions'`).get() as { id: number };
+  const sessionEntity = Entity.create(`Session — ${token}`, sessionsRoot.id, 1 as never);
+  updateEntity(sessionEntity.id, { relation: username }, 1 as never);
+  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ expires_at: expiresAt }), sessionEntity.id);
 
-  const roles = (db
-    .prepare(`SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ?`)
-    .all(row.id) as { name: string }[]).map((r) => r.name);
+  const roles = getUserRoleNames(userRow.id);
 
   return {
     token,
-    user: { id: row.id, username: row.username, roles, page_size: row.page_size, number_format: row.number_format, date_format: row.date_format },
+    user: { id: userRow.id, username: userRow.name, roles, page_size: detail.page_size, number_format: detail.number_format, date_format: detail.date_format },
   };
 }
 
-export function logout(token: string): void {
-  db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
+function findSessionByToken(token: string): { id: number; user_id: number; expires_at: string } | undefined {
+  const row = db
+    .prepare(`SELECT id, relation_id AS user_id, detail_json FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`)
+    .get(`Session — ${token}`) as { id: number; user_id: number; detail_json: string } | undefined;
+  if (!row) return undefined;
+  const detail = JSON.parse(row.detail_json);
+  return { id: row.id, user_id: row.user_id, expires_at: detail.expires_at };
 }
 
-/** Returns the authenticated user for a session token, or null if the
- * token is missing, expired, or belongs to a now-deactivated user —
- * every one of those should behave identically to "not logged in" from
- * the caller's point of view. */
+export function logout(token: string): void {
+  const session = findSessionByToken(token);
+  if (session) deleteEntity(session.id, 1 as never);
+}
+
 export function getSessionUser(token: string | undefined): AuthenticatedUser | null {
   if (!token) return null;
-  const row = db
-    .prepare(
-      `SELECT u.id, u.username, u.active, u.page_size, u.number_format, u.date_format, s.expires_at
-       FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.token = ?`
-    )
-    .get(token) as
-    | { id: number; username: string; active: number; page_size: number; number_format: string; date_format: string; expires_at: string }
-    | undefined;
-  if (!row) return null;
-  if (!row.active) return null;
-  if (new Date(row.expires_at).getTime() < Date.now()) {
-    db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
+  const session = findSessionByToken(token);
+  if (!session) return null;
+  const detail = getUserDetail(session.user_id);
+  if (!detail) return null;
+  if (!detail.active) return null;
+  if (new Date(session.expires_at).getTime() < Date.now()) {
+    deleteEntity(session.id, 1 as never);
     return null;
   }
-  const roles = (db
-    .prepare(`SELECT r.name FROM roles r JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ?`)
-    .all(row.id) as { name: string }[]).map((r) => r.name);
-  return { id: row.id, username: row.username, roles, page_size: row.page_size, number_format: row.number_format, date_format: row.date_format };
+  const userRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(session.user_id) as { name: string };
+  const roles = getUserRoleNames(session.user_id);
+  return { id: session.user_id, username: userRow.name, roles, page_size: detail.page_size, number_format: detail.number_format, date_format: detail.date_format };
 }
 
-/** A user changing their own display preference — deliberately
- * separate from setUserRoles/setUserActive, which are administrative
- * actions on someone else's account, not a personal preference. */
 export function setOwnPageSize(userId: number, pageSize: number): void {
   if (!Number.isInteger(pageSize) || pageSize < 5 || pageSize > 200) {
     throw new ValidationError('Page size must be a whole number between 5 and 200.');
   }
-  db.prepare(`UPDATE users SET page_size = ? WHERE id = ?`).run(pageSize, userId);
+  const detail = getUserDetail(userId);
+  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
+  detail.page_size = pageSize;
+  setUserDetail(userId, detail);
 }
 
 const ALLOWED_NUMBER_FORMATS = ["1,000.00", '1 000.00', '1.000,00', '1000,00', '1000.00', "1'000.00"];
@@ -187,7 +211,10 @@ export function setOwnNumberFormat(userId: number, numberFormat: string): void {
   if (!ALLOWED_NUMBER_FORMATS.includes(numberFormat)) {
     throw new ValidationError(`Number format must be one of: ${ALLOWED_NUMBER_FORMATS.join(', ')}.`);
   }
-  db.prepare(`UPDATE users SET number_format = ? WHERE id = ?`).run(numberFormat, userId);
+  const detail = getUserDetail(userId);
+  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
+  detail.number_format = numberFormat;
+  setUserDetail(userId, detail);
 }
 
 const ALLOWED_DATE_FORMATS = ['dd/mm/yyyy', 'mm/dd/yyyy', 'dd.mm.yyyy', 'dd-mm-yyyy', 'yyyy-mm-dd'];
@@ -195,5 +222,8 @@ export function setOwnDateFormat(userId: number, dateFormat: string): void {
   if (!ALLOWED_DATE_FORMATS.includes(dateFormat)) {
     throw new ValidationError(`Date format must be one of: ${ALLOWED_DATE_FORMATS.join(', ')}.`);
   }
-  db.prepare(`UPDATE users SET date_format = ? WHERE id = ?`).run(dateFormat, userId);
+  const detail = getUserDetail(userId);
+  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
+  detail.date_format = dateFormat;
+  setUserDetail(userId, detail);
 }
