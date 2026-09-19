@@ -1,61 +1,32 @@
 -- German BMW / French Peugeot demo ledger data, split out per direct request.
-INSERT INTO entity_ids (id) VALUES (188);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (188, 188, 'BMW M GmbH', (SELECT id FROM current_entities WHERE name = 'Businesses'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (189);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (189, 189, 'Actual', (SELECT id FROM current_entities WHERE name = 'BMW M GmbH'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (550);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (550, 550, 'BMW M GmbH Budget 2026-27', (SELECT id FROM current_entities WHERE name = 'BMW M GmbH'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (190);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (190, 190, 'Immaterielle Vermögensgegenstände', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (191);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (191, 191, 'Sachanlagen', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (192);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (192, 192, 'Vorräte', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (193);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (193, 193, 'Forderungen und sonstige Vermögensgegenstände', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (194);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (194, 194, 'Kassenbestand und Bankguthaben', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (195);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (195, 195, 'Rechnungsabgrenzungsposten (Aktiva)', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (196);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (196, 196, 'Gezeichnetes Kapital', (SELECT id FROM current_entities WHERE name = 'Equity'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (197);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (197, 197, 'Gewinnrücklagen', (SELECT id FROM current_entities WHERE name = 'Equity'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (198);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (198, 198, 'Rückstellungen', (SELECT id FROM current_entities WHERE name = 'Liability'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (199);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (199, 199, 'Erhaltene Anzahlungen', (SELECT id FROM current_entities WHERE name = 'Liability'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (200);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (200, 200, 'Verbindlichkeiten aus Lieferungen und Leistungen', (SELECT id FROM current_entities WHERE name = 'Liability'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (201);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (201, 201, 'Verbindlichkeiten gegenüber verbundenen Unternehmen', (SELECT id FROM current_entities WHERE name = 'Liability'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (202);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (202, 202, 'Sonstige Verbindlichkeiten', (SELECT id FROM current_entities WHERE name = 'Liability'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (203);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (203, 203, 'Umsatzerlöse', (SELECT id FROM current_entities WHERE name = 'Income'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (204);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (204, 204, 'Sonstige betriebliche Erträge', (SELECT id FROM current_entities WHERE name = 'Income'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (205);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (205, 205, 'Herstellungskosten', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (206);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (206, 206, 'Vertriebskosten', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (207);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (207, 207, 'Allgemeine Verwaltungskosten', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (208);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (208, 208, 'Sonstige betriebliche Aufwendungen', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (209);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (209, 209, 'Zinsergebnis', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (210);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (210, 210, 'Steuern vom Einkommen und Ertrag', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (211);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (211, 211, 'Sonstige Steuern', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (212);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (212, 212, 'Gewinnabführung', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (213);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (213, 213, 'Peugeot Citroën Sochaux SNC', (SELECT id FROM current_entities WHERE name = 'Businesses'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (214);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (214, 214, 'Actual', (SELECT id FROM current_entities WHERE name = 'Peugeot Citroën Sochaux SNC'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (551);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (551, 551, 'Peugeot Citroën Sochaux SNC Budget 2026-27', (SELECT id FROM current_entities WHERE name = 'Peugeot Citroën Sochaux SNC'), '2026-01-01', 1);
 
 -- Wine Retail Business — a real, selectable business (not just the
@@ -63,7 +34,6 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- dedicated screens regardless of which business is selected) so
 -- there's an actual home to post invoices and other transactions
 -- against for the wine/beer/spirits scenario, same as BMW/PCS.
-INSERT INTO entity_ids (id) VALUES (296);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (296, 296, 'Wine Retail Business', (SELECT id FROM current_entities WHERE name = 'Businesses'), '2026-01-01', 1);
 
 -- Real per-business Locations, not the one, global "Locations" node
@@ -78,7 +48,6 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- bootstrap data reference them by entity_id directly and need them
 -- to exist at that point in the script; only their real, current
 -- parent changes, exactly as a real re-parent through the UI would.
-INSERT INTO entity_ids (id) VALUES (363);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (363, 363, 'Wine Retail Business Locations', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 122 AND deleted_at IS NULL;
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (364, 122, 'Head Office', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Locations'), '2026-01-01', 1);
@@ -105,7 +74,6 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- 134-187) needs no change at all here - their own parent_id already
 -- points at one of these 5 categories, which now itself lives under
 -- Wine Retail Business Items, so the whole real tree moves with them.
-INSERT INTO entity_ids (id) VALUES (813);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50813, 813, 'Wine Retail Business Items', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 129 AND deleted_at IS NULL;
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50814, 129, 'Red Wine', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
@@ -117,65 +85,35 @@ UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50817, 132, 'Beer', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
 UPDATE entities SET deleted_at = '2026-01-01', deleted_by = 1 WHERE entity_id = 133 AND deleted_at IS NULL;
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50818, 133, 'Spirits', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (297);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (297, 297, 'Actual', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (215);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (215, 215, 'Stocks et en-cours', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (216);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (216, 216, 'Créances clients et comptes rattachés', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (217);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (217, 217, 'Autres créances', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (218);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (218, 218, 'Disponibilités', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (219);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (219, 219, 'Capital', (SELECT id FROM current_entities WHERE name = 'Equity'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (220);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (220, 220, 'Report à nouveau', (SELECT id FROM current_entities WHERE name = 'Equity'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (221);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (221, 221, 'Provisions pour risques', (SELECT id FROM current_entities WHERE name = 'Liability'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (222);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (222, 222, 'Emprunts et dettes financières divers', (SELECT id FROM current_entities WHERE name = 'Liability'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (223);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (223, 223, 'Dettes fournisseurs et comptes rattachés', (SELECT id FROM current_entities WHERE name = 'Liability'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (224);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (224, 224, 'Dettes fiscales et sociales', (SELECT id FROM current_entities WHERE name = 'Liability'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (225);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (225, 225, 'Autres dettes', (SELECT id FROM current_entities WHERE name = 'Liability'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (226);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (226, 226, 'Ventes de marchandises', (SELECT id FROM current_entities WHERE name = 'Income'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (227);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (227, 227, 'Production vendue - Biens', (SELECT id FROM current_entities WHERE name = 'Income'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (228);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (228, 228, 'Production vendue - Services', (SELECT id FROM current_entities WHERE name = 'Income'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (229);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (229, 229, 'Reprises sur provisions et transferts de charges', (SELECT id FROM current_entities WHERE name = 'Income'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (230);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (230, 230, 'Autres produits', (SELECT id FROM current_entities WHERE name = 'Income'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (231);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (231, 231, 'Produits financiers', (SELECT id FROM current_entities WHERE name = 'Income'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (232);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (232, 232, 'Production stockée (variation)', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (233);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (233, 233, 'Achats de marchandises', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (234);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (234, 234, 'Achats de matières premières et autres approvisionnements', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (235);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (235, 235, 'Variation des stocks de matières premières', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (236);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (236, 236, 'Autres achats et charges externes', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (237);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (237, 237, 'Impôts, taxes et versements assimilés', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (238);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (238, 238, 'Dotations aux provisions sur actif circulant', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (239);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (239, 239, 'Dotations aux provisions pour risques et charges', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (240);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (240, 240, 'Autres charges', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (241);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (241, 241, 'Charges financières', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (242);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (242, 242, 'Charges exceptionnelles', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
-INSERT INTO entity_ids (id) VALUES (243);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (243, 243, 'Impôts sur les bénéfices', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);-- BMW M GmbH FY2020 balance sheet
 INSERT INTO journal_entry_staging (reference, business, ledger, transdate, account, amount_minor)
 VALUES ('BMW-BS-2020', 'BMW M GmbH', 'Actual', '2020-12-31', 'Immaterielle Vermögensgegenstände', 37200000);
