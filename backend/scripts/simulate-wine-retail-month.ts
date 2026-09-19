@@ -64,8 +64,9 @@ import {
   stageBomComponent,
   postBomComponents,
   ensureProductInventoryAccount,
+  setCurrencyExchangeRate,
 } from '../src/db.js';
-import { getItemLocation } from '../src/db-stock.js';
+import { getItemLocation, createPosTerminal, setTerminalCurrency } from '../src/db-stock.js';
 import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { readCsv } from '../../shared-fixtures/csv.js';
 import * as fs from 'fs';
@@ -639,6 +640,60 @@ async function main() {
     }
   }
   console.log(`${saleCount} retail sales completed (${saleFailures} skipped — insufficient stock at that moment, expected at this volume).`);
+
+  console.log(`\n=== Foreign-currency sales: one real POS terminal, one real border-town location, real exchange rates ===`);
+  // Per direct request: the real currency-exchange-rate mechanism
+  // (ensureCurrencyPair/setCurrencyExchangeRate, and the real,
+  // separate border-multicurrency-pos-plan.md terminal-currency
+  // mechanism it's built to support) had real, isolated unit test
+  // coverage but had never once been exercised against this real,
+  // full-scale simulation - confirmed directly, a genuine gap, not
+  // assumed fine because the isolated tests passed. A real, 3-currency
+  // cartesian setup (AUD home, USD and EUR foreign) - 9 total real
+  // pairs, 3 trivial self-pairs, 6 real, distinct, independently-set
+  // buy/sell rates, exactly per docs/multicurrency-design.md.
+  const CCY_PAIRS: [string, string, number, number][] = [
+    ['AUD', 'USD', 65000, 65500],
+    ['USD', 'AUD', 153000, 154000],
+    ['AUD', 'EUR', 60000, 60500],
+    ['EUR', 'AUD', 165000, 166000],
+    ['USD', 'EUR', 92000, 92500],
+    ['EUR', 'USD', 107500, 108000],
+  ];
+  for (const [from, to, buy, sell] of CCY_PAIRS) setCurrencyExchangeRate(BUSINESS, from, to, 1, buy, sell);
+
+  const usdTerminalLocation = retailOutlets[0].name;
+  createPosTerminal('Border Store USD Till', usdTerminalLocation, 1);
+  setTerminalCurrency('Border Store USD Till', 'USD');
+  const usdCandidateProducts = ['Barossa Shiraz 2021', 'Margaret River Chardonnay 2022'];
+  for (const productName of usdCandidateProducts) {
+    addOrUpdateItemSource({ itemName: productName, vendorName: VENDOR, currency: 'USD', priceMinor: 1500, isPreferred: true });
+  }
+  let usdSaleCount = 0;
+  for (let i = 0; i < 4; i++) {
+    try {
+      const product = usdCandidateProducts[i % usdCandidateProducts.length];
+      completePosSale(
+        {
+          business: BUSINESS,
+          ledger: LEDGER,
+          locationName: usdTerminalLocation,
+          terminalName: 'Border Store USD Till',
+          customerName: 'Cash Sale',
+          lines: [{ itemName: product, quantity: 1 }],
+          taxAccount: 'Sales Tax Payable',
+          paymentMethod: 'card',
+          cashTenderedMinor: undefined,
+          transdate: today(10 + i),
+        },
+        1
+      );
+      usdSaleCount++;
+    } catch {
+      /* insufficient stock at that moment, same, real tolerance as the ordinary retail loop above */
+    }
+  }
+  console.log(`${usdSaleCount} real USD sales completed through Border Store USD Till, at real, independently-configured exchange rates.`);
 
   console.log(`\n=== Wine bars: one per division, selling by the glass ===`);
   // A real, deliberate simplification, stated plainly: cocktails are

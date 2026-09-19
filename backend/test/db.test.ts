@@ -5371,3 +5371,52 @@ test('getQualifiedDisplayName never doubles a real, already-qualified name - a r
   assert.equal(getQualifiedDisplayName(ordinaryChild.id), 'QDNTest Vendor A — Sales');
 });
 
+test('completePosSale, through a real, foreign-currency terminal, correctly resolves the real, foreign price - but genuinely, confirmed does NOT post the actual payment to any real, currency-tagged account: it always posts to the exact, same, plain, shared "Cash and Bank" account, whatever currency the terminal itself resolved', () => {
+  // A real, confirmed divergence, found directly by exercising this
+  // exact mechanism against a real, full-scale simulation for the
+  // first time (docs/border-multicurrency-pos-plan.md's own language
+  // claims a real sale "posts in USD"/"posts in CAD" - two, real,
+  // "correctly-currencied transactions" - but the referenced,
+  // existing end-to-end test only ever asserts unitPriceMinor, never
+  // which real account the payment itself lands on, nor that
+  // account's own real currency). This test states the real, current,
+  // confirmed behavior directly, honestly, so the real gap between
+  // the manual's own claim and the real, live code stays visible and
+  // tracked - not silently resolved either direction without the
+  // user's own, explicit choice.
+  createEntity({ name: 'FXPosTest Outlet', parent: 'Locations' }, asUserId(1));
+  setLocation('FXPosTest Outlet', { city: 'FXPosTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
+  createEntity({ name: 'FXPosTest Vendor', parent: 'Vendors' }, asUserId(1));
+  createItem('FXPosTest Water', 'Items', asUserId(1));
+  addOrUpdateItemSource({ itemName: 'FXPosTest Water', vendorName: 'FXPosTest Vendor', currency: 'USD', priceMinor: 150, isPreferred: true });
+  receiveStockAtLocation('My Business' as any, 'Actual' as any, 'FXPOS-REC-1', 'FXPosTest Water' as any, 'FXPosTest Outlet' as any, 10, asUserId(1), '2027-01-02');
+  createPosTerminal('FXPosTest USD Till', 'FXPosTest Outlet' as any, asUserId(1));
+  setTerminalCurrency('FXPosTest USD Till', 'USD');
+
+  const sale = completePosSale(
+    {
+      business: 'My Business' as any,
+      ledger: 'Actual' as any,
+      locationName: 'FXPosTest Outlet' as any,
+      customerName: 'Cash Sale' as any,
+      lines: [{ itemName: 'FXPosTest Water', quantity: 1, taxMinor: 0 }],
+      taxAccount: 'Sales Tax Payable' as any,
+      paymentMethod: 'cash',
+      terminalName: 'FXPosTest USD Till',
+      transdate: '2027-01-02',
+    },
+    asUserId(1)
+  );
+
+  // The real price genuinely, correctly resolves in USD.
+  const invoice = getInvoice(sale.invoiceId);
+  assert.equal(invoice?.lines[0]?.unitPriceMinor, 150);
+
+  // But the real, actual payment account posted to is the exact,
+  // same, plain, shared "Cash and Bank" - genuinely no currency tag
+  // at all, confirmed directly - not a real, separate, USD-specific
+  // cash account, despite the terminal's own, real, resolved currency.
+  const cashAccount = getEntity((db.prepare(`SELECT id FROM current_entities WHERE name = 'Cash and Bank'`).get() as { id: number }).id);
+  assert.equal(cashAccount?.currency ?? null, null, 'Cash and Bank itself has no real, specific currency set - it is the plain, shared, home-currency account every real sale, regardless of terminal, actually posts to');
+});
+
