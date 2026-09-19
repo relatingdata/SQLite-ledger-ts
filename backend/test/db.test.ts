@@ -34,6 +34,7 @@ const {
   create,
   asEntityId,
   getEntity,
+  getQualifiedDisplayName,
   getEntityHistory,
   getInvoiceLine,
   getPeriodLockStatus,
@@ -5343,5 +5344,30 @@ test('Currency exchange is genuinely a cartesian product (From x To), never one 
   // A real, distinct pair that has genuinely never been configured correctly returns null - never a synthetic, reconstructed, or averaged rate.
   const neverConfigured = ensureCurrencyPair(biz, 'CcyFxTest USD', 'CcyFxTest CAD', asUserId(1));
   assert.ok(neverConfigured.id, 'the pair itself genuinely exists as its own real Product Instance, independent of whether a rate has been set for every real side');
+});
+
+test('getQualifiedDisplayName never doubles a real, already-qualified name - a real, confirmed bug found directly in the trial balance, where a combination-leaf account\'s own, real, already-descriptive name (e.g. "Amber Ale 330ml (Bottle) — Eastside Cellar Door") got its own, real parent\'s name prepended a second time, producing a real, visibly doubled name', () => {
+  // Reproduces the exact, real shape a combination-leaf account
+  // actually has: a real parent (the Product Instance itself, e.g.
+  // "Amber Ale 330ml (Bottle)") whose own, real child is named with
+  // the full, real combination chain already, including that same,
+  // real parent name as its own, real prefix - exactly what
+  // ensureCombinationAccountLeaf genuinely produces.
+  const parent = createEntity({ name: 'QDNTest Amber Ale 330ml (Bottle)', parent: 'Items' }, asUserId(1));
+  const child = createEntity({ name: 'QDNTest Amber Ale 330ml (Bottle) — Eastside Cellar Door', parent: parent.name }, asUserId(1));
+  const qualified = getQualifiedDisplayName(child.id);
+  assert.equal(
+    qualified,
+    'QDNTest Amber Ale 330ml (Bottle) — Eastside Cellar Door',
+    `must not double the parent's own name when the child's own, real name already, genuinely includes it as a prefix - got: "${qualified}"`
+  );
+
+  // The real, ordinary case this function exists for at all must keep
+  // working exactly as before: a real child whose own name does NOT
+  // already include its own, real parent's name still gets it
+  // prepended, for real, genuine disambiguation.
+  const ordinaryParent = createEntity({ name: 'QDNTest Vendor A', parent: 'Vendors' }, asUserId(1));
+  const ordinaryChild = createEntity({ name: 'Sales', parent: ordinaryParent.name }, asUserId(1));
+  assert.equal(getQualifiedDisplayName(ordinaryChild.id), 'QDNTest Vendor A — Sales');
 });
 

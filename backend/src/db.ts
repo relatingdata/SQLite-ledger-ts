@@ -2968,6 +2968,15 @@ export function getQualifiedDisplayName(entityId: number): string {
   if (!entity || entity.parent_id == null) return entity?.name ?? '';
   const parent = getEntity(entity.parent_id);
   if (!parent) return entity.name;
+  // A real, confirmed bug fix: a combination-leaf account's own, real
+  // name is already, genuinely fully-qualified (ensureCombinationAccountLeaf
+  // names it with the full, real combination chain, including its own,
+  // real parent's name as a prefix) - prepending the parent's name
+  // again here produced a real, visibly doubled name (confirmed
+  // directly in the trial balance: "X — X — Y" instead of "X — Y").
+  // Only prepend when the child's own, real name doesn't already,
+  // genuinely start with it.
+  if (entity.name.startsWith(`${parent.name} — `) || entity.name === parent.name) return entity.name;
   return `${parent.name} — ${entity.name}`;
 }
 
