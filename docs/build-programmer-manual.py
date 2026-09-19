@@ -25,6 +25,7 @@ PARTS = [
     ]),
     ("Part II --- Technical Infrastructure", [
         "orm-and-commit-path.md",
+        "multi-runtime-support.md",
         "css-styling-and-data-entry.md",
         "screens-staging-triggers-functions.md",
         "screens-inventory.md",

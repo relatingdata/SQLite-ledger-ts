@@ -231,26 +231,28 @@ for (const f of files) {
 }
 functionEntries.sort((a, b) => a.name.localeCompare(b.name));
 
-console.log(`### Types (${typeEntries.length}, alphabetical)\n`);
-for (const entry of typeEntries) {
-  const referencedIn = findReferencingFiles(entry.name, entry.file);
-  console.log(`#### \`${entry.name}\`\n`);
-  console.log(`- **Defined in**: \`${entry.file}\``);
-  console.log(`- **Referenced in**: ${referencedIn.length > 0 ? referencedIn.map((r) => `\`${r}\``).join(', ') : '(no other real, core file references this directly)'}`);
-  console.log('\n```ts');
-  for (const line of entry.prototype) console.log(line);
-  console.log('```\n');
+function escapeForTableCell(s: string): string {
+  return s.replace(/\|/g, '\\|').replace(/\n/g, ' ');
 }
 
+console.log(`### Types (${typeEntries.length}, alphabetical)\n`);
+console.log('| Name | Defined in | Referenced in | Declaration |');
+console.log('|---|---|---|---|');
+for (const entry of typeEntries) {
+  const referencedIn = findReferencingFiles(entry.name, entry.file);
+  const referencedInText = referencedIn.length > 0 ? referencedIn.map((r) => `\`${r}\``).join(', ') : '(none)';
+  console.log(`| \`${entry.name}\` | \`${entry.file}\` | ${referencedInText} | \`${escapeForTableCell(entry.prototype.join(' '))}\` |`);
+}
+console.log('');
+
 console.log(`### Functions (${functionEntries.length}, alphabetical)\n`);
+console.log('| Name | Defined in | Referenced in | Prototype |');
+console.log('|---|---|---|---|');
 for (const entry of functionEntries) {
   const referencedIn = findReferencingFiles(entry.name, entry.file);
-  console.log(`#### \`${entry.name}\`\n`);
-  console.log(`- **Defined in**: \`${entry.file}\``);
-  console.log(`- **Referenced in**: ${referencedIn.length > 0 ? referencedIn.map((r) => `\`${r}\``).join(', ') : '(no other real, core file references this directly)'}`);
-  console.log('\n```ts');
-  console.log(entry.prototype[0]);
-  console.log('```\n');
+  const referencedInText = referencedIn.length > 0 ? referencedIn.map((r) => `\`${r}\``).join(', ') : '(none)';
+  console.log(`| \`${entry.name}\` | \`${entry.file}\` | ${referencedInText} | \`${escapeForTableCell(entry.prototype[0])}\` |`);
 }
+console.log('');
 
 console.log(`${typeEntries.length + functionEntries.length} real, indexed names (${typeEntries.length} types, ${functionEntries.length} functions) across ${files.length} real, core files.`);

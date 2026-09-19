@@ -92,17 +92,23 @@ for (const name of baselineNames) {
   else otherEntries.push(entry);
 }
 
+function escapeForTableCell(s: string): string {
+  // A real, direct escape: a markdown table cell is one, real,
+  // unbroken line - a literal pipe or newline inside a declaration
+  // would otherwise break the table's own, real column structure.
+  return s.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+}
+
 function printGroup(title: string, entries: Entry[]): void {
   entries.sort((a, b) => a.name.localeCompare(b.name));
   console.log(`## ${title} (${entries.length}, alphabetical)\n`);
+  console.log('| Name | Defined in | Referenced in | Declaration |');
+  console.log('|---|---|---|---|');
   for (const e of entries) {
-    console.log(`### \`${e.name}\`\n`);
-    console.log(`- **Defined in**: \`${e.file}\``);
-    console.log(`- **Referenced in**: ${e.referencedIn.length > 0 ? e.referencedIn.map((r) => `\`${r}\``).join(', ') : '(no other real, core backend file references this directly)'}`);
-    console.log('\n```ts');
-    console.log(e.declaration);
-    console.log('```\n');
+    const referencedIn = e.referencedIn.length > 0 ? e.referencedIn.map((r) => `\`${r}\``).join(', ') : '(none)';
+    console.log(`| \`${e.name}\` | \`${e.file}\` | ${referencedIn} | \`${escapeForTableCell(e.declaration)}\` |`);
   }
+  console.log('');
 }
 
 console.log('# Documentation Coverage Baseline — Structured Report\n');
