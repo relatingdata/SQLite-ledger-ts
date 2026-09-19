@@ -12,7 +12,7 @@ import { getLedgerBalances } from './db-reports.js';
 //
 // PERMANENT DATA lives in two real categories, not one:
 //
-// 1. The core double-entry ledger: entities (+ entity_ids), journal,
+// 1. The core double-entry ledger: entities, journal,
 //    journal_line, account. This is the only real, permanent record of
 //    what happened financially — every dollar and every unit of
 //    quantity, real and auditable, forever.
@@ -297,7 +297,7 @@ export type ItemName = string & { readonly __brand: 'ItemName' };
 // real `users` table) from "which entity" (accountId/itemId/
 // employeeId/locationId/etc., all genuinely the same underlying
 // concept — a real, direct primary key into the one, shared
-// entity_ids table every real entity in this system uses, just
+// entities table every real entity in this system uses, just
 // referenced under a semantically-named parameter per call site).
 // EntityId deliberately covers all of those together, rather than a
 // separate branded type per semantic name — they're structurally
@@ -1287,6 +1287,13 @@ export interface Invoice {
   total_tax_minor: number;
 }
 
+function ensureSystemInvoicesRoot(userId: UserId): { id: number } {
+  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = 'System Invoices'`).get() as { id: number } | undefined;
+  if (existing) return existing;
+  const application = db.prepare(`SELECT id FROM current_entities WHERE name = 'Application'`).get() as { id: number };
+  return Entity.create('System Invoices', application.id, userId);
+}
+
 export function createInvoice(input: InvoiceInput, userId: UserId): number {
   const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.business) as { id: number } | undefined)?.id;
   if (!businessId) throw new ValidationError(`No business named "${input.business}".`);
@@ -1319,42 +1326,44 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
   const termDays = contact?.payment_terms_days ?? 30;
   const dueDate = db.prepare(`SELECT date(?, '+' || ? || ' days') AS d`).get(input.invoiceDate, termDays) as { d: string };
 
-  const result = db
-    .prepare(
-      `INSERT INTO invoice (invoice_type, document_type, references_invoice_id, business_id, ledger_id, reference, counterparty_id, invoice_date, due_date, description, status, user_id, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)`
-    )
-    .run(
-      input.invoiceType,
-      input.documentType ?? 'invoice',
-      input.referencesInvoiceId ?? null,
-      businessId,
-      ledgerId,
-      input.reference,
-      counterpartyId,
-      input.invoiceDate,
-      dueDate.d,
-      input.description ?? '',
-      userId,
-      input.source ?? 'manual'
-    );
-  const invoiceId = result.lastInsertRowid as number;
+  const invoicesRoot = ensureSystemInvoicesRoot(userId);
+  const invoiceEntity = Entity.create(`${input.business} — ${input.ledger} — ${input.reference}`, invoicesRoot.id, userId);
+  updateEntity(invoiceEntity.id, { relation: input.counterpartyName }, userId);
+  const invoiceId = invoiceEntity.id;
+  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(
+    JSON.stringify({
+      invoice_type: input.invoiceType,
+      document_type: input.documentType ?? 'invoice',
+      references_invoice_id: input.referencesInvoiceId ?? null,
+      business_id: businessId,
+      ledger_id: ledgerId,
+      reference: input.reference,
+      invoice_date: input.invoiceDate,
+      due_date: dueDate.d,
+      description: input.description ?? '',
+      status: 'draft',
+      user_id: userId,
+      posted_journal_id: null,
+      source: input.source ?? 'manual',
+    }),
+    invoiceId
+  );
 
   input.lines.forEach((line, i) => {
     const itemId = line.itemName ? resolveItemId(asItemName(line.itemName)) : null;
-    db.prepare(
-      `INSERT INTO invoice_detail_line (invoice_id, line_order, item_id, description, quantity, unit_price_minor, amount_minor, tax_minor, dispatch_reference)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      invoiceId,
-      i,
-      itemId ?? null,
-      line.description,
-      line.quantity ?? null,
-      line.unitPriceMinor ?? null,
-      line.amountMinor,
-      line.taxMinor ?? 0,
-      line.dispatchReference ?? null
+    const lineEntity = Entity.create(`Line — ${i}`, invoiceId, userId);
+    if (itemId) updateEntity(lineEntity.id, { relation: line.itemName }, userId);
+    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(
+      JSON.stringify({
+        line_order: i,
+        description: line.description,
+        quantity: line.quantity ?? null,
+        unit_price_minor: line.unitPriceMinor ?? null,
+        amount_minor: line.amountMinor,
+        tax_minor: line.taxMinor ?? 0,
+        dispatch_reference: line.dispatchReference ?? null,
+      }),
+      lineEntity.id
     );
   });
 
@@ -1365,13 +1374,13 @@ export function getInvoice(id: number): Invoice | undefined {
   const row = db
     .prepare(
       `SELECT i.id, i.invoice_type, i.document_type, i.references_invoice_id, biz.name AS business, led.name AS ledger, i.reference,
-              cp.name AS counterparty, i.invoice_date, i.due_date, i.description, i.status, u.name AS posted_by, i.source
+              cp.name AS counterparty, i.invoice_date, i.due_date, i.description, i.status, COALESCE(u.name, CASE WHEN j.user_id = 1 THEN 'admin' ELSE NULL END) AS posted_by, i.source
        FROM invoice i
        JOIN current_entities biz ON biz.id = i.business_id
        JOIN current_entities led ON led.id = i.ledger_id
        JOIN current_entities cp ON cp.id = i.counterparty_id
        LEFT JOIN journal j ON j.id = i.posted_journal_id
-       LEFT JOIN current_entities u ON u.id = j.user_id
+       LEFT JOIN current_entities u ON u.id = j.user_id AND u.parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')
        WHERE i.id = ?`
     )
     .get(id) as Omit<Invoice, 'lines' | 'total_amount_minor' | 'total_tax_minor'> | undefined;
@@ -1969,7 +1978,9 @@ export function postInvoice(
     db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`)
       .get(invoice.reference, invoice.business, invoice.ledger, invoice.business) as { id: number }
   ).id;
-  db.prepare(`UPDATE invoice SET status = 'posted', posted_journal_id = ? WHERE id = ?`).run(journalId, id);
+  db.prepare(
+    `UPDATE entities SET detail_json = json_set(detail_json, '$.status', 'posted', '$.posted_journal_id', ?) WHERE entity_id = ? AND deleted_at IS NULL`
+  ).run(journalId, id);
 }
 
 /** Records that a specific AR Receipt/AP Payment posting was applied
@@ -2028,11 +2039,10 @@ export function allocatePayment(
   // fix, not the original order, which recorded this fact first and
   // could silently leave a real, "successful" allocation on record
   // even when the actual, real cash movement never posted at all.
-  db.prepare(`INSERT INTO invoice_payment_allocation (invoice_id, payment_reference, allocated_minor, allocation_date) VALUES (?, ?, ?, ?)`).run(
-    invoiceId,
-    paymentReference,
-    allocatedMinor,
-    allocationDate
+  const allocEntity = Entity.create(`Payment — ${paymentReference}`, invoiceId, asUserId(1));
+  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(
+    JSON.stringify({ payment_reference: paymentReference, allocated_minor: allocatedMinor, allocation_date: allocationDate }),
+    allocEntity.id
   );
 }
 
@@ -7109,14 +7119,14 @@ export function listJournalEntries(business: BusinessName, ledger: LedgerName, l
   return db
     .prepare(
       `SELECT jo.journal_id, jo.transdate AS occurrence_date, jo.reference, jo.description,
-              biz.name AS business, led.name AS ledger, j.recurrence, u.name AS posted_by,
+              biz.name AS business, led.name AS ledger, j.recurrence, COALESCE(u.name, CASE WHEN jo.user_id = 1 THEN 'admin' ELSE NULL END) AS posted_by,
               COALESCE(SUM(CASE WHEN jo.amount_minor > 0 THEN jo.amount_minor ELSE 0 END), 0) AS total_debit_minor,
               COALESCE(SUM(CASE WHEN jo.amount_minor < 0 THEN -jo.amount_minor ELSE 0 END), 0) AS total_credit_minor
        FROM journal_occurrences jo
        JOIN journal j ON j.id = jo.journal_id
        JOIN current_entities biz ON biz.id = jo.business_id
        JOIN current_entities led ON led.id = jo.ledger_id
-       JOIN current_entities u ON u.id = jo.user_id
+       LEFT JOIN current_entities u ON u.id = jo.user_id AND u.parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')
        WHERE biz.name = ? AND led.name = ?
          AND jo.reference NOT LIKE '%-QTY'
        GROUP BY jo.journal_id, jo.transdate
@@ -7157,12 +7167,12 @@ export function getJournalEntry(business: BusinessName, ledger: LedgerName, jour
   const header = db
     .prepare(
       `SELECT jo.journal_id, jo.transdate AS occurrence_date, jo.reference, jo.description,
-              biz.name AS business, led.name AS ledger, j.recurrence, u.name AS posted_by
+              biz.name AS business, led.name AS ledger, j.recurrence, COALESCE(u.name, CASE WHEN jo.user_id = 1 THEN 'admin' ELSE NULL END) AS posted_by
        FROM journal_occurrences jo
        JOIN journal j ON j.id = jo.journal_id
        JOIN current_entities biz ON biz.id = jo.business_id
        JOIN current_entities led ON led.id = jo.ledger_id
-       JOIN current_entities u ON u.id = jo.user_id
+       LEFT JOIN current_entities u ON u.id = jo.user_id AND u.parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')
        WHERE jo.journal_id = ? AND jo.transdate = ? AND biz.name = ? AND led.name = ?
        LIMIT 1`
     )

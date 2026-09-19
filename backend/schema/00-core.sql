@@ -144,6 +144,18 @@ CREATE INDEX entities_entity_id_current ON entities(entity_id) WHERE deleted_at 
 -- real data grew past a few thousand entities).
 CREATE INDEX entities_relation_id_current ON entities(relation_id) WHERE deleted_at IS NULL AND relation_id IS NOT NULL;
 
+-- A real, full (non-partial) index on entity_id, covering every real
+-- row including closed-out/deleted ones - confirmed directly, via
+-- EXPLAIN QUERY PLAN, that the contact view's own real "latest row
+-- for this entity_id, deleted or not" lookup (needed so a contact's
+-- own real detail survives entity deletion, exactly as this schema's
+-- own, established rename-safety/history guarantee always intended)
+-- forced a real, full, unindexed scan of every one of this table's
+-- own, live rows for each real, correlated lookup - the existing,
+-- partial entities_entity_id_current index only covers deleted_at IS
+-- NULL, which cannot serve a query that must see deleted rows too.
+CREATE INDEX entities_entity_id_all ON entities(entity_id, row_id);
+
 CREATE VIEW current_entities AS
   SELECT entity_id AS id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, deleted_at, deleted_by
   FROM entities WHERE deleted_at IS NULL;
@@ -518,7 +530,7 @@ CREATE TABLE account (
 -- rewriting to merge into detail_json directly instead.
 CREATE VIEW contact AS
 SELECT
-  e.id AS entity_id,
+  e.entity_id AS entity_id,
   json_extract(e.detail_json, '$.person_name') AS person_name,
   json_extract(e.detail_json, '$.phone') AS phone,
   json_extract(e.detail_json, '$.email') AS email,
@@ -545,8 +557,9 @@ SELECT
   json_extract(e.detail_json, '$.item_unit_of_measure') AS item_unit_of_measure,
   json_extract(e.detail_json, '$.item_upc') AS item_upc,
   CAST(json_extract(e.detail_json, '$.item_retail_price_minor') AS INTEGER) AS item_retail_price_minor
-FROM current_entities e
-WHERE e.detail_json IS NOT NULL AND json_extract(e.detail_json, '$.__is_contact') = 1;
+FROM entities e
+WHERE e.row_id = (SELECT MAX(row_id) FROM entities e2 WHERE e2.entity_id = e.entity_id)
+  AND e.detail_json IS NOT NULL AND json_extract(e.detail_json, '$.__is_contact') = 1;
 
 -- pos_shift: a real, timestamped clerk sign-on/sign-off record — per
 -- direct requirement, this genuinely IS the real timecard
@@ -1209,65 +1222,70 @@ CREATE TABLE stock_dispatch_staging (
 -- distinguishes them) since they're the same mechanism with the debit/
 -- credit sign flipped, matching how this project already treats AR
 -- Sale/AP Purchase as mirrors of each other.
-CREATE TABLE invoice (
-  id                 INTEGER PRIMARY KEY,
-  invoice_type       TEXT NOT NULL CHECK (invoice_type IN ('AR', 'AP')),
-  -- A Credit Note (AR) or Debit Memo (AP) is the same mechanism as an
-  -- ordinary invoice, genuinely — same table, same posting path, same
-  -- lines shape. What makes it one is simply: negative line amounts
-  -- (reversing revenue/expense and AR/AP) and references_invoice_id
-  -- pointing at what it corrects, not a parallel schema.
-  document_type      TEXT NOT NULL DEFAULT 'invoice' CHECK (document_type IN ('invoice', 'credit_note', 'debit_memo')),
-  references_invoice_id INTEGER REFERENCES invoice(id),
-  business_id        INTEGER NOT NULL,
-  ledger_id          INTEGER NOT NULL,
-  reference          TEXT NOT NULL, -- invoice number; also used as the journal reference once posted
-  counterparty_id    INTEGER NOT NULL, -- customer (AR) or vendor (AP)
-  invoice_date       TEXT NOT NULL,
-  due_date           TEXT,           -- computed from the counterparty's payment_terms_days at creation, editable after
-  description        TEXT NOT NULL DEFAULT '',
-  status             TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'posted', 'void')),
-  user_id            INTEGER NOT NULL,
-  posted_journal_id  INTEGER REFERENCES journal(id), -- set once actually posted to the GL; NULL while still a draft
-  -- Which real screen actually created this invoice — 'manual' for a
-  -- deliberate, account-based invoice created directly (Accounts
-  -- Receivable/Payable), 'pos' for an immediate, point-of-sale cash/
-  -- card sale. A real, genuine gap found directly: without this, the
-  -- Sales Invoices list had no way to distinguish thousands of
-  -- immediate POS sales from real, invoiced account sales — they're
-  -- both real invoices, posted through the exact same mechanism, but
-  -- a person looking for "who do we still owe/are owed money by"
-  -- genuinely doesn't want POS receipts mixed in.
-  source             TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'pos')),
-  UNIQUE (business_id, ledger_id, reference)
-);
+-- invoice / invoice_detail_line / invoice_payment_allocation
+-- eliminated as separate tables, per direct, absolute instruction. A
+-- real invoice is a real, direct child entity under "System Invoices"
+-- (checked directly for name collision first - "Invoices" itself,
+-- unqualified, already exists as a real Vocabulary word), named
+-- "<business> — <ledger> — <reference>", relation_id pointing at the
+-- real counterparty (the most commonly joined-on field); every other
+-- real field (invoice_type, document_type, references_invoice_id,
+-- business/ledger, invoice_date, due_date, description, status,
+-- user_id, posted_journal_id, source) lives in that entity's own,
+-- real detail_json. Each real line is a real, direct child entity
+-- under the invoice itself, named "Line — <line_order>", relation_id
+-- pointing at the real item (if any); each real payment allocation is
+-- a real, direct child entity under the invoice, named "Payment —
+-- <payment_reference>". These three, real, direct compatibility
+-- views recompute the exact, same, real column shape the removed
+-- tables used to provide, so this codebase's own, real, existing read
+-- queries kept working completely unchanged - only createInvoice, the
+-- one, real posting status-update, and the one, real payment-
+-- allocation insert (all in db.ts) needed rewriting.
+CREATE VIEW invoice AS
+SELECT
+  e.id AS id,
+  json_extract(e.detail_json, '$.invoice_type') AS invoice_type,
+  json_extract(e.detail_json, '$.document_type') AS document_type,
+  CAST(json_extract(e.detail_json, '$.references_invoice_id') AS INTEGER) AS references_invoice_id,
+  CAST(json_extract(e.detail_json, '$.business_id') AS INTEGER) AS business_id,
+  CAST(json_extract(e.detail_json, '$.ledger_id') AS INTEGER) AS ledger_id,
+  json_extract(e.detail_json, '$.reference') AS reference,
+  e.relation_id AS counterparty_id,
+  json_extract(e.detail_json, '$.invoice_date') AS invoice_date,
+  json_extract(e.detail_json, '$.due_date') AS due_date,
+  json_extract(e.detail_json, '$.description') AS description,
+  json_extract(e.detail_json, '$.status') AS status,
+  CAST(json_extract(e.detail_json, '$.user_id') AS INTEGER) AS user_id,
+  CAST(json_extract(e.detail_json, '$.posted_journal_id') AS INTEGER) AS posted_journal_id,
+  json_extract(e.detail_json, '$.source') AS source
+FROM current_entities e
+WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = 'System Invoices');
 
-CREATE TABLE invoice_detail_line (
-  id                  INTEGER PRIMARY KEY,
-  invoice_id          INTEGER NOT NULL REFERENCES invoice(id),
-  line_order          INTEGER NOT NULL,
-  item_id             INTEGER, -- optional — references the Items catalog when the line is a real item, not a service
-  description         TEXT NOT NULL,
-  quantity            INTEGER,
-  unit_price_minor    INTEGER,
-  amount_minor        INTEGER NOT NULL, -- this line's subtotal, excluding tax
-  tax_minor           INTEGER NOT NULL DEFAULT 0,
-  dispatch_reference  TEXT,             -- which Dispatch Note/Goods Receipt this line was pulled from, if any — NULL for a line written directly onto the invoice
-  UNIQUE (invoice_id, line_order)
-);
+CREATE VIEW invoice_detail_line AS
+SELECT
+  e.id AS id,
+  e.parent_id AS invoice_id,
+  CAST(json_extract(e.detail_json, '$.line_order') AS INTEGER) AS line_order,
+  e.relation_id AS item_id,
+  json_extract(e.detail_json, '$.description') AS description,
+  CAST(json_extract(e.detail_json, '$.quantity') AS INTEGER) AS quantity,
+  CAST(json_extract(e.detail_json, '$.unit_price_minor') AS INTEGER) AS unit_price_minor,
+  CAST(json_extract(e.detail_json, '$.amount_minor') AS INTEGER) AS amount_minor,
+  CAST(json_extract(e.detail_json, '$.tax_minor') AS INTEGER) AS tax_minor,
+  json_extract(e.detail_json, '$.dispatch_reference') AS dispatch_reference
+FROM current_entities e
+WHERE e.name LIKE 'Line — %' AND e.parent_id IN (SELECT id FROM invoice);
 
--- Which specific invoice(s) a given AR Receipt/AP Payment posting was
--- actually applied against — a real, separate fact from "money moved,"
--- since a single receipt/payment can span several invoices, and
--- knowing what's actually outstanding (for aged reports) requires
--- knowing this, not just the invoice's own total.
-CREATE TABLE invoice_payment_allocation (
-  id                 INTEGER PRIMARY KEY,
-  invoice_id         INTEGER NOT NULL REFERENCES invoice(id),
-  payment_reference  TEXT NOT NULL, -- the AR Receipt/AP Payment posting reference this allocation came from
-  allocated_minor    INTEGER NOT NULL,
-  allocation_date    TEXT NOT NULL
-);
+CREATE VIEW invoice_payment_allocation AS
+SELECT
+  e.id AS id,
+  e.parent_id AS invoice_id,
+  json_extract(e.detail_json, '$.payment_reference') AS payment_reference,
+  CAST(json_extract(e.detail_json, '$.allocated_minor') AS INTEGER) AS allocated_minor,
+  json_extract(e.detail_json, '$.allocation_date') AS allocation_date
+FROM current_entities e
+WHERE e.name LIKE 'Payment — %' AND e.parent_id IN (SELECT id FROM invoice);
 
 -- period_lock_history: eliminated as its own table, per direct,
 -- absolute instruction (no permanent tables beyond entities, account,

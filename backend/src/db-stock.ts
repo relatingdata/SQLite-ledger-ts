@@ -1550,14 +1550,14 @@ export function getExpiringStock(asOfDate: string, withinDays: number): Expiring
  * both this file's own code (placeOrder) and the real, one-time
  * migrations in db-migration.ts. */
 export function createSystemEntity(name: string, parentId: number | null): number {
-  const info = db.prepare(`INSERT INTO entity_ids (id) VALUES (NULL)`).run();
-  const entityId = Number(info.lastInsertRowid);
-  db.prepare(`INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES (?, ?, ?, datetime('now'), 1)`).run(
-    entityId,
-    name,
-    parentId
-  );
-  return entityId;
+  // Per direct, absolute instruction (entity_ids eliminated as its own
+  // table): reuses Entity.create directly - the exact, same, real,
+  // already-fixed allocation mechanism (entities' own row_id) every
+  // other real entity creation path in this codebase already goes
+  // through, rather than a second, separate, manual implementation of
+  // the same, real logic.
+  if (parentId == null) throw new ValidationError('createSystemEntity requires a real, existing parent id.');
+  return Entity.create(name, parentId, asUserId(1)).id;
 }
 
 export function placeOrder(

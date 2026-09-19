@@ -1,5 +1,6 @@
 import { test, before, after, asUserId } from './test-runtime.ts';
 import type { TypeDescriptor, TypedNode } from '../src/db.ts';
+import { createUser } from '../src/auth.ts';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -1226,8 +1227,7 @@ test('posting a screen with nothing staged is rejected clearly, not silently a n
 });
 
 test('entities are append-only: renaming closes out the old row and appends a replacement under the same id, full history preserved', () => {
-  db.prepare(`INSERT INTO users (username, password_hash) VALUES ('renamer1', 'x:y')`).run();
-  const user2 = (db.prepare(`SELECT id FROM users WHERE username='renamer1'`).get() as { id: number }).id;
+  const user2 = createUser('renamer1', 'xxxxxxxx', ['Bookkeeper']).id;
 
   const created = create(fetch('Accounts Receivable', typeRootName), typeRootName, 'Epsilon Test Co', asUserId(1));
   updateEntity(created.id, { name: 'Epsilon Test Corporation' }, asUserId(user2));
@@ -1279,8 +1279,7 @@ test('deleteEntity closes out the entity permanently, with who and when recorded
 });
 
 test('journal postings record who posted them — the other half of the audit trail, alongside entities own append-only history', () => {
-  db.prepare(`INSERT INTO users (username, password_hash) VALUES ('poster1', 'x:y')`).run();
-  const user2 = (db.prepare(`SELECT id FROM users WHERE username='poster1'`).get() as { id: number }).id;
+  const user2 = createUser('poster1', 'xxxxxxxx', ['Bookkeeper']).id;
 
   stageLine({ reference: 'AUDIT-TEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-10-01', account: asAccountName('Cash and Bank'), amount_minor: 1000 });
   stageLine({ reference: 'AUDIT-TEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-10-01', account: asAccountName('Sales Revenue'), amount_minor: -1000 });
@@ -1295,8 +1294,7 @@ test('journal postings record who posted them — the other half of the audit tr
 });
 
 test('a recurring journal records who created it — every occurrence it generates shows the same poster', () => {
-  db.prepare(`INSERT INTO users (username, password_hash) VALUES ('poster2', 'x:y')`).run();
-  const user3 = (db.prepare(`SELECT id FROM users WHERE username='poster2'`).get() as { id: number }).id;
+  const user3 = createUser('poster2', 'xxxxxxxx', ['Bookkeeper']).id;
 
   createRecurringJournal(asBusinessName('My Business'), asLedgerName('Actual'), 'AUDIT-REC-1', '2027-11-01', 'monthly', [
     { account: 'Rent', amount_minor: 20000 },
@@ -1740,8 +1738,8 @@ test('the system default display language lives on Application, reachable before
   assert.throws(() => setDefaultLanguage('Not A Real Language', asUserId(1)), ValidationError);
 });
 
-test('Developer role, Employees/Manufacturers/Items branches, and item/item_source tables all exist exactly once — the migration that restores these on an existing database is idempotent', () => {
-  const developerRoleCount = (db.prepare(`SELECT COUNT(*) AS c FROM roles WHERE name = 'Developer'`).get() as { c: number }).c;
+test('Developer role, Employees/Manufacturers/Items branches, and item_source all exist exactly once — the migration that restores these on an existing database is idempotent', () => {
+  const developerRoleCount = (db.prepare(`SELECT COUNT(*) AS c FROM current_entities WHERE name = 'Developer' AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Roles')`).get() as { c: number }).c;
   assert.equal(developerRoleCount, 1);
 
   for (const name of ['Employees', 'Manufacturers', 'Items']) {
@@ -1749,8 +1747,8 @@ test('Developer role, Employees/Manufacturers/Items branches, and item/item_sour
     assert.equal(matches.c, 1, `${name} must exist exactly once`);
   }
 
-  const itemSourceTable = db.prepare(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='item_source'`).get();
-  assert.ok(itemSourceTable, 'item_source table must exist');
+  const itemSourceView = db.prepare(`SELECT 1 FROM sqlite_master WHERE type='view' AND name='item_source'`).get();
+  assert.ok(itemSourceView, 'item_source (now a real, direct compatibility view over entities.detail_json) must exist');
 });
 
 test('divisions/profit centers: the same account can be posted to by multiple divisions, and reports can filter to just one', () => {
@@ -2393,7 +2391,7 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
   create(fetch('Vendors', typeRootName), typeRootName, 'SMRTest Vendor', asUserId(1));
   create(fetch('Customers', typeRootName), typeRootName, 'SMRTest Wine Customer', asUserId(1));
   const { salesAccount, salesAccountId } = ensureProductSalesCogsAccounts(asItemName('SMRTest Wine'), asUserId(1));
-  db.prepare(`INSERT INTO item_source (item_id, vendor_id, is_preferred) VALUES ((SELECT id FROM current_entities WHERE name = 'SMRTest Wine'), (SELECT id FROM current_entities WHERE name = 'SMRTest Vendor'), 1)`).run();
+  addOrUpdateItemSource({ itemName: 'SMRTest Wine', vendorName: 'SMRTest Vendor', isPreferred: true });
 
   // Real purchase into the warehouse.
   receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('SMRTest Ledger'), 'SMRT-1-RECV', asItemName('SMRTest Wine'), asLocationName('SMRTest Warehouse'), 50, asUserId(1), '2027-10-01');
