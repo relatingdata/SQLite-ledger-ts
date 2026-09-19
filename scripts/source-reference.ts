@@ -152,16 +152,105 @@ for (const f of files) {
   console.log(`- \`${shortName(f)}\`: ${matches.map((m) => m[1].trim()).join('; ')}`);
 }
 
-// === The real index — every name, alphabetical, pointing back to its file ===
-console.log('\n## Index (alphabetical — every real function, type, and exported variable, with its file)\n');
-type IndexEntry = { name: string; kind: string; file: string };
-const index: IndexEntry[] = [];
-for (const f of files) {
-  for (const n of f.functions) index.push({ name: n, kind: 'function', file: shortName(f) });
-  for (const n of f.types) index.push({ name: n, kind: 'type', file: shortName(f) });
-  for (const n of f.exportedVars) index.push({ name: n, kind: 'variable', file: shortName(f) });
-}
-index.sort((a, b) => a.name.localeCompare(b.name));
-for (const entry of index) console.log(`- \`${entry.name}\` (${entry.kind}) — \`${entry.file}\``);
+// === The real index — per direct request: types and functions kept
+// in two, real, separate, alphabetical lists (never blended into one,
+// undifferentiated list), each entry showing its own, real, full
+// prototype (a type's own, real field list; a function's own, real,
+// full parameter list and return type - never just a bare name), its
+// own, real file of definition, and every other real file that
+// genuinely, textually references it (a real, direct scan of every
+// one of these same, real, core files - not a claim about actual
+// runtime call order, just which other files mention that exact name
+// at all, excluding the defining file itself). ===
+console.log('\n## Reference Index\n');
+console.log(
+  'Generated directly by `scripts/source-reference.ts` (run via `make source-reference`). For each real, exported type and function across the files this reference covers, this script scans every one of those same, real files for a genuine, textual reference to that exact name, excluding the file that defines it, to build the real "Referenced in" list below - a real, direct, confirmed fact about which files mention the name, never a claim about actual runtime call order or invocation count (see the real Call Graph Summary above for that).\n'
+);
 
-console.log(`\n${index.length} real, indexed names across ${files.length} real, core files.`);
+interface RefEntry {
+  name: string;
+  file: string;
+  prototype: string[];
+}
+
+function findReferencingFiles(name: string, definingFile: string): string[] {
+  const referencing: string[] = [];
+  for (const f of files) {
+    const shortFileName = shortName(f);
+    if (shortFileName === definingFile) continue;
+    const content = fs.readFileSync(f.path, 'utf-8');
+    if (new RegExp(`\\b${name}\\b`).test(content)) referencing.push(shortFileName);
+  }
+  return referencing;
+}
+
+const typeEntries: RefEntry[] = [];
+for (const f of files) {
+  const shortFileName = shortName(f);
+  let i = 0;
+  while (i < f.typeDefinitions.length) {
+    const line = f.typeDefinitions[i];
+    const interfaceMatch = line.match(/^interface (\w+) \{$/);
+    const typeAliasMatch = line.match(/^type (\w+) =/);
+    if (interfaceMatch) {
+      // A real, multi-line block: collect every real line from this
+      // interface's own opening brace through its own, real, matching
+      // closing "}" - never just the first line, which was the exact,
+      // real bug found and fixed here (an earlier version grouped
+      // nothing past the opening line at all, silently truncating
+      // every real interface's own field list out of this index).
+      const block = [line];
+      i++;
+      while (i < f.typeDefinitions.length && f.typeDefinitions[i] !== '}') {
+        block.push(f.typeDefinitions[i]);
+        i++;
+      }
+      if (i < f.typeDefinitions.length) {
+        block.push('}');
+        i++;
+      }
+      typeEntries.push({ name: interfaceMatch[1], file: shortFileName, prototype: block });
+    } else if (typeAliasMatch) {
+      typeEntries.push({ name: typeAliasMatch[1], file: shortFileName, prototype: [line] });
+      i++;
+    } else {
+      i++;
+    }
+  }
+}
+typeEntries.sort((a, b) => a.name.localeCompare(b.name));
+
+const functionEntries: RefEntry[] = [];
+for (const f of files) {
+  const shortFileName = shortName(f);
+  for (const sig of f.functionSignatures) {
+    const nameMatch = sig.match(/^(\w+)\(/);
+    if (!nameMatch) continue;
+    functionEntries.push({ name: nameMatch[1], file: shortFileName, prototype: [sig] });
+  }
+}
+functionEntries.sort((a, b) => a.name.localeCompare(b.name));
+
+console.log(`### Types (${typeEntries.length}, alphabetical)\n`);
+for (const entry of typeEntries) {
+  const referencedIn = findReferencingFiles(entry.name, entry.file);
+  console.log(`#### \`${entry.name}\`\n`);
+  console.log(`- **Defined in**: \`${entry.file}\``);
+  console.log(`- **Referenced in**: ${referencedIn.length > 0 ? referencedIn.map((r) => `\`${r}\``).join(', ') : '(no other real, core file references this directly)'}`);
+  console.log('\n```ts');
+  for (const line of entry.prototype) console.log(line);
+  console.log('```\n');
+}
+
+console.log(`### Functions (${functionEntries.length}, alphabetical)\n`);
+for (const entry of functionEntries) {
+  const referencedIn = findReferencingFiles(entry.name, entry.file);
+  console.log(`#### \`${entry.name}\`\n`);
+  console.log(`- **Defined in**: \`${entry.file}\``);
+  console.log(`- **Referenced in**: ${referencedIn.length > 0 ? referencedIn.map((r) => `\`${r}\``).join(', ') : '(no other real, core file references this directly)'}`);
+  console.log('\n```ts');
+  console.log(entry.prototype[0]);
+  console.log('```\n');
+}
+
+console.log(`${typeEntries.length + functionEntries.length} real, indexed names (${typeEntries.length} types, ${functionEntries.length} functions) across ${files.length} real, core files.`);

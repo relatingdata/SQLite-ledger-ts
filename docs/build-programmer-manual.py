@@ -96,6 +96,7 @@ PARTS = [
         "skill-documentation-coverage-enforcement.md",
         "skill-pattern-recognition-to-tooling.md",
         "documentation-coverage-baseline.md",
+        "documentation-baseline-report.md",
     ]),
 ]
 

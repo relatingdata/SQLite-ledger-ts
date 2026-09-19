@@ -8,6 +8,20 @@ documentation work, never to grow. A name should only ever be added
 here for a genuine, deliberate, temporary reason, stated directly next
 to it — never as a routine way to make the check pass.
 
+Per direct request: the flat, undifferentiated bullet list below is
+what `check-docs-coverage.ts` itself directly parses (each real,
+tracked name, on its own line, as `` `name` ``) and must stay exactly
+in this shape for that script to keep working — but for a genuinely
+readable, structured view of these same names, separated into real,
+distinct, alphabetical groups (`TypeDescriptor` constants, Express
+router constants, and real, substantial functions), each with its own
+real file of definition, its own real, full declaration (a function's
+own, real parameters and return type; a const's own, real
+initializing expression), and every other real, core backend file
+that references it — see `docs/documentation-baseline-report.md`,
+generated directly by `scripts/documentation-baseline-report.ts` (run
+via `make documentation-baseline-report`).
+
 Several of these are small, self-explanatory type-branding helpers
 (`asUserId`, `asEntityId`, etc.) genuinely low priority to write prose
 about; many others are real, substantial, undocumented functions and

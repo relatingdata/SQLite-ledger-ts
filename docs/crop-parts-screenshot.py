@@ -13,8 +13,8 @@ from PIL import Image
 lang_suffix = sys.argv[1] if len(sys.argv) > 1 else ""
 img_dir = f"manual-images{lang_suffix}"
 
-im = Image.open(f"{img_dir}/m_parts_new_category_full.png")
+im = Image.open(f"{img_dir}/m_items_new_category_full.png")
 w, h = im.size
 cropped = im.crop((0, h - 500, w, h))
 cropped.save(f"{img_dir}/m_parts_cropped.png")
-print(f"Cropped {img_dir}/m_parts_new_category_full.png ({w}x{h}) -> m_parts_cropped.png ({cropped.size[0]}x{cropped.size[1]})")
+print(f"Cropped {img_dir}/m_items_new_category_full.png ({w}x{h}) -> m_parts_cropped.png ({cropped.size[0]}x{cropped.size[1]})")

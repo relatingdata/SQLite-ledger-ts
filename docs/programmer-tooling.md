@@ -239,3 +239,29 @@ depends on `$(SEED_DATA_FILES)` directly, so a real, direct edit to
 any of this seed data is never silently missed by Make's own
 staleness check when deciding whether a screenshot needs
 re-capturing.
+
+## 13. `make documentation-baseline-report` (`scripts/documentation-baseline-report.ts`)
+
+Per direct request: `docs/documentation-coverage-baseline.md`'s own,
+real, flat bullet list (every name `check-docs-coverage.ts` found
+genuinely undocumented, in one, single, undifferentiated list) is what
+that checker itself directly parses and must stay in that exact shape
+for — but it mixes three, genuinely different kinds of real, tracked
+names together with no real, useful structure for a human reader.
+
+This script reads the exact, same, real, tracked names from that same
+file, then, for each one still genuinely present in the live source,
+finds its own real file of definition (searching every real file under
+`backend/src/`), its own real, full declaration (a function's own,
+real, full parameter list and return type; a const's own, real, full
+initializing expression — never just a bare name), and every other
+real, core backend file that genuinely, textually references it.
+Separates the result into three, real, distinct, alphabetical groups —
+`typeXxxName` `TypeDescriptor` constants, `xxxRouter` Express router
+constants, and real, substantial, ordinary functions — writing to
+`docs/documentation-baseline-report.md`, included directly in the
+Programmer's Manual (`docs/build-programmer-manual.py`'s own chapter
+list) right after the raw baseline file it complements. A real file-
+target rule (root `Makefile`) regenerates it automatically whenever
+the baseline list, the script itself, or any real backend source file
+changes — never left stale between manual builds.
