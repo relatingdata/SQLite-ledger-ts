@@ -3578,13 +3578,37 @@ export interface InvoiceLine {
  * when it was posted. Returns undefined if this reference never
  * recorded one (e.g. an ordinary General Journal entry, which has no
  * invoice concept at all). */
+/** A real, direct child entity under "Invoice Lines", one per real
+ * (reference, business, ledger) - per direct, absolute instruction
+ * (invoice_line eliminated as its own table). Every real field lives
+ * in that entity's own, real detail_json. */
+function ensureInvoiceLinesRoot(userId: UserId): { id: number } {
+  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = 'Invoice Lines'`).get() as { id: number } | undefined;
+  if (existing) return existing;
+  const application = db.prepare(`SELECT id FROM current_entities WHERE name = 'Application'`).get() as { id: number };
+  return Entity.create('Invoice Lines', application.id, userId);
+}
+
+function recordInvoiceLine(reference: string, business: string, ledger: string, description: string, quantity: number | null, unitPriceMinor: number | null, amountMinor: number, taxMinor: number): void {
+  const root = ensureInvoiceLinesRoot(asUserId(1));
+  const name = `${business} — ${ledger} — ${reference}`;
+  const existing = Entity.getUnder(name, root.id);
+  const detail = { description, quantity, unit_price_minor: unitPriceMinor, amount_minor: amountMinor, tax_minor: taxMinor };
+  if (existing) {
+    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), existing.id);
+  } else {
+    const created = Entity.create(name, root.id, asUserId(1));
+    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), created.id);
+  }
+}
+
 export function getInvoiceLine(reference: string, business: BusinessName, ledger: LedgerName): InvoiceLine | undefined {
-  return db
-    .prepare(
-      `SELECT reference, description, quantity, unit_price_minor, amount_minor, tax_minor
-       FROM invoice_line WHERE reference = ? AND business = ? AND ledger = ?`
-    )
-    .get(reference, business, ledger) as InvoiceLine | undefined;
+  const root = db.prepare(`SELECT id FROM current_entities WHERE name = 'Invoice Lines'`).get() as { id: number } | undefined;
+  if (!root) return undefined;
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE name = ? AND parent_id = ?`).get(`${business} — ${ledger} — ${reference}`, root.id) as { detail_json: string } | undefined;
+  if (!row) return undefined;
+  const detail = JSON.parse(row.detail_json);
+  return { reference, description: detail.description, quantity: detail.quantity, unit_price_minor: detail.unit_price_minor, amount_minor: detail.amount_minor, tax_minor: detail.tax_minor };
 }
 
 /** The real, distinct account names a given journal reference
@@ -6628,9 +6652,7 @@ export function postArSale(reference: string, business: BusinessName, ledger: Le
   } catch (err) {
     throw new PostingError(err instanceof Error ? err.message : String(err));
   }
-  db.prepare(
-    `INSERT INTO invoice_line (reference, business, ledger, description, quantity, unit_price_minor, amount_minor, tax_minor) VALUES (?, ?, ?, ?, NULL, NULL, ?, ?)`
-  ).run(reference, business, ledger, staged.description || 'Sale', staged.amount_minor, staged.tax_minor);
+  recordInvoiceLine(reference, business, ledger, staged.description || 'Sale', null, null, staged.amount_minor, staged.tax_minor);
 }
 
 export interface ArReceiptInput {
@@ -6698,9 +6720,7 @@ export function postApPurchase(reference: string, business: BusinessName, ledger
   } catch (err) {
     throw new PostingError(err instanceof Error ? err.message : String(err));
   }
-  db.prepare(
-    `INSERT INTO invoice_line (reference, business, ledger, description, quantity, unit_price_minor, amount_minor, tax_minor) VALUES (?, ?, ?, ?, NULL, NULL, ?, ?)`
-  ).run(reference, business, ledger, staged.description || 'Purchase', staged.amount_minor, staged.tax_minor);
+  recordInvoiceLine(reference, business, ledger, staged.description || 'Purchase', null, null, staged.amount_minor, staged.tax_minor);
 }
 
 export interface ApPaymentInput {
@@ -6933,9 +6953,7 @@ export function postStockReceipt(reference: string, business: BusinessName, ledg
   postJournalEntry(reference, business, ledger, userId);
   fulfillOrder(staged.po_reference, reference, business, ledger, staged.quantity, staged.value_minor, userId, staged.transdate);
 
-  db.prepare(
-    `INSERT INTO invoice_line (reference, business, ledger, description, quantity, unit_price_minor, amount_minor, tax_minor) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
+  recordInvoiceLine(
     reference, business, ledger, staged.description || 'Receipt', staged.quantity,
     staged.quantity > 0 ? Math.round(staged.value_minor / staged.quantity) : null, staged.value_minor, staged.tax_minor
   );
@@ -7038,9 +7056,7 @@ export function postStockDispatch(reference: string, business: BusinessName, led
   }
   fulfillOrder(staged.so_reference, reference, business, ledger, staged.quantity, saleAmount, userId, staged.transdate);
 
-  db.prepare(
-    `INSERT INTO invoice_line (reference, business, ledger, description, quantity, unit_price_minor, amount_minor, tax_minor) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(reference, business, ledger, staged.description || 'Dispatch', staged.quantity, staged.sale_price_minor, saleAmount, staged.tax_minor);
+  recordInvoiceLine(reference, business, ledger, staged.description || 'Dispatch', staged.quantity, staged.sale_price_minor, saleAmount, staged.tax_minor);
 
   db.prepare(`DELETE FROM stock_dispatch_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
 }
