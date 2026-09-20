@@ -219,8 +219,28 @@ back to back reuses the same, real, already-running servers instead
 of paying a real, ~10-second startup cost on every single one —
 confirmed directly: the first capture in a fresh run took ~22s
 (server startup included), the next, immediately after, ~12s (servers
-reused). `make stop-servers` cleanly stops whichever real servers
-this Makefile itself started, via their own, real, recorded pids.
+reused).
+
+**A real, confirmed bug, found directly, not assumed**: `make
+stop-servers` originally only killed the single, top-level pid
+recorded by `setsid nohup npm run dev & echo $! > $PID_FILE` — never
+the real process group. `npm run dev` (via `tsx watch`) spawns a
+real, separate, child `node` process that actually serves requests;
+killing only the parent left this real child running, orphaned, still
+bound to the port, with its own, now-stale database connection — the
+next `ensure-servers` call's health check would then find and reuse
+this real, stale server instead of starting a genuinely fresh one,
+serving requests against outdated data even after a real `reset-db`
+call in between. This was the real, confirmed root cause behind
+several confusing "entity doesn't exist" failures during one
+session's own e2e debugging (see `docs/tutorial-e2e-debug-log.md`).
+Fixed: `stop-servers` now kills the real process group (`kill --
+-$PID`, negative pid, since `setsid` makes the spawned process its own
+session/group leader), with a `pkill -f "tsx watch src/server.ts"` /
+`pkill -f "vite dev"` fallback for safety. Verified directly: process
+count goes from several real, related processes to zero immediately
+after `stop-servers`, confirmed via `ps aux` before and after — it
+previously left some genuinely running.
 
 ## 12. Real ASCII seed-data dependencies (`SEED_DATA_FILES`)
 

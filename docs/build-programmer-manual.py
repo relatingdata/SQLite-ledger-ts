@@ -70,10 +70,12 @@ PARTS = [
         "inventory-lifecycle-blow-by-blow.md",
         "file-inventory-appendix.md",
         "user-manual-plan.md",
+        "audit-appended-prepended-text.md",
     ]),
     ("Part V --- Testing and Simulation", [
         "testing.md",
         "simulation-prompt.md",
+        "tutorial-e2e-debug-log.md",
     ]),
     ("Appendix --- Release Notes", [
         "RELEASE-NOTES.md",

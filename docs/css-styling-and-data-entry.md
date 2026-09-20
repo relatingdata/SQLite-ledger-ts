@@ -85,6 +85,33 @@ one thing from the start, rather than a title merged into an existing,
 separate content area after the fact. Structurally identical CSS;
 different real-world use.
 
+### `<fieldset>` can never legally hold an interactive ARIA role — a real, confirmed constraint, found directly
+
+A real, confirmed HTML/ARIA fact, found the hard way while making a
+keyboard-navigable panel (Insert to add, Delete to remove — the
+Business Setup org-chart panel, and `TypedList.svelte`'s own,
+identical pattern) genuinely accessible: `<fieldset>` has a fixed,
+real, implicit "group" semantic that no explicit `role` can override.
+`role="toolbar"` is rejected outright by Svelte's own a11y linter
+(`Non-interactive element <fieldset> cannot have interactive role
+'toolbar'`); `role="group"` is accepted but is itself redundant
+(fieldset already is one) and still leaves the element non-interactive
+to the linter, so `tabindex` and a `keydown` handler directly on the
+fieldset keep triggering the same warnings. The real, correct fix,
+confirmed working and functionally verified afterward (not just for a
+clean lint pass): move the interactive semantics — `role="toolbar"`,
+`tabindex="0"`, the keydown handler, `aria-describedby` pointing at
+the panel's own, already-visible keyboard-hint text, `aria-keyshortcuts`
+naming the real keys — onto a plain, inner `<div>` wrapping just the
+real list content, leaving the outer `<fieldset>`/`<legend>` purely
+for its established visual role (see above). A plain `<div>` has no
+fixed implicit role at all, so it can legally take one. Any test
+script driving such a panel (`.focus()`, `page.keyboard.press(...)`)
+must target this inner element, not the outer fieldset — a real,
+confirmed regression found directly when this restructuring landed:
+`tutorial-walkthrough.spec.ts`'s own `.tree-panel` focus calls broke
+silently until updated to `.tree-panel [role="toolbar"]`.
+
 ### One page-scoped `<style>` block per Svelte file — genuinely, not an ORM-style shared component library
 
 The honest state, matching the same, direct answer already given

@@ -221,6 +221,24 @@ these skip straight to the real Sales/COGS or expense accounts,
 bypassing Accounts Receivable/Payable entirely (see
 `counterpartyAccountOverride` in Part II).
 
+**A real, confirmed, live, user-facing bug, found directly while
+debugging a persistently-failing e2e test, not a test artifact**:
+`CashTransaction.svelte` (the one, real, shared component behind both
+of these screens) sent every real line to the server on submit,
+including the always-present, auto-added, trailing blank line (the
+same "type here to add another" convention already used elsewhere in
+this codebase). The real, live backend correctly rejected this
+(`lines: String must contain at least 1 character(s)`), silently
+failing every real Cash Purchase or Cash Sale that reached this
+point — the person would see an unhelpful, generic error with no
+indication the actual cause was an invisible, empty fourth line they
+never touched. Checked directly whether the two sibling forms
+(`ap-purchase`, `ar-sale`) shared this same flaw; they did not,
+already filtering blank lines correctly before submitting — confirming
+`CashTransaction.svelte` was the one, specific place missing it.
+Fixed by filtering blank lines out before submitting, matching the
+already-correct sibling pattern.
+
 ```typescript
 export function completePosSale(input: PosSaleInput, userId: number): PosSaleResult
 export function completeCashPurchase(input: CashPurchaseInput, userId: number): CashPurchaseResult
