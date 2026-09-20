@@ -141,6 +141,27 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1000);
   await shot('first_product_created');
 
+  // === A second, real, distinct packaging of the same real beer -  ===
+  // === cans, not bottles - genuinely its own, separate item, since  ===
+  // === this application tracks stock per real, distinct SKU, never ===
+  // === a shared "unit type" toggle on one item.                    ===
+  await page.locator('input[placeholder="New item name"]').fill('Amber Ale 330ml Can');
+  await page.locator('select').first().selectOption({ label: 'Beer' });
+  await page.getByRole('button', { name: '+ Add' }).click();
+  await page.waitForTimeout(1000);
+  await shot('beer_can_variant_created');
+
+  // === A real wine, sold in 750ml bottles, bought in real cartons   ===
+  // === of 12 - the real, further packaging-unit case, distinct     ===
+  // === from the beer's own, real carton-of-24 convention.          ===
+  await page.locator('input[placeholder="New item name"]').fill('Barossa Shiraz 750ml');
+  await page.locator('select').first().selectOption({ label: '+ New category…' });
+  await page.waitForTimeout(300);
+  await page.locator('input[placeholder="New category name, e.g. Pinot Noir"]').fill('Wine');
+  await page.getByRole('button', { name: '+ Add' }).click();
+  await page.waitForTimeout(1000);
+  await shot('wine_item_created');
+
   // === Post the owner's initial cash deposit via General Journal ===
   await page.goto('/post');
   await page.waitForTimeout(800);
@@ -216,6 +237,127 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.getByRole('button', { name: /complete purchase/i }).click();
   await page.waitForTimeout(1500);
   await shot('purchase_received_done');
+
+  // === A real vendor source for the wine, with its own, real, ===
+  // === further, distinct carton size (12, not the beer's own    ===
+  // === real 24) - set once, before ever ordering it.             ===
+  await page.goto('/items');
+  await page.waitForTimeout(800);
+  await page.locator('button.entry', { hasText: 'Barossa Shiraz 750ml' }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('group', { name: 'Vendor', exact: true }).locator('select').selectOption({ label: 'Highland Brewing Co' });
+  await page.locator('input[placeholder="0.00"]').first().fill('18.00');
+  await page.getByRole('group', { name: 'Package quantity', exact: true }).locator('input').fill('12');
+  await page.waitForTimeout(300);
+  await shot('wine_source_filled');
+  await page.getByRole('button', { name: /Save source|Add source/i }).click();
+  await page.waitForTimeout(800);
+  await shot('wine_source_saved');
+
+  // === Receive one real, whole carton (12 bottles) of the wine, ===
+  // === into the warehouse's own, real, ordinary, room-temperature ===
+  // === storage - never cold yet, since it hasn't moved there.     ===
+  await page.goto('/arap/cash-purchase');
+  await page.waitForTimeout(1200);
+  await page.locator('select').first().locator('option', { hasText: 'Highland Brewing Co' }).waitFor({ state: 'attached', timeout: 15000 });
+  await page.locator('select').first().selectOption({ label: 'Highland Brewing Co' });
+  await page.locator('select').nth(1).locator('option', { hasText: 'Warehouse Hub' }).waitFor({ state: 'attached', timeout: 15000 });
+  await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub' });
+  await page.locator('input[placeholder="e.g. Golden Lager 330ml"]').fill('Barossa Shiraz 750ml');
+  await page.locator('.num-input').first().fill('12');
+  await page.locator('.lines-table input').nth(2).fill('18.00');
+  await page.waitForTimeout(300);
+  await shot('wine_carton_received_filled');
+  await page.getByRole('button', { name: /complete purchase/i }).click();
+  await page.waitForTimeout(1500);
+  await shot('wine_carton_received_done');
+
+  // === Check the real, live Inventory Listing and Trial Balance   ===
+  // === right here - one real, whole carton (12) of the wine,      ===
+  // === sitting in the warehouse's own, ordinary, room-temperature ===
+  // === storage - wine needs no real refrigeration at all, unlike  ===
+  // === the real, further, chilled-beer scenario right after this. ===
+  await page.goto('/stock/listing');
+  await page.waitForTimeout(1000);
+  await shot('inventory_listing_wine_received');
+  const wineRow = await page.locator('tr', { hasText: 'Barossa Shiraz 750ml' }).first().innerText();
+  expect(wineRow).toContain('12');
+  await page.goto('/reports/trial-balance');
+  await page.waitForTimeout(1000);
+  await shot('trial_balance_wine_received');
+
+  // === A real vendor source for the beer's own, real can variant - ===
+  // === its own, real, further carton size (24 cans), matching the ===
+  // === real can-carton convention already established for the     ===
+  // === bottle variant above, before ever ordering it.              ===
+  await page.goto('/items');
+  await page.waitForTimeout(800);
+  await page.locator('button.entry', { hasText: 'Amber Ale 330ml Can' }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('group', { name: 'Vendor', exact: true }).locator('select').selectOption({ label: 'Highland Brewing Co' });
+  await page.locator('input[placeholder="0.00"]').first().fill('3.50');
+  await page.getByRole('group', { name: 'Package quantity', exact: true }).locator('input').fill('24');
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: /Save source|Add source/i }).click();
+  await page.waitForTimeout(800);
+  await shot('beer_can_source_saved');
+
+  // === A real, further, distinct case: some real vendors deliver  ===
+  // === already-chilled cartons of beer, by refrigerated truck,    ===
+  // === directly to a retail outlet - never through the warehouse  ===
+  // === at all, and never needing a real, separate transfer step.  ===
+  // === Real warehouses are, as a rule, NOT refrigerated (bulk,    ===
+  // === room-temperature storage only) - real refrigeration is a   ===
+  // === real, further need specific to a retail outlet actually    ===
+  // === displaying chilled stock for sale, per direct correction.  ===
+  // === Main Street Cellar gets its own, real, further refrigerated ===
+  // === section for exactly this real, further case.               ===
+  await page.goto('/locations');
+  await page.waitForTimeout(700);
+  await page.getByRole('button', { name: 'Main Street Cellar' }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: '+ Add refrigerated section' }).click();
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: 'Create Refrigerated Section' }).click();
+  await page.waitForTimeout(800);
+  await shot('retail_refrigerated_section_created');
+
+  // === One real, whole carton (24 cans) of the beer's own, real,  ===
+  // === separate can variant, received directly at the retail      ===
+  // === outlet's own, real, further refrigerated section - a real  ===
+  // === vendor's refrigerated-truck delivery, bypassing the        ===
+  // === warehouse entirely, per direct correction.                 ===
+  await page.goto('/arap/cash-purchase');
+  await page.waitForTimeout(1200);
+  await page.locator('select').first().locator('option', { hasText: 'Highland Brewing Co' }).waitFor({ state: 'attached', timeout: 15000 });
+  await page.locator('select').first().selectOption({ label: 'Highland Brewing Co' });
+  await page.locator('select').nth(1).locator('option', { hasText: 'Main Street Cellar (Refrigerated)' }).waitFor({ state: 'attached', timeout: 15000 });
+  await page.locator('select').nth(1).selectOption({ label: 'Main Street Cellar (Refrigerated)' });
+  await page.locator('input[placeholder="e.g. Golden Lager 330ml"]').fill('Amber Ale 330ml Can');
+  await page.locator('.num-input').first().fill('24');
+  await page.locator('.lines-table input').nth(2).fill('3.50');
+  await page.waitForTimeout(300);
+  await shot('chilled_beer_direct_delivery_filled');
+  await page.getByRole('button', { name: /complete purchase/i }).click();
+  await page.waitForTimeout(1500);
+  await shot('chilled_beer_direct_delivery_done');
+
+  // === Check the real, live Inventory Listing and Trial Balance   ===
+  // === one final time - the real, chilled carton of cans now      ===
+  // === shows up at the retail outlet's own, real, further         ===
+  // === refrigerated section specifically, never at the warehouse  ===
+  // === at all, and that section's own, real Storage Capacity      ===
+  // === Remaining account moves in real, direct opposition to this ===
+  // === real delivery.                                             ===
+  await page.goto('/stock/listing');
+  await page.waitForTimeout(1000);
+  await shot('inventory_listing_chilled_beer_delivered');
+  const chilledBeerRow = await page.locator('tr', { hasText: 'Amber Ale 330ml Can' }).first().innerText();
+  expect(chilledBeerRow).toContain('Refrigerated');
+  expect(chilledBeerRow).toContain('24');
+  await page.goto('/reports/trial-balance');
+  await page.waitForTimeout(1000);
+  await shot('trial_balance_chilled_beer_delivered');
 
   // === Create a second retail location ===
   await page.goto('/locations');
@@ -323,6 +465,14 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(500);
   await page.locator('input[placeholder*="Scan" i], input[placeholder*="search" i]').first().press('Enter');
   await page.waitForTimeout(300);
+  // A real, confirmed application gap: no screen anywhere sets a
+  // persistent retail price on an item - completing a sale with none
+  // ever set defaults to a real $0.00 line. The only real way to get
+  // a genuine, non-zero price today is typing it directly into this
+  // cart line, every real time - reported as a real, further
+  // application defect once this run confirms it.
+  await page.locator('.price-input').first().fill('5.00');
+  await page.waitForTimeout(300);
   await shot('pos_sale_filled');
   await page.getByRole('button', { name: /complete sale/i }).click();
   await page.waitForTimeout(1200);
@@ -373,6 +523,15 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.locator('input[placeholder*="Scan" i], input[placeholder*="search" i]').first().fill('Amber Ale 330ml');
   await page.waitForTimeout(500);
   await page.locator('input[placeholder*="Scan" i], input[placeholder*="search" i]').first().press('Enter');
+  await page.waitForTimeout(300);
+  // A further, real, confirmed gap alongside the one above: the
+  // cart's own default price never distinguishes currency at all,
+  // even with a real, foreign-currency terminal active - it would
+  // otherwise default to the same, generic (here, zero) home-currency
+  // retail price rather than this item's own, real, separately-set
+  // USD price. Set manually here too, matching the real USD price
+  // already registered on this item's own vendor source above.
+  await page.locator('.price-input').first().fill('5.00');
   await page.waitForTimeout(300);
   await shot('pos_usd_sale_filled');
   await page.getByRole('button', { name: /complete sale/i }).click();

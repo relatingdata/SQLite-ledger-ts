@@ -30,7 +30,7 @@ Switching the active session into the new business, **Locations** is where a rea
 
 ## Setting the location's own real shelf capacity
 
-Immediately after creation, the location's own real shelf capacity (bottles) and carton capacity are set directly on the same screen, then saved — ready for the location's own real stock levels to be tracked against once product arrives. This tutorial's own outlet needs only ordinary, room-temperature shelving; a location that also needs real, separate refrigerated capacity adds that as its own, further real facet of the same location, covered separately, later in this chapter.
+Immediately after creation, the location's own real shelf capacity (bottles) and carton capacity are set directly on the same screen, then saved — ready for the location's own real stock levels to be tracked against once product arrives. This tutorial's own outlet needs only ordinary, room-temperature shelving at first; a retail outlet that also needs its own real refrigerated section (most warehouses genuinely don't — a warehouse is bulk, room-temperature storage as a rule; refrigeration is a real, further need specific to a retail outlet actually displaying chilled stock for sale) adds that as its own, further real facet of the same location, covered later in this chapter, once this tutorial's own outlet actually needs it.
 
 ![The new location created, with its own real shelf and carton capacity now set.](manual-images/t06_locations_created.png)
 
@@ -82,19 +82,39 @@ Immediately afterwards, the Trial Balance shows exactly this: the real cash acco
 
 ## Creating the first supplier
 
-*[Screenshot not yet captured for this printing --- Vendors is where a real supplier is created, the same way a customer or employee is: a name, and, optionally, a real address, phone number, and named contact person.]*
+Vendors is where a real supplier is created, the same, direct way a customer or employee is: a real name, and, optionally, a real address, phone number, and named contact person. This tutorial's own first supplier, **Highland Brewing Co**, is created with just its name — enough to place a real order against straight away; the further, optional details can always be added later, once there's a real reason to (a delivery address, a named account manager).
+
+![The new vendor created.](manual-images/t19_vendor_created.png)
 
 ## Purchase order, receiving stock, and paying the invoice
 
-*[Screenshot not yet captured for this printing --- a real Purchase Order is raised against the new supplier for the new product; receiving it at the warehouse brings real, physical stock onto the books at cost; the resulting Purchase Invoice is then paid in full, reducing both the real cash/bank balance and the real, outstanding vendor balance together.]*
+**An important, real detail, easy to get wrong**: a real order placed with a vendor is always for a whole number of real cartons — never a raw, arbitrary bottle or can count. A real supplier sells "4 cartons of Amber Ale," never "96 bottles of Amber Ale," even though the two describe the identical, real quantity once each carton's own real size (24 cans, in this tutorial's own case) is known. This tutorial's own Purchase Order for **Amber Ale 330ml** is placed as 4 real cartons, at $84.00 per carton — the same, real $3.50-per-bottle cost as before, just expressed the way an actual invoice from a real vendor would state it.
+
+![The Purchase Order, filled in as 4 real cartons.](manual-images/t20_purchase_order_filled.png)
+
+![The Purchase Order placed.](manual-images/t21_purchase_order_placed.png)
+
+Receiving it at the warehouse — through **Cash Purchase**, since this tutorial's own business pays on the spot rather than carrying a real, outstanding vendor balance — brings the real, physical stock onto the books at cost, converted back to its own real, individual bottle count (96) the moment it's actually receipted, since every other real screen (Stock Transfer, POS, the Trial Balance itself) tracks real, physical stock in real, individual units throughout, never in cartons. The resulting Purchase Invoice is paid in full at the same time, reducing the real cash/bank balance directly.
+
+![Receiving the order.](manual-images/t22_purchase_received_filled.png)
+
+![The purchase received and paid.](manual-images/t23_purchase_received_done.png)
 
 ## Transferring stock from the warehouse to the retail outlet
 
-*[Screenshot not yet captured for this printing --- a real, partial stock transfer moves a portion of what the warehouse received through to the retail outlet, ready to actually sell --- the same, real quantity leaving the warehouse's own stock and arriving at the outlet's own stock, never duplicated or lost in transit.]*
+A real, partial stock transfer moves a portion of what the warehouse received through to the retail outlet, ready to actually sell — the same, real quantity leaving the warehouse's own stock and arriving at the outlet's own stock, never duplicated or lost in transit. This tutorial's own transfer moves 24 real bottles (one whole, real carton's worth) of the 96 just received, leaving 72 still at the warehouse.
+
+![The transfer, filled in.](manual-images/t26_transfer_to_main_street_filled.png)
+
+![The transfer completed.](manual-images/t27_transfer_to_main_street_done.png)
 
 ## Selling at the retail outlet
 
-*[Screenshot not yet captured for this printing --- a real retail sale, run more than once, sells real stock at the retail outlet's own real selling price. Selling price and cost move together throughout this tutorial's own worked numbers: a real cost of \$8.80 per bottle marked up 25\% gives a real selling price of \$11.00 per bottle --- the real, live Trial Balance continues to balance after every one of these postings, and the real, live Profit \& Loss shows a genuine profit once the retail markup has actually been sold through.]*
+A real retail sale, run more than once, sells real stock at the retail outlet's own real selling price. Selling price and cost move together throughout this tutorial's own worked numbers: a real cost of \$3.50 per bottle marked up to a real selling price of \$5.00 per bottle --- the real, live Trial Balance continues to balance after every one of these postings, and the real, live Profit \& Loss shows a genuine profit once the retail markup has actually been sold through.
+
+![A sale in progress at the POS terminal.](manual-images/t34_pos_sale_filled.png)
+
+![The sale completed.](manual-images/t35_pos_sale_done.png)
 
 ## Reviewing the real, live figures
 

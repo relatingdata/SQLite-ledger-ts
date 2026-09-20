@@ -5064,12 +5064,19 @@ test('getPrototypeOf/setPrototype/seedDefaultHierarchyPrototypes: the real, sett
   assert.equal(getPrototypeOf('Vocabulary'), undefined, 'an entity with no real prototype link at all correctly returns undefined, not a false match');
 
   // A real, new business gets the four, real, default, non-privileged
-  // prototypes seeded automatically.
+  // prototypes seeded automatically, under its own real, scoped
+  // "{business} Hierarchies" root - genuinely fixed here, not
+  // assumed: a real, confirmed bug found directly, this root was
+  // previously created bare and unscoped ("Hierarchies"), silently
+  // shared across every real business rather than genuinely separate,
+  // the exact same real bug Locations/Items/Contacts already had
+  // fixed - see PER_BUSINESS_ROOTS in backend/src/db.ts.
   const biz = createBusiness(asBusinessName('PrototypeTest Business'), '2027-28', asUserId(1));
-  const hierarchies = db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Hierarchies' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(biz.business);
-  assert.ok(hierarchies, 'a real, new business gets a real "Hierarchies" root seeded automatically');
-  const divisionUnderHierarchies = db.prepare(`SELECT c.name FROM current_entities c JOIN current_entities p ON p.id = c.parent_id WHERE p.name = 'Hierarchies' AND p.parent_id = (SELECT id FROM current_entities WHERE name = ?)`).all(biz.business);
-  assert.ok((divisionUnderHierarchies as { name: string }[]).some((r) => r.name === 'Division'), 'a real, new business gets a real "Division" prototype seeded under its own real "Hierarchies" root');
+  const scopedHierarchiesName = `${biz.business} Hierarchies`;
+  const hierarchies = db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(scopedHierarchiesName, biz.business);
+  assert.ok(hierarchies, 'a real, new business gets its own, real, scoped "{business} Hierarchies" root seeded automatically');
+  const divisionUnderHierarchies = db.prepare(`SELECT c.name FROM current_entities c JOIN current_entities p ON p.id = c.parent_id WHERE p.name = ?`).all(scopedHierarchiesName);
+  assert.ok((divisionUnderHierarchies as { name: string }[]).some((r) => r.name === 'Division'), 'a real, new business gets a real "Division" prototype seeded under its own, real, scoped "Hierarchies" root');
 });
 
 

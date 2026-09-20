@@ -4298,9 +4298,13 @@ export function setPrototype(entityName: string, prototypeName: string, userId: 
  * new business - per direct instruction, nothing here is special or
  * privileged: a business is free to rename, delete, or add further
  * real prototypes immediately, and no other real code may ever
- * special-case these four names specifically. */
-export function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName'>, userId: UserId): void {
-  const hierarchies = create(business, typeRootName, 'Hierarchies', userId);
+ * special-case these four names specifically. Fetches the business's
+ * own, real, already-scoped "{business} Hierarchies" root (created
+ * once, in the one, single PER_BUSINESS_ROOTS list) rather than
+ * creating its own, second, unscoped one - the real, confirmed bug
+ * this had before, now fixed. */
+export function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName'>, businessName: BusinessName, userId: UserId): void {
+  const hierarchies = fetch(`${businessName} Hierarchies`, typeRootName);
   const division = create(hierarchies, typeRootName, 'Division', userId);
   create(division, typeRootName, 'Location', userId);
   const category = create(hierarchies, typeRootName, 'Category', userId);
@@ -6256,19 +6260,24 @@ export function getBusinesses(): { id: number; name: BusinessName }[] {
     .all() as { id: number; name: BusinessName }[];
 }
 
-/** Every real ledger under a business — deliberately excludes
- * "{business} Locations", the one other real, direct child every
- * business now has (see createBusiness). Confirmed as a real, live
- * bug, not assumed: before this fix, "Wine Retail Business Locations"
- * showed up as a selectable option in the Trial Balance/General
- * Journal/every other ledger dropdown throughout the app, right next
- * to "Actual" — a genuinely different real
- * entity, not a ledger at all, that a person could accidentally
+/** Every real ledger under a business — deliberately excludes every
+ * other real, direct child a business now has (see
+ * PER_BUSINESS_ROOTS and createBusiness), derived from that one,
+ * single, real list rather than its own, separately hand-maintained
+ * set of literal strings - the exact, real gap that let
+ * "{businessName} Hierarchies" go unscoped, unnoticed, for a real
+ * while. Confirmed as a real, live bug, not assumed: before this fix,
+ * "Wine Retail Business Locations" showed up as a selectable option
+ * in the Trial Balance/General Journal/every other ledger dropdown
+ * throughout the app, right next to "Actual" — a genuinely different
+ * real entity, not a ledger at all, that a person could accidentally
  * select and then find no real accounts postable to it. */
 export function getLedgers(businessName: BusinessName): { id: number; name: LedgerName }[] {
+  const excludedNames = [...PER_BUSINESS_ROOTS.map((r) => `${businessName} ${r.suffix}`), `${businessName} Chart of Accounts`];
+  const placeholders = excludedNames.map(() => '?').join(', ');
   return db
-    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = ?) AND name NOT IN (?, ?, ?, ?, ?)`)
-    .all(businessName, `${businessName} Locations`, `${businessName} Items`, `${businessName} Contacts`, `${businessName} Chart of Accounts`, 'Hierarchies') as { id: number; name: LedgerName }[];
+    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = ?) AND name NOT IN (${placeholders})`)
+    .all(businessName, ...excludedNames) as { id: number; name: LedgerName }[];
 }
 
 /** Creates a brand-new business, real and ready to actually transact
@@ -6510,6 +6519,32 @@ export function instantiateChartOfAccounts(businessName: BusinessName, coaFamily
   copyChartOfAccountsInto(rootName, coaFamily, userId);
 }
 
+/** The one, real, single, complete list of every real, structural
+ * root a new business gets, scoped as `${businessName} ${suffix}` -
+ * per direct instruction, so adding a further one is a genuine,
+ * real, one-line addition here, never a search across this codebase.
+ * "Hierarchies" is included here too, now correctly scoped like every
+ * other real root - a real, confirmed bug, found directly: it was
+ * previously created as a bare, unscoped "Hierarchies" node, silently
+ * shared across every real business rather than genuinely separate.
+ * Each suffix is also this root's own, real, direct, translatable
+ * display word - the exact, same, established mechanism already used
+ * for every other real entity name (`translations.current[name] ??
+ * name`), so a further root added here is genuinely translatable
+ * immediately, with no separate, further registration step. Chart of
+ * Accounts is deliberately NOT listed here - its own real creation
+ * (`instantiateChartOfAccounts`, above) does real, further work
+ * (copying a real CoA family template) beyond a bare root, so it
+ * keeps its own, real, dedicated function; `getLedgers`, below,
+ * accounts for it separately, alongside this list.
+ */
+export const PER_BUSINESS_ROOTS: { suffix: string; type: TypeDescriptor<string> }[] = [
+  { suffix: 'Locations', type: typeBusinessLocationsRootName },
+  { suffix: 'Items', type: typeBusinessItemsRootName },
+  { suffix: 'Contacts', type: typeBusinessContactsRootName },
+  { suffix: 'Hierarchies', type: typeRootName },
+];
+
 export function createBusiness(
   businessName: BusinessName,
   financialYearLabel: string,
@@ -6525,27 +6560,17 @@ export function createBusiness(
   const budgetLedger = asLedgerName(`Budget ${financialYearLabel}`);
   create(business, typeLedgerName, actualLedger, userId);
   create(business, typeLedgerName, budgetLedger, userId);
-  // A real, confirmed fix: locations were never actually scoped per
-  // business before — every business shared one, global "Locations"
-  // parent, so selecting a different business's session still showed
-  // another business's own real locations. Every new business now
-  // gets its own real "{business} Locations" parent from day one.
-  create(business, typeBusinessLocationsRootName, `${businessName} Locations`, userId);
-  // The same real fix, applied to Items (this codebase's own real
-  // term for a sellable/stockable inventory unit — never "Item"):
-  // every business now gets its own real "{business} Items" parent
-  // from day one, instead of sharing one, single, global catalogue
-  // with every other business — the exact bug Locations already had
-  // fixed above, confirmed directly still present for Items until
-  // this point.
-  create(business, typeBusinessItemsRootName, `${businessName} Items`, userId);
-  // The real, unified, structural home for every real contact this
-  // business deals with — customer, vendor, employee, or any real
-  // combination — per direct instruction, scoped per-business (not
-  // per-ledger, not global). A contact's own contact type(s) (which
-  // real base account(s) it derives) are a separate, real,
-  // independent relationship, never its own structural parent.
-  create(business, typeBusinessContactsRootName, `${businessName} Contacts`, userId);
+  // Every real, structural root a new business gets, per the one,
+  // single, real, consolidated list above (PER_BUSINESS_ROOTS) -
+  // Locations, Items, Contacts, and Hierarchies today; adding a
+  // further one is a genuine, real, one-line addition to that list
+  // alone, never a further edit here. Fixes, along the way, the same,
+  // real, confirmed bug Locations and Items already had: every
+  // business previously shared one, single, unscoped "Hierarchies"
+  // node rather than genuinely, separately owning its own.
+  for (const root of PER_BUSINESS_ROOTS) {
+    create(business, root.type, `${businessName} ${root.suffix}`, userId);
+  }
   // A real, second fix, found via the real, full-lifecycle Playwright
   // test: a new business was never actually tagged with its own real
   // CoA family relation at all — only the original, hand-tagged demo
@@ -6609,7 +6634,7 @@ export function createBusiness(
   // Per docs/general-typed-hierarchy-resolution-plan.md - a real,
   // recommended, non-privileged starting point every new business
   // gets, immediately renameable/deletable/extensible.
-  seedDefaultHierarchyPrototypes(business, userId);
+  seedDefaultHierarchyPrototypes(business, businessName, userId);
   return { business: businessName, actualLedger, budgetLedger };
 }
 

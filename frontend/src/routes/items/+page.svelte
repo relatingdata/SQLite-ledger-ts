@@ -176,7 +176,15 @@
     try {
       let parentCategory = newItemCategory;
       if (usingNewCategory) {
-        await createEntity({ name: newCategoryName.trim(), parent: newCategoryParent });
+        // A real, confirmed bug fixed here: newCategoryParent's own
+        // bound <select> only updates when a person actively touches
+        // it - left at its own, real, default "(top-level category)"
+        // selection, the bound variable never actually changes from
+        // its own, static, literal initial value, so the real,
+        // current, business-scoped Items root (itemsRoot()) is
+        // resolved here directly instead, never trusted from state.
+        const realParent = newCategoryParent === 'Items' ? (itemsRoot()?.name ?? 'Items') : newCategoryParent;
+        await createEntity({ name: newCategoryName.trim(), parent: realParent });
         parentCategory = newCategoryName.trim();
       }
       await createEntity({ name: newItemName, parent: parentCategory });
@@ -312,7 +320,7 @@
         <div class="new-category-form">
           <input bind:value={newCategoryName} placeholder={translations.current['New category name, e.g. Pinot Noir'] ?? 'New category name, e.g. Pinot Noir'} />
           <select bind:value={newCategoryParent}>
-            <option value="Items">(top-level category)</option>
+            <option value={itemsRoot()?.name ?? 'Items'}>(top-level category)</option>
             {#each categories as c}<option value={translations.current[c.name] ?? c.name}>under {translations.current[c.name] ?? c.name}</option>{/each}
           </select>
         </div>
