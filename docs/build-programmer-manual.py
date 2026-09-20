@@ -52,6 +52,7 @@ PARTS = [
         "coa-class-instance-plan.md",
         "ui-completeness-plan.md",
         "sql-ledger-comparison.md",
+        "akaunting-comparison.md",
         "business-evolution-plan.md",
         "cash-flow-and-growth-planning.md",
         "future-dated-projection-and-capacity-planning.md",
