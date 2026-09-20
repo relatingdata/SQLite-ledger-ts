@@ -1251,6 +1251,7 @@ function migrateForMenuEntities() {
         { label: 'Old P&L', href: '/reports/old-pl' },
         { label: 'New P&L', href: '/reports/new-pl' },
         { label: 'New New P&L', href: '/reports/new-new-pl' },
+        { label: 'DND P&L', href: '/reports/pl-pivot' },
         { label: 'New Stock on Hand', href: '/reports/new-stock-on-hand' },
         { label: 'Compare Ledgers', href: '/reports/compare' },
         { label: 'Accounting Periods', href: '/setup/periods', requiredRoles: 'Administrator' },
