@@ -94,6 +94,14 @@
     } catch {
       businessTypes = [];
     }
+    // Per direct finding: this was previously a bare, top-level call
+    // (line, at the time, right after loadFamilyAccounts' own
+    // definition) - genuinely ran during SSR too, not just in the
+    // browser, triggering SvelteKit's own "Avoid calling fetch
+    // eagerly during server-side rendering" warning on every real
+    // visit to this page. Moved into the same, real onMount already
+    // used for the sibling initial-load call above.
+    loadFamilyAccounts();
   });
   function selectBusinessType(bt: { name: string; questions: string[] }) {
     if (selectedBusinessType?.name === bt.name) return;
@@ -113,8 +121,6 @@
       loadingAccounts = false;
     }
   }
-
-  loadFamilyAccounts();
 
   async function submit() {
     if (!businessName.trim() || !financialYearLabel.trim()) return;
