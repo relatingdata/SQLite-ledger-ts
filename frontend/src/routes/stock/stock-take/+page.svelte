@@ -169,7 +169,7 @@
               <input bind:value={inventoryAccount} />
             </fieldset>
           </div>
-          <button class="btn" onclick={submitComplete} disabled={completing}>{completing ? 'Completing…' : (translations.current['Complete'] ?? 'Complete stock take')}</button>
+          <button class="btn" onclick={submitComplete} disabled={completing}>{completing ? 'Completing…' : (translations.current['Complete stock take'] ?? 'Complete stock take')}</button>
         {/if}
 
         <button class="btn secondary" onclick={() => (take = null)}>{translations.current['Start a different sheet'] ?? 'Start a different sheet'}</button>

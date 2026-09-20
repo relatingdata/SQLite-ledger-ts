@@ -30,6 +30,10 @@
 
   let { direction }: { direction: 'payment' | 'receipt' } = $props();
 
+  // direction is genuinely static for this component's whole real
+  // lifetime - the same, real reasoning as CashTransaction.svelte's
+  // own, identical pattern.
+  // svelte-ignore state_referenced_locally
   const isPayment = direction === 'payment';
   const partyLabel = isPayment ? 'Vendor' : 'Customer';
   const partyParentEntity = isPayment ? 'Accounts Payable' : 'Accounts Receivable';

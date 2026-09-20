@@ -116,7 +116,7 @@
 
   <div class="wrap">
     <!-- This fieldset only listens for Enter as a shortcut; the real interactive elements (the selects and button below) already have their own correct roles and keyboard behavior. -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <fieldset class="card-legend form" onkeydown={onKeydown}>
     <legend>{translations.current['Choose a business, ledger, and language'] ?? 'Choose a business, ledger, and language'}</legend>
     <p class="intro">

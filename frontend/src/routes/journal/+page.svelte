@@ -28,7 +28,7 @@
   <p class="error">{$journal.error}</p>
 {:else if $journal.items.length === 0}
   <p class="empty">
-    {translations.current['No Entries Yet'] ?? 'No entries yet.'} <a href="/post">{translations.current['Record The First One'] ?? 'Post the first one.'}</a>
+    {translations.current['No Entries Yet'] ?? 'No entries yet.'} <a href="/post">{translations.current['Post The First One'] ?? 'Post the first one.'}</a>
   </p>
 {:else}
   <div class="card">

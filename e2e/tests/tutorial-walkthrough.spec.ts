@@ -317,7 +317,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   // === anywhere in this same, real tutorial walkthrough before now ===
   await page.goto('/pos');
   await page.waitForTimeout(800);
-  await page.locator('select').first().selectOption({ label: 'Main Street Cellar' });
+  await page.locator('select').first().selectOption({ value: 'Main Street Cellar' });
   await page.waitForTimeout(300);
   await page.locator('input[placeholder*="Scan" i], input[placeholder*="search" i]').first().fill('Amber Ale 330ml');
   await page.waitForTimeout(500);
@@ -361,9 +361,9 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
 
   await page.goto('/pos');
   await page.waitForTimeout(800);
-  await page.locator('select').first().selectOption({ label: 'Main Street Cellar' });
+  await page.locator('select').first().selectOption({ value: 'Main Street Cellar' });
   await page.waitForTimeout(500);
-  await page.getByRole('button', { name: /New terminal/i }).click();
+  await page.getByRole('button', { name: /Add a foreign-currency terminal/i }).click();
   await page.waitForTimeout(300);
   await page.locator('input[placeholder="Terminal name"]').fill('Border Store USD Till');
   await page.locator('input[placeholder="e.g. USD"]').fill('USD');

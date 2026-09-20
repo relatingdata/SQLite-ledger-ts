@@ -36,6 +36,10 @@
 
   type Selection = { type: 'division' | 'location' | 'employee'; name: string; division?: string; location?: string } | null;
   let selection: Selection = $state(null);
+  // A real, unique id for this page's own keyboard-hint text, so the
+  // tree panel below can genuinely announce its real keyboard
+  // shortcuts to a screen reader.
+  const treeHintId = `business-setup-tree-hint-${crypto.randomUUID()}`;
 
   function selectDivision(name: string) {
     selection = { type: 'division', name };
@@ -324,9 +328,18 @@
   <p class="error">{error}</p>
 {:else if chart}
   <div class="layout">
-    <fieldset class="card-legend tree-panel" tabindex="0" onkeydown={handleTreeKeydown}>
+    <!--
+      fieldset can never legally take an interactive ARIA role (a
+      fixed, real, implicit "group" semantic the spec won't let any
+      role override) - so the real, deliberate keyboard-navigable
+      toolbar semantics live on the inner div below instead, wrapping
+      just the real tree content, the same, real pattern as
+      TypedList.svelte.
+    -->
+    <fieldset class="card-legend tree-panel">
       <legend>{chart.business}</legend>
 
+      <div role="toolbar" tabindex="0" aria-describedby={treeHintId} aria-keyshortcuts="Insert Delete" onkeydown={handleTreeKeydown}>
       {#if chart.companyWideEmployees.length > 0}
         <div class="tree-section">
           <p class="tree-heading">{translations.current['Company-wide staff'] ?? 'Company-wide staff'}</p>
@@ -399,8 +412,9 @@
         {/if}
         {#if divisionError}<p class="error small">{divisionError}</p>{/if}
       </div>
+      </div>
 
-      <p class="keyboard-hint">
+      <p class="keyboard-hint" id={treeHintId}>
         {#if selection?.type === 'division'}Press Insert to add a location in "{translations.current[selection.name] ?? selection.name}", or Delete to remove it.
         {:else if selection?.type === 'location'}Press Insert to add an employee at "{translations.current[selection.name] ?? selection.name}", or Delete to remove it.
         {:else if selection?.type === 'employee'}Press Delete to remove "{translations.current[selection.name] ?? selection.name}". Select a location or division to add something new.

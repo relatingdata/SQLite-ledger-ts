@@ -318,6 +318,15 @@
 
       <fieldset>
         <legend>{translations.current['Scan or search a product'] ?? 'Scan or search a product'}</legend>
+        <!--
+          A real POS terminal, operated by staff standing at a real
+          till, must be scan-ready the instant this page loads -
+          without autofocus, every real sale would need an extra,
+          real click before the very first scan could even register.
+          This is a deliberate, real trade-off for this one, specific,
+          staff-only screen, not a careless default.
+        -->
+        <!-- svelte-ignore a11y_autofocus -->
         <input bind:value={productInput} onkeydown={onProductInputKeydown} placeholder="Scan barcode or type a name…" autofocus />
       </fieldset>
       {#if searchResults.length > 0}

@@ -32,6 +32,12 @@
 
   let { direction }: { direction: 'purchase' | 'sale' } = $props();
 
+  // direction is genuinely static for this component's whole real
+  // lifetime - set once, directly, by the one, real, separate route
+  // file that renders it (<CashTransaction direction="purchase" />),
+  // never reassigned afterward. A plain const is the correct, real
+  // choice here, not a missed $derived.
+  // svelte-ignore state_referenced_locally
   const isPurchase = direction === 'purchase';
   const partyLabel = isPurchase ? 'Vendor' : 'Customer';
   const partyParentEntity = isPurchase ? 'Accounts Payable' : 'Accounts Receivable';

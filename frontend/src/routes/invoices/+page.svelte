@@ -297,7 +297,7 @@
 
   <div class="layout">
     <div class="card list-card">
-      <h3>{translations.current['Journal Entries'] ?? 'Invoices'}</h3>
+      <h3>{translations.current['Invoices'] ?? 'Invoices'}</h3>
       {#if invoices.length === 0}
         <p class="empty">{translations.current['None yet.'] ?? 'None yet.'}</p>
       {/if}

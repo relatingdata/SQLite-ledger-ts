@@ -51,6 +51,11 @@
   } = $props();
 
   let items: T[] = $state([]);
+  // A real, unique id for this real component instance's own
+  // keyboard-hint text, so the panel below can genuinely announce
+  // its real keyboard shortcuts to a screen reader, not just show
+  // them visually.
+  const hintId = `typed-list-hint-${crypto.randomUUID()}`;
   let knownTypes: string[] = $state([]);
   let loading = $state(true);
   let error = $state('');
@@ -146,12 +151,25 @@
   }
 </script>
 
-<fieldset class="sub-block" tabindex="0" onkeydown={handleKeydown}>
+<!--
+  fieldset can never legally take an interactive ARIA role (it has a
+  fixed, real, implicit "group" semantic the spec won't let any role
+  override) - so the real, deliberate keyboard-navigable toolbar
+  semantics live on the inner div below instead, wrapping just the
+  real list content. Each real entry already has its own real
+  role="button" and tabindex; this div is its own further Tab stop
+  only so Insert can add a new entry even when nothing inside is yet
+  selected - genuinely announced via aria-describedby, pointing at
+  the same, real, existing keyboard-hint text already shown visually
+  below.
+-->
+<fieldset class="sub-block">
   <legend>{translations.current[kindLabel] ?? kindLabel}</legend>
   {#if error}<p class="error">{error}</p>{/if}
   {#if loading}
     <p class="empty">Loading…</p>
   {:else}
+  <div role="toolbar" tabindex="0" aria-describedby={hintId} aria-keyshortcuts="Insert Delete" onkeydown={handleKeydown}>
     {#if items.length === 0 && !adding}
       <p class="empty">{emptyText}</p>
     {/if}
@@ -198,10 +216,12 @@
           </div>
         </div>
       </div>
+
     {/if}
+  </div>
   {/if}
   {#if !loading}
-    <p class="keyboard-hint">
+    <p class="keyboard-hint" id={hintId}>
       {#if items.length > 0}Click an entry, then press Delete to remove it.{/if}
       {#if !adding}Press Insert to add one.{/if}
     </p>

@@ -231,8 +231,18 @@ ensure-servers:
 	fi
 
 stop-servers:
-	@if [ -f $(BACKEND_PID) ]; then kill $$(cat $(BACKEND_PID)) 2>/dev/null || true; rm -f $(BACKEND_PID); echo "backend stopped"; fi
-	@if [ -f $(FRONTEND_PID) ]; then kill $$(cat $(FRONTEND_PID)) 2>/dev/null || true; rm -f $(FRONTEND_PID); echo "frontend stopped"; fi
+	@if [ -f $(BACKEND_PID) ]; then \
+	  PID=$$(cat $(BACKEND_PID)); \
+	  kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; \
+	  rm -f $(BACKEND_PID); echo "backend stopped"; \
+	fi
+	@if [ -f $(FRONTEND_PID) ]; then \
+	  PID=$$(cat $(FRONTEND_PID)); \
+	  kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; \
+	  rm -f $(FRONTEND_PID); echo "frontend stopped"; \
+	fi
+	@pkill -9 -f "tsx watch src/server.ts" 2>/dev/null || true
+	@pkill -9 -f "vite dev" 2>/dev/null || true
 
 # A real, fast, minimal smoke layer - every real route visited once,
 # checking only that it loads without a real, unhandled error. See

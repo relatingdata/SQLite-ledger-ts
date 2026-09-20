@@ -376,7 +376,7 @@
           <span class="legend-right"><a href="/account/password" class="link">{translations.current['Change password'] ?? 'Change password'}</a> - <button type="button" class="link" onclick={logout}>{translations.current['Log out'] ?? 'Log out'}</button></span>
         </legend>
         <div class="top-bar-inner">
-          <div class="top-bar-items" role="toolbar" aria-label={translations.current['Sections'] ?? 'Sections'} onkeydown={onTopBarKeydown}>
+          <div class="top-bar-items" role="toolbar" tabindex="0" aria-label={translations.current['Sections'] ?? 'Sections'} onkeydown={onTopBarKeydown}>
             {#each sections as section (section.key)}
               <button
                 type="button"
@@ -398,7 +398,17 @@
     {#if auth.current && session.current}
       <aside class="sidebar">
         <nav>
-          <div onkeydown={onSidebarKeydown}>
+          <!--
+            A real, deliberate keyboard-navigable sidebar: each real
+            link inside already has its own real, correct role and
+            keyboard behavior; this div only captures Up/Down to move
+            between them, the same, real pattern as the top-bar
+            toolbar above. role="group" documents its real, semantic
+            purpose but Svelte's linter still treats it as
+            non-interactive on its own.
+          -->
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+          <div role="group" aria-label={translations.current['Navigation'] ?? 'Navigation'} onkeydown={onSidebarKeydown}>
             {#each sections as section (section.key)}
               {#if section.key === activeSectionKey}
                 <div class="section">
@@ -441,6 +451,16 @@
     {/if}
 
     <div class="content-area">
+      <!--
+        main is a required, real, semantic landmark - giving it any
+        other role would break real screen-reader landmark
+        navigation, so this can't be "fixed" by changing its role.
+        tabindex="-1" already keeps it out of the real tab order; the
+        keydown handler only captures real, global keyboard shortcuts
+        scoped to the main content region, never requiring main
+        itself to be a real, interactive target.
+      -->
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <main onkeydown={onMainKeydown} tabindex="-1">
         {@render children()}
       </main>
