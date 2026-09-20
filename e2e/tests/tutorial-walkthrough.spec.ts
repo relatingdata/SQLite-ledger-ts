@@ -95,7 +95,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.goto('/setup/business-setup');
   await page.waitForTimeout(1500);
   await shot('business_setup_landing');
-  await page.locator('.tree-panel').focus();
+  await page.locator('.tree-panel [role="toolbar"]').focus();
   await page.keyboard.press('Insert');
   await page.waitForTimeout(300);
   await page.locator('input[placeholder="Division name"]').fill('Main Division');
@@ -108,7 +108,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   // needed for the real receiving/transfer steps below).
   await page.getByRole('button', { name: 'Main Division' }).click();
   await page.waitForTimeout(300);
-  await page.locator('.tree-panel').focus();
+  await page.locator('.tree-panel [role="toolbar"]').focus();
   await page.keyboard.press('Insert');
   await page.waitForTimeout(300);
   await page.locator('input[placeholder="Location name"]').fill('Warehouse Hub');
@@ -120,7 +120,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   // === Create the first employee, at the warehouse ===
   await page.getByRole('button', { name: 'Warehouse Hub' }).click();
   await page.waitForTimeout(300);
-  await page.locator('.tree-panel').focus();
+  await page.locator('.tree-panel [role="toolbar"]').focus();
   await page.keyboard.press('Insert');
   await page.waitForTimeout(300);
   await page.locator('input[placeholder="Employee name"]').fill('Jamie Chen');

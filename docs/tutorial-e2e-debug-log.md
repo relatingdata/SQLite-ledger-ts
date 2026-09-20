@@ -73,6 +73,46 @@ to confirm nothing else broke, then run the full tutorial e2e end to end. Nothin
 past step 20 above (the USD sale) has been exercised yet in isolation — the report
 pages and the third location's stock-take still need a real, full run to confirm.
 
+## RESOLVED — full tutorial confirmed passing end to end
+
+Two further real bugs found and fixed during this final push:
+
+9. **`.tree-panel`'s own `.focus()` call broke** after checkpoint 373's accessibility
+   restructuring moved `tabindex`/`role="toolbar"` off the fieldset onto an inner
+   `div` — the fieldset itself is no longer focusable, so `page.locator('.tree-panel')
+   .focus()` (used 3 times in the tutorial script) silently did nothing. Fixed all
+   three call sites to target `.tree-panel [role="toolbar"]` instead — the same,
+   correct pattern already used to verify the restructuring worked.
+10. Two of my own isolated debug scripts produced misleading, false failures by
+    taking shortcuts the real script never takes: using the bootstrap "My Business"
+    (which never goes through the real `createBusiness` flow, so its `Locations`
+    parent doesn't exist) instead of properly creating "Wine Retail Business" first;
+    and guessing at a placeholder-based locator for a field that has no placeholder
+    at all (it's a labeled `Form` field, matched correctly elsewhere in the real
+    script via `getByRole('group', ...)`). Neither was a real bug — both were
+    confirmed, directly, via the real API (`createBusiness` → location creation
+    succeeds cleanly) and the real UI flow (every step passes when done the way the
+    actual script does it), before concluding there was no real, further defect.
+
+**The database-snapshot approach paid off directly**: split the confirmed-good prefix
+(steps 1-35, through the USD sale) into its own test, ran it once (3.8 min), saved
+`entities.sqlite`, then ran a second, small test for just the untested tail (reports +
+third stock-take, 20 seconds) against that live state — instead of re-running the
+full ~10-minute script for every iteration on the tail. Both parts passed cleanly and
+independently, which is what confirmed there was only the one remaining problem
+(item 9 above), not several stacked ones.
+
+**Final, complete, single run, exactly as `make playwright-tutorial` runs it for
+real**: all 46 steps, login through the final stock-take — **1 passed (2.7m)**.
+Backend suite 186/186, `check-frontend` 0 errors/0 warnings, confirmed immediately
+after.
+
+This general pattern (snapshot the database once expensive setup is confirmed good,
+iterate against the snapshot, reassemble and run the whole thing once at the end) is
+now written up as its own section in `docs/skill-wine-retail-e2e-and-docs.md`, so it's
+the default approach for future, similar debugging, not something to be reminded of
+again.
+
 ## Full tutorial run history (for reference — do not re-derive this by re-running blind)
 
 - Full runs before checkpoint 372: hung consistently at the cash-purchase receiving

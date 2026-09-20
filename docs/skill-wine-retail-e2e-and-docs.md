@@ -71,6 +71,17 @@ make programmer-manual
 
 A screenshot used in a new doc section should be a real one from the Playwright run above (see `/tmp/*.png` after a test with `page.screenshot(...)`), copied into `docs/manual-images/` — not a placeholder path.
 
+## Expensive, multi-step setup gets a saved database snapshot — never a full re-run per iteration
+
+Found the hard way, across many repeated ~10-minute full runs of `tutorial-walkthrough.spec.ts` while debugging a failure near its end: re-running an entire, long, multi-step test from scratch to check one fix near the *end* of it is a real, needless cost, repeated every single iteration. The real, correct pattern, once a test has a confirmed-good prefix (every step up to some point has already passed, verified, in a real run):
+
+1. **Truncate a copy of the test at the last confirmed-good step**, run it once, and let it finish.
+2. **Copy the database file it produced** — `backend/data/entities.sqlite` (and its `-wal`/`-shm` siblings if present) — to a snapshot location, e.g. `/tmp/snapshot-<name>.sqlite`.
+3. **To iterate on the remaining, untested tail**: stop the servers, restore the snapshot over the live database file, restart the servers, then run only the remaining steps (a second, small test file, or a fast, direct API-driven check) against that already-progressed state.
+4. Once the tail is fixed and confirmed, reassemble the full test file and run it once, completely, end to end, to confirm the whole thing still passes together — the snapshot shortcut is for iteration speed while debugging, never a substitute for a final, real, full run before calling the work done.
+
+This is the same principle as a fixture/cassette in other testing setups: expensive, deterministic setup gets computed once and reused, not redone per iteration. Skipping this and re-running the full script blind, every time, is the exact "tail chasing" this skill's own "done looks like" section already warns against — it wastes the person's time waiting on the same, already-confirmed-working steps, dozens of times over, for information a saved snapshot would have given back in seconds.
+
 ## What "done" looks like
 
 Only report a change as complete once all three steps above have genuinely run in this same session, with real output confirming each — not "I'm confident this doesn't need it" and not a summary written before actually executing the commands. If time pressure forces a shortcut, say so explicitly rather than presenting the change as fully verified.
