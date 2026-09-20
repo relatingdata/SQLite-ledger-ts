@@ -1,6 +1,7 @@
 import { db, getQualifiedDisplayName, getCombinationDisplayName } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
 import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, asDivisionName, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { Entity } from './primitives.js';
 
 // ---------------------------------------------------------------------------
 // Reports
@@ -46,6 +47,68 @@ export function setAccountCurrency(accountName: string, currency: string | null)
   db.prepare(`INSERT INTO account (entity_id) VALUES ((SELECT id FROM current_entities WHERE name = ?)) ON CONFLICT (entity_id) DO NOTHING`).run(accountName);
   const result = db.prepare(`UPDATE account SET currency = ? WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).run(currency, accountName);
   if (result.changes !== 1) throw new ValidationError(`No such account: "${accountName}".`);
+}
+
+/** A real, direct, currency-specific sibling of any given, real,
+ * home-currency account (e.g. "Sales Revenue (USD)", "Sales Tax
+ * Payable (USD)", "Cash at Bank (USD)") - per
+ * docs/multicurrency-design.md, "The validation change required" and
+ * "A fully worked example": a sale genuinely nominated in a foreign
+ * currency never converts to the home currency at posting time. Every
+ * real leg of that transaction (Revenue, Tax, COGS, Cash) stays
+ * consistently denominated in the real, nominated currency it
+ * actually happened in, each posted to its own, real, currency-tagged
+ * sibling account, balancing entirely within that one, real,
+ * independent currency group. Created once, under the exact, same,
+ * real parent as the base account, its own account.currency set
+ * directly - the real, established, existing per-account currency
+ * mechanism, reused exactly, not a new one invented for this. */
+/** A real, direct, currency-specific sibling of any given, real,
+ * home-currency account (e.g. "Sales Revenue (USD)", "Sales Tax
+ * Payable (USD)", "Cash at Bank (USD)") - per
+ * docs/multicurrency-design.md, "The validation change required" and
+ * "A fully worked example": a sale genuinely nominated in a foreign
+ * currency never converts to the home currency at posting time. Every
+ * real leg of that transaction (Revenue, Tax, COGS, Cash) stays
+ * consistently denominated in the real, nominated currency it
+ * actually happened in, each posted to its own, real, currency-tagged
+ * sibling account, balancing entirely within that one, real,
+ * independent currency group.
+ *
+ * Takes the real, specific base account's own real id, not just its
+ * name - a real, confirmed bug, found directly: this system's own,
+ * established, scoped-uniqueness design deliberately allows the exact
+ * same name at two, real, different parent levels (a COGS leaf and an
+ * Inventory leaf for the same product/location can genuinely share
+ * one name) - looking a base account up by name alone is genuinely
+ * ambiguous in that real case, and silently created one, single,
+ * shared currency-tagged sibling for what should have been two, real,
+ * separate ones (COGS and Inventory ending up as the exact same
+ * account, breaking the per-currency balance immediately). Resolving
+ * from the real, specific, already-known id instead - every real
+ * caller already has it - removes the ambiguity entirely. */
+export function ensureCurrencyAccount(baseAccountId: number, currency: string, userId: UserId): { name: string; id: number } {
+  const base = db.prepare(`SELECT name, parent_id FROM current_entities WHERE id = ?`).get(baseAccountId) as { name: string; parent_id: number } | undefined;
+  if (!base) throw new ValidationError(`No such account id: ${baseAccountId}.`);
+  const currencyAccountName = `${base.name} (${currency})`;
+  const existing = Entity.getUnder(currencyAccountName, base.parent_id) ?? Entity.create(currencyAccountName, base.parent_id, userId);
+  setAccountCurrency(currencyAccountName, currency);
+  return { name: currencyAccountName, id: existing.id };
+}
+
+/** "Cash at Bank" itself may not yet exist as a plain, base, postable
+ * account at all - per direct instruction, this is expected: it was
+ * genuinely removed from the static CoA prototypes once business-
+ * type-specific configuration took over creating it, the exact, same,
+ * real pattern createBusiness's own secondary-currency logic already
+ * uses (creating it fresh, under "Asset", the first time it's
+ * needed). Returns its real, existing or newly-created id, so a
+ * caller can then hand that real id to ensureCurrencyAccount. */
+export function ensureCashAtBankAccount(userId: UserId): number {
+  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = 'Cash at Bank'`).get() as { id: number } | undefined;
+  if (existing) return existing.id;
+  const assetId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Asset'`).get() as { id: number }).id;
+  return Entity.create('Cash at Bank', assetId, userId).id;
 }
 
 export function getChartOfAccounts(): ChartRow[] {
@@ -1087,23 +1150,34 @@ interface ComputedClose {
  * itself use — kept as one, single source of truth so a preview can
  * never drift from what actually posts. Computes the real, proposed
  * lines without staging or posting anything at all. */
-function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string): ComputedClose {
+function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, userId?: UserId): ComputedClose {
   const balancesByDivision = getLedgerBalancesByDivisionStructural(businessName, ledger, undefined, asOfDate);
   const rows = getBusinessReports().filter((r) => r.report === 'Profit and Loss Statement' || r.category === 'Income' || r.category === 'Expense');
 
   let netIncomeMinor = 0;
   let accountsZeroed = 0;
-  const netIncomeByDivision = new Map<string | null, number>();
+  // Per direct, confirmed finding: closing a real, foreign-currency
+  // Income/Expense account against the exact, same, plain, home-
+  // currency Retained Earnings genuinely breaks the per-currency
+  // balance check the exact, same way an un-tagged Cash leg once did
+  // - grouped by (division, currency) together now, not division
+  // alone, so each real currency's own net income closes against its
+  // own, real, currency-tagged Retained Earnings sibling.
+  const netIncomeByDivisionCurrency = new Map<string, { division: string | null; currency: string | null; net: number }>();
   const lines: CloseBooksLine[] = [];
 
   for (const r of rows) {
     const divisionBalances = balancesByDivision.get(r.account_id);
     if (!divisionBalances) continue;
+    const currency = (db.prepare(`SELECT currency FROM account WHERE entity_id = ?`).get(r.account_id) as { currency: string | null } | undefined)?.currency ?? null;
     let accountTotal = 0;
     for (const [divisionName, balance] of divisionBalances) {
       if (balance === 0) continue;
       accountTotal += balance;
-      netIncomeByDivision.set(divisionName, (netIncomeByDivision.get(divisionName) ?? 0) - balance);
+      const key = `${divisionName ?? ''}\u0000${currency ?? ''}`;
+      const existing = netIncomeByDivisionCurrency.get(key) ?? { division: divisionName, currency, net: 0 };
+      existing.net -= balance;
+      netIncomeByDivisionCurrency.set(key, existing);
     }
     if (accountTotal === 0) continue;
     lines.push({ account: r.account, accountId: r.account_id, amount_minor: -accountTotal });
@@ -1119,15 +1193,21 @@ function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfD
     // own real line, tagged with its own division; a genuinely
     // untagged remainder (division: null) still posts as its own
     // real, division-less line, exactly as an ordinary posting would.
-    for (const [division, net] of netIncomeByDivision.entries()) {
+    for (const { division, currency, net } of netIncomeByDivisionCurrency.values()) {
       if (net === 0) continue;
-      lines.push({ account: retainedEarningsAccount, amount_minor: -net, ...(division !== null ? { division } : {}) });
+      if (currency && userId) {
+        const retainedEarningsId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(retainedEarningsAccount) as { id: number }).id;
+        const tagged = ensureCurrencyAccount(retainedEarningsId, currency, userId);
+        lines.push({ account: tagged.name, accountId: tagged.id, amount_minor: -net, ...(division !== null ? { division } : {}) });
+      } else {
+        lines.push({ account: retainedEarningsAccount, amount_minor: -net, ...(division !== null ? { division } : {}) });
+      }
     }
   }
 
-  const divisionBreakdown = Array.from(netIncomeByDivision.entries())
-    .filter(([, net]) => net !== 0)
-    .map(([division, netIncomeMinor]) => ({ division, netIncomeMinor }))
+  const divisionBreakdown = Array.from(netIncomeByDivisionCurrency.values())
+    .filter(({ net }) => net !== 0)
+    .map(({ division, net }) => ({ division, netIncomeMinor: net }))
     .sort((a, b) => (a.division ?? '').localeCompare(b.division ?? ''));
 
   return { lines, netIncomeMinor, accountsZeroed, divisionBreakdown };
@@ -1158,7 +1238,7 @@ export function previewCloseBooks(businessName: BusinessName, ledger: LedgerName
 
 export function closeBooks(business: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, userId: UserId): CloseBooksResult {
   const reference = `CLOSE-${ledger}-${asOfDate}`;
-  const computed = computeCloseLines(business, ledger, asOfDate, retainedEarningsAccount);
+  const computed = computeCloseLines(business, ledger, asOfDate, retainedEarningsAccount, userId);
 
   if (computed.accountsZeroed === 0) {
     throw new ValidationError(`Nothing to close for "${ledger}" as of ${asOfDate} — every Income/Expense account is already zero.`);

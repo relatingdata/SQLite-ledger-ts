@@ -65,6 +65,7 @@ import {
   postBomComponents,
   ensureProductInventoryAccount,
   setCurrencyExchangeRate,
+  nominateLocationCurrency,
 } from '../src/db.js';
 import { getItemLocation, createPosTerminal, setTerminalCurrency } from '../src/db-stock.js';
 import { fixtures } from '../../shared-fixtures/wine-retail.js';
@@ -663,6 +664,7 @@ async function main() {
   for (const [from, to, buy, sell] of CCY_PAIRS) setCurrencyExchangeRate(BUSINESS, from, to, 1, buy, sell);
 
   const usdTerminalLocation = retailOutlets[0].name;
+  nominateLocationCurrency(usdTerminalLocation, 'USD', 1);
   createPosTerminal('Border Store USD Till', usdTerminalLocation, 1);
   setTerminalCurrency('Border Store USD Till', 'USD');
   const usdCandidateProducts = ['Barossa Shiraz 2021', 'Margaret River Chardonnay 2022'];
@@ -671,8 +673,8 @@ async function main() {
   }
   let usdSaleCount = 0;
   for (let i = 0; i < 4; i++) {
+    const product = usdCandidateProducts[i % usdCandidateProducts.length];
     try {
-      const product = usdCandidateProducts[i % usdCandidateProducts.length];
       completePosSale(
         {
           business: BUSINESS,

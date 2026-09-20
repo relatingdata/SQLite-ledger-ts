@@ -148,6 +148,10 @@ Everything an administrator needs to set a business up lives under **Configurati
 
 **New Business** creates a brand-new business and its first real ledger, ready to actually transact in immediately --- both a real Actual ledger for ongoing transactions and a real Budget ledger for the same financial year, since a new business genuinely needs both from day one. Only the five, top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business in the application --- the real, named accounts underneath them are country-specific families that already exist. Choosing which existing family most closely matches a new business's own country or jurisdiction doesn't create anything new; it simply shows which real accounts already exist to post to.
 
+Every business nominates one real **home currency** at creation --- the currency its own consolidated reports (Balance Sheet, Profit and Loss) are expressed in, and the currency assumed for any account, division, or location that hasn't nominated anything different for itself.
+
+**Accept additional currencies (cash only)**, further down the same screen, is for a business that genuinely expects to take real cash in another currency --- typically one operating near a national border. Most businesses skip this entirely. Each currency added here gets its own real cash account, ready to receive real, foreign-currency payments from the moment the business is created, without a further setup step.
+
 ![Creating a new business, with a real Chart of Accounts family selected for reuse.](manual-images/m_new_business.png)
 
 ## Business Setup --- divisions, locations, employees
@@ -169,6 +173,12 @@ A real, single shift is capped at 12 hours, and a real, combined week --- added 
 ## Locations, in more detail
 
 Locations are real retail outlets and warehouses --- each has a real street address and phone number, a real city (locations in the same city can transfer stock between each other), and real, physical capacity. A real retail outlet tracks both shelving (bottles) and floor area (cartons), and, separately, real cold storage --- genuinely smaller, distinct real estate, not a subdivision of the same shelf space. A warehouse deals in full cartons only.
+
+**Storage capacity is a real combination of location and storage type** (room-temperature, refrigerated) --- the same, structural kind of combination a product's own bottle/six-pack/carton tiers already are, not two separate, independently-managed locations linked only by name. *(Design stated here; today's actual, built mechanism still models refrigerated storage as a second, name-linked location entity rather than a genuine second facet of the one location --- this section describes the intended, corrected shape, not yet the current, live behavior.)*
+
+**Item size within a storage section is a real, further constraint, not yet resolved to one specific design here** --- a shelf or fridge section built for 330ml cans or bottles has a fixed physical height a 750ml bottle simply cannot fit into, independent of how much numeric space is nominally left. Whether this is modeled as a size-class compatibility check alongside the existing count, or as capacity measured in a real physical unit each item consumes proportionally, is still an open design decision.
+
+**Each location nominates the real set of currencies it actually trades in.** Nearly every location trades only in its business's own home currency; a location genuinely near a national border, or one that otherwise takes real cash in another currency, nominates that currency explicitly, alongside the home one. A Division is a real, pure reporting rollup over its own locations, never a location itself --- it has no currency of its own to nominate; its own currency exposure, when a report shows one, is simply the sum of whatever its real locations actually did.
 
 ![The Locations screen, listing every real, existing retail outlet and warehouse.](manual-images/m_locations.png)
 
@@ -198,11 +208,17 @@ Of those parenthesized dimensions, one --- whether an item needs to be kept refr
 
 ### The Profit & Loss report walks this hierarchy automatically
 
-Whatever real hierarchy exists under a category --- however many real levels deep --- the Profit & Loss report already reflects it correctly, with no separate setup step. Creating "Amber" under "Beer", and the real, sellable item under "Amber", automatically creates matching Sales Revenue and Cost of Goods Sold lines in the same real shape (Sales Revenue → Beer → Amber → the real item), the moment the first real sale posts --- so a category rolled up in the P&L always mirrors the real item structure it was built from, not a separately hand-maintained list a person has to keep in sync by hand.
+Whatever real hierarchy exists under a category --- however many real levels deep --- the Profit & Loss report already reflects it correctly, with no separate setup step. Creating "Amber" under "Beer", and the real, sellable item under "Amber", automatically creates matching Sales Revenue and Cost of Goods Sold lines in the same real shape (Sales Revenue → Beer → Amber → the real item), the moment the first real sale posts --- so a category rolled up in the P&L always mirrors the real item structure it was built from, not a separately hand-maintained list a person has to keep in sync by hand. A Category, exactly like a Division, is a real, pure reporting rollup, never an operational unit of its own --- it nominates nothing itself; what a report shows for it is simply the sum of whatever its real items actually did.
+
+### Buying and selling in a foreign currency are two separate, independent facts
+
+A category or item being genuinely multi-currency on the *purchasing* side --- "Imported Beer," say, bought from an overseas brewery and invoiced in EUR --- says nothing about whether it's multi-currency on the *selling* side. The same imported beer might be sold to every domestic customer purely in the home currency, with the EUR fact confined entirely to the vendor relationship and its own real Cost of Goods Sold. Each real vendor source an item has already carries its own real currency (an item can genuinely be sourced from more than one vendor, in more than one currency, at once); a real, independently-set selling price, in a currency a location has actually nominated, is a separate, further fact --- never assumed from, or converted out of, the purchasing side's own currency.
 
 ## Purchase Order --- matching a vendor to what's actually being bought
 
 Choosing which real item to order on a **Purchase Order** narrows the vendor list down to that item's own, real, known suppliers --- the ones already on record in the Parts Catalog --- with the preferred one selected automatically and its own known price filled in. Picking a different, real, known alternate instead follows that source's own price too. If a genuinely new supplier is needed --- one this item has never been bought from before --- "Show all vendors" opens the full list; nothing is ever silently blocked, known suppliers are simply the sensible default.
+
+**A single Purchase Order assumes one, single currency for every line on it.** A vendor that itself operates across a currency border, supplying from warehouses on either side, is ordered from twice --- one real, separate order per currency --- never one order mixing them.
 
 ![Purchase Order, with "Amber Ale 330ml" selected --- the vendor list narrowed to its own two, real, known suppliers, the preferred one already chosen.](manual-images/m_po_supplier_matching.png)
 
@@ -213,6 +229,22 @@ Assets, Liabilities, and Equity each sit in their own, real, bordered box, with 
 Any real line with a small disclosure triangle next to it --- Accounts Receivable, Accounts Payable, and now Inventory --- expands to show its own, real detail underneath: every individual customer or vendor behind an AR/AP balance, or every real product behind the Inventory total, each with its own real dollar figure.
 
 ![The Balance Sheet, Assets/Liabilities/Equity each in their own box, Accounts Receivable and Inventory both expanded to show their own real detail underneath.](manual-images/m_balance_sheet.png)
+
+## Reporting across more than one currency
+
+*Design stated here, ahead of the mechanism it describes --- see the Programmer's Manual for what's actually built today versus what this section specifies.*
+
+The Trial Balance, the Profit and Loss statement, and the Balance Sheet each treat a business trading in more than one currency differently, on purpose:
+
+**The Trial Balance never converts anything.** Each real currency present shows its own, real, unconverted debit and credit columns, and each currency's own columns must independently balance --- the report's whole purpose is to prove the books are genuinely correct, currency by currency, so folding in an assumed exchange rate would hide the one thing it exists to check.
+
+**The Profit and Loss statement and the Balance Sheet offer a choice of three views**, since these reports exist to show a single, readable picture of the business, and a reader reasonably wants to see that picture in more than one way:
+
+1. **Native, per-currency, plus a converted total.** Every real currency actually present gets its own column-pair, in its own real, unconverted amounts --- plus one further column-pair at the end, everything converted to the business's own home currency at the exchange rate in effect at the moment the report is generated, and summed.
+2. **Converted, per-currency, plus a total.** The same one-column-pair-per-currency layout as above, but each currency's own column-pair is shown already converted into home-currency terms --- so a reader sees, directly, "what the USD activity was worth, in AUD" as its own column --- plus a total, the sum of those already-converted columns.
+3. **One combined column-pair only.** No per-currency breakdown at all --- just the total, itself correctly computed by converting each currency's real activity to the home currency first and summing, never a currency-blind sum across raw, un-converted, incompatible numbers.
+
+In every one of the three, the exchange rate used for conversion is the one in effect when the report is actually generated --- a live, assumed figure, stated as such, never written back into the ledger and never treated as a realized, historical fact the way an actual, completed currency conversion is.
 
 ## Contacts --- a real, named person, under a real, direct role
 

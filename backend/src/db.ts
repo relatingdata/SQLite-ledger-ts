@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { hashPassword, verifyPassword } from './password.js';
 import { Entity, Link, Balance, Detail } from './primitives.js';
-import { getLedgerBalances } from './db-reports.js';
+import { getLedgerBalances, ensureCurrencyAccount, ensureCashAtBankAccount } from './db-reports.js';
 
 // ---------------------------------------------------------------------------
 // The real data model, stated plainly here since it spans many real
@@ -462,7 +462,7 @@ function orderSiblingsByDisplayOrderPreJoined<T extends { id: number; name: stri
 export function getEntity(id: number): EntityNode | undefined {
   return db
     .prepare(
-      `SELECT e.id, e.name, e.parent_id, e.relation_id, a.accountnumber, a.balance_minor
+      `SELECT e.id, e.name, e.parent_id, e.relation_id, a.accountnumber, a.balance_minor, a.currency
        FROM current_entities e LEFT JOIN account a ON a.entity_id = e.id WHERE e.id = ?`
     )
     .get(id) as EntityNode | undefined;
@@ -3068,6 +3068,14 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
   // genuinely different currency this way — completely unaffected,
   // real, existing behavior when terminalName is omitted.
   const effectiveCurrency = getEffectiveSaleCurrency(input.terminalName);
+  // Per docs/multicurrency-design.md, "Where currency lives, and
+  // precedence": a location's own, real, nominated set of currencies
+  // is the real, governing fact - a sale resolving to a currency that
+  // location never nominated is rejected directly, not silently
+  // allowed through.
+  if (effectiveCurrency && !getLocationCurrencies(input.locationName).includes(effectiveCurrency)) {
+    throw new ValidationError(`"${input.locationName}" has not nominated ${effectiveCurrency} as a real, trading currency - see nominateLocationCurrency.`);
+  }
   for (const line of input.lines) {
     if (line.unitPriceMinor === undefined) {
       const instanceId = line.combinationValues && line.combinationShape ? ensureProductInstance(input.business, line.combinationShape, line.combinationValues, userId).id : undefined;
@@ -3124,35 +3132,60 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       userId
     );
 
+    // Per docs/multicurrency-design.md: every real leg of a
+    // foreign-currency-nominated sale (Revenue, Tax, COGS, Cash) stays
+    // consistently denominated in that real currency - each resolved
+    // account redirected to its own, real, currency-tagged sibling
+    // (ensureCurrencyAccount), whatever the underlying, real, tier/
+    // location/combination-specific account resolution already,
+    // correctly produced.
+    //
+    // Resolved by id, never by name alone - a real, confirmed bug,
+    // found directly: this system's own, established scoped-
+    // uniqueness design deliberately allows the exact same name at
+    // two, real, different parent levels (a COGS leaf and an
+    // Inventory leaf for the same product/location can genuinely
+    // share one name) - a name-only lookup is genuinely ambiguous in
+    // that real case.
+    const tagCurrency = (result: string | { name: string; id: number }): string | { name: string; id: number } => {
+      if (!effectiveCurrency) return result;
+      const baseId = typeof result === 'string' ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(result) as { id: number }).id : result.id;
+      return ensureCurrencyAccount(baseId, effectiveCurrency, userId);
+    };
+
     postInvoice(
       invoiceId,
       input.revenueAccount ??
         ((line) => {
-          if (!line.itemName) return 'Sales Revenue';
+          if (!line.itemName) return tagCurrency('Sales Revenue');
           const tier = input.lines.find((l) => l.itemName === line.itemName)?.tier;
           const combo = input.lines.find((l) => l.itemName === line.itemName);
           if (combo?.combinationValues && combo?.combinationShape) {
             const instanceTop = ensureProductInstance(input.business, combo.combinationShape, combo.combinationValues, userId);
             const leaf = ensureCombinationAccountLeaf('Sales Revenue', instanceTop, userId);
-            return { name: leaf.name, id: leaf.id };
+            return tagCurrency({ name: leaf.name, id: leaf.id });
           }
           if (tier && input.locationName) {
             const tierItem = ensureProductTierItem(asItemName(line.itemName), tier, userId);
             const leaf = ensureProductTierLocationLeaf(tierItem.tierItemName, input.locationName, userId, tierItem.tierItemId);
-            return { name: leaf.salesAccount, id: leaf.salesAccountId };
+            return tagCurrency({ name: leaf.salesAccount, id: leaf.salesAccountId });
           }
           if (tier) {
             const tierItem = ensureProductTierItem(asItemName(line.itemName), tier, userId);
-            return { name: tierItem.salesAccount, id: tierItem.salesAccountId };
+            return tagCurrency({ name: tierItem.salesAccount, id: tierItem.salesAccountId });
           }
           if (input.locationName) {
             const leaf = ensureProductLocationLeaf(asItemName(line.itemName), input.locationName, userId);
-            return { name: leaf.salesAccount, id: leaf.salesAccountId };
+            return tagCurrency({ name: leaf.salesAccount, id: leaf.salesAccountId });
           }
           const base = ensureProductSalesCogsAccounts(asItemName(line.itemName), userId);
-          return { name: base.salesAccount, id: base.salesAccountId };
+          return tagCurrency({ name: base.salesAccount, id: base.salesAccountId });
         }),
-      input.taxAccount,
+      (() => {
+        if (!effectiveCurrency) return input.taxAccount;
+        const taxId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.taxAccount) as { id: number }).id;
+        return ensureCurrencyAccount(taxId, effectiveCurrency, userId).name;
+      })(),
       userId,
       false,
       cityDivisionFor(input.locationName),
@@ -3162,7 +3195,13 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       // "sell on account" sale (paymentMethod left undefined)
       // correctly still uses the customer's real AR balance, since
       // that IS a genuine, real receivable.
-      input.paymentMethod ? 'Cash and Bank' : undefined
+      //
+      // Per docs/multicurrency-design.md: this real payment account
+      // itself is also tagged with the sale's own, real, nominated
+      // currency when one applies, using "Cash at Bank" as the real
+      // base - the exact, same, real base name createBusiness's own
+      // secondary-currency setup already uses.
+      input.paymentMethod ? (effectiveCurrency ? ensureCurrencyAccount(ensureCashAtBankAccount(userId), effectiveCurrency, userId).name : 'Cash and Bank') : undefined
     );
 
     for (const line of input.lines) {
@@ -3222,6 +3261,17 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
           ? ensureProductLocationInventoryAccount(asItemName(line.itemName), input.locationName, userId)
           : ensureProductInventoryAccount(asItemName(line.itemName), userId);
         inv = resolved;
+      }
+      // Per docs/multicurrency-design.md: COGS and Inventory, the
+      // exact, same, real way as Revenue/Tax/Cash above, also stay
+      // consistently denominated in the sale's own, real, nominated
+      // currency when one applies.
+      if (effectiveCurrency) {
+        const taggedCogs = ensureCurrencyAccount(cogsAccountId, effectiveCurrency, userId);
+        cogsAccount = taggedCogs.name;
+        cogsAccountId = taggedCogs.id;
+        const taggedInv = ensureCurrencyAccount(inv!.inventoryAccountId, effectiveCurrency, userId);
+        inv = { inventoryAccount: taggedInv.name, inventoryAccountId: taggedInv.id };
       }
       stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(cogsAccount), accountId: cogsAccountId, amount_minor: lineCogsMinor, division: cogsDivision ? asDivisionName(cogsDivision) : undefined });
       stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(inv!.inventoryAccount), accountId: inv!.inventoryAccountId, amount_minor: -lineCogsMinor, division: cogsDivision ? asDivisionName(cogsDivision) : undefined });
@@ -5353,6 +5403,53 @@ export function getItemPriceForCurrency(itemName: string, currency: string | nul
     )
     .get(itemName) as { price_minor: number | null } | undefined;
   return fallback?.price_minor ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Where currency lives, and precedence - per docs/multicurrency-design.md.
+// Real, operational currency facts exist at exactly two levels: Location
+// (a real SET of currencies actually traded in) and Business (one real
+// home currency, the default/fallback). Division and Category are
+// deliberately absent - both are pure reporting rollups, never
+// operational units, and never nominate a currency of their own.
+
+/** A business's own, real, nominated home/reporting currency - stored in
+ * the business entity's own detail_json, the same, established 1:1
+ * extension mechanism `contact`/`item_source` already use. NULL is a
+ * real, valid, unset state - never a guessed default. */
+export function setBusinessHomeCurrency(businessName: string, currencyCode: string, userId: UserId): void {
+  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(businessName) as { id: number } | undefined)?.id;
+  if (!businessId) throw new ValidationError(`No business named "${businessName}".`);
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(businessId) as { detail_json: string | null } | undefined;
+  const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
+  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ ...current, home_currency: currencyCode }), businessId);
+}
+
+export function getBusinessHomeCurrency(businessName: string): string | null {
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE name = ?`).get(businessName) as { detail_json: string | null } | undefined;
+  if (!row?.detail_json) return null;
+  return JSON.parse(row.detail_json).home_currency ?? null;
+}
+
+/** A location's own, real, nominated SET of further currencies it
+ * trades in, alongside its own implicit home currency - stored the
+ * same way, in the location entity's own detail_json. An ordinary
+ * location nominates nothing extra and returns an empty, real array,
+ * never a guessed single value. */
+export function nominateLocationCurrency(locationName: string, currencyCode: string, userId: UserId): void {
+  const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
+  if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(locationId) as { detail_json: string | null } | undefined;
+  const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
+  const currencies: string[] = current.currencies ?? [];
+  if (!currencies.includes(currencyCode)) currencies.push(currencyCode);
+  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ ...current, currencies }), locationId);
+}
+
+export function getLocationCurrencies(locationName: string): string[] {
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE name = ?`).get(locationName) as { detail_json: string | null } | undefined;
+  if (!row?.detail_json) return [];
+  return JSON.parse(row.detail_json).currencies ?? [];
 }
 
 // ---------------------------------------------------------------------------

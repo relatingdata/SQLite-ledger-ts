@@ -102,27 +102,18 @@ concept:
 
 ## Where currency lives, and precedence
 
-Four places can specify a currency, checked in this order for any given
-journal line:
+*Corrected against the real, current schema: this section originally described `division`/`business`/`contact` as separate extension tables, following what was, at the time, an established pattern. That pattern no longer exists --- this codebase now has exactly 4 permanent tables (`entities`, `account`, `journal`, `journal_line`; see `check-schema-table-count.ts`), and every 1:1 extension (`contact`, `item_source`, `stock_lot`, and others) lives in `entities.detail_json`, read through a compatibility view. Anything below following the old "separate extension table" language needs the same treatment.*
 
-1. **Division** (cost/profit center) — a `currency` column on the
-   existing `division` extension. A US profit center transacting
-   primarily in USD, a European one in EUR, within the same business.
-2. **Business** — a `home_currency` (and `country`, for the
-   jurisdiction) on a new `business` extension table (following the
-   same 1:1-entity-extension pattern `contact`/`division`/`account`
-   already use — not a new bespoke concept). The default/reporting
-   currency and the fallback when a line isn't tagged with a division.
-3. **Account** — a `currency` column on the existing `account`
-   extension, for an account that's inherently foreign-currency
-   regardless of division (e.g. a USD bank account held by an
-   otherwise-AUD business).
-4. **Contact** — a `currency` column on the existing `contact`
-   extension, so a debtor/creditor's own currency is explicit even when
-   the transaction is booked through a home-currency division.
+Real, operational currency facts exist at exactly two levels, checked in this order for any given journal line — **Division and Category are deliberately absent from this list**: both are pure reporting rollups (see below), never operational units, and never nominate a currency of their own.
 
-A journal line's effective currency is the most specific of these that's
-actually set, falling back toward the business's home currency.
+1. **Location** — the real, operational unit. A location's own `detail_json` (the same, established mechanism `contact` already uses) carries a real **set** of currencies it actually trades in, not a single value — nearly every location's set is just its business's own home currency; a location genuinely near a national border, or one that otherwise takes real cash in another currency, adds that currency explicitly, alongside the home one. A specific sale (through a specific POS terminal, or otherwise) resolves to one of this set.
+2. **Business** — a real `home_currency` in the business entity's own `detail_json`. The default/reporting currency, and the fallback whenever nothing more specific applies.
+
+**Account** and **Contact** currency (a `currency` column on `account`, matching a debtor/creditor's own currency on `contact`) remain real, existing, useful facts in their own right --- an account inherently foreign-currency regardless of location (a USD bank account an otherwise-AUD business happens to hold), or a debtor whose own currency is worth recording even when booked through a home-currency location --- but they are not part of the *sale-currency resolution chain* above; that chain resolves what currency a given transaction happens in, which then determines which of an account's own real, currency-tagged siblings (below) it actually posts to.
+
+**Division and Category are real, pure reporting rollups, never operational units, and never nominate a currency of their own** --- exactly parallel to each other: Division sits over Location the same structural way Category sits over Item/Product. A Division's own currency exposure, wherever a report shows one, is simply the aggregate of whatever its real, child Locations actually did; a Category's is the aggregate of whatever its real, child Items actually did. Neither is asked to nominate anything at setup time.
+
+**Buying and selling in a foreign currency are two separate, independent facts for the same item or category.** A category (or item) can be genuinely multi-currency on the *purchasing* side --- sourced from an overseas vendor, invoiced in a real, foreign currency, via that item's own `item_source` row --- without being multi-currency on the *selling* side at all, if every location that sells it only ever nominated the home currency. Neither implies or requires the other; they are read from two, real, separate places (`item_source.currency` for purchasing, a location's own nominated set for selling), never derived from one another.
 
 ## The actual validation rule: group by account currency, each group balances independently
 
@@ -246,6 +237,21 @@ never merged with any fee.
   expressed in the currency being settled *into* (see the worked
   example above), so this one also needs a currency-specific variant
   per settlement currency.
+- **Retained Earnings** — confirmed, per direct instruction: year-end
+  close (`closeBooks`) must zero a real, foreign-currency Income/
+  Expense account into its own, real, currency-tagged Retained
+  Earnings sibling (e.g. `Owner's Equity (USD)`), never the plain,
+  home-currency one — the exact, same, real reason every other
+  currency-touched account already needs this. Converting a real,
+  accumulated foreign-currency Retained Earnings balance into the home
+  currency is never automatic, and never happens as part of closing
+  the books — it is a real, later, deliberate, manual journal entry,
+  at whatever real rate the business operator actually achieves,
+  realizing a genuine foreign-currency trading gain or loss at that
+  moment (the exact, same, real "operator discretion, not automatic
+  conversion" principle already established for banked foreign cash
+  above), posted through the exact, same, real FX Gain/Loss mechanism
+  this section already describes.
 
 ## Explicitly out of scope for this work
 
@@ -260,11 +266,65 @@ piece of work, not folded in here.
 equals zero") becomes: join each line to its account's fixed currency,
 group by that currency, and require every group to independently sum
 to zero — the entry is rejected if any single group doesn't, not by
-the old, currency-blind combined sum. Every function built on top of
-it (`postInvoice`, `completePosSale`, stock takes, recurring journals)
-inherits this automatically once the core validator changes, since they
-all funnel through the same posting mechanism — they don't need
-individual updates.
+the old, currency-blind combined sum.
+
+**Correction, found directly, the hard way: the validator alone does not make a caller correct.** An earlier version of this section claimed every function built on top of the validator (`postInvoice`, `completePosSale`, stock takes, recurring journals) "inherits this automatically... they don't need individual updates" — this is wrong, and a confirmed, real naming mismatch is direct, live evidence of exactly why: business setup (`setup/new-business`) correctly creates real, currency-tagged `"Cash at Bank ({currency})"` accounts, per the design below, but every real sale (`completePosSale`) posts to a plain `"Cash and Bank"` instead — a different, real, existing account name, confirmed live in this business's own Chart of Accounts family, that the currency-tagged accounts were never wired to at all. Whether `"Cash and Bank"` in the real, live Chart of Accounts data is meant to be `"Cash at Bank"`'s own home-currency child (see the header design below) or a genuinely separate, pre-existing account needing its own reconciliation is a real, open question, not resolved here — it touches real, live financial data across every country's own CoA family, not just this one business, and is not something to rename unilaterally. What is settled: the validator only *rejects* an entry that doesn't balance per currency once a caller has *chosen* which accounts to post to; it does nothing to make that choice correct in the first place. A caller genuinely posting a foreign-currency transaction must itself resolve every touched account (Revenue, Tax, COGS, Cash — not the cash leg alone) to its own real, currency-tagged sibling, consistently, or the entry either fails to balance (if only some legs are tagged) or silently, wrongly posts as if it were home-currency (if none are).
+
+## "Cash at Bank" is a real header, not one flat account — currency, and where relevant bank, are real, further dimensions underneath it
+
+Per direct correction: `"Cash at Bank"` genuinely may or may not be a postable account by itself. In the ordinary, single-currency, single-bank case, it can be one, plain, postable account, same as any other. The moment a business holds more than one real currency, or banks with more than one real institution (common the moment more than one jurisdiction is involved), it becomes a real **header** — a parent, non-postable category — with the real, postable accounts living underneath it as a cartesian product, exactly the same, established structural pattern this codebase already uses for Product × Tier and (see below) Location × StorageType:
+
+```
+Cash at Bank (header)
+├── AUD                              — one currency, one bank: a plain child
+├── EUR
+├── CAD
+└── (if banking with more than one institution per currency)
+    Westpac (AUD)
+    Westpac (USD)
+    HSBC (EUR)
+    HSBC (GBP)
+```
+
+A business with one bank and one currency needs none of this — `"Cash at Bank"` stays a single, plain, postable account, exactly as today. The header/cartesian shape only actually materializes once a second currency or a second bank is genuinely added, following the same "don't build structure nobody asked for yet" principle the rest of this codebase's cartesian mechanisms (currency pairs, product combinations) already follow.
+
+### The setup flow this drives, and where each real fact is stored
+
+Per direct instruction, business creation asks, in order, right after home currency: how many real banks (one bank name/BSB-or-equivalent/account-number per real account, however many are nominated); how many real currencies; then presents the real bank-accounts × currencies grid so only the real, genuinely-held combinations get ticked, not the full cartesian product blindly. Each real bank account's own name, routing identifier (BSB in Australia; the country-appropriate equivalent elsewhere — sort code, routing number, IBAN), and account number live in that bank-account entity's own `detail_json`, the same, established, real mechanism `contact`/`item_source` already use — never a new table. A ticked cell in the grid is what actually creates the real, postable `"Cash at Bank"` cartesian child for that one, specific bank-account/currency combination; an unticked cell creates nothing.
+
+**The exact, same real mechanism applies to each partner's own drawing account**, for a business structured as a partnership — a partner can genuinely be paid out through more than one real bank account or in more than one real currency exactly as the business itself can, so each partner's own drawing account gets its own real bank-accounts × currencies grid, ticked independently of the business's own.
+
+## A fully worked example — Item creation through Trial Balance to Profit and Loss
+
+Per direct instruction: the exact, concrete chain, real account names and real amounts throughout, not description in the abstract.
+
+**Setup, once:**
+- Business `Wine Retail Business`, home currency `AUD`.
+- Location `Riverside Cellars` nominates `USD` as a further trading currency, alongside its own home `AUD` (a real, border-town outlet).
+- A real POS terminal, `Border Store USD Till`, at `Riverside Cellars`, resolves to `USD` (`setTerminalCurrency`).
+- Item `Amber Ale 330ml`, sold as a real `Bottle` tier. Two, real, independent `item_source` rows exist for it — its ordinary, domestic vendor cost in the home currency (`AUD`, $3.00/bottle), and a further, separately-registered `USD` cost ($2.00/bottle) for this location's own USD-denominated reporting — per "buying and selling are two separate, independent facts," neither derived from the other.
+- Its own USD selling price, in `item_source` too, is $5.00/bottle; tax is $0.50.
+
+**One real sale, through `Border Store USD Till`, one bottle:**
+
+```
+Real accounts touched, every one of them a real, currency-tagged
+sibling of its own, ordinary, home-currency counterpart — never the
+plain, un-tagged account, and never converted:
+
+Debit  Cash at Bank (USD)                              $5.50
+Credit Amber Ale 330ml (Bottle) — Riverside Cellars (USD)      $5.00   [Sales Revenue]
+Credit Sales Tax Payable (USD)                                 $0.50
+
+Debit  Amber Ale 330ml — Riverside Cellars (USD)        $2.00        [Cost of Goods Sold]
+Credit Amber Ale 330ml — Riverside Cellars Inventory (USD)      $2.00
+```
+
+Both real legs — the sale itself, and its own COGS/Inventory counterpart — are separate, real journal entries (matching this codebase's own, existing, established two-entry pattern for a POS sale), and each one, independently, balances entirely within its own real `USD` group: $5.50 = $5.00 + $0.50 in the first; $2.00 = $2.00 in the second. Nothing here touches, mixes with, or converts to the plain, home-currency `AUD` accounts for this same item at this same location — those stay exactly as they were, genuinely untouched by this one, real, foreign-currency sale.
+
+**On the Trial Balance**, as of the date of this sale, `Riverside Cellars`'s own real accounts show two, separate, genuinely unconverted currency groups, each independently balanced — `AUD` (everything else this location has ever done) and `USD` (this sale, and any other real USD activity), never combined, never converted, exactly per "the Trial Balance never converts anything" above.
+
+**On the Profit and Loss statement**, this same $5.00 of USD revenue and $2.00 of USD COGS appears three different ways depending on which of the three real views (above, under "Reporting across more than one currency") is chosen: as its own, real, native `USD` column-pair alongside a converted total; as an already-converted `USD`-into-`AUD` column-pair (at whatever spot rate is in effect when the report is generated) alongside a total; or folded, already converted, into one single, combined column-pair with no per-currency breakdown at all. In every one of the three, the $5.00/$2.00 figures used for conversion are these same, real, native `USD` amounts — never a re-derived or re-estimated number.
 
 ## UI implications
 

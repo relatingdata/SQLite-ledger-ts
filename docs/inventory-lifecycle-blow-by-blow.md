@@ -180,14 +180,7 @@ variance (counted ≠ expected).
 
 ## Real, open items, not yet resolved (see `stock-lifecycle-review-plan.md`)
 
-- Storage capacity as an actively-tracked, double-entry counteritem —
-  not built; today `bottle_capacity`/`carton_capacity` are purely
-  informational, checked only by an on-the-fly comparison.
-- **Refrigerated vs. room-temperature capacity as its own, separate,
-  real dimension** — confirmed, directly: "Refrigerated displays" are
-  already a real, distinct concept for retail outlets (sized
-  proportionally to each shop), but this is not yet a real, separate,
-  trackable capacity account alongside bottle/carton — a real, third
-  dimension to design in, per direct correction, not just
-  block-vs-warn.
+- **Storage capacity as an actively-tracked, double-entry counteritem — corrected, this was stale.** `adjustLocationCapacity` already posts real, live entries against each location's own real `Storage Capacity Remaining` account, checked directly (confirmed live in the real chart of accounts, one per location). `bottle_capacity`/`carton_capacity` are not merely informational.
+- **Refrigerated vs. room-temperature capacity as its own, separate, real dimension — corrected, this was stale too, and the design is now settled: storage capacity is a real cartesian product, Location × StorageType (Room-temperature, Refrigerated), the exact, same, established structural pattern this codebase already uses for Product × Tier.** Today's actual, live mechanism still models refrigerated storage as a second, separate location entity, name-linked to its own real parent (`"{location} — Refrigerated"`) rather than a genuine second facet of the one, same location — a real, working, but structurally different workaround from the cartesian design now specified, and the two are not yet reconciled; the cartesian design is the intended, corrected shape, the paired-sibling-location mechanism is what's actually built today.
+- **Item size within a storage section — a real, further, genuinely unresolved constraint.** A shelf or fridge section built for 330ml cans or bottles has a fixed, real, physical height a 750ml bottle simply cannot fit into, regardless of how much numeric capacity is nominally left — "is there room" and "does the size fit at all" are two, separate, real questions today's plain count doesn't distinguish. Two real directions, neither chosen yet: (a) a real size-class compatibility check, alongside the existing count, each storage section carrying its own real maximum size class and each item its own; or (b) capacity measured in a real physical unit (e.g. a volume or height-equivalent slot count) rather than plain item count, so a 750ml item genuinely consumes more of it than a 330ml one — capturing both facts in one number, at the cost of re-deriving every existing capacity figure into that unit.
 - Partial/security-driven stocktakes — deliberately deferred.

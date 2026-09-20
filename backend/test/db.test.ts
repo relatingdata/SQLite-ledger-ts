@@ -229,6 +229,10 @@ const {
   asDivisionName,
   asCustomerName,
   asVendorName,
+  setBusinessHomeCurrency,
+  getBusinessHomeCurrency,
+  nominateLocationCurrency,
+  getLocationCurrencies,
 } = await import('../src/db.ts');
 // Deferred, per the exact, same, real reason db.ts itself is deferred
 // above - a static, top-level import of auth.ts (which itself imports
@@ -2660,6 +2664,8 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
   // the selling terminal's own, real, correct currency.
   create(fetch('Locations', typeRootName), typeRootName, 'BorderE2E Outlet', asUserId(1));
   setLocation('BorderE2E Outlet', { city: 'BorderE2E City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' });
+  nominateLocationCurrency('BorderE2E Outlet' as any, 'USD', asUserId(1));
+  nominateLocationCurrency('BorderE2E Outlet' as any, 'CAD', asUserId(1));
   createPosTerminal('BorderE2E Till (USD)', asLocationName('BorderE2E Outlet'), asUserId(1));
   createPosTerminal('BorderE2E Till (CAD)', asLocationName('BorderE2E Outlet'), asUserId(1));
   setTerminalCurrency('BorderE2E Till (USD)', 'USD');
@@ -5371,21 +5377,10 @@ test('getQualifiedDisplayName never doubles a real, already-qualified name - a r
   assert.equal(getQualifiedDisplayName(ordinaryChild.id), 'QDNTest Vendor A — Sales');
 });
 
-test('completePosSale, through a real, foreign-currency terminal, correctly resolves the real, foreign price - but genuinely, confirmed does NOT post the actual payment to any real, currency-tagged account: it always posts to the exact, same, plain, shared "Cash and Bank" account, whatever currency the terminal itself resolved', () => {
-  // A real, confirmed divergence, found directly by exercising this
-  // exact mechanism against a real, full-scale simulation for the
-  // first time (docs/border-multicurrency-pos-plan.md's own language
-  // claims a real sale "posts in USD"/"posts in CAD" - two, real,
-  // "correctly-currencied transactions" - but the referenced,
-  // existing end-to-end test only ever asserts unitPriceMinor, never
-  // which real account the payment itself lands on, nor that
-  // account's own real currency). This test states the real, current,
-  // confirmed behavior directly, honestly, so the real gap between
-  // the manual's own claim and the real, live code stays visible and
-  // tracked - not silently resolved either direction without the
-  // user's own, explicit choice.
+test('completePosSale, through a real, foreign-currency terminal at a real, nominated-currency location, correctly resolves the real, foreign price AND correctly posts the real payment into its own, real, currency-tagged "Cash at Bank" sibling - the real gap found and reported earlier this session, now closed per docs/multicurrency-design.md', () => {
   createEntity({ name: 'FXPosTest Outlet', parent: 'Locations' }, asUserId(1));
   setLocation('FXPosTest Outlet', { city: 'FXPosTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
+  nominateLocationCurrency('FXPosTest Outlet' as any, 'USD', asUserId(1));
   createEntity({ name: 'FXPosTest Vendor', parent: 'Vendors' }, asUserId(1));
   createItem('FXPosTest Water', 'Items', asUserId(1));
   addOrUpdateItemSource({ itemName: 'FXPosTest Water', vendorName: 'FXPosTest Vendor', currency: 'USD', priceMinor: 150, isPreferred: true });
@@ -5412,11 +5407,123 @@ test('completePosSale, through a real, foreign-currency terminal, correctly reso
   const invoice = getInvoice(sale.invoiceId);
   assert.equal(invoice?.lines[0]?.unitPriceMinor, 150);
 
-  // But the real, actual payment account posted to is the exact,
-  // same, plain, shared "Cash and Bank" - genuinely no currency tag
-  // at all, confirmed directly - not a real, separate, USD-specific
-  // cash account, despite the terminal's own, real, resolved currency.
-  const cashAccount = getEntity((db.prepare(`SELECT id FROM current_entities WHERE name = 'Cash and Bank'`).get() as { id: number }).id);
-  assert.equal(cashAccount?.currency ?? null, null, 'Cash and Bank itself has no real, specific currency set - it is the plain, shared, home-currency account every real sale, regardless of terminal, actually posts to');
+  // And the real, actual payment now correctly lands in its own,
+  // real, currency-tagged "Cash at Bank (USD)" sibling.
+  const usdCashAccount = getEntity((db.prepare(`SELECT id FROM current_entities WHERE name = 'Cash at Bank (USD)'`).get() as { id: number }).id);
+  assert.equal(usdCashAccount?.currency, 'USD', 'the real, foreign-currency payment lands in its own, real, distinct, currency-tagged sibling account');
+  // The plain, home-currency "Cash and Bank" stays genuinely untouched
+  // by this one, real, foreign-currency sale.
+  const homeCashAccount = getEntity((db.prepare(`SELECT id FROM current_entities WHERE name = 'Cash and Bank'`).get() as { id: number }).id);
+  assert.equal(homeCashAccount?.currency ?? null, null, "the plain, home-currency account itself stays genuinely untouched by a real, foreign-currency sale's own payment");
 });
 
+// ===========================================================================
+// Derived directly from docs/multicurrency-design.md's own, real,
+// newly-written statements - per specification-driven-design, these
+// are confirmed genuinely failing (the functions don't exist yet)
+// before any implementation is written.
+// ===========================================================================
+
+test('a business nominates one real home currency, stored in its own detail_json - per multicurrency-design.md, "Where currency lives, and precedence"', () => {
+  createEntity({ name: 'HomeCcyTest Business', parent: 'Business' }, asUserId(1));
+  assert.equal(getBusinessHomeCurrency('HomeCcyTest Business' as any), null, 'a real, genuinely unset business has no home currency yet - never a guessed default');
+  setBusinessHomeCurrency('HomeCcyTest Business' as any, 'AUD', asUserId(1));
+  assert.equal(getBusinessHomeCurrency('HomeCcyTest Business' as any), 'AUD');
+});
+
+test('a location nominates a real SET of currencies it trades in, not a single value - per multicurrency-design.md, "Where currency lives, and precedence"', () => {
+  createEntity({ name: 'CcyLocTest Outlet', parent: 'Locations' }, asUserId(1));
+  setLocation('CcyLocTest Outlet', { city: 'Test', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' });
+  assert.deepEqual(getLocationCurrencies('CcyLocTest Outlet' as any), [], 'a real, genuinely ordinary location nominates nothing extra by default');
+  nominateLocationCurrency('CcyLocTest Outlet' as any, 'USD', asUserId(1));
+  nominateLocationCurrency('CcyLocTest Outlet' as any, 'EUR', asUserId(1));
+  assert.deepEqual(getLocationCurrencies('CcyLocTest Outlet' as any), ['USD', 'EUR'], 'a real location can nominate more than one real, further currency, each independently');
+});
+
+test('the fully worked example from multicurrency-design.md: a real sale through a real, nominated-currency location posts every real leg (Revenue, Tax, COGS, Cash) to its own, real, currency-tagged sibling, never converted, genuinely balancing entirely within its own real currency group', () => {
+  setBusinessHomeCurrency('My Business' as any, 'AUD', asUserId(1));
+  createEntity({ name: 'WorkedEx Outlet', parent: 'Locations' }, asUserId(1));
+  setLocation('WorkedEx Outlet', { city: 'Border Town', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
+  nominateLocationCurrency('WorkedEx Outlet' as any, 'USD', asUserId(1));
+  createPosTerminal('WorkedEx USD Till', 'WorkedEx Outlet' as any, asUserId(1));
+  setTerminalCurrency('WorkedEx USD Till', 'USD');
+
+  createEntity({ name: 'WorkedEx Vendor', parent: 'Vendors' }, asUserId(1));
+  createItem('WorkedEx Ale', 'Items', asUserId(1));
+  // Two, real, independent item_source rows - buying and selling are
+  // two separate facts, per the manual's own, explicit statement.
+  addOrUpdateItemSource({ itemName: 'WorkedEx Ale', vendorName: 'WorkedEx Vendor', currency: 'AUD', priceMinor: 300, isPreferred: true });
+  addOrUpdateItemSource({ itemName: 'WorkedEx Ale', vendorName: 'WorkedEx Vendor', currency: 'USD', priceMinor: 200, isPreferred: true });
+  receiveStockAtLocation('My Business' as any, 'Actual' as any, 'WORKEDEX-REC-1', 'WorkedEx Ale' as any, 'WorkedEx Outlet' as any, 10, asUserId(1), '2027-01-02');
+  addOrUpdateItemSource({ itemName: 'WorkedEx Ale', vendorName: 'WorkedEx Vendor', currency: 'USD', priceMinor: 500, isPreferred: true });
+
+  // "Cash at Bank (USD)" is a real, global, shared account other
+  // tests in this same file also legitimately post to - this test
+  // measures its own, real delta, never assumes a real, zero
+  // starting balance.
+  const cashBefore = (db.prepare(`SELECT COALESCE(a.balance_minor, 0) AS b FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name = 'Cash at Bank (USD)'`).get() as { b: number } | undefined)?.b ?? 0;
+
+  const sale = completePosSale(
+    {
+      business: 'My Business' as any,
+      ledger: 'Actual' as any,
+      locationName: 'WorkedEx Outlet' as any,
+      customerName: 'Cash Sale' as any,
+      lines: [{ itemName: 'WorkedEx Ale', quantity: 1, taxMinor: 50 }],
+      taxAccount: 'Sales Tax Payable' as any,
+      paymentMethod: 'cash',
+      terminalName: 'WorkedEx USD Till',
+      transdate: '2027-01-02',
+    },
+    asUserId(1)
+  );
+
+  const invoice = getInvoice(sale.invoiceId);
+  assert.equal(invoice?.lines[0]?.unitPriceMinor, 500, 'the real, native USD price - never converted');
+
+  const revenueAccountRow = db.prepare(`SELECT a.balance_minor, a.currency FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name LIKE 'WorkedEx Ale%(USD)' AND e.name NOT LIKE '%Inventory%'`).get() as
+    | { balance_minor: number; currency: string }
+    | undefined;
+  const taxRow = db.prepare(`SELECT balance_minor FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name = 'Sales Tax Payable (USD)'`).get() as { balance_minor: number };
+  const cashRow = db.prepare(`SELECT balance_minor, currency FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name = 'Cash at Bank (USD)'`).get() as { balance_minor: number; currency: string } | undefined;
+
+  assert.ok(revenueAccountRow, 'a real, USD-tagged Revenue account must exist');
+  assert.equal(revenueAccountRow!.currency, 'USD');
+  assert.ok(cashRow, 'a real, USD-tagged Cash account must exist');
+  assert.equal(cashRow!.currency, 'USD');
+  assert.equal(cashRow!.balance_minor - cashBefore, 550, 'the real, full USD amount (500 + 50 tax) genuinely landed in the USD-tagged cash account');
+
+  // The home-currency AUD accounts for this same item stay genuinely
+  // untouched by this one, real, foreign-currency sale.
+  const homeRevenueRow = db.prepare(`SELECT a.balance_minor FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name LIKE 'WorkedEx Ale — %' AND e.name NOT LIKE '%(USD)%' AND e.name NOT LIKE '%Inventory%'`).get() as { balance_minor: number } | undefined;
+  assert.equal(homeRevenueRow?.balance_minor ?? 0, 0, "the plain, home-currency Revenue account stays genuinely untouched");
+});
+
+
+test('closeBooks: a real, foreign-currency Income account closes against its own, real, currency-tagged Retained Earnings sibling - never the plain, home-currency one, per docs/multicurrency-design.md. Also a real, confirmed regression fix: closing an already-fully-closed ledger a second time correctly rejects with "nothing to close", never a real, confusing PostingError instead', () => {
+  create(fetch('My Business', typeRootName), typeRootName, 'CloseCcyTest Ledger', asUserId(1));
+  create(fetch('Income', typeRootName), typeRootName, 'CloseCcyTest Revenue', asUserId(1));
+  setAccountCurrency('CloseCcyTest Revenue', 'USD');
+  createEntity({ name: 'CloseCcyTest Cash (USD)', parent: 'Asset' }, asUserId(1));
+  setAccountCurrency('CloseCcyTest Cash (USD)', 'USD');
+
+  stageLine({ reference: 'CLOSECCY-1', business: asBusinessName('My Business'), ledger: asLedgerName('CloseCcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CloseCcyTest Revenue'), amount_minor: -50000 });
+  stageLine({ reference: 'CLOSECCY-1', business: asBusinessName('My Business'), ledger: asLedgerName('CloseCcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CloseCcyTest Cash (USD)'), amount_minor: 50000 });
+  postJournalEntry('CLOSECCY-1', asBusinessName('My Business'), asLedgerName('CloseCcyTest Ledger'), asUserId(1));
+
+  const result = closeBooks(asBusinessName('My Business'), asLedgerName('CloseCcyTest Ledger'), '2027-01-31', "Owner's Equity", asUserId(1));
+  assert.equal(result.accountsZeroed, 1);
+
+  const retainedUsd = db.prepare(`SELECT a.balance_minor, a.currency FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name = "Owner's Equity (USD)"`).get() as { balance_minor: number; currency: string } | undefined;
+  assert.ok(retainedUsd, `a real, USD-tagged "Owner's Equity (USD)" sibling must exist, genuinely separate from the plain, home-currency one`);
+  assert.equal(retainedUsd!.currency, 'USD');
+  assert.equal(retainedUsd!.balance_minor, -50000, "the real, foreign-currency net income closes into its own, real, currency-tagged Retained Earnings sibling");
+
+  // The real, confirmed regression: closing an already-fully-closed
+  // ledger a second time must correctly reject with "nothing to
+  // close" - never proceed into a real, confusing PostingError
+  // instead (a real bug, found directly, where this exact check had
+  // been accidentally dropped while adding the currency-awareness
+  // above).
+  assert.throws(() => closeBooks(asBusinessName('My Business'), asLedgerName('CloseCcyTest Ledger'), '2027-02-01', "Owner's Equity", asUserId(1)), ValidationError);
+});

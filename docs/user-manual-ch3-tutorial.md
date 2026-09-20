@@ -10,7 +10,7 @@ Every session starts by logging in, then choosing which real business to work wi
 
 ## Creating the new business
 
-**New Business**, under Configuration, is where this tutorial's own business is created --- a real name, a real financial year, and which existing Chart of Accounts family most closely matches this business's own real country or jurisdiction.
+**New Business**, under Configuration, is where this tutorial's own business is created --- a real name, a real financial year, which existing Chart of Accounts family most closely matches this business's own real country or jurisdiction, and its own real home currency (the currency its reports are expressed in --- this tutorial's own business trades only in its home currency throughout, so nothing further is nominated here; a business that also needs to bank or trade in a further currency is covered separately, at the end of this chapter).
 
 ![The New Business form, filled in for this tutorial's own business.](manual-images/t02_new_business_form.png)
 
@@ -30,7 +30,7 @@ Switching the active session into the new business, **Locations** is where a rea
 
 ## Setting the location's own real shelf capacity
 
-Immediately after creation, the location's own real shelf capacity (bottles) and carton capacity are set directly on the same screen, then saved — ready for the location's own real stock levels to be tracked against once product arrives.
+Immediately after creation, the location's own real shelf capacity (bottles) and carton capacity are set directly on the same screen, then saved — ready for the location's own real stock levels to be tracked against once product arrives. This tutorial's own outlet needs only ordinary, room-temperature shelving; a location that also needs real, separate refrigerated capacity adds that as its own, further real facet of the same location, covered separately, later in this chapter.
 
 ![The new location created, with its own real shelf and carton capacity now set.](manual-images/t06_locations_created.png)
 
@@ -99,5 +99,13 @@ Immediately afterwards, the Trial Balance shows exactly this: the real cash acco
 ## Reviewing the real, live figures
 
 At any point in this tutorial --- and especially after the final sale --- the same, real reports already described elsewhere in this manual show this business's own real, current position: the General Journal for every individual posting made along the way, the Chart of Accounts for the real Sales/COGS/Inventory accounts the new product brought into existence, the Trial Balance to confirm debits and credits still genuinely balance, the Balance Sheet and Profit \& Loss Statement for the business's own real financial position, and the Stock on Hand report for exactly how much real, physical stock remains at the warehouse versus the retail outlet after the transfer and sales above.
+
+## A further location, trading in a real, further currency
+
+*Design stated here, ahead of the mechanism it describes --- see the Programmer's Manual, `multicurrency-design.md`, for what's actually built today.*
+
+A business genuinely near a national border --- or one that otherwise expects real cash in another currency --- nominates that further currency on its own real Location, alongside its own home currency, rather than on the business as a whole. Continuing this tutorial's own worked numbers: a further, real outlet, `Riverside Cellars`, nominates `USD` alongside its own home `AUD`; a real POS terminal at that outlet, `Border Store USD Till`, is set to transact in `USD`. This tutorial's own `Amber Ale 330ml`, already stocked and sold in the home currency earlier in this chapter, gets a further, separate, independently-set `USD` selling price and `USD` cost for this one outlet --- a real, further fact, never derived or converted from its own home-currency price and cost.
+
+A real sale through `Border Store USD Till` posts entirely within its own real `USD` group --- Sales Revenue, Sales Tax, Cost of Goods Sold, and Cash all as `USD`-tagged siblings of their own, ordinary, home-currency counterparts --- and the Trial Balance, checked immediately after, shows this outlet's own real `AUD` and `USD` activity as two, separate, genuinely unconverted currency groups, each independently balancing on its own. The Profit and Loss statement, reviewed next, offers a choice: this same `USD` activity shown in its own real, native column, an already-converted column, or folded into one, single, converted total --- see "Reporting across more than one currency" in Chapter 2 for the full, worked account names and amounts.
 
 \clearpage
