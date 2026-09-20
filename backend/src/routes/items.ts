@@ -44,6 +44,11 @@ const itemSourceSchema = z.object({
   vendorSku: z.string().nullable().optional(),
   vendorUpc: z.string().nullable().optional(),
   priceMinor: z.number().int().nonnegative().nullable().optional(),
+  // Per docs/multicurrency-design.md: NULL means the business's own
+  // home currency - a real, different, non-NULL currency here is a
+  // real, separate, independently-priced row for the same item/vendor
+  // pair, never a converted number.
+  currency: z.string().min(1).max(6).nullable().optional(),
   packageQuantity: z.number().int().positive().nullable().optional(),
   isPreferred: z.boolean().optional(),
   preferenceNotes: z.string().nullable().optional(),

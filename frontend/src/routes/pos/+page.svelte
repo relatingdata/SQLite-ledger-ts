@@ -11,6 +11,8 @@
     completePosSale,
     listPendingCustomers,
     verifyCustomer,
+    getPosTerminals,
+    createPosTerminal,
     asBusinessName,
     asLocationName,
     asCustomerName,
@@ -22,6 +24,7 @@
     type PosSaleLineInput,
     type PosSaleResult,
     type PendingCustomer,
+    type PosTerminalRecord,
   } from '$lib/api';
 
   interface CartLine extends PosSaleLineInput {
@@ -37,6 +40,17 @@
   let customerName = 'Cash Sale';
   let onAccount = false;
 
+  // Per docs/multicurrency-design.md, Slice 4 - each real POS terminal
+  // is a real, single cash drawer, transacting in exactly one real
+  // currency. A real, ordinary retail outlet has none of these at
+  // all; a real, border-town one may show two or more real terminals,
+  // one per real, distinct currency it actually serves customers in.
+  let terminals: PosTerminalRecord[] = [];
+  let terminalName = '';
+  let showAddTerminal = false;
+  let newTerminalName = '';
+  let newTerminalCurrency = '';
+
   let productInput = '';
   let searchResults: ItemSummary[] = [];
   let cart: CartLine[] = [];
@@ -50,6 +64,36 @@
 
   let pendingCustomers: PendingCustomer[] = [];
   let showPending = false;
+
+  // Every real terminal a real location actually has, each with its
+  // own real, resolved currency (or none — the real, ordinary,
+  // home-currency case). Re-loaded whenever the selected location
+  // changes; a real, ordinary location returns a real, empty list.
+  async function loadTerminals(name: string) {
+    terminals = [];
+    terminalName = '';
+    if (!name) return;
+    try {
+      terminals = await getPosTerminals(name);
+    } catch {
+      // non-critical — the register still works in the real, ordinary, home-currency case
+    }
+  }
+  $: loadTerminals(locationName);
+
+  async function addTerminal() {
+    if (!newTerminalName.trim() || !locationName) return;
+    try {
+      await createPosTerminal(locationName, newTerminalName.trim(), newTerminalCurrency.trim() || undefined);
+      terminals = await getPosTerminals(locationName);
+      terminalName = newTerminalName.trim();
+      newTerminalName = '';
+      newTerminalCurrency = '';
+      showAddTerminal = false;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Could not create that terminal.';
+    }
+  }
 
   async function loadPending() {
     try {
@@ -154,6 +198,7 @@
         taxAccount: asAccountName(taxAccount),
         paymentMethod: onAccount ? undefined : paymentMethod,
         cashTenderedMinor: onAccount ? undefined : cashTenderedMinor,
+        terminalName: terminalName || undefined,
       });
       receipt = result;
       cart = [];
@@ -237,6 +282,28 @@
           {#each retailLocations as l}<option value={translations.current[l.name] ?? l.name}>{translations.current[l.name] ?? l.name} ({l.city})</option>{/each}
         </select>
       </fieldset>
+
+      {#if terminals.length > 0 || showAddTerminal}
+        <fieldset>
+          <legend>{translations.current['Terminal'] ?? 'Terminal'}</legend>
+          <select bind:value={terminalName}>
+            <option value="">{translations.current['(home currency)'] ?? '(home currency)'}</option>
+            {#each terminals as t}<option value={t.name}>{t.name}{t.currency ? ` (${t.currency})` : ''}</option>{/each}
+          </select>
+          {#if !showAddTerminal}
+            <button type="button" class="add-link" onclick={() => (showAddTerminal = true)}>+ {translations.current['New terminal'] ?? 'New terminal'}</button>
+          {:else}
+            <div class="terminal-add-row">
+              <input bind:value={newTerminalName} placeholder={translations.current['Terminal name'] ?? 'Terminal name'} />
+              <input bind:value={newTerminalCurrency} placeholder="e.g. USD" maxlength="6" />
+              <button type="button" class="btn small" onclick={addTerminal}>{translations.current['Add'] ?? 'Add'}</button>
+              <button type="button" class="btn small secondary" onclick={() => (showAddTerminal = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+            </div>
+          {/if}
+        </fieldset>
+      {:else}
+        <button type="button" class="add-link" onclick={() => (showAddTerminal = true)}>+ {translations.current['Add a foreign-currency terminal'] ?? 'Add a foreign-currency terminal'}</button>
+      {/if}
 
       <label class="checkbox-label">
         <input type="checkbox" bind:checked={onAccount} />
@@ -343,6 +410,27 @@
 </fieldset>
 
 <style>
+  .add-link {
+    background: none;
+    border: none;
+    color: var(--brass-dark, #8a6d3b);
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+    font-size: var(--font-size-base);
+    display: block;
+    margin: 0.3rem 0 0.8rem;
+  }
+  .terminal-add-row {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+    flex-wrap: wrap;
+  }
+  .terminal-add-row input {
+    max-width: 8rem;
+  }
+
   .pending-card {
     margin-bottom: 1.2rem;
     padding: 0.8rem 1.1rem;

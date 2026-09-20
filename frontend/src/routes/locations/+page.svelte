@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getEntityTree, listLocations, saveLocation, createEntity, asBusinessName, ApiError, getLocationTypes, createLocationType, type EntityNode, type LocationRecord } from '$lib/api';
+  import { getEntityTree, listLocations, saveLocation, createEntity, asBusinessName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, type EntityNode, type LocationRecord } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { session } from '$lib/state.svelte';
   import AddressList from '$lib/components/AddressList.svelte';
@@ -61,6 +61,14 @@
   let coldSaving = $state(false);
   let addingCold = $state(false);
 
+  // Per docs/multicurrency-design.md: a location's own, real,
+  // nominated SET of further currencies it trades in, alongside its
+  // own implicit home currency. Nearly every real location's own list
+  // stays empty.
+  let locationCurrencies: string[] = $state([]);
+  let newCurrencyCode = $state('');
+  let addingCurrency = $state(false);
+
   async function loadAll() {
     loading = true;
     try {
@@ -114,7 +122,7 @@
     if (loc) select(loc);
   }
 
-  function select(loc: LocationRecord) {
+  async function select(loc: LocationRecord) {
     selectedName = loc.name;
     city = loc.city;
     locationType = loc.location_type;
@@ -124,10 +132,13 @@
     error = '';
     message = '';
     addingCold = false;
+    addingCurrency = false;
 
     coldLocation = locations.find((l) => l.name === loc.name + COLD_SUFFIX) ?? null;
     coldBottleCapacity = coldLocation?.bottle_capacity != null ? String(coldLocation.bottle_capacity) : '';
     coldCartonCapacity = coldLocation?.carton_capacity != null ? String(coldLocation.carton_capacity) : '';
+
+    locationCurrencies = await getLocationCurrencies(loc.name).catch(() => []);
   }
 
   function cancelEdit() {
@@ -207,6 +218,20 @@
       error = e instanceof ApiError ? e.message : 'Could not save refrigerated capacity.';
     } finally {
       coldSaving = false;
+    }
+  }
+
+  async function addCurrencyToLocation() {
+    const code = newCurrencyCode.trim().toUpperCase();
+    if (!code || locationCurrencies.includes(code)) return;
+    error = '';
+    try {
+      await nominateLocationCurrency(selectedName, code);
+      locationCurrencies = [...locationCurrencies, code];
+      newCurrencyCode = '';
+      addingCurrency = false;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Could not nominate that currency.';
     }
   }
 </script>
@@ -362,6 +387,27 @@
                 {coldSaving ? 'Saving…' : 'Save Refrigerated Capacity'}
               </button>
             {/if}
+
+            <fieldset class="currencies-fieldset">
+              <legend>{translations.current['Currencies this location trades in'] ?? 'Currencies this location trades in'}</legend>
+              <p class="field-note">
+                {translations.current["Nearly every real location trades only in its business's own home currency — this is only for a location genuinely near a national border, or one that otherwise takes real cash in another currency."] ??
+                  "Nearly every real location trades only in its business's own home currency — this is only for a location genuinely near a national border, or one that otherwise takes real cash in another currency."}
+              </p>
+              {#if locationCurrencies.length > 0}
+                <ul class="currency-list">
+                  {#each locationCurrencies as code}<li>{code}</li>{/each}
+                </ul>
+              {/if}
+              {#if !addingCurrency}
+                <button type="button" class="add-link" onclick={() => (addingCurrency = true)}>+ {translations.current['Nominate a further currency'] ?? 'Nominate a further currency'}</button>
+              {:else}
+                <div class="currency-add-row">
+                  <input bind:value={newCurrencyCode} placeholder="e.g. USD" maxlength="6" onkeydown={(e) => e.key === 'Enter' && addCurrencyToLocation()} />
+                  <button type="button" class="btn small" onclick={addCurrencyToLocation}>{translations.current['Add'] ?? 'Add'}</button>
+                </div>
+              {/if}
+            </fieldset>
           {:else}
             <fieldset>
               <legend>{translations.current['Carton capacity'] ?? 'Carton capacity'}</legend>
@@ -386,6 +432,46 @@
   }
   .center-text {
     text-align: center;
+  }
+
+  .currencies-fieldset {
+    margin-top: 1rem;
+  }
+  .field-note {
+    font-size: var(--font-size-small, 0.85rem);
+    color: var(--ink-soft);
+    max-width: 60ch;
+  }
+  .currency-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    list-style: none;
+    padding: 0;
+    margin: 0.4rem 0;
+  }
+  .currency-list li {
+    padding: 0.2rem 0.6rem;
+    border-radius: 3px;
+    background: var(--paper-dim, #f2ede1);
+    border: 1px solid var(--brass);
+  }
+  .currency-add-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+  }
+  .currency-add-row input {
+    max-width: 8rem;
+  }
+  .add-link {
+    background: none;
+    border: none;
+    color: var(--brass-dark);
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+    font-size: var(--font-size-base);
   }
 
   .layout-detail-only {

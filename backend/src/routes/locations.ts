@@ -40,6 +40,8 @@ import {
   asUserId,
   getLocationTypes,
   createLocationType,
+  nominateLocationCurrency,
+  getLocationCurrencies,
 } from '../db.js';
 
 export const locationsRouter = Router();
@@ -108,6 +110,28 @@ locationsRouter.put('/:name', requireRole('Administrator', 'Bookkeeper'), (req, 
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not save location.' });
+  }
+});
+
+// Per docs/multicurrency-design.md: a location's own, real, nominated
+// SET of further currencies it trades in, alongside its own implicit
+// home currency. Nearly every real location's set stays empty.
+locationsRouter.get('/:name/currencies', (req, res) => {
+  res.json(getLocationCurrencies(req.params.name));
+});
+
+const currencySchema = z.object({ currencyCode: z.string().min(1).max(6) });
+
+locationsRouter.post('/:name/currencies', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = currencySchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    nominateLocationCurrency(req.params.name, parsed.data.currencyCode, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not nominate that currency.' });
   }
 });
 

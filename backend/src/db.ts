@@ -5267,6 +5267,7 @@ export interface ItemSource {
   vendor_sku: string | null;
   vendor_upc: string | null;
   price_minor: number | null;
+  currency: string | null;
   package_quantity: number | null;
   is_preferred: boolean;
   preference_notes: string | null;
@@ -5278,7 +5279,7 @@ export function listItemSources(itemName: string): ItemSource[] {
       `SELECT ps.id, ps.item_id, item_e.name AS item_name,
               ps.manufacturer_id, mfr_e.name AS manufacturer_name,
               ps.vendor_id, vendor_e.name AS vendor_name,
-              ps.vendor_sku, ps.vendor_upc, ps.price_minor, ps.package_quantity, ps.is_preferred, ps.preference_notes
+              ps.vendor_sku, ps.vendor_upc, ps.price_minor, ps.currency, ps.package_quantity, ps.is_preferred, ps.preference_notes
        FROM item_source ps
        JOIN current_entities item_e ON item_e.id = ps.item_id
        JOIN current_entities vendor_e ON vendor_e.id = ps.vendor_id

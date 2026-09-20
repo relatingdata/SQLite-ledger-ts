@@ -4,6 +4,7 @@ import { requireRole } from '../auth-middleware.js';
 import { getItemByUpc, getCombinationByUpc, completePosSale, completeCashPurchase, payEmployeeWages, getOrganizationChart, asBusinessName, asLedgerName, asLocationName, asCustomerName, asVendorName, asAccountName, ValidationError, NotFoundError,
   asUserId,
 } from '../db.js';
+import { createPosTerminal, listPosTerminals, setTerminalCurrency } from '../db-stock.js';
 
 export const posRouter = Router();
 
@@ -46,6 +47,11 @@ const saleSchema = z.object({
   paymentMethod: z.string().optional(),
   cashTenderedMinor: z.number().int().nonnegative().optional(),
   transdate: z.string().optional(),
+  // Per docs/multicurrency-design.md, Slice 4: a real, specific
+  // terminal resolves its own real currency for this one sale -
+  // omitted entirely for the real, ordinary, ubiquitous case (a sale
+  // in the business's own home currency).
+  terminalName: z.string().min(1).optional(),
 });
 
 posRouter.post('/complete-sale', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
@@ -146,5 +152,33 @@ posRouter.get('/org-chart/:businessName', requireRole('Administrator', 'Bookkeep
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Could not load the organization chart.' });
+  }
+});
+
+// Per docs/multicurrency-design.md, Slice 4: a real, specific POS
+// terminal, at a real location, resolving its own real, further
+// currency. Every real, ordinary business has none of these at all.
+posRouter.get('/terminals/:locationName', (req, res) => {
+  try {
+    res.json(listPosTerminals(req.params.locationName));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not list terminals.' });
+  }
+});
+
+const terminalSchema = z.object({ terminalName: z.string().min(1), currency: z.string().min(1).max(6).optional() });
+
+posRouter.post('/terminals/:locationName', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = terminalSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    createPosTerminal(parsed.data.terminalName, asLocationName(req.params.locationName), asUserId(req.user!.id));
+    if (parsed.data.currency) setTerminalCurrency(parsed.data.terminalName, parsed.data.currency);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not create that terminal.' });
   }
 });

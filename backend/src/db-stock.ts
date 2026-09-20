@@ -483,6 +483,20 @@ export function createPosTerminal(terminalName: string, locationName: LocationNa
   if (!Entity.get(terminalName)) Entity.create(terminalName, parentName, userId);
 }
 
+/** Every real, named POS terminal already created at a real location,
+ * each with its own real, resolved currency (null means it transacts
+ * in the business's own home currency - the ordinary, ordinary case).
+ * A real, ordinary location with no terminal ever created for it
+ * returns a real, empty array, never a guessed default. */
+export function listPosTerminals(locationName: string): { name: string; currency: string | null }[] {
+  const parentName = `${locationName} Terminals`;
+  const parent = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(parentName) as { id: number } | undefined;
+  if (!parent) return [];
+  return db
+    .prepare(`SELECT e.name, a.currency FROM current_entities e LEFT JOIN account a ON a.entity_id = e.id WHERE e.parent_id = ?`)
+    .all(parent.id) as { name: string; currency: string | null }[];
+}
+
 export function setTerminalCurrency(terminalName: string, currency: string | null): void {
   setAccountCurrency(terminalName, currency);
 }

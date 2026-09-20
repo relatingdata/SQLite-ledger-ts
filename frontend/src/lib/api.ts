@@ -789,6 +789,7 @@ export interface ItemSource {
   vendor_sku: string | null;
   vendor_upc: string | null;
   price_minor: number | null;
+  currency: string | null;
   package_quantity: number | null;
   is_preferred: boolean;
   preference_notes: string | null;
@@ -799,6 +800,11 @@ export interface ItemSourceInput {
   vendorSku?: string | null;
   vendorUpc?: string | null;
   priceMinor?: number | null;
+  // Per docs/multicurrency-design.md: NULL means the business's own
+  // home currency - a real, different, non-NULL currency here is a
+  // real, separate, independently-priced row for the same item/vendor
+  // pair, never a converted number.
+  currency?: string | null;
   packageQuantity?: number | null;
   isPreferred?: boolean;
   preferenceNotes?: string | null;
@@ -1069,6 +1075,21 @@ export const getLocationByName = (name: string) => request<LocationRecord>(`/loc
 export const saveLocation = (name: string, input: LocationInput) =>
   request<void>(`/locations/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(input) });
 
+// Per docs/multicurrency-design.md: a location's own, real, nominated
+// SET of further currencies it trades in. Nearly every real location
+// returns an empty array here.
+export const getLocationCurrencies = (locationName: string) => request<string[]>(`/locations/${encodeURIComponent(locationName)}/currencies`);
+export const nominateLocationCurrency = (locationName: string, currencyCode: string) =>
+  request<void>(`/locations/${encodeURIComponent(locationName)}/currencies`, { method: 'POST', body: JSON.stringify({ currencyCode }) });
+
+export interface PosTerminalRecord {
+  name: string;
+  currency: string | null;
+}
+export const getPosTerminals = (locationName: string) => request<PosTerminalRecord[]>(`/pos/terminals/${encodeURIComponent(locationName)}`);
+export const createPosTerminal = (locationName: string, terminalName: string, currency?: string) =>
+  request<void>(`/pos/terminals/${encodeURIComponent(locationName)}`, { method: 'POST', body: JSON.stringify({ terminalName, currency }) });
+
 export interface OpenHoursLine {
   day: string;
   opens_at: string;
@@ -1250,6 +1271,7 @@ export const completePosSale = (input: {
   paymentMethod?: string;
   cashTenderedMinor?: number;
   transdate?: string;
+  terminalName?: string;
 }) => request<PosSaleResult>('/pos/complete-sale', { method: 'POST', body: JSON.stringify(input) });
 
 export interface CashPurchaseLineInput {

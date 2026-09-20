@@ -59,6 +59,7 @@
   let sourceSku = $state('');
   let sourceUpc = $state('');
   let sourcePrice = $state('');
+  let sourceCurrency = $state('');
   let sourcePackageQty = $state('');
   let sourcePreferred = $state(false);
 
@@ -213,6 +214,7 @@
         vendorSku: sourceSku || null,
         vendorUpc: sourceUpc || null,
         priceMinor: sourcePrice ? Math.round(Math.abs(Number(sourcePrice)) * 100) : null,
+        currency: sourceCurrency.trim().toUpperCase() || null,
         packageQuantity: sourcePackageQty ? Math.round(Math.abs(Number(sourcePackageQty))) : null,
         isPreferred: sourcePreferred,
         preferenceNotes: sourceNotes || null,
@@ -224,6 +226,7 @@
       sourceSku = '';
       sourceUpc = '';
       sourcePrice = '';
+      sourceCurrency = '';
       sourcePackageQty = '';
       sourcePreferred = false;
       sourceNotes = '';
@@ -357,7 +360,7 @@
                 <button type="button" class="remove" onclick={() => removeSource(s.id)}>✕</button>
               </div>
               <div class="source-details dim">
-                {#if s.price_minor != null}{fmt(s.price_minor)}{/if}
+                {#if s.price_minor != null}{fmt(s.price_minor)}{#if s.currency} ({s.currency}){/if}{/if}
                 {#if s.package_quantity != null} · pack of {s.package_quantity}{/if}
                 {#if s.vendor_sku}· SKU {s.vendor_sku}{/if}
               </div>
@@ -396,6 +399,10 @@
             <fieldset>
               <legend>{translations.current['Price'] ?? 'Price'}</legend>
               <input bind:value={sourcePrice} placeholder="0.00" inputmode="decimal" />
+            </fieldset>
+            <fieldset class="currency-field">
+              <legend>{translations.current['Currency'] ?? 'Currency'}</legend>
+              <input bind:value={sourceCurrency} placeholder={translations.current['home'] ?? 'home'} maxlength="6" title={translations.current['Leave blank for the home currency - a real, different code (e.g. USD) is a real, separate, independently-priced source for the same vendor, per docs/multicurrency-design.md.'] ?? 'Leave blank for the home currency - a real, different code (e.g. USD) is a real, separate, independently-priced source for the same vendor.'} />
             </fieldset>
             <fieldset>
               <legend>{translations.current['Package quantity'] ?? 'Package quantity'}</legend>
@@ -554,6 +561,9 @@
 
   .row-2 > * {
     flex: 1;
+  }
+  .currency-field {
+    flex: 0 0 6rem;
   }
 
   label {
