@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getEntityTree, getEntity, getEntityHistory, createEntity, updateEntity, deleteEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
   asUserId,
+  createVendor,
+  createEmployee,
 } from '../db.js';
 import { requireRole } from '../auth-middleware.js';
 
@@ -13,6 +15,37 @@ entitiesRouter.get('/', (_req, res) => {
 
 entitiesRouter.get('/line-types', (_req, res) => {
   res.json(listLineTypes());
+});
+
+// Per docs/contact-types-and-translations.md: the one, real, correct
+// way a new vendor or employee is created - genuinely tagged with its
+// own real Contact Type, never left to structural parent alone.
+const vendorSchema = z.object({ name: z.string().min(1) });
+entitiesRouter.post('/vendor', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = vendorSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const entity = createVendor(parsed.data.name, asUserId(req.user!.id));
+    res.status(201).json(entity);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not create that vendor.' });
+  }
+});
+
+const employeeSchema = z.object({ name: z.string().min(1), placeOfEmployment: z.string().min(1) });
+entitiesRouter.post('/employee', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = employeeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const entity = createEmployee(parsed.data.name, parsed.data.placeOfEmployment, asUserId(req.user!.id));
+    res.status(201).json(entity);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not create that employee.' });
+  }
 });
 
 entitiesRouter.get('/:id', (req, res) => {

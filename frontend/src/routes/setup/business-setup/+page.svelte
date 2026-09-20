@@ -11,6 +11,7 @@
     createDivision,
     createEntity,
     setEntityRelationship,
+    createEmployeeContact,
     getLocationByName,
     saveLocation,
     getLocationOpenHours,
@@ -107,8 +108,7 @@
     if (!session.current || !newEmployeeName.trim()) return;
     employeeError = '';
     try {
-      await createEntity({ name: newEmployeeName.trim(), parent: 'Employees' });
-      await setEntityRelationship(newEmployeeName.trim(), 'Place of Employment', placeOfEmployment);
+      await createEmployeeContact(newEmployeeName.trim(), placeOfEmployment);
       newEmployeeName = '';
       creatingEmployeeFor = null;
       await loadChart();

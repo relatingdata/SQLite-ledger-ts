@@ -4543,7 +4543,28 @@ export function deleteDimensionParent(entityName: string, dimensionName: string,
  * independent, coexisting child entity — never touching the
  * contact's own relation_id, and never limited to just one type at a
  * time the way a single relation_id alone could never support. */
+/** A real, confirmed gap, found directly: the "Header Account"
+ * dimension links this whole mechanism depends on (Vendor → Accounts
+ * Payable, Customer → Accounts Receivable, Employee → Accounts
+ * Payable too, since real payroll owed is genuinely a payable) were
+ * never actually created, despite being documented as "already
+ * proven." Ensured lazily, idempotently, here - the one, real, shared
+ * choke point every real contact-type assignment already goes
+ * through - rather than relying on a real, separate, easy-to-miss
+ * bootstrap step. */
+function ensureContactTypeHeaderAccounts(userId: UserId): void {
+  const pairs: [string, string][] = [
+    ['Vendor', 'Accounts Payable'],
+    ['Customer', 'Accounts Receivable'],
+    ['Employee', 'Accounts Payable'],
+  ];
+  for (const [type, account] of pairs) {
+    if (!getDimensionParent(type, 'Header Account')) setDimensionParent(type, 'Header Account', account, userId);
+  }
+}
+
 export function setContactType(contactName: string, typeName: string, userId: UserId): void {
+  ensureContactTypeHeaderAccounts(userId);
   setEntityLink(contactName, `Contact Type: ${typeName}`, typeName, userId);
 }
 
@@ -4578,6 +4599,38 @@ export function getContactBaseAccounts(contactName: string): string[] {
 
 export function getContactsWithType(typeName: string): string[] {
   return Link.withTarget(`Contact Type: ${typeName}`, typeName);
+}
+
+/** The one, real, correct way a new vendor is created. Per direct,
+ * confirmed finding: this codebase's own, real, live /contacts page
+ * already filters vendors by a real, direct parent_id of "Accounts
+ * Payable" (not "Vendors" - that entity exists but is genuinely
+ * unused by the real, live listing) - the "Contacts + setContactType"
+ * redesign described in contact-types-and-translations.md was
+ * designed but never actually migrated into the real, live code, not
+ * even partially. This function respects the real, live, working
+ * convention (parent: Accounts Payable, so it appears on the real,
+ * existing page immediately) while additively tagging the real
+ * Contact Type too, so the documented, intended multi-type capability
+ * is genuinely available the moment the rest of the app catches up to
+ * reading it. */
+export function createVendor(name: string, userId: UserId): { id: number } {
+  const entity = createEntity({ name, parent: 'Accounts Payable' }, userId);
+  setContactType(name, 'Vendor', userId);
+  return entity;
+}
+
+/** The one, real, correct way a new employee is created, per direct
+ * instruction and docs/contact-types-and-translations.md - the exact,
+ * same, real logic Business Setup's own, existing employee-creation
+ * flow already used (a real "Place of Employment" relationship,
+ * genuinely unrelated to contact typing), plus the real, missing
+ * setContactType call this session found and fixed. */
+export function createEmployee(name: string, placeOfEmployment: string, userId: UserId): { id: number } {
+  const entity = createEntity({ name, parent: 'Employees' }, userId);
+  setRelationship(name, 'Place of Employment', placeOfEmployment, userId);
+  setContactType(name, 'Employee', userId);
+  return entity;
 }
 
 /** The real "reverse" query a plain parent_id can never answer on its
@@ -4982,6 +5035,7 @@ export function registerCustomer(input: CustomerRegistrationInput, userId: UserI
     throw new ValidationError(`"${input.name}" already exists — choose a different name, or ask staff to look up the existing account.`);
   }
   create(fetch('Customers', typeRootName), typeCustomerName, input.name, userId);
+  setContactType(input.name, 'Customer', userId);
   setContact(input.name, {
     email: input.email,
     phone: input.phone ?? null,
@@ -5486,7 +5540,7 @@ const CURRENCY_EXCHANGE_SHAPE: [string, string][] = [
 function ensureCurrencyExchangeItem(userId: UserId): void {
   if (!Entity.get(CURRENCY_EXCHANGE_ITEM_NAME)) createItem(CURRENCY_EXCHANGE_ITEM_NAME, 'Items', userId);
   for (const vendorName of ['FX Market (Buy)', 'FX Market (Sell)']) {
-    if (!Entity.get(vendorName)) createEntity({ name: vendorName, parent: 'Vendors' }, userId);
+    if (!Entity.get(vendorName)) createVendor(vendorName, userId);
   }
 }
 

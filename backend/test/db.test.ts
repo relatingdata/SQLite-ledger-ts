@@ -214,6 +214,11 @@ const {
   ensureProductSalesCogsAccounts,
   getItemByUpc,
   registerCustomer,
+  setContactType,
+  getContactTypes,
+  getContactBaseAccounts,
+  createVendor,
+  createEmployee,
   listPendingCustomers,
   verifyCustomer,
   authenticateCustomer,
@@ -5526,4 +5531,37 @@ test('closeBooks: a real, foreign-currency Income account closes against its own
   // been accidentally dropped while adding the currency-awareness
   // above).
   assert.throws(() => closeBooks(asBusinessName('My Business'), asLedgerName('CloseCcyTest Ledger'), '2027-02-01', "Owner's Equity", asUserId(1)), ValidationError);
+});
+
+// ===========================================================================
+// Per docs/contact-types-and-translations.md: a real contact can hold
+// more than one real type at once - genuinely confirmed here for
+// every real, live creation path this session found missing it.
+// ===========================================================================
+
+test('registerCustomer genuinely tags the new contact as a real Customer type, per docs/contact-types-and-translations.md', () => {
+  registerCustomer({ name: 'ContactTypeTest Customer', email: 'test@example.com', password: 'testpass123' }, asUserId(1));
+  assert.deepEqual(getContactTypes('ContactTypeTest Customer'), ['Customer']);
+  assert.deepEqual(getContactBaseAccounts('ContactTypeTest Customer'), ['Accounts Receivable']);
+});
+
+test('createVendor genuinely tags the new contact as a real Vendor type, per docs/contact-types-and-translations.md', () => {
+  createVendor('ContactTypeTest Vendor', asUserId(1));
+  assert.deepEqual(getContactTypes('ContactTypeTest Vendor'), ['Vendor']);
+  assert.deepEqual(getContactBaseAccounts('ContactTypeTest Vendor'), ['Accounts Payable']);
+});
+
+test('a real contact can genuinely hold more than one real type at once - a Vendor later also registered as a Customer keeps both, per docs/contact-types-and-translations.md', () => {
+  createVendor('ContactTypeTest Dual', asUserId(1));
+  assert.deepEqual(getContactTypes('ContactTypeTest Dual'), ['Vendor']);
+  setContactType('ContactTypeTest Dual', 'Customer', asUserId(1));
+  assert.deepEqual(getContactTypes('ContactTypeTest Dual').sort(), ['Customer', 'Vendor']);
+  assert.deepEqual(getContactBaseAccounts('ContactTypeTest Dual').sort(), ['Accounts Payable', 'Accounts Receivable']);
+});
+
+test('createEmployee genuinely tags the new contact as a real Employee type, per docs/contact-types-and-translations.md - Employee correctly derives Accounts Payable as its own base account too, per the same, direct, deliberate accounting point', () => {
+  createEntity({ name: 'ContactTypeTest Location', parent: 'Locations' }, asUserId(1));
+  createEmployee('ContactTypeTest Employee', 'ContactTypeTest Location', asUserId(1));
+  assert.deepEqual(getContactTypes('ContactTypeTest Employee'), ['Employee']);
+  assert.deepEqual(getContactBaseAccounts('ContactTypeTest Employee'), ['Accounts Payable']);
 });

@@ -131,7 +131,15 @@
     error = '';
     result = null;
     try {
-      const commonLines = lines.map(({ key, ...l }) => ({ ...l, itemName: asItemName(l.itemName) }));
+      // A real, confirmed bug, found directly: the auto-added,
+      // trailing blank line (the exact, same, real convention this
+      // component's own addLine/$effect above already documents)
+      // must never actually be sent - genuinely filtered out here,
+      // not just visually blank, since the real, live backend schema
+      // correctly rejects an empty itemName, and submitting it
+      // silently failed every real purchase/sale that reached this
+      // point with a real, unfilled line still present.
+      const commonLines = lines.filter((l) => l.itemName.trim()).map(({ key, ...l }) => ({ ...l, itemName: asItemName(l.itemName) }));
       if (isPurchase) {
         result = await completeCashPurchase({
           business: asBusinessName(business),

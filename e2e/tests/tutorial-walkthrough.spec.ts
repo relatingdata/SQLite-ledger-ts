@@ -9,7 +9,7 @@ const OUT_DIR = path.join(__dirname, '..', '..', 'docs', 'manual-images-tutorial
 const BIZ = 'Wine Retail Business';
 
 test('Tutorial: build a real wine retail business from scratch through the UI', async ({ page }) => {
-  test.setTimeout(420000);
+  test.setTimeout(600000);
   fs.mkdirSync(OUT_DIR, { recursive: true });
   let n = 1;
   const shot = async (name: string) => {
@@ -203,13 +203,11 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   // === Purchase it and receive it into the warehouse - a real Cash ===
   // === Purchase, the same, real, proven, direct receiving path     ===
   await page.goto('/arap/cash-purchase');
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(1200);
+  await page.locator('select').first().locator('option', { hasText: 'Highland Brewing Co' }).waitFor({ state: 'attached', timeout: 15000 });
   await page.locator('select').first().selectOption({ label: 'Highland Brewing Co' });
-  await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub (warehouse)' }).catch(async () => {
-    await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub' });
-  });
-  await page.getByRole('button', { name: /add line/i }).click();
-  await page.waitForTimeout(300);
+  await page.locator('select').nth(1).locator('option', { hasText: 'Warehouse Hub' }).waitFor({ state: 'attached', timeout: 15000 });
+  await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub' });
   await page.locator('input[placeholder="e.g. Golden Lager 330ml"]').fill('Amber Ale 330ml');
   await page.locator('.num-input').first().fill('96');
   await page.locator('.lines-table input').nth(2).fill('3.50');
@@ -259,11 +257,11 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(300);
   await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub' });
   await page.locator('select').nth(2).selectOption({ label: 'Main Street Cellar' });
-  await page.locator('input[placeholder="e.g. 240"]').fill('24');
-  await page.locator('input[placeholder="e.g. XFER-1001"]').fill('XFER-AMBER-1');
+  await page.getByRole('group', { name: 'Quantity', exact: true }).locator('input').fill('24');
+  await page.getByRole('group', { name: 'Reference', exact: true }).locator('input').fill('XFER-AMBER-1');
   await page.waitForTimeout(300);
   await shot('transfer_to_main_street_filled');
-  await page.getByRole('button', { name: 'Stock Transfer' }).click();
+  await page.getByRole('button', { name: 'Transfer', exact: true }).click();
   await page.waitForTimeout(1200);
   await shot('transfer_to_main_street_done');
 
@@ -274,11 +272,11 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(300);
   await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub' });
   await page.locator('select').nth(2).selectOption({ label: 'Rundle Street Bottleshop' });
-  await page.locator('input[placeholder="e.g. 240"]').fill('24');
-  await page.locator('input[placeholder="e.g. XFER-1001"]').fill('XFER-AMBER-2');
+  await page.getByRole('group', { name: 'Quantity', exact: true }).locator('input').fill('24');
+  await page.getByRole('group', { name: 'Reference', exact: true }).locator('input').fill('XFER-AMBER-2');
   await page.waitForTimeout(300);
   await shot('transfer_to_rundle_street_filled');
-  await page.getByRole('button', { name: 'Stock Transfer' }).click();
+  await page.getByRole('button', { name: 'Transfer', exact: true }).click();
   await page.waitForTimeout(1200);
   await shot('transfer_to_rundle_street_done');
 
@@ -294,7 +292,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.getByRole('button', { name: 'Save' }).click();
   await page.waitForTimeout(800);
   await page.locator('input[placeholder="e.g. Miscellaneous"]').fill('Miscellaneous');
-  await page.getByRole('button', { name: 'Complete', exact: true }).click();
+  await page.getByRole('button', { name: 'Complete stock take' }).click();
   await page.waitForTimeout(1200);
   await shot('stocktake_main_street_done');
 
@@ -310,9 +308,94 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.getByRole('button', { name: 'Save' }).click();
   await page.waitForTimeout(800);
   await page.locator('input[placeholder="e.g. Miscellaneous"]').fill('Miscellaneous');
-  await page.getByRole('button', { name: 'Complete', exact: true }).click();
+  await page.getByRole('button', { name: 'Complete stock take' }).click();
   await page.waitForTimeout(1200);
   await shot('stocktake_rundle_street_done');
+
+  // === A real POS sale at Main Street Cellar - the ordinary, real, ===
+  // === home-currency retail selling path, never yet exercised     ===
+  // === anywhere in this same, real tutorial walkthrough before now ===
+  await page.goto('/pos');
+  await page.waitForTimeout(800);
+  await page.locator('select').first().selectOption({ label: 'Main Street Cellar' });
+  await page.waitForTimeout(300);
+  await page.locator('input[placeholder*="Scan" i], input[placeholder*="search" i]').first().fill('Amber Ale 330ml');
+  await page.waitForTimeout(500);
+  await page.locator('input[placeholder*="Scan" i], input[placeholder*="search" i]').first().press('Enter');
+  await page.waitForTimeout(300);
+  await shot('pos_sale_filled');
+  await page.getByRole('button', { name: /complete sale/i }).click();
+  await page.waitForTimeout(1200);
+  await shot('pos_sale_done');
+
+  // === A real, further location, nominating a real, further        ===
+  // === currency (USD) - the multicurrency mechanism, exercised end ===
+  // === to end through the real UI for the first time in this same, ===
+  // === real tutorial: nominate the currency, create a real POS     ===
+  // === terminal resolving it, register a real, independently-set   ===
+  // === USD price for the same, existing item, then complete one,   ===
+  // === real sale through it.                                       ===
+  await page.goto('/locations');
+  await page.waitForTimeout(700);
+  await page.getByRole('button', { name: 'Main Street Cellar' }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: /Nominate a further currency/i }).click();
+  await page.waitForTimeout(300);
+  await page.locator('input[placeholder="e.g. USD"]').first().fill('USD');
+  await page.getByRole('button', { name: 'Add', exact: true }).first().click();
+  await page.waitForTimeout(800);
+  await shot('location_currency_nominated');
+
+  await page.goto('/items');
+  await page.waitForTimeout(800);
+  await page.locator('button.entry', { hasText: 'Amber Ale 330ml' }).click();
+  await page.waitForTimeout(500);
+  await page.getByRole('group', { name: 'Vendor', exact: true }).locator('select').selectOption({ label: 'Highland Brewing Co' });
+  await page.locator('input[placeholder="0.00"]').first().fill('5.00');
+  await page.locator('.currency-field input').fill('USD');
+  await page.waitForTimeout(300);
+  await shot('item_source_usd_price_filled');
+  await page.getByRole('button', { name: /Save source|Add source/i }).click();
+  await page.waitForTimeout(800);
+  await shot('item_source_usd_price_saved');
+
+  await page.goto('/pos');
+  await page.waitForTimeout(800);
+  await page.locator('select').first().selectOption({ label: 'Main Street Cellar' });
+  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: /New terminal/i }).click();
+  await page.waitForTimeout(300);
+  await page.locator('input[placeholder="Terminal name"]').fill('Border Store USD Till');
+  await page.locator('input[placeholder="e.g. USD"]').fill('USD');
+  await page.getByRole('button', { name: 'Add', exact: true }).first().click();
+  await page.waitForTimeout(800);
+  await shot('pos_terminal_created');
+  await page.locator('input[placeholder*="Scan" i], input[placeholder*="search" i]').first().fill('Amber Ale 330ml');
+  await page.waitForTimeout(500);
+  await page.locator('input[placeholder*="Scan" i], input[placeholder*="search" i]').first().press('Enter');
+  await page.waitForTimeout(300);
+  await shot('pos_usd_sale_filled');
+  await page.getByRole('button', { name: /complete sale/i }).click();
+  await page.waitForTimeout(1200);
+  await shot('pos_usd_sale_done');
+
+  // === Review the real, live Trial Balance, Balance Sheet, Profit ===
+  // === & Loss, and the DND P&L pivot builder - confirming every    ===
+  // === real posting made throughout this whole, real tutorial      ===
+  // === still genuinely balances, in both the home currency and the ===
+  // === real, further USD group just exercised above.               ===
+  await page.goto('/reports/trial-balance');
+  await page.waitForTimeout(1000);
+  await shot('trial_balance_final');
+  await page.goto('/reports/balance-sheet');
+  await page.waitForTimeout(1000);
+  await shot('balance_sheet_final');
+  await page.goto('/reports/profit-and-loss');
+  await page.waitForTimeout(1000);
+  await shot('profit_and_loss_final');
+  await page.goto('/reports/pl-pivot');
+  await page.waitForTimeout(1000);
+  await shot('dnd_pl_final');
 
   // === Stock take #3: Glenelg Beachside Store — never stocked this ===
   // === item at all. The real, expected, correct behavior: a genuine, ===

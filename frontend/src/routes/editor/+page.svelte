@@ -3,6 +3,7 @@
   import {
     getEntityTree,
     createEntity,
+    createVendor,
     updateEntity,
     deleteEntity,
     getContact,
@@ -246,12 +247,22 @@
     creating = true;
     error = '';
     try {
-      await createEntity({
-        name: newName,
-        parent: newParent || null,
-        relation: newRelation || null,
-        accountnumber: newAccountnumber || null,
-      });
+      // Per docs/contact-types-and-translations.md: a real vendor
+      // must be genuinely tagged with its own real Contact Type, not
+      // just structurally parented - this generic page routes through
+      // the one, real, correct function for this specific, real,
+      // common case, rather than leaving a person to create a
+      // structurally-parented-but-untyped vendor by hand.
+      if (newParent === 'Accounts Payable' && !newRelation) {
+        await createVendor(newName);
+      } else {
+        await createEntity({
+          name: newName,
+          parent: newParent || null,
+          relation: newRelation || null,
+          accountnumber: newAccountnumber || null,
+        });
+      }
       newName = '';
       newAccountnumber = '';
       await load();

@@ -115,6 +115,16 @@ The Trial Balance, the Profit and Loss statement, and the Balance Sheet each tre
 
 In every one of the three, the exchange rate used for conversion is the one in effect when the report is actually generated --- a live, assumed figure, stated as such, never written back into the ledger and never treated as a realized, historical fact the way an actual, completed currency conversion is.
 
+## Vendors, Employees, and Customers are real, typed views of one, shared idea
+
+*Design stated here, ahead of the mechanism it describes --- see the Programmer's Manual, `contact-types-and-translations.md`, for what's actually built and what still needs wiring up.*
+
+Nothing labeled plainly "Contacts" is ever shown --- and that's deliberate, the same way a typed address or phone number (below) is never shown as a generic, undifferentiated entry either. Picking **Billing** for an address, or **Mobile** for a phone number, never first shows a plain, unlabeled "Address" or "Phone Number" concept --- the type comes first, always. A vendor, an employee, and a customer work the exact, same way: each is really the same, one, underlying kind of real, named party, seen through a real, specific lens. The same real person or company can genuinely be more than one at once --- a supplier who is also, separately, a paying customer; an employee who is also owed money as a genuine, further creditor --- without ever being forced to pick just one.
+
+Creating "a new vendor" on the Vendors screen means, underneath: a real, named party is created, then tagged as a real **Vendor** --- never shown or asked about directly, the same way choosing "Billing" for an address never asks about the word "Address" first. The same real party, tagged as a real **Employee** too, would then genuinely appear on both real screens, its own real, shared name, address, and phone number never duplicated or re-entered.
+
+**A real, open, genuinely unresolved question**: two real, different employees --- housemates, a couple --- can genuinely share one real home address, or one real home phone number. Today, each real employee's own address or phone number is its own, real, entirely independent record, even when the values happen to be identical --- there's no real way, yet, for two, separate people to genuinely share one, single record. Whether that's genuinely fine (most real-world systems already work this way) or whether a real, further sharing mechanism is actually needed is a real decision still to be made, not yet resolved.
+
 ## Contacts --- a real, named person, under a real, direct role
 
 Beyond a party's own address and phone number, a real, named person can be attached too --- under a real, direct role like Credit Manager, Sales Clerk, Dispatch, Store Man, or Emergency Contact. This isn't a fixed list: typing a genuinely new role that doesn't exist yet creates it on the spot, and it's immediately offered again everywhere else afterward. A contact person can be attached to a vendor, a customer, an employee, or any other real entity at all --- the same, real Insert/Delete pattern as addresses and phone numbers, with a name and, optionally, a phone number and email.

@@ -112,6 +112,13 @@ export const createEntity = (data: { name: string; parent?: string | null; relat
 export const setEntityRelationship = (entityName: string, relationshipType: string, targetName: string) =>
   request<void>('/entities/relationship', { method: 'POST', body: JSON.stringify({ entityName, relationshipType, targetName }) });
 
+// Per docs/contact-types-and-translations.md: the one, real, correct
+// way a new vendor or employee is created - genuinely tagged with its
+// own real Contact Type, never left to structural parent alone.
+export const createVendor = (name: string) => request<EntityNode>('/entities/vendor', { method: 'POST', body: JSON.stringify({ name }) });
+export const createEmployeeContact = (name: string, placeOfEmployment: string) =>
+  request<EntityNode>('/entities/employee', { method: 'POST', body: JSON.stringify({ name, placeOfEmployment }) });
+
 export const updateEntity = (
   id: number,
   data: { name?: string; parent?: string | null; relation?: string | null; accountnumber?: string | null }
