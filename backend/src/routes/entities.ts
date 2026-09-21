@@ -67,6 +67,7 @@ entitiesRouter.get('/:id/dimension-links', (req, res) => {
 const newEntitySchema = z.object({
   name: z.string().min(1).max(200),
   parent: z.string().nullable().optional(),
+  parentId: z.number().int().positive().optional(),
   relation: z.string().nullable().optional(),
   accountnumber: z.string().nullable().optional(),
 });

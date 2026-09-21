@@ -107,7 +107,7 @@ export interface DimensionLinkPointingAt {
 }
 export const getDimensionLinksPointingAt = (entityId: number) => request<DimensionLinkPointingAt[]>(`/entities/${entityId}/dimension-links`);
 
-export const createEntity = (data: { name: string; parent?: string | null; relation?: string | null; accountnumber?: string | null }) =>
+export const createEntity = (data: { name: string; parent?: string | null; parentId?: number | null; relation?: string | null; accountnumber?: string | null }) =>
   request<EntityNode>('/entities', { method: 'POST', body: JSON.stringify(data) });
 export const setEntityRelationship = (entityName: string, relationshipType: string, targetName: string) =>
   request<void>('/entities/relationship', { method: 'POST', body: JSON.stringify({ entityName, relationshipType, targetName }) });
@@ -408,6 +408,24 @@ export const nominateBankAccount = (businessName: string, bankAccountName: strin
 
 export const getNominatedBankAccounts = (businessName: string) =>
   request<{ name: string; routingDetail: string; accountNumber: string }[]>(`/businesses/${encodeURIComponent(businessName)}/bank-accounts`);
+
+export interface BusinessConfigurationReport {
+  businessName: string;
+  addresses: { address_type: string; address1?: string; city?: string; [key: string]: unknown }[];
+  phones: { phone_type: string; phone?: string; [key: string]: unknown }[];
+  ownerOrPartners: string[];
+  bankAccounts: { name: string; routingDetail: string; accountNumber: string }[];
+  homeCurrency: string | null;
+  secondaryCurrencies: string[];
+  divisions: string[];
+  locations: { name: string; city: string; locationType: string }[];
+  categories: string[];
+  chartOfAccountsPrototype: string | null;
+  notes: { name: string; text: string }[];
+}
+
+export const getBusinessConfigurationReport = (businessName: string) =>
+  request<BusinessConfigurationReport>(`/businesses/${encodeURIComponent(businessName)}/configuration-report`);
 
 export const buildBankCurrencyStructure = (
   businessName: string,

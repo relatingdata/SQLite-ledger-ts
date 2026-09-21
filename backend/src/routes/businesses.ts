@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
 import { getBusinesses, getLedgers, createBusiness, getChartOfAccountsPrototype, getBusinessTypes, saveBusinessTypeAnswers, asBusinessName, asLedgerName, ValidationError,
-  asUserId, nominateBankAccount, getNominatedBankAccounts, buildBankCurrencyStructure, typeAssetAccountName, typeEquityAccountName,
+  asUserId, nominateBankAccount, getNominatedBankAccounts, buildBankCurrencyStructure, typeAssetAccountName, typeEquityAccountName, getBusinessConfigurationReport,
 } from '../db.js';
 
 export const businessesRouter = Router();
@@ -86,6 +86,18 @@ businessesRouter.post('/:name/bank-accounts', requireRole('Administrator'), (req
 
 businessesRouter.get('/:name/bank-accounts', requireRole('Administrator'), (req, res) => {
   res.json(getNominatedBankAccounts(asBusinessName(req.params.name)));
+});
+
+// Everything a real business's own setup actually captured, per
+// direct instruction - deliberately never Item Details.
+businessesRouter.get('/:name/configuration-report', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  try {
+    res.json(getBusinessConfigurationReport(asBusinessName(req.params.name)));
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not build the real business configuration report.' });
+  }
 });
 
 const buildBankCurrencyStructureSchema = z.object({

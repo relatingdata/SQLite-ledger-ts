@@ -50,7 +50,8 @@ locationsRouter.get('/', (req, res) => {
   const business = req.query.business as string;
   if (!business) return res.status(400).json({ error: 'business query parameter is required — locations are scoped per business.' });
   const entities = getEntityTree();
-  const locationsParent = entities.find((e) => e.name === `${business} Locations`);
+  const bizEntity = entities.find((e) => e.name === business);
+  const locationsParent = bizEntity ? entities.find((e) => e.name === 'Locations' && e.parent_id === bizEntity.id) : undefined;
   const locationEntities = locationsParent ? entities.filter((e) => e.parent_id === locationsParent.id) : [];
   const result = locationEntities.map((e) => ({ name: e.name, ...getLocation(e.name) }));
   res.json(result);

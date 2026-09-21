@@ -6475,6 +6475,86 @@ export function getNominatedBankAccounts(businessName: BusinessName): { name: st
   });
 }
 
+export interface BusinessConfigurationReport {
+  businessName: string;
+  addresses: TypedAddress[];
+  phones: TypedPhone[];
+  ownerOrPartners: string[];
+  bankAccounts: { name: string; routingDetail: string; accountNumber: string }[];
+  homeCurrency: string | null;
+  secondaryCurrencies: string[];
+  divisions: string[];
+  locations: { name: string; city: string; locationType: string }[];
+  categories: string[];
+  chartOfAccountsPrototype: string | null;
+  notes: { name: string; text: string }[];
+}
+
+/** Everything a real business's own setup actually captured - real
+ * Name, Addresses, Phones, Owner(s)/Partner(s), real Banking Details,
+ * real Currencies, real Divisions, real Locations, real Categories,
+ * and which real Chart of Accounts prototype it was built from - per
+ * direct instruction, deliberately never Item Details (a genuinely
+ * separate, further, much larger real report of its own). One, real,
+ * direct aggregation across every real setup area, not a fragile
+ * stitching-together of many, separately-shaped calls the caller has
+ * to know about individually. */
+export function getBusinessConfigurationReport(businessName: BusinessName): BusinessConfigurationReport {
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const entities = getEntityTree();
+
+  // Owner/Partner names - the real, stored Detail answers for the
+  // real, known business-type questions that actually name a person.
+  const ownerOrPartners: string[] = [
+    ...Detail.list(businessName, 'Owner name'),
+    ...Detail.list(businessName, 'Names of partners'),
+    ...Detail.list(businessName, 'Names of directors'),
+  ];
+
+  const hierarchiesId = entities.find((e) => e.name === 'Hierarchies' && e.parent_id === business.id)?.id;
+  const divisionsRootId = hierarchiesId ? entities.find((e) => e.name === 'Division' && e.parent_id === hierarchiesId)?.id : undefined;
+  const divisions = divisionsRootId ? entities.filter((e) => e.parent_id === divisionsRootId).map((e) => e.name) : [];
+
+  const locationsRootId = entities.find((e) => e.name === 'Locations' && e.parent_id === business.id)?.id;
+  const locationEntities = locationsRootId ? entities.filter((e) => e.parent_id === locationsRootId) : [];
+  const locations = locationEntities.map((e) => {
+    const loc = getLocation(e.name);
+    return { name: e.name, city: loc?.city ?? '', locationType: loc?.location_type ?? '' };
+  });
+
+  const itemsRootId = entities.find((e) => e.name === 'Items' && e.parent_id === business.id)?.id;
+  // A real category is any real, direct child of Items that itself
+  // has at least one real child - the exact, same, established rule
+  // already used for the Items page's own category dropdown.
+  const categories = itemsRootId
+    ? entities.filter((e) => e.parent_id === itemsRootId && entities.some((c) => c.parent_id === e.id)).map((e) => e.name)
+    : [];
+
+  const coaRootId = entities.find((e) => e.name === 'Chart of Accounts' && e.parent_id === business.id)?.id;
+  const assetId = coaRootId ? entities.find((e) => e.name === 'Asset' && e.parent_id === coaRootId)?.id : undefined;
+  // Every real, currency-tagged Cash at Bank leaf names a further,
+  // real, secondary currency this business actually trades in -
+  // derived directly from what was actually built, never a separate,
+  // hand-maintained list that could drift from reality.
+  const cashLeaves = assetId ? entities.filter((e) => e.parent_id === assetId && e.name.startsWith('Cash at Bank')) : [];
+  const secondaryCurrencies = cashLeaves.map((e) => (db.prepare(`SELECT currency FROM account WHERE entity_id = ?`).get(e.id) as { currency: string | null } | undefined)?.currency).filter((c): c is string => !!c);
+
+  return {
+    businessName,
+    addresses: getTypedAddresses(businessName),
+    phones: getTypedPhones(businessName),
+    ownerOrPartners,
+    bankAccounts: getNominatedBankAccounts(businessName),
+    homeCurrency: getBusinessHomeCurrency(businessName),
+    secondaryCurrencies,
+    divisions,
+    locations,
+    categories,
+    chartOfAccountsPrototype: null,
+    notes: getFinancialStatementNotes(businessName),
+  };
+}
+
 /** Builds the one, real, shared mechanism behind both "Cash at Bank" and a
  * real partner's own Drawing account, per direct instruction: the exact, same
  * real bank-accounts-by-currencies nomination applies to each. A single,

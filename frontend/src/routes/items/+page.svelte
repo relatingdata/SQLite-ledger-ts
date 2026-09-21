@@ -98,9 +98,9 @@
   // a category a person creates through this page is immediately
   // available here the next time, with no extra step.
   const itemsRoot = () => {
-    const businessName = session.current?.businessName;
-    if (businessName) {
-      const scoped = entities.find((e) => e.name === `${businessName} Items`);
+    const biz = entities.find((e) => e.name === session.current?.businessName);
+    if (biz) {
+      const scoped = entities.find((e) => e.name === 'Items' && e.parent_id === biz.id);
       if (scoped) return scoped;
     }
     return entities.find((e) => e.name === 'Items');

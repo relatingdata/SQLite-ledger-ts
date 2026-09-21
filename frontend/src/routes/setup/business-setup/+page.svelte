@@ -92,7 +92,10 @@
     if (!session.current || !newLocationName.trim() || !newLocationCity.trim()) return;
     locationError = '';
     try {
-      await createEntity({ name: newLocationName.trim(), parent: `${session.current.businessName} Locations` });
+      const treeEntities = await getEntityTree();
+      const biz = treeEntities.find((e) => e.name === session.current!.businessName);
+      const locationsId = biz ? treeEntities.find((e) => e.name === 'Locations' && e.parent_id === biz.id)?.id : undefined;
+      await createEntity({ name: newLocationName.trim(), parentId: locationsId });
       await saveLocation(newLocationName.trim(), { city: newLocationCity.trim(), location_type: newLocationType, is_billing_address: false, timezone: newLocationTimezone });
       await setEntityRelationship(newLocationName.trim(), 'Belongs To Division', divisionName);
       newLocationName = '';

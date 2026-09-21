@@ -49,6 +49,7 @@ const {
   buildBankCurrencyStructure,
   addFinancialStatementNote,
   getFinancialStatementNotes,
+  getBusinessConfigurationReport,
   typeRootName,
   typeBusinessName,
   typeAssetAccountName,
@@ -5555,4 +5556,21 @@ test('addFinancialStatementNote/getFinancialStatementNotes: a real, free-text di
 
   const other = createBusiness(asBusinessName('NotesTestOther Co'), '2027-28', asUserId(1));
   assert.equal(getFinancialStatementNotes(other.business).length, 0, 'a genuinely different business starts with no real notes of its own - never sharing another business\'s own, real disclosures');
+});
+
+test('getBusinessConfigurationReport: everything a real business\'s own setup actually captured - name, addresses, phones, owner/partners, banking, currencies, divisions, locations, categories - deliberately never item details', () => {
+  const biz = createBusiness(asBusinessName('ConfigReportTest Co'), '2027-28', asUserId(1));
+  nominateBankAccount(biz.business, 'Westpac Business Cheque', '032-001', '123456', asUserId(1));
+  addFinancialStatementNote(biz.business, 'Basis of preparation: going concern.', asUserId(1));
+  addTypedAddress(biz.business, 'Registered Office', { address1: '1 Main St', city: 'Adelaide' }, asUserId(1));
+  addTypedPhone(biz.business, 'Mobile', '0400 000 000', asUserId(1));
+
+  const report = getBusinessConfigurationReport(biz.business);
+  assert.equal(report.businessName, 'ConfigReportTest Co');
+  assert.equal(report.addresses.length, 1, 'a real, added address genuinely shows up in the real report');
+  assert.equal(report.phones.length, 1, 'a real, added phone genuinely shows up in the real report');
+  assert.equal(report.bankAccounts.length, 1, 'a real, nominated bank account genuinely shows up in the real report');
+  assert.equal(report.bankAccounts[0].name, 'Westpac Business Cheque');
+  assert.equal(report.notes.length, 1, 'a real, added financial-statement note genuinely shows up in the real report');
+  assert.ok(!('itemDetails' in report), 'the real report never includes item details at all, per direct instruction');
 });

@@ -16,6 +16,17 @@
   const COLD_SUFFIX = ' — Refrigerated';
 
   let entities: EntityNode[] = $state([]);
+
+  // The real, confirmed fix for a real, found regression: Locations
+  // is now a real, plain, per-business-scoped name (never
+  // "{business} Locations") - resolving this business's own real
+  // Locations parent must walk the real, live entity tree by id, not
+  // construct a bare, mangled name string that no longer exists.
+  function thisBusinessLocationsId(): number | undefined {
+    const biz = entities.find((e) => e.name === session.current?.businessName);
+    if (!biz) return undefined;
+    return entities.find((e) => e.name === 'Locations' && e.parent_id === biz.id)?.id;
+  }
   let locations: LocationRecord[] = $state([]);
   let loading = $state(true);
   let error = $state('');
@@ -103,7 +114,7 @@
     const city = String(v.city ?? '').trim();
     if (!name || !city) throw new Error('Location name and city are both required.');
     try {
-      await createEntity({ name, parent: `${session.current?.businessName} Locations` });
+      await createEntity({ name, parentId: thisBusinessLocationsId() });
       await saveLocation(name, {
         city,
         location_type: String(v.locationType ?? 'Retail'),
@@ -179,7 +190,7 @@
     error = '';
     try {
       const coldName = selectedName + COLD_SUFFIX;
-      await createEntity({ name: coldName, parent: `${session.current?.businessName} Locations` });
+      await createEntity({ name: coldName, parentId: thisBusinessLocationsId() });
       await saveLocation(coldName, {
         city,
         location_type: 'Retail',

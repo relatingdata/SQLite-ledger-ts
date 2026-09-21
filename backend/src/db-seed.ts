@@ -1246,6 +1246,7 @@ function migrateForMenuEntities() {
         { label: 'Reconciliation', href: '/reconciliation', notImplemented: true },
         { label: 'FX Adjustment', href: '/gl/fx-adjustment', notImplemented: true },
         { label: 'Trial Balance', href: '/reports/trial-balance' },
+        { label: 'Business Configuration Report', href: '/reports/business-configuration' },
         { label: 'Balance Sheet', href: '/reports/balance-sheet' },
         { label: 'Profit and Loss', href: '/reports/profit-and-loss' },
         { label: 'Old P&L', href: '/reports/old-pl' },
