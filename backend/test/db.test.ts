@@ -5391,7 +5391,7 @@ test('closeBooks: a real, foreign-currency Income account closes against its own
   const result = closeBooks(asBusinessName('My Business'), asLedgerName('CloseCcyTest Ledger'), '2027-01-31', "Owner's Equity", asUserId(1));
   assert.equal(result.accountsZeroed, 1);
 
-  const retainedUsd = db.prepare(`SELECT a.balance_minor, a.currency FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name = "Owner's Equity (USD)"`).get() as { balance_minor: number; currency: string } | undefined;
+  const retainedUsd = db.prepare(`SELECT a.balance_minor, a.currency FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name = ?`).get("Owner's Equity (USD)") as { balance_minor: number; currency: string } | undefined;
   assert.ok(retainedUsd, `a real, USD-tagged "Owner's Equity (USD)" sibling must exist, genuinely separate from the plain, home-currency one`);
   assert.equal(retainedUsd!.currency, 'USD');
   assert.equal(retainedUsd!.balance_minor, -50000, "the real, foreign-currency net income closes into its own, real, currency-tagged Retained Earnings sibling");

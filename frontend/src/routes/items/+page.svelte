@@ -175,19 +175,21 @@
     error = '';
     try {
       let parentCategory = newItemCategory;
+      let parentCategoryId: number | undefined;
       if (usingNewCategory) {
-        // A real, confirmed bug fixed here: newCategoryParent's own
-        // bound <select> only updates when a person actively touches
-        // it - left at its own, real, default "(top-level category)"
-        // selection, the bound variable never actually changes from
-        // its own, static, literal initial value, so the real,
-        // current, business-scoped Items root (itemsRoot()) is
-        // resolved here directly instead, never trusted from state.
-        const realParent = newCategoryParent === 'Items' ? (itemsRoot()?.name ?? 'Items') : newCategoryParent;
-        await createEntity({ name: newCategoryName.trim(), parent: realParent });
+        // A real, confirmed bug, found directly, twice now: a bare
+        // name ("Items") is no longer sufficient to disambiguate,
+        // since every business now genuinely has its own, real,
+        // plain "Items" root - only a real parentId (never a name
+        // string) correctly, unambiguously identifies which one.
+        const itemsRootId = itemsRoot()?.id;
+        await createEntity({ name: newCategoryName.trim(), parentId: itemsRootId });
         parentCategory = newCategoryName.trim();
+        parentCategoryId = entities.find((e) => e.name === parentCategory && e.parent_id === itemsRootId)?.id;
+      } else {
+        parentCategoryId = entities.find((e) => e.name === parentCategory && e.parent_id === itemsRoot()?.id)?.id;
       }
-      await createEntity({ name: newItemName, parent: parentCategory });
+      await createEntity({ name: newItemName, parentId: parentCategoryId });
       // A real, pre-existing bug fixed here, not introduced by this
       // change: listItems requires a real `item` table row (INNER
       // JOIN), but this function only ever created the bare entity —
