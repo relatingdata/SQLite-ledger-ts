@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { createBusiness, getCoaPrototypeAccounts, getBusinessTypes, saveBusinessTypeAnswers, ApiError } from '$lib/api';
+  import { createBusiness, getCoaPrototypeAccounts, getBusinessTypes, saveBusinessTypeAnswers, nominateBankAccount, buildBankCurrencyStructure, ApiError } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { onMount } from 'svelte';
 
@@ -145,6 +145,71 @@
       saving = false;
     }
   }
+
+  // The real, post-creation bank-accounts-by-currencies wizard, per
+  // docs/user-manual-ch2-configuration.md's own, already-written
+  // "Setup then walks through the business's own real banking
+  // arrangement" section: nominate one or more real bank accounts,
+  // nominate one or more real currencies, then tick exactly which
+  // real combinations actually exist.
+  let banksAtOneOrMore: 'one' | 'more' = 'one';
+  let newBankName = '';
+  let newRoutingDetail = '';
+  let newAccountNumber = '';
+  let nominatedBanks: { name: string; routingDetail: string; accountNumber: string }[] = [];
+  let bankError = '';
+
+  async function nominateBank() {
+    if (!result || !newBankName.trim()) return;
+    bankError = '';
+    try {
+      await nominateBankAccount(result.business, newBankName.trim(), newRoutingDetail.trim(), newAccountNumber.trim());
+      nominatedBanks = [...nominatedBanks, { name: newBankName.trim(), routingDetail: newRoutingDetail.trim(), accountNumber: newAccountNumber.trim() }];
+      newBankName = '';
+      newRoutingDetail = '';
+      newAccountNumber = '';
+    } catch (e) {
+      bankError = e instanceof ApiError ? e.message : 'Could not nominate bank account.';
+    }
+  }
+
+  let wizardTradesInOneOrMore: 'one' | 'more' = 'one';
+  let wizardHomeCurrency = 'AUD';
+  let wizardNewCurrency = '';
+  let wizardCurrencies: string[] = [];
+  function addWizardCurrency() {
+    const code = wizardNewCurrency.trim().toUpperCase();
+    if (!code || wizardCurrencies.includes(code)) return;
+    wizardCurrencies = [...wizardCurrencies, code];
+    wizardNewCurrency = '';
+  }
+
+  // The real, full cartesian product, shown as tick-boxes - only the
+  // real, ticked combinations actually get built, never the untamed,
+  // full grid blindly.
+  let tickedCombinations: Record<string, boolean> = {};
+  function comboKey(bankName: string, currency: string): string {
+    return `${bankName}\u0000${currency}`;
+  }
+  let bankCurrencyBuilding = false;
+  let bankCurrencyBuilt = false;
+  let bankCurrencyError = '';
+  async function buildRealBankCurrencyStructure() {
+    if (!result) return;
+    const allCurrencies = wizardTradesInOneOrMore === 'one' ? [wizardHomeCurrency] : [wizardHomeCurrency, ...wizardCurrencies];
+    const selections = nominatedBanks.flatMap((b) => allCurrencies.filter((c) => tickedCombinations[comboKey(b.name, c)]).map((c) => ({ bankAccountName: b.name, currency: c })));
+    if (selections.length === 0) return;
+    bankCurrencyBuilding = true;
+    bankCurrencyError = '';
+    try {
+      await buildBankCurrencyStructure(result.business, 'Cash at Bank', 'asset', selections);
+      bankCurrencyBuilt = true;
+    } catch (e) {
+      bankCurrencyError = e instanceof ApiError ? e.message : 'Could not build the real Cash at Bank structure.';
+    } finally {
+      bankCurrencyBuilding = false;
+    }
+  }
 </script>
 
 <svelte:head><title>{translations.current['New Business'] ?? 'New Business'}</title></svelte:head>
@@ -158,6 +223,72 @@
       <strong>{result.business}</strong> created, with two real ledgers ready from day one:
       <strong>{result.actualLedger}</strong> and <strong>{result.budgetLedger}</strong>.
     </p>
+
+    {#if !bankCurrencyBuilt}
+      <fieldset>
+        <legend>Does the business bank at one bank, or more than one?</legend>
+        <label><input type="radio" bind:group={banksAtOneOrMore} value="one" /> One bank</label>
+        <label><input type="radio" bind:group={banksAtOneOrMore} value="more" /> More than one bank</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Nominate each real bank account</legend>
+        {#each nominatedBanks as b}
+          <p>{b.name} — {b.routingDetail} — {b.accountNumber}</p>
+        {/each}
+        {#if banksAtOneOrMore === 'one' ? nominatedBanks.length === 0 : true}
+          <input bind:value={newBankName} placeholder="Bank name, e.g. Westpac Business Cheque" />
+          <input bind:value={newRoutingDetail} placeholder="BSB / routing detail" />
+          <input bind:value={newAccountNumber} placeholder="Account number" />
+          <button class="btn secondary" onclick={nominateBank} disabled={!newBankName.trim()}>+ Add bank account</button>
+        {/if}
+        {#if bankError}<p class="error">{bankError}</p>{/if}
+      </fieldset>
+
+      <fieldset>
+        <legend>Does the business trade in one currency, or more than one?</legend>
+        <label><input type="radio" bind:group={wizardTradesInOneOrMore} value="one" /> One currency</label>
+        <label><input type="radio" bind:group={wizardTradesInOneOrMore} value="more" /> More than one currency</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Home currency</legend>
+        <input bind:value={wizardHomeCurrency} placeholder="e.g. AUD" style="text-transform: uppercase" />
+        {#if wizardTradesInOneOrMore === 'more'}
+          {#each wizardCurrencies as c}<span>{c}</span>{/each}
+          <input bind:value={wizardNewCurrency} placeholder="e.g. EUR" style="text-transform: uppercase" />
+          <button class="btn secondary" onclick={addWizardCurrency} disabled={!wizardNewCurrency.trim()}>+ Add currency</button>
+        {/if}
+      </fieldset>
+
+      {#if nominatedBanks.length > 0 && wizardHomeCurrency.trim()}
+        {@const allCurrencies = wizardTradesInOneOrMore === 'one' ? [wizardHomeCurrency.trim().toUpperCase()] : [wizardHomeCurrency.trim().toUpperCase(), ...wizardCurrencies]}
+        <fieldset>
+          <legend>Bank accounts × currencies — tick every real combination that actually exists</legend>
+          <table>
+            <thead>
+              <tr><th></th>{#each allCurrencies as c}<th>{c}</th>{/each}</tr>
+            </thead>
+            <tbody>
+              {#each nominatedBanks as b}
+                <tr>
+                  <td>{b.name}</td>
+                  {#each allCurrencies as c}
+                    <td><input type="checkbox" bind:checked={tickedCombinations[comboKey(b.name, c)]} /></td>
+                  {/each}
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          <button class="btn" onclick={buildRealBankCurrencyStructure} disabled={bankCurrencyBuilding}>
+            {bankCurrencyBuilding ? 'Building…' : 'Confirm and build Cash at Bank'}
+          </button>
+          {#if bankCurrencyError}<p class="error">{bankCurrencyError}</p>{/if}
+        </fieldset>
+      {/if}
+    {:else}
+      <p class="success">Cash at Bank structure built.</p>
+    {/if}
     <p>
       Next: post the owner's capital contribution into <strong>{result.actualLedger}</strong> through
       <a href="/post">{translations.current['General Journal'] ?? 'General Journal'}</a> (debit whichever cash/bank account matches the chosen prototype, credit

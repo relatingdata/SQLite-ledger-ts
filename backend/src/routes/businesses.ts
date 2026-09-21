@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
 import { getBusinesses, getLedgers, createBusiness, getChartOfAccountsPrototype, getBusinessTypes, saveBusinessTypeAnswers, asBusinessName, asLedgerName, ValidationError,
-  asUserId,
+  asUserId, nominateBankAccount, getNominatedBankAccounts, buildBankCurrencyStructure, typeAssetAccountName, typeEquityAccountName,
 } from '../db.js';
 
 export const businessesRouter = Router();
@@ -68,4 +68,41 @@ businessesRouter.post('/:name/business-type-answers', requireRole('Administrator
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   saveBusinessTypeAnswers(asBusinessName(req.params.name), parsed.data.answers, asUserId(req.user!.id));
   res.status(204).end();
+});
+
+const nominateBankAccountSchema = z.object({ bankAccountName: z.string().min(1), routingDetail: z.string(), accountNumber: z.string() });
+businessesRouter.post('/:name/bank-accounts', requireRole('Administrator'), (req, res) => {
+  const parsed = nominateBankAccountSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const result = nominateBankAccount(asBusinessName(req.params.name), parsed.data.bankAccountName, parsed.data.routingDetail, parsed.data.accountNumber, asUserId(req.user!.id));
+    res.status(201).json(result);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not nominate bank account.' });
+  }
+});
+
+businessesRouter.get('/:name/bank-accounts', requireRole('Administrator'), (req, res) => {
+  res.json(getNominatedBankAccounts(asBusinessName(req.params.name)));
+});
+
+const buildBankCurrencyStructureSchema = z.object({
+  headerName: z.string().min(1),
+  leafKind: z.enum(['asset', 'equity']),
+  selections: z.array(z.object({ bankAccountName: z.string().min(1), currency: z.string().min(1) })).min(1),
+});
+businessesRouter.post('/:name/bank-currency-structure', requireRole('Administrator'), (req, res) => {
+  const parsed = buildBankCurrencyStructureSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const leafType = parsed.data.leafKind === 'asset' ? typeAssetAccountName : typeEquityAccountName;
+    buildBankCurrencyStructure(asBusinessName(req.params.name), parsed.data.headerName, leafType, parsed.data.selections, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(400).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not build the real bank/currency structure.' });
+  }
 });

@@ -47,9 +47,9 @@ out +=
   'Every real entity in this app has exactly one parent, walked recursively — a real tree, not a general graph. These 13 are the direct children of the root `Application` entity.\n\n';
 out += '| Class | Direct children | What it is |\n|---|---|---|\n';
 const classNotes: Record<string, string> = {
-  'Business Reports': 'The 5 real, shared top-level report categories (Asset/Liability/Equity/Income/Expense) — genuinely shared across every business.',
+  'Business Reports': 'The real, shared list of report kinds themselves — Balance Sheet, Profit and Loss Statement, Trial Balance, and each business\'s own real Notes to the Financial Statements — never the accounts underneath a report.',
   Businesses: "Every real company using this system — each with its own real ledgers and (where applicable) its own real locations sub-tree.",
-  'Chart of Accounts': 'Country-specific prototypes of named, postable leaf accounts — English, German, French, Italian, Swiss.',
+  'Chart of Accounts': 'The 5 real, shared top-level report categories (Asset/Liability/Equity/Income/Expense) — genuinely shared across every business, with country-specific prototypes of named, postable leaf accounts underneath them — English, German, French, Italian, Swiss.',
   Divisions: 'Real profit/cost centers — city regions, per-location divisions.',
   Employees: 'Every real staff member, across every business, as real AP counterparties.',
   Languages: 'The 5 real, supported display languages.',

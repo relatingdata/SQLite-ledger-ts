@@ -343,6 +343,14 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- Vocabulary — a Trial Balance and a ledger comparison are themselves
 -- reports, structurally, the same as Balance Sheet/P&L.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (84, 84, 'Trial Balance', 31, '2026-01-01', 1);
+-- Added later, alongside the reports above — a real, further, distinct
+-- kind of report entirely: not a real, calculated figure at all, but
+-- a real, free-text disclosure a person actually writes (accounting
+-- policy, a contingent liability, a related-party transaction) that
+-- genuinely belongs alongside a real business's own Balance Sheet/P&L,
+-- the same, real, standard practice as "Notes to the Financial
+-- Statements" in any real, published set of accounts.
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (60822, 60822, 'Notes to the Financial Statements', 31, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (85, 85, 'Compare Ledgers', 31, '2026-01-01', 1);
 -- Not a report of its own — a tag on specific expense accounts (just
 -- "Cost of Goods Sold" for now) distinguishing them from ordinary

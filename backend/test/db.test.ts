@@ -47,6 +47,8 @@ const {
   fetchGlobalCoaCategory,
   nominateBankAccount,
   buildBankCurrencyStructure,
+  addFinancialStatementNote,
+  getFinancialStatementNotes,
   typeRootName,
   typeBusinessName,
   typeAssetAccountName,
@@ -5539,4 +5541,18 @@ test('buildBankCurrencyStructure: the exact, same real mechanism applies to a re
   assert.ok(header, 'a real partner\'s own Drawing account header genuinely exists');
   const leaves = entities.filter((e) => e.parent_id === header.id);
   assert.equal(leaves.length, 2, 'the same, real, exactly-one-leaf-per-ticked-combination rule applies to a real partner\'s own Drawing account');
+});
+
+test('addFinancialStatementNote/getFinancialStatementNotes: a real, free-text disclosure genuinely belongs to one specific business, never the shared, global Business Reports list itself', () => {
+  const biz = createBusiness(asBusinessName('NotesTest Co'), '2027-28', asUserId(1));
+  addFinancialStatementNote(biz.business, 'Basis of preparation: these accounts are prepared on a going-concern basis.', asUserId(1));
+  addFinancialStatementNote(biz.business, 'Related party: the sole director is also the sole shareholder.', asUserId(1));
+
+  const notes = getFinancialStatementNotes(biz.business);
+  assert.equal(notes.length, 2, 'both real, added notes genuinely belong to this one business');
+  assert.ok(notes.some((n) => n.text.includes('going-concern')));
+  assert.ok(notes.some((n) => n.text.includes('Related party')));
+
+  const other = createBusiness(asBusinessName('NotesTestOther Co'), '2027-28', asUserId(1));
+  assert.equal(getFinancialStatementNotes(other.business).length, 0, 'a genuinely different business starts with no real notes of its own - never sharing another business\'s own, real disclosures');
 });

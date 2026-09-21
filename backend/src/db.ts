@@ -362,7 +362,21 @@ export interface EntityNode {
  * Businesses > My Business) — a real, reproduced bug where several
  * screens' account pickers used exactly that heuristic and picked up
  * ledgers, vocabulary words, and other non-account entities purely by
- * depth coincidence. */
+ * depth coincidence.
+ *
+ * Deliberately does NOT also require "no real children" (tried
+ * directly, while building the bank-accounts-by-currencies mechanism,
+ * and reverted): the established, confirmed, working Product/Tier/Item
+ * design (docs/multi-dimensional-reporting.md §10) has a real, genuine
+ * case where a real, postable "Sales" leaf also has its own, further,
+ * real child (the tier-level item entity) — a real account here can
+ * genuinely be both directly postable AND a real, structural parent
+ * for an unrelated, further purpose at once. "Has real children" is
+ * not, therefore, a safe, general signal for "is a header, never
+ * postable" in this codebase — real, further enforcement that a
+ * bank-accounts-by-currencies header specifically cannot itself be
+ * posted to needs its own, real, more specific mechanism, not a
+ * change to this shared, general-purpose flag's own meaning. */
 export function getEntityTree(): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null })[] {
   const rows = db
     .prepare(
@@ -6397,6 +6411,42 @@ export function getLedgers(businessName: BusinessName): { id: number; name: Ledg
  * the business itself so they're genuinely findable through the real
  * General Journal account dropdown, not created orphaned. */
 export type EntityStructure = 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded';
+
+/** Nominates one real bank account for a business - a real bank name, its own
+ * real routing detail (a BSB in Australia; a sort code, routing number, or IBAN
+ * elsewhere), and its own real account number, per
+ * docs/bank-accounts-and-currencies-design.md. Lazily creates this business's
+ * own real "Bank Accounts" area on first use - real, nominated data, never a
+ * shared, global default (per direct instruction, decided shape A: Collections
+ * would only ever hold the abstract shape, never actual instances). */
+/** Adds a real, free-text financial-statement note (an accounting
+ * policy, a contingent liability, a related-party disclosure) for one
+ * specific business - the real, standard "Notes to the Financial
+ * Statements" practice from any real, published set of accounts.
+ * Lazily creates this business's own real "Notes to the Financial
+ * Statements" area on first use, under this business's own real
+ * "Business Reports" (the one, real, global list of report kinds
+ * itself never holds actual note content - each business's own real
+ * notes are its own, real, business-scoped data, the same, real
+ * principle already established for Bank Accounts). */
+export function addFinancialStatementNote(businessName: BusinessName, noteText: string, userId: UserId): { id: number } {
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  let notesRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Notes to the Financial Statements' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  if (!notesRoot) notesRoot = create(business, typeRootName, 'Notes to the Financial Statements', userId);
+  const countRow = db.prepare(`SELECT COUNT(*) AS n FROM current_entities WHERE parent_id = ?`).get(notesRoot.id) as { n: number };
+  const noteName = `${businessName} — Note ${countRow.n + 1}`;
+  const note = create(fetchById(notesRoot.id, typeRootName), typeRootName, noteName, userId);
+  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ text: noteText }), note.id);
+  return { id: note.id };
+}
+
+export function getFinancialStatementNotes(businessName: BusinessName): { name: string; text: string }[] {
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const notesRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Notes to the Financial Statements' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  if (!notesRoot) return [];
+  const rows = db.prepare(`SELECT name, detail_json FROM current_entities WHERE parent_id = ? ORDER BY name`).all(notesRoot.id) as { name: string; detail_json: string }[];
+  return rows.map((r) => ({ name: r.name, text: (JSON.parse(r.detail_json || '{}').text as string) ?? '' }));
+}
 
 /** Nominates one real bank account for a business - a real bank name, its own
  * real routing detail (a BSB in Australia; a sort code, routing number, or IBAN

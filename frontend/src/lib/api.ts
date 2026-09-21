@@ -403,6 +403,23 @@ export const createBusiness = (
   });
 export const getCoaPrototypeAccounts = (language: string) => request<string[]>(`/businesses/coa-prototype/${encodeURIComponent(language)}`);
 
+export const nominateBankAccount = (businessName: string, bankAccountName: string, routingDetail: string, accountNumber: string) =>
+  request<{ id: number }>(`/businesses/${encodeURIComponent(businessName)}/bank-accounts`, { method: 'POST', body: JSON.stringify({ bankAccountName, routingDetail, accountNumber }) });
+
+export const getNominatedBankAccounts = (businessName: string) =>
+  request<{ name: string; routingDetail: string; accountNumber: string }[]>(`/businesses/${encodeURIComponent(businessName)}/bank-accounts`);
+
+export const buildBankCurrencyStructure = (
+  businessName: string,
+  headerName: string,
+  leafKind: 'asset' | 'equity',
+  selections: { bankAccountName: string; currency: string }[]
+) =>
+  request<void>(`/businesses/${encodeURIComponent(businessName)}/bank-currency-structure`, {
+    method: 'POST',
+    body: JSON.stringify({ headerName, leafKind, selections }),
+  });
+
 export interface StagedLine {
   reference: string;
   business: BusinessName;

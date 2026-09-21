@@ -6,7 +6,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
-| `typeAssetAccountName` | `backend/src/db.ts` | (none) | `const typeAssetAccountName = { brand: 'AssetAccountName' };` |
+| `typeAssetAccountName` | `backend/src/db.ts` | `backend/src/routes/businesses.ts` | `const typeAssetAccountName = { brand: 'AssetAccountName' };` |
 | `typeBusinessContactsRootName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeBusinessContactsRootName = { brand: 'BusinessContactsRootName' };` |
 | `typeBusinessItemsRootName` | `backend/src/db.ts` | (none) | `const typeBusinessItemsRootName = { brand: 'BusinessItemsRootName' };` |
 | `typeBusinessLocationsRootName` | `backend/src/db.ts` | (none) | `const typeBusinessLocationsRootName = { brand: 'BusinessLocationsRootName' };` |
@@ -17,7 +17,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `typeChartOfAccountsRootName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeChartOfAccountsRootName = { brand: 'ChartOfAccountsRootName' };` |
 | `typeCustomerName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeCustomerName = { brand: 'CustomerName' };` |
 | `typeEntityLinkRecordName` | `backend/src/db.ts` | (none) | `const typeEntityLinkRecordName = { brand: 'EntityLinkRecordName' };` |
-| `typeEquityAccountName` | `backend/src/db.ts` | (none) | `const typeEquityAccountName = { brand: 'EquityAccountName' };` |
+| `typeEquityAccountName` | `backend/src/db.ts` | `backend/src/routes/businesses.ts` | `const typeEquityAccountName = { brand: 'EquityAccountName' };` |
 | `typeExpenseCategoryName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeExpenseCategoryName = { brand: 'ExpenseCategoryName' };` |
 | `typeHiddenMarkerName` | `backend/src/db.ts` | (none) | `const typeHiddenMarkerName = { brand: 'HiddenMarkerName' };` |
 | `typeIsBillingAddressMarkerName` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `const typeIsBillingAddressMarkerName = { brand: 'IsBillingAddressMarkerName' };` |

@@ -10,6 +10,10 @@ Everything an administrator needs to set a business up lives under **Configurati
 
 **New Business** creates a brand-new business and its first real ledger, ready to actually transact in immediately --- both a real Actual ledger for ongoing transactions and a real Budget ledger for the same financial year, since a new business genuinely needs both from day one. Only the five, top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business in the application --- the real, named accounts underneath them are country-specific prototypes that already exist. Choosing which existing prototype most closely matches a new business's own country or jurisdiction doesn't create anything new; it simply shows which real accounts already exist to post to.
 
+The Chart of Accounts is designed to provide the best and most insightful business reports into the financial state of your business, and deserves careful design and expert advice matched to your own, real business and its own, real future plans --- choosing the right starting prototype now is worth genuine thought, not a box ticked in passing.
+
+A brief note on naming, since the two are easy to conflate: the **Chart of Accounts** (never "Charts of Accounts" --- always singular, one real chart) is the real, structural home for every real account a business posts to. **Business Reports** is a separate, real, genuinely different thing --- the real, shared list of report *kinds* themselves (Balance Sheet, Profit and Loss Statement, Trial Balance, and this business's own Notes to the Financial Statements), never the accounts underneath them.
+
 Every business nominates one real **home currency** at creation --- the currency its own consolidated reports (Balance Sheet, Profit and Loss) are expressed in, and the currency assumed for any account, division, or location that hasn't nominated anything different for itself.
 
 Setup then walks through the business's own real banking arrangement, in order:

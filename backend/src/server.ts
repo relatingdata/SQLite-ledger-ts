@@ -65,6 +65,20 @@ app.use('/api/divisions', requireAuth, divisionsRouter);
 app.use('/api/hierarchy', requireAuth, hierarchyRouter);
 
 const PORT = 3001;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Entities backend listening on http://localhost:${PORT}`);
+});
+// A real, cross-platform (pure Node net API, no OS-specific tool)
+// clear error on port conflict - Node's own default behavior here is
+// already to fail loudly (an unhandled 'error' event throws), never a
+// silent fallback like Vite's own default; this only makes the real
+// cause immediately, unambiguously clear rather than a generic stack
+// trace, matching the same principle now applied to the frontend
+// (see frontend/vite.config.ts's own strictPort).
+server.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use by another real process - stop it first (this backend never falls back to a different port).`);
+    process.exit(1);
+  }
+  throw err;
 });
