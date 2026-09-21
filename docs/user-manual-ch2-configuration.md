@@ -8,7 +8,7 @@ Everything an administrator needs to set a business up lives under **Configurati
 
 ## Creating a new business
 
-**New Business** creates a brand-new business and its first real ledger, ready to actually transact in immediately --- both a real Actual ledger for ongoing transactions and a real Budget ledger for the same financial year, since a new business genuinely needs both from day one. Only the five, top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business in the application --- the real, named accounts underneath them are country-specific families that already exist. Choosing which existing family most closely matches a new business's own country or jurisdiction doesn't create anything new; it simply shows which real accounts already exist to post to.
+**New Business** creates a brand-new business and its first real ledger, ready to actually transact in immediately --- both a real Actual ledger for ongoing transactions and a real Budget ledger for the same financial year, since a new business genuinely needs both from day one. Only the five, top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business in the application --- the real, named accounts underneath them are country-specific prototypes that already exist. Choosing which existing prototype most closely matches a new business's own country or jurisdiction doesn't create anything new; it simply shows which real accounts already exist to post to.
 
 Every business nominates one real **home currency** at creation --- the currency its own consolidated reports (Balance Sheet, Profit and Loss) are expressed in, and the currency assumed for any account, division, or location that hasn't nominated anything different for itself.
 
@@ -21,7 +21,7 @@ Setup then walks through the business's own real banking arrangement, in order:
 
 **The exact, same real bank-accounts-by-currencies nomination applies to each real partner's own drawing account**, for a business structured as a partnership --- each partner's own drawing account is set up the same way, bank(s) and currenc(y/ies) ticked the same way, since a partner can genuinely be paid out through more than one real bank account or in more than one real currency exactly as the business itself can.
 
-![Creating a new business, with a real Chart of Accounts family selected for reuse.](manual-images/m_new_business.png)
+![Creating a new business, with a real Chart of Accounts prototype selected for reuse.](manual-images/m_new_business.png)
 
 ## Business Setup --- divisions, locations, employees
 

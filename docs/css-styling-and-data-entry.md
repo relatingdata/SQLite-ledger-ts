@@ -433,7 +433,7 @@ own real target route is a real, direct `setEntityLink` record
 pointing at its own, real, shared `Routes` entity (the same shared-
 naming shape `Vocabulary` already uses); `notImplemented`/
 `isSubheading` are real, presence-only marker child entities (a CoA
-family tag's own, already-established shape); `requiredRoles` is one
+prototype tag's own, already-established shape); `requiredRoles` is one
 real, direct child entity per real role (the same one-to-many shape
 already proven for a contact's own multiple contact types); and
 `sort_order` needed no real mechanism at all — `entity_id`'s own real,
@@ -483,7 +483,7 @@ through one of these:
   real, useful, cautionary example: the schema and the trigger were
   both genuinely correct; only this one, specific, hand-written
   `SELECT` was stale.
-- **The real, "typed child entity" family** — `getTypedAddresses`,
+- **The real, "typed child entity" prototype** — `getTypedAddresses`,
   `getTypedPhones`, `getTypedContactPersons`, and their own, direct
   `addTyped*`/`deleteTyped*` siblings. Not one, single, generic,
   shared function — each is its own, separate, real implementation,

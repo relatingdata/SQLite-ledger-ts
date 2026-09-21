@@ -79,9 +79,9 @@ than kept as static prose:
   Vocabulary word's `relation_id` points at its own language (English,
   German, French, Italian, Danish, Hebrew, Arabic), tens to dozens of
   real entries per language.
-- **Chart-of-Accounts family tagging** — every real account under a
-  real CoA family (English/German/French/Italian/Swiss CoA) points
-  back at that family.
+- **Chart-of-Accounts prototype tagging** — every real account under a
+  real CoA prototype (English/German/French/Italian/Swiss CoA) points
+  back at that prototype.
 - **Menu/UI labels and route metadata** — every real menu link and
   section, and the real screen titles behind them.
 - **COGS / Balance Sheet / P&L Statement** — the original, three real
@@ -139,7 +139,7 @@ but for a while genuinely unbuilt. It's now implemented
 and confirmed to be **the same shape as an ordinary tag, not a
 different mechanism**: a tag is the degenerate case of this exact
 pattern, where the type entity alone is the complete answer and there's
-no second fact to record. A real relationship (e.g. "Smith Family
+no second fact to record. A real relationship (e.g. "Smith Prototype
 Trust" is "Trustee Of" "Boutique Wine Company") needs two facts — what
 kind, and with whom — so it uses the identical mechanism one hop
 deeper: the entity's own `relation_id` points at a real, lazily-created
@@ -148,13 +148,13 @@ type (living under the real `Relationship Types` category), and its
 own `relation_id` gives the target.
 
 ```sql
--- Smith Family Trust's own relation_id points at the relationship record:
+-- Smith Prototype Trust's own relation_id points at the relationship record:
 SELECT rel_type.name AS type, target.name AS target
 FROM current_entities e
 JOIN current_entities rel ON rel.id = e.relation_id
 JOIN current_entities rel_type ON rel_type.id = rel.parent_id
 JOIN current_entities target ON target.id = rel.relation_id
-WHERE e.name = 'Smith Family Trust';
+WHERE e.name = 'Smith Prototype Trust';
 -- -> type: 'Trustee Of', target: 'Boutique Wine Company'
 ```
 
@@ -240,16 +240,16 @@ genuinely shared across every business in this app — every country's
 accounting still groups into the same five buckets, so
 `business_reports` correctly reuses them universally. But the real,
 *named leaf accounts* underneath are genuinely country-specific
-families, confirmed by `entity_id` (not just different display
+prototypes, confirmed by `entity_id` (not just different display
 names): "Cash and Bank" (id 11) and "Cassa e valori" (id 315) are
 different entities, one used by My Business and Wine Retail Business,
 the other by Ditta Italiana Srl. German (BMW M GmbH), French
 (Peugeot), Italian, and Swiss businesses each have their own real,
 distinct sets of leaf accounts already bootstrapped.
 
-`getCoaFamilyAccounts(ledgerName)` surfaces which real accounts a
+`getCoaPrototypeAccounts(ledgerName)` surfaces which real accounts a
 given ledger has actually posted to — used by the new-business setup
-UI so a person can see and choose a matching country family before
+UI so a person can see and choose a matching country prototype before
 creating a new business, rather than silently defaulting to the
 generic English set. A real, honest limitation: this only works for
 ledgers with real posted history, so Ditta Italiana Srl and Schweizer
@@ -264,7 +264,11 @@ A significant, real, direct extension of the entity tree, worth its own section:
 
 Confirmed directly, empirically, before this was fixed: every business shared one, single, global `Items` entity (a direct child of `Application`) — selecting a different business's session still showed every other business's own items, since nothing was ever actually scoped. The exact same real bug `Locations` already had fixed. `createBusiness` now creates a real `{business} Items` parent for every new business, the same established pattern as `{business} Locations`/`{business} Contacts`.
 
-**`PER_BUSINESS_ROOTS`** (`backend/src/db.ts`) is the one, real, single, consolidated list every one of these scoped roots is now driven from — `createBusiness` loops over it rather than hand-writing a separate `create(...)` call per root, and `getLedgers`' own exclusion list derives from the same array rather than its own, separately hand-maintained set of literal strings. Per direct instruction, adding a further scoped root is now a genuine, real, one-line addition to this one array, never a search across this codebase for every place that needs to know about it. Each entry's `suffix` (`Locations`, `Items`, `Contacts`, `Hierarchies`) is also the root's own, real, direct, translatable display word — the exact, same, established `translations.current[name] ?? name` mechanism already used for every other real entity name, so a further root added here is genuinely translatable immediately, with no separate registration step. `Chart of Accounts` is deliberately not in this list — its own real creation (`instantiateChartOfAccounts`) does real, further work (copying a real CoA family template) beyond a bare root, so it keeps its own, dedicated function; `getLedgers` accounts for it separately, alongside the list. `Hierarchies` itself was a real, confirmed bug, found directly while building this consolidated list: it was previously created bare and unscoped (`'Hierarchies'`, no business prefix at all), silently shared across every real business rather than genuinely separate — the exact same real mistake `Locations`/`Items`/`Contacts` already had, just not yet caught for this one. Fixed as part of the same change.
+**`PER_BUSINESS_ROOTS`** (`backend/src/db.ts`) is the one, real, single, consolidated list every one of these scoped roots is now driven from — `createBusiness` loops over it rather than hand-writing a separate `create(...)` call per root, and `getLedgers`' own exclusion list derives from the same array rather than its own, separately hand-maintained set of literal strings. Per direct instruction, adding a further scoped root is now a genuine, real, one-line addition to this one array, never a search across this codebase for every place that needs to know about it. Each entry's `name` (`Locations`, `Items`, `Contacts`, `Hierarchies`) is also the root's own, real, direct, translatable display word — the exact, same, established `translations.current[name] ?? name` mechanism already used for every other real entity name, so a further root added here is genuinely translatable immediately, with no separate registration step. `Chart of Accounts` is deliberately not in this list — its own real creation (`instantiateChartOfAccounts`) does real, further work (copying a real CoA prototype template) beyond a bare root, so it keeps its own, dedicated function; `getLedgers` accounts for it separately, alongside the list. `Hierarchies` itself was a real, confirmed bug, found directly while building this consolidated list: it was previously created bare and unscoped (`'Hierarchies'`, no business prefix at all), silently shared across every real business rather than genuinely separate — the exact same real mistake `Locations`/`Items`/`Contacts` already had, just not yet caught for this one. Fixed as part of the same change.
+
+**`fetchGlobalCoaCategory(categoryName)`** (`backend/src/db.ts`) resolves a real, structural CoA category (`Asset`/`Liability`/`Equity`/`Income`/`Expense`) under the one, real, global Chart of Accounts template specifically — never a business's own, genuinely separate copy. A real, confirmed, fundamental fix: since every business now genuinely, correctly owns its own, independent copy of each of these category names (its own real `Vocabulary` entry, per the CoA-prototype-copying mechanism below), a bare, parent-less `fetch('Equity', typeRootName)` became genuinely ambiguous the moment more than one real business existed. This resolves through the one, real, true singleton (`Application`) down to the one, real, global template, every real time.
+
+**`getChartOfAccountsPrototype(language)`** (`backend/src/db.ts`) returns every real account a given real CoA prototype/language (English/German/French/Italian/Swiss) would actually give a new business — walking the one, real, global Chart of Accounts template directly, returning every real leaf account that is either genuinely universal (untagged, shared by every real prototype) or tagged with this one, specific, real prototype marker (a `{Language} CoA` word under the global `Vocabulary`). A real, confirmed, better replacement for an earlier, real design that needed an already-existing, real business actually using a prototype before its own real accounts could be shown at all — this one needs no exemplar business, ever, since it reads the one, real, shared template directly.
 
 This has a real, direct consequence for any function that walks "up from an item to find its category": a hardcoded exact match against the literal string `'Items'` will never terminate at a business-scoped root — it walks straight past it, up through `{business}`, `Businesses`, and `Application`, capturing every one of those as spurious levels. Several functions had exactly this bug (`resolveItemId`, `listProducts`, `listItems`, `countItems`, the frontend's `filterToItems`) and were fixed to recognize either the exact global `Items` name or any name ending in `" Items"` — a real, genuine word-boundary suffix match (a literal space before "Items"), never a loose `endsWith` that would also match unrelated words like `MenuItems`.
 
@@ -356,7 +360,7 @@ Link.withTarget(linkType, target)                  // every real entity linked t
 This is the one, real shape behind what used to be a dozen separately
 hand-rolled "related/associated entity" functions: a dimension
 parent (`setDimensionParent`), a contact type (`setContactType`), a
-menu override, a CoA family tag, a route, a presence-only marker
+menu override, a CoA prototype tag, a route, a presence-only marker
 ("Not Implemented", "Is Subheading", "Hidden") — every one of them is
 `Link` under a different name. `Link.withTarget` is the real,
 general "who's related to this?" query — e.g. every real contact

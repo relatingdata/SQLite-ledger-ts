@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
-import { getBusinesses, getLedgers, createBusiness, getCoaFamilyAccounts, getBusinessTypes, saveBusinessTypeAnswers, asBusinessName, asLedgerName, ValidationError,
+import { getBusinesses, getLedgers, createBusiness, getChartOfAccountsPrototype, getBusinessTypes, saveBusinessTypeAnswers, asBusinessName, asLedgerName, ValidationError,
   asUserId,
 } from '../db.js';
 
@@ -23,18 +23,19 @@ businessesRouter.get('/:name/ledgers', (req, res) => {
   res.json(getLedgers(asBusinessName(req.params.name)));
 });
 
-// Real accounts an existing ledger has actually posted to — lets a
-// person setting up a new business see what a similar, real business's
-// Chart of Accounts "family" (English/German/French/Italian/Swiss,
-// etc.) actually looks like before choosing.
-businessesRouter.get('/coa-family/:businessName/:ledgerName', (req, res) => {
-  res.json(getCoaFamilyAccounts(asBusinessName(req.params.businessName), asLedgerName(req.params.ledgerName)));
+// Real accounts a given Chart of Accounts "prototype" (English/German/
+// French/Italian/Swiss, etc.) actually means - read directly from the
+// one, real, shared template, so a person setting up a new business
+// can see exactly what a prototype looks like before choosing, with no
+// existing, real, exemplar business required.
+businessesRouter.get('/coa-prototype/:language', (req, res) => {
+  res.json(getChartOfAccountsPrototype(req.params.language));
 });
 
 const createBusinessSchema = z.object({
   businessName: z.string().min(1),
   financialYearLabel: z.string().min(1),
-  coaFamily: z.string().min(1).optional(),
+  coaPrototype: z.string().min(1).optional(),
   secondaryCurrencies: z.array(z.string().min(1)).optional(),
   entityStructure: z.enum(['sole_trader', 'partnership', 'llc', 'unlimited_liability', 'publicly_traded']).optional(),
   partnerNames: z.array(z.string().min(1)).optional(),
@@ -48,7 +49,7 @@ businessesRouter.post('/', requireRole('Administrator'), (req, res) => {
       asBusinessName(parsed.data.businessName),
       parsed.data.financialYearLabel,
       asUserId(req.user!.id),
-      parsed.data.coaFamily,
+      parsed.data.coaPrototype,
       parsed.data.secondaryCurrencies,
       parsed.data.entityStructure,
       parsed.data.partnerNames

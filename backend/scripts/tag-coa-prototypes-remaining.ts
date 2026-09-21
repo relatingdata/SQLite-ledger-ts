@@ -21,8 +21,8 @@ const english = [
 // Deliberately NOT tagged at all: 'Acme Corp', 'Acme Supplies Pty Ltd',
 // 'Beta Pty Ltd' — real vendor/customer contact accounts, not Chart
 // of Accounts leaves. A vendor or customer isn't part of any CoA
-// family; the same real supplier could in principle be paid by a
-// business using any family's books, so tagging them would be wrong,
+// prototype; the same real supplier could in principle be paid by a
+// business using any prototype's books, so tagging them would be wrong,
 // not just unnecessary.
 
 const groups: [string[], string][] = [
@@ -34,7 +34,7 @@ const groups: [string[], string][] = [
 let tagged = 0;
 let skippedAlreadyTagged = 0;
 let skippedNotFound = 0;
-for (const [names, family] of groups) {
+for (const [names, prototype] of groups) {
   for (const name of names) {
     const entity = db.prepare('SELECT id, relation_id FROM current_entities WHERE name = ?').get(name) as { id: number; relation_id: number | null } | undefined;
     if (!entity) {
@@ -46,7 +46,7 @@ for (const [names, family] of groups) {
       skippedAlreadyTagged++;
       continue;
     }
-    updateEntity(entity.id, { relation: family }, 1);
+    updateEntity(entity.id, { relation: prototype }, 1);
     tagged++;
   }
 }

@@ -1,5 +1,5 @@
 -- Links every real, existing business's own real Chart of Accounts
--- to its own real, preferred CoA family — genuinely depends on
+-- to its own real, preferred CoA prototype — genuinely depends on
 -- entities from both the core file and the demo block already
 -- existing, so this must load last, after everything else.
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Achats de marchandises'), 'Achats de marchandises', 'Expense', 'French CoA', 1);

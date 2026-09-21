@@ -166,18 +166,39 @@ export function login(username: string, password: string): { token: string; user
   };
 }
 
-function findSessionByToken(token: string): { id: number; user_id: number; expires_at: string } | undefined {
+function findSessionByToken(token: string): { id: number; user_id: number; expires_at: string; business_name: string | null } | undefined {
   const row = db
     .prepare(`SELECT id, relation_id AS user_id, detail_json FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`)
     .get(`Session — ${token}`) as { id: number; user_id: number; detail_json: string } | undefined;
   if (!row) return undefined;
   const detail = JSON.parse(row.detail_json);
-  return { id: row.id, user_id: row.user_id, expires_at: detail.expires_at };
+  return { id: row.id, user_id: row.user_id, expires_at: detail.expires_at, business_name: detail.business_name ?? null };
 }
 
 export function logout(token: string): void {
   const session = findSessionByToken(token);
   if (session) deleteEntity(session.id, 1 as never);
+}
+
+/** Sets this one, real, connected session's own current business - the
+ * real, global business context for every further real request this
+ * same session makes, until changed again or the session ends. Also
+ * updates the real, currently-running request's own, live context
+ * (see session-context.ts), so a person switching business mid-way
+ * through their own real session sees it take effect immediately, not
+ * just on their real, next request. */
+export function setSessionBusiness(token: string, businessName: string): void {
+  const session = findSessionByToken(token);
+  if (!session) throw new AuthError('Session not found or expired.');
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(session.id) as { detail_json: string };
+  const detail = JSON.parse(row.detail_json);
+  detail.business_name = businessName;
+  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), session.id);
+}
+
+export function getSessionBusiness(token: string): string | null {
+  const session = findSessionByToken(token);
+  return session?.business_name ?? null;
 }
 
 export function getSessionUser(token: string | undefined): AuthenticatedUser | null {

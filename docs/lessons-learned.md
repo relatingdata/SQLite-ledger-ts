@@ -305,7 +305,7 @@ the design principle above:
 - **`Link`** — `set`/`get`/`delete`/`mark`/`unmark`/`isMarked`/
   `withTarget`. One real shape for every named relationship this app
   has ever needed a one-off function for: a dimension parent, a
-  contact type, a menu override, a CoA family tag, a route, a
+  contact type, a menu override, a CoA prototype tag, a route, a
   presence-only marker.
 - **`Balance`** — `post`/`get`/`getScoped`. One real, append-only
   posting primitive for every money *or* quantity figure — the direct
@@ -346,7 +346,7 @@ proved reproduces exactly — silently went from $417,000 to $0.
 The real, precise cause, found by direct investigation rather than
 further guessing: `instantiateChartOfAccounts` "mirrors" each real,
 universal, structural category (Asset/Liability/Equity/Income/
-Expense) under a business's own new CoA instance, so a family-tagged
+Expense) under a business's own new CoA instance, so a prototype-tagged
 leaf account has somewhere real to nest. The mirror was created under
 the exact, same, bare name as the original — `"Equity"` — meaning
 multiple real `Equity` entities existed at once (confirmed directly:
@@ -359,7 +359,7 @@ what happened.
 
 **The real, direct correction that applies here too**: "a child is
 only unique by name within one parent." The fix was not to stop
-mirroring structural categories (family-tagged leaves genuinely need
+mirroring structural categories (prototype-tagged leaves genuinely need
 somewhere real to nest) but to give each real mirror its own
 genuinely unique name — `` `${rootName} — ${category}` `` (e.g.
 `"BMW M GmbH Chart of Accounts — Equity"`) — never the bare category
@@ -491,7 +491,7 @@ reading the real, actual dependency rather than guessing:
   scale (5 total lines, confirmed directly), filtered the same way.
 - `30-coa-links.sql` links every real account — both core's own and,
   when present, the foreign demo businesses' own — to its own CoA
-  family. Filtering only the 4 lines naming a foreign business
+  prototype. Filtering only the 4 lines naming a foreign business
   directly wasn't enough: many other lines in that same file
   reference an account that *only* exists in the skipped file. Fixed
   with a real, two-stage load — execute core (+ optional foreign
@@ -534,7 +534,7 @@ of directors, etc.) as real, Vocabulary-linked child entities.
 The real, structural foundation reused what already existed rather
 than duplicating it: `instantiateChartOfAccounts`'s own copy logic was
 pulled out into a real, shared `copyChartOfAccountsInto(destRootName,
-coaFamily, userId)`, so both a real business's own instance and a
+coaPrototype, userId)`, so both a real business's own instance and a
 real business type's own prototype compose the exact, same, one, real
 mechanism — including the same, already-fixed, genuinely-unique
 mirror-naming (`{destRootName} — {category}`) that prevents the exact

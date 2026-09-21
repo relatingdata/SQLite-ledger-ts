@@ -161,7 +161,7 @@ view, trigger, and entity-creation statement), `10-vocab-{language}.sql`
 (one real file per supported language's own translations),
 `20-demo-bmw-peugeot.sql` (the German BMW / French Peugeot demo
 ledger data), and `30-coa-links.sql` (linking every real business to
-its own real Chart of Accounts family — genuinely depends on entities
+its own real Chart of Accounts prototype — genuinely depends on entities
 from both core and the demo block, so it loads last). `db.ts` loads
 these, concatenated, in this exact, dependency-safe order — see the
 comment directly above that code, and the commit message for

@@ -392,16 +392,16 @@ export const getLedgers = (businessName: string) =>
 export const createBusiness = (
   businessName: string,
   financialYearLabel: string,
-  coaFamily?: string,
+  coaPrototype?: string,
   secondaryCurrencies?: string[],
   entityStructure?: 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded',
   partnerNames?: string[]
 ) =>
   request<{ business: BusinessName; actualLedger: string; budgetLedger: string }>('/businesses', {
     method: 'POST',
-    body: JSON.stringify({ businessName, financialYearLabel, coaFamily, secondaryCurrencies, entityStructure, partnerNames }),
+    body: JSON.stringify({ businessName, financialYearLabel, coaPrototype, secondaryCurrencies, entityStructure, partnerNames }),
   });
-export const getCoaFamilyAccounts = (businessName: string, ledgerName: string) => request<string[]>(`/businesses/coa-family/${encodeURIComponent(businessName)}/${encodeURIComponent(ledgerName)}`);
+export const getCoaPrototypeAccounts = (language: string) => request<string[]>(`/businesses/coa-prototype/${encodeURIComponent(language)}`);
 
 export interface StagedLine {
   reference: string;

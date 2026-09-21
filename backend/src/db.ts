@@ -114,7 +114,7 @@ if (!alreadyInitialized) {
   // posting could reference), then the demo ledger data (depends on
   // core entities already existing — Businesses, German CoA, French
   // CoA), then a real, separate "link every real, existing business
-  // to its own real CoA family" block (a real, second, genuine
+  // to its own real CoA prototype" block (a real, second, genuine
   // dependency found only by a live load failure, not anticipated in
   // advance — it references entities from both core AND the demo
   // block, so it must load after both), then each real, per-language
@@ -138,13 +138,13 @@ if (!alreadyInitialized) {
 
   // 30-coa-links.sql links every real, existing account (both core's
   // own real accounts and, when present, the foreign demo businesses'
-  // own) to its own real CoA family — genuinely depends on entities
+  // own) to its own real CoA prototype — genuinely depends on entities
   // from both, so it must run after both, real, above. When the
   // foreign demo businesses are skipped, many of its own real lines
   // reference an account that only exists in that skipped file — not
   // just the 4 real lines naming a foreign business directly, but
   // every real, foreign-specific account each one's own real CoA
-  // family also tags. Filtered here, directly, against what actually,
+  // prototype also tags. Filtered here, directly, against what actually,
   // really exists in the database at this point — never guessed at
   // or hand-enumerated — so this stays correct even if the foreign
   // file's own real account set changes later.
@@ -490,9 +490,12 @@ export function getEntityHistory(id: number): EntityHistoryRow[] {
     .all(id) as EntityHistoryRow[];
 }
 
-function resolveId(name: string | null | undefined): number | null {
+function resolveId(name: string | null | undefined, parentId?: number): number | null {
   if (name == null || name === '') return null;
-  const row = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name) as { id: number } | undefined;
+  const row =
+    parentId != null
+      ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, parentId) as { id: number } | undefined)
+      : (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name) as { id: number } | undefined);
   if (!row) throw new ValidationError(`No entity named "${name}".`);
   return row.id;
 }
@@ -567,13 +570,46 @@ export interface TypedNode<TBrand extends string> {
  * place validation happens, so every function downstream that takes
  * a TypedNode<T> parameter can trust it was already checked, rather
  * than re-validating a bare string at every point of use. */
-export function fetch<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>): TypedNode<TBrand> {
-  const id = resolveId(name);
+/** Resolves a real, named entity - by default, globally, matching
+ * this function's own, long-established behavior for genuinely
+ * singleton, global concepts (Application, Businesses, Vocabulary,
+ * Vendors - there is only ever one, ever). A real, further, optional
+ * parent narrows this to a real, scoped lookup instead - the real,
+ * correct fix for a real, confirmed, fundamental gap, found directly:
+ * create()'s own uniqueness check was already scoped-not-global (two
+ * real siblings under the same real parent can't share a name; the
+ * exact same name is genuinely fine under a different parent), but
+ * fetch() itself had no way to honor that on the read side - a name
+ * conceptually repeated per parent (a business's own real
+ * "Hierarchies", say) could only ever be found by resorting to a
+ * mangled, business-prefixed name, or be silently, ambiguously
+ * resolved to whichever real row a global lookup happened to return
+ * first. */
+export function fetch<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand> {
+  const id = resolveId(name, parent?.id);
   if (id == null) throw new ValidationError(`No entity named "${name}".`);
   if (type.validate && !type.validate(name)) {
     throw new ValidationError(`"${name}" exists, but is not a genuine ${type.brand}.`);
   }
   return { id: asEntityId(id), name: name as string & { __brand: TBrand } };
+}
+
+/** Resolves a real, structural CoA category (Asset/Liability/Equity/
+ * Income/Expense) under the one, real, global Chart of Accounts
+ * template specifically - never a business's own, genuinely separate
+ * copy (see PER_BUSINESS_ROOTS' Vocabulary entry and
+ * copyChartOfAccountsInto). A real, confirmed, fundamental fix: every
+ * business now genuinely, correctly owns its own, real, independent
+ * copy of each of these category names, so a bare, parent-less
+ * fetch('Equity', typeRootName) became genuinely ambiguous the moment
+ * more than one real business existed - this is the one, real,
+ * correct, unambiguous replacement, resolving through the one, real,
+ * true singleton (Application) down to the one, real, global
+ * template, every real time. */
+export function fetchGlobalCoaCategory(categoryName: string): TypedNode<'RootName'> {
+  const application = fetch('Application', typeRootName);
+  const globalCoa = fetch('Chart of Accounts', typeChartOfAccountsRootName, application);
+  return fetch(categoryName, typeRootName, globalCoa);
 }
 
 /** The real, numeric-id counterpart to fetch - for the real, existing
@@ -954,7 +990,7 @@ function relinkDisplayOrderChain(orderedSiblings: { id: number; name: string }[]
 }
 
 /** Records that `entityName` has a relationship of `relationshipType`
- * with `targetName` — e.g. "Smith Family Trust" is "Trustee Of"
+ * with `targetName` — e.g. "Smith Prototype Trust" is "Trustee Of"
  * "Boutique Wine Company". This is the SAME relation_id mechanism a
  * plain report/category tag already uses (COGS, Balance Sheet, P&L
  * Statement) — a tag is the degenerate case of this exact shape,
@@ -1116,7 +1152,14 @@ export function getOrganizationChart(businessName: BusinessName): OrganizationCh
   // real ones belonging to this business — a location's own city or
   // structural home under this exact business's own Locations.
   const businessLocationNames = new Set(
-    (db.prepare(`SELECT e.name FROM current_entities e WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = ?)`).all(`${businessName} Locations`) as { name: string }[]).map((r) => r.name)
+    (
+      db
+        .prepare(
+          `SELECT e.name FROM current_entities e
+           WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`
+        )
+        .all(businessName) as { name: string }[]
+    ).map((r) => r.name)
   );
 
   const divisions: OrgChartDivision[] = [...businessDivisionNames]
@@ -2504,7 +2547,7 @@ export function ensureProductLocationInventoryAccount(itemName: ItemName, locati
 // ---------------------------------------------------------------------------
 
 function ensureBusinessRoot(businessName: BusinessName, rootName: string, userId: UserId): { id: number; name: string } {
-  const business = fetch(businessName, typeBusinessName);
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
   return Entity.getUnder(rootName, business.id) ?? Entity.create(rootName, business.id, userId);
 }
 
@@ -4259,7 +4302,7 @@ function deleteTyped(entityName: string, thingSuffix: string, type: string, user
  * function writes directly to the SOURCE entity's own relation_id,
  * which is genuinely wrong whenever that slot is already spoken for
  * — confirmed directly, not hypothetically: a GL account's own
- * relation_id already carries its real CoA-family tag (see
+ * relation_id already carries its real CoA-prototype tag (see
  * createBusiness), and a real, secondary-currency bank account
  * already depends on it for the General Journal's own account
  * filter. setEntityLink instead creates its own, real, separate
@@ -4303,8 +4346,8 @@ export function setPrototype(entityName: string, prototypeName: string, userId: 
  * once, in the one, single PER_BUSINESS_ROOTS list) rather than
  * creating its own, second, unscoped one - the real, confirmed bug
  * this had before, now fixed. */
-export function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName'>, businessName: BusinessName, userId: UserId): void {
-  const hierarchies = fetch(`${businessName} Hierarchies`, typeRootName);
+export function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName'>, userId: UserId): void {
+  const hierarchies = fetch('Hierarchies', typeRootName, business);
   const division = create(hierarchies, typeRootName, 'Division', userId);
   create(division, typeRootName, 'Location', userId);
   const category = create(hierarchies, typeRootName, 'Category', userId);
@@ -4524,7 +4567,7 @@ export function getTaskDependencies(dependentTask: string): { predecessor: strin
  * Built entirely on setEntityLink/getEntityLink, already proven this
  * session to leave an entity's own relation_id genuinely untouched —
  * the same real property this needs, since a GL account's own
- * relation_id may already be spoken for by its real CoA-family tag,
+ * relation_id may already be spoken for by its real CoA-prototype tag,
  * exactly the conflict setEntityLink itself was built to avoid. */
 export function setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void {
   setEntityLink(entityName, `Dimension: ${dimensionName}`, parentName, userId, entityId, targetId);
@@ -4714,7 +4757,7 @@ export function getDimensionAncestorChain(entityName: string, dimensionName: str
  * another division", so a bank account's own real scope is a genuine,
  * required fact, not an afterthought. Uses setEntityLink, not
  * setRelationship, specifically because a GL account's own relation_id
- * is already spoken for (its real CoA-family tag) — see
+ * is already spoken for (its real CoA-prototype tag) — see
  * docs/cash-flow-and-growth-planning.md for the real, concrete
  * conflict this avoids, confirmed live before this function was
  * written. overdraftLimitMinor is real and optional: null means no
@@ -5595,7 +5638,7 @@ export function getCurrencyExchangeRate(businessName: BusinessName, fromCurrency
   // business -> Hierarchy -> "Currency" -> value, and business ->
   // Product -> the pair's own instance, found by its own, real,
   // exact combination_ids match - never a guessed, composed name.
-  const business = fetch(businessName, typeBusinessName);
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
   const hierarchyRoot = Entity.getUnder('Hierarchy', business.id);
   if (!hierarchyRoot) return null;
   const currencyGrouping = Entity.getUnder('Currency', hierarchyRoot.id);
@@ -6273,7 +6316,7 @@ export function getBusinesses(): { id: number; name: BusinessName }[] {
  * real entity, not a ledger at all, that a person could accidentally
  * select and then find no real accounts postable to it. */
 export function getLedgers(businessName: BusinessName): { id: number; name: LedgerName }[] {
-  const excludedNames = [...PER_BUSINESS_ROOTS.map((r) => `${businessName} ${r.suffix}`), `${businessName} Chart of Accounts`];
+  const excludedNames = [...PER_BUSINESS_ROOTS.map((r) => r.name), 'Chart of Accounts'];
   const placeholders = excludedNames.map(() => '?').join(', ');
   return db
     .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = ?) AND name NOT IN (${placeholders})`)
@@ -6290,7 +6333,7 @@ export function getLedgers(businessName: BusinessName): { id: number; name: Ledg
  * country's accounting still groups into the same five buckets, so
  * business_reports correctly reuses them for every business. But the
  * real, named LEAF accounts underneath are genuinely country-specific
- * families that already exist as real, distinct entities: "Cash and
+ * prototypes that already exist as real, distinct entities: "Cash and
  * Bank"/"Sales Revenue" (English/generic, used by My Business and
  * Wine Retail Business), "Bankkontokorrent"/"Umsatzerlöse" (German,
  * BMW M GmbH), "Autres créances"/"Achats de marchandises" (French,
@@ -6299,15 +6342,16 @@ export function getLedgers(businessName: BusinessName): { id: number; name: Ledg
  * Schweizer KMU AG) — genuinely different entities, confirmed by
  * entity_id, not just different display names for the same thing.
  *
- * A new business should reuse whichever family actually matches its
- * real country/jurisdiction — coaFamilyLedger, if given, is an
- * existing ledger's real name (e.g. "BMW M GmbH Actual") whose real
- * account set getCoaFamilyAccounts can then surface, so a person
- * setting up a new business can see exactly which real accounts to
- * post to before they start, rather than guessing or accidentally
- * defaulting to the generic English set regardless of their business's
- * actual country. This function itself creates no new accounts —
- * every real leaf account, in every family, already exists and is
+ * A new business should reuse whichever prototype actually matches its
+ * real country/jurisdiction — getChartOfAccountsPrototype(language)
+ * surfaces exactly which real accounts that prototype actually means,
+ * read directly from the one, real, shared template (never an
+ * existing business's own posted history), so a person setting up a
+ * new business can see exactly which real accounts to post to before
+ * they start, rather than guessing or accidentally defaulting to the
+ * generic English set regardless of their business's actual country.
+ * This function itself creates no new accounts —
+ * every real leaf account, in every prototype, already exists and is
  * simply reused; a genuinely new country not yet represented here
  * still needs its own leaves built through the Entity Tree Editor, a
  * real, honest, unbuilt gap (see docs/TODO.md).
@@ -6349,20 +6393,35 @@ export function getLedgers(businessName: BusinessName): { id: number; name: Ledg
  * does. "Sole Trader" and "Unlimited Liability" both genuinely use the
  * one, real, shared "Owner's Equity" account already built in — no
  * extra accounts needed. The others each get their own, real,
- * additional equity accounts, tagged with the same real CoA family as
+ * additional equity accounts, tagged with the same real CoA prototype as
  * the business itself so they're genuinely findable through the real
  * General Journal account dropdown, not created orphaned. */
 export type EntityStructure = 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded';
 
-export function setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaFamily?: string, partnerNames?: string[]): void {
+export function setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaPrototype?: string, partnerNames?: string[]): void {
+  // This one, specific business's own, real, independent Equity
+  // mirror - instantiateChartOfAccounts has already run by this point
+  // in createBusiness, so this business's own real "Chart of
+  // Accounts" (and its own real "Equity" copy within it) already,
+  // genuinely exists. A real, confirmed, fundamental fix: a bare
+  // fetch('Equity', typeRootName) would resolve ambiguously now that
+  // every business genuinely, correctly owns its own, independent
+  // copy of this name (see PER_BUSINESS_ROOTS' Vocabulary entry and
+  // copyChartOfAccountsInto) - a real partner's own Capital/Drawing
+  // accounts belong under this one, specific business's own real
+  // Equity, never the shared, global template, and never a genuinely
+  // different, other real business's own, separate copy.
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const businessCoa = fetch('Chart of Accounts', typeChartOfAccountsRootName, business);
+  const businessEquity = fetch('Equity', typeRootName, businessCoa);
   const tag = (accountName: string) => {
-    if (coaFamily) {
-      updateEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(accountName) as { id: number }).id, { relation: coaFamily }, userId);
+    if (coaPrototype) {
+      updateEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(accountName, businessEquity.id) as { id: number }).id, { relation: coaPrototype }, userId);
     }
   };
   const ensure = (accountName: string) => {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(accountName)) {
-      create(fetch('Equity', typeRootName), typeEquityAccountName, accountName, userId);
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(accountName, businessEquity.id)) {
+      create(businessEquity, typeEquityAccountName, accountName, userId);
       tag(accountName);
     }
   };
@@ -6399,20 +6458,20 @@ export function setupEquityStructure(businessName: BusinessName, structure: Enti
  * of Accounts template into a genuine, independent, per-business
  * instance — the "class/instance" model, per direct instruction: the
  * system-supplied templates (Chart of Accounts, tagged per real CoA
- * family) are the real classes, living at the application level;
+ * prototype) are the real classes, living at the application level;
  * this is the real instance, living at the business level. Every
  * universal (untagged) account, plus every account tagged for this
- * exact family, is copied; accounts tagged for a different real
- * family are skipped. Deliberately additive, not a replacement: the
+ * exact prototype, is copied; accounts tagged for a different real
+ * prototype are skipped. Deliberately additive, not a replacement: the
  * existing, global Chart of Accounts and its established, tag-based
- * family mechanism are left completely untouched, so every existing
+ * prototype mechanism are left completely untouched, so every existing
  * GL-reporting function keeps working exactly as it already did —
  * this creates a genuine, new, real, independent copy alongside it,
  * not yet wired into posting or reporting (see
  * docs/coa-class-instance-plan.md for what remains). */
 /** The one, real, shared mechanism that copies the shared Chart of
- * Accounts into any real, new destination root — family-tagged leaves
- * genuinely copied (only those matching coaFamily), a non-leaf,
+ * Accounts into any real, new destination root — prototype-tagged leaves
+ * genuinely copied (only those matching coaPrototype), a non-leaf,
  * structural category mirrored under a genuinely unique name (never
  * the bare category name alone — see the real, critical bug this
  * fixed, in lessons-learned.md). Used both by instantiateChartOfAccounts
@@ -6454,69 +6513,69 @@ export function saveBusinessTypeAnswers(businessName: BusinessName, answers: Rec
   }
 }
 
-export function copyChartOfAccountsInto(destRootName: string, coaFamily: string | undefined, userId: UserId): void {
-  const familyId = coaFamily ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(coaFamily) as { id: number } | undefined)?.id : undefined;
-  const coaFamilyMarkerIds = new Set(
+export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: TypedNode<string>, coaPrototype: string | undefined, userId: UserId): void {
+  const prototypeId = coaPrototype ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(coaPrototype) as { id: number } | undefined)?.id : undefined;
+  const coaPrototypeMarkerIds = new Set(
     (db.prepare(`SELECT id FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary') AND name LIKE '% CoA'`).all() as { id: number }[]).map((r) => r.id)
   );
   const sourceRootId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Chart of Accounts'`).get() as { id: number }).id;
+  const businessVocabulary = fetch('Vocabulary', typeRootName, business);
 
   function copyChildren(sourceId: number, destParentId: number): void {
     const children = db.prepare(`SELECT id, name, relation_id FROM current_entities WHERE parent_id = ?`).all(sourceId) as { id: number; name: string; relation_id: number | null }[];
     for (const child of children) {
-      const isFamilyTagged = child.relation_id !== null && coaFamilyMarkerIds.has(child.relation_id);
-      if (isFamilyTagged) {
-        // A real, family-tagged leaf is genuinely copied — a
+      const isPrototypeTagged = child.relation_id !== null && coaPrototypeMarkerIds.has(child.relation_id);
+      if (isPrototypeTagged) {
+        // A real, prototype-tagged leaf is genuinely copied — a
         // universal (untagged) leaf is already, correctly, shared
         // across every business as-is, and copying it too would
         // create a dangerous, global name-duplicate breaking every
         // existing by-name lookup elsewhere in the app (confirmed
         // directly: this broke getBankAccounts/getCashPosition on a
         // duplicated test account before this fix).
-        if (child.relation_id === familyId) {
+        if (child.relation_id === prototypeId) {
           const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
           if (!existing) create(fetchById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
         }
       } else {
-        // A non-leaf, structural category (Asset/Liability/...) is
-        // mirrored under a genuinely unique name — never the real,
-        // bare category name alone. Confirmed, directly, as the real,
-        // critical root cause of a real regression: mirroring
-        // "Equity" as plain "Equity" under every business's own real
-        // CoA instance meant 7 real Equity entities existed at once
-        // (1 global + 6 per-business mirrors) — and any other, real,
-        // existing caller elsewhere in this app that still resolves a
-        // bare "Equity" by plain name (e.g. `createEntity({ parent:
-        // 'Equity' })`) could then resolve ambiguously to the wrong
-        // one, silently. The real fix: this mirror's own real name is
-        // "{destRootName} — {category}", genuinely unique, so no bare,
-        // global by-name lookup elsewhere can ever match it by
-        // accident. Its own real display name for reports/UI is
-        // carried via relation_id, pointing back at the real,
-        // original, shared category — the exact, same mechanism
-        // already used for a translated Vocabulary word's own display
-        // label.
-        const mirrorName = `${destRootName} — ${child.name}`;
+        // A non-leaf, structural category (Asset/Liability/...) is a
+        // real, genuine copy, per direct, fundamental correction: a
+        // business's own Chart of Accounts structure is always
+        // subject to real, further change by that one business alone
+        // (incorporation, a partner joining or leaving) and must
+        // never touch the global template or any other real
+        // business's own copy. This is not just a structural copy -
+        // the category's own real name is itself copied, as a real,
+        // new, genuinely independent entity, into this one business's
+        // own real Vocabulary (never a relation_id link back to the
+        // real, original, shared word), so this business is free to
+        // rename its own "Equity" without touching the global
+        // template or any other business's own, separate copy.
+        let ownWord = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, businessVocabulary.id) as { id: number } | undefined;
+        if (!ownWord) ownWord = create(businessVocabulary, typeRootName, child.name, userId);
+
         const hasChildren = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? LIMIT 1`).get(child.id);
         if (!hasChildren) continue;
-        let mirror = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(mirrorName, destParentId) as { id: number } | undefined;
+        let mirror = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
         if (!mirror) {
-          mirror = create(fetchById(destParentId, typeRootName), typeChartOfAccountsNodeName, mirrorName, userId);
+          mirror = create(fetchById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
           updateEntity(mirror.id, { relation: child.name }, userId);
         }
         copyChildren(child.id, mirror.id);
       }
     }
   }
-  const destRootId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(destRootName) as { id: number }).id;
-  copyChildren(sourceRootId, destRootId);
+  copyChildren(sourceRootId, destRoot.id);
 }
 
-export function instantiateChartOfAccounts(businessName: BusinessName, coaFamily: string | undefined, userId: UserId): void {
-  const rootName = `${businessName} Chart of Accounts`;
-  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(rootName)) return;
-  create(fetch(businessName, typeBusinessName), typeChartOfAccountsRootName, rootName, userId);
-  copyChartOfAccountsInto(rootName, coaFamily, userId);
+export function instantiateChartOfAccounts(businessName: BusinessName, coaPrototype: string | undefined, userId: UserId): void {
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = ?`).get(business.id)) return;
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Vocabulary' AND parent_id = ?`).get(business.id)) {
+    create(business, typeRootName, 'Vocabulary', userId);
+  }
+  const destRoot = create(business, typeChartOfAccountsRootName, 'Chart of Accounts', userId);
+  copyChartOfAccountsInto(business, destRoot, coaPrototype, userId);
 }
 
 /** The one, real, single, complete list of every real, structural
@@ -6534,22 +6593,23 @@ export function instantiateChartOfAccounts(businessName: BusinessName, coaFamily
  * immediately, with no separate, further registration step. Chart of
  * Accounts is deliberately NOT listed here - its own real creation
  * (`instantiateChartOfAccounts`, above) does real, further work
- * (copying a real CoA family template) beyond a bare root, so it
+ * (copying a real CoA prototype template) beyond a bare root, so it
  * keeps its own, real, dedicated function; `getLedgers`, below,
  * accounts for it separately, alongside this list.
  */
-export const PER_BUSINESS_ROOTS: { suffix: string; type: TypeDescriptor<string> }[] = [
-  { suffix: 'Locations', type: typeBusinessLocationsRootName },
-  { suffix: 'Items', type: typeBusinessItemsRootName },
-  { suffix: 'Contacts', type: typeBusinessContactsRootName },
-  { suffix: 'Hierarchies', type: typeRootName },
+export const PER_BUSINESS_ROOTS: { name: string; type: TypeDescriptor<string> }[] = [
+  { name: 'Locations', type: typeBusinessLocationsRootName },
+  { name: 'Items', type: typeBusinessItemsRootName },
+  { name: 'Contacts', type: typeBusinessContactsRootName },
+  { name: 'Hierarchies', type: typeRootName },
+  { name: 'Vocabulary', type: typeRootName },
 ];
 
 export function createBusiness(
   businessName: BusinessName,
   financialYearLabel: string,
   userId: UserId,
-  coaFamily?: string,
+  coaPrototype?: string,
   secondaryCurrencies?: string[],
   entityStructure?: EntityStructure,
   partnerNames?: string[]
@@ -6564,28 +6624,32 @@ export function createBusiness(
   // single, real, consolidated list above (PER_BUSINESS_ROOTS) -
   // Locations, Items, Contacts, and Hierarchies today; adding a
   // further one is a genuine, real, one-line addition to that list
-  // alone, never a further edit here. Fixes, along the way, the same,
-  // real, confirmed bug Locations and Items already had: every
-  // business previously shared one, single, unscoped "Hierarchies"
-  // node rather than genuinely, separately owning its own.
+  // alone, never a further edit here. Per a real, confirmed,
+  // fundamental correction: each one is a real, plain name (never
+  // business-prefixed) - create()'s own uniqueness check is already
+  // scoped by real, direct parent, never global, so "Locations" under
+  // one real business and "Locations" under a genuinely different
+  // real business were never actually in conflict at all; resolving
+  // one back by name uses fetch's own, real, further, optional parent
+  // argument (see fetch, above) to disambiguate, never a mangled name.
   for (const root of PER_BUSINESS_ROOTS) {
-    create(business, root.type, `${businessName} ${root.suffix}`, userId);
+    create(business, root.type, root.name, userId);
   }
   // A real, second fix, found via the real, full-lifecycle Playwright
   // test: a new business was never actually tagged with its own real
-  // CoA family relation at all — only the original, hand-tagged demo
-  // businesses were (see backend/scripts/tag-coa-families.ts). The
+  // CoA prototype relation at all — only the original, hand-tagged demo
+  // businesses were (see backend/scripts/tag-coa-prototypes.ts). The
   // real, live General Journal account dropdown filters strictly by
   // this tag (see frontend/src/routes/post/+page.svelte), so an
-  // untagged business could never post to any real, family-specific
+  // untagged business could never post to any real, prototype-specific
   // account at all through the actual UI — only universal ones
   // (customer/vendor contacts, product Sales-/COGS- accounts). Tags
-  // the new business with its real, chosen family here, the same
+  // the new business with its real, chosen prototype here, the same
   // real relation mechanism the demo businesses already use.
-  if (coaFamily) {
+  if (coaPrototype) {
     updateEntity(
       (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(businessName) as { id: number }).id,
-      { relation: coaFamily },
+      { relation: coaPrototype },
       userId
     );
   }
@@ -6593,7 +6657,7 @@ export function createBusiness(
   // of Accounts template class, per direct instruction — additive
   // alongside the existing, unchanged, global, tag-based mechanism
   // above, which every existing GL-reporting function still uses.
-  instantiateChartOfAccounts(businessName, coaFamily, userId);
+  instantiateChartOfAccounts(businessName, coaPrototype, userId);
   // Per direct request, and the real, direct insight behind it: most
   // real businesses transact in one, single, home currency — a
   // second currency is a real, genuine need only for a business
@@ -6606,13 +6670,15 @@ export function createBusiness(
   // real pattern the two, existing, hand-written demo currency
   // accounts (Bank Account (DKK)/(EUR)) already use, now genuinely
   // automatic rather than hand-written. Tagged with the same real CoA
-  // family as the business itself, so it's genuinely findable through
+  // prototype as the business itself, so it's genuinely findable through
   // the real General Journal account dropdown, not created orphaned
   // from a filtering standpoint.
   for (const currency of secondaryCurrencies ?? []) {
     const accountName = `Cash at Bank (${currency})`;
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(accountName)) {
-      create(fetch('Asset', typeRootName), typeAssetAccountName, accountName, userId);
+      const businessCoa = fetch('Chart of Accounts', typeChartOfAccountsRootName, business);
+      const businessAsset = fetch('Asset', typeRootName, businessCoa);
+      create(businessAsset, typeAssetAccountName, accountName, userId);
     }
     // The same real logic as setAccountCurrency (backend/src/db-reports.ts)
     // — inlined here rather than imported, since db-reports.ts already
@@ -6620,47 +6686,55 @@ export function createBusiness(
     // real, genuine circular dependency between the two.
     db.prepare(`INSERT INTO account (entity_id) VALUES ((SELECT id FROM current_entities WHERE name = ?)) ON CONFLICT (entity_id) DO NOTHING`).run(accountName);
     db.prepare(`UPDATE account SET currency = ? WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).run(currency, accountName);
-    if (coaFamily) {
+    if (coaPrototype) {
       updateEntity(
         (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(accountName) as { id: number }).id,
-        { relation: coaFamily },
+        { relation: coaPrototype },
         userId
       );
     }
   }
   if (entityStructure) {
-    setupEquityStructure(businessName, entityStructure, userId, coaFamily, partnerNames);
+    setupEquityStructure(businessName, entityStructure, userId, coaPrototype, partnerNames);
   }
   // Per docs/general-typed-hierarchy-resolution-plan.md - a real,
   // recommended, non-privileged starting point every new business
   // gets, immediately renameable/deletable/extensible.
-  seedDefaultHierarchyPrototypes(business, businessName, userId);
+  seedDefaultHierarchyPrototypes(business, userId);
   return { business: businessName, actualLedger, budgetLedger };
 }
 
-/** Every real account a given ledger has actually posted to at least
- * once — used to let a person choose an existing Chart of Accounts
- * "family" (by picking a similar, already-real business/country) when
- * setting up a new business, and see exactly which real accounts that
- * choice means they'd be posting to. Genuinely different from
- * getChartOfAccounts (the full, static tree) — this is only the
- * accounts a real business has actually used, which is what someone
- * choosing a country template actually needs to see. */
-export function getCoaFamilyAccounts(businessName: BusinessName, ledgerName: LedgerName): string[] {
-  const ledger = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(ledgerName, businessName) as { id: number } | undefined;
-  if (!ledger) return [];
-  const rows = db
-    .prepare(
-      `SELECT DISTINCT e.name
-       FROM journal_line jl
-       JOIN account a ON a.entity_id = jl.account_id
-       JOIN current_entities e ON e.id = a.entity_id
-       JOIN journal j ON j.id = jl.journal_id
-       WHERE j.ledger_id = ?
-       ORDER BY e.name`
-    )
-    .all(ledger.id) as { name: string }[];
-  return rows.map((r) => r.name);
+/** Every real account a given real CoA prototype/language would actually
+ * give a new business - walking the one, real, global Chart of
+ * Accounts template directly (never a specific, already-existing
+ * business's own posted history), returning every real leaf account
+ * that is either genuinely universal (untagged, shared by every real
+ * prototype) or tagged with this one, specific, real prototype - exactly
+ * the real set copyChartOfAccountsInto would actually copy for a
+ * business choosing this language. A real, confirmed, better
+ * replacement for the previous, real getCoaPrototypeAccounts - that one
+ * needed an already-existing, real business actually using a prototype
+ * before its own real accounts could be shown at all, so a genuinely
+ * new prototype had nothing to preview; this one needs no exemplar
+ * business, ever, since it reads the one, real, shared template
+ * directly. */
+export function getChartOfAccountsPrototype(language: string): string[] {
+  const prototypeMarker = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary')`).get(`${language} CoA`) as { id: number } | undefined;
+  const globalCoaId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')`).get() as { id: number }).id;
+  const names: string[] = [];
+  function walk(parentId: number): void {
+    const children = db.prepare(`SELECT id, name, relation_id FROM current_entities WHERE parent_id = ?`).all(parentId) as { id: number; name: string; relation_id: number | null }[];
+    for (const child of children) {
+      const hasChildren = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? LIMIT 1`).get(child.id);
+      if (hasChildren) {
+        walk(child.id);
+      } else if (child.relation_id === null || child.relation_id === prototypeMarker?.id) {
+        names.push(child.name);
+      }
+    }
+  }
+  walk(globalCoaId);
+  return names.sort();
 }
 
 // ---------------------------------------------------------------------------

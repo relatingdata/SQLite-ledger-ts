@@ -26,7 +26,7 @@ Ein realer Bericht: alles, was das Unternehmen besitzt (**Aktiva**), muss gleich
 
 ### Unternehmen (Business)
 
-Eine reale, oberste Entität, die eine Firma oder Organisation darstellt — hat eigene reale Kontenrahmen-Blätter (siehe **Kontenrahmen-Familie**), eigene **Hauptbücher** und eigene **Standorte**.
+Eine reale, oberste Entität, die eine Firma oder Organisation darstellt — hat eigene reale Kontenrahmen-Blätter (siehe **Kontenrahmen-Prototyp**), eigene **Hauptbücher** und eigene **Standorte**.
 
 ### Kategorie (Produktkategorie)
 
@@ -36,9 +36,9 @@ Jede reale Entität unter „Parts" (Artikel), die mindestens ein reales Kind ha
 
 Der reale Baum jedes Kontos, auf das ein Unternehmen buchen kann — Aktiva, Passiva, Eigenkapital, Ertrag und Aufwand sind die fünf, wirklich universellen obersten Kategorien, in die jedes reale Unternehmen (in jedem Land) seine Konten einordnet.
 
-### Kontenrahmen-Familie (CoA family)
+### Kontenrahmen-Prototyp (CoA prototype)
 
-Ein realer, länderspezifischer Satz von Blattkonten unter dem Kontenrahmen — direkt bestätigt, nicht angenommen, dass dies wirklich unterschiedliche Entitäten sind, nicht nur unterschiedliche Anzeigenamen: „Cash and Bank" (Englisch/allgemein), „Bankkontokorrent" (Deutsch), „Banca c/c" (Italienisch), „Kasse" (Schweiz) sind alles reale, eigenständige Konten. Ein neues Unternehmen wählt aus, welche reale Familie es weiterverwenden will, statt eine neue zu erfinden.
+Ein realer, länderspezifischer Satz von Blattkonten unter dem Kontenrahmen — direkt bestätigt, nicht angenommen, dass dies wirklich unterschiedliche Entitäten sind, nicht nur unterschiedliche Anzeigenamen: „Cash and Bank" (Englisch/allgemein), „Bankkontokorrent" (Deutsch), „Banca c/c" (Italienisch), „Kasse" (Schweiz) sind alles reale, eigenständige Konten. Ein neues Unternehmen wählt aus, welchen realen Prototyp es weiterverwenden will, statt einen neuen zu erfinden.
 
 ### Geschlossene Periode (Closed period)
 

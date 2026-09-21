@@ -192,7 +192,8 @@ CREATE VIEW current_entities AS
 -- here is a literal number traceable to the row above it, except id 1
 -- itself.
 
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (1, 1, 'Application', NULL, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (0, 0, 'Root', NULL, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (1, 1, 'Application', 0, '2026-01-01', 1);
 
 -- roles/users/sessions, as real, plain entities under "Application" -
 -- see the real, direct comment above (where the removed tables used
@@ -357,7 +358,7 @@ UPDATE entities SET relation_id = 310 WHERE name = 'Cost of Goods Sold';
 UPDATE entities SET relation_id = 32 WHERE name IN ('Asset', 'Liability', 'Equity');
 UPDATE entities SET relation_id = 33 WHERE name IN ('Income', 'Expense');
 
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (34, 34, 'Businesses', 1, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (34, 34, 'Businesses', 0, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (35, 35, 'My Business', 34, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (36, 36, 'Actual', 35, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (37, 37, 'Proposed Growth Budget 2026-27', 35, '2026-01-01', 1);
@@ -617,7 +618,7 @@ WHERE e.row_id = (SELECT MAX(row_id) FROM entities e2 WHERE e2.entity_id = e.ent
 -- same, established shared-naming shape Vocabulary already uses).
 -- not_implemented/is_subheading are real, presence-only marker child
 -- entities (existence itself is the real, true value, the same
--- pattern already used for a real CoA family tag). required_roles is
+-- pattern already used for a real CoA prototype tag). required_roles is
 -- one real, direct child entity per real role — a genuine
 -- one-to-many, the same, established shape already proven for a real
 -- contact's own multiple contact types. sort_order needs no real
@@ -1590,8 +1591,8 @@ BEGIN
 
   INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id)
   SELECT
-    (SELECT id FROM current_entities WHERE name = NEW.business),
-    (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business)),
+    (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))),
+    (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))),
     NEW.reference,
     (SELECT description FROM journal_entry_staging
      WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
@@ -1606,8 +1607,8 @@ BEGIN
   SELECT
     (SELECT j.id FROM journal j
      WHERE j.reference = NEW.reference
-       AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business)
-       AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business))),
+       AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
+       AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))))),
     COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account)),
     COALESCE(
       (SELECT transdate FROM journal_entry_staging
@@ -1715,8 +1716,8 @@ BEGIN
 
   INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id)
   SELECT
-    (SELECT id FROM current_entities WHERE name = NEW.business),
-    (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business)),
+    (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))),
+    (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))),
     NEW.reference,
     (SELECT description FROM journal_entry_staging
      WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
@@ -1731,8 +1732,8 @@ BEGIN
   SELECT
     (SELECT j.id FROM journal j
      WHERE j.reference = NEW.reference
-       AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business)
-       AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business))),
+       AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
+       AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))))),
     COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account)),
     COALESCE(
       (SELECT transdate FROM journal_entry_staging
@@ -2254,7 +2255,7 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (475, 475, 'Employees, customers, vendors/suppliers, and manufacturers — all stored the same way, as entities with contact details. Customers and vendors are created automatically the first time they''re used on an AR Sale or AP Purchase; employees and manufacturers don''t have that yet, so for now they need to exist first via the Structured Editor before contact details can be added here. The same real person can appear in more than one list — an employee who''s also a customer is two separate entities, one per role, not a special case this screen tries to unify.', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (476, 476, 'A item''s canonical details are separate from who supplies it. The same item is routinely available from more than one manufacturer, through more than one vendor, at different prices and package sizes — and which one you prefer isn''t always about price. Mark one preferred and say why: local stock, package size, reliability, whatever the real reason is.', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (477, 477, 'Closing a period rejects normal posting on or before the date you choose — protecting finalized history from being altered. It''s never permanent: reopening lifts the block immediately, for a genuine correction (a reversal, a reposted entry, a contra), then you can close it again afterward.', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (478, 478, 'Creates a brand-new business and its first real ledger, ready to actually transact in immediately. Only the five top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business here — the real, named accounts underneath are country-specific families that already exist. Choose which existing family''s real accounts most closely match this business''s own country/jurisdiction below, so you know exactly which real accounts to post to — this doesn''t create anything new, it just shows you what already exists to reuse. If none of these match, the Entity Tree Editor can build a genuinely new set for a country not yet represented here.', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (478, 478, 'Creates a brand-new business and its first real ledger, ready to actually transact in immediately. Only the five top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business here — the real, named accounts underneath are country-specific prototypes that already exist. Choose which existing prototype''s real accounts most closely match this business''s own country/jurisdiction below, so you know exactly which real accounts to post to — this doesn''t create anything new, it just shows you what already exists to reuse. If none of these match, the Entity Tree Editor can build a genuinely new set for a country not yet represented here.', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (479, 479, 'Real profit or cost centers — a division can be as simple as "Retail" and "Wholesale", or genuinely nested (e.g. "Retail" → "Retail North"), the exact same kind of real hierarchy a product category can have. A division''s own real transactions can be reported on separately (Trial Balance, Balance Sheet, P&L all accept a division filter), and Year End Close correctly rolls each division''s own net income into its own real Retained Earnings line — never blended together. A cost center''s transactions are never allowed on an Income account; a profit center can post to either side.', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (480, 480, 'Every item at every location currently at or below its own reorder level — the real trigger for "time to order," distinct from the floor min level, which only says something has already gone wrong.', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (481, 481, 'Customers with an overdue balance right now. Sending a reminder advances their level (up to 3, the firmest) — the next one for the same customer is already pre-set to the following level.', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
@@ -2506,17 +2507,17 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO account_entry (name, accountnumber, balance_minor) VALUES ('Bank Account (EUR)', '1020', 0);
 UPDATE account SET currency = 'EUR' WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Bank Account (EUR)');
 
--- Real CoA family tags — a real, reported bug fixed here: the General
--- Journal's account dropdown showed every real CoA family's accounts
+-- Real CoA prototype tags — a real, reported bug fixed here: the General
+-- Journal's account dropdown showed every real CoA prototype's accounts
 -- mixed together (English/German/French/Italian/Swiss), regardless of
 -- which business was actually selected. Every real, bootstrap-level
--- account in each family, and each real business itself, tagged with
--- a real relation marking its own family (backend/scripts/
--- tag-coa-families.ts, tag-coa-families-remaining.ts) — deliberately
+-- account in each prototype, and each real business itself, tagged with
+-- a real relation marking its own prototype (backend/scripts/
+-- tag-coa-prototypes.ts, tag-coa-prototypes-remaining.ts) — deliberately
 -- excludes simulation-generated, product-specific Sales/COGS accounts,
 -- since those are already handled separately by name prefix
 -- (frontend filters "Sales - "/"COGS - " as always business-specific,
--- never family-restricted) and don't exist yet at bootstrap time.
+-- never prototype-restricted) and don't exist yet at bootstrap time.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (508, 508, 'English CoA', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (509, 509, 'German CoA', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (510, 510, 'French CoA', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
@@ -2550,7 +2551,7 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (621, 621, 'Business Setup', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (622, 622, 'By division/location profit center', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (623, 623, 'Cash Flow Forecast', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (624, 624, 'Chart of Accounts family to reuse', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (624, 624, 'Chart of Accounts prototype to reuse', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (625, 625, 'Choose a business, ledger, and language', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (626, 626, 'Clear (show all time)', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (627, 627, 'Closed', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);

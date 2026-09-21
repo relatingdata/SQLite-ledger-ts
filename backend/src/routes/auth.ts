@@ -13,6 +13,7 @@ import {
   setOwnPageSize,
   setOwnNumberFormat,
   setOwnDateFormat,
+  setSessionBusiness,
   AuthError,
 } from '../auth.js';
 import { ValidationError, NotFoundError,
@@ -46,6 +47,28 @@ authRouter.post('/logout', requireAuth, (req, res) => {
 
 authRouter.get('/me', requireAuth, (req, res) => {
   res.json(req.user);
+});
+
+const sessionBusinessSchema = z.object({ businessName: z.string().min(1) });
+
+// Per docs/session-business-context.md - the one, real, direct way a
+// person's own real business choice reaches this session, called
+// once, when a business is selected or newly established, never
+// repeated on every further real request afterward.
+authRouter.post('/session/business', requireAuth, (req, res) => {
+  const parsed = sessionBusinessSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const header = req.headers.authorization;
+  const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined;
+  if (!token) return res.status(401).json({ error: 'Not logged in.' });
+  try {
+    setSessionBusiness(token, parsed.data.businessName);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof AuthError) return res.status(401).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not set the current business.' });
+  }
 });
 
 // Everything below is Administrator-only user management.

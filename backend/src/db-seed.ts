@@ -1069,7 +1069,7 @@ function migrateForEnglishStringAuditTranslations() {
     ['Prev', 'Zurück', 'Précédent', 'Forrige', 'Precedente'],
     ['Product', 'Produkt', 'Produit', 'Produkt', 'Prodotto'],
     ['Quantity', 'Menge', 'Quantité', 'Antal', 'Quantità'],
-    ['Real accounts this family actually uses:', 'Reale Konten, die diese Familie tatsächlich verwendet:', 'Comptes réels réellement utilisés par cette famille :', 'Reelle konti, denne familie faktisk bruger:', 'Conti reali effettivamente utilizzati da questa famiglia:'],
+    ['Real accounts this prototype actually uses:', 'Reale Konten, die dieser Prototyp tatsächlich verwendet:', 'Comptes réels réellement utilisés par ce prototype :', 'Reelle konti, denne prototype faktisk bruger:', 'Conti reali effettivamente utilizzati da questo prototipo:'],
     ['Realizable', 'Realisierbar', 'Réalisable', 'Realiserbar', 'Realizzabile'],
     ['Receive a lot', 'Charge empfangen', 'Réceptionner un lot', 'Modtag et parti', 'Ricevi un lotto'],
     ['Received date', 'Empfangsdatum', 'Date de réception', 'Modtagelsesdato', 'Data di ricezione'],
@@ -1401,7 +1401,7 @@ function migrateForMenuEntities() {
 
       // Real, presence-only marker entities — existence itself is
       // the real, true value, the exact, same pattern already used
-      // for a real CoA family tag.
+      // for a real CoA prototype tag.
       if (link.notImplemented) create(fetchById(linkEntity.id, typeMenuLinkName), typeMenuLinkFlagName, `${linkName} — Not Implemented`, SEED_USER_ID);
       if (link.isSubheading) create(fetchById(linkEntity.id, typeMenuLinkName), typeMenuLinkFlagName, `${linkName} — Is Subheading`, SEED_USER_ID);
 
@@ -1527,25 +1527,25 @@ function migrateForBusinessTypes() {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Business Type'`).get()) {
     create(fetch('Application', typeRootName), typeRootName, 'Business Type', SEED_USER_ID);
   }
-  const businessTypes: { name: string; coaFamily: string; questions: string[] }[] = [
+  const businessTypes: { name: string; coaPrototype: string; questions: string[] }[] = [
     {
       name: 'Sole Trader',
-      coaFamily: 'English CoA',
+      coaPrototype: 'English CoA',
       questions: ['Owner name'],
     },
     {
       name: 'Partnership',
-      coaFamily: 'English CoA',
+      coaPrototype: 'English CoA',
       questions: ['Number of partners', 'Names of partners', 'Profit-sharing ratio'],
     },
     {
       name: 'Pty Ltd Company',
-      coaFamily: 'English CoA',
+      coaPrototype: 'English CoA',
       questions: ['Number of share classes', 'Names of share classes', 'Number of shares issued per class', 'Names of directors'],
     },
     {
       name: 'Incorporated Company',
-      coaFamily: 'English CoA',
+      coaPrototype: 'English CoA',
       questions: ['Number of share classes', 'Names of share classes', 'Number of shares issued per class', 'Names of directors', 'Registered office address'],
     },
   ];
@@ -1555,8 +1555,12 @@ function migrateForBusinessTypes() {
     }
     const coaRootName = `${bt.name} CoA`;
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(coaRootName, bt.name)) {
-      create(fetch(bt.name, typeBusinessTypeName), typeChartOfAccountsRootName, coaRootName, SEED_USER_ID);
-      copyChartOfAccountsInto(coaRootName, bt.coaFamily, SEED_USER_ID);
+      const btNode = fetch(bt.name, typeBusinessTypeName);
+      if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Vocabulary' AND parent_id = ?`).get(btNode.id)) {
+        create(btNode, typeRootName, 'Vocabulary', SEED_USER_ID);
+      }
+      create(btNode, typeChartOfAccountsRootName, coaRootName, SEED_USER_ID);
+      copyChartOfAccountsInto(btNode, fetch(coaRootName, typeChartOfAccountsRootName, btNode), bt.coaPrototype, SEED_USER_ID);
     }
     const questionsRootName = `${bt.name} Questions`;
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(questionsRootName, bt.name)) {
@@ -1588,8 +1592,8 @@ function migrateForPerBusinessChartOfAccounts() {
     relation_id: number | null;
   }[];
   for (const b of businesses) {
-    const coaFamily = b.relation_id ? (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(b.relation_id) as { name: string } | undefined)?.name : undefined;
-    instantiateChartOfAccounts(asBusinessName(b.name), coaFamily, SEED_USER_ID);
+    const coaPrototype = b.relation_id ? (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(b.relation_id) as { name: string } | undefined)?.name : undefined;
+    instantiateChartOfAccounts(asBusinessName(b.name), coaPrototype, SEED_USER_ID);
   }
 }
 // REVERTED IMMEDIATELY, per direct, confirmed regression: running this
@@ -1598,7 +1602,7 @@ function migrateForPerBusinessChartOfAccounts() {
 // balance sheet, Peugeot's own filed 2020 PCG balance sheet) broke
 // both, a real financial figure silently going from $417,000 to $0.
 // The root cause: instantiateChartOfAccounts copies real,
-// family-tagged leaf accounts by name, and this codebase still has
+// prototype-tagged leaf accounts by name, and this codebase still has
 // many real, global, by-name lookups (not yet business-scoped)
 // throughout reporting and posting — once a genuine duplicate name
 // exists, those lookups can resolve to the wrong instance. This is

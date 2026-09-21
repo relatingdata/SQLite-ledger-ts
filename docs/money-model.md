@@ -14,7 +14,7 @@ but genuinely wrong for a currency with no minor subdivision at all
 two (BHD, KWD, OMR). This app already supports multi-currency
 accounts and already has real, correct ISO 4217 precision logic
 (`decimalPlacesFor(unitCode)` in `format.ts`) — but its own storage
-columns were still named after the one currency family where "cents"
+columns were still named after the one currency prototype where "cents"
 happens to be accurate.
 
 The correct, currency-neutral term — used throughout ISO 4217 itself,

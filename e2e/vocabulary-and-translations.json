@@ -240,13 +240,13 @@
   }
  },
  {
-  "word": "Chart of Accounts family to reuse",
+  "word": "Chart of Accounts prototype to reuse",
   "createUnderVocabulary": true,
   "translations": {
-   "German": "Wiederzuverwendende Kontenrahmen-Familie",
-   "French": "Famille de plan comptable à réutiliser",
-   "Danish": "Kontoplanfamilie der skal genbruges",
-   "Italian": "Famiglia di piano dei conti da riutilizzare"
+   "German": "Wiederzuverwendender Kontenrahmen-Prototyp",
+   "French": "Prototype de plan comptable à réutiliser",
+   "Danish": "Kontoplanprototype der skal genbruges",
+   "Italian": "Prototipo di piano dei conti da riutilizzare"
   }
  },
  {

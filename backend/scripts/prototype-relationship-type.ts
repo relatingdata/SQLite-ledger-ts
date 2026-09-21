@@ -19,23 +19,23 @@ async function main() {
   create(fetch('Relationship Types', typeRootName), typeRootName, 'Subsidiary Of', 1);
 
   console.log('\n=== Real businesses ===');
-  create(fetch('Businesses', typeRootName), typeRootName, 'Smith Family Trust', 1);
-  create(fetch('Businesses', typeRootName), typeRootName, 'Jones Family Trust', 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'Smith Prototype Trust', 1);
+  create(fetch('Businesses', typeRootName), typeRootName, 'Jones Prototype Trust', 1);
   create(fetch('Businesses', typeRootName), typeRootName, 'Boutique Wine Company', 1);
 
   console.log('\n=== The relationship itself: an intermediate entity, type via parent_id, target via its own relation_id ===');
-  const rel1 = create(fetch('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Smith Family Trust', 1);
+  const rel1 = create(fetch('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Smith Prototype Trust', 1);
   updateEntity(rel1.id, { relation: 'Boutique Wine Company' }, 1);
-  const rel2 = create(fetch('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Jones Family Trust', 1);
+  const rel2 = create(fetch('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Jones Prototype Trust', 1);
   updateEntity(rel2.id, { relation: 'Boutique Wine Company' }, 1);
 
   console.log('=== The trust points at its own relationship record — the same relation_id mechanism, one recursive hop deeper ===');
-  const smith = db.prepare(`SELECT id FROM current_entities WHERE name = 'Smith Family Trust'`).get() as { id: number };
-  updateEntity(smith.id, { relation: 'Trustee relationship — Smith Family Trust' }, 1);
-  const jones = db.prepare(`SELECT id FROM current_entities WHERE name = 'Jones Family Trust'`).get() as { id: number };
-  updateEntity(jones.id, { relation: 'Trustee relationship — Jones Family Trust' }, 1);
+  const smith = db.prepare(`SELECT id FROM current_entities WHERE name = 'Smith Prototype Trust'`).get() as { id: number };
+  updateEntity(smith.id, { relation: 'Trustee relationship — Smith Prototype Trust' }, 1);
+  const jones = db.prepare(`SELECT id FROM current_entities WHERE name = 'Jones Prototype Trust'`).get() as { id: number };
+  updateEntity(jones.id, { relation: 'Trustee relationship — Jones Prototype Trust' }, 1);
 
-  console.log('\n=== Query 1: "What relationship does Smith Family Trust have, and with whom?" ===');
+  console.log('\n=== Query 1: "What relationship does Smith Prototype Trust have, and with whom?" ===');
   const query1 = db
     .prepare(
       `SELECT trust.name AS trust, rel_type.name AS relationship_type, target.name AS target
@@ -43,7 +43,7 @@ async function main() {
        JOIN current_entities rel ON rel.id = trust.relation_id
        JOIN current_entities rel_type ON rel_type.id = rel.parent_id
        JOIN current_entities target ON target.id = rel.relation_id
-       WHERE trust.name = 'Smith Family Trust'`
+       WHERE trust.name = 'Smith Prototype Trust'`
     )
     .get() as { trust: string; relationship_type: string; target: string } | undefined;
   console.log(query1);

@@ -62,7 +62,7 @@ print(f"Real BMW/Peugeot demo block: lines {bmw_start+1}-{bmw_end+1} ({len(demo_
 # Step 2b: a real, second, genuine cross-dependency found and confirmed
 # directly (not assumed) via a live database-loading test before this
 # split was trusted: a real, separate "link every real, existing
-# business to its own real Chart of Accounts family" block —
+# business to its own real Chart of Accounts prototype" block —
 # confirmed directly, not limited to BMW/Peugeot at all, it also
 # touches Wine Retail Business — genuinely depends on entities from
 # BOTH the core file and the demo block already existing, so it must
@@ -76,7 +76,7 @@ for i, line in enumerate(lines):
         break
 assert coa_links_start is not None and coa_links_end is not None, "Could not find the real CoA-links block boundaries"
 coa_links_lines = lines[coa_links_start:coa_links_end + 1]
-print(f"Real CoA-family-linking block: lines {coa_links_start+1}-{coa_links_end+1} ({len(coa_links_lines)} lines)")
+print(f"Real CoA-prototype-linking block: lines {coa_links_start+1}-{coa_links_end+1} ({len(coa_links_lines)} lines)")
 
 # Step 3: identify every real translation_entry INSERT line, grouped by
 # its own, real language.
@@ -130,7 +130,7 @@ with open(f"{OUT_DIR}/20-demo-bmw-peugeot.sql", "w", encoding="utf-8") as f:
 
 with open(f"{OUT_DIR}/30-coa-links.sql", "w", encoding="utf-8") as f:
     f.write("-- Links every real, existing business's own real Chart of Accounts\n")
-    f.write("-- to its own real, preferred CoA family — genuinely depends on\n")
+    f.write("-- to its own real, preferred CoA prototype — genuinely depends on\n")
     f.write("-- entities from both the core file and the demo block already\n")
     f.write("-- existing, so this must load last, after everything else.\n")
     f.write("\n".join(coa_links_lines))

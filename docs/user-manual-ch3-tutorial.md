@@ -10,7 +10,7 @@ Every session starts by logging in, then choosing which real business to work wi
 
 ## Creating the new business
 
-**New Business**, under Configuration, is where this tutorial's own business is created --- a real name, a real financial year, which existing Chart of Accounts family most closely matches this business's own real country or jurisdiction, and its own real home currency (the currency its reports are expressed in --- this tutorial's own business trades only in its home currency throughout, so nothing further is nominated here; a business that also needs to bank or trade in a further currency is covered separately, at the end of this chapter).
+**New Business**, under Configuration, is where this tutorial's own business is created --- a real name, a real financial year, which existing Chart of Accounts prototype most closely matches this business's own real country or jurisdiction, and its own real home currency (the currency its reports are expressed in --- this tutorial's own business trades only in its home currency throughout, so nothing further is nominated here; a business that also needs to bank or trade in a further currency is covered separately, at the end of this chapter).
 
 ![The New Business form, filled in for this tutorial's own business.](manual-images/t02_new_business_form.png)
 
@@ -68,7 +68,7 @@ Setting a real cost and a real selling price here doesn't itself create any Sale
 
 ## Posting the owner's initial cash deposit
 
-The owner's own real capital contribution is posted directly through the **General Journal**: a debit to the real cash/bank account matching the chosen Chart of Accounts family, credited to the matching real equity account. This is the same, real journal every other manual transaction in this application posts through.
+The owner's own real capital contribution is posted directly through the **General Journal**: a debit to the real cash/bank account matching the chosen Chart of Accounts prototype, credited to the matching real equity account. This is the same, real journal every other manual transaction in this application posts through.
 
 ![The General Journal, empty, ready for this tutorial's own first transaction.](manual-images/t14_general_journal_empty.png)
 

@@ -16,7 +16,7 @@ Table: The 13 direct children of the root `Application` entity
 |---|---|---|
 | Business Reports | 5 | The 5 real, shared top-level report categories (Asset/Liability/Equity/Income/Expense) — genuinely shared across every business. |
 | Businesses | 6 | Every real company using this system — each with its own real ledgers and (where applicable) its own real locations sub-tree. |
-| Chart of Accounts | 5 | Country-specific families of named, postable leaf accounts — English, German, French, Italian, Swiss. |
+| Chart of Accounts | 5 | Country-specific prototypes of named, postable leaf accounts — English, German, French, Italian, Swiss. |
 | Divisions | 2 | Real profit/cost centers — one per real location (see `cityDivisionFor`, which resolves a location's own city to its matching division). |
 | Employees | 18 | Every real staff member, across every business, as real AP counterparties. |
 | Languages | 5 | The 5 real, supported display languages. |

@@ -1370,13 +1370,13 @@ docs/menu-as-entity-tree-plan.md for the real, full story).
 
 ### `setupEquityStructure`
 - **Defined**: `backend/src/db.ts:4624`
-- **Signature**: `export function setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaFamily?: string, partnerNames?: string[]): void {`
+- **Signature**: `export function setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaPrototype?: string, partnerNames?: string[]): void {`
 - **Call sites found**: 1
 - **Called from**: backend/src/db.ts
 
 ### `instantiateChartOfAccounts`
 - **Defined**: `backend/src/db.ts:4680`
-- **Signature**: `export function instantiateChartOfAccounts(businessName: BusinessName, coaFamily: string | undefined, userId: UserId): void {`
+- **Signature**: `export function instantiateChartOfAccounts(businessName: BusinessName, coaPrototype: string | undefined, userId: UserId): void {`
 - **Call sites found**: 2
 - **Called from**: backend/src/db-seed.ts, backend/src/db.ts
 
@@ -1386,9 +1386,9 @@ docs/menu-as-entity-tree-plan.md for the real, full story).
 - **Call sites found**: 2
 - **Called from**: backend/src/routes/businesses.ts, frontend/src/routes/setup/new-business/+page.svelte
 
-### `getCoaFamilyAccounts`
+### `getCoaPrototypeAccounts`
 - **Defined**: `backend/src/db.ts:4827`
-- **Signature**: `export function getCoaFamilyAccounts(businessName: BusinessName, ledgerName: LedgerName): string[] {`
+- **Signature**: `export function getCoaPrototypeAccounts(businessName: BusinessName, ledgerName: LedgerName): string[] {`
 - **Call sites found**: 2
 - **Called from**: backend/src/routes/businesses.ts, frontend/src/routes/setup/new-business/+page.svelte
 

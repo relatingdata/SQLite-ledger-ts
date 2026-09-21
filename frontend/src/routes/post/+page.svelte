@@ -93,29 +93,29 @@
   onMount(loadStatic);
 
   // A real, reported bug fixed here: the dropdown used to show every
-  // account in the entire system, mixing every real CoA family
+  // account in the entire system, mixing every real CoA prototype
   // together (German/French/Italian accounts alongside English ones)
   // regardless of which business was actually selected. Each real
   // account and each real business now carries a relation tagging its
-  // own CoA family (see backend/scripts/tag-coa-families.ts) — filter
-  // to the current business's own family specifically. Accounts with
-  // no family relation at all are always shown: real, product-specific
+  // own CoA prototype (see backend/scripts/tag-coa-prototypes.ts) — filter
+  // to the current business's own prototype specifically. Accounts with
+  // no prototype relation at all are always shown: real, product-specific
   // Sales/COGS accounts (named "Sales - ..."/"COGS - ...", already
   // tagged COGS for a different purpose) and real customer/vendor
-  // contact accounts are universal, not tied to any one CoA family.
+  // contact accounts are universal, not tied to any one CoA prototype.
   const postableAccounts = () => {
     const currentBusiness = accounts.find((a) => a.name === business);
-    const currentFamilyId = currentBusiness?.relation_id ?? null;
-    const familyName = (id: number | null) => (id == null ? null : accounts.find((a) => a.id === id)?.name ?? null);
-    const currentFamily = familyName(currentFamilyId);
-    const allFamilyNames = new Set(['English CoA', 'German CoA', 'French CoA', 'Italian CoA', 'Swiss CoA']);
+    const currentPrototypeId = currentBusiness?.relation_id ?? null;
+    const prototypeName = (id: number | null) => (id == null ? null : accounts.find((a) => a.id === id)?.name ?? null);
+    const currentPrototype = prototypeName(currentPrototypeId);
+    const allPrototypeNames = new Set(['English CoA', 'German CoA', 'French CoA', 'Italian CoA', 'Swiss CoA']);
 
     return accounts.filter((a) => {
       if (!a.is_postable_account || accounts.some((c) => c.parent_id === a.id)) return false;
       if (a.name.startsWith('Sales - ') || a.name.startsWith('COGS - ')) return true;
-      const accountFamily = familyName(a.relation_id);
-      if (accountFamily == null || !allFamilyNames.has(accountFamily)) return true; // universal (e.g. customer/vendor) or unrelated relation (e.g. an address/phone type — never expected here, but never hidden incorrectly either)
-      return accountFamily === currentFamily;
+      const accountPrototype = prototypeName(a.relation_id);
+      if (accountPrototype == null || !allPrototypeNames.has(accountPrototype)) return true; // universal (e.g. customer/vendor) or unrelated relation (e.g. an address/phone type — never expected here, but never hidden incorrectly either)
+      return accountPrototype === currentPrototype;
     });
   };
 

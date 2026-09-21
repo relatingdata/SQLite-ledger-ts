@@ -125,7 +125,7 @@ Table: The 4 additional demo businesses used for language/i18n testing, and thei
 | Ditta Italiana Srl | Italian — Italy |
 | Schweizer KMU AG | German — Switzerland |
 
-`language-parameterized.spec.ts` and `coa-family-filtering.spec.ts`
+`language-parameterized.spec.ts` and `coa-prototype-filtering.spec.ts`
 are the real, direct e2e tests exercising these. A real, honest,
 current gap: their own sample data isn't yet cleanly separated at the
 file level the way the vocabulary translations are — BMW, Peugeot,

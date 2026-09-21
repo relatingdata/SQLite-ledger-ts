@@ -34,7 +34,7 @@ written fresh in each of dozens of files instead of once.
   fields={[
     { name: 'businessName', label: 'Business name', type: 'text', required: true },
     { name: 'financialYearLabel', label: 'Financial year', type: 'text' },
-    { name: 'coaFamily', label: 'Chart of Accounts', type: 'select', options: coaFamilies },
+    { name: 'coaPrototype', label: 'Chart of Accounts', type: 'select', options: coaPrototypes },
   ]}
   onSubmit={createBusiness}
 />

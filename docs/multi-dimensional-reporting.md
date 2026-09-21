@@ -62,7 +62,7 @@ Wine Retail Business                         (business A — the real root)
 
 The Chart of Accounts really is just another dimension in exactly this sense — Balance Sheet and P&L are its own two, real, equal branches, both eventually terminating in the same leaf accounts a business actually posts to. It is genuinely rooted at the business (confirmed: `Wine Retail Business`, not the application), even though the underlying GL account *rows* happen to be physically shared storage across every business (a real, separate implementation fact, not a conceptual one — see the earlier, corrected wrong turn #5).
 
-A CoA *family* (English CoA, and any other prototype/locale-translated CoA) is a separate, real thing — a template a business's own CoA gets built from at creation time, not itself a business, and not part of any one business's own, live hierarchy once instantiated.
+A CoA *prototype* (English CoA, and any other prototype/locale-translated CoA) is a separate, real thing — a template a business's own CoA gets built from at creation time, not itself a business, and not part of any one business's own, live hierarchy once instantiated.
 
 ## 4. The core insight: multiple, equal accumulation paths from one leaf
 
@@ -234,7 +234,7 @@ its own:
 
 1. **A named fact about an entity, pointing elsewhere** — "this
    location belongs to this division," "this contact is a customer,"
-   "this business uses the German CoA family" — a real, directed
+   "this business uses the German CoA prototype" — a real, directed
    relationship, not a structural nesting.
 2. **One entity genuinely playing more than one real role at once** —
    a single-location "division" that is genuinely its own group, or a

@@ -169,7 +169,7 @@ Ordinary inventory assumes stock is held to be sold, cost flowing through COGS o
 - ✅ **Ditta Italiana Srl** and **Schweizer KMU AG** added as real demo businesses with genuine, representative (not exhaustive) charts of accounts adapted from Tekki's real Italy/Swiss data. Schweizer KMU AG's accounts carry real French and Italian translations sourced directly from Tekki's own parallel Swiss French/Italian charts (which happen to share identical account numbers, confirmed directly before relying on it), demonstrating the `translation_entry` mechanism against genuinely different real-world wording, not placeholder text.
 - ❌ Not done: a dedicated Swiss-German-only variant separate from the combined Schweizer KMU AG demo; French Canadian or other locales.
 - **RTL layout (Arabic, Hebrew)** — not investigated for this codebase specifically. Real accounting software generally does mirror the full UI (CSS logical properties / `dir="rtl"`, sidebar position, icon direction), while numbers and dates typically stay LTR "islands" within RTL text flow (bidirectional text handling) — this project's actual CSS has never been audited for RTL-readiness.
-- **CJK (Japanese, Chinese)** — not an RTL concern (both are LTR in modern usage), but real, separate open questions: font rendering/line-height for CJK glyphs, family-name-first name ordering conventions, and (for Japan specifically) J-GAAP as its own distinct local standard alongside IFRS convergence, the same dual-standard situation already seen elsewhere.
+- **CJK (Japanese, Chinese)** — not an RTL concern (both are LTR in modern usage), but real, separate open questions: font rendering/line-height for CJK glyphs, prototype-name-first name ordering conventions, and (for Japan specifically) J-GAAP as its own distinct local standard alongside IFRS convergence, the same dual-standard situation already seen elsewhere.
 
 ## Project housekeeping
 
@@ -211,11 +211,11 @@ Software gaps identified and their status:
   used for My Business and Wine Retail Business). A genuine correction made along the way, not initially understood
   correctly: the Chart of Accounts is **not** uniformly shared across every business — confirmed directly, not
   assumed. Only the five top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely
-  global; the real, named leaf accounts underneath are country-specific families that already exist as real,
+  global; the real, named leaf accounts underneath are country-specific prototypes that already exist as real,
   distinct entities (English/generic for My Business and Wine Retail Business, German for BMW M GmbH, French
   for Peugeot, Italian for Ditta Italiana Srl, Swiss for Schweizer KMU AG — confirmed by entity_id, not just
-  different display names). `getCoaFamilyAccounts` surfaces which real accounts an existing ledger actually
-  uses, so a person setting up a new business can see and choose a matching family before creating anything,
+  different display names). `getCoaPrototypeAccounts` surfaces which real accounts an existing ledger actually
+  uses, so a person setting up a new business can see and choose a matching prototype before creating anything,
   rather than silently defaulting to the generic English set regardless of their business's real country. A
   real, honest, remaining limitation: this only works for ledgers with real posted history — Ditta Italiana Srl
   and Schweizer KMU AG have real, distinct accounts bootstrapped but have never had a real transaction posted,

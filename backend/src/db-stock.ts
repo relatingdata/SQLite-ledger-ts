@@ -1599,7 +1599,7 @@ export function placeOrder(
   // this app. Real, existing capacity, reused directly: Qty's own
   // relation carries the real vendor, Value's own relation carries
   // the real item — exactly the same "relation is a separate, lateral
-  // tag" mechanism this app already uses for COGS and CoA family
+  // tag" mechanism this app already uses for COGS and CoA prototype
   // tagging, not a new mechanism invented for this one case.
   if (vendor) updateEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(qtyName) as { id: number }).id, { relation: vendor }, userId);
   if (item) updateEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(valueName) as { id: number }).id, { relation: item }, userId);

@@ -126,7 +126,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getBankAccounts` | `backend/src/db.ts` | `backend/src/routes/reports.ts` | `function getBankAccounts(business: BusinessName, ledger: LedgerName): BankAccountRow[]` |
 | `getBusinesses` | `backend/src/db.ts` | `backend/src/routes/businesses.ts` | `function getBusinesses(): ` |
 | `getCashFlowForecast` | `backend/src/db.ts` | `backend/src/routes/reports.ts` | `function getCashFlowForecast(business: BusinessName, ledger: LedgerName, asOfDate: string, horizonDays: number): CashFlowForecast` |
-| `getChartOfAccounts` | `backend/src/db-reports.ts` | `backend/src/db.ts`, `backend/src/routes/reports.ts` | `function getChartOfAccounts(): ChartRow[]` |
+| `getChartOfAccounts` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getChartOfAccounts(): ChartRow[]` |
 | `getConceptsWithAlternates` | `backend/src/db.ts` | `backend/src/routes/i18n.ts` | `function getConceptsWithAlternates(): ConceptWithAlternates[]` |
 | `getCreditStatus` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function getCreditStatus(entityName: string): CreditStatus` |
 | `getDimensionAncestorChain` | `backend/src/db.ts` | (none) | `function getDimensionAncestorChain(entityName: string, dimensionName: string): string[]` |

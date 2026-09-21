@@ -105,7 +105,7 @@ export const Link = {
     deleteEntityLink(entityName, linkType, userId);
   },
   /** A real, presence-only marker — existence itself is the real,
-   * true value (a CoA family tag, "Not Implemented", "Is
+   * true value (a CoA prototype tag, "Not Implemented", "Is
    * Subheading", "Hidden" — all the same, real shape). */
   mark(entityName: string, markType: string, userId: UserId): void {
     const name = `${entityName} — ${markType}`;

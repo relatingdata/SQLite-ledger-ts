@@ -26,7 +26,7 @@ Un rapport réel : tout ce que l'entreprise possède (**Actif**) doit être éga
 
 ### Entreprise (Business)
 
-Une entité réelle de premier niveau représentant une société ou une organisation — possède ses propres feuilles réelles de plan comptable (voir **famille de plan comptable**), ses propres **journaux/livres**, et ses propres **emplacements**.
+Une entité réelle de premier niveau représentant une société ou une organisation — possède ses propres feuilles réelles de plan comptable (voir **prototype de plan comptable**), ses propres **journaux/livres**, et ses propres **emplacements**.
 
 ### Catégorie (catégorie de produit)
 
@@ -36,9 +36,9 @@ Toute entité réelle sous « Parts » (articles) ayant au moins un enfant réel
 
 L'arbre réel de chaque compte sur lequel une entreprise peut passer une écriture — Actif, Passif, Capitaux propres, Produits et Charges sont les cinq catégories de premier niveau véritablement universelles dans lesquelles toute entreprise réelle (dans n'importe quel pays) regroupe ses comptes.
 
-### Famille de plan comptable (CoA family)
+### Prototype de plan comptable (CoA prototype)
 
-Un ensemble réel et spécifique à un pays de comptes-feuilles sous le plan comptable — confirmé directement, non supposé, que ce sont réellement des entités distinctes, pas de simples noms d'affichage différents : « Cash and Bank » (anglais/générique), « Bankkontokorrent » (allemand), « Banca c/c » (italien), « Kasse » (suisse) sont tous des comptes réels et distincts. Une nouvelle entreprise choisit quelle famille réelle réutiliser plutôt que d'en inventer une nouvelle.
+Un ensemble réel et spécifique à un pays de comptes-feuilles sous le plan comptable — confirmé directement, non supposé, que ce sont réellement des entités distinctes, pas de simples noms d'affichage différents : « Cash and Bank » (anglais/générique), « Bankkontokorrent » (allemand), « Banca c/c » (italien), « Kasse » (suisse) sont tous des comptes réels et distincts. Une nouvelle entreprise choisit quel prototype réel réutiliser plutôt que d'en inventer un nouveau.
 
 ### Période clôturée (Closed period)
 

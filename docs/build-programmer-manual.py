@@ -22,6 +22,7 @@ PARTS = [
         "money-model.md",
         "multi-dimensional-reporting.md",
         "contact-types-and-translations.md",
+        "session-business-context.md",
     ]),
     ("Part II --- Technical Infrastructure", [
         "orm-and-commit-path.md",

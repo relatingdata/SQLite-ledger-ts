@@ -34,7 +34,7 @@ A real report: everything the business owns (**Assets**) must equal everything i
 
 ### Business
 
-A real, top-level entity representing one company or organization — has its own real Chart of Accounts leaves (see **CoA family**), its own **ledgers**, and its own **locations**.
+A real, top-level entity representing one company or organization — has its own real Chart of Accounts leaves (see **CoA prototype**), its own **ledgers**, and its own **locations**.
 
 ### Category (product category)
 
@@ -44,9 +44,9 @@ Any real entity under "Parts" that has at least one real child (whether that chi
 
 The real tree of every account a business can post to — Asset, Liability, Equity, Income, and Expense are the five, genuinely universal top-level categories every real business (in any country) groups its accounts into.
 
-### CoA family
+### CoA prototype
 
-A real, country-specific set of leaf accounts under the Chart of Accounts — confirmed directly, not assumed, that these are genuinely different entities, not just different display names: "Cash and Bank" (English/generic), "Bankkontokorrent" (German), "Banca c/c" (Italian), "Kasse" (Swiss) are all real, distinct accounts. A new business picks which real family to reuse rather than inventing a new one.
+A real, country-specific set of leaf accounts under the Chart of Accounts — confirmed directly, not assumed, that these are genuinely different entities, not just different display names: "Cash and Bank" (English/generic), "Bankkontokorrent" (German), "Banca c/c" (Italian), "Kasse" (Swiss) are all real, distinct accounts. A new business picks which real prototype to reuse rather than inventing a new one.
 
 ### Closed period
 

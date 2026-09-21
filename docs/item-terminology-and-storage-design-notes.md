@@ -17,7 +17,7 @@ covers both. The real, correct, general term for what this
 application actually tracks — anything that can be received, held in
 inventory, and sold or consumed — is **Item**, matching the
 established real-world sense of "inventory item." A future migration
-should rename the `Part`/`PartName` branded type and its own family of
+should rename the `Part`/`PartName` branded type and its own prototype of
 functions to `Item`/`ItemName` throughout — not as a cosmetic rename,
 but because the wrong word invites the wrong mental model (a "part"
 suggests something assembled into something else, which is not what
@@ -29,7 +29,7 @@ Direct instruction: "the names should all be stored in the vocabulary,
 and a link to there."
 
 This matches the already-established Vocabulary mechanism used
-throughout this session (CoA family tags, contact types, division
+throughout this session (CoA prototype tags, contact types, division
 types are all real Vocabulary words). The real, general principle to
 apply consistently: any user-facing "name" that functions as a
 *label* or *category* — not a one-off, freely-typed value — should be
@@ -37,7 +37,7 @@ a real Vocabulary entity, referenced via a real, named `Link` (the
 primitive already built this session), never duplicated as a raw
 string wherever it's used. This keeps every such name translatable,
 user-extensible, and auditable from one, real, single source, exactly
-the same reasoning already applied to CoA family tags and contact
+the same reasoning already applied to CoA prototype tags and contact
 types.
 
 ## Can/bottle size is a property, not part of the name

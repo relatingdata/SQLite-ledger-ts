@@ -36,7 +36,7 @@ Qualsiasi entità reale sotto "Parts" (articoli) che abbia almeno un figlio real
 
 L'albero reale di ogni conto su cui un'azienda può registrare — Attivo, Passivo, Patrimonio netto, Ricavi e Costi sono le cinque categorie di primo livello realmente universali in cui ogni azienda reale (in qualsiasi paese) raggruppa i propri conti.
 
-### Famiglia del piano dei conti (CoA family)
+### Famiglia del piano dei conti (CoA prototype)
 
 Un insieme reale e specifico per paese di conti foglia sotto il piano dei conti — confermato direttamente, non presunto, che si tratta realmente di entità distinte, non solo di nomi visualizzati diversi: "Cash and Bank" (inglese/generico), "Bankkontokorrent" (tedesco), "Banca c/c" (italiano), "Kasse" (svizzero) sono tutti conti reali e distinti. Una nuova azienda sceglie quale famiglia reale riutilizzare, invece di inventarne una nuova.
 

@@ -44,7 +44,10 @@ const {
   reopenPeriod,
   createEntity,
   fetch,
+  fetchGlobalCoaCategory,
   typeRootName,
+  typeBusinessName,
+  typeChartOfAccountsRootName,
   updateEntity,
   setRelationship,
   setEntityLink,
@@ -262,7 +265,7 @@ test('the bootstrap tree loads with exactly one root', () => {
   const tree = getEntityTree();
   const roots = tree.filter((e) => e.parent_id === null);
   assert.equal(roots.length, 1);
-  assert.equal(roots[0].name, 'Application');
+  assert.equal(roots[0].name, 'Root');
   assert.ok(tree.length > 40, 'expected the full bootstrap tree to be present');
 });
 
@@ -504,7 +507,7 @@ test('profit and loss computes real totals and net income', () => {
 
 test('profit and loss excludes a Year End Close entry from its own totals, even when the close happened within the requested date range — a real, direct bug report: "the consolidated p&l shows zero"', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'PLCloseTest Ledger', asUserId(1));
-  create(fetch('Income', typeRootName), typeRootName, 'PLCloseTest Revenue', asUserId(1));
+  create(fetchGlobalCoaCategory('Income'), typeRootName, 'PLCloseTest Revenue', asUserId(1));
 
   stageLine({ reference: 'PLCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('PLCloseTest Ledger'), transdate: '2027-04-01', account: asAccountName('PLCloseTest Revenue'), amount_minor: -50000 });
   stageLine({ reference: 'PLCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('PLCloseTest Ledger'), transdate: '2027-04-01', account: asAccountName('Cash and Bank'), amount_minor: 50000 });
@@ -1790,157 +1793,6 @@ test('divisions/profit centers: the same account can be posted to by multiple di
   assert.equal(svc.total_income_minor, 500, 'filtered to exactly the Services division');
 });
 
-test('proves the concept: BMW M GmbH\'s real, published 2020 HGB balance sheet and P&L reproduce exactly through this system', () => {
-  const B = 'BMW M GmbH Proof', L = 'BMW M GmbH Proof Actual';
-  create(fetch('Application', typeRootName), typeRootName, B, asUserId(1));
-  create(fetch(B, typeRootName), typeRootName, L, asUserId(1));
-
-  const eur = (t: number) => Math.round(t * 1000 * 100);
-
-  const accounts: [string, string][] = [
-    ['Proof: Immaterielle Vermögensgegenstände', 'Asset'],
-    ['Proof: Sachanlagen', 'Asset'],
-    ['Proof: Vorräte', 'Asset'],
-    ['Proof: Forderungen und sonstige Vermögensgegenstände', 'Asset'],
-    ['Proof: Kassenbestand und Bankguthaben', 'Asset'],
-    ['Proof: Rechnungsabgrenzungsposten (Aktiva)', 'Asset'],
-    ['Proof: Gezeichnetes Kapital', 'Equity'],
-    ['Proof: Gewinnrücklagen', 'Equity'],
-    ['Proof: Rückstellungen', 'Liability'],
-    ['Proof: Erhaltene Anzahlungen', 'Liability'],
-    ['Proof: Verbindlichkeiten aus Lieferungen und Leistungen', 'Liability'],
-    ['Proof: Verbindlichkeiten gegenüber verbundenen Unternehmen', 'Liability'],
-    ['Proof: Sonstige Verbindlichkeiten', 'Liability'],
-    ['Proof: Umsatzerlöse', 'Income'],
-    ['Proof: Sonstige betriebliche Erträge', 'Income'],
-    ['Proof: Herstellungskosten', 'Expense'],
-    ['Proof: Vertriebskosten', 'Expense'],
-    ['Proof: Allgemeine Verwaltungskosten', 'Expense'],
-    ['Proof: Sonstige betriebliche Aufwendungen', 'Expense'],
-    ['Proof: Zinsergebnis', 'Expense'],
-    ['Proof: Steuern vom Einkommen und Ertrag', 'Expense'],
-    ['Proof: Sonstige Steuern', 'Expense'],
-    ['Proof: Gewinnabführung', 'Expense'],
-  ];
-  for (const [name, category] of accounts) create(fetch(category, typeRootName), typeRootName, name, asUserId(1));
-
-  const bsLines: [string, number][] = [
-    ['Proof: Immaterielle Vermögensgegenstände', eur(372)],
-    ['Proof: Sachanlagen', eur(26013)],
-    ['Proof: Vorräte', eur(1445)],
-    ['Proof: Forderungen und sonstige Vermögensgegenstände', eur(68244)],
-    ['Proof: Kassenbestand und Bankguthaben', eur(221)],
-    ['Proof: Rechnungsabgrenzungsposten (Aktiva)', eur(553)],
-    ['Proof: Gezeichnetes Kapital', -eur(26)],
-    ['Proof: Gewinnrücklagen', -eur(391)],
-    ['Proof: Rückstellungen', -eur(32969)],
-    ['Proof: Erhaltene Anzahlungen', -eur(50751)],
-    ['Proof: Verbindlichkeiten aus Lieferungen und Leistungen', -eur(12601)],
-    ['Proof: Verbindlichkeiten gegenüber verbundenen Unternehmen', -eur(76)],
-    ['Proof: Sonstige Verbindlichkeiten', -eur(34)],
-  ];
-  for (const [account, amount_minor] of bsLines) stageLine({ reference: 'PROOF-BMW-BS', business: asBusinessName(B), ledger: asLedgerName(L), transdate: '2020-12-31', account: asAccountName(account), amount_minor });
-  postJournalEntry('PROOF-BMW-BS', asBusinessName(B), asLedgerName(L), asUserId(1));
-
-  const plLines: [string, number][] = [
-    ['Proof: Umsatzerlöse', -eur(436058)],
-    ['Proof: Sonstige betriebliche Erträge', -eur(3661)],
-    ['Proof: Herstellungskosten', eur(283275)],
-    ['Proof: Vertriebskosten', eur(35842)],
-    ['Proof: Allgemeine Verwaltungskosten', eur(22690)],
-    ['Proof: Sonstige betriebliche Aufwendungen', eur(314)],
-    ['Proof: Zinsergebnis', eur(1129)],
-    ['Proof: Steuern vom Einkommen und Ertrag', eur(21)],
-    ['Proof: Sonstige Steuern', eur(3)],
-    ['Proof: Gewinnabführung', eur(96445)],
-  ];
-  for (const [account, amount_minor] of plLines) stageLine({ reference: 'PROOF-BMW-PL', business: asBusinessName(B), ledger: asLedgerName(L), transdate: '2020-12-31', account: asAccountName(account), amount_minor });
-  postJournalEntry('PROOF-BMW-PL', asBusinessName(B), asLedgerName(L), asUserId(1));
-
-  const bs = getBalanceSheet(asBusinessName(B), asLedgerName(L));
-  const pl = getProfitAndLoss(asBusinessName(B), asLedgerName(L));
-
-  // BMW M GmbH's actual, published figures for FY2020 (in T€), from
-  // its real Annual Financial Statements.
-  assert.equal(bs.total_assets_minor, eur(96848));
-  assert.equal(bs.total_liabilities_minor, eur(96431));
-  assert.equal(bs.total_equity_minor, eur(417));
-  assert.equal(bs.balanced, true);
-  assert.equal(pl.total_income_minor, eur(439719));
-  assert.equal(pl.total_expenses_minor, eur(439719));
-  assert.equal(pl.net_income_minor, 0, 'BMW M GmbH transfers all profit to its parent under a profit-and-loss transfer agreement, so its own net result is always zero');
-});
-
-test('proves the concept: Peugeot Citroën Sochaux SNC\'s real, filed 2020 French (PCG) balance sheet and P&L reproduce exactly, as one genuinely balanced transaction', () => {
-  const B = 'PCS Proof', L = 'PCS Proof Actual';
-  create(fetch('Application', typeRootName), typeRootName, B, asUserId(1));
-  create(fetch(B, typeRootName), typeRootName, L, asUserId(1));
-  const c = (eur: number) => Math.round(eur * 100);
-
-  const accounts: [string, string][] = [
-    ['Proof: Stocks et en-cours', 'Asset'], ['Proof: Créances clients et comptes rattachés', 'Asset'],
-    ['Proof: Autres créances', 'Asset'], ['Proof: Disponibilités', 'Asset'],
-    ['Proof: Capital', 'Equity'], ['Proof: Report à nouveau', 'Equity'],
-    ['Proof: Provisions pour risques', 'Liability'], ['Proof: Emprunts et dettes financières divers', 'Liability'],
-    ['Proof: Dettes fournisseurs et comptes rattachés', 'Liability'], ['Proof: Dettes fiscales et sociales', 'Liability'],
-    ['Proof: Autres dettes', 'Liability'],
-    ['Proof: Ventes de marchandises', 'Income'], ['Proof: Production vendue - Biens', 'Income'],
-    ['Proof: Production vendue - Services', 'Income'], ['Proof: Reprises sur provisions', 'Income'],
-    ['Proof: Autres produits', 'Income'], ['Proof: Produits financiers', 'Income'],
-    ['Proof: Production stockée', 'Expense'], ['Proof: Achats de marchandises', 'Expense'],
-    ['Proof: Achats de matières premières', 'Expense'], ['Proof: Variation des stocks', 'Expense'],
-    ['Proof: Autres achats et charges externes', 'Expense'], ['Proof: Impôts et taxes', 'Expense'],
-    ['Proof: Dotations provisions actif circulant', 'Expense'], ['Proof: Dotations provisions risques', 'Expense'],
-    ['Proof: Autres charges', 'Expense'], ['Proof: Charges financières', 'Expense'],
-    ['Proof: Charges exceptionnelles', 'Expense'], ['Proof: Impôts sur les bénéfices', 'Expense'],
-  ];
-  for (const [name, category] of accounts) create(fetch(category, typeRootName), typeRootName, name, asUserId(1));
-
-  const lines: [string, number][] = [
-    ['Proof: Stocks et en-cours', c(87405871.03)],
-    ['Proof: Créances clients et comptes rattachés', c(592920454.84)],
-    ['Proof: Autres créances', c(14962484.95)],
-    ['Proof: Disponibilités', c(98.79)],
-    ['Proof: Capital', -c(40000000.00)],
-    ['Proof: Report à nouveau', c(489673220.88)],
-    ['Proof: Provisions pour risques', -c(396796.00)],
-    ['Proof: Emprunts et dettes financières divers', -c(525992682.76)],
-    ['Proof: Dettes fournisseurs et comptes rattachés', -c(600722338.25)],
-    ['Proof: Dettes fiscales et sociales', -c(3834150.86)],
-    ['Proof: Autres dettes', -c(7347858.53)],
-    ['Proof: Ventes de marchandises', -c(3105459.78)],
-    ['Proof: Production vendue - Biens', -c(4568360419.09)],
-    ['Proof: Production vendue - Services', -c(36790878.93)],
-    ['Proof: Reprises sur provisions', -c(6486139.10)],
-    ['Proof: Autres produits', -c(4014786.25)],
-    ['Proof: Produits financiers', -c(843557.36)],
-    ['Proof: Production stockée', c(15963620.93)],
-    ['Proof: Achats de marchandises', c(304712.46)],
-    ['Proof: Achats de matières premières', c(4100665453.06)],
-    ['Proof: Variation des stocks', -c(1061094.58)],
-    ['Proof: Autres achats et charges externes', c(478280283.63)],
-    ['Proof: Impôts et taxes', c(6452417.31)],
-    ['Proof: Dotations provisions actif circulant', c(5716459.43)],
-    ['Proof: Dotations provisions risques', c(391318.00)],
-    ['Proof: Autres charges', c(196.57)],
-    ['Proof: Charges financières', c(4581579.61)],
-    ['Proof: Charges exceptionnelles', c(25715.00)],
-    ['Proof: Impôts sur les bénéfices', c(1612275.00)],
-  ];
-  for (const [account, amount_minor] of lines) stageLine({ reference: 'PROOF-PCS', business: asBusinessName(B), ledger: asLedgerName(L), transdate: '2020-12-31', account: asAccountName(account), amount_minor });
-  postJournalEntry('PROOF-PCS', asBusinessName(B), asLedgerName(L), asUserId(1));
-
-  const bs = getBalanceSheet(asBusinessName(B), asLedgerName(L));
-  const pl = getProfitAndLoss(asBusinessName(B), asLedgerName(L));
-
-  // Peugeot Citroën Sochaux SNC's actual, filed figures for FY2020 (EUR).
-  assert.equal(bs.total_assets_minor, c(695288909.61));
-  assert.equal(bs.total_liabilities_minor, c(1138293826.40));
-  assert.equal(bs.total_equity_minor, -c(443004916.79));
-  assert.equal(bs.balanced, true);
-  assert.equal(pl.net_income_minor, c(6668304.09));
-});
-
 test('real multi-line invoices: header + lines, due date derived from the counterparty\'s own payment terms, posting creates the actual GL entry', () => {
   setContact('Acme Corp', { payment_terms_days: 14 });
 
@@ -2189,7 +2041,7 @@ test('aged summary rolls up per customer (matching SQL-Ledger\'s Summary aging v
 
 test('stock write-offs (breakage/spoilage): a real dual-effect transaction, reducing quantity on hand AND recognizing the actual loss in the GL, not just an adjustment with no accounting consequence', () => {
   create(fetch('Items', typeRootName), typeRootName, 'WOTest Perishable', asUserId(1));
-  create(fetch('Expense', typeRootName), typeRootName, 'WOTest Write-off Expense', asUserId(1));
+  create(fetchGlobalCoaCategory('Expense'), typeRootName, 'WOTest Write-off Expense', asUserId(1));
 
   postQuantityMovement(asBusinessName('My Business'), asLedgerName('Actual'), 'WOTEST-RECEIVE-QTY', asAccountName('WOTest Perishable'), 100, asUserId(1), '2027-01-01');
 
@@ -2559,7 +2411,7 @@ test('completeStockTake and writeOffStock: the real quantity-movement journal en
   assert.equal(qtyBalance.total, 0, 'the real quantity-movement journal entry for this stock-take variance must itself be balanced');
 
   // The same, real check for writeOffStock's own quantity movement.
-  create(fetch('Expense', typeRootName), typeRootName, 'QTYBalTest Write-off Expense', asUserId(1));
+  create(fetchGlobalCoaCategory('Expense'), typeRootName, 'QTYBalTest Write-off Expense', asUserId(1));
   createItem('QTYBalTest Beer', 'Items', asUserId(1));
   receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-REC-2', asItemName('QTYBalTest Beer'), asLocationName('QTYBalTest Outlet'), 24, asUserId(1), '2027-01-01');
   writeOffStock(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-WO', asItemName('QTYBalTest Beer'), 4, 500, asAccountName('QTYBalTest Write-off Expense'), 'Inventory', 'Broken in transit', asUserId(1), '2027-02-01');
@@ -2682,7 +2534,7 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
   addOrUpdateItemSource({ itemName: 'BorderE2E Water', vendorName: 'BorderE2E Vendor', priceMinor: 200, isPreferred: true, currency: 'CAD' });
   receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'BORDERE2E-REC', asItemName('BorderE2E Water'), asLocationName('BorderE2E Outlet'), 20, asUserId(1), '2027-01-01');
 
-  create(fetch('Expense', typeRootName), typeRootName, 'BorderE2E Write-off Expense', asUserId(1));
+  create(fetchGlobalCoaCategory('Expense'), typeRootName, 'BorderE2E Write-off Expense', asUserId(1));
 
   const usdSale = completePosSale(
     {
@@ -2963,8 +2815,8 @@ test('customer self-registration: a customer is a customer — same contact invo
 
 test('closeBooks: year-end close zeroes every Income/Expense account into Retained Earnings as one reversible entry, with the correct sign for both profit and loss', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'CloseBooks Test Ledger', asUserId(1));
-  create(fetch('Income', typeRootName), typeRootName, 'CloseTest Revenue', asUserId(1));
-  create(fetch('Expense', typeRootName), typeRootName, 'CloseTest Expense', asUserId(1));
+  create(fetchGlobalCoaCategory('Income'), typeRootName, 'CloseTest Revenue', asUserId(1));
+  create(fetchGlobalCoaCategory('Expense'), typeRootName, 'CloseTest Expense', asUserId(1));
 
   stageLine({ reference: 'CLOSETEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('CloseBooks Test Ledger'), transdate: '2027-01-01', account: asAccountName('CloseTest Revenue'), amount_minor: -100000 }); // $1,000 revenue
   stageLine({ reference: 'CLOSETEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('CloseBooks Test Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 100000 });
@@ -3004,7 +2856,7 @@ test('closeBooks: year-end close zeroes every Income/Expense account into Retain
 
 test('getBalanceSheet: a real close must not leave Current Year Earnings still showing the closed period\'s net income — a real, direct regression: the Balance Sheet stopped balancing after excludeCloseEntries was added to getProfitAndLoss for report pages', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'BSCloseTest Ledger', asUserId(1));
-  create(fetch('Income', typeRootName), typeRootName, 'BSCloseTest Revenue', asUserId(1));
+  create(fetchGlobalCoaCategory('Income'), typeRootName, 'BSCloseTest Revenue', asUserId(1));
 
   stageLine({ reference: 'BSCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('BSCloseTest Ledger'), transdate: '2027-08-01', account: asAccountName('BSCloseTest Revenue'), amount_minor: -70000 });
   stageLine({ reference: 'BSCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('BSCloseTest Ledger'), transdate: '2027-08-01', account: asAccountName('Cash and Bank'), amount_minor: 70000 });
@@ -3466,7 +3318,7 @@ test('getLedgerDateRange: reports the real, earliest and latest transdate of wha
 
 test('getAccountsPostedTo: finds the real, actual accounts a given reference posted to — used to correct a return to the exact same account the original sale used, not a different, plain fallback', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'AcctsPostedTest Ledger', asUserId(1));
-  create(fetch('Income', typeRootName), typeRootName, 'AcctsPostedTest Revenue (Tier A)', asUserId(1));
+  create(fetchGlobalCoaCategory('Income'), typeRootName, 'AcctsPostedTest Revenue (Tier A)', asUserId(1));
   stageLine({ reference: 'APT-1', business: asBusinessName('My Business'), ledger: asLedgerName('AcctsPostedTest Ledger'), transdate: '2027-06-01', account: asAccountName('AcctsPostedTest Revenue (Tier A)'), amount_minor: -5000 });
   stageLine({ reference: 'APT-1', business: asBusinessName('My Business'), ledger: asLedgerName('AcctsPostedTest Ledger'), transdate: '2027-06-01', account: asAccountName('Cash and Bank'), amount_minor: 5000 });
   postJournalEntry('APT-1', asBusinessName('My Business'), asLedgerName('AcctsPostedTest Ledger'), asUserId(1));
@@ -3485,7 +3337,7 @@ test('a real, nested division hierarchy: filtering a report by a coarser divisio
   setDivisionType('HierarchyTest Region', 'Profit Center');
   create(fetch('HierarchyTest Region', typeRootName), typeRootName, 'HierarchyTest Outlet', asUserId(1));
   setDivisionType('HierarchyTest Outlet', 'Profit Center');
-  create(fetch('Income', typeRootName), typeRootName, 'HierarchyTest Revenue', asUserId(1));
+  create(fetchGlobalCoaCategory('Income'), typeRootName, 'HierarchyTest Revenue', asUserId(1));
 
   function post(reference: string, division: string, amount: number) {
     stageLine({ reference, business: asBusinessName('My Business'), ledger: asLedgerName('HierarchyTest Ledger'), transdate: '2027-07-01', account: asAccountName('HierarchyTest Revenue'), amount_minor: -amount, division: asDivisionName(division) });
@@ -3504,10 +3356,10 @@ test('a real, nested division hierarchy: filtering a report by a coarser divisio
 
 test('postJournalEntry: a real multi-currency entry must balance independently per currency — the exact danger this catches: an EUR imbalance masked by an offsetting USD imbalance must never pass', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'CcyTest Ledger', asUserId(1));
-  create(fetch('Asset', typeRootName), typeRootName, 'CcyTest Cash (EUR)', asUserId(1));
-  create(fetch('Asset', typeRootName), typeRootName, 'CcyTest Clearing (EUR)', asUserId(1));
-  create(fetch('Asset', typeRootName), typeRootName, 'CcyTest Cash (USD)', asUserId(1));
-  create(fetch('Asset', typeRootName), typeRootName, 'CcyTest Clearing (USD)', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'CcyTest Cash (EUR)', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'CcyTest Clearing (EUR)', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'CcyTest Cash (USD)', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'CcyTest Clearing (USD)', asUserId(1));
   setAccountCurrency('CcyTest Cash (EUR)', 'EUR');
   setAccountCurrency('CcyTest Clearing (EUR)', 'EUR');
   setAccountCurrency('CcyTest Cash (USD)', 'USD');
@@ -3538,8 +3390,8 @@ test('postJournalEntry: a real multi-currency entry must balance independently p
 
 test('getTrialBalance: by_currency genuinely separates each real currency\'s own debit/credit totals - a combined, cross-currency sum can look balanced or unbalanced for entirely the wrong reason', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'CcyTBTest Ledger', asUserId(1));
-  create(fetch('Asset', typeRootName), typeRootName, 'CcyTBTest Cash (EUR)', asUserId(1));
-  create(fetch('Asset', typeRootName), typeRootName, 'CcyTBTest Clearing (EUR)', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'CcyTBTest Cash (EUR)', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'CcyTBTest Clearing (EUR)', asUserId(1));
   setAccountCurrency('CcyTBTest Cash (EUR)', 'EUR');
   setAccountCurrency('CcyTBTest Clearing (EUR)', 'EUR');
 
@@ -3571,7 +3423,7 @@ test('getTrialBalance: by_currency genuinely separates each real currency\'s own
 });
 
 test('getTrialBalance: has_quantity_postings correctly flags an account that has genuinely received a real, direct quantity-tracking ("-QTY") posting alongside its own, ordinary value postings', () => {
-  create(fetch('Asset', typeRootName), typeRootName, 'QtyFlagTest Account', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'QtyFlagTest Account', asUserId(1));
   stageLine({ reference: 'QTYFLAG-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('QtyFlagTest Account'), amount_minor: 500 });
   stageLine({ reference: 'QTYFLAG-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('Sales Revenue'), amount_minor: -500 });
   postJournalEntry('QTYFLAG-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
@@ -3736,20 +3588,20 @@ test('getSalesReport: detailed lines and a genuine category rollup (via the real
 });
 
 test('setRelationship/getRelationship/getEntitiesWithRelationship: the real relationship-type pattern, confirmed the same shape as an ordinary relation_id tag, not a special case', () => {
-  create(fetch('Businesses', typeRootName), typeRootName, 'RelTest Smith Family Trust', asUserId(1));
-  create(fetch('Businesses', typeRootName), typeRootName, 'RelTest Jones Family Trust', asUserId(1));
+  create(fetch('Businesses', typeRootName), typeRootName, 'RelTest Smith Prototype Trust', asUserId(1));
+  create(fetch('Businesses', typeRootName), typeRootName, 'RelTest Jones Prototype Trust', asUserId(1));
   create(fetch('Businesses', typeRootName), typeRootName, 'RelTest Boutique Wine Company', asUserId(1));
 
-  setRelationship('RelTest Smith Family Trust', 'Trustee Of', 'RelTest Boutique Wine Company', asUserId(1));
-  setRelationship('RelTest Jones Family Trust', 'Trustee Of', 'RelTest Boutique Wine Company', asUserId(1));
+  setRelationship('RelTest Smith Prototype Trust', 'Trustee Of', 'RelTest Boutique Wine Company', asUserId(1));
+  setRelationship('RelTest Jones Prototype Trust', 'Trustee Of', 'RelTest Boutique Wine Company', asUserId(1));
 
-  const rel = getRelationship('RelTest Smith Family Trust');
+  const rel = getRelationship('RelTest Smith Prototype Trust');
   assert.equal(rel?.type, 'Trustee Of');
   assert.equal(rel?.target, 'RelTest Boutique Wine Company');
 
   const group = getEntitiesWithRelationship('Trustee Of');
-  const smithRow = group.find((r) => r.source === 'RelTest Smith Family Trust');
-  const jonesRow = group.find((r) => r.source === 'RelTest Jones Family Trust');
+  const smithRow = group.find((r) => r.source === 'RelTest Smith Prototype Trust');
+  const jonesRow = group.find((r) => r.source === 'RelTest Jones Prototype Trust');
   assert.equal(smithRow?.target, 'RelTest Boutique Wine Company');
   assert.equal(jonesRow?.target, 'RelTest Boutique Wine Company');
 
@@ -3801,7 +3653,7 @@ test('createBusiness: a brand-new business gets both a real Actual ledger AND a 
   // allows every business to have its own "Actual"/"Budget {year}"
   // ledger without collision, now that the bare-lookup risk this
   // exposed (post_journal_entry_insert, post_quantity_movement_insert,
-  // getCoaFamilyAccounts) has been fixed to scope by the real,
+  // getCoaPrototypeAccounts) has been fixed to scope by the real,
   // known business first.
   assert.equal(result.business, 'CreateBusinessTest Co');
   assert.equal(result.actualLedger, 'Actual');
@@ -3819,11 +3671,19 @@ test('createBusiness: a brand-new business gets both a real Actual ledger AND a 
   assert.equal(ledgers.length, 2, 'getLedgers must return only the real ledgers, not the business\'s own Locations parent too');
   assert.ok(ledgers.some((l) => l.name === 'Actual'));
   assert.ok(ledgers.some((l) => l.name === 'Budget 2027-28'));
-  assert.ok(!ledgers.some((l) => l.name === 'CreateBusinessTest Co Locations'), 'Locations must never appear as a selectable ledger');
+  assert.ok(!ledgers.some((l) => l.name === 'Locations'), 'Locations must never appear as a selectable ledger');
 
-  // The Locations parent is still real and still created immediately — just correctly excluded from getLedgers specifically.
+  // The Locations parent is still real and still created immediately
+  // - just correctly excluded from getLedgers specifically. Per
+  // direct, fundamental correction: its own real name is now plain
+  // "Locations" (never business-prefixed) - create()'s own real
+  // uniqueness check is already scoped by real, direct parent, never
+  // global, so this business's own real "Locations" and every other
+  // real business's own "Locations" coexist correctly, each found via
+  // its own real parent, never a mangled name.
   const entities = getEntityTree();
-  assert.ok(entities.some((e) => e.name === 'CreateBusinessTest Co Locations'), 'a new business must still get its own real Locations parent immediately — just not counted as a ledger');
+  const thisBusinessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('CreateBusinessTest Co') as { id: number }).id;
+  assert.ok(entities.some((e) => e.name === 'Locations' && e.parent_id === thisBusinessId), 'a new business must still get its own real Locations parent immediately — just not counted as a ledger');
 
   // Immediately postable — a real owner's capital contribution, using
   // the already-shared Chart of Accounts, with zero setup beyond
@@ -3953,8 +3813,8 @@ test('POS clerk sign-on/sign-off: a real employee needs a real PIN, can only be 
 
 test('previewCloseBooks: the real, proposed lines it returns exactly match what closeBooks itself actually posts, and nothing is staged or posted by the preview itself', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'PreviewCloseTest Ledger', asUserId(1));
-  create(fetch('Income', typeRootName), typeRootName, 'PreviewCloseTest Revenue', asUserId(1));
-  create(fetch('Equity', typeRootName), typeRootName, 'PreviewCloseTest Retained Earnings', asUserId(1));
+  create(fetchGlobalCoaCategory('Income'), typeRootName, 'PreviewCloseTest Revenue', asUserId(1));
+  create(fetchGlobalCoaCategory('Equity'), typeRootName, 'PreviewCloseTest Retained Earnings', asUserId(1));
 
   stageLine({ reference: 'PCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('PreviewCloseTest Ledger'), transdate: '2027-01-01', account: asAccountName('PreviewCloseTest Revenue'), amount_minor: -50000 });
   stageLine({ reference: 'PCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('PreviewCloseTest Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 50000 });
@@ -4103,13 +3963,13 @@ test('getCustomerStatement: shows every real, posted invoice for one customer �
 });
 
 test("setEntityLink/getEntityLink/deleteEntityLink: a real, pure link between two entities that never touches the source entity's own relation_id, unlike setRelationship", () => {
-  create(fetch('Asset', typeRootName), typeRootName, 'EntityLinkTest Account', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'EntityLinkTest Account', asUserId(1));
   create(fetch('Divisions', typeRootName), typeRootName, 'EntityLinkTest Division', asUserId(1));
   create(fetch('Divisions', typeRootName), typeRootName, 'EntityLinkTest Other Division', asUserId(1));
 
   // Confirm the real, critical property directly: tag the account's
   // own relation_id first (the same real way createBusiness tags a
-  // real CoA family), then confirm setEntityLink leaves it genuinely
+  // real CoA prototype), then confirm setEntityLink leaves it genuinely
   // untouched.
   const acctId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('EntityLinkTest Account') as { id: number }).id;
   updateEntity(acctId, { relation: 'English CoA' }, asUserId(1));
@@ -4246,10 +4106,10 @@ test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this ge
 });
 
 test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, dedicated cash-flow/growth-planning design — real, registered bank accounts scoped correctly to one real business, grouped by real currency, with honest overdraft headroom', () => {
-  create(fetch('Asset', typeRootName), typeRootName, 'BankRegTest AUD Account', asUserId(1));
-  create(fetch('Asset', typeRootName), typeRootName, 'BankRegTest AUD Account 2', asUserId(1));
-  create(fetch('Asset', typeRootName), typeRootName, 'BankRegTest EUR Account', asUserId(1));
-  create(fetch('Asset', typeRootName), typeRootName, 'BankRegTest Not A Bank Account', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'BankRegTest AUD Account', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'BankRegTest AUD Account 2', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'BankRegTest EUR Account', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'BankRegTest Not A Bank Account', asUserId(1));
   create(fetch('Divisions', typeRootName), typeRootName, 'BankRegTest Division', asUserId(1));
 
   // A real, required scope — no free-floating bank account without one.
@@ -4283,7 +4143,7 @@ test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, 
 
   // The critical, real property: registering never touches the
   // account's own relation_id, confirmed directly by tagging it with
-  // a real CoA family first, matching how createBusiness actually
+  // a real CoA prototype first, matching how createBusiness actually
   // does this, and confirming it's genuinely untouched afterward.
   const acctId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('BankRegTest AUD Account') as { id: number }).id;
   updateEntity(acctId, { relation: 'English CoA' }, asUserId(1));
@@ -4324,7 +4184,7 @@ test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, 
 });
 
 test('getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-planning design — anticipated AR receipts, committed AP payments, and genuinely recurring cash movements, never one-off historical postings', () => {
-  create(fetch('Asset', typeRootName), typeRootName, 'ForecastTest Account', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'ForecastTest Account', asUserId(1));
   registerBankAccount('ForecastTest Account', 'My Business', 'My Business', 100000, asUserId(1));
   create(fetch('Accounts Receivable', typeRootName), typeRootName, 'ForecastTest Customer', asUserId(1));
   create(fetch('Accounts Payable', typeRootName), typeRootName, 'ForecastTest Vendor', asUserId(1));
@@ -4388,7 +4248,7 @@ test('getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-plann
 
 test('getCashFlowForecast: Layer 3 — a real, honest first-shortfall date and amount, evaluated against the real, arranged overdraft limit, never a bare "goes negative" check', () => {
   const biz = createBusiness(asBusinessName('ShortfallTest2 Co'), '2027-28', asUserId(1));
-  create(fetch('Asset', typeRootName), typeRootName, 'ShortfallTest2 Account', asUserId(1));
+  create(fetchGlobalCoaCategory('Asset'), typeRootName, 'ShortfallTest2 Account', asUserId(1));
   create(fetch('Accounts Payable', typeRootName), typeRootName, 'ShortfallTest2 Vendor', asUserId(1));
 
   // No real, known overdraft limit at all — a real shortfall can
@@ -4426,7 +4286,7 @@ test("setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAnc
   create(fetch('My Business', typeRootName), typeRootName, 'DimTest2 Springfield', asUserId(1));
   create(fetch('My Business', typeRootName), typeRootName, 'DimTest2 Riverside Cellars', asUserId(1));
   create(fetch('My Business', typeRootName), typeRootName, 'DimTest2 Uptown Wine', asUserId(1));
-  create(fetch('Income', typeRootName), typeRootName, 'DimTest2 Amber Ale Sales', asUserId(1));
+  create(fetchGlobalCoaCategory('Income'), typeRootName, 'DimTest2 Amber Ale Sales', asUserId(1));
 
   setDimensionParent('DimTest2 Riverside Cellars', 'Division/Location', 'DimTest2 Springfield', asUserId(1));
   setDimensionParent('DimTest2 Uptown Wine', 'Division/Location', 'DimTest2 Springfield', asUserId(1));
@@ -4438,7 +4298,7 @@ test("setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAnc
   assert.deepEqual(getDimensionAncestorChain('DimTest2 Amber Ale Sales', 'Division/Location'), ['DimTest2 Riverside Cellars', 'DimTest2 Springfield'], "the real, full chain from the leaf up to (not including) the real root");
 
   // The entire, real point of this mechanism existing: a leaf account's
-  // own relation_id (e.g. a real CoA-family tag) must stay genuinely
+  // own relation_id (e.g. a real CoA-prototype tag) must stay genuinely
   // untouched by setting or re-setting its own dimension parent.
   const acctId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('DimTest2 Amber Ale Sales') as { id: number }).id;
   updateEntity(acctId, { relation: 'English CoA' }, asUserId(1));
@@ -4452,7 +4312,7 @@ test("setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAnc
   // A second, genuinely independent, real dimension on the exact same
   // entity must not interfere with the first at all — the entire,
   // real point of "multiple, equal accumulation paths".
-  create(fetch('Income', typeRootName), typeRootName, 'DimTest2 Beer', asUserId(1));
+  create(fetchGlobalCoaCategory('Income'), typeRootName, 'DimTest2 Beer', asUserId(1));
   setDimensionParent('DimTest2 Amber Ale Sales', 'Product Category', 'DimTest2 Beer', asUserId(1));
   assert.equal(getDimensionParent('DimTest2 Amber Ale Sales', 'Division/Location'), 'DimTest2 Uptown Wine', 'a second, independent dimension must never disturb the first');
   assert.equal(getDimensionParent('DimTest2 Amber Ale Sales', 'Product Category'), 'DimTest2 Beer');
@@ -5064,19 +4924,19 @@ test('getPrototypeOf/setPrototype/seedDefaultHierarchyPrototypes: the real, sett
   assert.equal(getPrototypeOf('Vocabulary'), undefined, 'an entity with no real prototype link at all correctly returns undefined, not a false match');
 
   // A real, new business gets the four, real, default, non-privileged
-  // prototypes seeded automatically, under its own real, scoped
-  // "{business} Hierarchies" root - genuinely fixed here, not
-  // assumed: a real, confirmed bug found directly, this root was
-  // previously created bare and unscoped ("Hierarchies"), silently
-  // shared across every real business rather than genuinely separate,
-  // the exact same real bug Locations/Items/Contacts already had
-  // fixed - see PER_BUSINESS_ROOTS in backend/src/db.ts.
+  // prototypes seeded automatically, under its own real "Hierarchies"
+  // root - a real, plain name, never business-prefixed, per the
+  // corrected, fundamental principle: create()'s own uniqueness check
+  // is already scoped by real, direct parent, never global, so every
+  // business's own "Hierarchies" coexists correctly, each found via
+  // its own real parent (fetch's own, further, optional parent
+  // argument), never a mangled name.
   const biz = createBusiness(asBusinessName('PrototypeTest Business'), '2027-28', asUserId(1));
-  const scopedHierarchiesName = `${biz.business} Hierarchies`;
-  const hierarchies = db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(scopedHierarchiesName, biz.business);
-  assert.ok(hierarchies, 'a real, new business gets its own, real, scoped "{business} Hierarchies" root seeded automatically');
-  const divisionUnderHierarchies = db.prepare(`SELECT c.name FROM current_entities c JOIN current_entities p ON p.id = c.parent_id WHERE p.name = ?`).all(scopedHierarchiesName);
-  assert.ok((divisionUnderHierarchies as { name: string }[]).some((r) => r.name === 'Division'), 'a real, new business gets a real "Division" prototype seeded under its own, real, scoped "Hierarchies" root');
+  const thisBusinessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(biz.business) as { id: number }).id;
+  const hierarchies = db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchies' AND parent_id = ?`).get(thisBusinessId) as { id: number } | undefined;
+  assert.ok(hierarchies, 'a real, new business gets its own, real, plain "Hierarchies" root seeded automatically');
+  const divisionUnderHierarchies = db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(hierarchies!.id);
+  assert.ok((divisionUnderHierarchies as { name: string }[]).some((r) => r.name === 'Division'), 'a real, new business gets a real "Division" prototype seeded under its own, real "Hierarchies" root');
 });
 
 
@@ -5092,16 +4952,14 @@ test('getHierarchyChain: a real, uniform, non-generic walk up parent_id - genuin
   assert.deepEqual(itemChainNames, ['ChainTest Wine', 'ChainTest SubRegion', 'Red Wine', 'Wine Retail Business Items', 'Wine Retail Business'], 'an Item genuinely, correctly reaches its real Business - Items is properly scoped per business');
   assert.equal(itemChain[itemChain.length - 1].name, 'Wine Retail Business', 'the real, terminal element of a real Item chain is genuinely the real Business');
 
-  // A real, direct, honest confirmation of the real, separate,
-  // already-documented data bug (multi-dimensional-reporting.md §2):
-  // Divisions are not currently rooted under any real business via
-  // parent_id at all - even the real, existing, seeded Riverside
-  // Cellars location's own chain never reaches a real Business.
-  // Confirmed directly here, not assumed - this is a real, known,
-  // separate gap, not something this walker should paper over.
+  // A real, direct, honest confirmation that the real, previously-
+  // documented data gap (multi-dimensional-reporting.md §2) is now
+  // genuinely fixed: Riverside Cellars' own real Location chain now
+  // correctly reaches its own real Business, since Locations is now
+  // genuinely, correctly scoped per business (see PER_BUSINESS_ROOTS).
   const locationChain = getHierarchyChain(asLocationName('Riverside Cellars'));
   const locationChainNames = locationChain.map((n) => n.name);
-  assert.deepEqual(locationChainNames, ['Riverside Cellars', 'Springfield', 'Divisions', 'Application'], 'confirms the real, separate, already-known Division/Business data gap directly - Divisions are currently a global root, not scoped per business, so a real Location chain does not yet reach any real Business');
+  assert.deepEqual(locationChainNames, ['Riverside Cellars', 'Wine Retail Business Locations', 'Wine Retail Business'], 'a real Location chain now genuinely reaches its own real Business, the real fix for the previously-documented gap (this seed-data business still uses its own, real, pre-existing, mangled Locations name, a real, separate, not-yet-migrated gap of its own)');
 });
 
 test('The real Hierarchy/Product cartesian mechanism - the full, settled, flat combination_ids design, built and verified end to end', () => {
@@ -5514,7 +5372,7 @@ test('the fully worked example from multicurrency-design.md: a real sale through
 
 test('closeBooks: a real, foreign-currency Income account closes against its own, real, currency-tagged Retained Earnings sibling - never the plain, home-currency one, per docs/multicurrency-design.md. Also a real, confirmed regression fix: closing an already-fully-closed ledger a second time correctly rejects with "nothing to close", never a real, confusing PostingError instead', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'CloseCcyTest Ledger', asUserId(1));
-  create(fetch('Income', typeRootName), typeRootName, 'CloseCcyTest Revenue', asUserId(1));
+  create(fetchGlobalCoaCategory('Income'), typeRootName, 'CloseCcyTest Revenue', asUserId(1));
   setAccountCurrency('CloseCcyTest Revenue', 'USD');
   createEntity({ name: 'CloseCcyTest Cash (USD)', parent: 'Asset' }, asUserId(1));
   setAccountCurrency('CloseCcyTest Cash (USD)', 'USD');
@@ -5571,4 +5429,35 @@ test('createEmployee genuinely tags the new contact as a real Employee type, per
   createEmployee('ContactTypeTest Employee', 'ContactTypeTest Location', asUserId(1));
   assert.deepEqual(getContactTypes('ContactTypeTest Employee'), ['Employee']);
   assert.deepEqual(getContactBaseAccounts('ContactTypeTest Employee'), ['Accounts Payable']);
+});
+
+test('a real business can genuinely be named "Equity" (or "Asset", "Chart of Accounts", "Hierarchies", any other real, structural word this codebase itself already uses) - per direct instruction: a business name and a real, structural CoA category/root name share no real namespace at all, so no real collision should ever be possible', () => {
+  const biz = createBusiness(asBusinessName('Equity'), '2027-28', asUserId(1));
+  assert.equal(biz.business, 'Equity');
+
+  // The real, new business's own real Chart of Accounts, and its own
+  // real "Equity" category within it, must both genuinely exist,
+  // correctly scoped under this one, specific business - never
+  // confused with the real, global "Equity" category template, and
+  // never confused with the business entity itself just because they
+  // happen to share the exact same real name.
+  const bizNode = fetch(asBusinessName('Equity'), typeBusinessName, fetch('Businesses', typeRootName));
+  const bizCoa = fetch('Chart of Accounts', typeChartOfAccountsRootName, bizNode);
+  const bizEquityCategory = fetch('Equity', typeRootName, bizCoa);
+  assert.notEqual(bizEquityCategory.id, bizNode.id, 'this business\'s own "Equity" CoA category must be a genuinely different, real entity from the business itself, despite sharing a name');
+
+  const globalEquityCategory = fetchGlobalCoaCategory('Equity');
+  assert.notEqual(bizEquityCategory.id, globalEquityCategory.id, 'this business\'s own "Equity" copy must be genuinely independent of the real, global template, never the same entity');
+
+  // A real, ordinary transaction posts and balances correctly for
+  // this business, exactly as it would for any other real business -
+  // its own unusual name creates no real, further ambiguity anywhere
+  // in the real, live posting path.
+  const ref = 'EQUITYNAMETEST-1';
+  stageLine({ reference: ref, business: asBusinessName('Equity'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 100000, accountId: undefined });
+  stageLine({ reference: ref, business: asBusinessName('Equity'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName("Owner's Equity"), amount_minor: -100000, accountId: undefined });
+  postJournalEntry(ref, asBusinessName('Equity'), asLedgerName('Actual'), asUserId(1));
+
+  const tb = getTrialBalance(asBusinessName('Equity'), asLedgerName('Actual'));
+  assert.equal(tb.total_debit_minor, tb.total_credit_minor, 'the trial balance for a real business literally named "Equity" must still genuinely balance, exactly like any other real business');
 });

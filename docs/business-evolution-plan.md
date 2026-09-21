@@ -33,7 +33,7 @@ taxed on it.
 
 **What this exercises that today's simulation doesn't**:
 - A genuinely tiny Chart of Accounts — this is the moment to prove the
-  CoA-family mechanism (see `docs/glossary.md`'s "CoA family" entry)
+  CoA-prototype mechanism (see `docs/glossary.md`'s "CoA prototype" entry)
   scales *down* as well as up: a sole trader needs perhaps 15 real
   accounts, not the 150+ Wine Retail Business already has.
 - Real "Drawings" as its own, distinct equity-contra account, not

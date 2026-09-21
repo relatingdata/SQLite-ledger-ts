@@ -86,7 +86,7 @@ The real, direct finding: this app's own English glossary already, honestly docu
 
 : The ambiguity of English words
 
-Worth a real, direct aside here too: "Part" and "Product" aren't the only, real, nearby words a business might reach for. A manufacturer talks about a **raw product** (bought in, not yet changed) becoming a **finished product** (through **assembly**, or some other real, direct transformation) before it's ever sold; a retailer more often just says **sales product**, or plainer still, **sales merchandise** — stock bought specifically to be sold on, not transformed at all. None of these are separate, real concepts in this application's own, underlying structure — a real product category, and a real Chart of Accounts family, already accommodate every one of these real, different business shapes without needing a separate word baked in for each — but a glossary that only ever said "Part = Product" would leave a genuinely manufacturing-minded reader wondering where their own, familiar vocabulary fits.
+Worth a real, direct aside here too: "Part" and "Product" aren't the only, real, nearby words a business might reach for. A manufacturer talks about a **raw product** (bought in, not yet changed) becoming a **finished product** (through **assembly**, or some other real, direct transformation) before it's ever sold; a retailer more often just says **sales product**, or plainer still, **sales merchandise** — stock bought specifically to be sold on, not transformed at all. None of these are separate, real concepts in this application's own, underlying structure — a real product category, and a real Chart of Accounts prototype, already accommodate every one of these real, different business shapes without needing a separate word baked in for each — but a glossary that only ever said "Part = Product" would leave a genuinely manufacturing-minded reader wondering where their own, familiar vocabulary fits.
 
 Checking German, French, Danish, and Italian directly, one at a time, against this same list: none of the other four languages carry this same, real problem. Each already has one, single, standard word for each of these concepts — German's own "Lieferant," French's own "Fournisseur," Danish's own "Leverandør," Italian's own "Fornitore," with no real, competing second term the way English genuinely has "Vendor" *and* "Supplier." The real synonym problem, it turns out, is specifically an English one — a useful, honest thing to know, since it means the real work ahead is narrower than "review every language equally," and can focus where the real ambiguity actually lives.
 
@@ -146,13 +146,13 @@ Everything an administrator needs to set a business up lives under **Configurati
 
 ## Creating a new business
 
-**New Business** creates a brand-new business and its first real ledger, ready to actually transact in immediately --- both a real Actual ledger for ongoing transactions and a real Budget ledger for the same financial year, since a new business genuinely needs both from day one. Only the five, top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business in the application --- the real, named accounts underneath them are country-specific families that already exist. Choosing which existing family most closely matches a new business's own country or jurisdiction doesn't create anything new; it simply shows which real accounts already exist to post to.
+**New Business** creates a brand-new business and its first real ledger, ready to actually transact in immediately --- both a real Actual ledger for ongoing transactions and a real Budget ledger for the same financial year, since a new business genuinely needs both from day one. Only the five, top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business in the application --- the real, named accounts underneath them are country-specific prototypes that already exist. Choosing which existing prototype most closely matches a new business's own country or jurisdiction doesn't create anything new; it simply shows which real accounts already exist to post to.
 
 Every business nominates one real **home currency** at creation --- the currency its own consolidated reports (Balance Sheet, Profit and Loss) are expressed in, and the currency assumed for any account, division, or location that hasn't nominated anything different for itself.
 
 **Accept additional currencies (cash only)**, further down the same screen, is for a business that genuinely expects to take real cash in another currency --- typically one operating near a national border. Most businesses skip this entirely. Each currency added here gets its own real cash account, ready to receive real, foreign-currency payments from the moment the business is created, without a further setup step.
 
-![Creating a new business, with a real Chart of Accounts family selected for reuse.](manual-images/m_new_business.png)
+![Creating a new business, with a real Chart of Accounts prototype selected for reuse.](manual-images/m_new_business.png)
 
 ## Business Setup --- divisions, locations, employees
 
@@ -279,7 +279,7 @@ Every session starts by logging in, then choosing which real business to work wi
 
 ## Creating the new business
 
-**New Business**, under Configuration, is where this tutorial's own business is created --- a real name, a real financial year, and which existing Chart of Accounts family most closely matches this business's own real country or jurisdiction.
+**New Business**, under Configuration, is where this tutorial's own business is created --- a real name, a real financial year, and which existing Chart of Accounts prototype most closely matches this business's own real country or jurisdiction.
 
 ![The New Business form, filled in for this tutorial's own business.](manual-images/t02_new_business_form.png)
 
@@ -337,7 +337,7 @@ Setting a real cost and a real selling price here doesn't itself create any Sale
 
 ## Posting the owner's initial cash deposit
 
-The owner's own real capital contribution is posted directly through the **General Journal**: a debit to the real cash/bank account matching the chosen Chart of Accounts family, credited to the matching real equity account. This is the same, real journal every other manual transaction in this application posts through.
+The owner's own real capital contribution is posted directly through the **General Journal**: a debit to the real cash/bank account matching the chosen Chart of Accounts prototype, credited to the matching real equity account. This is the same, real journal every other manual transaction in this application posts through.
 
 ![The General Journal, empty, ready for this tutorial's own first transaction.](manual-images/t14_general_journal_empty.png)
 
@@ -590,7 +590,7 @@ A real report: everything the business owns (**Assets**) must equal everything i
 
 ### Business
 
-A real, top-level entity representing one company or organization — has its own real Chart of Accounts leaves (see **CoA family**), its own **ledgers**, and its own **locations**.
+A real, top-level entity representing one company or organization — has its own real Chart of Accounts leaves (see **CoA prototype**), its own **ledgers**, and its own **locations**.
 
 ### Category (product category)
 
@@ -600,9 +600,9 @@ Any real entity under "Parts" that has at least one real child (whether that chi
 
 The real tree of every account a business can post to — Asset, Liability, Equity, Income, and Expense are the five, genuinely universal top-level categories every real business (in any country) groups its accounts into.
 
-### CoA family
+### CoA prototype
 
-A real, country-specific set of leaf accounts under the Chart of Accounts — confirmed directly, not assumed, that these are genuinely different entities, not just different display names: "Cash and Bank" (English/generic), "Bankkontokorrent" (German), "Banca c/c" (Italian), "Kasse" (Swiss) are all real, distinct accounts. A new business picks which real family to reuse rather than inventing a new one.
+A real, country-specific set of leaf accounts under the Chart of Accounts — confirmed directly, not assumed, that these are genuinely different entities, not just different display names: "Cash and Bank" (English/generic), "Bankkontokorrent" (German), "Banca c/c" (Italian), "Kasse" (Swiss) are all real, distinct accounts. A new business picks which real prototype to reuse rather than inventing a new one.
 
 ### Closed period
 

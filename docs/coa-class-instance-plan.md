@@ -7,10 +7,10 @@ entire Chart of Accounts beneath them are, today, a single, global
 tree every real business shares — confirmed directly, not assumed:
 `Accounts Receivable` exists as exactly one entity, `id=12`, and every
 real customer any business has ever created lives under that one,
-shared node. The existing "CoA family" mechanism (see
+shared node. The existing "CoA prototype" mechanism (see
 `docs/glossary.md`) already reflects half of the right idea — a
-business picks which real family (German/Italian/generic/...) to
-use — but a family today is a shared tag on one, single, global set of
+business picks which real prototype (German/Italian/generic/...) to
+use — but a prototype today is a shared tag on one, single, global set of
 leaf accounts, not a real, independent copy.
 
 ## The corrected model, using the classes/instances analogy directly
@@ -48,11 +48,11 @@ other real hierarchies ultimately hangs off of.
   not — matching real class/instance semantics, an instance, once
   made, is its own, independent, mutable copy, not a live reference
   back to its class.
-- How CoA-family selection at business-creation time maps onto
+- How CoA-prototype selection at business-creation time maps onto
   choosing a template class — likely a direct, natural fit for the
-  existing "which real family" UI already in place, requiring little
+  existing "which real prototype" UI already in place, requiring little
   or no change to the actual choosing experience, only to what happens
-  structurally once a family is chosen.
+  structurally once a prototype is chosen.
 - The real, concrete migration for every business that already exists
   today under the old, shared-tree model — each one needs its own,
   real, retroactive copy made, with every one of its own, real,

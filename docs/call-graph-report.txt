@@ -228,7 +228,7 @@
 10	getBomComponents
 10	getDefaultLanguage
 10	getMenuTree
-10	getCoaFamilyAccounts
+10	getCoaPrototypeAccounts
 10	stageApPayment
 10	postApPayment
 11	stageQuantityMovementLine

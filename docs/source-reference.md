@@ -806,13 +806,13 @@ getAllTranslations(languageName: string): Record<string, string>
 getTranslation(conceptName: string, languageName: string): string | null
 getBusinesses(): 
 getLedgers(businessName: BusinessName): 
-setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaFamily?: string, partnerNames?: string[]): void
+setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaPrototype?: string, partnerNames?: string[]): void
 getBusinessTypes(): BusinessTypeInfo[]
 saveBusinessTypeAnswers(businessName: BusinessName, answers: Record<string, string>, userId: UserId): void
-copyChartOfAccountsInto(destRootName: string, coaFamily: string | undefined, userId: UserId): void
-instantiateChartOfAccounts(businessName: BusinessName, coaFamily: string | undefined, userId: UserId): void
-createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaFamily?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[]): 
-getCoaFamilyAccounts(businessName: BusinessName, ledgerName: LedgerName): string[]
+copyChartOfAccountsInto(destRootName: string, coaPrototype: string | undefined, userId: UserId): void
+instantiateChartOfAccounts(businessName: BusinessName, coaPrototype: string | undefined, userId: UserId): void
+createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaPrototype?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[]): 
+getCoaPrototypeAccounts(businessName: BusinessName, ledgerName: LedgerName): string[]
 stageLine(line: StagedLine): void
 getStagedLines(reference: string, business: BusinessName, ledger: LedgerName): StagedLine[]
 createRecurringJournal(business: BusinessName, ledger: LedgerName, reference: string, startDate: string, recurrence: Recurrence, lines: RecurringJournalLine[], userId: UserId, description?: string, recurrenceCount?: number): void
@@ -2343,7 +2343,7 @@ type BomComponent = { component: string;
 - `saveBusinessTypeAnswers`
 - `getLedgers`
 - `createBusiness`
-- `getCoaFamilyAccounts`
+- `getCoaPrototypeAccounts`
 - `stageLine`
 - `getStagedLines`
 - `removeStagedLine`
@@ -2733,7 +2733,7 @@ See `docs/naming-conventions-and-entity-glossary.md` for what these two, real, d
 - `backend/src/auth.ts`: role.name; username
 - `backend/src/db-seed.ts`: 'COGS'; section.label; link.label
 - `backend/src/db-stock.ts`: location.location_type; 'Billing Address'; p.item_name; vendor; item
-- `backend/src/db.ts`: targetName; recordName; input.counterpartyName; line.itemName; locationName; h.day; s.day; type; prototypeName; targetName; input.vendorName; languageName; preferredAlternateName; preferredAlternateName; // conceptName; coaFamily; child.name; coaFamily; coaFamily
+- `backend/src/db.ts`: targetName; recordName; input.counterpartyName; line.itemName; locationName; h.day; s.day; type; prototypeName; targetName; input.vendorName; languageName; preferredAlternateName; preferredAlternateName; // conceptName; coaPrototype; child.name; coaPrototype; coaPrototype
 - `backend/src/primitives.ts`: target
 
 ## Reference Index
@@ -3051,12 +3051,12 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `confirmPickedLine` | `backend/src/db.ts` | (none) | `confirmPickedLine(invoiceId: number, invoiceLineId: number, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `confirmRestockPickedLine` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `confirmRestockPickedLine(runReference: string, itemName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `consumeFromLots` | `backend/src/db-stock.ts` | (none) | `consumeFromLots(itemName: ItemName, quantity: number): ` |
-| `copyChartOfAccountsInto` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `copyChartOfAccountsInto(destRootName: string, coaFamily: string \| undefined, userId: UserId): void` |
+| `copyChartOfAccountsInto` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `copyChartOfAccountsInto(destRootName: string, coaPrototype: string \| undefined, userId: UserId): void` |
 | `countInvoices` | `backend/src/db.ts` | (none) | `countInvoices(business: BusinessName, ledger: LedgerName, invoiceType?: 'AR' \| 'AP', source: 'manual' \| 'pos' \| 'all' = 'manual'): number` |
 | `countItems` | `backend/src/db.ts` | (none) | `countItems(): number` |
 | `countJournalEntries` | `backend/src/db.ts` | (none) | `countJournalEntries(business: BusinessName, ledger: LedgerName): number` |
 | `countStockListing` | `backend/src/db-stock.ts` | (none) | `countStockListing(): number` |
-| `createBusiness` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaFamily?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[]): ` |
+| `createBusiness` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaPrototype?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[]): ` |
 | `createDivisionType` | `backend/src/db.ts` | (none) | `createDivisionType(name: string, userId: UserId): void` |
 | `createEntity` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `createEntity(input: NewEntity, userId: UserId): EntityNode` |
 | `createInvoice` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `createInvoice(input: InvoiceInput, userId: UserId): number` |
@@ -3133,7 +3133,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `getCashFlowForecast` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getCashFlowForecast(business: BusinessName, ledger: LedgerName, asOfDate: string, horizonDays: number): CashFlowForecast` |
 | `getCashPosition` | `backend/src/db.ts` | `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `getCashPosition(business: BusinessName, ledger: LedgerName): CashPositionByCurrency[]` |
 | `getChartOfAccounts` | `backend/src/db-reports.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `getChartOfAccounts(): ChartRow[]` |
-| `getCoaFamilyAccounts` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getCoaFamilyAccounts(businessName: BusinessName, ledgerName: LedgerName): string[]` |
+| `getCoaPrototypeAccounts` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getCoaPrototypeAccounts(businessName: BusinessName, ledgerName: LedgerName): string[]` |
 | `getCombinationByUpc` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getCombinationByUpc(upc: string): ` |
 | `getCombinationDisplayName` | `backend/src/db.ts` | `backend/src/db-reports.ts` | `getCombinationDisplayName(entityId: number): string` |
 | `getConceptsWithAlternates` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getConceptsWithAlternates(): ConceptWithAlternates[]` |
@@ -3233,7 +3233,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `hasRole` | `frontend/src/lib/auth.ts` | `frontend/src/lib/state.svelte.ts` | `hasRole(state: AuthState \| null, ...roles: string[]): boolean` |
 | `hasRole` | `frontend/src/lib/state.svelte.ts` | `frontend/src/lib/auth.ts` | `hasRole(state: AuthState \| null, ...roles: string[]): boolean` |
 | `importUblInvoiceAsDraft` | `backend/src/db.ts` | (none) | `importUblInvoiceAsDraft(xml: string, business: BusinessName, ledger: LedgerName, vendorName: string, userId: UserId, poReference?: string): ` |
-| `instantiateChartOfAccounts` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `instantiateChartOfAccounts(businessName: BusinessName, coaFamily: string \| undefined, userId: UserId): void` |
+| `instantiateChartOfAccounts` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `instantiateChartOfAccounts(businessName: BusinessName, coaPrototype: string \| undefined, userId: UserId): void` |
 | `isBalanced` | `frontend/src/lib/journalGrid.ts` | (none) | `isBalanced(rows: Row[]): boolean` |
 | `isDescendantOf` | `backend/src/db.ts` | `frontend/src/lib/entityTree.ts` | `isDescendantOf(entityName: string, rootName: string): boolean` |
 | `isDescendantOf` | `frontend/src/lib/entityTree.ts` | `backend/src/db.ts` | `isDescendantOf(entity: EntityNode, ancestorName: string, allEntities: EntityNode[], matchSuffix = false): boolean` |
@@ -3332,7 +3332,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `setRelationship` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/primitives.ts` | `setRelationship(entityName: string, relationshipType: string, targetName: string, userId: UserId): void` |
 | `setTerminalCurrency` | `backend/src/db-stock.ts` | (none) | `setTerminalCurrency(terminalName: string, currency: string \| null): void` |
 | `setTranslation` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `setTranslation(conceptName: string, languageName: string, text: string, userId: UserId = asUserId(1)): void` |
-| `setupEquityStructure` | `backend/src/db.ts` | (none) | `setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaFamily?: string, partnerNames?: string[]): void` |
+| `setupEquityStructure` | `backend/src/db.ts` | (none) | `setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaPrototype?: string, partnerNames?: string[]): void` |
 | `setUserActive` | `backend/src/auth.ts` | (none) | `setUserActive(userId: number, active: boolean): void` |
 | `setUserRoles` | `backend/src/auth.ts` | (none) | `setUserRoles(userId: number, roleNames: string[]): void` |
 | `setVocabularyPreference` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setVocabularyPreference(conceptName: string, scope: 'business' \| 'user', scopeId: number, preferredAlternateName: string): void` |

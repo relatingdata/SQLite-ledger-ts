@@ -88,7 +88,7 @@ default_coa = {
         'Danish': ('Salgsrabatter', 'original'),
     },
     'Sales Revenue': {
-        'German': ('Umsatzerlöse', 'lsmb'),          # locale/coa/de "Erlöse..." family; matches BMW's own term
+        'German': ('Umsatzerlöse', 'lsmb'),          # locale/coa/de "Erlöse..." prototype; matches BMW's own term
         'French': ("Chiffre d'affaires", 'original'),
         'Danish': ('Salgsindtægter', 'lsmb'),        # locale/coa/dk "SALGSINDTÆGT"
     },

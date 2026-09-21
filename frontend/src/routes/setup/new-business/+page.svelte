@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { createBusiness, getCoaFamilyAccounts, getBusinessTypes, saveBusinessTypeAnswers, ApiError } from '$lib/api';
+  import { createBusiness, getCoaPrototypeAccounts, getBusinessTypes, saveBusinessTypeAnswers, ApiError } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { onMount } from 'svelte';
 
@@ -10,17 +10,17 @@
   // display names for the same underlying accounts. Only the five
   // top-level report categories (Asset/Liability/Equity/Income/
   // Expense) are actually shared across every business; these leaf
-  // accounts are real, country-specific families.
-  const COA_FAMILIES = [
-    { label: 'English / generic', business: 'Wine Retail Business', ledger: 'Actual', familyName: 'English CoA' },
-    { label: 'German (BMW M GmbH)', business: 'BMW M GmbH', ledger: 'Actual', familyName: 'German CoA' },
-    { label: 'French (Peugeot Citroën Sochaux SNC)', business: 'Peugeot Citroën Sochaux SNC', ledger: 'Actual', familyName: 'French CoA' },
+  // accounts are real, country-specific prototypes.
+  const COA_PROTOTYPES = [
+    { label: 'English / generic', language: 'English', prototypeName: 'English CoA' },
+    { label: 'German', language: 'German', prototypeName: 'German CoA' },
+    { label: 'French', language: 'French', prototypeName: 'French CoA' },
   ];
 
   let businessName = '';
   let financialYearLabel = '2026-27';
-  let selectedFamily = COA_FAMILIES[0];
-  let familyAccounts: string[] = [];
+  let selectedPrototype = COA_PROTOTYPES[0];
+  let prototypeAccounts: string[] = [];
   let loadingAccounts = false;
   let saving = false;
   let error = '';
@@ -95,13 +95,13 @@
       businessTypes = [];
     }
     // Per direct finding: this was previously a bare, top-level call
-    // (line, at the time, right after loadFamilyAccounts' own
+    // (line, at the time, right after loadPrototypeAccounts' own
     // definition) - genuinely ran during SSR too, not just in the
     // browser, triggering SvelteKit's own "Avoid calling fetch
     // eagerly during server-side rendering" warning on every real
     // visit to this page. Moved into the same, real onMount already
     // used for the sibling initial-load call above.
-    loadFamilyAccounts();
+    loadPrototypeAccounts();
   });
   function selectBusinessType(bt: { name: string; questions: string[] }) {
     if (selectedBusinessType?.name === bt.name) return;
@@ -111,12 +111,12 @@
     if (mapped) entityStructure = ENTITY_STRUCTURES.find((s) => s.value === mapped) ?? entityStructure;
   }
 
-  async function loadFamilyAccounts() {
+  async function loadPrototypeAccounts() {
     loadingAccounts = true;
     try {
-      familyAccounts = await getCoaFamilyAccounts(selectedFamily.business, selectedFamily.ledger);
+      prototypeAccounts = await getCoaPrototypeAccounts(selectedPrototype.language);
     } catch {
-      familyAccounts = [];
+      prototypeAccounts = [];
     } finally {
       loadingAccounts = false;
     }
@@ -130,7 +130,7 @@
       result = await createBusiness(
         businessName.trim(),
         financialYearLabel.trim(),
-        selectedFamily.familyName,
+        selectedPrototype.prototypeName,
         secondaryCurrencies.length > 0 ? secondaryCurrencies : undefined,
         entityStructure.value,
         entityStructure.needsPartners && partnerNames.length > 0 ? partnerNames : undefined
@@ -151,7 +151,7 @@
 
 <fieldset class="page-title">
   <legend>{translations.current['New Business'] ?? 'New Business'}</legend>
-  <p class="intro">{translations.current['Creates a brand-new business and its first real ledger, ready to actually transact in immediately. Only the five top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business here — the real, named accounts underneath are country-specific families that already exist. Choose which existing family\'s real accounts most closely match this business\'s own country/jurisdiction below, so you know exactly which real accounts to post to — this doesn\'t create anything new, it just shows you what already exists to reuse. If none of these match, the Entity Tree Editor can build a genuinely new set for a country not yet represented here.'] ?? 'Creates a brand-new business and its first real ledger, ready to actually transact in immediately. Only the five top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business here — the real, named accounts underneath are country-specific families that already exist. Choose which existing family\'s real accounts most closely match this business\'s own country/jurisdiction below, so you know exactly which real accounts to post to — this doesn\'t create anything new, it just shows you what already exists to reuse. If none of these match, the Entity Tree Editor can build a genuinely new set for a country not yet represented here.'}</p>
+  <p class="intro">{translations.current['Creates a brand-new business and its first real ledger, ready to actually transact in immediately. Only the five top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business here — the real, named accounts underneath are country-specific prototypes that already exist. Choose which existing prototype\'s real accounts most closely match this business\'s own country/jurisdiction below, so you know exactly which real accounts to post to — this doesn\'t create anything new, it just shows you what already exists to reuse. If none of these match, the Entity Tree Editor can build a genuinely new set for a country not yet represented here.'] ?? 'Creates a brand-new business and its first real ledger, ready to actually transact in immediately. Only the five top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business here — the real, named accounts underneath are country-specific prototypes that already exist. Choose which existing prototype\'s real accounts most closely match this business\'s own country/jurisdiction below, so you know exactly which real accounts to post to — this doesn\'t create anything new, it just shows you what already exists to reuse. If none of these match, the Entity Tree Editor can build a genuinely new set for a country not yet represented here.'}</p>
 
   {#if result}
     <p class="success">
@@ -160,7 +160,7 @@
     </p>
     <p>
       Next: post the owner's capital contribution into <strong>{result.actualLedger}</strong> through
-      <a href="/post">{translations.current['General Journal'] ?? 'General Journal'}</a> (debit whichever cash/bank account matches the chosen family, credit
+      <a href="/post">{translations.current['General Journal'] ?? 'General Journal'}</a> (debit whichever cash/bank account matches the chosen prototype, credit
       the matching equity account), then set up any real locations under
       <a href="/setup/tree">{translations.current['Entity Tree'] ?? 'Entity Tree'}</a> and <a href="/locations">{translations.current['Locations'] ?? 'Locations'}</a>. Post the financial year's
       plan into <strong>{result.budgetLedger}</strong> the same way — Budget is just another real ledger,
@@ -182,9 +182,9 @@
       </p>
     </fieldset>
     <fieldset>
-      <legend>{translations.current['Chart of Accounts family to reuse'] ?? 'Chart of Accounts family to reuse'}</legend>
-      <select bind:value={selectedFamily} onchange={loadFamilyAccounts}>
-        {#each COA_FAMILIES as f}<option value={f}>{f.label}</option>{/each}
+      <legend>{translations.current['Chart of Accounts prototype to reuse'] ?? 'Chart of Accounts prototype to reuse'}</legend>
+      <select bind:value={selectedPrototype} onchange={loadPrototypeAccounts}>
+        {#each COA_PROTOTYPES as f}<option value={f}>{f.label}</option>{/each}
       </select>
     </fieldset>
     <fieldset>
@@ -226,12 +226,12 @@
     <div class="accounts-preview">
       {#if loadingAccounts}
         <p class="empty">Loading…</p>
-      {:else if familyAccounts.length === 0}
+      {:else if prototypeAccounts.length === 0}
         <p class="empty">No accounts posted under this ledger yet — nothing to preview.</p>
       {:else}
-        <p class="preview-label">{translations.current['Real accounts this family actually uses:'] ?? 'Real accounts this family actually uses:'}</p>
+        <p class="preview-label">{translations.current['Real accounts this prototype actually uses:'] ?? 'Real accounts this prototype actually uses:'}</p>
         <ul>
-          {#each familyAccounts as a}<li>{a}</li>{/each}
+          {#each prototypeAccounts as a}<li>{a}</li>{/each}
         </ul>
       {/if}
     </div>

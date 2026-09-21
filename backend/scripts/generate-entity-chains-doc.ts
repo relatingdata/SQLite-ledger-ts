@@ -49,7 +49,7 @@ out += '| Class | Direct children | What it is |\n|---|---|---|\n';
 const classNotes: Record<string, string> = {
   'Business Reports': 'The 5 real, shared top-level report categories (Asset/Liability/Equity/Income/Expense) — genuinely shared across every business.',
   Businesses: "Every real company using this system — each with its own real ledgers and (where applicable) its own real locations sub-tree.",
-  'Chart of Accounts': 'Country-specific families of named, postable leaf accounts — English, German, French, Italian, Swiss.',
+  'Chart of Accounts': 'Country-specific prototypes of named, postable leaf accounts — English, German, French, Italian, Swiss.',
   Divisions: 'Real profit/cost centers — city regions, per-location divisions.',
   Employees: 'Every real staff member, across every business, as real AP counterparties.',
   Languages: 'The 5 real, supported display languages.',

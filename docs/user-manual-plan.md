@@ -14,7 +14,7 @@ Neither is wrong; both are real starts. The plan below is for finishing the job 
 ## Proposed chapter structure
 
 **Part 1 — Starting out** *(narrative, from `user-manual.md`, extended)*
-Continue Lars and Mette's story through their actual first real actions: `/setup/new-business`, choosing a Chart of Accounts family, `/setup/divisions`, `/locations`. Screenshot each real screen at the point the story reaches it, not before.
+Continue Lars and Mette's story through their actual first real actions: `/setup/new-business`, choosing a Chart of Accounts prototype, `/setup/divisions`, `/locations`. Screenshot each real screen at the point the story reaches it, not before.
 
 **Part 2 — Setting up the business itself**
 `/setup/business-setup` (the real, unified screen — the natural anchor for this whole chapter), `/setup/chart-of-accounts`, `/setup/tree`, `/editor` (Structured Editor), `/setup/bank-accounts`, `/setup/currencies`, `/setup/taxes`, `/setup/periods`, `/setup/users`.

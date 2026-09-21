@@ -26,7 +26,7 @@ En rigtig rapport: alt, hvad virksomheden ejer (**aktiver**), skal være lig med
 
 ### Virksomhed (Business)
 
-En rigtig, øverste entitet, der repræsenterer én virksomhed eller organisation — har sine egne rigtige kontoplan-blade (se **kontoplan-familie**), sine egne **hovedbøger** og sine egne **lokationer**.
+En rigtig, øverste entitet, der repræsenterer én virksomhed eller organisation — har sine egne rigtige kontoplan-blade (se **kontoplan-prototype**), sine egne **hovedbøger** og sine egne **lokationer**.
 
 ### Kategori (produktkategori)
 
@@ -36,9 +36,9 @@ Enhver rigtig entitet under "Parts" (varer), der har mindst ét rigtigt barn (ua
 
 Det rigtige træ af hver konto, en virksomhed kan bogføre på — aktiver, passiver, egenkapital, indtægter og omkostninger er de fem, reelt universelle øverste kategorier, som enhver rigtig virksomhed (i ethvert land) grupperer sine konti i.
 
-### Kontoplan-familie (CoA family)
+### Kontoplan-prototype (CoA prototype)
 
-Et rigtigt, landespecifikt sæt af bladkonti under kontoplanen — bekræftet direkte, ikke antaget, at disse reelt er forskellige entiteter, ikke bare forskellige visningsnavne: "Cash and Bank" (engelsk/generisk), "Bankkontokorrent" (tysk), "Banca c/c" (italiensk), "Kasse" (schweizisk) er alle rigtige, selvstændige konti. En ny virksomhed vælger, hvilken rigtig familie den vil genbruge, i stedet for at opfinde en ny.
+Et rigtigt, landespecifikt sæt af bladkonti under kontoplanen — bekræftet direkte, ikke antaget, at disse reelt er forskellige entiteter, ikke bare forskellige visningsnavne: "Cash and Bank" (engelsk/generisk), "Bankkontokorrent" (tysk), "Banca c/c" (italiensk), "Kasse" (schweizisk) er alle rigtige, selvstændige konti. En ny virksomhed vælger, hvilken rigtig prototype den vil genbruge, i stedet for at opfinde en ny.
 
 ### Lukket periode (Closed period)
 
