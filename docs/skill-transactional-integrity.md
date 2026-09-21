@@ -1,0 +1,63 @@
+## Transactional integrity — an absolute, non-negotiable requirement
+
+Per direct instruction, stated in the strongest possible terms, and recorded here
+permanently, not as a preference: **every time a person hits Save or Submit anywhere
+in this application, there must be an absolute, ironclad guarantee that a real
+transaction has been successfully committed, or a real, clear message telling them
+their data failed to be stored, and why.** There is no acceptable third outcome —
+never a silent partial success, never a save that "mostly" happened.
+
+**Everything that manipulates real business data must be wrapped in a real database
+transaction.** A compound operation — one that performs more than one real write
+(more than one `INSERT`/`UPDATE`/`DELETE`, more than one `create`/`createEntity`/
+`updateEntity` call) — must either fully apply or fully not apply. A crash, an
+exception, or a rejected write partway through must never leave some of its real
+writes committed and others not.
+
+### The real, confirmed, current state — found directly, not assumed
+
+Checked directly against the real code: only **four** real operations in this entire
+backend are currently wrapped in an explicit, atomic `db.transaction(...)` — a POS
+sale, a Cash Purchase, paying employee wages, and posting a journal entry
+(`backend/src/db.ts`). Every other real, compound, multi-write function — including
+`createBusiness` itself, which performs many, real, separate writes (the business
+entity, two real ledgers, every real `PER_BUSINESS_ROOTS` entry, Chart of Accounts
+instantiation, equity structure) — is **not** wrapped in a transaction today. Each
+individual SQL statement is, by SQLite's own nature, atomic on its own, but the real,
+full sequence is not: a real crash or a real, thrown exception partway through
+leaves whatever already committed permanently committed, with no real, further
+step undoing it.
+
+This is the real, confirmed, root mechanism behind a real, concrete, observed
+symptom from this same session: a Playwright test crashing mid-flow left a real,
+partially-created business in the database; re-running the same test from scratch
+then collided with its own, earlier, half-finished attempt (`"Wine Retail Business"
+already exists`) — not a flaw in the test, a real, direct consequence of this gap.
+
+### The real, required fix, going forward
+
+- Every real, compound, business-data-writing function gets wrapped in
+  `db.transaction(() => { ... })` (or the equivalent, if a different real mechanism
+  is more appropriate for a specific real case) — no further, real, compound write
+  function should be added without this from now on.
+- Every real route handler that can fail after a real write has already happened
+  must return a real, clear, honest error the frontend can show directly — never a
+  silently swallowed exception, never a generic, unhelpful message that hides
+  whether the person's own real data was actually saved.
+- The real, existing four (`db.transaction` around POS sale, Cash Purchase, pay
+  wages, journal posting) were chosen because they are financial postings, where a
+  partial write would be genuinely, financially dangerous — but this reasoning
+  under-scoped the real requirement: a partially-created business, a partially-set
+  set of item-location levels, a partially-nominated bank account are every bit as
+  real a data-integrity failure as half a journal entry, just not immediately,
+  visibly a financial one.
+
+### Real, honest scope — not yet audited or fixed in full
+
+This is a real, large, cross-cutting audit — 328 real, exported functions exist
+across `db.ts`/`db-stock.ts`/`db-reports.ts`/`auth.ts` alone, and not all of them
+write real data (many are pure reads). A real, complete audit identifying every
+real, compound write function still needing this fix, and applying it function by
+function, verifying the real, full test suite after each real change, is real,
+substantial, further work — stated honestly here as not yet done, not assumed
+complete because the principle itself is now documented.

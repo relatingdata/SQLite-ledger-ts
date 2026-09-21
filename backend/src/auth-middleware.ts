@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { getSessionUser, getSessionBusiness, type AuthenticatedUser } from './auth.js';
 import { runInSessionContext } from './session-context.js';
+import { fetch as fetchEntity, typeBusinessName, typeRootName } from './db.js';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -34,8 +35,14 @@ export function attachUser(req: Request, _res: Response, next: NextFunction) {
   if (req.user) {
     const businessName = getSessionBusiness(token!);
     if (businessName) {
-      runInSessionContext({ userId: req.user.id, businessName }, next);
-      return;
+      try {
+        const business = fetchEntity(businessName, typeBusinessName, fetchEntity('Businesses', typeRootName));
+        runInSessionContext({ userId: req.user.id, business }, next);
+        return;
+      } catch {
+        // A real, stored business name that no longer resolves (deleted
+        // since) - fall through to running with no real session context.
+      }
     }
   }
   next();

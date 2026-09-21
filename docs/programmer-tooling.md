@@ -290,3 +290,19 @@ Per direct, absolute instruction, following a real, confirmed incident: this pro
 ## 15. `mergeContactDetail` (`backend/src/db.ts`)
 
 Per the same, direct, absolute table-count instruction: `contact` (a true 1:1 entity extension, 26 real fields) was eliminated as its own table — every real field now lives directly in the parent entity's own, real `detail_json` (the same, established pattern already proven for `item_source`/`stock_lot`). `mergeContactDetail` is the one, real, exported helper every real write path (`setContact`, `recordReminderSent`, `resetReminderLevel`, `setPosPin`, `registerCustomer`, `verifyCustomer`, `setItem`, `setLocation`, and a UPC-backfill site in `db-seed.ts`) uses to do a real, direct read-merge-write into `detail_json` — replicating the removed table's own, real "partial upsert, only touch the given fields" semantics exactly. A real, read-compatibility view (`contact`, in `backend/schema/00-core.sql`) recomputes the exact, same, real column shape the removed table used to provide via `json_extract`, so every existing read query against "contact" kept working completely unchanged.
+
+## Every remaining Makefile target, documented directly
+
+Per direct instruction: every real Makefile target below, with its own real purpose:
+
+- **`backend-verbose`**: starts the backend with `DB_VERBOSE=1` — every real SQL statement printed as it executes, a real-time view of what the app is actually doing to the database.
+- **`proof-year-end`**: runs `scripts/proof-year-end-lifecycle.ts` against a real, freshly-reset database — the real, minimal, direct proof that a full year-end close genuinely works, independent of the fuller wine-retail simulation.
+- **`test-e2e-playwright`**: runs the real wine-retail month simulation, then the real, full, multi-language Playwright suite (`full-e2e-with-languages`) against its result — the real, complete, slowest, most thorough check.
+- **`playwright-one`**: runs exactly one real, named Playwright spec file (`make playwright-one TEST=<spec-file-name>`), single-worker — the real, fast, targeted way to iterate on one real test without the full suite's own overhead.
+- **`verify-fresh`**: resets the database, confirms it genuinely loads cleanly (`scripts/sanity-check-db-loads.ts`), then runs the full backend test suite — the real, complete "does this genuinely work from nothing" check.
+- **`check-docs-coverage`**: rebuilds the Programmer's Manual, then runs `scripts/check-docs-coverage.ts` — the real, direct check this very list is satisfying.
+- **`list-menu-labels`**: runs `scripts/list-menu-labels.ts` — prints every real, current menu label, the real, direct way to find one worth translating.
+- **`add-menu-translations`**, **`add-journal-translations`**, **`add-journal-remaining-translations`**, **`add-header-translations`**, **`add-brand-translation`**: each runs its own real, one-off script under `shared-fixtures/`, adding a real, specific batch of translated words to the Vocabulary — named for what it adds, run once each as this application's own real vocabulary grew.
+- **`check-frontend`**: runs the frontend's own real `svelte-check` — real Svelte/TypeScript diagnostics across every real `.svelte` file.
+- **`check-backend-types`**: runs `tsc --noEmit` against the real backend — real TypeScript type-checking with no build output.
+- **`check-e2e-types`**: the exact, same real check, against the real Playwright test suite.

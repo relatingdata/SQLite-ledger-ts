@@ -244,9 +244,4 @@ file name, and not a business concept worth prose on its own.
 - `check-frontend`
 - `check-backend-types`
 - `check-e2e-types`
-- `manual-screenshots`
-- `manual-screenshots-german`
-- `manual-screenshots-french`
-- `manual-screenshots-danish`
-- `manual-screenshots-italian`
 - `/reports/stock-out-risk`

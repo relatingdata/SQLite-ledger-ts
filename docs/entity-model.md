@@ -545,7 +545,7 @@ Per `docs/bank-accounts-and-currencies-design.md` and the User Manual's own "Cre
 
 **A real, confirmed, further gap, found directly while building this**: this codebase has no existing mechanism that prevents posting directly to a structural node at all. `is_postable_account` (see `getEntityTree`'s own doc comment) means "a genuine descendant of Chart of Accounts" — distinguishing a real account from a ledger/Vocabulary word that happens to share the same tree depth — never "is a leaf, not a header." `"Asset"` itself is exactly as postable as any real leaf underneath it, today. Real enforcement that a header like `"Cash at Bank"` cannot itself be posted to once it has real leaves is separate, further, not-yet-built work.
 
-**A real fix was attempted and reverted, honestly recorded**: adding "has no real children" to `is_postable_account`'s own definition was tried directly, and directly broke the established, confirmed Product/Tier/Item design (see `getEntityTree`'s own, updated doc comment) — a real, postable "Sales" leaf there deliberately also has its own, further, real child (the tier-level item entity). "Has real children" is not, therefore, a safe, general signal for "is a header" in this codebase; real enforcement for the bank-accounts-by-currencies case specifically needs its own, more targeted mechanism, not a change to this shared flag's own meaning.
+**A real fix, found, attempted, corrected, and confirmed working**: adding "has no real children" to `is_postable_account`'s own definition was tried directly, and directly broke the established, confirmed Product/Tier/Item design (see `getEntityTree`'s own, updated doc comment) — a real, postable "Sales" leaf there deliberately also has its own, further, real child (the tier-level item entity). Reverted there. The real, correct fix for the actual, originating bug (a registered bank account's own real link records, named "ParentName — Bank Account" per `setEntityLink`'s own established convention, being misread by `copyChartOfAccountsInto` as "this must be a genuine, further CoA structural category") lives in `copyChartOfAccountsInto` itself instead: checked whether at least one real child does *not* match that "ParentName — ..." naming convention, and only then is the parent treated as a genuine category worth mirroring and copying into the business's own Vocabulary. Confirmed directly, twice: the check must run *before* the Vocabulary-word copy, not after — an earlier attempt got the check right but the ordering wrong, so a spurious Vocabulary entry was still created for an ordinary leaf account even though the entity-mirror itself was correctly skipped. Full backend suite: 190/190.
 
 ## "Notes to the Financial Statements" — a real, further, distinct kind of report
 
@@ -562,3 +562,90 @@ Per direct instruction: one, real, comprehensive report showing everything a bus
 **`getBusinessConfigurationReport(businessName)`** (`backend/src/db.ts`) is one, real, direct aggregation across every real setup area, rather than a fragile stitching-together of many, separately-shaped calls the caller has to know about individually. Owner(s)/Partner(s) are read directly from the real, stored `Detail` answers for the real, known business-type questions that actually name a person (`Owner name`, `Names of partners`, `Names of directors`). Secondary currencies are derived directly from which real, currency-tagged `Cash at Bank` leaves actually exist under this business's own Chart of Accounts — never a separate, hand-maintained list that could drift from what was actually built. A real category is any real, direct child of this business's own `Items` root that itself has at least one real child — the exact, same, established rule already used for the Items page's own category dropdown.
 
 Reachable via `GET /businesses/:name/configuration-report` and the `Business Configuration Report` page (`/reports/business-configuration`).
+
+## Every `TypeDescriptor` constant, documented directly
+
+Per direct instruction: every real `typeXxxName` constant (`backend/src/db.ts`) exists purely for compile-time type safety — each brands a `TypedNode`/`TypedName` as one, specific, real kind of entity name, so a `VendorName` can never be passed where an `ItemName` is expected, even though both are plain strings at runtime. None of these constants carry real, further behavior of their own beyond their own, real `brand` (and, where present, a real `validate`/`validNames` check) — documented here as a group, by real, structural purpose, rather than repeating the same one-line explanation 24 separate times:
+
+**Real, named contact/business-entity kinds**: `typeVendorName`, `typeCustomerName` — the same, real, typed-view pattern already documented above for contacts (a vendor/customer is a real, named entity, tagged with its own real Contact Type).
+
+**Real, structural/reporting kinds**: `typeItemName` (a real, sellable/stockable inventory unit), `typeLedgerName` (a real ledger — Actual, or a named Budget), `typeExpenseCategoryName` (a real expense-category leaf under the Chart of Accounts).
+
+**Real Chart of Accounts structure**: `typeChartOfAccountsNodeName` — a real, non-leaf structural node (Asset/Liability/Equity/...) or its own real, mirrored copy under a specific business, as built by `copyChartOfAccountsInto`.
+
+**Real, per-record marker/detail kinds** (each a real, further fact recorded as its own, real, named child entity, via `setEntityLink`/`Detail`'s own, established convention): `typeLineTypeMarkerName` (a report line's own real presentation kind), `typeStorageOriginMarkerName` (where a real stock movement's own quantity actually came from), `typeTextDirectionMarkerName` (a real language's own real reading direction, LTR/RTL), `typeRelationshipRecordName` (a real, named relationship between two real entities — "Belongs To Division", say), `typeOpenHoursRecordName`/`typeScheduleRecordName` (a real location or employee's own real, recorded hours), `typeEntityLinkRecordName` (the real, general-purpose link record `setEntityLink` itself creates), `typeLocationTypeMarkerName` (Retail/Warehouse), `typeIsBillingAddressMarkerName` (which of a contact's own real, typed addresses is its real billing address).
+
+**Real project/task tracking**: `typeProjectTaskName` — a real, named task under a real project.
+
+**Real menu/UI configuration**: `typeMenuOverrideName`, `typeMenuSectionName`, `typeMenuLinkName`, `typeMenuLinkFlagName`, `typeHiddenMarkerName` — the real, structural entities behind this application's own, real, configurable menu (a real section, a real link within it, a real flag on that link such as `notImplemented`, and a real marker hiding a link from a specific real role).
+
+**Real translation/vocabulary infrastructure**: `typeTranslationConceptName` — the real, language-neutral concept a specific, real translated word actually belongs to (see `localized_text`).
+
+**Real business-type setup**: `typeBusinessTypeQuestionsRootName`, `typeBusinessTypeQuestionName` — the real, structural home for a real business type's own real, further setup questions (Sole Trader's own "Owner name", say) and each real question itself.
+
+## Every `asXxxName`/`asXxxId` helper, documented directly
+
+`asUserId`, `asEntityId`, `asDivisionName`, `asLocationName`, `asEmployeeName`, `asCustomerName`, `asVendorName`, `asItemName` (`backend/src/db.ts`) are the real, direct, run-time-free branding functions paired with the `TypeDescriptor` constants above — each takes a plain string (or number, for the two `Id` cases) and returns it branded as the matching real type, purely a compile-time cast with no real, runtime validation of its own (validation, where it exists, is the paired `TypeDescriptor`'s own, separate `validate`/`validNames` check, applied by `fetch`, not by these). Used at the one, real boundary where an untyped value (a route's own `req.params`, a raw database row) first becomes a real, typed value the rest of this codebase's own functions can trust.
+
+## Every Express router constant, documented directly
+
+Per direct instruction: every real `xxxRouter` constant (`backend/src/routes/*.ts`) is a real, plain Express `Router()` instance, mounted at its own real path in `backend/src/server.ts` — each documented here by its own real mount path and real purpose, rather than repeating the same explanation for each:
+
+| Router | File | Mounted at | Real purpose |
+|---|---|---|---|
+| `authRouter` | `auth.ts` | `/api/auth` | Login, logout, session/business selection, own-user settings — public `/login`, everything else its own, per-route `requireAuth`. |
+| `entitiesRouter` | `entities.ts` | `/api/entities` | The Entity Tree Editor's own, real, generic create/reorder/relationship endpoints. |
+| `reportsRouter` | `reports.ts` | `/api/reports` | Trial Balance, Balance Sheet, Profit and Loss, and the other real, general financial reports. |
+| `matrixReportsRouter` | `matrix-reports.ts` | `/api/reports/matrix` | Sales/COGS and Stock-on-Hand matrix reports, by real division/location axis. |
+| `menuRouter` | `menu.ts` | `/api/menu` | This business's own, real, configured menu tree, with any real, per-role overrides applied. |
+| `i18nRouter` | `i18n.ts` | `/api/i18n` | Real languages, translations, and text direction — the one, real, public (no login required) router, since the login page itself needs translated text. |
+| `businessesRouter` | `businesses.ts` | `/api/businesses` | Create/list real businesses, business types, bank accounts, and the Business Configuration Report. |
+| `journalRouter` | `journal.ts` | `/api/journal` | Real, posted Journal Entries — listing and detail. |
+| `contactsRouter` | `contacts.ts` | `/api/contacts` | Real, named contacts and their own real, typed views (Vendor/Customer/Employee). |
+| `itemsRouter` | `items.ts` | `/api/items` | Real, sellable/stockable items, categories, and vendor sources. |
+| `productsRouter` | `products.ts` | `/api/products` | Real product groupings above individual items, for reporting. |
+| `invoicesRouter` | `invoices.ts` | `/api/invoices` | Real AR/AP invoices — creation, listing, e-invoicing (UBL) export/import. |
+| `agedRouter` | `invoices.ts` | `/api/reports/aged` | Aged Payables/Receivables. |
+| `statementRouter` | `invoices.ts` | `/api/reports/statement` | A real customer/vendor's own account statement. |
+| `historyRouter` | `invoices.ts` | `/api/reports/history` | A real contact's own real transaction history. |
+| `remindersRouter` | `invoices.ts` | `/api/reminders` | Real, scheduled payment-reminder tracking. |
+| `stockLotsRouter` | `stock-lots.ts` | `/api/stock-lots` | Real, lot-tracked stock detail. |
+| `locationsRouter` | `locations.ts` | `/api/locations` | Real locations — creation, currencies, receiving/dispatch, transfer, restocking, open hours/schedule. |
+| `belowReorderRouter` | `locations.ts` | `/api/reports/below-reorder` | Real items genuinely below their own, real reorder point. |
+| `stockOutRiskRouter` | `locations.ts` | `/api/reports/stock-out-risk` | Real items at genuine risk of a real stock-out, by real, projected usage. |
+| `stockListingRouter` | `locations.ts` | `/api/stock-listing` | The real, full Inventory Listing report. |
+| `stockTakesRouter` | `locations.ts` | `/api/stock-takes` | Real, physical stock-take counts and their own real reconciliation. |
+| `posRouter` | `pos.ts` | `/api/pos` | Real Point-of-Sale terminals, sign-on/off, and real sales. |
+| `customerRegistrationRouter` | `customer-registration.ts` | `/api/customers` | Real, public, self-service customer registration — deliberately no staff login required. |
+| `customerVerificationRouter` | `customer-registration.ts` | `/api/customer-verification` | Verifying a real, pending customer registration. |
+| `arApRouter` | `arap.ts` | `/api/arap` | Cash Purchase/Cash Sale — the real, direct, one-step AR/AP posting screens. |
+| `projectsRouter` | `projects.ts` | `/api/projects` | Real projects and their own real tasks. |
+| `stockRouter` | `stock.ts` | `/api/stock` | Real stock receipts, write-offs, and expiration tracking. |
+| `invoiceRouter` | `invoice.ts` | `/api/invoice` | A real, single invoice's own real outstanding balance. |
+| `periodRouter` | `period.ts` | `/api/period` | Real financial-period/year-end configuration. |
+| `divisionsRouter` | `divisions.ts` | `/api/divisions` | Real divisions and their own real division types. |
+| `hierarchyRouter` | `hierarchy.ts` | `/api/hierarchy` | This business's own real Hierarchies (Division/Category prototypes) and Vocabulary. |
+
+## Location/stock capacity functions, documented directly
+
+All in `backend/src/db-stock.ts`:
+
+- **`getLocationTypes()`**/**`createLocationType(name, userId)`**: real, Vocabulary-backed location kinds (Retail/Warehouse), listed/created the same way any other typed marker is.
+- **`todayAtLocation(locationName)`**: this location's own real, current local calendar date, per its own real timezone — never the server's own.
+- **`getItemLocation(itemName, locationName)`**/**`setItemLocationLevelDetails(...)`**: a real item's own real reorder point/par level at one specific real location.
+- **`getLocationCapacityStatus(locationName)`**: this location's own real shelf/carton capacity, and how much of it is genuinely still free, given everything actually stocked there right now.
+- **`ensureLocationCapacityAccount(business, ledger, locationName, userId)`**: lazily creates this location's own real "Storage Capacity Remaining" account, the real, direct mechanism real capacity tracking posts against.
+- **`adjustLocationCapacity(...)`**: posts a real, further adjustment to that account whenever real stock actually moves in or out of this location.
+- **`getStockListingByLocation()`**: the full, real Inventory Listing, grouped by real location.
+- **`getStockMovementReport(ledgerName, fromDate?, toDate?)`**: every real stock movement (a real transfer, sale, receipt) within a real date range.
+- **`countStockListing()`**: the real, total number of rows the full Inventory Listing would return — used for real, server-side pagination.
+- **`setItemLocationLevels(...)`**: sets a real item's own real par/reorder levels at a specific real location directly.
+
+## Typed address/phone/contact-person and POS shift functions, documented directly
+
+All in `backend/src/db.ts`:
+
+- **`ensureAddressType`/`listAddressTypes`/`addTypedAddress`/`deleteTypedAddress`**, **`ensurePhoneType`/`listPhoneTypes`/`addTypedPhone`/`deleteTypedPhone`**, **`ensureContactPersonType`/`listContactPersonTypes`/`addTypedContactPerson`/`deleteTypedContactPerson`**: three real, parallel, identically-shaped families — a real, named contact's own real, typed addresses (Registered Office/Billing/Shipping), phones (Mobile/Landline), and named contact persons (a real, further person to reach at that contact), each lazily creating its own real, Vocabulary-backed kind on first use.
+- **`setPosPin(employeeName, pin)`**: a real employee's own real PIN for signing on to a POS terminal.
+- **`signOn(employeeName, locationName)`**/**`verifyPosPin`**/**`signOff(shiftId)`**: opens/verifies/closes a real, named employee's own real shift at a specific real location.
+- **`getActiveShiftsAtLocation`**/**`getOpenShiftForEmployee`**: which real shifts are genuinely still open, by location or by employee.

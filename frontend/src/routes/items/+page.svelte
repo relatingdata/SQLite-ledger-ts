@@ -181,11 +181,19 @@
         // name ("Items") is no longer sufficient to disambiguate,
         // since every business now genuinely has its own, real,
         // plain "Items" root - only a real parentId (never a name
-        // string) correctly, unambiguously identifies which one.
+        // string) correctly, unambiguously identifies which one. A
+        // real, further, confirmed bug, found directly, a third time:
+        // searching this page's own, local `entities` array for the
+        // category just created doesn't work either - that array is
+        // still stale at this point (not yet re-fetched), so the
+        // category can never actually be found there, silently
+        // orphaning the real item with no parent at all. createEntity
+        // already returns the real, new entity's own real id directly
+        // - use that, never search anything.
         const itemsRootId = itemsRoot()?.id;
-        await createEntity({ name: newCategoryName.trim(), parentId: itemsRootId });
+        const newCategory = await createEntity({ name: newCategoryName.trim(), parentId: itemsRootId });
         parentCategory = newCategoryName.trim();
-        parentCategoryId = entities.find((e) => e.name === parentCategory && e.parent_id === itemsRootId)?.id;
+        parentCategoryId = newCategory.id;
       } else {
         parentCategoryId = entities.find((e) => e.name === parentCategory && e.parent_id === itemsRoot()?.id)?.id;
       }

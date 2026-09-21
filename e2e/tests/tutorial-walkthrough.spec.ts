@@ -187,7 +187,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   // === cold storage - per direct request, before ordering it       ===
   await page.goto('/items');
   await page.waitForTimeout(800);
-  await page.locator('button.entry', { hasText: 'Amber Ale 330ml' }).click();
+  await page.locator('button.entry', { hasText: 'Amber Ale 330ml' }).filter({ hasNotText: 'Can' }).click();
   await page.waitForTimeout(500);
   await page.locator('input[placeholder="e.g. each"]').fill('glass bottle');
   await page.getByRole('textbox').filter({ hasText: '' }).first().fill('Requires cold storage (refrigerated display).').catch(() => {});
@@ -498,7 +498,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
 
   await page.goto('/items');
   await page.waitForTimeout(800);
-  await page.locator('button.entry', { hasText: 'Amber Ale 330ml' }).click();
+  await page.locator('button.entry', { hasText: 'Amber Ale 330ml' }).filter({ hasNotText: 'Can' }).click();
   await page.waitForTimeout(500);
   await page.getByRole('group', { name: 'Vendor', exact: true }).locator('select').selectOption({ label: 'Highland Brewing Co' });
   await page.locator('input[placeholder="0.00"]').first().fill('5.00');

@@ -6727,6 +6727,26 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
           if (!existing) create(fetchById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
         }
       } else {
+        // A real, confirmed, further fix, found directly: "has any
+        // real child at all" is not a safe signal for "is a genuine,
+        // further CoA structural category" - a real, ordinary leaf
+        // account (a registered bank account, say) can genuinely have
+        // its own real children too, for a completely unrelated
+        // reason (setEntityLink's own real link records, Detail's own
+        // real stored answers) - both use this codebase's own,
+        // established "ParentName — ..." naming convention, never a
+        // genuine, further, independently-named CoA sub-account.
+        // Confirmed directly: a real, registered bank account's own
+        // real link records were being misread as "this must be a
+        // structural category," creating a real, duplicate-name
+        // collision (and a spurious, wrong Vocabulary entry) the
+        // moment a second business was created. Checked here, first,
+        // before touching Vocabulary at all - an ordinary leaf must
+        // never get its own, real, further Vocabulary copy.
+        const realChildren = db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(child.id) as { name: string }[];
+        const hasRealStructuralChild = realChildren.some((c) => !c.name.startsWith(`${child.name} — `));
+        if (!hasRealStructuralChild) continue;
+
         // A non-leaf, structural category (Asset/Liability/...) is a
         // real, genuine copy, per direct, fundamental correction: a
         // business's own Chart of Accounts structure is always
@@ -6743,8 +6763,6 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
         let ownWord = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, businessVocabulary.id) as { id: number } | undefined;
         if (!ownWord) ownWord = create(businessVocabulary, typeRootName, child.name, userId);
 
-        const hasChildren = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? LIMIT 1`).get(child.id);
-        if (!hasChildren) continue;
         let mirror = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
         if (!mirror) {
           mirror = create(fetchById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
@@ -6803,6 +6821,7 @@ export function createBusiness(
   entityStructure?: EntityStructure,
   partnerNames?: string[]
 ): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName } {
+  return db.transaction((): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName } => {
   const businessesRoot = fetch('Businesses', typeRootName);
   const business = create(businessesRoot, typeBusinessName, businessName, userId);
   const actualLedger = asLedgerName(`Actual`);
@@ -6891,6 +6910,7 @@ export function createBusiness(
   // gets, immediately renameable/deletable/extensible.
   seedDefaultHierarchyPrototypes(business, userId);
   return { business: businessName, actualLedger, budgetLedger };
+  })();
 }
 
 /** Every real account a given real CoA prototype/language would actually

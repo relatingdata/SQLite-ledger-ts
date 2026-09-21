@@ -208,4 +208,4 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `verifyPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/db.ts` | `function verifyPassword(password: string, stored: string): boolean` |
 | `verifyPosPin` | `backend/src/db.ts` | (none) | `function verifyPosPin(employeeName: string, pin: string): boolean` |
 
-191 real, tracked baseline names reported (32 TypeDescriptor constants, 31 router constants, 128 functions, 0 other constants) out of 212 total names in the baseline file.
+191 real, tracked baseline names reported (32 TypeDescriptor constants, 31 router constants, 128 functions, 0 other constants) out of 207 total names in the baseline file.

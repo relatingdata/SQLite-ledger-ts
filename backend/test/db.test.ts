@@ -5574,3 +5574,15 @@ test('getBusinessConfigurationReport: everything a real business\'s own setup ac
   assert.equal(report.notes.length, 1, 'a real, added financial-statement note genuinely shows up in the real report');
   assert.ok(!('itemDetails' in report), 'the real report never includes item details at all, per direct instruction');
 });
+
+test('createBusiness: a real, forced failure partway through genuinely rolls back everything - never a partially-created business left behind', () => {
+  // A real, deliberately invalid coaPrototype forces a real failure
+  // partway through (after the business entity and its ledgers
+  // already, genuinely exist) - per direct instruction, transactional
+  // integrity means NONE of it should survive, not just the failing
+  // part.
+  assert.throws(() => createBusiness(asBusinessName('TxnRollbackTest Co'), '2027-28', asUserId(1), 'Not A Real Prototype'));
+  const entities = getEntityTree();
+  assert.equal(entities.filter((e) => e.name === 'TxnRollbackTest Co').length, 0, 'the real business entity itself must not survive a real, failed createBusiness');
+  assert.equal(entities.filter((e) => e.name === 'Actual' && e.parent_id === undefined).length, 0);
+});

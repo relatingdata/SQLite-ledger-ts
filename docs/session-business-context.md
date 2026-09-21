@@ -170,3 +170,17 @@ scripts calling these functions directly (with no real HTTP request or session
 involved) would need their own, real call to `runInSessionContext` first, once that
 conversion happens - not yet required today, since nothing in `db.ts` reads the
 context yet.
+
+## Every real auth/user function, documented directly
+
+All in `backend/src/auth.ts` unless noted:
+
+- **`listUsers()`**/**`listRoles()`**: every real, active system user, and every real, available role.
+- **`setUserRoles(userId, roleNames)`**/**`setUserActive(userId, active)`**: an administrator's own real control over another real user's roles and whether their own real account can still log in.
+- **`changePassword(userId, newPassword)`**: an administrator resetting another real user's own real password directly, no current password required.
+- **`changeOwnPassword(userId, currentPassword, newPassword)`**: a real user changing their own real password, requiring their own real, current one first.
+- **`logout(token)`**: closes out this one, real, specific session record.
+- **`getSessionUser(token)`**: resolves a real, live session token back to its own real, current user — `null` if the token is missing, expired, or unknown.
+- **`setOwnPageSize`**/**`setOwnNumberFormat`**/**`setOwnDateFormat`**: a real user's own real, personal display preferences.
+- **`attachUser`**/**`requireAuth`** (`auth-middleware.ts`): the real Express middleware pair — `attachUser` resolves `req.user` (and, via the session-context work above, the real, current session) from a real bearer token without itself rejecting the request; `requireAuth` is the real, further middleware that actually rejects an unauthenticated request.
+- **`hashPassword`**/**`verifyPassword`** (`password.ts`): the real, direct password-hashing pair every stored password goes through — never stored, or compared, as plain text.
