@@ -61,6 +61,13 @@ rollback, not just asserting it: `createBusiness`, `postInvoice`, `allocatePayme
 yet been found to prove it the same way — recorded honestly in
 docs/documentation-debt-tally.md rather than left unstated).
 
+Also wrapped, in `backend/src/db-stock.ts` — the real, everyday stock-movement
+functions behind Receiving, Dispatch, Transfer, and Purchase Orders:
+`receiveStockAtLocation` (also had its own real, stale doc comment brought up to
+date — it never mentioned the real capacity adjustment or combination-value
+posting it's always done), `dispatchStockFromLocation`, `transferStock`,
+`placeOrder`, `fulfillOrder`.
+
 **A real, important, confirmed finding**: `postApPayment` (and the same pattern
 wherever else it appears — `ap_payment_post`, `journal` itself, and any other
 `INSTEAD OF INSERT` view+trigger pair) does **not** need an explicit

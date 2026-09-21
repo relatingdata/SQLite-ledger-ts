@@ -882,7 +882,14 @@ export function setItemLocationLevels(
 /** Receives stock at a specific location — updates that location's own
  * quantity_on_hand (item_location) as well as the item's overall
  * quantity (via postQuantityMovement, still the source of truth for
- * "how much do we have in total across everywhere"). */
+ * "how much do we have in total across everywhere"), adjusts that
+ * location's own real remaining storage capacity, and, when this is a
+ * receipt of a specific, real combination, additionally posts a real,
+ * balanced Inventory-value entry against Accounts Payable. Every real
+ * write here happens in one, single, atomic db.transaction() — this
+ * used to be several, real, separate steps that could diverge if
+ * interrupted partway through (a quantity movement posting while its
+ * own capacity adjustment or value entry never happened). */
 export function receiveStockAtLocation(
   business: BusinessName,
   ledger: LedgerName,
@@ -901,6 +908,7 @@ export function receiveStockAtLocation(
   const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
+  db.transaction(() => {
   // A real, balanced, two-line posting — debit this product's own
   // real, physical on-hand quantity at the location it actually
   // arrived at, credit its own real "on order" quantity by the same
@@ -947,6 +955,7 @@ export function receiveStockAtLocation(
       postJournalEntry(valueRef, business, ledger, userId);
     }
   }
+  })();
 }
 
 /** Dispatches stock from a specific location — the mirror of
@@ -975,11 +984,13 @@ export function dispatchStockFromLocation(
   const itemId = resolveItemId(itemName);
   const date = transdate ?? todayAtLocation(locationName);
   assertPeriodOpen(business, ledger, date);
+  db.transaction(() => {
   const { unitsSoldAccount, unitsSoldAccountId } = ensureProductQuantityAccounts(itemName, userId);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), -quantity, date, locationName);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(unitsSoldAccount), quantity, date, undefined, unitsSoldAccountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
   adjustLocationCapacity(business, ledger, locationName, itemName, -quantity, date, userId, reference);
+  })();
 }
 
 /** Transfers stock between two locations in the same city — the
@@ -1035,6 +1046,7 @@ export function transferStock(
   // require.
   const date = transdate ?? todayAtLocation(fromLocationName);
   assertPeriodOpen(business, ledger, date);
+  db.transaction(() => {
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), -quantity, date, fromLocationName);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, toLocationName);
   postStagedQuantityMovement(business, ledger, reference, asUserId(userId));
@@ -1062,6 +1074,7 @@ export function transferStock(
       postJournalEntry(valueRef, business, ledger, asUserId(userId));
     }
   }
+  })();
 }
 
 export interface BelowReorderRow {
@@ -1585,6 +1598,7 @@ export function placeOrder(
   item?: ItemName,
   location?: LocationName
 ): void {
+  db.transaction(() => {
   const qtyName = `${orderReference} Qty`;
   const valueName = `${orderReference} Value`;
   const ordersId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Orders'`).get() as { id: number }).id;
@@ -1623,6 +1637,7 @@ export function placeOrder(
     const { onOrderAccount, onOrderAccountId } = ensureProductQuantityAccounts(item, userId);
     postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(onOrderAccount), quantity, userId, transdate, undefined, onOrderAccountId);
   }
+  })();
 }
 
 /** Fulfills (all or item of) an order — reduces its Qty/Value memo
@@ -1648,8 +1663,10 @@ export function fulfillOrder(
   // second partial fulfillment silently corrupted journal_line — see
   // the journal_reference_unique index and its comment for the full
   // story of how that surfaced.
+  db.transaction(() => {
   postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}`, asAccountName(`${orderReference} Qty`), -quantityFulfilled, userId, transdate);
   postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-VALUE`, asAccountName(`${orderReference} Value`), -valueFulfilledMinor, userId, transdate);
+  })();
 }
 
 /** The remaining committed quantity/value on an order — zero means
