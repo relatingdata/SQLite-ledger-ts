@@ -52,12 +52,30 @@ already exists`) — not a flaw in the test, a real, direct consequence of this 
   real a data-integrity failure as half a journal entry, just not immediately,
   visibly a financial one.
 
-### Real, honest scope — not yet audited or fixed in full
+### Real, honest scope — progress so far
 
-This is a real, large, cross-cutting audit — 328 real, exported functions exist
-across `db.ts`/`db-stock.ts`/`db-reports.ts`/`auth.ts` alone, and not all of them
-write real data (many are pure reads). A real, complete audit identifying every
-real, compound write function still needing this fix, and applying it function by
-function, verifying the real, full test suite after each real change, is real,
-substantial, further work — stated honestly here as not yet done, not assumed
-complete because the principle itself is now documented.
+Fixed and verified, each with a real, deliberately-forced-failure test proving
+rollback, not just asserting it: `createBusiness`, `postInvoice`, `allocatePayment`.
+`createInvoice` wrapped (its own real, obvious failure points are all checked
+*before* the transaction opens, by design, so no natural mid-transaction trigger has
+yet been found to prove it the same way — recorded honestly in
+docs/documentation-debt-tally.md rather than left unstated).
+
+**A real, important, confirmed finding**: `postApPayment` (and the same pattern
+wherever else it appears — `ap_payment_post`, `journal` itself, and any other
+`INSTEAD OF INSERT` view+trigger pair) does **not** need an explicit
+`db.transaction()` wrap at all. A single `INSERT` statement that fires an `INSTEAD
+OF INSERT` trigger is one, indivisible SQLite statement by construction — SQLite
+already guarantees the whole cascade (every real write the trigger itself performs)
+either fully applies or fully doesn't, with no further, real work needed. This is
+the real, direct answer to "the staging triggers and the general journal trigger/
+function must both complete successfully": for this specific pattern, that
+guarantee already exists, and always has — the real gap this skill addresses is
+specifically the *application-code* (TypeScript function) side, where multiple,
+separate SQL statements are issued one after another with nothing tying them
+together.
+
+Still open: 328 real, exported functions across `db.ts`/`db-stock.ts`/
+`db-reports.ts`/`auth.ts` alone; the real, full audit identifying every real,
+compound write function still needing this fix, and applying it function by
+function, remains real, substantial, further work.

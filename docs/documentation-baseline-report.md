@@ -32,7 +32,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `typeOpenHoursRecordName` | `backend/src/db.ts` | (none) | `const typeOpenHoursRecordName = { brand: 'OpenHoursRecordName' };` |
 | `typeProjectTaskName` | `backend/src/db.ts` | (none) | `const typeProjectTaskName = { brand: 'ProjectTaskName' };` |
 | `typeRelationshipRecordName` | `backend/src/db.ts` | (none) | `const typeRelationshipRecordName = { brand: 'RelationshipRecordName' };` |
-| `typeRootName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/db-seed.ts`, `backend/src/routes/divisions.ts` | `const typeRootName = { brand: 'RootName' };` |
+| `typeRootName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/auth-middleware.ts`, `backend/src/db-seed.ts`, `backend/src/routes/divisions.ts` | `const typeRootName = { brand: 'RootName' };` |
 | `typeScheduleRecordName` | `backend/src/db.ts` | (none) | `const typeScheduleRecordName = { brand: 'ScheduleRecordName' };` |
 | `typeStorageOriginMarkerName` | `backend/src/db.ts` | (none) | `const typeStorageOriginMarkerName = { brand: 'StorageOriginMarkerName' };` |
 | `typeTextDirectionMarkerName` | `backend/src/db.ts` | (none) | `const typeTextDirectionMarkerName = { brand: 'TextDirectionMarkerName' };` |

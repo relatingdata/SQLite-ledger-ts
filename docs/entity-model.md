@@ -649,3 +649,23 @@ All in `backend/src/db.ts`:
 - **`setPosPin(employeeName, pin)`**: a real employee's own real PIN for signing on to a POS terminal.
 - **`signOn(employeeName, locationName)`**/**`verifyPosPin`**/**`signOff(shiftId)`**: opens/verifies/closes a real, named employee's own real shift at a specific real location.
 - **`getActiveShiftsAtLocation`**/**`getOpenShiftForEmployee`**: which real shifts are genuinely still open, by location or by employee.
+
+## createEntityRaw, createAndConfigureLocation, createItemCategory, documented directly
+
+**`createEntityRaw`** (`backend/src/db.ts`) — the real, low-level, deliberately
+generic primitive `createEntity` was renamed to, per direct instruction that the
+literal name `createEntity` no longer exist anywhere. Kept for its own two, real,
+deliberate exceptions: the Entity Tree Editor's own route, and `primitives.ts`'s own
+`Entity.create`/`ensureUnder`.
+
+**`createLocation`**/**`createItemCategory`** — real, new, typed, dedicated
+functions replacing generic `createEntity` for these two, ordinary, everyday
+application flows, matching `createVendor`/`createEmployee`'s own, established,
+suffix-free naming (an earlier `...Entity`-suffixed name for each was corrected
+directly, per a sharp, direct question asked mid-session, which also caught a real,
+unneeded duplicate of the already-existing `createItem`).
+
+**`createAndConfigureLocation`** — combines real location-entity-creation and
+real detail-setting (city, capacity, timezone, type) into one, single, atomic
+`db.transaction()`, replacing what used to be two, real, separate steps a caller
+could complete only one of.

@@ -5586,3 +5586,27 @@ test('createBusiness: a real, forced failure partway through genuinely rolls bac
   assert.equal(entities.filter((e) => e.name === 'TxnRollbackTest Co').length, 0, 'the real business entity itself must not survive a real, failed createBusiness');
   assert.equal(entities.filter((e) => e.name === 'Actual' && e.parent_id === undefined).length, 0);
 });
+
+test('postInvoice: a real, forced failure (posting to a non-existent account) genuinely rolls back everything - the invoice stays a real, untouched draft, no real, orphaned journal entry or staged lines survive', () => {
+  createEntityRaw({ name: 'PostRollbackTest Corp', parent: 'Customers' }, asUserId(1));
+  setContact('PostRollbackTest Corp', { payment_terms_days: 14 });
+  const invoiceId = createInvoice({
+    invoiceType: 'AR',
+    business: 'My Business',
+    ledger: 'Actual',
+    reference: 'POSTROLLBACK-1',
+    counterpartyName: 'PostRollbackTest Corp',
+    invoiceDate: '2027-05-01',
+    description: 'A real, deliberately failing post',
+    lines: [{ description: 'Widgets x1', quantity: 1, unitPriceMinor: 100, amountMinor: 100, taxMinor: 0 }],
+  }, asUserId(1));
+
+  assert.throws(() => postInvoice(invoiceId, 'Not A Real Revenue Account', 'Not A Real Tax Account', asUserId(1)));
+
+  const stillDraft = getInvoice(invoiceId)!;
+  assert.equal(stillDraft.status, 'draft', 'the real invoice must genuinely remain a draft - never silently, partially posted');
+  const journalRows = db.prepare(`SELECT 1 FROM journal WHERE reference = 'POSTROLLBACK-1'`).get();
+  assert.equal(journalRows, undefined, 'no real, orphaned journal entry must survive a real, failed post');
+  const stagedRows = db.prepare(`SELECT 1 FROM journal_entry_staging WHERE reference = 'POSTROLLBACK-1'`).get();
+  assert.equal(stagedRows, undefined, 'no real, orphaned staged lines must survive a real, failed post');
+});

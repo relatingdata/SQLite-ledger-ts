@@ -35,6 +35,15 @@ only once actually fixed, not once merely acknowledged.
    elsewhere tonight. Confirmed harmless to the tutorial e2e (which never loads
    demo data), but a real, further, separate inconsistency, not yet resolved.
 
+5. **`createInvoice`'s own rollback-proof test** — wrapped in a real
+   `db.transaction()`, matching `createBusiness`, but no real, deliberately-forced-
+   mid-transaction-failure test has been written for it yet, unlike
+   `createBusiness`'s own. Every real, obvious failure point (missing business/
+   ledger/counterparty, a duplicate reference) is checked *before* the transaction
+   opens, by design — genuinely proving the rollback itself needs a real, natural
+   trigger that fails *after* the header write but *during* the line-writing loop,
+   not yet found and confirmed.
+
 ### Closed
 
 _(moved here, with the checkpoint that closed them, once actually fixed)_

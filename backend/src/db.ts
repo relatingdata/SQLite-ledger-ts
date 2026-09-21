@@ -1383,6 +1383,7 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
   const termDays = contact?.payment_terms_days ?? 30;
   const dueDate = db.prepare(`SELECT date(?, '+' || ? || ' days') AS d`).get(input.invoiceDate, termDays) as { d: string };
 
+  return db.transaction((): number => {
   const invoicesRoot = ensureSystemInvoicesRoot(userId);
   const invoiceEntity = Entity.create(`${input.business} — ${input.ledger} — ${input.reference}`, invoicesRoot.id, userId);
   updateEntity(invoiceEntity.id, { relation: input.counterpartyName }, userId);
@@ -1425,6 +1426,7 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
   });
 
   return invoiceId;
+  })();
 }
 
 export function getInvoice(id: number): Invoice | undefined {
@@ -1932,6 +1934,7 @@ export function postInvoice(
   divisionName?: string,
   counterpartyAccountOverride?: string
 ): void {
+  db.transaction(() => {
   const invoice = getInvoice(id);
   if (!invoice) throw new NotFoundError(`No invoice with id ${id}.`);
   if (invoice.status !== 'draft') throw new ValidationError(`Invoice ${invoice.reference} is already ${invoice.status}, not a draft.`);
@@ -2038,6 +2041,7 @@ export function postInvoice(
   db.prepare(
     `UPDATE entities SET detail_json = json_set(detail_json, '$.status', 'posted', '$.posted_journal_id', ?) WHERE entity_id = ? AND deleted_at IS NULL`
   ).run(journalId, id);
+  })();
 }
 
 /** Records that a specific AR Receipt/AP Payment posting was applied
@@ -2080,6 +2084,7 @@ export function allocatePayment(
   // time for money that never genuinely sat there. Only the real
   // allocation record below (for real outstanding-balance tracking)
   // is needed in that case, not a second journal entry.
+  db.transaction(() => {
   if (!skipJournalPosting) {
     // AR: debit the payment account (cash increases), credit the
     // customer's own AR-style balance (it decreases). AP: the mirror —
@@ -2101,6 +2106,7 @@ export function allocatePayment(
     JSON.stringify({ payment_reference: paymentReference, allocated_minor: allocatedMinor, allocation_date: allocationDate }),
     allocEntity.id
   );
+  })();
 }
 
 export function getInvoiceOutstandingMinor(invoiceId: number): number {
