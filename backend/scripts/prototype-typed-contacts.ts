@@ -13,7 +13,7 @@
  *
  * Run with: node --import tsx backend/scripts/prototype-typed-contacts.ts
  */
-import { createEntity, create, fetch, typeRootName, typeVocabularyWordName, setContact, getContact, updateEntity, db } from '../src/db.js';
+import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, setContact, getContact, updateEntity, db } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: Address Types and Phone Types categories ===');

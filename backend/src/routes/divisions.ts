@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
-import { getDivisions, setDivisionType, createEntity, create, fetch, typeRootName, typeDivisionName, ValidationError,
+import { getDivisions, setDivisionType, create, fetch, typeRootName, typeDivisionName, ValidationError,
   asUserId, type EntityId, getDivisionTypes, createDivisionType,
 } from '../db.js';
 

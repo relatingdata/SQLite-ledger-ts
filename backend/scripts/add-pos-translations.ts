@@ -1,4 +1,4 @@
-import { setTranslation, createEntity, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
+import { setTranslation, createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
 
 const translations: Record<string, Record<string, string>> = {
   Cart: { German: 'Warenkorb', French: 'Panier', Danish: 'Kurv', Italian: 'Carrello' },

@@ -9,7 +9,7 @@
  *
  * Run with: DB_PATH=/tmp/proto5.db node --import tsx backend/scripts/prototype-gross-net-pl.ts
  */
-import { createEntity, create, fetch, typeRootName, typeVocabularyWordName, updateEntity, stageLine, postJournalEntry, getProfitAndLoss, db } from '../src/db.js';
+import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, updateEntity, stageLine, postJournalEntry, getProfitAndLoss, db } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: tag Cost of Goods Sold as COGS-type, via its own unused relation_id ===');

@@ -5,7 +5,7 @@
 // per the backend-first-testing skill - no browser, no Playwright,
 // direct function calls, checking every real balance/quantity along
 // the way, not just the final result.
-import { createBusiness, createEntity, create, fetch, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asVendorName, asItemName } from '../src/db.ts';
+import { createBusiness, createEntityRaw, create, fetch, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asVendorName, asItemName } from '../src/db.ts';
 import {
   setLocation,
   placeOrder,

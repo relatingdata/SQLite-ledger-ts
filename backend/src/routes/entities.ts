@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getEntityTree, getEntity, getEntityHistory, createEntity, updateEntity, deleteEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
+import { getEntityTree, getEntity, getEntityHistory, createEntityRaw, updateEntity, deleteEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
   asUserId,
   createVendor,
   createEmployee,
@@ -83,7 +83,7 @@ entitiesRouter.post('/', requireRole('Administrator', 'Bookkeeper'), (req, res) 
     // word, a new custom category, or any other real kind not known
     // in advance. Forcing a specific TypeDescriptor here would defeat
     // this tool's own, real, intended purpose.
-    res.status(201).json(createEntity(parsed.data, asUserId(req.user!.id)));
+    res.status(201).json(createEntityRaw(parsed.data, asUserId(req.user!.id)));
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);

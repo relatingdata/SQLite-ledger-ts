@@ -4,6 +4,7 @@ import { requireRole } from '../auth-middleware.js';
 import {
   getEntityTree,
   setLocation,
+  createAndConfigureLocation,
   getLocation,
   getItemLocation,
   setItemLocationLevels,
@@ -92,6 +93,28 @@ const locationSchema = z.object({
   // physical location's own transactions must record against that
   // location's own real, local calendar day, never the server's own.
   timezone: z.string().min(1),
+});
+
+locationsRouter.post('/:name', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = locationSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const business = req.query.business as string;
+  if (!business) return res.status(400).json({ error: 'business query parameter is required.' });
+  try {
+    createAndConfigureLocation(asBusinessName(business), req.params.name, {
+      city: parsed.data.city,
+      location_type: parsed.data.location_type,
+      is_billing_address: parsed.data.is_billing_address,
+      bottle_capacity: parsed.data.bottle_capacity ?? null,
+      carton_capacity: parsed.data.carton_capacity ?? null,
+      timezone: parsed.data.timezone,
+    }, asUserId(req.user!.id));
+    res.status(201).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not create location.' });
+  }
 });
 
 locationsRouter.put('/:name', requireRole('Administrator', 'Bookkeeper'), (req, res) => {

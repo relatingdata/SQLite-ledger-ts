@@ -10,7 +10,7 @@
  *
  * Run with: node --import tsx backend/scripts/prototype-relationship-type.ts
  */
-import { createEntity, create, fetch, typeRootName, typeVocabularyWordName, updateEntity, db } from '../src/db.js';
+import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, updateEntity, db } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: Relationship Types tree ===');

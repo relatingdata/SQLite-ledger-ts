@@ -2,9 +2,9 @@
 // glass, soft drinks and beer by the glass, and a dozen cocktails —
 // cold storage only, mainly supplied by an existing retail outlet next
 // door. Real, working code, not a plan: uses the real, existing
-// createEntity/setLocation/setItemStorageOrigin/stageBomComponent/
+// createEntityRaw/setLocation/setItemStorageOrigin/stageBomComponent/
 // postBomComponents functions already built and tested this session.
-import { createEntity, create, fetch, typeRootName, getEntityTree, updateEntity, setItem, setItemStorageOrigin, stageBomComponent, postBomComponents, asUserId } from '../src/db.js';
+import { createEntityRaw, create, fetch, typeRootName, getEntityTree, updateEntity, setItem, setItemStorageOrigin, stageBomComponent, postBomComponents, asUserId } from '../src/db.js';
 import { setLocation } from '../src/db-stock.js';
 
 const BUSINESS = 'Wine Retail Business';

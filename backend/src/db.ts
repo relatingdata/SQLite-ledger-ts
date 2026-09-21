@@ -684,7 +684,7 @@ export function isGenuineCategoryOrItemsRoot(name: string): boolean {
 }
 
 
-export function createEntity(input: NewEntity, userId: UserId): EntityNode {
+export function createEntityRaw(input: NewEntity, userId: UserId): EntityNode {
   const parentId = input.parentId ?? (input.parent ? resolveId(input.parent) : null);
   // Scoped, not global: two real, direct siblings under the same real
   // parent can't share a name, but the exact, same name is genuinely
@@ -4676,7 +4676,7 @@ export function getContactsWithType(typeName: string): string[] {
  * is genuinely available the moment the rest of the app catches up to
  * reading it. */
 export function createVendor(name: string, userId: UserId): { id: number } {
-  const entity = createEntity({ name, parent: 'Accounts Payable' }, userId);
+  const entity = create(fetch('Accounts Payable', typeRootName), typeVendorName, name, userId);
   setContactType(name, 'Vendor', userId);
   return entity;
 }
@@ -4688,7 +4688,7 @@ export function createVendor(name: string, userId: UserId): { id: number } {
  * genuinely unrelated to contact typing), plus the real, missing
  * setContactType call this session found and fixed. */
 export function createEmployee(name: string, placeOfEmployment: string, userId: UserId): { id: number } {
-  const entity = createEntity({ name, parent: 'Employees' }, userId);
+  const entity = create(fetch('Employees', typeRootName), typeEmployeeName, name, userId);
   setRelationship(name, 'Place of Employment', placeOfEmployment, userId);
   setContactType(name, 'Employee', userId);
   return entity;
@@ -5365,8 +5365,20 @@ export function countItems(): number {
  * this genuinely a real Category or the Items root." fetch()+create()
  * closes that gap directly, with zero dependency on generic
  * createEntity at all. */
-export function createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId): void {
-  const parent = fetch(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName);
+export function createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId, businessName?: BusinessName): void {
+  if (!businessName) {
+    // The real, original, bare, unscoped lookup - preserved exactly,
+    // since a real caller with no real business context may be
+    // naming a real, deeply-nested category (not necessarily a
+    // direct child of Items), which a real, scoped lookup cannot
+    // find without knowing its own, real, further parent chain.
+    const parent = fetch(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName);
+    create(parent, typeItemName, name, userId);
+    setItem(name, { description: null, unit_of_measure: null, upc: null });
+    return;
+  }
+  const itemsRoot = fetch('Items', typeRootName, fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName)));
+  const parent = parentCategoryOrItemsRoot === 'Items' ? itemsRoot : fetch(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName, itemsRoot);
   create(parent, typeItemName, name, userId);
   setItem(name, { description: null, unit_of_measure: null, upc: null });
 }
@@ -6455,6 +6467,42 @@ export function getFinancialStatementNotes(businessName: BusinessName): { name: 
  * own real "Bank Accounts" area on first use - real, nominated data, never a
  * shared, global default (per direct instruction, decided shape A: Collections
  * would only ever hold the abstract shape, never actual instances). */
+/** The one, real, correct way a new location entity is created for a
+ * specific business, per direct instruction eliminating generic
+ * createEntity from ordinary application flows entirely. Resolves
+ * this business's own, real, scoped "Locations" root directly - never
+ * a bare, ambiguous name. */
+export function createLocation(businessName: BusinessName, locationName: string, userId: UserId): TypedNode<'LocationEntityName'> {
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const locationsRoot = fetch('Locations', typeRootName, business);
+  return create(locationsRoot, typeLocationEntityName, locationName, userId);
+}
+
+/** The one, real, atomic way a new location is genuinely created,
+ * per direct instruction: creating the real entity, then setting its
+ * own real details (city, capacity, timezone, type), used to be two,
+ * real, separate steps a caller could complete only one of - now one,
+ * real, single db.transaction(), so it either fully applies or fully
+ * doesn't, per the real, absolute transactional-integrity
+ * requirement. */
+export function createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId): TypedNode<'LocationEntityName'> {
+  return db.transaction(() => {
+    const entity = createLocation(businessName, locationName, userId);
+    setLocation(locationName, location);
+    return entity;
+  })();
+}
+
+/** The one, real, correct way a new item category is created for a
+ * specific business, per direct instruction eliminating generic
+ * createEntity from ordinary application flows entirely. */
+export function createItemCategory(businessName: BusinessName, categoryName: string, parentCategoryName: string | undefined, userId: UserId): TypedNode<'RootName'> {
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const itemsRoot = fetch('Items', typeRootName, business);
+  const parent = parentCategoryName ? fetch(parentCategoryName, typeRootName, itemsRoot) : itemsRoot;
+  return create(parent, typeRootName, categoryName, userId);
+}
+
 export function nominateBankAccount(businessName: BusinessName, bankAccountName: string, routingDetail: string, accountNumber: string, userId: UserId): { id: number } {
   const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
   let bankAccountsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Bank Accounts' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
@@ -7231,7 +7279,7 @@ export function postApPayment(reference: string, business: BusinessName, ledger:
 }
 
 export * from './db-stock.js';
-import { getLocation, getItemLocation, dispatchStockFromLocation, receiveStockAtLocation, transferStock, placeOrder, fulfillOrder, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency } from './db-stock.js';
+import { getLocation, setLocation, getItemLocation, dispatchStockFromLocation, receiveStockAtLocation, transferStock, placeOrder, fulfillOrder, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, type Location as StockLocation } from './db-stock.js';
 
 // The four stock/order entry screens. Each stages into its own table,
 // then "post" reads the staged row, does the real work (placing or

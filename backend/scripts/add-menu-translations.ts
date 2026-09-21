@@ -1,4 +1,4 @@
-import { setTranslation, createEntity, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
+import { setTranslation, createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
 
 // The 39 real menu labels confirmed missing from the vocabulary
 // entirely, across all four non-English languages this app supports.

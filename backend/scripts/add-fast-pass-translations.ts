@@ -1,4 +1,4 @@
-import { setTranslation, createEntity, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
+import { setTranslation, createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
 
 // 3 real, reused directly from LedgerSMB's own published translations
 // (github.com/ledgersmb/LedgerSMB/tree/master/locale/po) — the rest

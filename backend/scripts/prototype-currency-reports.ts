@@ -18,7 +18,7 @@
  *
  * Run with: DB_PATH=/tmp/proto3.db node --import tsx backend/scripts/prototype-currency-reports.ts
  */
-import { db, createEntity, create, fetch, typeRootName, typeVocabularyWordName, stageLine, listJournalEntries } from '../src/db.js';
+import { db, createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, stageLine, listJournalEntries } from '../src/db.js';
 
 db.exec(`ALTER TABLE account ADD COLUMN currency TEXT`);
 

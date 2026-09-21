@@ -23,7 +23,6 @@ import {
   deleteEntityLink,
   stageLine,
   updateEntity,
-  createEntity,
   deleteEntity,
   create,
   fetch,

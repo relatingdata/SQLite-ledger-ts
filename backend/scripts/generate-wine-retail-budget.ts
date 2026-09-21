@@ -16,7 +16,7 @@
  *
  * Run with: node --import tsx backend/scripts/generate-wine-retail-budget.ts
  */
-import { createEntity, create, fetch, typeRootName, stageLine, postJournalEntry, getProfitAndLoss } from '../src/db.js';
+import { createEntityRaw, create, fetch, typeRootName, stageLine, postJournalEntry, getProfitAndLoss } from '../src/db.js';
 
 const BUSINESS = 'Wine Retail Business';
 const LEDGER = 'Budget March 2027';

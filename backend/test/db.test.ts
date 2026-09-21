@@ -42,7 +42,7 @@ const {
   getAccountsPostedTo,
   closePeriod,
   reopenPeriod,
-  createEntity,
+  createEntityRaw,
   fetch,
   fetchGlobalCoaCategory,
   nominateBankAccount,
@@ -4790,7 +4790,7 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
 test('getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy - not one of the four, recommended default axes - works identically, through the same, real, generic mechanism', async () => {
   const { getProfitAndLossByAxis } = await import('../src/db-matrix-reports.ts');
   const biz = createBusiness(asBusinessName('BottleSizeTest Co'), '2027-28', asUserId(1));
-  createEntity({ name: 'BottleSizeTest Outlet', parent: 'Locations' }, asUserId(1));
+  createEntityRaw({ name: 'BottleSizeTest Outlet', parent: 'Locations' }, asUserId(1));
   setLocation('BottleSizeTest Outlet', { city: 'BottleSizeTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80, timezone: 'UTC' });
   createItem('BottleSizeTest Amber Ale', 'Items', asUserId(1));
   createItem('BottleSizeTest Merlot', 'Items', asUserId(1));
@@ -4830,7 +4830,7 @@ test('getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy -
   assert.equal(size750?.profitAndLoss.total_income_minor, 6600, 'the real, correct sales total for the real 750ml group, genuinely independent of the real 330ml group');
 });
 
-test('createEntity: scoped, not global, uniqueness — the exact, same real rule everywhere else in the entity tree, verified specifically for Vocabulary and its own real translations', () => {
+test('createEntityRaw: scoped, not global, uniqueness — the exact, same real rule everywhere else in the entity tree, verified specifically for Vocabulary and its own real translations', () => {
   create(fetch('Vocabulary', typeRootName), typeRootName, 'VocabDupeTest', asUserId(1));
   assert.throws(
     () => create(fetch('Vocabulary', typeRootName), typeRootName, 'VocabDupeTest', asUserId(1)),
@@ -4857,7 +4857,7 @@ test('createEntity: scoped, not global, uniqueness — the exact, same real rule
 });
 
 test('create<T>: the real, generic, typed-descriptor creation primitive - genuinely preserves the Springfield principle (scoped, not global, uniqueness)', () => {
-  // Per direct instruction: no dependency on generic createEntity, no
+  // Per direct instruction: no dependency on generic createEntityRaw, no
   // bare string kind arguments. Real, named type descriptors, passed
   // as values.
   const typeSpringfieldBusinessName: TypeDescriptor<'SpringfieldBusinessName'> = { brand: 'SpringfieldBusinessName' };
@@ -4869,7 +4869,7 @@ test('create<T>: the real, generic, typed-descriptor creation primitive - genuin
   const employeesRoot: TypedNode<'Root'> = { id: asEntityId((db.prepare(`SELECT id FROM current_entities WHERE name = 'Employees'`).get() as { id: number }).id), name: 'Employees' as any };
 
   // Per direct instruction, quoting the real, existing, established
-  // principle directly (backend/src/db.ts, createEntity's own
+  // principle directly (backend/src/db.ts, createEntityRaw's own
   // comment): "a company, a division, a location, and an employee can
   // all genuinely, correctly be called 'Springfield' at once."
   const business = create(businessesRoot, typeSpringfieldBusinessName, 'CreateTTest Springfield', asUserId(1));
@@ -4904,7 +4904,7 @@ test('create<T>: the real, generic, typed-descriptor creation primitive - genuin
 
 test('createItem: the original, confirmed gap is now genuinely closed - a non-Category, non-Items-root parent is rejected', () => {
   // Per direct investigation this session: createItem's own parent
-  // used to be checked only by createEntity's generic "does some real
+  // used to be checked only by createEntityRaw's generic "does some real
   // entity exist with this name" - "Vendors" could silently succeed
   // as an item's parent. Confirmed now genuinely fixed.
   assert.throws(
@@ -4923,7 +4923,7 @@ test('getPrototypeOf/setPrototype/seedDefaultHierarchyPrototypes: the real, sett
   // sub-division both point at the exact, same real "Division"
   // prototype - genuinely uniform regardless of real depth.
   setPrototype('Springfield', 'Division', asUserId(1));
-  createEntity({ name: 'PrototypeTest SubDivision', parent: 'Springfield' }, asUserId(1));
+  createEntityRaw({ name: 'PrototypeTest SubDivision', parent: 'Springfield' }, asUserId(1));
   setPrototype('PrototypeTest SubDivision', 'Division', asUserId(1));
 
   assert.equal(getPrototypeOf('Springfield'), 'Division', 'a real, top-level division correctly points at the real Division prototype');
@@ -4951,7 +4951,7 @@ test('getHierarchyChain: a real, uniform, non-generic walk up parent_id - genuin
   // A real, deliberately deep item chain: Items -> Red Wine ->
   // ChainTest SubRegion -> ChainTest Wine (arbitrary, user-defined
   // depth - not hardcoded to exactly one Category level).
-  createEntity({ name: 'ChainTest SubRegion', parent: 'Red Wine' }, asUserId(1));
+  createEntityRaw({ name: 'ChainTest SubRegion', parent: 'Red Wine' }, asUserId(1));
   createItem('ChainTest Wine', 'ChainTest SubRegion', asUserId(1));
 
   const itemChain = getHierarchyChain(asItemName('ChainTest Wine'));
@@ -5040,7 +5040,7 @@ test('The real Hierarchy/Product cartesian mechanism - the full, settled, flat c
 
 test('getItemPriceForCurrency: a real, combination-specific price wins over the base item price, per direct instruction (a cold beer costs more than a warm one)', () => {
   createItem('PricingComboTest Lager', 'Items', asUserId(1));
-  createEntity({ name: 'PricingComboTest Vendor', parent: 'Vendors' }, asUserId(1));
+  createEntityRaw({ name: 'PricingComboTest Vendor', parent: 'Vendors' }, asUserId(1));
   addOrUpdateItemSource({ itemName: 'PricingComboTest Lager', vendorName: 'PricingComboTest Vendor', priceMinor: 500, isPreferred: true });
 
   const biz = asBusinessName('Wine Retail Business');
@@ -5062,7 +5062,7 @@ test('getItemPriceForCurrency: a real, combination-specific price wins over the 
 test('completePosSale: a real, genuine combination sale correctly resolves its own, real, combination-specific price, and posts through the new Sales/COGS/Inventory leaves, per direct instruction', () => {
   const biz = asBusinessName('Wine Retail Business');
   createItem('ComboSaleTest Lager', 'Items', asUserId(1));
-  createEntity({ name: 'ComboSaleTest Vendor', parent: 'Vendors' }, asUserId(1));
+  createEntityRaw({ name: 'ComboSaleTest Vendor', parent: 'Vendors' }, asUserId(1));
   addOrUpdateItemSource({ itemName: 'ComboSaleTest Lager', vendorName: 'ComboSaleTest Vendor', priceMinor: 500, isPreferred: true });
   receiveStockAtLocation(biz, 'Actual' as any, 'COMBOSALE-REC-1', asItemName('ComboSaleTest Lager'), asLocationName('Riverside Cellars'), 24, asUserId(1));
 
@@ -5100,7 +5100,7 @@ test('completePosSale: a real, genuine combination sale correctly resolves its o
 test('receiveStockAtLocation: a real, combination-tagged receipt builds up a real, distinct Inventory value at the exact, right leaf, per direct instruction', () => {
   const biz = asBusinessName('Wine Retail Business');
   createItem('ReceiveComboTest Lager', 'Items', asUserId(1));
-  createEntity({ name: 'ReceiveComboTest Vendor', parent: 'Vendors' }, asUserId(1));
+  createEntityRaw({ name: 'ReceiveComboTest Vendor', parent: 'Vendors' }, asUserId(1));
   addOrUpdateItemSource({ itemName: 'ReceiveComboTest Lager', vendorName: 'ReceiveComboTest Vendor', priceMinor: 600, packageQuantity: 1, isPreferred: true });
 
   const shape: [string, string][] = [
@@ -5119,7 +5119,7 @@ test('receiveStockAtLocation: a real, combination-tagged receipt builds up a rea
 test('transferStock: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction', () => {
   const biz = asBusinessName('Wine Retail Business');
   createItem('TransferComboTest Lager', 'Items', asUserId(1));
-  createEntity({ name: 'TransferComboTest Vendor', parent: 'Vendors' }, asUserId(1));
+  createEntityRaw({ name: 'TransferComboTest Vendor', parent: 'Vendors' }, asUserId(1));
   addOrUpdateItemSource({ itemName: 'TransferComboTest Lager', vendorName: 'TransferComboTest Vendor', priceMinor: 600, packageQuantity: 1, isPreferred: true });
 
   const shape: [string, string][] = [
@@ -5164,7 +5164,7 @@ test('getBusinessHierarchy/getBusinessProductShapes: real, business-scoped listi
 test('climbInstanceTree/getCombinationByUpc: a real, scanned barcode resolves directly to its own, exact combination, climbing back up to the real Product root, per direct instruction', () => {
   const biz = asBusinessName('Wine Retail Business');
   createItem('BarcodeTest Lager', 'Items', asUserId(1));
-  createEntity({ name: 'BarcodeTest Vendor', parent: 'Vendors' }, asUserId(1));
+  createEntityRaw({ name: 'BarcodeTest Vendor', parent: 'Vendors' }, asUserId(1));
 
   const shape: [string, string][] = [
     ['Location', 'Location'],
@@ -5236,8 +5236,8 @@ test('getQualifiedDisplayName never doubles a real, already-qualified name - a r
   // the full, real combination chain already, including that same,
   // real parent name as its own, real prefix - exactly what
   // ensureCombinationAccountLeaf genuinely produces.
-  const parent = createEntity({ name: 'QDNTest Amber Ale 330ml (Bottle)', parent: 'Items' }, asUserId(1));
-  const child = createEntity({ name: 'QDNTest Amber Ale 330ml (Bottle) — Eastside Cellar Door', parent: parent.name }, asUserId(1));
+  const parent = createEntityRaw({ name: 'QDNTest Amber Ale 330ml (Bottle)', parent: 'Items' }, asUserId(1));
+  const child = createEntityRaw({ name: 'QDNTest Amber Ale 330ml (Bottle) — Eastside Cellar Door', parent: parent.name }, asUserId(1));
   const qualified = getQualifiedDisplayName(child.id);
   assert.equal(
     qualified,
@@ -5249,16 +5249,16 @@ test('getQualifiedDisplayName never doubles a real, already-qualified name - a r
   // working exactly as before: a real child whose own name does NOT
   // already include its own, real parent's name still gets it
   // prepended, for real, genuine disambiguation.
-  const ordinaryParent = createEntity({ name: 'QDNTest Vendor A', parent: 'Vendors' }, asUserId(1));
-  const ordinaryChild = createEntity({ name: 'Sales', parent: ordinaryParent.name }, asUserId(1));
+  const ordinaryParent = createEntityRaw({ name: 'QDNTest Vendor A', parent: 'Vendors' }, asUserId(1));
+  const ordinaryChild = createEntityRaw({ name: 'Sales', parent: ordinaryParent.name }, asUserId(1));
   assert.equal(getQualifiedDisplayName(ordinaryChild.id), 'QDNTest Vendor A — Sales');
 });
 
 test('completePosSale, through a real, foreign-currency terminal at a real, nominated-currency location, correctly resolves the real, foreign price AND correctly posts the real payment into its own, real, currency-tagged "Cash at Bank" sibling - the real gap found and reported earlier this session, now closed per docs/multicurrency-design.md', () => {
-  createEntity({ name: 'FXPosTest Outlet', parent: 'Locations' }, asUserId(1));
+  createEntityRaw({ name: 'FXPosTest Outlet', parent: 'Locations' }, asUserId(1));
   setLocation('FXPosTest Outlet', { city: 'FXPosTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
   nominateLocationCurrency('FXPosTest Outlet' as any, 'USD', asUserId(1));
-  createEntity({ name: 'FXPosTest Vendor', parent: 'Vendors' }, asUserId(1));
+  createEntityRaw({ name: 'FXPosTest Vendor', parent: 'Vendors' }, asUserId(1));
   createItem('FXPosTest Water', 'Items', asUserId(1));
   addOrUpdateItemSource({ itemName: 'FXPosTest Water', vendorName: 'FXPosTest Vendor', currency: 'USD', priceMinor: 150, isPreferred: true });
   receiveStockAtLocation('My Business' as any, 'Actual' as any, 'FXPOS-REC-1', 'FXPosTest Water' as any, 'FXPosTest Outlet' as any, 10, asUserId(1), '2027-01-02');
@@ -5302,14 +5302,14 @@ test('completePosSale, through a real, foreign-currency terminal at a real, nomi
 // ===========================================================================
 
 test('a business nominates one real home currency, stored in its own detail_json - per multicurrency-design.md, "Where currency lives, and precedence"', () => {
-  createEntity({ name: 'HomeCcyTest Business', parent: 'Business' }, asUserId(1));
+  createEntityRaw({ name: 'HomeCcyTest Business', parent: 'Business' }, asUserId(1));
   assert.equal(getBusinessHomeCurrency('HomeCcyTest Business' as any), null, 'a real, genuinely unset business has no home currency yet - never a guessed default');
   setBusinessHomeCurrency('HomeCcyTest Business' as any, 'AUD', asUserId(1));
   assert.equal(getBusinessHomeCurrency('HomeCcyTest Business' as any), 'AUD');
 });
 
 test('a location nominates a real SET of currencies it trades in, not a single value - per multicurrency-design.md, "Where currency lives, and precedence"', () => {
-  createEntity({ name: 'CcyLocTest Outlet', parent: 'Locations' }, asUserId(1));
+  createEntityRaw({ name: 'CcyLocTest Outlet', parent: 'Locations' }, asUserId(1));
   setLocation('CcyLocTest Outlet', { city: 'Test', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' });
   assert.deepEqual(getLocationCurrencies('CcyLocTest Outlet' as any), [], 'a real, genuinely ordinary location nominates nothing extra by default');
   nominateLocationCurrency('CcyLocTest Outlet' as any, 'USD', asUserId(1));
@@ -5319,13 +5319,13 @@ test('a location nominates a real SET of currencies it trades in, not a single v
 
 test('the fully worked example from multicurrency-design.md: a real sale through a real, nominated-currency location posts every real leg (Revenue, Tax, COGS, Cash) to its own, real, currency-tagged sibling, never converted, genuinely balancing entirely within its own real currency group', () => {
   setBusinessHomeCurrency('My Business' as any, 'AUD', asUserId(1));
-  createEntity({ name: 'WorkedEx Outlet', parent: 'Locations' }, asUserId(1));
+  createEntityRaw({ name: 'WorkedEx Outlet', parent: 'Locations' }, asUserId(1));
   setLocation('WorkedEx Outlet', { city: 'Border Town', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
   nominateLocationCurrency('WorkedEx Outlet' as any, 'USD', asUserId(1));
   createPosTerminal('WorkedEx USD Till', 'WorkedEx Outlet' as any, asUserId(1));
   setTerminalCurrency('WorkedEx USD Till', 'USD');
 
-  createEntity({ name: 'WorkedEx Vendor', parent: 'Vendors' }, asUserId(1));
+  createEntityRaw({ name: 'WorkedEx Vendor', parent: 'Vendors' }, asUserId(1));
   createItem('WorkedEx Ale', 'Items', asUserId(1));
   // Two, real, independent item_source rows - buying and selling are
   // two separate facts, per the manual's own, explicit statement.
@@ -5381,7 +5381,7 @@ test('closeBooks: a real, foreign-currency Income account closes against its own
   create(fetch('My Business', typeRootName), typeRootName, 'CloseCcyTest Ledger', asUserId(1));
   create(fetchGlobalCoaCategory('Income'), typeRootName, 'CloseCcyTest Revenue', asUserId(1));
   setAccountCurrency('CloseCcyTest Revenue', 'USD');
-  createEntity({ name: 'CloseCcyTest Cash (USD)', parent: 'Asset' }, asUserId(1));
+  createEntityRaw({ name: 'CloseCcyTest Cash (USD)', parent: 'Asset' }, asUserId(1));
   setAccountCurrency('CloseCcyTest Cash (USD)', 'USD');
 
   stageLine({ reference: 'CLOSECCY-1', business: asBusinessName('My Business'), ledger: asLedgerName('CloseCcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CloseCcyTest Revenue'), amount_minor: -50000 });
@@ -5432,7 +5432,7 @@ test('a real contact can genuinely hold more than one real type at once - a Vend
 });
 
 test('createEmployee genuinely tags the new contact as a real Employee type, per docs/contact-types-and-translations.md - Employee correctly derives Accounts Payable as its own base account too, per the same, direct, deliberate accounting point', () => {
-  createEntity({ name: 'ContactTypeTest Location', parent: 'Locations' }, asUserId(1));
+  createEntityRaw({ name: 'ContactTypeTest Location', parent: 'Locations' }, asUserId(1));
   createEmployee('ContactTypeTest Employee', 'ContactTypeTest Location', asUserId(1));
   assert.deepEqual(getContactTypes('ContactTypeTest Employee'), ['Employee']);
   assert.deepEqual(getContactBaseAccounts('ContactTypeTest Employee'), ['Accounts Payable']);

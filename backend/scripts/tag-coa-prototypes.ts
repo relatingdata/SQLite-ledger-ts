@@ -1,4 +1,4 @@
-import { createEntity, create, fetch, typeRootName, typeVocabularyWordName, getCoaPrototypeAccounts, updateEntity, db, getBusinesses } from '../src/db.js';
+import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, getCoaPrototypeAccounts, updateEntity, db, getBusinesses } from '../src/db.js';
 
 // Real, confirmed representative business+ledger for each real CoA
 // prototype — getCoaPrototypeAccounts on each returns exactly the real

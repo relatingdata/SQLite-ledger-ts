@@ -16,7 +16,7 @@
  *
  * Run with: DB_PATH=/tmp/proto.db node --import tsx backend/scripts/prototype-multicurrency.ts
  */
-import { createEntity, create, fetch, typeRootName, typeVocabularyWordName, setItem, stageLine, postJournalEntry, receiveLot, consumeFromLots, addOrUpdateItemSource } from '../src/db.js';
+import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, setItem, stageLine, postJournalEntry, receiveLot, consumeFromLots, addOrUpdateItemSource } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: EUR and USD as real items, same commodity mechanism as wine ===');

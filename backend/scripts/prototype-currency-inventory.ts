@@ -21,7 +21,7 @@
  *
  * Run with: DB_PATH=/tmp/proto4.db node --import tsx backend/scripts/prototype-currency-inventory.ts
  */
-import { createEntity, create, fetch, typeRootName, typeVocabularyWordName, setItem, stageLine, postJournalEntry, receiveLot, consumeFromLots, db } from '../src/db.js';
+import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, setItem, stageLine, postJournalEntry, receiveLot, consumeFromLots, db } from '../src/db.js';
 
 db.exec(`ALTER TABLE account ADD COLUMN currency TEXT`);
 function setAccountCurrency(accountName: string, currency: string) {

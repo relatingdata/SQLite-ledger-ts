@@ -16,7 +16,7 @@
  *
  * Run with: node --import tsx backend/scripts/prototype-category-mirroring.ts
  */
-import { getEntityTree, createEntity, create, fetch, typeRootName, db } from '../src/db.js';
+import { getEntityTree, createEntityRaw, create, fetch, typeRootName, db } from '../src/db.js';
 
 function getProductCategoryChain(entities: ReturnType<typeof getEntityTree>, itemName: string): string[] {
   const item = entities.find((e) => e.name === itemName);

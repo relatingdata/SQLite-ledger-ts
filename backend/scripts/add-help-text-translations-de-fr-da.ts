@@ -1,4 +1,4 @@
-import { setTranslation, createEntity, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
+import { setTranslation, createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
 import { readFileSync } from 'fs';
 
 // Real, careful, hand-written translations of the 25 simple (no

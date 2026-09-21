@@ -13,7 +13,7 @@
 // test after each real step.
 import { db } from './db.js';
 import {
-  createEntity as _createEntity,
+  createEntityRaw as _createEntity,
   updateEntity as _updateEntity,
   deleteEntity as _deleteEntity,
   getEntity as _getEntity,

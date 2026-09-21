@@ -11,7 +11,7 @@
  * account customers with real credit limits, so the "half and half"
  * scenario is genuinely demonstrable, not just described.
  */
-import { createEntity, create, fetch, typeRootName, setContact, getCreditStatus, asUserId } from '../src/db.ts';
+import { createEntityRaw, create, fetch, typeRootName, setContact, getCreditStatus, asUserId } from '../src/db.ts';
 
 async function main() {
   console.log('=== Wine Retail Business: real, varied payment terms and credit limits ===\n');
