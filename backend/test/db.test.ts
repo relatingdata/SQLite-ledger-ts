@@ -45,8 +45,12 @@ const {
   createEntity,
   fetch,
   fetchGlobalCoaCategory,
+  nominateBankAccount,
+  buildBankCurrencyStructure,
   typeRootName,
   typeBusinessName,
+  typeAssetAccountName,
+  typeEquityAccountName,
   typeChartOfAccountsRootName,
   updateEntity,
   setRelationship,
@@ -5460,4 +5464,79 @@ test('a real business can genuinely be named "Equity" (or "Asset", "Chart of Acc
 
   const tb = getTrialBalance(asBusinessName('Equity'), asLedgerName('Actual'));
   assert.equal(tb.total_debit_minor, tb.total_credit_minor, 'the trial balance for a real business literally named "Equity" must still genuinely balance, exactly like any other real business');
+});
+
+test('nominateBankAccount/buildBankCurrencyStructure: a real, single bank account in one real currency collapses to one, plain, postable "Cash at Bank" account - no header, no further structure', () => {
+  const biz = createBusiness(asBusinessName('BankCurrencySingle Co'), '2027-28', asUserId(1));
+  nominateBankAccount(biz.business, 'Westpac Business Cheque', '032-001', '123456', asUserId(1));
+  buildBankCurrencyStructure(biz.business, 'Cash at Bank', typeAssetAccountName, [{ bankAccountName: 'Westpac Business Cheque', currency: 'AUD' }], asUserId(1));
+
+  const businessAsset = fetch('Asset', typeRootName, fetch('Chart of Accounts', typeChartOfAccountsRootName, fetch(biz.business, typeBusinessName, fetch('Businesses', typeRootName))));
+  const cashAtBank = fetch('Cash at Bank', typeRootName, businessAsset);
+  const entities = getEntityTree();
+  const children = entities.filter((e) => e.parent_id === cashAtBank.id);
+  assert.equal(children.length, 0, 'a single combination genuinely has no further, real leaves underneath it - it is the account itself, directly');
+});
+
+test('nominateBankAccount/buildBankCurrencyStructure: more than one real bank/currency combination genuinely becomes a real header, with one real, postable leaf per ticked combination', () => {
+  const biz = createBusiness(asBusinessName('BankCurrencyMulti Co'), '2027-28', asUserId(1));
+  nominateBankAccount(biz.business, 'Westpac Business Cheque', '032-001', '123456', asUserId(1));
+  nominateBankAccount(biz.business, 'HSBC Business Account', '184-002', '654321', asUserId(1));
+  buildBankCurrencyStructure(
+    biz.business,
+    'Cash at Bank',
+    typeAssetAccountName,
+    [
+      { bankAccountName: 'Westpac Business Cheque', currency: 'AUD' },
+      { bankAccountName: 'HSBC Business Account', currency: 'USD' },
+    ],
+    asUserId(1)
+  );
+
+  const businessAsset = fetch('Asset', typeRootName, fetch('Chart of Accounts', typeChartOfAccountsRootName, fetch(biz.business, typeBusinessName, fetch('Businesses', typeRootName))));
+  const cashAtBank = fetch('Cash at Bank', typeRootName, businessAsset);
+  const entities = getEntityTree();
+  // A real, confirmed, further gap, found directly while building this:
+  // this codebase has no existing mechanism that prevents posting
+  // directly to a structural node at all - is_postable_account means
+  // "a genuine descendant of Chart of Accounts" (vs. a ledger/
+  // vocabulary word at the same tree depth), never "is a leaf, not a
+  // header" - "Asset" itself is exactly as postable as any leaf under
+  // it, today. This test checks the real, structural shape only
+  // (existence, children, names) - real posting-prevention for a
+  // header is a separate, further, not-yet-built piece of real work.
+  const leaves = entities.filter((e) => e.parent_id === cashAtBank.id);
+  assert.equal(leaves.length, 2, 'exactly one real, postable leaf per ticked combination - never the untamed, full cartesian product');
+  const westpacLeaf = leaves.find((l) => l.name.includes('Westpac Business Cheque') && l.name.includes('AUD'));
+  const hsbcLeaf = leaves.find((l) => l.name.includes('HSBC Business Account') && l.name.includes('USD'));
+  assert.ok(westpacLeaf, 'the Westpac/AUD leaf genuinely exists, correctly named');
+  assert.ok(hsbcLeaf, 'the HSBC/USD leaf genuinely exists, correctly named');
+});
+
+test('buildBankCurrencyStructure: the exact, same real mechanism applies to a real partner\'s own Drawing account, per direct instruction', () => {
+  const biz = createBusiness(asBusinessName('PartnerDrawingBank Co'), '2027-28', asUserId(1));
+  nominateBankAccount(biz.business, 'Westpac Business Cheque', '032-001', '123456', asUserId(1));
+  nominateBankAccount(biz.business, 'HSBC Business Account', '184-002', '654321', asUserId(1));
+
+  // A genuinely distinct name here, not the one setupEquityStructure's
+  // own, real, automatic partnership setup would create on its own
+  // (that automatic flow is a separate, real concern from this one,
+  // direct test of the shared mechanism itself).
+  const drawingName = 'PartnerDrawingBank Co — Jamie Lee Drawing (real bank structure)';
+  buildBankCurrencyStructure(
+    biz.business,
+    drawingName,
+    typeEquityAccountName,
+    [
+      { bankAccountName: 'Westpac Business Cheque', currency: 'AUD' },
+      { bankAccountName: 'HSBC Business Account', currency: 'USD' },
+    ],
+    asUserId(1)
+  );
+
+  const entities = getEntityTree();
+  const header = entities.find((e) => e.name === drawingName)!;
+  assert.ok(header, 'a real partner\'s own Drawing account header genuinely exists');
+  const leaves = entities.filter((e) => e.parent_id === header.id);
+  assert.equal(leaves.length, 2, 'the same, real, exactly-one-leaf-per-ticked-combination rule applies to a real partner\'s own Drawing account');
 });

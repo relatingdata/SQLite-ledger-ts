@@ -536,3 +536,11 @@ Not yet done: unifying this with `Entity.create` above into one, real,
 single mechanism — a real, separate, future piece of work, not
 attempted here.
 
+
+## Bank accounts × currencies — the real, shared header/leaf mechanism
+
+Per `docs/bank-accounts-and-currencies-design.md` and the User Manual's own "Creating a new business" section, a real, nominated bank account (name, routing detail, account number) is stored via **`nominateBankAccount(businessName, bankAccountName, routingDetail, accountNumber, userId)`** — lazily creating this business's own real `Bank Accounts` area on first use (real, nominated data, decided shape A: never a shared, global default). **`getNominatedBankAccounts(businessName)`** lists them back.
+
+**`buildBankCurrencyStructure(businessName, headerName, leafType, selections, userId)`** is the one, real, shared mechanism behind both `"Cash at Bank"` and a real partner's own Drawing account — the exact, same real bank-accounts-by-currencies nomination applies to each, per direct instruction. A single, ticked combination collapses to one, plain account (`headerName` itself, with `setAccountCurrency` applied if a currency was given) — no header, no further structure. More than one ticked combination creates `headerName` as a real, structural parent, with one real leaf per ticked combination underneath, named `"{headerName} — {bankAccountName} ({currency})"`.
+
+**A real, confirmed, further gap, found directly while building this**: this codebase has no existing mechanism that prevents posting directly to a structural node at all. `is_postable_account` (see `getEntityTree`'s own doc comment) means "a genuine descendant of Chart of Accounts" — distinguishing a real account from a ledger/Vocabulary word that happens to share the same tree depth — never "is a leaf, not a header." `"Asset"` itself is exactly as postable as any real leaf underneath it, today. Real enforcement that a header like `"Cash at Bank"` cannot itself be posted to once it has real leaves is separate, further, not-yet-built work.

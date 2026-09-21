@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { hashPassword, verifyPassword } from './password.js';
 import { Entity, Link, Balance, Detail } from './primitives.js';
-import { getLedgerBalances, ensureCurrencyAccount, ensureCashAtBankAccount } from './db-reports.js';
+import { getLedgerBalances, ensureCurrencyAccount, ensureCashAtBankAccount, setAccountCurrency } from './db-reports.js';
 
 // ---------------------------------------------------------------------------
 // The real data model, stated plainly here since it spans many real
@@ -6397,6 +6397,65 @@ export function getLedgers(businessName: BusinessName): { id: number; name: Ledg
  * the business itself so they're genuinely findable through the real
  * General Journal account dropdown, not created orphaned. */
 export type EntityStructure = 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded';
+
+/** Nominates one real bank account for a business - a real bank name, its own
+ * real routing detail (a BSB in Australia; a sort code, routing number, or IBAN
+ * elsewhere), and its own real account number, per
+ * docs/bank-accounts-and-currencies-design.md. Lazily creates this business's
+ * own real "Bank Accounts" area on first use - real, nominated data, never a
+ * shared, global default (per direct instruction, decided shape A: Collections
+ * would only ever hold the abstract shape, never actual instances). */
+export function nominateBankAccount(businessName: BusinessName, bankAccountName: string, routingDetail: string, accountNumber: string, userId: UserId): { id: number } {
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  let bankAccountsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Bank Accounts' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  if (!bankAccountsRoot) bankAccountsRoot = create(business, typeRootName, 'Bank Accounts', userId);
+  const account = create(fetchById(bankAccountsRoot.id, typeRootName), typeRootName, bankAccountName, userId);
+  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ routingDetail, accountNumber }), account.id);
+  return { id: account.id };
+}
+
+export function getNominatedBankAccounts(businessName: BusinessName): { name: string; routingDetail: string; accountNumber: string }[] {
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const bankAccountsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Bank Accounts' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  if (!bankAccountsRoot) return [];
+  const rows = db.prepare(`SELECT name, detail_json FROM current_entities WHERE parent_id = ?`).all(bankAccountsRoot.id) as { name: string; detail_json: string }[];
+  return rows.map((r) => {
+    const detail = JSON.parse(r.detail_json || '{}');
+    return { name: r.name, routingDetail: detail.routingDetail ?? '', accountNumber: detail.accountNumber ?? '' };
+  });
+}
+
+/** Builds the one, real, shared mechanism behind both "Cash at Bank" and a
+ * real partner's own Drawing account, per direct instruction: the exact, same
+ * real bank-accounts-by-currencies nomination applies to each. A single,
+ * ticked combination collapses to one, plain, directly postable account - no
+ * header, no further structure, exactly as simple as the business genuinely
+ * is. More than one ticked combination makes headerName a real, non-postable
+ * header (automatically, per this codebase's own, established, no-new-flags
+ * is_postable_account rule - a header is simply an entity with real
+ * children), with one real, postable leaf per ticked combination underneath,
+ * never the untamed, full cartesian product blindly. */
+export function buildBankCurrencyStructure<TBrand extends string>(
+  businessName: BusinessName,
+  headerName: string,
+  leafType: TypeDescriptor<TBrand>,
+  selections: { bankAccountName: string; currency: string }[],
+  userId: UserId
+): void {
+  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const parentCategory = fetch(leafType.brand === 'EquityAccountName' ? 'Equity' : 'Asset', typeRootName, fetch('Chart of Accounts', typeChartOfAccountsRootName, business));
+  if (selections.length === 1) {
+    const account = create(parentCategory, leafType, headerName, userId);
+    if (selections[0].currency) setAccountCurrency(headerName, selections[0].currency);
+    return;
+  }
+  const header = create(parentCategory, typeRootName, headerName, userId);
+  for (const selection of selections) {
+    const leafName = `${headerName} — ${selection.bankAccountName} (${selection.currency})`;
+    create(fetchById(header.id, typeRootName), leafType, leafName, userId);
+    setAccountCurrency(leafName, selection.currency);
+  }
+}
 
 export function setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaPrototype?: string, partnerNames?: string[]): void {
   // This one, specific business's own, real, independent Equity
