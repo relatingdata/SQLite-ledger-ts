@@ -14,6 +14,24 @@ transaction.** A compound operation — one that performs more than one real wri
 exception, or a rejected write partway through must never leave some of its real
 writes committed and others not.
 
+### What counts as real, financial data — the full, real scope
+
+Per direct, absolute instruction: **anything that involves a currency amount, a
+stock unit, or a unit of shelving/storage space is real, financial data**, and
+must be held to the exact, same integrity guarantee as a dollar amount in the
+journal. A stock quantity and a location's own remaining shelf/carton capacity
+are not "just numbers" — they represent real, quantifiable business value
+(inventory on hand, storage genuinely committed) exactly the way a currency
+balance does, and a partial, uncommitted, or silently-diverged write to either
+is exactly as real a data-integrity failure as an unbalanced journal entry.
+This is why `post_quantity_movement_insert` (the real, single-line quantity
+trigger) exists as a real, first-class sibling to `post_journal_entry_insert`,
+not an afterthought — and why every real function in
+`backend/src/db-stock.ts` wrapped in a transaction earlier in this same
+session (`receiveStockAtLocation`, `dispatchStockFromLocation`,
+`transferStock`, `placeOrder`, `fulfillOrder`) was genuinely required by this
+skill, not merely good practice.
+
 ### The real, confirmed, current state — found directly, not assumed
 
 Checked directly against the real code: only **four** real operations in this entire

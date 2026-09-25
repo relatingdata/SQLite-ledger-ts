@@ -296,6 +296,7 @@ verify-fresh: reset-db
 	cd backend && $(RUN_SCRIPT) scripts/sanity-check-db-loads.ts
 	$(MAKE) test
 	$(MAKE) check-docs-coverage
+	$(MAKE) check-journal-staging-only
 	$(MAKE) check-schema-table-count
 
 check-schema-table-count:
@@ -308,6 +309,9 @@ check-schema-table-count:
 check-docs-coverage: docs/documentation-baseline-report.md
 	cd docs && python3 build-programmer-manual.py
 	$(RUN_SCRIPT) scripts/check-docs-coverage.ts
+
+check-journal-staging-only:
+	$(RUN_SCRIPT) scripts/check-journal-staging-only.ts
 
 # A real, direct, static call-graph analysis - per direct request, to
 # replace ad-hoc grepping with one, real, comprehensive tool. Every
@@ -719,6 +723,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/entity-chains.md \
 	docs/entity-identity-resolution.md \
 	docs/entity-model.md \
+	docs/journal-api-reference.md \
 	docs/expansion-walker-design.md \
 	docs/foreign-currency-receipts-and-payments.md \
 	docs/lessons-learned.md \

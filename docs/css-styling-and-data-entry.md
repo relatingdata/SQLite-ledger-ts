@@ -194,6 +194,7 @@ Table: Every real screen that posts a transaction, the real backend function it 
 | Stock Take (`/stock/stock-take`) | `completeStockTake` | both triggers — a quantity correction and its own value recognition |
 | Write-offs & Expiration (`/stock/write-offs`) | `writeOffStock` | both triggers |
 | HR wage payment (`/hr`) | `payEmployeeWages` | `post_journal_entry_insert` |
+| Recurring transactions (`/post`, recurring) | `createRecurringJournal` | **none — writes directly to `journal`/`journal_line`, bypassing `journal_entry_staging` entirely** |
 
 A real, direct correction worth stating plainly: every one of these,
 financial and quantity-movement alike, genuinely shares the exact,
@@ -212,14 +213,37 @@ account) — covered in full in the next section.
 
 **Not included above — real, present routes with no real posting
 function yet to document**: Quotations, RFQ,
-Assembly/BOM, FX Adjustment, Recurring transactions, and the three
+Assembly/BOM, FX Adjustment, and the three
 Voucher screens (`/vouchers/general-ledger`, `/vouchers/payable`,
 `/vouchers/payment`) are all real, confirmed stubs today — see Part II
 and Part IV for the full, honest accounting of what's stubbed versus
 built. (Sales Order, previously listed here in error, is real and
 working — corrected directly, confirmed against the live code, per a
 direct, reported inconsistency between this section and the earlier
-walkthrough describing it as functional.)
+walkthrough describing it as functional.) Recurring transactions,
+previously listed here as a stub, is also real and implemented —
+corrected directly above, per a real, direct, reported finding: it is
+genuinely implemented, but implemented wrongly, bypassing
+`journal_entry_staging` and its own real, per-currency balance check
+entirely (see the real, confirmed, open bug recorded immediately below
+this table).
+
+**A real, confirmed, open bug, found directly and not yet fixed**:
+`createRecurringJournal` performs its own, separate balance check — a
+flat sum across every real line, with no real currency grouping at
+all — instead of using the real, shared, correct per-currency check
+`post_journal_entry_insert`'s own trigger enforces for every other,
+real posting path. A recurring entry mixing real currencies (for
+example, a real debit in USD and a real credit in EUR of the same
+minor-unit amount) could pass this flat, incorrect check as
+"balanced" while genuinely not being balanced per currency at all.
+The real, correct fix is to route `createRecurringJournal` through
+the same, real `journal_entry_staging` mechanism every other, real
+posting path already correctly uses — `stageLine` already supports a
+real, per-line `transdate`, covering this function's own real,
+staggered-effective-date need — rather than maintaining a second,
+separate, real balance check that can drift out of sync with the one,
+real, correct implementation. Not yet fixed as of this writing.
 
 \clearpage
 

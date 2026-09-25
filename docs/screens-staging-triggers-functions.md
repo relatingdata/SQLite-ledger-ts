@@ -10,11 +10,16 @@ calls — matching the branded types documented earlier in this Part.
 
 ### The two, shared, core mechanisms every screen ultimately relies on
 
-Two real triggers do all of the actual posting work in this
-application. Every screen below either calls one of these two
-directly, or stages into its own, real, screen-specific table whose
-own trigger then calls into `journal_entry_staging` in turn — there is
-never a third, separate posting mechanism anywhere in the system.
+Two real triggers do almost all of the actual posting work in this
+application. Every purpose-built screen below either calls one of
+these two directly, or stages into its own, real, screen-specific
+table whose own trigger then calls into `journal_entry_staging` in
+turn. **One real, confirmed exception exists**: `createRecurringJournal`
+(the General Journal screen's own recurring-entry path) writes directly
+to `journal`/`journal_line`, bypassing both triggers entirely, using its
+own, separate, currency-blind balance check instead of the real,
+correct, per-currency one these triggers enforce — a real, confirmed,
+open bug, not yet fixed (see below).
 
 **`post_journal_entry_insert`** — the real, balanced, double-entry
 posting trigger. Every real financial transaction (a debit here, a
@@ -280,10 +285,23 @@ export function postJournalEntry(
 
 The one, real, direct escape hatch for anything the purpose-built
 screens don't cover — a person enters any number of real, balanced
-lines by hand. Calls `stageLine`/`postJournalEntry` directly, the exact
-same pair POS uses underneath, with no intermediate, screen-specific
-staging table at all (there's nothing to shape — the screen already
-collects exactly what `StagedLine` needs).
+lines by hand. The one-off case calls `stageLine`/`postJournalEntry`
+directly, the exact same pair POS uses underneath, with no
+intermediate, screen-specific staging table at all (there's nothing to
+shape — the screen already collects exactly what `StagedLine` needs).
+
+**The recurring case is a real, confirmed exception, not yet fixed**:
+`createRecurringJournal` does *not* call `stageLine`/`postJournalEntry`
+at all, despite living on this same screen. It writes directly to
+`journal`/`journal_line`, using its own, separate balance check — a
+flat sum across every real line with no real currency grouping — in
+place of the real, correct, per-currency check `post_journal_entry_insert`
+enforces for every other posting path in this system. A recurring entry
+mixing real currencies could pass this check as "balanced" while
+genuinely not being balanced per currency at all. The real, correct fix
+— to route this function through `journal_entry_staging` like
+everything else — is planned but not yet implemented (see
+`docs/documentation-debt-tally.md`).
 
 ```typescript
 export function stageLine(line: StagedLine): void
