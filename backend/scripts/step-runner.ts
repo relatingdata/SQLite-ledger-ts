@@ -210,11 +210,72 @@ async function prompt(question: string): Promise<string> {
   return new Promise((resolve) => rl.question(question, (answer) => { rl.close(); resolve(answer); }));
 }
 
+/** Real, direct integrity checks on a proposed fixture file, per
+ * direct instruction - catching a real, broken fixture before any
+ * real step of it is ever run, not partway through. */
+function lintStepFile(steps: StepRow[]): string[] {
+  const problems: string[] = [];
+  const seenIds = new Set<string>();
+  for (const s of steps) {
+    if (!s.step_id) { problems.push(`A real row has no real step_id.`); continue; }
+    if (seenIds.has(s.step_id)) problems.push(`Duplicate real step_id: "${s.step_id}".`);
+    seenIds.add(s.step_id);
+    if (s.api_function && !API_REGISTRY[s.api_function]) {
+      problems.push(`${s.step_id}: api_function "${s.api_function}" has no real API_REGISTRY entry.`);
+    }
+    if (s.verify && !VERIFY_REGISTRY[s.verify]) {
+      problems.push(`${s.step_id}: verify "${s.verify}" has no real VERIFY_REGISTRY entry.`);
+    }
+    if (s.api_args) {
+      try { JSON.parse(s.api_args); } catch { problems.push(`${s.step_id}: api_args is not real, valid JSON.`); }
+    }
+    if (s.ui_actions) {
+      try {
+        const actions = JSON.parse(s.ui_actions) as UiAction[];
+        for (const a of actions) {
+          if (!['goto', 'fill', 'click', 'select', 'check', 'wait', 'press', 'focus'].includes(a.type)) {
+            problems.push(`${s.step_id}: unknown real ui_action type "${a.type}".`);
+          }
+          if (a.type !== 'wait' && a.type !== 'press' && a.type !== 'goto' && !a.selector) {
+            problems.push(`${s.step_id}: a real "${a.type}" action has no real selector.`);
+          }
+        }
+      } catch {
+        problems.push(`${s.step_id}: ui_actions is not real, valid JSON.`);
+      }
+    }
+    if (!s.api_function && !s.ui_actions && !s.ui_screen) {
+      problems.push(`${s.step_id}: has neither a real api_function nor any real ui_screen/ui_actions - does nothing.`);
+    }
+  }
+  return problems;
+}
+
+/** Real, formatted, human-readable printing of every real step in a
+ * fixture, per direct instruction - real, named sections, and each
+ * step's own real data shown as a real, tabular block with the
+ * fixture's own real column headers, not a paraphrase of it. */
+function prettyPrintSteps(steps: StepRow[]): void {
+  for (const s of steps) {
+    console.log(`\n━━━ ${s.step_id} ━━━`);
+    console.log(`  ${s.description}`);
+    const cols: (keyof StepRow)[] = ['api_function', 'api_args', 'ui_screen', 'ui_actions', 'verify', 'screenshot'];
+    const present = cols.filter((c) => s[c]);
+    if (present.length === 0) continue;
+    const widths = present.map((c) => Math.max(c.length, String(s[c]).length > 80 ? 80 : String(s[c]).length));
+    present.forEach((c, i) => {
+      const val = String(s[c]).length > 80 ? String(s[c]).slice(0, 77) + '...' : String(s[c]);
+      console.log(`  ${c.padEnd(widths[i])} : ${val}`);
+    });
+  }
+  console.log(`\n${steps.length} real step(s) total.`);
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const fixturePath = args[0];
   if (!fixturePath) {
-    console.error('Usage: step-runner <fixture.csv> [--path api|ui] [--steps N] [--non-interactive] [--from id] [--to id] [--only id] [--delay MS] [--ui] [--screenshot-dir DIR] [--screenshot-only ids]');
+    console.error('Usage: step-runner <fixture.csv> [--lint] [--pretty] [--path api|ui] [--steps N] [--non-interactive] [--from id] [--to id] [--only id] [--delay MS] [--ui] [--screenshot-dir DIR] [--screenshot-only ids]');
     process.exit(1);
   }
   const path = args.includes('--path') ? args[args.indexOf('--path') + 1] : 'api';
@@ -229,6 +290,23 @@ async function main() {
   let allSteps = parseStepFile(fixturePath);
   if (onlyId) allSteps = allSteps.filter((s) => s.step_id === onlyId);
   if (screenshotOnly) allSteps = allSteps.filter((s) => screenshotOnly.includes(s.step_id));
+
+  if (args.includes('--lint')) {
+    const problems = lintStepFile(allSteps);
+    if (problems.length === 0) {
+      console.log(`✅ ${fixturePath}: ${allSteps.length} real step(s), no real problems found.`);
+      return;
+    }
+    console.log(`❌ ${fixturePath}: ${problems.length} real problem(s) found:\n`);
+    for (const p of problems) console.log(`  - ${p}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (args.includes('--pretty')) {
+    prettyPrintSteps(allSteps);
+    return;
+  }
 
   let browser: Browser | undefined;
   let page: Page | undefined;

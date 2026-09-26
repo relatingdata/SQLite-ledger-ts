@@ -128,14 +128,29 @@ second level of escaping on top of the CSV's own) - for this application's own,
 real, dynamically-generated form fields, where a plain CSS selector cannot
 reliably target one, specific, real field the way `page.getByRole()` can.
 
+**`--lint`**, per direct instruction: checks a real, proposed fixture file's own
+integrity before any real step of it ever runs - a real, duplicate or missing
+`step_id`; an `api_function`/`verify` name with no real registry entry; genuinely
+invalid JSON in `api_args`/`ui_actions`; an unknown real `ui_action` type; a real
+action missing its own required `selector`; a real step that does nothing at all
+(no `api_function`, no `ui_screen`/`ui_actions`). Confirmed, directly: the real
+tutorial fixture passes with zero real problems.
+
+**`--pretty`**, per direct instruction: real, named, per-step sections, each
+step's own real data shown with the fixture's own real column headers - the
+same, real display the interactive mode already used, now also available as
+its own, standalone, real command for reviewing a fixture without running it.
+
 **Not yet built, stated honestly**: the real web interface (`/dev/step-runner`);
 the real, full conversion of the remaining real tutorial steps beyond these
 first ten; the Admin recording feature (Phase 6); Phases 3-5 (retiring the old
 tutorial test, migrating the wine-retail simulation and demo-seeding,
-disabling every other test path). **One real, confirmed, open issue**: the
-tenth step (`create_location`)'s own `role:group|City|input` locator times out
-- this application's own, real, dynamically-generated location-creation form
-appears to render in a way this locator does not yet correctly match; real,
-further investigation is needed, not guessed at further here. The
-`API_REGISTRY`/`VERIFY_REGISTRY` cover only the two real functions the current
-fixtures need — extending them as each further, real fixture is written.
+disabling every other test path). **One real, confirmed, open issue, not yet
+resolved despite two real, separate attempts** (a `role:` locator, then a
+positional `.form-card fieldset >> nth=N` locator): the tenth step
+(`create_location`) still fails to reliably fill this application's own,
+real, dynamically-generated location-creation form fields. The real, root
+cause has not been found - stated honestly here rather than worked around
+or claimed fixed. The `API_REGISTRY`/`VERIFY_REGISTRY` cover only the two
+real functions the current fixtures need — extending them as each further,
+real fixture is written.
