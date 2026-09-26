@@ -1117,6 +1117,14 @@ export const getLocationByName = (name: string) => request<LocationRecord>(`/loc
 export const saveLocation = (name: string, input: LocationInput) =>
   request<void>(`/locations/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(input) });
 
+// Per direct, absolute instruction: the frontend must await this real,
+// single, atomic request in full - the real staging and posting (and
+// the real, balanced Storage Capacity Remaining/Installed accounts)
+// all happen server-side before this call resolves; the backend never
+// responds until its own real transaction has genuinely committed.
+export const createLocation = (name: string, business: string, input: LocationInput) =>
+  request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'POST', body: JSON.stringify(input) });
+
 // Per docs/multicurrency-design.md: a location's own, real, nominated
 // SET of further currencies it trades in. Nearly every real location
 // returns an empty array here.

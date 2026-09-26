@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getEntityTree, listLocations, saveLocation, createEntity, asBusinessName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, type EntityNode, type LocationRecord } from '$lib/api';
+  import { getEntityTree, listLocations, saveLocation, createLocation, createEntity, asBusinessName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, type EntityNode, type LocationRecord } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { session } from '$lib/state.svelte';
   import AddressList from '$lib/components/AddressList.svelte';
@@ -113,9 +113,16 @@
     const name = String(v.name ?? '').trim();
     const city = String(v.city ?? '').trim();
     if (!name || !city) throw new Error('Location name and city are both required.');
+    if (!session.current) throw new Error('No real, current business selected.');
     try {
-      await createEntity({ name, parentId: thisBusinessLocationsId() });
-      await saveLocation(name, {
+      // Per direct, absolute instruction: this one, real, single,
+      // properly-awaited request only resolves once the backend's own
+      // real transaction (staging, then posting the location and its
+      // own, real, balanced Storage Capacity accounts) has genuinely
+      // committed - never before. The Form component's own real
+      // submit button stays disabled for the real, full duration of
+      // this await.
+      await createLocation(name, session.current.businessName, {
         city,
         location_type: String(v.locationType ?? 'Retail'),
         is_billing_address: false,
