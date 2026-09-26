@@ -35,6 +35,7 @@ export interface Step {
   path: string; // 'api' | 'ui' | '' (falls back to the CLI's own --path)
   verify: string;
   screenshot: string;
+  skip: boolean; // true if this real step's own control row marks it to be skipped
 }
 
 /** The one, real registry mapping a screen's own api_function name to
@@ -137,7 +138,7 @@ export function loadSteps(dataPath: string): Step[] {
     const fields = parseCsvLine(line);
     const [screen_name, ...values] = fields;
     const control = controlRows[i] ?? [];
-    return { index: i + 1, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '' };
+    return { index: i + 1, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '', skip: (control[3] ?? '').toLowerCase() === 'true' };
   });
 }
 
@@ -186,8 +187,10 @@ export function prettyPrintSteps(steps: Step[], screens: Map<string, Screen>): s
     const screen = screens.get(s.screen_name);
     const args = buildArgs(s, screen);
     for (const [k, v] of Object.entries(args)) lines.push(`  ${k}: ${v}`);
+    if (s.path) lines.push(`  path: ${s.path}`);
     if (s.verify) lines.push(`  verify: ${s.verify}`);
     if (s.screenshot) lines.push(`  screenshot: ${s.screenshot}`);
+    if (s.skip) lines.push(`  skip: true`);
   }
   lines.push(`\n${steps.length} real step(s) shown.`);
   return lines.join('\n');
@@ -262,7 +265,7 @@ async function main() {
   const args = process.argv.slice(2);
   const dataPath = args[0];
   if (!dataPath) {
-    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui] [--steps N] [--only N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME]');
+    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME]');
     process.exit(1);
   }
   const screensPath = args.includes('--screens') ? args[args.indexOf('--screens') + 1] : dataPath.replace(/[^/]+$/, 'screens.csv');
@@ -270,6 +273,7 @@ async function main() {
   const stepsArg = args.includes('--steps') ? Number(args[args.indexOf('--steps') + 1]) : 1;
   const nonInteractive = args.includes('--non-interactive');
   const onlyN = args.includes('--only') ? Number(args[args.indexOf('--only') + 1]) : undefined;
+  const skipN = args.includes('--skip') ? Number(args[args.indexOf('--skip') + 1]) : 0;
   const delayMs = args.includes('--delay') ? Number(args[args.indexOf('--delay') + 1]) : 5000;
   const openInspector = args.includes('--ui');
   const screenshotDir = args.includes('--screenshot-dir') ? args[args.indexOf('--screenshot-dir') + 1] : 'docs/manual-images-tutorial';
@@ -278,6 +282,8 @@ async function main() {
 
   const screens = loadScreens(screensPath);
   let allSteps = loadSteps(dataPath);
+  if (skipN > 0) allSteps = allSteps.filter((s) => s.index > skipN);
+  allSteps = allSteps.filter((s) => !s.skip);
   if (onlyN) allSteps = allSteps.filter((s) => s.index === onlyN);
   if (onlyN && (inlineVerify || inlineScreenshot)) {
     allSteps = allSteps.map((s) => ({ ...s, verify: inlineVerify ?? s.verify, screenshot: inlineScreenshot ?? s.screenshot }));

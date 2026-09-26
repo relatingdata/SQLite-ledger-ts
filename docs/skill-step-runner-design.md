@@ -119,6 +119,7 @@ step-runner <data.csv> [--screens screens.csv] [options]
   --path api|ui               which real path executes each step (default: api)
   --steps N                   how many real steps to show/run at once (default: 1)
   --only N                    run/show only the Nth real step (1-indexed)
+  --skip N                    skip the first N real steps, then proceed with the rest
   --non-interactive           run without prompts or pauses (needs a real .control.csv
                                for verify/screenshot, since no flags apply per-step)
   --delay MS                  real pause between UI-path steps (default: 5000)
@@ -127,6 +128,10 @@ step-runner <data.csv> [--screens screens.csv] [options]
   --verify NAME                (single-step mode) the real check to run after this step
   --screenshot NAME             (single-step mode) the real screenshot name for this step
 ```
+
+The real control file (section 5) gained a fourth, real column: `skip`
+(`true`/`false`) — a real, per-step alternative to `--skip N`, letting any
+specific, real row be skipped, not only a real, contiguous prefix.
 
 ## 7. The real testing plan
 
@@ -207,9 +212,11 @@ starting at 1, unique within one `screen_name`. `field_type` is one of
 `text`, `select`, `check`.
 
 **8.3 Control file** (optional). Plain ASCII CSV, header row required, exactly:
-`path,verify,screenshot`. Row N corresponds to data-file row N; `path` is
+`path,verify,screenshot,skip`. Row N corresponds to data-file row N; `path` is
 `api` or `ui` (or blank, falling back to the command line's own `--path`
-flag); `verify`/`screenshot` may be empty. This is a real, complete,
+flag); `verify`/`screenshot` may be empty; `skip` is `true`/`false`
+(defaulting to not-skipped), a real, per-row alternative to the CLI's own
+`--skip N` (which skips a real, contiguous prefix). This is a real, complete,
 per-step execution plan — a fully scripted, non-interactive alternative to
 manually driving the tool through the TUI or web interface, letting a run
 freely mix the fast API path with the driven UI path, row by row.

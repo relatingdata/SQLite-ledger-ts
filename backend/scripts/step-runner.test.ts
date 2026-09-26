@@ -68,6 +68,16 @@ test('loadSteps: reads a matching .control.csv when present, aligned by row', ()
   assert.equal(steps[1].verify, 'business_exists');
 });
 
+test('loadSteps: reads the real skip column from a matching .control.csv', () => {
+  const dir = tempDir();
+  const path = join(dir, 'data.csv');
+  writeFileSync(path, '"Login","admin","changeme123"\n"Create Business","Wine Co","2027-28"\n');
+  writeFileSync(join(dir, 'data.control.csv'), 'path,verify,screenshot,skip\napi,,,true\napi,,,false\n');
+  const steps = loadSteps(path);
+  assert.equal(steps[0].skip, true, 'a real "true" skip value must be read as skip');
+  assert.equal(steps[1].skip, false, 'a real "false" skip value must not be treated as skip');
+});
+
 test('lintSteps: flags a screen_name with no real registry entry', () => {
   const screens = new Map<string, Screen>();
   const steps = [{ index: 1, screen_name: 'Nonexistent Screen', values: ['x'], path: '', verify: '', screenshot: '' }];
