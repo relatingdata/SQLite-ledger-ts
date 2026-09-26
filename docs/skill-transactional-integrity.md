@@ -32,6 +32,84 @@ session (`receiveStockAtLocation`, `dispatchStockFromLocation`,
 `transferStock`, `placeOrder`, `fulfillOrder`) was genuinely required by this
 skill, not merely good practice.
 
+### Every real stock movement must post exactly three (or four) real "lots" — a real, absolute requirement, not yet fully implemented
+
+Per direct, absolute instruction: **whenever a bottle or carton is received,
+sold, transferred, or written off, the corresponding journal must show real,
+distinct "lots" (journal lines) in each of these real, separate currencies —
+never blended into one, meaningless combined total**:
+
+1. **Dollars** — the real, genuine financial value of the movement.
+2. **Bottles or Cartons** — the real, physical unit count (whichever real unit
+   this specific item is actually tracked in).
+3. **Space for Bottles or Cartons** — the real, physical storage capacity
+   consumed or freed, itself real, distinctly split into **Hot** and **Cold**
+   (real, separate storage pools, never combined — a wine cellar's ordinary
+   shelf space and its real refrigerated space are not interchangeable).
+
+**Checked directly, and confirmed as a real, open gap, not yet fixed**: today,
+quantity-tracking accounts (`On Order`, `Units Sold`, `Count Adjustment`,
+`Write-off`, every capacity account) are created via `Entity.create` with
+**no distinct currency tag at all** — no `setAccountCurrency` call anywhere
+for them. `post_quantity_movement_insert` inserts these postings into the
+exact, same `journal`/`journal_line` tables, using the exact, same
+`amount_minor` column, real dollar postings use — a bottle count of 50 and
+$0.50 are structurally indistinguishable in that column today. Because
+neither carries a distinct currency, `getTrialBalance`'s own real
+`by_currency` breakdown silently folds quantity counts into the same bucket
+as real, plain home-currency dollar amounts, and the real, required third and
+fourth "lots" (space, hot vs. cold) are not consistently posted by every real
+stock-movement function today (`receiveStockAtLocation` posts a quantity
+movement, a capacity adjustment, and *optionally* a dollar-value line only
+when combination data is present — never a real, guaranteed three-or-four-lot
+set on every real movement).
+
+**The real, planned fix, now partly implemented and confirmed working**:
+1. **Done, confirmed by a real, direct test**: opening storage capacity is
+   never single-sided. `ensureLocationCapacityAccount` now creates a real,
+   distinct "Storage Capacity Installed" counterpart alongside "Storage
+   Capacity Remaining," and posts the real opening value as a genuine,
+   balanced, two-line entry through the exact, same, real staging mechanism
+   (`stageLine`/`postJournalEntry`) every other real posting uses — never a
+   bare, single-sided `Balance.post` — the exact, same shape as an owner's
+   real, initial cash contribution (debit Cash, credit Owner's Equity). Both
+   accounts are tagged with their own, real, distinct currency
+   (`SPACE-BOTTLE`/`SPACE-CARTON`), so `getTrialBalance`'s own `by_currency`
+   breakdown genuinely, correctly separates real storage space from real
+   dollars. Per direct instruction, this now happens atomically, as part of
+   `createAndConfigureLocation` itself — never lazily, the first time some
+   later, real stock movement happens to touch the location.
+   `ensureProductQuantityAccounts` similarly tags every real quantity account
+   (`On Order`, `Units Sold`, `Count Adjustment`, `Write-off`) with the
+   item's own real unit of measure. A real, further, confirmed bug found and
+   fixed along the way: `setAccountCurrency`'s own bare, name-based lookup is
+   genuinely ambiguous now that account names like "Storage Capacity
+   Remaining" legitimately repeat per-location — given an optional, real
+   `entityId` parameter to disambiguate, exactly the same class of fix
+   applied throughout this whole session.
+2. **Not yet done**: Min/Max/Reorder/Shelf Level figures remain posted
+   through `Balance.post`/the journal today, despite being real configuration
+   settings, not real movements — the real, correct fix is to move them out
+   of the journal entirely, back to plain entity/`Detail` storage.
+3. **Not yet done**: auditing every real stock-movement function
+   (`receiveStockAtLocation`, `dispatchStockFromLocation`, `transferStock`,
+   `writeOffStock`, `completeStockTake`) to guarantee each one always posts
+   the full, real set of required lots (dollars, units, and space) for that
+   kind of movement — today, only some of these are consistently posted.
+4. **Not yet done**: updating `getTrialBalance` and the real Inventory
+   Listing report to display each of these real, distinct currencies
+   clearly, separately, per direct instruction that "the same applies to the
+   Inventory report."
+5. **A real, further, separate, confirmed gap, raised directly and not yet
+   designed**: storage capacity today is two, fixed fields per location
+   (bottle/carton, with separate hot/cold variants) — the real, better design
+   discussed is flexible, named Storage Zones per location (however many a
+   business actually needs — "Ambient," "Cold," "Secure," and so on), each
+   with its own real capacity, its own optional real maximum bottle size, and
+   its own real, distinct currency tag — genuinely generalizing "hot vs.
+   cold" rather than hardcoding exactly two zones. Not yet implemented; a
+   full, real design write-up was offered and not yet started.
+
 ### The real, confirmed, current state — found directly, not assumed
 
 Checked directly against the real code: only **four** real operations in this entire

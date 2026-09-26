@@ -515,6 +515,7 @@ export function getEffectiveSaleCurrency(terminalName: string | undefined): stri
 
 export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; unit: 'bottle' | 'carton' } {
   const capacityAccountName = 'Storage Capacity Remaining';
+  const installedAccountName = 'Storage Capacity Installed';
   const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   const loc = getLocation(locationName);
@@ -522,8 +523,17 @@ export function ensureLocationCapacityAccount(business: BusinessName, ledger: Le
   let entity = Entity.getUnder(capacityAccountName, locationId);
   if (!entity) {
     entity = Entity.create(capacityAccountName, locationId, userId);
+    const currency = `SPACE-${unit.toUpperCase()}`;
+    setAccountCurrency(entity.name, currency, entity.id);
+    const installed = Entity.getUnder(installedAccountName, locationId) ?? Entity.create(installedAccountName, locationId, userId);
+    setAccountCurrency(installed.name, currency, installed.id);
     const opening = unit === 'bottle' ? loc?.bottle_capacity ?? 0 : loc?.carton_capacity ?? 0;
-    if (opening > 0) Balance.post(business, ledger, `${locationName}-CAPACITY-OPENING`, capacityAccountName, entity.id, opening, userId);
+    if (opening > 0) {
+      const reference = `${locationName}-CAPACITY-OPENING`;
+      stageLine({ reference, business, ledger, account: asAccountName(capacityAccountName), accountId: entity.id, amount_minor: opening });
+      stageLine({ reference, business, ledger, account: asAccountName(installedAccountName), accountId: installed.id, amount_minor: -opening });
+      postJournalEntry(reference, business, ledger, userId);
+    }
   }
   return { capacityAccount: capacityAccountName, capacityAccountId: entity.id, unit };
 }

@@ -117,6 +117,7 @@ const {
   getBusinesses,
   getLedgers,
   createBusiness,
+  createAndConfigureLocation,
   stageLine,
   getStagedLines,
   removeStagedLine,
@@ -5620,4 +5621,31 @@ test('postInvoice: a real, forced failure (posting to a non-existent account) ge
   assert.equal(journalRows, undefined, 'no real, orphaned journal entry must survive a real, failed post');
   const stagedRows = db.prepare(`SELECT 1 FROM journal_entry_staging WHERE reference = 'POSTROLLBACK-1'`).get();
   assert.equal(stagedRows, undefined, 'no real, orphaned staged lines must survive a real, failed post');
+});
+
+test('createAndConfigureLocation: real, atomic, balanced Storage Capacity Remaining/Installed accounts, created as part of location creation itself, never a single-sided posting', () => {
+  const biz = createBusiness(asBusinessName('CapacityBalanceTest Co'), '2027-28', asUserId(1));
+  createAndConfigureLocation(biz.business, 'Capacity Test Warehouse', {
+    city: 'Adelaide',
+    location_type: 'Warehouse',
+    is_billing_address: false,
+    bottle_capacity: null,
+    carton_capacity: 500,
+    timezone: 'Australia/Adelaide',
+  } as any, asUserId(1));
+
+  const entities = getEntityTree();
+  const locationEntity = entities.find((e) => e.name === 'Capacity Test Warehouse');
+  assert.ok(locationEntity, 'the real location itself must exist');
+  const remaining = entities.find((e) => e.name === 'Storage Capacity Remaining' && e.parent_id === locationEntity!.id);
+  const installed = entities.find((e) => e.name === 'Storage Capacity Installed' && e.parent_id === locationEntity!.id);
+  assert.ok(remaining, 'the real Storage Capacity Remaining account must exist immediately after location creation, not lazily');
+  assert.ok(installed, 'the real Storage Capacity Installed counterpart must exist immediately too - no posting is ever single-sided');
+
+  const remainingBalance = (db.prepare(`SELECT balance_minor, currency FROM account WHERE entity_id = ?`).get(remaining!.id) as { balance_minor: number; currency: string });
+  const installedBalance = (db.prepare(`SELECT balance_minor, currency FROM account WHERE entity_id = ?`).get(installed!.id) as { balance_minor: number; currency: string });
+  assert.equal(remainingBalance.balance_minor, 500, 'the real, opening capacity must genuinely post to Remaining');
+  assert.equal(installedBalance.balance_minor, -500, 'and the exact, real, opposite amount to Installed - a real, balanced, two-line entry');
+  assert.equal(remainingBalance.currency, 'SPACE-CARTON', 'real space must carry its own, distinct, real currency - never blended with real dollars');
+  assert.equal(installedBalance.currency, 'SPACE-CARTON');
 });

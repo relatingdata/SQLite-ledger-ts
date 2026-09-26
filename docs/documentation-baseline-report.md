@@ -114,7 +114,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `dispatchOrderFromPickingList` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function dispatchOrderFromPickingList(invoiceId: number, locationName: LocationName, revenueAccount: string, taxAccount: string, userId: UserId): void` |
 | `ensureAddressType` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function ensureAddressType(typeName: string, userId: UserId): void` |
 | `ensureContactPersonType` | `backend/src/db.ts` | (none) | `function ensureContactPersonType(typeName: string, userId: UserId): void` |
-| `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | (none) | `function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): ` |
+| `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | `backend/src/db.ts` | `function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): ` |
 | `ensurePhoneType` | `backend/src/db.ts` | (none) | `function ensurePhoneType(typeName: string, userId: UserId): void` |
 | `ensureProductTierItem` | `backend/src/db.ts` | (none) | `function ensureProductTierItem(baseProductName: ItemName, tier: string, userId: UserId): ` |
 | `exportInvoiceAsUbl` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function exportInvoiceAsUbl(invoiceId: number): string` |

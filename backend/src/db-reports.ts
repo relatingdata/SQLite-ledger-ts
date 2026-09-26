@@ -43,9 +43,11 @@ export interface ChartRow {
  * the account row if this entity has never been posted to before,
  * matching the same lazy-vivification every other account already
  * uses. */
-export function setAccountCurrency(accountName: string, currency: string | null): void {
-  db.prepare(`INSERT INTO account (entity_id) VALUES ((SELECT id FROM current_entities WHERE name = ?)) ON CONFLICT (entity_id) DO NOTHING`).run(accountName);
-  const result = db.prepare(`UPDATE account SET currency = ? WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).run(currency, accountName);
+export function setAccountCurrency(accountName: string, currency: string | null, entityId?: number): void {
+  const id = entityId ?? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(accountName) as { id: number } | undefined)?.id;
+  if (id == null) throw new ValidationError(`No such account: "${accountName}".`);
+  db.prepare(`INSERT INTO account (entity_id) VALUES (?) ON CONFLICT (entity_id) DO NOTHING`).run(id);
+  const result = db.prepare(`UPDATE account SET currency = ? WHERE entity_id = ?`).run(currency, id);
   if (result.changes !== 1) throw new ValidationError(`No such account: "${accountName}".`);
 }
 

@@ -3045,9 +3045,21 @@ export function getQualifiedDisplayName(entityId: number): string {
 
 export function ensureProductQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number } {
   const itemId = resolveIdOrThrow(itemName);
+  // Per direct, absolute instruction: a real quantity-tracking
+  // account must never share its own real "currency" bucket with
+  // real, genuine dollar accounts - each is tagged with its own,
+  // real, distinct pseudo-currency (this item's own real unit of
+  // measure, or 'UNITS' when none has been recorded yet), so
+  // getTrialBalance's own real by_currency breakdown genuinely, never
+  // silently blends a real bottle/carton count into a real dollar
+  // total.
+  const unit = (getItem(itemName)?.unit_of_measure || 'UNITS').toUpperCase();
   function ensureChild(childName: string): { name: string; id: number } {
     let entity = Entity.getUnder(childName, itemId);
-    if (!entity) entity = Entity.create(childName, itemId, userId);
+    if (!entity) {
+      entity = Entity.create(childName, itemId, userId);
+      setAccountCurrency(entity.name, unit, entity.id);
+    }
     return { name: entity.name, id: entity.id };
   }
   const onOrder = ensureChild('On Order');
@@ -6495,6 +6507,12 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
   return db.transaction(() => {
     const entity = createLocation(businessName, locationName, userId);
     setLocation(locationName, location);
+    // Per direct instruction: the real Storage Capacity Remaining/
+    // Installed accounts, and their own real, balanced opening
+    // posting, are created here, atomically, as part of the real
+    // location's own creation - never lazily, the first time some
+    // later, real stock movement happens to touch this location.
+    ensureLocationCapacityAccount(businessName, asLedgerName('Actual'), asLocationName(locationName), userId);
     return entity;
   })();
 }
@@ -7007,7 +7025,7 @@ export function getChartOfAccountsPrototype(language: string): string[] {
 export * from './db-journal.js';
 import { stageLine, postJournalEntry } from './db-journal.js';
 export * from './db-stock.js';
-import { getLocation, setLocation, getItemLocation, dispatchStockFromLocation, receiveStockAtLocation, transferStock, placeOrder, fulfillOrder, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, type Location as StockLocation } from './db-stock.js';
+import { getLocation, setLocation, getItemLocation, dispatchStockFromLocation, receiveStockAtLocation, transferStock, placeOrder, fulfillOrder, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, type Location as StockLocation } from './db-stock.js';
 
 
 // Migrates every real, existing translation into the entity-only
