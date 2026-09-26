@@ -279,9 +279,45 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   // === the real, further, chilled-beer scenario right after this. ===
   await page.goto('/stock/listing');
   await page.waitForTimeout(1000);
+  // The level-input fields below only render once their own division
+  // and location disclosure buttons are expanded - click every
+  // disclosure open first, matching how a real person would actually
+  // reach them.
+  const divisionButtons = page.locator('button.division-head');
+  for (let i = 0; i < (await divisionButtons.count()); i++) await divisionButtons.nth(i).click();
+  await page.waitForTimeout(300);
+  const locationButtons = page.locator('button.location-head');
+  for (let i = 0; i < (await locationButtons.count()); i++) await locationButtons.nth(i).click();
+  await page.waitForTimeout(500);
   await shot('inventory_listing_wine_received');
   const wineRow = await page.locator('tr', { hasText: 'Barossa Shiraz 750ml' }).first().innerText();
   expect(wineRow).toContain('12');
+
+  // === Setting min/max/reorder stock levels for this real item at ===
+  // === this real location - a real, further, financial-data-grade ===
+  // === figure per direct instruction (stock units count as real   ===
+  // === financial data), saved via the level-input fields' own,    ===
+  // === real onchange handler, confirmed by reloading the page and ===
+  // === reading the saved values straight back.                    ===
+  const wineRowLocator = page.locator('tr', { hasText: 'Barossa Shiraz 750ml' }).first();
+  const levelInputs = wineRowLocator.locator('input.level-input');
+  await levelInputs.nth(0).fill('4');
+  await levelInputs.nth(0).dispatchEvent('change');
+  await page.waitForTimeout(500);
+  await levelInputs.nth(1).fill('20');
+  await levelInputs.nth(1).dispatchEvent('change');
+  await page.waitForTimeout(500);
+  await levelInputs.nth(2).fill('6');
+  await levelInputs.nth(2).dispatchEvent('change');
+  await page.waitForTimeout(500);
+  await shot('inventory_listing_wine_levels_set');
+  await page.reload();
+  await page.waitForTimeout(1000);
+  const wineRowAfterReload = page.locator('tr', { hasText: 'Barossa Shiraz 750ml' }).first();
+  await expect(wineRowAfterReload.locator('input.level-input').nth(0)).toHaveValue('4');
+  await expect(wineRowAfterReload.locator('input.level-input').nth(1)).toHaveValue('20');
+  await expect(wineRowAfterReload.locator('input.level-input').nth(2)).toHaveValue('6');
+
   await page.goto('/reports/trial-balance');
   await page.waitForTimeout(1000);
   await shot('trial_balance_wine_received');
@@ -546,6 +582,15 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.goto('/reports/trial-balance');
   await page.waitForTimeout(1000);
   await shot('trial_balance_final');
+  // === The real, concrete guarantee this whole tutorial is meant to ===
+  // === prove: every real posting made throughout, staged and       ===
+  // === posted through the real journal-staging mechanism, still     ===
+  // === genuinely balances, debits to credits, right at the end.     ===
+  const finalDebit = await page.locator('.totals-row .amount-debit').innerText();
+  const finalCredit = await page.locator('.totals-row .amount-credit').innerText();
+  expect(finalDebit.trim()).toBe(finalCredit.trim());
+  await expect(page.locator('.status')).toHaveClass(/balanced/);
+  await expect(page.locator('.status')).toContainText('Balanced');
   await page.goto('/reports/balance-sheet');
   await page.waitForTimeout(1000);
   await shot('balance_sheet_final');

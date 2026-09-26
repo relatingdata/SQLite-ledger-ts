@@ -24,6 +24,7 @@ PARTS = [
     ]),
     ("Appendix --- Every Screen in the Application", [
         "user-manual-appendix-screens.md",
+        "user-manual-appendix-step-runner.md",
     ]),
     ("Back Matter", [
         "user-manual-glossary.md",

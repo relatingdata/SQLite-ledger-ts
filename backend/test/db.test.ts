@@ -1,6 +1,17 @@
 import { test, before, after, asUserId } from './test-runtime.ts';
 import type { TypeDescriptor, TypedNode } from '../src/db.ts';
+import { runInSessionContext } from '../src/session-context.ts';
 import assert from 'node:assert/strict';
+
+/** A real, minimal "My Business" session context for tests exercising
+ * functions (like setItemLocationLevels) that read Session.Business/
+ * Session.UserId/Session.Ledger directly, per the established
+ * session-context design, rather than taking them as explicit
+ * parameters. */
+function withMyBusinessSession<T>(fn: () => T): T {
+  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('My Business') as { id: number }).id;
+  return runInSessionContext({ userId: 1, business: { id: businessId, name: 'My Business' }, ledger: 'Actual' }, fn);
+}
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -432,7 +443,7 @@ test('staging + posting a balanced entry works end to end and clears staging', (
   postJournalEntry('TEST-001', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
   assert.equal(getStagedLines('TEST-001', asBusinessName('My Business'), asLedgerName('Actual')).length, 0, 'staging should be cleared after posting');
 
-  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Actual'));
+  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Actual'), 10000);
   const posted = entries.find((e) => e.reference === 'TEST-001');
   assert.ok(posted);
   assert.equal(posted!.total_debit_minor, 12345);
@@ -461,7 +472,7 @@ test('removeStagedLine removes exactly one line', () => {
 });
 
 test('getJournalEntry returns full line detail with account numbers', () => {
-  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Actual'));
+  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Actual'), 10000);
   const posted = entries.find((e) => e.reference === 'TEST-001')!;
   const detail = getJournalEntry(asBusinessName('My Business'), asLedgerName('Actual'), posted.journal_id, posted.occurrence_date!);
   assert.ok(detail);
@@ -1109,8 +1120,8 @@ test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picki
   createItem('PickTest Back Wine', 'Items', asUserId(1));
   receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-1', asItemName('PickTest Front Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
   receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-2', asItemName('PickTest Back Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
-  setItemLocationLevels(asItemName('PickTest Front Wine'), asLocationName('PickTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 1 });
-  setItemLocationLevels(asItemName('PickTest Back Wine'), asLocationName('PickTest Outlet'), { shelfSide: 'Back', rack: 'B', level: 2 });
+  withMyBusinessSession(() => setItemLocationLevels(asItemName('PickTest Front Wine'), asLocationName('PickTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 1 }));
+  withMyBusinessSession(() => setItemLocationLevels(asItemName('PickTest Back Wine'), asLocationName('PickTest Outlet'), { shelfSide: 'Back', rack: 'B', level: 2 }));
   create(fetch('Customers', typeRootName), typeRootName, 'PickTest Customer', asUserId(1));
 
   const invoiceId = createInvoice(
@@ -1166,8 +1177,8 @@ test('restocking retail outlets from warehouses: the same real, shelf-ordered pi
   createItem('RestockTest Wine B', 'Items', asUserId(1));
   receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-1', asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
   receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-2', asItemName('RestockTest Wine B'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
-  setItemLocationLevels(asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse'), { rack: 'A', level: 1 });
-  setItemLocationLevels(asItemName('RestockTest Wine B'), asLocationName('RestockTest Warehouse'), { rack: 'B', level: 2 });
+  withMyBusinessSession(() => setItemLocationLevels(asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse'), { rack: 'A', level: 1 }));
+  withMyBusinessSession(() => setItemLocationLevels(asItemName('RestockTest Wine B'), asLocationName('RestockTest Warehouse'), { rack: 'B', level: 2 }));
 
   const runRef = 'RESTOCKRUN-1';
   const lines = [
@@ -2118,7 +2129,7 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
   receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-REC-1', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 48 * 24, asUserId(1), '2027-01-01');
   assert.equal(getItemLocation(asItemName('LocTest Lager'), asLocationName('LocTest Head Office')).quantity_on_hand, 1152);
 
-  setItemLocationLevels(asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), { minLevel: 5 * 24, maxLevel: 20 * 24, reorderLevel: 8 * 24 });
+  withMyBusinessSession(() => setItemLocationLevels(asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), { minLevel: 5 * 24, maxLevel: 20 * 24, reorderLevel: 8 * 24 }));
   const levels = getItemLocation(asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'));
   assert.equal(levels.min_level, 120);
   assert.equal(levels.max_level, 480);
@@ -2332,9 +2343,9 @@ test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free tex
   createItem('STTest Chardonnay', 'Items', asUserId(1));
 
   receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-1', asItemName('STTest Merlot'), asLocationName('STTest Outlet'), 50, asUserId(1), '2027-01-01');
-  setItemLocationLevels(asItemName('STTest Merlot'), asLocationName('STTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 3 });
+  withMyBusinessSession(() => setItemLocationLevels(asItemName('STTest Merlot'), asLocationName('STTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 3 }));
   receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-2', asItemName('STTest Chardonnay'), asLocationName('STTest Outlet'), 30, asUserId(1), '2027-01-01');
-  setItemLocationLevels(asItemName('STTest Chardonnay'), asLocationName('STTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 1 });
+  withMyBusinessSession(() => setItemLocationLevels(asItemName('STTest Chardonnay'), asLocationName('STTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 1 }));
 
   const takeId = createStockTake(asLocationName('STTest Outlet'), '2027-02-01', asUserId(1));
   const take = getStockTake(takeId)!;
@@ -3249,7 +3260,7 @@ test('getStockListing/countStockListing: a real, paginated listing of every item
   assert.equal(row!.max_level, null);
   assert.equal(row!.reorder_level, null);
 
-  setItemLocationLevels(asItemName('StockListTest Wine'), asLocationName('StockListTest Outlet'), { minLevel: 5, maxLevel: 50, reorderLevel: 10 });
+  withMyBusinessSession(() => setItemLocationLevels(asItemName('StockListTest Wine'), asLocationName('StockListTest Outlet'), { minLevel: 5, maxLevel: 50, reorderLevel: 10 }));
   const listingAfter = getStockListing(1000, 0);
   const rowAfter = listingAfter.find((r) => r.item === 'StockListTest Wine' && r.location === 'StockListTest Outlet');
   assert.equal(rowAfter!.min_level, 5, 'min/max/reorder set via setItemLocationLevels must actually show up in the listing the UI reads');

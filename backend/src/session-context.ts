@@ -31,6 +31,7 @@ export interface RealBusinessNode {
 export interface SessionContext {
   userId: number;
   business: RealBusinessNode;
+  ledger: string;
 }
 
 const storage = new AsyncLocalStorage<SessionContext>();
@@ -38,8 +39,8 @@ const storage = new AsyncLocalStorage<SessionContext>();
 /** Runs fn within a real, established session context - the one,
  * real, direct entry point every real caller uses: the HTTP
  * middleware, for a real request; a real test or script, for its own
- * real run. Never read `Session.Business`/`Session.UserId` outside of
- * this. */
+ * real run. Never read `Session.Business`/`Session.UserId`/
+ * `Session.Ledger` outside of this. */
 export function runInSessionContext<T>(context: SessionContext, fn: () => T): T {
   return storage.run(context, fn);
 }
@@ -55,10 +56,10 @@ export function setCurrentBusiness(business: RealBusinessNode): void {
 }
 
 /** The one, real, per-connection global - reads like a plain
- * property (`Session.Business`, `Session.UserId`), per direct
- * correction, never a function call, while staying genuinely safe
- * across real, concurrent requests underneath (see the module's own
- * doc comment above). */
+ * property (`Session.Business`, `Session.UserId`, `Session.Ledger`),
+ * per direct correction, never a function call, while staying
+ * genuinely safe across real, concurrent requests underneath (see the
+ * module's own doc comment above). */
 export const Session = {
   get Business(): RealBusinessNode {
     const context = storage.getStore();
@@ -69,5 +70,10 @@ export const Session = {
     const context = storage.getStore();
     if (!context) throw new Error('No real, current user - this was read outside a real session context (see runInSessionContext).');
     return context.userId;
+  },
+  get Ledger(): string {
+    const context = storage.getStore();
+    if (!context) throw new Error('No real, current ledger - this was read outside a real session context (see runInSessionContext).');
+    return context.ledger;
   },
 };

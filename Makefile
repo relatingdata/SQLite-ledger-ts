@@ -420,6 +420,7 @@ USER_MANUAL_CHAPTERS := \
 	docs/user-manual-ch2-configuration.md \
 	docs/user-manual-ch3-tutorial.md \
 	docs/user-manual-appendix-screens.md \
+	docs/user-manual-appendix-step-runner.md \
 	docs/user-manual-glossary.md \
 	docs/user-manual-contributors-suggestions-notes.md
 
@@ -724,6 +725,7 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/entity-identity-resolution.md \
 	docs/entity-model.md \
 	docs/journal-api-reference.md \
+	docs/skill-step-runner-design.md \
 	docs/expansion-walker-design.md \
 	docs/foreign-currency-receipts-and-payments.md \
 	docs/lessons-learned.md \

@@ -37,7 +37,7 @@ export function attachUser(req: Request, _res: Response, next: NextFunction) {
     if (businessName) {
       try {
         const business = fetchEntity(businessName, typeBusinessName, fetchEntity('Businesses', typeRootName));
-        runInSessionContext({ userId: req.user.id, business }, next);
+        runInSessionContext({ userId: req.user.id, business, ledger: 'Actual' }, next);
         return;
       } catch {
         // A real, stored business name that no longer resolves (deleted

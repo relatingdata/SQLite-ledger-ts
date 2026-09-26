@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { db } from './db.js';
 import { Entity, Link, Balance, Detail } from './primitives.js';
+import { Session } from './session-context.js';
 import {
   NotFoundError,
   ValidationError,
@@ -354,7 +355,8 @@ function postItemLevelFigure(figureName: string, figureId: number, value: number
   db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, 'Wine Retail Business', 'Actual', userId);
 }
 
-export function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, userId: UserId): void {
+export function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>): void {
+  const userId = asUserId(Session.UserId);
   const item = Entity.get(itemName);
   if (!item) throw new ValidationError(`No item named "${itemName}".`);
   const levelsRecordName = `${itemName} — ${locationName} — Levels`;
@@ -368,7 +370,7 @@ export function setItemLocationLevelDetails(itemName: ItemName, locationName: Lo
     }
     const figure = existing ?? Entity.create(figureName, levelsRecord.id, userId);
     const delta = value - Balance.get(figure.id);
-    if (delta !== 0) Balance.post('Wine Retail Business', 'Actual', `LEVEL-${figure.id}-${Date.now()}`, figureName, figure.id, delta, userId);
+    if (delta !== 0) Balance.post(Session.Business.name, Session.Ledger, `LEVEL-${figure.id}-${Date.now()}`, figureName, figure.id, delta, userId);
   }
   setLevelFigure('Min Level', levels.min_level);
   setLevelFigure('Max Level', levels.max_level);
@@ -874,8 +876,7 @@ export function setItemLocationLevels(
       shelf_side: levels.shelfSide ?? null,
       rack: levels.rack ?? null,
       level: levels.level ?? null,
-    },
-    asUserId(1)
+    }
   );
 }
 

@@ -97,3 +97,9 @@ not to implement the code change unprompted.
 ### Closed
 
 _(moved here, with the checkpoint that closed them, once actually fixed)_
+
+8. **`check-e2e-types` is genuinely broken** — `e2e/tsconfig.json` does not exist,
+   so `cd e2e && tsc --noEmit` falls back to printing tsc's own help text instead
+   of type-checking anything. A real, pre-existing gap, not introduced tonight,
+   found while trying to verify new Playwright code compiled correctly. Not yet
+   fixed.

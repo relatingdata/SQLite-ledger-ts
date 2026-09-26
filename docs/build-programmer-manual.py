@@ -19,6 +19,7 @@ PARTS = [
         "coding-standards.md",
         "entity-model.md",
         "journal-api-reference.md",
+        "skill-step-runner-design.md",
         "entity-chains.md",
         "money-model.md",
         "multi-dimensional-reporting.md",
