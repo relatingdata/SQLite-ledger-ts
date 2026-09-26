@@ -109,19 +109,21 @@ per direct instruction; the real, API-path execution engine, with its own real
 function registry (`API_REGISTRY`) and shared verification registry
 (`VERIFY_REGISTRY`); real interactive mode (prompts before each real batch,
 stops on a real failure unless told to continue) and real non-interactive mode
-(`--non-interactive`). Confirmed, directly, running a real, three-step proof
-fixture (`shared-fixtures/step-runner-example.csv`: login, create a real
-business, create a real location) end to end via the API path, with real
-verification passing on every real step.
+(`--non-interactive`). **The real UI-path engine, built and confirmed working
+directly, driving an actual, real Playwright browser**: `--path ui` executes
+`goto`/`fill`/`click`/`select`/`check`/`wait` actions, captures a real,
+named screenshot per step, and honors `--delay`/`--ui`/`--screenshot-dir`.
+Confirmed, directly, twice: a real, two-step proof fixture
+(`shared-fixtures/step-runner-example.csv`) and a real, four-step slice of the
+actual tutorial (`shared-fixtures/tutorial-steps.csv`: login, create the real
+Wine Retail Business with its own real business-type selection, switch session,
+view the freshly-empty real Locations screen) both run end to end via the real
+UI path, producing four real, correctly-named screenshots.
 
-**Not yet built**: the UI-path (Playwright) execution engine (driving `ui_actions`
-in a real, headed or headless browser, with the real, configurable delay and
-`--ui` Inspector support); real screenshot capture; the real web interface
-(`/dev/step-runner`); and the real, full migration of the tutorial e2e (and
-every other real, existing test) onto this format — each currently still runs
-its own, separate, bespoke way. The `API_REGISTRY`/`VERIFY_REGISTRY` also cover
-only the two real functions this proof fixture needed
-(`createBusiness`/`createAndConfigureLocation`) — extending them to cover every
-real backend function the full tutorial needs is real, further, substantial
-work, done incrementally as each real fixture is written, not attempted as one
-single, complete registry upfront.
+**Not yet built**: the real web interface (`/dev/step-runner`); the real, full
+conversion of the remaining ~42 real tutorial steps (a real, working, 4-step
+slice — login through the empty Locations screen — is built and confirmed;
+the rest, and every other real, existing test, are real, substantial, further
+work, done incrementally); the Admin recording feature (Phase 6). The
+`API_REGISTRY`/`VERIFY_REGISTRY` cover only the two real functions the current
+fixtures need — extending them as each further, real fixture is written.

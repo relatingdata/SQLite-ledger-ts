@@ -4,8 +4,9 @@
 // display, and non-interactive mode. The UI-path (Playwright) engine
 // and the web interface are real, further, not-yet-built work.
 
-import { readFileSync } from 'fs';
+import { readFileSync, mkdirSync } from 'fs';
 import { createInterface } from 'readline';
+import { chromium, type Browser, type Page } from 'playwright';
 import * as db from '../src/db.js';
 
 interface StepRow {
@@ -126,6 +127,60 @@ function runStepViaApi(step: StepRow): { ok: boolean; error?: string } {
   }
 }
 
+interface UiAction {
+  type: 'goto' | 'fill' | 'click' | 'select' | 'check' | 'wait';
+  selector?: string;
+  value?: string;
+}
+
+/** Drives one real step through an actual, real browser - the real
+ * "prove the UI works" path, per direct instruction the one and only
+ * other real way any step can be verified, alongside the API path. */
+async function runStepViaUi(page: Page, step: StepRow, screenshotDir: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    if (step.ui_screen) await page.goto(step.ui_screen);
+    if (step.ui_actions) {
+      const actions: UiAction[] = JSON.parse(step.ui_actions);
+      for (const action of actions) {
+        switch (action.type) {
+          case 'goto':
+            await page.goto(action.value!);
+            break;
+          case 'fill':
+            await page.locator(action.selector!).fill(action.value ?? '');
+            break;
+          case 'click':
+            await page.locator(action.selector!).click();
+            break;
+          case 'select':
+            await page.locator(action.selector!).selectOption(action.value ?? '');
+            break;
+          case 'check':
+            await page.locator(action.selector!).check();
+            break;
+          case 'wait':
+            await page.waitForTimeout(Number(action.value ?? 500));
+            break;
+        }
+      }
+    }
+    await page.waitForTimeout(500);
+    if (step.screenshot) {
+      mkdirSync(screenshotDir, { recursive: true });
+      await page.screenshot({ path: `${screenshotDir}/${step.screenshot}.png`, fullPage: true });
+    }
+    if (step.verify) {
+      const verifyFn = VERIFY_REGISTRY[step.verify];
+      if (!verifyFn) return { ok: false, error: `No real verify registry entry for "${step.verify}".` };
+      const args = step.api_args ? JSON.parse(step.api_args) : {};
+      if (!verifyFn(args)) return { ok: false, error: `Verify "${step.verify}" returned false.` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 async function prompt(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => rl.question(question, (answer) => { rl.close(); resolve(answer); }));
@@ -135,37 +190,57 @@ async function main() {
   const args = process.argv.slice(2);
   const fixturePath = args[0];
   if (!fixturePath) {
-    console.error('Usage: step-runner <fixture.csv> [--steps N] [--non-interactive] [--from id] [--to id] [--only id]');
+    console.error('Usage: step-runner <fixture.csv> [--path api|ui] [--steps N] [--non-interactive] [--from id] [--to id] [--only id] [--delay MS] [--ui] [--screenshot-dir DIR] [--screenshot-only ids]');
     process.exit(1);
   }
+  const path = args.includes('--path') ? args[args.indexOf('--path') + 1] : 'api';
   const stepsArg = args.includes('--steps') ? Number(args[args.indexOf('--steps') + 1]) : 1;
   const nonInteractive = args.includes('--non-interactive');
   const onlyId = args.includes('--only') ? args[args.indexOf('--only') + 1] : undefined;
+  const delayMs = args.includes('--delay') ? Number(args[args.indexOf('--delay') + 1]) : 5000;
+  const openInspector = args.includes('--ui');
+  const screenshotDir = args.includes('--screenshot-dir') ? args[args.indexOf('--screenshot-dir') + 1] : 'docs/manual-images-tutorial';
+  const screenshotOnly = args.includes('--screenshot-only') ? args[args.indexOf('--screenshot-only') + 1].split(',') : undefined;
 
   let allSteps = parseStepFile(fixturePath);
   if (onlyId) allSteps = allSteps.filter((s) => s.step_id === onlyId);
+  if (screenshotOnly) allSteps = allSteps.filter((s) => screenshotOnly.includes(s.step_id));
+
+  let browser: Browser | undefined;
+  let page: Page | undefined;
+  if (path === 'ui') {
+    browser = await chromium.launch({ headless: !openInspector });
+    const context = await browser.newContext({ baseURL: 'http://localhost:5173' });
+    page = await context.newPage();
+  }
 
   let index = 0;
   while (index < allSteps.length) {
     const batch = allSteps.slice(index, index + (nonInteractive ? allSteps.length : stepsArg));
     printStepsTable(batch);
     if (!nonInteractive) {
-      const answer = await prompt(`\nRun these ${batch.length} step(s) via API? [Y/n] `);
+      const answer = await prompt(`\nRun these ${batch.length} step(s) via ${path.toUpperCase()}? [Y/n] `);
       if (answer.trim().toLowerCase() === 'n') {
         console.log('Stopped.');
+        if (browser) await browser.close();
         return;
       }
     }
     for (const step of batch) {
-      const result = runStepViaApi(step);
+      const result = path === 'ui' ? await runStepViaUi(page!, step, screenshotDir) : runStepViaApi(step);
       console.log(result.ok ? `✅ ${step.step_id}` : `❌ ${step.step_id}: ${result.error}`);
       if (!result.ok && !nonInteractive) {
         const cont = await prompt('Step failed. Continue anyway? [y/N] ');
-        if (cont.trim().toLowerCase() !== 'y') return;
+        if (cont.trim().toLowerCase() !== 'y') {
+          if (browser) await browser.close();
+          return;
+        }
       }
+      if (path === 'ui' && !nonInteractive) await new Promise((r) => setTimeout(r, delayMs));
     }
     index += batch.length;
   }
+  if (browser) await browser.close();
   console.log(`\nDone - ${allSteps.length} step(s) processed.`);
 }
 

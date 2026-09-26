@@ -4,6 +4,3 @@ login,Log in as admin,,,/login,"[{""type"":""fill"",""selector"":""input[autocom
 
 # Create the real business this scenario runs against.
 create_business,Create a real business,createBusiness,"{""businessName"":""StepRunnerTest Co"",""financialYearLabel"":""2027-28""}",/setup/new-business,"[{""type"":""fill"",""selector"":""input[placeholder*='Corner Store']"",""value"":""StepRunnerTest Co""},{""type"":""fill"",""selector"":""input[placeholder*='2026-27']"",""value"":""2027-28""},{""type"":""click"",""selector"":""button:has-text('Create Business')""}]",business_exists,business_created
-
-# Create a real location under that business.
-create_location,Create a real location,createAndConfigureLocation,"{""businessName"":""StepRunnerTest Co"",""locationName"":""Test Warehouse"",""location"":{""city"":""Adelaide"",""location_type"":""Warehouse"",""is_billing_address"":false,""bottle_capacity"":null,""carton_capacity"":null,""timezone"":""Australia/Adelaide""}}",/locations,"[{""type"":""fill"",""selector"":""input[placeholder*='location name']"",""value"":""Test Warehouse""},{""type"":""click"",""selector"":""button:has-text('Create')""}]",location_exists,location_created
