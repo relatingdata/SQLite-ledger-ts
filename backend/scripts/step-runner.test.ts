@@ -106,6 +106,15 @@ test('lintSteps: a genuinely correct fixture reports zero real problems', () => 
   assert.deepEqual(lintSteps(steps, screens), []);
 });
 
+test('lintSteps: flags a real, data-submitting screen with no real api_function as a real, silent no-op waiting to happen', () => {
+  const screens = new Map<string, Screen>([
+    ['Create Item', { screen_name: 'Create Item', ui_path: '/items', open_selector: '', api_function: '', submit_selector: "button:has-text('+ Add')", fields: [] }],
+  ]);
+  const steps = [{ index: 1, screen_name: 'Create Item', values: [], path: '', verify: '', screenshot: '' }];
+  const problems = lintSteps(steps, screens);
+  assert.ok(problems.some((p) => p.includes('silently do nothing at all')));
+});
+
 test('runStepViaApi: a real createBusiness step, run through the real, live backend, genuinely creates the business', () => {
   const screens = new Map<string, Screen>([
     ['Create Business', {

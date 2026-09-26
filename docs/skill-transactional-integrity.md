@@ -87,10 +87,18 @@ set on every real movement).
    Remaining" legitimately repeat per-location — given an optional, real
    `entityId` parameter to disambiguate, exactly the same class of fix
    applied throughout this whole session.
-2. **Not yet done**: Min/Max/Reorder/Shelf Level figures remain posted
-   through `Balance.post`/the journal today, despite being real configuration
-   settings, not real movements — the real, correct fix is to move them out
-   of the journal entirely, back to plain entity/`Detail` storage.
+2. **Not yet done — an attempted fix was built, then fully reverted**: Min/
+   Max/Reorder/Shelf Level figures remain posted through `Balance.post`/the
+   journal today, despite being real configuration settings, not real
+   movements. A real attempt to move them into the `Detail` primitive was
+   built and directly tested, then removed in full, per direct instruction
+   that `Detail` itself had never been properly, formally designed and
+   approved — "if it has not been designed it does not exist." `git checkout`
+   restored the affected files to their last, committed state. The real,
+   correct fix — moving these out of the journal entirely — remains open,
+   pending a real, proper design for whatever mechanism replaces `Balance.post`
+   here (which may or may not end up being `Detail`, once `Detail` itself has
+   a real design of its own).
 3. **Not yet done**: auditing every real stock-movement function
    (`receiveStockAtLocation`, `dispatchStockFromLocation`, `transferStock`,
    `writeOffStock`, `completeStockTake`) to guarantee each one always posts

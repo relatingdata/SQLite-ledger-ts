@@ -146,6 +146,14 @@ export function lintSteps(steps: Step[], screens: Map<string, Screen>): string[]
     if (screen.api_function && !API_REGISTRY[screen.api_function]) {
       problems.push(`Row ${s.index}: screen "${s.screen_name}"'s api_function "${screen.api_function}" has no real API_REGISTRY entry.`);
     }
+    // Per direct, absolute instruction: a real screen that genuinely
+    // submits data (it has its own real submit_selector) but has no
+    // real api_function at all is a real, silent no-op waiting to
+    // happen the moment anyone runs it via --path api - lint must
+    // strenuously object to this, not stay quiet about it.
+    if (screen.submit_selector && !screen.api_function) {
+      problems.push(`Row ${s.index}: screen "${s.screen_name}" has a real submit_selector but no real api_function - running this step via --path api would silently do nothing at all.`);
+    }
     if (s.verify && !VERIFY_REGISTRY[s.verify]) problems.push(`Row ${s.index}: verify "${s.verify}" has no real VERIFY_REGISTRY entry.`);
   }
   return problems;
