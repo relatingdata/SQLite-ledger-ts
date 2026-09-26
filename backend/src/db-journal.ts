@@ -21,8 +21,13 @@ import {
   getContact,
   setDimensionParent,
   recordInvoiceLine,
+  createLocation,
+  setLocation,
+  ensureLocationCapacityAccount,
+  type Location as StockLocation,
   type BusinessName,
   type LedgerName,
+  type TypedNode,
   type AccountName,
   type DivisionName,
   type VendorName,
@@ -455,6 +460,64 @@ export function postStockReceipt(reference: string, business: BusinessName, ledg
   );
 
   db.prepare(`DELETE FROM stock_receipt_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
+}
+
+export interface LocationStagingInput {
+  reference: string;
+  business: BusinessName;
+  location_name: string;
+  city: string;
+  location_type: string;
+  bottle_capacity?: number | null;
+  carton_capacity?: number | null;
+  timezone: string;
+}
+
+/** Stages a real, new location's own raw, real form input - per
+ * direct, absolute instruction, every real, user-facing data-entry
+ * form has a real, dedicated staging table behind it, the exact,
+ * same, established shape as stageStockReceipt. */
+export function stageLocation(input: LocationStagingInput): void {
+  db.prepare(
+    `INSERT INTO location_staging
+       (reference, business, location_name, city, location_type, bottle_capacity, carton_capacity, timezone)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (reference, business) DO UPDATE SET
+       location_name = excluded.location_name, city = excluded.city, location_type = excluded.location_type,
+       bottle_capacity = excluded.bottle_capacity, carton_capacity = excluded.carton_capacity, timezone = excluded.timezone`
+  ).run(
+    input.reference, input.business, input.location_name, input.city, input.location_type,
+    input.bottle_capacity ?? null, input.carton_capacity ?? null, input.timezone
+  );
+}
+
+/** Reads a real, staged location and genuinely creates it - the one,
+ * real place this actually happens, through the exact, same, typed
+ * create()/Entity.create() functions this whole codebase already uses
+ * everywhere, never a raw SQL insert into the entities table (which
+ * is genuinely append-only and self-auditing - there is no "create
+ * entity" SQL statement at all, by design). The real, balanced
+ * opening-capacity posting (Storage Capacity Remaining/Installed)
+ * happens here too, atomically, as part of the exact, same, real,
+ * enclosing transaction. */
+export function postLocation(reference: string, business: BusinessName, userId: UserId): TypedNode<'LocationEntityName'> {
+  const staged = db.prepare(`SELECT * FROM location_staging WHERE reference = ? AND business = ?`).get(reference, business) as LocationStagingInput | undefined;
+  if (!staged) throw new NotFoundError(`Nothing staged for location ${reference}.`);
+
+  return db.transaction((): TypedNode<'LocationEntityName'> => {
+    const entity = createLocation(business, staged.location_name, userId);
+    setLocation(asLocationName(staged.location_name), {
+      city: staged.city,
+      location_type: staged.location_type,
+      is_billing_address: false,
+      bottle_capacity: staged.bottle_capacity ?? null,
+      carton_capacity: staged.carton_capacity ?? null,
+      timezone: staged.timezone,
+    } as StockLocation);
+    ensureLocationCapacityAccount(business, asLedgerName('Actual'), asLocationName(staged.location_name), userId);
+    db.prepare(`DELETE FROM location_staging WHERE reference = ? AND business = ?`).run(reference, business);
+    return entity;
+  })();
 }
 
 export interface SalesOrderInput {

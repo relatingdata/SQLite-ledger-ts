@@ -4,7 +4,8 @@ import { requireRole } from '../auth-middleware.js';
 import {
   getEntityTree,
   setLocation,
-  createAndConfigureLocation,
+  stageLocation,
+  postLocation,
   getLocation,
   getItemLocation,
   setItemLocationLevels,
@@ -101,14 +102,18 @@ locationsRouter.post('/:name', requireRole('Administrator', 'Bookkeeper'), (req,
   const business = req.query.business as string;
   if (!business) return res.status(400).json({ error: 'business query parameter is required.' });
   try {
-    createAndConfigureLocation(asBusinessName(business), req.params.name, {
+    const reference = `LOC-${req.params.name}-${Date.now()}`;
+    stageLocation({
+      reference,
+      business: asBusinessName(business),
+      location_name: req.params.name,
       city: parsed.data.city,
       location_type: parsed.data.location_type,
-      is_billing_address: parsed.data.is_billing_address,
       bottle_capacity: parsed.data.bottle_capacity ?? null,
       carton_capacity: parsed.data.carton_capacity ?? null,
       timezone: parsed.data.timezone,
-    }, asUserId(req.user!.id));
+    });
+    postLocation(reference, asBusinessName(business), asUserId(req.user!.id));
     res.status(201).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });

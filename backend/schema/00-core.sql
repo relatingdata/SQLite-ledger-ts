@@ -1158,6 +1158,31 @@ CREATE TABLE po_staging (
   PRIMARY KEY (reference, business, ledger)
 );
 
+-- Per direct, absolute instruction: every real, user-facing data-entry
+-- form has a real, dedicated staging table behind it - the exact,
+-- same, established shape as stock_receipt_staging above: a plain
+-- table (no trigger of its own) holding a real screen's own raw,
+-- real input, staged by one, real TypeScript function
+-- (stageLocation) and read, then cleared, by another
+-- (postLocation) - which is the one, real place the location entity
+-- itself is actually created, through the typed create()/Entity.create()
+-- functions this whole codebase already uses everywhere - never a
+-- raw SQL insert into the entities table, whether from a trigger or
+-- anywhere else. The entities table is genuinely append-only and
+-- self-auditing; there is no "create entity" SQL statement at all,
+-- by design.
+CREATE TABLE location_staging (
+  reference       TEXT NOT NULL,
+  business        TEXT NOT NULL,
+  location_name   TEXT NOT NULL,
+  city            TEXT NOT NULL,
+  location_type   TEXT NOT NULL,
+  bottle_capacity INTEGER,
+  carton_capacity INTEGER,
+  timezone        TEXT NOT NULL,
+  PRIMARY KEY (reference, business)
+);
+
 CREATE TABLE stock_receipt_staging (
   reference       TEXT NOT NULL,
   business        TEXT NOT NULL,

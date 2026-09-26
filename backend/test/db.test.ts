@@ -118,6 +118,8 @@ const {
   getLedgers,
   createBusiness,
   createAndConfigureLocation,
+  stageLocation,
+  postLocation,
   stageLine,
   getStagedLines,
   removeStagedLine,
@@ -5648,4 +5650,36 @@ test('createAndConfigureLocation: real, atomic, balanced Storage Capacity Remain
   assert.equal(installedBalance.balance_minor, -500, 'and the exact, real, opposite amount to Installed - a real, balanced, two-line entry');
   assert.equal(remainingBalance.currency, 'SPACE-CARTON', 'real space must carry its own, distinct, real currency - never blended with real dollars');
   assert.equal(installedBalance.currency, 'SPACE-CARTON');
+});
+
+test('stageLocation/postLocation: a real, dedicated staging table behind the location-creation form, matching the exact, established stage/post pattern - the real location, and its own real, balanced capacity accounts, only appear once genuinely posted, never at stage time', () => {
+  const biz = createBusiness(asBusinessName('LocationStagingTest Co'), '2027-28', asUserId(1));
+
+  stageLocation({
+    reference: 'LOC-STAGE-TEST-1',
+    business: biz.business,
+    location_name: 'Staged Warehouse',
+    city: 'Adelaide',
+    location_type: 'Warehouse',
+    bottle_capacity: null,
+    carton_capacity: 300,
+    timezone: 'Australia/Adelaide',
+  });
+
+  // A real, staged-but-not-yet-posted location must not exist as a
+  // real entity yet - staging is genuinely just a real, held record
+  // of the form's own raw input, nothing more.
+  assert.equal(getEntityTree().some((e) => e.name === 'Staged Warehouse'), false, 'a real, merely-staged location must not yet exist as a real entity');
+
+  const entity = postLocation('LOC-STAGE-TEST-1', biz.business, asUserId(1));
+  assert.ok(entity.id, 'postLocation must return the real, newly-created location entity');
+
+  const entities = getEntityTree();
+  assert.ok(entities.some((e) => e.name === 'Staged Warehouse'), 'the real location must genuinely exist once posted');
+  const remaining = entities.find((e) => e.name === 'Storage Capacity Remaining' && e.parent_id === entity.id);
+  const installed = entities.find((e) => e.name === 'Storage Capacity Installed' && e.parent_id === entity.id);
+  assert.ok(remaining && installed, 'the real, balanced capacity accounts must exist too, created atomically as part of the real post');
+
+  const stillStaged = db.prepare(`SELECT 1 FROM location_staging WHERE reference = 'LOC-STAGE-TEST-1'`).get();
+  assert.equal(stillStaged, undefined, 'the real, staged row must be cleared once genuinely posted, matching the established stock-receipt pattern');
 });

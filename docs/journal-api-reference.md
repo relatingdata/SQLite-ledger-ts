@@ -144,3 +144,21 @@ real line of narrative detail (description, quantity, unit price, amount, tax)
 against the real, underlying invoice these two screens create, so an invoice
 built this way shows the same real line detail as one built through the
 dedicated Invoices screen.
+
+## `stageLocation` / `postLocation`
+
+Per direct, absolute instruction: every real, user-facing data-entry form has a
+real, dedicated staging table behind it — `location_staging`, the exact, same,
+established shape as `stock_receipt_staging`: a plain table, no trigger of its
+own, holding a real screen's own raw, real input.
+
+`stageLocation` inserts (or, on conflict, updates) the real, staged row.
+`postLocation` reads it back and is the one, real place a new location is
+actually created — through the exact, same, typed `createLocation`/
+`setLocation`/`ensureLocationCapacityAccount` functions this whole codebase
+already uses everywhere, never a raw SQL insert into the `entities` table
+(which is genuinely append-only and self-auditing by design — there is no
+"create entity" SQL statement at all). The real, balanced opening-capacity
+posting (`Storage Capacity Remaining`/`Installed`) happens here too,
+atomically, inside the exact, same, real transaction as the location's own
+creation, then the staged row is cleared.
