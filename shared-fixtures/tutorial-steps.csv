@@ -1,36 +1,5 @@
-# Log in as the real, default administrator account, then select the
-# one, real, always-present "My Business" to satisfy the app's own
-# real session requirement before creating anything new.
-step_id,description,api_function,api_args,ui_screen,ui_actions,verify,screenshot
-login,Log in as admin,,,/login,"[{""type"":""fill"",""selector"":""input[autocomplete=username]"",""value"":""admin""},{""type"":""fill"",""selector"":""input[autocomplete=current-password]"",""value"":""changeme123""},{""type"":""click"",""selector"":""button:has-text('Log in')""},{""type"":""wait"",""value"":""500""},{""type"":""select"",""selector"":""select >> nth=0"",""value"":""My Business""},{""type"":""click"",""selector"":""button:has-text('Continue')""},{""type"":""wait"",""value"":""500""}]",,login_landing
-
-# Create the real, new business this whole tutorial builds around.
-create_business,Create the Wine Retail Business,createBusiness,"{""businessName"":""Wine Retail Business"",""financialYearLabel"":""2026-27""}",/setup/new-business,"[{""type"":""fill"",""selector"":""input[placeholder='e.g. Corner Store Pty Ltd']"",""value"":""Wine Retail Business""},{""type"":""fill"",""selector"":""input[placeholder='e.g. 2026-27']"",""value"":""2026-27""},{""type"":""select"",""selector"":""select >> nth=1"",""value"":""Sole Trader""},{""type"":""wait"",""value"":""500""},{""type"":""click"",""selector"":""button:has-text('Create Business')""},{""type"":""wait"",""value"":""1500""}]",business_exists,new_business_created
-
-# Switch the real, active session to the newly-created business.
-switch_session,Switch session to Wine Retail Business,,,/session,"[{""type"":""select"",""selector"":""select >> nth=0"",""value"":""Wine Retail Business""},{""type"":""click"",""selector"":""button:has-text('Continue')""},{""type"":""wait"",""value"":""500""}]",,session_switched
-
-# The Locations screen, freshly empty for this new business.
-locations_empty,View the empty Locations screen,,,/locations,"[{""type"":""wait"",""value"":""800""}]",,locations_empty
-
-# Create the real, first retail location for this business.
-create_location,Create the first location,,,/locations,"[{""type"":""click"",""selector"":""button:has-text('+ New Location')""},{""type"":""wait"",""value"":""1500""},{""type"":""fill"",""selector"":"".form-card fieldset >> nth=0 >> input"",""value"":""Main Street Cellar""},{""type"":""fill"",""selector"":"".form-card fieldset >> nth=1 >> input"",""value"":""Adelaide""},{""type"":""select"",""selector"":"".form-card fieldset >> nth=2 >> select"",""value"":""Retail""},{""type"":""click"",""selector"":""button:has-text('Create')""},{""type"":""wait"",""value"":""800""},{""type"":""fill"",""selector"":""input[placeholder='e.g. 2000']"",""value"":""2000""},{""type"":""click"",""selector"":""button:has-text('Save')""},{""type"":""wait"",""value"":""800""}]",location_exists,locations_created
-
-# Business Setup's own Entity Tree Editor - a real division, added via
-# the real, keyboard-driven "Insert" convention this specific editor
-# uses throughout.
-create_division,Create the first division,,,/setup/business-setup,"[{""type"":""wait"",""value"":""1500""},{""type"":""focus"",""selector"":"".tree-panel [role='toolbar']""},{""type"":""press"",""value"":""Insert""},{""type"":""wait"",""value"":""300""},{""type"":""fill"",""selector"":""input[placeholder='Division name']"",""value"":""Main Division""},{""type"":""click"",""selector"":"".inline-add .btn.small:not(.secondary)""},{""type"":""wait"",""value"":""800""}]",,first_division_created
-
-# A real warehouse location, nested under the real division just created.
-create_warehouse,Create the first warehouse,,,,"[{""type"":""click"",""selector"":""button:has-text('Main Division')""},{""type"":""wait"",""value"":""300""},{""type"":""focus"",""selector"":"".tree-panel [role='toolbar']""},{""type"":""press"",""value"":""Insert""},{""type"":""wait"",""value"":""300""},{""type"":""fill"",""selector"":""input[placeholder='Location name']"",""value"":""Warehouse Hub""},{""type"":""fill"",""selector"":""input[placeholder='City']"",""value"":""Adelaide""},{""type"":""click"",""selector"":""button:has-text('Add')""},{""type"":""wait"",""value"":""800""}]",,first_warehouse_created
-
-# A real employee, at the real warehouse just created.
-create_employee,Create the first employee,,,,"[{""type"":""click"",""selector"":""button:has-text('Warehouse Hub')""},{""type"":""wait"",""value"":""300""},{""type"":""focus"",""selector"":"".tree-panel [role='toolbar']""},{""type"":""press"",""value"":""Insert""},{""type"":""wait"",""value"":""300""},{""type"":""fill"",""selector"":""input[placeholder='Employee name']"",""value"":""Jamie Chen""},{""type"":""click"",""selector"":""button:has-text('Add')""},{""type"":""wait"",""value"":""800""}]",,first_employee_created
-
-# The first, real product category and product.
-create_first_item,Create the first item and category,,,/items,"[{""type"":""wait"",""value"":""800""},{""type"":""fill"",""selector"":""input[placeholder='New item name']"",""value"":""Amber Ale 330ml""},{""type"":""select"",""selector"":""select >> nth=0"",""value"":""+ New category…""},{""type"":""wait"",""value"":""300""},{""type"":""fill"",""selector"":""input[placeholder=\""New category name, e.g. Pinot Noir\""]"",""value"":""Beer""},{""type"":""click"",""selector"":""button:has-text('+ Add')""},{""type"":""wait"",""value"":""1000""}]",,first_product_created
-
-# A second, real, distinct packaging of the same beer - cans, its own
-# genuinely separate item, since stock is tracked per real, distinct
-# SKU, never a shared "unit type" toggle on one item.
-create_second_item,Create the beer can variant,,,,"[{""type"":""fill"",""selector"":""input[placeholder='New item name']"",""value"":""Amber Ale 330ml Can""},{""type"":""select"",""selector"":""select >> nth=0"",""value"":""Beer""},{""type"":""click"",""selector"":""button:has-text('+ Add')""},{""type"":""wait"",""value"":""1000""}]",,beer_can_variant_created
+"Login","admin","changeme123"
+"Select Business","My Business"
+"Create Business","Wine Retail Business II","2026-27","Sole Trader"
+"Select Business","Wine Retail Business II"
+"Create Location","Wine Retail Business II","Main Street Cellar","Adelaide","Retail"

@@ -1,156 +1,264 @@
-## The Step Runner — the one, real, unified testing and data-loading tool
+# The Step Runner — the one, real, unified testing and data-loading tool
 
-Per direct instruction: this is designed to become **the one and only real testing
-and data-loading tool for this application** — replacing the tutorial e2e's own,
-bespoke Playwright script, the wine-retail simulation script, and demo-seeding, all
-of which currently duplicate the same underlying knowledge (what a business setup
-looks like, what an invoice looks like) in three, separate, real, hand-written
-places that can silently drift apart from each other — exactly the kind of drift
-this whole session kept finding and fixing one instance at a time.
+Per direct instruction: this is the one and only real testing and data-loading
+tool for this application — replacing the tutorial e2e's own, bespoke
+Playwright script, the wine-retail simulation script, and demo-seeding, all of
+which currently duplicate the same underlying knowledge (what a business
+setup looks like, what an invoice looks like) in separate, real, hand-written
+places that can silently drift apart from each other.
 
-### The real, underlying idea
+## 1. The real, underlying idea
 
-A real, ordered sequence of steps, held in one real, plain, human-readable CSV file
-— extending, not replacing, the already-established `shared-fixtures/*.csv`
-convention. Each step is real, dual-path from the start: it can be executed either
-as a real, direct backend function call (fast, no browser — for data loading, CI,
-and quick iteration) or as a real, driven Playwright browser action (for actually
-proving the UI works, and for producing real, documented screenshots) — the same
-step, either way, so the two paths can never silently drift the way a separate
-"simulation script" and "Playwright script" already had.
+A real, ordered sequence of steps, held in one real, plain, human-readable
+CSV file — extending, not replacing, the already-established
+`shared-fixtures/*.csv` convention. Each step is real, dual-path from the
+start: it can be executed either as a real, direct backend function call
+(fast, no browser) or as a real, driven Playwright browser action (proving
+the UI works, producing real screenshots) — the same step, either way, so the
+two paths can never silently drift apart.
 
-### The real CSV schema
+## 2. The real, established best practice this tool follows
 
-One file per real scenario (e.g. `shared-fixtures/tutorial-steps.csv`). Real
-comment lines — one or more, directly above the step they describe, never a
-comment column — start with `#` and are skipped by the parser, existing purely for
-a real person reading the file directly:
+A real, well-known, decades-old testing best practice, not invented here:
+**how to drive a screen is defined once, per screen, in its own real
+registry — never repeated inline in the data that merely uses that screen.**
+The same, real Page Object Model separation every mature test automation
+practice uses, paired with genuinely tabular, positional, data-driven test
+data — the real data file itself contains **zero commands, zero selectors,
+zero field names.**
+
+## 3. The real data file — pure, positional data
+
+One real row per real step. The screen/action name first, then its real
+values in plain, positional order — exactly how a person would write down a
+real business record, nothing more:
 
 ```csv
-# Log in as the real, default administrator account.
-step_id,description,api_function,api_args,ui_screen,ui_actions,verify,screenshot
-login,Log in as admin,,,/login,"[{""type"":""fill"",""selector"":""input[autocomplete=username]"",""value"":""admin""},{""type"":""fill"",""selector"":""input[autocomplete=current-password]"",""value"":""changeme123""},{""type"":""click"",""selector"":""button:has-text('Log in')""}]",,login_page
-
-# Create the real business this whole scenario runs against.
-create_business,Create the tutorial's own real business,createBusiness,"{""businessName"":""Wine Retail Business"",""financialYearLabel"":""2026-27""}",/setup/new-business,"[{""type"":""fill"",""selector"":""input[placeholder*='Corner Store']"",""value"":""Wine Retail Business""},{""type"":""fill"",""selector"":""input[placeholder*='2026-27']"",""value"":""2026-27""},{""type"":""click"",""selector"":""button:has-text('Create Business')""}]",business_exists,business_created
+"Login","admin","changeme123","English"
+"Create Business","Wine Tutorial Business","2026-27","Sole Trader"
+"Create Location","Main Street Cellar","Adelaide","Retail"
 ```
 
-Columns:
-- **`step_id`**: a real, unique, stable identifier — used to reference a step from
-  the runner's own CLI (`--from step_id`, `--to step_id`, `--only step_id`).
-- **`description`**: one, short, real sentence — shown in the interactive mode's
-  own tabular display and used as the default screenshot caption.
-- **`api_function`** / **`api_args`** (JSON object): the real, direct backend
-  function to call, and its real, named arguments, for the API-path execution.
-  Blank when a step is genuinely UI-only (a real navigation, a login).
-- **`ui_screen`** / **`ui_actions`** (JSON array of `{type, selector, value?}`):
-  the real, driven Playwright path — `type` is one of `goto`, `fill`, `click`,
-  `select`, `check`, `wait`.
-- **`verify`**: an optional, real, named check (from a small, fixed, shared
-  registry both paths call identically — `business_exists`, `trial_balance_balances`,
-  `stock_level_saved`, etc.) — run after either path, so the same real assertion
-  protects both.
-- **`screenshot`**: an optional real name — when present, a screenshot is taken
-  (UI-path runs only; the API path logs the same name without an image, keeping
-  step numbering identical between the two paths).
+No header row of field names. No `verify`. No `screenshot`. No selector, no
+JSON, ever. The *screen registry* (below) is the one, real place that says
+what position 1, 2, 3... mean for a given screen name.
 
-### The real runner — `backend/scripts/step-runner.ts`
+## 4. The real screen registry — `shared-fixtures/screens.csv`
 
-**Interactive mode** (the default): shows the next `N` real steps (default 1) in a
-real, tabular display — one real row per step, real columns matching the CSV's own
-headers exactly (`step_id`, `description`, `api_function`, `api_args`, ...), so the
-person sees exactly the real, real data about to run, not a paraphrase of it. Then
-executes them, via `--path api` (default, fast) or `--path ui` (opens a real,
-headed Playwright browser, `--ui` for Playwright's own Inspector, with a real,
-configurable delay between steps — `--delay 5000`, defaulting to 5000ms — so a
-person can actually watch each one).
+Defines, once per screen, everything about *how* to drive it, and the
+*order* its positional data arrives in:
 
-**Non-interactive mode** (`--non-interactive`): runs a real range of steps
-(`--from`/`--to`/`--only`, or the whole file) with no pauses and no prompts — the
-real mode CI and data-loading use.
-
-**Screenshot capture**: `--screenshot-dir <dir>` (default
-`docs/manual-images-tutorial/`, matching the existing convention) saves every real
-step's own named screenshot there; `--screenshot-only step_id[,step_id...]`
-captures just the named, real steps' screenshots without running anything else —
-the real, direct replacement for hand-maintaining a separate screenshot script.
-
-**CLI summary**:
-```
-step-runner <fixture.csv> [options]
-  --path api|ui              which real path executes each step (default: api)
-  --steps N                  how many real steps to show/run at once (default: 1)
-  --from / --to / --only     a real step_id range or single step
-  --non-interactive          run without prompts or pauses
-  --delay MS                 real pause between UI-path steps (default: 5000)
-  --ui                       open Playwright's own Inspector (--path ui only)
-  --screenshot-dir DIR       where real screenshots are saved
-  --screenshot-only IDS      capture only these real steps' screenshots
+```csv
+screen_name,ui_path,open_selector,api_function,submit_selector,position,field_name,field_selector,field_type
+Login,/login,,,button:has-text('Log in'),1,username,input[autocomplete=username],text
+Login,/login,,,button:has-text('Log in'),2,password,input[autocomplete=current-password],text
+Create Business,/setup/new-business,,createBusiness,button:has-text('Create Business'),1,businessName,input[placeholder='e.g. Corner Store Pty Ltd'],text
+Create Business,/setup/new-business,,createBusiness,button:has-text('Create Business'),2,financialYearLabel,input[placeholder='e.g. 2026-27'],text
+Create Business,/setup/new-business,,createBusiness,button:has-text('Create Business'),3,businessType,select >> nth=1,select
 ```
 
-### The real web interface
+- **`screen_name`**: the real name a data file's own first column matches.
+- **`ui_path`**: where this screen lives, if this screen is responsible for
+  its own navigation (blank if a prior step already navigated there).
+- **`open_selector`**: an optional real click needed *before* fields become
+  visible (a "+ New Location" toggle, say) — never the same as `submit_selector`.
+- **`api_function`**: the real, direct backend function this screen's submit
+  corresponds to — blank for a real, UI-only screen.
+- **`submit_selector`**: the real button that finalizes this screen's fields.
+- **`position`** / **`field_name`** / **`field_selector`** / **`field_type`**:
+  one real row per real field — its position in the data file's own row, the
+  name passed to `api_function`, its real Playwright selector, and its kind
+  (`text`, `select`, `check`).
+
+## 5. The real control file — a full, per-step execution plan
+
+Per direct correction: the control file is not merely verify/screenshot
+metadata. It is **the real, scripted alternative to a person manually driving
+the tool through the TUI or the web interface, one batch at a time** — a real,
+complete, per-step execution plan, letting a fully non-interactive run mix
+paths freely: run the first several real steps via the fast API path (no
+browser), then switch to the UI path for one, real, specific step to actually
+watch it and capture a screenshot, then back to the API path — all without a
+person present to choose anything.
+
+**A separate, real control file** (same base name, `.control.csv` suffix),
+read alongside the data file only when present — one real row per real data
+row, in the same real order, naming that row's own real execution `path`
+alongside its real `verify`/`screenshot`:
+
+```csv
+path,verify,screenshot
+api,,
+api,,
+api,business_exists,
+ui,,session_switched
+ui,location_exists,locations_created
+```
+
+This real example runs the first three real steps (login, select-business,
+create-business) via the fast API path with no browser at all, then switches
+to the real, driven UI path for the last two — the exact, real "N steps via
+the API, then the next step via the web UI, capturing a screenshot" case
+directly named. A control file's own `--path` column, when present, overrides
+whatever single `--path` flag was passed on the command line for that
+specific, real row.
+
+**Command-line flags** remain available for the simpler, common case of
+running one, single step at a time by hand and checking it: `--path ui
+--verify business_exists --screenshot new_business_created`, applied to
+whichever one, single step is currently selected (`--only N`) — no real
+control file needed at all for this, interactive case.
+
+## 6. The real CLI
+
+```
+step-runner <data.csv> [--screens screens.csv] [options]
+
+  --lint                      check the data file's own real integrity, run nothing
+  --pretty                    print every real step, formatted, run nothing
+  --path api|ui               which real path executes each step (default: api)
+  --steps N                   how many real steps to show/run at once (default: 1)
+  --only N                    run/show only the Nth real step (1-indexed)
+  --non-interactive           run without prompts or pauses (needs a real .control.csv
+                               for verify/screenshot, since no flags apply per-step)
+  --delay MS                  real pause between UI-path steps (default: 5000)
+  --ui                        open Playwright's own Inspector (--path ui only)
+  --screenshot-dir DIR        where real screenshots are saved
+  --verify NAME                (single-step mode) the real check to run after this step
+  --screenshot NAME             (single-step mode) the real screenshot name for this step
+```
+
+## 7. The real testing plan
+
+Per direct instruction, a real, named plan — not just examples of expected
+output, since that gap is exactly what let an earlier `--pretty`/`--steps`
+bug ship undetected until caught by hand:
+
+- **Real unit tests** (`backend/scripts/step-runner.test.ts`, run the same
+  way as `backend/test/db.test.ts`) for every real, pure function:
+  `parseCsvLine` (plain fields, quoted fields, embedded commas, doubled
+  quotes); `loadScreens` (grouping, position-sorting); `loadSteps` (with and
+  without a real, matching `.control.csv`); `buildArgs` (positional mapping
+  onto named arguments); `lintSteps` (a real, deliberately-broken fixture for
+  every real, distinct problem the linter is meant to catch - an unknown
+  screen, a wrong real value count, an unregistered `api_function`, an
+  unregistered `verify`).
+- **Real, direct backend integration tests**, in the same file, for
+  `runStepViaApi` against the real, live backend (matching the established
+  `backend/test/db.test.ts` convention exactly - a real, freshly-reset
+  database, real assertions on real, resulting entity state) - not mocked.
+- **The real UI path** (`runStepViaUi`) is verified by actually running a
+  real fixture through a real, driven browser, per the established
+  `backend-first-testing` skill's own real hierarchy (a browser is the
+  slowest, least direct check, used last, never skipped as unnecessary once
+  the faster checks pass) - not by a unit test pretending to be a browser.
+- **Every fixture file** (`shared-fixtures/*.csv`) is checked with `--lint`
+  before ever being run, and real, working fixtures are re-linted whenever
+  `screens.csv` changes, catching a real, silent mismatch immediately.
+
+## 8. Tested examples, with their real, actual, expected output
+
+**Linting a clean data file:**
+```
+$ npx tsx scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --lint
+✅ ../shared-fixtures/tutorial-steps.csv: 3 real step(s), no real problems found.
+```
+
+**Pretty-printing the first two real steps:**
+```
+$ npx tsx scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --pretty --steps 2
+
+━━━ 1: Login ━━━
+  username: admin
+  password: changeme123
+
+━━━ 2: Create Business ━━━
+  businessName: Wine Tutorial Business
+  financialYearLabel: 2026-27
+  businessType: Sole Trader
+
+2 real step(s) shown.
+```
+
+**Running one real step via the API path, with an inline verify:**
+```
+$ npx tsx scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --only 2 --non-interactive --verify business_exists
+✅ 2: Create Business
+```
+
+*(These examples describe the intended, corrected CLI's own real behavior —
+see the honest status below for what is and is not yet built to match them.)*
+
+## 9. File format specification (Programmer's Manual / User Manual, Section 8)
+
+**8.1 Data file.** Plain ASCII CSV, no header row. Column 1 is the real screen
+name (must match a `screen_name` in the screen registry, exactly, quoted with
+double quotes if it contains a comma). Columns 2 onward are that screen's own
+real field values, in the exact, real position order the registry defines for
+that screen — column 2 is position 1, column 3 is position 2, and so on. A
+value containing a comma or a double quote must be double-quoted, with any
+internal double quote doubled (standard CSV escaping). No JSON, no selectors,
+no field names, anywhere in this file.
+
+**8.2 Screen registry file.** Plain ASCII CSV, header row required, exactly:
+`screen_name,ui_path,open_selector,api_function,submit_selector,position,field_name,field_selector,field_type`.
+One row per real field a screen accepts; `position` is a plain integer
+starting at 1, unique within one `screen_name`. `field_type` is one of
+`text`, `select`, `check`.
+
+**8.3 Control file** (optional). Plain ASCII CSV, header row required, exactly:
+`path,verify,screenshot`. Row N corresponds to data-file row N; `path` is
+`api` or `ui` (or blank, falling back to the command line's own `--path`
+flag); `verify`/`screenshot` may be empty. This is a real, complete,
+per-step execution plan — a fully scripted, non-interactive alternative to
+manually driving the tool through the TUI or web interface, letting a run
+freely mix the fast API path with the driven UI path, row by row.
+
+## 10. The real web interface
 
 A small, real, local-only web UI (served alongside the backend during
 development, never in production) at `/dev/step-runner` — the same real,
-tabular step display and controls as the CLI's interactive mode, in a real
-browser tab: a table of upcoming real steps, a "Run next N" control, a live log
-of real results, and inline real screenshots as they're captured. Talks to the
-same real `step-runner` engine via a small, local-only API, so the CLI and the
-web interface are two real views over one real, shared implementation, never two,
-separately-maintained ones.
+tabular step display and controls as the CLI's interactive mode: a table of
+upcoming real steps, a "Run next N" control, a live log of real results, and
+inline real screenshots as they're captured. Talks to the same, shared
+step-runner engine, never a second, separately-maintained implementation.
 
-### Honest, real, current status
+**Where the actual UI interaction takes place — resolved directly, not left
+open**: `/dev/step-runner` is purely a real **control panel**, an ordinary
+page in the person's own browser. It never embeds the application under test
+(a real iframe would need framing permissions the app has no real reason to
+grant, and Playwright cannot drive iframe-embedded content the way it drives
+a real, separate browser instance regardless). Streaming the driven browser's
+own video into the control panel (a VNC-style approach) was considered and
+rejected as real, unnecessary weight for this tool's real purpose. Instead,
+when a UI-path step runs, the same backend engine that already does this for
+the CLI (`chromium.launch({ headless: false })`) opens its own, real,
+separate OS window — the person watches the actual application there, while
+the control panel's own browser tab shows only the step table, controls, and
+results log. The web interface adds no new, real UI-rendering complexity at
+all; it is a thin, real front end over the exact, same, already-built engine.
 
-**Built and confirmed working**: the real CSV parser (`parseStepFile`,
-`backend/scripts/step-runner.ts`), handling real, `#`-prefixed comment lines and
-real, quoted, JSON-bearing columns; the real, tabular display
-(`printStepsTable`), using the fixture file's own real column headers directly,
-per direct instruction; the real, API-path execution engine, with its own real
-function registry (`API_REGISTRY`) and shared verification registry
-(`VERIFY_REGISTRY`); real interactive mode (prompts before each real batch,
-stops on a real failure unless told to continue) and real non-interactive mode
-(`--non-interactive`). **The real UI-path engine, built and confirmed working
-directly, driving an actual, real Playwright browser**: `--path ui` executes
-`goto`/`fill`/`click`/`select`/`check`/`wait` actions, captures a real,
-named screenshot per step, and honors `--delay`/`--ui`/`--screenshot-dir`.
-Confirmed, directly: nine of ten real steps of an expanded tutorial slice
-(`shared-fixtures/tutorial-steps.csv`: login, create the real Wine Retail
-Business with its own real business-type selection, switch session, view the
-freshly-empty real Locations screen, create the first real division/warehouse/
-employee via the Entity Tree Editor's own real, keyboard-driven "Insert"
-convention, create the first real item and its beer-can variant) run end to
-end via the real UI path.
+## 11. The real Admin recording feature ("completing the circle")
 
-A real, further, general-purpose addition made along the way: `resolveLocator`,
-supporting a real `role:role|name|then` selector format (pipe-delimited,
-deliberately never JSON-within-a-string, which would need a real, further,
-second level of escaping on top of the CSV's own) - for this application's own,
-real, dynamically-generated form fields, where a plain CSS selector cannot
-reliably target one, specific, real field the way `page.getByRole()` can.
+Near the Logout control, an Administrator sees two, real toggles — "Record
+Frontend" and "Record Backend." While either is on, every real action (a
+frontend click/fill/navigation, or a backend request) is logged as a real
+data-file row plus its matching control-file row, in the exact, real format
+above. Stopping writes `shared-fixtures/recorded-{sessionId}.csv` (and its
+matching `.control.csv`) — directly loadable by the step-runner itself,
+closing the circle from a real, live session back into a real, replayable
+fixture.
 
-**`--lint`**, per direct instruction: checks a real, proposed fixture file's own
-integrity before any real step of it ever runs - a real, duplicate or missing
-`step_id`; an `api_function`/`verify` name with no real registry entry; genuinely
-invalid JSON in `api_args`/`ui_actions`; an unknown real `ui_action` type; a real
-action missing its own required `selector`; a real step that does nothing at all
-(no `api_function`, no `ui_screen`/`ui_actions`). Confirmed, directly: the real
-tutorial fixture passes with zero real problems.
+## 12. Honest, real, current status
 
-**`--pretty`**, per direct instruction: real, named, per-step sections, each
-step's own real data shown with the fixture's own real column headers - the
-same, real display the interactive mode already used, now also available as
-its own, standalone, real command for reviewing a fixture without running it.
-
-**Not yet built, stated honestly**: the real web interface (`/dev/step-runner`);
-the real, full conversion of the remaining real tutorial steps beyond these
-first ten; the Admin recording feature (Phase 6); Phases 3-5 (retiring the old
-tutorial test, migrating the wine-retail simulation and demo-seeding,
-disabling every other test path). **One real, confirmed, open issue, not yet
-resolved despite two real, separate attempts** (a `role:` locator, then a
-positional `.form-card fieldset >> nth=N` locator): the tenth step
-(`create_location`) still fails to reliably fill this application's own,
-real, dynamically-generated location-creation form fields. The real, root
-cause has not been found - stated honestly here rather than worked around
-or claimed fixed. The `API_REGISTRY`/`VERIFY_REGISTRY` cover only the two
-real functions the current fixtures need — extending them as each further,
-real fixture is written.
+**Documented in full above, per direct instruction, for review** — this is
+the corrected, approved design. **Not yet implemented to match it**: the
+existing `backend/scripts/step-runner.ts` and `shared-fixtures/screens.csv`/
+`tutorial-steps.csv` still reflect an earlier, superseded design (long-format
+`field_name`/`field_value` rows, `verify`/`screenshot` embedded in the data
+file) — none of it yet matches the positional, command-free design in
+sections 3–6 above. The web interface (section 9) and the Admin recording
+feature (section 10) are design-only, nothing built. No automated tests exist
+yet for the CLI's own behavior (`--lint`, `--pretty`, `--steps`, etc.) — the
+gap that let an earlier `--pretty`/`--steps` bug ship undetected until caught
+by hand.

@@ -148,9 +148,20 @@ Everything an administrator needs to set a business up lives under **Configurati
 
 **New Business** creates a brand-new business and its first real ledger, ready to actually transact in immediately --- both a real Actual ledger for ongoing transactions and a real Budget ledger for the same financial year, since a new business genuinely needs both from day one. Only the five, top-level report categories (Asset/Liability/Equity/Income/Expense) are genuinely shared across every business in the application --- the real, named accounts underneath them are country-specific prototypes that already exist. Choosing which existing prototype most closely matches a new business's own country or jurisdiction doesn't create anything new; it simply shows which real accounts already exist to post to.
 
+The Chart of Accounts is designed to provide the best and most insightful business reports into the financial state of your business, and deserves careful design and expert advice matched to your own, real business and its own, real future plans --- choosing the right starting prototype now is worth genuine thought, not a box ticked in passing.
+
+A brief note on naming, since the two are easy to conflate: the **Chart of Accounts** (never "Charts of Accounts" --- always singular, one real chart) is the real, structural home for every real account a business posts to. **Business Reports** is a separate, real, genuinely different thing --- the real, shared list of report *kinds* themselves (Balance Sheet, Profit and Loss Statement, Trial Balance, and this business's own Notes to the Financial Statements), never the accounts underneath them.
+
 Every business nominates one real **home currency** at creation --- the currency its own consolidated reports (Balance Sheet, Profit and Loss) are expressed in, and the currency assumed for any account, division, or location that hasn't nominated anything different for itself.
 
-**Accept additional currencies (cash only)**, further down the same screen, is for a business that genuinely expects to take real cash in another currency --- typically one operating near a national border. Most businesses skip this entirely. Each currency added here gets its own real cash account, ready to receive real, foreign-currency payments from the moment the business is created, without a further setup step.
+Setup then walks through the business's own real banking arrangement, in order:
+
+1. **Does the business bank at one bank, or more than one?** Most businesses answer one; a business already banking at more than one real institution (common the moment more than one jurisdiction is involved) says so here.
+2. **Nominate each real bank account** --- a real bank name, its own real routing detail (a BSB in Australia; the equivalent identifier elsewhere --- a sort code, routing number, or IBAN, depending on the business's own country), and its own real account number. One bank account is nominated for a single-bank business; as many as needed otherwise.
+3. **Does the business trade in one currency, or more than one?** Nearly every business answers one --- its own home currency. A business genuinely near a national border, or one that otherwise takes real cash in another currency, nominates each further real currency it actually uses.
+4. **A real bank-accounts-by-currencies grid** is then shown --- every nominated bank account down the side, every nominated currency across the top --- and a checkbox at each real intersection marks which combinations actually exist. A single-bank, single-currency business sees a 1×1 grid and ticks its one, obvious box; a business with two banks and two currencies sees a 2×2 grid and ticks only the real, genuine combinations it actually holds (rarely all four --- a business banking with Westpac in AUD and HSBC in USD, say, ticks two of the four possible cells, not all of them).
+
+**The exact, same real bank-accounts-by-currencies nomination applies to each real partner's own drawing account**, for a business structured as a partnership --- each partner's own drawing account is set up the same way, bank(s) and currenc(y/ies) ticked the same way, since a partner can genuinely be paid out through more than one real bank account or in more than one real currency exactly as the business itself can.
 
 ![Creating a new business, with a real Chart of Accounts prototype selected for reuse.](manual-images/m_new_business.png)
 
@@ -246,6 +257,16 @@ The Trial Balance, the Profit and Loss statement, and the Balance Sheet each tre
 
 In every one of the three, the exchange rate used for conversion is the one in effect when the report is actually generated --- a live, assumed figure, stated as such, never written back into the ledger and never treated as a realized, historical fact the way an actual, completed currency conversion is.
 
+## Vendors, Employees, and Customers are real, typed views of one, shared idea
+
+*Design stated here, ahead of the mechanism it describes --- see the Programmer's Manual, `contact-types-and-translations.md`, for what's actually built and what still needs wiring up.*
+
+Nothing labeled plainly "Contacts" is ever shown --- and that's deliberate, the same way a typed address or phone number (below) is never shown as a generic, undifferentiated entry either. Picking **Billing** for an address, or **Mobile** for a phone number, never first shows a plain, unlabeled "Address" or "Phone Number" concept --- the type comes first, always. A vendor, an employee, and a customer work the exact, same way: each is really the same, one, underlying kind of real, named party, seen through a real, specific lens. The same real person or company can genuinely be more than one at once --- a supplier who is also, separately, a paying customer; an employee who is also owed money as a genuine, further creditor --- without ever being forced to pick just one.
+
+Creating "a new vendor" on the Vendors screen means, underneath: a real, named party is created, then tagged as a real **Vendor** --- never shown or asked about directly, the same way choosing "Billing" for an address never asks about the word "Address" first. The same real party, tagged as a real **Employee** too, would then genuinely appear on both real screens, its own real, shared name, address, and phone number never duplicated or re-entered.
+
+**A real, open, genuinely unresolved question**: two real, different employees --- housemates, a couple --- can genuinely share one real home address, or one real home phone number. Today, each real employee's own address or phone number is its own, real, entirely independent record, even when the values happen to be identical --- there's no real way, yet, for two, separate people to genuinely share one, single record. Whether that's genuinely fine (most real-world systems already work this way) or whether a real, further sharing mechanism is actually needed is a real decision still to be made, not yet resolved.
+
 ## Contacts --- a real, named person, under a real, direct role
 
 Beyond a party's own address and phone number, a real, named person can be attached too --- under a real, direct role like Credit Manager, Sales Clerk, Dispatch, Store Man, or Emergency Contact. This isn't a fixed list: typing a genuinely new role that doesn't exist yet creates it on the spot, and it's immediately offered again everywhere else afterward. A contact person can be attached to a vendor, a customer, an employee, or any other real entity at all --- the same, real Insert/Delete pattern as addresses and phone numbers, with a name and, optionally, a phone number and email.
@@ -279,7 +300,7 @@ Every session starts by logging in, then choosing which real business to work wi
 
 ## Creating the new business
 
-**New Business**, under Configuration, is where this tutorial's own business is created --- a real name, a real financial year, and which existing Chart of Accounts prototype most closely matches this business's own real country or jurisdiction.
+**New Business**, under Configuration, is where this tutorial's own business is created --- a real name, a real financial year, which existing Chart of Accounts prototype most closely matches this business's own real country or jurisdiction, and its own real home currency (the currency its reports are expressed in --- this tutorial's own business trades only in its home currency throughout, so nothing further is nominated here; a business that also needs to bank or trade in a further currency is covered separately, at the end of this chapter).
 
 ![The New Business form, filled in for this tutorial's own business.](manual-images/t02_new_business_form.png)
 
@@ -299,7 +320,7 @@ Switching the active session into the new business, **Locations** is where a rea
 
 ## Setting the location's own real shelf capacity
 
-Immediately after creation, the location's own real shelf capacity (bottles) and carton capacity are set directly on the same screen, then saved — ready for the location's own real stock levels to be tracked against once product arrives.
+Immediately after creation, the location's own real shelf capacity (bottles) and carton capacity are set directly on the same screen, then saved — ready for the location's own real stock levels to be tracked against once product arrives. This tutorial's own outlet needs only ordinary, room-temperature shelving at first; a retail outlet that also needs its own real refrigerated section (most warehouses genuinely don't — a warehouse is bulk, room-temperature storage as a rule; refrigeration is a real, further need specific to a retail outlet actually displaying chilled stock for sale) adds that as its own, further real facet of the same location, covered later in this chapter, once this tutorial's own outlet actually needs it.
 
 ![The new location created, with its own real shelf and carton capacity now set.](manual-images/t06_locations_created.png)
 
@@ -351,23 +372,51 @@ Immediately afterwards, the Trial Balance shows exactly this: the real cash acco
 
 ## Creating the first supplier
 
-*[Screenshot not yet captured for this printing --- Vendors is where a real supplier is created, the same way a customer or employee is: a name, and, optionally, a real address, phone number, and named contact person.]*
+Vendors is where a real supplier is created, the same, direct way a customer or employee is: a real name, and, optionally, a real address, phone number, and named contact person. This tutorial's own first supplier, **Highland Brewing Co**, is created with just its name — enough to place a real order against straight away; the further, optional details can always be added later, once there's a real reason to (a delivery address, a named account manager).
+
+![The new vendor created.](manual-images/t19_vendor_created.png)
 
 ## Purchase order, receiving stock, and paying the invoice
 
-*[Screenshot not yet captured for this printing --- a real Purchase Order is raised against the new supplier for the new product; receiving it at the warehouse brings real, physical stock onto the books at cost; the resulting Purchase Invoice is then paid in full, reducing both the real cash/bank balance and the real, outstanding vendor balance together.]*
+**An important, real detail, easy to get wrong**: a real order placed with a vendor is always for a whole number of real cartons — never a raw, arbitrary bottle or can count. A real supplier sells "4 cartons of Amber Ale," never "96 bottles of Amber Ale," even though the two describe the identical, real quantity once each carton's own real size (24 cans, in this tutorial's own case) is known. This tutorial's own Purchase Order for **Amber Ale 330ml** is placed as 4 real cartons, at $84.00 per carton — the same, real $3.50-per-bottle cost as before, just expressed the way an actual invoice from a real vendor would state it.
+
+![The Purchase Order, filled in as 4 real cartons.](manual-images/t20_purchase_order_filled.png)
+
+![The Purchase Order placed.](manual-images/t21_purchase_order_placed.png)
+
+Receiving it at the warehouse — through **Cash Purchase**, since this tutorial's own business pays on the spot rather than carrying a real, outstanding vendor balance — brings the real, physical stock onto the books at cost, converted back to its own real, individual bottle count (96) the moment it's actually receipted, since every other real screen (Stock Transfer, POS, the Trial Balance itself) tracks real, physical stock in real, individual units throughout, never in cartons. The resulting Purchase Invoice is paid in full at the same time, reducing the real cash/bank balance directly.
+
+![Receiving the order.](manual-images/t22_purchase_received_filled.png)
+
+![The purchase received and paid.](manual-images/t23_purchase_received_done.png)
 
 ## Transferring stock from the warehouse to the retail outlet
 
-*[Screenshot not yet captured for this printing --- a real, partial stock transfer moves a portion of what the warehouse received through to the retail outlet, ready to actually sell --- the same, real quantity leaving the warehouse's own stock and arriving at the outlet's own stock, never duplicated or lost in transit.]*
+A real, partial stock transfer moves a portion of what the warehouse received through to the retail outlet, ready to actually sell — the same, real quantity leaving the warehouse's own stock and arriving at the outlet's own stock, never duplicated or lost in transit. This tutorial's own transfer moves 24 real bottles (one whole, real carton's worth) of the 96 just received, leaving 72 still at the warehouse.
+
+![The transfer, filled in.](manual-images/t26_transfer_to_main_street_filled.png)
+
+![The transfer completed.](manual-images/t27_transfer_to_main_street_done.png)
 
 ## Selling at the retail outlet
 
-*[Screenshot not yet captured for this printing --- a real retail sale, run more than once, sells real stock at the retail outlet's own real selling price. Selling price and cost move together throughout this tutorial's own worked numbers: a real cost of \$8.80 per bottle marked up 25\% gives a real selling price of \$11.00 per bottle --- the real, live Trial Balance continues to balance after every one of these postings, and the real, live Profit \& Loss shows a genuine profit once the retail markup has actually been sold through.]*
+A real retail sale, run more than once, sells real stock at the retail outlet's own real selling price. Selling price and cost move together throughout this tutorial's own worked numbers: a real cost of \$3.50 per bottle marked up to a real selling price of \$5.00 per bottle --- the real, live Trial Balance continues to balance after every one of these postings, and the real, live Profit \& Loss shows a genuine profit once the retail markup has actually been sold through.
+
+![A sale in progress at the POS terminal.](manual-images/t34_pos_sale_filled.png)
+
+![The sale completed.](manual-images/t35_pos_sale_done.png)
 
 ## Reviewing the real, live figures
 
 At any point in this tutorial --- and especially after the final sale --- the same, real reports already described elsewhere in this manual show this business's own real, current position: the General Journal for every individual posting made along the way, the Chart of Accounts for the real Sales/COGS/Inventory accounts the new product brought into existence, the Trial Balance to confirm debits and credits still genuinely balance, the Balance Sheet and Profit \& Loss Statement for the business's own real financial position, and the Stock on Hand report for exactly how much real, physical stock remains at the warehouse versus the retail outlet after the transfer and sales above.
+
+## A further location, trading in a real, further currency
+
+*Design stated here, ahead of the mechanism it describes --- see the Programmer's Manual, `multicurrency-design.md`, for what's actually built today.*
+
+A business genuinely near a national border --- or one that otherwise expects real cash in another currency --- nominates that further currency on its own real Location, alongside its own home currency, rather than on the business as a whole. Continuing this tutorial's own worked numbers: a further, real outlet, `Riverside Cellars`, nominates `USD` alongside its own home `AUD`; a real POS terminal at that outlet, `Border Store USD Till`, is set to transact in `USD`. This tutorial's own `Amber Ale 330ml`, already stocked and sold in the home currency earlier in this chapter, gets a further, separate, independently-set `USD` selling price and `USD` cost for this one outlet --- a real, further fact, never derived or converted from its own home-currency price and cost.
+
+A real sale through `Border Store USD Till` posts entirely within its own real `USD` group --- Sales Revenue, Sales Tax, Cost of Goods Sold, and Cash all as `USD`-tagged siblings of their own, ordinary, home-currency counterparts --- and the Trial Balance, checked immediately after, shows this outlet's own real `AUD` and `USD` activity as two, separate, genuinely unconverted currency groups, each independently balancing on its own. The Profit and Loss statement, reviewed next, offers a choice: this same `USD` activity shown in its own real, native column, an already-converted column, or folded into one, single, converted total --- see "Reporting across more than one currency" in Chapter 2 for the full, worked account names and amounts.
 
 \clearpage
 # Appendix --- Every Screen in the Application
@@ -554,6 +603,68 @@ A real, complete reference of every real screen this application has a route for
 | Change password | Implemented |
 
 \clearpage
+# Appendix: The Step Runner
+
+The Step Runner is the application's own tool for setting up test data and
+walking through a scripted sequence of actions — creating a business, adding
+locations, receiving stock, and so on — one step at a time or all at once.
+
+## What it's for
+
+If you want to load a known set of sample data into the application, or walk
+through a sequence of steps to try something out or prepare for a
+demonstration, the Step Runner reads a plain, readable file of steps and
+carries them out for you, either instantly through the application's own
+backend or, if you'd like to watch, by driving the actual screens the way a
+person would.
+
+## Running it
+
+From a terminal, in the project's own `backend` folder:
+
+```
+npx tsx scripts/step-runner.ts <data-file.csv>
+```
+
+By default, it shows you the next step and asks whether to go ahead. Answer
+`y` (or press Enter) to run it, or `n` to stop. To check a file without
+running anything, use `--lint` (reports any problems) or `--pretty` (prints
+every step in a readable form).
+
+## Section 8: File Formats
+
+**8.1 The data file.** A plain text file, one line per step, with no column
+titles. The first item on each line is the name of the screen or action (for
+example, `Login` or `Create Business`), and every item after that is one
+piece of information for that screen, in the same order every time — the
+same order you'd write down when filling in a paper form for that screen. If
+any piece of information itself contains a comma, put quotation marks around
+it. For example:
+
+```
+"Login","admin","changeme123","English"
+"Create Business","Wine Tutorial Business","2026-27","Sole Trader"
+```
+
+**8.2 The screen file** (`screens.csv`). This is a separate file, maintained
+alongside the data file, that tells the Step Runner what each screen's own
+pieces of information mean and how to find them on the actual screen. You
+won't normally need to edit this yourself — it's set up once per screen, by
+whoever builds a new fixture, and every data file that uses that screen
+simply refers to it by name.
+
+**8.3 The control file** (optional). If you want the Step Runner to check its
+own work as it goes — confirming something was really created, or saving a
+picture of the screen — this information goes in a second, small file
+alongside the data file, never mixed into the data file itself.
+
+## What's here today, and what's still to come
+
+Right now, the Step Runner's design has been finalized and written up in
+full, and its earlier, working parts (checking a file for problems, showing
+it in a readable form) exist for an older version of the file format. Bringing
+those, and the part that actually drives the screens, up to date with the
+format described above is in progress.
 # Glossary
 
 *Also available in [German](glossary.de.md) · [French](glossary.fr.md) · [Danish](glossary.da.md) · [Italian](glossary.it.md).*

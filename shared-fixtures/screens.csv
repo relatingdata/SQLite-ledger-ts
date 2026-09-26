@@ -1,0 +1,11 @@
+screen_name,ui_path,open_selector,api_function,submit_selector,position,field_name,field_selector,field_type
+Login,/login,,,button:has-text('Log in'),1,username,input[autocomplete=username],text
+Login,/login,,,button:has-text('Log in'),2,password,input[autocomplete=current-password],text
+Select Business,,,,button:has-text('Continue'),1,businessName,select >> nth=0,select
+Create Business,/setup/new-business,,createBusiness,button:has-text('Create Business'),1,businessName,input[placeholder='e.g. Corner Store Pty Ltd'],text
+Create Business,/setup/new-business,,createBusiness,button:has-text('Create Business'),2,financialYearLabel,input[placeholder='e.g. 2026-27'],text
+Create Business,/setup/new-business,,createBusiness,button:has-text('Create Business'),3,businessType,select >> nth=1,select
+Create Location,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),1,businessName,,text
+Create Location,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),2,locationName,.form-card fieldset >> nth=0 >> input,text
+Create Location,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),3,city,.form-card fieldset >> nth=1 >> input,text
+Create Location,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),4,locationType,.form-card fieldset >> nth=2 >> select,select
