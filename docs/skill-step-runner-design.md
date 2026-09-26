@@ -381,3 +381,48 @@ long session, in one place:
   refinement needed to stop this same check from also, incorrectly, flagging
   genuinely session-establishing screens as if they were the same kind of
   problem.
+
+## 15. The augmented tutorial e2e test — genuinely, fully passing, both paths
+
+Per direct instruction to implement and make the backend/API pass, then the
+frontend: **the real tutorial fixture (7 real steps: login, select business,
+create business, switch session, create location, create two real items)
+now passes completely via both `--path api` and `--path ui`, with `--lint`
+reporting zero real problems.**
+
+**The `screen_kind` proposal (section 13) implemented**: `screens.csv` gained
+the real column; `Login`/`Select Business`/`Switch Session` marked `session`,
+every real, data-creating screen left as the real, default `data`. The lint
+check's own "submit_selector but no api_function" warning now only applies to
+real `data`-kind screens, resolving the three, real, false positives directly.
+
+**`Create Item`'s own, real, genuine no-op fixed**: a new `createItemAndCategory`
+real API-registry entry, matching the real UI's own exact behaviour (a real
+`+ New category…` value creates a real, new category first; any other real
+value names a real, already-existing one directly, checked via a real
+`fetch`/catch rather than assuming). `businessName` added as the screen's own
+real, first position (API-only — no real UI selector, since the real screen
+never asks for it, reading it from the real, current session instead).
+
+**Two real, further, genuine UI-path bugs found and fixed along the way,
+neither environmental, both confirmed reproducible**:
+1. `runStepViaUi` always re-navigated to a real screen's own `ui_path`, even
+   when already there — a real, unexplained "browser has been closed" crash
+   on the second, real `Create Item` step, reproduced consistently, was
+   traced directly to this real, unnecessary reload, not dismissed as flaky.
+   Fixed to skip navigation when already on the same real path.
+2. Once the crash was resolved, a real, second bug surfaced: every real
+   field was filled unconditionally, including a real, conditionally-visible
+   field (`newCategoryName`) that does not exist in the DOM at all when its
+   own real value is empty. Fixed to skip any real field whose value is
+   empty, rather than trying to fill a real field that was never shown.
+
+Confirmed directly: all 7 real steps pass via `--path api` (with the real
+items and category confirmed to genuinely exist afterward, not merely
+reported as `✅`), and all 7 real steps pass via `--path ui`, driving an
+actual, real, live browser through the actual, real screens.
+
+**Not yet done, stated honestly**: no real screenshots were captured in this
+round (no real `.control.csv` with screenshot names currently accompanies the
+fixture). The fixture still covers only 7 of the tutorial's own, real, full
+step count. The web interface and Admin recording feature remain design-only.

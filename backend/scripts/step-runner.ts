@@ -20,6 +20,7 @@ export interface ScreenField {
 
 export interface Screen {
   screen_name: string;
+  screen_kind: string; // 'session' | 'data' (default 'data')
   ui_path: string;
   open_selector: string;
   api_function: string;
@@ -50,6 +51,24 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       carton_capacity: null,
       timezone: 'Australia/Adelaide',
     } as any, db.asUserId(1)),
+  // Matches the real, actual UI's own real behaviour exactly: a real
+  // "+ New category…" value means create the real, new category
+  // first (under this business's own real Items root), then create
+  // the real item under it; any other real value names a real,
+  // already-existing category directly.
+  createItemAndCategory: (a) => {
+    const userId = db.asUserId(1);
+    const categoryName = a.category === '+ New category…' ? a.newCategoryName : a.category;
+    const business = db.fetch(a.businessName as any, db.typeBusinessName, db.fetch('Businesses', db.typeRootName));
+    const itemsRoot = db.fetch('Items', db.typeRootName, business);
+    let categoryEntity;
+    try {
+      categoryEntity = db.fetch(categoryName, db.typeRootName, itemsRoot);
+    } catch {
+      categoryEntity = db.createItemCategory(a.businessName as any, categoryName, undefined, userId);
+    }
+    db.create(categoryEntity, db.typeItemName, a.itemName, userId);
+  },
 };
 
 /** The one, real registry of named, shared verifications - the same,
@@ -95,7 +114,7 @@ export function loadScreens(path: string): Map<string, Screen> {
     headers.forEach((h, i) => { row[h] = values[i] ?? ''; });
     let screen = screens.get(row.screen_name);
     if (!screen) {
-      screen = { screen_name: row.screen_name, ui_path: row.ui_path, open_selector: row.open_selector, api_function: row.api_function, submit_selector: row.submit_selector, fields: [] };
+      screen = { screen_name: row.screen_name, screen_kind: row.screen_kind || 'data', ui_path: row.ui_path, open_selector: row.open_selector, api_function: row.api_function, submit_selector: row.submit_selector, fields: [] };
       screens.set(row.screen_name, screen);
     }
     if (row.field_name) screen.fields.push({ position: Number(row.position), field_name: row.field_name, field_selector: row.field_selector, field_type: row.field_type });
@@ -151,7 +170,7 @@ export function lintSteps(steps: Step[], screens: Map<string, Screen>): string[]
     // real api_function at all is a real, silent no-op waiting to
     // happen the moment anyone runs it via --path api - lint must
     // strenuously object to this, not stay quiet about it.
-    if (screen.submit_selector && !screen.api_function) {
+    if (screen.submit_selector && !screen.api_function && screen.screen_kind === 'data') {
       problems.push(`Row ${s.index}: screen "${s.screen_name}" has a real submit_selector but no real api_function - running this step via --path api would silently do nothing at all.`);
     }
     if (s.verify && !VERIFY_REGISTRY[s.verify]) problems.push(`Row ${s.index}: verify "${s.verify}" has no real VERIFY_REGISTRY entry.`);
@@ -198,7 +217,7 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
   try {
     const screen = screens.get(step.screen_name);
     const args = buildArgs(step, screen);
-    if (screen?.ui_path) await page.goto(screen.ui_path);
+    if (screen?.ui_path && !page.url().endsWith(screen.ui_path)) await page.goto(screen.ui_path);
     if (screen?.open_selector) {
       await page.locator(screen.open_selector).click();
       await page.waitForTimeout(500);
@@ -207,6 +226,7 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
       for (const field of screen.fields) {
         if (!field.field_selector) continue;
         const value = step.values[field.position - 1] ?? '';
+        if (value === '') continue;
         const locator = page.locator(field.field_selector);
         if (field.field_type === 'select') await locator.selectOption({ label: value });
         else if (field.field_type === 'check') await (value === 'true' ? locator.check() : locator.uncheck());

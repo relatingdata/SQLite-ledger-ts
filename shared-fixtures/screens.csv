@@ -1,15 +1,16 @@
-screen_name,ui_path,open_selector,api_function,submit_selector,position,field_name,field_selector,field_type
-Login,/login,,,button:has-text('Log in'),1,username,input[autocomplete=username],text
-Login,/login,,,button:has-text('Log in'),2,password,input[autocomplete=current-password],text
-Select Business,,,,button:has-text('Continue'),1,businessName,select >> nth=0,select
-Switch Session,/session,,,button:has-text('Continue'),1,businessName,select >> nth=0,select
-Create Business,/setup/new-business,,createBusiness,button:has-text('Create Business'),1,businessName,input[placeholder='e.g. Corner Store Pty Ltd'],text
-Create Business,/setup/new-business,,createBusiness,button:has-text('Create Business'),2,financialYearLabel,input[placeholder='e.g. 2026-27'],text
-Create Business,/setup/new-business,,createBusiness,button:has-text('Create Business'),3,businessType,select >> nth=1,select
-Create Location,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),1,businessName,,text
-Create Location,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),2,locationName,.generic-form fieldset >> nth=0 >> input,text
-Create Location,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),3,city,.generic-form fieldset >> nth=1 >> input,text
-Create Location,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),4,locationType,.generic-form fieldset >> nth=2 >> select,select
-Create Item,/items,,,button:has-text('+ Add'),1,itemName,input[placeholder='New item name'],text
-Create Item,/items,,,button:has-text('+ Add'),2,category,select >> nth=0,select
-Create Item,/items,,,button:has-text('+ Add'),3,newCategoryName,"input[placeholder=""New category name, e.g. Pinot Noir""]",text
+screen_name,screen_kind,ui_path,open_selector,api_function,submit_selector,position,field_name,field_selector,field_type
+Login,session,/login,,,button:has-text('Log in'),1,username,input[autocomplete=username],text
+Login,session,/login,,,button:has-text('Log in'),2,password,input[autocomplete=current-password],text
+Select Business,session,,,,button:has-text('Continue'),1,businessName,select >> nth=0,select
+Switch Session,session,/session,,,button:has-text('Continue'),1,businessName,select >> nth=0,select
+Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),1,businessName,input[placeholder='e.g. Corner Store Pty Ltd'],text
+Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),2,financialYearLabel,input[placeholder='e.g. 2026-27'],text
+Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),3,businessType,select >> nth=1,select
+Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),1,businessName,,text
+Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),2,locationName,.generic-form fieldset >> nth=0 >> input,text
+Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),3,city,.generic-form fieldset >> nth=1 >> input,text
+Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),4,locationType,.generic-form fieldset >> nth=2 >> select,select
+Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),1,businessName,,text
+Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),2,itemName,input[placeholder='New item name'],text
+Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),3,category,select >> nth=0,select
+Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),4,newCategoryName,"input[placeholder=""New category name, e.g. Pinot Noir""]",text
