@@ -251,14 +251,37 @@ fixture.
 
 ## 12. Honest, real, current status
 
-**Documented in full above, per direct instruction, for review** — this is
-the corrected, approved design. **Not yet implemented to match it**: the
-existing `backend/scripts/step-runner.ts` and `shared-fixtures/screens.csv`/
-`tutorial-steps.csv` still reflect an earlier, superseded design (long-format
-`field_name`/`field_value` rows, `verify`/`screenshot` embedded in the data
-file) — none of it yet matches the positional, command-free design in
-sections 3–6 above. The web interface (section 9) and the Admin recording
-feature (section 10) are design-only, nothing built. No automated tests exist
-yet for the CLI's own behavior (`--lint`, `--pretty`, `--steps`, etc.) — the
-gap that let an earlier `--pretty`/`--steps` bug ship undetected until caught
-by hand.
+**The corrected, positional, command-free design (sections 3–6) is fully
+implemented and confirmed working end to end**, both `--path api` and
+`--path ui` (`backend/scripts/step-runner.ts`,
+`shared-fixtures/screens.csv`/`tutorial-steps.csv`,
+`tutorial-steps.control.csv`). `--lint` and `--pretty` rebuilt to match. 12
+real unit/integration tests (`backend/scripts/step-runner.test.ts`), all
+passing, per the testing plan in section 7.
+
+**The long-standing `create_location` selector issue is genuinely
+resolved.** The real, root cause, found by directly inspecting the actual,
+live DOM rather than guessing further: the form's real CSS class is
+`.generic-form`, never `.form-card` — an incorrect assumption carried forward
+from an earlier, mistaken reading of the source, repeated across three, real,
+separate, unsuccessful attempts before being checked directly. A real,
+further, related gap found and fixed in the same pass: "Select Business" (used
+both right after login and to switch to a newly-created business) needs its
+own, real, separate "Switch Session" screen entry with its own real `/session`
+navigation — reusing the same screen entry for both left the second use with
+no real navigation at all. All five real steps of the tutorial slice (login,
+select business, create business, switch session, create location) now pass
+via the real UI path.
+
+**A real, further, confirmed, separate finding, not yet resolved**: the API
+path and UI path do not share real browser session state — a mixed-mode run
+(some steps via `path=api`, no browser at all, then switching to `path=ui`)
+finds no real, logged-in session in the freshly-launched browser once it
+switches. The real, mixed-mode control-file example (section 5) has therefore
+not yet been proven end to end; only a pure, single-path run (`--path ui` for
+every real step) has been confirmed.
+
+**Not yet built**: the web interface (section 10) and the Admin recording
+feature (section 11) remain design-only. The real tutorial fixture covers
+only five of the tutorial's own, real, full step count - extending it further
+is real, further, incremental work.

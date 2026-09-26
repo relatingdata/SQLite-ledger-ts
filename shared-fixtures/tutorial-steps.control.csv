@@ -1,6 +1,0 @@
-path,verify,screenshot
-api,,
-api,,
-api,business_exists,
-ui,,session_switched
-ui,location_exists,locations_created
