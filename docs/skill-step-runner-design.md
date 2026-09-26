@@ -113,17 +113,29 @@ stops on a real failure unless told to continue) and real non-interactive mode
 directly, driving an actual, real Playwright browser**: `--path ui` executes
 `goto`/`fill`/`click`/`select`/`check`/`wait` actions, captures a real,
 named screenshot per step, and honors `--delay`/`--ui`/`--screenshot-dir`.
-Confirmed, directly, twice: a real, two-step proof fixture
-(`shared-fixtures/step-runner-example.csv`) and a real, four-step slice of the
-actual tutorial (`shared-fixtures/tutorial-steps.csv`: login, create the real
-Wine Retail Business with its own real business-type selection, switch session,
-view the freshly-empty real Locations screen) both run end to end via the real
-UI path, producing four real, correctly-named screenshots.
+Confirmed, directly: nine of ten real steps of an expanded tutorial slice
+(`shared-fixtures/tutorial-steps.csv`: login, create the real Wine Retail
+Business with its own real business-type selection, switch session, view the
+freshly-empty real Locations screen, create the first real division/warehouse/
+employee via the Entity Tree Editor's own real, keyboard-driven "Insert"
+convention, create the first real item and its beer-can variant) run end to
+end via the real UI path.
 
-**Not yet built**: the real web interface (`/dev/step-runner`); the real, full
-conversion of the remaining ~42 real tutorial steps (a real, working, 4-step
-slice — login through the empty Locations screen — is built and confirmed;
-the rest, and every other real, existing test, are real, substantial, further
-work, done incrementally); the Admin recording feature (Phase 6). The
+A real, further, general-purpose addition made along the way: `resolveLocator`,
+supporting a real `role:role|name|then` selector format (pipe-delimited,
+deliberately never JSON-within-a-string, which would need a real, further,
+second level of escaping on top of the CSV's own) - for this application's own,
+real, dynamically-generated form fields, where a plain CSS selector cannot
+reliably target one, specific, real field the way `page.getByRole()` can.
+
+**Not yet built, stated honestly**: the real web interface (`/dev/step-runner`);
+the real, full conversion of the remaining real tutorial steps beyond these
+first ten; the Admin recording feature (Phase 6); Phases 3-5 (retiring the old
+tutorial test, migrating the wine-retail simulation and demo-seeding,
+disabling every other test path). **One real, confirmed, open issue**: the
+tenth step (`create_location`)'s own `role:group|City|input` locator times out
+- this application's own, real, dynamically-generated location-creation form
+appears to render in a way this locator does not yet correctly match; real,
+further investigation is needed, not guessed at further here. The
 `API_REGISTRY`/`VERIFY_REGISTRY` cover only the two real functions the current
 fixtures need — extending them as each further, real fixture is written.

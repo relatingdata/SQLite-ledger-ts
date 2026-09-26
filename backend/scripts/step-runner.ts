@@ -127,8 +127,26 @@ function runStepViaApi(step: StepRow): { ok: boolean; error?: string } {
   }
 }
 
+/** Resolves a real selector string into a real Playwright Locator -
+ * plain CSS/text selectors work as-is; a selector starting with
+ * "role:" is real, further, pipe-delimited data
+ * ("role:group|Location name|input") telling this to use the real,
+ * proper getByRole API instead (needed for this application's own,
+ * real, dynamically-generated form fields, where a plain CSS selector
+ * cannot reliably target one specific, real field) - pipe-delimited,
+ * deliberately, never JSON-within-a-string, since that would need a
+ * real, further, second level of escaping on top of the CSV's own. */
+function resolveLocator(page: Page, selector: string) {
+  if (selector.startsWith('role:')) {
+    const [role, name, then] = selector.slice('role:'.length).split('|');
+    const base = page.getByRole(role as never, { name, exact: true });
+    return then ? base.locator(then) : base;
+  }
+  return page.locator(selector);
+}
+
 interface UiAction {
-  type: 'goto' | 'fill' | 'click' | 'select' | 'check' | 'wait';
+  type: 'goto' | 'fill' | 'click' | 'select' | 'check' | 'wait' | 'press' | 'focus';
   selector?: string;
   value?: string;
 }
@@ -147,19 +165,25 @@ async function runStepViaUi(page: Page, step: StepRow, screenshotDir: string): P
             await page.goto(action.value!);
             break;
           case 'fill':
-            await page.locator(action.selector!).fill(action.value ?? '');
+            await resolveLocator(page, action.selector!).fill(action.value ?? '');
             break;
           case 'click':
-            await page.locator(action.selector!).click();
+            await resolveLocator(page, action.selector!).click();
             break;
           case 'select':
-            await page.locator(action.selector!).selectOption(action.value ?? '');
+            await resolveLocator(page, action.selector!).selectOption(action.value ?? '');
             break;
           case 'check':
-            await page.locator(action.selector!).check();
+            await resolveLocator(page, action.selector!).check();
             break;
           case 'wait':
             await page.waitForTimeout(Number(action.value ?? 500));
+            break;
+          case 'focus':
+            await resolveLocator(page, action.selector!).focus();
+            break;
+          case 'press':
+            await page.keyboard.press(action.value!);
             break;
         }
       }
