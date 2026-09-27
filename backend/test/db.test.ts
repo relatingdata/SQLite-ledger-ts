@@ -5694,11 +5694,14 @@ test('convertStorageSpace: a real, balanced conversion between storage combinati
   defineProductShape(biz.business, [['Storage', 'Storage']], userId);
   ensureCurrencyPair(biz.business, 'SPACE-HOT', 'SPACE-COLD', userId);
   setCurrencyExchangeRate(biz.business, 'SPACE-HOT', 'SPACE-COLD', userId, 100, 100);
+  ensureCurrencyPair(biz.business, 'INVENTORY-HOT', 'INVENTORY-COLD', userId);
+  setCurrencyExchangeRate(biz.business, 'INVENTORY-HOT', 'INVENTORY-COLD', userId, 100, 100);
 
   const coa = fetch('Chart of Accounts', typeRootName, fetch(biz.business, typeBusinessName, fetch('Businesses', typeRootName)));
   try { create(coa, typeRootName, 'Storage Capacity Remaining', userId); } catch { /* already exists */ }
   try { create(coa, typeRootName, 'Storage Capacity Installed', userId); } catch { /* already exists */ }
   try { create(coa, typeRootName, 'Inventory', userId); } catch { /* already exists */ }
+  try { create(coa, typeRootName, 'Inventory Sourced From', userId); } catch { /* already exists */ }
 
   const journalCountBefore = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
   convertStorageSpace(biz.business, biz.actualLedger, asItemName('placeholder'), [['Storage', 'Storage']], ['Hot'], ['Cold'], 10, userId, 'CONVERT-TEST-1');

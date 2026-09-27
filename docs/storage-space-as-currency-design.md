@@ -195,3 +195,25 @@ Honest, explicit scope still open, given severe time constraints: the
 frontend UI (receiving into a named combination, the "Convert Storage"
 action as part of location setup, the suggested-restocking workflow of
 §9) remains entirely undesigned in detail and unbuilt.
+
+## 11. Corrected again — Inventory value is many currencies too, not one relocating amount
+
+Per direct, further instruction: real inventory value, exactly like real
+space, is expressed in many, real, differing currencies — one per real
+combination (`INVENTORY-HOT`, `INVENTORY-COLD`, and so on) — never a single,
+plain home-currency amount that merely relocates between two leaves. The
+person setting up the location/hierarchy nominates this conversion's own
+real rate separately from space's own rate (a case of beer need not carry
+the identical, real, per-unit value once split into singles).
+
+Each real inventory currency needed its own, real, balancing counterpart,
+exactly mirroring "Storage Capacity Remaining"/"Installed" — a bare,
+two-line move between two different real currencies cannot balance on its
+own, the exact, same reason space needed one. A real, new "Inventory Sourced
+From" account fills this role. `convertStorageSpace` now posts four,
+independently-balancing real currency groups per conversion (space out,
+space in, inventory out, inventory in), each genuinely resolved via its own,
+separately-nominated real exchange rate — confirmed directly: 195/195
+backend tests pass, including the existing, direct conversion proof,
+extended to also configure and use a real `INVENTORY-HOT`→`INVENTORY-COLD`
+rate.
