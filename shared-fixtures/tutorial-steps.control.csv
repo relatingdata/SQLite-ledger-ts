@@ -1,8 +1,8 @@
 path,verify,screenshot,skip
-ui,,login_landing,false
-ui,,,false
-ui,business_exists,new_business_created,false
-ui,,session_switched,false
-ui,location_exists,locations_created,false
-ui,,first_product_created,false
-ui,,beer_can_variant_created,false
+,,login_landing,false
+,,,false
+,business_exists,new_business_created,false
+,,session_switched,false
+,location_exists,locations_created,false
+,,first_product_created,false
+,,beer_can_variant_created,false

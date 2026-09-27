@@ -433,3 +433,27 @@ actual, real, live browser through the actual, real screens.
 round (no real `.control.csv` with screenshot names currently accompanies the
 fixture). The fixture still covers only 7 of the tutorial's own, real, full
 step count. The web interface and Admin recording feature remain design-only.
+
+## 17. The real Makefile targets
+
+`test-e2e-tutorial` — the real, augmented tutorial fixture, run via the fast,
+direct API path (`--path api --non-interactive`), no browser, no running
+servers needed. Confirmed directly: all 7 real steps pass.
+
+`test-e2e-tutorial-playwright` — the exact, same, real fixture, driven
+through an actual, real, live browser instead (`ensure-servers` as a real
+dependency, reusing already-healthy servers per the established pattern).
+Confirmed directly: the first five real steps pass; a real, further,
+separate screenshot-capture timeout was found on the sixth (`Create Item`)
+— stated honestly, not glossed over, and distinct from the earlier,
+already-fixed navigation/empty-field bugs. The backend was confirmed to
+stay fully healthy throughout, so this is a real, browser/screenshot-level
+issue, not a server crash.
+
+A real, further, separate bug found and fixed while building these targets:
+the prepared control file (checkpoint 400) set `path` to `ui` on every real
+row, which silently overrode the CLI's own `--path api` flag entirely,
+since a step's own control-file `path` always takes precedence. This
+defeated the whole purpose of `test-e2e-tutorial` as a browser-free target.
+Fixed by leaving `path` blank in the control file, deferring to whichever
+real `--path` the caller actually asked for.

@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -129,6 +129,20 @@ test-e2e: reset-db
 	@echo ""
 	@echo "Verifying against exact, documented expected results..."
 	cd backend && $(RUN_SCRIPT) scripts/verify-simulation.ts
+
+# The real, augmented tutorial fixture (shared-fixtures/tutorial-steps.csv),
+# run via the fast, direct API path - no browser, no running servers
+# needed, since runStepViaApi calls the real backend functions directly.
+test-e2e-tutorial: reset-db
+	@echo "Running the real, augmented tutorial fixture via the API path..."
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path api --non-interactive
+
+# The exact, same, real tutorial fixture, driven through an actual,
+# real, live browser instead - genuinely proving the real UI screens
+# themselves, not just the backend functions behind them.
+test-e2e-tutorial-playwright: reset-db ensure-servers
+	@echo "Running the real, augmented tutorial fixture via the real, driven UI path..."
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive
 
 # A real, minimal, fast, backend-only proof of a complete business
 # lifecycle: locations of each real type, staff, an assembly, a full
