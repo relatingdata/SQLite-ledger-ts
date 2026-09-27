@@ -217,3 +217,30 @@ separately-nominated real exchange rate — confirmed directly: 195/195
 backend tests pass, including the existing, direct conversion proof,
 extended to also configure and use a real `INVENTORY-HOT`→`INVENTORY-COLD`
 rate.
+
+## 12. Corrected a third time — inventory value is a fixed multiplier, not a currency; carton/bottle space is independent, never rate-linked
+
+Per direct, precise correction: counting cartons and counting bottles is
+exactly like counting dollars and cents — a fixed, known multiplier (12 for
+wine, 24 for beer), never an exchange rate between two currencies. §11's
+`INVENTORY-HOT`/`INVENTORY-COLD` currency pair and "Inventory Sourced From"
+account were removed entirely — no journal entry is needed to re-express the
+same, real inventory value in a different, real counting unit.
+
+**Two genuinely different cases, not one mechanism**:
+- **Hot↔Cold** (the same container, different temperature zone) is a real
+  conversion between two real, distinct space-currencies, with its own,
+  real, nominated rate — exactly as designed, unchanged.
+- **Carton-space↔Bottle-space** is not a conversion at all, and no rate
+  exists between them — opening a carton doesn't "convert" carton-space
+  into bottle-space; it is two independent, real events (carton-space
+  freed, bottle-space separately consumed) that merely happen together
+  because opening a carton is one, real, physical action. This case is not
+  yet implemented by `convertStorageSpace`, which today only handles the
+  rate-based case; a real, separate mechanism for independent, paired space
+  movements (with no rate lookup at all) remains real, honest, open work.
+
+`convertStorageSpace` now posts exactly two, real, independently-balancing
+currency groups (space out, space in) — no inventory posting of any kind.
+Confirmed directly: 195/195 backend tests pass, the direct conversion test
+simplified to match.

@@ -2794,33 +2794,25 @@ export function convertStorageSpace(
   const toInstance = ensureProductInstance(business, definitionDimensions, toValues, userId);
   const fromSpace = ensureCombinationAccountLeaf('Storage Capacity Remaining', fromInstance, userId);
   const toSpace = ensureCombinationAccountLeaf('Storage Capacity Remaining', toInstance, userId);
-  const fromInventory = ensureCombinationAccountLeaf('Inventory', fromInstance, userId);
-  const toInventory = ensureCombinationAccountLeaf('Inventory', toInstance, userId);
 
   const fromCurrency = `SPACE-${fromValues.join('-').toUpperCase()}`;
   const toCurrency = `SPACE-${toValues.join('-').toUpperCase()}`;
   setAccountCurrency(fromSpace.name, fromCurrency, fromSpace.id);
   setAccountCurrency(toSpace.name, toCurrency, toSpace.id);
 
+  // Per direct, corrected instruction: a real space conversion (e.g.
+  // Hot to Cold) is a real, genuine exchange between two, real,
+  // distinct currencies, with its own, real, nominated rate - a
+  // missing rate means this real direction was never meant to be
+  // possible at all (e.g. Cold back to Hot). Real inventory VALUE is
+  // never posted here at all - counting a carton versus counting its
+  // own real bottles is exactly like counting dollars versus cents, a
+  // fixed, known multiplier, never an "exchange" with its own real
+  // rate; the real value simply is what it is, and no real journal
+  // entry is needed to re-express it in a different, real unit.
   const spaceRate = fromCurrency === toCurrency ? 1 : getCurrencyExchangeRate(business, fromCurrency, toCurrency, 'sell');
   if (spaceRate == null) throw new ValidationError(`Converting from "${fromValues.join(' + ')}" to "${toValues.join(' + ')}" has never been defined as a real, allowed direction for space.`);
   const toQuantity = Math.round(quantity * spaceRate);
-
-  // Per direct instruction: real inventory value, exactly like real
-  // space, is expressed in many, real, differing currencies too - one
-  // per real combination - never a single, plain home-currency amount
-  // that merely relocates. The person setting up the location/hierarchy
-  // nominates this conversion's own real rate separately from space's
-  // own rate (a case of beer need not carry the identical, real,
-  // per-unit value once split into singles) - genuinely undefined,
-  // exactly like space, when that direction was never set up at all.
-  const fromInventoryCurrency = `INVENTORY-${fromValues.join('-').toUpperCase()}`;
-  const toInventoryCurrency = `INVENTORY-${toValues.join('-').toUpperCase()}`;
-  setAccountCurrency(fromInventory.name, fromInventoryCurrency, fromInventory.id);
-  setAccountCurrency(toInventory.name, toInventoryCurrency, toInventory.id);
-  const inventoryRate = fromInventoryCurrency === toInventoryCurrency ? 1 : getCurrencyExchangeRate(business, fromInventoryCurrency, toInventoryCurrency, 'sell');
-  if (inventoryRate == null) throw new ValidationError(`Converting from "${fromValues.join(' + ')}" to "${toValues.join(' + ')}" has never been defined as a real, allowed direction for inventory value.`);
-  const toInventoryQuantity = Math.round(quantity * inventoryRate);
 
   const ref = reference ?? `STORAGE-CONVERT-${Date.now()}`;
 
@@ -2829,19 +2821,10 @@ export function convertStorageSpace(
   setAccountCurrency(fromInstalled.name, fromCurrency, fromInstalled.id);
   setAccountCurrency(toInstalled.name, toCurrency, toInstalled.id);
 
-  const fromInventorySource = ensureCombinationAccountLeaf('Inventory Sourced From', fromInstance, userId);
-  const toInventorySource = ensureCombinationAccountLeaf('Inventory Sourced From', toInstance, userId);
-  setAccountCurrency(fromInventorySource.name, fromInventoryCurrency, fromInventorySource.id);
-  setAccountCurrency(toInventorySource.name, toInventoryCurrency, toInventorySource.id);
-
   stageLine({ reference: ref, business, ledger, account: asAccountName(fromSpace.name), accountId: fromSpace.id, amount_minor: -quantity });
   stageLine({ reference: ref, business, ledger, account: asAccountName(fromInstalled.name), accountId: fromInstalled.id, amount_minor: quantity });
   stageLine({ reference: ref, business, ledger, account: asAccountName(toSpace.name), accountId: toSpace.id, amount_minor: toQuantity });
   stageLine({ reference: ref, business, ledger, account: asAccountName(toInstalled.name), accountId: toInstalled.id, amount_minor: -toQuantity });
-  stageLine({ reference: ref, business, ledger, account: asAccountName(fromInventory.name), accountId: fromInventory.id, amount_minor: -quantity });
-  stageLine({ reference: ref, business, ledger, account: asAccountName(fromInventorySource.name), accountId: fromInventorySource.id, amount_minor: quantity });
-  stageLine({ reference: ref, business, ledger, account: asAccountName(toInventory.name), accountId: toInventory.id, amount_minor: toInventoryQuantity });
-  stageLine({ reference: ref, business, ledger, account: asAccountName(toInventorySource.name), accountId: toInventorySource.id, amount_minor: -toInventoryQuantity });
   postJournalEntry(ref, business, ledger, userId);
 }
 

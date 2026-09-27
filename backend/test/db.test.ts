@@ -5694,8 +5694,6 @@ test('convertStorageSpace: a real, balanced conversion between storage combinati
   defineProductShape(biz.business, [['Storage', 'Storage']], userId);
   ensureCurrencyPair(biz.business, 'SPACE-HOT', 'SPACE-COLD', userId);
   setCurrencyExchangeRate(biz.business, 'SPACE-HOT', 'SPACE-COLD', userId, 100, 100);
-  ensureCurrencyPair(biz.business, 'INVENTORY-HOT', 'INVENTORY-COLD', userId);
-  setCurrencyExchangeRate(biz.business, 'INVENTORY-HOT', 'INVENTORY-COLD', userId, 100, 100);
 
   const coa = fetch('Chart of Accounts', typeRootName, fetch(biz.business, typeBusinessName, fetch('Businesses', typeRootName)));
   try { create(coa, typeRootName, 'Storage Capacity Remaining', userId); } catch { /* already exists */ }
