@@ -382,3 +382,27 @@ worth resolving properly once item-scoped storage actions are designed.
 Item setup has no storage-combination concept in its own UI yet - only
 Locations. The receive-stock screen has no combination picker of its own
 either - only the two, new, direct actions above.
+
+## 17. Item page extended - Receive Into Storage, following the exact, same pattern
+
+A new "Receive Into Storage" card added to the Items page, matching the
+Locations page's own "Storage Actions" style precisely: picks a real
+location and quantity, optionally a real Hierarchy grouping and value
+(defaulting to a plain receipt when none is chosen, since combinations are
+genuinely additive, never required). Calls `receiveStockAtLocation`'s own,
+already-proven combination support directly.
+
+A real, global `.success` CSS class added (`frontend/src/lib/app.css`),
+replacing the Locations page's own, earlier, local duplicate of the same
+rule - one, real, shared style, not two, separately-maintained copies.
+
+Confirmed directly: `check-frontend` clean; full backend suite 196/196
+unchanged; the real, live fixture (Step Runner's own UI path) still creates
+a real location correctly, with no regression - the one, known,
+pre-existing screenshot-capture issue on "Create Item" (checkpoint 408)
+persists, confirmed unrelated (backend stays fully healthy throughout).
+
+Honestly, precisely incomplete: no UI exists yet for the "Convert Storage"
+action from an item's own context (only Locations has it) - opening a
+container or converting storage is still framed as a location-level action,
+not yet reachable while looking at a specific item.

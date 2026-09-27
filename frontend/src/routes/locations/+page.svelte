@@ -616,10 +616,6 @@
     flex: 1;
     min-width: 0;
   }
-  .success {
-    color: var(--success, #2a7d2a);
-    font-size: var(--font-size-small);
-  }
   .intro {
     max-width: 70ch;
   }

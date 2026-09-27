@@ -258,6 +258,10 @@ input, select {
   color: var(--debit);
 }
 
+.success {
+  color: var(--credit, #2a7d2a);
+}
+
 a {
   color: var(--brass-dark);
 }

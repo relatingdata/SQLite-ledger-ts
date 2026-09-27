@@ -19,10 +19,18 @@
     asItemName,
     asVendorName,
     ApiError,
+    listLocations,
+    getHierarchy,
+    receiveStockAtLocation,
+    asBusinessName,
+    asLedgerName,
+    asLocationName,
     type EntityNode,
     type ItemSummary,
     type Item,
     type ItemSource,
+    type LocationRecord,
+    type HierarchyGroupingWithValues,
   } from '$lib/api';
 
   let entities: EntityNode[] = $state([]);
@@ -70,15 +78,62 @@
   let bomQuantity = $state('');
   let bomUnit = $state('ml');
   let savingBom = $state(false);
+
+  // Per direct instruction: receiving stock directly into a real,
+  // named storage combination (e.g. Secure) - reuses the exact, same
+  // real Hierarchy groupings already set up under Setup → Hierarchies,
+  // exactly the same, established pattern the Locations page's own
+  // Storage Actions section already uses.
+  let locations: LocationRecord[] = $state([]);
+  let hierarchyGroupings: HierarchyGroupingWithValues[] = $state([]);
+  let receiveLocation = $state('');
+  let receiveGrouping = $state('');
+  let receiveStorageValue = $state('');
+  let receiveQuantity = $state('');
+  let receiving = $state(false);
+  let receiveMessage = $state('');
+  let receiveError = $state('');
+
+  async function doReceiveIntoStorage() {
+    if (!session.current?.businessName || !selectedName || !receiveLocation || !receiveQuantity) return;
+    receiving = true;
+    receiveError = '';
+    receiveMessage = '';
+    try {
+      const reference = `RECEIVE-${selectedName}-${Date.now()}`;
+      await receiveStockAtLocation(asLocationName(receiveLocation), {
+        business: asBusinessName(session.current.businessName),
+        ledger: asLedgerName(session.current.ledgerName),
+        reference,
+        itemName: asItemName(selectedName),
+        quantity: Number(receiveQuantity),
+        combinationValues: receiveGrouping && receiveStorageValue ? [receiveStorageValue] : undefined,
+        combinationShape: receiveGrouping && receiveStorageValue ? [[receiveGrouping, receiveGrouping]] : undefined,
+      });
+      receiveMessage = translations.current['Stock received.'] ?? 'Stock received.';
+      receiveQuantity = '';
+    } catch (e) {
+      receiveError = e instanceof ApiError ? e.message : 'Could not receive stock.';
+    } finally {
+      receiving = false;
+    }
+  }
+
   let sourceNotes = $state('');
   let savingSource = $state(false);
 
   async function loadAll() {
     loading = true;
     try {
-      const [entityTree, itemsResult] = await Promise.all([getEntityTree(), listItems()]);
+      const [entityTree, itemsResult, loadedLocations, loadedGroupings] = await Promise.all([
+        getEntityTree(), listItems(),
+        session.current?.businessName ? listLocations(asBusinessName(session.current.businessName)) : Promise.resolve([]),
+        session.current?.businessName ? getHierarchy(session.current.businessName) : Promise.resolve([]),
+      ]);
       entities = entityTree;
       items = itemsResult.rows;
+      locations = loadedLocations;
+      hierarchyGroupings = loadedGroupings;
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -437,6 +492,55 @@
           </fieldset>
           <button class="btn" onclick={addSource} disabled={savingSource}>{savingSource ? 'Saving…' : 'Add source'}</button>
         </div>
+
+        {#if locations.length > 0}
+          <div class="card">
+            <h3>{translations.current['Receive Into Storage'] ?? 'Receive Into Storage'}</h3>
+            <p class="hint">
+              {translations.current['Optionally into a real, named storage combination — set these up under Setup → Hierarchies first.'] ??
+                'Optionally into a real, named storage combination — set these up under Setup → Hierarchies first.'}
+            </p>
+            {#if receiveError}<p class="error">{receiveError}</p>{/if}
+            {#if receiveMessage}<p class="success">{receiveMessage}</p>{/if}
+            <div class="row-2">
+              <fieldset>
+                <legend>{translations.current['Location'] ?? 'Location'}</legend>
+                <select bind:value={receiveLocation}>
+                  <option value="">{translations.current['Select location…'] ?? 'Select location…'}</option>
+                  {#each locations as loc}<option value={loc.name}>{loc.name}</option>{/each}
+                </select>
+              </fieldset>
+              <fieldset>
+                <legend>{translations.current['Quantity'] ?? 'Quantity'}</legend>
+                <input bind:value={receiveQuantity} inputmode="numeric" placeholder="e.g. 24" />
+              </fieldset>
+            </div>
+            {#if hierarchyGroupings.length > 0}
+              <div class="row-2">
+                <fieldset>
+                  <legend>{translations.current['Storage grouping (optional)'] ?? 'Storage grouping (optional)'}</legend>
+                  <select bind:value={receiveGrouping}>
+                    <option value="">{translations.current['None — plain receipt'] ?? 'None — plain receipt'}</option>
+                    {#each hierarchyGroupings as g}<option value={g.grouping}>{g.grouping}</option>{/each}
+                  </select>
+                </fieldset>
+                {#if receiveGrouping}
+                  {@const values = hierarchyGroupings.find((g) => g.grouping === receiveGrouping)?.values ?? []}
+                  <fieldset>
+                    <legend>{translations.current['Value'] ?? 'Value'}</legend>
+                    <select bind:value={receiveStorageValue}>
+                      <option value="">{translations.current['Select…'] ?? 'Select…'}</option>
+                      {#each values as v}<option value={v}>{v}</option>{/each}
+                    </select>
+                  </fieldset>
+                {/if}
+              </div>
+            {/if}
+            <button class="btn small" onclick={doReceiveIntoStorage} disabled={receiving || !receiveLocation || !receiveQuantity}>
+              {receiving ? '…' : (translations.current['Receive'] ?? 'Receive')}
+            </button>
+          </div>
+        {/if}
 
         <div class="card bom-card">
           <h3>{translations.current['Bill of Materials'] ?? 'Bill of Materials'}</h3>
