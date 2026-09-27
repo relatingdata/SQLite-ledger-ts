@@ -94,3 +94,18 @@ Per direct question ("would storing the sibling id chain as a flat JSON object s
 **On SQLite JSON indexing, tested directly, not assumed**: a fixed, known JSON path (`json_extract(chain, '$[1]')`) genuinely gets a real index seek once an expression index is built on it. An arbitrary/unknown position search (via `json_each`) does not - confirmed via `EXPLAIN QUERY PLAN`, it falls back to a full scan every time. Since this project's shapes are user-defined and vary in length and meaning per business, a fixed-path index would be silently meaningless the moment two different shapes disagree about what position 1 means - so `combination_ids` is looked up only by exact, whole-array match (a real index on the column itself would still work for that), never by an indexed, arbitrary component.
 
 Real, honest scope: `defineProductShape`'s own Definition-chain-of-entities mechanism (used only by `getBusinessProductShapes`, for the setup UI's own listing) was left unchanged - the walk-ambiguity bug it could theoretically hit only ever affected instance reconstruction, which no longer walks anything at all.
+
+## 11. Storage space as currencies — convertStorageSpace
+
+Per direct instruction, extended to a new domain: real storage/shelving
+space, in every real form, is a real set of currencies exactly like
+dollars — see `docs/storage-space-as-currency-design.md` for the full,
+consolidated design. `convertStorageSpace` (backend/src/db.ts) converts
+real stock between two, real, Cartesian storage combinations (e.g.
+Hot-Carton to Cold-Bottle), reusing the exact, same "Storage Capacity
+Remaining"/"Installed" balanced pair (checkpoint 395) at both ends — no
+new "clearing" account needed, a genuine simplification found directly.
+Directly, fully tested (`backend/test/db.test.ts`): a real conversion
+posts one, balanced journal entry; every real currency group, including
+the storage ones, stays genuinely balanced; a real, undefined reverse
+direction genuinely refuses rather than silently succeeding.

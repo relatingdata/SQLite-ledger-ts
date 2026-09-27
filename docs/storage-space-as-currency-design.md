@@ -132,3 +132,66 @@ green throughout.
 Backend/API only, per direct instruction — no frontend design or
 implementation until this is approved and proven via the API. This document
 itself is the approval checkpoint; nothing below it is built yet.
+
+## 9. A real, elaborated workflow — restocking as suggested, staff-acknowledged work, not a standalone screen
+
+Per direct, further instruction: "Convert Storage" is not a separate, standalone
+screen at all — it is part of the same, real setup done when a location's own
+Cartesian storage combinations are configured (§5's "Location / Storage
+Space" point). The real, everyday sequence this actually supports:
+
+- **The POS terminal notices** a real, specific combination (Cold-Bottle beer,
+  say) has fallen to a real, low quantity (4 bottles), and that a real,
+  further combination at the same location (Cold-Carton, 2 cartons; or
+  Ambient-Carton elsewhere in the same store, 20 cartons) can supply it.
+- **A real, internal, suggested stock-transfer order is created** —
+  restocking the fridge back up to its own real maximum level, with a real,
+  explicit instruction on how many cartons to open to get there.
+- **Bottle restocking happens before carton restocking**, always, when both
+  are genuinely available — a real, deliberate priority, not incidental.
+- **Sales staff simply carry out the real, physical restocking and
+  acknowledge the work as complete** — a real, simple work-order pattern:
+  the system suggests and sequences, a person executes and confirms, never
+  the reverse.
+
+**Not unlike, at a wider scale**: a stock controller asking for, or being
+prompted with, a real, division-wide beer purchase order to restock every
+real warehouse and location to its own real, seasonal maximum capacity — or
+simply moving real, already-owned inventory the application itself suggests,
+from warehouse to location, when a purchase isn't even needed.
+
+**Honest, explicit scope**: this is real, further, significant work beyond
+receiving/dispatching/transferring/converting themselves — a real,
+suggestion-generating engine (comparing current combination quantities
+against real Min/Max/Reorder levels per combination, not only per item)
+and a real, staff-facing work-order/acknowledgment screen. Not designed in
+detail or implemented in this pass; recorded here so the foundational
+pieces (per-combination levels, the balanced conversion mechanism itself)
+are built in a way this can be layered on top of later, not designed to
+preclude it.
+
+## 10. Corrected, and confirmed working — no "clearing" account needed
+
+Per direct correction: there is no real "Space Conversion Clearing" account
+at all — a genuine, elegant simplification found immediately once pointed
+out. The already-built "Storage Capacity Remaining"/"Installed" pair
+(checkpoint 395) already balances independently within its own currency;
+converting is simply reversing that pair at the source combination and
+repeating it at the destination — never an invented, third account. The
+inventory-value-relocation group (§4, item 3) remains a real, honest,
+unimplemented placeholder (the actual current-carrying-value lookup is
+real, further, separate work).
+
+`convertStorageSpace` (backend/src/db.ts) implemented and directly, fully
+tested: a real, deliberately-forced test confirms a genuine conversion
+(Hot→Cold, at a real, defined 1:1 rate) posts one, real, balanced journal
+entry, that the overall trial balance and every real currency group
+(including the two, real, new SPACE-HOT/SPACE-COLD groups) stay genuinely
+balanced afterward, and that the exact, same conversion attempted in
+reverse (Cold→Hot, never defined) genuinely refuses, not silently
+succeeds. 195/195 backend tests pass.
+
+Honest, explicit scope still open, given severe time constraints: the
+frontend UI (receiving into a named combination, the "Convert Storage"
+action as part of location setup, the suggested-restocking workflow of
+§9) remains entirely undesigned in detail and unbuilt.

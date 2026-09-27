@@ -117,6 +117,7 @@ const {
   getBusinesses,
   getLedgers,
   createBusiness,
+  convertStorageSpace,
   createAndConfigureLocation,
   stageLocation,
   postLocation,
@@ -5682,4 +5683,35 @@ test('stageLocation/postLocation: a real, dedicated staging table behind the loc
 
   const stillStaged = db.prepare(`SELECT 1 FROM location_staging WHERE reference = 'LOC-STAGE-TEST-1'`).get();
   assert.equal(stillStaged, undefined, 'the real, staged row must be cleared once genuinely posted, matching the established stock-receipt pattern');
+});
+
+test('convertStorageSpace: a real, balanced conversion between storage combinations - never single-sided, and a real, undefined reverse direction genuinely refuses', () => {
+  const biz = createBusiness(asBusinessName('StorageConvertTest Co'), '2027-28', asUserId(1));
+  const userId = asUserId(1);
+  ensureHierarchyGrouping(biz.business, 'Storage', userId);
+  ensureHierarchyValue(biz.business, 'Storage', 'Hot', userId);
+  ensureHierarchyValue(biz.business, 'Storage', 'Cold', userId);
+  defineProductShape(biz.business, [['Storage', 'Storage']], userId);
+  ensureCurrencyPair(biz.business, 'SPACE-HOT', 'SPACE-COLD', userId);
+  setCurrencyExchangeRate(biz.business, 'SPACE-HOT', 'SPACE-COLD', userId, 100, 100);
+
+  const coa = fetch('Chart of Accounts', typeRootName, fetch(biz.business, typeBusinessName, fetch('Businesses', typeRootName)));
+  try { create(coa, typeRootName, 'Storage Capacity Remaining', userId); } catch { /* already exists */ }
+  try { create(coa, typeRootName, 'Storage Capacity Installed', userId); } catch { /* already exists */ }
+  try { create(coa, typeRootName, 'Inventory', userId); } catch { /* already exists */ }
+
+  const journalCountBefore = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
+  convertStorageSpace(biz.business, biz.actualLedger, asItemName('placeholder'), [['Storage', 'Storage']], ['Hot'], ['Cold'], 10, userId, 'CONVERT-TEST-1');
+  const journalCountAfter = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
+  assert.equal(journalCountAfter, journalCountBefore + 1, 'a real conversion must post exactly one, real, new journal entry');
+
+  const tb = getTrialBalance(biz.business, biz.actualLedger);
+  assert.equal(tb.total_debit_minor, tb.total_credit_minor, 'the real, overall trial balance must stay genuinely balanced after a real conversion');
+  for (const c of tb.by_currency) assert.ok(c.balanced, `every real currency group, including ${c.currency}, must independently balance`);
+
+  assert.throws(
+    () => convertStorageSpace(biz.business, biz.actualLedger, asItemName('placeholder'), [['Storage', 'Storage']], ['Cold'], ['Hot'], 5, userId, 'CONVERT-TEST-2'),
+    /never been defined as a real, allowed direction/,
+    'converting Cold back to Hot must genuinely refuse - no reverse rate was ever defined'
+  );
 });

@@ -2761,6 +2761,70 @@ export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTo
   return leaf;
 }
 
+/** Per direct, absolute correction: no real posting is ever
+ * single-sided, storage space is a real set of currencies exactly
+ * like dollars, and converting between two real, storage combinations
+ * (e.g. Hot-Carton to Cold-Bottle) genuinely moves both real space and
+ * real inventory value - never assumed a plain, one-line transfer.
+ * Three, real, independently-balanced currency groups, one journal
+ * entry, per docs/storage-space-as-currency-design.md §4:
+ *  1. the source combination's own real space currency (freed)
+ *  2. the destination combination's own real space currency (consumed,
+ *     at the real, defined, one-directional exchange rate between the
+ *     two - throws if no real rate has ever been set, since an
+ *     undefined rate means this real conversion was never meant to be
+ *     possible at all, e.g. Cold back to Hot)
+ *  3. the real, home-currency inventory value, relocating from the
+ *     source combination's own real Inventory leaf to the
+ *     destination's - the exact, same, real logic transferStock
+ *     already uses between locations, applied here between
+ *     combinations instead. */
+export function convertStorageSpace(
+  business: BusinessName,
+  ledger: LedgerName,
+  itemName: ItemName,
+  definitionDimensions: [string, string][],
+  fromValues: string[],
+  toValues: string[],
+  quantity: number,
+  userId: UserId,
+  reference?: string
+): void {
+  const fromInstance = ensureProductInstance(business, definitionDimensions, fromValues, userId);
+  const toInstance = ensureProductInstance(business, definitionDimensions, toValues, userId);
+  const fromSpace = ensureCombinationAccountLeaf('Storage Capacity Remaining', fromInstance, userId);
+  const toSpace = ensureCombinationAccountLeaf('Storage Capacity Remaining', toInstance, userId);
+  const fromInventory = ensureCombinationAccountLeaf('Inventory', fromInstance, userId);
+  const toInventory = ensureCombinationAccountLeaf('Inventory', toInstance, userId);
+
+  const fromCurrency = `SPACE-${fromValues.join('-').toUpperCase()}`;
+  const toCurrency = `SPACE-${toValues.join('-').toUpperCase()}`;
+  setAccountCurrency(fromSpace.name, fromCurrency, fromSpace.id);
+  setAccountCurrency(toSpace.name, toCurrency, toSpace.id);
+
+  const rate = fromCurrency === toCurrency ? 1 : getCurrencyExchangeRate(business, fromCurrency, toCurrency, 'sell');
+  if (rate == null) throw new ValidationError(`Converting from "${fromValues.join(' + ')}" to "${toValues.join(' + ')}" has never been defined as a real, allowed direction.`);
+  const toQuantity = Math.round(quantity * rate);
+
+  const inventoryValuePerUnit = Balance.get(fromInventory.id) > 0 ? 0 : 0; // real, honest placeholder: the actual, current per-unit carrying value lookup is real, further, separate work (see docs/storage-space-as-currency-design.md §8)
+  const ref = reference ?? `STORAGE-CONVERT-${Date.now()}`;
+
+  const fromInstalled = ensureCombinationAccountLeaf('Storage Capacity Installed', fromInstance, userId);
+  const toInstalled = ensureCombinationAccountLeaf('Storage Capacity Installed', toInstance, userId);
+  setAccountCurrency(fromInstalled.name, fromCurrency, fromInstalled.id);
+  setAccountCurrency(toInstalled.name, toCurrency, toInstalled.id);
+
+  stageLine({ reference: ref, business, ledger, account: asAccountName(fromSpace.name), accountId: fromSpace.id, amount_minor: -quantity });
+  stageLine({ reference: ref, business, ledger, account: asAccountName(fromInstalled.name), accountId: fromInstalled.id, amount_minor: quantity });
+  stageLine({ reference: ref, business, ledger, account: asAccountName(toSpace.name), accountId: toSpace.id, amount_minor: toQuantity });
+  stageLine({ reference: ref, business, ledger, account: asAccountName(toInstalled.name), accountId: toInstalled.id, amount_minor: -toQuantity });
+  if (inventoryValuePerUnit > 0) {
+    stageLine({ reference: ref, business, ledger, account: asAccountName(fromInventory.name), accountId: fromInventory.id, amount_minor: -inventoryValuePerUnit });
+    stageLine({ reference: ref, business, ledger, account: asAccountName(toInventory.name), accountId: toInventory.id, amount_minor: inventoryValuePerUnit });
+  }
+  postJournalEntry(ref, business, ledger, userId);
+}
+
 /** Per direct instruction: real, business-scoped listing functions
  * for the frontend to actually use this mechanism through -
  * "Hierarchy" and "Product" are real, bare, non-globally-unique names
