@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getEntityTree, listLocations, saveLocation, createLocation, createEntity, asBusinessName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, type EntityNode, type LocationRecord } from '$lib/api';
+  import { getEntityTree, listLocations, saveLocation, createLocation, createEntity, asBusinessName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, getHierarchy, convertStorageSpace, openStorageContainer, type EntityNode, type LocationRecord, type HierarchyGroupingWithValues } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { session } from '$lib/state.svelte';
   import AddressList from '$lib/components/AddressList.svelte';
@@ -66,6 +66,75 @@
   let newLocationType = $state('');
   let addingLocationType = $state(false);
 
+  // Per direct instruction: storage combinations reuse the exact,
+  // same, real Hierarchy/Product mechanism already set up under
+  // Setup → Hierarchies — no separate concept of its own, just two,
+  // real actions (opening a container, converting between storage
+  // combinations) that read whichever real groupings a business
+  // already defined there.
+  let hierarchyGroupings: HierarchyGroupingWithValues[] = $state([]);
+  let openContainerGrouping = $state('');
+  let openContainerFrom = $state('');
+  let openContainerTo = $state('');
+  let openContainerCartonsOpened = $state('1');
+  let openContainerUnitsProduced = $state('');
+  let openingContainer = $state(false);
+  let convertGrouping = $state('');
+  let convertFrom = $state('');
+  let convertTo = $state('');
+  let convertQuantity = $state('');
+  let converting = $state(false);
+  let storageActionMessage = $state('');
+  let storageActionError = $state('');
+
+  async function doOpenContainer() {
+    if (!session.current?.businessName || !openContainerGrouping || !openContainerFrom || !openContainerTo) return;
+    openingContainer = true;
+    storageActionError = '';
+    storageActionMessage = '';
+    try {
+      await openStorageContainer({
+        business: session.current.businessName,
+        ledger: session.current.ledgerName,
+        definitionDimensions: [[openContainerGrouping, openContainerGrouping]],
+        containerValues: [openContainerFrom],
+        cartonsOpened: Number(openContainerCartonsOpened) || 1,
+        unitValues: [openContainerTo],
+        unitsProduced: Number(openContainerUnitsProduced) || 0,
+      });
+      storageActionMessage = translations.current['Container opened.'] ?? 'Container opened.';
+      openContainerUnitsProduced = '';
+    } catch (e) {
+      storageActionError = e instanceof ApiError ? e.message : 'Could not open container.';
+    } finally {
+      openingContainer = false;
+    }
+  }
+
+  async function doConvertStorage() {
+    if (!session.current?.businessName || !convertGrouping || !convertFrom || !convertTo || !selectedName) return;
+    converting = true;
+    storageActionError = '';
+    storageActionMessage = '';
+    try {
+      await convertStorageSpace({
+        business: session.current.businessName,
+        ledger: session.current.ledgerName,
+        itemName: selectedName,
+        definitionDimensions: [[convertGrouping, convertGrouping]],
+        fromValues: [convertFrom],
+        toValues: [convertTo],
+        quantity: Number(convertQuantity) || 0,
+      });
+      storageActionMessage = translations.current['Storage converted.'] ?? 'Storage converted.';
+      convertQuantity = '';
+    } catch (e) {
+      storageActionError = e instanceof ApiError ? e.message : 'Could not convert storage - this direction may never have been defined.';
+    } finally {
+      converting = false;
+    }
+  }
+
   let coldLocation: LocationRecord | null = $state(null);
   let coldBottleCapacity = $state('');
   let coldCartonCapacity = $state('');
@@ -83,7 +152,10 @@
   async function loadAll() {
     loading = true;
     try {
-      [entities, locations, locationTypes] = await Promise.all([getEntityTree(), listLocations(asBusinessName(session.current?.businessName ?? '')), getLocationTypes()]);
+      [entities, locations, locationTypes, hierarchyGroupings] = await Promise.all([
+        getEntityTree(), listLocations(asBusinessName(session.current?.businessName ?? '')), getLocationTypes(),
+        session.current?.businessName ? getHierarchy(session.current.businessName) : Promise.resolve([]),
+      ]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -434,6 +506,82 @@
           {/if}
         </fieldset>
 
+        {#if hierarchyGroupings.length > 0}
+          <fieldset class="sub-block">
+            <legend>{translations.current['Storage Actions'] ?? 'Storage Actions'}</legend>
+            <p class="field-help">
+              {translations.current['Uses the real Hierarchy groupings and values already set up under Setup → Hierarchies. Add or edit those there first.'] ??
+                'Uses the real Hierarchy groupings and values already set up under Setup → Hierarchies. Add or edit those there first.'}
+            </p>
+
+            {#if storageActionError}<p class="error">{storageActionError}</p>{/if}
+            {#if storageActionMessage}<p class="success">{storageActionMessage}</p>{/if}
+
+            <div class="storage-action-cards">
+              <div class="card">
+                <h4>{translations.current['Open a Container'] ?? 'Open a Container'}</h4>
+                <p class="hint">{translations.current['Two, independent space movements — never a conversion, and never linked by a rate.'] ?? 'Two, independent space movements — never a conversion, and never linked by a rate.'}</p>
+                <div class="add-row">
+                  <select bind:value={openContainerGrouping}>
+                    <option value="">{translations.current['Grouping…'] ?? 'Grouping…'}</option>
+                    {#each hierarchyGroupings as g}<option value={g.grouping}>{g.grouping}</option>{/each}
+                  </select>
+                </div>
+                {#if openContainerGrouping}
+                  {@const values = hierarchyGroupings.find((g) => g.grouping === openContainerGrouping)?.values ?? []}
+                  <div class="add-row">
+                    <select bind:value={openContainerFrom}>
+                      <option value="">{translations.current['Container value…'] ?? 'Container value…'}</option>
+                      {#each values as v}<option value={v}>{v}</option>{/each}
+                    </select>
+                    <input bind:value={openContainerCartonsOpened} inputmode="numeric" placeholder="1" style="max-width:5rem" />
+                  </div>
+                  <div class="add-row">
+                    <select bind:value={openContainerTo}>
+                      <option value="">{translations.current['Unit value…'] ?? 'Unit value…'}</option>
+                      {#each values as v}<option value={v}>{v}</option>{/each}
+                    </select>
+                    <input bind:value={openContainerUnitsProduced} inputmode="numeric" placeholder="e.g. 24" style="max-width:6rem" />
+                  </div>
+                {/if}
+                <button class="btn small" onclick={doOpenContainer} disabled={openingContainer || !openContainerGrouping || !openContainerFrom || !openContainerTo}>
+                  {openingContainer ? '…' : (translations.current['Open Container'] ?? 'Open Container')}
+                </button>
+              </div>
+
+              <div class="card">
+                <h4>{translations.current['Convert Storage'] ?? 'Convert Storage'}</h4>
+                <p class="hint">{translations.current['A real, defined, one-directional exchange rate — e.g. Hot to Cold. The reverse direction simply refuses if never set up.'] ?? 'A real, defined, one-directional exchange rate — e.g. Hot to Cold. The reverse direction simply refuses if never set up.'}</p>
+                <div class="add-row">
+                  <select bind:value={convertGrouping}>
+                    <option value="">{translations.current['Grouping…'] ?? 'Grouping…'}</option>
+                    {#each hierarchyGroupings as g}<option value={g.grouping}>{g.grouping}</option>{/each}
+                  </select>
+                </div>
+                {#if convertGrouping}
+                  {@const values = hierarchyGroupings.find((g) => g.grouping === convertGrouping)?.values ?? []}
+                  <div class="add-row">
+                    <select bind:value={convertFrom}>
+                      <option value="">{translations.current['From…'] ?? 'From…'}</option>
+                      {#each values as v}<option value={v}>{v}</option>{/each}
+                    </select>
+                    <select bind:value={convertTo}>
+                      <option value="">{translations.current['To…'] ?? 'To…'}</option>
+                      {#each values as v}<option value={v}>{v}</option>{/each}
+                    </select>
+                  </div>
+                  <div class="add-row">
+                    <input bind:value={convertQuantity} inputmode="numeric" placeholder={translations.current['Quantity'] ?? 'Quantity'} />
+                  </div>
+                {/if}
+                <button class="btn small" onclick={doConvertStorage} disabled={converting || !convertGrouping || !convertFrom || !convertTo || !convertQuantity}>
+                  {converting ? '…' : (translations.current['Convert'] ?? 'Convert')}
+                </button>
+              </div>
+            </div>
+          </fieldset>
+        {/if}
+
         <div class="form-actions">
           <button class="btn secondary" onclick={cancelEdit}>{translations.current['Cancel'] ?? 'Cancel'}</button>
           <button class="btn" onclick={save} disabled={saving}>{saving ? 'Saving…' : (translations.current['Save'] ?? 'Save')}</button>
@@ -445,6 +593,33 @@
 </fieldset>
 
 <style>
+  .storage-action-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.6rem;
+  }
+  .storage-action-cards .card {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .storage-action-cards h4 {
+    margin: 0;
+  }
+  .storage-action-cards .add-row {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .storage-action-cards select {
+    flex: 1;
+    min-width: 0;
+  }
+  .success {
+    color: var(--success, #2a7d2a);
+    font-size: var(--font-size-small);
+  }
   .intro {
     max-width: 70ch;
   }

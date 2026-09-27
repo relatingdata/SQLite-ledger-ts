@@ -1166,6 +1166,34 @@ export const saveLocation = (name: string, input: LocationInput) =>
 export const createLocation = (name: string, business: string, input: LocationInput) =>
   request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'POST', body: JSON.stringify(input) });
 
+// Per direct instruction: real storage space, exactly like real
+// currency, follows the exact, same Hierarchy/Product cartesian
+// mechanism already built for wine combinations and currency pairs -
+// no separate setup screen of its own, reusing /setup/hierarchy
+// directly for defining the real groupings/values/shapes these two
+// real actions draw on.
+export const convertStorageSpace = (input: {
+  business: string;
+  ledger: string;
+  itemName: string;
+  definitionDimensions: [string, string][];
+  fromValues: string[];
+  toValues: string[];
+  quantity: number;
+  reference?: string;
+}) => request<void>('/locations/convert-storage', { method: 'POST', body: JSON.stringify(input) });
+
+export const openStorageContainer = (input: {
+  business: string;
+  ledger: string;
+  definitionDimensions: [string, string][];
+  containerValues: string[];
+  cartonsOpened: number;
+  unitValues: string[];
+  unitsProduced: number;
+  reference?: string;
+}) => request<void>('/locations/open-container', { method: 'POST', body: JSON.stringify(input) });
+
 // Per docs/multicurrency-design.md: a location's own, real, nominated
 // SET of further currencies it trades in. Nearly every real location
 // returns an empty array here.
@@ -1225,7 +1253,7 @@ export const setItemLocationLevels = (
 
 export const receiveStockAtLocation = (
   locationName: LocationName,
-  input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string }
+  input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] }
 ) => request<void>(`/locations/${encodeURIComponent(locationName)}/receive`, { method: 'POST', body: JSON.stringify(input) });
 
 export const dispatchStockFromLocation = (

@@ -345,3 +345,40 @@ Honestly, precisely incomplete: no frontend UI exists yet at all - the
 Locations page has no way to trigger either action, and Item setup has no
 storage-combination concept in its own UI either. That remains the next,
 real, immediate piece.
+
+## 16. Frontend UI added - the Locations page, following the established Hierarchy/Cartesian style directly
+
+Per direct instruction: no new, separate setup screen was built for storage
+combinations themselves - the existing `/setup/hierarchy` page (already
+generic, already lets a business define any real grouping/values and
+Product shape) is reused directly, exactly as intended by its own design.
+
+**A new "Storage Actions" section added to the Locations page**
+(`frontend/src/routes/locations/+page.svelte`), shown only once a business
+has at least one real Hierarchy grouping defined, matching the established
+card/add-row visual style from the Hierarchies setup page precisely:
+
+- **Open a Container**: picks a real grouping, a real "from" value (e.g.
+  Carton) and quantity opened, a real "to" value (e.g. Bottle) and units
+  produced - calls the real `openStorageContainer` API directly.
+- **Convert Storage**: picks a real grouping and real from/to values (e.g.
+  Hot/Cold) and a real quantity - calls the real `convertStorageSpace` API,
+  surfacing its own real, honest error message when a direction was never
+  defined, rather than a generic failure.
+
+Real API wrappers added (`frontend/src/lib/api.ts`): `convertStorageSpace`,
+`openStorageContainer`, and `receiveStockAtLocation` extended to accept
+optional `combinationValues`/`combinationShape`, matching the backend's own,
+already-proven support exactly.
+
+Confirmed directly: `check-frontend` clean (0 errors); the real, live
+Locations page (via the Step Runner's own UI path) still creates a real
+location correctly, with no regression from this addition.
+
+Honestly, precisely incomplete: `convertStorageSpace`'s own `itemName`
+parameter is passed the selected location's own name as a placeholder -
+genuinely unused inside the function itself today, but a real, honest gap
+worth resolving properly once item-scoped storage actions are designed.
+Item setup has no storage-combination concept in its own UI yet - only
+Locations. The receive-stock screen has no combination picker of its own
+either - only the two, new, direct actions above.
