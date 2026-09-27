@@ -5697,8 +5697,8 @@ test('convertStorageSpace: a real, balanced conversion between storage combinati
   setCurrencyExchangeRate(biz.business, 'SPACE-HOT', 'SPACE-COLD', userId, 100, 100);
 
   const coa = fetch('Chart of Accounts', typeRootName, fetch(biz.business, typeBusinessName, fetch('Businesses', typeRootName)));
-  try { create(coa, typeRootName, 'Storage Capacity Remaining', userId); } catch { /* already exists */ }
-  try { create(coa, typeRootName, 'Storage Capacity Installed', userId); } catch { /* already exists */ }
+  try { create(coa, typeRootName, 'Storage Space Remaining', userId); } catch { /* already exists */ }
+  try { create(coa, typeRootName, 'Storage Space Installed', userId); } catch { /* already exists */ }
   try { create(coa, typeRootName, 'Inventory', userId); } catch { /* already exists */ }
   try { create(coa, typeRootName, 'Inventory Sourced From', userId); } catch { /* already exists */ }
 
@@ -5728,8 +5728,8 @@ test('openStorageContainer: opening a carton is two, real, independent space mov
   // Deliberately no currency pair between SPACE-CARTON and SPACE-BOTTLE
   // is ever defined - per direct instruction, none should be needed.
   const coa = fetch('Chart of Accounts', typeRootName, fetch(biz.business, typeBusinessName, fetch('Businesses', typeRootName)));
-  try { create(coa, typeRootName, 'Storage Capacity Remaining', userId); } catch { /* already exists */ }
-  try { create(coa, typeRootName, 'Storage Capacity Installed', userId); } catch { /* already exists */ }
+  try { create(coa, typeRootName, 'Storage Space Remaining', userId); } catch { /* already exists */ }
+  try { create(coa, typeRootName, 'Storage Space Installed', userId); } catch { /* already exists */ }
 
   const journalCountBefore = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
   openStorageContainer(biz.business, biz.actualLedger, [['Container', 'Container']], ['Carton'], 1, ['Bottle'], 24, userId, 'OPEN-TEST-1');

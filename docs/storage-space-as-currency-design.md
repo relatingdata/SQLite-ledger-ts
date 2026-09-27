@@ -278,3 +278,40 @@ Honestly, precisely incomplete, given severe time constraints: the tutorial
 e2e fixture has not yet been extended to exercise this new function, and no
 frontend work (location setup, item setup, either storage case) has been
 started.
+
+## 14. The real bug from §13 fixed, and the tutorial fixture extended - confirmed working end to end
+
+The real, pre-existing bug found at checkpoint 406 (`ensureCombinationAccountLeaf`'s
+base-account lookup finding the wrong, location-scoped "Storage Capacity
+Remaining" instead of a business-scoped one) is fixed by renaming the
+combination-based accounts to **"Storage Space Remaining"/"Storage Space
+Installed"** — genuinely distinct from checkpoint 395's own, real,
+per-location "Storage Capacity Remaining"/"Installed" pair, sidestepping
+the name collision entirely rather than attempting a deeper, real
+business-scoping fix to `ensureCombinationAccountLeaf` itself (still real,
+honest, open work). A new `ensureStorageBaseAccounts` helper creates both,
+real, distinct accounts directly under the specific business's own real
+Chart of Accounts before either `convertStorageSpace` or
+`openStorageContainer` runs, so they are genuinely reachable from
+`getTrialBalance`'s own real, recursive walk.
+
+**The real tutorial fixture extended** (`shared-fixtures/tutorial-steps.csv`,
+now 10 real steps): a real "Highland Single Malt 700ml" item created, then
+received directly into `Secure` storage via the real, existing
+`receiveStockAtLocation` combination support (a new `receiveStockWithCombination`
+API-registry entry); then a real carton of the existing "Amber Ale 330ml
+Can" opened into 24 real bottles via `openStorageContainer` (a new
+`openContainer` API-registry entry). Both real, new screens added to
+`shared-fixtures/screens.csv`.
+
+**Confirmed directly, not assumed**: all 10 real steps pass via the API
+path; the real trial balance shows `SPACE-BOTTLE` (24/24) and `SPACE-CARTON`
+(1/1), both genuinely balanced; the real stock report
+(`getStockListingByLocation`) already correctly shows the whiskey's own 24
+real units on hand at Main Street Cellar, confirming the existing
+combination-tagged receipt mechanism was already stock-report-visible
+without any further, real change needed there. 196/196 backend tests pass;
+the step-runner's own suite, 14/14.
+
+Honestly, precisely incomplete: no frontend work has been started -
+location setup, item setup, or either storage case, exactly as before.

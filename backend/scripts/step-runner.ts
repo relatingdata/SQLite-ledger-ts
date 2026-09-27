@@ -71,6 +71,37 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     }
     db.create(categoryEntity, db.typeItemName, a.itemName, userId);
   },
+  // Per direct instruction: exercises the real, existing combination
+  // support already wired into receiveStockAtLocation - receiving an
+  // item directly into a real, named storage combination (e.g.
+  // whiskey into Secure storage), never received plain and moved
+  // later. Lazily ensures the real Hierarchy grouping/value exist,
+  // matching what a real setup screen would do.
+  receiveStockWithCombination: (a) => {
+    const userId = db.asUserId(1);
+    db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.storageValue, userId);
+    db.defineProductShape(a.businessName as any, [[a.groupingName, a.groupingName]], userId);
+    db.receiveStockAtLocation(
+      a.businessName as any, db.asLedgerName('Actual'), `RECEIVE-${a.itemName}-${a.storageValue}`,
+      a.itemName as any, a.locationName as any, Number(a.quantity), userId, undefined,
+      [a.storageValue], [[a.groupingName, a.groupingName]]
+    );
+  },
+  // Per direct instruction: exercises the independent, non-rate-linked
+  // carton/bottle space case - opening a carton is never a real
+  // "conversion," it is two, real, independent space movements.
+  openContainer: (a) => {
+    const userId = db.asUserId(1);
+    db.ensureHierarchyGrouping(a.businessName as any, 'Container', userId);
+    db.ensureHierarchyValue(a.businessName as any, 'Container', a.containerValue, userId);
+    db.ensureHierarchyValue(a.businessName as any, 'Container', a.unitValue, userId);
+    db.defineProductShape(a.businessName as any, [['Container', 'Container']], userId);
+    db.openStorageContainer(
+      a.businessName as any, db.asLedgerName('Actual'), [['Container', 'Container']],
+      [a.containerValue], Number(a.cartonsOpened), [a.unitValue], Number(a.unitsProduced), userId
+    );
+  },
 };
 
 /** The one, real registry of named, shared verifications - the same,

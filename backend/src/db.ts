@@ -2779,6 +2779,22 @@ export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTo
  *     destination's - the exact, same, real logic transferStock
  *     already uses between locations, applied here between
  *     combinations instead. */
+/** Per a real, confirmed, separate bug found directly: `ensureLocationCapacityAccount`
+ * (checkpoint 395) creates "Storage Capacity Remaining"/"Installed" as a
+ * real child of the location itself, never under Chart of Accounts -
+ * meaning ensureCombinationAccountLeaf's own bare lookup for these exact
+ * names would silently attach a real combination leaf under whichever
+ * location happened to create that name first, genuinely unreachable
+ * from getTrialBalance's own real, recursive walk. Ensures both exist as
+ * real, direct children of this specific business's own Chart of Accounts
+ * first - the one, real place a base account must live to ever appear in
+ * a real financial report. */
+function ensureStorageBaseAccounts(business: BusinessName, userId: UserId): void {
+  const coa = fetch('Chart of Accounts', typeRootName, fetch(business, typeBusinessName, fetch('Businesses', typeRootName)));
+  try { Entity.getUnder('Storage Space Remaining', coa.id) ?? create(coa, typeRootName, 'Storage Space Remaining', userId); } catch { /* already exists */ }
+  try { Entity.getUnder('Storage Space Installed', coa.id) ?? create(coa, typeRootName, 'Storage Space Installed', userId); } catch { /* already exists */ }
+}
+
 export function convertStorageSpace(
   business: BusinessName,
   ledger: LedgerName,
@@ -2790,10 +2806,11 @@ export function convertStorageSpace(
   userId: UserId,
   reference?: string
 ): void {
+  ensureStorageBaseAccounts(business, userId);
   const fromInstance = ensureProductInstance(business, definitionDimensions, fromValues, userId);
   const toInstance = ensureProductInstance(business, definitionDimensions, toValues, userId);
-  const fromSpace = ensureCombinationAccountLeaf('Storage Capacity Remaining', fromInstance, userId);
-  const toSpace = ensureCombinationAccountLeaf('Storage Capacity Remaining', toInstance, userId);
+  const fromSpace = ensureCombinationAccountLeaf('Storage Space Remaining', fromInstance, userId);
+  const toSpace = ensureCombinationAccountLeaf('Storage Space Remaining', toInstance, userId);
 
   const fromCurrency = `SPACE-${fromValues.join('-').toUpperCase()}`;
   const toCurrency = `SPACE-${toValues.join('-').toUpperCase()}`;
@@ -2816,8 +2833,8 @@ export function convertStorageSpace(
 
   const ref = reference ?? `STORAGE-CONVERT-${Date.now()}`;
 
-  const fromInstalled = ensureCombinationAccountLeaf('Storage Capacity Installed', fromInstance, userId);
-  const toInstalled = ensureCombinationAccountLeaf('Storage Capacity Installed', toInstance, userId);
+  const fromInstalled = ensureCombinationAccountLeaf('Storage Space Installed', fromInstance, userId);
+  const toInstalled = ensureCombinationAccountLeaf('Storage Space Installed', toInstance, userId);
   setAccountCurrency(fromInstalled.name, fromCurrency, fromInstalled.id);
   setAccountCurrency(toInstalled.name, toCurrency, toInstalled.id);
 
@@ -2853,12 +2870,13 @@ export function openStorageContainer(
   userId: UserId,
   reference?: string
 ): void {
+  ensureStorageBaseAccounts(business, userId);
   const containerInstance = ensureProductInstance(business, definitionDimensions, containerValues, userId);
   const unitInstance = ensureProductInstance(business, definitionDimensions, unitValues, userId);
-  const containerSpace = ensureCombinationAccountLeaf('Storage Capacity Remaining', containerInstance, userId);
-  const containerInstalled = ensureCombinationAccountLeaf('Storage Capacity Installed', containerInstance, userId);
-  const unitSpace = ensureCombinationAccountLeaf('Storage Capacity Remaining', unitInstance, userId);
-  const unitInstalled = ensureCombinationAccountLeaf('Storage Capacity Installed', unitInstance, userId);
+  const containerSpace = ensureCombinationAccountLeaf('Storage Space Remaining', containerInstance, userId);
+  const containerInstalled = ensureCombinationAccountLeaf('Storage Space Installed', containerInstance, userId);
+  const unitSpace = ensureCombinationAccountLeaf('Storage Space Remaining', unitInstance, userId);
+  const unitInstalled = ensureCombinationAccountLeaf('Storage Space Installed', unitInstance, userId);
 
   const containerCurrency = `SPACE-${containerValues.join('-').toUpperCase()}`;
   const unitCurrency = `SPACE-${unitValues.join('-').toUpperCase()}`;

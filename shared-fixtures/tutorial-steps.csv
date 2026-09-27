@@ -5,3 +5,6 @@
 "Create Location","Wine Retail Business II","Main Street Cellar","Adelaide","Retail"
 "Create Item","Wine Retail Business II","Amber Ale 330ml","+ New category…","Beer"
 "Create Item","Wine Retail Business II","Amber Ale 330ml Can","Beer",""
+"Create Item","Wine Retail Business II","Highland Single Malt 700ml","+ New category…","Whiskey"
+"Receive Into Storage","Wine Retail Business II","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure"
+"Open Container","Wine Retail Business II","Carton","1","Bottle","24"
