@@ -120,3 +120,18 @@ real "Storage Capacity Installed" counterpart. See
 `docs/storage-space-as-currency-design.md` §13 for the full account, and a
 real, pre-existing, separate bug found while testing it (`
 ensureCombinationAccountLeaf`'s base-account lookup is not business-scoped).
+
+## 13. A real, established naming convention to note - always plural, user-facing
+
+Per direct instruction: the real, internal root entity a business's own
+Hierarchy groupings live under is named `'Hierarchy'`, singular, throughout
+`backend/src/db.ts` (`ensureHierarchyGrouping`, `ensureHierarchyValue`, and
+every real, direct lookup of it) - this is the one, real, structural name
+and is never changed. **Every real, user-facing surface, without exception,
+uses the plural "Hierarchies"** - the setup page's own title
+(`/setup/hierarchy`, `frontend/src/routes/setup/hierarchy/+page.svelte`),
+its own real heading, and the User Manual's own "Hierarchies" section. This
+is a real, deliberate, established convention, not an inconsistency to
+"fix" by renaming the internal root - a person setting one up always reads
+"Hierarchies," the real, singular root name underneath is purely structural
+and never shown to them.
