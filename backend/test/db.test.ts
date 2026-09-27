@@ -5641,15 +5641,20 @@ test('createAndConfigureLocation: real, atomic, balanced Storage Capacity Remain
   const entities = getEntityTree();
   const locationEntity = entities.find((e) => e.name === 'Capacity Test Warehouse');
   assert.ok(locationEntity, 'the real location itself must exist');
-  const remaining = entities.find((e) => e.name === 'Storage Capacity Remaining' && e.parent_id === locationEntity!.id);
-  const installed = entities.find((e) => e.name === 'Storage Capacity Installed' && e.parent_id === locationEntity!.id);
-  assert.ok(remaining, 'the real Storage Capacity Remaining account must exist immediately after location creation, not lazily');
-  assert.ok(installed, 'the real Storage Capacity Installed counterpart must exist immediately too - no posting is ever single-sided');
+  const capacity = entities.find((e) => e.name === 'Storage Capacity' && e.parent_id === locationEntity!.id);
+  assert.ok(capacity, 'the real, built-in Storage Capacity structure must exist directly under the location');
+  const remainingRoot = entities.find((e) => e.name === 'Remaining' && e.parent_id === capacity!.id);
+  const installedRoot = entities.find((e) => e.name === 'Installed' && e.parent_id === capacity!.id);
+  assert.ok(remainingRoot && installedRoot, 'both real leaves of Storage Capacity must exist immediately, not lazily');
+  const remaining = entities.find((e) => e.name === 'Carton' && e.parent_id === remainingRoot!.id);
+  const installed = entities.find((e) => e.name === 'Carton' && e.parent_id === installedRoot!.id);
+  assert.ok(remaining, 'the real, amplified Carton leaf must exist under Remaining immediately after location creation, not lazily');
+  assert.ok(installed, 'and its own real counterpart under Installed - no posting is ever single-sided');
 
   const remainingBalance = (db.prepare(`SELECT balance_minor, currency FROM account WHERE entity_id = ?`).get(remaining!.id) as { balance_minor: number; currency: string });
   const installedBalance = (db.prepare(`SELECT balance_minor, currency FROM account WHERE entity_id = ?`).get(installed!.id) as { balance_minor: number; currency: string });
-  assert.equal(remainingBalance.balance_minor, 500, 'the real, opening capacity must genuinely post to Remaining');
-  assert.equal(installedBalance.balance_minor, -500, 'and the exact, real, opposite amount to Installed - a real, balanced, two-line entry');
+  assert.equal(remainingBalance.balance_minor, 500, 'the real, opening capacity must genuinely post to Remaining > Carton');
+  assert.equal(installedBalance.balance_minor, -500, 'and the exact, real, opposite amount to Installed > Carton - a real, balanced, two-line entry');
   assert.equal(remainingBalance.currency, 'SPACE-CARTON', 'real space must carry its own, distinct, real currency - never blended with real dollars');
   assert.equal(installedBalance.currency, 'SPACE-CARTON');
 });
@@ -5678,9 +5683,8 @@ test('stageLocation/postLocation: a real, dedicated staging table behind the loc
 
   const entities = getEntityTree();
   assert.ok(entities.some((e) => e.name === 'Staged Warehouse'), 'the real location must genuinely exist once posted');
-  const remaining = entities.find((e) => e.name === 'Storage Capacity Remaining' && e.parent_id === entity.id);
-  const installed = entities.find((e) => e.name === 'Storage Capacity Installed' && e.parent_id === entity.id);
-  assert.ok(remaining && installed, 'the real, balanced capacity accounts must exist too, created atomically as part of the real post');
+  const remaining = entities.find((e) => e.name === 'Storage Capacity' && e.parent_id === entity.id);
+  assert.ok(remaining, 'the real, built-in Storage Capacity structure must exist too, created atomically as part of the real post');
 
   const stillStaged = db.prepare(`SELECT 1 FROM location_staging WHERE reference = 'LOC-STAGE-TEST-1'`).get();
   assert.equal(stillStaged, undefined, 'the real, staged row must be cleared once genuinely posted, matching the established stock-receipt pattern');

@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 import { db } from './db.js';
+import { ensureStorageCapacityStructure } from './db.js';
 import { Entity, Link, Balance, Detail } from './primitives.js';
 import { Session } from './session-context.js';
 import {
@@ -513,29 +514,37 @@ export function getEffectiveSaleCurrency(terminalName: string | undefined): stri
   return row?.currency ?? null;
 }
 
+/** Per direct, absolute instruction: the new, real "Storage Capacity"
+ * structure (§18, docs/storage-space-as-currency-design.md) entirely
+ * replaces this real, earlier, flat mechanism - never unified alongside
+ * it. A real location's own opening capacity is a simple, direct
+ * "Bottle" or "Carton" leaf under its own real "Remaining"/"Installed"
+ * pair (ensureStorageCapacityStructure) - genuinely amplified by the
+ * real Cartesian Product the moment a business also defines further,
+ * real dimensions (Hot/Cold, and so on) for this same location. */
 export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; unit: 'bottle' | 'carton' } {
-  const capacityAccountName = 'Storage Capacity Remaining';
-  const installedAccountName = 'Storage Capacity Installed';
   const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   const loc = getLocation(locationName);
   const unit: 'bottle' | 'carton' = loc?.bottle_capacity != null ? 'bottle' : 'carton';
-  let entity = Entity.getUnder(capacityAccountName, locationId);
+  const leafName = unit === 'bottle' ? 'Bottle' : 'Carton';
+  const { remainingId, installedId } = ensureStorageCapacityStructure({ id: locationId, name: locationName }, userId);
+  let entity = Entity.getUnder(leafName, remainingId);
   if (!entity) {
-    entity = Entity.create(capacityAccountName, locationId, userId);
+    entity = Entity.create(leafName, remainingId, userId);
     const currency = `SPACE-${unit.toUpperCase()}`;
     setAccountCurrency(entity.name, currency, entity.id);
-    const installed = Entity.getUnder(installedAccountName, locationId) ?? Entity.create(installedAccountName, locationId, userId);
+    const installed = Entity.getUnder(leafName, installedId) ?? Entity.create(leafName, installedId, userId);
     setAccountCurrency(installed.name, currency, installed.id);
     const opening = unit === 'bottle' ? loc?.bottle_capacity ?? 0 : loc?.carton_capacity ?? 0;
     if (opening > 0) {
       const reference = `${locationName}-CAPACITY-OPENING`;
-      stageLine({ reference, business, ledger, account: asAccountName(capacityAccountName), accountId: entity.id, amount_minor: opening });
-      stageLine({ reference, business, ledger, account: asAccountName(installedAccountName), accountId: installed.id, amount_minor: -opening });
+      stageLine({ reference, business, ledger, account: asAccountName(entity.name), accountId: entity.id, amount_minor: opening });
+      stageLine({ reference, business, ledger, account: asAccountName(installed.name), accountId: installed.id, amount_minor: -opening });
       postJournalEntry(reference, business, ledger, userId);
     }
   }
-  return { capacityAccount: capacityAccountName, capacityAccountId: entity.id, unit };
+  return { capacityAccount: entity.name, capacityAccountId: entity.id, unit };
 }
 
 /** Adjusts a location's own real, tracked remaining capacity by

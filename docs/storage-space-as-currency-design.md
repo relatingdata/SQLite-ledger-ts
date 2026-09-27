@@ -466,3 +466,58 @@ suitably by Hierarchies) must appear under Inventory, Sales, and COGS too,
 in parallel currency *and* count amounts — real, further, separate, and
 substantial work, recorded here honestly rather than attempted under severe
 time pressure in the same pass as the Storage Capacity correction above.
+
+## 19. Task 1 complete: the old, per-location mechanism entirely replaced
+
+Per direct instruction ("the new entirely replaces the old"): `ensureLocationCapacityAccount`
+(backend/src/db-stock.ts) rewritten to use `ensureStorageCapacityStructure`
+directly - the exact, same, corrected "Storage Capacity" structure now
+applies under both a business and every real location, confirmed identical:
+
+```
+Main Street Cellar
+└── Storage Capacity
+    ├── Installed
+    └── Remaining
+        └── Carton
+```
+
+A real, general fix needed along the way: `ensureStorageCapacityStructure`
+lives in `backend/src/db.ts`, but `ensureLocationCapacityAccount` lives in
+`backend/src/db-stock.ts` - a real, direct import from db-stock.ts back into
+db.ts, alongside db.ts's own, existing import the other way. Confirmed
+directly, not merely assumed safe: this circular import compiles and works
+correctly at runtime, since the actual call only happens after both
+modules have finished loading.
+
+Two, real, existing tests updated to match the corrected, nested structure
+rather than the old, flat one. Confirmed directly: the real tutorial
+fixture's own trial run reproduces the exact, corrected structure at both
+levels; 196/196 backend tests pass.
+
+**A real, further, separate, genuine issue found while replacing this, not
+yet fixed**: `adjustLocationCapacity` (called by every real stock movement -
+receive, dispatch, transfer) posts via a bare, single-sided `Balance.post`
+call, never balanced against "Installed" or anything else - a real, further
+instance of the exact, same "no posting is ever single-sided" violation
+this whole design was built to eliminate. Recorded here honestly as a real,
+separate, still-open gap, not addressed in this pass.
+
+## 20. Task 2, checked directly - partially implemented, not fully as suspected
+
+Per direct instruction to check rather than assume: the real Location × Item
+Cartesian Product **is** already implemented for the *dollar value* — a
+combination-tagged stock receipt already creates a real, distinct Inventory
+leaf per combination, posting its real value correctly (checked directly in
+`backend/src/db-stock.ts`, `receiveStockAtLocation`'s own combination code
+path: debit Inventory, credit Accounts Payable, both explicitly resolved by
+id, never a bare name).
+
+**What is genuinely missing, found by direct inspection, not assumed**: no
+parallel *count* (quantity) posting exists at all for this same,
+combination-tagged path — only the dollar value is posted; the real unit
+count is never separately, currency-tagged and posted the way Storage
+Capacity's own "Bottle"/"Carton" leaves already are. Per direct instruction
+that both must appear "in parallel currency and count amounts," this is a
+real, further, separate, unimplemented piece — real, further work, not yet
+started.
