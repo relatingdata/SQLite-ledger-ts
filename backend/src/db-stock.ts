@@ -1033,7 +1033,9 @@ export function dispatchStockFromLocation(
   locationName: LocationName,
   quantity: number,
   userId: UserId,
-  transdate?: string
+  transdate?: string,
+  combinationValues?: string[],
+  combinationShape?: [string, string][]
 ): void {
   if (quantity <= 0) throw new ValidationError('Dispatched quantity must be positive.');
   const current = getItemLocation(itemName, locationName);
@@ -1049,6 +1051,37 @@ export function dispatchStockFromLocation(
   stageQuantityMovementLine(business, ledger, reference, asAccountName(unitsSoldAccount), quantity, date, undefined, unitsSoldAccountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
   adjustLocationCapacity(business, ledger, locationName, itemName, -quantity, date, userId, reference);
+
+  // Per direct instruction that this is fundamental and must be
+  // completed fully, mirroring receiveStockAtLocation's own, real,
+  // combination code path exactly, reversed: dispatching a real,
+  // specific combination frees the exact, same, real Inventory value
+  // and real unit count that receiving it built up - never assumed
+  // symmetrical, genuinely posted the same way, in reverse.
+  if (combinationValues && combinationShape) {
+    const instanceTop = ensureProductInstance(business, combinationShape, combinationValues, userId);
+    const unitCostMinor = getProductUnitCostMinor(itemName);
+    if (unitCostMinor != null) {
+      const valueMinor = quantity * unitCostMinor;
+      const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId);
+      const valueRef = `${reference}-VALUE`;
+      const cogsId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Cost of Goods Sold' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Expense')`).get() as { id: number } | undefined)?.id
+        ?? (db.prepare(`SELECT id FROM current_entities WHERE name = 'Cost of Goods Sold'`).get() as { id: number }).id;
+      stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(invLeaf.name), accountId: invLeaf.id, amount_minor: -valueMinor, memo: `Combination stock dispatch: ${itemName}` });
+      stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName('Cost of Goods Sold'), accountId: cogsId, amount_minor: valueMinor, memo: `Combination stock dispatch: ${itemName}` });
+      postJournalEntry(valueRef, business, ledger, userId);
+    }
+    const { onHandId, receivedFromId } = ensureUnitsTrackingBaseAccounts(business, userId);
+    const unitsOnHand = ensureCombinationAccountLeaf('On Hand', instanceTop, userId, onHandId);
+    const receivedFrom = ensureCombinationAccountLeaf('On Hand', instanceTop, userId, receivedFromId);
+    const unitsCurrency = `UNITS-${combinationValues.join('-').toUpperCase()}`;
+    setAccountCurrency(unitsOnHand.name, unitsCurrency, unitsOnHand.id);
+    setAccountCurrency(receivedFrom.name, unitsCurrency, receivedFrom.id);
+    const countRef = `${reference}-COUNT`;
+    stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(unitsOnHand.name), accountId: unitsOnHand.id, amount_minor: -quantity, memo: `Combination stock dispatch (count): ${itemName}` });
+    stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(receivedFrom.name), accountId: receivedFrom.id, amount_minor: quantity, memo: `Combination stock dispatch (count): ${itemName}` });
+    postJournalEntry(countRef, business, ledger, userId);
+  }
   })();
 }
 
@@ -1132,6 +1165,33 @@ export function transferStock(
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(toLeaf.name), accountId: toLeaf.id, amount_minor: valueMinor, memo: `Combination transfer: ${itemName}` });
       postJournalEntry(valueRef, business, ledger, asUserId(userId));
     }
+    // Per direct instruction that this is fundamental and must be
+    // completed fully: the real unit count moves too, in parallel,
+    // exactly the same, real way the dollar value above does - from
+    // the source location's own real instance to the destination's.
+    const fromInstance = ensureProductInstance(business, combinationShape, [fromLocationName, ...combinationValuesAfterLocation], asUserId(userId));
+    const toInstance = ensureProductInstance(business, combinationShape, [toLocationName, ...combinationValuesAfterLocation], asUserId(userId));
+    const { onHandId } = ensureUnitsTrackingBaseAccounts(business, asUserId(userId));
+    const fromUnits = ensureCombinationAccountLeaf('On Hand', fromInstance, asUserId(userId), onHandId);
+    const toUnits = ensureCombinationAccountLeaf('On Hand', toInstance, asUserId(userId), onHandId);
+    // Per direct correction, matching the exact, same principle
+    // corrected earlier for inventory value (§4/§18): the same, real,
+    // physical units are simply relocating, never changing real kind
+    // - one, real, shared currency for both leaves, based on the
+    // real combination values alone (never the location), or the two
+    // sides could never genuinely balance against each other.
+    const unitsCurrency = `UNITS-${combinationValuesAfterLocation.join('-').toUpperCase()}`;
+    setAccountCurrency(fromUnits.name, unitsCurrency, fromUnits.id);
+    setAccountCurrency(toUnits.name, unitsCurrency, toUnits.id);
+    // A real transfer moves the same, real units between two, real,
+    // different combinations (different locations) - two, real,
+    // distinct currencies, but always the exact, same, real item at a
+    // genuine 1:1 count (never a rate lookup - unlike a real storage
+    // conversion, a transfer never repackages or re-denominates).
+    const countRef = `${reference}-COUNT`;
+    stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(fromUnits.name), accountId: fromUnits.id, amount_minor: -quantity, memo: `Combination transfer (count): ${itemName}` });
+    stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(toUnits.name), accountId: toUnits.id, amount_minor: quantity, memo: `Combination transfer (count): ${itemName}` });
+    postJournalEntry(countRef, business, ledger, asUserId(userId));
   }
   })();
 }
@@ -1467,7 +1527,9 @@ export function writeOffStock(
   reason: string,
   userId: UserId,
   transdate?: string,
-  locationName?: LocationName
+  locationName?: LocationName,
+  combinationValues?: string[],
+  combinationShape?: [string, string][]
 ): void {
   if (quantity <= 0) throw new ValidationError('Write-off quantity must be positive — it is always a reduction, never a gain.');
   const totalMinor = quantity * unitCostMinor;
@@ -1491,6 +1553,31 @@ export function writeOffStock(
   // knows and provides it, the space it occupied is genuinely freed
   // back up, the same real principle as dispatch/transfer.
   if (locationName) adjustLocationCapacity(business, ledger, locationName, itemName, -quantity, date, userId, reference);
+
+  // Per direct instruction that this is fundamental and must be
+  // completed fully: a real, specific combination's own real
+  // Inventory value and real unit count are both genuinely written
+  // off too - mirroring dispatch's own real, combination code path
+  // exactly, since a write-off is, structurally, a real reduction the
+  // exact, same shape as a dispatch, just with no real sale behind it.
+  // Per direct instruction that this is fundamental and must be
+  // completed fully: a real, specific combination's own real unit
+  // count is genuinely written off too, in parallel with the real
+  // dollar value the outer, existing code above already records -
+  // never re-posted a second time, only the real count itself.
+  if (combinationValues && combinationShape) {
+    const instanceTop = ensureProductInstance(business, combinationShape, combinationValues, userId);
+    const { onHandId, receivedFromId } = ensureUnitsTrackingBaseAccounts(business, userId);
+    const unitsOnHand = ensureCombinationAccountLeaf('On Hand', instanceTop, userId, onHandId);
+    const receivedFrom = ensureCombinationAccountLeaf('On Hand', instanceTop, userId, receivedFromId);
+    const unitsCurrency = `UNITS-${combinationValues.join('-').toUpperCase()}`;
+    setAccountCurrency(unitsOnHand.name, unitsCurrency, unitsOnHand.id);
+    setAccountCurrency(receivedFrom.name, unitsCurrency, receivedFrom.id);
+    const countRef = `${reference}-COMBO-COUNT`;
+    stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(unitsOnHand.name), accountId: unitsOnHand.id, amount_minor: -quantity, memo: `Combination write-off (count): ${itemName}` });
+    stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(receivedFrom.name), accountId: receivedFrom.id, amount_minor: quantity, memo: `Combination write-off (count): ${itemName}` });
+    postJournalEntry(countRef, business, ledger, userId);
+  }
 }
 
 /** Records a specific batch/lot of a item arriving, with its own

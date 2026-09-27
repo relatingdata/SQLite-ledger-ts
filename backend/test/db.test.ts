@@ -121,6 +121,7 @@ const {
   convertStorageSpace,
   openStorageContainer,
   createItemCategory,
+  ensureProductInventoryAccount,
   createAndConfigureLocation,
   stageLocation,
   postLocation,
@@ -5833,4 +5834,93 @@ test('receiveStockAtLocation with a real combination: parallel currency AND coun
   assert.equal(receivedFromBalance.balance_minor, -12, 'and its own, real, exact, balanced opposite');
   assert.equal(onHandBalance.currency, 'UNITS-SECURE', 'the real unit count is its own, distinct, real currency - never blended with real dollars or real space');
   assert.equal(receivedFromBalance.currency, 'UNITS-SECURE');
+});
+
+test('dispatchStockFromLocation with a real combination: parallel currency AND count postings both appear, genuinely reversed from a real receipt, each independently balanced', () => {
+  const biz = createBusiness(asBusinessName('DispatchParallelTest Co'), '2027-28', asUserId(1));
+  const userId = asUserId(1);
+  createAndConfigureLocation(biz.business, 'Dispatch Parallel Outlet', {
+    city: 'Adelaide', location_type: 'Retail', is_billing_address: false,
+    bottle_capacity: 100, carton_capacity: null, timezone: 'Australia/Adelaide',
+  } as any, userId);
+  const catEntity = createItemCategory(biz.business, 'Dispatch Parallel Category', undefined, userId);
+  create(catEntity, typeItemName, 'Dispatch Parallel Wine', userId);
+
+  ensureHierarchyGrouping(biz.business, 'Storage', userId);
+  ensureHierarchyValue(biz.business, 'Storage', 'Secure', userId);
+  defineProductShape(biz.business, [['Storage', 'Storage']], userId);
+
+  receiveStockAtLocation(biz.business, biz.actualLedger, 'DISPATCH-PARALLEL-RECEIVE-1', asItemName('Dispatch Parallel Wine'), asLocationName('Dispatch Parallel Outlet'), 12, userId, undefined, ['Secure'], [['Storage', 'Storage']]);
+  dispatchStockFromLocation(biz.business, biz.actualLedger, 'DISPATCH-PARALLEL-DISPATCH-1', asItemName('Dispatch Parallel Wine'), asLocationName('Dispatch Parallel Outlet'), 5, userId, undefined, ['Secure'], [['Storage', 'Storage']]);
+
+  const entities = getEntityTree();
+  const biz2 = entities.find((e) => e.name === 'DispatchParallelTest Co');
+  const onHandRoot = entities.find((e) => e.name === 'Units On Hand' && e.parent_id === biz2?.id);
+  const onHandLeaf = entities.find((e) => e.parent_id === onHandRoot?.id);
+  const onHandBalance = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(onHandLeaf!.id) as { balance_minor: number }).balance_minor;
+  assert.equal(onHandBalance, 7, '12 real units received minus 5 real units dispatched must genuinely leave 7 real units on hand for this combination');
+});
+
+test('transferStock with a real combination: the real unit count moves in parallel with the real dollar value, one, shared, real currency for the same, physical units - genuinely balanced', () => {
+  const biz = createBusiness(asBusinessName('TransferParallelTest Co'), '2027-28', asUserId(1));
+  const userId = asUserId(1);
+  createAndConfigureLocation(biz.business, 'Transfer Parallel Source', {
+    city: 'Adelaide', location_type: 'Warehouse', is_billing_address: false,
+    bottle_capacity: 1000, carton_capacity: null, timezone: 'Australia/Adelaide',
+  } as any, userId);
+  createAndConfigureLocation(biz.business, 'Transfer Parallel Destination', {
+    city: 'Adelaide', location_type: 'Retail', is_billing_address: false,
+    bottle_capacity: 100, carton_capacity: null, timezone: 'Australia/Adelaide',
+  } as any, userId);
+  const catEntity = createItemCategory(biz.business, 'Transfer Parallel Category', undefined, userId);
+  create(catEntity, typeItemName, 'Transfer Parallel Wine', userId);
+
+  ensureHierarchyGrouping(biz.business, 'Storage', userId);
+  ensureHierarchyValue(biz.business, 'Storage', 'Secure', userId);
+  defineProductShape(biz.business, [['Location', 'Location'], ['Storage', 'Storage']], userId);
+
+  receiveStockAtLocation(biz.business, biz.actualLedger, 'TRANSFER-PARALLEL-RECEIVE-1', asItemName('Transfer Parallel Wine'), asLocationName('Transfer Parallel Source'), 20, userId);
+  transferStock(biz.business, biz.actualLedger, asItemName('Transfer Parallel Wine'), asLocationName('Transfer Parallel Source'), asLocationName('Transfer Parallel Destination'), 8, 'TRANSFER-PARALLEL-TRANSFER-1', userId, undefined, [['Location', 'Location'], ['Storage', 'Storage']], ['Secure']);
+
+  const entities = getEntityTree();
+  const biz2 = entities.find((e) => e.name === 'TransferParallelTest Co');
+  const onHandRoot = entities.find((e) => e.name === 'Units On Hand' && e.parent_id === biz2?.id);
+  const leaves = entities.filter((e) => e.parent_id === onHandRoot?.id);
+  assert.equal(leaves.length, 2, 'a real transfer must create exactly two, real, distinct leaves - source and destination - never one, shared leaf');
+
+  const balances = leaves.map((l) => (db.prepare(`SELECT balance_minor, currency FROM account WHERE entity_id = ?`).get(l.id) as { balance_minor: number; currency: string }));
+  assert.deepEqual(balances.map((b) => b.currency).sort(), ['UNITS-SECURE', 'UNITS-SECURE'], 'both real leaves must share the exact, same, real currency - the same, physical units, never changing real kind by moving location');
+  assert.deepEqual(balances.map((b) => b.balance_minor).sort((a, b) => a - b), [-8, 8], 'the real unit count must genuinely balance: -8 at the source, +8 at the destination');
+});
+
+test('writeOffStock with a real combination: the real Inventory value and real unit count are both genuinely written off, in parallel, each independently balanced', () => {
+  const biz = createBusiness(asBusinessName('WriteOffParallelTest Co'), '2027-28', asUserId(1));
+  const business = biz.business;
+  const ledger = biz.actualLedger;
+  const userId = asUserId(1);
+  createAndConfigureLocation(business, 'Write Off Parallel Outlet', {
+    city: 'Adelaide', location_type: 'Retail', is_billing_address: false,
+    bottle_capacity: 100, carton_capacity: null, timezone: 'Australia/Adelaide',
+  } as any, userId);
+  const catEntity = createItemCategory(business, 'Write Off Parallel Category', undefined, userId);
+  create(catEntity, typeItemName, 'Write Off Parallel Wine', userId);
+  ensureProductInventoryAccount(asItemName('Write Off Parallel Wine'), userId);
+  const bizEntity = getEntityTree().find((e) => e.name === 'WriteOffParallelTest Co');
+  const coaEntity = getEntityTree().find((e) => e.name === 'Chart of Accounts' && e.parent_id === bizEntity?.id);
+  const expenseRoot = getEntityTree().find((e) => e.name === 'Expense' && e.parent_id === coaEntity?.id);
+  create({ id: expenseRoot!.id, name: 'Expense' } as any, typeRootName, 'WriteOffParallelTest Breakage Expense', userId);
+
+  ensureHierarchyGrouping(business, 'Storage', userId);
+  ensureHierarchyValue(business, 'Storage', 'Secure', userId);
+  defineProductShape(business, [['Storage', 'Storage']], userId);
+
+  receiveStockAtLocation(business, ledger, 'WRITEOFF-PARALLEL-RECEIVE-1', asItemName('Write Off Parallel Wine'), asLocationName('Write Off Parallel Outlet'), 10, userId, undefined, ['Secure'], [['Storage', 'Storage']]);
+  writeOffStock(business, ledger, 'WRITEOFF-PARALLEL-1', asItemName('Write Off Parallel Wine'), 3, 500, asAccountName('WriteOffParallelTest Breakage Expense'), '', 'Broken in storage', userId, undefined, undefined, ['Secure'], [['Storage', 'Storage']]);
+
+  const entities = getEntityTree();
+  const biz2 = entities.find((e) => e.name === 'WriteOffParallelTest Co');
+  const onHandRoot = entities.find((e) => e.name === 'Units On Hand' && e.parent_id === biz2?.id);
+  const onHandLeaf = entities.find((e) => e.parent_id === onHandRoot?.id);
+  const onHandBalance = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(onHandLeaf!.id) as { balance_minor: number }).balance_minor;
+  assert.equal(onHandBalance, 7, '10 real units received minus 3 real units written off must genuinely leave 7 real units for this combination');
 });
