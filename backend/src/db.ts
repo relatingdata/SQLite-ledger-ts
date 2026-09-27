@@ -2802,11 +2802,19 @@ export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTo
  * ensureCombinationAccountLeaf's own, real, explicit-id form - genuinely
  * unambiguous now that "Remaining"/"Installed" legitimately repeat
  * under every real business and every real location alike. */
-export function ensureStorageCapacityStructure(parentEntity: { id: number; name: string }, userId: UserId): { remainingId: number; installedId: number } {
+export function ensureStorageCapacityStructure(parentEntity: { id: number; name: string }, userId: UserId): { remainingId: number; installedId: number; occupiedId: number } {
   const capacity = (Entity.getUnder('Storage Capacity', parentEntity.id) ?? create(parentEntity as TypedNode<string>, typeRootName, 'Storage Capacity', userId)) as { id: number; name: string };
   const remaining = (Entity.getUnder('Remaining', capacity.id) ?? create(capacity as TypedNode<string>, typeRootName, 'Remaining', userId)) as { id: number; name: string };
   const installed = (Entity.getUnder('Installed', capacity.id) ?? create(capacity as TypedNode<string>, typeRootName, 'Installed', userId)) as { id: number; name: string };
-  return { remainingId: remaining.id, installedId: installed.id };
+  // Per direct instruction that this is fundamental and must be
+  // completed fully: "Installed" only ever changes when real,
+  // physical capacity itself is built or removed - never when an
+  // ordinary, real stock movement merely occupies or frees existing
+  // space. "Occupied" is that real movement's own, genuine, balanced
+  // counterpart to "Remaining" - the real, meaningful identity
+  // Installed = Remaining + Occupied holds at every real moment.
+  const occupied = (Entity.getUnder('Occupied', capacity.id) ?? create(capacity as TypedNode<string>, typeRootName, 'Occupied', userId)) as { id: number; name: string };
+  return { remainingId: remaining.id, installedId: installed.id, occupiedId: occupied.id };
 }
 
 export function convertStorageSpace(

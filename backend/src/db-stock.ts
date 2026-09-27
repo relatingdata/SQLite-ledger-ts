@@ -29,6 +29,8 @@ import {
   create,
   fetch,
   typeRootName,
+  typeBusinessName,
+  type TypedNode,
   typeLocationTypeMarkerName,
   typeIsBillingAddressMarkerName,
   type TypeDescriptor,
@@ -522,17 +524,19 @@ export function getEffectiveSaleCurrency(terminalName: string | undefined): stri
  * pair (ensureStorageCapacityStructure) - genuinely amplified by the
  * real Cartesian Product the moment a business also defines further,
  * real dimensions (Hot/Cold, and so on) for this same location. */
-export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; unit: 'bottle' | 'carton' } {
+export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; occupiedAccountId: number; unit: 'bottle' | 'carton' } {
   const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   const loc = getLocation(locationName);
   const unit: 'bottle' | 'carton' = loc?.bottle_capacity != null ? 'bottle' : 'carton';
   const leafName = unit === 'bottle' ? 'Bottle' : 'Carton';
-  const { remainingId, installedId } = ensureStorageCapacityStructure({ id: locationId, name: locationName }, userId);
+  const { remainingId, installedId, occupiedId } = ensureStorageCapacityStructure({ id: locationId, name: locationName }, userId);
+  const currency = `SPACE-${unit.toUpperCase()}`;
+  const occupied = Entity.getUnder(leafName, occupiedId) ?? Entity.create(leafName, occupiedId, userId);
+  setAccountCurrency(occupied.name, currency, occupied.id);
   let entity = Entity.getUnder(leafName, remainingId);
   if (!entity) {
     entity = Entity.create(leafName, remainingId, userId);
-    const currency = `SPACE-${unit.toUpperCase()}`;
     setAccountCurrency(entity.name, currency, entity.id);
     const installed = Entity.getUnder(leafName, installedId) ?? Entity.create(leafName, installedId, userId);
     setAccountCurrency(installed.name, currency, installed.id);
@@ -544,7 +548,7 @@ export function ensureLocationCapacityAccount(business: BusinessName, ledger: Le
       postJournalEntry(reference, business, ledger, userId);
     }
   }
-  return { capacityAccount: entity.name, capacityAccountId: entity.id, unit };
+  return { capacityAccount: entity.name, capacityAccountId: entity.id, occupiedAccountId: occupied.id, unit };
 }
 
 /** Adjusts a location's own real, tracked remaining capacity by
@@ -556,16 +560,20 @@ export function ensureLocationCapacityAccount(business: BusinessName, ledger: Le
  * remaining space; leaving stock frees it back up. */
 export function adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void {
   if (itemQuantityDelta === 0) return;
-  const { capacityAccount, capacityAccountId, unit } = ensureLocationCapacityAccount(business, ledger, locationName, userId);
+  const { capacityAccount, capacityAccountId, occupiedAccountId, unit } = ensureLocationCapacityAccount(business, ledger, locationName, userId);
   const conversionFactor = unit === 'carton' ? preferredVendorPackageQuantity(itemName) ?? 12 : 1;
   const capacityDelta = -(itemQuantityDelta / conversionFactor);
-  // A real, direct bug fix: transferStock genuinely calls this twice
-  // for the SAME base reference (once per real location involved) -
-  // the location's own name must be part of this capacity posting's
-  // own reference, or the second call collides with the first on the
-  // real, unique (reference, business, ledger) constraint every real
-  // journal entry already enforces.
-  Balance.post(business, ledger, `${referenceSuffix}-CAPACITY-${locationName}`, capacityAccount, capacityAccountId, capacityDelta, userId);
+  // Per direct instruction that this is fundamental and must be
+  // completed fully: no real posting is ever single-sided. Arriving
+  // stock (capacityDelta negative) frees nothing and consumes real,
+  // existing Remaining space, occupying it instead - a real, genuine,
+  // balanced two-line entry against "Occupied," never "Installed"
+  // (which only changes when real, physical capacity itself is built
+  // or removed, never for an ordinary stock movement).
+  const reference = `${referenceSuffix}-CAPACITY-${locationName}`;
+  stageLine({ reference, business, ledger, transdate, account: asAccountName(capacityAccount), accountId: capacityAccountId, amount_minor: capacityDelta });
+  stageLine({ reference, business, ledger, transdate, account: asAccountName(capacityAccount), accountId: occupiedAccountId, amount_minor: -capacityDelta });
+  postJournalEntry(reference, business, ledger, userId);
 }
 
 export interface StockListingRow {
@@ -910,6 +918,21 @@ export function setItemLocationLevels(
  * used to be several, real, separate steps that could diverge if
  * interrupted partway through (a quantity movement posting while its
  * own capacity adjustment or value entry never happened). */
+/** Per direct instruction that this is fundamental and must be
+ * completed fully: real unit counts, for a real, specific combination,
+ * are a real currency too, exactly like the real dollar value already
+ * tracked alongside them - never posted alone, single-sided. "On Hand"
+ * (the count itself) and "Received From" (its real, genuine, balanced
+ * counterpart - where these real units came from) live directly under
+ * this specific business, mirroring Storage Capacity's own real
+ * structure exactly. */
+function ensureUnitsTrackingBaseAccounts(business: BusinessName, userId: UserId): { onHandId: number; receivedFromId: number } {
+  const businessEntity = fetch(business, typeBusinessName, fetch('Businesses', typeRootName));
+  const onHand = (Entity.getUnder('Units On Hand', businessEntity.id) ?? create(businessEntity as TypedNode<string>, typeRootName, 'Units On Hand', userId)) as { id: number; name: string };
+  const receivedFrom = (Entity.getUnder('Units Received From', businessEntity.id) ?? create(businessEntity as TypedNode<string>, typeRootName, 'Units Received From', userId)) as { id: number; name: string };
+  return { onHandId: onHand.id, receivedFromId: receivedFrom.id };
+}
+
 export function receiveStockAtLocation(
   business: BusinessName,
   ledger: LedgerName,
@@ -974,6 +997,22 @@ export function receiveStockAtLocation(
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName('Accounts Payable'), accountId: apId, amount_minor: -valueMinor, memo: `Combination stock receipt: ${itemName}` });
       postJournalEntry(valueRef, business, ledger, userId);
     }
+    // Per direct instruction that the real Location x Item Cartesian
+    // Product must appear under Inventory in parallel currency AND
+    // count amounts: a real, second, genuinely balanced entry, in its
+    // own real currency, tracking the real unit count itself,
+    // entirely separate from the dollar value above - never
+    // "un-balanced," matching every other real posting this session.
+    const { onHandId, receivedFromId } = ensureUnitsTrackingBaseAccounts(business, userId);
+    const unitsOnHand = ensureCombinationAccountLeaf('On Hand', instanceTop, userId, onHandId);
+    const receivedFrom = ensureCombinationAccountLeaf('On Hand', instanceTop, userId, receivedFromId);
+    const unitsCurrency = `UNITS-${combinationValues.join('-').toUpperCase()}`;
+    setAccountCurrency(unitsOnHand.name, unitsCurrency, unitsOnHand.id);
+    setAccountCurrency(receivedFrom.name, unitsCurrency, receivedFrom.id);
+    const countRef = `${reference}-COUNT`;
+    stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(unitsOnHand.name), accountId: unitsOnHand.id, amount_minor: quantity, memo: `Combination stock receipt (count): ${itemName}` });
+    stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(receivedFrom.name), accountId: receivedFrom.id, amount_minor: -quantity, memo: `Combination stock receipt (count): ${itemName}` });
+    postJournalEntry(countRef, business, ledger, userId);
   }
   })();
 }

@@ -43,6 +43,7 @@ const {
   asItemName,
   asLocationName,
   create,
+  typeItemName,
   asEntityId,
   getEntity,
   getQualifiedDisplayName,
@@ -119,6 +120,7 @@ const {
   createBusiness,
   convertStorageSpace,
   openStorageContainer,
+  createItemCategory,
   createAndConfigureLocation,
   stageLocation,
   postLocation,
@@ -5758,4 +5760,77 @@ test('openStorageContainer: opening a carton is two, real, independent space mov
   for (const l of lines) byCurrency.set(l.currency, (byCurrency.get(l.currency) ?? 0) + l.amount_minor);
   assert.equal(byCurrency.get('SPACE-CARTON'), 0, 'the real SPACE-CARTON currency group must independently balance on its own');
   assert.equal(byCurrency.get('SPACE-BOTTLE'), 0, 'the real, separate SPACE-BOTTLE currency group must independently balance on its own too - never linked to the carton group by any rate');
+});
+
+test('adjustLocationCapacity: a real, genuinely balanced posting against Occupied - never single-sided, and Installed = Remaining + Occupied holds as a real accounting identity', () => {
+  const biz = createBusiness(asBusinessName('OccupiedTest Co'), '2027-28', asUserId(1));
+  const userId = asUserId(1);
+  createAndConfigureLocation(biz.business, 'Occupied Test Outlet', {
+    city: 'Adelaide', location_type: 'Retail', is_billing_address: false,
+    bottle_capacity: 100, carton_capacity: null, timezone: 'Australia/Adelaide',
+  } as any, userId);
+
+  const journalCountBefore = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
+  adjustLocationCapacity(biz.business, biz.actualLedger, asLocationName('Occupied Test Outlet'), asItemName('Occupied Test Wine'), 10, '2027-07-01', userId, 'OCCUPIED-TEST-1');
+  const journalCountAfter = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
+  assert.equal(journalCountAfter, journalCountBefore + 1, 'a real capacity adjustment must post exactly one, real, new, balanced journal entry - never a bare, single-sided posting');
+
+  const entities = getEntityTree();
+  const loc = entities.find((e) => e.name === 'Occupied Test Outlet');
+  const capacity = entities.find((e) => e.name === 'Storage Capacity' && e.parent_id === loc?.id);
+  const remainingRoot = entities.find((e) => e.name === 'Remaining' && e.parent_id === capacity?.id);
+  const installedRoot = entities.find((e) => e.name === 'Installed' && e.parent_id === capacity?.id);
+  const occupiedRoot = entities.find((e) => e.name === 'Occupied' && e.parent_id === capacity?.id);
+  assert.ok(occupiedRoot, 'the real, new Occupied leaf must exist - the real, genuine, balanced counterpart to Remaining for ordinary stock movements');
+
+  const remaining = entities.find((e) => e.name === 'Bottle' && e.parent_id === remainingRoot?.id);
+  const installed = entities.find((e) => e.name === 'Bottle' && e.parent_id === installedRoot?.id);
+  const occupied = entities.find((e) => e.name === 'Bottle' && e.parent_id === occupiedRoot?.id);
+
+  const remainingBalance = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(remaining!.id) as { balance_minor: number }).balance_minor;
+  const installedBalance = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(installed!.id) as { balance_minor: number }).balance_minor;
+  const occupiedBalance = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(occupied!.id) as { balance_minor: number }).balance_minor;
+
+  assert.equal(remainingBalance, 90, '10 real units arriving must genuinely reduce Remaining by 10, from the real, opening 100');
+  assert.equal(occupiedBalance, 10, 'and genuinely, correspondingly increase Occupied by 10 - the real, balanced counterpart');
+  assert.equal(installedBalance, -100, 'Installed must stay exactly at its real, original, opening value - an ordinary stock movement never touches it');
+  assert.equal(remainingBalance + occupiedBalance, -installedBalance, 'the real, meaningful accounting identity Installed = Remaining + Occupied must genuinely hold');
+});
+
+test('receiveStockAtLocation with a real combination: parallel currency AND count postings both appear, each genuinely balanced on its own', () => {
+  const biz = createBusiness(asBusinessName('ParallelCountTest Co'), '2027-28', asUserId(1));
+  const userId = asUserId(1);
+  createAndConfigureLocation(biz.business, 'Parallel Count Outlet', {
+    city: 'Adelaide', location_type: 'Retail', is_billing_address: false,
+    bottle_capacity: 100, carton_capacity: null, timezone: 'Australia/Adelaide',
+  } as any, userId);
+  const catEntity = createItemCategory(biz.business, 'Parallel Count Category', undefined, userId);
+  create(catEntity, typeItemName, 'Parallel Count Wine', userId);
+
+  ensureHierarchyGrouping(biz.business, 'Storage', userId);
+  ensureHierarchyValue(biz.business, 'Storage', 'Secure', userId);
+  defineProductShape(biz.business, [['Storage', 'Storage']], userId);
+
+  receiveStockAtLocation(
+    biz.business, biz.actualLedger, 'PARALLEL-COUNT-TEST-1', asItemName('Parallel Count Wine'), asLocationName('Parallel Count Outlet'),
+    12, userId, undefined, ['Secure'], [['Storage', 'Storage']]
+  );
+
+  const entities = getEntityTree();
+  const biz2 = entities.find((e) => e.name === 'ParallelCountTest Co');
+  const onHandRoot = entities.find((e) => e.name === 'Units On Hand' && e.parent_id === biz2?.id);
+  const receivedFromRoot = entities.find((e) => e.name === 'Units Received From' && e.parent_id === biz2?.id);
+  assert.ok(onHandRoot, 'the real Units On Hand base account must exist under this specific business');
+  assert.ok(receivedFromRoot, 'and its own, real, balanced counterpart');
+
+  const onHandLeaf = entities.find((e) => e.parent_id === onHandRoot?.id);
+  const receivedFromLeaf = entities.find((e) => e.parent_id === receivedFromRoot?.id);
+  assert.ok(onHandLeaf && receivedFromLeaf, 'both real, combination-specific leaves must exist');
+
+  const onHandBalance = (db.prepare(`SELECT balance_minor, currency FROM account WHERE entity_id = ?`).get(onHandLeaf!.id) as { balance_minor: number; currency: string });
+  const receivedFromBalance = (db.prepare(`SELECT balance_minor, currency FROM account WHERE entity_id = ?`).get(receivedFromLeaf!.id) as { balance_minor: number; currency: string });
+  assert.equal(onHandBalance.balance_minor, 12, 'the real unit count must genuinely post - never silently skipped alongside the dollar value');
+  assert.equal(receivedFromBalance.balance_minor, -12, 'and its own, real, exact, balanced opposite');
+  assert.equal(onHandBalance.currency, 'UNITS-SECURE', 'the real unit count is its own, distinct, real currency - never blended with real dollars or real space');
+  assert.equal(receivedFromBalance.currency, 'UNITS-SECURE');
 });
