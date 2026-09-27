@@ -29,7 +29,8 @@ export interface Screen {
 }
 
 export interface Step {
-  index: number; // 1-indexed, real row number in the data file
+  index: number; // 1-indexed, real step number (excluding blank lines)
+  file_line: number; // the real, original, raw line number in the data file itself
   screen_name: string;
   values: string[]; // positional, values[0] is position 1
   path: string; // 'api' | 'ui' | '' (falls back to the CLI's own --path)
@@ -99,14 +100,17 @@ export function parseCsvLine(line: string): string[] {
   return fields;
 }
 
-function readCsvLines(path: string): string[] {
-  return readFileSync(path, 'utf-8').split('\n').filter((l) => l.trim() !== '');
+function readCsvLines(path: string): { line: string; fileLine: number }[] {
+  return readFileSync(path, 'utf-8')
+    .split('\n')
+    .map((line, i) => ({ line, fileLine: i + 1 }))
+    .filter((l) => l.line.trim() !== '');
 }
 
 /** Loads the real screen registry, grouping each screen's own real
  * field rows together, sorted by their own real position. */
 export function loadScreens(path: string): Map<string, Screen> {
-  const lines = readCsvLines(path);
+  const lines = readCsvLines(path).map((l) => l.line);
   const headers = parseCsvLine(lines[0]);
   const screens = new Map<string, Screen>();
   for (const line of lines.slice(1)) {
@@ -131,14 +135,14 @@ export function loadScreens(path: string): Map<string, Screen> {
 export function loadSteps(dataPath: string): Step[] {
   const lines = readCsvLines(dataPath);
   const controlPath = dataPath.replace(/\.csv$/, '.control.csv');
-  const controlLines = existsSync(controlPath) ? readCsvLines(controlPath) : [];
+  const controlLines = existsSync(controlPath) ? readCsvLines(controlPath).map((l) => l.line) : [];
   const controlRows = controlLines.length > 0 ? controlLines.slice(1).map(parseCsvLine) : [];
 
-  return lines.map((line, i) => {
-    const fields = parseCsvLine(line);
+  return lines.map((entry, i) => {
+    const fields = parseCsvLine(entry.line);
     const [screen_name, ...values] = fields;
     const control = controlRows[i] ?? [];
-    return { index: i + 1, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '', skip: (control[3] ?? '').toLowerCase() === 'true' };
+    return { index: i + 1, file_line: entry.fileLine, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '', skip: (control[3] ?? '').toLowerCase() === 'true' };
   });
 }
 

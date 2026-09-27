@@ -11,7 +11,7 @@
 # bun, node (via tsx), and deno (via its own, real Node compatibility
 # layer) alike - 173/173 each, confirmed by actually running it under
 # each real runtime, not assumed from documentation.
-RUNTIME ?= bun
+RUNTIME ?= node
 
 ifeq ($(RUNTIME),bun)
   RUN_INSTALL   := bun install

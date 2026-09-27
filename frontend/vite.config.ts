@@ -1,8 +1,18 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import { readFileSync } from 'fs';
+
+// Per direct instruction: the frontend's own real, build-time
+// version, read once from the exact, same, single, real VERSION file
+// the backend reads at startup - never a second, separately-maintained
+// copy of the version number that could silently drift apart from it.
+const appVersion = readFileSync(new URL('../VERSION', import.meta.url), 'utf-8').trim();
 
 export default defineConfig({
   plugins: [sveltekit()],
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   server: {
     port: 5173,
     // A real, confirmed root cause, found directly: without this,

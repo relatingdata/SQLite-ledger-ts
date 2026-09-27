@@ -113,6 +113,19 @@ CREATE TABLE entities (
 -- so a plain UNIQUE would break the instant anything was ever renamed.
 CREATE UNIQUE INDEX entities_name_current ON entities(parent_id, name) WHERE deleted_at IS NULL;
 
+-- Per direct instruction: a real, application-level version stamp on
+-- the database itself, distinct from the running application's own
+-- VERSION file - the one, real place a future migration feature
+-- checks what version of the schema/data this specific database file
+-- was last brought up to date with. Exactly one, real row, always -
+-- enforced by the fixed, real primary key rather than a table-level
+-- constraint, since SQLite has no direct "at most one row" check.
+CREATE TABLE db_version (
+  id      INTEGER PRIMARY KEY CHECK (id = 1),
+  version TEXT NOT NULL
+);
+INSERT INTO db_version (id, version) VALUES (1, '0.0.0.400');
+
 -- A plain, non-unique index on name alone. Cannot be UNIQUE — scoped
 -- uniqueness (one real name per real parent, not globally) is this
 -- schema's own, established, deliberate design, so the exact, same

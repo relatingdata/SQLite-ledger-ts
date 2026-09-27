@@ -1,5 +1,9 @@
 import express from 'express';
 import cors from 'cors';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { db } from './db.js';
 import { entitiesRouter } from './routes/entities.js';
 import { reportsRouter } from './routes/reports.js';
 import { matrixReportsRouter } from './routes/matrix-reports.js';
@@ -30,7 +34,15 @@ app.use(cors());
 app.use(express.json());
 app.use(attachUser);
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+const __dirname = dirname(fileURLToPath(import.meta.url));
+function getAppVersion(): string {
+  return readFileSync(join(__dirname, '../../VERSION'), 'utf-8').trim();
+}
+function getDbVersion(): string {
+  return (db.prepare('SELECT version FROM db_version WHERE id = 1').get() as { version: string }).version;
+}
+
+app.get('/api/health', (_req, res) => res.json({ ok: true, appVersion: getAppVersion(), dbVersion: getDbVersion() }));
 app.use('/api/auth', authRouter); // has its own per-route requireAuth — /login must stay public
 app.use('/api/entities', requireAuth, entitiesRouter);
 app.use('/api/reports', requireAuth, reportsRouter);

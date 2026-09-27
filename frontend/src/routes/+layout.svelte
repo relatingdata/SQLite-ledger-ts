@@ -5,7 +5,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
-  import { getLocalizedText, apiLogout, getMenuTree, getLanguageDirection, type MenuSectionRow } from '$lib/api';
+  import { getLocalizedText, apiLogout, getMenuTree, getLanguageDirection, checkVersion, type MenuSectionRow } from '$lib/api';
   import { session } from '$lib/state.svelte';
   import { auth, hasRole } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
@@ -321,6 +321,7 @@
   onMount(() => {
     loadTranslations();
     loadTextDirection();
+    if (!isAutomatedTest) checkVersion();
     document.getElementById('splash')?.classList.add('hidden');
     setTimeout(() => document.getElementById('splash')?.remove(), 300);
     if (!isAutomatedTest) {

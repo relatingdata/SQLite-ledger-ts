@@ -58,6 +58,47 @@ export function asItemName(name: string): ItemName {
   return name as ItemName;
 }
 
+/** Compares two real, dot-separated version strings part by part (never
+ * as plain strings, since "0.0.0.99" > "0.0.0.100" lexically but not
+ * numerically) - returns -1/0/1, matching Array.prototype.sort's own
+ * convention. */
+export function compareVersions(a: string, b: string): number {
+  const partsA = a.split('.').map(Number);
+  const partsB = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+    const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
+    if (diff !== 0) return diff > 0 ? 1 : -1;
+  }
+  return 0;
+}
+
+/** Per direct instruction: the frontend's own real, build-time version
+ * (__APP_VERSION__, injected from the exact, same, single VERSION file
+ * the backend reads) must agree with the real, running backend's own,
+ * live-reported version. When they genuinely disagree, whichever side
+ * carries the real, lower version is the one out of date, and restarts
+ * - for the frontend, a real, full page reload; the backend cannot be
+ * restarted from here at all, so a real, clear, honest console warning
+ * is the most this call can do on that side, stated plainly rather
+ * than pretending otherwise. */
+export async function checkVersion(): Promise<void> {
+  try {
+    const health = await request<{ ok: boolean; appVersion: string; dbVersion: string }>('/health');
+    const cmp = compareVersions(__APP_VERSION__, health.appVersion);
+    if (cmp === 0) return;
+    if (cmp < 0) {
+      console.warn(`Frontend version ${__APP_VERSION__} is older than the real, running backend's own ${health.appVersion} - reloading.`);
+      window.location.reload();
+    } else {
+      console.warn(`Backend version ${health.appVersion} is older than this real, running frontend's own ${__APP_VERSION__} - the backend needs restarting; this cannot be done from the frontend.`);
+    }
+  } catch {
+    // A real, failed version check (backend genuinely unreachable) is
+    // not this function's own concern - every other real call already
+    // surfaces that failure on its own.
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const current = auth.current;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
