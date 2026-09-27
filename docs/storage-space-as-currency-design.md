@@ -315,3 +315,33 @@ the step-runner's own suite, 14/14.
 
 Honestly, precisely incomplete: no frontend work has been started -
 location setup, item setup, or either storage case, exactly as before.
+
+## 15. Backend API routes added and directly proven, before any frontend work
+
+Per direct instruction to proceed with frontend work, starting with the API
+layer it will call: two, real, new routes added to `backend/src/routes/locations.ts`
+- `POST /api/locations/convert-storage` and `POST /api/locations/open-container`
+- wrapping `convertStorageSpace`/`openStorageContainer` directly. The
+existing `POST /api/locations/:name/receive` route extended to accept
+optional `combinationValues`/`combinationShape`, passing them through to
+`receiveStockAtLocation`'s own, already-existing combination support.
+
+**A real, genuine route-ordering bug found and fixed, not assumed correct**:
+Express matches route definitions in the order they're registered - the
+generic `POST /:name` (location creation) was defined before the new
+`/convert-storage`/`/open-container` routes, so it silently treated
+"convert-storage"/"open-container" as a real location's own name,
+producing a confusing "city is required" validation error instead of ever
+reaching the real, intended handler. Fixed by placing both new routes
+before `/:name` in the file.
+
+Confirmed directly, not assumed, against the real, live, running backend
+(curl, not a unit test alone): `POST /convert-storage` and
+`POST /open-container` both return `204`; `POST /:name/receive` with a real
+combination correctly posts. 196/196 backend tests pass; check-backend-types
+and check-docs-coverage both clean.
+
+Honestly, precisely incomplete: no frontend UI exists yet at all - the
+Locations page has no way to trigger either action, and Item setup has no
+storage-combination concept in its own UI either. That remains the next,
+real, immediate piece.

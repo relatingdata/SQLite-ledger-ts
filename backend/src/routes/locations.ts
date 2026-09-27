@@ -10,6 +10,8 @@ import {
   getItemLocation,
   setItemLocationLevels,
   receiveStockAtLocation,
+  convertStorageSpace,
+  openStorageContainer,
   dispatchStockFromLocation,
   transferStock,
   getBelowReorderStock,
@@ -75,6 +77,63 @@ locationsRouter.post('/types', requireRole('Administrator', 'Bookkeeper'), (req,
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not create location type.' });
+  }
+});
+
+// Per direct instruction: the real, rate-based storage conversion
+// (e.g. Hot to Cold) - a real, defined, one-directional exchange rate
+// between two real storage combinations. Placed here, before the
+// generic '/:name' route below, since Express matches route
+// definitions in order - '/:name' would otherwise wrongly treat
+// "convert-storage"/"open-container" as a real location's own name.
+const convertStorageSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  itemName: z.string().min(1),
+  definitionDimensions: z.array(z.tuple([z.string(), z.string()])),
+  fromValues: z.array(z.string()),
+  toValues: z.array(z.string()),
+  quantity: z.number().int().positive(),
+  reference: z.string().optional(),
+});
+locationsRouter.post('/convert-storage', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = convertStorageSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    convertStorageSpace(asBusinessName(d.business), asLedgerName(d.ledger), asItemName(d.itemName), d.definitionDimensions, d.fromValues, d.toValues, d.quantity, asUserId(req.user!.id), d.reference);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not convert storage.' });
+  }
+});
+
+// Per direct instruction: the real, independent, non-rate-linked
+// container-opening case - never a "conversion," two real, unrelated
+// space movements that merely happen together.
+const openContainerSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  definitionDimensions: z.array(z.tuple([z.string(), z.string()])),
+  containerValues: z.array(z.string()),
+  cartonsOpened: z.number().int().positive(),
+  unitValues: z.array(z.string()),
+  unitsProduced: z.number().int().positive(),
+  reference: z.string().optional(),
+});
+locationsRouter.post('/open-container', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = openContainerSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    openStorageContainer(asBusinessName(d.business), asLedgerName(d.ledger), d.definitionDimensions, d.containerValues, d.cartonsOpened, d.unitValues, d.unitsProduced, asUserId(req.user!.id), d.reference);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not open container.' });
   }
 });
 
@@ -197,6 +256,8 @@ const movementSchema = z.object({
   itemName: z.string().min(1),
   quantity: z.number().int().positive(),
   transdate: z.string().optional(),
+  combinationValues: z.array(z.string()).optional(),
+  combinationShape: z.array(z.tuple([z.string(), z.string()])).optional(),
 });
 
 locationsRouter.post('/:name/receive', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
@@ -204,7 +265,7 @@ locationsRouter.post('/:name/receive', requireRole('Administrator', 'Bookkeeper'
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const d = parsed.data;
-    receiveStockAtLocation(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), asLocationName(req.params.name), d.quantity, asUserId(req.user!.id), d.transdate);
+    receiveStockAtLocation(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), asLocationName(req.params.name), d.quantity, asUserId(req.user!.id), d.transdate, d.combinationValues, d.combinationShape);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
