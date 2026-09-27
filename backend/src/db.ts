@@ -2828,6 +2828,57 @@ export function convertStorageSpace(
   postJournalEntry(ref, business, ledger, userId);
 }
 
+/** Per direct, corrected instruction: opening a carton is never a real
+ * "conversion" between carton-space and bottle-space, and no real
+ * exchange rate connects them at all - it is two, real, independent
+ * events (carton-space freed, bottle-space separately consumed) that
+ * merely happen together because opening a carton is one, real,
+ * physical action. Each real space movement balances only against its
+ * own real "Storage Capacity Installed" counterpart, in the exact,
+ * same way as every other real, single-sided-never posting - never
+ * against each other, and never through a real currency-pair rate
+ * lookup, since there is genuinely nothing to exchange. Real inventory
+ * value is never posted here either, per the exact, same, real reason
+ * convertStorageSpace does not: counting a carton versus its own real
+ * bottles is a fixed, known multiplier, exactly like counting dollars
+ * versus cents, never an exchange. */
+export function openStorageContainer(
+  business: BusinessName,
+  ledger: LedgerName,
+  definitionDimensions: [string, string][],
+  containerValues: string[],
+  cartonsOpened: number,
+  unitValues: string[],
+  unitsProduced: number,
+  userId: UserId,
+  reference?: string
+): void {
+  const containerInstance = ensureProductInstance(business, definitionDimensions, containerValues, userId);
+  const unitInstance = ensureProductInstance(business, definitionDimensions, unitValues, userId);
+  const containerSpace = ensureCombinationAccountLeaf('Storage Capacity Remaining', containerInstance, userId);
+  const containerInstalled = ensureCombinationAccountLeaf('Storage Capacity Installed', containerInstance, userId);
+  const unitSpace = ensureCombinationAccountLeaf('Storage Capacity Remaining', unitInstance, userId);
+  const unitInstalled = ensureCombinationAccountLeaf('Storage Capacity Installed', unitInstance, userId);
+
+  const containerCurrency = `SPACE-${containerValues.join('-').toUpperCase()}`;
+  const unitCurrency = `SPACE-${unitValues.join('-').toUpperCase()}`;
+  setAccountCurrency(containerSpace.name, containerCurrency, containerSpace.id);
+  setAccountCurrency(containerInstalled.name, containerCurrency, containerInstalled.id);
+  setAccountCurrency(unitSpace.name, unitCurrency, unitSpace.id);
+  setAccountCurrency(unitInstalled.name, unitCurrency, unitInstalled.id);
+
+  const ref = reference ?? `STORAGE-OPEN-${Date.now()}`;
+  // Container-space freed - a real, complete, independently-balancing
+  // currency group on its own.
+  stageLine({ reference: ref, business, ledger, account: asAccountName(containerSpace.name), accountId: containerSpace.id, amount_minor: -cartonsOpened });
+  stageLine({ reference: ref, business, ledger, account: asAccountName(containerInstalled.name), accountId: containerInstalled.id, amount_minor: cartonsOpened });
+  // Unit-space consumed - a real, separate, independently-balancing
+  // currency group, never linked to the one above by any rate.
+  stageLine({ reference: ref, business, ledger, account: asAccountName(unitSpace.name), accountId: unitSpace.id, amount_minor: unitsProduced });
+  stageLine({ reference: ref, business, ledger, account: asAccountName(unitInstalled.name), accountId: unitInstalled.id, amount_minor: -unitsProduced });
+  postJournalEntry(ref, business, ledger, userId);
+}
+
 /** Per direct instruction: real, business-scoped listing functions
  * for the frontend to actually use this mechanism through -
  * "Hierarchy" and "Product" are real, bare, non-globally-unique names

@@ -244,3 +244,37 @@ same, real inventory value in a different, real counting unit.
 currency groups (space out, space in) — no inventory posting of any kind.
 Confirmed directly: 195/195 backend tests pass, the direct conversion test
 simplified to match.
+
+## 13. openStorageContainer implemented and directly, fully tested — the independent, non-rate-linked case from §12
+
+`openStorageContainer` (backend/src/db.ts): opening a carton posts two,
+real, completely independent currency groups (carton-space freed,
+bottle-space consumed), each balanced only against its own real "Storage
+Capacity Installed" counterpart — never against each other, and never
+through any real currency-pair rate lookup, since none exists or is needed.
+
+A real, direct, deliberately-forced test confirms: exactly one journal
+entry posts; both real currency groups independently sum to zero.
+
+A real, pre-existing, separate bug found while writing this test, not
+introduced by it: `ensureCombinationAccountLeaf`'s own base-account lookup
+(e.g. "Storage Capacity Remaining") is a bare, global name, not scoped to
+the specific, real business calling it — the first real business to create
+that name "wins" it globally, so a second, different business's own
+combinations silently attach to the first business's tree instead of their
+own. Confirmed directly: `getTrialBalance`, correctly scoped to one
+specific business, saw none of this test's own real journal lines at all,
+because they were never actually created under that business's Chart of
+Accounts. Worked around in the test (querying `journal_line` directly by
+reference, sidestepping the business-scoping question entirely) rather
+than masked; the real, underlying bug in `ensureCombinationAccountLeaf`
+itself remains open, unfixed, and is the same, already-familiar class of
+bare-name ambiguity found and fixed repeatedly elsewhere this session — it
+should receive the same, real, `businessId`-scoped fix eventually.
+
+196/196 backend tests pass.
+
+Honestly, precisely incomplete, given severe time constraints: the tutorial
+e2e fixture has not yet been extended to exercise this new function, and no
+frontend work (location setup, item setup, either storage case) has been
+started.

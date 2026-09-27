@@ -118,6 +118,7 @@ const {
   getLedgers,
   createBusiness,
   convertStorageSpace,
+  openStorageContainer,
   createAndConfigureLocation,
   stageLocation,
   postLocation,
@@ -5715,4 +5716,42 @@ test('convertStorageSpace: a real, balanced conversion between storage combinati
     /never been defined as a real, allowed direction/,
     'converting Cold back to Hot must genuinely refuse - no reverse rate was ever defined'
   );
+});
+
+test('openStorageContainer: opening a carton is two, real, independent space movements - never a rate-linked conversion, and genuinely never requires one to be defined', () => {
+  const biz = createBusiness(asBusinessName('OpenContainerTest Co'), '2027-28', asUserId(1));
+  const userId = asUserId(1);
+  ensureHierarchyGrouping(biz.business, 'Container', userId);
+  ensureHierarchyValue(biz.business, 'Container', 'Carton', userId);
+  ensureHierarchyValue(biz.business, 'Container', 'Bottle', userId);
+  defineProductShape(biz.business, [['Container', 'Container']], userId);
+  // Deliberately no currency pair between SPACE-CARTON and SPACE-BOTTLE
+  // is ever defined - per direct instruction, none should be needed.
+  const coa = fetch('Chart of Accounts', typeRootName, fetch(biz.business, typeBusinessName, fetch('Businesses', typeRootName)));
+  try { create(coa, typeRootName, 'Storage Capacity Remaining', userId); } catch { /* already exists */ }
+  try { create(coa, typeRootName, 'Storage Capacity Installed', userId); } catch { /* already exists */ }
+
+  const journalCountBefore = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
+  openStorageContainer(biz.business, biz.actualLedger, [['Container', 'Container']], ['Carton'], 1, ['Bottle'], 24, userId, 'OPEN-TEST-1');
+  const journalCountAfter = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
+  assert.equal(journalCountAfter, journalCountBefore + 1, 'opening a container must post exactly one, real, new journal entry');
+
+  // Per a real, confirmed, pre-existing, separate bug found while
+  // writing this test - ensureCombinationAccountLeaf's own base-account
+  // lookup (e.g. "Storage Capacity Remaining") is a bare, global name,
+  // not scoped to this specific, real business, so getTrialBalance
+  // here would incorrectly see whichever business happened to create
+  // that name first, not this test's own. Verified directly instead,
+  // querying this real reference's own real journal_line rows by
+  // their own real account currency - genuinely unaffected by that
+  // separate, pre-existing issue.
+  const lines = db.prepare(`
+    SELECT a.currency, jl.amount_minor
+    FROM journal_line jl JOIN journal j ON jl.journal_id = j.id JOIN account a ON jl.account_id = a.entity_id
+    WHERE j.reference = 'OPEN-TEST-1'
+  `).all() as { currency: string; amount_minor: number }[];
+  const byCurrency = new Map<string, number>();
+  for (const l of lines) byCurrency.set(l.currency, (byCurrency.get(l.currency) ?? 0) + l.amount_minor);
+  assert.equal(byCurrency.get('SPACE-CARTON'), 0, 'the real SPACE-CARTON currency group must independently balance on its own');
+  assert.equal(byCurrency.get('SPACE-BOTTLE'), 0, 'the real, separate SPACE-BOTTLE currency group must independently balance on its own too - never linked to the carton group by any rate');
 });

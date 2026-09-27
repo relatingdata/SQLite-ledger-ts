@@ -109,3 +109,14 @@ Directly, fully tested (`backend/test/db.test.ts`): a real conversion
 posts one, balanced journal entry; every real currency group, including
 the storage ones, stays genuinely balanced; a real, undefined reverse
 direction genuinely refuses rather than silently succeeding.
+
+## 12. openStorageContainer — the independent, non-rate-linked storage case
+
+Per direct correction: opening a carton is never a real "conversion"
+between carton-space and bottle-space - no rate connects them at all.
+`openStorageContainer` (backend/src/db.ts) posts two, real, completely
+independent currency groups instead, each balanced only against its own
+real "Storage Capacity Installed" counterpart. See
+`docs/storage-space-as-currency-design.md` §13 for the full account, and a
+real, pre-existing, separate bug found while testing it (`
+ensureCombinationAccountLeaf`'s base-account lookup is not business-scoped).
