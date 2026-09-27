@@ -2728,8 +2728,8 @@ export function getCombinationByUpc(upc: string): { itemName: string; combinatio
  * own relation_id points at a real Product Instance's own top node.
  * This is the one, real, shared, canonical link all three financial
  * accounts for the same, real combination refer back to. */
-export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId): { id: number; name: string } {
-  const baseId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(baseAccountName) as { id: number } | undefined)?.id;
+export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId, baseAccountId?: number): { id: number; name: string } {
+  const baseId = baseAccountId ?? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(baseAccountName) as { id: number } | undefined)?.id;
   if (!baseId) throw new ValidationError(`No real account named "${baseAccountName}".`);
   const instanceRow = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(instanceTopNode.id) as { combination_ids: string | null } | undefined;
   const combinationIds = instanceRow?.combination_ids ?? null;
@@ -2789,10 +2789,24 @@ export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTo
  * real, direct children of this specific business's own Chart of Accounts
  * first - the one, real place a base account must live to ever appear in
  * a real financial report. */
-function ensureStorageBaseAccounts(business: BusinessName, userId: UserId): void {
-  const coa = fetch('Chart of Accounts', typeRootName, fetch(business, typeBusinessName, fetch('Businesses', typeRootName)));
-  try { Entity.getUnder('Storage Space Remaining', coa.id) ?? create(coa, typeRootName, 'Storage Space Remaining', userId); } catch { /* already exists */ }
-  try { Entity.getUnder('Storage Space Installed', coa.id) ?? create(coa, typeRootName, 'Storage Space Installed', userId); } catch { /* already exists */ }
+/** Per direct, absolute correction: the real, "built-in" Hierarchy is
+ * named "Storage Capacity," with two, real, named leaves of its own -
+ * "Remaining" and "Installed" - never a flat, bare-named pair. This
+ * exact, same, real structure lives under both a real business (its
+ * own Chart of Accounts) and every real location alike - the one, new
+ * mechanism entirely replacing the earlier, real, flat, per-location
+ * "Storage Capacity Remaining"/"Installed" pair (checkpoint 395),
+ * never unified alongside it. Each real "Remaining"/"Installed" leaf
+ * is itself "amplified" by whatever real, user-defined Storage
+ * Cartesian Product combinations are actually in use, via
+ * ensureCombinationAccountLeaf's own, real, explicit-id form - genuinely
+ * unambiguous now that "Remaining"/"Installed" legitimately repeat
+ * under every real business and every real location alike. */
+export function ensureStorageCapacityStructure(parentEntity: { id: number; name: string }, userId: UserId): { remainingId: number; installedId: number } {
+  const capacity = (Entity.getUnder('Storage Capacity', parentEntity.id) ?? create(parentEntity as TypedNode<string>, typeRootName, 'Storage Capacity', userId)) as { id: number; name: string };
+  const remaining = (Entity.getUnder('Remaining', capacity.id) ?? create(capacity as TypedNode<string>, typeRootName, 'Remaining', userId)) as { id: number; name: string };
+  const installed = (Entity.getUnder('Installed', capacity.id) ?? create(capacity as TypedNode<string>, typeRootName, 'Installed', userId)) as { id: number; name: string };
+  return { remainingId: remaining.id, installedId: installed.id };
 }
 
 export function convertStorageSpace(
@@ -2806,11 +2820,12 @@ export function convertStorageSpace(
   userId: UserId,
   reference?: string
 ): void {
-  ensureStorageBaseAccounts(business, userId);
+  const businessEntity = fetch(business, typeBusinessName, fetch('Businesses', typeRootName));
+  const { remainingId, installedId } = ensureStorageCapacityStructure(businessEntity, userId);
   const fromInstance = ensureProductInstance(business, definitionDimensions, fromValues, userId);
   const toInstance = ensureProductInstance(business, definitionDimensions, toValues, userId);
-  const fromSpace = ensureCombinationAccountLeaf('Storage Space Remaining', fromInstance, userId);
-  const toSpace = ensureCombinationAccountLeaf('Storage Space Remaining', toInstance, userId);
+  const fromSpace = ensureCombinationAccountLeaf('Remaining', fromInstance, userId, remainingId);
+  const toSpace = ensureCombinationAccountLeaf('Remaining', toInstance, userId, remainingId);
 
   const fromCurrency = `SPACE-${fromValues.join('-').toUpperCase()}`;
   const toCurrency = `SPACE-${toValues.join('-').toUpperCase()}`;
@@ -2833,8 +2848,8 @@ export function convertStorageSpace(
 
   const ref = reference ?? `STORAGE-CONVERT-${Date.now()}`;
 
-  const fromInstalled = ensureCombinationAccountLeaf('Storage Space Installed', fromInstance, userId);
-  const toInstalled = ensureCombinationAccountLeaf('Storage Space Installed', toInstance, userId);
+  const fromInstalled = ensureCombinationAccountLeaf('Installed', fromInstance, userId, installedId);
+  const toInstalled = ensureCombinationAccountLeaf('Installed', toInstance, userId, installedId);
   setAccountCurrency(fromInstalled.name, fromCurrency, fromInstalled.id);
   setAccountCurrency(toInstalled.name, toCurrency, toInstalled.id);
 
@@ -2870,13 +2885,14 @@ export function openStorageContainer(
   userId: UserId,
   reference?: string
 ): void {
-  ensureStorageBaseAccounts(business, userId);
+  const businessEntity = fetch(business, typeBusinessName, fetch('Businesses', typeRootName));
+  const { remainingId, installedId } = ensureStorageCapacityStructure(businessEntity, userId);
   const containerInstance = ensureProductInstance(business, definitionDimensions, containerValues, userId);
   const unitInstance = ensureProductInstance(business, definitionDimensions, unitValues, userId);
-  const containerSpace = ensureCombinationAccountLeaf('Storage Space Remaining', containerInstance, userId);
-  const containerInstalled = ensureCombinationAccountLeaf('Storage Space Installed', containerInstance, userId);
-  const unitSpace = ensureCombinationAccountLeaf('Storage Space Remaining', unitInstance, userId);
-  const unitInstalled = ensureCombinationAccountLeaf('Storage Space Installed', unitInstance, userId);
+  const containerSpace = ensureCombinationAccountLeaf('Remaining', containerInstance, userId, remainingId);
+  const containerInstalled = ensureCombinationAccountLeaf('Installed', containerInstance, userId, installedId);
+  const unitSpace = ensureCombinationAccountLeaf('Remaining', unitInstance, userId, remainingId);
+  const unitInstalled = ensureCombinationAccountLeaf('Installed', unitInstance, userId, installedId);
 
   const containerCurrency = `SPACE-${containerValues.join('-').toUpperCase()}`;
   const unitCurrency = `SPACE-${unitValues.join('-').toUpperCase()}`;

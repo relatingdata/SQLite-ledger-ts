@@ -135,3 +135,15 @@ is a real, deliberate, established convention, not an inconsistency to
 "fix" by renaming the internal root - a person setting one up always reads
 "Hierarchies," the real, singular root name underneath is purely structural
 and never shown to them.
+
+## 14. ensureStorageCapacityStructure - the corrected, real "Storage Capacity" structure
+
+Per direct correction: `ensureStorageCapacityStructure(parentEntity, userId)`
+(backend/src/db.ts) creates the real, built-in "Storage Capacity" Hierarchy
+- with "Remaining"/"Installed" as its own real leaves - under any given real
+parent (a business or a location alike). `ensureCombinationAccountLeaf`
+itself extended with an optional, explicit `baseAccountId`, bypassing its
+own bare-name lookup - the same, general fix already applied elsewhere this
+session, since "Remaining"/"Installed" now legitimately repeat under every
+real business and location. See `docs/storage-space-as-currency-design.md`
+§18 for the full account.

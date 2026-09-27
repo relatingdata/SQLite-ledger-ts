@@ -406,3 +406,63 @@ Honestly, precisely incomplete: no UI exists yet for the "Convert Storage"
 action from an item's own context (only Locations has it) - opening a
 container or converting storage is still framed as a location-level action,
 not yet reachable while looking at a specific item.
+
+## 18. Corrected, per direct instruction: "Storage Capacity" is the real, built-in Hierarchy name, with Remaining/Installed as its own real leaves, amplified by the real Cartesian Product
+
+Per direct, absolute correction: the earlier "Storage Space
+Remaining"/"Installed" flat names (§14 onward) are wrong. The real,
+"built-in" Hierarchy is named **"Storage Capacity,"** with two, real, named
+leaves of its own — **"Remaining"** and **"Installed"** — never a flat,
+bare-named pair. This exact, same, real structure exists under both a real
+business (directly under `<Business name>`, not nested under Chart of
+Accounts) and every real location alike, per direct instruction — meaning
+it is genuinely structurally invisible to every financial report (Balance
+Sheet, P&L, and even Trial Balance, all of which walk from Chart of
+Accounts specifically), a real, deliberate consequence, not an oversight.
+
+Each real "Remaining"/"Installed" leaf is itself "amplified" by whatever
+real, user-defined Storage Cartesian Product combinations are actually in
+use — confirmed directly against the real, live database:
+
+```
+Wine Retail Business II
+└── Storage Capacity
+    ├── Installed
+    │   ├── Bottle
+    │   └── Carton
+    └── Remaining
+        ├── Bottle
+        └── Carton
+```
+
+**A real, general fix made to `ensureCombinationAccountLeaf` itself**: it now
+accepts an optional, explicit `baseAccountId`, bypassing its own, real,
+bare-name lookup entirely when given — the same, real, general fix already
+applied elsewhere this session to every other bare-name ambiguity, since
+"Remaining"/"Installed" now legitimately repeat under every real business
+and every real location alike. `ensureStorageCapacityStructure(parentEntity,
+userId)` is the one, real, new, shared function creating this exact
+structure under any given real parent — a business or a location alike —
+returning both real leaf ids for direct, unambiguous use.
+
+`convertStorageSpace`/`openStorageContainer` rewired to this corrected
+structure and confirmed directly, not assumed: 196/196 backend tests pass;
+the real tutorial fixture's own trial run reproduces the exact structure
+shown above.
+
+**Honestly, precisely incomplete, per direct instruction that "the new
+entirely replaces the old" — not yet done**: the earlier, real, per-location
+mechanism (`ensureLocationCapacityAccount`, checkpoint 395's own flat
+"Storage Capacity Remaining"/"Installed" pair, created directly under a
+location with no Cartesian breakdown at all) has not yet been replaced. It
+has four, real, separate call sites (`postLocation`, `createAndConfigureLocation`,
+and the stock-movement capacity-adjustment path in `db-stock.ts`) plus
+several, real, direct unit tests — a real, further, separate, careful piece
+of work, not completed in this pass given its real scope and risk.
+
+**A real, further, significant requirement received, not yet started**: per
+direct instruction, the real Location × Item Cartesian Product (summed
+suitably by Hierarchies) must appear under Inventory, Sales, and COGS too,
+in parallel currency *and* count amounts — real, further, separate, and
+substantial work, recorded here honestly rather than attempted under severe
+time pressure in the same pass as the Storage Capacity correction above.
