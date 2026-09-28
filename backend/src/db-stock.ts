@@ -439,7 +439,7 @@ export interface StockMovementRow {
   quantity: number;
   date: string;
 }
-export interface StockReceiptRow extends StockMovementRow {
+export interface OrderReceiptRow extends StockMovementRow {
   location: string;
   division: string | null;
   vendor: string | null;
@@ -455,7 +455,7 @@ export interface StockSaleRow extends StockMovementRow {
   amount_minor: number;
 }
 export interface StockMovementReport {
-  receipts: StockReceiptRow[];
+  receipts: OrderReceiptRow[];
   transfers: StockTransferRow[];
   sales: StockSaleRow[];
 }
@@ -506,7 +506,7 @@ export function getStockMovementReport(ledgerName: string, fromDate?: string, to
        ORDER BY j.transdate, l.name, p.name`
     )
     .all(ledgerId, ...dateParams) as { item: string; location: string; quantity: number; date: string }[];
-  const receipts: StockReceiptRow[] = receiptRows.map((r) => ({
+  const receipts: OrderReceiptRow[] = receiptRows.map((r) => ({
     item: r.item,
     category: categories.get(r.item) ?? null,
     quantity: r.quantity,
@@ -663,7 +663,7 @@ function ensureUnitsTrackingBaseAccounts(business: BusinessName, userId: UserId)
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
-export function receiveStockAtLocation(
+export function receiveItems(
   business: BusinessName,
   ledger: LedgerName,
   reference: string,
@@ -717,7 +717,7 @@ export function receiveStockAtLocation(
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
-export function dispatchStockFromLocation(
+export function dispatchItems(
   business: BusinessName,
   ledger: LedgerName,
   reference: string,
@@ -772,7 +772,7 @@ export function dispatchStockFromLocation(
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
-export function transferStock(
+export function transferItems(
   business: BusinessName,
   ledger: LedgerName,
   itemName: ItemName,
@@ -1079,7 +1079,7 @@ export function completeStockTake(
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
-export function writeOffStock(
+export function writeOffItems(
   business: BusinessName,
   ledger: LedgerName,
   reference: string,

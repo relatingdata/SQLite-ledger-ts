@@ -1,0 +1,15 @@
+# Step 3 of docs/bulk-rename-plan.md: the settled movement family.
+# transfer/receive/dispatch/writeOff act on Items. An order holds many Items, so the
+# documents are OrderReceipt (settled) and OrderDispatch (its mirror image, an extension
+# of that decision). Restock names are held until the TransferOrder is designed.
+transferStock transferItems
+receiveStockAtLocation receiveItems
+dispatchStockFromLocation dispatchItems
+writeOffStock writeOffItems
+stageStockReceipt stageOrderReceipt
+postStockReceipt postOrderReceipt
+StockReceiptInput OrderReceiptInput
+StockReceiptRow OrderReceiptRow
+stageStockDispatch stageOrderDispatch
+postStockDispatch postOrderDispatch
+StockDispatchInput OrderDispatchInput

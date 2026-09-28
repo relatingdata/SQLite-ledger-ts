@@ -188,11 +188,11 @@ Table: Every real screen that posts a transaction, the real backend function it 
 | General Journal (`/post`) | `stageLine` + `postJournalEntry` (direct) | `post_journal_entry_insert` |
 | Purchase Order (`/stock/po`) | `postPurchaseOrder` | *(memo only — no ledger effect until fulfilled)* |
 | Sales Order (`/stock/so`) | `postSalesOrder` | *(memo only — no ledger effect until fulfilled)* |
-| Stock Receipt (`/stock/stock-receipt`) | `postStockReceipt` | `post_quantity_movement_insert` |
-| Stock Dispatch (`/stock/stock-dispatch`) | `postStockDispatch` | `post_quantity_movement_insert` |
-| Stock Transfer (`/stock/transfer`) | `transferStock` | `post_quantity_movement_insert` |
+| Stock Receipt (`/stock/stock-receipt`) | `postOrderReceipt` | `post_quantity_movement_insert` |
+| Stock Dispatch (`/stock/stock-dispatch`) | `postOrderDispatch` | `post_quantity_movement_insert` |
+| Stock Transfer (`/stock/transfer`) | `transferItems` | `post_quantity_movement_insert` |
 | Stock Take (`/stock/stock-take`) | `completeStockTake` | both triggers — a quantity correction and its own value recognition |
-| Write-offs & Expiration (`/stock/write-offs`) | `writeOffStock` | both triggers |
+| Write-offs & Expiration (`/stock/write-offs`) | `writeOffItems` | both triggers |
 | HR wage payment (`/hr`) | `payEmployeeWages` | `post_journal_entry_insert` |
 | Recurring transactions (`/post`, recurring) | `createRecurringJournal` | **none — writes directly to `journal`/`journal_line`, bypassing `journal_entry_staging` entirely** |
 

@@ -131,7 +131,7 @@ real, HTTP-layer concern - the frontend should never have to re-send `business` 
 every call, and a route should never have to re-extract it from a request body. It is
 **not** a reason to remove `businessName` as an explicit, real parameter from the
 100+ real, pure functions in `db.ts`/`db-stock.ts` themselves (`createBusiness`,
-`getLedgers`, `receiveStockAtLocation`, and so on). Those functions stay real, pure,
+`getLedgers`, `receiveItems`, and so on). Those functions stay real, pure,
 directly testable, with every real dependency explicit in their own signature - the
 same, real, established testing convention this whole codebase already depends on
 (`backend/test/db.test.ts` calls every one of them directly, supplying its own real

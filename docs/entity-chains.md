@@ -91,7 +91,7 @@ Every real business is its own, top-level entity under `Businesses`, and where a
 `Golden Lager 330ml` (a real, live product) has 0 real, direct child accounts:
 
 
-These are exactly the real accounts a real sale/receipt/transfer posts against — see `postQuantityMovement`, `receiveStockAtLocation`, and `dispatchStockFromLocation` in `backend/src/db-stock.ts` for how each is actually used, and `docs/money-model.md` for why quantity and value are tracked as two independent facts.
+These are exactly the real accounts a real sale/receipt/transfer posts against — see `postQuantityMovement`, `receiveItems`, and `dispatchItems` in `backend/src/db-stock.ts` for how each is actually used, and `docs/money-model.md` for why quantity and value are tracked as two independent facts.
 
 ### Employees — a real, complete roster sample
 

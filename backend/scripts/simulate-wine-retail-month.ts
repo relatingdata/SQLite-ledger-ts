@@ -26,13 +26,13 @@ import {
   setContact,
   stageLine,
   postJournalEntry,
-  receiveStockAtLocation,
-  transferStock,
+  receiveItems,
+  transferItems,
   getRestockPickingList,
   confirmRestockPickedLine,
   dispatchRestockFromPickingList,
-  dispatchStockFromLocation,
-  writeOffStock,
+  dispatchItems,
+  writeOffItems,
   completePosSale,
   createStockTake,
   recordStockTakeCount,
@@ -327,7 +327,7 @@ async function main() {
       { const inv = ensureItemInventoryAccount(item.name, 1); stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: inv.inventoryAccount, accountId: inv.inventoryAccountId, amount_minor: totalCost, division: warehouse.city }); }
       stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: VENDOR, amount_minor: -totalCost, division: warehouse.city });
       postJournalEntry(ref, BUSINESS, LEDGER, 1);
-      receiveStockAtLocation(BUSINESS, LEDGER, `${ref}-RECV`, item.name, warehouse.name, qty, 1, today(day));
+      receiveItems(BUSINESS, LEDGER, `${ref}-RECV`, item.name, warehouse.name, qty, 1, today(day));
       purchaseCount++;
 
       // Real vendor terms — paid roughly 7-21 days after receipt, not
@@ -350,11 +350,11 @@ async function main() {
             const destination = coldProducts.has(item.name) ? refrigeratedOutlets.find((r) => r.city === outlet.city)! : outlet;
             try {
               // The real restocking mechanism, per direct request —
-              // not a direct transferStock call any more: a real
+              // not a direct transferItems call any more: a real
               // picking list (shelf-ordered, even if this specific
               // product has no real shelf position recorded at this
               // specific warehouse), a real tick-off, then a real
-              // dispatch that itself calls transferStock internally —
+              // dispatch that itself calls transferItems internally —
               // the exact same real, physical stock movement as
               // before, just genuinely routed through the real
               // mechanism this app now has for it.
@@ -509,7 +509,7 @@ async function main() {
     const qty = rand(1, Math.min(3, onHand));
     const reasons = ['Bottle broke during shelf restocking', 'Cork failure, wine spoiled', 'Damaged in transit from warehouse', 'Dropped by staff, bottle shattered'];
     try {
-      writeOffStock(BUSINESS, LEDGER, `BREAK-${i}`, item.name, qty, unitCostMinor[item.name], 'Breakage & Spoilage', 'Inventory', pick(reasons), 1, today(rand(2, 26)));
+      writeOffItems(BUSINESS, LEDGER, `BREAK-${i}`, item.name, qty, unitCostMinor[item.name], 'Breakage & Spoilage', 'Inventory', pick(reasons), 1, today(rand(2, 26)));
       breakageCount++;
     } catch {
       // fine, skip
@@ -727,11 +727,11 @@ async function main() {
     for (const base of [...wineByGlass, ...beerByGlass, ...softDrinksByGlass]) {
       for (const tier of ['Small Glass', 'Large Glass']) {
         const { tierItemName } = ensureItemTier(base, tier, 1);
-        receiveStockAtLocation(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${tierItemName}`, tierItemName, bar.name, 40, 1, today(1));
+        receiveItems(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${tierItemName}`, tierItemName, bar.name, 40, 1, today(1));
       }
     }
     for (const item of [...cocktails, ...snacks]) {
-      receiveStockAtLocation(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${item}`, item, bar.name, 30, 1, today(1));
+      receiveItems(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${item}`, item, bar.name, 30, 1, today(1));
     }
 
     for (let day = 2; day <= 26; day++) {

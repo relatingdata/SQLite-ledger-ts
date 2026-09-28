@@ -382,7 +382,7 @@ export function clockOutOfProject(employeeName: EmployeeName, business: Business
   const valueMinor = Math.round(realHoursWorked * contact.wage_minor_per_hour!);
 
   const receiptReference = `${open.po_reference}-RECEIPT`;
-  stageStockReceipt({
+  stageOrderReceipt({
     reference: receiptReference,
     business,
     ledger,
@@ -394,7 +394,7 @@ export function clockOutOfProject(employeeName: EmployeeName, business: Business
     transdate: clockedOutAt.toISOString().slice(0, 10),
     description: `${realHoursWorked.toFixed(2)} real hours worked, clock-in to clock-out, at ${employeeName}'s own real wage rate — real delivery of the standing time order accepted at clock-in, now genuinely liable to payment`,
   });
-  postStockReceipt(receiptReference, business, ledger, userId);
+  postOrderReceipt(receiptReference, business, ledger, userId);
 
   deleteEntity(open.id, asUserId(1));
 }
@@ -405,7 +405,7 @@ export function getOpenProjectClockForEmployee(employeeName: EmployeeName): Empl
   return { employee: employeeName, po_reference: open.po_reference, project_expense_account: open.project_expense_account, clocked_in_at: open.clocked_in_at };
 }
 
-export interface StockReceiptInput {
+export interface OrderReceiptInput {
   reference: string;
   business: string;
   ledger: string;
@@ -420,7 +420,7 @@ export interface StockReceiptInput {
   description?: string;
 }
 
-export function stageStockReceipt(input: StockReceiptInput): void {
+export function stageOrderReceipt(input: OrderReceiptInput): void {
   db.prepare(
     `INSERT INTO stock_receipt_staging
        (reference, business, ledger, po_reference, item, item_qty, vendor, quantity, value_minor, tax_minor, transdate, description)
@@ -435,10 +435,10 @@ export function stageStockReceipt(input: StockReceiptInput): void {
   );
 }
 
-export function postStockReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+export function postOrderReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
   const staged = db
     .prepare(`SELECT * FROM stock_receipt_staging WHERE reference = ? AND business = ? AND ledger = ?`)
-    .get(reference, business, ledger) as (StockReceiptInput & { tax_minor: number }) | undefined;
+    .get(reference, business, ledger) as (OrderReceiptInput & { tax_minor: number }) | undefined;
   if (!staged) throw new NotFoundError(`Nothing staged for stock receipt ${reference}.`);
 
   if (staged.item_qty) {
@@ -537,7 +537,7 @@ export function postSalesOrder(reference: string, business: BusinessName, ledger
   db.prepare(`DELETE FROM so_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
 }
 
-export interface StockDispatchInput {
+export interface OrderDispatchInput {
   reference: string;
   business: string;
   ledger: string;
@@ -553,7 +553,7 @@ export interface StockDispatchInput {
   description?: string;
 }
 
-export function stageStockDispatch(input: StockDispatchInput): void {
+export function stageOrderDispatch(input: OrderDispatchInput): void {
   db.prepare(
     `INSERT INTO stock_dispatch_staging
        (reference, business, ledger, so_reference, item, item_qty, customer, quantity, unit_cost_minor, sale_price_minor, tax_minor, transdate, description)
@@ -570,10 +570,10 @@ export function stageStockDispatch(input: StockDispatchInput): void {
   );
 }
 
-export function postStockDispatch(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+export function postOrderDispatch(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
   const staged = db
     .prepare(`SELECT * FROM stock_dispatch_staging WHERE reference = ? AND business = ? AND ledger = ?`)
-    .get(reference, business, ledger) as (StockDispatchInput & { tax_minor: number }) | undefined;
+    .get(reference, business, ledger) as (OrderDispatchInput & { tax_minor: number }) | undefined;
   if (!staged) throw new NotFoundError(`Nothing staged for stock dispatch ${reference}.`);
 
   const saleAmount = staged.quantity * staged.sale_price_minor;

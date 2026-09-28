@@ -133,8 +133,8 @@ the backend routes accepting these as request-body strings
 **Wave 2 — the single most widely-used function, and stock movement.**
 `postJournalEntry` itself — called from more places than any other
 function in the system — plus `reverseJournalEntry`,
-`completeStockTake`, `writeOffStock`, `postStockReceipt`,
-`postStockDispatch`, and the real employee-clock functions
+`completeStockTake`, `writeOffItems`, `postOrderReceipt`,
+`postOrderDispatch`, and the real employee-clock functions
 (`clockInToProject`, `clockOutOfProject`,
 `getOpenProjectClockForEmployee`).
 
@@ -151,8 +151,8 @@ functions (`getStagedLines`, `removeStagedLine`, `listJournalEntries`,
 (`getPeriodLockStatus`, `closePeriod`, `reopenPeriod`,
 `assertPeriodOpen`), and the order functions (`postPurchaseOrder`,
 `postSalesOrder`) — followed immediately by the remaining core stock
-functions (`postQuantityMovement`, `receiveStockAtLocation`,
-`dispatchStockFromLocation`, `transferStock`, `placeOrder`,
+functions (`postQuantityMovement`, `receiveItems`,
+`dispatchItems`, `transferItems`, `placeOrder`,
 `fulfillOrder`, `dispatchRestockFromPickingList`, `receiveLot`,
 `createRecurringJournal`) and `CashPurchaseInput`.
 
@@ -176,9 +176,9 @@ the previous section). But they are not the same *kind* of thing:
 `unitsSoldAccount` return values, and a plain product name used
 directly as a quantity account, are both genuinely `AccountName` —
 not `PartName` — the moment they're used as a posting target rather
-than as a reference to the product itself. `writeOffStock`,
-`receiveLot`, `receiveStockAtLocation`, `dispatchStockFromLocation`,
-and `transferStock` all take a real `PartName`, then cast it to
+than as a reference to the product itself. `writeOffItems`,
+`receiveLot`, `receiveItems`, `dispatchItems`,
+and `transferItems` all take a real `PartName`, then cast it to
 `AccountName` explicitly at the exact point it's staged as a posting
 line — a real, deliberate, visible cast, not a type merged away to
 avoid writing it.

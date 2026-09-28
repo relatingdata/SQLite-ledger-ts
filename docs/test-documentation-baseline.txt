@@ -79,7 +79,7 @@ completePosSale: a real, immediate cash sale never touches the customer's own AR
 completePosSale: the real, live wiring — a real sale with a real tier now genuinely ensures its own, real tier-level item, not just its own Sales/COGS accounts
 completePosSale: the real, live wiring — a real sale with both a real tier and a real, known location now genuinely ensures its own, real (tier, location) leaf, the real, actual posting target
 completePosSale: the real, live, end-to-end border scenario - two real terminals, one real location, one real product, sold in two different, real currencies
-completeStockTake and writeOffStock: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side
+completeStockTake and writeOffItems: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side
 completeStockTake: multiple real, different products sharing the same variance expense account in one real stock take must all post, keeping debit == credit
 computeSuggestedFill returns the amount needed to balance, or null if nothing to suggest
 create<T>: the real, generic, typed-descriptor creation primitive - genuinely preserves the Springfield principle (scoped, not global, uniqueness)
@@ -197,7 +197,7 @@ quantity movements and recurring journal start dates are also protected by a clo
 quantity movements carry a real, queryable location — receive, dispatch, and transfer (both legs) each record where it actually happened, not just updating the current-state snapshot
 real multi-line invoices: header + lines, due date derived from the counterparty's own payment terms, posting creates the actual GL entry
 reassigning a category to a different report via relation changes business_reports immediately
-receiveStockAtLocation: a real, combination-tagged receipt builds up a real, distinct Inventory value at the exact, right leaf, per direct instruction
+receiveItems: a real, combination-tagged receipt builds up a real, distinct Inventory value at the exact, right leaf, per direct instruction
 registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, dedicated cash-flow/growth-planning design — real, registered bank accounts scoped correctly to one real business, grouped by real currency, with honest overdraft headroom
 registerCustomer genuinely tags the new contact as a real Customer type, per docs/contact-types-and-translations.md
 removeStagedLine removes exactly one line

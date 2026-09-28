@@ -138,12 +138,12 @@ const {
   getOrderStatus,
   stagePurchaseOrder,
   postPurchaseOrder,
-  stageStockReceipt,
-  postStockReceipt,
+  stageOrderReceipt,
+  postOrderReceipt,
   stageSalesOrder,
   postSalesOrder,
-  stageStockDispatch,
-  postStockDispatch,
+  stageOrderDispatch,
+  postOrderDispatch,
   stageARSale,
   postARSale,
   stageARReceipt,
@@ -203,7 +203,7 @@ const {
   getAgedSummary,
   getCustomerStatement,
   getCounterpartyHistory,
-  writeOffStock,
+  writeOffItems,
   receiveLot,
   consumeFromLots,
   getExpiringStock,
@@ -221,11 +221,11 @@ const {
   getRestockPickingList,
   confirmRestockPickedLine,
   dispatchRestockFromPickingList,
-  receiveStockAtLocation,
+  receiveItems,
   getLedgerBalancesByDivision,
   getLedgerBalancesByDivisionStructural,
-  dispatchStockFromLocation,
-  transferStock,
+  dispatchItems,
+  transferItems,
   getBelowReorderStock,
   createItem,
   createStockTake,
@@ -1101,7 +1101,7 @@ test('getLocationCapacityStatus: a real location\'s own, current real stock chec
   assert.equal(before.cartonCapacity, 10);
   assert.equal(before.cartonOverCapacity, false);
 
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'CAPTEST-REC-1', asItemName('CapTest Wine'), asLocationName('CapTest Outlet'), 130, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'CAPTEST-REC-1', asItemName('CapTest Wine'), asLocationName('CapTest Outlet'), 130, asUserId(1), '2027-01-01');
   const after = getLocationCapacityStatus(asLocationName('CapTest Outlet'));
   assert.equal(after.bottleQuantity, 130);
   assert.equal(after.bottleOverCapacity, true, 'a real 130 bottles against a real 100-bottle capacity must correctly show as over');
@@ -1122,8 +1122,8 @@ test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picki
   setLocation('PickTest Outlet', { city: 'PickTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
   createItem('PickTest Front Wine', 'Items', asUserId(1));
   createItem('PickTest Back Wine', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-1', asItemName('PickTest Front Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-2', asItemName('PickTest Back Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-1', asItemName('PickTest Front Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-2', asItemName('PickTest Back Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
   withMyBusinessSession(() => setItemLocationLevels(asItemName('PickTest Front Wine'), asLocationName('PickTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 1 }));
   withMyBusinessSession(() => setItemLocationLevels(asItemName('PickTest Back Wine'), asLocationName('PickTest Outlet'), { shelfSide: 'Back', rack: 'B', level: 2 }));
   create(fetch('Customers', typeRootName), typeRootName, 'PickTest Customer', asUserId(1));
@@ -1179,8 +1179,8 @@ test('restocking retail outlets from warehouses: the same real, shelf-ordered pi
   setLocation('RestockTest Outlet', { city: 'RestockTest City', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
   createItem('RestockTest Wine A', 'Items', asUserId(1));
   createItem('RestockTest Wine B', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-1', asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-2', asItemName('RestockTest Wine B'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-1', asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-2', asItemName('RestockTest Wine B'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
   withMyBusinessSession(() => setItemLocationLevels(asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse'), { rack: 'A', level: 1 }));
   withMyBusinessSession(() => setItemLocationLevels(asItemName('RestockTest Wine B'), asLocationName('RestockTest Warehouse'), { rack: 'B', level: 2 }));
 
@@ -1223,12 +1223,12 @@ test('the four real entry screens: PO -> receipt -> SO -> dispatch, using the ac
   assert.equal(poStatus.value_minor, 50 * 1200);
 
   // Screen 2: Stock Receipt entry — all 50 units arrive, fulfilling PO-SC01
-  stageStockReceipt({
+  stageOrderReceipt({
     reference: 'RCPT-SC01', business, ledger, po_reference: 'PO-SC01',
     item: 'SCWidget Batch Value', item_qty: 'SCWidget Batch Qty', vendor: 'Acme Supplies Pty Ltd',
     quantity: 50, value_minor: 50 * 1200, transdate: '2027-08-01',
   });
-  postStockReceipt('RCPT-SC01', asBusinessName(business), asLedgerName(ledger), asUserId(1));
+  postOrderReceipt('RCPT-SC01', asBusinessName(business), asLedgerName(ledger), asUserId(1));
   assert.deepEqual(getOrderStatus('PO-SC01'), { quantity: 0, value_minor: 0 }, 'PO closed via the real receipt screen');
   const qtyAfterReceipt = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id=(SELECT id FROM current_entities WHERE name='SCWidget Batch Qty')`).get() as { balance_minor: number }).balance_minor;
   assert.equal(qtyAfterReceipt, 50);
@@ -1242,12 +1242,12 @@ test('the four real entry screens: PO -> receipt -> SO -> dispatch, using the ac
   assert.deepEqual(getOrderStatus('SO-SC01'), { quantity: 20, value_minor: 36000 });
 
   // Screen 4: Stock Dispatch + Invoice entry — ship 20 units, fulfilling SO-SC01
-  stageStockDispatch({
+  stageOrderDispatch({
     reference: 'DISP-SC01', business, ledger, so_reference: 'SO-SC01',
     item: 'SCWidget Batch Value', item_qty: 'SCWidget Batch Qty', customer: 'Beta Pty Ltd',
     quantity: 20, unit_cost_minor: 1200, sale_price_minor: 1800, transdate: '2027-08-10',
   });
-  postStockDispatch('DISP-SC01', asBusinessName(business), asLedgerName(ledger), asUserId(1));
+  postOrderDispatch('DISP-SC01', asBusinessName(business), asLedgerName(ledger), asUserId(1));
 
   assert.deepEqual(getOrderStatus('SO-SC01'), { quantity: 0, value_minor: 0 }, 'SO closed via the real dispatch screen');
   const tbFinal = getTrialBalance(asBusinessName(business), asLedgerName(ledger));
@@ -1261,9 +1261,9 @@ test('the four real entry screens: PO -> receipt -> SO -> dispatch, using the ac
 
 test('posting a screen with nothing staged is rejected clearly, not silently a no-op', () => {
   assert.throws(() => postPurchaseOrder('NEVER-STAGED-PO', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
-  assert.throws(() => postStockReceipt('NEVER-STAGED-RCPT', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
+  assert.throws(() => postOrderReceipt('NEVER-STAGED-RCPT', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
   assert.throws(() => postSalesOrder('NEVER-STAGED-SO', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
-  assert.throws(() => postStockDispatch('NEVER-STAGED-DISP', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
+  assert.throws(() => postOrderDispatch('NEVER-STAGED-DISP', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
 });
 
 test('entities are append-only: renaming closes out the old row and appends a replacement under the same id, full history preserved', () => {
@@ -1376,11 +1376,11 @@ test('a service dispatch (no item, no item_qty, no unit_cost) skips COGS and qua
   const ledger = 'Service Test Ledger';
 
   placeOrder('SO-SVC01', asBusinessName(business), asLedgerName(ledger), 10, 10 * 15000, asUserId(1), '2027-12-05');
-  stageStockDispatch({
+  stageOrderDispatch({
     reference: 'DISP-SVC01', business, ledger, so_reference: 'SO-SVC01',
     customer: 'Beta Pty Ltd', quantity: 10, sale_price_minor: 15000, tax_minor: 15000, transdate: '2027-12-05',
   });
-  postStockDispatch('DISP-SVC01', asBusinessName(business), asLedgerName(ledger), asUserId(1));
+  postOrderDispatch('DISP-SVC01', asBusinessName(business), asLedgerName(ledger), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName(business), asLedgerName(ledger));
   assert.equal(tb.rows.find((r) => r.name === 'Beta Pty Ltd')!.debit_minor, 165000, 'matches the worked example exactly: 1500.00 + 150.00 tax');
@@ -1397,11 +1397,11 @@ test('a service receipt (no item_qty) skips the quantity movement, still posts t
   const ledger = 'Service Receipt Ledger';
 
   placeOrder('PO-SVC01', asBusinessName(business), asLedgerName(ledger), 5, 5 * 20000, asUserId(1), '2027-12-10');
-  stageStockReceipt({
+  stageOrderReceipt({
     reference: 'RCPT-SVC01', business, ledger, po_reference: 'PO-SVC01',
     item: 'Office', vendor: 'Acme Supplies Pty Ltd', quantity: 5, value_minor: 100000, tax_minor: 10000, transdate: '2027-12-10',
   });
-  postStockReceipt('RCPT-SVC01', asBusinessName(business), asLedgerName(ledger), asUserId(1));
+  postOrderReceipt('RCPT-SVC01', asBusinessName(business), asLedgerName(ledger), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName(business), asLedgerName(ledger));
   assert.equal(tb.rows.find((r) => r.name === 'Office')!.debit_minor, 100000);
@@ -1423,16 +1423,16 @@ test('invoice_line records genuinely per-line tax, never assumed uniform — one
   postQuantityMovement(asBusinessName(business), asLedgerName(ledger), 'IL-STOCK-IN-2', asAccountName('ILGadget Batch Qty'), 50, asUserId(1), '2027-05-01');
 
   placeOrder('SO-IL01', asBusinessName(business), asLedgerName(ledger), 25, 20 * 1800 + 5 * 4500, asUserId(1), '2027-05-01');
-  stageStockDispatch({
+  stageOrderDispatch({
     reference: 'IL-INV-L1', business, ledger, so_reference: 'SO-IL01', item: 'ILWidget Batch Value', item_qty: 'ILWidget Batch Qty',
     customer: 'Acme Corp', quantity: 20, unit_cost_minor: 1200, sale_price_minor: 1800, tax_minor: 0, transdate: '2027-05-01', description: 'Widgets exempt',
   });
-  postStockDispatch('IL-INV-L1', asBusinessName(business), asLedgerName(ledger), asUserId(1));
-  stageStockDispatch({
+  postOrderDispatch('IL-INV-L1', asBusinessName(business), asLedgerName(ledger), asUserId(1));
+  stageOrderDispatch({
     reference: 'IL-INV-L2', business, ledger, so_reference: 'SO-IL01', item: 'ILGadget Batch Value', item_qty: 'ILGadget Batch Qty',
     customer: 'Acme Corp', quantity: 5, unit_cost_minor: 3000, sale_price_minor: 4500, tax_minor: Math.round(5 * 4500 * 0.15), transdate: '2027-05-01', description: 'Gadgets 15%',
   });
-  postStockDispatch('IL-INV-L2', asBusinessName(business), asLedgerName(ledger), asUserId(1));
+  postOrderDispatch('IL-INV-L2', asBusinessName(business), asLedgerName(ledger), asUserId(1));
 
   const l1 = getInvoiceLine('IL-INV-L1', asBusinessName(business), asLedgerName(ledger))!;
   const l2 = getInvoiceLine('IL-INV-L2', asBusinessName(business), asLedgerName(ledger))!;
@@ -2065,7 +2065,7 @@ test('stock write-offs (breakage/spoilage): a real dual-effect transaction, redu
 
   postQuantityMovement(asBusinessName('My Business'), asLedgerName('Actual'), 'WOTEST-RECEIVE-QTY', asAccountName('WOTest Perishable'), 100, asUserId(1), '2027-01-01');
 
-  writeOffStock(asBusinessName('My Business'), asLedgerName('Actual'), 'WOTEST-1', asItemName('WOTest Perishable'), 15, 200, asAccountName('WOTest Write-off Expense'), 'Inventory', 'Spoiled', asUserId(1), '2027-02-01');
+  writeOffItems(asBusinessName('My Business'), asLedgerName('Actual'), 'WOTEST-1', asItemName('WOTest Perishable'), 15, 200, asAccountName('WOTest Write-off Expense'), 'Inventory', 'Spoiled', asUserId(1), '2027-02-01');
 
   const qty = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name='WOTest Perishable' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Items'))`).get() as { balance_minor: number });
   assert.equal(qty.balance_minor, 85, 'quantity genuinely reduced, not just recorded');
@@ -2075,7 +2075,7 @@ test('stock write-offs (breakage/spoilage): a real dual-effect transaction, redu
   assert.equal(writeOffLine?.debit_minor, 3000, 'the loss is actually recognized as an expense (15 units x 200 minor units), not silently unaccounted for');
 
   assert.throws(
-    () => writeOffStock(asBusinessName('My Business'), asLedgerName('Actual'), 'WOTEST-2', asItemName('WOTest Perishable'), -5, 200, asAccountName('WOTest Write-off Expense'), 'Inventory', 'bad', asUserId(1), '2027-02-02'),
+    () => writeOffItems(asBusinessName('My Business'), asLedgerName('Actual'), 'WOTEST-2', asItemName('WOTest Perishable'), -5, 200, asAccountName('WOTest Write-off Expense'), 'Inventory', 'bad', asUserId(1), '2027-02-02'),
     ValidationError,
     'a write-off is always a reduction, never a gain — negative quantity must be rejected'
   );
@@ -2128,7 +2128,7 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
   create(fetch('Items', typeRootName), typeRootName, 'LocTest Lager', asUserId(1));
 
   // 48 cartons at 24 bottles each, received at the warehouse.
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-REC-1', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 48 * 24, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-REC-1', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 48 * 24, asUserId(1), '2027-01-01');
   assert.equal(getItemLocation(asItemName('LocTest Lager'), asLocationName('LocTest Head Office')).quantity_on_hand, 1152);
 
   withMyBusinessSession(() => setItemLocationLevels(asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), { minLevel: 5 * 24, maxLevel: 20 * 24, reorderLevel: 8 * 24 }));
@@ -2139,24 +2139,24 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
 
   // The real correction: sale is through retail, but a large function
   // order is dispatched directly from the warehouse.
-  dispatchStockFromLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-DISP-1', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 48 * 24, asUserId(1), '2027-01-05');
+  dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-DISP-1', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 48 * 24, asUserId(1), '2027-01-05');
   assert.equal(getItemLocation(asItemName('LocTest Lager'), asLocationName('LocTest Head Office')).quantity_on_hand, 0);
 
   // Ordinary stock transfer, warehouse to retail, same city.
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-REC-2', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 100 * 24, asUserId(1), '2027-01-10');
-  transferStock(asBusinessName('My Business'), asLedgerName('Actual'), asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), asLocationName('LocTest Retail A1'), 10 * 24, 'LOCTEST-XFER-1');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-REC-2', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 100 * 24, asUserId(1), '2027-01-10');
+  transferItems(asBusinessName('My Business'), asLedgerName('Actual'), asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), asLocationName('LocTest Retail A1'), 10 * 24, 'LOCTEST-XFER-1');
   assert.equal(getItemLocation(asItemName('LocTest Lager'), asLocationName('LocTest Head Office')).quantity_on_hand, 90 * 24);
   assert.equal(getItemLocation(asItemName('LocTest Lager'), asLocationName('LocTest Retail A1')).quantity_on_hand, 10 * 24);
 
   // A warehouse only serves its own city's outlets — cross-city transfer rejected.
   assert.throws(
-    () => transferStock(asBusinessName('My Business'), asLedgerName('Actual'), asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), asLocationName('LocTest Retail B1'), 24, 'LOCTEST-XFER-BAD'),
+    () => transferItems(asBusinessName('My Business'), asLedgerName('Actual'), asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), asLocationName('LocTest Retail B1'), 24, 'LOCTEST-XFER-BAD'),
     ValidationError
   );
 
   // Cannot dispatch/transfer more than what's on hand at that specific location.
   assert.throws(
-    () => dispatchStockFromLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-DISP-BAD', asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), 999999, asUserId(1), '2027-01-11'),
+    () => dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-DISP-BAD', asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), 999999, asUserId(1), '2027-01-11'),
     ValidationError
   );
 
@@ -2165,7 +2165,7 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
   assert.equal(belowBefore.length, 0);
 
   // Sell most of it down, then it should show up.
-  dispatchStockFromLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-DISP-2', asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), 8 * 24, asUserId(1), '2027-01-12');
+  dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-DISP-2', asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), 8 * 24, asUserId(1), '2027-01-12');
   const belowAfter = getBelowReorderStock().filter((r) => r.item === 'LocTest Lager' && r.location === 'LocTest Retail A1');
   assert.equal(belowAfter.length, 1, 'now at or below its own reorder level, correctly surfaced');
 });
@@ -2177,7 +2177,7 @@ test('quantity movements carry a real, queryable location — receive, dispatch,
   setLocation('MoveLocTest Outlet', { city: 'MoveLocTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
   createItem('MoveLocTest Wine', 'Items', asUserId(1));
 
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'MOVELOCTEST-REC', asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Warehouse'), 100, asUserId(1), '2027-09-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'MOVELOCTEST-REC', asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Warehouse'), 100, asUserId(1), '2027-09-01');
   function locationOf(reference: string, sign?: 'positive' | 'negative'): string | null {
     const signClause = sign === 'positive' ? 'AND jl.amount_minor > 0' : sign === 'negative' ? 'AND jl.amount_minor < 0' : '';
     const row = db
@@ -2190,9 +2190,9 @@ test('quantity movements carry a real, queryable location — receive, dispatch,
   // A real transfer now stages both its real legs under one, shared
   // reference and posts once — a true, balanced two-line entry, not
   // two separate postings under two different references.
-  transferStock(asBusinessName('My Business'), asLedgerName('Actual'), asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Warehouse'), asLocationName('MoveLocTest Outlet'), 30, 'MOVELOCTEST-XFER', 1, '2027-09-02');
+  transferItems(asBusinessName('My Business'), asLedgerName('Actual'), asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Warehouse'), asLocationName('MoveLocTest Outlet'), 30, 'MOVELOCTEST-XFER', 1, '2027-09-02');
   assert.equal(locationOf('MOVELOCTEST-XFER', 'negative'), 'MoveLocTest Warehouse', "a transfer's own OUT leg (the negative amount) must record the real source location");
-  assert.equal(locationOf('MOVELOCTEST-XFER', 'positive'), 'MoveLocTest Outlet', "a transfer's own IN leg (the positive amount) must record the real destination — previously transferStock recorded no movement history at all, only updating the current-state snapshot");
+  assert.equal(locationOf('MOVELOCTEST-XFER', 'positive'), 'MoveLocTest Outlet', "a transfer's own IN leg (the positive amount) must record the real destination — previously transferItems recorded no movement history at all, only updating the current-state snapshot");
 
   // The real, direct claim: one, true, balanced double-entry posting —
   // a single real journal row (not two), with its two real lines
@@ -2204,7 +2204,7 @@ test('quantity movements carry a real, queryable location — receive, dispatch,
   ).total;
   assert.equal(lineSum, 0, "a real transfer's own two, real lines must sum to exactly zero — genuine double-entry balance, not an invented offsetting account");
 
-  dispatchStockFromLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'MOVELOCTEST-DISP', asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Outlet'), 10, asUserId(1), '2027-09-03');
+  dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'MOVELOCTEST-DISP', asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Outlet'), 10, asUserId(1), '2027-09-03');
   assert.equal(locationOf('MOVELOCTEST-DISP'), 'MoveLocTest Outlet', 'a real dispatch must record the real location it was actually dispatched from');
 });
 
@@ -2237,7 +2237,7 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
   assert.equal(balanceOfUnder('On Order', 'DblEntryQty Wine'), 60, 'placing a real PO must build up a real, genuine on-order balance');
 
   // Receiving stock is now a real, balanced, two-line posting.
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), 'DEQ-RECV-1', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), 60, asUserId(1), '2027-08-05');
+  receiveItems(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), 'DEQ-RECV-1', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), 60, asUserId(1), '2027-08-05');
   const receiptJournalId = (db.prepare(`SELECT id FROM journal WHERE reference = 'DEQ-RECV-1'`).get() as { id: number }).id;
   const receiptSum = (db.prepare(`SELECT SUM(amount_minor) AS total FROM journal_line WHERE journal_id = ?`).get(receiptJournalId) as { total: number }).total;
   assert.equal(receiptSum, 0, 'a real receipt must be a genuinely balanced, two-line entry — debit on-hand, credit on-order');
@@ -2247,12 +2247,12 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
   // A real receipt with no matching PO ever placed — a real, honest
   // possibility (an emergency, unplanned purchase) — must not be
   // refused; on-order simply, correctly goes negative.
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), 'DEQ-RECV-2', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), 10, asUserId(1), '2027-08-06');
+  receiveItems(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), 'DEQ-RECV-2', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), 10, asUserId(1), '2027-08-06');
   assert.equal(balanceOfUnder('On Order', 'DblEntryQty Wine'), -10, 'a real, unplanned receipt with no matching PO must correctly drive on-order negative, not be refused');
 
   // Dispatching stock (a real sale) is also now a real, balanced, two-line posting.
-  transferStock(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), asLocationName('DblEntryQty Outlet'), 20, 'DEQ-XFER-1', 1, '2027-08-07');
-  dispatchStockFromLocation(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), 'DEQ-DISP-1', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Outlet'), 15, asUserId(1), '2027-08-08');
+  transferItems(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), asLocationName('DblEntryQty Outlet'), 20, 'DEQ-XFER-1', 1, '2027-08-07');
+  dispatchItems(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), 'DEQ-DISP-1', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Outlet'), 15, asUserId(1), '2027-08-08');
   const dispatchJournalId = (db.prepare(`SELECT id FROM journal WHERE reference = 'DEQ-DISP-1'`).get() as { id: number }).id;
   const dispatchSum = (db.prepare(`SELECT SUM(amount_minor) AS total FROM journal_line WHERE journal_id = ?`).get(dispatchJournalId) as { total: number }).total;
   assert.equal(dispatchSum, 0, 'a real dispatch must be a genuinely balanced, two-line entry — debit units sold, credit on-hand');
@@ -2276,9 +2276,9 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
   addOrUpdateItemSource({ itemName: 'SMRTest Wine', vendorName: 'SMRTest Vendor', isPreferred: true });
 
   // Real purchase into the warehouse.
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('SMRTest Ledger'), 'SMRT-1-RECV', asItemName('SMRTest Wine'), asLocationName('SMRTest Warehouse'), 50, asUserId(1), '2027-10-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('SMRTest Ledger'), 'SMRT-1-RECV', asItemName('SMRTest Wine'), asLocationName('SMRTest Warehouse'), 50, asUserId(1), '2027-10-01');
   // Real transfer on to the retail outlet.
-  transferStock(asBusinessName('My Business'), asLedgerName('SMRTest Ledger'), asItemName('SMRTest Wine'), asLocationName('SMRTest Warehouse'), asLocationName('SMRTest Outlet'), 20, 'SMRT-1-XFER', 1, '2027-10-02');
+  transferItems(asBusinessName('My Business'), asLedgerName('SMRTest Ledger'), asItemName('SMRTest Wine'), asLocationName('SMRTest Warehouse'), asLocationName('SMRTest Outlet'), 20, 'SMRT-1-XFER', 1, '2027-10-02');
   // Real sale — a real invoice, dispatched, exactly matching how completePosSale itself structures references.
   const invoiceId = createInvoice(
     {
@@ -2293,7 +2293,7 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
     asUserId(1)
   );
   postInvoice(invoiceId, { name: salesAccount, id: salesAccountId }, 'Sales Tax Payable', asUserId(1));
-  dispatchStockFromLocation(asBusinessName('My Business'), asLedgerName('SMRTest Ledger'), 'SMRT-SALE-1-DISPATCH-SMRTest Wine', asItemName('SMRTest Wine'), asLocationName('SMRTest Outlet'), 3, asUserId(1), '2027-10-03');
+  dispatchItems(asBusinessName('My Business'), asLedgerName('SMRTest Ledger'), 'SMRT-SALE-1-DISPATCH-SMRTest Wine', asItemName('SMRTest Wine'), asLocationName('SMRTest Outlet'), 3, asUserId(1), '2027-10-03');
 
   const report = getStockMovementReport('SMRTest Ledger', '2027-10-01', '2027-10-03');
 
@@ -2337,9 +2337,9 @@ test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free tex
   createItem('STTest Merlot', 'Items', asUserId(1));
   createItem('STTest Chardonnay', 'Items', asUserId(1));
 
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-1', asItemName('STTest Merlot'), asLocationName('STTest Outlet'), 50, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-1', asItemName('STTest Merlot'), asLocationName('STTest Outlet'), 50, asUserId(1), '2027-01-01');
   withMyBusinessSession(() => setItemLocationLevels(asItemName('STTest Merlot'), asLocationName('STTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 3 }));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-2', asItemName('STTest Chardonnay'), asLocationName('STTest Outlet'), 30, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-2', asItemName('STTest Chardonnay'), asLocationName('STTest Outlet'), 30, asUserId(1), '2027-01-01');
   withMyBusinessSession(() => setItemLocationLevels(asItemName('STTest Chardonnay'), asLocationName('STTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 1 }));
 
   const takeId = createStockTake(asLocationName('STTest Outlet'), '2027-02-01', asUserId(1));
@@ -2380,9 +2380,9 @@ test('completeStockTake: multiple real, different products sharing the same vari
   createItem('STTest Shiraz', 'Items', asUserId(1));
   createItem('STTest Riesling', 'Items', asUserId(1));
   createItem('STTest Pinot', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-A', asItemName('STTest Shiraz'), asLocationName('STTest Outlet 3'), 50, asUserId(1), '2027-01-01');
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-B', asItemName('STTest Riesling'), asLocationName('STTest Outlet 3'), 30, asUserId(1), '2027-01-01');
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-C', asItemName('STTest Pinot'), asLocationName('STTest Outlet 3'), 20, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-A', asItemName('STTest Shiraz'), asLocationName('STTest Outlet 3'), 50, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-B', asItemName('STTest Riesling'), asLocationName('STTest Outlet 3'), 30, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-C', asItemName('STTest Pinot'), asLocationName('STTest Outlet 3'), 20, asUserId(1), '2027-01-01');
 
   const takeId = createStockTake(asLocationName('STTest Outlet 3'), '2027-02-01', asUserId(1));
   recordStockTakeCount(takeId, asItemName('STTest Shiraz'), 48); // shortage of 2
@@ -2401,7 +2401,7 @@ test('completeStockTake: multiple real, different products sharing the same vari
   assert.equal(getItemLocation(asItemName('STTest Pinot'), asLocationName('STTest Outlet 3')).quantity_on_hand, 19);
 });
 
-test('completeStockTake and writeOffStock: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side', () => {
+test('completeStockTake and writeOffItems: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side', () => {
   // Per direct, real report: a real, full simulation run (outside this
   // sandbox) found genuinely unbalanced "Quantity movement" journal
   // entries, referenced <item>-QTY, after a real month-end stock take.
@@ -2411,7 +2411,7 @@ test('completeStockTake and writeOffStock: the real quantity-movement journal en
   create(fetch('Locations', typeRootName), typeRootName, 'QTYBalTest Outlet', asUserId(1));
   setLocation('QTYBalTest Outlet', { city: 'QTYBalTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
   createItem('QTYBalTest Wine', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-REC', asItemName('QTYBalTest Wine'), asLocationName('QTYBalTest Outlet'), 40, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-REC', asItemName('QTYBalTest Wine'), asLocationName('QTYBalTest Outlet'), 40, asUserId(1), '2027-01-01');
 
   const takeId = createStockTake(asLocationName('QTYBalTest Outlet'), '2027-02-01', asUserId(1));
   recordStockTakeCount(takeId, asItemName('QTYBalTest Wine'), 37); // shortage of 3
@@ -2423,11 +2423,11 @@ test('completeStockTake and writeOffStock: the real quantity-movement journal en
     .get(qtyRef) as { total: number };
   assert.equal(qtyBalance.total, 0, 'the real quantity-movement journal entry for this stock-take variance must itself be balanced');
 
-  // The same, real check for writeOffStock's own quantity movement.
+  // The same, real check for writeOffItems's own quantity movement.
   create(fetchGlobalCoaCategory('Expense'), typeRootName, 'QTYBalTest Write-off Expense', asUserId(1));
   createItem('QTYBalTest Beer', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-REC-2', asItemName('QTYBalTest Beer'), asLocationName('QTYBalTest Outlet'), 24, asUserId(1), '2027-01-01');
-  writeOffStock(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-WO', asItemName('QTYBalTest Beer'), 4, 500, asAccountName('QTYBalTest Write-off Expense'), 'Inventory', 'Broken in transit', asUserId(1), '2027-02-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-REC-2', asItemName('QTYBalTest Beer'), asLocationName('QTYBalTest Outlet'), 24, asUserId(1), '2027-01-01');
+  writeOffItems(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-WO', asItemName('QTYBalTest Beer'), 4, 500, asAccountName('QTYBalTest Write-off Expense'), 'Inventory', 'Broken in transit', asUserId(1), '2027-02-01');
   const woQtyBalance = db
     .prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ?`)
     .get('QTYBALTEST-WO-QTY') as { total: number };
@@ -2545,7 +2545,7 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
   create(fetch('Accounts Payable', typeRootName), typeRootName, 'BorderE2E Vendor', asUserId(1));
   addOrUpdateItemSource({ itemName: 'BorderE2E Water', vendorName: 'BorderE2E Vendor', priceMinor: 150, isPreferred: true, currency: 'USD' });
   addOrUpdateItemSource({ itemName: 'BorderE2E Water', vendorName: 'BorderE2E Vendor', priceMinor: 200, isPreferred: true, currency: 'CAD' });
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'BORDERE2E-REC', asItemName('BorderE2E Water'), asLocationName('BorderE2E Outlet'), 20, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'BORDERE2E-REC', asItemName('BorderE2E Water'), asLocationName('BorderE2E Outlet'), 20, asUserId(1), '2027-01-01');
 
   create(fetchGlobalCoaCategory('Expense'), typeRootName, 'BorderE2E Write-off Expense', asUserId(1));
 
@@ -2599,7 +2599,7 @@ test('createStockTake resolves an item by its real, scoped item identity, never 
   setLocation('STTest Outlet 2', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
   createItem('STTest Collide', 'Items', asUserId(1)); // the real item, created first
 
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-COLLIDE', asItemName('STTest Collide'), asLocationName('STTest Outlet 2'), 40, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-COLLIDE', asItemName('STTest Collide'), asLocationName('STTest Outlet 2'), 40, asUserId(1), '2027-01-01');
 
   // Created AFTER the real item, deliberately, per direct confirmation
   // this ordering matters: the old, buggy code built its lookup from
@@ -2630,7 +2630,7 @@ test('POS terminal: a complete register sale posts the invoice, dispatches stock
   setLocation('POSTest Outlet', { city: 'POSTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('POSTest Merlot', 'Items', asUserId(1));
   setItem('POSTest Merlot', { upc: '0123456789012' });
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'POSTEST-REC-1', asItemName('POSTest Merlot'), asLocationName('POSTest Outlet'), 20, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'POSTEST-REC-1', asItemName('POSTest Merlot'), asLocationName('POSTest Outlet'), 20, asUserId(1), '2027-01-01');
 
   // Barcode lookup — exact match only.
   const found = getItemByUpc('0123456789012');
@@ -2740,7 +2740,7 @@ test('customer self-registration: a customer is a customer — same contact invo
   create(fetch('Locations', typeRootName), typeRootName, 'RegTest Outlet', asUserId(1));
   setLocation('RegTest Outlet', { city: 'RegTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('RegTest Wine', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'REGTEST-REC-1', asItemName('RegTest Wine'), asLocationName('RegTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'REGTEST-REC-1', asItemName('RegTest Wine'), asLocationName('RegTest Outlet'), 10, asUserId(1), '2027-01-01');
 
   assert.throws(
     () =>
@@ -2902,8 +2902,8 @@ test("closeBooks: per direct correction, division is only a real, pure sub-total
   create(fetch('Locations', typeRootName), typeRootName, 'MultiDivCloseTest Wholesale Outlet', asUserId(1));
   setLocation('MultiDivCloseTest Wholesale Outlet', { city: 'MultiDivCloseTest Wholesale Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('MultiDivCloseTest Merlot', 'Items', asUserId(1));
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'MDCT-REC-A', asItemName('MultiDivCloseTest Merlot'), asLocationName('MultiDivCloseTest Retail Outlet'), 20, asUserId(1), '2027-01-01');
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'MDCT-REC-B', asItemName('MultiDivCloseTest Merlot'), asLocationName('MultiDivCloseTest Wholesale Outlet'), 20, asUserId(1), '2027-01-01');
+  receiveItems(biz.business, biz.actualLedger, 'MDCT-REC-A', asItemName('MultiDivCloseTest Merlot'), asLocationName('MultiDivCloseTest Retail Outlet'), 20, asUserId(1), '2027-01-01');
+  receiveItems(biz.business, biz.actualLedger, 'MDCT-REC-B', asItemName('MultiDivCloseTest Merlot'), asLocationName('MultiDivCloseTest Wholesale Outlet'), 20, asUserId(1), '2027-01-01');
 
   // Retail Division: $1,000 revenue (via a real, structural sale).
   // Wholesale Division: $600 revenue. A third line with NO real,
@@ -2967,7 +2967,7 @@ test('completePosSale honors an explicit transdate instead of always using the r
   create(fetch('Locations', typeRootName), typeRootName, 'POSDateTest Outlet', asUserId(1));
   setLocation('POSDateTest Outlet', { city: 'POSDateTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('POSDateTest Wine', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'POSDATETEST-REC-1', asItemName('POSDateTest Wine'), asLocationName('POSDateTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'POSDATETEST-REC-1', asItemName('POSDateTest Wine'), asLocationName('POSDateTest Outlet'), 10, asUserId(1), '2027-01-01');
 
   const result = completePosSale(
     {
@@ -3007,7 +3007,7 @@ test('completePosSale: a real, immediate cash sale never touches the customer\'s
   create(fetch('Locations', typeRootName), typeRootName, 'CashARTest Outlet', asUserId(1));
   setLocation('CashARTest Outlet', { city: 'CashARTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('CashARTest Wine', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'CASHARTEST-REC-1', asItemName('CashARTest Wine'), asLocationName('CashARTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'CASHARTEST-REC-1', asItemName('CashARTest Wine'), asLocationName('CashARTest Outlet'), 10, asUserId(1), '2027-01-01');
   create(fetch('Customers', typeRootName), typeRootName, 'CashARTest Customer', asUserId(1));
 
   const result = completePosSale(
@@ -3242,7 +3242,7 @@ test('getStockListing/countStockListing: a real, paginated listing of every item
   create(fetch('Locations', typeRootName), typeRootName, 'StockListTest Outlet', asUserId(1));
   setLocation('StockListTest Outlet', { city: 'StockListTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('StockListTest Wine', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKLISTTEST-REC-1', asItemName('StockListTest Wine'), asLocationName('StockListTest Outlet'), 15, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKLISTTEST-REC-1', asItemName('StockListTest Wine'), asLocationName('StockListTest Outlet'), 15, asUserId(1), '2027-01-01');
 
   const countBefore = countStockListing();
   const listing = getStockListing(1000, 0);
@@ -3277,8 +3277,8 @@ test('getStockListingByLocation: groups the same real stock data by real locatio
   setLocation('StockGroupTest Outlet', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('StockGroupTest Wine A', 'Items', asUserId(1));
   createItem('StockGroupTest Wine B', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-1', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet'), 10, asUserId(1), '2027-01-01');
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-2', asItemName('StockGroupTest Wine B'), asLocationName('StockGroupTest Outlet'), 7, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-1', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-2', asItemName('StockGroupTest Wine B'), asLocationName('StockGroupTest Outlet'), 7, asUserId(1), '2027-01-01');
 
   const groups = getStockListingByLocation();
   const group = groups.find((g) => g.location === 'StockGroupTest Outlet');
@@ -3292,7 +3292,7 @@ test('getStockListingByLocation: groups the same real stock data by real locatio
   // A location whose city has no matching real division must still appear as a real group — just with division: null, not silently dropped.
   create(fetch('Locations', typeRootName), typeRootName, 'StockGroupTest Outlet No Division', asUserId(1));
   setLocation('StockGroupTest Outlet No Division', { city: 'A City With No Real Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-3', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet No Division'), 3, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-3', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet No Division'), 3, asUserId(1), '2027-01-01');
   const groupsAfter = getStockListingByLocation();
   const noDivisionGroup = groupsAfter.find((g) => g.location === 'StockGroupTest Outlet No Division');
   assert.ok(noDivisionGroup, 'a real location must still produce a real group even with no matching division');
@@ -3519,8 +3519,8 @@ test('completePosSale defaults to real, per-product Sales accounts — not one s
   setLocation('PerProductTest Outlet', { city: 'PerProductTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
   createItem('PerProductTest Wine A', 'Items', asUserId(1));
   createItem('PerProductTest Wine B', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'PPTEST-REC-1', asItemName('PerProductTest Wine A'), asLocationName('PerProductTest Outlet'), 10, asUserId(1), '2027-01-01');
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'PPTEST-REC-2', asItemName('PerProductTest Wine B'), asLocationName('PerProductTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PPTEST-REC-1', asItemName('PerProductTest Wine A'), asLocationName('PerProductTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PPTEST-REC-2', asItemName('PerProductTest Wine B'), asLocationName('PerProductTest Outlet'), 10, asUserId(1), '2027-01-01');
 
   // No revenueAccount at all — this is the actual point being tested.
   completePosSale(
@@ -4108,8 +4108,8 @@ test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this ge
   // 100 real units on hand, genuinely consuming 60/day (yesterday) -
   // at that real rate, this runs out in under 2 real days, well
   // inside even the SHORTER 3-day lead time - genuinely at risk.
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'RISKTEST-REC-1', asItemName('RiskTest Keg'), asLocationName('RiskTest Bar'), 100, asUserId(1), today);
-  dispatchStockFromLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'RISKTEST-DISP-1', asItemName('RiskTest Keg'), asLocationName('RiskTest Bar'), 60, asUserId(1), today);
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'RISKTEST-REC-1', asItemName('RiskTest Keg'), asLocationName('RiskTest Bar'), 100, asUserId(1), today);
+  dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'RISKTEST-DISP-1', asItemName('RiskTest Keg'), asLocationName('RiskTest Bar'), 60, asUserId(1), today);
 
   const risk = getStockOutRiskReport(2).find((r) => r.item === 'RiskTest Keg');
   assert.ok(risk, 'genuinely, correctly flagged as at risk');
@@ -4384,8 +4384,8 @@ test('getProfitAndLossByDivision: "Consolidated per Division" — one real, full
   setLocation('PLDivTest3 Outlet B', { city: 'PLDivTest3 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('PLDivTest3 Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'PLDIVTEST3-REC-A', asItemName('PLDivTest3 Merlot'), asLocationName('PLDivTest3 Outlet A'), 20, asUserId(1), today);
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'PLDIVTEST3-REC-B', asItemName('PLDivTest3 Merlot'), asLocationName('PLDivTest3 Outlet B'), 20, asUserId(1), today);
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PLDIVTEST3-REC-A', asItemName('PLDivTest3 Merlot'), asLocationName('PLDivTest3 Outlet A'), 20, asUserId(1), today);
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PLDIVTEST3-REC-B', asItemName('PLDivTest3 Merlot'), asLocationName('PLDivTest3 Outlet B'), 20, asUserId(1), today);
 
   completePosSale({ business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLDivTest3 Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLDivTest3 Merlot', quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000 }, asUserId(1));
   completePosSale({ business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLDivTest3 Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLDivTest3 Merlot', quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, asUserId(1));
@@ -4436,8 +4436,8 @@ test('getProfitAndLossByDivisionTree: "Consolidated per Division per Location" �
   setLocation('PLTreeTest Outlet B', { city: 'PLTreeTest Store B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('PLTreeTest Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'PLTREETEST-REC-A', asItemName('PLTreeTest Merlot'), asLocationName('PLTreeTest Outlet A'), 20, asUserId(1), today);
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'PLTREETEST-REC-B', asItemName('PLTreeTest Merlot'), asLocationName('PLTreeTest Outlet B'), 20, asUserId(1), today);
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PLTREETEST-REC-A', asItemName('PLTreeTest Merlot'), asLocationName('PLTreeTest Outlet A'), 20, asUserId(1), today);
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PLTREETEST-REC-B', asItemName('PLTreeTest Merlot'), asLocationName('PLTreeTest Outlet B'), 20, asUserId(1), today);
 
   // The real, top-level "City" division genuinely never gets any
   // direct activity of its own — only its own, real child stores do.
@@ -4474,8 +4474,8 @@ test('closeBooks: "the whole point of the restructuring" — Retained Earnings i
   create(fetch('Locations', typeRootName), typeRootName, 'DetailedCloseTest Outlet B', asUserId(1));
   setLocation('DetailedCloseTest Outlet B', { city: 'DetailedCloseTest Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('DetailedCloseTest Merlot', 'Items', asUserId(1));
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'DCT-REC-A', asItemName('DetailedCloseTest Merlot'), asLocationName('DetailedCloseTest Outlet A'), 20, asUserId(1), '2027-01-01');
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'DCT-REC-B', asItemName('DetailedCloseTest Merlot'), asLocationName('DetailedCloseTest Outlet B'), 20, asUserId(1), '2027-01-01');
+  receiveItems(biz.business, biz.actualLedger, 'DCT-REC-A', asItemName('DetailedCloseTest Merlot'), asLocationName('DetailedCloseTest Outlet A'), 20, asUserId(1), '2027-01-01');
+  receiveItems(biz.business, biz.actualLedger, 'DCT-REC-B', asItemName('DetailedCloseTest Merlot'), asLocationName('DetailedCloseTest Outlet B'), 20, asUserId(1), '2027-01-01');
 
   // Division A: $1,000 real profit (via a real, structural sale).
   // Division B: $600 real profit. A real, undivided remainder: $200.
@@ -4525,7 +4525,7 @@ test('completePosSale: the real, live wiring — a real sale with a real tier no
   create(fetch('Locations', typeRootName), typeRootName, 'PosWireTest2 Outlet', asUserId(1));
   setLocation('PosWireTest2 Outlet', { city: 'PosWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('PosWireTest2 Merlot', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'POSWIRE2-REC-1', asItemName('PosWireTest2 Merlot'), asLocationName('PosWireTest2 Outlet'), 20, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'POSWIRE2-REC-1', asItemName('PosWireTest2 Merlot'), asLocationName('PosWireTest2 Outlet'), 20, asUserId(1), '2027-01-01');
 
   // No revenueAccount override — this is the real, direct path a real
   // POS sale takes in production, exercising the real, new,
@@ -4573,8 +4573,8 @@ test('reverseJournalEntry: a real, confirmed bug fix — reversing a year-end cl
   create(fetch('Locations', typeRootName), typeRootName, 'ReverseCloseTest2 Outlet B', asUserId(1));
   setLocation('ReverseCloseTest2 Outlet B', { city: 'ReverseCloseTest2 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('ReverseCloseTest2 Merlot', 'Items', asUserId(1));
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'RCT2-REC-A', asItemName('ReverseCloseTest2 Merlot'), asLocationName('ReverseCloseTest2 Outlet A'), 20, asUserId(1), '2027-06-01');
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'RCT2-REC-B', asItemName('ReverseCloseTest2 Merlot'), asLocationName('ReverseCloseTest2 Outlet B'), 20, asUserId(1), '2027-06-01');
+  receiveItems(biz.business, biz.actualLedger, 'RCT2-REC-A', asItemName('ReverseCloseTest2 Merlot'), asLocationName('ReverseCloseTest2 Outlet A'), 20, asUserId(1), '2027-06-01');
+  receiveItems(biz.business, biz.actualLedger, 'RCT2-REC-B', asItemName('ReverseCloseTest2 Merlot'), asLocationName('ReverseCloseTest2 Outlet B'), 20, asUserId(1), '2027-06-01');
 
   completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('ReverseCloseTest2 Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'ReverseCloseTest2 Merlot', quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000 }, asUserId(1));
   completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('ReverseCloseTest2 Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'ReverseCloseTest2 Merlot', quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, asUserId(1));
@@ -4651,7 +4651,7 @@ test('completePosSale: the real, live wiring — a real sale with both a real ti
   create(fetch('Locations', typeRootName), typeRootName, 'LiveWireTest2 Outlet', asUserId(1));
   setLocation('LiveWireTest2 Outlet', { city: 'LiveWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('LiveWireTest2 Merlot', 'Items', asUserId(1));
-  receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), 'LWT2-REC-1', asItemName('LiveWireTest2 Merlot'), asLocationName('LiveWireTest2 Outlet'), 20, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LWT2-REC-1', asItemName('LiveWireTest2 Merlot'), asLocationName('LiveWireTest2 Outlet'), 20, asUserId(1), '2027-01-01');
 
   // No revenueAccount override — the real, direct, live path a real
   // POS sale takes in production.
@@ -4722,8 +4722,8 @@ test('getLedgerBalancesByDivisionStructural: the real, new, structural version m
   setLocation('StructTest6 Outlet B', { city: 'StructTest6 Rivertown', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('StructTest6 Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'ST6-REC-1', asItemName('StructTest6 Merlot'), asLocationName('StructTest6 Outlet A'), 20, asUserId(1), today);
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'ST6-REC-2', asItemName('StructTest6 Merlot'), asLocationName('StructTest6 Outlet B'), 20, asUserId(1), today);
+  receiveItems(biz.business, biz.actualLedger, 'ST6-REC-1', asItemName('StructTest6 Merlot'), asLocationName('StructTest6 Outlet A'), 20, asUserId(1), today);
+  receiveItems(biz.business, biz.actualLedger, 'ST6-REC-2', asItemName('StructTest6 Merlot'), asLocationName('StructTest6 Outlet B'), 20, asUserId(1), today);
 
   completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('StructTest6 Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'StructTest6 Merlot', quantity: 2, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 5000 }, asUserId(1));
   completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('StructTest6 Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'StructTest6 Merlot', quantity: 3, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 5000 }, asUserId(1));
@@ -4759,7 +4759,7 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
   setLocation('ReproTest Outlet', { city: 'ReproTest Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
   createItem('ReproTest Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'REPRO-REC-1', asItemName('ReproTest Merlot'), asLocationName('ReproTest Outlet'), 20, asUserId(1), today);
+  receiveItems(biz.business, biz.actualLedger, 'REPRO-REC-1', asItemName('ReproTest Merlot'), asLocationName('ReproTest Outlet'), 20, asUserId(1), today);
 
   completePosSale(
     { business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('ReproTest Outlet'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'ReproTest Merlot', quantity: 2, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 3000 },
@@ -4813,8 +4813,8 @@ test('getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy -
   setDimensionParent('BottleSizeTest Merlot', 'Bottle Size', 'BottleSizeTest 750ml', asUserId(1));
 
   const today = new Date().toISOString().slice(0, 10);
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'BOTTLESIZE-REC-1', asItemName('BottleSizeTest Amber Ale'), asLocationName('BottleSizeTest Outlet'), 24, asUserId(1), today);
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'BOTTLESIZE-REC-2', asItemName('BottleSizeTest Merlot'), asLocationName('BottleSizeTest Outlet'), 12, asUserId(1), today);
+  receiveItems(biz.business, biz.actualLedger, 'BOTTLESIZE-REC-1', asItemName('BottleSizeTest Amber Ale'), asLocationName('BottleSizeTest Outlet'), 24, asUserId(1), today);
+  receiveItems(biz.business, biz.actualLedger, 'BOTTLESIZE-REC-2', asItemName('BottleSizeTest Merlot'), asLocationName('BottleSizeTest Outlet'), 12, asUserId(1), today);
 
   completePosSale(
     { business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('BottleSizeTest Outlet'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'BottleSizeTest Amber Ale', quantity: 6, unitPriceMinor: 800, taxMinor: 0 }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 4800 },
@@ -5071,7 +5071,7 @@ test('completePosSale: a real, genuine combination sale correctly resolves its o
   createItem('ComboSaleTest Lager', 'Items', asUserId(1));
   createEntityRaw({ name: 'ComboSaleTest Vendor', parent: 'Vendors' }, asUserId(1));
   addOrUpdateItemSource({ itemName: 'ComboSaleTest Lager', vendorName: 'ComboSaleTest Vendor', priceMinor: 500, isPreferred: true });
-  receiveStockAtLocation(biz, 'Actual' as any, 'COMBOSALE-REC-1', asItemName('ComboSaleTest Lager'), asLocationName('Riverside Cellars'), 24, asUserId(1));
+  receiveItems(biz, 'Actual' as any, 'COMBOSALE-REC-1', asItemName('ComboSaleTest Lager'), asLocationName('Riverside Cellars'), 24, asUserId(1));
 
   const shape: [string, string][] = [
     ['Location', 'Location'],
@@ -5104,7 +5104,7 @@ test('completePosSale: a real, genuine combination sale correctly resolves its o
   assert.equal(salesLeafBalance?.balance_minor, -1600, 'the real sale posted through the new, real leaf under Sales, pointing at the shared Product Instance - not the old, per-item-only Sales account');
 });
 
-test('receiveStockAtLocation: a real, combination-tagged receipt builds up a real, distinct Inventory value at the exact, right leaf, per direct instruction', () => {
+test('receiveItems: a real, combination-tagged receipt builds up a real, distinct Inventory value at the exact, right leaf, per direct instruction', () => {
   const biz = asBusinessName('Wine Retail Business');
   createItem('ReceiveComboTest Lager', 'Items', asUserId(1));
   createEntityRaw({ name: 'ReceiveComboTest Vendor', parent: 'Vendors' }, asUserId(1));
@@ -5115,7 +5115,7 @@ test('receiveStockAtLocation: a real, combination-tagged receipt builds up a rea
     ['Item', 'Beer'],
     ['Storage', 'Storage'],
   ];
-  receiveStockAtLocation(biz, 'Actual' as any, 'RECEIVECOMBO-REC-1', asItemName('ReceiveComboTest Lager'), asLocationName('Riverside Cellars'), 24, asUserId(1), undefined, ['Riverside Cellars', 'ReceiveComboTest Lager', 'Cold'], shape);
+  receiveItems(biz, 'Actual' as any, 'RECEIVECOMBO-REC-1', asItemName('ReceiveComboTest Lager'), asLocationName('Riverside Cellars'), 24, asUserId(1), undefined, ['Riverside Cellars', 'ReceiveComboTest Lager', 'Cold'], shape);
 
   const instanceTop = ensureProductInstance(biz, shape, ['Riverside Cellars', 'ReceiveComboTest Lager', 'Cold'], asUserId(1));
   const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, asUserId(1));
@@ -5123,7 +5123,7 @@ test('receiveStockAtLocation: a real, combination-tagged receipt builds up a rea
   assert.equal(balance?.balance_minor, 24 * 600, 'the real, combination-specific Inventory leaf correctly built up 24 units x 600/unit, at the real, correct account - not the base, per-item Inventory account');
 });
 
-test('transferStock: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction', () => {
+test('transferItems: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction', () => {
   const biz = asBusinessName('Wine Retail Business');
   createItem('TransferComboTest Lager', 'Items', asUserId(1));
   createEntityRaw({ name: 'TransferComboTest Vendor', parent: 'Vendors' }, asUserId(1));
@@ -5134,8 +5134,8 @@ test('transferStock: a real, combination-tagged transfer correctly moves the rea
     ['Item', 'Beer'],
     ['Storage', 'Storage'],
   ];
-  receiveStockAtLocation(biz, 'Actual' as any, 'TRANSFERCOMBO-REC-1', asItemName('TransferComboTest Lager'), asLocationName('Head Office'), 24, asUserId(1), undefined, ['Head Office', 'TransferComboTest Lager', 'Cold'], shape);
-  transferStock(biz, 'Actual' as any, asItemName('TransferComboTest Lager'), asLocationName('Head Office'), asLocationName('Riverside Cellars'), 10, 'TRANSFERCOMBO-XFER-1', 1, undefined, shape, ['TransferComboTest Lager', 'Cold']);
+  receiveItems(biz, 'Actual' as any, 'TRANSFERCOMBO-REC-1', asItemName('TransferComboTest Lager'), asLocationName('Head Office'), 24, asUserId(1), undefined, ['Head Office', 'TransferComboTest Lager', 'Cold'], shape);
+  transferItems(biz, 'Actual' as any, asItemName('TransferComboTest Lager'), asLocationName('Head Office'), asLocationName('Riverside Cellars'), 10, 'TRANSFERCOMBO-XFER-1', 1, undefined, shape, ['TransferComboTest Lager', 'Cold']);
 
   const fromInstance = ensureProductInstance(biz, shape, ['Head Office', 'TransferComboTest Lager', 'Cold'], asUserId(1));
   const toInstance = ensureProductInstance(biz, shape, ['Riverside Cellars', 'TransferComboTest Lager', 'Cold'], asUserId(1));
@@ -5268,7 +5268,7 @@ test('completePosSale, through a real, foreign-currency terminal at a real, nomi
   createEntityRaw({ name: 'FXPosTest Vendor', parent: 'Vendors' }, asUserId(1));
   createItem('FXPosTest Water', 'Items', asUserId(1));
   addOrUpdateItemSource({ itemName: 'FXPosTest Water', vendorName: 'FXPosTest Vendor', currency: 'USD', priceMinor: 150, isPreferred: true });
-  receiveStockAtLocation('My Business' as any, 'Actual' as any, 'FXPOS-REC-1', 'FXPosTest Water' as any, 'FXPosTest Outlet' as any, 10, asUserId(1), '2027-01-02');
+  receiveItems('My Business' as any, 'Actual' as any, 'FXPOS-REC-1', 'FXPosTest Water' as any, 'FXPosTest Outlet' as any, 10, asUserId(1), '2027-01-02');
   createPosTerminal('FXPosTest USD Till', 'FXPosTest Outlet' as any, asUserId(1));
   setTerminalCurrency('FXPosTest USD Till', 'USD');
 
@@ -5338,7 +5338,7 @@ test('the fully worked example from multicurrency-design.md: a real sale through
   // two separate facts, per the manual's own, explicit statement.
   addOrUpdateItemSource({ itemName: 'WorkedEx Ale', vendorName: 'WorkedEx Vendor', currency: 'AUD', priceMinor: 300, isPreferred: true });
   addOrUpdateItemSource({ itemName: 'WorkedEx Ale', vendorName: 'WorkedEx Vendor', currency: 'USD', priceMinor: 200, isPreferred: true });
-  receiveStockAtLocation('My Business' as any, 'Actual' as any, 'WORKEDEX-REC-1', 'WorkedEx Ale' as any, 'WorkedEx Outlet' as any, 10, asUserId(1), '2027-01-02');
+  receiveItems('My Business' as any, 'Actual' as any, 'WORKEDEX-REC-1', 'WorkedEx Ale' as any, 'WorkedEx Outlet' as any, 10, asUserId(1), '2027-01-02');
   addOrUpdateItemSource({ itemName: 'WorkedEx Ale', vendorName: 'WorkedEx Vendor', currency: 'USD', priceMinor: 500, isPreferred: true });
 
   // "Cash at Bank (USD)" is a real, global, shared account other
@@ -5785,7 +5785,7 @@ test('adjustLocationCapacity: a real, genuinely balanced posting against Occupie
   assert.equal(remainingBalance + occupiedBalance, -installedBalance, 'the real, meaningful accounting identity Installed = Remaining + Occupied must genuinely hold');
 });
 
-test('receiveStockAtLocation with a real combination: parallel currency AND count postings both appear, each genuinely balanced on its own', () => {
+test('receiveItems with a real combination: parallel currency AND count postings both appear, each genuinely balanced on its own', () => {
   const biz = createBusiness(asBusinessName('ParallelCountTest Co'), '2027-28', asUserId(1));
   const userId = asUserId(1);
   createAndConfigureLocation(biz.business, 'Parallel Count Outlet', {
@@ -5799,7 +5799,7 @@ test('receiveStockAtLocation with a real combination: parallel currency AND coun
   ensureHierarchyValue(biz.business, 'Storage', 'Secure', userId);
   defineProductShape(biz.business, [['Storage', 'Storage']], userId);
 
-  receiveStockAtLocation(
+  receiveItems(
     biz.business, biz.actualLedger, 'PARALLEL-COUNT-TEST-1', asItemName('Parallel Count Wine'), asLocationName('Parallel Count Outlet'),
     12, userId, undefined, ['Secure'], [['Storage', 'Storage']]
   );
@@ -5823,7 +5823,7 @@ test('receiveStockAtLocation with a real combination: parallel currency AND coun
   assert.equal(receivedFromBalance.currency, 'UNITS-SECURE');
 });
 
-test('dispatchStockFromLocation with a real combination: parallel currency AND count postings both appear, genuinely reversed from a real receipt, each independently balanced', () => {
+test('dispatchItems with a real combination: parallel currency AND count postings both appear, genuinely reversed from a real receipt, each independently balanced', () => {
   const biz = createBusiness(asBusinessName('DispatchParallelTest Co'), '2027-28', asUserId(1));
   const userId = asUserId(1);
   createAndConfigureLocation(biz.business, 'Dispatch Parallel Outlet', {
@@ -5837,8 +5837,8 @@ test('dispatchStockFromLocation with a real combination: parallel currency AND c
   ensureHierarchyValue(biz.business, 'Storage', 'Secure', userId);
   defineProductShape(biz.business, [['Storage', 'Storage']], userId);
 
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'DISPATCH-PARALLEL-RECEIVE-1', asItemName('Dispatch Parallel Wine'), asLocationName('Dispatch Parallel Outlet'), 12, userId, undefined, ['Secure'], [['Storage', 'Storage']]);
-  dispatchStockFromLocation(biz.business, biz.actualLedger, 'DISPATCH-PARALLEL-DISPATCH-1', asItemName('Dispatch Parallel Wine'), asLocationName('Dispatch Parallel Outlet'), 5, userId, undefined, ['Secure'], [['Storage', 'Storage']]);
+  receiveItems(biz.business, biz.actualLedger, 'DISPATCH-PARALLEL-RECEIVE-1', asItemName('Dispatch Parallel Wine'), asLocationName('Dispatch Parallel Outlet'), 12, userId, undefined, ['Secure'], [['Storage', 'Storage']]);
+  dispatchItems(biz.business, biz.actualLedger, 'DISPATCH-PARALLEL-DISPATCH-1', asItemName('Dispatch Parallel Wine'), asLocationName('Dispatch Parallel Outlet'), 5, userId, undefined, ['Secure'], [['Storage', 'Storage']]);
 
   const entities = getEntityTree();
   const biz2 = entities.find((e) => e.name === 'DispatchParallelTest Co');
@@ -5848,7 +5848,7 @@ test('dispatchStockFromLocation with a real combination: parallel currency AND c
   assert.equal(onHandBalance, 7, '12 real units received minus 5 real units dispatched must genuinely leave 7 real units on hand for this combination');
 });
 
-test('transferStock with a real combination: the real unit count moves in parallel with the real dollar value, one, shared, real currency for the same, physical units - genuinely balanced', () => {
+test('transferItems with a real combination: the real unit count moves in parallel with the real dollar value, one, shared, real currency for the same, physical units - genuinely balanced', () => {
   const biz = createBusiness(asBusinessName('TransferParallelTest Co'), '2027-28', asUserId(1));
   const userId = asUserId(1);
   createAndConfigureLocation(biz.business, 'Transfer Parallel Source', {
@@ -5866,8 +5866,8 @@ test('transferStock with a real combination: the real unit count moves in parall
   ensureHierarchyValue(biz.business, 'Storage', 'Secure', userId);
   defineProductShape(biz.business, [['Location', 'Location'], ['Storage', 'Storage']], userId);
 
-  receiveStockAtLocation(biz.business, biz.actualLedger, 'TRANSFER-PARALLEL-RECEIVE-1', asItemName('Transfer Parallel Wine'), asLocationName('Transfer Parallel Source'), 20, userId);
-  transferStock(biz.business, biz.actualLedger, asItemName('Transfer Parallel Wine'), asLocationName('Transfer Parallel Source'), asLocationName('Transfer Parallel Destination'), 8, 'TRANSFER-PARALLEL-TRANSFER-1', userId, undefined, [['Location', 'Location'], ['Storage', 'Storage']], ['Secure']);
+  receiveItems(biz.business, biz.actualLedger, 'TRANSFER-PARALLEL-RECEIVE-1', asItemName('Transfer Parallel Wine'), asLocationName('Transfer Parallel Source'), 20, userId);
+  transferItems(biz.business, biz.actualLedger, asItemName('Transfer Parallel Wine'), asLocationName('Transfer Parallel Source'), asLocationName('Transfer Parallel Destination'), 8, 'TRANSFER-PARALLEL-TRANSFER-1', userId, undefined, [['Location', 'Location'], ['Storage', 'Storage']], ['Secure']);
 
   const entities = getEntityTree();
   const biz2 = entities.find((e) => e.name === 'TransferParallelTest Co');
@@ -5880,7 +5880,7 @@ test('transferStock with a real combination: the real unit count moves in parall
   assert.deepEqual(balances.map((b) => b.balance_minor).sort((a, b) => a - b), [-8, 8], 'the real unit count must genuinely balance: -8 at the source, +8 at the destination');
 });
 
-test('writeOffStock with a real combination: the real Inventory value and real unit count are both genuinely written off, in parallel, each independently balanced', () => {
+test('writeOffItems with a real combination: the real Inventory value and real unit count are both genuinely written off, in parallel, each independently balanced', () => {
   const biz = createBusiness(asBusinessName('WriteOffParallelTest Co'), '2027-28', asUserId(1));
   const business = biz.business;
   const ledger = biz.actualLedger;
@@ -5901,8 +5901,8 @@ test('writeOffStock with a real combination: the real Inventory value and real u
   ensureHierarchyValue(business, 'Storage', 'Secure', userId);
   defineProductShape(business, [['Storage', 'Storage']], userId);
 
-  receiveStockAtLocation(business, ledger, 'WRITEOFF-PARALLEL-RECEIVE-1', asItemName('Write Off Parallel Wine'), asLocationName('Write Off Parallel Outlet'), 10, userId, undefined, ['Secure'], [['Storage', 'Storage']]);
-  writeOffStock(business, ledger, 'WRITEOFF-PARALLEL-1', asItemName('Write Off Parallel Wine'), 3, 500, asAccountName('WriteOffParallelTest Breakage Expense'), '', 'Broken in storage', userId, undefined, undefined, ['Secure'], [['Storage', 'Storage']]);
+  receiveItems(business, ledger, 'WRITEOFF-PARALLEL-RECEIVE-1', asItemName('Write Off Parallel Wine'), asLocationName('Write Off Parallel Outlet'), 10, userId, undefined, ['Secure'], [['Storage', 'Storage']]);
+  writeOffItems(business, ledger, 'WRITEOFF-PARALLEL-1', asItemName('Write Off Parallel Wine'), 3, 500, asAccountName('WriteOffParallelTest Breakage Expense'), '', 'Broken in storage', userId, undefined, undefined, ['Secure'], [['Storage', 'Storage']]);
 
   const entities = getEntityTree();
   const biz2 = entities.find((e) => e.name === 'WriteOffParallelTest Co');

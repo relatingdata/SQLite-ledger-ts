@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
-  import { getStockMovementReport, ApiError, type StockMovementReport, type StockReceiptRow, type StockTransferRow, type StockSaleRow } from '$lib/api';
+  import { getStockMovementReport, ApiError, type StockMovementReport, type OrderReceiptRow, type StockTransferRow, type StockSaleRow } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import FromToDateFields from '$lib/components/FromToDateFields.svelte';
 
@@ -45,7 +45,7 @@
     else expandedGroups.add(key);
   }
 
-  function keyFor(row: StockReceiptRow | StockTransferRow | StockSaleRow, key: GroupKey): string {
+  function keyFor(row: OrderReceiptRow | StockTransferRow | StockSaleRow, key: GroupKey): string {
     if (key === 'category') return row.category ?? '(No category)';
     if ('from_location' in row) {
       // Transfers have no division/vendor of their own — group by
@@ -58,7 +58,7 @@
     return row.vendor ?? '(No vendor on file)';
   }
 
-  function groupRows<T extends StockReceiptRow | StockTransferRow | StockSaleRow>(rows: T[], key: GroupKey) {
+  function groupRows<T extends OrderReceiptRow | StockTransferRow | StockSaleRow>(rows: T[], key: GroupKey) {
     const groups = new Map<string, { name: string; rows: T[]; totalQuantity: number; totalAmount: number }>();
     for (const row of rows) {
       const k = keyFor(row, key);
@@ -153,8 +153,8 @@
                     <td>{row.item}</td>
                     <td>{row.date}</td>
                     {#if tab === 'receipts'}
-                      <td>{(row as StockReceiptRow).location}</td>
-                      <td>{(row as StockReceiptRow).vendor ?? '—'}</td>
+                      <td>{(row as OrderReceiptRow).location}</td>
+                      <td>{(row as OrderReceiptRow).vendor ?? '—'}</td>
                     {:else if tab === 'transfers'}
                       <td>{(row as StockTransferRow).from_location}</td>
                       <td>{(row as StockTransferRow).to_location}</td>

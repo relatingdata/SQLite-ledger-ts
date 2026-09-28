@@ -3,12 +3,12 @@ import { z } from 'zod';
 import {
   stagePurchaseOrder,
   postPurchaseOrder,
-  stageStockReceipt,
-  postStockReceipt,
+  stageOrderReceipt,
+  postOrderReceipt,
   stageSalesOrder,
   postSalesOrder,
-  stageStockDispatch,
-  postStockDispatch,
+  stageOrderDispatch,
+  postOrderDispatch,
   getOrderStatus,
   asBusinessName,
   asLedgerName,
@@ -69,10 +69,10 @@ const receiptSchema = z.object({
 stockRouter.post('/stock-receipt/stage', (req, res) => {
   const parsed = receiptSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  stageStockReceipt(parsed.data);
+  stageOrderReceipt(parsed.data);
   res.status(204).end();
 });
-stockRouter.post('/stock-receipt/post', handlePost(postStockReceipt));
+stockRouter.post('/stock-receipt/post', handlePost(postOrderReceipt));
 
 const soSchema = z.object({ ...base, customer: z.string().min(1), item: z.string().min(1), price_minor: z.number().int().positive(), location: z.string().optional() });
 stockRouter.post('/so/stage', (req, res) => {
@@ -96,7 +96,7 @@ const dispatchSchema = z.object({
 stockRouter.post('/stock-dispatch/stage', (req, res) => {
   const parsed = dispatchSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  stageStockDispatch(parsed.data);
+  stageOrderDispatch(parsed.data);
   res.status(204).end();
 });
-stockRouter.post('/stock-dispatch/post', handlePost(postStockDispatch));
+stockRouter.post('/stock-dispatch/post', handlePost(postOrderDispatch));

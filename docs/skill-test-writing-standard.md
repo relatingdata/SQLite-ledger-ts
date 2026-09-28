@@ -5,7 +5,7 @@
 
 ## The real incident this comes from
 
-A new regression test called `writeOffStock('My Business', ..., 'Breakage & Spoilage', ...)` — a real, existing account name, but one that only exists because Wine Retail Business's own demo data creates it. `'My Business'`, the generic business most of this test file uses, has no such account. The test failed with a real, but *wrong*, error (`NOT NULL constraint failed`) on its first "should now pass" run — not because the fix was wrong, but because the test's own setup carried a hidden assumption about what already existed. This is exactly the class of bug this project's own `backend-first-testing` and `test-driven-development` skills exist to catch — and it *was* caught, precisely because both directions of red/green were actually run, not assumed.
+A new regression test called `writeOffItems('My Business', ..., 'Breakage & Spoilage', ...)` — a real, existing account name, but one that only exists because Wine Retail Business's own demo data creates it. `'My Business'`, the generic business most of this test file uses, has no such account. The test failed with a real, but *wrong*, error (`NOT NULL constraint failed`) on its first "should now pass" run — not because the fix was wrong, but because the test's own setup carried a hidden assumption about what already existed. This is exactly the class of bug this project's own `backend-first-testing` and `test-driven-development` skills exist to catch — and it *was* caught, precisely because both directions of red/green were actually run, not assumed.
 
 ## The real, absolute rule
 

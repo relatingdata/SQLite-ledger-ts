@@ -67,7 +67,7 @@ Reference used for all three: `{orderReference}-PLACE`,
 
 Two real, separate things happen, together, in the real UI flow:
 
-**(a) `receiveStockAtLocation(...)`** — the real physical arrival:
+**(a) `receiveItems(...)`** — the real physical arrival:
 1. The item's own real quantity account, **+quantity**, tagged with
    the real, specific location it arrived at.
 2. The item's own real `On Order` account, **−quantity** (the real
@@ -127,7 +127,7 @@ Purchase Order exactly): a real `{orderReference} Qty`/`Value` pair,
 plus the product's own real `Units Sold`-side commitment tracking.
 Memo-only — no revenue recognized yet.
 
-**(b) `postStockDispatch(...)`**, later, in full or in part — the real
+**(b) `postOrderDispatch(...)`**, later, in full or in part — the real
 physical fulfillment: dispatches real stock from the real warehouse
 (the same real, balanced quantity pair as §6 step 3), recognizes real
 revenue/COGS for exactly what was actually dispatched this time, and
@@ -137,7 +137,7 @@ fulfillment (§5), mirrored for the sales side.
 
 ## 8. Transfer stock between two locations (same city)
 
-Real function: `transferStock(...)`.
+Real function: `transferItems(...)`.
 
 1. The item's own real quantity account, **−quantity**, tagged with
    the real, specific **source** location.
@@ -152,7 +152,7 @@ genuinely not a sale.
 
 ## 9. Write off a breakage/spoilage
 
-Real function: `writeOffStock(...)`.
+Real function: `writeOffItems(...)`.
 
 1. **The real write-off expense account debited**, the item's own real
    Inventory account credited, at the given unit cost × quantity — the

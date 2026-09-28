@@ -39,7 +39,7 @@ which types every Svelte file and would fail on any real use.
 
 | File | Functions |
 |---|---|
-| `frontend/src/lib/api.ts` | `asDivisionName`, `getBusinessReports`, `getChartOfAccounts`, `setMenuOverride`, `deleteMenuOverride`, `getProfitAndLossByDivision`, `getVocabularyAlternates`, `getNominatedBankAccounts`, `getStagedLines`, `removeStagedLine`, `stageARSale`, `postARSale`, `stageAPPurchase`, `postAPPurchase`, `getItemStorageOrigin`, `setItemStorageOrigin`, `listProducts`, `createProduct`, `setItemProduct`, `getScheduleAtLocation`, `dispatchStockFromLocation`, `setItemSourceLeadTime`, `getStockListing` |
+| `frontend/src/lib/api.ts` | `asDivisionName`, `getBusinessReports`, `getChartOfAccounts`, `setMenuOverride`, `deleteMenuOverride`, `getProfitAndLossByDivision`, `getVocabularyAlternates`, `getNominatedBankAccounts`, `getStagedLines`, `removeStagedLine`, `stageARSale`, `postARSale`, `stageAPPurchase`, `postAPPurchase`, `getItemStorageOrigin`, `setItemStorageOrigin`, `listProducts`, `createProduct`, `setItemProduct`, `getScheduleAtLocation`, `dispatchItems`, `setItemSourceLeadTime`, `getStockListing` |
 | `frontend/src/lib/auth.ts` | `hasRole` |
 
 Most of the frontend ones are wrappers for backend routes whose screens do not call them yet.

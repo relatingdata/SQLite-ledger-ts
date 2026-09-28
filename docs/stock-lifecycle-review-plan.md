@@ -72,7 +72,7 @@ itself is worse than one with an honest, marked gap.
 
 ## 6. Write off a breakage — confirmed, built, documented, and recently fixed
 
-`writeOffStock` — a real, dual-effect transaction (GL loss +
+`writeOffItems` — a real, dual-effect transaction (GL loss +
 quantity reduction). Its own quantity-movement posting was found
 genuinely unbalanced and fixed this same session (checkpoint 283) —
 now posts against a real `Write-off` counteritem account, matching

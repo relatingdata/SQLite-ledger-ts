@@ -4,7 +4,7 @@
   import { formatAmount } from '$lib/format';
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
-  import { getBusinesses, getLedgers, getEntityTree, getOrderStatus, stageStockDispatch, postStockDispatch, asBusinessName, asLedgerName, ApiError, type EntityNode } from '$lib/api';
+  import { getBusinesses, getLedgers, getEntityTree, getOrderStatus, stageOrderDispatch, postOrderDispatch, asBusinessName, asLedgerName, ApiError, type EntityNode } from '$lib/api';
   import { parseMinorUnits, parseQuantity } from '$lib/money';
   import { filterToItems } from '$lib/entityTree';
 
@@ -85,7 +85,7 @@
     }
     saving = true;
     try {
-      await stageStockDispatch({
+      await stageOrderDispatch({
         reference, business: asBusinessName(business), ledger: asLedgerName(ledger), so_reference: soReference,
         item: isService ? undefined : item,
         item_qty: isService ? undefined : itemQty,
@@ -93,7 +93,7 @@
         customer, quantity: parseQuantity(quantity), sale_price_minor: parseMinorUnits(salePrice), tax_minor: taxMinor,
         transdate, description: description || undefined,
       });
-      await postStockDispatch(reference, asBusinessName(business), asLedgerName(ledger));
+      await postOrderDispatch(reference, asBusinessName(business), asLedgerName(ledger));
       message = `Dispatch ${reference} recorded against ${soReference}.`;
       reference = '';
       quantity = '';

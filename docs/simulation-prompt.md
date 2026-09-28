@@ -11,8 +11,8 @@ explaining the simulation's design in the system manual.
 
 Build a complete, realistic one-month trading simulation for "Wine
 Retail Company," end to end, using this app's own real functions
-(`stageLine`/`postJournalEntry`, `receiveStockAtLocation`,
-`transferStock`, `completePosSale`, `createStockTake`, `closeBooks`,
+(`stageLine`/`postJournalEntry`, `receiveItems`,
+`transferItems`, `completePosSale`, `createStockTake`, `closeBooks`,
 etc.) — never raw SQL. Make it deterministic and re-runnable (a seeded
 PRNG, not `Math.random()`), and commit it permanently rather than
 treating it as a throwaway script.
@@ -38,7 +38,7 @@ count (not a bottle count) and multiplies by that product's own real
 package quantity before receiving stock. Roughly 12–22 purchases per
 day across the month, each received at one of two warehouses, with
 ~85% of what's received distributed on to a matching-city retail
-outlet shortly after (a genuine `transferStock` call, allowed to fail
+outlet shortly after (a genuine `transferItems` call, allowed to fail
 silently if a concurrent transfer already took the stock — not fatal
 to the simulation).
 

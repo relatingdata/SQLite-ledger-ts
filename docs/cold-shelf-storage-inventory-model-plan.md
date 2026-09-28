@@ -52,7 +52,7 @@ implemented.
   "1 carton = 24 bottles" anywhere).
 - **A real, established, separate restocking mechanism already
   exists** (`getRestockPickingList`/`confirmRestockPickedLine`/
-  `dispatchRestockFromPickingList`, plus `transferStock` in
+  `dispatchRestockFromPickingList`, plus `transferItems` in
   `db-stock.ts`) — but this is a *between-location* transfer
   (warehouse → retail outlet), genuinely different from what's
   described here, which is a *within-location* transfer (a single
@@ -60,8 +60,8 @@ implemented.
   stock). The two are related in spirit (both move real stock to
   where it's needed) but operate on different real axes and
   shouldn't be conflated into one mechanism.
-- **`getLocation`/`getPartLocation`/`dispatchStockFromLocation`/
-  `receiveStockAtLocation`** (`db-stock.ts`) — the real, existing
+- **`getLocation`/`getPartLocation`/`dispatchItems`/
+  `receiveItems`** (`db-stock.ts`) — the real, existing
   per-location, per-part quantity tracking this new mechanism would
   need to extend, not replace.
 

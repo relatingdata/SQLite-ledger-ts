@@ -1762,7 +1762,7 @@ export function confirmPickedLine(invoiceId: number, invoiceLineId: number, busi
  * completed" moment: posts the real invoice (recognizing revenue) and
  * dispatches real, physical stock for every real line from the real
  * location it was actually picked from — the same, real, already-
- * tested dispatchStockFromLocation mechanism this app's own POS sales
+ * tested dispatchItems mechanism this app's own POS sales
  * already use, not a separate, parallel dispatch path. */
 export function dispatchOrderFromPickingList(invoiceId: number, locationName: LocationName, revenueAccount: string, taxAccount: string, userId: UserId): void {
   const invoice = getInvoice(invoiceId);
@@ -1775,7 +1775,7 @@ export function dispatchOrderFromPickingList(invoiceId: number, locationName: Lo
 
   postInvoice(invoiceId, revenueAccount, taxAccount, userId);
   for (const line of pickingList) {
-    dispatchStockFromLocation(asBusinessName(invoice.business), asLedgerName(invoice.ledger), `${invoice.reference}-DISPATCH-${line.item}`, asItemName(line.item!), asLocationName(locationName), line.quantity!, userId, invoice.invoice_date);
+    dispatchItems(asBusinessName(invoice.business), asLedgerName(invoice.ledger), `${invoice.reference}-DISPATCH-${line.item}`, asItemName(line.item!), asLocationName(locationName), line.quantity!, userId, invoice.invoice_date);
   }
 }
 
@@ -1787,9 +1787,9 @@ export function dispatchOrderFromPickingList(invoiceId: number, locationName: Lo
 // restocking runs." A real, internal transfer has no customer and no
 // revenue at all, so it's genuinely not an invoice — but it needs the
 // exact same real shelf-order/tick-off/refuse-until-complete pattern,
-// built on transferStock (the same, real, already-tested mechanism
+// built on transferItems (the same, real, already-tested mechanism
 // this app's own simulation already uses for restocking) rather than
-// dispatchStockFromLocation/postInvoice.
+// dispatchItems/postInvoice.
 // ---------------------------------------------------------------------------
 
 export interface RestockLineInput {
@@ -1848,7 +1848,7 @@ export function confirmRestockPickedLine(runReference: string, itemName: string,
 /** The real "restocking run completed" moment — refuses outright if
  * any real line is still unticked, otherwise transfers real, physical
  * stock for every real line from the real warehouse to the real
- * retail outlet, using transferStock, the exact same real mechanism
+ * retail outlet, using transferItems, the exact same real mechanism
  * this app's own simulation already relies on for restocking. */
 export function dispatchRestockFromPickingList(
   runReference: string,
@@ -1870,7 +1870,7 @@ export function dispatchRestockFromPickingList(
     // directly, not assumed: journal.reference must be unique per
     // (business, ledger), so reusing one shared base reference across
     // different real products in the same run would collide.
-    transferStock(business, ledger, asItemName(line.item), asLocationName(warehouseName), asLocationName(retailOutletName), line.quantity, `${runReference}-XFER-${line.item}`, userId, transdate);
+    transferItems(business, ledger, asItemName(line.item), asLocationName(warehouseName), asLocationName(retailOutletName), line.quantity, `${runReference}-XFER-${line.item}`, userId, transdate);
   }
 }
 
@@ -3368,7 +3368,7 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
     );
 
     for (const line of input.lines) {
-      dispatchStockFromLocation(input.business, input.ledger, `${reference}-DISPATCH-${line.itemName}`, asItemName(line.itemName), asLocationName(resolveDispatchLocation(asItemName(line.itemName), input.locationName)), line.quantity, userId, today);
+      dispatchItems(input.business, input.ledger, `${reference}-DISPATCH-${line.itemName}`, asItemName(line.itemName), asLocationName(resolveDispatchLocation(asItemName(line.itemName), input.locationName)), line.quantity, userId, today);
     }
 
     // Real COGS + Inventory-value reduction — per direct, confirmed
@@ -3544,7 +3544,7 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
     );
 
     for (const line of input.lines) {
-      receiveStockAtLocation(input.business, input.ledger, `${reference}-RECV-${line.itemName}`, asItemName(line.itemName), asLocationName(input.locationName), line.quantity, userId, today);
+      receiveItems(input.business, input.ledger, `${reference}-RECV-${line.itemName}`, asItemName(line.itemName), asLocationName(input.locationName), line.quantity, userId, today);
     }
 
     const invoice = getInvoice(invoiceId)!;
@@ -7118,7 +7118,7 @@ export function getChartOfAccountsPrototype(language: string): string[] {
 export * from './db-journal.js';
 import { stageLine, postJournalEntry } from './db-journal.js';
 export * from './db-stock.js';
-import { getLocation, setLocation, getItemLocation, dispatchStockFromLocation, receiveStockAtLocation, transferStock, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, type Location as StockLocation } from './db-stock.js';
+import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, type Location as StockLocation } from './db-stock.js';
 
 
 // Migrates every real, existing translation into the entity-only

@@ -4,7 +4,7 @@
   import { formatAmount } from '$lib/format';
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
-  import { getBusinesses, getLedgers, getEntityTree, getOrderStatus, stageStockReceipt, postStockReceipt, asBusinessName, asLedgerName, ApiError, type EntityNode } from '$lib/api';
+  import { getBusinesses, getLedgers, getEntityTree, getOrderStatus, stageOrderReceipt, postOrderReceipt, asBusinessName, asLedgerName, ApiError, type EntityNode } from '$lib/api';
   import { parseMinorUnits, parseQuantity } from '$lib/money';
   import { filterToItems } from '$lib/entityTree';
 
@@ -79,13 +79,13 @@
     }
     saving = true;
     try {
-      await stageStockReceipt({
+      await stageOrderReceipt({
         reference, business: asBusinessName(business), ledger: asLedgerName(ledger), po_reference: poReference, item,
         item_qty: isService ? undefined : itemQty || undefined,
         vendor, quantity: parseQuantity(quantity), value_minor: parseMinorUnits(value), tax_minor: taxMinor,
         transdate, description: description || undefined,
       });
-      await postStockReceipt(reference, asBusinessName(business), asLedgerName(ledger));
+      await postOrderReceipt(reference, asBusinessName(business), asLedgerName(ledger));
       message = `Receipt ${reference} recorded against ${poReference}.`;
       reference = '';
       quantity = '';

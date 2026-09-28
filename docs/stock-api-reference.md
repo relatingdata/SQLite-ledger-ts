@@ -7,8 +7,8 @@ only a pointer back to this chapter. It follows the pattern of
 each thing is the way it is, including bugs that shaped it.
 
 The seven functions that move stock and space — `ensureLocationCapacityAccount`,
-`adjustLocationCapacity`, `ensureUnitsTrackingBaseAccounts`, `receiveStockAtLocation`,
-`dispatchStockFromLocation`, `transferStock`, `writeOffStock` — are documented, with their
+`adjustLocationCapacity`, `ensureUnitsTrackingBaseAccounts`, `receiveItems`,
+`dispatchItems`, `transferItems`, `writeOffItems` — are documented, with their
 tests, in `docs/storage-space-as-currency-design.md`, "Code and tests: where to look".
 They are not repeated here.
 
@@ -264,7 +264,7 @@ Chart-of-Accounts prototype tagging. Delivery or dispatch instructions (where a 
 arrive, where a sales order should ship from) use the generic Location *dimension* on the Qty leaf,
 since the relation slots are already taken and a dimension is a separate, independent slot. It also
 posts the product's own "on order" quantity, credited later at receipt (see
-`receiveStockAtLocation`). See Open question 2 about that line.
+`receiveItems`). See Open question 2 about that line.
 
 **`fulfillOrder`** reduces the order's Qty and Value memo balances by exactly what was fulfilled.
 **Whatever remains on those accounts afterwards is the back order**, read directly, never stored as a

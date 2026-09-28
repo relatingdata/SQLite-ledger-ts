@@ -115,7 +115,7 @@ if (sampleProduct) {
   for (const k of productKids) {
     out += `- ${esc(k.name)}\n`;
   }
-  out += '\nThese are exactly the real accounts a real sale/receipt/transfer posts against — see `postQuantityMovement`, `receiveStockAtLocation`, and `dispatchStockFromLocation` in `backend/src/db-stock.ts` for how each is actually used, and `docs/money-model.md` for why quantity and value are tracked as two independent facts.\n\n';
+  out += '\nThese are exactly the real accounts a real sale/receipt/transfer posts against — see `postQuantityMovement`, `receiveItems`, and `dispatchItems` in `backend/src/db-stock.ts` for how each is actually used, and `docs/money-model.md` for why quantity and value are tracked as two independent facts.\n\n';
 }
 
 out += '### Employees — a real, complete roster sample\n\n';

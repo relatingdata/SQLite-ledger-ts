@@ -1,7 +1,7 @@
 import { db } from './db.js';
 import { runInSessionContext } from './session-context.js';
 import {
-  updateEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveStockAtLocation, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, fetch, fetchById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId } from './db.js';
+  updateEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, fetch, fetchById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId } from './db.js';
 import { loadAllTranslations } from '../../shared-fixtures/translations.js';
 import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels, loadDemoUpcs } from '../../shared-fixtures/wine-retail-demo-data.js';
 
@@ -118,7 +118,7 @@ function migrateForWineRetailDemoData() {
   const myBusinessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('My Business') as { id: number }).id;
   runInSessionContext({ userId: SEED_USER_ID, business: { id: myBusinessId, name: 'My Business' }, ledger: 'Actual' }, () => {
     for (const { itemName, locationName, qty, minLevel, maxLevel, reorderLevel, shelfSide, rack, level } of loadDemoStockLevels()) {
-      receiveStockAtLocation(asBusinessName('My Business'), asLedgerName('Actual'), `WINE-SEED-${itemName}-${locationName}`, asItemName(itemName), asLocationName(locationName), qty, SEED_USER_ID, '2026-01-01');
+      receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), `WINE-SEED-${itemName}-${locationName}`, asItemName(itemName), asLocationName(locationName), qty, SEED_USER_ID, '2026-01-01');
       setItemLocationLevels(asItemName(itemName), asLocationName(locationName), { minLevel, maxLevel, reorderLevel, shelfSide, rack, level });
     }
   });

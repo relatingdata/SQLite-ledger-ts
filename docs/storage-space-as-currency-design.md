@@ -55,7 +55,7 @@ independent reversibility.
 Per direct correction, twice: no Expense account is involved (this is
 inventory movement, not a purchase), and the item's own real inventory
 *value* genuinely moves between the two combinations' own Inventory leaves —
-this is `transferStock`'s already-proven logic, applied to a combination
+this is `transferItems`'s already-proven logic, applied to a combination
 instance instead of a geographic location, never a new mechanism.
 
 One journal entry, converting 1 carton of Hot-Carton beer to 24 bottles of
@@ -91,7 +91,7 @@ assumed, only posted when a real transaction actually states one.
   inventory value between two combination leaves; a same-location conversion
   additionally posts the two real space-currency groups above, a
   cross-location transfer does not (space doesn't change kind, only place).
-- **Receiving / Dispatching**: `receiveStockAtLocation` gains an optional
+- **Receiving / Dispatching**: `receiveItems` gains an optional
   combination parameter (mirroring how `PosSaleLineInput` already accepts
   one) — receiving whiskey directly into `Main Warehouse → Secure → Bottle`
   posts into that combination's own Inventory and Storage Capacity leaves
@@ -298,7 +298,7 @@ Chart of Accounts before either `convertStorageSpace` or
 **The real tutorial fixture extended** (`shared-fixtures/tutorial-steps.csv`,
 now 10 real steps): a real "Highland Single Malt 700ml" item created, then
 received directly into `Secure` storage via the real, existing
-`receiveStockAtLocation` combination support (a new `receiveStockWithCombination`
+`receiveItems` combination support (a new `receiveStockWithCombination`
 API-registry entry); then a real carton of the existing "Amber Ale 330ml
 Can" opened into 24 real bottles via `openStorageContainer` (a new
 `openContainer` API-registry entry). Both real, new screens added to
@@ -324,7 +324,7 @@ layer it will call: two, real, new routes added to `backend/src/routes/locations
 - wrapping `convertStorageSpace`/`openStorageContainer` directly. The
 existing `POST /api/locations/:name/receive` route extended to accept
 optional `combinationValues`/`combinationShape`, passing them through to
-`receiveStockAtLocation`'s own, already-existing combination support.
+`receiveItems`'s own, already-existing combination support.
 
 **A real, genuine route-ordering bug found and fixed, not assumed correct**:
 Express matches route definitions in the order they're registered - the
@@ -367,7 +367,7 @@ card/add-row visual style from the Hierarchies setup page precisely:
   defined, rather than a generic failure.
 
 Real API wrappers added (`frontend/src/lib/api.ts`): `convertStorageSpace`,
-`openStorageContainer`, and `receiveStockAtLocation` extended to accept
+`openStorageContainer`, and `receiveItems` extended to accept
 optional `combinationValues`/`combinationShape`, matching the backend's own,
 already-proven support exactly.
 
@@ -389,7 +389,7 @@ A new "Receive Into Storage" card added to the Items page, matching the
 Locations page's own "Storage Actions" style precisely: picks a real
 location and quantity, optionally a real Hierarchy grouping and value
 (defaulting to a plain receipt when none is chosen, since combinations are
-genuinely additive, never required). Calls `receiveStockAtLocation`'s own,
+genuinely additive, never required). Calls `receiveItems`'s own,
 already-proven combination support directly.
 
 A real, global `.success` CSS class added (`frontend/src/lib/app.css`),
@@ -518,7 +518,7 @@ Per direct instruction to check rather than assume: the real Location × Item
 Cartesian Product **is** already implemented for the *dollar value* — a
 combination-tagged stock receipt already creates a real, distinct Inventory
 leaf per combination, posting its real value correctly (checked directly in
-`backend/src/db-stock.ts`, `receiveStockAtLocation`'s own combination code
+`backend/src/db-stock.ts`, `receiveItems`'s own combination code
 path: debit Inventory, credit Accounts Payable, both explicitly resolved by
 id, never a bare name).
 
@@ -550,7 +550,7 @@ identity holding exactly.
 
 ### Location × Item Cartesian Product under Inventory - parallel currency and count, completed
 
-`receiveStockAtLocation`'s own, existing combination code path extended
+`receiveItems`'s own, existing combination code path extended
 with a real, second, genuinely balanced posting: "Units On Hand" (the real
 count itself) against "Units Received From" (its own, real, genuine,
 balanced counterpart) - both under this specific business, both tagged
@@ -568,7 +568,7 @@ journal-staging-only guard re-confirmed with no new violations (the same
 two, already-known, pre-existing exceptions, unrelated to this work).
 
 **Honestly, precisely incomplete, stated directly**: this parallel
-count-posting is implemented for `receiveStockAtLocation`'s own combination
+count-posting is implemented for `receiveItems`'s own combination
 path only - Sales and COGS, and every other real stock-movement function
 (dispatch, transfer, write-off), do not yet have their own parallel
 count-posting built. Per direct instruction that this is fundamental, this
@@ -579,16 +579,16 @@ belongs.
 
 Per direct instruction to proceed "one after another until completed":
 every real stock-movement function now has the same parallel count-posting
-`receiveStockAtLocation` was given at checkpoint 414.
+`receiveItems` was given at checkpoint 414.
 
-**`dispatchStockFromLocation`**: had no real combination support at all
+**`dispatchItems`**: had no real combination support at all
 before this - extended with both the real, combination-tagged Inventory
 value posting (debit COGS, credit Inventory - the exact, real mirror of a
 receipt, reversed) and the real, parallel "Units On Hand"/"Units Received
 From" count posting. Proven directly: 12 real units received, 5 real units
 dispatched, exactly 7 remaining for that specific, real combination.
 
-**`transferStock`**: already had real, combination-tagged value support; a
+**`transferItems`**: already had real, combination-tagged value support; a
 real, parallel count posting added. **A real, genuine bug found and fixed
 in the process**: the first attempt gave the source and destination leaves
 two different, real currencies (each tagged with its own location name) -
@@ -601,7 +601,7 @@ changes their real kind. Proven directly: two, real, distinct leaves
 (source and destination), sharing the exact, same real `UNITS-SECURE`
 currency, summing to a genuine zero (-8/+8).
 
-**`writeOffStock`**: had no real combination support at all before this -
+**`writeOffItems`**: had no real combination support at all before this -
 extended with the real, parallel count posting only (the real dollar value
 is already recorded by the existing, outer, non-combination code - never
 re-posted a second time). **A real, separate, pre-existing bug found while
@@ -694,10 +694,10 @@ whole file before concluding the code is broken.
 
 1. A **location is created** and, in the same transaction, given a built-in
    `Storage Capacity` structure holding its opening capacity.
-2. **Stock arrives** (`receiveStockAtLocation`): value, unit count and occupied
+2. **Stock arrives** (`receiveItems`): value, unit count and occupied
    space are each recorded, each balanced on its own.
-3. Stock **leaves** (`dispatchStockFromLocation`), **relocates**
-   (`transferStock`) or is **lost** (`writeOffStock`).
+3. Stock **leaves** (`dispatchItems`), **relocates**
+   (`transferItems`) or is **lost** (`writeOffItems`).
 4. Cartons are **opened** into bottles (`openStorageContainer`), and space is
    **converted** between storage combinations (`convertStorageSpace`).
 
@@ -707,7 +707,7 @@ whole file before concluding the code is broken.
 | `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | a location's opening capacity, as a `Bottle` or `Carton` leaf |
 | `adjustLocationCapacity` | `backend/src/db-stock.ts` | moves space between `Remaining` and `Occupied` on every stock movement |
 | `ensureUnitsTrackingBaseAccounts` | `backend/src/db-stock.ts` | creates `Units On Hand` / `Units Received From` under a business |
-| `receiveStockAtLocation`, `dispatchStockFromLocation`, `transferStock`, `writeOffStock` | `backend/src/db-stock.ts` | the four stock movements |
+| `receiveItems`, `dispatchItems`, `transferItems`, `writeOffItems` | `backend/src/db-stock.ts` | the four stock movements |
 | `convertStorageSpace`, `openStorageContainer` | `backend/src/db.ts` | the two space operations |
 | `stageLocation`, `postLocation` | `backend/src/db-journal.ts` | the location form's staging and posting |
 
@@ -821,7 +821,7 @@ fixed multiplier, like dollars versus cents, never an exchange.
   `inventoryAccount` parameter is deprecated, kept only so existing callers do
   not break; the function resolves the product's own Inventory sub-account.
 
-**D9. Capacity postings are unique per location.** `transferStock` calls
+**D9. Capacity postings are unique per location.** `transferItems` calls
 `adjustLocationCapacity` twice for one base reference, once per location, so the
 location's name is part of the capacity reference. Without it the second call
 collides with the first on the unique `(reference, business, ledger)` constraint.
@@ -836,13 +836,13 @@ because each was trusted by the next reader:
 - A block detached from `convertStorageSpace` listed a third effect, inventory
   value relocating between combinations. The function does not do that, and per
   D7 must not.
-- `writeOffStock` carried two adjacent comments that disagreed; the first, saying
+- `writeOffItems` carried two adjacent comments that disagreed; the first, saying
   value *and* count are written off in the combination block, was false (D6).
-- `transferStock` carried two comments a few lines apart that contradicted each
+- `transferItems` carried two comments a few lines apart that contradicted each
   other: one said the source and destination leaves share one currency, the other
   said they use two distinct currencies. The second was left over from the first,
   wrong attempt (D5) and never updated when the code was fixed.
-- `receiveStockAtLocation`'s own doc block sat above the doc block of
+- `receiveItems`'s own doc block sat above the doc block of
   `ensureUnitsTrackingBaseAccounts`, detached from its function when that helper
   was inserted between them.
 - `openStorageContainer` and `postLocation` still called the structure "Storage
@@ -877,17 +877,17 @@ because each was trusted by the next reader:
   means the cleanup step is missing.
 - **Run alone:** `make test-one TEST="stageLocation/postLocation"`
 
-#### `receiveStockAtLocation with a real combination: parallel currency AND count postings both appear, each genuinely balanced on its own`
+#### `receiveItems with a real combination: parallel currency AND count postings both appear, each genuinely balanced on its own`
 - **Proves:** a combination receipt posts dollar value and unit count as two
   separate balanced entries; the count sits in `UNITS-SECURE` under
   `Units On Hand` / `Units Received From` (+12 / -12).
-- **Code under test:** `receiveStockAtLocation`, `ensureUnitsTrackingBaseAccounts` (`db-stock.ts`).
+- **Code under test:** `receiveItems`, `ensureUnitsTrackingBaseAccounts` (`db-stock.ts`).
 - **Why:** D4, D8.
 - **If it fails:** missing `Units On Hand` under the business means the count block
   did not run (is `combinationValues` reaching it?). A wrong balance or currency
   points at the count entry; an imbalance error usually means the two count legs
   do not share one currency.
-- **Run alone:** `make test-one TEST="receiveStockAtLocation with a real combination"`
+- **Run alone:** `make test-one TEST="receiveItems with a real combination"`
 
 #### `adjustLocationCapacity: a real, genuinely balanced posting against Occupied - never single-sided, and Installed = Remaining + Occupied holds as a real accounting identity`
 - **Proves:** with 100 units of capacity, receiving 10 leaves `Remaining` 90,
@@ -901,38 +901,38 @@ because each was trusted by the next reader:
   without `Occupied`.
 - **Run alone:** `make test-one TEST="adjustLocationCapacity"`
 
-#### `dispatchStockFromLocation with a real combination: parallel currency AND count postings both appear, genuinely reversed from a real receipt, each independently balanced`
+#### `dispatchItems with a real combination: parallel currency AND count postings both appear, genuinely reversed from a real receipt, each independently balanced`
 - **Proves:** receiving 12 then dispatching 5 leaves 7 units on hand for that
   combination.
-- **Code under test:** `dispatchStockFromLocation` (`db-stock.ts`).
+- **Code under test:** `dispatchItems` (`db-stock.ts`).
 - **Why:** D8, D4.
 - **If it fails:** a count of 12 means the dispatch count block did not run; a
   count of 17 means it posted with the wrong sign. Compare with the receipt test
   first; if that fails, fix it before this one.
-- **Run alone:** `make test-one TEST="dispatchStockFromLocation with a real combination"`
+- **Run alone:** `make test-one TEST="dispatchItems with a real combination"`
 
-#### `transferStock with a real combination: the real unit count moves in parallel with the real dollar value, one, shared, real currency for the same, physical units - genuinely balanced`
+#### `transferItems with a real combination: the real unit count moves in parallel with the real dollar value, one, shared, real currency for the same, physical units - genuinely balanced`
 - **Proves:** a transfer of 8 creates two distinct leaves that share `UNITS-SECURE`
   and hold -8 and +8.
-- **Code under test:** `transferStock` (`db-stock.ts`).
+- **Code under test:** `transferItems` (`db-stock.ts`).
 - **Why:** D5.
 - **If it fails:** "entry does not balance (per currency)" almost always means the
   currency became location-specific again. Do not fix it by adding a rate lookup.
-- **Run alone:** `make test-one TEST="transferStock with a real combination"`
+- **Run alone:** `make test-one TEST="transferItems with a real combination"`
 
-#### `transferStock: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction`
+#### `transferItems: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction`
 - **Proves:** the dollar value of a combination transfer moves from the source
   location's Inventory leaf to the destination's.
-- **Code under test:** `transferStock` (`db-stock.ts`).
+- **Code under test:** `transferItems` (`db-stock.ts`).
 - **Why:** D8 (transfer).
 - **If it fails:** the failing test that broke *after* the count posting was added
   was this one, with "entry does not balance", caused by D5's mistake. Suspect the
   count block before the value block.
-- **Run alone:** `make test-one TEST="transferStock: a real, combination-tagged"`
+- **Run alone:** `make test-one TEST="transferItems: a real, combination-tagged"`
 
-#### `writeOffStock with a real combination: the real Inventory value and real unit count are both genuinely written off, in parallel, each independently balanced`
+#### `writeOffItems with a real combination: the real Inventory value and real unit count are both genuinely written off, in parallel, each independently balanced`
 - **Proves:** receiving 10 then writing off 3 leaves 7 units for the combination.
-- **Code under test:** `writeOffStock` (`db-stock.ts`).
+- **Code under test:** `writeOffItems` (`db-stock.ts`).
 - **Why:** D6, D8. **This title overclaims.** It says value *and* count are written
   off; the assertion checks only the count, and the combination's Inventory value
   is *not* reduced (the open gap in D6). The test does not detect that gap.
@@ -941,7 +941,7 @@ because each was trusted by the next reader:
   name, which only finds an existing entity. The test creates it first for that
   reason. This is a known gap in `ensureItemInventoryAccount` and the outer
   write-off code, not in the count block.
-- **Run alone:** `make test-one TEST="writeOffStock with a real combination"`
+- **Run alone:** `make test-one TEST="writeOffItems with a real combination"`
 
 #### `openStorageContainer: opening a carton is two, real, independent space movements - never a rate-linked conversion, and genuinely never requires one to be defined`
 - **Proves:** opening cartons posts two independently balancing currency groups

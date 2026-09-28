@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
-import { writeOffStock, receiveLot, consumeFromLots, getExpiringStock, asBusinessName, asLedgerName, asItemName, asAccountName, ValidationError,
+import { writeOffItems, receiveLot, consumeFromLots, getExpiringStock, asBusinessName, asLedgerName, asItemName, asAccountName, ValidationError,
   asUserId,
 } from '../db.js';
 
@@ -25,7 +25,7 @@ stockLotsRouter.post('/write-off', requireRole('Administrator', 'Bookkeeper'), (
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const d = parsed.data;
-    writeOffStock(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), d.quantity, d.unitCostMinor, asAccountName(d.writeOffExpenseAccount), d.inventoryAccount, d.reason, asUserId(req.user!.id), d.transdate);
+    writeOffItems(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), d.quantity, d.unitCostMinor, asAccountName(d.writeOffExpenseAccount), d.inventoryAccount, d.reason, asUserId(req.user!.id), d.transdate);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });

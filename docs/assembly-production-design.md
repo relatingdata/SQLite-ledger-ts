@@ -29,7 +29,7 @@ requirements this answers.
 | Cost layers | Lots carry a `cost_basis_minor` (in `detail_json`); `consumeFromLots` draws oldest-expiring first. **Not verified:** whether `consumeFromLots` returns the cost it consumed. |
 | Staff | Employees, schedules, shifts, `payEmployeeWages`, and time clocked against a project. |
 | Currency | A location can nominate currencies (`getLocationCurrencies`, `nominateLocationCurrency`); a location has its own timezone and `todayAtLocation`. |
-| Moving stock | `transferStock`, instantaneous, one posting. |
+| Moving stock | `transferItems`, instantaneous, one posting. |
 
 ## 3. Findings that shape the design
 
@@ -57,7 +57,7 @@ no cost layer behind it, except in lots. The combination-receipt path values sto
 `quantity × getItemUnitCostMinor`. So costing needs to be designed for production, not
 borrowed from this function.
 
-**3.5 Stock cannot cross a city boundary, or take time.** `transferStock` rejects a transfer
+**3.5 Stock cannot cross a city boundary, or take time.** `transferItems` rejects a transfer
 between locations in different cities, on the wine-shop assumption that a warehouse serves
 only its own city's outlets. It is one instantaneous posting, so there is no state for items
 that have left and not yet arrived. Nothing exists for freight, duty, customs or landed cost.

@@ -394,12 +394,12 @@ CREATE TABLE stock_dispatch_staging (
 ```
 
 ```typescript
-export function stageStockReceipt(input: StockReceiptInput): void
-export function postStockReceipt(
+export function stageOrderReceipt(input: OrderReceiptInput): void
+export function postOrderReceipt(
   reference: string, business: BusinessName, ledger: LedgerName, userId: number
 ): void
-export function stageStockDispatch(input: StockDispatchInput): void
-export function postStockDispatch(
+export function stageOrderDispatch(input: OrderDispatchInput): void
+export function postOrderDispatch(
   reference: string, business: BusinessName, ledger: LedgerName, userId: number
 ): void
 ```
@@ -419,7 +419,7 @@ its own, since a transfer's own real shape is already exactly what
 that function's own parameters express:
 
 ```typescript
-export function transferStock(
+export function transferItems(
   business: BusinessName, ledger: LedgerName, partName: PartName,
   fromLocationName: LocationName, toLocationName: LocationName,
   quantity: number, reference: string, userId?: number, transdate?: string
@@ -460,7 +460,7 @@ stock on hand) and a financial one (a recognized real loss), never
 just one or the other:
 
 ```typescript
-export function writeOffStock(
+export function writeOffItems(
   business: BusinessName, ledger: LedgerName, reference: string, partName: PartName,
   quantity: number, unitCostMinor: number, writeOffExpenseAccount: AccountName,
   /** @deprecated No longer used */ inventoryAccount: string,

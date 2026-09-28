@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { listLocations, listItems, getItemLocation, transferStock, asBusinessName, asLedgerName, asItemName, asLocationName, ApiError, type LocationRecord, type ItemSummary, type ItemLocationLevels } from '$lib/api';
+  import { listLocations, listItems, getItemLocation, transferItems, asBusinessName, asLedgerName, asItemName, asLocationName, ApiError, type LocationRecord, type ItemSummary, type ItemLocationLevels } from '$lib/api';
   import { session } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
   import Form from '$lib/components/Form.svelte';
@@ -65,7 +65,7 @@
     const quantity = String(v.quantity ?? '');
     if (!itemName || !fromLocation || !toLocation) return;
     try {
-      await transferStock({
+      await transferItems({
         business: asBusinessName(session.current?.businessName ?? ''),
         ledger: asLedgerName(session.current?.ledgerName ?? ''),
         itemName: asItemName(itemName),

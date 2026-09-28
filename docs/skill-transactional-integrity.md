@@ -28,8 +28,8 @@ This is why `post_quantity_movement_insert` (the real, single-line quantity
 trigger) exists as a real, first-class sibling to `post_journal_entry_insert`,
 not an afterthought — and why every real function in
 `backend/src/db-stock.ts` wrapped in a transaction earlier in this same
-session (`receiveStockAtLocation`, `dispatchStockFromLocation`,
-`transferStock`, `placeOrder`, `fulfillOrder`) was genuinely required by this
+session (`receiveItems`, `dispatchItems`,
+`transferItems`, `placeOrder`, `fulfillOrder`) was genuinely required by this
 skill, not merely good practice.
 
 ### Every real stock movement must post exactly three (or four) real "lots" — a real, absolute requirement, not yet fully implemented
@@ -59,7 +59,7 @@ neither carries a distinct currency, `getTrialBalance`'s own real
 `by_currency` breakdown silently folds quantity counts into the same bucket
 as real, plain home-currency dollar amounts, and the real, required third and
 fourth "lots" (space, hot vs. cold) are not consistently posted by every real
-stock-movement function today (`receiveStockAtLocation` posts a quantity
+stock-movement function today (`receiveItems` posts a quantity
 movement, a capacity adjustment, and *optionally* a dollar-value line only
 when combination data is present — never a real, guaranteed three-or-four-lot
 set on every real movement).
@@ -100,8 +100,8 @@ set on every real movement).
    here (which may or may not end up being `Detail`, once `Detail` itself has
    a real design of its own).
 3. **Not yet done**: auditing every real stock-movement function
-   (`receiveStockAtLocation`, `dispatchStockFromLocation`, `transferStock`,
-   `writeOffStock`, `completeStockTake`) to guarantee each one always posts
+   (`receiveItems`, `dispatchItems`, `transferItems`,
+   `writeOffItems`, `completeStockTake`) to guarantee each one always posts
    the full, real set of required lots (dollars, units, and space) for that
    kind of movement — today, only some of these are consistently posted.
 4. **Not yet done**: updating `getTrialBalance` and the real Inventory
@@ -167,9 +167,9 @@ docs/documentation-debt-tally.md rather than left unstated).
 
 Also wrapped, in `backend/src/db-stock.ts` — the real, everyday stock-movement
 functions behind Receiving, Dispatch, Transfer, and Purchase Orders:
-`receiveStockAtLocation` (also had its own real, stale doc comment brought up to
+`receiveItems` (also had its own real, stale doc comment brought up to
 date — it never mentioned the real capacity adjustment or combination-value
-posting it's always done), `dispatchStockFromLocation`, `transferStock`,
+posting it's always done), `dispatchItems`, `transferItems`,
 `placeOrder`, `fulfillOrder`.
 
 **A real, important, confirmed finding**: `postAPPayment` (and the same pattern

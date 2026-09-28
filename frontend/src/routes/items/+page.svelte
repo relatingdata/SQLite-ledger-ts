@@ -21,7 +21,7 @@
     ApiError,
     listLocations,
     getHierarchy,
-    receiveStockAtLocation,
+    receiveItems,
     asBusinessName,
     asLedgerName,
     asLocationName,
@@ -101,7 +101,7 @@
     receiveMessage = '';
     try {
       const reference = `RECEIVE-${selectedName}-${Date.now()}`;
-      await receiveStockAtLocation(asLocationName(receiveLocation), {
+      await receiveItems(asLocationName(receiveLocation), {
         business: asBusinessName(session.current.businessName),
         ledger: asLedgerName(session.current.ledgerName),
         reference,

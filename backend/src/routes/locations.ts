@@ -9,11 +9,11 @@ import {
   getLocation,
   getItemLocation,
   setItemLocationLevels,
-  receiveStockAtLocation,
+  receiveItems,
   convertStorageSpace,
   openStorageContainer,
-  dispatchStockFromLocation,
-  transferStock,
+  dispatchItems,
+  transferItems,
   getBelowReorderStock,
   getStockOutRiskReport,
   setItemSourceLeadTime,
@@ -265,7 +265,7 @@ locationsRouter.post('/:name/receive', requireRole('Administrator', 'Bookkeeper'
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const d = parsed.data;
-    receiveStockAtLocation(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), asLocationName(req.params.name), d.quantity, asUserId(req.user!.id), d.transdate, d.combinationValues, d.combinationShape);
+    receiveItems(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), asLocationName(req.params.name), d.quantity, asUserId(req.user!.id), d.transdate, d.combinationValues, d.combinationShape);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
@@ -279,7 +279,7 @@ locationsRouter.post('/:name/dispatch', requireRole('Administrator', 'Bookkeeper
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const d = parsed.data;
-    dispatchStockFromLocation(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), asLocationName(req.params.name), d.quantity, asUserId(req.user!.id), d.transdate);
+    dispatchItems(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), asLocationName(req.params.name), d.quantity, asUserId(req.user!.id), d.transdate);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
@@ -304,7 +304,7 @@ locationsRouter.post('/transfer', requireRole('Administrator', 'Bookkeeper'), (r
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const d = parsed.data;
-    transferStock(asBusinessName(d.business), asLedgerName(d.ledger), asItemName(d.itemName), asLocationName(d.fromLocationName), asLocationName(d.toLocationName), d.quantity, d.reference, asUserId(req.user!.id), d.transdate);
+    transferItems(asBusinessName(d.business), asLedgerName(d.ledger), asItemName(d.itemName), asLocationName(d.fromLocationName), asLocationName(d.toLocationName), d.quantity, d.reference, asUserId(req.user!.id), d.transdate);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });

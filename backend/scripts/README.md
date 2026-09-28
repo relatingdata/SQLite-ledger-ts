@@ -68,7 +68,7 @@ Generates the safe, name-based migration version of the wine retail
 seed data (`migrateForWineRetailDemoData` in `db.ts`) — the same 7
 locations/36 products/72 stock rows as `generate-wine-retail-seed.py`,
 but using `createEntity`/`setLocation`/`createPart`/
-`receiveStockAtLocation` (which auto-allocate entity_ids) instead of
+`receiveItems` (which auto-allocate entity_ids) instead of
 hardcoded IDs, so it's safe to add to an *existing* database without a
 reset. Written after a real user question ("can I load the wine
 business data without another release?") made clear that demo/

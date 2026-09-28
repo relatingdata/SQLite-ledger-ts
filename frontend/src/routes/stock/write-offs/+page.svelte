@@ -3,7 +3,7 @@
   import { formatAmount } from '$lib/format';
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
-  import { getEntityTree, listItems, writeOffStock, receiveLot, getExpiringStock, asBusinessName, asLedgerName, asItemName, asAccountName, ApiError, type EntityNode, type ItemSummary, type ExpiringLot } from '$lib/api';
+  import { getEntityTree, listItems, writeOffItems, receiveLot, getExpiringStock, asBusinessName, asLedgerName, asItemName, asAccountName, ApiError, type EntityNode, type ItemSummary, type ExpiringLot } from '$lib/api';
   import { translations } from '$lib/state.svelte';
 
   let entities: EntityNode[] = $state([]);
@@ -47,7 +47,7 @@
     error = '';
     message = '';
     try {
-      await writeOffStock({
+      await writeOffItems({
         business: session.current.businessName,
         ledger: session.current.ledgerName,
         reference: woReference,

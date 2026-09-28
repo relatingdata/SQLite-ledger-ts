@@ -9,10 +9,10 @@ import { createBusiness, createEntityRaw, create, fetch, typeRootName, getTrialB
 import {
   setLocation,
   placeOrder,
-  receiveStockAtLocation,
+  receiveItems,
   fulfillOrder,
   getOrderStatus,
-  transferStock,
+  transferItems,
   createStockTake,
   recordStockTakeCount,
   completeStockTake,
@@ -64,13 +64,13 @@ check('Assembly (Proof Gift Pack) has exactly 2 real components', bom.length ===
 
 console.log(`\n=== 5. Order and receive stock at the warehouse ===`);
 placeOrder('PO-PROOF-1', BIZ as any, LEDGER as any, 96, 500, USER as any, '2026-07-01', asVendorName('Proof Vendor'), asItemName('Proof Component A'), asLocationName('Proof Warehouse'));
-receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-1', asItemName('Proof Component A'), asLocationName('Proof Warehouse'), 96, USER as any, '2026-07-05');
+receiveItems(BIZ as any, LEDGER as any, 'REC-PROOF-1', asItemName('Proof Component A'), asLocationName('Proof Warehouse'), 96, USER as any, '2026-07-05');
 fulfillOrder('PO-PROOF-1', 'REC-PROOF-1', BIZ as any, LEDGER as any, 96, 500, USER as any, '2026-07-05');
 const orderStatus = getOrderStatus('PO-PROOF-1');
 check('Purchase order fully fulfilled (0 remaining)', orderStatus.quantity === 0);
 
 console.log(`\n=== 6. Transfer stock from warehouse to retail ===`);
-transferStock(BIZ as any, LEDGER as any, asItemName('Proof Component A'), asLocationName('Proof Warehouse'), asLocationName('Proof Retail Outlet'), 24, 'XFER-PROOF-1', USER as any, '2026-07-10');
+transferItems(BIZ as any, LEDGER as any, asItemName('Proof Component A'), asLocationName('Proof Warehouse'), asLocationName('Proof Retail Outlet'), 24, 'XFER-PROOF-1', USER as any, '2026-07-10');
 check('Transfer completed', true);
 
 console.log(`\n=== 7. A real sale, giving the business a real, non-zero P&L to close ===`);
@@ -93,7 +93,7 @@ check('Sale completed', !!saleResult);
 console.log(`\n=== 7b. A real, hierarchy-varied combination sale, with its own real, combination-specific price ===`);
 createItem('Proof Lager', `${BIZ} Items`, USER as any);
 addOrUpdateItemSource({ itemName: 'Proof Lager', vendorName: 'Proof Vendor', priceMinor: 500, isPreferred: true });
-receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-LAGER-1', asItemName('Proof Lager'), asLocationName('Proof Retail Outlet'), 24, USER as any, '2026-07-10');
+receiveItems(BIZ as any, LEDGER as any, 'REC-PROOF-LAGER-1', asItemName('Proof Lager'), asLocationName('Proof Retail Outlet'), 24, USER as any, '2026-07-10');
 const comboShape: [string, string][] = [
   ['Location', 'Location'],
   ['Item', 'Beer'],
@@ -123,13 +123,13 @@ check(`Base item price genuinely unaffected (still 500, got ${basePrice})`, base
 console.log(`\n=== 7c. Combination-tagged receiving (from a PO-style receipt) and warehouse transfer, per direct instruction ===`);
 createItem('Proof Ale', `${BIZ} Items`, USER as any);
 addOrUpdateItemSource({ itemName: 'Proof Ale', vendorName: 'Proof Vendor', priceMinor: 400, packageQuantity: 1, isPreferred: true });
-receiveStockAtLocation(BIZ as any, LEDGER as any, 'REC-PROOF-ALE-1', asItemName('Proof Ale'), asLocationName('Proof Warehouse'), 48, USER as any, '2026-07-11', ['Proof Warehouse', 'Proof Ale', 'Cold'], comboShape);
+receiveItems(BIZ as any, LEDGER as any, 'REC-PROOF-ALE-1', asItemName('Proof Ale'), asLocationName('Proof Warehouse'), 48, USER as any, '2026-07-11', ['Proof Warehouse', 'Proof Ale', 'Cold'], comboShape);
 const warehouseInstance = ensureProductInstance(BIZ as any, comboShape, ['Proof Warehouse', 'Proof Ale', 'Cold'], USER as any);
 const warehouseInvLeaf = ensureCombinationAccountLeaf('Inventory', warehouseInstance, USER as any);
 const warehouseBalanceAfterReceipt = getAccountBalance(warehouseInvLeaf.id);
 check(`Combination-tagged receipt built up the real Inventory value (48 x 400 = 19200, got ${warehouseBalanceAfterReceipt})`, warehouseBalanceAfterReceipt === 48 * 400);
 
-transferStock(BIZ as any, LEDGER as any, asItemName('Proof Ale'), asLocationName('Proof Warehouse'), asLocationName('Proof Retail Outlet'), 20, 'XFER-PROOF-ALE-1', USER as any, '2026-07-12', comboShape, ['Proof Ale', 'Cold']);
+transferItems(BIZ as any, LEDGER as any, asItemName('Proof Ale'), asLocationName('Proof Warehouse'), asLocationName('Proof Retail Outlet'), 20, 'XFER-PROOF-ALE-1', USER as any, '2026-07-12', comboShape, ['Proof Ale', 'Cold']);
 const retailInstance = ensureProductInstance(BIZ as any, comboShape, ['Proof Retail Outlet', 'Proof Ale', 'Cold'], USER as any);
 const retailInvLeaf = ensureCombinationAccountLeaf('Inventory', retailInstance, USER as any);
 const warehouseBalanceAfterTransfer = getAccountBalance(warehouseInvLeaf.id);

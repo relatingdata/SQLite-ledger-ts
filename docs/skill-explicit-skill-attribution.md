@@ -19,4 +19,4 @@ A real, repeated approach that wastes time, produces false confidence, or causes
 
 ## This project's own, real, immediate example
 
-Both `backend-first-testing` and `test-driven-development` were written as real skills — and then, in the very next real bug fix (the `completeStockTake`/`writeOffStock` unbalanced quantity-movement fix), the code was changed directly, without first writing a failing test, and without a documented impact analysis — until directly challenged on exactly this. This skill exists so that gap is visible and named the moment it happens, not only when someone else has to ask about it.
+Both `backend-first-testing` and `test-driven-development` were written as real skills — and then, in the very next real bug fix (the `completeStockTake`/`writeOffItems` unbalanced quantity-movement fix), the code was changed directly, without first writing a failing test, and without a documented impact analysis — until directly challenged on exactly this. This skill exists so that gap is visible and named the moment it happens, not only when someone else has to ask about it.

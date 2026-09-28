@@ -762,7 +762,7 @@ export const stagePurchaseOrder = (input: PurchaseOrderInput) =>
 export const postPurchaseOrder = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/stock/po/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
-export interface StockReceiptInput {
+export interface OrderReceiptInput {
   reference: string;
   business: BusinessName;
   ledger: LedgerName;
@@ -776,9 +776,9 @@ export interface StockReceiptInput {
   transdate?: string;
   description?: string;
 }
-export const stageStockReceipt = (input: StockReceiptInput) =>
+export const stageOrderReceipt = (input: OrderReceiptInput) =>
   request<void>('/stock/stock-receipt/stage', { method: 'POST', body: JSON.stringify(input) });
-export const postStockReceipt = (reference: string, business: BusinessName, ledger: LedgerName) =>
+export const postOrderReceipt = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/stock/stock-receipt/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
 export interface SalesOrderInput {
@@ -798,7 +798,7 @@ export const stageSalesOrder = (input: SalesOrderInput) =>
 export const postSalesOrder = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/stock/so/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
-export interface StockDispatchInput {
+export interface OrderDispatchInput {
   reference: string;
   business: BusinessName;
   ledger: LedgerName;
@@ -813,9 +813,9 @@ export interface StockDispatchInput {
   transdate?: string;
   description?: string;
 }
-export const stageStockDispatch = (input: StockDispatchInput) =>
+export const stageOrderDispatch = (input: OrderDispatchInput) =>
   request<void>('/stock/stock-dispatch/stage', { method: 'POST', body: JSON.stringify(input) });
-export const postStockDispatch = (reference: string, business: BusinessName, ledger: LedgerName) =>
+export const postOrderDispatch = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/stock/stock-dispatch/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
 export const getOrderStatus = (reference: string) =>
@@ -1106,7 +1106,7 @@ export const resetReminder = (counterparty: string) => request<void>(`/reminders
 // Stock write-offs and lot/expiration tracking
 // ---------------------------------------------------------------------------
 
-export const writeOffStock = (input: {
+export const writeOffItems = (input: {
   business: BusinessName;
   ledger: LedgerName;
   reference: string;
@@ -1271,18 +1271,18 @@ export const setItemLocationLevels = (
   levels: { minLevel?: number | null; maxLevel?: number | null; reorderLevel?: number | null; shelfSide?: string | null; rack?: string | null; level?: number | null }
 ) => request<void>(`/locations/${encodeURIComponent(locationName)}/items/${encodeURIComponent(itemName)}`, { method: 'PUT', body: JSON.stringify(levels) });
 
-export const receiveStockAtLocation = (
+export const receiveItems = (
   locationName: LocationName,
   input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] }
 ) => request<void>(`/locations/${encodeURIComponent(locationName)}/receive`, { method: 'POST', body: JSON.stringify(input) });
 
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const dispatchStockFromLocation = (
+// export const dispatchItems = (
 //   locationName: LocationName,
 //   input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string }
 // ) => request<void>(`/locations/${encodeURIComponent(locationName)}/dispatch`, { method: 'POST', body: JSON.stringify(input) });
 
-export const transferStock = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string }) =>
+export const transferItems = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string }) =>
   request<void>('/locations/transfer', { method: 'POST', body: JSON.stringify(input) });
 
 export interface BelowReorderRow {
@@ -1553,7 +1553,7 @@ export interface StockMovementRow {
   quantity: number;
   date: string;
 }
-export interface StockReceiptRow extends StockMovementRow {
+export interface OrderReceiptRow extends StockMovementRow {
   location: string;
   division: DivisionName | null;
   vendor: string | null;
@@ -1569,7 +1569,7 @@ export interface StockSaleRow extends StockMovementRow {
   amount_minor: number;
 }
 export interface StockMovementReport {
-  receipts: StockReceiptRow[];
+  receipts: OrderReceiptRow[];
   transfers: StockTransferRow[];
   sales: StockSaleRow[];
 }
