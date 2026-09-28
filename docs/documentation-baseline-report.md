@@ -139,7 +139,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getInvoiceOutstandingMinor` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function getInvoiceOutstandingMinor(invoiceId: number): number` |
 | `getItemByUpc` | `backend/src/db.ts` | `backend/src/routes/pos.ts` | `function getItemByUpc(upc: string): ItemSummary \| undefined` |
 | `getItemLeadTimes` | `backend/src/db-stock.ts` | (none) | `function getItemLeadTimes(itemName: ItemName): ` |
-| `getItemLocation` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts`, `backend/src/routes/locations.ts` | `function getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels` |
+| `getItemLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `backend/src/routes/locations.ts` | `function getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels` |
 | `getItemProduct` | `backend/src/db.ts` | (none) | `function getItemProduct(itemName: string): string \| null` |
 | `getLanguages` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/routes/i18n.ts` | `function getLanguages(): ` |
 | `getLedgerBalancesByDivision` | `backend/src/db-reports.ts` | (none) | `function getLedgerBalancesByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |

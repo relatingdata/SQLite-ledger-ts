@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { hashPassword, verifyPassword } from './password.js';
-import { Entity, Link, Balance, Detail } from './primitives.js';
+import { Entity, Link, Detail } from './primitives.js';
 import { getLedgerBalances, ensureCurrencyAccount, ensureCashAtBankAccount, setAccountCurrency } from './db-reports.js';
 
 // ---------------------------------------------------------------------------
@@ -6807,7 +6807,7 @@ export function buildBankCurrencyStructure<TBrand extends string>(
   const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
   const parentCategory = fetch(leafType.brand === 'EquityAccountName' ? 'Equity' : 'Asset', typeRootName, fetch('Chart of Accounts', typeChartOfAccountsRootName, business));
   if (selections.length === 1) {
-    const account = create(parentCategory, leafType, headerName, userId);
+    create(parentCategory, leafType, headerName, userId);
     if (selections[0].currency) setAccountCurrency(headerName, selections[0].currency);
     return;
   }
@@ -7185,7 +7185,7 @@ export function getChartOfAccountsPrototype(language: string): string[] {
 export * from './db-journal.js';
 import { stageLine, postJournalEntry } from './db-journal.js';
 export * from './db-stock.js';
-import { getLocation, setLocation, getItemLocation, dispatchStockFromLocation, receiveStockAtLocation, transferStock, placeOrder, fulfillOrder, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, type Location as StockLocation } from './db-stock.js';
+import { getLocation, setLocation, getItemLocation, dispatchStockFromLocation, receiveStockAtLocation, transferStock, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, type Location as StockLocation } from './db-stock.js';
 
 
 // Migrates every real, existing translation into the entity-only

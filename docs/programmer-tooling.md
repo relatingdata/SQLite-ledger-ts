@@ -306,3 +306,92 @@ Per direct instruction: every real Makefile target below, with its own real purp
 - **`check-frontend`**: runs the frontend's own real `svelte-check` — real Svelte/TypeScript diagnostics across every real `.svelte` file.
 - **`check-backend-types`**: runs `tsc --noEmit` against the real backend — real TypeScript type-checking with no build output.
 - **`check-e2e-types`**: the exact, same real check, against the real Playwright test suite.
+
+## Unused code and the limits of `check-backend-types`
+
+### What `make check-unused` does
+
+Fails on any unused import, function, or local variable in `backend/src/`,
+`backend/test/`, and the step-runner (`scripts/step-runner.ts` and its
+test). It uses `backend/tsconfig.unused.json` (TypeScript's
+`noUnusedLocals`) and reports only `TS6133`, so unrelated, older type
+errors cannot mask it or fail it. It is part of `make verify-fresh`.
+
+It is deliberately **separate** from `make check-backend-types`, which is
+already red from older, unrelated errors (`bun:sqlite`, `TDocumentDefinitions`,
+`unitPriceMinor`). A gate that is never green cannot protect anything.
+
+It was proven in both directions, not just observed passing: a deliberately
+planted unused import makes it fail with the exact file and name; removing
+it makes it pass. (A first attempt at that proof used an underscore-prefixed
+name and wrongly appeared to show a broken gate — TypeScript exempts
+`_`-prefixed names from unused checks by design. That exemption is a known
+limit of this gate: an unused name that starts with `_` is never reported.)
+
+### What `check-backend-types` does *not* cover — found by direct measurement
+
+`backend/tsconfig.json` includes only `src` and `../shared-fixtures`. So
+`make check-backend-types` **has never type-checked `test/` or `scripts/`**.
+Those files only ever ran through `tsx`, which strips types without
+checking them. Measured directly (checkpoint 416):
+
+- `src/`: 5 type errors (the older, known ones the gate is already red on).
+- `test/` and `scripts/` combined: **295 further type errors**, invisible to
+  every existing check. Almost all are in older prototype and simulation
+  scripts, notably `scripts/simulate-wine-retail-month.ts` (104) — the
+  driver behind `make test-e2e`.
+
+Consequence, stated plainly: any earlier note in this project saying a
+change to a test or script file "compiles clean" on the strength of
+`check-backend-types` was not actually verified for those files.
+
+At checkpoint 416 the errors in `step-runner.test.ts` (12) and
+`db.test.ts` (6) were fixed, and both are now type-clean. Two were real
+test bugs rather than typing noise: `db.test.ts` passed `address1` where the
+field is `address_line1` (the misnamed field was silently ignored), and
+`step-runner.test.ts` built `Step`/`Screen` literals missing fields added at
+earlier checkpoints.
+
+### Still open
+
+- `scripts/` other than the step-runner: 33 unused declarations and
+  roughly 280 type errors, all older, not yet addressed or gated.
+- `noUnusedParameters` is not enabled: it would report 7 violations in
+  `src/` today.
+- Type-checking `test/` and `scripts/` as part of a real gate is not done.
+
+### `make verify-fresh` no longer lets one failing gate hide the others
+
+`make` stops at the first failing command. `verify-fresh` used to run its
+mechanical gates as separate lines, so the known-red
+`check-journal-staging-only` (two pre-existing violations, unresolved since
+checkpoint 388) silently prevented every gate after it from ever running.
+Two consequences were found only when this was investigated (checkpoint 416):
+
+- A gate wired in after it (`check-unused`) would never have executed.
+- **A real regression introduced by this project's own work had gone
+  unnoticed:** `check-schema-table-count` enforces exactly four permanent
+  tables (`entities`, `account`, `journal`, `journal_line`), and the
+  `db_version` table added at checkpoint 401 makes it five. The guard was last
+  run by hand at checkpoint 396, before that table existed.
+
+`verify-fresh` now runs the independent gates in a loop, reports each failure
+by name, and still exits non-zero if any failed. Nothing has been exempted.
+
+### Gate status at checkpoint 416 (both failures are real and open)
+
+| Gate | Status |
+|---|---|
+| tests (backend + frontend) | pass |
+| `check-docs-coverage` | pass |
+| `check-unused` | pass |
+| `check-schema-table-count` | **FAIL** — `db_version` is a fifth permanent table |
+| `check-journal-staging-only` | **FAIL** — `confirmPickedLine`, `confirmRestockPickedLine` |
+
+**`db_version` needs a decision, not a workaround.** The four-table rule reads
+as a deliberate architectural principle. The version feature
+(`docs/skill-version-check.md`) needs somewhere to record which version a
+database file was last migrated to. Options, none chosen: (a) amend the rule
+to allow this one table; (b) use SQLite's built-in `PRAGMA user_version`
+(no table, but an integer — the dotted `0.0.0.400` would need encoding);
+(c) record it as an entity, consistent with everything else being an entity.

@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -309,9 +309,12 @@ check-node-refs:
 verify-fresh: reset-db
 	cd backend && $(RUN_SCRIPT) scripts/sanity-check-db-loads.ts
 	$(MAKE) test
-	$(MAKE) check-docs-coverage
-	$(MAKE) check-journal-staging-only
-	$(MAKE) check-schema-table-count
+	@# Every independent gate runs and reports; one failing gate must never
+	@# hide the others (make normally stops at the first failure, which
+	@# silently masked two of these for a long time).
+	@fail=0; for g in check-docs-coverage check-schema-table-count check-unused check-journal-staging-only; do \
+	  $(MAKE) $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
+	done; exit $$fail
 
 check-schema-table-count:
 	$(RUN_SCRIPT) scripts/check-schema-table-count.ts
@@ -404,6 +407,16 @@ check-frontend:
 
 check-backend-types:
 	cd backend && $(RUN_BINARY) tsc --noEmit
+
+# Fails on any unused import, function or local variable in src/, test/
+# or the step-runner. Deliberately separate from check-backend-types,
+# which is already red from older, unrelated errors - a gate that is
+# never green cannot protect anything. Scope and limits: see
+# docs/programmer-tooling.md.
+check-unused:
+	@cd backend && out=$$($(RUN_BINARY) tsc --project tsconfig.unused.json 2>&1 | grep "TS6133" || true); \
+	if [ -n "$$out" ]; then echo "$$out"; echo "Unused declarations found - remove them."; exit 1; \
+	else echo "No unused imports, functions or locals in src/, test/ or the step-runner."; fi
 
 check-e2e-types:
 	cd e2e && $(RUN_BINARY) tsc --noEmit

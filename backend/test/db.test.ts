@@ -1,4 +1,4 @@
-import { test, before, after, asUserId } from './test-runtime.ts';
+import { test, after } from './test-runtime.ts';
 import type { TypeDescriptor, TypedNode } from '../src/db.ts';
 import { runInSessionContext } from '../src/session-context.ts';
 import assert from 'node:assert/strict';
@@ -21,7 +21,6 @@ process.env.DB_PATH = tmpDbPath;
 
 const {
   getEntityTree,
-  isDescendantOf,
   getHierarchyChain,
   getPrototypeOf,
   setPrototype,
@@ -209,7 +208,6 @@ const {
   consumeFromLots,
   getExpiringStock,
   setLocation,
-  getLocation,
   getItemLocation,
   getStockListing,
   getStockListingByLocation,
@@ -231,8 +229,6 @@ const {
   getBelowReorderStock,
   createItem,
   createStockTake,
-  stageQuantityMovementLine,
-  postStagedQuantityMovement,
   getStockTake,
   recordStockTakeCount,
   completeStockTake,
@@ -1214,8 +1210,6 @@ test('restocking retail outlets from warehouses: the same real, shelf-ordered pi
 
 test('the four real entry screens: PO -> receipt -> SO -> dispatch, using the actual staging/post functions a person would use, not just the underlying primitives', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'Screens Test Ledger', asUserId(1));
-  const inventoryId = (db.prepare(`SELECT id FROM current_entities WHERE name='Inventory'`).get() as { id: number }).id;
-  const stockQtyId = (db.prepare(`SELECT id FROM current_entities WHERE name='Stock Quantities'`).get() as { id: number }).id;
   create(fetch('Stock Quantities', typeRootName), typeRootName, 'SCWidget Batch Qty', asUserId(1));
   create(fetch('Inventory', typeRootName), typeRootName, 'SCWidget Batch Value', asUserId(1));
   const business = 'My Business';
@@ -1602,9 +1596,9 @@ test('reversing the same occurrence twice is rejected clearly — the real bug t
   const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Double Reversal Test Ledger'), 200).filter((e) => e.reference === 'REC-DOUBLE-REV');
   const feb = entries.find((e) => e.occurrence_date === '2027-02-01')!;
 
-  reverseJournalEntry(asBusinessName('My Business'), asLedgerName('Double Reversal Test Ledger'), feb.journal_id, feb.occurrence_date, 1, '2027-02-15');
+  reverseJournalEntry(asBusinessName('My Business'), asLedgerName('Double Reversal Test Ledger'), feb.journal_id, feb.occurrence_date!, asUserId(1), '2027-02-15');
   assert.throws(
-    () => reverseJournalEntry(asBusinessName('My Business'), asLedgerName('Double Reversal Test Ledger'), feb.journal_id, feb.occurrence_date, 1, '2027-02-20'),
+    () => reverseJournalEntry(asBusinessName('My Business'), asLedgerName('Double Reversal Test Ledger'), feb.journal_id, feb.occurrence_date!, asUserId(1), '2027-02-20'),
     PostingError,
     'reversing the exact same occurrence again must be rejected clearly, not silently corrupt data'
   );
@@ -2223,13 +2217,6 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
   create(fetch('Vendors', typeRootName), typeRootName, 'DblEntryQty Vendor', asUserId(1));
   createItem('DblEntryQty Wine', 'Items', asUserId(1));
 
-  function balanceOf(accountName: string): number {
-    return (
-      (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(accountName) as
-        | { balance_minor: number }
-        | undefined)?.balance_minor ?? 0
-    );
-  }
   function balanceOfUnder(childName: string, parentName: string): number {
     return (
       (db
@@ -4014,8 +4001,7 @@ test("setEntityLink/getEntityLink/deleteEntityLink: a real, pure link between tw
   setEntityLink('EntityLinkTest Account', 'Division', 'EntityLinkTest Other Division', asUserId(1));
   assert.equal(getEntityLink('EntityLinkTest Account', 'Division'), 'EntityLinkTest Other Division');
 
-  const stillOneRecord = entities.filter((e) => e.name === 'EntityLinkTest Account — Division');
-  // (entities was captured before the second call; re-fetch for a real, live check)
+  // Re-fetch live - an earlier snapshot would be stale after the second call.
   const liveEntities = getEntityTree();
   const liveLinkRecords = liveEntities.filter((e) => e.name === 'EntityLinkTest Account — Division');
   assert.equal(liveLinkRecords.length, 1, 'a real, second setEntityLink call must replace the existing link record, not create a real, duplicate second one');
@@ -4898,6 +4884,8 @@ test('create<T>: the real, generic, typed-descriptor creation primitive - genuin
 
   assert.ok(business.id > 0);
   assert.ok(division.id > 0);
+  assert.ok(location.id > 0, 'the same real name under a further, different real parent must also genuinely create, not collide');
+  assert.ok(employee.id > 0, 'and likewise under a real, entirely separate parent');
   assert.notEqual(business.id, division.id, 'the exact, same real name under two real, different parents genuinely produces two, real, distinct entities, not a collision');
 
   // The real, direct rejection: a genuine, real sibling collision
@@ -5380,7 +5368,6 @@ test('the fully worked example from multicurrency-design.md: a real sale through
   const revenueAccountRow = db.prepare(`SELECT a.balance_minor, a.currency FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name LIKE 'WorkedEx Ale%(USD)' AND e.name NOT LIKE '%Inventory%'`).get() as
     | { balance_minor: number; currency: string }
     | undefined;
-  const taxRow = db.prepare(`SELECT balance_minor FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name = 'Sales Tax Payable (USD)'`).get() as { balance_minor: number };
   const cashRow = db.prepare(`SELECT balance_minor, currency FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name = 'Cash at Bank (USD)'`).get() as { balance_minor: number; currency: string } | undefined;
 
   assert.ok(revenueAccountRow, 'a real, USD-tagged Revenue account must exist');
@@ -5581,7 +5568,7 @@ test('getBusinessConfigurationReport: everything a real business\'s own setup ac
   const biz = createBusiness(asBusinessName('ConfigReportTest Co'), '2027-28', asUserId(1));
   nominateBankAccount(biz.business, 'Westpac Business Cheque', '032-001', '123456', asUserId(1));
   addFinancialStatementNote(biz.business, 'Basis of preparation: going concern.', asUserId(1));
-  addTypedAddress(biz.business, 'Registered Office', { address1: '1 Main St', city: 'Adelaide' }, asUserId(1));
+  addTypedAddress(biz.business, 'Registered Office', { address_line1: '1 Main St', city: 'Adelaide' }, asUserId(1));
   addTypedPhone(biz.business, 'Mobile', '0400 000 000', asUserId(1));
 
   const report = getBusinessConfigurationReport(biz.business);

@@ -618,3 +618,34 @@ journal-staging-only guard re-confirmed with no new violations.
 **Every real stock-movement function named at checkpoint 414 now has
 parallel currency and count posting for a real, tagged combination -
 receive, dispatch, transfer, and write-off alike.**
+
+## 23. Two conflicts with the manual found and surfaced, per the "manual is authoritative" skill
+
+**1. This design's own documents were not in the manual.** Checked by
+direct query at checkpoint 416: `storage-space-as-currency-design.md`,
+`skill-manual-is-authoritative.md`, `skill-transactional-integrity.md`, and
+`skill-version-check.md` were not registered in
+`docs/build-programmer-manual.py`, so none of them appeared in the assembled
+Programmer's Manual (the skill requiring the manual be authoritative had
+zero hits in it). The documentation-coverage check had been passing only
+because one-line mentions were being added to a document that *was*
+included — satisfying the checker, not the intent. All four are now
+registered and confirmed present in the built manual.
+
+**2. A pre-existing plan overlaps this design and was never consulted
+before designing.** `cold-shelf-storage-inventory-model-plan.md` (Part IV)
+already describes hot/cold storage and carton-to-bottle breaking. Read so
+far (its rules and its "what already exists" section):
+
+- Consistent with this design: the one-directional shelf-to-cold flow, and
+  cartons being opened on demand into bottles.
+- **Unresolved overlap, needs a decision:** it models cold storage as a
+  separate, linked "Refrigerated" *sub-location* (`isColdStorageProduct`,
+  `resolveDispatchLocation`, the "Create Cold Section" button on the
+  Locations page). This design models Hot/Cold as a *Storage dimension of
+  the cartesian product* instead. Both mechanisms now exist in the code.
+  The instruction that the new mechanism "entirely replaces the old" was
+  applied to per-location capacity accounts only; it has not been applied to
+  the cold-section mechanism.
+
+The remaining ~145 lines of that plan have not been read.

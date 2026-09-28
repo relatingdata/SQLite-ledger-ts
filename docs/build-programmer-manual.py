@@ -25,6 +25,8 @@ PARTS = [
         "multi-dimensional-reporting.md",
         "contact-types-and-translations.md",
         "session-business-context.md",
+        "skill-manual-is-authoritative.md",
+        "skill-transactional-integrity.md",
     ]),
     ("Part II --- Technical Infrastructure", [
         "orm-and-commit-path.md",
@@ -40,9 +42,11 @@ PARTS = [
         "one-file-per-page-consolidation-plan.md",
         "wine-bar-assemblies-plan.md",
         "programmer-tooling.md",
+        "skill-version-check.md",
     ]),
     ("Part III --- Real, Concrete Design Work", [
         "multicurrency-design.md",
+        "storage-space-as-currency-design.md",
         "foreign-currency-receipts-and-payments.md",
         "menu-as-entity-tree-plan.md",
         "translator-form-and-guard-rails-plan.md",

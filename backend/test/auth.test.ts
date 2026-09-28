@@ -1,4 +1,4 @@
-import { test, before, after } from './test-runtime.ts';
+import { test, after } from './test-runtime.ts';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';

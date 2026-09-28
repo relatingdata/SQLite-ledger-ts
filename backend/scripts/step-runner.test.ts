@@ -11,7 +11,7 @@ import {
   runStepViaApi,
   type Screen,
 } from './step-runner.ts';
-import { createBusiness, asBusinessName, asUserId, getEntityTree } from '../src/db.ts';
+import { getEntityTree } from '../src/db.ts';
 
 function tempDir(): string {
   return mkdtempSync(join(tmpdir(), 'step-runner-test-'));
@@ -80,39 +80,39 @@ test('loadSteps: reads the real skip column from a matching .control.csv', () =>
 
 test('lintSteps: flags a screen_name with no real registry entry', () => {
   const screens = new Map<string, Screen>();
-  const steps = [{ index: 1, screen_name: 'Nonexistent Screen', values: ['x'], path: '', verify: '', screenshot: '' }];
+  const steps = [{ index: 1, screen_name: 'Nonexistent Screen', values: ['x'], path: '', verify: '', screenshot: '', file_line: 1, skip: false }];
   const problems = lintSteps(steps, screens);
   assert.ok(problems.some((p) => p.includes('no real entry in the screen registry')));
 });
 
 test('lintSteps: flags a real value-count mismatch against the registry', () => {
   const screens = new Map<string, Screen>([
-    ['Login', { screen_name: 'Login', ui_path: '', open_selector: '', api_function: '', submit_selector: '', fields: [
+    ['Login', { screen_name: 'Login', screen_kind: 'data', ui_path: '', open_selector: '', api_function: '', submit_selector: '', fields: [
       { position: 1, field_name: 'username', field_selector: '', field_type: 'text' },
       { position: 2, field_name: 'password', field_selector: '', field_type: 'text' },
     ] }],
   ]);
-  const steps = [{ index: 1, screen_name: 'Login', values: ['admin'], path: '', verify: '', screenshot: '' }];
+  const steps = [{ index: 1, screen_name: 'Login', values: ['admin'], path: '', verify: '', screenshot: '', file_line: 1, skip: false }];
   const problems = lintSteps(steps, screens);
   assert.ok(problems.some((p) => p.includes('real value(s)') && p.includes('real field(s)')));
 });
 
 test('lintSteps: flags an api_function with no real API_REGISTRY entry', () => {
   const screens = new Map<string, Screen>([
-    ['Made Up', { screen_name: 'Made Up', ui_path: '', open_selector: '', api_function: 'notARealFunction', submit_selector: '', fields: [] }],
+    ['Made Up', { screen_name: 'Made Up', screen_kind: 'data', ui_path: '', open_selector: '', api_function: 'notARealFunction', submit_selector: '', fields: [] }],
   ]);
-  const steps = [{ index: 1, screen_name: 'Made Up', values: [], path: '', verify: '', screenshot: '' }];
+  const steps = [{ index: 1, screen_name: 'Made Up', values: [], path: '', verify: '', screenshot: '', file_line: 1, skip: false }];
   const problems = lintSteps(steps, screens);
   assert.ok(problems.some((p) => p.includes('no real API_REGISTRY entry')));
 });
 
 test('lintSteps: a genuinely correct fixture reports zero real problems', () => {
   const screens = new Map<string, Screen>([
-    ['Login', { screen_name: 'Login', ui_path: '', open_selector: '', api_function: '', submit_selector: '', fields: [
+    ['Login', { screen_name: 'Login', screen_kind: 'data', ui_path: '', open_selector: '', api_function: '', submit_selector: '', fields: [
       { position: 1, field_name: 'username', field_selector: '', field_type: 'text' },
     ] }],
   ]);
-  const steps = [{ index: 1, screen_name: 'Login', values: ['admin'], path: '', verify: '', screenshot: '' }];
+  const steps = [{ index: 1, screen_name: 'Login', values: ['admin'], path: '', verify: '', screenshot: '', file_line: 1, skip: false }];
   assert.deepEqual(lintSteps(steps, screens), []);
 });
 
@@ -120,7 +120,7 @@ test('lintSteps: flags a real, data-submitting screen with no real api_function 
   const screens = new Map<string, Screen>([
     ['Create Item', { screen_name: 'Create Item', screen_kind: 'data', ui_path: '/items', open_selector: '', api_function: '', submit_selector: "button:has-text('+ Add')", fields: [] }],
   ]);
-  const steps = [{ index: 1, screen_name: 'Create Item', values: [], path: '', verify: '', screenshot: '' }];
+  const steps = [{ index: 1, screen_name: 'Create Item', values: [], path: '', verify: '', screenshot: '', file_line: 1, skip: false }];
   const problems = lintSteps(steps, screens);
   assert.ok(problems.some((p) => p.includes('silently do nothing at all')));
 });
@@ -128,14 +128,14 @@ test('lintSteps: flags a real, data-submitting screen with no real api_function 
 test('runStepViaApi: a real createBusiness step, run through the real, live backend, genuinely creates the business', () => {
   const screens = new Map<string, Screen>([
     ['Create Business', {
-      screen_name: 'Create Business', ui_path: '', open_selector: '', api_function: 'createBusiness', submit_selector: '',
+      screen_name: 'Create Business', screen_kind: 'data', ui_path: '', open_selector: '', api_function: 'createBusiness', submit_selector: '',
       fields: [
         { position: 1, field_name: 'businessName', field_selector: '', field_type: 'text' },
         { position: 2, field_name: 'financialYearLabel', field_selector: '', field_type: 'text' },
       ],
     }],
   ]);
-  const step = { index: 1, screen_name: 'Create Business', values: ['StepRunnerUnitTest Co', '2027-28'], path: 'api', verify: 'business_exists', screenshot: '' };
+  const step = { index: 1, screen_name: 'Create Business', values: ['StepRunnerUnitTest Co', '2027-28'], path: 'api', verify: 'business_exists', screenshot: '', file_line: 1, skip: false };
   const result = runStepViaApi(step, screens);
   assert.equal(result.ok, true, result.error);
   assert.ok(getEntityTree().some((e) => e.name === 'StepRunnerUnitTest Co'), 'the real business must genuinely exist after the real step runs');
@@ -144,14 +144,14 @@ test('runStepViaApi: a real createBusiness step, run through the real, live back
 test('runStepViaApi: a real, deliberately-wrong verify correctly reports failure, not a false pass', () => {
   const screens = new Map<string, Screen>([
     ['Create Business', {
-      screen_name: 'Create Business', ui_path: '', open_selector: '', api_function: 'createBusiness', submit_selector: '',
+      screen_name: 'Create Business', screen_kind: 'data', ui_path: '', open_selector: '', api_function: 'createBusiness', submit_selector: '',
       fields: [
         { position: 1, field_name: 'businessName', field_selector: '', field_type: 'text' },
         { position: 2, field_name: 'financialYearLabel', field_selector: '', field_type: 'text' },
       ],
     }],
   ]);
-  const step = { index: 1, screen_name: 'Create Business', values: ['StepRunnerUnitTest Co Two', '2027-28'], path: 'api', verify: 'location_exists', screenshot: '' };
+  const step = { index: 1, screen_name: 'Create Business', values: ['StepRunnerUnitTest Co Two', '2027-28'], path: 'api', verify: 'location_exists', screenshot: '', file_line: 1, skip: false };
   const result = runStepViaApi(step, screens);
   assert.equal(result.ok, false, 'verify checks a locationName that was never provided, so this must genuinely fail, not silently pass');
 });

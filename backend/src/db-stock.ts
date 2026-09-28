@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { db } from './db.js';
 import { ensureStorageCapacityStructure } from './db.js';
-import { Entity, Link, Balance, Detail } from './primitives.js';
+import { Entity, Link, Balance } from './primitives.js';
 import { Session } from './session-context.js';
 import {
   NotFoundError,
@@ -21,7 +21,6 @@ import {
   resolveItemId,
   setDimensionParent,
   setEntityLink,
-  getEntityLink,
   deleteEntityLink,
   stageLine,
   updateEntity,
@@ -33,7 +32,6 @@ import {
   type TypedNode,
   typeLocationTypeMarkerName,
   typeIsBillingAddressMarkerName,
-  type TypeDescriptor,
   asBusinessName,
   asLedgerName,
   asItemName,
@@ -338,24 +336,6 @@ export function getItemLocation(itemName: ItemName, locationName: LocationName):
     rack: Link.get(levelsRecordName, 'Rack') ?? null,
     level: getLevelFigure('Shelf Level'),
   };
-}
-
-/** Sets a real (item, location) pair's own real, configuration-only
- * shelving/capacity levels — genuinely set-once-read-many data, never
- * append-only ledger data the way quantity_on_hand itself is. Every
- * real number (min/max/reorder/shelf level) is its own real, direct
- * account balance — the exact, same, established mechanism already
- * proven for quantity-on-hand itself, just a genuinely different real
- * account. Every real string (shelf side/rack) is a real, direct
- * setEntityLink record to a real, existing, shared entity — never
- * JSON, never a dedicated table. */
-function postItemLevelFigure(figureName: string, figureId: number, value: number, userId: UserId): void {
-  const reference = `LEVEL-${figureId}-${Date.now()}`;
-  const current = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(figureId) as { balance_minor: number } | undefined)?.balance_minor ?? 0;
-  const delta = value - current;
-  if (delta === 0) return;
-  stageLine({ reference, business: asBusinessName('Wine Retail Business'), ledger: asLedgerName('Actual'), transdate: undefined, account: asAccountName(figureName), accountId: figureId, amount_minor: delta });
-  db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, 'Wine Retail Business', 'Actual', userId);
 }
 
 export function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>): void {
@@ -1042,7 +1022,7 @@ export function dispatchStockFromLocation(
   if (quantity > current.quantity_on_hand) {
     throw new ValidationError(`Only ${current.quantity_on_hand} of "${itemName}" on hand at "${locationName}" — cannot dispatch ${quantity}.`);
   }
-  const itemId = resolveItemId(itemName);
+  resolveItemId(itemName); // validates the real item exists; throws otherwise
   const date = transdate ?? todayAtLocation(locationName);
   assertPeriodOpen(business, ledger, date);
   db.transaction(() => {
@@ -1116,9 +1096,10 @@ export function transferStock(
   if (quantity > current.quantity_on_hand) {
     throw new ValidationError(`Only ${current.quantity_on_hand} of "${itemName}" on hand at "${fromLocationName}" — cannot transfer ${quantity}.`);
   }
-  const itemId = resolveItemId(itemName);
-  const fromId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(fromLocationName) as { id: number }).id;
-  const toId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(toLocationName) as { id: number }).id;
+  resolveItemId(itemName); // validates the real item exists; throws otherwise
+  for (const loc of [fromLocationName, toLocationName]) {
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(loc)) throw new ValidationError(`No location named "${loc}".`);
+  }
 
   // A real, queryable movement history — not just a snapshot, found
   // to be a real, genuine gap while building the stock movement

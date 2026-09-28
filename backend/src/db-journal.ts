@@ -15,7 +15,6 @@ import {
   asItemName,
   asLocationName,
   getDivisionType,
-  resolveItemId,
   updateEntity,
   deleteEntity,
   getContact,
@@ -32,12 +31,11 @@ import {
   type DivisionName,
   type VendorName,
   type CustomerName,
-  type ItemName,
   type LocationName,
   type EmployeeName,
   type UserId,
 } from './db.js';
-import { getItemLocation, dispatchStockFromLocation, transferStock, postQuantityMovement, getOrderStatus, placeOrder, fulfillOrder } from './db-stock.js';
+import { postQuantityMovement, placeOrder, fulfillOrder } from './db-stock.js';
 
 export interface StagedLine {
   reference: string;
