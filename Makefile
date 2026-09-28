@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -525,6 +525,13 @@ check-sim-unchanged:
 	-$(MAKE) test-e2e 2>&1 | grep -E '^(PASS|FAIL)' > /tmp/sim-now.txt
 	diff -u $(SIM_GOLDEN) /tmp/sim-now.txt
 	@echo "Simulation output is unchanged from the golden file."
+
+# Applies a rename map (lines "old new") by whole-word replacement over the
+# tracked text files. Refuses if a new name already exists. DRY=1 previews.
+# See docs/bulk-rename-plan.md, "How a rename is applied". Maps live in renames/.
+rename-identifiers:
+	@if [ -z "$(MAP)" ]; then echo "Usage: make rename-identifiers MAP=renames/<file>.txt [DRY=1]"; exit 1; fi
+	$(RUN_SCRIPT) scripts/apply-renames.ts --map $(MAP) $(if $(DRY),--dry-run)
 
 measure-comments:
 	$(RUN_SCRIPT) scripts/measure-code-comments.ts

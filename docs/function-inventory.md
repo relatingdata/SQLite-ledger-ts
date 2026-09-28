@@ -258,68 +258,68 @@ Called from: production: routes/journal.ts ((module level) ×1) · tests: 8 call
 ensureLocationScopedAccount(baseAccountName: string, locationName: string, userId: UserId): string
 ```
 
-Called from: production: db-journal.ts (postApPurchase ×1, postArSale ×1)
+Called from: production: db-journal.ts (postAPPurchase ×1, postARSale ×1)
 
-**`stageArSale`** *(exported)*
+**`stageARSale`** *(exported)*
 
 ```
-stageArSale(input: ArSaleInput): void
+stageARSale(input: ARSaleInput): void
 ```
 
 Called from: production: routes/arap.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
 
-**`postArSale`** *(exported)*
+**`postARSale`** *(exported)*
 
 ```
-postArSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+postARSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
 Called from: production: routes/arap.ts ((module level) (as a value)) · tests: 4 call(s) in 1 file(s)
 
-**`stageArReceipt`** *(exported)*
+**`stageARReceipt`** *(exported)*
 
 ```
-stageArReceipt(input: ArReceiptInput): void
+stageARReceipt(input: ARReceiptInput): void
 ```
 
 Called from: production: routes/arap.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
 
-**`postArReceipt`** *(exported)*
+**`postARReceipt`** *(exported)*
 
 ```
-postArReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+postARReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
 Called from: production: routes/arap.ts ((module level) (as a value)) · tests: 1 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
 
-**`stageApPurchase`** *(exported)*
+**`stageAPPurchase`** *(exported)*
 
 ```
-stageApPurchase(input: ApPurchaseInput): void
+stageAPPurchase(input: APPurchaseInput): void
 ```
 
 Called from: production: routes/arap.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
 
-**`postApPurchase`** *(exported)*
+**`postAPPurchase`** *(exported)*
 
 ```
-postApPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+postAPPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
 Called from: production: routes/arap.ts ((module level) (as a value)) · tests: 2 call(s) in 1 file(s)
 
-**`stageApPayment`** *(exported)*
+**`stageAPPayment`** *(exported)*
 
 ```
-stageApPayment(input: ApPaymentInput): void
+stageAPPayment(input: APPaymentInput): void
 ```
 
 Called from: production: routes/arap.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
 
-**`postApPayment`** *(exported)*
+**`postAPPayment`** *(exported)*
 
 ```
-postApPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+postAPPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
 Called from: production: routes/arap.ts ((module level) (as a value)) · tests: 1 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
@@ -2036,7 +2036,7 @@ Called from: production: db.ts (recordInvoiceLine ×1)
 recordInvoiceLine(reference: string, business: string, ledger: string, description: string, quantity: number | null, unitPriceMinor: number | null, amountMinor: number, taxMinor: number): void
 ```
 
-Called from: production: db-journal.ts (postApPurchase ×1, postArSale ×1, postStockDispatch ×1, postStockReceipt ×1)
+Called from: production: db-journal.ts (postAPPurchase ×1, postARSale ×1, postStockDispatch ×1, postStockReceipt ×1)
 
 **`getInvoiceLine`** *(exported)*
 
@@ -4044,34 +4044,34 @@ createRecurringJournal(business: BusinessName, ledger: LedgerName, reference: st
 
 Called from: Svelte pages (by name in the file's imports): routes/post ×1
 
-**`stageArReceipt`** *(exported)*
+**`stageARReceipt`** *(exported)*
 
 ```
-stageArReceipt(input: ArApBaseInput & { customer: string; }): Promise<void>
-```
-
-Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1
-
-**`postArReceipt`** *(exported)*
-
-```
-postArReceipt(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+stageARReceipt(input: ARAPBaseInput & { customer: string; }): Promise<void>
 ```
 
 Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1
 
-**`stageApPayment`** *(exported)*
+**`postARReceipt`** *(exported)*
 
 ```
-stageApPayment(input: ArApBaseInput & { vendor: string; }): Promise<void>
+postARReceipt(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
 ```
 
 Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1
 
-**`postApPayment`** *(exported)*
+**`stageAPPayment`** *(exported)*
 
 ```
-postApPayment(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+stageAPPayment(input: ARAPBaseInput & { vendor: string; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1
+
+**`postAPPayment`** *(exported)*
+
+```
+postAPPayment(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
 ```
 
 Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1

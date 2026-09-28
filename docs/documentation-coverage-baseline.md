@@ -85,7 +85,7 @@ file name, and not a business concept worth prose on its own.
 - `stockOutRiskRouter`
 - `stockListingRouter`
 - `stockTakesRouter`
-- `arApRouter`
+- `arAPRouter`
 - `stockRouter`
 - `productsRouter`
 - `invoicesRouter`

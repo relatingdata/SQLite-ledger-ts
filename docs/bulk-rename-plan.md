@@ -95,6 +95,30 @@ route directories, database names and, for Vendor to Provider, the **translatabl
 word-boundary replace for the rest driven by the `make find-uses` list, reviewed as a
 `git diff`. Such a tool has not been built or chosen.
 
+## How a rename is applied
+
+`make rename-identifiers MAP=renames/<file>.txt` (add `DRY=1` to preview). The map has one
+`old new` pair per line, and each step of the order below has its own file in `renames/`, so the
+exact set of names changed by a step is on record.
+
+It replaces whole words over the tracked text files (`.ts`, `.svelte`, `.csv`, `.json`, `.md`,
+`.mjs`). Safeguards, each there because of a specific way a bulk rename goes wrong:
+
+- **It refuses if a new name already appears anywhere**, since that would silently merge two
+  different things into one.
+- **It reports any old name it cannot find**, so a typo in the map is visible rather than a
+  silent no-op.
+- **It skips the documents that discuss the renames** (`naming-vocabulary.md`, this chapter,
+  `item-terminology-and-storage-design-notes.md`, the release notes and the lessons learned) and
+  all generated files. Otherwise a table saying "`transferStock` becomes `transferItems`" would be
+  rewritten to say "`transferItems` becomes `transferItems`".
+- **It preview-then-applies**: run with `DRY=1` first.
+
+Whole-word replacement is right for a *distinctive* identifier such as `stageArSale`. It is
+**wrong** for a word that also appears as a string or in prose, which is why `fetch` and Vendor
+need a different approach (steps 4 and 5). The renaming tool is deliberately simple; the
+type-checker, the tests and `svelte-check` are what prove a rename, not the tool.
+
 ## How to check a rename, in this order
 
 1. `make check-backend-types`: no new errors beyond the six known. This catches a missed

@@ -172,7 +172,7 @@ date — it never mentioned the real capacity adjustment or combination-value
 posting it's always done), `dispatchStockFromLocation`, `transferStock`,
 `placeOrder`, `fulfillOrder`.
 
-**A real, important, confirmed finding**: `postApPayment` (and the same pattern
+**A real, important, confirmed finding**: `postAPPayment` (and the same pattern
 wherever else it appears — `ap_payment_post`, `journal` itself, and any other
 `INSTEAD OF INSERT` view+trigger pair) does **not** need an explicit
 `db.transaction()` wrap at all. A single `INSERT` statement that fires an `INSTEAD

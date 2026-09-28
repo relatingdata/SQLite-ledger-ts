@@ -618,7 +618,7 @@ Per direct instruction: every real `xxxRouter` constant (`backend/src/routes/*.t
 | `posRouter` | `pos.ts` | `/api/pos` | Real Point-of-Sale terminals, sign-on/off, and real sales. |
 | `customerRegistrationRouter` | `customer-registration.ts` | `/api/customers` | Real, public, self-service customer registration — deliberately no staff login required. |
 | `customerVerificationRouter` | `customer-registration.ts` | `/api/customer-verification` | Verifying a real, pending customer registration. |
-| `arApRouter` | `arap.ts` | `/api/arap` | Cash Purchase/Cash Sale — the real, direct, one-step AR/AP posting screens. |
+| `arAPRouter` | `arap.ts` | `/api/arap` | Cash Purchase/Cash Sale — the real, direct, one-step AR/AP posting screens. |
 | `projectsRouter` | `projects.ts` | `/api/projects` | Real projects and their own real tasks. |
 | `stockRouter` | `stock.ts` | `/api/stock` | Real stock receipts, write-offs, and expiration tracking. |
 | `invoiceRouter` | `invoice.ts` | `/api/invoice` | A real, single invoice's own real outstanding balance. |

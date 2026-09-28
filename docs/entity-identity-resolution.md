@@ -121,9 +121,9 @@ compile-clean before the next began:
 **Wave 1 — the core posting boundary.** The foundational `StagedLine`
 interface every real transaction ultimately funnels through
 (`business`, `ledger`, `account`, `division` fields), every real AR/AP
-interface and function pair (`ArSaleInput`/`postArSale`,
-`ArReceiptInput`/`postArReceipt`, `ApPurchaseInput`/`postApPurchase`,
-`ApPaymentInput`/`postApPayment`), `PosSaleInput`/`completePosSale`,
+interface and function pair (`ARSaleInput`/`postARSale`,
+`ARReceiptInput`/`postARReceipt`, `APPurchaseInput`/`postAPPurchase`,
+`APPaymentInput`/`postAPPayment`), `PosSaleInput`/`completePosSale`,
 `closeBooks`/`reverseJournalEntry`'s own account/division fields, and
 the backend routes accepting these as request-body strings
 (`routes/arap.ts`, `routes/pos.ts`, `routes/journal.ts`,

@@ -44,7 +44,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
 | `agedRouter` | `backend/src/routes/invoices.ts` | `backend/src/server.ts` | `const agedRouter = Router();` |
-| `arApRouter` | `backend/src/routes/arap.ts` | `backend/src/server.ts` | `const arApRouter = Router();` |
+| `arAPRouter` | `backend/src/routes/arap.ts` | `backend/src/server.ts` | `const arAPRouter = Router();` |
 | `authRouter` | `backend/src/routes/auth.ts` | `backend/src/server.ts` | `const authRouter = Router();` |
 | `belowReorderRouter` | `backend/src/routes/locations.ts` | `backend/src/server.ts` | `const belowReorderRouter = Router();` |
 | `businessesRouter` | `backend/src/routes/businesses.ts` | `backend/src/server.ts` | `const businessesRouter = Router();` |

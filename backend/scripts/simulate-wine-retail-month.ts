@@ -51,10 +51,10 @@ import {
   getAccountsPostedTo,
   stagePurchaseOrder,
   postPurchaseOrder,
-  stageApPayment,
-  postApPayment,
-  stageArReceipt,
-  postArReceipt,
+  stageAPPayment,
+  postAPPayment,
+  stageARReceipt,
+  postARReceipt,
   allocatePayment,
   getInvoiceOutstandingMinor,
   ensureProductSalesCogsAccounts,
@@ -374,14 +374,14 @@ async function main() {
   }
 
   // Actually pay the vendor — via the real, already-correct AP payment
-  // mechanism (stageApPayment/postApPayment already post a genuine,
+  // mechanism (stageAPPayment/postAPPayment already post a genuine,
   // balanced GL entry; they were simply never called before).
   let paymentsPosted = 0;
   let totalPaidMinor = 0;
   scheduledPayments.sort((a, b) => a.payDay - b.payDay);
   for (const p of scheduledPayments) {
-    stageApPayment({ reference: p.ref, business: BUSINESS, ledger: LEDGER, vendor: VENDOR, amount_minor: p.amount, transdate: today(p.payDay), description: 'Vendor payment' });
-    postApPayment(p.ref, BUSINESS, LEDGER, 1);
+    stageAPPayment({ reference: p.ref, business: BUSINESS, ledger: LEDGER, vendor: VENDOR, amount_minor: p.amount, transdate: today(p.payDay), description: 'Vendor payment' });
+    postAPPayment(p.ref, BUSINESS, LEDGER, 1);
     paymentsPosted++;
     totalPaidMinor += p.amount;
   }
@@ -408,8 +408,8 @@ async function main() {
     1
   );
   postInvoice(fullPayInvoiceId, 'Sales Revenue', 'Sales Tax Payable', 1, false);
-  stageArReceipt({ reference: 'ALLOC-AR-FULL-RCPT', business: BUSINESS, ledger: LEDGER, customer: allocationCustomer, amount_minor: 84000, transdate: today(10), description: 'Full payment of ALLOC-AR-FULL' });
-  postArReceipt('ALLOC-AR-FULL-RCPT', BUSINESS, LEDGER, 1);
+  stageARReceipt({ reference: 'ALLOC-AR-FULL-RCPT', business: BUSINESS, ledger: LEDGER, customer: allocationCustomer, amount_minor: 84000, transdate: today(10), description: 'Full payment of ALLOC-AR-FULL' });
+  postARReceipt('ALLOC-AR-FULL-RCPT', BUSINESS, LEDGER, 1);
   allocatePayment(fullPayInvoiceId, 'ALLOC-AR-FULL-RCPT-alloc', 84000, today(10), 'Cash and Bank', 1);
 
   // (2) Partial payment — a real invoice, only item paid, a real,
@@ -422,8 +422,8 @@ async function main() {
     1
   );
   postInvoice(partialPayInvoiceId, 'Sales Revenue', 'Sales Tax Payable', 1, false);
-  stageArReceipt({ reference: 'ALLOC-AR-PARTIAL-RCPT', business: BUSINESS, ledger: LEDGER, customer: allocationCustomer, amount_minor: 50000, transdate: today(14), description: 'Partial payment of ALLOC-AR-PARTIAL' });
-  postArReceipt('ALLOC-AR-PARTIAL-RCPT', BUSINESS, LEDGER, 1);
+  stageARReceipt({ reference: 'ALLOC-AR-PARTIAL-RCPT', business: BUSINESS, ledger: LEDGER, customer: allocationCustomer, amount_minor: 50000, transdate: today(14), description: 'Partial payment of ALLOC-AR-PARTIAL' });
+  postARReceipt('ALLOC-AR-PARTIAL-RCPT', BUSINESS, LEDGER, 1);
   allocatePayment(partialPayInvoiceId, 'ALLOC-AR-PARTIAL-RCPT-alloc', 50000, today(14), 'Cash and Bank', 1);
 
   // (3) Overpayment — a real receipt genuinely larger than the real
@@ -440,8 +440,8 @@ async function main() {
   );
   postInvoice(overpayInvoiceId, 'Sales Revenue', 'Sales Tax Payable', 1, false);
   const overpayReceiptMinor = 75000; // genuinely more than the invoice's own $600.00
-  stageArReceipt({ reference: 'ALLOC-AR-OVERPAID-RCPT', business: BUSINESS, ledger: LEDGER, customer: allocationCustomer, amount_minor: overpayReceiptMinor, transdate: today(16), description: 'Overpayment of ALLOC-AR-OVERPAID — real, remaining excess deliberately left unallocated' });
-  postArReceipt('ALLOC-AR-OVERPAID-RCPT', BUSINESS, LEDGER, 1);
+  stageARReceipt({ reference: 'ALLOC-AR-OVERPAID-RCPT', business: BUSINESS, ledger: LEDGER, customer: allocationCustomer, amount_minor: overpayReceiptMinor, transdate: today(16), description: 'Overpayment of ALLOC-AR-OVERPAID — real, remaining excess deliberately left unallocated' });
+  postARReceipt('ALLOC-AR-OVERPAID-RCPT', BUSINESS, LEDGER, 1);
   const overpayOutstanding = getInvoiceOutstandingMinor(overpayInvoiceId);
   allocatePayment(overpayInvoiceId, 'ALLOC-AR-OVERPAID-RCPT-alloc', overpayOutstanding, today(16), 'Cash and Bank', 1);
   const overpayUnallocatedMinor = overpayReceiptMinor - overpayOutstanding;
@@ -450,25 +450,25 @@ async function main() {
   // a real, second, distinct vendor from the one already used above,
   // so its own real, outstanding balance is genuinely isolated and
   // easy to find/verify directly.
-  const fullPayApInvoiceId = createInvoice(
+  const fullPayAPInvoiceId = createInvoice(
     { invoiceType: 'AP', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AP-FULL', counterpartyName: allocationVendor2, invoiceDate: today(4),
       lines: [{ description: 'Case order — full payment example', amountMinor: 45000, taxMinor: 0 }] },
     1
   );
-  postInvoice(fullPayApInvoiceId, 'Cost of Goods Sold', 'Sales Tax Payable', 1, false);
-  stageApPayment({ reference: 'ALLOC-AP-FULL-PMT', business: BUSINESS, ledger: LEDGER, vendor: allocationVendor2, amount_minor: 45000, transdate: today(11), description: 'Full payment of ALLOC-AP-FULL' });
-  postApPayment('ALLOC-AP-FULL-PMT', BUSINESS, LEDGER, 1);
-  allocatePayment(fullPayApInvoiceId, 'ALLOC-AP-FULL-PMT-alloc', 45000, today(11), 'Cash and Bank', 1);
+  postInvoice(fullPayAPInvoiceId, 'Cost of Goods Sold', 'Sales Tax Payable', 1, false);
+  stageAPPayment({ reference: 'ALLOC-AP-FULL-PMT', business: BUSINESS, ledger: LEDGER, vendor: allocationVendor2, amount_minor: 45000, transdate: today(11), description: 'Full payment of ALLOC-AP-FULL' });
+  postAPPayment('ALLOC-AP-FULL-PMT', BUSINESS, LEDGER, 1);
+  allocatePayment(fullPayAPInvoiceId, 'ALLOC-AP-FULL-PMT-alloc', 45000, today(11), 'Cash and Bank', 1);
 
-  const partialPayApInvoiceId = createInvoice(
+  const partialPayAPInvoiceId = createInvoice(
     { invoiceType: 'AP', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AP-PARTIAL', counterpartyName: allocationVendor2, invoiceDate: today(6),
       lines: [{ description: 'Case order — partial payment example', amountMinor: 90000, taxMinor: 0 }] },
     1
   );
-  postInvoice(partialPayApInvoiceId, 'Cost of Goods Sold', 'Sales Tax Payable', 1, false);
-  stageApPayment({ reference: 'ALLOC-AP-PARTIAL-PMT', business: BUSINESS, ledger: LEDGER, vendor: allocationVendor2, amount_minor: 30000, transdate: today(15), description: 'Partial payment of ALLOC-AP-PARTIAL' });
-  postApPayment('ALLOC-AP-PARTIAL-PMT', BUSINESS, LEDGER, 1);
-  allocatePayment(partialPayApInvoiceId, 'ALLOC-AP-PARTIAL-PMT-alloc', 30000, today(15), 'Cash and Bank', 1);
+  postInvoice(partialPayAPInvoiceId, 'Cost of Goods Sold', 'Sales Tax Payable', 1, false);
+  stageAPPayment({ reference: 'ALLOC-AP-PARTIAL-PMT', business: BUSINESS, ledger: LEDGER, vendor: allocationVendor2, amount_minor: 30000, transdate: today(15), description: 'Partial payment of ALLOC-AP-PARTIAL' });
+  postAPPayment('ALLOC-AP-PARTIAL-PMT', BUSINESS, LEDGER, 1);
+  allocatePayment(partialPayAPInvoiceId, 'ALLOC-AP-PARTIAL-PMT-alloc', 30000, today(15), 'Cash and Bank', 1);
 
   console.log(
     `Real invoice allocation exercised: 2 full payments, 2 partial payments, and 1 real, direct overpayment ` +

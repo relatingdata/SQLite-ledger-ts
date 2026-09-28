@@ -11,10 +11,10 @@
     getBusinesses,
     getLedgers,
     getEntityTree,
-    stageApPayment,
-    postApPayment,
-    stageArReceipt,
-    postArReceipt,
+    stageAPPayment,
+    postAPPayment,
+    stageARReceipt,
+    postARReceipt,
     listInvoices,
     getInvoiceOutstanding,
     allocatePaymentToInvoice,
@@ -138,11 +138,11 @@
     saving = true;
     try {
       if (isPayment) {
-        await stageApPayment({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), vendor: asVendorName(partyName), amount_minor, transdate, description: description || undefined });
-        await postApPayment(reference, asBusinessName(business), asLedgerName(ledger));
+        await stageAPPayment({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), vendor: asVendorName(partyName), amount_minor, transdate, description: description || undefined });
+        await postAPPayment(reference, asBusinessName(business), asLedgerName(ledger));
       } else {
-        await stageArReceipt({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), customer: asCustomerName(partyName), amount_minor, transdate, description: description || undefined });
-        await postArReceipt(reference, asBusinessName(business), asLedgerName(ledger));
+        await stageARReceipt({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), customer: asCustomerName(partyName), amount_minor, transdate, description: description || undefined });
+        await postARReceipt(reference, asBusinessName(business), asLedgerName(ledger));
       }
       // Real, direct, optional allocation against specific, real,
       // outstanding invoices. Best-effort per invoice: one real,

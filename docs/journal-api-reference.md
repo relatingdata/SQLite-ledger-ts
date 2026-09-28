@@ -139,7 +139,7 @@ delete of the original, real, historical record.
 ## `recordInvoiceLine`
 
 Exported from `backend/src/db.ts` specifically so `db-journal.ts`'s own
-`postArSale`/`postApPurchase` can call it after a successful post — records one
+`postARSale`/`postAPPurchase` can call it after a successful post — records one
 real line of narrative detail (description, quantity, unit price, amount, tax)
 against the real, underlying invoice these two screens create, so an invoice
 built this way shows the same real line detail as one built through the

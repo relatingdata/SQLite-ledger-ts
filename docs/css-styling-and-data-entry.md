@@ -178,10 +178,10 @@ Table: Every real screen that posts a transaction, the real backend function it 
 
 | Screen (route) | Backend function | Ends up in `journal_entry_staging`, posted via |
 |---|---|---|
-| AR Sale (`/arap/ar-sale`) | `postArSale` | `post_journal_entry_insert` |
-| AR Receipt (`/arap/ar-receipt`) | `postArReceipt` | `post_journal_entry_insert` |
-| AP Purchase (`/arap/ap-purchase`) | `postApPurchase` | `post_journal_entry_insert` |
-| AP Payment (`/arap/ap-payment`) | `postApPayment` | `post_journal_entry_insert` |
+| AR Sale (`/arap/ar-sale`) | `postARSale` | `post_journal_entry_insert` |
+| AR Receipt (`/arap/ar-receipt`) | `postARReceipt` | `post_journal_entry_insert` |
+| AP Purchase (`/arap/ap-purchase`) | `postAPPurchase` | `post_journal_entry_insert` |
+| AP Payment (`/arap/ap-payment`) | `postAPPayment` | `post_journal_entry_insert` |
 | Cash Sale (`/arap/cash-sale`) | `completePosSale` (no location) | `post_journal_entry_insert` |
 | Cash Purchase (`/arap/cash-purchase`) | `completeCashPurchase` | `post_journal_entry_insert` |
 | POS Terminal (`/pos`) | `completePosSale` | `post_journal_entry_insert` |

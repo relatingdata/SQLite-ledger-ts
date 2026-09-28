@@ -106,8 +106,8 @@ never a generic "account/amount" pair — see Part II, "The pattern
 every real data-entry screen now follows"):
 
 ```typescript
-export function stageArSale(input: ArSaleInput): void
-export function postArSale(
+export function stageARSale(input: ARSaleInput): void
+export function postARSale(
   reference: string, business: BusinessName, ledger: LedgerName, userId: number
 ): void
 ```
@@ -138,8 +138,8 @@ END;
 ```
 
 ```typescript
-export function stageArReceipt(input: ArReceiptInput): void
-export function postArReceipt(
+export function stageARReceipt(input: ARReceiptInput): void
+export function postARReceipt(
   reference: string, business: BusinessName, ledger: LedgerName, userId: number
 ): void
 ```
@@ -172,8 +172,8 @@ END;
 ```
 
 ```typescript
-export function stageApPurchase(input: ApPurchaseInput): void
-export function postApPurchase(
+export function stageAPPurchase(input: APPurchaseInput): void
+export function postAPPurchase(
   reference: string, business: BusinessName, ledger: LedgerName, userId: number
 ): void
 ```
@@ -202,8 +202,8 @@ END;
 ```
 
 ```typescript
-export function stageApPayment(input: ApPaymentInput): void
-export function postApPayment(
+export function stageAPPayment(input: APPaymentInput): void
+export function postAPPayment(
   reference: string, business: BusinessName, ledger: LedgerName, userId: number
 ): void
 ```

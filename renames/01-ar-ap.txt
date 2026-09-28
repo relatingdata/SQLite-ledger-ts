@@ -1,0 +1,21 @@
+# Step 1 of docs/bulk-rename-plan.md: AR and AP are always capitalised.
+# A leading lowercase ar/ap of a local variable (arNode) is left alone.
+postApPayment postAPPayment
+postArSale postARSale
+postArReceipt postARReceipt
+stageApPayment stageAPPayment
+postApPurchase postAPPurchase
+stageArReceipt stageARReceipt
+stageArSale stageARSale
+stageApPurchase stageAPPurchase
+arApRouter arAPRouter
+ArSaleInput ARSaleInput
+ApPurchaseInput APPurchaseInput
+ArReceiptInput ARReceiptInput
+ApPaymentInput APPaymentInput
+ArApBaseInput ARAPBaseInput
+fullPayApInvoiceId fullPayAPInvoiceId
+partialPayApInvoiceId partialPayAPInvoiceId
+ArReceipt ARReceipt
+ApPurchase APPurchase
+ArSale ARSale

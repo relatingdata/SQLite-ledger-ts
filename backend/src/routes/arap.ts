@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import {
-  stageArSale,
-  postArSale,
-  stageArReceipt,
-  postArReceipt,
-  stageApPurchase,
-  postApPurchase,
-  stageApPayment,
-  postApPayment,
+  stageARSale,
+  postARSale,
+  stageARReceipt,
+  postARReceipt,
+  stageAPPurchase,
+  postAPPurchase,
+  stageAPPayment,
+  postAPPayment,
   asBusinessName,
   asLedgerName,
   asCustomerName,
@@ -22,7 +22,7 @@ import {
   asUserId,
 } from '../db.js';
 
-export const arApRouter = Router();
+export const arAPRouter = Router();
 
 const baseSchema = {
   reference: z.string().min(1),
@@ -48,10 +48,10 @@ function handlePost(fn: (reference: string, business: BusinessName, ledger: Ledg
 }
 
 const arSaleSchema = z.object({ ...baseSchema, customer: z.string().min(1), tax_minor: z.number().int().nonnegative().optional(), location: z.string().min(1).optional() });
-arApRouter.post('/ar-sale/stage', (req, res) => {
+arAPRouter.post('/ar-sale/stage', (req, res) => {
   const parsed = arSaleSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  stageArSale({
+  stageARSale({
     ...parsed.data,
     business: asBusinessName(parsed.data.business),
     ledger: asLedgerName(parsed.data.ledger),
@@ -60,13 +60,13 @@ arApRouter.post('/ar-sale/stage', (req, res) => {
   });
   res.status(204).end();
 });
-arApRouter.post('/ar-sale/post', handlePost(postArSale));
+arAPRouter.post('/ar-sale/post', handlePost(postARSale));
 
 const arReceiptSchema = z.object({ ...baseSchema, customer: z.string().min(1) });
-arApRouter.post('/ar-receipt/stage', (req, res) => {
+arAPRouter.post('/ar-receipt/stage', (req, res) => {
   const parsed = arReceiptSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  stageArReceipt({
+  stageARReceipt({
     ...parsed.data,
     business: asBusinessName(parsed.data.business),
     ledger: asLedgerName(parsed.data.ledger),
@@ -74,13 +74,13 @@ arApRouter.post('/ar-receipt/stage', (req, res) => {
   });
   res.status(204).end();
 });
-arApRouter.post('/ar-receipt/post', handlePost(postArReceipt));
+arAPRouter.post('/ar-receipt/post', handlePost(postARReceipt));
 
 const apPurchaseSchema = z.object({ ...baseSchema, vendor: z.string().min(1), expense_account: z.string().min(1), tax_minor: z.number().int().nonnegative().optional(), location: z.string().min(1).optional() });
-arApRouter.post('/ap-purchase/stage', (req, res) => {
+arAPRouter.post('/ap-purchase/stage', (req, res) => {
   const parsed = apPurchaseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  stageApPurchase({
+  stageAPPurchase({
     ...parsed.data,
     business: asBusinessName(parsed.data.business),
     ledger: asLedgerName(parsed.data.ledger),
@@ -90,13 +90,13 @@ arApRouter.post('/ap-purchase/stage', (req, res) => {
   });
   res.status(204).end();
 });
-arApRouter.post('/ap-purchase/post', handlePost(postApPurchase));
+arAPRouter.post('/ap-purchase/post', handlePost(postAPPurchase));
 
 const apPaymentSchema = z.object({ ...baseSchema, vendor: z.string().min(1) });
-arApRouter.post('/ap-payment/stage', (req, res) => {
+arAPRouter.post('/ap-payment/stage', (req, res) => {
   const parsed = apPaymentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  stageApPayment({
+  stageAPPayment({
     ...parsed.data,
     business: asBusinessName(parsed.data.business),
     ledger: asLedgerName(parsed.data.ledger),
@@ -104,4 +104,4 @@ arApRouter.post('/ap-payment/stage', (req, res) => {
   });
   res.status(204).end();
 });
-arApRouter.post('/ap-payment/post', handlePost(postApPayment));
+arAPRouter.post('/ap-payment/post', handlePost(postAPPayment));

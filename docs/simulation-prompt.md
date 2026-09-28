@@ -52,7 +52,7 @@ Purchases of cold products transfer to the refrigerated location, not
 the warehouse-matched ordinary outlet.
 
 **4. Vendor bills actually get paid**, via the real, existing AP
-payment mechanism (`stageApPayment`/`postApPayment`) — not simulated,
+payment mechanism (`stageAPPayment`/`postAPPayment`) — not simulated,
 not skipped. Each purchase schedules a payment 7–21 days later (real
 net-terms), posted only if that date genuinely falls within the
 simulated month — a late-month purchase legitimately remains

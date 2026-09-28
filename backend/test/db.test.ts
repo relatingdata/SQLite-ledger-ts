@@ -144,14 +144,14 @@ const {
   postSalesOrder,
   stageStockDispatch,
   postStockDispatch,
-  stageArSale,
-  postArSale,
-  stageArReceipt,
-  postArReceipt,
-  stageApPurchase,
-  postApPurchase,
-  stageApPayment,
-  postApPayment,
+  stageARSale,
+  postARSale,
+  stageARReceipt,
+  postARReceipt,
+  stageAPPurchase,
+  postAPPurchase,
+  stageAPPayment,
+  postAPPayment,
   getContact,
   addTypedAddress,
   getTypedAddresses,
@@ -882,8 +882,8 @@ test('a realistic set of transactions — cash purchase, cash sale, AR sale, a r
 });
 
 test('AR Sale form: staging and posting creates the correct Debit AR / Credit Sales Revenue entry', () => {
-  stageArSale({ reference: 'ARF-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), customer: asCustomerName('Beta Pty Ltd'), amount_minor: 80000, transdate: '2027-07-01', description: 'Sale' });
-  postArSale('ARF-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  stageARSale({ reference: 'ARF-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), customer: asCustomerName('Beta Pty Ltd'), amount_minor: 80000, transdate: '2027-07-01', description: 'Sale' });
+  postARSale('ARF-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
 
   const detail = db.prepare(`SELECT count(*) c FROM ar_sale_staging`).get() as { c: number };
   assert.equal(detail.c, 0, 'staging should be cleared after posting');
@@ -894,8 +894,8 @@ test('AR Sale form: staging and posting creates the correct Debit AR / Credit Sa
 });
 
 test('AR Receipt form: staging and posting creates the correct Debit Cash / Credit AR entry, reducing the customer balance', () => {
-  stageArReceipt({ reference: 'ARR-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), customer: asCustomerName('Beta Pty Ltd'), amount_minor: 30000, transdate: '2027-07-10' });
-  postArReceipt('ARR-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  stageARReceipt({ reference: 'ARR-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), customer: asCustomerName('Beta Pty Ltd'), amount_minor: 30000, transdate: '2027-07-10' });
+  postARReceipt('ARR-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
   const beta = tb.rows.find((r) => r.name === 'Beta Pty Ltd');
@@ -903,8 +903,8 @@ test('AR Receipt form: staging and posting creates the correct Debit Cash / Cred
 });
 
 test('AP Purchase form: staging and posting creates the correct Debit expense/asset / Credit AP entry', () => {
-  stageApPurchase({ reference: 'APF-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), vendor: asVendorName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 15000, transdate: '2027-07-01' });
-  postApPurchase('APF-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  stageAPPurchase({ reference: 'APF-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), vendor: asVendorName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 15000, transdate: '2027-07-01' });
+  postAPPurchase('APF-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
   const acmeSupplies = tb.rows.find((r) => r.name === 'Acme Supplies Pty Ltd');
@@ -915,15 +915,15 @@ test('AP Purchase form: staging and posting creates the correct Debit expense/as
 
 test('AP Payment form: staging and posting creates the correct Debit AP / Credit Cash entry, reducing the vendor balance', () => {
   const before = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Supplies Pty Ltd')!.credit_minor;
-  stageApPayment({ reference: 'APP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), vendor: asVendorName('Acme Supplies Pty Ltd'), amount_minor: 5000, transdate: '2027-07-15' });
-  postApPayment('APP-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  stageAPPayment({ reference: 'APP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), vendor: asVendorName('Acme Supplies Pty Ltd'), amount_minor: 5000, transdate: '2027-07-15' });
+  postAPPayment('APP-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
 
   const after = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Supplies Pty Ltd')!.credit_minor;
   assert.equal(after, before - 5000, 'the vendor balance owed should decrease by exactly the payment amount');
 });
 
 test('AR/AP forms reuse the same atomic posting mechanism — an unbalanced-by-construction scenario is not reachable, but a bad reference is rejected clearly, consistent with every other post* function', () => {
-  assert.throws(() => postArSale('NEVER-STAGED', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
+  assert.throws(() => postARSale('NEVER-STAGED', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
 });
 
 test('reversing a posted entry creates a new entry with every line negated, and the net effect on balances is exactly zero', () => {
@@ -1348,8 +1348,8 @@ test('a recurring journal records who created it — every occurrence it generat
 
 test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable, everything balances', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'Tax Test Ledger AR', asUserId(1));
-  stageArSale({ reference: 'TAX-AR-1', business: asBusinessName('My Business'), ledger: asLedgerName('Tax Test Ledger AR'), customer: asCustomerName('Acme Corp'), amount_minor: 100000, tax_minor: 10000, transdate: '2027-12-01' });
-  postArSale('TAX-AR-1', asBusinessName('My Business'), asLedgerName('Tax Test Ledger AR'), asUserId(1));
+  stageARSale({ reference: 'TAX-AR-1', business: asBusinessName('My Business'), ledger: asLedgerName('Tax Test Ledger AR'), customer: asCustomerName('Acme Corp'), amount_minor: 100000, tax_minor: 10000, transdate: '2027-12-01' });
+  postARSale('TAX-AR-1', asBusinessName('My Business'), asLedgerName('Tax Test Ledger AR'), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Tax Test Ledger AR'));
   assert.equal(tb.rows.find((r) => r.name === 'Acme Corp')!.debit_minor, 110000, 'customer owes base + tax');
@@ -1360,8 +1360,8 @@ test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable
 
 test('AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amount+tax, everything balances', () => {
   create(fetch('My Business', typeRootName), typeRootName, 'Tax Test Ledger AP', asUserId(1));
-  stageApPurchase({ reference: 'TAX-AP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Tax Test Ledger AP'), vendor: asVendorName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 50000, tax_minor: 5000, transdate: '2027-12-01' });
-  postApPurchase('TAX-AP-1', asBusinessName('My Business'), asLedgerName('Tax Test Ledger AP'), asUserId(1));
+  stageAPPurchase({ reference: 'TAX-AP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Tax Test Ledger AP'), vendor: asVendorName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 50000, tax_minor: 5000, transdate: '2027-12-01' });
+  postAPPurchase('TAX-AP-1', asBusinessName('My Business'), asLedgerName('Tax Test Ledger AP'), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Tax Test Ledger AP'));
   assert.equal(tb.rows.find((r) => r.name === 'Office')!.debit_minor, 50000);
@@ -1454,8 +1454,8 @@ test('AR Sale and AP Purchase also record an invoice_line, with no quantity/unit
   create(fetch('My Business', typeRootName), typeRootName, 'Invoice Line Flat Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'Invoice Line Flat Ledger';
-  stageArSale({ reference: 'IL-FLAT-AR', business: asBusinessName(business), ledger: asLedgerName(ledger), customer: asCustomerName('Acme Corp'), amount_minor: 10000, tax_minor: 1000, transdate: '2027-05-01', description: 'Flat sale' });
-  postArSale('IL-FLAT-AR', asBusinessName(business), asLedgerName(ledger), asUserId(1));
+  stageARSale({ reference: 'IL-FLAT-AR', business: asBusinessName(business), ledger: asLedgerName(ledger), customer: asCustomerName('Acme Corp'), amount_minor: 10000, tax_minor: 1000, transdate: '2027-05-01', description: 'Flat sale' });
+  postARSale('IL-FLAT-AR', asBusinessName(business), asLedgerName(ledger), asUserId(1));
   const line = getInvoiceLine('IL-FLAT-AR', asBusinessName(business), asLedgerName(ledger))!;
   assert.equal(line.quantity, null);
   assert.equal(line.unit_price_minor, null);

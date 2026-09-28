@@ -159,7 +159,7 @@ export function ensureLocationScopedAccount(baseAccountName: string, locationNam
   return locationAccount;
 }
 
-export interface ArSaleInput {
+export interface ARSaleInput {
   reference: string;
   business: BusinessName;
   ledger: LedgerName;
@@ -171,7 +171,7 @@ export interface ArSaleInput {
   description?: string;
 }
 
-export function stageArSale(input: ArSaleInput): void {
+export function stageARSale(input: ARSaleInput): void {
   db.prepare(
     `INSERT INTO ar_sale_staging (reference, business, ledger, customer, amount_minor, tax_minor, location, transdate, description)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -181,10 +181,10 @@ export function stageArSale(input: ArSaleInput): void {
   ).run(input.reference, input.business, input.ledger, input.customer, input.amount_minor, input.tax_minor ?? 0, input.location ?? null, input.transdate ?? null, input.description ?? '');
 }
 
-export function postArSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+export function postARSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
   const staged = db
     .prepare(`SELECT * FROM ar_sale_staging WHERE reference = ? AND business = ? AND ledger = ?`)
-    .get(reference, business, ledger) as (ArSaleInput & { tax_minor: number }) | undefined;
+    .get(reference, business, ledger) as (ARSaleInput & { tax_minor: number }) | undefined;
   if (!staged) throw new NotFoundError(`Nothing staged for AR sale ${reference}.`);
   if (staged.location) ensureLocationScopedAccount('Sales Revenue', staged.location, userId);
   try {
@@ -195,7 +195,7 @@ export function postArSale(reference: string, business: BusinessName, ledger: Le
   recordInvoiceLine(reference, business, ledger, staged.description || 'Sale', null, null, staged.amount_minor, staged.tax_minor);
 }
 
-export interface ArReceiptInput {
+export interface ARReceiptInput {
   reference: string;
   business: BusinessName;
   ledger: LedgerName;
@@ -205,7 +205,7 @@ export interface ArReceiptInput {
   description?: string;
 }
 
-export function stageArReceipt(input: ArReceiptInput): void {
+export function stageARReceipt(input: ARReceiptInput): void {
   db.prepare(
     `INSERT INTO ar_receipt_staging (reference, business, ledger, customer, amount_minor, transdate, description)
      VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -215,7 +215,7 @@ export function stageArReceipt(input: ArReceiptInput): void {
   ).run(input.reference, input.business, input.ledger, input.customer, input.amount_minor, input.transdate ?? null, input.description ?? '');
 }
 
-export function postArReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+export function postARReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
   try {
     db.prepare(`INSERT INTO ar_receipt_post (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
   } catch (err) {
@@ -223,7 +223,7 @@ export function postArReceipt(reference: string, business: BusinessName, ledger:
   }
 }
 
-export interface ApPurchaseInput {
+export interface APPurchaseInput {
   reference: string;
   business: BusinessName;
   ledger: LedgerName;
@@ -236,7 +236,7 @@ export interface ApPurchaseInput {
   description?: string;
 }
 
-export function stageApPurchase(input: ApPurchaseInput): void {
+export function stageAPPurchase(input: APPurchaseInput): void {
   db.prepare(
     `INSERT INTO ap_purchase_staging (reference, business, ledger, vendor, expense_account, amount_minor, tax_minor, location, transdate, description)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -249,10 +249,10 @@ export function stageApPurchase(input: ApPurchaseInput): void {
   );
 }
 
-export function postApPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+export function postAPPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
   const staged = db
     .prepare(`SELECT * FROM ap_purchase_staging WHERE reference = ? AND business = ? AND ledger = ?`)
-    .get(reference, business, ledger) as (ApPurchaseInput & { tax_minor: number }) | undefined;
+    .get(reference, business, ledger) as (APPurchaseInput & { tax_minor: number }) | undefined;
   if (!staged) throw new NotFoundError(`Nothing staged for AP purchase ${reference}.`);
   if (staged.location) ensureLocationScopedAccount(staged.expense_account, staged.location, userId);
   try {
@@ -263,7 +263,7 @@ export function postApPurchase(reference: string, business: BusinessName, ledger
   recordInvoiceLine(reference, business, ledger, staged.description || 'Purchase', null, null, staged.amount_minor, staged.tax_minor);
 }
 
-export interface ApPaymentInput {
+export interface APPaymentInput {
   reference: string;
   business: BusinessName;
   ledger: LedgerName;
@@ -273,7 +273,7 @@ export interface ApPaymentInput {
   description?: string;
 }
 
-export function stageApPayment(input: ApPaymentInput): void {
+export function stageAPPayment(input: APPaymentInput): void {
   db.prepare(
     `INSERT INTO ap_payment_staging (reference, business, ledger, vendor, amount_minor, transdate, description)
      VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -283,7 +283,7 @@ export function stageApPayment(input: ApPaymentInput): void {
   ).run(input.reference, input.business, input.ledger, input.vendor, input.amount_minor, input.transdate ?? null, input.description ?? '');
 }
 
-export function postApPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+export function postAPPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
   try {
     db.prepare(`INSERT INTO ap_payment_post (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
   } catch (err) {

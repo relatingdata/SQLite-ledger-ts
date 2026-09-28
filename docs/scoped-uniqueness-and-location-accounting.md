@@ -55,7 +55,7 @@ product at all — AR Sale's generic "Sales Revenue", or AP Purchase's
 own, user-chosen expense account. Both real triggers
 (`ar_sale_post_insert`, `ap_purchase_post_insert`) post to the
 location-scoped account name whenever a location is staged, with
-`postArSale`/`postApPurchase` ensuring the location-scoped account
+`postARSale`/`postAPPurchase` ensuring the location-scoped account
 (and its own real Location dimension link) exists directly, in
 TypeScript, before the trigger runs — a SQL trigger can't itself call
 `setDimensionParent`.

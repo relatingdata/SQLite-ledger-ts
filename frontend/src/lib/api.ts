@@ -676,7 +676,7 @@ export const createRecurringJournal = (
     body: JSON.stringify({ business, ledger, reference, startDate, recurrence, lines, description, recurrenceCount }),
   });
 
-export interface ArApBaseInput {
+export interface ARAPBaseInput {
   reference: string;
   business: BusinessName;
   ledger: LedgerName;
@@ -688,27 +688,27 @@ export interface ArApBaseInput {
 }
 
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const stageArSale = (input: ArApBaseInput & { customer: string }) =>
+// export const stageARSale = (input: ARAPBaseInput & { customer: string }) =>
 //   request<void>('/arap/ar-sale/stage', { method: 'POST', body: JSON.stringify(input) });
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const postArSale = (reference: string, business: BusinessName, ledger: LedgerName) =>
+// export const postARSale = (reference: string, business: BusinessName, ledger: LedgerName) =>
 //   request<void>('/arap/ar-sale/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
-export const stageArReceipt = (input: ArApBaseInput & { customer: string }) =>
+export const stageARReceipt = (input: ARAPBaseInput & { customer: string }) =>
   request<void>('/arap/ar-receipt/stage', { method: 'POST', body: JSON.stringify(input) });
-export const postArReceipt = (reference: string, business: BusinessName, ledger: LedgerName) =>
+export const postARReceipt = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/arap/ar-receipt/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const stageApPurchase = (input: ArApBaseInput & { vendor: string; expense_account: string }) =>
+// export const stageAPPurchase = (input: ARAPBaseInput & { vendor: string; expense_account: string }) =>
 //   request<void>('/arap/ap-purchase/stage', { method: 'POST', body: JSON.stringify(input) });
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const postApPurchase = (reference: string, business: BusinessName, ledger: LedgerName) =>
+// export const postAPPurchase = (reference: string, business: BusinessName, ledger: LedgerName) =>
 //   request<void>('/arap/ap-purchase/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
-export const stageApPayment = (input: ArApBaseInput & { vendor: string }) =>
+export const stageAPPayment = (input: ARAPBaseInput & { vendor: string }) =>
   request<void>('/arap/ap-payment/stage', { method: 'POST', body: JSON.stringify(input) });
-export const postApPayment = (reference: string, business: BusinessName, ledger: LedgerName) =>
+export const postAPPayment = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/arap/ap-payment/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
 export interface LoginResponse {
