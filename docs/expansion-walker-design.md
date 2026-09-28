@@ -102,7 +102,7 @@ named relationship (`getEntitiesWithRelationship`). So:
 
 ## Correction: today's real behavior, confirmed directly against the live system, not just the code's own comments
 
-My first read of this was wrong in an important way. `ensureProductSalesCogsAccounts`/`ensureProductInventoryAccount` are only ever called from inside real posting functions, and a code comment even says a product with no category "never exercises" this path — which reads as if the whole thing, entities included, is lazy. **Confirmed directly to be wrong** for the entity layer: the real Sales/COGS/Inventory *nodes* are already visible in the live CoA today — genuinely created, not deferred. Only one specific layer beneath that is lazy: the `account` table row itself (a marker for "this entity is postable," `INSERT ... ON CONFLICT DO NOTHING`, confirmed directly against its own schema and every real call site). So today's real behavior is:
+My first read of this was wrong in an important way. `ensureItemSalesCogsAccounts`/`ensureItemInventoryAccount` are only ever called from inside real posting functions, and a code comment even says a product with no category "never exercises" this path — which reads as if the whole thing, entities included, is lazy. **Confirmed directly to be wrong** for the entity layer: the real Sales/COGS/Inventory *nodes* are already visible in the live CoA today — genuinely created, not deferred. Only one specific layer beneath that is lazy: the `account` table row itself (a marker for "this entity is postable," `INSERT ... ON CONFLICT DO NOTHING`, confirmed directly against its own schema and every real call site). So today's real behavior is:
 
 - Creating a Product/Item **eagerly creates its own real entity nodes** under Inventory, Sales, and COGS (but, per direct correction, currently *not* Breakage — a real, existing gap in the application today, not by design).
 - Only the `account` row marking each of those nodes as postable is deferred to first real posting.
@@ -120,7 +120,7 @@ This changes the shape of the earlier expansion-walker design in one significant
 Extending the same, already-proven `account`-table pattern one level up, from "lazily mark an existing entity as postable" to "lazily create the entity itself, then mark it postable":
 
 1. A real posting (receipt, sale, stock take) references a virtual combination — Item + Location, e.g. — that has never been posted to before.
-2. Instead of failing (today's real behavior would require the entity to already exist), the system resolves what the entity's own real name/parent *would* be under the existing structural convention (the same convention `ensureProductSalesCogsAccounts` already uses to place a Sales/COGS leaf under a mirrored category chain), and creates it — a genuine `createEntity` call, not just an `account` insert — the first time, and only the first time.
+2. Instead of failing (today's real behavior would require the entity to already exist), the system resolves what the entity's own real name/parent *would* be under the existing structural convention (the same convention `ensureItemSalesCogsAccounts` already uses to place a Sales/COGS leaf under a mirrored category chain), and creates it — a genuine `createEntity` call, not just an `account` insert — the first time, and only the first time.
 3. Every subsequent reference to that same combination finds the real, already-created entity, exactly as if it had existed all along.
 
 ### Why this matters, per direct instruction
@@ -133,7 +133,7 @@ The two ideas compose rather than compete: the report-time walker (Product × Lo
 
 ### What's still genuinely open, given this correction
 
-- **Where the "would-be name/parent" resolution rule lives** — the same real, structural mirroring convention `ensureProductSalesCogsAccounts` already uses (mirror the Item's own category chain under Sales/COGS/Inventory) needs to be extended to include Location as a real second axis in that mirrored structure, and to cover Breakage too (the currently-missing fourth leaf, confirmed directly above).
+- **Where the "would-be name/parent" resolution rule lives** — the same real, structural mirroring convention `ensureItemSalesCogsAccounts` already uses (mirror the Item's own category chain under Sales/COGS/Inventory) needs to be extended to include Location as a real second axis in that mirrored structure, and to cover Breakage too (the currently-missing fourth leaf, confirmed directly above).
 - **Whether "first use" creates just the one combination needed, or the whole row of combinations implied by it** — e.g. does receiving stock at one Location for the first time only instantiate that Location's own Inventory leaf for that Item, or does it make sense to also pre-touch Sales/COGS/Breakage at the same moment, since they're likely to be needed together? The "never house what's never needed" argument favors instantiating only the exact leaf actually touched, not the whole implied set.
 - **Undoing an instantiation** — if a combination is created on a genuine data-entry mistake (a stock take against the wrong location, corrected immediately after), does the now-real entity get cleaned up, or does it simply sit unused forever (a real, small, permanent trace of a mistake, the same way any other over-eager entity creation in this codebase already can)?
 

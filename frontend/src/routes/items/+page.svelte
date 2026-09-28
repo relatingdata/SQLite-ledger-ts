@@ -51,7 +51,7 @@
   // put a new product under a real category, and a category left
   // unset here means it silently sits flat under "Items" with none of
   // the real category-mirroring benefit (a real, working feature —
-  // see ensureProductSalesCogsAccounts — that a product with no real
+  // see ensureItemSalesCogsAccounts — that a product with no real
   // category simply never exercises). "+ New category…" lets someone
   // create a genuinely new category (optionally nested under an
   // existing one, e.g. Pinot Noir under Red Wine) without ever

@@ -57,13 +57,13 @@ import {
   postARReceipt,
   allocatePayment,
   getInvoiceOutstandingMinor,
-  ensureProductSalesCogsAccounts,
+  ensureItemSalesCogsAccounts,
   ensureProductTierPart,
-  ensureProductTierLocationLeaf,
-  ensureProductTierItem,
+  ensureItemTierLocationLeaf,
+  ensureItemTier,
   stageBomComponent,
   postBomComponents,
-  ensureProductInventoryAccount,
+  ensureItemInventoryAccount,
   setCurrencyExchangeRate,
   nominateLocationCurrency,
 } from '../src/db.js';
@@ -324,7 +324,7 @@ async function main() {
       stagePurchaseOrder({ reference: `${ref}-PO`, business: BUSINESS, ledger: LEDGER, vendor: VENDOR, item: item.name, quantity: qty, price_minor: unitCost, transdate: today(day) });
       postPurchaseOrder(`${ref}-PO`, BUSINESS, LEDGER, 1);
 
-      { const inv = ensureProductInventoryAccount(item.name, 1); stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: inv.inventoryAccount, accountId: inv.inventoryAccountId, amount_minor: totalCost, division: warehouse.city }); }
+      { const inv = ensureItemInventoryAccount(item.name, 1); stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: inv.inventoryAccount, accountId: inv.inventoryAccountId, amount_minor: totalCost, division: warehouse.city }); }
       stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: VENDOR, amount_minor: -totalCost, division: warehouse.city });
       postJournalEntry(ref, BUSINESS, LEDGER, 1);
       receiveStockAtLocation(BUSINESS, LEDGER, `${ref}-RECV`, item.name, warehouse.name, qty, 1, today(day));
@@ -726,7 +726,7 @@ async function main() {
     // by their two real glass-size tiers, cocktails and snacks as-is.
     for (const base of [...wineByGlass, ...beerByGlass, ...softDrinksByGlass]) {
       for (const tier of ['Small Glass', 'Large Glass']) {
-        const { tierItemName } = ensureProductTierItem(base, tier, 1);
+        const { tierItemName } = ensureItemTier(base, tier, 1);
         receiveStockAtLocation(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${tierItemName}`, tierItemName, bar.name, 40, 1, today(1));
       }
     }
@@ -745,7 +745,7 @@ async function main() {
         } else {
           const base = pick(category);
           const tier = pick(['Small Glass', 'Large Glass']);
-          const { tierItemName } = ensureProductTierItem(base, tier, 1);
+          const { tierItemName } = ensureItemTier(base, tier, 1);
           lines.push({ itemName: tierItemName, quantity: 1, unitPriceMinor: tier === 'Small Glass' ? 800 : 1400, taxMinor: 0 });
         }
       }
@@ -797,14 +797,14 @@ async function main() {
       // A real bug found and fixed here, not assumed correct: the
       // original sale posts to a specific package-tier's own real
       // Sales account (e.g. "Sales - X (Bottle)"), but
-      // ensureProductSalesCogsAccounts without a tier falls back to a
+      // ensureItemSalesCogsAccounts without a tier falls back to a
       // plain, tier-less account that was never the real account the
       // sale itself used — creating a separate, disconnected "ghost"
       // account that only ever holds tiny, orphaned return amounts.
       // Found the real, actual account the original sale posted to
       // directly, rather than guessing or reconstructing it.
       const originalSalesAccounts = getAccountsPostedTo(original.reference).filter((n) => n.startsWith('Sales - '));
-      const salesAccount = originalSalesAccounts[0] ?? ensureProductSalesCogsAccounts(line.itemName!, 1).salesAccount;
+      const salesAccount = originalSalesAccounts[0] ?? ensureItemSalesCogsAccounts(line.itemName!, 1).salesAccount;
       const originalLocationMatch = original.description?.match(/^POS sale at (.+)$/);
       const returnLocation = originalLocationMatch?.[1];
       const returnDivision = returnLocation ? cityDivisionFor(returnLocation) : undefined;

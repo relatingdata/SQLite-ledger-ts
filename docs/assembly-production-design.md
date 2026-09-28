@@ -25,7 +25,7 @@ requirements this answers.
 | BOM definition | `stageBomComponent`, `postBomComponents`, `deleteBomComponent`, `getBomComponents` (`backend/src/db.ts`), the staging table `assembly_bom_staging`, and a screen. |
 | BOM storage | One link entity per component, under the assembly item, named `{assembly} — BOM: {component} ({quantity}{unit})`, with `relation_id` pointing at the component. The quantity lives in the **name**. |
 | Consuming or producing | **Nothing.** No function consumes components or produces an assembled item. |
-| Unit cost | `getProductUnitCostMinor`: the preferred supplier's `price_minor` divided by that supplier's `package_quantity`; `null` if there is no supplier. |
+| Unit cost | `getItemUnitCostMinor`: the preferred supplier's `price_minor` divided by that supplier's `package_quantity`; `null` if there is no supplier. |
 | Cost layers | Lots carry a `cost_basis_minor` (in `detail_json`); `consumeFromLots` draws oldest-expiring first. **Not verified:** whether `consumeFromLots` returns the cost it consumed. |
 | Staff | Employees, schedules, shifts, `payEmployeeWages`, and time clocked against a project. |
 | Currency | A location can nominate currencies (`getLocationCurrencies`, `nominateLocationCurrency`); a location has its own timezone and `todayAtLocation`. |
@@ -48,13 +48,13 @@ lowercase letters in the unit, and **silently drops** any line that does not mat
 such as `m2` or `mm2` would vanish from the BOM without an error.
 
 **3.3 An assembly has no cost.** An assembly is made, not bought, so it has no supplier, so
-`getProductUnitCostMinor` returns `null`, and its own comment says Inventory and COGS "won't
+`getItemUnitCostMinor` returns `null`, and its own comment says Inventory and COGS "won't
 move for it." A produced kit could not be valued or sold through the existing costing.
 
 **3.4 Unit cost is a catalogue price, not a stock cost.** It is a supplier's current price
 per unit, not what was actually paid for the stock on hand. There is no weighted average and
 no cost layer behind it, except in lots. The combination-receipt path values stock at
-`quantity × getProductUnitCostMinor`. So costing needs to be designed for production, not
+`quantity × getItemUnitCostMinor`. So costing needs to be designed for production, not
 borrowed from this function.
 
 **3.5 Stock cannot cross a city boundary, or take time.** `transferStock` rejects a transfer

@@ -75,7 +75,7 @@ function loadEntityIndex(): Map<number, { name: string; parent_id: number | null
 
 /** Strips a real, structural " — LocationName" suffix off a real
  * account's own name, if present — the real, exact, established
- * naming convention ensureProductTierLocationLeaf already uses. This
+ * naming convention ensureItemTierLocationLeaf already uses. This
  * is how a real, location-specific leaf's own name reduces to its
  * real, tier-level "Product" name. Also strips a real "Sales - " or
  * "COGS - " prefix, so a real product's own Sales and COGS sides
@@ -127,7 +127,7 @@ function categoryForAccount(accountId: number, entityIndex: Map<number, { name: 
 }
 
 /** Walks a real account's own, real, structural "Location" —
- * confirmed directly, live: ensureProductTierLocationLeaf sets a real
+ * confirmed directly, live: ensureItemTierLocationLeaf sets a real
  * "Location" dimension link on the Sales/COGS leaf itself via
  * setDimensionParent/setEntityLink, which creates a real, separate,
  * named child entity ("{account} — Dimension: Location") whose own

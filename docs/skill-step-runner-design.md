@@ -331,7 +331,7 @@ long session, in one place:
   storage capacity is never single-sided — a real, balanced, two-line entry
   against a new "Storage Capacity Installed" counterpart, tagged with its own,
   distinct real currency (`SPACE-BOTTLE`/`SPACE-CARTON`).
-  `ensureProductQuantityAccounts` similarly tags every real quantity account
+  `ensureItemQuantityAccounts` similarly tags every real quantity account
   with the item's own unit of measure. A real, further bug found and fixed:
   `setAccountCurrency`'s own bare, name-based lookup was genuinely ambiguous
   once account names like "Storage Capacity Remaining" began legitimately

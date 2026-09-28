@@ -96,7 +96,7 @@ A real, direct requirement, captured here before implementation so the design is
 
 Per direct request: "the accounts necessary should be created in / added to the CoA when a location / profit center is created." Investigated directly before building anything, since guessing at "necessary" and building the wrong thing would be a real, lasting mistake baked into the schema.
 
-**What's already real and correctly shared, not per-location, confirmed directly**: Sales/COGS accounts are per-*product* (`ensureProductSalesCogsAccounts`), not per-location. Inventory is a single, real, global account — the real, physical *quantity* is what's tracked per-location (via a real, direct `journal_line.location_id`-tagged quantity movement, never a dedicated `part_location` table — removed this same session, per direct correction: it was both a dedicated table and mutated in place, violating the entity-only, append-only principle already established everywhere else), while its aggregate *value* correctly stays one real balance-sheet figure, standard accounting practice. Division-tagging (`journal_line.division_id`) is a real, separate, additive dimension on each posting, not a separate account per division — confirmed and simplified this same session, per direct correction ("division is only a sub-totaling mechanism").
+**What's already real and correctly shared, not per-location, confirmed directly**: Sales/COGS accounts are per-*product* (`ensureItemSalesCogsAccounts`), not per-location. Inventory is a single, real, global account — the real, physical *quantity* is what's tracked per-location (via a real, direct `journal_line.location_id`-tagged quantity movement, never a dedicated `part_location` table — removed this same session, per direct correction: it was both a dedicated table and mutated in place, violating the entity-only, append-only principle already established everywhere else), while its aggregate *value* correctly stays one real balance-sheet figure, standard accounting practice. Division-tagging (`journal_line.division_id`) is a real, separate, additive dimension on each posting, not a separate account per division — confirmed and simplified this same session, per direct correction ("division is only a sub-totaling mechanism").
 
 **So what would genuinely be new and location-specific?** The one, real, strong candidate: a real, dedicated till/cash-drawer account per location — e.g. "Till — Riverside Cellars" — distinct from the business's own, central "Cash and Bank" account. This isn't a guess without grounding: it's the exact, real account the daily float/deposit cycle (designed earlier this session, still not built) already needs — a real location's own real cash on hand, separate from what's actually been banked. Creating this account automatically the moment a location is created would be the real, natural trigger point.
 
@@ -247,7 +247,7 @@ Software gaps identified and their status:
   real per-product Sales accounts), genuinely unusable as a real P&L read. The product catalog already has a
   real, multi-level category tree (`Beer` → `Ale`/`Lager`/`Stout`, `Spirits` → `Gin`/`Rum`/`Vodka`/`Whisky`),
   already editable through the Entity Tree Editor with zero code changes — so this needed no new, separate
-  "category system," just mirroring what already exists: `ensureProductSalesCogsAccounts` now walks a
+  "category system," just mirroring what already exists: `ensureItemSalesCogsAccounts` now walks a
   product's real category chain and lazily creates a matching chain on the GL side (`Sales - Beer` → `Sales -
   Ale` → the real per-product leaf). A category left flat gets one real grouping level; one broken down further
   gets more — genuinely different per location/business without any code change, exactly because it's reading
@@ -280,7 +280,7 @@ Software gaps identified and their status:
     confirmed directly this was never actually wired into close. A further, correct architectural point raised
     directly: a division is itself a real, ordinary entity that can be nested (exactly like a product category
     can — `Retail` -> `Retail North`), already genuinely user-configurable through the Entity Tree Editor. Fixed
-    by generalizing the same mirroring mechanism `ensureProductSalesCogsAccounts` already uses
+    by generalizing the same mirroring mechanism `ensureItemSalesCogsAccounts` already uses
     (`getProductCategoryChain` generalized into `getAncestorChain`, reused for both `Parts` and `Divisions`) —
     each real division's own net income now rolls into its own real, correctly-nested
     `"{retainedEarningsAccount} - {division chain}"` leaf, not one collapsed figure. A real bug caught building

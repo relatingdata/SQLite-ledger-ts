@@ -12,12 +12,12 @@ import {
   mergeContactDetail,
   assertPeriodOpen,
   cityDivisionFor,
-  ensureProductQuantityAccounts,
+  ensureItemQuantityAccounts,
   setAccountCurrency,
-  ensureProductInventoryAccount,
-  ensureProductLocationInventoryAccount,
+  ensureItemInventoryAccount,
+  ensureItemLocationInventoryAccount,
   postJournalEntry,
-  getProductUnitCostMinor,
+  getItemUnitCostMinor,
   ensureProductInstance,
   ensureCombinationAccountLeaf,
   resolveItemId,
@@ -684,7 +684,7 @@ export function receiveStockAtLocation(
   db.transaction(() => {
   const date = transdate ?? todayAtLocation(locationName);
   assertPeriodOpen(business, ledger, date);
-  const { onOrderAccount, onOrderAccountId } = ensureProductQuantityAccounts(itemName, userId);
+  const { onOrderAccount, onOrderAccountId } = ensureItemQuantityAccounts(itemName, userId);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, locationName);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(onOrderAccount), -quantity, date, undefined, onOrderAccountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
@@ -692,7 +692,7 @@ export function receiveStockAtLocation(
 
   if (combinationValues && combinationShape) {
     const instanceTop = ensureProductInstance(business, combinationShape, combinationValues, userId);
-    const unitCostMinor = getProductUnitCostMinor(itemName);
+    const unitCostMinor = getItemUnitCostMinor(itemName);
     if (unitCostMinor != null) {
       const valueMinor = quantity * unitCostMinor;
       const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId);
@@ -738,7 +738,7 @@ export function dispatchStockFromLocation(
   const date = transdate ?? todayAtLocation(locationName);
   assertPeriodOpen(business, ledger, date);
   db.transaction(() => {
-  const { unitsSoldAccount, unitsSoldAccountId } = ensureProductQuantityAccounts(itemName, userId);
+  const { unitsSoldAccount, unitsSoldAccountId } = ensureItemQuantityAccounts(itemName, userId);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), -quantity, date, locationName);
   stageQuantityMovementLine(business, ledger, reference, asAccountName(unitsSoldAccount), quantity, date, undefined, unitsSoldAccountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
@@ -746,7 +746,7 @@ export function dispatchStockFromLocation(
 
   if (combinationValues && combinationShape) {
     const instanceTop = ensureProductInstance(business, combinationShape, combinationValues, userId);
-    const unitCostMinor = getProductUnitCostMinor(itemName);
+    const unitCostMinor = getItemUnitCostMinor(itemName);
     if (unitCostMinor != null) {
       const valueMinor = quantity * unitCostMinor;
       const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId);
@@ -812,7 +812,7 @@ export function transferStock(
   adjustLocationCapacity(business, ledger, toLocationName, itemName, quantity, date, asUserId(userId), reference);
 
   if (combinationShape && combinationValuesAfterLocation) {
-    const unitCostMinor = getProductUnitCostMinor(itemName);
+    const unitCostMinor = getItemUnitCostMinor(itemName);
     if (unitCostMinor != null) {
       const valueMinor = quantity * unitCostMinor;
       const fromInstance = ensureProductInstance(business, combinationShape, [fromLocationName, ...combinationValuesAfterLocation], asUserId(userId));
@@ -1059,13 +1059,13 @@ export function completeStockTake(
     if (unitCostMinor == null) throw new ValidationError(`No unit cost given for "${line.item}", which has a variance and needs one to be valued.`);
     const valueMinor = variance * unitCostMinor;
     const reference = `STOCKTAKE-${stockTakeId}-${line.item}`;
-    { const inv = ensureProductLocationInventoryAccount(asItemName(line.item), take.location as LocationName, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: valueMinor, memo: `Stock take variance: ${line.item}` }); }
+    { const inv = ensureItemLocationInventoryAccount(asItemName(line.item), take.location as LocationName, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: valueMinor, memo: `Stock take variance: ${line.item}` }); }
     stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(varianceExpenseAccount), amount_minor: -valueMinor });
 
     const currentOnHand = getItemLocation(asItemName(line.item), take.location as LocationName).quantity_on_hand;
     const delta = line.counted_quantity! - currentOnHand;
     if (delta !== 0) {
-      const { countAdjustmentAccount, countAdjustmentAccountId } = ensureProductQuantityAccounts(asItemName(line.item), userId);
+      const { countAdjustmentAccount, countAdjustmentAccountId } = ensureItemQuantityAccounts(asItemName(line.item), userId);
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(line.item), delta, take.take_date, take.location as LocationName);
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(countAdjustmentAccount), -delta, take.take_date, undefined, countAdjustmentAccountId);
       postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
@@ -1101,10 +1101,10 @@ export function writeOffStock(
   const date = transdate ?? new Date().toISOString().slice(0, 10);
 
   stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: date, description: reason, account: asAccountName(writeOffExpenseAccount), amount_minor: totalMinor });
-  { const inv = ensureProductInventoryAccount(itemName, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: -totalMinor }); }
+  { const inv = ensureItemInventoryAccount(itemName, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: -totalMinor }); }
   postJournalEntry(reference, business, ledger, userId);
 
-  const { writeOffAccount, writeOffAccountId } = ensureProductQuantityAccounts(itemName, userId);
+  const { writeOffAccount, writeOffAccountId } = ensureItemQuantityAccounts(itemName, userId);
   stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(itemName), -quantity, date);
   stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(writeOffAccount), quantity, date, undefined, writeOffAccountId);
   postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
@@ -1260,7 +1260,7 @@ export function placeOrder(
   postQuantityMovement(business, ledger, `${orderReference}-PLACE`, asAccountName(qtyName), quantity, userId, transdate);
   postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueName), priceMinor, userId, transdate);
   if (item) {
-    const { onOrderAccount, onOrderAccountId } = ensureProductQuantityAccounts(item, userId);
+    const { onOrderAccount, onOrderAccountId } = ensureItemQuantityAccounts(item, userId);
     postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(onOrderAccount), quantity, userId, transdate, undefined, onOrderAccountId);
   }
   })();

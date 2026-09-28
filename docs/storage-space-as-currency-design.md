@@ -606,7 +606,7 @@ extended with the real, parallel count posting only (the real dollar value
 is already recorded by the existing, outer, non-combination code - never
 re-posted a second time). **A real, separate, pre-existing bug found while
 writing the direct proof test, not introduced by this work**:
-`ensureProductInventoryAccount`'s own base "Inventory" lookup, and the
+`ensureItemInventoryAccount`'s own base "Inventory" lookup, and the
 outer write-off code's own bare-name resolution of a real, brand-new
 expense account name, both assume the referenced, real entity already
 exists - `stageLine`'s own bare-name resolution auto-vivifies only the
@@ -793,7 +793,7 @@ fixed multiplier, like dollars versus cents, never an exchange.
   error.
 - A **combination receipt** also builds financial Inventory value the moment
   stock is first received for that exact combination, at the item's known unit
-  cost (the source `ensureProductLocationLeaf` uses for COGS). An item with no
+  cost (the source `ensureItemLocationLeaf` uses for COGS). An item with no
   known cost builds no fabricated value. It debits Inventory and credits
   Accounts Payable, both resolved by explicit id, because "Accounts Payable" is
   ambiguous by bare name (a Vocabulary word and its translation share it).
@@ -939,7 +939,7 @@ because each was trusted by the next reader:
 - **If it fails:** a "NOT NULL constraint" on `journal_line.account_id` means the
   expense account entity does not exist yet: the outer code resolves it by bare
   name, which only finds an existing entity. The test creates it first for that
-  reason. This is a known gap in `ensureProductInventoryAccount` and the outer
+  reason. This is a known gap in `ensureItemInventoryAccount` and the outer
   write-off code, not in the count block.
 - **Run alone:** `make test-one TEST="writeOffStock with a real combination"`
 

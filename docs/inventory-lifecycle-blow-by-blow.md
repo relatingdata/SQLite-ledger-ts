@@ -43,7 +43,7 @@ Real function: `createItem(name, parentCategory)`.
 Order/Units Sold accounts are *not* created yet — they're created
 **lazily**, the first time something actually needs them (the first
 real sale, receipt, etc.) — confirmed directly via
-`ensureProductSalesCogsAccounts`/`ensureProductQuantityAccounts`, both
+`ensureItemSalesCogsAccounts`/`ensureItemQuantityAccounts`, both
 called on-demand, not at item-creation time.
 
 ## 3. Order a product (Purchase Order)

@@ -1740,7 +1740,7 @@ Called from: tests: 2 call(s) in 1 file(s)
 getAncestorChain(entityName: string, rootName: string): string[]
 ```
 
-Called from: production: db.ts (ensureProductSalesCogsAccounts ×1)
+Called from: production: db.ts (ensureItemSalesCogsAccounts ×1)
 
 **`ensureCategoryChain`** *(exported)*
 
@@ -1748,28 +1748,28 @@ Called from: production: db.ts (ensureProductSalesCogsAccounts ×1)
 ensureCategoryChain(rootName: string, prefix: string, chain: string[], userId: UserId): { name: string; id: number; }
 ```
 
-Called from: production: db.ts (ensureProductSalesCogsAccounts ×2)
+Called from: production: db.ts (ensureItemSalesCogsAccounts ×2)
 
-**`ensureProductSalesCogsAccounts`** *(exported)*
-
-```
-ensureProductSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
-```
-
-Called from: production: db.ts (completePosSale ×2, ensureProductLocationLeaf ×1, ensureProductTierItem ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
-
-**`ensureProductInventoryAccount`** *(exported)*
+**`ensureItemSalesCogsAccounts`** *(exported)*
 
 ```
-ensureProductInventoryAccount(itemName: ItemName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number; }
+ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
 ```
 
-Called from: production: db-stock.ts (writeOffStock ×1); db.ts (completePosSale ×1, ensureProductLocationInventoryAccount ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: db.ts (completePosSale ×2, ensureItemLocationLeaf ×1, ensureItemTier ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
-**`ensureProductLocationInventoryAccount`** *(exported)*
+**`ensureItemInventoryAccount`** *(exported)*
 
 ```
-ensureProductLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number; }
+ensureItemInventoryAccount(itemName: ItemName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number; }
+```
+
+Called from: production: db-stock.ts (writeOffStock ×1); db.ts (completePosSale ×1, ensureItemLocationInventoryAccount ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`ensureItemLocationInventoryAccount`** *(exported)*
+
+```
+ensureItemLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number; }
 ```
 
 Called from: production: db-stock.ts (completeStockTake ×1); db.ts (completeCashPurchase ×1, completePosSale ×1)
@@ -1886,34 +1886,34 @@ getBusinessProductShapes(businessName: BusinessName): [string, string][][]
 
 Called from: production: routes/hierarchy.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
 
-**`getProductUnitCostMinor`** *(exported)*
+**`getItemUnitCostMinor`** *(exported)*
 
 ```
-getProductUnitCostMinor(itemName: ItemName): number | null
+getItemUnitCostMinor(itemName: ItemName): number | null
 ```
 
 Called from: production: db-stock.ts (dispatchStockFromLocation ×1, receiveStockAtLocation ×1, transferStock ×1); db.ts (completePosSale ×1)
 
-**`ensureProductTierItem`** *(exported)*
+**`ensureItemTier`** *(exported)*
 
 ```
-ensureProductTierItem(baseProductName: ItemName, tier: string, userId: UserId): { tierItemName: string; tierItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
+ensureItemTier(baseProductName: ItemName, tier: string, userId: UserId): { tierItemName: string; tierItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
 ```
 
 Called from: production: db.ts (completePosSale ×4) · tests: 7 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
 
-**`ensureProductTierLocationLeaf`** *(exported)*
+**`ensureItemTierLocationLeaf`** *(exported)*
 
 ```
-ensureProductTierLocationLeaf(tierItemName: string, locationName: LocationName, userId: UserId, tierItemId?: number): { leafItemName: string; leafItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
+ensureItemTierLocationLeaf(tierItemName: string, locationName: LocationName, userId: UserId, tierItemId?: number): { leafItemName: string; leafItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
 ```
 
 Called from: production: db.ts (completePosSale ×2) · tests: 5 call(s) in 1 file(s)
 
-**`ensureProductLocationLeaf`** *(exported)*
+**`ensureItemLocationLeaf`** *(exported)*
 
 ```
-ensureProductLocationLeaf(itemName: ItemName, locationName: LocationName, userId: UserId): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
+ensureItemLocationLeaf(itemName: ItemName, locationName: LocationName, userId: UserId): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
 ```
 
 Called from: production: db.ts (completePosSale ×2)
@@ -1942,10 +1942,10 @@ getQualifiedDisplayName(entityId: number): string
 
 Called from: production: db-reports.ts (getTrialBalance ×1, toLine ×1) · tests: 2 call(s) in 1 file(s)
 
-**`ensureProductQuantityAccounts`** *(exported)*
+**`ensureItemQuantityAccounts`** *(exported)*
 
 ```
-ensureProductQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number; }
+ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number; }
 ```
 
 Called from: production: db-stock.ts (completeStockTake ×1, dispatchStockFromLocation ×1, placeOrder ×1, receiveStockAtLocation ×1, writeOffStock ×1)
@@ -2060,7 +2060,7 @@ Called from: tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 mergeContactDetail(entityId: number, fields: Record<string, unknown>): void
 ```
 
-Called from: production: db-seed.ts (migrateForWineRetailUpcs ×1); db-stock.ts (setLocation ×1); db.ts (ensureProductTierItem ×1, ensureProductTierLocationLeaf ×1, recordReminderSent ×1, registerCustomer ×1, resetReminderLevel ×1, setContact ×1, and 3 more)
+Called from: production: db-seed.ts (migrateForWineRetailUpcs ×1); db-stock.ts (setLocation ×1); db.ts (ensureItemTier ×1, ensureItemTierLocationLeaf ×1, recordReminderSent ×1, registerCustomer ×1, resetReminderLevel ×1, setContact ×1, and 3 more)
 
 **`setContact`** *(exported)*
 
@@ -2428,7 +2428,7 @@ Called from: tests: 1 call(s) in 1 file(s)
 setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void
 ```
 
-Called from: production: db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db-stock.ts (placeOrder ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureProductLocationInventoryAccount ×1, ensureProductLocationLeaf ×2, ensureProductTierItem ×1, ensureProductTierLocationLeaf ×3) · tests: 7 call(s) in 1 file(s)
+Called from: production: db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db-stock.ts (placeOrder ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureItemLocationInventoryAccount ×1, ensureItemLocationLeaf ×2, ensureItemTier ×1, ensureItemTierLocationLeaf ×3) · tests: 7 call(s) in 1 file(s)
 
 **`getDimensionParent`** *(exported)*
 
@@ -2436,7 +2436,7 @@ Called from: production: db-journal.ts (ensureLocationScopedAccount ×1); db-see
 getDimensionParent(entityName: string, dimensionName: string): string | undefined
 ```
 
-Called from: production: db-matrix-reports.ts (resolveKey ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureProductTierLocationLeaf ×1, getContactBaseAccounts ×1, getDimensionAncestorChain ×1, getLocationForAccount ×1, getVocabularyAlternates ×1) · tests: 9 call(s) in 1 file(s)
+Called from: production: db-matrix-reports.ts (resolveKey ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureItemTierLocationLeaf ×1, getContactBaseAccounts ×1, getDimensionAncestorChain ×1, getLocationForAccount ×1, getVocabularyAlternates ×1) · tests: 9 call(s) in 1 file(s)
 
 **`deleteDimensionParent`** *(exported)*
 
@@ -2620,7 +2620,7 @@ Called from: production: routes/products.ts ((module level) ×1)
 resolveIdOrThrow(name: string): number
 ```
 
-Called from: production: db.ts (ensureProductQuantityAccounts ×1, setItemProduct ×1, setPrototype ×1)
+Called from: production: db.ts (ensureItemQuantityAccounts ×1, setItemProduct ×1, setPrototype ×1)
 
 **`getItem`** *(exported)*
 
@@ -2628,7 +2628,7 @@ Called from: production: db.ts (ensureProductQuantityAccounts ×1, setItemProduc
 getItem(entityName: string): Item | undefined
 ```
 
-Called from: production: db.ts (ensureProductQuantityAccounts ×1); routes/items.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: db.ts (ensureItemQuantityAccounts ×1); routes/items.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
 
 **`setItem`** *(exported)*
 
@@ -2668,7 +2668,7 @@ Called from: production: db-seed.ts (migrateForWineRetailDemoData ×1); db.ts (e
 listItemSources(itemName: string): ItemSource[]
 ```
 
-Called from: production: db.ts (getProductUnitCostMinor ×1); routes/items.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: db.ts (getItemUnitCostMinor ×1); routes/items.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
 
 **`addOrUpdateItemSource`** *(exported)*
 
@@ -3114,7 +3114,7 @@ Called from: production: auth.ts (createUser ×1, login ×1, setUserRoles ×1); 
 Entity.get(idOrName: number | string, parent?: string): { id: number; name: string; parent_id: number | null; relation_id: number | null; } | undefined
 ```
 
-Called from: production: db-journal.ts (ensureLocationScopedAccount ×2); db-stock.ts (createLocationType ×1, createPosTerminal ×2, getItemLocation ×1, getLevelFigure ×1, setItemLocationLevelDetails ×3); db.ts (ensureAddressType ×1, ensureContactPersonType ×1, ensureCurrencyExchangeItem ×2, ensurePhoneType ×1, ensureProductSalesCogsAccounts ×1, setDivisionType ×1); primitives.ts (Detail.delete ×1, Detail.set ×1, Link.isMarked ×1, Link.mark ×1, Link.unmark ×1, Link.withTarget ×1)
+Called from: production: db-journal.ts (ensureLocationScopedAccount ×2); db-stock.ts (createLocationType ×1, createPosTerminal ×2, getItemLocation ×1, getLevelFigure ×1, setItemLocationLevelDetails ×3); db.ts (ensureAddressType ×1, ensureContactPersonType ×1, ensureCurrencyExchangeItem ×2, ensureItemSalesCogsAccounts ×1, ensurePhoneType ×1, setDivisionType ×1); primitives.ts (Detail.delete ×1, Detail.set ×1, Link.isMarked ×1, Link.mark ×1, Link.unmark ×1, Link.withTarget ×1)
 
 **`Entity.getUnder`** *(exported)*
 
@@ -3130,7 +3130,7 @@ Called from: production: auth.ts (createUser ×1); db-reports.ts (ensureCurrency
 Entity.ensureUnder(name: string, parentId: number, userId: UserId): { id: number; name: string; }
 ```
 
-Called from: production: db-stock.ts (setItemLocationLevelDetails ×1); db.ts (ensureCategoryChain ×1, ensureProductInventoryAccount ×1, ensureProductSalesCogsAccounts ×1)
+Called from: production: db-stock.ts (setItemLocationLevelDetails ×1); db.ts (ensureCategoryChain ×1, ensureItemInventoryAccount ×1, ensureItemSalesCogsAccounts ×1)
 
 **`Entity.rename`** *(exported)*
 
@@ -3154,7 +3154,7 @@ Called from: nowhere the compiler could find.
 Entity.relate(id: number, target: string | null, userId: UserId, targetId?: number): void
 ```
 
-Called from: production: db.ts (defineProductShape ×1, ensureProductLocationLeaf ×1, ensureProductSalesCogsAccounts ×1, ensureProductTierLocationLeaf ×1, setDivisionType ×1)
+Called from: production: db.ts (defineProductShape ×1, ensureItemLocationLeaf ×1, ensureItemSalesCogsAccounts ×1, ensureItemTierLocationLeaf ×1, setDivisionType ×1)
 
 **`Entity.delete`** *(exported)*
 

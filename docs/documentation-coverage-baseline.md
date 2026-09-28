@@ -155,8 +155,8 @@ file name, and not a business concept worth prose on its own.
 - `dispatchOrderFromPickingList`
 - `getInvoiceOutstandingMinor`
 - `getItemByUpc`
-- `getProductUnitCostMinor`
-- `ensureProductTierItem`
+- `getItemUnitCostMinor`
+- `ensureItemTier`
 - `recordReminderSent`
 - `resetReminderLevel`
 - `getAccountsPostedTo`

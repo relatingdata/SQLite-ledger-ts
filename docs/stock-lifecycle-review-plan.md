@@ -12,8 +12,8 @@ settled.
 ## 1. Create a product — confirmed, built, documented
 
 `createItem` places a real item under its real category in the
-existing entity tree; `ensureProductSalesCogsAccounts`/
-`ensureProductQuantityAccounts` lazily create its real GL and
+existing entity tree; `ensureItemSalesCogsAccounts`/
+`ensureItemQuantityAccounts` lazily create its real GL and
 quantity-tracking accounts the first time they're actually needed —
 confirmed directly in `db.ts`/`db-stock.ts`. Genuinely no gap here.
 

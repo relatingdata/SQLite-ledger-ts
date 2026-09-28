@@ -20,7 +20,7 @@ from memory.
 - **`ensure`** — lazily creates only if missing, returns the existing
   one otherwise — idempotent creation, the middle ground between
   `create` (strict) and `set` (always overwrites)
-  (`ensureProductQuantityAccounts`, `ensureLocationCapacityAccount`,
+  (`ensureItemQuantityAccounts`, `ensureLocationCapacityAccount`,
   `ensureAddressType`).
 - **`add`** — adds a new item to a real collection; some real variants
   are add-or-update (`addOrUpdateItemSource`), stated explicitly in

@@ -34,8 +34,8 @@ A real, established pattern this session, worth naming explicitly so
 it's a deliberate principle going forward, not a coincidence: a real
 GL account (Sales/COGS leaf, tier-level part, location-specific leaf)
 should be created lazily, the first real time a real posting actually
-needs it — `ensureProductSalesCogsAccounts`, `ensureProductTierPart`,
-and `ensureProductTierLocationLeaf` all follow this, real, same
+needs it — `ensureItemSalesCogsAccounts`, `ensureProductTierPart`,
+and `ensureItemTierLocationLeaf` all follow this, real, same
 shape. Never pre-generate a real, large, speculative Chart of
 Accounts up front for every real, possible combination that might
 never actually occur.
@@ -58,8 +58,8 @@ tag column that predates this and is being retired in favor of this
 structural approach, not the real, structural source of truth going
 forward.
 
-Built: `ensureProductLocationLeaf` extends the same, real, proven
-(tier, location) pattern (`ensureProductTierLocationLeaf`) to every
+Built: `ensureItemLocationLeaf` extends the same, real, proven
+(tier, location) pattern (`ensureItemTierLocationLeaf`) to every
 ordinary product, tiered or not — a real sale at a real location now
 always resolves to its own real `Sales - {Product} — {Location}` and
 `COGS - {Product} — {Location}` leaf, not a shared, location-blind

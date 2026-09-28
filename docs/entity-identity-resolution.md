@@ -23,9 +23,9 @@ direct `parent_id`/`relation_id` columns for entity creation and
 relation-tagging.
 
 Every one of `createEntity`, `ensureCategoryChain`,
-`ensureProductSalesCogsAccounts`, `ensureProductTierPart`,
-`ensureProductLocationLeaf`, `ensureProductTierLocationLeaf`,
-`ensureProductInventoryAccount`, and `ensureProductLocationInventoryAccount`
+`ensureItemSalesCogsAccounts`, `ensureProductTierPart`,
+`ensureItemLocationLeaf`, `ensureItemTierLocationLeaf`,
+`ensureItemInventoryAccount`, and `ensureItemLocationInventoryAccount`
 resolves and returns a real id alongside the name, so a caller can
 propagate an unambiguous reference all the way to the actual posting.
 `resolvePartId` (exported from `db.ts`) is the shared, reliable way to
@@ -172,7 +172,7 @@ A real product's own name and its own quantity-tracking account name
 often share the identical string value — a direct, deliberate
 consequence of the earlier "Sales - "/"COGS - " prefix removal (see
 the previous section). But they are not the same *kind* of thing:
-`ensureProductQuantityAccounts`'s own `onOrderAccount`/
+`ensureItemQuantityAccounts`'s own `onOrderAccount`/
 `unitsSoldAccount` return values, and a plain product name used
 directly as a quantity account, are both genuinely `AccountName` —
 not `PartName` — the moment they're used as a posting target rather

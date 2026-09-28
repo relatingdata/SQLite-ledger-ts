@@ -79,7 +79,7 @@ set on every real movement).
    dollars. Per direct instruction, this now happens atomically, as part of
    `createAndConfigureLocation` itself — never lazily, the first time some
    later, real stock movement happens to touch the location.
-   `ensureProductQuantityAccounts` similarly tags every real quantity account
+   `ensureItemQuantityAccounts` similarly tags every real quantity account
    (`On Order`, `Units Sold`, `Count Adjustment`, `Write-off`) with the
    item's own real unit of measure. A real, further, confirmed bug found and
    fixed along the way: `setAccountCurrency`'s own bare, name-based lookup is

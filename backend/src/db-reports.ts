@@ -707,7 +707,7 @@ export interface CategoryTreeNode {
 }
 
 /** Groups a flat set of statement lines by their real, existing GL
- * category hierarchy — the same hierarchy ensureProductSalesCogsAccounts
+ * category hierarchy — the same hierarchy ensureItemSalesCogsAccounts
  * already builds and keeps in sync with the real product category
  * tree, walked here directly from parent_id rather than assumed or
  * duplicated. A leaf with no real category parent (sitting directly

@@ -111,10 +111,10 @@ divisions/profit centers: the same account can be posted to by multiple division
 e-invoicing: a real 3-way match catches a genuine mismatch between a purchase order and an incoming e-invoice
 e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, and a real, incoming one round-trips back through a genuinely separate ledger as a draft, never auto-posted
 ensureAtLeastOneRow is a no-op on a non-empty grid and adds exactly one row to an empty one
+ensureItemSalesCogsAccounts: mirrors the real, existing product category tree onto the GL side, not a flat or hardcoded structure
+ensureItemTier: the confirmed product/tier/leaf design (docs/multi-dimensional-reporting.md §10) — each real tier its own, distinct, sellable item, the base product name genuinely untouched, no shared-parent corruption across multiple tiers
+ensureItemTierLocationLeaf: location becomes structural, the same real pattern already proven for tier — a real, new, distinct leaf per (tier, location), never re-parenting the shared tier-level item, avoiding the exact bug that broke an earlier tier-restructuring attempt
 ensureLocationCapacityAccount: a real, one-time opening balance from the location's own static capacity, retail tracks bottles, warehouse tracks carton-equivalents
-ensureProductSalesCogsAccounts: mirrors the real, existing product category tree onto the GL side, not a flat or hardcoded structure
-ensureProductTierItem: the confirmed product/tier/leaf design (docs/multi-dimensional-reporting.md §10) — each real tier its own, distinct, sellable item, the base product name genuinely untouched, no shared-parent corruption across multiple tiers
-ensureProductTierLocationLeaf: location becomes structural, the same real pattern already proven for tier — a real, new, distinct leaf per (tier, location), never re-parenting the shared tier-level item, avoiding the exact bug that broke an earlier tier-restructuring attempt
 entities are append-only: renaming closes out the old row and appends a replacement under the same id, full history preserved
 filterToItems excludes every non-product leaf, and does NOT require is_postable_account — real items never have that flag set at all
 formatAmount applies each explicit pattern directly — never Intl locale inference

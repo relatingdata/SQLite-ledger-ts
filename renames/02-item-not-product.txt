@@ -1,0 +1,10 @@
+# Step 2 of docs/bulk-rename-plan.md: Product means Cartesian Product only, so these
+# eight functions, which all take an item name, say Item.
+ensureProductSalesCogsAccounts ensureItemSalesCogsAccounts
+ensureProductInventoryAccount ensureItemInventoryAccount
+ensureProductLocationInventoryAccount ensureItemLocationInventoryAccount
+ensureProductQuantityAccounts ensureItemQuantityAccounts
+ensureProductLocationLeaf ensureItemLocationLeaf
+ensureProductTierItem ensureItemTier
+ensureProductTierLocationLeaf ensureItemTierLocationLeaf
+getProductUnitCostMinor getItemUnitCostMinor

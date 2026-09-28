@@ -26,7 +26,7 @@ export function isDescendantOf(entity: EntityNode, ancestorName: string, allEnti
 }
 
 /** A real, direct, structural check for a real product's own two,
- * internal quantity sub-accounts (see ensureProductQuantityAccounts
+ * internal quantity sub-accounts (see ensureItemQuantityAccounts
  * in db.ts) — anchored to the real, established naming convention
  * that function itself already uses (`${itemName} — On Order`), and
  * to the real parent relationship (a genuine quantity sub-account's

@@ -84,8 +84,8 @@ const {
   getItemLeadTimes,
   getStockOutRiskReport,
   setDimensionParent,
-  ensureProductTierItem,
-  ensureProductTierLocationLeaf,
+  ensureItemTier,
+  ensureItemTierLocationLeaf,
   getDimensionParent,
   getLocationForAccount,
   getDivisionForAccount,
@@ -120,7 +120,7 @@ const {
   convertStorageSpace,
   openStorageContainer,
   createItemCategory,
-  ensureProductInventoryAccount,
+  ensureItemInventoryAccount,
   createAndConfigureLocation,
   stageLocation,
   postLocation,
@@ -236,7 +236,7 @@ const {
   completeCashPurchase,
   payEmployeeWages,
   getOrganizationChart,
-  ensureProductSalesCogsAccounts,
+  ensureItemSalesCogsAccounts,
   getItemByUpc,
   registerCustomer,
   setContactType,
@@ -557,8 +557,8 @@ test('profit and loss income_tree groups by the real category hierarchy, with co
   create(fetch('PL Tree Beverages', typeRootName), typeRootName, 'PL Tree Cider', asUserId(1));
   create(fetch('PL Tree Cider', typeRootName), typeRootName, 'PL Tree Dry Cider 500ml', asUserId(1));
   create(fetch('PL Tree Cider', typeRootName), typeRootName, 'PL Tree Sweet Cider 500ml', asUserId(1));
-  const dry = ensureProductSalesCogsAccounts(asItemName('PL Tree Dry Cider 500ml'), asUserId(1));
-  const sweet = ensureProductSalesCogsAccounts(asItemName('PL Tree Sweet Cider 500ml'), asUserId(1));
+  const dry = ensureItemSalesCogsAccounts(asItemName('PL Tree Dry Cider 500ml'), asUserId(1));
+  const sweet = ensureItemSalesCogsAccounts(asItemName('PL Tree Sweet Cider 500ml'), asUserId(1));
 
   function post(reference: string, lines: { account: string; accountId?: number; amount_minor: number }[]) {
     for (const line of lines) {
@@ -2272,7 +2272,7 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
   createItem('SMRTest Wine', 'SMRTest Category', asUserId(1));
   create(fetch('Vendors', typeRootName), typeRootName, 'SMRTest Vendor', asUserId(1));
   create(fetch('Customers', typeRootName), typeRootName, 'SMRTest Wine Customer', asUserId(1));
-  const { salesAccount, salesAccountId } = ensureProductSalesCogsAccounts(asItemName('SMRTest Wine'), asUserId(1));
+  const { salesAccount, salesAccountId } = ensureItemSalesCogsAccounts(asItemName('SMRTest Wine'), asUserId(1));
   addOrUpdateItemSource({ itemName: 'SMRTest Wine', vendorName: 'SMRTest Vendor', isPreferred: true });
 
   // Real purchase into the warehouse.
@@ -3546,8 +3546,8 @@ test('completePosSale defaults to real, per-product Sales accounts — not one s
   assert.equal(salesA?.credit_minor, 3000, "Wine A's own real Sales account must show exactly its own 2x$15.00 — not blended with Wine B's");
   assert.equal(salesB?.credit_minor, 6000, "Wine B's own real Sales account must show exactly its own 3x$20.00 — not blended with Wine A's");
 
-  // ensureProductSalesCogsAccounts itself: the COGS side must be tagged for Gross Profit.
-  const { cogsAccount, cogsAccountId } = ensureProductSalesCogsAccounts(asItemName('PerProductTest Wine A'), asUserId(1));
+  // ensureItemSalesCogsAccounts itself: the COGS side must be tagged for Gross Profit.
+  const { cogsAccount, cogsAccountId } = ensureItemSalesCogsAccounts(asItemName('PerProductTest Wine A'), asUserId(1));
   assert.equal(cogsAccount, 'PerProductTest Wine A');
   const cogsRow = db.prepare(`SELECT relation_id FROM current_entities WHERE id = ?`).get(cogsAccountId) as { relation_id: number } | undefined;
   const cogsTagId = db.prepare(`SELECT id FROM current_entities WHERE name = 'COGS'`).get() as { id: number };
@@ -3750,12 +3750,12 @@ test('createBusiness: real, optional secondary currencies each get a real, autom
   assert.equal(eurCurrencyRow.currency, 'EUR', 'the real account.currency field must be genuinely set, the same real mechanism postJournalEntry itself validates against');
 });
 
-test('ensureProductSalesCogsAccounts: mirrors the real, existing product category tree onto the GL side, not a flat or hardcoded structure', () => {
+test('ensureItemSalesCogsAccounts: mirrors the real, existing product category tree onto the GL side, not a flat or hardcoded structure', () => {
   create(fetch('Items', typeRootName), typeRootName, 'CategoryMirrorTest Category', asUserId(1));
   create(fetch('CategoryMirrorTest Category', typeRootName), typeRootName, 'CategoryMirrorTest SubCategory', asUserId(1));
   createItem('CategoryMirrorTest Product', 'CategoryMirrorTest SubCategory', asUserId(1));
 
-  const { salesAccount, salesAccountId, cogsAccount, cogsAccountId } = ensureProductSalesCogsAccounts(asItemName('CategoryMirrorTest Product'), asUserId(1));
+  const { salesAccount, salesAccountId, cogsAccount, cogsAccountId } = ensureItemSalesCogsAccounts(asItemName('CategoryMirrorTest Product'), asUserId(1));
   assert.equal(salesAccount, 'CategoryMirrorTest Product');
   assert.equal(cogsAccount, 'CategoryMirrorTest Product');
 
@@ -3777,7 +3777,7 @@ test('ensureProductSalesCogsAccounts: mirrors the real, existing product categor
   // A product with NO sub-category (flat, one level only) must still work correctly — proving this isn't hardcoded to a fixed depth.
   create(fetch('Items', typeRootName), typeRootName, 'CategoryMirrorTest FlatCategory', asUserId(1));
   createItem('CategoryMirrorTest FlatProduct', 'CategoryMirrorTest FlatCategory', asUserId(1));
-  const flatResult = ensureProductSalesCogsAccounts(asItemName('CategoryMirrorTest FlatProduct'), asUserId(1));
+  const flatResult = ensureItemSalesCogsAccounts(asItemName('CategoryMirrorTest FlatProduct'), asUserId(1));
   const flatLeaf = getEntityTree().find((e) => e.id === flatResult.salesAccountId)!;
   const flatParent = getEntityTree().find((e) => e.id === flatLeaf.parent_id)!;
   assert.equal(flatParent.name, 'CategoryMirrorTest FlatCategory');
@@ -4334,14 +4334,14 @@ test("setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAnc
   assert.equal(getDimensionParent('DimTest2 Amber Ale Sales', 'Product Category'), 'DimTest2 Beer', 'deleting one dimension must never disturb a genuinely separate one');
 });
 
-test('ensureProductTierItem: the confirmed product/tier/leaf design (docs/multi-dimensional-reporting.md §10) — each real tier its own, distinct, sellable item, the base product name genuinely untouched, no shared-parent corruption across multiple tiers', () => {
+test('ensureItemTier: the confirmed product/tier/leaf design (docs/multi-dimensional-reporting.md §10) — each real tier its own, distinct, sellable item, the base product name genuinely untouched, no shared-parent corruption across multiple tiers', () => {
   create(fetch('Items', typeRootName), typeRootName, 'TierTest2 Beer', asUserId(1));
   create(fetch('TierTest2 Beer', typeRootName), typeRootName, 'TierTest2 Ale', asUserId(1));
   create(fetch('TierTest2 Ale', typeRootName), typeRootName, 'TierTest2 Amber Ale 330ml', asUserId(1));
 
-  const bottle = ensureProductTierItem(asItemName('TierTest2 Amber Ale 330ml'), 'Bottle', asUserId(1));
-  const carton = ensureProductTierItem(asItemName('TierTest2 Amber Ale 330ml'), 'Carton', asUserId(1));
-  const sixPack = ensureProductTierItem(asItemName('TierTest2 Amber Ale 330ml'), 'Six-Pack', asUserId(1));
+  const bottle = ensureItemTier(asItemName('TierTest2 Amber Ale 330ml'), 'Bottle', asUserId(1));
+  const carton = ensureItemTier(asItemName('TierTest2 Amber Ale 330ml'), 'Carton', asUserId(1));
+  const sixPack = ensureItemTier(asItemName('TierTest2 Amber Ale 330ml'), 'Six-Pack', asUserId(1));
 
   // The real, critical property this whole design fixes: the base
   // product entity's own, real parent_id must never move, no matter
@@ -4371,7 +4371,7 @@ test('ensureProductTierItem: the confirmed product/tier/leaf design (docs/multi-
 
   // A genuinely idempotent, real, repeated call must never throw or
   // duplicate anything.
-  const bottleAgain = ensureProductTierItem(asItemName('TierTest2 Amber Ale 330ml'), 'Bottle', asUserId(1));
+  const bottleAgain = ensureItemTier(asItemName('TierTest2 Amber Ale 330ml'), 'Bottle', asUserId(1));
   assert.deepEqual(bottleAgain, bottle);
 });
 
@@ -4608,7 +4608,7 @@ test('reverseJournalEntry: a real, confirmed bug fix — reversing a year-end cl
   assert.equal(total, 0, 'the real, whole reversal entry must genuinely balance to exactly zero');
 });
 
-test('ensureProductTierLocationLeaf: location becomes structural, the same real pattern already proven for tier — a real, new, distinct leaf per (tier, location), never re-parenting the shared tier-level item, avoiding the exact bug that broke an earlier tier-restructuring attempt', () => {
+test('ensureItemTierLocationLeaf: location becomes structural, the same real pattern already proven for tier — a real, new, distinct leaf per (tier, location), never re-parenting the shared tier-level item, avoiding the exact bug that broke an earlier tier-restructuring attempt', () => {
   create(fetch('Items', typeRootName), typeRootName, 'LocTest2 Beer', asUserId(1));
   create(fetch('LocTest2 Beer', typeRootName), typeRootName, 'LocTest2 Ale', asUserId(1));
   create(fetch('LocTest2 Ale', typeRootName), typeRootName, 'LocTest2 Amber Ale 330ml', asUserId(1));
@@ -4617,9 +4617,9 @@ test('ensureProductTierLocationLeaf: location becomes structural, the same real 
   create(fetch('Locations', typeRootName), typeRootName, 'LocTest2 Uptown Wine', asUserId(1));
   setLocation('LocTest2 Uptown Wine', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
 
-  const bottle = ensureProductTierItem(asItemName('LocTest2 Amber Ale 330ml'), 'Bottle', asUserId(1));
-  const locA = ensureProductTierLocationLeaf(bottle.tierItemName, asLocationName('LocTest2 Riverside Cellars'), asUserId(1), bottle.tierItemId);
-  const locB = ensureProductTierLocationLeaf(bottle.tierItemName, asLocationName('LocTest2 Uptown Wine'), asUserId(1), bottle.tierItemId);
+  const bottle = ensureItemTier(asItemName('LocTest2 Amber Ale 330ml'), 'Bottle', asUserId(1));
+  const locA = ensureItemTierLocationLeaf(bottle.tierItemName, asLocationName('LocTest2 Riverside Cellars'), asUserId(1), bottle.tierItemId);
+  const locB = ensureItemTierLocationLeaf(bottle.tierItemName, asLocationName('LocTest2 Uptown Wine'), asUserId(1), bottle.tierItemId);
 
   const tree = getEntityTree();
 
@@ -4643,7 +4643,7 @@ test('ensureProductTierLocationLeaf: location becomes structural, the same real 
 
   // A real, repeated call for the same (tier, location) must be
   // genuinely idempotent, never throw, never duplicate.
-  const locAAgain = ensureProductTierLocationLeaf(bottle.tierItemName, asLocationName('LocTest2 Riverside Cellars'), asUserId(1), bottle.tierItemId);
+  const locAAgain = ensureItemTierLocationLeaf(bottle.tierItemName, asLocationName('LocTest2 Riverside Cellars'), asUserId(1), bottle.tierItemId);
   assert.deepEqual(locAAgain, locA);
 });
 
@@ -4697,8 +4697,8 @@ test('getLocationForAccount/getDivisionForAccount: the real, structural replacem
   create(fetch('DeriveTest2 Beer', typeRootName), typeRootName, 'DeriveTest2 Ale', asUserId(1));
   create(fetch('DeriveTest2 Ale', typeRootName), typeRootName, 'DeriveTest2 Amber Ale 330ml', asUserId(1));
 
-  const bottle = ensureProductTierItem(asItemName('DeriveTest2 Amber Ale 330ml'), 'Bottle', asUserId(1));
-  const leaf = ensureProductTierLocationLeaf(bottle.tierItemName, asLocationName('DeriveTest2 Outlet'), asUserId(1));
+  const bottle = ensureItemTier(asItemName('DeriveTest2 Amber Ale 330ml'), 'Bottle', asUserId(1));
+  const leaf = ensureItemTierLocationLeaf(bottle.tierItemName, asLocationName('DeriveTest2 Outlet'), asUserId(1));
 
   assert.equal(getLocationForAccount(asAccountName(leaf.salesAccount)), 'DeriveTest2 Outlet', "a real Sales leaf's own real location must be walkable directly, structurally");
   assert.equal(getLocationForAccount(asAccountName(leaf.cogsAccount)), 'DeriveTest2 Outlet', "its own real COGS counteritem must resolve to the exact same, real location");
@@ -4775,8 +4775,8 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
   // shows real Sales but zero real COGS, while the original,
   // division-tag-driven P&L still looks correct only because it
   // reads a real, different, older mechanism.
-  const tierItem = ensureProductTierItem(asItemName('ReproTest Merlot'), 'Bottle', asUserId(1));
-  const { cogsAccount, cogsAccountId } = ensureProductTierLocationLeaf(tierItem.tierItemName, asLocationName('ReproTest Outlet'), asUserId(1), tierItem.tierItemId);
+  const tierItem = ensureItemTier(asItemName('ReproTest Merlot'), 'Bottle', asUserId(1));
+  const { cogsAccount, cogsAccountId } = ensureItemTierLocationLeaf(tierItem.tierItemName, asLocationName('ReproTest Outlet'), asUserId(1), tierItem.tierItemId);
   stageLine({ reference: 'REPRO-COGS', business: biz.business, ledger: biz.actualLedger, transdate: today, account: asAccountName(cogsAccount), accountId: cogsAccountId, amount_minor: 2000, division: asDivisionName('ReproTest Division') });
   stageLine({ reference: 'REPRO-COGS', business: biz.business, ledger: biz.actualLedger, transdate: today, account: asAccountName('Inventory'), amount_minor: -2000, division: asDivisionName('ReproTest Division') });
   postJournalEntry('REPRO-COGS', biz.business, biz.actualLedger, asUserId(1));
@@ -5891,7 +5891,7 @@ test('writeOffStock with a real combination: the real Inventory value and real u
   } as any, userId);
   const catEntity = createItemCategory(business, 'Write Off Parallel Category', undefined, userId);
   create(catEntity, typeItemName, 'Write Off Parallel Wine', userId);
-  ensureProductInventoryAccount(asItemName('Write Off Parallel Wine'), userId);
+  ensureItemInventoryAccount(asItemName('Write Off Parallel Wine'), userId);
   const bizEntity = getEntityTree().find((e) => e.name === 'WriteOffParallelTest Co');
   const coaEntity = getEntityTree().find((e) => e.name === 'Chart of Accounts' && e.parent_id === bizEntity?.id);
   const expenseRoot = getEntityTree().find((e) => e.name === 'Expense' && e.parent_id === coaEntity?.id);

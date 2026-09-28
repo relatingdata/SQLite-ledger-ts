@@ -257,7 +257,7 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: number): 
 
 The real, live retail register — each cart line posts to that
 product's own, real, per-product Sales/COGS account (lazily created by
-`ensureProductSalesCogsAccounts`, per the location-scoped recording
+`ensureItemSalesCogsAccounts`, per the location-scoped recording
 grid documented in Part II), not one shared, aggregate revenue
 account. Every line stages directly into `journal_entry_staging`
 through `stageLine`, then `postJournalEntry` commits the whole,

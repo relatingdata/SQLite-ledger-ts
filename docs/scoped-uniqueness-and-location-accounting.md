@@ -31,8 +31,8 @@ the structural source of truth.
 
 Every product, tiered or not, resolves to its own real
 `{Product} — {Location}` Sales/COGS/Inventory leaf when a location is
-known — `ensureProductLocationLeaf` for an ordinary product,
-`ensureProductTierLocationLeaf` for a tiered one — wired into
+known — `ensureItemLocationLeaf` for an ordinary product,
+`ensureItemTierLocationLeaf` for a tiered one — wired into
 `completePosSale`'s own Sales, COGS, and Inventory resolution.
 
 ![The New New P&L report, division as the outer grouping and location as the inner — a real, direct division expanded to show its own, real location-level breakdown underneath.](manual-images/pm_new_new_pl_location_axis.png)
