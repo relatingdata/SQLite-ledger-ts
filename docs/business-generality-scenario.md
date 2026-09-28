@@ -66,7 +66,7 @@ A general application needs both, and needs to let an item choose.
 | 9 | Staff who are hired | supported | `createEmployee`, `setEmployeeSchedule`, shifts, `payEmployeeWages`, and time clocked against a project (`getOpenProjectClockForEmployee`). These are building blocks for step 8. |
 | 10 | Customers place orders on a website | **not verified** | A `CustomerName` type exists and `postSalesOrder` exists. **Not verified:** whether there is an inbound interface a storefront could call, or customer accounts. |
 | 11 | Offer only what is available | **not verified** | Sales orders track committed quantity, but whether availability-to-promise (on hand minus committed) is computed was not checked. |
-| 12 | Move stock between locations | supported | `transferStock`, plus a restock picking list and `dispatchRestockFromPickingList`. |
+| 12 | Move stock between locations | **within one city only** | `transferStock`, plus a restock picking list and `dispatchRestockFromPickingList`. **`transferStock` refuses any transfer between locations in different cities** (verified), on the assumption that a warehouse only serves its own city's outlets. A factory in another country could not ship to a distribution warehouse. Transfers are also instantaneous: there is no in-transit state (verified: nothing in the code is named for in-transit, freight, duty, customs or landed cost). |
 | 13 | Pick and dispatch to a customer | supported | `getPickingList`, `dispatchOrderFromPickingList`, `dispatchStockFromLocation`. **Not verified:** carriers, tracking, shipping to a customer address. |
 | 14 | Invoice and be paid | supported | This is the accounting core. |
 | 15 | Returns, warranty, repairs | **not verified** | Not searched for. |
@@ -75,8 +75,8 @@ A general application needs both, and needs to let an item choose.
 
 The lifecycle functions are **independent of one another**, which is what lets steps be
 skipped: a receipt does not need a purchase order, and a dispatch does not need a sales
-order. So a cash sale, a receipt without an order, and a transfer with no sale all already
-work. **Not verified:** *drop-shipping*, where a supplier ships straight to the customer and
+order. So a cash sale and a receipt without an order already work, and so does a transfer
+with no sale, *within one city* (step 12). **Not verified:** *drop-shipping*, where a supplier ships straight to the customer and
 nothing is ever received or stored. It needs a purchase order tied to a sales order, with no
 receipt, and I did not check whether that is expressible.
 
@@ -101,6 +101,25 @@ receipt, and I did not check whether that is expressible.
 size and a storage capacity are core concepts, and they are already in the code. What is
 missing is that their *names* and the *base unit* are configuration rather than a fixed
 choice between "bottle" and "carton".
+
+## Requirements clarified after the first walk-through
+
+Stated directly, and they narrow the scope considerably:
+
+1. **Assemblies and bills of materials are the one thing missing** from the list of
+   fundamental concepts; the rest of the lifecycle is taken as present.
+2. **Assemblies nest.** An assembly can itself be a component of another: kits plus
+   labour make an assembled product. A bill of materials is therefore recursive.
+3. **Kits and assembled products are produced and held in inventory** before being sold
+   and dispatched. This is the "produce, then hold" pattern, and it is required.
+4. **Warehouses and factories are genuine locations**, and may be in different
+   countries from the headquarters.
+
+Requirement 3 settles Decision 3 below in part: an explicit *produce* action is required.
+Whether assembling at the moment of sale is *also* supported, per item, is still open.
+Requirement 4 adds a gap the first walk-through did not name: stock cannot move between
+locations in different cities today (step 12). The design for both is in
+`docs/assembly-production-design.md`.
 
 ## What is genuinely missing
 

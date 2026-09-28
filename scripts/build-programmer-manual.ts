@@ -59,6 +59,7 @@ const PARTS: [string, string[]][] = [
     'classification-neutrality-impact.md',
     'classification-neutrality-analysis.md',
     'business-generality-scenario.md',
+    'assembly-production-design.md',
     'coa-class-instance-plan.md',
     'ui-completeness-plan.md',
     'sql-ledger-comparison.md',
