@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -442,6 +442,13 @@ analyze-classification:
 strip-comments:
 	@if [ -z "$(FILE)" ] || [ -z "$(DOC)" ]; then echo "Usage: make strip-comments FILE=<path.ts> DOC=<docs/chapter.md> [DRY=1]"; exit 1; fi
 	$(RUN_SCRIPT) scripts/strip-code-comments.ts $(FILE) $(DOC) $(if $(DRY),--dry-run)
+
+# Finds declarations, SQL objects, screens and manual headings whose NAME
+# matches a regex (case-insensitive), with file:line. A permanent replacement
+# for ad-hoc greps. Usage: make find-symbols PATTERN='order|supplier'
+find-symbols:
+	@if [ -z "$(PATTERN)" ]; then echo "Usage: make find-symbols PATTERN=<regex>"; exit 1; fi
+	$(RUN_SCRIPT) scripts/find-symbols.ts '$(PATTERN)'
 
 measure-comments:
 	$(RUN_SCRIPT) scripts/measure-code-comments.ts

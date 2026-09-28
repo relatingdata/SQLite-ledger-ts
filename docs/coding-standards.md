@@ -151,6 +151,13 @@ leave pointers dangling.
   (An earlier definition, "no more than six comment lines", wrongly excluded a
   file whose only comments were its pointers, and wrongly included one that
   still carried a few lines of prose.)
+- `make find-symbols PATTERN=<regex>` finds declarations (functions, types,
+  constants), SQL tables and views, screens, and manual headings whose *name*
+  matches a case-insensitive regex, with file and line. It replaces ad-hoc
+  greps: use it to ask "does anything named like X exist?" before designing X.
+  It matches names only, so it cannot find behaviour that is not named for what
+  it does (see `resolveDispatchLocation` in
+  `docs/classification-neutrality-impact.md`).
 - `make show-comments FILE=<path> [FROM=<line> TO=<line>]` lists one file's
   comment lines with their exact text and line numbers. Use it before migrating:
   it shows precisely what has to land in the manual first, and gives the exact

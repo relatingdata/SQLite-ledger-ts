@@ -58,6 +58,7 @@ const PARTS: [string, string[]][] = [
     'cold-shelf-storage-inventory-model-plan.md',
     'classification-neutrality-impact.md',
     'classification-neutrality-analysis.md',
+    'business-generality-scenario.md',
     'coa-class-instance-plan.md',
     'ui-completeness-plan.md',
     'sql-ledger-comparison.md',
