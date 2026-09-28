@@ -25,7 +25,7 @@ Continue Lars and Mette's story through their actual first real actions: `/setup
 **Part 4 — Buying and selling, day to day**
 `/arap/cash-sale`, `/arap/cash-purchase`, `/arap/ar-sale`, `/arap/ap-purchase`, `/arap/ar-receipt`, `/arap/ap-payment`, `/arap/quotations`, `/arap/rfq`, `/invoices`, `/pos` (POS Terminal), `/customer-terminal`.
 
-**Part 5 — Goods, stock, and locations**
+**Part 5 — Items, stock, and locations**
 `/goods-services`, `/parts` (Parts Catalog), `/stock/listing`, `/stock/po`, `/stock/so`, `/stock/stock-receipt`, `/stock/stock-dispatch`, `/stock/transfer`, `/stock/restock`, `/stock/stock-take`, `/stock/write-offs`, `/logistics/assembly-bom`, `/order-entry/generate-po`, `/order-entry/generate-invoices`.
 
 **Part 6 — The General Journal and other core postings**

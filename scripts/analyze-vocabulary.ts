@@ -155,9 +155,63 @@ for (const [a, b] of SPELLINGS) {
 }
 md.push('');
 
+md.push('## 5. Accounting acronyms in names');
+md.push('');
+md.push('AR, AP, GL and P&L are written in capitals with their accounting meanings. Each row counts distinct names by how the acronym is cased inside them.');
+md.push('');
+md.push('| Acronym | Capitals (`AR`) | Title case (`Ar`) | Lower case (`ar`) |');
+md.push('|---|---|---|---|');
+const acronymCase = (acr: string): { upper: string[]; title: string[]; lower: string[] } => {
+  const out = { upper: [] as string[], title: [] as string[], lower: [] as string[] };
+  for (const i of unique) {
+    for (const s of i.name.match(/[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+/g) ?? []) {
+      if (s.toLowerCase() !== acr.toLowerCase()) continue;
+      if (s === acr) out.upper.push(i.name);
+      else if (s === acr[0] + acr.slice(1).toLowerCase()) out.title.push(i.name);
+      else if (s === acr.toLowerCase()) out.lower.push(i.name);
+    }
+  }
+  return out;
+};
+const acronymTotals: string[] = [];
+for (const acr of ['AR', 'AP', 'GL', 'PL']) {
+  const c = acronymCase(acr);
+  const cell = (list: string[]): string => `${list.length}${list.length ? ' (' + list.slice(0, 2).map((x) => '`' + x + '`').join(', ') + ')' : ''}`;
+  md.push(`| \`${acr}\` | ${cell(c.upper)} | ${cell(c.title)} | ${cell(c.lower)} |`);
+  acronymTotals.push(`${acr}: ${c.upper.length} capitals / ${c.title.length} title-case / ${c.lower.length} lower`);
+}
+const profitAndLossNames = unique.filter((i) => /ProfitAndLoss/.test(i.name)).length;
+md.push('');
+md.push(`P&L cannot appear in a name; ${profitAndLossNames} names spell it \`ProfitAndLoss\`.`);
+md.push('');
+
+md.push('## 6. Retired words in the hand-written documentation');
+md.push('');
+md.push('"Goods" is retired in favour of "Items". The accounting phrases "Cost of Goods Sold", "goods sold" and "Goods and Services" are ignored. Generated reports, translations and the assembled manuals are excluded.');
+md.push('');
+md.push('| Where | The line |');
+md.push('|---|---|');
+const docsDir = join(ROOT, 'docs');
+const skipDoc = /^(glossary|programmer-manual|user-manual\.md|naming-vocabulary-analysis|classification-neutrality-analysis|documentation-baseline-report|function-inventory)/;
+let goodsTotal = 0; const goodsDocs = new Set<string>();
+for (const name of readdirSync(docsDir).sort()) {
+  if (!name.endsWith('.md') || skipDoc.test(name)) continue;
+  readFileSync(join(docsDir, name), 'utf-8').split('\n').forEach((line, i) => {
+    const cleaned = line.replace(/cost of goods( sold)?/gi, '').replace(/goods sold/gi, '').replace(/goods and services/gi, '');
+    if (/\bgoods\b/i.test(cleaned)) { goodsTotal++; goodsDocs.add(name); md.push(`| ${name}:${i + 1} | ${line.trim().slice(0, 110).replace(/\|/g, '/')} |`); }
+  });
+}
+if (goodsTotal === 0) md.push('| *(none)* | |');
+md.push('');
+const goodsNames = unique.filter((i) => words(i.name).includes('goods')).length;
+md.push(`Exported names containing "goods": ${goodsNames}.`);
+md.push('');
+
 writeFileSync(OUT, md.join('\n') + '\n', 'utf-8');
 console.log(`Wrote ${OUT}`);
 console.log(`\nFirst words in use: ${sorted.length}; defined in the manual: ${sorted.filter(([v]) => DOCUMENTED_VERBS.has(v)).length}; not defined: ${undefinedVerbs.length}`);
 console.log(`Function names covered by a defined verb: ${sorted.filter(([v]) => DOCUMENTED_VERBS.has(v)).reduce((n, [, e]) => n + e.n, 0)} of ${fns.length}`);
 console.log(`Concept groups with more than one word in use: ${split.length}  (${split.join('; ')})`);
 console.log(`Names mixing two words for one concept: ${mixed.length}`);
+console.log(`Accounting acronyms in names, by casing: ${acronymTotals.join('; ')}`);
+console.log(`Hand-written documents using "goods": ${goodsDocs.size} (${goodsTotal} occurrences); names containing it: ${goodsNames}`);

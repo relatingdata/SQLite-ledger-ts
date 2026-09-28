@@ -59,7 +59,7 @@ borrowed from this function.
 
 **3.5 Stock cannot cross a city boundary, or take time.** `transferStock` rejects a transfer
 between locations in different cities, on the wine-shop assumption that a warehouse serves
-only its own city's outlets. It is one instantaneous posting, so there is no state for goods
+only its own city's outlets. It is one instantaneous posting, so there is no state for items
 that have left and not yet arrived. Nothing exists for freight, duty, customs or landed cost.
 A `Location` records a city and a timezone but **no country.**
 
@@ -147,11 +147,11 @@ setting on the item, not a code path. It is recorded the way other item settings
 - **The same-city rule goes.** It is a wine-shop assumption. A business that wants to
   restrict where a warehouse ships should be able to configure that; the code should not
   decide it.
-- **In transit is a real place.** Goods on a ship are somewhere. Model it as a genuine
+- **In transit is a real place.** Items on a ship are somewhere. Model it as a genuine
   location ("In Transit, Shenzhen to Adelaide"): a cross-country move is a dispatch out of
   the source into it and a receipt from it into the destination, which can be simultaneous
   for a same-site move. It reuses the existing dispatch and receive.
-- **Landed cost** (freight, duty, insurance added to the value of received goods) is a real
+- **Landed cost** (freight, duty, insurance added to the value of received items) is a real
   feature and out of scope here; it is noted so the design leaves room for it.
 - **Currency.** A location can already nominate currencies, and each location has its own
   timezone, so dates are correct across countries. **Not verified:** in what currency a

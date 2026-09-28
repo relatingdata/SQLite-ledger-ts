@@ -3,6 +3,14 @@
 Recorded directly, not yet implemented — captured mid-session so the
 reasoning isn't lost before the actual migration is attempted.
 
+> **Status note (checkpoint 424).** Two things here have since changed.
+> **The word "Product" is superseded:** it now always means a Cartesian Product, never something
+> finished and never a synonym for Item; a finished output of an assembly is an *assembled Item*
+> (`docs/naming-vocabulary.md`, "Settled vocabulary"). **Part of this was implemented:** the code
+> uses `Item` and `ItemName` throughout, so the Part-to-Item rename happened. It left two traces:
+> `docs/function-inventory.md` still lists `ensureProductTierPart`, and comments were damaged by
+> the mechanical rename ("aitem" for "apart"). The storage-type section below still stands.
+
 ## "Part" vs "Product" vs "Item"
 
 Direct correction: "part is a 'part' for assembly or manufacturing —

@@ -18,6 +18,7 @@ const PARTS: [string, string[]][] = [
   ['Part I --- Architecture', [
     'coding-standards.md',
     'naming-vocabulary.md',
+    'item-terminology-and-storage-design-notes.md',
     'entity-model.md',
     'journal-api-reference.md',
     'stock-api-reference.md',

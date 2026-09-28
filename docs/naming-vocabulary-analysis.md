@@ -232,3 +232,38 @@ Single names that contain more than one word from the same concept group, so the
 | `fulfil` | 0 | `fulfill` | 1 |
 | `despatch` | 0 | `dispatch` | 8 |
 
+## 5. Accounting acronyms in names
+
+AR, AP, GL and P&L are written in capitals with their accounting meanings. Each row counts distinct names by how the acronym is cased inside them.
+
+| Acronym | Capitals (`AR`) | Title case (`Ar`) | Lower case (`ar`) |
+|---|---|---|---|
+| `AR` | 0 | 7 (`ArSaleInput`, `stageArSale`) | 1 (`arApRouter`) |
+| `AP` | 0 | 8 (`ApPurchaseInput`, `stageApPurchase`) | 0 |
+| `GL` | 0 | 0 | 0 |
+| `PL` | 0 | 0 | 0 |
+
+P&L cannot appear in a name; 12 names spell it `ProfitAndLoss`.
+
+## 6. Retired words in the hand-written documentation
+
+"Goods" is retired in favour of "Items". The accounting phrases "Cost of Goods Sold", "goods sold" and "Goods and Services" are ignored. Generated reports, translations and the assembled manuals are excluded.
+
+| Where | The line |
+|---|---|
+| assembly-production-design.md:62 | only its own city's outlets. It is one instantaneous posting, so there is no state for goods |
+| assembly-production-design.md:150 | - **In transit is a real place.** Goods on a ship are somewhere. Model it as a genuine |
+| assembly-production-design.md:154 | - **Landed cost** (freight, duty, insurance added to the value of received goods) is a real |
+| min-e2e-coverage-plan.md:18 | `/exchange-rates`, `/gl/fx-adjustment`, `/goods-services`, `/jobs`, |
+| naming-vocabulary.md:87 | receipt is, in accounting, **money coming in from a customer**; a stock receipt is **goods |
+| naming-vocabulary.md:124 | / **Location** / any real place stock is held, including a factory, a warehouse, and goods in transit / `wareh |
+| naming-vocabulary.md:144 | *goods received* and *payment received*). |
+| naming-vocabulary.md:179 | 4. **`receipt`:** split into goods received and payment received? |
+| screens-inventory.md:24 | / /goods-services / frontend/src/routes/goods-services/+page.svelte / 7 / 0 / Not implemented / |
+| user-manual-appendix-screens.md:164 | / Goods & Services (dedicated catalog) / Not yet implemented / |
+| user-manual-glossary.md:157 | Real income earned from actually doing business — selling goods or services. One of the five universal top-lev |
+| user-manual-plan.md:28 | **Part 5 — Goods, stock, and locations** |
+| user-manual-plan.md:29 | `/goods-services`, `/parts` (Parts Catalog), `/stock/listing`, `/stock/po`, `/stock/so`, `/stock/stock-receipt |
+
+Exported names containing "goods": 0.
+

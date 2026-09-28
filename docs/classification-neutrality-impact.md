@@ -112,18 +112,31 @@ concept, not a word:
 
 ## Decisions needed
 
+**Clarified since this chapter was first written.** It has since been stated directly that
+*Division* and *Category* are **examples** of hierarchical classifications of Locations and
+Items, suggestions used by the Wine Retail Business and the Wine Tutorial Business in the user
+manual, and not built in. And `docs/item-terminology-and-storage-design-notes.md` (now part of the
+manual) records an earlier instruction that "storage consisting of shelf or fridge aliases hot or
+cold is another hierarchy." Together these settle the direction: a classification is a
+Hierarchy that is a Factor of a Cartesian Product, never a concept in code. That **answers
+decision 3** (see below) and points strongly at decisions 1 and 4. What remains is the work of
+getting there, and the choices about how.
+
 1. **The manual contradicts the principle.** `docs/entity-model.md` records
    Storage Origin (Hot/Cold) as a deliberate design made "per direct
    instruction" — the first cartesian dimension made explicit, replacing an
    earlier hardcoded guess. The principle now says it should be neither.
-   Confirm the earlier decision is superseded.
+   Confirm the earlier decision is superseded. *(The terminology chapter's instruction that
+   storage type is its own hierarchy points the same way.)*
 2. **The Storage Capacity boundary.** Earlier you defined `Storage Capacity →
    Remaining / Installed` as built in. Is that capacity accounting the built-in
    part, with Hot/Cold/Secure/Inside/Outside merely suggested classification?
-3. **Is an item's placement under its category structural by design?** (Tier 4a.)
+3. **Answered: no.** An item's placement under its category is *not* structural by design;
+   Category is an example classification. The `Category → … → Item` skeleton is therefore
+   hardwiring to be removed, which is the largest single piece of this work (Tier 4a).
 4. **Division's accounting behaviours** — auto-tagging (`cityDivisionFor`) and
    per-division year-end close: keep them as behaviour "dimensioned by any
-   chosen hierarchy", or drop them?
+   chosen hierarchy", or drop them? *(Division being an example points to the first.)*
 
 ## Suggested order (cheapest and clearest first) — none started
 

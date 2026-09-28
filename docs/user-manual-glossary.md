@@ -154,7 +154,7 @@ The real equity account that accumulates a business's net income (or loss) over 
 
 ### Revenue
 
-Real income earned from actually doing business — selling goods or services. One of the five universal top-level Chart of Accounts categories (labeled "Income" in this app's own Chart of Accounts, the same real thing).
+Real income earned from actually doing business — selling items or services. One of the five universal top-level Chart of Accounts categories (labeled "Income" in this app's own Chart of Accounts, the same real thing).
 
 ### Trial Balance
 
