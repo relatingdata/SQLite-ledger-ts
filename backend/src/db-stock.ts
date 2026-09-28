@@ -1,3 +1,5 @@
+// The full documentation for every function in this file lives in docs/stock-api-reference.md — this file carries no further comments.
+
 import { DateTime } from 'luxon';
 import { db } from './db.js';
 import { ensureStorageCapacityStructure } from './db.js';
@@ -47,58 +49,7 @@ import {
   type LocationName,
 } from './db.js';
 
-// ---------------------------------------------------------------------------
-// Stock and order tracking — zero schema changes. Two real design
-// decisions live here:
-//
-// 1. Quantity and monetary value are two INDEPENDENT facts, not a
-//    debit/credit pair of each other. Money is naturally double-entry
-//    (it always has a from and a to); a physical unit arriving has no
-//    such natural counteritem in our own books. So monetary movements
-//    keep using the existing balanced staging/post mechanism unchanged;
-//    quantity movements use this separate, simpler counter update —
-//    still an ordinary journal/journal_line row for a full audit trail,
-//    just never forced through a zero-sum check that only makes sense
-//    for money.
-//
-// 2. Orders (purchase or sales) are entities living under 'Orders'
-//    rather than under 'Chart of Accounts' — reports only ever walk the
-//    real chart, so nothing posted here can leak into a real financial
-//    statement. Placing an order posts to that order's own Qty/Value
-//    accounts; fulfilling it posts the opposite. The order's REMAINING
-//    balance IS the back-order quantity — no separate status field
-//    anywhere, the same way a bank balance is just a number, not a
-//    number plus a "how much money is this" flag.
-// ---------------------------------------------------------------------------
-
-/** Posts a single quantity movement against one account — vivifying the
- * account first if it's never been posted to before, same guarantee
- * ordinary posting and recurring journals both give. */
-/** Stages a single quantity-movement line — the same real
- * journal_entry_staging table the ordinary financial posting path
- * uses. Exposed separately from postQuantityMovement (which stages
- * and posts a single line in one call, for the common, single-
- * location case) so a real, genuinely two-sided movement — a
- * transfer between two locations — can stage both of its own real
- * lines under one shared reference before posting once, as one, true,
- * balanced entry, rather than two separate, merely-netting-to-zero
- * postings. */
 export function stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, locationName?: LocationName, accountId?: number): void {
-  // A real, direct product entity always, genuinely, structurally
-  // descends from Items — its own Sales/COGS/Inventory accounts never
-  // do (they live under Sales Revenue/Cost of Goods Sold/Inventory
-  // instead). When the same name resolves to more than one real
-  // entity (scoped uniqueness genuinely allows this), prefer whichever
-  // one's own real ancestor chain actually reaches Items — the
-  // reliable, structural way to tell "the real product itself" aitem
-  // from its own, same-named financial accounts, not dependent on a
-  // item table row every real entity under Items isn't guaranteed to
-  // have yet. Per direct correction: this fragile, name-based fallback
-  // is now only used when the caller doesn't already know the exact,
-  // real account id — every account genuinely scoped under a specific
-  // item/location (On Order, Units Sold, Storage Capacity Remaining,
-  // etc.) now has a real, simple, non-globally-unique name, so passing
-  // the id explicitly is what actually keeps posting correct.
   const resolvedAccountId =
     accountId ??
     (
@@ -121,11 +72,6 @@ export function stageQuantityMovementLine(business: BusinessName, ledger: Ledger
   ).run(reference, business, ledger, 'Quantity movement', transdate, account, resolvedAccountId, deltaQuantity, '', locationName ?? '');
 }
 
-/** Posts every real line already staged under this reference —
- * through the real, parallel post_quantity_movement trigger, not a
- * direct write. See the real, direct explanation in schema.sql above
- * that trigger for why this needs its own, separate path rather than
- * reusing post_journal_entry. */
 export function postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void {
   try {
     db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
@@ -157,15 +103,9 @@ export interface Location {
   is_billing_address: boolean;
   bottle_capacity: number | null;
   carton_capacity: number | null;
-  // A real, direct IANA timezone identifier — see the schema's own
-  // comment on location.timezone for why this must never be a fixed
-  // UTC offset.
   timezone: string;
 }
 
-/** Every real, currently-available location type — genuinely just
- * Vocabulary words, user-extensible via createLocationType, never a
- * fixed, built-in list. */
 export function getLocationTypes(): string[] {
   return (db
     .prepare(
@@ -177,21 +117,6 @@ export function getLocationTypes(): string[] {
     .map((r) => r.name);
 }
 
-/** Adds a brand-new, real location type — a plain Vocabulary word, a
- * real, human administrator can add directly (e.g. "Retail",
- * "Warehouse", or any real, custom kind a business needs), per
- * direct, non-negotiable instruction: every real "type" a human sees
- * must be user-extensible and translatable, never a fixed,
- * compile-time list.
- *
- * A real, confirmed bug fix: this used to query getLocationTypes via
- * whatever real entities already had a "Location Type -> X" relation
- * link - a genuine chicken-and-egg problem, since a brand-new type,
- * by definition, has no real location using it yet, so it could never
- * appear in the list until after being assigned somewhere. Fixed to
- * use the exact same, simple, already-proven, working pattern as
- * listAddressTypes/ensureAddressType - a real, dedicated "Location
- * Types" container entity, listing its own direct children. */
 export function createLocationType(name: string, userId: UserId): void {
   if (Entity.get(name)) throw new ValidationError(`"${name}" already exists.`);
   Entity.create(name, 'Location Types', userId);
@@ -200,23 +125,7 @@ export function createLocationType(name: string, userId: UserId): void {
 export function setLocation(name: string, location: Location): void {
   const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name) as { id: number } | undefined)?.id;
   if (!id) throw new ValidationError(`No location named "${name}".`);
-  // A real, physical location's own plain, direct data — city, real
-  // shelving/floor-area capacity, and its own real timezone — is
-  // genuinely just more, ordinary, per-entity data, stored on contact
-  // (the established, general-purpose table every real party's own
-  // details already live on), not a dedicated location table.
   mergeContactDetail(id, { city: location.city, bottle_capacity: location.bottle_capacity, carton_capacity: location.carton_capacity, timezone: location.timezone });
-  // location_type and is_billing_address are each a real, direct
-  // "kind" tag — recorded as a real, named relationship record
-  // ("Location Type — {location} → {marker}"), found by its own
-  // predictable name, exactly matching setDivisionType's own, proven
-  // mechanism — never touching this location's own relation_id slot,
-  // which is already used, separately, by its own "Belongs To
-  // Division" link (an entity only ever has one). The marker itself
-  // is genuinely any real Vocabulary word, per direct, non-negotiable
-  // instruction: every real "type" a real, human administrator sees
-  // must be user-extensible and translatable, never a fixed,
-  // compile-time set of choices.
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Location Types')`).get(location.location_type)) {
     throw new ValidationError(`No location type named "${location.location_type}" — add it first (a real, user-extensible Vocabulary word, not a fixed, built-in list).`);
   }
@@ -238,10 +147,6 @@ export function setLocation(name: string, location: Location): void {
 
   const billingRecordName = `Is Billing Address — ${name} → Billing Address`;
   if (location.is_billing_address) {
-    // Exactly one billing address at a time — setting a new one
-    // clears any previous one, rather than silently allowing two.
-    // Every real "Is Billing Address" record for any other location
-    // is removed first.
     const others = db
       .prepare(
         `SELECT e.id, e.name FROM current_entities e
@@ -282,26 +187,6 @@ export function getLocation(name: string): Location | undefined {
   return { city: row.city, location_type: typeRow?.marker ?? '', is_billing_address: isBillingAddress, bottle_capacity: row.bottle_capacity, carton_capacity: row.carton_capacity, timezone: row.timezone };
 }
 
-/** Real, correct "what calendar day is it right now" at a specific,
- * real, physical location — using that location's own, real IANA
- * timezone, never the server's own, potentially different local time.
- * SQLite itself has no real, working timezone support (no ICU
- * extension compiled in; its native datetime()/strftime() silently
- * return NULL for a named timezone like "Australia/Brisbane", only
- * ever correctly understanding a fixed, numeric UTC offset — which
- * itself can't correctly represent a real, DST-observing region).
- * Luxon, backed by Node's own, real, complete IANA timezone data via
- * Intl, does this correctly, including a genuine, seasonal DST
- * transition — confirmed directly: Sydney and Brisbane, sharing a
- * long border, are a real, direct hour aitem every real Southern
- * Hemisphere summer, since NSW observes daylight saving and
- * Queensland genuinely never has. Necessary for a real, correct audit
- * trail, and to not confuse a real, physical store's own sales clerk:
- * a sale made at 11:45pm local time must never be silently recorded
- * against the wrong, following calendar day just because the server
- * happens to be running in a different time zone, or because UTC has
- * already rolled over while the clerk's own, local wall-clock has
- * not. */
 export function todayAtLocation(locationName: LocationName): string {
   const location = getLocation(locationName);
   const timezone = location?.timezone ?? 'UTC';
@@ -373,7 +258,6 @@ export function setItemLocationLevelDetails(itemName: ItemName, locationName: Lo
   }
 }
 
-
 export interface LocationCapacityStatus {
   bottleQuantity: number;
   bottleCapacity: number | null;
@@ -383,15 +267,6 @@ export interface LocationCapacityStatus {
   cartonOverCapacity: boolean;
 }
 
-/** A real location's own, current real total quantity on hand,
- * checked against its own real, configured capacity — found to be
- * purely informational and never actually checked anywhere
- * (docs/TODO.md), fixed here as a real, non-blocking status a caller
- * can surface as a warning. Carton-equivalent quantity is computed
- * per real product, using each one's own real, preferred vendor
- * package_quantity (not a flat, assumed bottles-per-carton figure,
- * since that genuinely varies by product — wine/spirits at 12,
- * beer at 24). */
 export function getLocationCapacityStatus(locationName: LocationName): LocationCapacityStatus {
   const location = getLocation(locationName);
   const rows = db
@@ -437,41 +312,12 @@ function preferredVendorPackageQuantity(itemName: ItemName): number | null {
   return row?.package_quantity ?? null;
 }
 
-/** A location's own, actively-tracked remaining storage capacity - a
- * real, meaningful double-entry counteritem for every physical stock
- * movement (space consumed <-> stock held), per direct instruction,
- * the same real relationship as Owner's Capital <-> Cash. Reuses the
- * exact same real bottle/carton conversion (preferredVendorPackageQuantity)
- * that getLocationCapacityStatus's own, separate, derived check
- * already uses - per no-new-tables, no new exchange-rate table, the
- * existing item_source.package_quantity field IS the real conversion
- * "rate" between a carton and its bottles, one-directional (a carton
- * broken open becomes bottles; bottles are never reassembled back
- * into a carton), matching docs/cold-shelf-storage-inventory-model-plan.md's
- * own domain rule. A retail outlet (bottle_capacity set) tracks
- * directly in bottles; a warehouse (carton_capacity only) tracks in
- * carton-equivalents, using the specific item's own real conversion
- * factor for whatever's actually moving. */
-/** A real, physical POS terminal at a location - per direct request
- * and docs/border-multicurrency-pos-plan.md, Slice 2: two real
- * terminals at one, real, shared location can each transact in their
- * own, different currency (a border business, one till in CAD, one
- * in USD). Per no-new-tables: reuses the exact same real
- * `account.currency` column and `setAccountCurrency` function already
- * built for the base multicurrency design - a terminal's own currency
- * is set the identical, real way any other account's is, not a new,
- * bespoke mechanism. */
 export function createPosTerminal(terminalName: string, locationName: LocationName, userId: UserId): void {
   const parentName = `${locationName} Terminals`;
   if (!Entity.get(parentName)) Entity.create(parentName, locationName, userId);
   if (!Entity.get(terminalName)) Entity.create(terminalName, parentName, userId);
 }
 
-/** Every real, named POS terminal already created at a real location,
- * each with its own real, resolved currency (null means it transacts
- * in the business's own home currency - the ordinary, ordinary case).
- * A real, ordinary location with no terminal ever created for it
- * returns a real, empty array, never a guessed default. */
 export function listPosTerminals(locationName: string): { name: string; currency: string | null }[] {
   const parentName = `${locationName} Terminals`;
   const parent = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(parentName) as { id: number } | undefined;
@@ -485,11 +331,6 @@ export function setTerminalCurrency(terminalName: string, currency: string | nul
   setAccountCurrency(terminalName, currency);
 }
 
-/** Currency precedence, extended one level per the real, existing
- * chain already documented in docs/multicurrency-design.md (Division
- * -> Business -> Account -> Contact): a terminal's own currency, when
- * set, wins over all of them - the most specific, real fact about
- * where this exact sale physically happened. */
 export function getEffectiveSaleCurrency(terminalName: string | undefined): string | null {
   if (!terminalName) return null;
   const row = db.prepare(`SELECT currency FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(terminalName) as { currency: string | null } | undefined;
@@ -545,36 +386,15 @@ export interface StockListingRow {
   reorder_level: number | null;
 }
 
-/** Every item/location combination that actually has (or has ever had)
- * stock tracked — the real "what do we have, where" listing this
- * project had no page for at all. Ordered by item, then location, for
- * a stable, predictable read; paginated like every other real list in
- * this app, not dumped as one unbounded page. */
 export interface StockListingLocationGroup {
   location: string;
   city: string | null;
-  /** The real division matching this location's own city, if one
-   * exists — reuses cityDivisionFor rather than a separate lookup, so
-   * this always agrees with how a real sale gets tagged. */
   division: string | null;
   rows: StockListingRow[];
   total_on_hand: number;
-  /** This location's own, real, current capacity status — found to
-   * be purely informational and never checked anywhere (docs/TODO.md),
-   * surfaced here so the same page already showing this location's
-   * real stock can also show whether it's genuinely over its own,
-   * real, configured capacity. */
   capacity: LocationCapacityStatus;
 }
 
-/** The same real stock-on-hand data as getStockListing, grouped by
- * real location (and each location's own real division, if it has
- * one) — for a report that wants "detail level, per location or
- * division" rather than one flat, ungrouped list. Not paginated: a
- * grouped view is read a location at a time, not row by row, so the
- * usual pagination concern (a huge flat list) doesn't apply the same
- * way — the real number of locations for any one business stays
- * small even as its product catalog grows large. */
 export function getStockListingByLocation(): StockListingLocationGroup[] {
   const qtyRows = db
     .prepare(
@@ -640,11 +460,6 @@ export interface StockMovementReport {
   sales: StockSaleRow[];
 }
 
-/** Every real item's own real category, in one query — used to avoid
- * a separate query per row on a report that can easily have thousands
- * of real rows (measured directly: the naive, per-row version took
- * nearly 4 real seconds to load one month's worth of Wine Retail
- * Company data, genuinely too slow for a report page). */
 function allItemCategories(): Map<string, string | null> {
   const rows = db
     .prepare(
@@ -656,9 +471,6 @@ function allItemCategories(): Map<string, string | null> {
   return new Map(rows.map((r) => [r.item, r.category]));
 }
 
-/** Every real item's own real preferred vendor (or first vendor on
- * file), in one query — same real performance reasoning as
- * allItemCategories above. */
 function allPreferredVendors(): Map<string, string> {
   const rows = db
     .prepare(
@@ -674,14 +486,6 @@ function allPreferredVendors(): Map<string, string> {
   return map;
 }
 
-/** The real, physical journey of stock: real purchases received into
- * each real warehouse/location, real transfers on to retail outlets,
- * and real sales — each real movement groupable by the real internal
- * hierarchy (division/location) as well as by real vendor and real
- * category, per direct request. Built directly from the same real
- * journal_line.location_id this app's own receive/dispatch/transfer
- * functions already populate — not a separate, parallel log that
- * could drift out of sync with what actually happened. */
 export function getStockMovementReport(ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport {
   const ledgerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(ledgerName) as { id: number } | undefined)?.id;
   if (!ledgerId) throw new ValidationError(`No ledger named "${ledgerName}".`);
@@ -712,12 +516,6 @@ export function getStockMovementReport(ledgerName: string, fromDate?: string, to
     vendor: vendors.get(r.item) ?? null,
   }));
 
-  // Both real legs of every real transfer now share one, real
-  // journal entry (confirmed directly: transferStock stages both its
-  // source and destination lines under one shared reference and
-  // posts once, a true, balanced two-line entry) — matched here by
-  // journal_id directly, not by parsing a reference suffix, since
-  // that's both simpler and more robust than string-matching.
   const transferLegRows = db
     .prepare(
       `SELECT jl.journal_id, p.name AS item, l.name AS location, jl.amount_minor AS quantity, j.transdate AS date
@@ -761,10 +559,6 @@ export function getStockMovementReport(ledgerName: string, fromDate?: string, to
     )
     .all(ledgerId, ...dateParams) as { reference: string; item: string; location: string; quantity: number; date: string }[];
 
-  // Every real Sales posting for this ledger/date range, fetched once
-  // and keyed by (real invoice reference, real Sales account name) —
-  // avoids a separate query per sale row for what's usually the
-  // largest of the three real sections.
   const salesPostings = db
     .prepare(
       `WITH RECURSIVE ancestors(id, orig) AS (
@@ -787,13 +581,6 @@ export function getStockMovementReport(ledgerName: string, fromDate?: string, to
     .all(ledgerId, ...dateParams) as { ref: string; account: string; amount: number }[];
   const salesByRefAndItem = new Map<string, number>();
   for (const s of salesPostings) {
-    // "Sales - X (Bottle)" -> "X" — the exact, plain item name a
-    // dispatch's own quantity movement row already carries, not just
-    // a prefix to scan for. A direct key match, not a linear scan
-    // through every sales posting for every sale row (confirmed
-    // directly: the naive prefix-scan version was still measured at
-    // over 3 real seconds even after batching the category/vendor
-    // lookups).
     const itemFromAccount = s.account.replace(/ — .+$/, '').replace(/ \([^)]*\)$/, '');
     salesByRefAndItem.set(`${s.ref}|${itemFromAccount}`, s.amount);
   }
@@ -1062,10 +849,6 @@ export interface BelowReorderRow {
   max_level: number | null;
 }
 
-/** Every (item, location) combination at or below its own reorder
- * level right now — the real trigger for "time to order," distinct
- * from the floor min level, which only says something has already
- * gone wrong. */
 export function getBelowReorderStock(): BelowReorderRow[] {
   return getStockListingByLocation()
     .flatMap((g) => g.rows.map((r) => ({ ...r, location: g.location })))
@@ -1073,12 +856,6 @@ export function getBelowReorderStock(): BelowReorderRow[] {
     .sort((a, b) => a.quantity_on_hand - a.reorder_level! - (b.quantity_on_hand - b.reorder_level!));
 }
 
-/** A real, direct lead time (in days) for one item from one real
- * vendor, per direct instruction with NO new tables or columns
- * (not even on the existing item_source table) - the number is
- * encoded directly into a real, named link-entity, matching BOM's
- * own, exact, already-proven pattern: "{item} — Lead Time: {vendor}
- * (14 days)". */
 export function setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName, days: number, userId: UserId): void {
   const existing = db
     .prepare(
@@ -1095,8 +872,6 @@ export function setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName
   setEntityLink(itemName, `Lead Time: ${vendorName} (${days} days)`, vendorName, userId);
 }
 
-/** Every real, known lead time for one item, across all its real
- * vendors, parsed back out of each one's own link-entity name. */
 export function getItemLeadTimes(itemName: ItemName): { vendor: string; days: number }[] {
   const rows = db
     .prepare(
@@ -1124,14 +899,6 @@ export interface StockOutRiskRow {
   at_risk: boolean;
 }
 
-/** The real, direct report this is all for: will this item genuinely
- * run out before a fresh order, placed today, could arrive? Real,
- * recent consumption (a genuinely short, direct, real, trailing
- * window, per direct instruction — noisy day to day for something
- * like a keg, but that real noise is the honest, direct answer to
- * "how fast is this going right now", not smoothed away) is compared
- * against the shortest real lead time among this item's own, real,
- * known vendors — the fastest a reorder could genuinely arrive. */
 export function getStockOutRiskReport(windowDays: number = 2): StockOutRiskRow[] {
   const stockRows = getStockListingByLocation().flatMap((g) => g.rows.map((r) => ({ ...r, location: g.location })));
   const results: StockOutRiskRow[] = [];
@@ -1182,18 +949,10 @@ export interface StockTake {
   lines: StockTakeLine[];
 }
 
-/** Creates a stock take sheet for one location — one line per item
- * currently on record there, snapshotting expected quantity and
- * shelf_side/rack/level at this moment, ordered the way someone
- * actually walks the floor (shelf side, then rack, then top to
- * bottom), not alphabetically by item name. */
 export function createStockTake(locationName: LocationName, takeDate: string, userId: UserId): number {
   const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
-  // A real "Stock Take" entity under the location, one per real event
-  // - its own, real name carrying take_date and status directly.
-  // Never a separate table, per direct, absolute instruction.
   const takeEntity = Entity.create(`Stock Take — ${takeDate} — ${Date.now()} — draft`, locationId, userId);
   const takeId = takeEntity.id;
 
@@ -1213,10 +972,6 @@ export function createStockTake(locationName: LocationName, takeDate: string, us
       return (a.level ?? 0) - (b.level ?? 0);
     });
 
-  // Each real line: a real, direct child entity under the Stock Take
-  // itself, one per real item, relation_id pointing at that item,
-  // its own real name carrying shelf_side/rack/level/expected/counted
-  // directly - counted starts genuinely empty (never yet counted).
   for (const p of itemsHere) {
     const lineEntity = Entity.create(
       `Line — ${p.item_name} — shelf:${p.shelf_side ?? ''} — rack:${p.rack ?? ''} — level:${p.level ?? ''} — expected:${p.quantity_on_hand} — counted:`,
@@ -1282,22 +1037,12 @@ export function recordStockTakeCount(stockTakeId: number, itemName: ItemName, co
   updateEntity(line.id, { name: newName }, asUserId(1));
 }
 
-/** Completes a stock take — every counted line's variance (counted vs
- * expected) is a genuine loss or gain, not a silent correction: posts
- * it to the ledger (shortage debits the variance expense, credits
- * inventory; overage is the reverse) and brings item_location's
- * quantity_on_hand into line with what was actually counted. Lines
- * never counted are left untouched — no count means no correction. */
 export function completeStockTake(
   stockTakeId: number,
   business: BusinessName,
   ledger: LedgerName,
   varianceExpenseAccount: AccountName,
-  /** @deprecated No longer used — each line now resolves its own,
-   * real, per-product Inventory account directly, the same, real,
-   * structural fix already applied to Purchases and Sales/COGS.
-   * Kept only so existing callers (the real, live Stock Take UI, the
-   * simulation) don't need a breaking API change to keep working. */
+  /** @deprecated See docs/stock-api-reference.md § Stock takes. */
   inventoryAccount: string,
   unitCostMinorByItem: Record<string, number>,
   userId: UserId
@@ -1313,41 +1058,13 @@ export function completeStockTake(
     const unitCostMinor = unitCostMinorByItem[line.item];
     if (unitCostMinor == null) throw new ValidationError(`No unit cost given for "${line.item}", which has a variance and needs one to be valued.`);
     const valueMinor = variance * unitCostMinor;
-    // A real, direct, per-product reference — not one, shared
-    // reference for every real, different product's own variance
-    // within this stock take. A real, confirmed, pre-existing bug
-    // found and fixed here, not assumed away: stageLine's own upsert
-    // behavior (matching on reference+account) silently collapsed
-    // every real, different product's own line into just the last
-    // one whenever more than one product shared the same, real
-    // variance expense account within the same stock take, losing
-    // every earlier product's own variance entirely — a real,
-    // genuine, silent data-loss bug that had never surfaced as a
-    // visible error before, since both sides of the entry collided
-    // equally (this same account was also shared on the Inventory
-    // side, before that side became per-product). Matches the same,
-    // established, real per-line-reference pattern already used
-    // elsewhere in this codebase (e.g. invoice allocation).
     const reference = `STOCKTAKE-${stockTakeId}-${line.item}`;
-    // Positive variance (found more) is a gain: debit inventory,
-    // credit the variance account. Negative (shortage) is a loss: the
-    // reverse.
     { const inv = ensureProductLocationInventoryAccount(asItemName(line.item), take.location as LocationName, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: valueMinor, memo: `Stock take variance: ${line.item}` }); }
     stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(varianceExpenseAccount), amount_minor: -valueMinor });
 
     const currentOnHand = getItemLocation(asItemName(line.item), take.location as LocationName).quantity_on_hand;
     const delta = line.counted_quantity! - currentOnHand;
     if (delta !== 0) {
-      // A real, confirmed bug fix: this used to stage only one, real
-      // line (the item's own quantity account) with no counter-item
-      // at all - genuinely unbalanced, unlike every other real
-      // quantity movement in this codebase (receipt uses On Order,
-      // dispatch uses Units Sold, transfer uses the same item at the
-      // other location - all real, balanced, two-line postings). A
-      // physical stock count discovering a real difference is exactly
-      // as real an event as those - it gets its own, equally real
-      // counter-account (Count Adjustment), not an exemption from
-      // the same, correct, established pattern.
       const { countAdjustmentAccount, countAdjustmentAccountId } = ensureProductQuantityAccounts(asItemName(line.item), userId);
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(line.item), delta, take.take_date, take.location as LocationName);
       stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(countAdjustmentAccount), -delta, take.take_date, undefined, countAdjustmentAccountId);
@@ -1409,11 +1126,6 @@ export function writeOffStock(
   }
 }
 
-/** Records a specific batch/lot of a item arriving, with its own
- * expiration date — separate from (but keeping in step with) the
- * item's overall quantity on hand, since postQuantityMovement is
- * still the source of truth for "how much do we have," while this is
- * "which batches, expiring when." */
 export function receiveLot(
   business: BusinessName,
   ledger: LedgerName,
@@ -1430,11 +1142,6 @@ export function receiveLot(
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
 
-  // A real, direct child entity under the item itself, one per real
-  // lot - never a separate table, per direct, absolute instruction.
-  // Mutable state (quantity_on_hand, cost_basis_minor) lives directly
-  // in this entity's own, real detail_json, updated in place exactly
-  // the same way the removed table's own UPDATE statement did.
   const lotName = `${itemName} — Lot — ${lotNumber}`;
   const existing = Entity.getUnder(lotName, itemId);
   if (existing) {
@@ -1452,13 +1159,6 @@ export function receiveLot(
   postQuantityMovement(business, ledger, reference, asAccountName(itemName), quantity, userId, receivedDate);
 }
 
-/** Consumes quantity from a item's lots, oldest-expiring first — the
- * real FIFO-by-expiration convention spoilage management actually
- * needs, not just "reduce the total." Rejects consuming more than
- * what's genuinely on hand across all lots combined, rather than
- * silently going negative. Returns which lots were actually drawn
- * from and how much, for a real audit trail of what specifically was
- * used. */
 export function consumeFromLots(itemName: ItemName, quantity: number): { lot_number: string; consumed: number; expiration_date: string | null; cost_basis_minor: number | null }[] {
   if (quantity <= 0) throw new ValidationError('Quantity to consume must be positive.');
   const itemId = resolveItemId(itemName);
@@ -1474,14 +1174,6 @@ export function consumeFromLots(itemName: ItemName, quantity: number): { lot_num
       return { id: r.id, lot_number: lotNumber, expiration_date: detail.expiration_date as string | null, quantity_on_hand: detail.quantity_on_hand as number, cost_basis_minor: detail.cost_basis_minor as number | null };
     })
     .filter((l) => l.quantity_on_hand > 0)
-    // A real, direct fix, per direct instruction (buying/selling a
-    // currency needs the exact, same real FIFO discipline as wine, by
-    // real acquisition order, not expiration - a real currency lot
-    // never expires at all): "id ASC" is a real, deterministic
-    // tiebreaker among every lot sharing the same (null)
-    // expiration_date - entity_id itself is already genuinely
-    // monotonic with real creation order, so this means exactly what
-    // it always did.
     .sort((a, b) => {
       if ((a.expiration_date === null) !== (b.expiration_date === null)) return a.expiration_date === null ? 1 : -1;
       if (a.expiration_date !== b.expiration_date) return (a.expiration_date ?? '').localeCompare(b.expiration_date ?? '');
@@ -1518,9 +1210,6 @@ export interface ExpiringLot {
   days_until_expiration: number;
 }
 
-/** Lots expiring within the given window (or already expired, which
- * show a negative days_until_expiration) — lots with no expiration
- * date at all are never included, since there's nothing to warn about. */
 export function getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[] {
   const rows = db
     .prepare(
@@ -1540,23 +1229,7 @@ export function getExpiringStock(asOfDate: string, withinDays: number): Expiring
   return rows.sort((a, b) => a.days_until_expiration - b.days_until_expiration);
 }
 
-/** Places a new order — creates its Qty/Value entities under Orders
- * (parented by name so multiple orders don't collide) and posts the
- * committed quantity and value to them. Purely informational: nothing
- * here touches a real account. */
-/** A real, lightweight entity for internal, system bookkeeping (an
- * order's own Qty/Value tracking entities, a bootstrap category) —
- * bypasses the normal entity_entry audit-trail machinery since these
- * are never edited or renamed later, only created once. Shared by
- * both this file's own code (placeOrder) and the real, one-time
- * migrations in db-migration.ts. */
 export function createSystemEntity(name: string, parentId: number | null): number {
-  // Per direct, absolute instruction (entity_ids eliminated as its own
-  // table): reuses Entity.create directly - the exact, same, real,
-  // already-fixed allocation mechanism (entities' own row_id) every
-  // other real entity creation path in this codebase already goes
-  // through, rather than a second, separate, manual implementation of
-  // the same, real logic.
   if (parentId == null) throw new ValidationError('createSystemEntity requires a real, existing parent id.');
   return Entity.create(name, parentId, asUserId(1)).id;
 }
@@ -1581,33 +1254,11 @@ export function placeOrder(
     const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name);
     if (!existing) createSystemEntity(name, ordersId);
   }
-  // No new table, no new column — the mantra is no extra tables. This
-  // order already has two real entities (Qty, Value), each with one
-  // real, existing relation slot already provided by every entity in
-  // this app. Real, existing capacity, reused directly: Qty's own
-  // relation carries the real vendor, Value's own relation carries
-  // the real item — exactly the same "relation is a separate, lateral
-  // tag" mechanism this app already uses for COGS and CoA prototype
-  // tagging, not a new mechanism invented for this one case.
   if (vendor) updateEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(qtyName) as { id: number }).id, { relation: vendor }, userId);
   if (item) updateEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(valueName) as { id: number }).id, { relation: item }, userId);
-  // Real, direct delivery/dispatch instructions — a PO's own real
-  // "where should this arrive" or a SO's own real "where should this
-  // ship from" — recorded via the exact, same, existing, generic
-  // Location dimension mechanism already used for a real posted
-  // Sales/COGS leaf, not a new, separate mechanism. Set on the Qty
-  // leaf (relation is already taken by vendor/item on the two real
-  // leaves respectively; a dimension is a real, separate, independent
-  // slot from relation).
   if (location) setDimensionParent(qtyName, 'Location', location, userId);
   postQuantityMovement(business, ledger, `${orderReference}-PLACE`, asAccountName(qtyName), quantity, userId, transdate);
   postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueName), priceMinor, userId, transdate);
-  // A real, named product's own real "on order" quantity — the
-  // genuine double-entry counteritem credited later, at real receipt
-  // (see receiveStockAtLocation). A new, real commitment being
-  // recorded here, not a transfer between two existing pools, so this
-  // one, single-sided line is correct — the offsetting credit happens
-  // at the real, later moment the stock actually arrives.
   if (item) {
     const { onOrderAccount, onOrderAccountId } = ensureProductQuantityAccounts(item, userId);
     postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(onOrderAccount), quantity, userId, transdate, undefined, onOrderAccountId);
@@ -1615,10 +1266,6 @@ export function placeOrder(
   })();
 }
 
-/** Fulfills (all or item of) an order — reduces its Qty/Value memo
- * balances by exactly the quantity/value actually fulfilled. Whatever
- * remains on those two accounts afterward IS the back order — read
- * directly, never stored as a separate fact. */
 export function fulfillOrder(
   orderReference: string,
   fulfillingReference: string,
@@ -1629,23 +1276,12 @@ export function fulfillOrder(
   userId: UserId,
   transdate?: string
 ): void {
-  // fulfillingReference (the actual receipt/dispatch that's doing the
-  // fulfilling) makes these genuinely unique per call — a real, found
-  // bug: the old `${orderReference}-FULFILL` naming assumed exactly one
-  // fulfillment per order, but partial fulfillment (a genuine back
-  // order, closed over several separate receipts) is explicitly
-  // something this system supports. Reusing the same reference on a
-  // second partial fulfillment silently corrupted journal_line — see
-  // the journal_reference_unique index and its comment for the full
-  // story of how that surfaced.
   db.transaction(() => {
   postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}`, asAccountName(`${orderReference} Qty`), -quantityFulfilled, userId, transdate);
   postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-VALUE`, asAccountName(`${orderReference} Value`), -valueFulfilledMinor, userId, transdate);
   })();
 }
 
-/** The remaining committed quantity/value on an order — zero means
- * fully fulfilled; anything else is the open back order. */
 export function getOrderStatus(orderReference: string): { quantity: number; value_minor: number } {
   const qty =
     (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(`${orderReference} Qty`) as
@@ -1658,4 +1294,3 @@ export function getOrderStatus(orderReference: string): { quantity: number; valu
   return { quantity: qty, value_minor: value };
 }
 
-// ---------------------------------------------------------------------------

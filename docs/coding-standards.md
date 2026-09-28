@@ -145,7 +145,12 @@ leave pointers dangling.
 ### How it is measured and enforced
 
 - `make measure-comments` reports comment lines per file and how many files
-  are migrated. It changes nothing.
+  are migrated. It changes nothing. **A file is "migrated" when it has a pointer
+  to the manual and no prose comments of its own.** Pointer lines, `@deprecated`
+  tags and directives (`@ts-ignore`, lint directives) are structure, not prose.
+  (An earlier definition, "no more than six comment lines", wrongly excluded a
+  file whose only comments were its pointers, and wrongly included one that
+  still carried a few lines of prose.)
 - `make show-comments FILE=<path> [FROM=<line> TO=<line>]` lists one file's
   comment lines with their exact text and line numbers. Use it before migrating:
   it shows precisely what has to land in the manual first, and gives the exact
@@ -166,6 +171,43 @@ leave pointers dangling.
 A caution about the coverage check itself: it counts a symbol as documented if
 it is *mentioned* anywhere in the manual, including inside a generated report.
 That satisfies the checker, not the intent. A real entry explains the symbol.
+
+### How a file is migrated
+
+The order matters more than the tool: **content first, then removal.**
+
+1. `make show-comments FILE=<path>` lists the file's comments with their exact text.
+2. Write or extend a manual chapter so that every fact those comments carry is in it,
+   organised by function, in the order the code has them. Record anything wrong or
+   contradictory that you find, rather than copying it forward. Register the chapter in
+   `scripts/build-programmer-manual.ts`.
+3. `make strip-comments FILE=<path.ts> DOC=<docs/chapter.md> DRY=1` previews. Drop `DRY=1`
+   to apply it.
+4. `make check-unused`, then `make test`. Then `make verify-fresh`.
+
+`make strip-comments` removes only **whole-line comments**, and it will not run unless the
+chapter exists and is registered in the manual builder, so removal cannot outrun
+documentation. It finds comments with the TypeScript compiler's own parser rather than a
+line scan, so SQL inside a template string is never mistaken for a comment. It keeps
+functional comments (`@ts-ignore`, lint and reference directives, `@deprecated`, existing
+pointers), and it prepends the file's pointer header. A **multi-line `@deprecated` block** is
+kept, because the tag drives editor tooling, but the tool reports it as "needs hand-editing":
+the tag should be reduced to one line naming the manual section, since the rest is prose.
+(It once kept a five-line paragraph that way, unreported.)
+
+Its safety property is that **the code must be provably unchanged**: it compares the file with
+every comment and all whitespace stripped, before and after, and writes nothing if they differ.
+That check has only ever been seen to pass; it cannot be triggered by comment removal alone,
+so the type-check and the test suite remain the real proof. Comments trailing a line of code
+(`foo(); // note`) are deliberately left alone and are not counted as comments by
+`measure-comments`; they still need migrating by hand. It handles `.ts` files only, not
+`.svelte`.
+
+Found by using it: a hand-written chapter is what surfaces the wrong comments. Migrating
+`db-stock.ts` turned up detached doc blocks, an orphaned doc of a replaced function, stale
+names, words corrupted by a mechanical rename ("aitem"), and a comment endorsing a single-sided
+posting that conflicts with the standing rule. None of that would have shown in a mechanical
+deletion.
 
 ### The order to migrate in, and where it stands
 

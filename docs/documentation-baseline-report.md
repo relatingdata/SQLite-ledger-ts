@@ -112,7 +112,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `deleteTypedPhone` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function deleteTypedPhone(entityName: string, phoneType: string, userId: UserId): void` |
 | `deleteVocabularyPreference` | `backend/src/db.ts` | `backend/src/routes/i18n.ts` | `function deleteVocabularyPreference(conceptName: string, scope: 'business' \| 'user', scopeId: number): void` |
 | `dispatchOrderFromPickingList` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function dispatchOrderFromPickingList(invoiceId: number, locationName: LocationName, revenueAccount: string, taxAccount: string, userId: UserId): void` |
-| `ensureAddressType` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function ensureAddressType(typeName: string, userId: UserId): void` |
+| `ensureAddressType` | `backend/src/db.ts` | (none) | `function ensureAddressType(typeName: string, userId: UserId): void` |
 | `ensureContactPersonType` | `backend/src/db.ts` | (none) | `function ensureContactPersonType(typeName: string, userId: UserId): void` |
 | `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts` | `function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): ` |
 | `ensurePhoneType` | `backend/src/db.ts` | (none) | `function ensurePhoneType(typeName: string, userId: UserId): void` |
@@ -169,7 +169,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getStockTake` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockTake(id: number): StockTake \| undefined` |
 | `getVocabularyAlternates` | `backend/src/db.ts` | `backend/src/routes/i18n.ts` | `function getVocabularyAlternates(wordName: string): string[]` |
 | `hashPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/db.ts` | `function hashPassword(password: string): string` |
-| `listAddressTypes` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/routes/contacts.ts` | `function listAddressTypes(): string[]` |
+| `listAddressTypes` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function listAddressTypes(): string[]` |
 | `listContactPersonTypes` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function listContactPersonTypes(): string[]` |
 | `listItemSources` | `backend/src/db.ts` | `backend/src/routes/items.ts` | `function listItemSources(itemName: string): ItemSource[]` |
 | `listPendingCustomers` | `backend/src/db.ts` | `backend/src/routes/customer-registration.ts` | `function listPendingCustomers(): PendingCustomer[]` |
@@ -185,7 +185,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `removeContactType` | `backend/src/db.ts` | (none) | `function removeContactType(contactName: string, typeName: string, userId: UserId): void` |
 | `requireAuth` | `backend/src/auth-middleware.ts` | `backend/src/routes/auth.ts`, `backend/src/routes/i18n.ts`, `backend/src/server.ts` | `function requireAuth(req: Request, res: Response, next: NextFunction): void` |
 | `resetReminderLevel` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function resetReminderLevel(customerName: string): void` |
-| `setDivisionType` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/routes/divisions.ts` | `function setDivisionType(divisionNameOrId: string \| EntityId, typeMarkerName: string): void` |
+| `setDivisionType` | `backend/src/db.ts` | `backend/src/routes/divisions.ts` | `function setDivisionType(divisionNameOrId: string \| EntityId, typeMarkerName: string): void` |
 | `setEmployeeSchedule` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function setEmployeeSchedule(employeeName: string, locationName: string, schedule: ScheduleLine[]): void` |
 | `setItemLocationLevelDetails` | `backend/src/db-stock.ts` | (none) | `function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>): void` |
 | `setItemLocationLevels` | `backend/src/db-stock.ts` | `backend/src/db-seed.ts`, `backend/src/routes/locations.ts` | `function setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: {     minLevel?: number \| null;     maxLevel?: number \| null;     reorderLevel?: number \| null;     shelfSide?: string \| null;     rack?: string \| null;     level?: number \| null;   }): void` |

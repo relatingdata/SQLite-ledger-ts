@@ -19,6 +19,7 @@ const PARTS: [string, string[]][] = [
     'coding-standards.md',
     'entity-model.md',
     'journal-api-reference.md',
+    'stock-api-reference.md',
     'skill-step-runner-design.md',
     'entity-chains.md',
     'money-model.md',

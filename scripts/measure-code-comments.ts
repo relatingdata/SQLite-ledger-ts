@@ -1,16 +1,4 @@
-// Measures code comments: per file, how many lines are comments versus code,
-// and how many comment lines already point at the Programmer's Manual.
-//
-// The convention this supports (docs/coding-standards.md, "Where explanation
-// lives"): a source or test file carries a short pointer to the manual section
-// that explains it, and the explanation itself lives in the manual, next to the
-// documentation of the tests that prove it.
-//
-// A file is "migrated" when it has a pointer near the top and its comment lines
-// are only that pointer (a handful at most). A file is "unmigrated" when it
-// carries substantial comments of its own.
-//
-// Run via `make measure-comments`. Reports only; it changes nothing.
+// Docs: docs/coding-standards.md § How it is measured and enforced
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +8,9 @@ const SCAN_DIRS = ['backend/src', 'backend/test', 'backend/scripts', 'frontend/s
 const SKIP_DIRS = new Set(['node_modules', '.git', '.svelte-kit', 'dist', 'data', 'test-results', 'playwright-report']);
 const EXTENSIONS = ['.ts', '.svelte', '.js', '.sql'];
 const POINTER = /docs\/[\w./-]+\.md|Programmer'?s Manual/i;
-const MIGRATED_MAX_COMMENT_LINES = 6; // a pointer plus a few lines still counts as migrated
+// Comment lines that are structure rather than prose: the pointer itself (and its
+// header sentence), @deprecated tags, and directives the tools act on.
+const STRUCTURAL = /docs\/[\w./-]+\.md|Programmer'?s Manual|The full,? (real )?documentation|@deprecated|@ts-|eslint|prettier|\/\/\/\s*</i;
 
 function walk(dir: string, out: string[] = []): string[] {
   let names: string[];
@@ -71,7 +61,7 @@ function areaOf(rel: string): string {
 const rows: Row[] = [];
 for (const file of SCAN_DIRS.flatMap((d) => walk(join(ROOT, d)))) {
   const rel = relative(ROOT, file).split(sep).join('/');
-  let code = 0; let comments = 0; let pointers = 0; let inBlock = false;
+  let code = 0; let comments = 0; let pointers = 0; let prose = 0; let inBlock = false;
   for (const raw of readFileSync(file, 'utf-8').split('\n')) {
     const line = raw.trim();
     if (!line) continue;
@@ -81,9 +71,9 @@ for (const file of SCAN_DIRS.flatMap((d) => walk(join(ROOT, d)))) {
       isComment = true;
       if ((line.startsWith('/*') && !line.includes('*/')) || (line.startsWith('<!--') && !line.includes('-->'))) inBlock = true;
     }
-    if (isComment) { comments++; if (POINTER.test(line)) pointers++; } else code++;
+    if (isComment) { comments++; if (POINTER.test(line)) pointers++; if (!STRUCTURAL.test(line)) prose++; } else code++;
   }
-  rows.push({ file: rel, area: areaOf(rel), code, comments, pointers, migrated: pointers > 0 && comments <= MIGRATED_MAX_COMMENT_LINES });
+  rows.push({ file: rel, area: areaOf(rel), code, comments, pointers, migrated: pointers > 0 && prose === 0 });
 }
 
 const pad = (s: string | number, n: number) => String(s).padStart(n);
