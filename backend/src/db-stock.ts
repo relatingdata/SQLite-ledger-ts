@@ -496,14 +496,7 @@ export function getEffectiveSaleCurrency(terminalName: string | undefined): stri
   return row?.currency ?? null;
 }
 
-/** Per direct, absolute instruction: the new, real "Storage Capacity"
- * structure (§18, docs/storage-space-as-currency-design.md) entirely
- * replaces this real, earlier, flat mechanism - never unified alongside
- * it. A real location's own opening capacity is a simple, direct
- * "Bottle" or "Carton" leaf under its own real "Remaining"/"Installed"
- * pair (ensureStorageCapacityStructure) - genuinely amplified by the
- * real Cartesian Product the moment a business also defines further,
- * real dimensions (Hot/Cold, and so on) for this same location. */
+// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; occupiedAccountId: number; unit: 'bottle' | 'carton' } {
   const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
@@ -531,25 +524,12 @@ export function ensureLocationCapacityAccount(business: BusinessName, ledger: Le
   return { capacityAccount: entity.name, capacityAccountId: entity.id, occupiedAccountId: occupied.id, unit };
 }
 
-/** Adjusts a location's own real, tracked remaining capacity by
- * whatever a real stock movement actually consumed or freed.
- * itemQuantityDelta is in the item's own base unit (bottles) - positive
- * when stock is arriving (receipt, transfer-in), negative when leaving
- * (dispatch, write-off, transfer-out, a stock-take shortfall).
- * Capacity moves the opposite direction: arriving stock consumes real,
- * remaining space; leaving stock frees it back up. */
+// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void {
   if (itemQuantityDelta === 0) return;
   const { capacityAccount, capacityAccountId, occupiedAccountId, unit } = ensureLocationCapacityAccount(business, ledger, locationName, userId);
   const conversionFactor = unit === 'carton' ? preferredVendorPackageQuantity(itemName) ?? 12 : 1;
   const capacityDelta = -(itemQuantityDelta / conversionFactor);
-  // Per direct instruction that this is fundamental and must be
-  // completed fully: no real posting is ever single-sided. Arriving
-  // stock (capacityDelta negative) frees nothing and consumes real,
-  // existing Remaining space, occupying it instead - a real, genuine,
-  // balanced two-line entry against "Occupied," never "Installed"
-  // (which only changes when real, physical capacity itself is built
-  // or removed, never for an ordinary stock movement).
   const reference = `${referenceSuffix}-CAPACITY-${locationName}`;
   stageLine({ reference, business, ledger, transdate, account: asAccountName(capacityAccount), accountId: capacityAccountId, amount_minor: capacityDelta });
   stageLine({ reference, business, ledger, transdate, account: asAccountName(capacityAccount), accountId: occupiedAccountId, amount_minor: -capacityDelta });
@@ -887,25 +867,7 @@ export function setItemLocationLevels(
   );
 }
 
-/** Receives stock at a specific location — updates that location's own
- * quantity_on_hand (item_location) as well as the item's overall
- * quantity (via postQuantityMovement, still the source of truth for
- * "how much do we have in total across everywhere"), adjusts that
- * location's own real remaining storage capacity, and, when this is a
- * receipt of a specific, real combination, additionally posts a real,
- * balanced Inventory-value entry against Accounts Payable. Every real
- * write here happens in one, single, atomic db.transaction() — this
- * used to be several, real, separate steps that could diverge if
- * interrupted partway through (a quantity movement posting while its
- * own capacity adjustment or value entry never happened). */
-/** Per direct instruction that this is fundamental and must be
- * completed fully: real unit counts, for a real, specific combination,
- * are a real currency too, exactly like the real dollar value already
- * tracked alongside them - never posted alone, single-sided. "On Hand"
- * (the count itself) and "Received From" (its real, genuine, balanced
- * counterpart - where these real units came from) live directly under
- * this specific business, mirroring Storage Capacity's own real
- * structure exactly. */
+// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 function ensureUnitsTrackingBaseAccounts(business: BusinessName, userId: UserId): { onHandId: number; receivedFromId: number } {
   const businessEntity = fetch(business, typeBusinessName, fetch('Businesses', typeRootName));
   const onHand = (Entity.getUnder('Units On Hand', businessEntity.id) ?? create(businessEntity as TypedNode<string>, typeRootName, 'Units On Hand', userId)) as { id: number; name: string };
@@ -913,6 +875,7 @@ function ensureUnitsTrackingBaseAccounts(business: BusinessName, userId: UserId)
   return { onHandId: onHand.id, receivedFromId: receivedFrom.id };
 }
 
+// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function receiveStockAtLocation(
   business: BusinessName,
   ledger: LedgerName,
@@ -932,15 +895,6 @@ export function receiveStockAtLocation(
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
   db.transaction(() => {
-  // A real, balanced, two-line posting — debit this product's own
-  // real, physical on-hand quantity at the location it actually
-  // arrived at, credit its own real "on order" quantity by the same
-  // amount. Genuine double-entry: "on order" is a real, independently
-  // meaningful fact (built up separately, when a real PO is placed —
-  // see placeOrder), not an invented counteritem. A real receipt with
-  // no matching PO ever placed (a real, honest possibility — an
-  // emergency, unplanned purchase) simply drives on-order negative,
-  // which is itself a real, meaningful signal, not an error.
   const date = transdate ?? todayAtLocation(locationName);
   assertPeriodOpen(business, ledger, date);
   const { onOrderAccount, onOrderAccountId } = ensureProductQuantityAccounts(itemName, userId);
@@ -949,13 +903,6 @@ export function receiveStockAtLocation(
   postStagedQuantityMovement(business, ledger, reference, userId);
   adjustLocationCapacity(business, ledger, locationName, itemName, quantity, date, userId, reference);
 
-  // Per direct instruction: "the moment stock is first received for
-  // this exact, real combination" - a real, financial Inventory value
-  // build-up for the specific, real combination this stock is, not
-  // merely the quantity movement above. Uses this item's own, real,
-  // known unit cost (the same, real source ensureProductLocationLeaf
-  // itself uses for COGS) - a genuinely new item with no known cost
-  // registered yet simply doesn't build up a real, fabricated value.
   if (combinationValues && combinationShape) {
     const instanceTop = ensureProductInstance(business, combinationShape, combinationValues, userId);
     const unitCostMinor = getProductUnitCostMinor(itemName);
@@ -963,26 +910,11 @@ export function receiveStockAtLocation(
       const valueMinor = quantity * unitCostMinor;
       const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId);
       const valueRef = `${reference}-VALUE`;
-      // A real, balanced, two-line entry - the same, real, standard
-      // double-entry counter-account any real inventory receipt uses:
-      // debit Inventory (a real asset just arrived), credit Accounts
-      // Payable (a real, corresponding liability - the business now
-      // genuinely owes its vendor for this stock). Resolved by its
-      // own, real, explicit id - per direct, confirmed finding,
-      // "Accounts Payable" is genuinely ambiguous by bare name alone
-      // (a real Vocabulary word and its own translation both share
-      // the identical name).
       const apId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Accounts Payable' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Liability')`).get() as { id: number }).id;
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(invLeaf.name), accountId: invLeaf.id, amount_minor: valueMinor, memo: `Combination stock receipt: ${itemName}` });
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName('Accounts Payable'), accountId: apId, amount_minor: -valueMinor, memo: `Combination stock receipt: ${itemName}` });
       postJournalEntry(valueRef, business, ledger, userId);
     }
-    // Per direct instruction that the real Location x Item Cartesian
-    // Product must appear under Inventory in parallel currency AND
-    // count amounts: a real, second, genuinely balanced entry, in its
-    // own real currency, tracking the real unit count itself,
-    // entirely separate from the dollar value above - never
-    // "un-balanced," matching every other real posting this session.
     const { onHandId, receivedFromId } = ensureUnitsTrackingBaseAccounts(business, userId);
     const unitsOnHand = ensureCombinationAccountLeaf('On Hand', instanceTop, userId, onHandId);
     const receivedFrom = ensureCombinationAccountLeaf('On Hand', instanceTop, userId, receivedFromId);
@@ -997,14 +929,7 @@ export function receiveStockAtLocation(
   })();
 }
 
-/** Dispatches stock from a specific location — the mirror of
- * receiveStockAtLocation. Rejects dispatching more than what's
- * genuinely on hand at that specific location (a warehouse might have
- * plenty overall while this one location has none). A real, balanced,
- * two-line posting — credits this product's own real on-hand
- * quantity at the location it actually left, debits its own real
- * "units sold" quantity by the same amount, the genuine double-entry
- * counteritem mirroring COGS on the quantity side. */
+// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function dispatchStockFromLocation(
   business: BusinessName,
   ledger: LedgerName,
@@ -1032,12 +957,6 @@ export function dispatchStockFromLocation(
   postStagedQuantityMovement(business, ledger, reference, userId);
   adjustLocationCapacity(business, ledger, locationName, itemName, -quantity, date, userId, reference);
 
-  // Per direct instruction that this is fundamental and must be
-  // completed fully, mirroring receiveStockAtLocation's own, real,
-  // combination code path exactly, reversed: dispatching a real,
-  // specific combination frees the exact, same, real Inventory value
-  // and real unit count that receiving it built up - never assumed
-  // symmetrical, genuinely posted the same way, in reverse.
   if (combinationValues && combinationShape) {
     const instanceTop = ensureProductInstance(business, combinationShape, combinationValues, userId);
     const unitCostMinor = getProductUnitCostMinor(itemName);
@@ -1065,12 +984,7 @@ export function dispatchStockFromLocation(
   })();
 }
 
-/** Transfers stock between two locations in the same city — the
- * internal-movement equivalent of Dispatch/Receipt, but genuinely not
- * a sale: no GL entry, no revenue, no customer, just stock moving from
- * one place this business controls to another. Rejects a transfer
- * between locations in different cities — a warehouse only serves its
- * own city's outlets. */
+// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function transferStock(
   business: BusinessName,
   ledger: LedgerName,
@@ -1101,22 +1015,6 @@ export function transferStock(
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(loc)) throw new ValidationError(`No location named "${loc}".`);
   }
 
-  // A real, queryable movement history — not just a snapshot, found
-  // to be a real, genuine gap while building the stock movement
-  // report: transfers previously updated only the current-state
-  // item_location table, with no historical record at all of which
-  // real locations stock actually moved between and when.
-  //
-  // One, real, shared reference — a true, balanced, two-line entry
-  // (the same product's own quantity account, debited at the
-  // destination and credited at the source, summing to a real,
-  // honest zero), not two separate postings under two different
-  // references that merely happen to net out. Confirmed directly, per
-  // direct question: this is the one, genuine case where a "quantity
-  // account" has a real, meaningful other side — the same real
-  // bottles, one real event, two real locations — not an invented
-  // counteritem the way forcing a receipt or a sale to balance would
-  // require.
   const date = transdate ?? todayAtLocation(fromLocationName);
   assertPeriodOpen(business, ledger, date);
   db.transaction(() => {
@@ -1126,13 +1024,6 @@ export function transferStock(
   adjustLocationCapacity(business, ledger, fromLocationName, itemName, -quantity, date, asUserId(userId), reference);
   adjustLocationCapacity(business, ledger, toLocationName, itemName, quantity, date, asUserId(userId), reference);
 
-  // Per direct instruction: a real, hierarchy-varied combination is
-  // per-location (Location is always the combination chain's own
-  // first, real dimension) — transferring it genuinely moves the real
-  // financial value from the source location's own instance to a
-  // real, new (or existing) instance at the destination, the same
-  // real combination in every other respect (same item, same
-  // storage/size/container/quantity values), just relocated.
   if (combinationShape && combinationValuesAfterLocation) {
     const unitCostMinor = getProductUnitCostMinor(itemName);
     if (unitCostMinor != null) {
@@ -1146,29 +1037,14 @@ export function transferStock(
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(toLeaf.name), accountId: toLeaf.id, amount_minor: valueMinor, memo: `Combination transfer: ${itemName}` });
       postJournalEntry(valueRef, business, ledger, asUserId(userId));
     }
-    // Per direct instruction that this is fundamental and must be
-    // completed fully: the real unit count moves too, in parallel,
-    // exactly the same, real way the dollar value above does - from
-    // the source location's own real instance to the destination's.
     const fromInstance = ensureProductInstance(business, combinationShape, [fromLocationName, ...combinationValuesAfterLocation], asUserId(userId));
     const toInstance = ensureProductInstance(business, combinationShape, [toLocationName, ...combinationValuesAfterLocation], asUserId(userId));
     const { onHandId } = ensureUnitsTrackingBaseAccounts(business, asUserId(userId));
     const fromUnits = ensureCombinationAccountLeaf('On Hand', fromInstance, asUserId(userId), onHandId);
     const toUnits = ensureCombinationAccountLeaf('On Hand', toInstance, asUserId(userId), onHandId);
-    // Per direct correction, matching the exact, same principle
-    // corrected earlier for inventory value (§4/§18): the same, real,
-    // physical units are simply relocating, never changing real kind
-    // - one, real, shared currency for both leaves, based on the
-    // real combination values alone (never the location), or the two
-    // sides could never genuinely balance against each other.
     const unitsCurrency = `UNITS-${combinationValuesAfterLocation.join('-').toUpperCase()}`;
     setAccountCurrency(fromUnits.name, unitsCurrency, fromUnits.id);
     setAccountCurrency(toUnits.name, unitsCurrency, toUnits.id);
-    // A real transfer moves the same, real units between two, real,
-    // different combinations (different locations) - two, real,
-    // distinct currencies, but always the exact, same, real item at a
-    // genuine 1:1 count (never a rate lookup - unlike a real storage
-    // conversion, a transfer never repackages or re-denominates).
     const countRef = `${reference}-COUNT`;
     stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(fromUnits.name), accountId: fromUnits.id, amount_minor: -quantity, memo: `Combination transfer (count): ${itemName}` });
     stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(toUnits.name), accountId: toUnits.id, amount_minor: quantity, memo: `Combination transfer (count): ${itemName}` });
@@ -1485,14 +1361,7 @@ export function completeStockTake(
   updateEntity(stockTakeId, { name: takeRow.name.replace(/ — draft$/, ' — completed') }, userId);
 }
 
-/** Writes off stock that's been broken, spoiled, expired, or otherwise
- * lost — a genuine dual-effect transaction, not just a quantity
- * adjustment with no accounting consequence: reduces the physical
- * quantity on hand (via postQuantityMovement, same mechanism dispatch
- * and receipt already use) AND posts a real GL entry recognizing the
- * loss (debits the write-off expense, credits inventory for the same
- * value) — unlike a sale, there's no revenue or customer on the other
- * side of this, just a genuine loss. */
+// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function writeOffStock(
   business: BusinessName,
   ledger: LedgerName,
@@ -1501,9 +1370,7 @@ export function writeOffStock(
   quantity: number,
   unitCostMinor: number,
   writeOffExpenseAccount: AccountName,
-  /** @deprecated No longer used — resolves to that same, real
-   * product's own, real Inventory sub-account directly. Kept only so
-   * existing callers don't need a breaking API change. */
+  /** @deprecated See docs/storage-space-as-currency-design.md § 24, D8 (write-off). */
   inventoryAccount: string,
   reason: string,
   userId: UserId,
@@ -1520,32 +1387,13 @@ export function writeOffStock(
   { const inv = ensureProductInventoryAccount(itemName, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: -totalMinor }); }
   postJournalEntry(reference, business, ledger, userId);
 
-  // A real, confirmed bug fix, the same class as the stock-take
-  // variance fix: this used to post a single, unbalanced quantity
-  // line with no counter-item at all, unlike every other real
-  // quantity movement in this codebase.
   const { writeOffAccount, writeOffAccountId } = ensureProductQuantityAccounts(itemName, userId);
   stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(itemName), -quantity, date);
   stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(writeOffAccount), quantity, date, undefined, writeOffAccountId);
   postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
 
-  // A real write-off genuinely happens AT a specific, physical
-  // location (a bottle breaks on a specific shelf) - when the caller
-  // knows and provides it, the space it occupied is genuinely freed
-  // back up, the same real principle as dispatch/transfer.
   if (locationName) adjustLocationCapacity(business, ledger, locationName, itemName, -quantity, date, userId, reference);
 
-  // Per direct instruction that this is fundamental and must be
-  // completed fully: a real, specific combination's own real
-  // Inventory value and real unit count are both genuinely written
-  // off too - mirroring dispatch's own real, combination code path
-  // exactly, since a write-off is, structurally, a real reduction the
-  // exact, same shape as a dispatch, just with no real sale behind it.
-  // Per direct instruction that this is fundamental and must be
-  // completed fully: a real, specific combination's own real unit
-  // count is genuinely written off too, in parallel with the real
-  // dollar value the outer, existing code above already records -
-  // never re-posted a second time, only the real count itself.
   if (combinationValues && combinationShape) {
     const instanceTop = ensureProductInstance(business, combinationShape, combinationValues, userId);
     const { onHandId, receivedFromId } = ensureUnitsTrackingBaseAccounts(business, userId);

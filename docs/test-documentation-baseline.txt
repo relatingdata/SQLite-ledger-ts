@@ -47,7 +47,6 @@ addOrUpdateItemSource/getItemPriceForCurrency: a real, direct, dual-currency pri
 addRow/removeRowAt are the only ways the row count changes — never automatic
 addTypedAddress/getTypedAddresses/addTypedPhone/getTypedPhones: multiple, genuinely typed addresses and phones per entity, zero new tables — reusing parent_id + relation_id + contact recursively
 adjustLocationCapacity: a real, direct check of the capacity math, retail (1:1 bottles) and warehouse (real, per-item carton conversion)
-adjustLocationCapacity: a real, genuinely balanced posting against Occupied - never single-sided, and Installed = Remaining + Occupied holds as a real accounting identity
 aged invoices: bucketed by each customer's own payment terms, and partial payment allocation genuinely reduces what is outstanding
 aged summary rolls up per customer (matching SQL-Ledger's Summary aging view), and counterparty history shows real line-item activity
 allocatePayment: actually posts the real GL movement, not just a tracking record — confirmed directly, since this exact gap once let $920,626.23 in "paid" sales never reach Cash and Bank
@@ -83,9 +82,7 @@ completePosSale: the real, live, end-to-end border scenario - two real terminals
 completeStockTake and writeOffStock: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side
 completeStockTake: multiple real, different products sharing the same variance expense account in one real stock take must all post, keeping debit == credit
 computeSuggestedFill returns the amount needed to balance, or null if nothing to suggest
-convertStorageSpace: a real, balanced conversion between storage combinations - never single-sided, and a real, undefined reverse direction genuinely refuses
 create<T>: the real, generic, typed-descriptor creation primitive - genuinely preserves the Springfield principle (scoped, not global, uniqueness)
-createAndConfigureLocation: real, atomic, balanced Storage Capacity Remaining/Installed accounts, created as part of location creation itself, never a single-sided posting
 createBusiness: a brand-new business gets both a real Actual ledger AND a real Budget ledger for the financial year, immediately postable to, using the already-shared Chart of Accounts — no separate CoA setup needed
 createBusiness: a real, forced failure partway through genuinely rolls back everything - never a partially-created business left behind
 createBusiness: real, optional secondary currencies each get a real, automatic "Cash at Bank ({currency})" account, correctly tagged and immediately postable to — a genuinely ordinary business omits this entirely
@@ -110,7 +107,6 @@ deleteEntity closes the entity out but deliberately keeps its contact record —
 deleteEntity refuses to delete a business's last real Actual or last real Budget ledger, but allows removing a real, genuine duplicate
 deleteEntity refuses to delete an entity with children
 deleteEntity works for a genuinely childless, unposted entity
-dispatchStockFromLocation with a real combination: parallel currency AND count postings both appear, genuinely reversed from a real receipt, each independently balanced
 divisions/profit centers: the same account can be posted to by multiple divisions, and reports can filter to just one
 e-invoicing: a real 3-way match catches a genuine mismatch between a purchase order and an incoming e-invoice
 e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, and a real, incoming one round-trips back through a genuinely separate ledger as a draft, never auto-posted
@@ -181,7 +177,6 @@ logout invalidates the session immediately
 lot/expiration tracking: consumption is genuinely FIFO by expiration date, not receipt order, and the expiring-stock report only shows what actually still has quantity
 nominateBankAccount/buildBankCurrencyStructure: a real, single bank account in one real currency collapses to one, plain, postable "Cash at Bank" account - no header, no further structure
 nominateBankAccount/buildBankCurrencyStructure: more than one real bank/currency combination genuinely becomes a real header, with one real, postable leaf per ticked combination
-openStorageContainer: opening a carton is two, real, independent space movements - never a rate-linked conversion, and genuinely never requires one to be defined
 parseCsvLine: doubled quotes inside a quoted field
 parseCsvLine: plain fields
 parseCsvLine: quoted fields with embedded commas
@@ -202,7 +197,6 @@ quantity movements and recurring journal start dates are also protected by a clo
 quantity movements carry a real, queryable location — receive, dispatch, and transfer (both legs) each record where it actually happened, not just updating the current-state snapshot
 real multi-line invoices: header + lines, due date derived from the counterparty's own payment terms, posting creates the actual GL entry
 reassigning a category to a different report via relation changes business_reports immediately
-receiveStockAtLocation with a real combination: parallel currency AND count postings both appear, each genuinely balanced on its own
 receiveStockAtLocation: a real, combination-tagged receipt builds up a real, distinct Inventory value at the exact, right leaf, per direct instruction
 registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, dedicated cash-flow/growth-planning design — real, registered bank accounts scoped correctly to one real business, grouped by real currency, with honest overdraft headroom
 registerCustomer genuinely tags the new contact as a real Customer type, per docs/contact-types-and-translations.md
@@ -226,7 +220,6 @@ setOwnPageSize: a real, user-settable preference, defaulting to 20, rejecting no
 setRelationship/getRelationship/getEntitiesWithRelationship: the real relationship-type pattern, confirmed the same shape as an ordinary relation_id tag, not a special case
 setUserRoles changes what a session created afterward reflects
 stageBomComponent/postBomComponents/getBomComponents: a real Bill of Materials, built on setEntityLink, per the wine-bar-assemblies-plan design
-stageLocation/postLocation: a real, dedicated staging table behind the location-creation form, matching the exact, established stage/post pattern - the real location, and its own real, balanced capacity accounts, only appear once genuinely posted, never at stage time
 staging + posting a balanced entry works end to end and clears staging
 stock take sheets: ordered by shelf_side/rack (alphabetically, as free text) then level numerically (top to bottom), and completing posts genuine loss/gain variance while leaving uncounted lines untouched
 stock write-offs (breakage/spoilage): a real dual-effect transaction, reducing quantity on hand AND recognizing the actual loss in the GL, not just an adjustment with no accounting consequence
@@ -241,8 +234,6 @@ the real bug just fixed: building a 4-line entry incrementally (Cash, Revenue, C
 the real reported bug: an auto-suggested amount must count toward the visible running totals immediately, even before its row has an account chosen
 the requested "just keep typing" workflow: completing the last row reveals a new one only if the entry is STILL unbalanced — not just because a row became filled
 the system default display language lives on Application, reachable before any session exists, and setting it preserves append-only history
-transferStock with a real combination: the real unit count moves in parallel with the real dollar value, one, shared, real currency for the same, physical units - genuinely balanced
-transferStock: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction
 trial balance comparison shows Actual and Budget side by side for the same account
 trial balance omits accounts with a zero balance
 trial balance shows every posted account split into debit/credit, and the two columns match
@@ -250,4 +241,3 @@ true double-entry quantity tracking: a real "on order" account for receipts and 
 two hashes of the same password are different (salted), but both verify correctly
 typing a negative number into an amount field is never treated as negative — direction comes from which column, never from a typed minus sign
 updateEntity can rename, reparent, and assign an account number
-writeOffStock with a real combination: the real Inventory value and real unit count are both genuinely written off, in parallel, each independently balanced

@@ -146,6 +146,15 @@ leave pointers dangling.
 
 - `make measure-comments` reports comment lines per file and how many files
   are migrated. It changes nothing.
+- `make show-comments FILE=<path> [FROM=<line> TO=<line>]` lists one file's
+  comment lines with their exact text and line numbers. Use it before migrating:
+  it shows precisely what has to land in the manual first, and gives the exact
+  text to match when replacing it. (Retyping a comment from memory to remove it
+  failed on the first attempt; the wording was slightly different.)
+- `make test-one TEST=<part of a test title>` runs only the backend tests whose
+  title contains that text. The tests share one database, so a test that fails
+  alone may depend on rows an earlier test created; run the whole file before
+  concluding the code is broken.
 - `make check-docs-coverage` fails if an exported function, Makefile target or
   frontend route is never mentioned in the manual.
 - `make check-test-docs` fails if a test's exact title appears nowhere in the
@@ -180,3 +189,19 @@ Migrate in this order, because it follows the cost of *not* knowing:
 A migration is only complete when the content has landed in the manual *first*
 and been confirmed there, and only then is the comment replaced. Deleting a
 comment before its content is in the manual loses it.
+
+**Result of the first slice (checkpoint 419).** The storage, capacity and
+currency code — the seven `db-stock.ts` functions and the storage functions in
+`db.ts` — now carries only pointers, and `db-journal.ts` is restored to carrying
+none of its own. Comment lines fell from 7,749 to 7,525: **224 lines, about 3%.**
+That is the honest scale of one slice; the whole migration is many of these.
+Migrating it also surfaced six comments that were wrong or contradicted the code
+beneath them (listed in design decision D10 of that chapter), which is the
+strongest evidence I have that the rule is worth its cost.
+
+Two caveats. The scripts I added this session (`scripts/build-*.ts`,
+`check-*.ts`, `analyze-*.ts`, `measure-*.ts`) carry explanatory header comments,
+which this rule says should be pointers; they are not migrated. And a file counts
+as "migrated" in `make measure-comments` only when *all* its comments are
+pointers, so `db-stock.ts` and `db.ts` still count as unmigrated while most of
+their other functions keep theirs.

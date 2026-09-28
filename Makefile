@@ -312,7 +312,7 @@ verify-fresh: reset-db
 	@# Every independent gate runs and reports; one failing gate must never
 	@# hide the others (make normally stops at the first failure, which
 	@# silently masked two of these for a long time).
-	@fail=0; for g in check-docs-coverage check-schema-table-count check-unused check-no-python check-journal-staging-only; do \
+	@fail=0; for g in check-docs-coverage check-test-docs check-schema-table-count check-unused check-no-python check-journal-staging-only; do \
 	  $(MAKE) $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
 	done; exit $$fail
 

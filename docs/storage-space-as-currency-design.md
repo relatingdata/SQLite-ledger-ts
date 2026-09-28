@@ -774,8 +774,10 @@ fixed multiplier, like dollars versus cents, never an exchange.
 - Every write in a movement happens in **one atomic transaction**. It used to be
   several separate steps that could diverge if interrupted, such as a quantity
   movement posting while its capacity adjustment never happened.
-- **Receipt** debits the product's on-hand quantity at the location it arrived
-  at and credits its "on order" quantity. "On order" is an independently
+- **Receipt** updates the location's own `quantity_on_hand` (`item_location`) and
+  the item's overall quantity, through `postQuantityMovement`, which remains the
+  source of truth for "how much do we have in total, across every location". It
+  debits the product's on-hand quantity at the location it arrived at and credits its "on order" quantity. "On order" is an independently
   meaningful fact, built up when a purchase order is placed (`placeOrder`), not
   an invented counteritem. A receipt with no matching order (an emergency
   purchase) simply drives on-order negative, which is a real signal, not an
@@ -799,7 +801,12 @@ fixed multiplier, like dollars versus cents, never an exchange.
   transfers once updated only the current-state table. A combination transfer
   moves value from the source location's instance to the destination's; Location
   is always the combination chain's first dimension.
-- **Write-off** once posted a single unbalanced quantity line with no
+- **Write-off** is a dual-effect transaction, not a quantity adjustment with no
+  accounting consequence. It reduces physical quantity through
+  `postQuantityMovement` (the mechanism dispatch and receipt use) **and** posts a
+  general-ledger entry recognising the loss: debit the write-off expense, credit
+  Inventory for the same value. Unlike a sale there is no revenue or customer on
+  the other side, only a loss. It once posted a single unbalanced quantity line with no
   counteritem, the same class of bug as the stock-take variance fix. When the
   caller supplies the location, the space the item occupied is freed. Its
   `inventoryAccount` parameter is deprecated, kept only so existing callers do
@@ -810,7 +817,7 @@ fixed multiplier, like dollars versus cents, never an exchange.
 location's name is part of the capacity reference. Without it the second call
 collides with the first on the unique `(reference, business, ledger)` constraint.
 
-**D10. Comments that were wrong, removed at checkpoint 418.** They are recorded
+**D10. Comments that were wrong, removed at checkpoints 418 and 419.** They are recorded
 because each was trusted by the next reader:
 
 - A block above `ensureStorageCapacityStructure` described
@@ -822,6 +829,13 @@ because each was trusted by the next reader:
   D7 must not.
 - `writeOffStock` carried two adjacent comments that disagreed; the first, saying
   value *and* count are written off in the combination block, was false (D6).
+- `transferStock` carried two comments a few lines apart that contradicted each
+  other: one said the source and destination leaves share one currency, the other
+  said they use two distinct currencies. The second was left over from the first,
+  wrong attempt (D5) and never updated when the code was fixed.
+- `receiveStockAtLocation`'s own doc block sat above the doc block of
+  `ensureUnitsTrackingBaseAccounts`, detached from its function when that helper
+  was inserted between them.
 - `openStorageContainer` and `postLocation` still called the structure "Storage
   Capacity Remaining/Installed" after it became nested with a third leaf.
 
