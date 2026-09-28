@@ -75,7 +75,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `stockRouter` | `backend/src/routes/stock.ts` | `backend/src/server.ts` | `const stockRouter = Router();` |
 | `stockTakesRouter` | `backend/src/routes/locations.ts` | `backend/src/server.ts` | `const stockTakesRouter = Router();` |
 
-## Functions (128, alphabetical)
+## Functions (124, alphabetical)
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
@@ -121,7 +121,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getAccountsPostedTo` | `backend/src/db.ts` | (none) | `function getAccountsPostedTo(reference: string): string[]` |
 | `getActiveShiftsAtLocation` | `backend/src/db.ts` | (none) | `function getActiveShiftsAtLocation(locationName: string): PosShift[]` |
 | `getAgingBuckets` | `backend/src/db.ts` | (none) | `function getAgingBuckets(paymentTermsDays: number \| null): AgingBucket[]` |
-| `getAllTranslations` | `backend/src/db.ts` | (none) | `function getAllTranslations(languageName: string): Record<string, string>` |
 | `getAxisValues` | `backend/src/db-matrix-reports.ts` | `backend/src/routes/matrix-reports.ts` | `function getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues` |
 | `getBankAccounts` | `backend/src/db.ts` | `backend/src/routes/reports.ts` | `function getBankAccounts(business: BusinessName, ledger: LedgerName): BankAccountRow[]` |
 | `getBusinesses` | `backend/src/db.ts` | `backend/src/routes/businesses.ts` | `function getBusinesses(): ` |
@@ -140,7 +139,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getItemByUpc` | `backend/src/db.ts` | `backend/src/routes/pos.ts` | `function getItemByUpc(upc: string): ItemSummary \| undefined` |
 | `getItemLeadTimes` | `backend/src/db-stock.ts` | (none) | `function getItemLeadTimes(itemName: ItemName): ` |
 | `getItemLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `backend/src/routes/locations.ts` | `function getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels` |
-| `getItemProduct` | `backend/src/db.ts` | (none) | `function getItemProduct(itemName: string): string \| null` |
 | `getLanguages` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/routes/i18n.ts` | `function getLanguages(): ` |
 | `getLedgerBalancesByDivision` | `backend/src/db-reports.ts` | (none) | `function getLedgerBalancesByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
 | `getLedgerBalancesByDivisionStructural` | `backend/src/db-reports.ts` | (none) | `function getLedgerBalancesByDivisionStructural(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
@@ -160,7 +158,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getSalesCogsMatrix` | `backend/src/db-matrix-reports.ts` | `backend/src/routes/matrix-reports.ts` | `function getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string \| undefined, toDate: string \| undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix` |
 | `getSalesReport` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): SalesReport` |
 | `getScheduleAtLocation` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function getScheduleAtLocation(locationName: string): LocationScheduleLine[]` |
-| `getScreenTitle` | `backend/src/db.ts` | (none) | `function getScreenTitle(href: string, opts?: { businessName?: string; userId?: number }): string \| undefined` |
 | `getSessionUser` | `backend/src/auth.ts` | `backend/src/auth-middleware.ts` | `function getSessionUser(token: string \| undefined): AuthenticatedUser \| null` |
 | `getStockListingByLocation` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockListingByLocation(): StockListingLocationGroup[]` |
 | `getStockMovementReport` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockMovementReport(ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport` |
@@ -182,7 +179,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `recordReminderSent` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function recordReminderSent(customerName: string): number` |
 | `registerBankAccount` | `backend/src/db.ts` | `backend/src/routes/reports.ts` | `function registerBankAccount(accountName: string, business: string, scopeName: string, overdraftLimitMinor: number \| null, userId: UserId): void` |
 | `registerCustomer` | `backend/src/db.ts` | `backend/src/routes/customer-registration.ts` | `function registerCustomer(input: CustomerRegistrationInput, userId: UserId): void` |
-| `removeContactType` | `backend/src/db.ts` | (none) | `function removeContactType(contactName: string, typeName: string, userId: UserId): void` |
 | `requireAuth` | `backend/src/auth-middleware.ts` | `backend/src/routes/auth.ts`, `backend/src/routes/i18n.ts`, `backend/src/server.ts` | `function requireAuth(req: Request, res: Response, next: NextFunction): void` |
 | `resetReminderLevel` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function resetReminderLevel(customerName: string): void` |
 | `setDivisionType` | `backend/src/db.ts` | `backend/src/routes/divisions.ts` | `function setDivisionType(divisionNameOrId: string \| EntityId, typeMarkerName: string): void` |
@@ -208,4 +204,4 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `verifyPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/db.ts` | `function verifyPassword(password: string, stored: string): boolean` |
 | `verifyPosPin` | `backend/src/db.ts` | (none) | `function verifyPosPin(employeeName: string, pin: string): boolean` |
 
-191 real, tracked baseline names reported (32 TypeDescriptor constants, 31 router constants, 128 functions, 0 other constants) out of 207 total names in the baseline file.
+187 real, tracked baseline names reported (32 TypeDescriptor constants, 31 router constants, 124 functions, 0 other constants) out of 207 total names in the baseline file.

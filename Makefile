@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -501,6 +501,30 @@ cycles-baseline:
 # The import graph as a Mermaid diagram (no hand-rolled include graph).
 dependency-graph:
 	$(DEPCRUISE) --config .dependency-cruiser.json --output-type mermaid backend/src
+
+# One-shot: comments out named top-level functions that have no references,
+# leaving a marker that points at docs/unused-functions.md. No standard tool
+# does this (knip --fix only removes the export keyword). DRY=1 previews.
+comment-out-functions:
+	@if [ -z "$(FILE)" ] || [ -z "$(NAMES)" ]; then echo "Usage: make comment-out-functions FILE=<path.ts> NAMES=a,b,c [DRY=1]"; exit 1; fi
+	$(RUN_SCRIPT) scripts/comment-out-functions.ts --file $(FILE) --names '$(NAMES)' $(if $(DRY),--dry-run)
+
+# The simulation's expected numbers are stale (20 checks fail, and did at
+# checkpoint 408 too), so it cannot gate as it stands. But its output is
+# deterministic, so it works as a regression signal: the PASS/FAIL lines,
+# with expected and actual numbers, must stay IDENTICAL to a recorded golden
+# file. Use it before and after a rename. See docs/bulk-rename-plan.md.
+SIM_GOLDEN = backend/test/golden/simulation-results.txt
+
+sim-golden:
+	mkdir -p backend/test/golden
+	-$(MAKE) test-e2e 2>&1 | grep -E '^(PASS|FAIL)' > $(SIM_GOLDEN)
+	@echo "Recorded $$(wc -l < $(SIM_GOLDEN)) result lines in $(SIM_GOLDEN)"
+
+check-sim-unchanged:
+	-$(MAKE) test-e2e 2>&1 | grep -E '^(PASS|FAIL)' > /tmp/sim-now.txt
+	diff -u $(SIM_GOLDEN) /tmp/sim-now.txt
+	@echo "Simulation output is unchanged from the golden file."
 
 measure-comments:
 	$(RUN_SCRIPT) scripts/measure-code-comments.ts

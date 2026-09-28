@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { hashPassword, verifyPassword } from './password.js';
-import { Entity, Link, Detail } from './primitives.js';
+import { Entity, Detail } from './primitives.js';
 import { getLedgerBalances, ensureCurrencyAccount, ensureCashAtBankAccount, setAccountCurrency } from './db-reports.js';
 
 // ---------------------------------------------------------------------------
@@ -825,9 +825,10 @@ export function setLineType(entityName: string, lineType: string | null, userId:
 /** The real, currently-set line type for one entity, or undefined if
  * never explicitly typed — the exact, same real getEntityLink
  * mechanism already proven elsewhere. */
-export function getLineType(entityName: string): string | undefined {
-  return getEntityLink(entityName, 'Line Type');
-}
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export function getLineType(entityName: string): string | undefined {
+//   return getEntityLink(entityName, 'Line Type');
+// }
 
 /** A real, explicit, per-Item "Storage Origin" dimension —
  * Hot (shelf) or Cold (refrigerated) — as a genuine relationship on
@@ -4734,9 +4735,10 @@ export function setContactType(contactName: string, typeName: string, userId: Us
   setEntityLink(contactName, `Contact Type: ${typeName}`, typeName, userId);
 }
 
-export function removeContactType(contactName: string, typeName: string, userId: UserId): void {
-  deleteEntityLink(contactName, `Contact Type: ${typeName}`, userId);
-}
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export function removeContactType(contactName: string, typeName: string, userId: UserId): void {
+//   deleteEntityLink(contactName, `Contact Type: ${typeName}`, userId);
+// }
 
 export function getContactTypes(contactName: string): string[] {
   const rows = db
@@ -4763,9 +4765,10 @@ export function getContactBaseAccounts(contactName: string): string[] {
   return [...new Set(accounts)];
 }
 
-export function getContactsWithType(typeName: string): string[] {
-  return Link.withTarget(`Contact Type: ${typeName}`, typeName);
-}
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export function getContactsWithType(typeName: string): string[] {
+//   return Link.withTarget(`Contact Type: ${typeName}`, typeName);
+// }
 
 /** The one, real, correct way a new vendor is created. Per direct,
  * confirmed finding: this codebase's own, real, live /contacts page
@@ -5339,16 +5342,17 @@ export function createProduct(name: string, parent: string, userId: UserId): voi
  * Item is still a direct child of "Items" itself (no Product
  * assigned yet — a real, genuinely valid, ungrouped state, not an
  * error). */
-export function getItemProduct(itemName: string): string | null {
-  const row = db
-    .prepare(
-      `SELECT parent.name FROM current_entities item
-       JOIN current_entities parent ON parent.id = item.parent_id
-       WHERE item.name = ? AND parent.name != 'Items'`
-    )
-    .get(itemName) as { name: string } | undefined;
-  return row?.name ?? null;
-}
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export function getItemProduct(itemName: string): string | null {
+//   const row = db
+//     .prepare(
+//       `SELECT parent.name FROM current_entities item
+//        JOIN current_entities parent ON parent.id = item.parent_id
+//        WHERE item.name = ? AND parent.name != 'Items'`
+//     )
+//     .get(itemName) as { name: string } | undefined;
+//   return row?.name ?? null;
+// }
 
 /** Moves a real, existing Item under a real, existing Product (or
  * back to being a direct child of "Items" itself, when productName
@@ -6011,15 +6015,16 @@ export function getMenuTree(opts?: { businessName?: string; userId?: number }): 
  * uses, so renaming a menu item and its own page title is always
  * exactly one, real edit, never two, separate places to keep in
  * sync. */
-export function getScreenTitle(href: string, opts?: { businessName?: string; userId?: number }): string | undefined {
-  const tree = getMenuTree(opts);
-  for (const section of tree) {
-    for (const link of section.links) {
-      if (link.href.split('?')[0] === href) return link.label;
-    }
-  }
-  return undefined;
-}
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export function getScreenTitle(href: string, opts?: { businessName?: string; userId?: number }): string | undefined {
+//   const tree = getMenuTree(opts);
+//   for (const section of tree) {
+//     for (const link of section.links) {
+//       if (link.href.split('?')[0] === href) return link.label;
+//     }
+//   }
+//   return undefined;
+// }
 
 export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user', scopeId: number, overrideLabel: string | null, hidden: boolean, userId: UserId = asUserId(1)): void {
   const entityId = Number(menuItemKey);
@@ -6395,19 +6400,20 @@ export function setTranslation(conceptName: string, languageName: string, text: 
 /** Every real translation this application has, for one real
  * language — a real, direct child entity of {languageName}, per
  * concept, its own relation_id pointing back at that concept. */
-export function getAllTranslations(languageName: string): Record<string, string> {
-  const rows = db
-    .prepare(
-      `SELECT c.name AS concept, e.name AS text
-       FROM current_entities e
-       JOIN current_entities c ON c.id = e.relation_id
-       WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = ?)`
-    )
-    .all(languageName) as { concept: string; text: string }[];
-  const result: Record<string, string> = {};
-  for (const r of rows) result[r.concept] = r.text;
-  return result;
-}
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export function getAllTranslations(languageName: string): Record<string, string> {
+//   const rows = db
+//     .prepare(
+//       `SELECT c.name AS concept, e.name AS text
+//        FROM current_entities e
+//        JOIN current_entities c ON c.id = e.relation_id
+//        WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = ?)`
+//     )
+//     .all(languageName) as { concept: string; text: string }[];
+//   const result: Record<string, string> = {};
+//   for (const r of rows) result[r.concept] = r.text;
+//   return result;
+// }
 
 export function getTranslation(conceptName: string, languageName: string): string | null {
   const row = db

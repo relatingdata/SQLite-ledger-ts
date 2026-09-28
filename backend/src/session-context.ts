@@ -49,11 +49,12 @@ export function runInSessionContext<T>(context: SessionContext, fn: () => T): T 
  * already running - used when a person switches business mid-session
  * (see setSessionBusiness in auth.ts, which calls this after updating
  * the real, persistent session record itself). */
-export function setCurrentBusiness(business: RealBusinessNode): void {
-  const context = storage.getStore();
-  if (!context) throw new Error('setCurrentBusiness called outside a real session context.');
-  context.business = business;
-}
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export function setCurrentBusiness(business: RealBusinessNode): void {
+//   const context = storage.getStore();
+//   if (!context) throw new Error('setCurrentBusiness called outside a real session context.');
+//   context.business = business;
+// }
 
 /** The one, real, per-connection global - reads like a plain
  * property (`Session.Business`, `Session.UserId`, `Session.Ledger`),

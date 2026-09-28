@@ -63,6 +63,8 @@ const PARTS: [string, string[]][] = [
     'classification-neutrality-analysis.md',
     'business-generality-scenario.md',
     'assembly-production-design.md',
+    'bulk-rename-plan.md',
+    'unused-functions.md',
     'coa-class-instance-plan.md',
     'ui-completeness-plan.md',
     'sql-ledger-comparison.md',

@@ -1,0 +1,21 @@
+FAIL  total_debit_minor: expected 94533593, got 42724416
+FAIL  total_credit_minor: expected 94533593, got 42731658
+FAIL  debit == credit (the fundamental accounting identity): expected true, got false
+FAIL  row count: expected 389, got 448
+FAIL  total_assets_minor: expected 56357648, got 29909814
+FAIL  total_liabilities_minor: expected 38628794, got 15187431
+FAIL  total_equity_minor: expected 17728854, got 14729625
+FAIL  balanced: expected true, got false
+FAIL  total_income_minor: expected 19547533, got 11109425
+FAIL  total_expenses_minor: expected 11843192, got 6409140
+FAIL  gross_profit_minor: expected 7729331, got 4718315
+FAIL  net_income_minor: expected 7704341, got 4700285
+FAIL  real per-product income accounts: expected 146, got 159
+FAIL  real per-product-per-tier COGS accounts: expected 139, got 158
+FAIL  Cash and Bank, ledger-scoped (real money genuinely moved, not just tracked): expected -14503285, got 5379376
+FAIL  Vendor balance_minor (partially, realistically paid — not zero, not never-paid): expected -36715404, got -14118120
+FAIL  detailed line count: expected 986, got 1064
+FAIL  real category count (every product category actually sold): expected 14, got 20
+FAIL  total_quantity: expected 3726, got 3733
+FAIL  total_amount_minor: expected 19547533, got 11109425
+PASS  category summary sums to the same total as the detailed lines: expected 11109425, got 11109425

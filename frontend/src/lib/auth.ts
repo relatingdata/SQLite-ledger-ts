@@ -54,7 +54,8 @@ function createAuthStore() {
 
 export const auth = createAuthStore();
 
-export function hasRole(state: AuthState | null, ...roles: string[]): boolean {
-  if (!state) return false;
-  return state.user.roles.some((r) => roles.includes(r));
-}
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export function hasRole(state: AuthState | null, ...roles: string[]): boolean {
+//   if (!state) return false;
+//   return state.user.roles.some((r) => roles.includes(r));
+// }

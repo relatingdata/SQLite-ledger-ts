@@ -39,9 +39,10 @@ export function asLedgerName(name: string): LedgerName {
 export function asAccountName(name: string): AccountName {
   return name as AccountName;
 }
-export function asDivisionName(name: string): DivisionName {
-  return name as DivisionName;
-}
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export function asDivisionName(name: string): DivisionName {
+//   return name as DivisionName;
+// }
 export function asLocationName(name: string): LocationName {
   return name as LocationName;
 }
@@ -176,7 +177,8 @@ export interface ReportRow {
   balance_minor: number | null;
 }
 
-export const getBusinessReports = () => request<ReportRow[]>('/reports/business-reports');
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const getBusinessReports = () => request<ReportRow[]>('/reports/business-reports');
 
 export interface ChartRow {
   id: number;
@@ -187,7 +189,8 @@ export interface ChartRow {
   balance_minor: number | null;
 }
 
-export const getChartOfAccounts = () => request<ChartRow[]>('/reports/chart-of-accounts');
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const getChartOfAccounts = () => request<ChartRow[]>('/reports/chart-of-accounts');
 
 export interface BankAccountRow {
   name: string;
@@ -310,10 +313,12 @@ export interface MenuSectionRow {
   links: MenuLinkRow[];
 }
 export const getMenuTree = (businessName?: string) => request<MenuSectionRow[]>(`/menu${businessName ? `?business=${encodeURIComponent(businessName)}` : ''}`);
-export const setMenuOverride = (menuItemKey: string, scope: 'business' | 'user', scopeId: number, overrideLabel: string | null, hidden: boolean) =>
-  request<{ ok: true }>('/menu/override', { method: 'POST', body: JSON.stringify({ menuItemKey, scope, scopeId, overrideLabel, hidden }) });
-export const deleteMenuOverride = (menuItemKey: string, scope: 'business' | 'user', scopeId: number) =>
-  request<{ ok: true }>('/menu/override', { method: 'DELETE', body: JSON.stringify({ menuItemKey, scope, scopeId }) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const setMenuOverride = (menuItemKey: string, scope: 'business' | 'user', scopeId: number, overrideLabel: string | null, hidden: boolean) =>
+//   request<{ ok: true }>('/menu/override', { method: 'POST', body: JSON.stringify({ menuItemKey, scope, scopeId, overrideLabel, hidden }) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const deleteMenuOverride = (menuItemKey: string, scope: 'business' | 'user', scopeId: number) =>
+//   request<{ ok: true }>('/menu/override', { method: 'DELETE', body: JSON.stringify({ menuItemKey, scope, scopeId }) });
 
 export const getBalanceSheet = (business: BusinessName, ledger: LedgerName, asOfDate?: string) =>
   request<BalanceSheet>(`/reports/balance-sheet?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${asOfDate ? `&asOfDate=${asOfDate}` : ''}`);
@@ -349,10 +354,11 @@ export interface ProfitAndLossByDivision {
   division: DivisionName | null;
   profitAndLoss: ProfitAndLoss;
 }
-export const getProfitAndLossByDivision = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string) =>
-  request<ProfitAndLossByDivision[]>(
-    `/reports/profit-and-loss-by-division?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
-  );
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const getProfitAndLossByDivision = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string) =>
+//   request<ProfitAndLossByDivision[]>(
+//     `/reports/profit-and-loss-by-division?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
+//   );
 
 export interface ProfitAndLossByDivisionNode extends ProfitAndLossByDivision {
   children: ProfitAndLossByDivisionNode[];
@@ -378,7 +384,8 @@ export const setDefaultLanguage = (language: string) =>
 export const getLocalizedText = (language: string, businessName?: string) =>
   request<Record<string, string>>(`/i18n/text/${encodeURIComponent(language)}${businessName ? `?business=${encodeURIComponent(businessName)}` : ''}`);
 
-export const getVocabularyAlternates = (word: string) => request<string[]>(`/i18n/vocabulary-alternates/${encodeURIComponent(word)}`);
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const getVocabularyAlternates = (word: string) => request<string[]>(`/i18n/vocabulary-alternates/${encodeURIComponent(word)}`);
 
 export interface ConceptWithAlternates {
   headerAccountName: string;
@@ -447,8 +454,9 @@ export const getCoaPrototypeAccounts = (language: string) => request<string[]>(`
 export const nominateBankAccount = (businessName: string, bankAccountName: string, routingDetail: string, accountNumber: string) =>
   request<{ id: number }>(`/businesses/${encodeURIComponent(businessName)}/bank-accounts`, { method: 'POST', body: JSON.stringify({ bankAccountName, routingDetail, accountNumber }) });
 
-export const getNominatedBankAccounts = (businessName: string) =>
-  request<{ name: string; routingDetail: string; accountNumber: string }[]>(`/businesses/${encodeURIComponent(businessName)}/bank-accounts`);
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const getNominatedBankAccounts = (businessName: string) =>
+//   request<{ name: string; routingDetail: string; accountNumber: string }[]>(`/businesses/${encodeURIComponent(businessName)}/bank-accounts`);
 
 export interface BusinessConfigurationReport {
   businessName: string;
@@ -492,16 +500,18 @@ export interface StagedLine {
 
 export const stageLine = (line: StagedLine) => request<void>('/journal/staging', { method: 'POST', body: JSON.stringify(line) });
 
-export const getStagedLines = (reference: string, business: BusinessName, ledger: LedgerName) =>
-  request<StagedLine[]>(
-    `/journal/staging/${encodeURIComponent(reference)}/${encodeURIComponent(business)}/${encodeURIComponent(ledger)}`
-  );
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const getStagedLines = (reference: string, business: BusinessName, ledger: LedgerName) =>
+//   request<StagedLine[]>(
+//     `/journal/staging/${encodeURIComponent(reference)}/${encodeURIComponent(business)}/${encodeURIComponent(ledger)}`
+//   );
 
-export const removeStagedLine = (reference: string, business: BusinessName, ledger: LedgerName, account: AccountName) =>
-  request<void>(
-    `/journal/staging/${encodeURIComponent(reference)}/${encodeURIComponent(business)}/${encodeURIComponent(ledger)}/${encodeURIComponent(account)}`,
-    { method: 'DELETE' }
-  );
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const removeStagedLine = (reference: string, business: BusinessName, ledger: LedgerName, account: AccountName) =>
+//   request<void>(
+//     `/journal/staging/${encodeURIComponent(reference)}/${encodeURIComponent(business)}/${encodeURIComponent(ledger)}/${encodeURIComponent(account)}`,
+//     { method: 'DELETE' }
+//   );
 
 export const postJournalEntry = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/journal/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
@@ -677,20 +687,24 @@ export interface ArApBaseInput {
   description?: string;
 }
 
-export const stageArSale = (input: ArApBaseInput & { customer: string }) =>
-  request<void>('/arap/ar-sale/stage', { method: 'POST', body: JSON.stringify(input) });
-export const postArSale = (reference: string, business: BusinessName, ledger: LedgerName) =>
-  request<void>('/arap/ar-sale/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const stageArSale = (input: ArApBaseInput & { customer: string }) =>
+//   request<void>('/arap/ar-sale/stage', { method: 'POST', body: JSON.stringify(input) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const postArSale = (reference: string, business: BusinessName, ledger: LedgerName) =>
+//   request<void>('/arap/ar-sale/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
 export const stageArReceipt = (input: ArApBaseInput & { customer: string }) =>
   request<void>('/arap/ar-receipt/stage', { method: 'POST', body: JSON.stringify(input) });
 export const postArReceipt = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/arap/ar-receipt/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
-export const stageApPurchase = (input: ArApBaseInput & { vendor: string; expense_account: string }) =>
-  request<void>('/arap/ap-purchase/stage', { method: 'POST', body: JSON.stringify(input) });
-export const postApPurchase = (reference: string, business: BusinessName, ledger: LedgerName) =>
-  request<void>('/arap/ap-purchase/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const stageApPurchase = (input: ArApBaseInput & { vendor: string; expense_account: string }) =>
+//   request<void>('/arap/ap-purchase/stage', { method: 'POST', body: JSON.stringify(input) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const postApPurchase = (reference: string, business: BusinessName, ledger: LedgerName) =>
+//   request<void>('/arap/ap-purchase/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
 export const stageApPayment = (input: ArApBaseInput & { vendor: string }) =>
   request<void>('/arap/ap-payment/stage', { method: 'POST', body: JSON.stringify(input) });
@@ -848,9 +862,11 @@ export interface ItemSummary {
   combinationValues?: string[];
   combinationShape?: [string, string][];
 }
-export const getItemStorageOrigin = (itemName: string) => request<{ origin: 'Hot' | 'Cold' | null }>(`/items/${encodeURIComponent(itemName)}/storage-origin`);
-export const setItemStorageOrigin = (itemName: string, origin: 'Hot' | 'Cold' | null) =>
-  request<void>(`/items/${encodeURIComponent(itemName)}/storage-origin`, { method: 'PUT', body: JSON.stringify({ origin }) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const getItemStorageOrigin = (itemName: string) => request<{ origin: 'Hot' | 'Cold' | null }>(`/items/${encodeURIComponent(itemName)}/storage-origin`);
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const setItemStorageOrigin = (itemName: string, origin: 'Hot' | 'Cold' | null) =>
+//   request<void>(`/items/${encodeURIComponent(itemName)}/storage-origin`, { method: 'PUT', body: JSON.stringify({ origin }) });
 
 export type BomComponent = { component: string; quantity: number; unit: string };
 export const getBomComponents = (itemName: string) => request<{ components: BomComponent[] }>(`/items/${encodeURIComponent(itemName)}/bom`);
@@ -901,10 +917,13 @@ export interface ProductSummary {
   name: string;
   itemCount: number;
 }
-export const listProducts = () => request<ProductSummary[]>('/products');
-export const createProduct = (name: string, parent = 'Items') => request<void>('/products', { method: 'POST', body: JSON.stringify({ name, parent }) });
-export const setItemProduct = (itemName: string, productName: string | null) =>
-  request<void>('/products/item-assignment', { method: 'PUT', body: JSON.stringify({ itemName, productName }) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const listProducts = () => request<ProductSummary[]>('/products');
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const createProduct = (name: string, parent = 'Items') => request<void>('/products', { method: 'POST', body: JSON.stringify({ name, parent }) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const setItemProduct = (itemName: string, productName: string | null) =>
+//   request<void>('/products/item-assignment', { method: 'PUT', body: JSON.stringify({ itemName, productName }) });
 export const setItem = (name: string, item: Partial<Item>) =>
   request<void>(`/items/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(item) });
 export const listItemSources = (itemName: ItemName) => request<ItemSource[]>(`/items/${encodeURIComponent(itemName)}/sources`);
@@ -1229,7 +1248,8 @@ export interface EmployeeScheduleLine extends ScheduleLine {
 export interface LocationScheduleLine extends ScheduleLine {
   employee: string;
 }
-export const getScheduleAtLocation = (locationName: LocationName) => request<LocationScheduleLine[]>(`/locations/${encodeURIComponent(locationName)}/schedule`);
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const getScheduleAtLocation = (locationName: LocationName) => request<LocationScheduleLine[]>(`/locations/${encodeURIComponent(locationName)}/schedule`);
 export const getEmployeeSchedule = (employeeName: EmployeeName) => request<EmployeeScheduleLine[]>(`/locations/employees/${encodeURIComponent(employeeName)}/schedule`);
 export const setEmployeeSchedule = (employeeName: EmployeeName, locationName: LocationName, schedule: ScheduleLine[]) =>
   request<void>(`/locations/employees/${encodeURIComponent(employeeName)}/schedule`, { method: 'PUT', body: JSON.stringify({ locationName, schedule }) });
@@ -1256,10 +1276,11 @@ export const receiveStockAtLocation = (
   input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] }
 ) => request<void>(`/locations/${encodeURIComponent(locationName)}/receive`, { method: 'POST', body: JSON.stringify(input) });
 
-export const dispatchStockFromLocation = (
-  locationName: LocationName,
-  input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string }
-) => request<void>(`/locations/${encodeURIComponent(locationName)}/dispatch`, { method: 'POST', body: JSON.stringify(input) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const dispatchStockFromLocation = (
+//   locationName: LocationName,
+//   input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string }
+// ) => request<void>(`/locations/${encodeURIComponent(locationName)}/dispatch`, { method: 'POST', body: JSON.stringify(input) });
 
 export const transferStock = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string }) =>
   request<void>('/locations/transfer', { method: 'POST', body: JSON.stringify(input) });
@@ -1283,8 +1304,9 @@ export interface StockOutRiskRow {
   at_risk: boolean;
 }
 export const getStockOutRiskReport = (windowDays = 2) => request<StockOutRiskRow[]>(`/reports/stock-out-risk?windowDays=${windowDays}`);
-export const setItemSourceLeadTime = (item: string, vendor: string, days: number) =>
-  request<void>('/reports/stock-out-risk/lead-time', { method: 'POST', body: JSON.stringify({ item, vendor, days }) });
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const setItemSourceLeadTime = (item: string, vendor: string, days: number) =>
+//   request<void>('/reports/stock-out-risk/lead-time', { method: 'POST', body: JSON.stringify({ item, vendor, days }) });
 
 export interface PickingListLine {
   invoiceLineId: number;
@@ -1503,8 +1525,9 @@ export interface StockListingRow {
   max_level: number | null;
   reorder_level: number | null;
 }
-export const getStockListing = (limit = 100, offset = 0) =>
-  request<{ rows: StockListingRow[]; totalCount: number }>(`/stock-listing?limit=${limit}&offset=${offset}`);
+// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
+// export const getStockListing = (limit = 100, offset = 0) =>
+//   request<{ rows: StockListingRow[]; totalCount: number }>(`/stock-listing?limit=${limit}&offset=${offset}`);
 
 export interface LocationCapacityStatus {
   bottleQuantity: number;

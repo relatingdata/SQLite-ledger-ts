@@ -20,23 +20,20 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 421 functions (376 exported); 381 are called from production code; 25 only from tests or tooling; 15 from nowhere the compiler could find.
-- **Frontend library:** 255 functions (241 exported); 223 are called from production code; 2 only from tests or tooling; 30 from nowhere the compiler could find.
+- **Backend:** 414 functions (369 exported); 380 are called from production code; 25 only from tests or tooling; 9 from nowhere the compiler could find.
+- **Frontend library:** 231 functions (217 exported); 223 are called from production code; 2 only from tests or tooling; 6 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `backend/src/db.ts`: `typeCategoryOrItemsRootName.validate`, `getLineType`, `removeContactType`, `getContactsWithType`, `getItemProduct`, `getScreenTitle`, `getAllTranslations`
-- `backend/src/primitives.ts`: `Entity.rename`, `Entity.reparent`, `Entity.children`, `Link.mark`, `Link.unmark`, `Link.isMarked`, `Detail.delete`
-- `backend/src/session-context.ts`: `setCurrentBusiness`
+- `backend/src/db.ts`: `typeCategoryOrItemsRootName.validate`
+- `backend/src/primitives.ts`: `Entity.rename`, `Entity.reparent`, `Entity.children`, `Link.mark`, `Link.unmark`, `Link.isMarked`, `Link.withTarget`, `Detail.delete`
 
 ### Frontend library: functions with no callers found
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `asDivisionName`, `getBusinessReports`, `getChartOfAccounts`, `setMenuOverride`, `deleteMenuOverride`, `getProfitAndLossByDivision`, `getVocabularyAlternates`, `getNominatedBankAccounts`, `getStagedLines`, `removeStagedLine`, `stageArSale`, `postArSale`, `stageApPurchase`, `postApPurchase`, `getItemStorageOrigin`, `setItemStorageOrigin`, `listProducts`, `createProduct`, `setItemProduct`, `getScheduleAtLocation`, `dispatchStockFromLocation`, `setItemSourceLeadTime`, `getStockListing`
-- `frontend/src/lib/auth.ts`: `hasRole`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -1401,14 +1398,6 @@ setLineType(entityName: string, lineType: string | null, userId: UserId): void
 
 Called from: production: routes/entities.ts ((module level) ×1)
 
-**`getLineType`** *(exported)*
-
-```
-getLineType(entityName: string): string | undefined
-```
-
-Called from: nowhere the compiler could find.
-
 **`setItemStorageOrigin`** *(exported)*
 
 ```
@@ -2359,7 +2348,7 @@ Called from: production: db-seed.ts (migrateForMenuEntities ×1); db-stock.ts (s
 getEntityLink(entityName: string, linkType: string): string | undefined
 ```
 
-Called from: production: db.ts (getBankAccounts ×1, getDimensionParent ×1, getItemStorageOrigin ×1, getLanguageDirection ×1, getLineType ×1, getMenuTree ×1, and 2 more); primitives.ts (Link.get ×1) · tests: 4 call(s) in 1 file(s)
+Called from: production: db.ts (getBankAccounts ×1, getDimensionParent ×1, getItemStorageOrigin ×1, getLanguageDirection ×1, getMenuTree ×1, orderSiblingsByDisplayOrder ×1, and 1 more); primitives.ts (Link.get ×1) · tests: 4 call(s) in 1 file(s)
 
 **`deleteEntityLink`** *(exported)*
 
@@ -2367,7 +2356,7 @@ Called from: production: db.ts (getBankAccounts ×1, getDimensionParent ×1, get
 deleteEntityLink(entityName: string, linkType: string, userId: UserId): void
 ```
 
-Called from: production: db-stock.ts (setItemSourceLeadTime ×1); db.ts (deleteBomComponent ×1, deleteDimensionParent ×1, postBomComponents ×1, relinkDisplayOrderChain ×1, removeContactType ×1, setItemStorageOrigin ×1, and 4 more); primitives.ts (Link.delete ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: db-stock.ts (setItemSourceLeadTime ×1); db.ts (deleteBomComponent ×1, deleteDimensionParent ×1, postBomComponents ×1, relinkDisplayOrderChain ×1, setItemStorageOrigin ×1, setLanguageDirection ×1, and 3 more); primitives.ts (Link.delete ×1) · tests: 1 call(s) in 1 file(s)
 
 **`stageBomComponent`** *(exported)*
 
@@ -2473,14 +2462,6 @@ setContactType(contactName: string, typeName: string, userId: UserId): void
 
 Called from: production: db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3); db.ts (createEmployee ×1, createVendor ×1, registerCustomer ×1) · tests: 1 call(s) in 1 file(s)
 
-**`removeContactType`** *(exported)*
-
-```
-removeContactType(contactName: string, typeName: string, userId: UserId): void
-```
-
-Called from: nowhere the compiler could find.
-
 **`getContactTypes`** *(exported)*
 
 ```
@@ -2496,14 +2477,6 @@ getContactBaseAccounts(contactName: string): string[]
 ```
 
 Called from: tests: 4 call(s) in 1 file(s)
-
-**`getContactsWithType`** *(exported)*
-
-```
-getContactsWithType(typeName: string): string[]
-```
-
-Called from: nowhere the compiler could find.
 
 **`createVendor`** *(exported)*
 
@@ -2632,14 +2605,6 @@ createProduct(name: string, parent: string, userId: UserId): void
 ```
 
 Called from: production: routes/products.ts ((module level) ×1)
-
-**`getItemProduct`** *(exported)*
-
-```
-getItemProduct(itemName: string): string | null
-```
-
-Called from: nowhere the compiler could find.
 
 **`setItemProduct`** *(exported)*
 
@@ -2839,15 +2804,7 @@ Called from: production: db-reports.ts (getProfitAndLossByDivisionTree ×1); db.
 getMenuTree(opts?: { businessName?: string; userId?: number; }): MenuSectionRow[]
 ```
 
-Called from: production: db.ts (getScreenTitle ×1); routes/menu.ts ((module level) ×1) · tooling: 1 call(s) in 1 file(s)
-
-**`getScreenTitle`** *(exported)*
-
-```
-getScreenTitle(href: string, opts?: { businessName?: string; userId?: number; }): string | undefined
-```
-
-Called from: nowhere the compiler could find.
+Called from: production: routes/menu.ts ((module level) ×1) · tooling: 1 call(s) in 1 file(s)
 
 **`setMenuOverride`** *(exported)*
 
@@ -2952,14 +2909,6 @@ setTranslation(conceptName: string, languageName: string, text: string, userId?:
 ```
 
 Called from: production: db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForCoaTranslations ×1, migrateForDayOfWeekTranslations ×1, migrateForDivisionAndLocationTypeTranslations ×1, migrateForEnglishStringAuditGap ×12, migrateForEnglishStringAuditTranslations ×4, and 6 more); routes/i18n.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s) · tooling: 8 call(s) in 6 file(s)
-
-**`getAllTranslations`** *(exported)*
-
-```
-getAllTranslations(languageName: string): Record<string, string>
-```
-
-Called from: nowhere the compiler could find.
 
 **`getTranslation`** *(exported)*
 
@@ -3277,7 +3226,7 @@ Called from: nowhere the compiler could find.
 Link.withTarget(linkType: string, target: string): string[]
 ```
 
-Called from: production: db.ts (getContactsWithType ×1)
+Called from: nowhere the compiler could find.
 
 **`Balance.post`** *(exported)*
 
@@ -3435,14 +3384,6 @@ runInSessionContext<T>(context: SessionContext, fn: () => T): T
 
 Called from: production: auth-middleware.ts (attachUser ×1); db-seed.ts (migrateForWineRetailDemoData ×1) · tests: 1 call(s) in 1 file(s)
 
-**`setCurrentBusiness`** *(exported)*
-
-```
-setCurrentBusiness(business: RealBusinessNode): void
-```
-
-Called from: nowhere the compiler could find.
-
 ## Frontend library
 
 ### `frontend/src/lib/api.ts`
@@ -3470,14 +3411,6 @@ asAccountName(name: string): AccountName
 ```
 
 Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/ap-purchase ×0, routes/pos ×1, routes/post ×2, routes/projects ×1, routes/stock/po ×1, routes/stock/stock-take ×1, routes/stock/write-offs ×1
-
-**`asDivisionName`** *(exported)*
-
-```
-asDivisionName(name: string): DivisionName
-```
-
-Called from: nowhere the compiler could find.
 
 **`asLocationName`** *(exported)*
 
@@ -3541,7 +3474,7 @@ Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte
 request<T>(path: string, init?: RequestInit): Promise<T>
 ```
 
-Called from: production: api.ts (addOrUpdateItemSource ×1, allocatePaymentToInvoice ×1, apiLogin ×1, apiLogout ×1, buildBankCurrencyStructure ×1, changeOwnPassword ×1, and 185 more)
+Called from: production: api.ts (addOrUpdateItemSource ×1, allocatePaymentToInvoice ×1, apiLogin ×1, apiLogout ×1, buildBankCurrencyStructure ×1, changeOwnPassword ×1, and 163 more)
 
 **`getEntityTree`** *(exported)*
 
@@ -3607,22 +3540,6 @@ deleteEntity(id: number): Promise<void>
 
 Called from: Svelte pages (by name in the file's imports): routes/editor ×1, routes/setup/business-setup ×1, routes/setup/chart-of-accounts ×1
 
-**`getBusinessReports`** *(exported)*
-
-```
-getBusinessReports(): Promise<ReportRow[]>
-```
-
-Called from: nowhere the compiler could find.
-
-**`getChartOfAccounts`** *(exported)*
-
-```
-getChartOfAccounts(): Promise<ChartRow[]>
-```
-
-Called from: nowhere the compiler could find.
-
 **`getBankAccounts`** *(exported)*
 
 ```
@@ -3687,22 +3604,6 @@ getMenuTree(businessName?: string): Promise<MenuSectionRow[]>
 
 Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1
 
-**`setMenuOverride`** *(exported)*
-
-```
-setMenuOverride(menuItemKey: string, scope: "business" | "user", scopeId: number, overrideLabel: string | null, hidden: boolean): Promise<{ ok: true; }>
-```
-
-Called from: nowhere the compiler could find.
-
-**`deleteMenuOverride`** *(exported)*
-
-```
-deleteMenuOverride(menuItemKey: string, scope: "business" | "user", scopeId: number): Promise<{ ok: true; }>
-```
-
-Called from: nowhere the compiler could find.
-
 **`getBalanceSheet`** *(exported)*
 
 ```
@@ -3718,14 +3619,6 @@ getProfitAndLoss(business: BusinessName, ledger: LedgerName, fromDate?: string, 
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1
-
-**`getProfitAndLossByDivision`** *(exported)*
-
-```
-getProfitAndLossByDivision(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): Promise<ProfitAndLossByDivision[]>
-```
-
-Called from: nowhere the compiler could find.
 
 **`getProfitAndLossByDivisionTree`** *(exported)*
 
@@ -3790,14 +3683,6 @@ getLocalizedText(language: string, businessName?: string): Promise<Record<string
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1, routes/login ×1, routes/session ×1
-
-**`getVocabularyAlternates`** *(exported)*
-
-```
-getVocabularyAlternates(word: string): Promise<string[]>
-```
-
-Called from: nowhere the compiler could find.
 
 **`getConceptsWithAlternates`** *(exported)*
 
@@ -3951,14 +3836,6 @@ nominateBankAccount(businessName: string, bankAccountName: string, routingDetail
 
 Called from: Svelte pages (by name in the file's imports): routes/setup/new-business ×1
 
-**`getNominatedBankAccounts`** *(exported)*
-
-```
-getNominatedBankAccounts(businessName: string): Promise<{ name: string; routingDetail: string; accountNumber: string; }[]>
-```
-
-Called from: nowhere the compiler could find.
-
 **`getBusinessConfigurationReport`** *(exported)*
 
 ```
@@ -3982,22 +3859,6 @@ stageLine(line: StagedLine): Promise<void>
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/post ×1
-
-**`getStagedLines`** *(exported)*
-
-```
-getStagedLines(reference: string, business: BusinessName, ledger: LedgerName): Promise<StagedLine[]>
-```
-
-Called from: nowhere the compiler could find.
-
-**`removeStagedLine`** *(exported)*
-
-```
-removeStagedLine(reference: string, business: BusinessName, ledger: LedgerName, account: AccountName): Promise<void>
-```
-
-Called from: nowhere the compiler could find.
 
 **`postJournalEntry`** *(exported)*
 
@@ -4183,22 +4044,6 @@ createRecurringJournal(business: BusinessName, ledger: LedgerName, reference: st
 
 Called from: Svelte pages (by name in the file's imports): routes/post ×1
 
-**`stageArSale`** *(exported)*
-
-```
-stageArSale(input: ArApBaseInput & { customer: string; }): Promise<void>
-```
-
-Called from: nowhere the compiler could find.
-
-**`postArSale`** *(exported)*
-
-```
-postArSale(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
-```
-
-Called from: nowhere the compiler could find.
-
 **`stageArReceipt`** *(exported)*
 
 ```
@@ -4214,22 +4059,6 @@ postArReceipt(reference: string, business: BusinessName, ledger: LedgerName): Pr
 ```
 
 Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1
-
-**`stageApPurchase`** *(exported)*
-
-```
-stageApPurchase(input: ArApBaseInput & { vendor: string; expense_account: string; }): Promise<void>
-```
-
-Called from: nowhere the compiler could find.
-
-**`postApPurchase`** *(exported)*
-
-```
-postApPurchase(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
-```
-
-Called from: nowhere the compiler could find.
 
 **`stageApPayment`** *(exported)*
 
@@ -4447,22 +4276,6 @@ setOwnDateFormat(dateFormat: string): Promise<void>
 
 Called from: Svelte pages (by name in the file's imports): routes/account/password ×1
 
-**`getItemStorageOrigin`** *(exported)*
-
-```
-getItemStorageOrigin(itemName: string): Promise<{ origin: "Hot" | "Cold" | null; }>
-```
-
-Called from: nowhere the compiler could find.
-
-**`setItemStorageOrigin`** *(exported)*
-
-```
-setItemStorageOrigin(itemName: string, origin: "Hot" | "Cold" | null): Promise<void>
-```
-
-Called from: nowhere the compiler could find.
-
 **`getBomComponents`** *(exported)*
 
 ```
@@ -4502,30 +4315,6 @@ getItem(name: string): Promise<Item>
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/items ×1
-
-**`listProducts`** *(exported)*
-
-```
-listProducts(): Promise<ProductSummary[]>
-```
-
-Called from: nowhere the compiler could find.
-
-**`createProduct`** *(exported)*
-
-```
-createProduct(name: string, parent?: string): Promise<void>
-```
-
-Called from: nowhere the compiler could find.
-
-**`setItemProduct`** *(exported)*
-
-```
-setItemProduct(itemName: string, productName: string | null): Promise<void>
-```
-
-Called from: nowhere the compiler could find.
 
 **`setItem`** *(exported)*
 
@@ -4823,14 +4612,6 @@ setLocationOpenHours(locationName: LocationName, hours: OpenHoursLine[]): Promis
 
 Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×1
 
-**`getScheduleAtLocation`** *(exported)*
-
-```
-getScheduleAtLocation(locationName: LocationName): Promise<LocationScheduleLine[]>
-```
-
-Called from: nowhere the compiler could find.
-
 **`getEmployeeSchedule`** *(exported)*
 
 ```
@@ -4871,14 +4652,6 @@ receiveStockAtLocation(locationName: LocationName, input: { business: BusinessNa
 
 Called from: Svelte pages (by name in the file's imports): routes/items ×1
 
-**`dispatchStockFromLocation`** *(exported)*
-
-```
-dispatchStockFromLocation(locationName: LocationName, input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; }): Promise<void>
-```
-
-Called from: nowhere the compiler could find.
-
 **`transferStock`** *(exported)*
 
 ```
@@ -4902,14 +4675,6 @@ getStockOutRiskReport(windowDays?: number): Promise<StockOutRiskRow[]>
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/reports/stock-out-risk ×1
-
-**`setItemSourceLeadTime`** *(exported)*
-
-```
-setItemSourceLeadTime(item: string, vendor: string, days: number): Promise<void>
-```
-
-Called from: nowhere the compiler could find.
 
 **`getRestockPickingList`** *(exported)*
 
@@ -5047,14 +4812,6 @@ verifyCustomer(name: string, approve: boolean): Promise<void>
 
 Called from: Svelte pages (by name in the file's imports): routes/pos ×1
 
-**`getStockListing`** *(exported)*
-
-```
-getStockListing(limit?: number, offset?: number): Promise<{ rows: StockListingRow[]; totalCount: number; }>
-```
-
-Called from: nowhere the compiler could find.
-
 **`getStockListingByLocation`** *(exported)*
 
 ```
@@ -5088,14 +4845,6 @@ createAuthStore(): { subscribe: (this: void, run: Subscriber<AuthState>, invalid
 ```
 
 Called from: production: auth.ts ((module level) ×1)
-
-**`hasRole`** *(exported)*
-
-```
-hasRole(state: AuthState | null, ...roles: string[]): boolean
-```
-
-Called from: nowhere the compiler could find.
 
 ### `frontend/src/lib/entityTree.ts`
 
