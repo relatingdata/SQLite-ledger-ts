@@ -36,6 +36,7 @@ const PARTS: [string, string[]][] = [
     'css-styling-and-data-entry.md',
     'screens-staging-triggers-functions.md',
     'screens-inventory.md',
+    'function-inventory.md',
     'vocabulary-vs-sample-data.md',
     'scoped-uniqueness-and-location-accounting.md',
     'entity-identity-resolution.md',

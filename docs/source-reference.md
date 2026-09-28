@@ -10,16 +10,17 @@
 - `shared-fixtures/translations.ts` imports: `./csv.js`
 - `shared-fixtures/wine-retail-demo-data.ts` imports: `./csv.js`
 - `shared-fixtures/wine-retail.ts` imports: `./csv.js`
-- `backend/src/auth-middleware.ts` imports: `./auth.js`
+- `backend/src/auth-middleware.ts` imports: `./auth.js`, `./session-context.js`, `./db.js`
 - `backend/src/auth.ts` imports: `./db.js`, `./primitives.js`, `./password.js`
+- `backend/src/db-journal.ts` imports: `./db.js`, `./primitives.js`, `./db.js`, `./db-stock.js`
 - `backend/src/db-matrix-reports.ts` imports: `./db.js`, `./db.js`, `./db-reports.js`, `./db.js`
-- `backend/src/db-reports.ts` imports: `./db.js`, `./primitives.js`, `./db.js`
-- `backend/src/db-seed.ts` imports: `./db.js`, `./db.js`, `../../shared-fixtures/translations.js`, `../../shared-fixtures/wine-retail-demo-data.js`
-- `backend/src/db-stock.ts` imports: `./db.js`, `./primitives.js`, `./db.js`
-- `backend/src/db.ts` imports: `./sqlite-runtime.js`, `./password.js`, `./primitives.js`, `./db-reports.js`, `./db-seed.js`, `./db-reports.js`, `./db-stock.js`, `./db-stock.js`
+- `backend/src/db-reports.ts` imports: `./db.js`, `./primitives.js`, `./db.js`, `./primitives.js`
+- `backend/src/db-seed.ts` imports: `./db.js`, `./session-context.js`, `./db.js`, `../../shared-fixtures/translations.js`, `../../shared-fixtures/wine-retail-demo-data.js`
+- `backend/src/db-stock.ts` imports: `./db.js`, `./db.js`, `./primitives.js`, `./session-context.js`, `./db.js`
+- `backend/src/db.ts` imports: `./sqlite-runtime.js`, `./password.js`, `./primitives.js`, `./db-reports.js`, `./db-seed.js`, `./db-reports.js`, `./db-journal.js`, `./db-journal.js`, `./db-stock.js`, `./db-stock.js`
 - `backend/src/invoice.ts` imports: `./db.js`
 - `backend/src/primitives.ts` imports: `./db.js`, `./db.js`
-- `backend/src/server.ts` imports: `./routes/entities.js`, `./routes/reports.js`, `./routes/matrix-reports.js`, `./routes/menu.js`, `./routes/i18n.js`, `./routes/businesses.js`, `./routes/journal.js`, `./routes/contacts.js`, `./routes/items.js`, `./routes/products.js`, `./routes/invoices.js`, `./routes/stock-lots.js`, `./routes/locations.js`, `./routes/divisions.js`, `./routes/hierarchy.js`, `./routes/pos.js`, `./routes/customer-registration.js`, `./routes/arap.js`, `./routes/auth.js`, `./routes/stock.js`, `./routes/invoice.js`, `./routes/period.js`, `./routes/projects.js`, `./auth-middleware.js`
+- `backend/src/server.ts` imports: `./db.js`, `./routes/entities.js`, `./routes/reports.js`, `./routes/matrix-reports.js`, `./routes/menu.js`, `./routes/i18n.js`, `./routes/businesses.js`, `./routes/journal.js`, `./routes/contacts.js`, `./routes/items.js`, `./routes/products.js`, `./routes/invoices.js`, `./routes/stock-lots.js`, `./routes/locations.js`, `./routes/divisions.js`, `./routes/hierarchy.js`, `./routes/pos.js`, `./routes/customer-registration.js`, `./routes/arap.js`, `./routes/auth.js`, `./routes/stock.js`, `./routes/invoice.js`, `./routes/period.js`, `./routes/projects.js`, `./auth-middleware.js`
 - `frontend/src/lib/api.ts` imports: `./state.svelte`
 - `frontend/src/lib/entityTree.ts` imports: `./api`
 - `frontend/src/lib/menu.ts` imports: `./state.svelte`
@@ -30,20 +31,20 @@
 
 ## Call Graph Summary (real, direct invocation counts — see `make call-graph` for the complete, standalone report)
 
-Top 15 most-referenced functions across these 35 real, core files:
-- `create`: 137
-- `fetch`: 72
-- `asAccountName`: 56
-- `asAccountName`: 56
-- `asLedgerName`: 49
-- `asLedgerName`: 49
+Top 15 most-referenced functions across these 37 real, core files:
+- `create`: 161
+- `fetch`: 125
+- `asAccountName`: 78
+- `asAccountName`: 78
+- `stageLine`: 58
+- `asUserId`: 54
+- `asLedgerName`: 51
+- `asLedgerName`: 51
 - `asBusinessName`: 48
 - `asBusinessName`: 48
-- `asUserId`: 47
-- `updateEntity`: 42
-- `asItemName`: 39
-- `asItemName`: 39
-- `stageLine`: 37
+- `updateEntity`: 43
+- `asItemName`: 40
+- `asItemName`: 40
 - `setEntityLink`: 36
 - `requireAuth`: 33
 
@@ -170,6 +171,8 @@ changePassword(userId: number, newPassword: string): void
 changeOwnPassword(userId: number, currentPassword: string, newPassword: string): void
 login(username: string, password: string): 
 logout(token: string): void
+setSessionBusiness(token: string, businessName: string): void
+getSessionBusiness(token: string): string | null
 getSessionUser(token: string | undefined): AuthenticatedUser | null
 setOwnPageSize(userId: number, pageSize: number): void
 setOwnNumberFormat(userId: number, numberFormat: string): void
@@ -193,6 +196,205 @@ interface AuthenticatedUser {
   number_format: string;
   date_format: string;
 }
+```
+
+### `backend/src/db-journal.ts`
+
+**Functions**:
+
+```ts
+stageLine(line: StagedLine): void
+getStagedLines(reference: string, business: BusinessName, ledger: LedgerName): StagedLine[]
+createRecurringJournal(business: BusinessName, ledger: LedgerName, reference: string, startDate: string, recurrence: Recurrence, lines: RecurringJournalLine[], userId: UserId, description?: string, recurrenceCount?: number): void
+ensureLocationScopedAccount(baseAccountName: string, locationName: string, userId: UserId): string
+stageArSale(input: ArSaleInput): void
+postArSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+stageArReceipt(input: ArReceiptInput): void
+postArReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+stageApPurchase(input: ApPurchaseInput): void
+postApPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+stageApPayment(input: ApPaymentInput): void
+postApPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+stagePurchaseOrder(input: PurchaseOrderInput): void
+postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+clockInToProject(employeeName: EmployeeName, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): EmployeeClock
+clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName, userId: UserId): void
+getOpenProjectClockForEmployee(employeeName: EmployeeName): EmployeeClock | undefined
+stageStockReceipt(input: StockReceiptInput): void
+postStockReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+stageLocation(input: LocationStagingInput): void
+postLocation(reference: string, business: BusinessName, userId: UserId): TypedNode<'LocationEntityName'>
+stageSalesOrder(input: SalesOrderInput): void
+postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+stageStockDispatch(input: StockDispatchInput): void
+postStockDispatch(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+removeStagedLine(reference: string, business: BusinessName, ledger: LedgerName, account: string): void
+postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+listJournalEntries(business: BusinessName, ledger: LedgerName, limit = 100, offset = 0): JournalSummary[]
+countJournalEntries(business: BusinessName, ledger: LedgerName): number
+getJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string): JournalDetail | undefined
+getLedgerDateRange(businessName: BusinessName, ledgerName: LedgerName): LedgerDateRange
+getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus
+closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string, userId: UserId): void
+reopenPeriod(business: BusinessName, ledger: LedgerName, userId: UserId): void
+assertPeriodOpen(business: BusinessName, ledger: LedgerName, transdate: string): void
+reverseJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, userId: UserId, reversalDate?: string): void
+```
+
+**Types**:
+
+```ts
+interface StagedLine {
+  reference: string;
+  business: BusinessName;
+  ledger: LedgerName;
+  description?: string;
+  transdate?: string;
+  account: AccountName;
+  accountId?: number;
+  amount_minor: number;
+  memo?: string;
+  division?: DivisionName;
+  bankReference?: string;
+}
+interface RecurringJournalLine {
+  account: string;
+  amount_minor: number;
+  memo?: string;
+  effective_date?: string;
+}
+interface ArSaleInput {
+  reference: string;
+  business: BusinessName;
+  ledger: LedgerName;
+  customer: CustomerName;
+  amount_minor: number;
+  tax_minor?: number;
+  location?: LocationName;
+  transdate?: string;
+  description?: string;
+}
+interface ArReceiptInput {
+  reference: string;
+  business: BusinessName;
+  ledger: LedgerName;
+  customer: CustomerName;
+  amount_minor: number;
+  transdate?: string;
+  description?: string;
+}
+interface ApPurchaseInput {
+  reference: string;
+  business: BusinessName;
+  ledger: LedgerName;
+  vendor: VendorName;
+  expense_account: AccountName;
+  amount_minor: number;
+  tax_minor?: number;
+  location?: LocationName;
+  transdate?: string;
+  description?: string;
+}
+interface ApPaymentInput {
+  reference: string;
+  business: BusinessName;
+  ledger: LedgerName;
+  vendor: VendorName;
+  amount_minor: number;
+  transdate?: string;
+  description?: string;
+}
+interface PurchaseOrderInput {
+  reference: string;
+  business: string;
+  ledger: string;
+  vendor: string;
+  item: string;
+  quantity: number;
+  price_minor: number;
+  location?: string;
+  transdate?: string;
+  description?: string;
+}
+interface EmployeeClock {
+  employee: string;
+  po_reference: string;
+  project_expense_account: string;
+  clocked_in_at: string;
+}
+interface StockReceiptInput {
+  reference: string;
+  business: string;
+  ledger: string;
+  po_reference: string;
+  item: string;
+  item_qty?: string | null;
+  vendor: string;
+  quantity: number;
+  value_minor: number;
+  tax_minor?: number;
+  transdate?: string;
+  description?: string;
+}
+interface LocationStagingInput {
+  reference: string;
+  business: BusinessName;
+  location_name: string;
+  city: string;
+  location_type: string;
+  bottle_capacity?: number | null;
+  carton_capacity?: number | null;
+  timezone: string;
+}
+interface SalesOrderInput {
+  reference: string;
+  business: string;
+  ledger: string;
+  customer: string;
+  item: string;
+  quantity: number;
+  price_minor: number;
+  location?: string;
+  transdate?: string;
+  description?: string;
+}
+interface StockDispatchInput {
+  reference: string;
+  business: string;
+  ledger: string;
+  so_reference: string;
+  item?: string | null;
+  item_qty?: string | null;
+  customer: string;
+  quantity: number;
+  unit_cost_minor?: number | null;
+  sale_price_minor: number;
+  tax_minor?: number;
+  transdate?: string;
+  description?: string;
+}
+interface JournalSummary {
+  journal_id: number;
+  occurrence_date: string | null;
+  reference: string;
+  description: string;
+  business: string;
+  ledger: string;
+  recurrence: string;
+  posted_by: string;
+  total_debit_minor: number;
+  total_credit_minor: number;
+}
+interface PeriodLockStatus {
+  locked_through_date: string | null;
+  changed_by: number | null;
+  changed_at: string | null;
+}
+interface LedgerDateRange {
+  earliest: string | null;
+  latest: string | null;
+}
+type Recurrence = 'once' | 'weekly' | 'monthly' | 'yearly';
 ```
 
 ### `backend/src/db-matrix-reports.ts`
@@ -258,7 +460,9 @@ type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Division' | 'Consolidat
 
 ```ts
 getBusinessReports(): ReportRow[]
-setAccountCurrency(accountName: string, currency: string | null): void
+setAccountCurrency(accountName: string, currency: string | null, entityId?: number): void
+ensureCurrencyAccount(baseAccountId: number, currency: string, userId: UserId): 
+ensureCashAtBankAccount(userId: UserId): number
 getChartOfAccounts(): ChartRow[]
 getLedgerBalancesByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string | null, number>>
 getLedgerBalancesByDivisionStructural(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string | null, number>>
@@ -460,9 +664,10 @@ setLocation(name: string, location: Location): void
 getLocation(name: string): Location | undefined
 todayAtLocation(locationName: LocationName): string
 getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels
-setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, userId: UserId): void
+setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>): void
 getLocationCapacityStatus(locationName: LocationName): LocationCapacityStatus
 createPosTerminal(terminalName: string, locationName: LocationName, userId: UserId): void
+listPosTerminals(locationName: string): 
 setTerminalCurrency(terminalName: string, currency: string | null): void
 getEffectiveSaleCurrency(terminalName: string | undefined): string | null
 ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): 
@@ -480,7 +685,7 @@ setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: {
     level?: number | null;
   }): void
 receiveStockAtLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void
-dispatchStockFromLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string): void
+dispatchStockFromLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void
 transferStock(business: BusinessName, ledger: LedgerName, itemName: ItemName, fromLocationName: LocationName, toLocationName: LocationName, quantity: number, reference: string, userId = 1, transdate?: string, combinationShape?: [string, string][], combinationValuesAfterLocation?: string[]): void
 getBelowReorderStock(): BelowReorderRow[]
 setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName, days: number, userId: UserId): void
@@ -489,14 +694,10 @@ getStockOutRiskReport(windowDays: number = 2): StockOutRiskRow[]
 createStockTake(locationName: LocationName, takeDate: string, userId: UserId): number
 getStockTake(id: number): StockTake | undefined
 recordStockTakeCount(stockTakeId: number, itemName: ItemName, countedQuantity: number): void
-completeStockTake(stockTakeId: number, business: BusinessName, ledger: LedgerName, varianceExpenseAccount: AccountName, /** @deprecated No longer used — each line now resolves its own, * real, per-product Inventory account directly, the same, real, * structural fix already applied to Purchases and Sales/COGS.
-   * Kept only so existing callers (the real, live Stock Take UI, the
-   * simulation) don't need a breaking API change to keep working. */
+completeStockTake(stockTakeId: number, business: BusinessName, ledger: LedgerName, varianceExpenseAccount: AccountName, /** @deprecated See docs/stock-api-reference.md § Stock takes. */
   inventoryAccount: string, unitCostMinorByItem: Record<string, number>, userId: UserId): void
-writeOffStock(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, quantity: number, unitCostMinor: number, writeOffExpenseAccount: AccountName, /** @deprecated No longer used — resolves to that same, real
-   * product's own, real Inventory sub-account directly. Kept only so
-   * existing callers don't need a breaking API change. */
-  inventoryAccount: string, reason: string, userId: UserId, transdate?: string, locationName?: LocationName): void
+writeOffStock(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, quantity: number, unitCostMinor: number, writeOffExpenseAccount: AccountName, /** @deprecated See docs/storage-space-as-currency-design.md § 24, D8 (write-off). */
+  inventoryAccount: string, reason: string, userId: UserId, transdate?: string, locationName?: LocationName, combinationValues?: string[], combinationShape?: [string, string][]): void
 receiveLot(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, lotNumber: string, receivedDate: string, expirationDate: string | null, quantity: number, userId: UserId, costBasisMinor?: number): void
 consumeFromLots(itemName: ItemName, quantity: number): 
 getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[]
@@ -623,8 +824,9 @@ getEntityTree(): (EntityNode &
 getEntity(id: number): EntityNode | undefined
 getEntityHistory(id: number): EntityHistoryRow[]
 resolveItemId(itemName: ItemName): number | undefined
+fetchGlobalCoaCategory(categoryName: string): TypedNode<'RootName'>
 isGenuineCategoryOrItemsRoot(name: string): boolean
-createEntity(input: NewEntity, userId: UserId): EntityNode
+createEntityRaw(input: NewEntity, userId: UserId): EntityNode
 updateEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode
 listLineTypes(): string[]
 setLineType(entityName: string, lineType: string | null, userId: UserId): void
@@ -680,7 +882,10 @@ ensureProductInstance(businessName: BusinessName, definitionDimensions: [string,
 getCombinationDisplayName(entityId: number): string
 climbInstanceTree(instanceId: number): 
 getCombinationByUpc(upc: string): 
-ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId): 
+ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId, baseAccountId?: number): 
+ensureStorageCapacityStructure(parentEntity: { id: number; name: string }, userId: UserId): 
+convertStorageSpace(business: BusinessName, ledger: LedgerName, itemName: ItemName, definitionDimensions: [string, string][], fromValues: string[], toValues: string[], quantity: number, userId: UserId, reference?: string): void
+openStorageContainer(business: BusinessName, ledger: LedgerName, definitionDimensions: [string, string][], containerValues: string[], cartonsOpened: number, unitValues: string[], unitsProduced: number, userId: UserId, reference?: string): void
 getBusinessHierarchy(businessName: BusinessName): HierarchyGroupingWithValues[]
 getBusinessProductShapes(businessName: BusinessName): [string, string][][]
 getProductUnitCostMinor(itemName: ItemName): number | null
@@ -700,6 +905,7 @@ recordReminderSent(customerName: string): number
 resetReminderLevel(customerName: string): void
 getReminderCandidates(business: BusinessName, ledger: LedgerName, asOfDate: string): ReminderCandidate[]
 getContact(entityName: string): Contact | undefined
+recordInvoiceLine(reference: string, business: string, ledger: string, description: string, quantity: number | null, unitPriceMinor: number | null, amountMinor: number, taxMinor: number): void
 getInvoiceLine(reference: string, business: BusinessName, ledger: LedgerName): InvoiceLine | undefined
 getAccountsPostedTo(reference: string): string[]
 mergeContactDetail(entityId: number, fields: Record<string, unknown>): void
@@ -754,6 +960,8 @@ removeContactType(contactName: string, typeName: string, userId: UserId): void
 getContactTypes(contactName: string): string[]
 getContactBaseAccounts(contactName: string): string[]
 getContactsWithType(typeName: string): string[]
+createVendor(name: string, userId: UserId): 
+createEmployee(name: string, placeOfEmployment: string, userId: UserId): 
 getDimensionChildren(parentName: string, dimensionName: string): string[]
 getDimensionLinksPointingAt(targetName: string): 
 getDimensionAncestorChain(entityName: string, dimensionName: string): string[]
@@ -774,10 +982,14 @@ getItem(entityName: string): Item | undefined
 setItem(entityName: string, item: Partial<Item>): void
 listItems(limit?: number, offset = 0): ItemSummary[]
 countItems(): number
-createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId): void
+createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId, businessName?: BusinessName): void
 listItemSources(itemName: string): ItemSource[]
 addOrUpdateItemSource(input: ItemSourceInput): void
 getItemPriceForCurrency(itemName: string, currency: string | null, productInstanceId?: number): number | null
+setBusinessHomeCurrency(businessName: string, currencyCode: string, userId: UserId): void
+getBusinessHomeCurrency(businessName: string): string | null
+nominateLocationCurrency(locationName: string, currencyCode: string, userId: UserId): void
+getLocationCurrencies(locationName: string): string[]
 ensureCurrencyPair(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId): 
 setCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId, buyRateMinor?: number, sellRateMinor?: number): void
 getCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, side: 'buy' | 'sell'): number | null
@@ -806,47 +1018,21 @@ getAllTranslations(languageName: string): Record<string, string>
 getTranslation(conceptName: string, languageName: string): string | null
 getBusinesses(): 
 getLedgers(businessName: BusinessName): 
+addFinancialStatementNote(businessName: BusinessName, noteText: string, userId: UserId): 
+getFinancialStatementNotes(businessName: BusinessName): 
+createLocation(businessName: BusinessName, locationName: string, userId: UserId): TypedNode<'LocationEntityName'>
+createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId): TypedNode<'LocationEntityName'>
+createItemCategory(businessName: BusinessName, categoryName: string, parentCategoryName: string | undefined, userId: UserId): TypedNode<'RootName'>
+nominateBankAccount(businessName: BusinessName, bankAccountName: string, routingDetail: string, accountNumber: string, userId: UserId): 
+getNominatedBankAccounts(businessName: BusinessName): 
+getBusinessConfigurationReport(businessName: BusinessName): BusinessConfigurationReport
 setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaPrototype?: string, partnerNames?: string[]): void
 getBusinessTypes(): BusinessTypeInfo[]
 saveBusinessTypeAnswers(businessName: BusinessName, answers: Record<string, string>, userId: UserId): void
-copyChartOfAccountsInto(destRootName: string, coaPrototype: string | undefined, userId: UserId): void
+copyChartOfAccountsInto(business: TypedNode<string>, destRoot: TypedNode<string>, coaPrototype: string | undefined, userId: UserId): void
 instantiateChartOfAccounts(businessName: BusinessName, coaPrototype: string | undefined, userId: UserId): void
 createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaPrototype?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[]): 
-getCoaPrototypeAccounts(businessName: BusinessName, ledgerName: LedgerName): string[]
-stageLine(line: StagedLine): void
-getStagedLines(reference: string, business: BusinessName, ledger: LedgerName): StagedLine[]
-createRecurringJournal(business: BusinessName, ledger: LedgerName, reference: string, startDate: string, recurrence: Recurrence, lines: RecurringJournalLine[], userId: UserId, description?: string, recurrenceCount?: number): void
-ensureLocationScopedAccount(baseAccountName: string, locationName: string, userId: UserId): string
-stageArSale(input: ArSaleInput): void
-postArSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
-stageArReceipt(input: ArReceiptInput): void
-postArReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
-stageApPurchase(input: ApPurchaseInput): void
-postApPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
-stageApPayment(input: ApPaymentInput): void
-postApPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
-stagePurchaseOrder(input: PurchaseOrderInput): void
-postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
-clockInToProject(employeeName: EmployeeName, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): EmployeeClock
-clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName, userId: UserId): void
-getOpenProjectClockForEmployee(employeeName: EmployeeName): EmployeeClock | undefined
-stageStockReceipt(input: StockReceiptInput): void
-postStockReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
-stageSalesOrder(input: SalesOrderInput): void
-postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
-stageStockDispatch(input: StockDispatchInput): void
-postStockDispatch(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
-removeStagedLine(reference: string, business: BusinessName, ledger: LedgerName, account: string): void
-postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
-listJournalEntries(business: BusinessName, ledger: LedgerName, limit = 100, offset = 0): JournalSummary[]
-countJournalEntries(business: BusinessName, ledger: LedgerName): number
-getJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string): JournalDetail | undefined
-getLedgerDateRange(businessName: BusinessName, ledgerName: LedgerName): LedgerDateRange
-getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus
-closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string, userId: UserId): void
-reopenPeriod(business: BusinessName, ledger: LedgerName, userId: UserId): void
-assertPeriodOpen(business: BusinessName, ledger: LedgerName, transdate: string): void
-reverseJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, userId: UserId, reversalDate?: string): void
+getChartOfAccountsPrototype(language: string): string[]
 ```
 
 **Types**:
@@ -1252,6 +1438,7 @@ interface ItemSource {
   vendor_sku: string | null;
   vendor_upc: string | null;
   price_minor: number | null;
+  currency: string | null;
   package_quantity: number | null;
   is_preferred: boolean;
   preference_notes: string | null;
@@ -1293,149 +1480,23 @@ interface ConceptWithAlternates {
   alternates: string[];
   defaultAlternate: string;
 }
+interface BusinessConfigurationReport {
+  businessName: string;
+  addresses: TypedAddress[];
+  phones: TypedPhone[];
+  ownerOrPartners: string[];
+  bankAccounts: { name: string; routingDetail: string; accountNumber: string }[];
+  homeCurrency: string | null;
+  secondaryCurrencies: string[];
+  divisions: string[];
+  locations: { name: string; city: string; locationType: string }[];
+  categories: string[];
+  chartOfAccountsPrototype: string | null;
+  notes: { name: string; text: string }[];
+}
 interface BusinessTypeInfo {
   name: string;
   questions: string[];
-}
-interface StagedLine {
-  reference: string;
-  business: BusinessName;
-  ledger: LedgerName;
-  description?: string;
-  transdate?: string;
-  account: AccountName;
-  accountId?: number;
-  amount_minor: number;
-  memo?: string;
-  division?: DivisionName;
-  bankReference?: string;
-}
-interface RecurringJournalLine {
-  account: string;
-  amount_minor: number; // positive = debit, negative = credit
-  memo?: string;
-  effective_date?: string; // defaults to the journal's own start date if omitted
-}
-interface ArSaleInput {
-  reference: string;
-  business: BusinessName;
-  ledger: LedgerName;
-  customer: CustomerName;
-  amount_minor: number;
-  tax_minor?: number;
-  location?: LocationName; // real, direct, per-invoice location — not per line
-  transdate?: string;
-  description?: string;
-}
-interface ArReceiptInput {
-  reference: string;
-  business: BusinessName;
-  ledger: LedgerName;
-  customer: CustomerName;
-  amount_minor: number;
-  transdate?: string;
-  description?: string;
-}
-interface ApPurchaseInput {
-  reference: string;
-  business: BusinessName;
-  ledger: LedgerName;
-  vendor: VendorName;
-  expense_account: AccountName;
-  amount_minor: number;
-  tax_minor?: number;
-  location?: LocationName; // real, direct, per-invoice location — not per line
-  transdate?: string;
-  description?: string;
-}
-interface ApPaymentInput {
-  reference: string;
-  business: BusinessName;
-  ledger: LedgerName;
-  vendor: VendorName;
-  amount_minor: number;
-  transdate?: string;
-  description?: string;
-}
-interface PurchaseOrderInput {
-  reference: string;
-  business: string;
-  ledger: string;
-  vendor: string;
-  item: string;
-  quantity: number;
-  price_minor: number;
-  location?: string; // real, direct delivery instructions: where this order should arrive
-  transdate?: string;
-  description?: string;
-}
-interface EmployeeClock {
-  employee: string;
-  po_reference: string;
-  project_expense_account: string;
-  clocked_in_at: string;
-}
-interface StockReceiptInput {
-  reference: string;
-  business: string;
-  ledger: string;
-  po_reference: string;
-  item: string; // the monetary-side account — a batch's Value account for stock, or any ordinary expense account for a service
-  item_qty?: string | null; // the batch's Qty account — omit for a service (nothing physical received)
-  vendor: string;
-  quantity: number;
-  value_minor: number;
-  tax_minor?: number;
-  transdate?: string;
-  description?: string;
-}
-interface SalesOrderInput {
-  reference: string;
-  business: string;
-  ledger: string;
-  customer: string;
-  item: string;
-  quantity: number;
-  price_minor: number;
-  location?: string; // real, direct dispatch instructions: where this order should ship from
-  transdate?: string;
-  description?: string;
-}
-interface StockDispatchInput {
-  reference: string;
-  business: string;
-  ledger: string;
-  so_reference: string;
-  item?: string | null; // the batch's Value account (cost side) — omit for a service (no COGS leg)
-  item_qty?: string | null; // the batch's Qty account — omit for a service (nothing physical shipped)
-  customer: string;
-  quantity: number;
-  unit_cost_minor?: number | null; // omit for a service — there is no batch cost to recognize
-  sale_price_minor: number;
-  tax_minor?: number;
-  transdate?: string;
-  description?: string;
-}
-interface JournalSummary {
-  journal_id: number;
-  occurrence_date: string | null;
-  reference: string;
-  description: string;
-  business: string;
-  ledger: string;
-  recurrence: string;
-  posted_by: string;
-  total_debit_minor: number;
-  total_credit_minor: number;
-}
-interface PeriodLockStatus {
-  locked_through_date: string | null;
-  changed_by: number | null;
-  changed_at: string | null;
-}
-interface LedgerDateRange {
-  earliest: string | null;
-  latest: string | null;
 }
 type BusinessName = string & { readonly __brand: 'BusinessName' };
 type LedgerName = string & { readonly __brand: 'LedgerName' };
@@ -1449,7 +1510,6 @@ type ItemName = string & { readonly __brand: 'ItemName' };
 type UserId = number & { readonly __brand: 'UserId' };
 type EntityId = number & { readonly __brand: 'EntityId' };
 type EntityStructure = 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded';
-type Recurrence = 'once' | 'weekly' | 'monthly' | 'yearly';
 ```
 
 **Exported variables**:
@@ -1493,6 +1553,7 @@ type Recurrence = 'once' | 'weekly' | 'monthly' | 'yearly';
 - `typeBusinessTypeQuestionsRootName`
 - `typeBusinessTypeQuestionName`
 - `typeDivisionName`
+- `PER_BUSINESS_ROOTS`
 
 ### `backend/src/invoice.ts`
 
@@ -1544,6 +1605,32 @@ interface HierarchyTreeNode {
 
 ### `backend/src/server.ts`
 
+### `backend/src/session-context.ts`
+
+**Functions**:
+
+```ts
+setCurrentBusiness(business: RealBusinessNode): void
+```
+
+**Types**:
+
+```ts
+interface RealBusinessNode {
+  readonly id: number;
+  readonly name: string;
+}
+interface SessionContext {
+  userId: number;
+  business: RealBusinessNode;
+  ledger: string;
+}
+```
+
+**Exported variables**:
+
+- `Session`
+
 ### `backend/src/sqlite-runtime.ts`
 
 **Types**:
@@ -1583,6 +1670,7 @@ asEmployeeName(name: string): EmployeeName
 asCustomerName(name: string): CustomerName
 asVendorName(name: string): VendorName
 asItemName(name: string): ItemName
+compareVersions(a: string, b: string): number
 ```
 
 **Types**:
@@ -1763,6 +1851,20 @@ interface DivisionRecord {
 interface HierarchyGroupingWithValues {
   grouping: string;
   values: string[];
+}
+interface BusinessConfigurationReport {
+  businessName: string;
+  addresses: { address_type: string; address1?: string; city?: string; [key: string]: unknown }[];
+  phones: { phone_type: string; phone?: string; [key: string]: unknown }[];
+  ownerOrPartners: string[];
+  bankAccounts: { name: string; routingDetail: string; accountNumber: string }[];
+  homeCurrency: string | null;
+  secondaryCurrencies: string[];
+  divisions: string[];
+  locations: { name: string; city: string; locationType: string }[];
+  categories: string[];
+  chartOfAccountsPrototype: string | null;
+  notes: { name: string; text: string }[];
 }
 interface StagedLine {
   reference: string;
@@ -1975,6 +2077,7 @@ interface ItemSource {
   vendor_sku: string | null;
   vendor_upc: string | null;
   price_minor: number | null;
+  currency: string | null;
   package_quantity: number | null;
   is_preferred: boolean;
   preference_notes: string | null;
@@ -1985,6 +2088,7 @@ interface ItemSourceInput {
   vendorSku?: string | null;
   vendorUpc?: string | null;
   priceMinor?: number | null;
+  currency?: string | null;
   packageQuantity?: number | null;
   isPreferred?: boolean;
   preferenceNotes?: string | null;
@@ -2110,6 +2214,10 @@ interface EmployeeClock {
   po_reference: string;
   project_expense_account: string;
   clocked_in_at: string;
+}
+interface PosTerminalRecord {
+  name: string;
+  currency: string | null;
 }
 interface OpenHoursLine {
   day: string;
@@ -2300,6 +2408,8 @@ type BomComponent = { component: string;
 - `getDimensionLinksPointingAt`
 - `createEntity`
 - `setEntityRelationship`
+- `createVendor`
+- `createEmployeeContact`
 - `updateEntity`
 - `deleteEntity`
 - `getBusinessReports`
@@ -2344,6 +2454,10 @@ type BomComponent = { component: string;
 - `getLedgers`
 - `createBusiness`
 - `getCoaPrototypeAccounts`
+- `nominateBankAccount`
+- `getNominatedBankAccounts`
+- `getBusinessConfigurationReport`
+- `buildBankCurrencyStructure`
 - `stageLine`
 - `getStagedLines`
 - `removeStagedLine`
@@ -2440,6 +2554,13 @@ type BomComponent = { component: string;
 - `getOpenProjectClock`
 - `getLocationByName`
 - `saveLocation`
+- `createLocation`
+- `convertStorageSpace`
+- `openStorageContainer`
+- `getLocationCurrencies`
+- `nominateLocationCurrency`
+- `getPosTerminals`
+- `createPosTerminal`
 - `getLocationOpenHours`
 - `setLocationOpenHours`
 - `getScheduleAtLocation`
@@ -2724,7 +2845,7 @@ See `docs/naming-conventions-and-entity-glossary.md` for what these two, real, d
 
 ### Real `parent:` usages (structural — "this entity lives under that one")
 
-- `backend/src/db.ts`: TypedNode<TParentBrand>; string; productName ?? 'Items'; 'Vendors'; // 'Equity'
+- `backend/src/db.ts`: TypedNode<TParentBrand>; Accounts Payable; string; productName ?? 'Items'
 - `backend/src/primitives.ts`: string | number; string
 - `frontend/src/lib/api.ts`: string | null
 
@@ -2740,22 +2861,22 @@ See `docs/naming-conventions-and-entity-glossary.md` for what these two, real, d
 
 Generated directly by `scripts/source-reference.ts` (run via `make source-reference`). For each real, exported type and function across the files this reference covers, this script scans every one of those same, real files for a genuine, textual reference to that exact name, excluding the file that defines it, to build the real "Referenced in" list below - a real, direct, confirmed fact about which files mention the name, never a claim about actual runtime call order or invocation count (see the real Call Graph Summary above for that).
 
-### Types (249, alphabetical)
+### Types (255, alphabetical)
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
-| `AccountName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `type AccountName = string & { readonly __brand: 'AccountName' };` |
-| `AccountName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts` | `type AccountName = string & { readonly __brand: 'AccountName' };` |
+| `AccountName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `type AccountName = string & { readonly __brand: 'AccountName' };` |
+| `AccountName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `type AccountName = string & { readonly __brand: 'AccountName' };` |
 | `AgedInvoiceRow` | `backend/src/db.ts` | (none) | `interface AgedInvoiceRow {   invoice_id: number;   reference: string;   counterparty: string;   invoice_date: string;   due_date: string \| null;   outstanding_minor: number;   days_overdue: number;   bucket: string; }` |
 | `AgedRow` | `frontend/src/lib/api.ts` | (none) | `interface AgedRow {   invoice_id: number;   reference: string;   counterparty: string;   invoice_date: string;   due_date: string \| null;   outstanding_minor: number;   days_overdue: number;   bucket: string; }` |
 | `AgedSummaryRow` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface AgedSummaryRow {   counterparty: string;   outstanding_minor: number;   oldest_days_overdue: number; }` |
 | `AgedSummaryRow` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface AgedSummaryRow {   counterparty: string;   outstanding_minor: number;   oldest_days_overdue: number; }` |
 | `AgingBucket` | `backend/src/db.ts` | (none) | `interface AgingBucket {   label: string;   through_days: number; }` |
-| `ApPaymentInput` | `backend/src/db.ts` | (none) | `interface ApPaymentInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   vendor: VendorName;   amount_minor: number;   transdate?: string;   description?: string; }` |
-| `ApPurchaseInput` | `backend/src/db.ts` | (none) | `interface ApPurchaseInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   vendor: VendorName;   expense_account: AccountName;   amount_minor: number;   tax_minor?: number;   location?: LocationName; // real, direct, per-invoice location — not per line   transdate?: string;   description?: string; }` |
+| `ApPaymentInput` | `backend/src/db-journal.ts` | (none) | `interface ApPaymentInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   vendor: VendorName;   amount_minor: number;   transdate?: string;   description?: string; }` |
+| `ApPurchaseInput` | `backend/src/db-journal.ts` | (none) | `interface ApPurchaseInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   vendor: VendorName;   expense_account: AccountName;   amount_minor: number;   tax_minor?: number;   location?: LocationName;   transdate?: string;   description?: string; }` |
 | `ArApBaseInput` | `frontend/src/lib/api.ts` | (none) | `interface ArApBaseInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   amount_minor: number;   tax_minor?: number;   location?: string;   transdate?: string;   description?: string; }` |
-| `ArReceiptInput` | `backend/src/db.ts` | (none) | `interface ArReceiptInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   customer: CustomerName;   amount_minor: number;   transdate?: string;   description?: string; }` |
-| `ArSaleInput` | `backend/src/db.ts` | (none) | `interface ArSaleInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   customer: CustomerName;   amount_minor: number;   tax_minor?: number;   location?: LocationName; // real, direct, per-invoice location — not per line   transdate?: string;   description?: string; }` |
+| `ArReceiptInput` | `backend/src/db-journal.ts` | (none) | `interface ArReceiptInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   customer: CustomerName;   amount_minor: number;   transdate?: string;   description?: string; }` |
+| `ArSaleInput` | `backend/src/db-journal.ts` | (none) | `interface ArSaleInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   customer: CustomerName;   amount_minor: number;   tax_minor?: number;   location?: LocationName;   transdate?: string;   description?: string; }` |
 | `AuthenticatedUser` | `backend/src/auth.ts` | `backend/src/auth-middleware.ts` | `interface AuthenticatedUser {   id: number;   username: string;   roles: string[];   page_size: number;   number_format: string;   date_format: string; }` |
 | `AuthState` | `frontend/src/lib/auth.ts` | `frontend/src/lib/state.svelte.ts` | `interface AuthState {   token: string;   user: AuthUser; }` |
 | `AuthState` | `frontend/src/lib/state.svelte.ts` | `frontend/src/lib/auth.ts` | `interface AuthState {   token: string;   user: AuthUser; }` |
@@ -2770,8 +2891,10 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `BelowReorderRow` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `interface BelowReorderRow {   item: string;   location: string;   quantity_on_hand: number;   reorder_level: number;   min_level: number \| null;   max_level: number \| null; }` |
 | `BelowReorderRow` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts` | `interface BelowReorderRow {   item: string;   location: string;   quantity_on_hand: number;   reorder_level: number;   min_level: number \| null;   max_level: number \| null; }` |
 | `BomComponent` | `frontend/src/lib/api.ts` | (none) | `type BomComponent = { component: string;` |
-| `BusinessName` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type BusinessName = string & { readonly __brand: 'BusinessName' };` |
-| `BusinessName` | `frontend/src/lib/api.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type BusinessName = string & { readonly __brand: 'BusinessName' };` |
+| `BusinessConfigurationReport` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface BusinessConfigurationReport {   businessName: string;   addresses: TypedAddress[];   phones: TypedPhone[];   ownerOrPartners: string[];   bankAccounts: { name: string; routingDetail: string; accountNumber: string }[];   homeCurrency: string \| null;   secondaryCurrencies: string[];   divisions: string[];   locations: { name: string; city: string; locationType: string }[];   categories: string[];   chartOfAccountsPrototype: string \| null;   notes: { name: string; text: string }[]; }` |
+| `BusinessConfigurationReport` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface BusinessConfigurationReport {   businessName: string;   addresses: { address_type: string; address1?: string; city?: string; [key: string]: unknown }[];   phones: { phone_type: string; phone?: string; [key: string]: unknown }[];   ownerOrPartners: string[];   bankAccounts: { name: string; routingDetail: string; accountNumber: string }[];   homeCurrency: string \| null;   secondaryCurrencies: string[];   divisions: string[];   locations: { name: string; city: string; locationType: string }[];   categories: string[];   chartOfAccountsPrototype: string \| null;   notes: { name: string; text: string }[]; }` |
+| `BusinessName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type BusinessName = string & { readonly __brand: 'BusinessName' };` |
+| `BusinessName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type BusinessName = string & { readonly __brand: 'BusinessName' };` |
 | `BusinessTypeInfo` | `backend/src/db.ts` | (none) | `interface BusinessTypeInfo {   name: string;   questions: string[]; }` |
 | `CashFlowForecast` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface CashFlowForecast {   as_of_date: string;   horizon_end_date: string;   starting_cash_minor: number;   overdraft_limit_minor: number \| null;   lines: ForecastLine[];   ending_cash_minor: number;   lowest_projected_balance_minor: number;   lowest_balance_date: string;   first_shortfall_date: string \| null;   first_shortfall_amount_minor: number \| null; }` |
 | `CashFlowForecast` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface CashFlowForecast {   as_of_date: string;   horizon_end_date: string;   starting_cash_minor: number;   overdraft_limit_minor: number \| null;   lines: ForecastLine[];   ending_cash_minor: number;   lowest_projected_balance_minor: number;   lowest_balance_date: string;   first_shortfall_date: string \| null;   first_shortfall_amount_minor: number \| null; }` |
@@ -2793,14 +2916,14 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `CloseBooksResult` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts` | `interface CloseBooksResult {   reference: string;   netIncomeMinor: number;   accountsZeroed: number;   divisionBreakdown: { division: DivisionName \| null; netIncomeMinor: number }[]; }` |
 | `ConceptWithAlternates` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ConceptWithAlternates {   headerAccountName: string;   alternates: string[];   defaultAlternate: string; }` |
 | `ConceptWithAlternates` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ConceptWithAlternates {   headerAccountName: string;   alternates: string[];   defaultAlternate: string; }` |
-| `Contact` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `interface Contact {   person_name: string \| null;   phone: string \| null;   email: string \| null;   address_line1: string \| null;   address_line2: string \| null;   city: string \| null;   region: string \| null;   postal_code: string \| null;   country: string \| null;   payment_terms_days: number \| null;   credit_limit_minor: number \| null;   wage_minor_per_hour: number \| null;   salary_minor_per_year: number \| null;   reminder_level: number;   preferred_language: string \| null;   verification_status: 'pending' \| 'active' \| 'rejected' \| null;   card_label: string \| null;   pos_pin: string \| null; }` |
-| `Contact` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `interface Contact {   phone: string \| null;   email: string \| null;   address_line1: string \| null;   address_line2: string \| null;   city: string \| null;   region: string \| null;   postal_code: string \| null;   country: string \| null;   payment_terms_days: number \| null;   credit_limit_minor: number \| null;   wage_minor_per_hour: number \| null;   salary_minor_per_year: number \| null;   reminder_level: number;   preferred_language: string \| null; }` |
+| `Contact` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `interface Contact {   person_name: string \| null;   phone: string \| null;   email: string \| null;   address_line1: string \| null;   address_line2: string \| null;   city: string \| null;   region: string \| null;   postal_code: string \| null;   country: string \| null;   payment_terms_days: number \| null;   credit_limit_minor: number \| null;   wage_minor_per_hour: number \| null;   salary_minor_per_year: number \| null;   reminder_level: number;   preferred_language: string \| null;   verification_status: 'pending' \| 'active' \| 'rejected' \| null;   card_label: string \| null;   pos_pin: string \| null; }` |
+| `Contact` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db.ts` | `interface Contact {   phone: string \| null;   email: string \| null;   address_line1: string \| null;   address_line2: string \| null;   city: string \| null;   region: string \| null;   postal_code: string \| null;   country: string \| null;   payment_terms_days: number \| null;   credit_limit_minor: number \| null;   wage_minor_per_hour: number \| null;   salary_minor_per_year: number \| null;   reminder_level: number;   preferred_language: string \| null; }` |
 | `ContactPerson` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ContactPerson {   contact_type: string;   record_name: string;   name: string \| null;   phone: string \| null;   email: string \| null; }` |
 | `ContactPerson` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ContactPerson {   contact_type: string;   record_name: string;   name: string \| null;   phone: string \| null;   email: string \| null; }` |
 | `CreditStatus` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface CreditStatus {   balanceMinor: number;   limitMinor: number \| null;   overLimit: boolean;   remainingMinor: number \| null; }` |
 | `CreditStatus` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface CreditStatus {   balanceMinor: number;   limitMinor: number \| null;   overLimit: boolean;   remainingMinor: number \| null; }` |
-| `CustomerName` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `type CustomerName = string & { readonly __brand: 'CustomerName' };` |
-| `CustomerName` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `type CustomerName = string & { readonly __brand: 'CustomerName' };` |
+| `CustomerName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `frontend/src/lib/api.ts` | `type CustomerName = string & { readonly __brand: 'CustomerName' };` |
+| `CustomerName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts` | `type CustomerName = string & { readonly __brand: 'CustomerName' };` |
 | `CustomerRegistrationInput` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface CustomerRegistrationInput {   name: string;   email: string;   phone?: string \| null;   address_line1?: string \| null;   address_line2?: string \| null;   city?: string \| null;   region?: string \| null;   postal_code?: string \| null;   country?: string \| null;   preferred_language?: string \| null;   password: string;   card_label?: string \| null; }` |
 | `CustomerRegistrationInput` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface CustomerRegistrationInput {   name: string;   email: string;   phone?: string \| null;   address_line1?: string \| null;   address_line2?: string \| null;   city?: string \| null;   region?: string \| null;   postal_code?: string \| null;   country?: string \| null;   preferred_language?: string \| null;   password: string;   card_label?: string \| null; }` |
 | `CustomerStatement` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface CustomerStatement {   customer: string;   as_of_date: string;   lines: StatementLine[];   total_outstanding_minor: number; }` |
@@ -2811,15 +2934,15 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `DemoStockLevel` | `shared-fixtures/wine-retail-demo-data.ts` | (none) | `interface DemoStockLevel {   itemName: string;   locationName: string;   qty: number;   minLevel: number;   maxLevel: number;   reorderLevel: number;   shelfSide: string \| null;   rack: string \| null;   level: number \| null; }` |
 | `DemoUpc` | `shared-fixtures/wine-retail-demo-data.ts` | (none) | `interface DemoUpc {   name: string;   upc: string; }` |
 | `DimensionLinkPointingAt` | `frontend/src/lib/api.ts` | (none) | `interface DimensionLinkPointingAt {   entityName: string;   dimensionName: string; }` |
-| `DivisionName` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `type DivisionName = string & { readonly __brand: 'DivisionName' };` |
-| `DivisionName` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `type DivisionName = string & { readonly __brand: 'DivisionName' };` |
+| `DivisionName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `frontend/src/lib/api.ts` | `type DivisionName = string & { readonly __brand: 'DivisionName' };` |
+| `DivisionName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts` | `type DivisionName = string & { readonly __brand: 'DivisionName' };` |
 | `DivisionRecord` | `frontend/src/lib/api.ts` | (none) | `interface DivisionRecord {   id: number;   name: string;   parentName: string \| null;   centerType: string \| null; }` |
 | `EInvoiceDiscrepancy` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface EInvoiceDiscrepancy {   field: string;   poValue: string;   invoiceValue: string; }` |
 | `EInvoiceDiscrepancy` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface EInvoiceDiscrepancy {   field: string;   poValue: string;   invoiceValue: string; }` |
-| `EmployeeClock` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface EmployeeClock {   employee: string;   po_reference: string;   project_expense_account: string;   clocked_in_at: string; }` |
-| `EmployeeClock` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface EmployeeClock {   employee: string;   po_reference: string;   project_expense_account: string;   clocked_in_at: string; }` |
-| `EmployeeName` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `type EmployeeName = string & { readonly __brand: 'EmployeeName' };` |
-| `EmployeeName` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `type EmployeeName = string & { readonly __brand: 'EmployeeName' };` |
+| `EmployeeClock` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `interface EmployeeClock {   employee: string;   po_reference: string;   project_expense_account: string;   clocked_in_at: string; }` |
+| `EmployeeClock` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts` | `interface EmployeeClock {   employee: string;   po_reference: string;   project_expense_account: string;   clocked_in_at: string; }` |
+| `EmployeeName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `frontend/src/lib/api.ts` | `type EmployeeName = string & { readonly __brand: 'EmployeeName' };` |
+| `EmployeeName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts` | `type EmployeeName = string & { readonly __brand: 'EmployeeName' };` |
 | `EntityHistoryRow` | `backend/src/db.ts` | (none) | `interface EntityHistoryRow {   name: string;   parent_id: number \| null;   relation_id: number \| null;   created_at: string;   created_by: number;   deleted_at: string \| null;   deleted_by: number \| null; }` |
 | `EntityId` | `backend/src/db.ts` | (none) | `type EntityId = number & { readonly __brand: 'EntityId' };` |
 | `EntityNode` | `backend/src/db.ts` | `backend/src/primitives.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/entityTree.ts`, `frontend/src/lib/treeAdapter.ts` | `interface EntityNode {   id: number;   name: string;   parent_id: number \| null;   relation_id: number \| null;   accountnumber: string \| null;   balance_minor: number \| null;   currency: string \| null; }` |
@@ -2852,25 +2975,26 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `ItemLocationLevels` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts` | `interface ItemLocationLevels {   quantity_on_hand: number;   min_level: number \| null;   max_level: number \| null;   reorder_level: number \| null;   shelf_side: string \| null;   rack: string \| null;   level: number \| null; }` |
 | `ItemName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `type ItemName = string & { readonly __brand: 'ItemName' };` |
 | `ItemName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts` | `type ItemName = string & { readonly __brand: 'ItemName' };` |
-| `ItemSource` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ItemSource {   id: number;   item_id: number;   item_name: string;   manufacturer_id: number \| null;   manufacturer_name: string \| null;   vendor_id: number;   vendor_name: string;   vendor_sku: string \| null;   vendor_upc: string \| null;   price_minor: number \| null;   package_quantity: number \| null;   is_preferred: boolean;   preference_notes: string \| null; }` |
-| `ItemSource` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ItemSource {   id: number;   item_id: number;   item_name: string;   manufacturer_id: number \| null;   manufacturer_name: string \| null;   vendor_id: number;   vendor_name: string;   vendor_sku: string \| null;   vendor_upc: string \| null;   price_minor: number \| null;   package_quantity: number \| null;   is_preferred: boolean;   preference_notes: string \| null; }` |
+| `ItemSource` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ItemSource {   id: number;   item_id: number;   item_name: string;   manufacturer_id: number \| null;   manufacturer_name: string \| null;   vendor_id: number;   vendor_name: string;   vendor_sku: string \| null;   vendor_upc: string \| null;   price_minor: number \| null;   currency: string \| null;   package_quantity: number \| null;   is_preferred: boolean;   preference_notes: string \| null; }` |
+| `ItemSource` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ItemSource {   id: number;   item_id: number;   item_name: string;   manufacturer_id: number \| null;   manufacturer_name: string \| null;   vendor_id: number;   vendor_name: string;   vendor_sku: string \| null;   vendor_upc: string \| null;   price_minor: number \| null;   currency: string \| null;   package_quantity: number \| null;   is_preferred: boolean;   preference_notes: string \| null; }` |
 | `ItemSourceInput` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ItemSourceInput {   itemName: string;   manufacturerName?: string \| null;   vendorName: string;   vendorSku?: string \| null;   vendorUpc?: string \| null;   priceMinor?: number \| null;   packageQuantity?: number \| null;   isPreferred?: boolean;   preferenceNotes?: string \| null;   currency?: string \| null;   productInstanceId?: number; }` |
-| `ItemSourceInput` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ItemSourceInput {   manufacturerName?: string \| null;   vendorName: VendorName;   vendorSku?: string \| null;   vendorUpc?: string \| null;   priceMinor?: number \| null;   packageQuantity?: number \| null;   isPreferred?: boolean;   preferenceNotes?: string \| null; }` |
+| `ItemSourceInput` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ItemSourceInput {   manufacturerName?: string \| null;   vendorName: VendorName;   vendorSku?: string \| null;   vendorUpc?: string \| null;   priceMinor?: number \| null;   currency?: string \| null;   packageQuantity?: number \| null;   isPreferred?: boolean;   preferenceNotes?: string \| null; }` |
 | `ItemSummary` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ItemSummary {   name: string;   description: string \| null;   unit_of_measure: string \| null;   upc: string \| null;   retail_price_minor: number \| null;   source_count: number;   storage_origin: 'Hot' \| 'Cold' \| null;   product: string \| null; }` |
 | `ItemSummary` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ItemSummary {   name: string;   description: string \| null;   unit_of_measure: string \| null;   upc: string \| null;   retail_price_minor: number \| null;   source_count: number;   storage_origin: 'Hot' \| 'Cold' \| null;   product: string \| null;   combinationValues?: string[];   combinationShape?: [string, string][]; }` |
-| `JournalSummary` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface JournalSummary {   journal_id: number;   occurrence_date: string \| null;   reference: string;   description: string;   business: string;   ledger: string;   recurrence: string;   posted_by: string;   total_debit_minor: number;   total_credit_minor: number; }` |
-| `JournalSummary` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface JournalSummary {   journal_id: number;   occurrence_date: string \| null;   reference: string;   description: string;   business: BusinessName;   ledger: LedgerName;   recurrence: string;   total_debit_minor: number;   total_credit_minor: number; }` |
-| `LedgerDateRange` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface LedgerDateRange {   earliest: string \| null;   latest: string \| null; }` |
-| `LedgerDateRange` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface LedgerDateRange {   earliest: string \| null;   latest: string \| null; }` |
-| `LedgerName` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type LedgerName = string & { readonly __brand: 'LedgerName' };` |
-| `LedgerName` | `frontend/src/lib/api.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type LedgerName = string & { readonly __brand: 'LedgerName' };` |
+| `JournalSummary` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `interface JournalSummary {   journal_id: number;   occurrence_date: string \| null;   reference: string;   description: string;   business: string;   ledger: string;   recurrence: string;   posted_by: string;   total_debit_minor: number;   total_credit_minor: number; }` |
+| `JournalSummary` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts` | `interface JournalSummary {   journal_id: number;   occurrence_date: string \| null;   reference: string;   description: string;   business: BusinessName;   ledger: LedgerName;   recurrence: string;   total_debit_minor: number;   total_credit_minor: number; }` |
+| `LedgerDateRange` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `interface LedgerDateRange {   earliest: string \| null;   latest: string \| null; }` |
+| `LedgerDateRange` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts` | `interface LedgerDateRange {   earliest: string \| null;   latest: string \| null; }` |
+| `LedgerName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type LedgerName = string & { readonly __brand: 'LedgerName' };` |
+| `LedgerName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `type LedgerName = string & { readonly __brand: 'LedgerName' };` |
 | `ListInvoicesOptions` | `backend/src/db.ts` | (none) | `interface ListInvoicesOptions {   invoiceType?: 'AR' \| 'AP';   source?: 'manual' \| 'pos' \| 'all';   limit?: number;   offset?: number; }` |
-| `Location` | `backend/src/db-stock.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db.ts`, `frontend/src/lib/matrix-api.ts` | `interface Location {   city: string;   location_type: string;   is_billing_address: boolean;   bottle_capacity: number \| null;   carton_capacity: number \| null;   timezone: string; }` |
+| `Location` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db.ts`, `frontend/src/lib/matrix-api.ts` | `interface Location {   city: string;   location_type: string;   is_billing_address: boolean;   bottle_capacity: number \| null;   carton_capacity: number \| null;   timezone: string; }` |
 | `LocationCapacityStatus` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `interface LocationCapacityStatus {   bottleQuantity: number;   bottleCapacity: number \| null;   bottleOverCapacity: boolean;   cartonQuantity: number;   cartonCapacity: number \| null;   cartonOverCapacity: boolean; }` |
 | `LocationCapacityStatus` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts` | `interface LocationCapacityStatus {   bottleQuantity: number;   bottleCapacity: number \| null;   bottleOverCapacity: boolean;   cartonQuantity: number;   cartonCapacity: number \| null;   cartonOverCapacity: boolean; }` |
 | `LocationInput` | `frontend/src/lib/api.ts` | (none) | `interface LocationInput {   city: string;   location_type: string;   is_billing_address: boolean;   bottle_capacity?: number \| null;   carton_capacity?: number \| null;   timezone: string; }` |
-| `LocationName` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `type LocationName = string & { readonly __brand: 'LocationName' };` |
-| `LocationName` | `frontend/src/lib/api.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `type LocationName = string & { readonly __brand: 'LocationName' };` |
+| `LocationName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `type LocationName = string & { readonly __brand: 'LocationName' };` |
+| `LocationName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `type LocationName = string & { readonly __brand: 'LocationName' };` |
+| `LocationStagingInput` | `backend/src/db-journal.ts` | (none) | `interface LocationStagingInput {   reference: string;   business: BusinessName;   location_name: string;   city: string;   location_type: string;   bottle_capacity?: number \| null;   carton_capacity?: number \| null;   timezone: string; }` |
 | `LoginResponse` | `frontend/src/lib/api.ts` | (none) | `interface LoginResponse {   token: string;   user: { id: number; username: string; roles: string[]; page_size: number; number_format: string; date_format: string }; }` |
 | `MatrixAxis` | `backend/src/db-matrix-reports.ts` | `frontend/src/lib/matrix-api.ts` | `type MatrixAxis = 'Product' \| 'Category' \| 'Location' \| 'Division' \| 'Consolidated' \| (string & {});` |
 | `MatrixAxis` | `frontend/src/lib/matrix-api.ts` | `backend/src/db-matrix-reports.ts` | `type MatrixAxis = 'Product' \| 'Category' \| 'Location' \| 'Division' \| 'Consolidated';` |
@@ -2891,8 +3015,8 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `PayWagesResult` | `frontend/src/lib/api.ts` | (none) | `interface PayWagesResult {   invoiceId: number;   reference: string;   grossMinor: number;   medicareLevyMinor: number;   superannuationMinor: number;   netMinor: number; }` |
 | `PendingCustomer` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface PendingCustomer {   name: string;   email: string \| null;   phone: string \| null;   card_label: string \| null; }` |
 | `PendingCustomer` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface PendingCustomer {   name: string;   email: string \| null;   phone: string \| null;   card_label: string \| null; }` |
-| `PeriodLockStatus` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface PeriodLockStatus {   locked_through_date: string \| null;   changed_by: number \| null;   changed_at: string \| null; }` |
-| `PeriodLockStatus` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface PeriodLockStatus {   locked_through_date: string \| null;   changed_by: number \| null;   changed_at: string \| null; }` |
+| `PeriodLockStatus` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `interface PeriodLockStatus {   locked_through_date: string \| null;   changed_by: number \| null;   changed_at: string \| null; }` |
+| `PeriodLockStatus` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts` | `interface PeriodLockStatus {   locked_through_date: string \| null;   changed_by: number \| null;   changed_at: string \| null; }` |
 | `PickingListLine` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface PickingListLine {   invoiceLineId: number;   item: string;   quantity: number;   shelfSide: string \| null;   rack: string \| null;   level: number \| null;   picked: boolean; }` |
 | `PickingListLine` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface PickingListLine {   invoiceLineId: number;   item: string;   quantity: number;   shelfSide: string \| null;   rack: string \| null;   level: number \| null;   picked: boolean; }` |
 | `PosSaleInput` | `backend/src/db.ts` | (none) | `interface PosSaleInput {   business: BusinessName;   ledger: LedgerName;   locationName: LocationName;   customerName: CustomerName;   lines: PosSaleLineInput[];   revenueAccount?: AccountName;   taxAccount: AccountName;   paymentMethod?: string;   cashTenderedMinor?: number;   transdate?: string;   terminalName?: string; }` |
@@ -2901,6 +3025,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `PosSaleResult` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface PosSaleResult {   invoiceId: number;   reference: string;   totalMinor: number;   changeDueMinor: number; }` |
 | `PosSaleResult` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface PosSaleResult {   invoiceId: number;   reference: string;   totalMinor: number;   changeDueMinor: number; }` |
 | `PosShift` | `backend/src/db.ts` | (none) | `interface PosShift {   id: number;   employee: string;   location: string;   signed_on_at: string;   signed_off_at: string \| null; }` |
+| `PosTerminalRecord` | `frontend/src/lib/api.ts` | (none) | `interface PosTerminalRecord {   name: string;   currency: string \| null; }` |
 | `ProductSummary` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ProductSummary {   name: string;   itemCount: number; }` |
 | `ProductSummary` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ProductSummary {   name: string;   itemCount: number; }` |
 | `ProfitAndLoss` | `backend/src/db-reports.ts` | `backend/src/db-matrix-reports.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/matrix-api.ts` | `interface ProfitAndLoss {   income: StatementLine[];   expenses: StatementLine[];   cogs_expenses: StatementLine[];   operating_expenses: StatementLine[];   income_tree: CategoryTreeNode[];   cogs_tree: CategoryTreeNode[];   operating_expenses_tree: CategoryTreeNode[];   total_income_minor: number;   total_expenses_minor: number;   gross_profit_minor: number;   net_income_minor: number; }` |
@@ -2913,11 +3038,12 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `ProfitAndLossComparison` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts` | `interface ProfitAndLossComparison {   ledgerA: string;   ledgerB: string;   income: ProfitAndLossComparisonLine[];   expenses: ProfitAndLossComparisonLine[];   a_total_income_minor: number;   b_total_income_minor: number;   a_total_expenses_minor: number;   b_total_expenses_minor: number;   a_net_income_minor: number;   b_net_income_minor: number;   net_income_variance_minor: number; }` |
 | `ProfitAndLossComparisonLine` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `interface ProfitAndLossComparisonLine {   name: string;   accountnumber: string \| null;   a_minor: number;   b_minor: number;   variance_minor: number; }` |
 | `ProfitAndLossComparisonLine` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts` | `interface ProfitAndLossComparisonLine {   name: string;   accountnumber: string \| null;   a_minor: number;   b_minor: number;   variance_minor: number; }` |
-| `PurchaseOrderInput` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface PurchaseOrderInput {   reference: string;   business: string;   ledger: string;   vendor: string;   item: string;   quantity: number;   price_minor: number;   location?: string; // real, direct delivery instructions: where this order should arrive   transdate?: string;   description?: string; }` |
-| `PurchaseOrderInput` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface PurchaseOrderInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   vendor: string;   item: string;   quantity: number;   price_minor: number;   location?: string;   transdate?: string;   description?: string; }` |
-| `Recurrence` | `backend/src/db.ts` | `shared-fixtures/add-journal-translations.ts`, `backend/src/db-seed.ts` | `type Recurrence = 'once' \| 'weekly' \| 'monthly' \| 'yearly';` |
-| `RecurringJournalLine` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface RecurringJournalLine {   account: string;   amount_minor: number; // positive = debit, negative = credit   memo?: string;   effective_date?: string; // defaults to the journal's own start date if omitted }` |
-| `RecurringJournalLine` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface RecurringJournalLine {   account: AccountName;   amount_minor: number;   memo?: string;   effective_date?: string; }` |
+| `PurchaseOrderInput` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `interface PurchaseOrderInput {   reference: string;   business: string;   ledger: string;   vendor: string;   item: string;   quantity: number;   price_minor: number;   location?: string;   transdate?: string;   description?: string; }` |
+| `PurchaseOrderInput` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts` | `interface PurchaseOrderInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   vendor: string;   item: string;   quantity: number;   price_minor: number;   location?: string;   transdate?: string;   description?: string; }` |
+| `RealBusinessNode` | `backend/src/session-context.ts` | (none) | `interface RealBusinessNode {   readonly id: number;   readonly name: string; }` |
+| `Recurrence` | `backend/src/db-journal.ts` | `shared-fixtures/add-journal-translations.ts`, `backend/src/db-seed.ts` | `type Recurrence = 'once' \| 'weekly' \| 'monthly' \| 'yearly';` |
+| `RecurringJournalLine` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `interface RecurringJournalLine {   account: string;   amount_minor: number;   memo?: string;   effective_date?: string; }` |
+| `RecurringJournalLine` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts` | `interface RecurringJournalLine {   account: AccountName;   amount_minor: number;   memo?: string;   effective_date?: string; }` |
 | `Relationship` | `backend/src/db.ts` | (none) | `interface Relationship {   type: string;   target: string; }` |
 | `ReminderCandidate` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ReminderCandidate {   counterparty: string;   current_level: number;   next_level: number;   outstanding_minor: number;   oldest_days_overdue: number; }` |
 | `ReminderCandidate` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ReminderCandidate {   counterparty: string;   current_level: number;   next_level: number;   outstanding_minor: number;   oldest_days_overdue: number; }` |
@@ -2932,24 +3058,25 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `SalesCategorySummary` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts` | `interface SalesCategorySummary {   category: string;   quantity: number;   amount_minor: number; }` |
 | `SalesCogsMatrix` | `backend/src/db-matrix-reports.ts` | `frontend/src/lib/matrix-api.ts` | `interface SalesCogsMatrix {   rowAxis: MatrixAxis;   colAxis: MatrixAxis;   cells: MatrixCell[];   totalSalesMinor: number;   totalCogsMinor: number; }` |
 | `SalesCogsMatrix` | `frontend/src/lib/matrix-api.ts` | `backend/src/db-matrix-reports.ts` | `interface SalesCogsMatrix {   rowAxis: MatrixAxis;   colAxis: MatrixAxis;   cells: MatrixCell[];   totalSalesMinor: number;   totalCogsMinor: number; }` |
-| `SalesOrderInput` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface SalesOrderInput {   reference: string;   business: string;   ledger: string;   customer: string;   item: string;   quantity: number;   price_minor: number;   location?: string; // real, direct dispatch instructions: where this order should ship from   transdate?: string;   description?: string; }` |
-| `SalesOrderInput` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface SalesOrderInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   customer: string;   item: string;   quantity: number;   price_minor: number;   location?: string;   transdate?: string;   description?: string; }` |
+| `SalesOrderInput` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `interface SalesOrderInput {   reference: string;   business: string;   ledger: string;   customer: string;   item: string;   quantity: number;   price_minor: number;   location?: string;   transdate?: string;   description?: string; }` |
+| `SalesOrderInput` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts` | `interface SalesOrderInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   customer: string;   item: string;   quantity: number;   price_minor: number;   location?: string;   transdate?: string;   description?: string; }` |
 | `SalesReport` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `interface SalesReport {   detailed: SalesReportLine[];   category_summary: SalesCategorySummary[];   total_quantity: number;   total_amount_minor: number; }` |
 | `SalesReport` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts` | `interface SalesReport {   detailed: SalesReportLine[];   category_summary: SalesCategorySummary[];   total_quantity: number;   total_amount_minor: number; }` |
 | `SalesReportLine` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `interface SalesReportLine {   invoice_date: string;   reference: string;   item_name: string \| null;   description: string;   quantity: number \| null;   unit_price_minor: number \| null;   amount_minor: number; }` |
 | `SalesReportLine` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts` | `interface SalesReportLine {   invoice_date: string;   reference: string;   item_name: string \| null;   description: string;   quantity: number \| null;   unit_price_minor: number \| null;   amount_minor: number; }` |
 | `ScheduleLine` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface ScheduleLine {   day: string;   starts_at: string;   ends_at: string; }` |
 | `ScheduleLine` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface ScheduleLine {   day: string;   starts_at: string;   ends_at: string; }` |
-| `SessionContext` | `frontend/src/lib/session.ts` | `frontend/src/lib/state.svelte.ts` | `interface SessionContext {   businessId: number;   businessName: BusinessName;   ledgerId: number;   ledgerName: LedgerName;   languageId: number;   languageName: string; }` |
-| `SessionContext` | `frontend/src/lib/state.svelte.ts` | `frontend/src/lib/session.ts` | `interface SessionContext {   businessId: number;   businessName: BusinessName;   ledgerId: number;   ledgerName: LedgerName;   languageId: number;   languageName: string; }` |
-| `StagedLine` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface StagedLine {   reference: string;   business: BusinessName;   ledger: LedgerName;   description?: string;   transdate?: string;   account: AccountName;   accountId?: number;   amount_minor: number;   memo?: string;   division?: DivisionName;   bankReference?: string; }` |
-| `StagedLine` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface StagedLine {   reference: string;   business: BusinessName;   ledger: LedgerName;   description?: string;   transdate?: string;   account: AccountName;   amount_minor: number;   memo?: string; }` |
+| `SessionContext` | `backend/src/session-context.ts` | `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `interface SessionContext {   userId: number;   business: RealBusinessNode;   ledger: string; }` |
+| `SessionContext` | `frontend/src/lib/session.ts` | `backend/src/session-context.ts`, `frontend/src/lib/state.svelte.ts` | `interface SessionContext {   businessId: number;   businessName: BusinessName;   ledgerId: number;   ledgerName: LedgerName;   languageId: number;   languageName: string; }` |
+| `SessionContext` | `frontend/src/lib/state.svelte.ts` | `backend/src/session-context.ts`, `frontend/src/lib/session.ts` | `interface SessionContext {   businessId: number;   businessName: BusinessName;   ledgerId: number;   ledgerName: LedgerName;   languageId: number;   languageName: string; }` |
+| `StagedLine` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `interface StagedLine {   reference: string;   business: BusinessName;   ledger: LedgerName;   description?: string;   transdate?: string;   account: AccountName;   accountId?: number;   amount_minor: number;   memo?: string;   division?: DivisionName;   bankReference?: string; }` |
+| `StagedLine` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts` | `interface StagedLine {   reference: string;   business: BusinessName;   ledger: LedgerName;   description?: string;   transdate?: string;   account: AccountName;   amount_minor: number;   memo?: string; }` |
 | `StatementLine` | `backend/src/db-reports.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `interface StatementLine {   name: string;   accountnumber: string \| null;   debit_minor: number;   credit_minor: number;   is_contra: boolean; }` |
 | `StatementLine` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `frontend/src/lib/api.ts` | `interface StatementLine {   invoice_id: number;   reference: string;   invoice_date: string;   due_date: string \| null;   total_minor: number;   paid_minor: number;   outstanding_minor: number;   status: 'Paid' \| 'Outstanding' \| 'Partially paid'; }` |
 | `StatementLine` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts`, `backend/src/db.ts` | `interface StatementLine {   name: string;   accountnumber: string \| null;   debit_minor: number;   credit_minor: number;   is_contra: boolean; }` |
 | `StatementLine` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts`, `backend/src/db.ts` | `interface StatementLine {   invoice_id: number;   reference: string;   invoice_date: string;   due_date: string \| null;   total_minor: number;   paid_minor: number;   outstanding_minor: number;   status: 'Paid' \| 'Outstanding' \| 'Partially paid'; }` |
-| `StockDispatchInput` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface StockDispatchInput {   reference: string;   business: string;   ledger: string;   so_reference: string;   item?: string \| null; // the batch's Value account (cost side) — omit for a service (no COGS leg)   item_qty?: string \| null; // the batch's Qty account — omit for a service (nothing physical shipped)   customer: string;   quantity: number;   unit_cost_minor?: number \| null; // omit for a service — there is no batch cost to recognize   sale_price_minor: number;   tax_minor?: number;   transdate?: string;   description?: string; }` |
-| `StockDispatchInput` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface StockDispatchInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   so_reference: string;   item?: string;   item_qty?: string;   customer: string;   quantity: number;   unit_cost_minor?: number;   sale_price_minor: number;   tax_minor?: number;   transdate?: string;   description?: string; }` |
+| `StockDispatchInput` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `interface StockDispatchInput {   reference: string;   business: string;   ledger: string;   so_reference: string;   item?: string \| null;   item_qty?: string \| null;   customer: string;   quantity: number;   unit_cost_minor?: number \| null;   sale_price_minor: number;   tax_minor?: number;   transdate?: string;   description?: string; }` |
+| `StockDispatchInput` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts` | `interface StockDispatchInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   so_reference: string;   item?: string;   item_qty?: string;   customer: string;   quantity: number;   unit_cost_minor?: number;   sale_price_minor: number;   tax_minor?: number;   transdate?: string;   description?: string; }` |
 | `StockListingLocationGroup` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `interface StockListingLocationGroup {   location: string;   city: string \| null;   division: string \| null;   rows: StockListingRow[];   total_on_hand: number;   capacity: LocationCapacityStatus; }` |
 | `StockListingLocationGroup` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts` | `interface StockListingLocationGroup {   location: string;   city: string \| null;   division: DivisionName \| null;   rows: StockListingRow[];   total_on_hand: number;   capacity: LocationCapacityStatus; }` |
 | `StockListingRow` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `interface StockListingRow {   item: string;   location: string;   quantity_on_hand: number;   min_level: number \| null;   max_level: number \| null;   reorder_level: number \| null; }` |
@@ -2964,8 +3091,8 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `StockOnHandMatrix` | `frontend/src/lib/matrix-api.ts` | `backend/src/db-matrix-reports.ts` | `interface StockOnHandMatrix {   rowAxis: MatrixAxis;   colAxis: MatrixAxis;   cells: StockOnHandCell[];   totalValueAtCostMinor: number;   totalRealizableValueMinor: number; }` |
 | `StockOutRiskRow` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `interface StockOutRiskRow {   item: string;   location: string;   quantity_on_hand: number;   daily_consumption_rate: number;   days_until_stockout: number \| null;   shortest_lead_time_days: number \| null;   at_risk: boolean; }` |
 | `StockOutRiskRow` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts` | `interface StockOutRiskRow {   item: string;   location: string;   quantity_on_hand: number;   daily_consumption_rate: number;   days_until_stockout: number \| null;   shortest_lead_time_days: number \| null;   at_risk: boolean; }` |
-| `StockReceiptInput` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface StockReceiptInput {   reference: string;   business: string;   ledger: string;   po_reference: string;   item: string; // the monetary-side account — a batch's Value account for stock, or any ordinary expense account for a service   item_qty?: string \| null; // the batch's Qty account — omit for a service (nothing physical received)   vendor: string;   quantity: number;   value_minor: number;   tax_minor?: number;   transdate?: string;   description?: string; }` |
-| `StockReceiptInput` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface StockReceiptInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   po_reference: string;   item: string;   item_qty?: string;   vendor: string;   quantity: number;   value_minor: number;   tax_minor?: number;   transdate?: string;   description?: string; }` |
+| `StockReceiptInput` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `interface StockReceiptInput {   reference: string;   business: string;   ledger: string;   po_reference: string;   item: string;   item_qty?: string \| null;   vendor: string;   quantity: number;   value_minor: number;   tax_minor?: number;   transdate?: string;   description?: string; }` |
+| `StockReceiptInput` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts` | `interface StockReceiptInput {   reference: string;   business: BusinessName;   ledger: LedgerName;   po_reference: string;   item: string;   item_qty?: string;   vendor: string;   quantity: number;   value_minor: number;   tax_minor?: number;   transdate?: string;   description?: string; }` |
 | `StockTake` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `interface StockTake {   id: number;   location: string;   take_date: string;   status: 'draft' \| 'completed';   lines: StockTakeLine[]; }` |
 | `StockTake` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts` | `interface StockTake {   id: number;   location: string;   take_date: string;   status: 'draft' \| 'completed';   lines: StockTakeLine[]; }` |
 | `StockTakeLine` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `interface StockTakeLine {   id: number;   item: string;   shelf_side: string \| null;   rack: string \| null;   level: number \| null;   expected_quantity: number;   counted_quantity: number \| null; }` |
@@ -2986,19 +3113,20 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `TypedPhone` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface TypedPhone {   phone_type: string;   record_name: string;   phone: string \| null; }` |
 | `UblImportLine` | `backend/src/db.ts` | (none) | `interface UblImportLine {   description: string;   quantity: number;   unitPriceMinor: number;   amountMinor: number; }` |
 | `UblImportResult` | `backend/src/db.ts` | (none) | `interface UblImportResult {   reference: string;   issueDate: string;   supplierName: string;   totalMinor: number;   taxMinor: number;   lines: UblImportLine[]; }` |
-| `UserId` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `type UserId = number & { readonly __brand: 'UserId' };` |
+| `UserId` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `backend/src/session-context.ts` | `type UserId = number & { readonly __brand: 'UserId' };` |
 | `UserSummary` | `backend/src/auth.ts` | `frontend/src/lib/api.ts` | `interface UserSummary {   id: number;   username: string;   active: boolean;   roles: string[]; }` |
 | `UserSummary` | `frontend/src/lib/api.ts` | `backend/src/auth.ts` | `interface UserSummary {   id: number;   username: string;   active: boolean;   roles: string[]; }` |
-| `VendorName` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `type VendorName = string & { readonly __brand: 'VendorName' };` |
-| `VendorName` | `frontend/src/lib/api.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts` | `type VendorName = string & { readonly __brand: 'VendorName' };` |
+| `VendorName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `type VendorName = string & { readonly __brand: 'VendorName' };` |
+| `VendorName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `type VendorName = string & { readonly __brand: 'VendorName' };` |
 | `VocabularyWord` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `interface VocabularyWord {   name: string;   translations: Record<string, string>; }` |
 | `VocabularyWord` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `interface VocabularyWord {   name: string;   translations: Record<string, string>; }` |
 
-### Functions (363, alphabetical)
+### Functions (391, alphabetical)
 
 | Name | Defined in | Referenced in | Prototype |
 |---|---|---|---|
 | `activeRows` | `frontend/src/lib/journalGrid.ts` | (none) | `activeRows(rows: Row[]): Row[]` |
+| `addFinancialStatementNote` | `backend/src/db.ts` | (none) | `addFinancialStatementNote(businessName: BusinessName, noteText: string, userId: UserId): ` |
 | `addOrUpdateItemSource` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `addOrUpdateItemSource(input: ItemSourceInput): void` |
 | `addRow` | `frontend/src/lib/journalGrid.ts` | (none) | `addRow(rows: Row[]): Row[]` |
 | `addTaskDependency` | `backend/src/db.ts` | (none) | `addTaskDependency(dependentTask: string, predecessorTask: string, dependencyType: 'finish_to_start' \| 'start_to_start' \| 'finish_to_finish' \| 'start_to_finish', userId: UserId): void` |
@@ -3007,27 +3135,27 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `addTypedPhone` | `backend/src/db.ts` | (none) | `addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId): string` |
 | `adjustLocationCapacity` | `backend/src/db-stock.ts` | (none) | `adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void` |
 | `allocatePayment` | `backend/src/db.ts` | (none) | `allocatePayment(invoiceId: number, paymentReference: string, allocatedMinor: number, allocationDate: string, paymentAccount: string, userId: UserId, skipJournalPosting = false): void` |
-| `asAccountName` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `asAccountName(name: string): AccountName` |
-| `asAccountName` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/primitives.ts` | `asAccountName(name: string): AccountName` |
-| `asBusinessName` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asBusinessName(name: string): BusinessName` |
-| `asBusinessName` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asBusinessName(name: string): BusinessName` |
+| `asAccountName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `asAccountName(name: string): AccountName` |
+| `asAccountName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/primitives.ts` | `asAccountName(name: string): AccountName` |
+| `asBusinessName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asBusinessName(name: string): BusinessName` |
+| `asBusinessName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asBusinessName(name: string): BusinessName` |
 | `asCustomerName` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `asCustomerName(name: string): CustomerName` |
 | `asCustomerName` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `asCustomerName(name: string): CustomerName` |
-| `asDivisionName` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `frontend/src/lib/api.ts` | `asDivisionName(name: string): DivisionName` |
-| `asDivisionName` | `frontend/src/lib/api.ts` | `backend/src/db-reports.ts`, `backend/src/db.ts` | `asDivisionName(name: string): DivisionName` |
+| `asDivisionName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-reports.ts`, `frontend/src/lib/api.ts` | `asDivisionName(name: string): DivisionName` |
+| `asDivisionName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-reports.ts`, `backend/src/db.ts` | `asDivisionName(name: string): DivisionName` |
 | `asEmployeeName` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `asEmployeeName(name: string): EmployeeName` |
 | `asEmployeeName` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `asEmployeeName(name: string): EmployeeName` |
 | `asEntityId` | `backend/src/db.ts` | (none) | `asEntityId(id: number): EntityId` |
-| `asItemName` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `asItemName(name: string): ItemName` |
-| `asItemName` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `asItemName(name: string): ItemName` |
-| `asLedgerName` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asLedgerName(name: string): LedgerName` |
-| `asLedgerName` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asLedgerName(name: string): LedgerName` |
-| `asLocationName` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `asLocationName(name: string): LocationName` |
-| `asLocationName` | `frontend/src/lib/api.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `asLocationName(name: string): LocationName` |
-| `assertPeriodOpen` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `assertPeriodOpen(business: BusinessName, ledger: LedgerName, transdate: string): void` |
-| `asUserId` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts` | `asUserId(id: number): UserId` |
-| `asVendorName` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `asVendorName(name: string): VendorName` |
-| `asVendorName` | `frontend/src/lib/api.ts` | `backend/src/db.ts` | `asVendorName(name: string): VendorName` |
+| `asItemName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `asItemName(name: string): ItemName` |
+| `asItemName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `asItemName(name: string): ItemName` |
+| `asLedgerName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asLedgerName(name: string): LedgerName` |
+| `asLedgerName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/invoice.ts`, `backend/src/primitives.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `asLedgerName(name: string): LedgerName` |
+| `asLocationName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `asLocationName(name: string): LocationName` |
+| `asLocationName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `asLocationName(name: string): LocationName` |
+| `assertPeriodOpen` | `backend/src/db-journal.ts` | `backend/src/db-stock.ts` | `assertPeriodOpen(business: BusinessName, ledger: LedgerName, transdate: string): void` |
+| `asUserId` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts` | `asUserId(id: number): UserId` |
+| `asVendorName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `frontend/src/lib/api.ts` | `asVendorName(name: string): VendorName` |
+| `asVendorName` | `frontend/src/lib/api.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts` | `asVendorName(name: string): VendorName` |
 | `attachUser` | `backend/src/auth-middleware.ts` | `backend/src/server.ts` | `attachUser(req: Request, _res: Response, next: NextFunction): void` |
 | `authenticateCustomer` | `backend/src/db.ts` | (none) | `authenticateCustomer(name: string, password: string): boolean` |
 | `autoBalanceTrailingRow` | `frontend/src/lib/journalGrid.ts` | (none) | `autoBalanceTrailingRow(rows: Row[], changedIndex: number): Row[]` |
@@ -3040,42 +3168,49 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `checkEInvoiceDiscrepancies` | `backend/src/db.ts` | (none) | `checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[]` |
 | `cityDivisionFor` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-stock.ts` | `cityDivisionFor(locationName: string): string \| undefined` |
 | `climbInstanceTree` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `climbInstanceTree(instanceId: number): ` |
-| `clockInToProject` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `clockInToProject(employeeName: EmployeeName, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): EmployeeClock` |
-| `clockOutOfProject` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `clockInToProject` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `clockInToProject(employeeName: EmployeeName, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): EmployeeClock` |
+| `clockOutOfProject` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `closeBooks` | `backend/src/db-reports.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `closeBooks(business: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, userId: UserId): CloseBooksResult` |
-| `closePeriod` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string, userId: UserId): void` |
+| `closePeriod` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string, userId: UserId): void` |
+| `compareVersions` | `frontend/src/lib/api.ts` | (none) | `compareVersions(a: string, b: string): number` |
 | `completeCashPurchase` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `completeCashPurchase(input: CashPurchaseInput, userId: UserId): CashPurchaseResult` |
 | `completePosSale` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `frontend/src/lib/api.ts` | `completePosSale(input: PosSaleInput, userId: UserId): PosSaleResult` |
-| `completeStockTake` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `completeStockTake(stockTakeId: number, business: BusinessName, ledger: LedgerName, varianceExpenseAccount: AccountName, /** @deprecated No longer used — each line now resolves its own, * real, per-product Inventory account directly, the same, real, * structural fix already applied to Purchases and Sales/COGS.    * Kept only so existing callers (the real, live Stock Take UI, the    * simulation) don't need a breaking API change to keep working. */   inventoryAccount: string, unitCostMinorByItem: Record<string, number>, userId: UserId): void` |
+| `completeStockTake` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `completeStockTake(stockTakeId: number, business: BusinessName, ledger: LedgerName, varianceExpenseAccount: AccountName, /** @deprecated See docs/stock-api-reference.md § Stock takes. */   inventoryAccount: string, unitCostMinorByItem: Record<string, number>, userId: UserId): void` |
 | `computeSuggestedFill` | `frontend/src/lib/journalGrid.ts` | (none) | `computeSuggestedFill(rows: Row[], trailingIndex: number): number \| null` |
 | `confirmPickedLine` | `backend/src/db.ts` | (none) | `confirmPickedLine(invoiceId: number, invoiceLineId: number, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `confirmRestockPickedLine` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `confirmRestockPickedLine(runReference: string, itemName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `consumeFromLots` | `backend/src/db-stock.ts` | (none) | `consumeFromLots(itemName: ItemName, quantity: number): ` |
-| `copyChartOfAccountsInto` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `copyChartOfAccountsInto(destRootName: string, coaPrototype: string \| undefined, userId: UserId): void` |
+| `convertStorageSpace` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `convertStorageSpace(business: BusinessName, ledger: LedgerName, itemName: ItemName, definitionDimensions: [string, string][], fromValues: string[], toValues: string[], quantity: number, userId: UserId, reference?: string): void` |
+| `copyChartOfAccountsInto` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `copyChartOfAccountsInto(business: TypedNode<string>, destRoot: TypedNode<string>, coaPrototype: string \| undefined, userId: UserId): void` |
 | `countInvoices` | `backend/src/db.ts` | (none) | `countInvoices(business: BusinessName, ledger: LedgerName, invoiceType?: 'AR' \| 'AP', source: 'manual' \| 'pos' \| 'all' = 'manual'): number` |
 | `countItems` | `backend/src/db.ts` | (none) | `countItems(): number` |
-| `countJournalEntries` | `backend/src/db.ts` | (none) | `countJournalEntries(business: BusinessName, ledger: LedgerName): number` |
+| `countJournalEntries` | `backend/src/db-journal.ts` | (none) | `countJournalEntries(business: BusinessName, ledger: LedgerName): number` |
 | `countStockListing` | `backend/src/db-stock.ts` | (none) | `countStockListing(): number` |
-| `createBusiness` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaPrototype?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[]): ` |
+| `createAndConfigureLocation` | `backend/src/db.ts` | (none) | `createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId): TypedNode<'LocationEntityName'>` |
+| `createBusiness` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaPrototype?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[]): ` |
 | `createDivisionType` | `backend/src/db.ts` | (none) | `createDivisionType(name: string, userId: UserId): void` |
-| `createEntity` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `createEntity(input: NewEntity, userId: UserId): EntityNode` |
+| `createEmployee` | `backend/src/db.ts` | (none) | `createEmployee(name: string, placeOfEmployment: string, userId: UserId): ` |
+| `createEntityRaw` | `backend/src/db.ts` | `backend/src/primitives.ts` | `createEntityRaw(input: NewEntity, userId: UserId): EntityNode` |
 | `createInvoice` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `createInvoice(input: InvoiceInput, userId: UserId): number` |
-| `createItem` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId): void` |
+| `createItem` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId, businessName?: BusinessName): void` |
+| `createItemCategory` | `backend/src/db.ts` | (none) | `createItemCategory(businessName: BusinessName, categoryName: string, parentCategoryName: string \| undefined, userId: UserId): TypedNode<'RootName'>` |
+| `createLocation` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `frontend/src/lib/api.ts` | `createLocation(businessName: BusinessName, locationName: string, userId: UserId): TypedNode<'LocationEntityName'>` |
 | `createLocationType` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `createLocationType(name: string, userId: UserId): void` |
-| `createPosTerminal` | `backend/src/db-stock.ts` | (none) | `createPosTerminal(terminalName: string, locationName: LocationName, userId: UserId): void` |
+| `createPosTerminal` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `createPosTerminal(terminalName: string, locationName: LocationName, userId: UserId): void` |
 | `createProduct` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `createProduct(name: string, parent: string, userId: UserId): void` |
 | `createProjectTask` | `backend/src/db.ts` | (none) | `createProjectTask(projectName: string, taskName: string, plannedStart: string, plannedEnd: string, userId: UserId): void` |
-| `createRecurringJournal` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `createRecurringJournal(business: BusinessName, ledger: LedgerName, reference: string, startDate: string, recurrence: Recurrence, lines: RecurringJournalLine[], userId: UserId, description?: string, recurrenceCount?: number): void` |
+| `createRecurringJournal` | `backend/src/db-journal.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `createRecurringJournal(business: BusinessName, ledger: LedgerName, reference: string, startDate: string, recurrence: Recurrence, lines: RecurringJournalLine[], userId: UserId, description?: string, recurrenceCount?: number): void` |
 | `createStockTake` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `createStockTake(locationName: LocationName, takeDate: string, userId: UserId): number` |
 | `createSystemEntity` | `backend/src/db-stock.ts` | (none) | `createSystemEntity(name: string, parentId: number \| null): number` |
 | `createUser` | `backend/src/auth.ts` | (none) | `createUser(username: string, password: string, roleNames: string[]): UserSummary` |
+| `createVendor` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `createVendor(name: string, userId: UserId): ` |
 | `creditTotalMinor` | `frontend/src/lib/journalGrid.ts` | (none) | `creditTotalMinor(rows: Row[]): number` |
 | `debitTotalMinor` | `frontend/src/lib/journalGrid.ts` | (none) | `debitTotalMinor(rows: Row[]): number` |
 | `decimalPlacesFor` | `frontend/src/lib/format.ts` | `frontend/src/lib/money.ts` | `decimalPlacesFor(unitCode: string \| undefined): number` |
 | `defineProductShape` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `defineProductShape(businessName: BusinessName, dimensions: [string, string][], userId: UserId): ` |
 | `deleteBomComponent` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `deleteBomComponent(assemblyItem: string, componentItem: string, userId: UserId): void` |
 | `deleteDimensionParent` | `backend/src/db.ts` | (none) | `deleteDimensionParent(entityName: string, dimensionName: string, userId: UserId): void` |
-| `deleteEntity` | `backend/src/db.ts` | `backend/src/auth.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `deleteEntity(id: number, userId: UserId): void` |
+| `deleteEntity` | `backend/src/db.ts` | `backend/src/auth.ts`, `backend/src/db-journal.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `deleteEntity(id: number, userId: UserId): void` |
 | `deleteEntityLink` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `deleteEntityLink(entityName: string, linkType: string, userId: UserId): void` |
 | `deleteItemSource` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `deleteItemSource(id: number): void` |
 | `deleteMenuOverride` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `deleteMenuOverride(menuItemKey: string, scope: 'business' \| 'user', scopeId: number, userId: UserId = asUserId(1)): void` |
@@ -3086,33 +3221,37 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `differenceMinor` | `frontend/src/lib/journalGrid.ts` | (none) | `differenceMinor(rows: Row[]): number` |
 | `dispatchOrderFromPickingList` | `backend/src/db.ts` | (none) | `dispatchOrderFromPickingList(invoiceId: number, locationName: LocationName, revenueAccount: string, taxAccount: string, userId: UserId): void` |
 | `dispatchRestockFromPickingList` | `backend/src/db.ts` | (none) | `dispatchRestockFromPickingList(runReference: string, business: BusinessName, ledger: LedgerName, warehouseName: LocationName, retailOutletName: LocationName, lines: RestockLineInput[], userId: UserId, transdate?: string): void` |
-| `dispatchStockFromLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `dispatchStockFromLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string): void` |
+| `dispatchStockFromLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `dispatchStockFromLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void` |
 | `emptyRow` | `frontend/src/lib/journalGrid.ts` | (none) | `emptyRow(): Row` |
-| `ensureAddressType` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `ensureAddressType(typeName: string, userId: UserId): void` |
+| `ensureAddressType` | `backend/src/db.ts` | (none) | `ensureAddressType(typeName: string, userId: UserId): void` |
 | `ensureAtLeastOneRow` | `frontend/src/lib/journalGrid.ts` | (none) | `ensureAtLeastOneRow(rows: Row[]): Row[]` |
+| `ensureCashAtBankAccount` | `backend/src/db-reports.ts` | `backend/src/db.ts` | `ensureCashAtBankAccount(userId: UserId): number` |
 | `ensureCategoryChain` | `backend/src/db.ts` | (none) | `ensureCategoryChain(rootName: string, prefix: string, chain: string[], userId: UserId): ` |
-| `ensureCombinationAccountLeaf` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId): ` |
+| `ensureCombinationAccountLeaf` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId, baseAccountId?: number): ` |
 | `ensureContactPersonType` | `backend/src/db.ts` | (none) | `ensureContactPersonType(typeName: string, userId: UserId): void` |
+| `ensureCurrencyAccount` | `backend/src/db-reports.ts` | `backend/src/db.ts` | `ensureCurrencyAccount(baseAccountId: number, currency: string, userId: UserId): ` |
 | `ensureCurrencyPair` | `backend/src/db.ts` | (none) | `ensureCurrencyPair(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId): ` |
 | `ensureHierarchyGrouping` | `backend/src/db.ts` | (none) | `ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): ` |
 | `ensureHierarchyValue` | `backend/src/db.ts` | (none) | `ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): ` |
-| `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | (none) | `ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): ` |
-| `ensureLocationScopedAccount` | `backend/src/db.ts` | (none) | `ensureLocationScopedAccount(baseAccountName: string, locationName: string, userId: UserId): string` |
+| `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts` | `ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): ` |
+| `ensureLocationScopedAccount` | `backend/src/db-journal.ts` | (none) | `ensureLocationScopedAccount(baseAccountName: string, locationName: string, userId: UserId): string` |
 | `ensurePhoneType` | `backend/src/db.ts` | (none) | `ensurePhoneType(typeName: string, userId: UserId): void` |
 | `ensureProductInstance` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `ensureProductInstance(businessName: BusinessName, definitionDimensions: [string, string][], values: string[], userId: UserId): ` |
 | `ensureProductInventoryAccount` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `ensureProductInventoryAccount(itemName: ItemName, userId: UserId): ` |
 | `ensureProductLocationInventoryAccount` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `ensureProductLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId): ` |
-| `ensureProductLocationLeaf` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `ensureProductLocationLeaf(itemName: ItemName, locationName: LocationName, userId: UserId): ` |
+| `ensureProductLocationLeaf` | `backend/src/db.ts` | (none) | `ensureProductLocationLeaf(itemName: ItemName, locationName: LocationName, userId: UserId): ` |
 | `ensureProductQuantityAccounts` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `frontend/src/lib/entityTree.ts` | `ensureProductQuantityAccounts(itemName: ItemName, userId: UserId): ` |
 | `ensureProductSalesCogsAccounts` | `backend/src/db.ts` | `backend/src/db-reports.ts` | `ensureProductSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string): ` |
 | `ensureProductTierItem` | `backend/src/db.ts` | (none) | `ensureProductTierItem(baseProductName: ItemName, tier: string, userId: UserId): ` |
 | `ensureProductTierLocationLeaf` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts` | `ensureProductTierLocationLeaf(tierItemName: string, locationName: LocationName, userId: UserId, tierItemId?: number): ` |
+| `ensureStorageCapacityStructure` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `ensureStorageCapacityStructure(parentEntity: { id: number; name: string }, userId: UserId): ` |
 | `escapeAscii` | `shared-fixtures/csv.ts` | (none) | `escapeAscii(text: string): string` |
 | `exportInvoiceAsUbl` | `backend/src/db.ts` | (none) | `exportInvoiceAsUbl(invoiceId: number): string` |
+| `fetchGlobalCoaCategory` | `backend/src/db.ts` | (none) | `fetchGlobalCoaCategory(categoryName: string): TypedNode<'RootName'>` |
 | `filterToItems` | `frontend/src/lib/entityTree.ts` | (none) | `filterToItems(entities: EntityNode[]): EntityNode[]` |
 | `formatAmount` | `frontend/src/lib/format.ts` | (none) | `formatAmount(smallestUnits: number, numberFormat: string, unitCode?: string): string` |
 | `formatDate` | `frontend/src/lib/format.ts` | (none) | `formatDate(isoDate: string \| null \| undefined, dateFormat: string): string` |
-| `fulfillOrder` | `backend/src/db-stock.ts` | `backend/src/db.ts` | `fulfillOrder(orderReference: string, fulfillingReference: string, business: BusinessName, ledger: LedgerName, quantityFulfilled: number, valueFulfilledMinor: number, userId: UserId, transdate?: string): void` |
+| `fulfillOrder` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts` | `fulfillOrder(orderReference: string, fulfillingReference: string, business: BusinessName, ledger: LedgerName, quantityFulfilled: number, valueFulfilledMinor: number, userId: UserId, transdate?: string): void` |
 | `getAccountsPostedTo` | `backend/src/db.ts` | (none) | `getAccountsPostedTo(reference: string): string[]` |
 | `getActiveShiftsAtLocation` | `backend/src/db.ts` | (none) | `getActiveShiftsAtLocation(locationName: string): PosShift[]` |
 | `getAgedInvoices` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getAgedInvoices(business: BusinessName, ledger: LedgerName, invoiceType: 'AR' \| 'AP', asOfDate: string): AgedInvoiceRow[]` |
@@ -3125,19 +3264,21 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `getBankAccounts` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getBankAccounts(business: BusinessName, ledger: LedgerName): BankAccountRow[]` |
 | `getBelowReorderStock` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `getBelowReorderStock(): BelowReorderRow[]` |
 | `getBomComponents` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getBomComponents(assemblyItem: string): ` |
+| `getBusinessConfigurationReport` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getBusinessConfigurationReport(businessName: BusinessName): BusinessConfigurationReport` |
 | `getBusinesses` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getBusinesses(): ` |
 | `getBusinessHierarchy` | `backend/src/db.ts` | (none) | `getBusinessHierarchy(businessName: BusinessName): HierarchyGroupingWithValues[]` |
+| `getBusinessHomeCurrency` | `backend/src/db.ts` | (none) | `getBusinessHomeCurrency(businessName: string): string \| null` |
 | `getBusinessProductShapes` | `backend/src/db.ts` | (none) | `getBusinessProductShapes(businessName: BusinessName): [string, string][][]` |
 | `getBusinessReports` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `getBusinessReports(): ReportRow[]` |
 | `getBusinessTypes` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getBusinessTypes(): BusinessTypeInfo[]` |
 | `getCashFlowForecast` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getCashFlowForecast(business: BusinessName, ledger: LedgerName, asOfDate: string, horizonDays: number): CashFlowForecast` |
 | `getCashPosition` | `backend/src/db.ts` | `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `getCashPosition(business: BusinessName, ledger: LedgerName): CashPositionByCurrency[]` |
-| `getChartOfAccounts` | `backend/src/db-reports.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `getChartOfAccounts(): ChartRow[]` |
-| `getCoaPrototypeAccounts` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getCoaPrototypeAccounts(businessName: BusinessName, ledgerName: LedgerName): string[]` |
+| `getChartOfAccounts` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `getChartOfAccounts(): ChartRow[]` |
+| `getChartOfAccountsPrototype` | `backend/src/db.ts` | (none) | `getChartOfAccountsPrototype(language: string): string[]` |
 | `getCombinationByUpc` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getCombinationByUpc(upc: string): ` |
 | `getCombinationDisplayName` | `backend/src/db.ts` | `backend/src/db-reports.ts` | `getCombinationDisplayName(entityId: number): string` |
 | `getConceptsWithAlternates` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getConceptsWithAlternates(): ConceptWithAlternates[]` |
-| `getContact` | `backend/src/db.ts` | `backend/src/invoice.ts`, `frontend/src/lib/api.ts` | `getContact(entityName: string): Contact \| undefined` |
+| `getContact` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/invoice.ts`, `frontend/src/lib/api.ts` | `getContact(entityName: string): Contact \| undefined` |
 | `getContactBaseAccounts` | `backend/src/db.ts` | (none) | `getContactBaseAccounts(contactName: string): string[]` |
 | `getContactsWithType` | `backend/src/db.ts` | `backend/src/primitives.ts` | `getContactsWithType(typeName: string): string[]` |
 | `getContactTypes` | `backend/src/db.ts` | (none) | `getContactTypes(contactName: string): string[]` |
@@ -3152,16 +3293,17 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `getDimensionParent` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts` | `getDimensionParent(entityName: string, dimensionName: string): string \| undefined` |
 | `getDivisionForAccount` | `backend/src/db.ts` | `backend/src/db-reports.ts` | `getDivisionForAccount(accountName: AccountName): string \| undefined` |
 | `getDivisions` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `getDivisions(): ` |
-| `getDivisionType` | `backend/src/db.ts` | (none) | `getDivisionType(divisionName: string): string \| null` |
+| `getDivisionType` | `backend/src/db.ts` | `backend/src/db-journal.ts` | `getDivisionType(divisionName: string): string \| null` |
 | `getDivisionTypes` | `backend/src/db.ts` | (none) | `getDivisionTypes(): string[]` |
 | `getEffectiveSaleCurrency` | `backend/src/db-stock.ts` | `backend/src/db.ts` | `getEffectiveSaleCurrency(terminalName: string \| undefined): string \| null` |
 | `getEmployeeSchedule` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getEmployeeSchedule(employeeName: string): EmployeeScheduleLine[]` |
 | `getEntitiesWithRelationship` | `backend/src/db.ts` | `backend/src/primitives.ts` | `getEntitiesWithRelationship(relationshipType: string): ` |
 | `getEntity` | `backend/src/db.ts` | `backend/src/primitives.ts` | `getEntity(id: number): EntityNode \| undefined` |
 | `getEntityHistory` | `backend/src/db.ts` | (none) | `getEntityHistory(id: number): EntityHistoryRow[]` |
-| `getEntityLink` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `getEntityLink(entityName: string, linkType: string): string \| undefined` |
+| `getEntityLink` | `backend/src/db.ts` | `backend/src/primitives.ts` | `getEntityLink(entityName: string, linkType: string): string \| undefined` |
 | `getEntityTree` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-reports.ts`, `frontend/src/lib/api.ts` | `getEntityTree(): (EntityNode &` |
 | `getExpiringStock` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[]` |
+| `getFinancialStatementNotes` | `backend/src/db.ts` | (none) | `getFinancialStatementNotes(businessName: BusinessName): ` |
 | `getHierarchy` | `backend/src/db.ts` | `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `getHierarchy(rootName: string, relationshipType?: string): HierarchyNode` |
 | `getHierarchyChain` | `backend/src/db.ts` | (none) | `getHierarchyChain(leafName: ItemName \| LocationName): HierarchyChainNode[]` |
 | `getInvoice` | `backend/src/db.ts` | (none) | `getInvoice(id: number): Invoice \| undefined` |
@@ -3174,27 +3316,29 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `getItemPriceForCurrency` | `backend/src/db.ts` | (none) | `getItemPriceForCurrency(itemName: string, currency: string \| null, productInstanceId?: number): number \| null` |
 | `getItemProduct` | `backend/src/db.ts` | (none) | `getItemProduct(itemName: string): string \| null` |
 | `getItemStorageOrigin` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getItemStorageOrigin(itemName: ItemName): 'Hot' \| 'Cold' \| undefined` |
-| `getJournalEntry` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string): JournalDetail \| undefined` |
+| `getJournalEntry` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `getJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string): JournalDetail \| undefined` |
 | `getLanguageDirection` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getLanguageDirection(languageName: string): 'LTR' \| 'RTL' \| undefined` |
 | `getLanguages` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `getLanguages(): ` |
 | `getLedgerBalances` | `backend/src/db-reports.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db.ts` | `getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries = false): Map<number, number>` |
 | `getLedgerBalancesByDivision` | `backend/src/db-reports.ts` | (none) | `getLedgerBalancesByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
 | `getLedgerBalancesByDivisionStructural` | `backend/src/db-reports.ts` | (none) | `getLedgerBalancesByDivisionStructural(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
-| `getLedgerDateRange` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getLedgerDateRange(businessName: BusinessName, ledgerName: LedgerName): LedgerDateRange` |
+| `getLedgerDateRange` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `getLedgerDateRange(businessName: BusinessName, ledgerName: LedgerName): LedgerDateRange` |
 | `getLedgers` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getLedgers(businessName: BusinessName): ` |
 | `getLineType` | `backend/src/db.ts` | (none) | `getLineType(entityName: string): string \| undefined` |
 | `getLocalizedText` | `backend/src/db.ts` | `backend/src/invoice.ts`, `frontend/src/lib/api.ts` | `getLocalizedText(language: string, opts?: { businessName?: string; userId?: number }): Record<string, string>` |
 | `getLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts` | `getLocation(name: string): Location \| undefined` |
 | `getLocationCapacityStatus` | `backend/src/db-stock.ts` | (none) | `getLocationCapacityStatus(locationName: LocationName): LocationCapacityStatus` |
+| `getLocationCurrencies` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getLocationCurrencies(locationName: string): string[]` |
 | `getLocationForAccount` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts` | `getLocationForAccount(accountName: AccountName): string \| undefined` |
 | `getLocationOpenHours` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getLocationOpenHours(locationName: string): OpenHoursLine[]` |
 | `getLocationTypes` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `getLocationTypes(): string[]` |
 | `getMenuTree` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getMenuTree(opts?: { businessName?: string; userId?: number }): MenuSectionRow[]` |
-| `getOpenProjectClockForEmployee` | `backend/src/db.ts` | (none) | `getOpenProjectClockForEmployee(employeeName: EmployeeName): EmployeeClock \| undefined` |
+| `getNominatedBankAccounts` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getNominatedBankAccounts(businessName: BusinessName): ` |
+| `getOpenProjectClockForEmployee` | `backend/src/db-journal.ts` | (none) | `getOpenProjectClockForEmployee(employeeName: EmployeeName): EmployeeClock \| undefined` |
 | `getOpenShiftForEmployee` | `backend/src/db.ts` | (none) | `getOpenShiftForEmployee(employeeName: string): PosShift \| undefined` |
 | `getOrderStatus` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `getOrderStatus(orderReference: string): ` |
 | `getOrganizationChart` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getOrganizationChart(businessName: BusinessName): OrganizationChart` |
-| `getPeriodLockStatus` | `backend/src/db.ts` | (none) | `getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus` |
+| `getPeriodLockStatus` | `backend/src/db-journal.ts` | (none) | `getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus` |
 | `getPickingList` | `backend/src/db.ts` | (none) | `getPickingList(invoiceId: number, locationName: LocationName): PickingListLine[]` |
 | `getProductUnitCostMinor` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `getProductUnitCostMinor(itemName: ItemName): number \| null` |
 | `getProfitAndLoss` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries = true): ProfitAndLoss` |
@@ -3212,8 +3356,9 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `getSalesReport` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): SalesReport` |
 | `getScheduleAtLocation` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getScheduleAtLocation(locationName: string): LocationScheduleLine[]` |
 | `getScreenTitle` | `backend/src/db.ts` | (none) | `getScreenTitle(href: string, opts?: { businessName?: string; userId?: number }): string \| undefined` |
+| `getSessionBusiness` | `backend/src/auth.ts` | `backend/src/auth-middleware.ts` | `getSessionBusiness(token: string): string \| null` |
 | `getSessionUser` | `backend/src/auth.ts` | `backend/src/auth-middleware.ts` | `getSessionUser(token: string \| undefined): AuthenticatedUser \| null` |
-| `getStagedLines` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getStagedLines(reference: string, business: BusinessName, ledger: LedgerName): StagedLine[]` |
+| `getStagedLines` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `getStagedLines(reference: string, business: BusinessName, ledger: LedgerName): StagedLine[]` |
 | `getStockListing` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `getStockListing(limit = 100, offset = 0): StockListingRow[]` |
 | `getStockListingByLocation` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `getStockListingByLocation(): StockListingLocationGroup[]` |
 | `getStockMovementReport` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `getStockMovementReport(ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport` |
@@ -3222,7 +3367,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `getStockTake` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `getStockTake(id: number): StockTake \| undefined` |
 | `getTaskDependencies` | `backend/src/db.ts` | (none) | `getTaskDependencies(dependentTask: string): ` |
 | `getTranslation` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `getTranslation(conceptName: string, languageName: string): string \| null` |
-| `getTrialBalance` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): TrialBalance` |
+| `getTrialBalance` | `backend/src/db-reports.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): TrialBalance` |
 | `getTrialBalanceComparison` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `getTrialBalanceComparison(businessName: BusinessName, ledgerA: LedgerName, ledgerB: LedgerName): TrialBalanceComparison` |
 | `getTypedAddresses` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getTypedAddresses(entityName: string): TypedAddress[]` |
 | `getTypedContactPersons` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `getTypedContactPersons(entityName: string): ContactPerson[]` |
@@ -3240,16 +3385,17 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `isGenuineCategoryOrItemsRoot` | `backend/src/db.ts` | (none) | `isGenuineCategoryOrItemsRoot(name: string): boolean` |
 | `isRowEmpty` | `frontend/src/lib/journalGrid.ts` | (none) | `isRowEmpty(row: Row): boolean` |
 | `isRowFilled` | `frontend/src/lib/journalGrid.ts` | (none) | `isRowFilled(row: Row): boolean` |
-| `listAddressTypes` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `listAddressTypes(): string[]` |
+| `listAddressTypes` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `listAddressTypes(): string[]` |
 | `listContactPersonTypes` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `listContactPersonTypes(): string[]` |
 | `listCurrencyPairs` | `backend/src/db.ts` | (none) | `listCurrencyPairs(currencies: string[]): ` |
 | `listInvoices` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `listInvoices(business: BusinessName, ledger: LedgerName, options: ListInvoicesOptions = {}): Invoice[]` |
 | `listItems` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `listItems(limit?: number, offset = 0): ItemSummary[]` |
 | `listItemSources` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `listItemSources(itemName: string): ItemSource[]` |
-| `listJournalEntries` | `backend/src/db.ts` | `frontend/src/lib/api.ts`, `frontend/src/lib/pagination.ts` | `listJournalEntries(business: BusinessName, ledger: LedgerName, limit = 100, offset = 0): JournalSummary[]` |
+| `listJournalEntries` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts`, `frontend/src/lib/pagination.ts` | `listJournalEntries(business: BusinessName, ledger: LedgerName, limit = 100, offset = 0): JournalSummary[]` |
 | `listLineTypes` | `backend/src/db.ts` | (none) | `listLineTypes(): string[]` |
 | `listPendingCustomers` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `listPendingCustomers(): PendingCustomer[]` |
 | `listPhoneTypes` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `listPhoneTypes(): string[]` |
+| `listPosTerminals` | `backend/src/db-stock.ts` | (none) | `listPosTerminals(locationName: string): ` |
 | `listProducts` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `listProducts(): ProductSummary[]` |
 | `listRoles` | `backend/src/auth.ts` | (none) | `listRoles(): ` |
 | `listUsers` | `backend/src/auth.ts` | (none) | `listUsers(): UserSummary[]` |
@@ -3262,36 +3408,41 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `login` | `backend/src/auth.ts` | `backend/src/auth-middleware.ts`, `backend/src/db.ts`, `backend/src/server.ts`, `frontend/src/lib/api.ts` | `login(username: string, password: string): ` |
 | `logout` | `backend/src/auth.ts` | `frontend/src/lib/api.ts` | `logout(token: string): void` |
 | `mergeContactDetail` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/db-stock.ts` | `mergeContactDetail(entityId: number, fields: Record<string, unknown>): void` |
+| `nominateBankAccount` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `nominateBankAccount(businessName: BusinessName, bankAccountName: string, routingDetail: string, accountNumber: string, userId: UserId): ` |
+| `nominateLocationCurrency` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `nominateLocationCurrency(locationName: string, currencyCode: string, userId: UserId): void` |
+| `openStorageContainer` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `openStorageContainer(business: BusinessName, ledger: LedgerName, definitionDimensions: [string, string][], containerValues: string[], cartonsOpened: number, unitValues: string[], unitsProduced: number, userId: UserId, reference?: string): void` |
 | `parseMinorUnits` | `frontend/src/lib/money.ts` | (none) | `parseMinorUnits(text: string): number` |
 | `parseQuantity` | `frontend/src/lib/money.ts` | (none) | `parseQuantity(text: string): number` |
 | `parseUblInvoice` | `backend/src/db.ts` | (none) | `parseUblInvoice(xml: string): UblImportResult` |
 | `payEmployeeWages` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): PayEmployeeWagesResult` |
-| `placeOrder` | `backend/src/db-stock.ts` | `backend/src/db.ts` | `placeOrder(orderReference: string, business: BusinessName, ledger: LedgerName, quantity: number, priceMinor: number, userId: UserId, transdate?: string, vendor?: VendorName, item?: ItemName, location?: LocationName): void` |
-| `postApPayment` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postApPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
-| `postApPurchase` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postApPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
-| `postArReceipt` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postArReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
-| `postArSale` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postArSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `placeOrder` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts` | `placeOrder(orderReference: string, business: BusinessName, ledger: LedgerName, quantity: number, priceMinor: number, userId: UserId, transdate?: string, vendor?: VendorName, item?: ItemName, location?: LocationName): void` |
+| `postApPayment` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `postApPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `postApPurchase` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `postApPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `postArReceipt` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `postArReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `postArSale` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `postArSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `postBomComponents` | `backend/src/db.ts` | (none) | `postBomComponents(assemblyItem: string, business: string, userId: UserId): void` |
 | `postInvoice` | `backend/src/db.ts` | (none) | `postInvoice(id: number,   revenueOrExpenseAccount: string \| { name: string; id: number } \| ((line: InvoiceLineInput & { id: number }) => string \| { name: string; id: number }), taxAccount: string, userId: UserId, restockInventory = false, divisionName?: string, counterpartyAccountOverride?: string): void` |
-| `postJournalEntry` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `frontend/src/lib/api.ts` | `postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
-| `postPurchaseOrder` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
-| `postQuantityMovement` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `backend/src/primitives.ts` | `postQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, userId: UserId, transdate?: string, locationName?: LocationName, accountId?: number): void` |
-| `postSalesOrder` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `postJournalEntry` | `backend/src/db-journal.ts` | `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `frontend/src/lib/api.ts` | `postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `postLocation` | `backend/src/db-journal.ts` | (none) | `postLocation(reference: string, business: BusinessName, userId: UserId): TypedNode<'LocationEntityName'>` |
+| `postPurchaseOrder` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `postQuantityMovement` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts`, `backend/src/primitives.ts` | `postQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, userId: UserId, transdate?: string, locationName?: LocationName, accountId?: number): void` |
+| `postSalesOrder` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `postStagedQuantityMovement` | `backend/src/db-stock.ts` | (none) | `postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void` |
-| `postStockDispatch` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postStockDispatch(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
-| `postStockReceipt` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `postStockReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `postStockDispatch` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `postStockDispatch(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `postStockReceipt` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `postStockReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `previewCloseBooks` | `backend/src/db-reports.ts` | `frontend/src/lib/api.ts` | `previewCloseBooks(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string): CloseBooksPreview` |
 | `readCsv` | `shared-fixtures/csv.ts` | `shared-fixtures/add-brand-translation.ts`, `shared-fixtures/add-header-translations.ts`, `shared-fixtures/add-journal-remaining-translations.ts`, `shared-fixtures/add-journal-translations.ts`, `shared-fixtures/add-menu-translations.ts`, `shared-fixtures/translations.ts`, `shared-fixtures/wine-retail-demo-data.ts`, `shared-fixtures/wine-retail.ts` | `readCsv(text: string): Record<string, string>[]` |
 | `receiveLot` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `receiveLot(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, lotNumber: string, receivedDate: string, expirationDate: string \| null, quantity: number, userId: UserId, costBasisMinor?: number): void` |
 | `receiveStockAtLocation` | `backend/src/db-stock.ts` | `backend/src/db-seed.ts`, `backend/src/db.ts`, `frontend/src/lib/api.ts` | `receiveStockAtLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void` |
+| `recordInvoiceLine` | `backend/src/db.ts` | `backend/src/db-journal.ts` | `recordInvoiceLine(reference: string, business: string, ledger: string, description: string, quantity: number \| null, unitPriceMinor: number \| null, amountMinor: number, taxMinor: number): void` |
 | `recordReminderSent` | `backend/src/db.ts` | (none) | `recordReminderSent(customerName: string): number` |
 | `recordStockTakeCount` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `recordStockTakeCount(stockTakeId: number, itemName: ItemName, countedQuantity: number): void` |
 | `registerBankAccount` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `registerBankAccount(accountName: string, business: string, scopeName: string, overdraftLimitMinor: number \| null, userId: UserId): void` |
 | `registerCustomer` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `registerCustomer(input: CustomerRegistrationInput, userId: UserId): void` |
 | `removeContactType` | `backend/src/db.ts` | (none) | `removeContactType(contactName: string, typeName: string, userId: UserId): void` |
 | `removeRowAt` | `frontend/src/lib/journalGrid.ts` | (none) | `removeRowAt(rows: Row[], index: number): Row[]` |
-| `removeStagedLine` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `removeStagedLine(reference: string, business: BusinessName, ledger: LedgerName, account: string): void` |
-| `reopenPeriod` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `reopenPeriod(business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `removeStagedLine` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `removeStagedLine(reference: string, business: BusinessName, ledger: LedgerName, account: string): void` |
+| `reopenPeriod` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `reopenPeriod(business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `reorderSiblings` | `backend/src/db.ts` | (none) | `reorderSiblings(entityId: EntityId, direction: 'up' \| 'down', userId: UserId): void` |
 | `reorderSiblingsBulk` | `backend/src/db.ts` | (none) | `reorderSiblingsBulk(entityIds: number[], direction: 'up' \| 'down', userId: UserId): void` |
 | `requireAuth` | `backend/src/auth-middleware.ts` | `backend/src/server.ts` | `requireAuth(req: Request, res: Response, next: NextFunction): void` |
@@ -3299,29 +3450,31 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `resetReminderLevel` | `backend/src/db.ts` | (none) | `resetReminderLevel(customerName: string): void` |
 | `resolveDispatchLocation` | `backend/src/db.ts` | (none) | `resolveDispatchLocation(itemName: ItemName, logicalLocationName: LocationName): LocationName` |
 | `resolveItemId` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `resolveItemId(itemName: ItemName): number \| undefined` |
-| `reverseJournalEntry` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `reverseJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, userId: UserId, reversalDate?: string): void` |
+| `reverseJournalEntry` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `reverseJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, userId: UserId, reversalDate?: string): void` |
 | `saveBusinessTypeAnswers` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `saveBusinessTypeAnswers(businessName: BusinessName, answers: Record<string, string>, userId: UserId): void` |
 | `screenTitle` | `frontend/src/lib/state.svelte.ts` | `frontend/src/lib/menu.ts` | `screenTitle(href: string): string \| undefined` |
 | `seedDefaultHierarchyPrototypes` | `backend/src/db.ts` | (none) | `seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName'>, userId: UserId): void` |
 | `seedRemainingData` | `backend/src/db-seed.ts` | `backend/src/db.ts` | `seedRemainingData(): void` |
-| `setAccountCurrency` | `backend/src/db-reports.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts` | `setAccountCurrency(accountName: string, currency: string \| null): void` |
+| `setAccountCurrency` | `backend/src/db-reports.ts` | `backend/src/db-stock.ts`, `backend/src/db.ts` | `setAccountCurrency(accountName: string, currency: string \| null, entityId?: number): void` |
+| `setBusinessHomeCurrency` | `backend/src/db.ts` | (none) | `setBusinessHomeCurrency(businessName: string, currencyCode: string, userId: UserId): void` |
 | `setContact` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `setContact(entityName: string, contact: Partial<Contact>): void` |
 | `setContactType` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/primitives.ts` | `setContactType(contactName: string, typeName: string, userId: UserId): void` |
 | `setCurrencyExchangeRate` | `backend/src/db.ts` | (none) | `setCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId, buyRateMinor?: number, sellRateMinor?: number): void` |
+| `setCurrentBusiness` | `backend/src/session-context.ts` | (none) | `setCurrentBusiness(business: RealBusinessNode): void` |
 | `setDefaultLanguage` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setDefaultLanguage(languageName: string, userId: UserId): void` |
-| `setDimensionParent` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void` |
-| `setDivisionType` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `setDivisionType(divisionNameOrId: string \| EntityId, typeMarkerName: string): void` |
+| `setDimensionParent` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-matrix-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void` |
+| `setDivisionType` | `backend/src/db.ts` | (none) | `setDivisionType(divisionNameOrId: string \| EntityId, typeMarkerName: string): void` |
 | `setEmployeeSchedule` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setEmployeeSchedule(employeeName: string, locationName: string, schedule: ScheduleLine[]): void` |
 | `setEntityLink` | `backend/src/db.ts` | `backend/src/db-matrix-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number, targetId?: number): string` |
 | `setItem` | `backend/src/db.ts` | `frontend/src/lib/api.ts`, `frontend/src/lib/auth.ts`, `frontend/src/lib/session.ts`, `frontend/src/lib/state.svelte.ts` | `setItem(entityName: string, item: Partial<Item>): void` |
-| `setItemLocationLevelDetails` | `backend/src/db-stock.ts` | (none) | `setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, userId: UserId): void` |
+| `setItemLocationLevelDetails` | `backend/src/db-stock.ts` | (none) | `setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>): void` |
 | `setItemLocationLevels` | `backend/src/db-stock.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: {     minLevel?: number \| null;     maxLevel?: number \| null;     reorderLevel?: number \| null;     shelfSide?: string \| null;     rack?: string \| null;     level?: number \| null;   }): void` |
 | `setItemProduct` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setItemProduct(itemName: string, productName: string \| null, userId: UserId): void` |
 | `setItemSourceLeadTime` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName, days: number, userId: UserId): void` |
 | `setItemStorageOrigin` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setItemStorageOrigin(itemName: ItemName, origin: 'Hot' \| 'Cold' \| null, userId: UserId): void` |
 | `setLanguageDirection` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setLanguageDirection(languageName: string, direction: 'LTR' \| 'RTL' \| null, userId: UserId): void` |
 | `setLineType` | `backend/src/db.ts` | (none) | `setLineType(entityName: string, lineType: string \| null, userId: UserId): void` |
-| `setLocation` | `backend/src/db-stock.ts` | `backend/src/db-seed.ts`, `backend/src/db.ts` | `setLocation(name: string, location: Location): void` |
+| `setLocation` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db.ts` | `setLocation(name: string, location: Location): void` |
 | `setLocationOpenHours` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setLocationOpenHours(locationName: string, hours: OpenHoursLine[]): void` |
 | `setMenuOverride` | `backend/src/db.ts` | `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `setMenuOverride(menuItemKey: string, scope: 'business' \| 'user', scopeId: number, overrideLabel: string \| null, hidden: boolean, userId: UserId = asUserId(1)): void` |
 | `setOwnDateFormat` | `backend/src/auth.ts` | `frontend/src/lib/api.ts` | `setOwnDateFormat(userId: number, dateFormat: string): void` |
@@ -3330,6 +3483,7 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `setPosPin` | `backend/src/db.ts` | (none) | `setPosPin(employeeName: string, pin: string): void` |
 | `setPrototype` | `backend/src/db.ts` | (none) | `setPrototype(entityName: string, prototypeName: string, userId: UserId): void` |
 | `setRelationship` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/primitives.ts` | `setRelationship(entityName: string, relationshipType: string, targetName: string, userId: UserId): void` |
+| `setSessionBusiness` | `backend/src/auth.ts` | `backend/src/session-context.ts` | `setSessionBusiness(token: string, businessName: string): void` |
 | `setTerminalCurrency` | `backend/src/db-stock.ts` | (none) | `setTerminalCurrency(terminalName: string, currency: string \| null): void` |
 | `setTranslation` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `frontend/src/lib/api.ts` | `setTranslation(conceptName: string, languageName: string, text: string, userId: UserId = asUserId(1)): void` |
 | `setupEquityStructure` | `backend/src/db.ts` | (none) | `setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaPrototype?: string, partnerNames?: string[]): void` |
@@ -3338,28 +3492,29 @@ Generated directly by `scripts/source-reference.ts` (run via `make source-refere
 | `setVocabularyPreference` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `setVocabularyPreference(conceptName: string, scope: 'business' \| 'user', scopeId: number, preferredAlternateName: string): void` |
 | `signOff` | `backend/src/db.ts` | (none) | `signOff(shiftId: number): void` |
 | `signOn` | `backend/src/db.ts` | (none) | `signOn(employeeName: string, locationName: string): PosShift` |
-| `stageApPayment` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stageApPayment(input: ApPaymentInput): void` |
-| `stageApPurchase` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stageApPurchase(input: ApPurchaseInput): void` |
-| `stageArReceipt` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stageArReceipt(input: ArReceiptInput): void` |
-| `stageArSale` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stageArSale(input: ArSaleInput): void` |
+| `stageApPayment` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `stageApPayment(input: ApPaymentInput): void` |
+| `stageApPurchase` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `stageApPurchase(input: ApPurchaseInput): void` |
+| `stageArReceipt` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `stageArReceipt(input: ArReceiptInput): void` |
+| `stageArSale` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `stageArSale(input: ArSaleInput): void` |
 | `stageBomComponent` | `backend/src/db.ts` | (none) | `stageBomComponent(input: {   assemblyItem: string; business: string; componentItem: string; quantity: number; unit: string; }): void` |
-| `stageLine` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `stageLine(line: StagedLine): void` |
-| `stagePurchaseOrder` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stagePurchaseOrder(input: PurchaseOrderInput): void` |
+| `stageLine` | `backend/src/db-journal.ts` | `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `stageLine(line: StagedLine): void` |
+| `stageLocation` | `backend/src/db-journal.ts` | (none) | `stageLocation(input: LocationStagingInput): void` |
+| `stagePurchaseOrder` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `stagePurchaseOrder(input: PurchaseOrderInput): void` |
 | `stageQuantityMovementLine` | `backend/src/db-stock.ts` | (none) | `stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, locationName?: LocationName, accountId?: number): void` |
-| `stageSalesOrder` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stageSalesOrder(input: SalesOrderInput): void` |
-| `stageStockDispatch` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stageStockDispatch(input: StockDispatchInput): void` |
-| `stageStockReceipt` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `stageStockReceipt(input: StockReceiptInput): void` |
+| `stageSalesOrder` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `stageSalesOrder(input: SalesOrderInput): void` |
+| `stageStockDispatch` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `stageStockDispatch(input: StockDispatchInput): void` |
+| `stageStockReceipt` | `backend/src/db-journal.ts` | `frontend/src/lib/api.ts` | `stageStockReceipt(input: StockReceiptInput): void` |
 | `todayAtLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts` | `todayAtLocation(locationName: LocationName): string` |
 | `todayIsoDate` | `frontend/src/lib/format.ts` | (none) | `todayIsoDate(): string` |
 | `toTreePaths` | `frontend/src/lib/treeAdapter.ts` | (none) | `toTreePaths(entities: EntityNode[]): TreeItem[]` |
 | `transferStock` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `frontend/src/lib/api.ts` | `transferStock(business: BusinessName, ledger: LedgerName, itemName: ItemName, fromLocationName: LocationName, toLocationName: LocationName, quantity: number, reference: string, userId = 1, transdate?: string, combinationShape?: [string, string][], combinationValuesAfterLocation?: string[]): void` |
 | `unescapeAscii` | `shared-fixtures/csv.ts` | (none) | `unescapeAscii(text: string): string` |
 | `unregisterBankAccount` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `unregisterBankAccount(accountName: string, userId: UserId): void` |
-| `updateEntity` | `backend/src/db.ts` | `backend/src/auth.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `updateEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode` |
+| `updateEntity` | `backend/src/db.ts` | `backend/src/auth.ts`, `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `frontend/src/lib/api.ts` | `updateEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode` |
 | `verifyCustomer` | `backend/src/db.ts` | `frontend/src/lib/api.ts` | `verifyCustomer(customerName: string, approve: boolean): void` |
 | `verifyPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/db.ts` | `verifyPassword(password: string, stored: string): boolean` |
 | `verifyPosPin` | `backend/src/db.ts` | (none) | `verifyPosPin(employeeName: string, pin: string): boolean` |
 | `writeCsv` | `shared-fixtures/csv.ts` | `shared-fixtures/add-brand-translation.ts`, `shared-fixtures/add-header-translations.ts`, `shared-fixtures/add-journal-remaining-translations.ts`, `shared-fixtures/add-journal-translations.ts`, `shared-fixtures/add-menu-translations.ts` | `writeCsv(rows: Record<string, string>[], headers: string[]): string` |
-| `writeOffStock` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `writeOffStock(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, quantity: number, unitCostMinor: number, writeOffExpenseAccount: AccountName, /** @deprecated No longer used — resolves to that same, real    * product's own, real Inventory sub-account directly. Kept only so    * existing callers don't need a breaking API change. */   inventoryAccount: string, reason: string, userId: UserId, transdate?: string, locationName?: LocationName): void` |
+| `writeOffStock` | `backend/src/db-stock.ts` | `frontend/src/lib/api.ts` | `writeOffStock(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, quantity: number, unitCostMinor: number, writeOffExpenseAccount: AccountName, /** @deprecated See docs/storage-space-as-currency-design.md § 24, D8 (write-off). */   inventoryAccount: string, reason: string, userId: UserId, transdate?: string, locationName?: LocationName, combinationValues?: string[], combinationShape?: [string, string][]): void` |
 
-612 real, indexed names (249 types, 363 functions) across 35 real, core files.
+646 real, indexed names (255 types, 391 functions) across 37 real, core files.

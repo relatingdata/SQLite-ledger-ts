@@ -6,9 +6,9 @@ and the shape of names. It does not define the **domain nouns**: which word mean
 that is ordered, held and sold; who we buy from; what moving stock is called. Without a chosen
 word for each, a new function gets whichever word its author happened to use.
 
-**Status: a measurement, a set of settled terms, and a draft for what is still open. Nothing
-has been renamed.** The terms in the next section were stated directly and are settled. The
-remaining decisions are at the end, starting with `transferItems`.
+**Status: a measurement, a set of settled terms, and a short list of what is still open.
+Nothing has been renamed.** The terms in the next section were stated directly and are settled.
+The remaining decisions are at the end, and each now carries the measured cost of making it.
 
 ## Settled vocabulary
 
@@ -18,13 +18,42 @@ the earlier conventions chapter.
 | Term | Means | Notes |
 |---|---|---|
 | **Item** | anything that is ordered, held, moved, sold, or assembled | replaces "goods" and "part". The finished output of an assembly is an *assembled Item*. |
-| **Product**, or **Cartesian Product** | one combination of a value from each Factor, and the set of all such combinations | **always this.** Never a synonym for Item. |
+| **Service** | something provided that is not held | **distinct from an Item.** Not folded into the Items catalogue. |
+| **Product**, or **Cartesian Product** | one combination of a value from each Factor, and the set of all such combinations | **always this.** Never a synonym for Item. Cartesian Products live under the Application and under each business's name; they are not a level of the item tree. |
 | **Factor** | one of the things multiplied together to make a Cartesian Product | may be a single-level or a multi-level Hierarchy |
 | **Dimension** | a Factor | see the verification below |
 | **Hierarchy** | a single- or multi-level reporting and naming classification | plural, **Hierarchies**, wherever a person reads it |
 | **Division**, **Category** | *examples* of hierarchical classifications of Locations and Items | used by the Wine Retail Business and the Wine Tutorial Business in the user manual. Suggestions, not built in. |
 | **Save**, **Update** | labels on a UI Submit button | translatable Vocabulary words, not code verbs |
-| **AR**, **AP**, **GL**, **P&L** | Accounts Receivable, Accounts Payable, General Ledger, Profit and Loss | always capitalised, always with those meanings |
+| **AR**, **AP**, **GL**, **P&L** | Accounts Receivable, Accounts Payable, General Ledger, Profit and Loss | always capitalised, always with those meanings, **in code names as well as prose**. In prose the abbreviation is explained at its first use. |
+| **Supplier**, **Vendor** | almost synonyms; who we buy from | Vocabulary Items, translatable labels a person reads. Not the code term. |
+| **Stock** | the quantity of an Item available for sale | not the Item itself. Compare *Stocktake*, which counts it. |
+| **Inventory** | the Items held at Locations | the accounting and holding view; Stock is the part of it available for sale |
+
+**The lifecycle, in the words of the settled flow.** This is the shape the rest of the
+vocabulary hangs on:
+
+```
+Order → Provider Dispatch → In Transit → Receive → Inventory
+      → Transfer → Inventory
+      → Dispatch → In Transit → Customer receipt
+```
+
+A **Transfer** is itself a small version of the same shape: *Location A Dispatch → In Transit →
+Location B Receipt*, initiated by a **Restocking report**. Three consequences follow.
+
+- **Dispatch is the act of leaving any origin**: a Provider, one of the business's own Locations,
+  or the business itself sending to a Customer. It is *not* reserved for customers. (My earlier
+  proposal to reserve it was wrong, and the collision I reported for `dispatch` dissolves: the
+  word means the same thing everywhere, and what differs is the document it belongs to.)
+- **Receive is the act of arriving at a destination**: a Location, or a Customer (*Customer
+  receipt*, the confirmation that the order arrived).
+- **In Transit is a state between the two**, and per the production design it is best modelled as
+  a real place. Nothing in the code represents it today.
+
+Because an order can hold many Items, the document for Items arriving is an **OrderReceipt**, not
+an Item receipt. That leaves *AR Receipt* (money in from a customer) and *Customer receipt*
+(delivery confirmed) as two further, different things, all distinguished by their qualifier.
 
 **Dimension is already used this way in the code (verified).** `setDimensionParent(entity,
 dimensionName, parent)` places an entity within one *named* hierarchy, and its own comment says it
@@ -58,23 +87,34 @@ the settled terms a finished output is an *assembled Item*, and Product never me
 chapter also sat **outside the manual**: it was not registered in the manual builder. It is
 registered now.
 
-**AR and AP are not capitalised in names (measured).** `AR` appears in 8 names and `AP` in 8;
-none is capitalised. Seven use `Ar` (`ArSaleInput`, `stageArSale`), one uses `ar` (`arApRouter`),
-and all eight AP names use `Ap` (`ApPurchaseInput`, `stageApPurchase`). `GL` appears in no name.
-P&L cannot appear in a name, and 12 names spell it `ProfitAndLoss`, which is the right spelling.
-Whether the capitalisation rule also applies to names in code, or only to prose and the UI, needs
-your answer (decision 5).
+**AR and AP are not capitalised in names (measured), and the rule now covers names.** `AR`
+appears in 8 names and `AP` in 8; none is capitalised. Seven use `Ar` (`ArSaleInput`,
+`stageArSale`), one uses `ar` (`arApRouter`), and all eight AP names use `Ap`
+(`ApPurchaseInput`, `stageApPurchase`). `GL` appears in no name. P&L cannot appear in a name, and
+12 names spell it `ProfitAndLoss`, which is the right spelling. It has been stated that the
+capitalisation applies **in code as well as prose**, so these names need changing. Measured:
+**28 identifiers, 241 lines, 21 files**. The earlier figure of 16 counted *exported* names only;
+this count also includes local variables (`arNode`, `arLines`, `fullPayApInvoiceId`) and names
+that appear only in documentation (`ArReceipt`, `ApPurchase`). That is a contained rename.
 
-**`receipt` is less ambiguous than I first said.** `ArReceipt` uses the accounting meaning (an
-AR receipt is a payment received against a receivable) and is unambiguous once AR is capitalised.
-What remains is `StockReceipt`, which is Items arriving.
+**The prose rule needs a measurement of its own.** The abbreviation is explained the first time it
+is used in each piece of prose ("Accounts Receivable (AR)"). Whether the existing documents do
+this has **not been measured**; it would be a check that the first line using AR, AP, GL or P&L
+also carries the expansion.
 
-**"Goods" is retired.** It appears in no exported name, but in 13 lines of 7 hand-written
-documents. The ones in this session's chapters and in the user manual glossary's definition of
-Income are fixed. The rest is one real name: a **`/goods-services` screen**
-(`frontend/src/routes/goods-services/`), an unimplemented "Goods & Services (dedicated catalog)"
-stub that the first analysis missed because it read exported names, not routes. It duplicates the
-existing Items catalogue and needs a decision (decision 6).
+**`receipt` is settled by the flow.** `ArReceipt` is the accounting meaning (an AR receipt is a
+payment received against a receivable). Items arriving against an order are an **OrderReceipt**,
+because an order holds many Items, so `StockReceipt` becomes `OrderReceipt` rather than an Item
+receipt. *Customer receipt* is a third thing, the delivery confirmed. The qualifier tells them
+apart.
+
+**"Goods" is retired, and Services are distinct.** It appears in no exported name, but in 13
+lines of 7 hand-written documents. The ones in this session's chapters and in the user manual
+glossary's definition of Income are fixed. The rest is one real name: a **`/goods-services`
+screen** (`frontend/src/routes/goods-services/`), an unimplemented "Goods & Services (dedicated
+catalog)" stub that the first analysis missed because it read exported names, not routes. Since a
+Service is **distinct from an Item**, the answer is not to fold it into the Items catalogue: the
+stub becomes a **Services** catalogue of its own, and the word "goods" goes.
 
 **Save and Update are not in the verb problem.** I had counted three `save…` and three `update…`
 names as synonyms of `set`. Since Save and Update are UI Submit labels, the only question is
@@ -153,22 +193,24 @@ name `db-stock.ts` and the `Stock Take` entity.
 
 ### Words that mean two different things
 
-These are the finds that matter most, because a reader cannot tell which meaning is intended.
-The counts are measured; the meanings are **inferred from the names**.
+These were the finds I first thought mattered most. The lifecycle you gave resolves the first
+three, and they are kept here so the reasoning is visible. The counts are measured; the
+meanings were **inferred from the names**.
 
-- **`receipt`** appears in `ArReceiptInput` / `stageArReceipt` / `postArReceipt` and also in
-  `StockReceiptInput` / `stageStockReceipt` / `postStockReceipt`. An AR receipt is, in
-  accounting, **money coming in from a customer**; a stock receipt is **Items coming in from a
-  supplier.** The AR prefix carries the accounting meaning, so this is a smaller problem than it
-  first looked; it is a question of what to call the second one (decision 4).
-- **`dispatch`** appears in `dispatchStockFromLocation` and `dispatchOrderFromPickingList`
-  (sending to a customer) and in `dispatchRestockFromPickingList` (moving stock between the
-  business's own locations). You named *moving or redistributing* and *dispatching to
-  customers* as separate fundamentals; the code uses one word for both.
-- **`restock` and `transfer`** both name moving stock between locations: `restock` in five
-  names, `transfer` in two.
+- **`receipt`: resolved.** `ArReceiptInput` / `postArReceipt` are the accounting meaning (money in
+  from a customer); `StockReceiptInput` / `postStockReceipt` are Items arriving, which becomes
+  **OrderReceipt**. The qualifier distinguishes them.
+- **`dispatch`: resolved, and my earlier proposal was wrong.** It appears in
+  `dispatchStockFromLocation` and `dispatchOrderFromPickingList` (sending to a customer) and in
+  `dispatchRestockFromPickingList` (moving between the business's own locations). I proposed
+  reserving it for customers. The lifecycle shows that **Dispatch means leaving any origin**, so
+  using one word for all of these is correct; what needs naming is the *document* each belongs
+  to (see "The lifecycle and what to call each step").
+- **`restock` and `transfer`:** both name moving Items between Locations, `restock` in five names
+  and `transfer` in two. In the flow a **Restocking report initiates a Transfer**, so `restock` is
+  the *reason* and *Transfer* is the operation.
 - **`count`** is a verb in `countJournalEntries` (how many rows) and a noun in
-  `recordStockTakeCount` (a quantity someone counted).
+  `recordStockTakeCount` (a quantity someone counted). Still open, and minor.
 - **`post`** is defined as committing to the ledger, but `postLocation` and
   `postBomComponents` create an entity and a link. This is the stage-and-post pattern applied to
   every form, so it is deliberate, but the definition should say so.
@@ -186,94 +228,136 @@ The counts are measured; the meanings are **inferred from the names**.
   pattern. Storage capacity is now a nested `Storage Capacity` → `Remaining` structure and no
   longer follows that pattern. Corrected in that chapter.
 
-## A draft vocabulary
+## Names that follow from the settled terms
 
-**A draft, for decision.** Nothing below is in force.
-
-**Nouns**
-
-| Word | Means | Instead of |
+| Word | Means | Notes |
 |---|---|---|
-| **Item** | *(settled)* the thing that is ordered, held, moved, sold, and assembled | `stock` as a noun for the thing, `goods`, `part`, and every use of `product` that means an item |
-| **Location** | any real place items are held, including a factory, a warehouse, and items in transit | `warehouse`, `outlet`, `site` (these stay as location *types*, which are data) |
-| **Supplier** *or* **Vendor** | who we buy from | see decision 2 |
-| **Customer** | who we sell to | `client`, `buyer` |
-| **Stock** | a quantity of an item held at a location ("stock level", "stock take") | the thing itself |
+| **Location** | any real place Items are held, including a factory, a warehouse, and Items in transit | `warehouse`, `outlet`, `site` stay as location *types*, which are data |
+| **Provider** | who we buy from, whether of Items or of Services | **proposed for code.** "Supplier" and "Vendor" stay as translatable Vocabulary labels that a person reads. Measured: nothing in the code is named `provider` (no declaration, heading or identifier), so it collides with nothing. |
+| **Customer** | who we sell to | `client`, `buyer` are not used |
+| **Stock** | the quantity of an Item available for sale | see the settled table |
 
-**Lifecycle verbs**, each with one meaning (draft, for decision):
+**Lifecycle verbs**, each with one meaning:
 
-| Verb | Means |
-|---|---|
-| **order** | commit to buy or sell, before anything moves |
-| **receive** | items arrive at a location from a supplier |
-| **transfer** | items move between locations of the same business, at any distance |
-| **dispatch** | items leave to a customer |
-| **write off** | items are lost |
-| **produce** | components are consumed and an assembled item is made |
-| **count** | verb only: how many rows; the noun is a *stock count* |
+| Verb | Means | Document |
+|---|---|---|
+| **order** | commit to buy, sell or move, before anything moves | PurchaseOrder (to a Provider), SalesOrder (from a Customer), TransferOrder (between own Locations) |
+| **dispatch** | Items leave an origin: a Provider, one of the business's Locations, or the business itself | |
+| **receive** | Items arrive at a destination: a Location or a Customer | OrderReceipt (Items, against an order), *Customer receipt* (delivery confirmed) |
+| **transfer** | the whole journey between own Locations: Dispatch, In Transit, Receive | TransferOrder, initiated by a Restocking report |
+| **write off** | Items are lost | |
+| **produce** | components are consumed and an assembled Item is made | not built yet |
 
-**Retire or define**: `fetch` (rename, and stop shadowing the platform name); `register` (fold
-into `create`, or define); `restock` (a *reason* for a transfer, not a separate operation); and
-`StockReceipt`, which should say Item. `save` and `update` are not on this list: they are UI
-labels and stay as translatable Vocabulary words.
+**Retire or define:** `fetch` (explained below); `register` (fold into `create`, or define);
+`StockReceipt` (becomes `OrderReceipt`); and `restock`, which is the *reason* for a Transfer, not
+a separate operation. `save` and `update` are not on this list: they are UI labels and stay as
+translatable Vocabulary words.
 
-## The `transferItems` question
+## `transferItems` or `TransferOrder`? Both, at different levels
 
-You asked to refer to `transferItems`. Under this vocabulary that is the right name: **transfer**
-is the lifecycle verb and **Items** is the settled noun. But `transferStock` has siblings, and
-renaming one would create the very inconsistency this chapter measures:
+Asked as "`transferItems`? `TransferOrder`? compare the flow." The flow answers it. There are two
+levels, and the code conflates them:
 
-| Today | Under the vocabulary |
-|---|---|
-| `transferStock` | `transferItems` |
-| `receiveStockAtLocation` | `receiveItems` |
-| `dispatchStockFromLocation` | `dispatchItems` |
-| `writeOffStock` | `writeOffItems` |
-| `dispatchRestockFromPickingList` | a `transfer…` name, since it moves between own locations |
-| `stageStockReceipt` / `postStockReceipt` | `stageItemReceipt` / `postItemReceipt` |
-| `ensureProduct…Account` and the other item-sense `Product` names (8) | `ensureItem…Account` and so on |
-| `stageArSale`, `ArReceiptInput`, `stageApPurchase` and the other AR/AP names (16) | `AR`/`AP` capitalised, if the rule applies to names (decision 5) |
+- **The document** is an **order**, like the two that already exist: a PurchaseOrder to a
+  Provider, a SalesOrder from a Customer, and a **TransferOrder** between the business's own
+  Locations, initiated by a Restocking report. An order holds many Items.
+- **The events** are **dispatchItems** (Items leave an origin) and **receiveItems** (Items arrive
+  at a destination), with **In Transit** between them.
+- **`transferItems`** then remains as the name for the *whole journey* when it is instant: a
+  Dispatch and a Receive at once, at one site, with nothing in transit.
 
-**One collision to settle first.** The file `db-stock.ts` would become `db-items.ts`, but
-`routes/items.ts` and the item catalogue already own "items". The movement code is about
-*holding and moving* items, not about the catalogue.
+Today's names map onto that as follows. Two of the rows do not exist yet:
 
-The rename would **likely** touch the backend, the frontend API wrappers, the Svelte pages, the
-tests, the Step Runner registry and the manual (no count has been taken), so it should be one
-tool-assisted, verified step with the full test suite as proof, not a series of edits. It has
-not been started.
+| Today | Under the vocabulary | Exists today? |
+|---|---|---|
+| `transferStock` | `transferItems` | yes, instant only, same city only |
+| `receiveStockAtLocation` | `receiveItems`, posting an OrderReceipt | yes |
+| `dispatchStockFromLocation` | `dispatchItems` | yes |
+| `writeOffStock` | `writeOffItems` | yes |
+| `getRestockPickingList`, `dispatchRestockFromPickingList`, `confirmRestockPickedLine` | picking and dispatch against a **TransferOrder** | yes, but there is no order document behind them |
+| a TransferOrder | a document, with its own staging table like every form | **no** |
+| In Transit | a real place between Dispatch and Receive | **no** |
+| `stageStockReceipt` / `postStockReceipt` | `stageOrderReceipt` / `postOrderReceipt` | yes |
+
+**Not verified:** whether the existing below-reorder report and restock picking list together are
+the "Restocking report" of the flow, or whether that is a separate thing still to build.
+
+### What each rename would cost (measured with `make find-uses`)
+
+| Rename | Names | Lines | Files | Note |
+|---|---|---|---|---|
+| the movement family (row 1 to 5 above, plus the stage/post forms and inputs) | 14 | 443 | 46 | about 170 of the lines are in the docs |
+| `Ar`/`Ap`/`ar` to `AR`/`AP` | 28 | 241 | 21 | includes local variables and documentation-only names |
+| the eight item-sense `ensureProduct…` names to `ensureItem…` | 8 | 167 | 28 | |
+| **Vendor to Provider** | **35** | **1,074** | **111** | by far the largest; includes tests and screenshot names |
+| `fetch` | 3 | 494 | 52 | noisy: the word also appears in prose and as the platform call |
+
+Every rename here is mechanical and can be checked by the full test suite, and each is far
+cheaper than it looks in the abstract. The Provider rename is the exception, at over a thousand
+lines, and should be decided with that number in view.
+
+**One collision to settle.** The file `db-stock.ts` would follow the movement family, but
+`db-items.ts` would collide with `routes/items.ts` and the item catalogue. The file is about
+holding and moving Items, not about the catalogue.
+
+## `fetch`, explained
+
+Asked to explain. `fetch(name, type, parent)` is defined in `backend/src/db.ts`. It does three
+things, all **verified by reading it**:
+
+1. it looks a name up in the entity tree, scoped to a parent when one is given;
+2. it **throws** `No entity named "X"` if there is none;
+3. if there is one, it checks the name really is that *type* (so a business name cannot be passed
+   where a ledger name is expected) and returns a small typed handle, `{ id, name }`.
+
+It is used to walk down the tree, where every step must exist:
+`fetch('Chart of Accounts', typeRootName, fetch(business, typeBusinessName, fetch('Businesses', typeRootName)))`.
+
+**Why the name is a problem, stated honestly.** The conventions define `get` as a read-only query
+that returns `undefined` when nothing is found. `fetch` looks like a `get` but throws, so a reader
+who knows the convention will expect the wrong behaviour. The second problem is smaller than I
+first claimed: `fetch` is also the platform's own network call. In practice TypeScript would
+reject a mistaken HTTP call, because the argument types differ, so this is a matter of *reading*,
+not a hidden runtime trap. I overstated it earlier by calling it a hazard.
+
+**What to call it.** The conventions already use a `require` prefix for "must be true, otherwise
+throw" (`requireAuth`, `requireRole`). `fetch` is exactly that, for an entity, so
+**`requireEntity`** fits an existing convention instead of adding a new word. The same applies to
+`fetchById` (`requireEntityById`) and `fetchGlobalCoaCategory`. The cost is the 494 lines in 52
+files above. The cheapest alternative is to leave the name and write its behaviour into the
+conventions chapter. **Not verified:** how many of the 132 `get…` functions really return
+`undefined` when nothing is found, as the convention says; only `fetch` was checked.
 
 ## Decisions needed
 
-Answered by your clarifications, and no longer open: whether `product` keeps a structural
-meaning (no: Product is the Cartesian Product), what a dimension is (a Factor), whether Division
-and Category are concepts (no: examples), whether Save and Update are verbs (no: UI labels), and
-the word for items (Item, not goods).
+**Settled by your answers, no longer open:** that Product means only a Cartesian Product, and
+that Cartesian Products live under the Application and under each business's name, not in the item
+tree; that a Dimension is a Factor; that Division and Category are examples; that Save and Update
+are UI labels; that "goods" becomes Items; that Services are distinct from Items; that AR, AP, GL
+and P&L are capitalised in code and in prose, with the abbreviation explained at first use; that
+a receipt for Items is an OrderReceipt; that Stock is the quantity of an Item available for sale;
+the lifecycle and what Dispatch, Receive and Transfer mean; and that a naming check should become
+a gate, "if not immediate, certainly eventually."
 
-1. **`transferItems` and its family.** Rename the whole family together (table above), or only
-   `transferStock`? Renaming one alone creates the inconsistency this chapter measures.
-2. **Supplier or vendor?** You say *supplier*; the code says *vendor* (4 names plus `source`
-   in `item_source`). Renaming `VendorName`, `asVendorName` and the rest touches many files.
-3. **What replaces the Product level in the item tree**, now that it cannot be called Product?
-   This is bound up with removing the hardwired `Category → … → Item` skeleton
-   (`docs/classification-neutrality-impact.md`, Tier 4a), so it may be that the level simply goes
-   away and items are classified by Hierarchies.
-4. **`StockReceipt`:** call it an Item Receipt?
-5. **Does the AR/AP/GL capitalisation rule apply to names in code** (`stageARSale`,
-   `ARReceiptInput`), or only to prose, the UI and documentation? In code the names currently use
-   `Ar` and `Ap`.
-6. **The `/goods-services` screen:** remove it, or fold it into the Items catalogue with a
-   service as a kind of Item? It is an unimplemented stub.
-7. **`dispatch`:** reserved for customers, with movements between own locations called
-   `transfer`?
-8. **`fetch`:** rename it, and to what? It throws when missing, unlike `get`.
-9. **Should a naming check be a gate,** like `check-unused`? Several rules are now settled
-   (no "goods", Product only as Cartesian Product, capitalised acronyms), so a first version is
-   possible, but it needs decisions 4 and 5 first.
+1. **TransferOrder as a new document.** Confirm the model above: a TransferOrder (with its own
+   staging table), the events `dispatchItems` and `receiveItems` with In Transit between, and
+   `transferItems` kept for the instant same-site case. Building it is separate from renaming.
+2. **Provider.** Confirm it as the code term, at a cost of 1,074 lines in 111 files. And what
+   happens to `item_source`, the table of a Provider's offer for an Item (price, pack size, lead
+   time)?
+3. **`fetch`.** Rename to `requireEntity`, or leave it and document it?
+4. **The `/goods-services` stub.** Since Services are distinct from Items, replace it with a
+   **Services** catalogue. That needs design of its own: what a Service records, and whether one
+   can be a line on an assembly (see the production design).
+5. **The movement file's name**, given the collision with the items catalogue.
+6. **The first version of the naming check:** as a report first, then a gate once the renames
+   above have landed, so it does not fail on names that are about to change.
 
 ## Not verified
 
 Whether `register` differs in behaviour from `create`; whether `tier` is a value of a Factor;
 where `saveLocation`, `saveBusinessTypeAnswers` and `updateEntity` are used and whether a code
-name is borrowing a UI word; the frontend Svelte files (the analysis reads `.ts` exports, and
-routes only by hand); and how many places a family rename would touch (no count has been taken).
+name is borrowing a UI word; whether the existing reports are the Restocking report of the flow;
+how many `get…` functions return `undefined` when nothing is found; whether the AR, AP, GL and P&L
+first-use rule is followed in the existing documents; and the frontend Svelte files (the analysis
+reads `.ts` exports, and routes only by hand).

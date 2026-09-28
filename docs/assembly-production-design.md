@@ -119,10 +119,15 @@ way this also fixes the wider gap in 3.4 for anything produced.
 **(i) An explicit labour amount, or hours times a rate, entered per production run.**
 **(ii) Derived from staff time clocked against a project or job, which already exists.**
 **(iii) A standard labour and overhead amount per unit held on the BOM.**
+**(iv) Labour as a Service line on the BOM.** Services are distinct from Items, and the
+LedgerSMB definition of an assembly is parts, services and/or labor and overhead. A Service has
+a rate and a Provider, so "assembly labour" would be a Service consumed by the assembly, costed
+like any other line. It needs the Services catalogue to exist first (see
+`docs/naming-vocabulary.md`, decision 4).
 
 **Recommendation: (i) first**, since it is the simplest thing that is honest about cost, with
 (ii) added later by letting a run reference a project. (iii) is LedgerSMB's approach and could
-be a default that (i) overrides.
+be a default that (i) overrides. (iv) becomes the natural home once Services exist.
 
 ### 4.5 Where quantity is stored
 
@@ -147,7 +152,9 @@ setting on the item, not a code path. It is recorded the way other item settings
 - **The same-city rule goes.** It is a wine-shop assumption. A business that wants to
   restrict where a warehouse ships should be able to configure that; the code should not
   decide it.
-- **In transit is a real place.** Items on a ship are somewhere. Model it as a genuine
+- **In transit is a real place.** Items on a ship are somewhere. In the settled lifecycle
+  (`docs/naming-vocabulary.md`) it is the state between Dispatch and Receive, for a Provider, a
+  Transfer and a Customer alike, and a cross-country move is a **TransferOrder**. Model it as a genuine
   location ("In Transit, Shenzhen to Adelaide"): a cross-country move is a dispatch out of
   the source into it and a receipt from it into the destination, which can be simultaneous
   for a same-site move. It reuses the existing dispatch and receive.

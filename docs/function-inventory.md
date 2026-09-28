@@ -1,1612 +1,5510 @@
-# Complete Function Inventory — Every Real, Exported Backend Function
-
-Generated directly from the live codebase (not from memory), per direct
-request: every real, exported function in every real backend source
-file, its own real signature, and every real file found to call it
-(via a direct, textual `name(` search across both `backend/src` and
-`frontend/src`).
-
-**A real, honest limitation of this method, stated plainly**: a
-function referenced *without* immediately being called — passed as a
-bare reference (e.g. Express middleware: `app.use(requireAuth)`,
-`router.get('/x', attachUser, handler)`) — will not match a plain
-`functionName(` text search, and shows here as zero call sites even
-though it is genuinely used. `requireAuth`, `attachUser`, `signOn`,
-`signOff` below are confirmed, real examples of this — all four are
-real Express middleware, wired up this way, not dead code. Where a
-function's own real "zero call sites" result is *not* one of these
-known, real middleware cases, it is a real, genuine candidate for
-either dead code or a real, live gap where a screen was built to call
-it but never wired up (`getScreenTitle` is a confirmed, real example
-of the latter — see docs/lessons-learned.md and
-docs/menu-as-entity-tree-plan.md for the real, full story).
-
-
-**Total real, exported functions found: 260**
-
-
-## `backend/src/auth-middleware.ts` (3 functions)
-
-### `attachUser`
-- **Defined**: `backend/src/auth-middleware.ts:23`
-- **Signature**: `export function attachUser(req: Request, _res: Response, next: NextFunction) {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `requireAuth`
-- **Defined**: `backend/src/auth-middleware.ts:28`
-- **Signature**: `export function requireAuth(req: Request, res: Response, next: NextFunction) {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `requireRole`
-- **Defined**: `backend/src/auth-middleware.ts:38`
-- **Signature**: `export function requireRole(...roles: string[]) {`
-- **Call sites found**: 68
-- **Called from**: backend/src/routes/auth.ts, backend/src/routes/businesses.ts, backend/src/routes/contacts.ts, backend/src/routes/customer-registration.ts, backend/src/routes/divisions.ts, backend/src/routes/entities.ts, backend/src/routes/i18n.ts, backend/src/routes/invoices.ts, backend/src/routes/journal.ts, backend/src/routes/locations.ts, backend/src/routes/parts.ts, backend/src/routes/period.ts, backend/src/routes/pos.ts, backend/src/routes/reports.ts, backend/src/routes/stock-lots.ts, backend/src/server.ts
-
-
-## `backend/src/auth.ts` (13 functions)
-
-### `listUsers`
-- **Defined**: `backend/src/auth.ts:25`
-- **Signature**: `export function listUsers(): UserSummary[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/auth.ts, backend/src/routes/auth.ts
-
-### `listRoles`
-- **Defined**: `backend/src/auth.ts:41`
-- **Signature**: `export function listRoles(): { id: number; name: string }[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/auth.ts
-
-### `createUser`
-- **Defined**: `backend/src/auth.ts:45`
-- **Signature**: `export function createUser(username: string, password: string, roleNames: string[]): UserSummary {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/auth.ts
-
-### `setUserRoles`
-- **Defined**: `backend/src/auth.ts:56`
-- **Signature**: `export function setUserRoles(userId: number, roleNames: string[]): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/auth.ts, backend/src/routes/auth.ts
-
-### `setUserActive`
-- **Defined**: `backend/src/auth.ts:67`
-- **Signature**: `export function setUserActive(userId: number, active: boolean): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/auth.ts
-
-### `changePassword`
-- **Defined**: `backend/src/auth.ts:76`
-- **Signature**: `export function changePassword(userId: number, newPassword: string): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/auth.ts, backend/src/routes/auth.ts
-
-### `changeOwnPassword`
-- **Defined**: `backend/src/auth.ts:90`
-- **Signature**: `export function changeOwnPassword(userId: number, currentPassword: string, newPassword: string): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/auth.ts, frontend/src/routes/account/password/+page.svelte
-
-### `login`
-- **Defined**: `backend/src/auth.ts:120`
-- **Signature**: `export function login(username: string, password: string): { token: string; user: AuthenticatedUser } {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts, backend/src/routes/auth.ts
-
-### `logout`
-- **Defined**: `backend/src/auth.ts:144`
-- **Signature**: `export function logout(token: string): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/auth.ts, frontend/src/routes/+layout.svelte
-
-### `getSessionUser`
-- **Defined**: `backend/src/auth.ts:152`
-- **Signature**: `export function getSessionUser(token: string | undefined): AuthenticatedUser | null {`
-- **Call sites found**: 1
-- **Called from**: backend/src/auth-middleware.ts
-
-### `setOwnPageSize`
-- **Defined**: `backend/src/auth.ts:178`
-- **Signature**: `export function setOwnPageSize(userId: number, pageSize: number): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/auth.ts, frontend/src/routes/account/password/+page.svelte
-
-### `setOwnNumberFormat`
-- **Defined**: `backend/src/auth.ts:186`
-- **Signature**: `export function setOwnNumberFormat(userId: number, numberFormat: string): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/auth.ts, frontend/src/routes/account/password/+page.svelte
-
-### `setOwnDateFormat`
-- **Defined**: `backend/src/auth.ts:194`
-- **Signature**: `export function setOwnDateFormat(userId: number, dateFormat: string): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/auth.ts, frontend/src/routes/account/password/+page.svelte
-
-
-## `backend/src/db-matrix-reports.ts` (4 functions)
-
-### `getSalesCogsMatrix`
-- **Defined**: `backend/src/db-matrix-reports.ts:207`
-- **Signature**: `export function getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/matrix-reports.ts, frontend/src/routes/reports/new-pl/+page.svelte
-
-### `getStockOnHandMatrix`
-- **Defined**: `backend/src/db-matrix-reports.ts:301`
-- **Signature**: `export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): StockOnHandMatrix {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/matrix-reports.ts, frontend/src/routes/reports/new-stock-on-hand/+page.svelte
-
-### `getProfitAndLossByAxis`
-- **Defined**: `backend/src/db-matrix-reports.ts:443`
-- **Signature**: `export function getProfitAndLossByAxis(`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/matrix-reports.ts, frontend/src/routes/reports/new-new-pl/+page.svelte
-
-### `getAxisValues`
-- **Defined**: `backend/src/db-matrix-reports.ts:511`
-- **Signature**: `export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/matrix-reports.ts, frontend/src/routes/reports/new-new-pl/+page.svelte
-
-
-## `backend/src/db-reports.ts` (18 functions)
-
-### `getBusinessReports`
-- **Defined**: `backend/src/db-reports.ts:23`
-- **Signature**: `export function getBusinessReports(): ReportRow[] {`
-- **Call sites found**: 4
-- **Called from**: backend/src/db-reports.ts, backend/src/routes/reports.ts
-
-### `setAccountCurrency`
-- **Defined**: `backend/src/db-reports.ts:43`
-- **Signature**: `export function setAccountCurrency(accountName: string, currency: string | null): void {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `getChartOfAccounts`
-- **Defined**: `backend/src/db-reports.ts:49`
-- **Signature**: `export function getChartOfAccounts(): ChartRow[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/reports.ts
-
-### `getLedgerBalancesByDivision`
-- **Defined**: `backend/src/db-reports.ts:119`
-- **Signature**: `export function getLedgerBalancesByDivision(`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `getLedgerBalancesByDivisionStructural`
-- **Defined**: `backend/src/db-reports.ts:175`
-- **Signature**: `export function getLedgerBalancesByDivisionStructural(`
-- **Call sites found**: 2
-- **Called from**: backend/src/db-reports.ts
-
-### `getLedgerBalances`
-- **Defined**: `backend/src/db-reports.ts:218`
-- **Signature**: `export function getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries = false): Map<number, number> {`
-- **Call sites found**: 8
-- **Called from**: backend/src/db-matrix-reports.ts, backend/src/db-reports.ts, backend/src/db.ts
-
-### `getTrialBalance`
-- **Defined**: `backend/src/db-reports.ts:284`
-- **Signature**: `export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): TrialBalance {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/reports.ts, frontend/src/routes/reports/trial-balance/+page.svelte
-
-### `getBalanceSheet`
-- **Defined**: `backend/src/db-reports.ts:369`
-- **Signature**: `export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): BalanceSheet {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/reports.ts, frontend/src/routes/reports/balance-sheet/+page.svelte
-
-### `buildCategoryTree`
-- **Defined**: `backend/src/db-reports.ts:562`
-- **Signature**: `export function buildCategoryTree(lines: StatementLine[], accountIdByName: Map<string, number>, rootName: string): CategoryTreeNode[] {`
-- **Call sites found**: 5
-- **Called from**: backend/src/db-reports.ts
-
-### `getProfitAndLoss`
-- **Defined**: `backend/src/db-reports.ts:628`
-- **Signature**: `export function getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries = true): ProfitAndLoss {`
-- **Call sites found**: 6
-- **Called from**: backend/src/db-reports.ts, backend/src/routes/reports.ts, frontend/src/routes/reports/profit-and-loss/+page.svelte
-
-### `buildProfitAndLossFromBalances`
-- **Defined**: `backend/src/db-reports.ts:642`
-- **Signature**: `export function buildProfitAndLossFromBalances(balances: Map<number, number>): ProfitAndLoss {`
-- **Call sites found**: 4
-- **Called from**: backend/src/db-matrix-reports.ts, backend/src/db-reports.ts
-
-### `getProfitAndLossByDivision`
-- **Defined**: `backend/src/db-reports.ts:756`
-- **Signature**: `export function getProfitAndLossByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivision[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db-reports.ts, backend/src/routes/reports.ts
-
-### `getProfitAndLossByDivisionTree`
-- **Defined**: `backend/src/db-reports.ts:803`
-- **Signature**: `export function getProfitAndLossByDivisionTree(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivisionNode[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/reports.ts, frontend/src/routes/reports/profit-and-loss/+page.svelte
-
-### `getTrialBalanceComparison`
-- **Defined**: `backend/src/db-reports.ts:885`
-- **Signature**: `export function getTrialBalanceComparison(businessName: BusinessName, ledgerA: LedgerName, ledgerB: LedgerName): TrialBalanceComparison {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/reports.ts, frontend/src/routes/reports/compare/+page.svelte
-
-### `previewCloseBooks`
-- **Defined**: `backend/src/db-reports.ts:1070`
-- **Signature**: `export function previewCloseBooks(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string): CloseBooksPreview {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/journal.ts, frontend/src/routes/setup/yearend/+page.svelte
-
-### `closeBooks`
-- **Defined**: `backend/src/db-reports.ts:1078`
-- **Signature**: `export function closeBooks(business: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, userId: UserId): CloseBooksResult {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/journal.ts, frontend/src/routes/setup/yearend/+page.svelte
-
-### `getSalesReport`
-- **Defined**: `backend/src/db-reports.ts:1142`
-- **Signature**: `export function getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): SalesReport {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/reports.ts, frontend/src/routes/reports/sales/+page.svelte
-
-### `getProfitAndLossComparison`
-- **Defined**: `backend/src/db-reports.ts:1191`
-- **Signature**: `export function getProfitAndLossComparison(businessName: BusinessName, ledgerA: LedgerName, ledgerB: LedgerName): ProfitAndLossComparison {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/reports.ts, frontend/src/routes/reports/compare/+page.svelte
-
-
-## `backend/src/db-seed.ts` (1 functions)
-
-### `seedRemainingData`
-- **Defined**: `backend/src/db-seed.ts:37`
-- **Signature**: `export function seedRemainingData(): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts
-
-
-## `backend/src/db-stock.ts` (32 functions)
-
-### `stageQuantityMovementLine`
-- **Defined**: `backend/src/db-stock.ts:70`
-- **Signature**: `export function stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, locationName?: LocationName): void {`
-- **Call sites found**: 8
-- **Called from**: backend/src/db-stock.ts
-
-### `postStagedQuantityMovement`
-- **Defined**: `backend/src/db-stock.ts:104`
-- **Signature**: `export function postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void {`
-- **Call sites found**: 5
-- **Called from**: backend/src/db-stock.ts
-
-### `postQuantityMovement`
-- **Defined**: `backend/src/db-stock.ts:112`
-- **Signature**: `export function postQuantityMovement(`
-- **Call sites found**: 11
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts
-
-### `getLocationTypes`
-- **Defined**: `backend/src/db-stock.ts:143`
-- **Signature**: `export function getLocationTypes(): string[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/locations.ts
-
-### `createLocationType`
-- **Defined**: `backend/src/db-stock.ts:163`
-- **Signature**: `export function createLocationType(name: string, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/locations.ts
-
-### `setLocation`
-- **Defined**: `backend/src/db-stock.ts:170`
-- **Signature**: `export function setLocation(name: string, location: Location): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db-seed.ts, backend/src/routes/locations.ts
-
-### `getLocation`
-- **Defined**: `backend/src/db-stock.ts:239`
-- **Signature**: `export function getLocation(name: string): Location | undefined {`
-- **Call sites found**: 8
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts, backend/src/routes/locations.ts
-
-### `todayAtLocation`
-- **Defined**: `backend/src/db-stock.ts:280`
-- **Signature**: `export function todayAtLocation(locationName: string): string {`
-- **Call sites found**: 6
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts
-
-### `getPartLocation`
-- **Defined**: `backend/src/db-stock.ts:296`
-- **Signature**: `export function getPartLocation(partName: string, locationName: string): PartLocationLevels {`
-- **Call sites found**: 10
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts, backend/src/routes/locations.ts, frontend/src/routes/stock/transfer/+page.svelte
-
-### `setPartLocationLevelDetails`
-- **Defined**: `backend/src/db-stock.ts:342`
-- **Signature**: `export function setPartLocationLevelDetails(partName: string, locationName: string, levels: Omit<PartLocationLevels, 'quantity_on_hand'>, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db-stock.ts
-
-### `getLocationCapacityStatus`
-- **Defined**: `backend/src/db-stock.ts:402`
-- **Signature**: `export function getLocationCapacityStatus(locationName: string): LocationCapacityStatus {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db-stock.ts
-
-### `getStockListingByLocation`
-- **Defined**: `backend/src/db-stock.ts:486`
-- **Signature**: `export function getStockListingByLocation(): StockListingLocationGroup[] {`
-- **Call sites found**: 5
-- **Called from**: backend/src/db-stock.ts, backend/src/routes/locations.ts, frontend/src/routes/stock/listing/+page.svelte
-
-### `getStockMovementReport`
-- **Defined**: `backend/src/db-stock.ts:593`
-- **Signature**: `export function getStockMovementReport(ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/locations.ts, frontend/src/routes/reports/stock-movement/+page.svelte
-
-### `getStockListing`
-- **Defined**: `backend/src/db-stock.ts:727`
-- **Signature**: `export function getStockListing(limit = 100, offset = 0): StockListingRow[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/locations.ts
-
-### `countStockListing`
-- **Defined**: `backend/src/db-stock.ts:734`
-- **Signature**: `export function countStockListing(): number {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/locations.ts
-
-### `setPartLocationLevels`
-- **Defined**: `backend/src/db-stock.ts:748`
-- **Signature**: `export function setPartLocationLevels(`
-- **Call sites found**: 3
-- **Called from**: backend/src/db-seed.ts, backend/src/routes/locations.ts, frontend/src/routes/stock/listing/+page.svelte
-
-### `receiveStockAtLocation`
-- **Defined**: `backend/src/db-stock.ts:783`
-- **Signature**: `export function receiveStockAtLocation(`
-- **Call sites found**: 3
-- **Called from**: backend/src/db-seed.ts, backend/src/db.ts, backend/src/routes/locations.ts
-
-### `dispatchStockFromLocation`
-- **Defined**: `backend/src/db-stock.ts:824`
-- **Signature**: `export function dispatchStockFromLocation(`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/locations.ts
-
-### `transferStock`
-- **Defined**: `backend/src/db-stock.ts:854`
-- **Signature**: `export function transferStock(`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/locations.ts, frontend/src/routes/stock/transfer/+page.svelte
-
-### `getBelowReorderStock`
-- **Defined**: `backend/src/db-stock.ts:917`
-- **Signature**: `export function getBelowReorderStock(): BelowReorderRow[] {`
-- **Call sites found**: 4
-- **Called from**: backend/src/routes/locations.ts, frontend/src/routes/reports/below-reorder/+page.svelte, frontend/src/routes/stock/restock/+page.svelte
-
-### `createStockTake`
-- **Defined**: `backend/src/db-stock.ts:947`
-- **Signature**: `export function createStockTake(locationName: string, takeDate: string, userId: UserId): number {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/locations.ts, frontend/src/routes/stock/stock-take/+page.svelte
-
-### `getStockTake`
-- **Defined**: `backend/src/db-stock.ts:984`
-- **Signature**: `export function getStockTake(id: number): StockTake | undefined {`
-- **Call sites found**: 6
-- **Called from**: backend/src/db-stock.ts, backend/src/routes/locations.ts, frontend/src/routes/stock/stock-take/+page.svelte
-
-### `recordStockTakeCount`
-- **Defined**: `backend/src/db-stock.ts:1000`
-- **Signature**: `export function recordStockTakeCount(stockTakeId: number, partName: string, countedQuantity: number): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/locations.ts, frontend/src/routes/stock/stock-take/+page.svelte
-
-### `completeStockTake`
-- **Defined**: `backend/src/db-stock.ts:1017`
-- **Signature**: `export function completeStockTake(`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/locations.ts, frontend/src/routes/stock/stock-take/+page.svelte
-
-### `writeOffStock`
-- **Defined**: `backend/src/db-stock.ts:1084`
-- **Signature**: `export function writeOffStock(`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/stock-lots.ts, frontend/src/routes/stock/write-offs/+page.svelte
-
-### `receiveLot`
-- **Defined**: `backend/src/db-stock.ts:1116`
-- **Signature**: `export function receiveLot(`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/stock-lots.ts, frontend/src/routes/stock/write-offs/+page.svelte
-
-### `consumeFromLots`
-- **Defined**: `backend/src/db-stock.ts:1147`
-- **Signature**: `export function consumeFromLots(partName: string, quantity: number): { lot_number: string; consumed: number; expiration_date: string | null }[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/stock-lots.ts
-
-### `getExpiringStock`
-- **Defined**: `backend/src/db-stock.ts:1188`
-- **Signature**: `export function getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/stock-lots.ts, frontend/src/routes/stock/write-offs/+page.svelte
-
-### `createSystemEntity`
-- **Defined**: `backend/src/db-stock.ts:1213`
-- **Signature**: `export function createSystemEntity(name: string, parentId: number | null): number {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db-stock.ts
-
-### `placeOrder`
-- **Defined**: `backend/src/db-stock.ts:1224`
-- **Signature**: `export function placeOrder(`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts
-
-### `fulfillOrder`
-- **Defined**: `backend/src/db-stock.ts:1280`
-- **Signature**: `export function fulfillOrder(`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts
-
-### `getOrderStatus`
-- **Defined**: `backend/src/db-stock.ts:1305`
-- **Signature**: `export function getOrderStatus(orderReference: string): { quantity: number; value_minor: number } {`
-- **Call sites found**: 4
-- **Called from**: backend/src/db.ts, backend/src/routes/stock.ts, frontend/src/routes/stock/stock-dispatch/+page.svelte, frontend/src/routes/stock/stock-receipt/+page.svelte
-
-
-## `backend/src/db-translations-migrate.ts` (1 functions)
-
-### `migrateAllTranslationsToEntities`
-- **Defined**: `backend/src/db-translations-migrate.ts:9`
-- **Signature**: `export function migrateAllTranslationsToEntities() {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-
-## `backend/src/db.ts` (186 functions)
-
-### `asUserId`
-- **Defined**: `backend/src/db.ts:191`
-- **Signature**: `export function asUserId(id: number): UserId {`
-- **Call sites found**: 73
-- **Called from**: backend/src/db-seed.ts, backend/src/db-stock.ts, backend/src/db-translations-migrate.ts, backend/src/db.ts, backend/src/routes/arap.ts, backend/src/routes/auth.ts, backend/src/routes/businesses.ts, backend/src/routes/contacts.ts, backend/src/routes/customer-registration.ts, backend/src/routes/divisions.ts, backend/src/routes/entities.ts, backend/src/routes/i18n.ts, backend/src/routes/invoices.ts, backend/src/routes/journal.ts, backend/src/routes/locations.ts, backend/src/routes/period.ts, backend/src/routes/pos.ts, backend/src/routes/projects.ts, backend/src/routes/reports.ts, backend/src/routes/stock-lots.ts, backend/src/routes/stock.ts
-
-### `asEntityId`
-- **Defined**: `backend/src/db.ts:194`
-- **Signature**: `export function asEntityId(id: number): EntityId {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `asBusinessName`
-- **Defined**: `backend/src/db.ts:197`
-- **Signature**: `export function asBusinessName(name: string): BusinessName {`
-- **Call sites found**: 131
-- **Called from**: backend/src/db-seed.ts, backend/src/db-stock.ts, backend/src/db.ts, backend/src/invoice.ts, backend/src/routes/arap.ts, backend/src/routes/businesses.ts, backend/src/routes/invoices.ts, backend/src/routes/journal.ts, backend/src/routes/locations.ts, backend/src/routes/matrix-reports.ts, backend/src/routes/period.ts, backend/src/routes/pos.ts, backend/src/routes/projects.ts, backend/src/routes/reports.ts, backend/src/routes/stock-lots.ts, backend/src/routes/stock.ts, frontend/src/lib/session.ts, frontend/src/routes/arap/ap-payment/+page.svelte, frontend/src/routes/arap/ap-purchase/+page.svelte, frontend/src/routes/arap/ar-receipt/+page.svelte, frontend/src/routes/arap/ar-sale/+page.svelte, frontend/src/routes/arap/cash-purchase/+page.svelte, frontend/src/routes/arap/cash-sale/+page.svelte, frontend/src/routes/locations/+page.svelte, frontend/src/routes/pos/+page.svelte, frontend/src/routes/post/+page.svelte, frontend/src/routes/projects/+page.svelte, frontend/src/routes/session/+page.svelte, frontend/src/routes/setup/periods/+page.svelte, frontend/src/routes/stock/po/+page.svelte, frontend/src/routes/stock/restock/+page.svelte, frontend/src/routes/stock/so/+page.svelte, frontend/src/routes/stock/stock-dispatch/+page.svelte, frontend/src/routes/stock/stock-receipt/+page.svelte, frontend/src/routes/stock/stock-take/+page.svelte, frontend/src/routes/stock/transfer/+page.svelte
-
-### `asLedgerName`
-- **Defined**: `backend/src/db.ts:200`
-- **Signature**: `export function asLedgerName(name: string): LedgerName {`
-- **Call sites found**: 119
-- **Called from**: backend/src/db-seed.ts, backend/src/db-stock.ts, backend/src/db.ts, backend/src/invoice.ts, backend/src/routes/arap.ts, backend/src/routes/businesses.ts, backend/src/routes/invoices.ts, backend/src/routes/journal.ts, backend/src/routes/locations.ts, backend/src/routes/matrix-reports.ts, backend/src/routes/period.ts, backend/src/routes/pos.ts, backend/src/routes/projects.ts, backend/src/routes/reports.ts, backend/src/routes/stock-lots.ts, backend/src/routes/stock.ts, frontend/src/lib/session.ts, frontend/src/routes/arap/ap-payment/+page.svelte, frontend/src/routes/arap/ap-purchase/+page.svelte, frontend/src/routes/arap/ar-receipt/+page.svelte, frontend/src/routes/arap/ar-sale/+page.svelte, frontend/src/routes/arap/cash-purchase/+page.svelte, frontend/src/routes/arap/cash-sale/+page.svelte, frontend/src/routes/post/+page.svelte, frontend/src/routes/projects/+page.svelte, frontend/src/routes/reports/trial-balance/+page.svelte, frontend/src/routes/session/+page.svelte, frontend/src/routes/setup/periods/+page.svelte, frontend/src/routes/stock/po/+page.svelte, frontend/src/routes/stock/so/+page.svelte, frontend/src/routes/stock/stock-dispatch/+page.svelte, frontend/src/routes/stock/stock-receipt/+page.svelte, frontend/src/routes/stock/transfer/+page.svelte
-
-### `asAccountName`
-- **Defined**: `backend/src/db.ts:203`
-- **Signature**: `export function asAccountName(name: string): AccountName {`
-- **Call sites found**: 63
-- **Called from**: backend/src/db-reports.ts, backend/src/db-stock.ts, backend/src/db.ts, backend/src/routes/arap.ts, backend/src/routes/journal.ts, backend/src/routes/locations.ts, backend/src/routes/pos.ts, backend/src/routes/projects.ts, backend/src/routes/stock-lots.ts, frontend/src/routes/arap/ap-purchase/+page.svelte, frontend/src/routes/arap/cash-purchase/+page.svelte, frontend/src/routes/arap/cash-sale/+page.svelte, frontend/src/routes/pos/+page.svelte, frontend/src/routes/post/+page.svelte, frontend/src/routes/projects/+page.svelte, frontend/src/routes/stock/po/+page.svelte, frontend/src/routes/stock/stock-take/+page.svelte, frontend/src/routes/stock/write-offs/+page.svelte
-
-### `asDivisionName`
-- **Defined**: `backend/src/db.ts:206`
-- **Signature**: `export function asDivisionName(name: string): DivisionName {`
-- **Call sites found**: 8
-- **Called from**: backend/src/db-reports.ts, backend/src/db.ts
-
-### `asLocationName`
-- **Defined**: `backend/src/db.ts:209`
-- **Signature**: `export function asLocationName(name: string): LocationName {`
-- **Call sites found**: 26
-- **Called from**: backend/src/db-seed.ts, backend/src/db.ts, backend/src/routes/arap.ts, backend/src/routes/locations.ts, backend/src/routes/pos.ts, frontend/src/routes/arap/ap-purchase/+page.svelte, frontend/src/routes/arap/ar-sale/+page.svelte, frontend/src/routes/arap/cash-purchase/+page.svelte, frontend/src/routes/arap/cash-sale/+page.svelte, frontend/src/routes/pos/+page.svelte, frontend/src/routes/setup/business-setup/+page.svelte, frontend/src/routes/stock/listing/+page.svelte, frontend/src/routes/stock/po/+page.svelte, frontend/src/routes/stock/stock-take/+page.svelte, frontend/src/routes/stock/transfer/+page.svelte
-
-### `asEmployeeName`
-- **Defined**: `backend/src/db.ts:212`
-- **Signature**: `export function asEmployeeName(name: string): EmployeeName {`
-- **Call sites found**: 10
-- **Called from**: backend/src/routes/projects.ts, frontend/src/routes/hr/+page.svelte, frontend/src/routes/projects/+page.svelte, frontend/src/routes/setup/business-setup/+page.svelte
-
-### `asCustomerName`
-- **Defined**: `backend/src/db.ts:215`
-- **Signature**: `export function asCustomerName(name: string): CustomerName {`
-- **Call sites found**: 8
-- **Called from**: backend/src/routes/arap.ts, backend/src/routes/invoices.ts, backend/src/routes/pos.ts, frontend/src/routes/arap/ar-receipt/+page.svelte, frontend/src/routes/arap/ar-sale/+page.svelte, frontend/src/routes/arap/cash-sale/+page.svelte, frontend/src/routes/pos/+page.svelte
-
-### `asVendorName`
-- **Defined**: `backend/src/db.ts:218`
-- **Signature**: `export function asVendorName(name: string): VendorName {`
-- **Call sites found**: 10
-- **Called from**: backend/src/routes/arap.ts, backend/src/routes/invoices.ts, backend/src/routes/pos.ts, frontend/src/routes/arap/ap-payment/+page.svelte, frontend/src/routes/arap/ap-purchase/+page.svelte, frontend/src/routes/arap/cash-purchase/+page.svelte, frontend/src/routes/invoices/+page.svelte, frontend/src/routes/parts/+page.svelte, frontend/src/routes/stock/po/+page.svelte
-
-### `asPartName`
-- **Defined**: `backend/src/db.ts:221`
-- **Signature**: `export function asPartName(name: string): PartName {`
-- **Call sites found**: 27
-- **Called from**: backend/src/db-seed.ts, backend/src/db.ts, backend/src/routes/locations.ts, backend/src/routes/stock-lots.ts, frontend/src/routes/arap/cash-purchase/+page.svelte, frontend/src/routes/arap/cash-sale/+page.svelte, frontend/src/routes/parts/+page.svelte, frontend/src/routes/pos/+page.svelte, frontend/src/routes/stock/listing/+page.svelte, frontend/src/routes/stock/po/+page.svelte, frontend/src/routes/stock/stock-take/+page.svelte, frontend/src/routes/stock/transfer/+page.svelte, frontend/src/routes/stock/write-offs/+page.svelte
-
-### `getEntityTree`
-- **Defined**: `backend/src/db.ts:249`
-- **Signature**: `export function getEntityTree(): (EntityNode & { depth: number; is_postable_account: boolean })[] {`
-- **Call sites found**: 34
-- **Called from**: backend/src/db-matrix-reports.ts, backend/src/db-reports.ts, backend/src/db.ts, backend/src/routes/entities.ts, backend/src/routes/locations.ts, frontend/src/routes/arap/ap-payment/+page.svelte, frontend/src/routes/arap/ap-purchase/+page.svelte, frontend/src/routes/arap/ar-receipt/+page.svelte, frontend/src/routes/arap/ar-sale/+page.svelte, frontend/src/routes/arap/cash-purchase/+page.svelte, frontend/src/routes/arap/cash-sale/+page.svelte, frontend/src/routes/contacts/+page.svelte, frontend/src/routes/editor/+page.svelte, frontend/src/routes/hr/+page.svelte, frontend/src/routes/invoices/+page.svelte, frontend/src/routes/locations/+page.svelte, frontend/src/routes/parts/+page.svelte, frontend/src/routes/post/+page.svelte, frontend/src/routes/projects/+page.svelte, frontend/src/routes/reports/statement/+page.svelte, frontend/src/routes/setup/bank-accounts/+page.svelte, frontend/src/routes/setup/business-setup/+page.svelte, frontend/src/routes/setup/chart-of-accounts/+page.svelte, frontend/src/routes/setup/tree/+page.svelte, frontend/src/routes/setup/vocabulary/+page.svelte, frontend/src/routes/setup/yearend/+page.svelte, frontend/src/routes/stock/po/+page.svelte, frontend/src/routes/stock/so/+page.svelte, frontend/src/routes/stock/stock-dispatch/+page.svelte, frontend/src/routes/stock/stock-receipt/+page.svelte, frontend/src/routes/stock/write-offs/+page.svelte
-
-### `getEntity`
-- **Defined**: `backend/src/db.ts:277`
-- **Signature**: `export function getEntity(id: number): EntityNode | undefined {`
-- **Call sites found**: 7
-- **Called from**: backend/src/db.ts, backend/src/routes/entities.ts
-
-### `getEntityHistory`
-- **Defined**: `backend/src/db.ts:299`
-- **Signature**: `export function getEntityHistory(id: number): EntityHistoryRow[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/entities.ts
-
-### `resolvePartId`
-- **Defined**: `backend/src/db.ts:322`
-- **Signature**: `export function resolvePartId(partName: string): number | undefined {`
-- **Call sites found**: 8
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts
-
-### `createEntity`
-- **Defined**: `backend/src/db.ts:347`
-- **Signature**: `export function createEntity(input: NewEntity, userId: UserId): EntityNode {`
-- **Call sites found**: 95
-- **Called from**: backend/src/db-seed.ts, backend/src/db-stock.ts, backend/src/db.ts, backend/src/routes/divisions.ts, backend/src/routes/entities.ts, frontend/src/routes/editor/+page.svelte, frontend/src/routes/locations/+page.svelte, frontend/src/routes/parts/+page.svelte, frontend/src/routes/setup/business-setup/+page.svelte, frontend/src/routes/setup/chart-of-accounts/+page.svelte, frontend/src/routes/setup/translations/+page.svelte
-
-### `updateEntity`
-- **Defined**: `backend/src/db.ts:405`
-- **Signature**: `export function updateEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode {`
-- **Call sites found**: 26
-- **Called from**: backend/src/db-seed.ts, backend/src/db-stock.ts, backend/src/db.ts, backend/src/routes/entities.ts, frontend/src/routes/editor/+page.svelte, frontend/src/routes/setup/chart-of-accounts/+page.svelte
-
-### `setRelationship`
-- **Defined**: `backend/src/db.ts:459`
-- **Signature**: `export function setRelationship(entityName: string, relationshipType: string, targetName: string, userId: UserId): void {`
-- **Call sites found**: 4
-- **Called from**: backend/src/db-seed.ts, backend/src/routes/entities.ts
-
-### `getRelationship`
-- **Defined**: `backend/src/db.ts:477`
-- **Signature**: `export function getRelationship(entityName: string): Relationship | undefined {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `getEntitiesWithRelationship`
-- **Defined**: `backend/src/db.ts:496`
-- **Signature**: `export function getEntitiesWithRelationship(relationshipType: string): { source: string; target: string }[] {`
-- **Call sites found**: 4
-- **Called from**: backend/src/db.ts
-
-### `getHierarchy`
-- **Defined**: `backend/src/db.ts:545`
-- **Signature**: `export function getHierarchy(rootName: string, relationshipType?: string): HierarchyNode {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `getOrganizationChart`
-- **Defined**: `backend/src/db.ts:582`
-- **Signature**: `export function getOrganizationChart(businessName: BusinessName): OrganizationChart {`
-- **Call sites found**: 3
-- **Called from**: backend/src/routes/pos.ts, frontend/src/routes/hr/+page.svelte, frontend/src/routes/setup/business-setup/+page.svelte
-
-### `deleteEntity`
-- **Defined**: `backend/src/db.ts:629`
-- **Signature**: `export function deleteEntity(id: number, userId: UserId): void {`
-- **Call sites found**: 18
-- **Called from**: backend/src/db-seed.ts, backend/src/db-stock.ts, backend/src/db.ts, backend/src/routes/entities.ts, frontend/src/routes/editor/+page.svelte, frontend/src/routes/setup/business-setup/+page.svelte, frontend/src/routes/setup/chart-of-accounts/+page.svelte
-
-### `getCreditStatus`
-- **Defined**: `backend/src/db.ts:692`
-- **Signature**: `export function getCreditStatus(entityName: string): CreditStatus {`
-- **Call sites found**: 3
-- **Called from**: backend/src/routes/contacts.ts, frontend/src/routes/arap/ar-sale/+page.svelte, frontend/src/routes/contacts/+page.svelte
-
-### `getAgingBuckets`
-- **Defined**: `backend/src/db.ts:712`
-- **Signature**: `export function getAgingBuckets(paymentTermsDays: number | null): AgingBucket[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `createInvoice`
-- **Defined**: `backend/src/db.ts:776`
-- **Signature**: `export function createInvoice(input: InvoiceInput, userId: UserId): number {`
-- **Call sites found**: 6
-- **Called from**: backend/src/db.ts, backend/src/routes/invoices.ts, frontend/src/routes/invoices/+page.svelte
-
-### `getInvoice`
-- **Defined**: `backend/src/db.ts:850`
-- **Signature**: `export function getInvoice(id: number): Invoice | undefined {`
-- **Call sites found**: 12
-- **Called from**: backend/src/db.ts, backend/src/routes/invoices.ts
-
-### `exportInvoiceAsUbl`
-- **Defined**: `backend/src/db.ts:903`
-- **Signature**: `export function exportInvoiceAsUbl(invoiceId: number): string {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/invoices.ts
-
-### `parseUblInvoice`
-- **Defined**: `backend/src/db.ts:980`
-- **Signature**: `export function parseUblInvoice(xml: string): UblImportResult {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `checkEInvoiceDiscrepancies`
-- **Defined**: `backend/src/db.ts:1023`
-- **Signature**: `export function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `importUblInvoiceAsDraft`
-- **Defined**: `backend/src/db.ts:1060`
-- **Signature**: `export function importUblInvoiceAsDraft(xml: string, business: BusinessName, ledger: LedgerName, vendorName: string, userId: UserId, poReference?: string): { invoiceId: number; discrepancies: EInvoiceDiscrepancy[] } {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/invoices.ts
-
-### `getPickingList`
-- **Defined**: `backend/src/db.ts:1116`
-- **Signature**: `export function getPickingList(invoiceId: number, locationName: string): PickingListLine[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts, backend/src/routes/invoices.ts
-
-### `confirmPickedLine`
-- **Defined**: `backend/src/db.ts:1162`
-- **Signature**: `export function confirmPickedLine(invoiceId: number, invoiceLineId: number, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/invoices.ts
-
-### `dispatchOrderFromPickingList`
-- **Defined**: `backend/src/db.ts:1184`
-- **Signature**: `export function dispatchOrderFromPickingList(invoiceId: number, locationName: string, revenueAccount: string, taxAccount: string, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/invoices.ts
-
-### `getRestockPickingList`
-- **Defined**: `backend/src/db.ts:1223`
-- **Signature**: `export function getRestockPickingList(runReference: string, warehouseName: string, lines: RestockLineInput[]): PickingListLine[] {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/locations.ts, frontend/src/routes/stock/restock/+page.svelte
-
-### `confirmRestockPickedLine`
-- **Defined**: `backend/src/db.ts:1252`
-- **Signature**: `export function confirmRestockPickedLine(runReference: string, partName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/locations.ts, frontend/src/routes/stock/restock/+page.svelte
-
-### `dispatchRestockFromPickingList`
-- **Defined**: `backend/src/db.ts:1270`
-- **Signature**: `export function dispatchRestockFromPickingList(`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/locations.ts
-
-### `listInvoices`
-- **Defined**: `backend/src/db.ts:1309`
-- **Signature**: `export function listInvoices(business: BusinessName, ledger: LedgerName, options: ListInvoicesOptions = {}): Invoice[] {`
-- **Call sites found**: 9
-- **Called from**: backend/src/db.ts, backend/src/routes/invoices.ts, frontend/src/routes/arap/ap-payment/+page.svelte, frontend/src/routes/arap/ar-receipt/+page.svelte, frontend/src/routes/invoices/+page.svelte
-
-### `countInvoices`
-- **Defined**: `backend/src/db.ts:1324`
-- **Signature**: `export function countInvoices(business: BusinessName, ledger: LedgerName, invoiceType?: 'AR' | 'AP', source: 'manual' | 'pos' | 'all' = 'manual'): number {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/invoices.ts
-
-### `postInvoice`
-- **Defined**: `backend/src/db.ts:1346`
-- **Signature**: `export function postInvoice(`
-- **Call sites found**: 5
-- **Called from**: backend/src/db.ts, backend/src/routes/invoices.ts
-
-### `allocatePayment`
-- **Defined**: `backend/src/db.ts:1476`
-- **Signature**: `export function allocatePayment(`
-- **Call sites found**: 4
-- **Called from**: backend/src/db.ts, backend/src/routes/invoices.ts
-
-### `getInvoiceOutstandingMinor`
-- **Defined**: `backend/src/db.ts:1525`
-- **Signature**: `export function getInvoiceOutstandingMinor(invoiceId: number): number {`
-- **Call sites found**: 5
-- **Called from**: backend/src/db.ts, backend/src/routes/invoices.ts
-
-### `getAgedInvoices`
-- **Defined**: `backend/src/db.ts:1552`
-- **Signature**: `export function getAgedInvoices(business: BusinessName, ledger: LedgerName, invoiceType: 'AR' | 'AP', asOfDate: string): AgedInvoiceRow[] {`
-- **Call sites found**: 4
-- **Called from**: backend/src/db.ts, backend/src/routes/invoices.ts, frontend/src/routes/reports/aged/+page.svelte
-
-### `getAgedSummary`
-- **Defined**: `backend/src/db.ts:1588`
-- **Signature**: `export function getAgedSummary(business: BusinessName, ledger: LedgerName, invoiceType: 'AR' | 'AP', asOfDate: string): AgedSummaryRow[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/invoices.ts, frontend/src/routes/reports/aged/+page.svelte
-
-### `getCustomerStatement`
-- **Defined**: `backend/src/db.ts:1635`
-- **Signature**: `export function getCustomerStatement(business: BusinessName, ledger: LedgerName, customerName: string, asOfDate: string): CustomerStatement {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/invoices.ts, frontend/src/routes/reports/statement/+page.svelte
-
-### `getCounterpartyHistory`
-- **Defined**: `backend/src/db.ts:1668`
-- **Signature**: `export function getCounterpartyHistory(business: BusinessName, ledger: LedgerName, counterpartyName: string): HistoryLine[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/invoices.ts, frontend/src/routes/contacts/+page.svelte
-
-### `getPartByUpc`
-- **Defined**: `backend/src/db.ts:1691`
-- **Signature**: `export function getPartByUpc(upc: string): PartSummary | undefined {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/pos.ts
-
-### `getAncestorChain`
-- **Defined**: `backend/src/db.ts:1762`
-- **Signature**: `export function getAncestorChain(entityName: string, rootName: string): string[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `ensureCategoryChain`
-- **Defined**: `backend/src/db.ts:1784`
-- **Signature**: `export function ensureCategoryChain(rootName: string, prefix: string, chain: string[], userId: UserId): { name: string; id: number } {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts
-
-### `ensureProductSalesCogsAccounts`
-- **Defined**: `backend/src/db.ts:1827`
-- **Signature**: `export function ensureProductSalesCogsAccounts(partName: string, userId: UserId, tier?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {`
-- **Call sites found**: 4
-- **Called from**: backend/src/db.ts
-
-### `ensureProductInventoryAccount`
-- **Defined**: `backend/src/db.ts:1861`
-- **Signature**: `export function ensureProductInventoryAccount(partName: string, userId: UserId): { inventoryAccount: string; inventoryAccountId: number } {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts
-
-### `ensureProductLocationInventoryAccount`
-- **Defined**: `backend/src/db.ts:1878`
-- **Signature**: `export function ensureProductLocationInventoryAccount(partName: string, locationName: string, userId: UserId): { inventoryAccount: string; inventoryAccountId: number } {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts
-
-### `getProductUnitCostMinor`
-- **Defined**: `backend/src/db.ts:1899`
-- **Signature**: `export function getProductUnitCostMinor(partName: string): number | null {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `ensureProductTierPart`
-- **Defined**: `backend/src/db.ts:1927`
-- **Signature**: `export function ensureProductTierPart(baseProductName: string, tier: string, userId: UserId): { tierPartName: string; tierPartId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {`
-- **Call sites found**: 4
-- **Called from**: backend/src/db.ts
-
-### `ensureProductTierLocationLeaf`
-- **Defined**: `backend/src/db.ts:1964`
-- **Signature**: `export function ensureProductTierLocationLeaf(tierPartName: string, locationName: string, userId: UserId, tierPartId?: number): { leafPartName: string; leafPartId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts
-
-### `ensureProductLocationLeaf`
-- **Defined**: `backend/src/db.ts:2020`
-- **Signature**: `export function ensureProductLocationLeaf(partName: string, locationName: string, userId: UserId): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts
-
-### `getLocationForAccount`
-- **Defined**: `backend/src/db.ts:2051`
-- **Signature**: `export function getLocationForAccount(accountName: string): string | undefined {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `getDivisionForAccount`
-- **Defined**: `backend/src/db.ts:2061`
-- **Signature**: `export function getDivisionForAccount(accountName: string): string | undefined {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db-reports.ts
-
-### `ensureProductQuantityAccounts`
-- **Defined**: `backend/src/db.ts:2078`
-- **Signature**: `export function ensureProductQuantityAccounts(partName: string, userId: UserId): { onOrderAccount: string; unitsSoldAccount: string } {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db-stock.ts
-
-### `cityDivisionFor`
-- **Defined**: `backend/src/db.ts:2107`
-- **Signature**: `export function cityDivisionFor(locationName: string): string | undefined {`
-- **Call sites found**: 8
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts
-
-### `isColdStorageProduct`
-- **Defined**: `backend/src/db.ts:2148`
-- **Signature**: `export function isColdStorageProduct(partName: string): boolean {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `resolveDispatchLocation`
-- **Defined**: `backend/src/db.ts:2161`
-- **Signature**: `export function resolveDispatchLocation(partName: string, logicalLocationName: string): string {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts
-
-### `completePosSale`
-- **Defined**: `backend/src/db.ts:2174`
-- **Signature**: `export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleResult {`
-- **Call sites found**: 3
-- **Called from**: backend/src/routes/pos.ts, frontend/src/routes/arap/cash-sale/+page.svelte, frontend/src/routes/pos/+page.svelte
-
-### `completeCashPurchase`
-- **Defined**: `backend/src/db.ts:2382`
-- **Signature**: `export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): CashPurchaseResult {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/pos.ts, frontend/src/routes/arap/cash-purchase/+page.svelte
-
-### `payEmployeeWages`
-- **Defined**: `backend/src/db.ts:2485`
-- **Signature**: `export function payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): PayEmployeeWagesResult {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/pos.ts, frontend/src/routes/hr/+page.svelte
-
-### `recordReminderSent`
-- **Defined**: `backend/src/db.ts:2564`
-- **Signature**: `export function recordReminderSent(customerName: string): number {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/invoices.ts
-
-### `resetReminderLevel`
-- **Defined**: `backend/src/db.ts:2577`
-- **Signature**: `export function resetReminderLevel(customerName: string): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/invoices.ts
-
-### `getReminderCandidates`
-- **Defined**: `backend/src/db.ts:2594`
-- **Signature**: `export function getReminderCandidates(business: BusinessName, ledger: LedgerName, asOfDate: string): ReminderCandidate[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/invoices.ts, frontend/src/routes/reports/reminders/+page.svelte
-
-### `getContact`
-- **Defined**: `backend/src/db.ts:2668`
-- **Signature**: `export function getContact(entityName: string): Contact | undefined {`
-- **Call sites found**: 16
-- **Called from**: backend/src/db.ts, backend/src/invoice.ts, backend/src/routes/contacts.ts, frontend/src/routes/contacts/+page.svelte, frontend/src/routes/editor/+page.svelte, frontend/src/routes/hr/+page.svelte, frontend/src/routes/setup/business-setup/+page.svelte
-
-### `getInvoiceLine`
-- **Defined**: `backend/src/db.ts:2691`
-- **Signature**: `export function getInvoiceLine(reference: string, business: BusinessName, ledger: LedgerName): InvoiceLine | undefined {`
-- **Call sites found**: 1
-- **Called from**: backend/src/invoice.ts
-
-### `getAccountsPostedTo`
-- **Defined**: `backend/src/db.ts:2706`
-- **Signature**: `export function getAccountsPostedTo(reference: string): string[] {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `setContact`
-- **Defined**: `backend/src/db.ts:2719`
-- **Signature**: `export function setContact(entityName: string, contact: Partial<Contact>): void {`
-- **Call sites found**: 10
-- **Called from**: backend/src/db-seed.ts, backend/src/db.ts, backend/src/routes/contacts.ts, frontend/src/routes/contacts/+page.svelte, frontend/src/routes/editor/+page.svelte, frontend/src/routes/setup/business-setup/+page.svelte
-
-### `setPosPin`
-- **Defined**: `backend/src/db.ts:2750`
-- **Signature**: `export function setPosPin(employeeName: string, pin: string): void {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `signOn`
-- **Defined**: `backend/src/db.ts:2773`
-- **Signature**: `export function signOn(employeeName: string, locationName: string): PosShift {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `verifyPosPin`
-- **Defined**: `backend/src/db.ts:2790`
-- **Signature**: `export function verifyPosPin(employeeName: string, pin: string): boolean {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `signOff`
-- **Defined**: `backend/src/db.ts:2800`
-- **Signature**: `export function signOff(shiftId: number): void {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `getActiveShiftsAtLocation`
-- **Defined**: `backend/src/db.ts:2812`
-- **Signature**: `export function getActiveShiftsAtLocation(locationName: string): PosShift[] {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `getOpenShiftForEmployee`
-- **Defined**: `backend/src/db.ts:2830`
-- **Signature**: `export function getOpenShiftForEmployee(employeeName: string): PosShift | undefined {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `setLocationOpenHours`
-- **Defined**: `backend/src/db.ts:2858`
-- **Signature**: `export function setLocationOpenHours(locationName: string, hours: OpenHoursLine[]): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/locations.ts, frontend/src/routes/setup/business-setup/+page.svelte
-
-### `getLocationOpenHours`
-- **Defined**: `backend/src/db.ts:2880`
-- **Signature**: `export function getLocationOpenHours(locationName: string): OpenHoursLine[] {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/locations.ts, frontend/src/routes/setup/business-setup/+page.svelte
-
-### `setEmployeeSchedule`
-- **Defined**: `backend/src/db.ts:2921`
-- **Signature**: `export function setEmployeeSchedule(employeeName: string, locationName: string, schedule: ScheduleLine[]): void {`
-- **Call sites found**: 3
-- **Called from**: backend/src/routes/locations.ts, frontend/src/routes/setup/business-setup/+page.svelte
-
-### `getEmployeeSchedule`
-- **Defined**: `backend/src/db.ts:2993`
-- **Signature**: `export function getEmployeeSchedule(employeeName: string): EmployeeScheduleLine[] {`
-- **Call sites found**: 5
-- **Called from**: backend/src/db.ts, backend/src/routes/locations.ts, frontend/src/routes/setup/business-setup/+page.svelte
-
-### `getScheduleAtLocation`
-- **Defined**: `backend/src/db.ts:3016`
-- **Signature**: `export function getScheduleAtLocation(locationName: string): LocationScheduleLine[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/locations.ts
-
-### `addTypedAddress`
-- **Defined**: `backend/src/db.ts:3059`
-- **Signature**: `export function addTypedAddress(entityName: string, addressType: string, value: Partial<Contact>, userId: UserId): string {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/contacts.ts
-
-### `getTypedAddresses`
-- **Defined**: `backend/src/db.ts:3069`
-- **Signature**: `export function getTypedAddresses(entityName: string): TypedAddress[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/contacts.ts, frontend/src/lib/components/AddressList.svelte
-
-### `deleteTypedAddress`
-- **Defined**: `backend/src/db.ts:3073`
-- **Signature**: `export function deleteTypedAddress(entityName: string, addressType: string, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/contacts.ts, frontend/src/lib/components/AddressList.svelte
-
-### `addTypedPhone`
-- **Defined**: `backend/src/db.ts:3085`
-- **Signature**: `export function addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId): string {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/contacts.ts
-
-### `getTypedPhones`
-- **Defined**: `backend/src/db.ts:3089`
-- **Signature**: `export function getTypedPhones(entityName: string): TypedPhone[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/contacts.ts, frontend/src/lib/components/PhoneList.svelte
-
-### `deleteTypedPhone`
-- **Defined**: `backend/src/db.ts:3093`
-- **Signature**: `export function deleteTypedPhone(entityName: string, phoneType: string, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/contacts.ts, frontend/src/lib/components/PhoneList.svelte
-
-### `ensureContactPersonType`
-- **Defined**: `backend/src/db.ts:3115`
-- **Signature**: `export function ensureContactPersonType(typeName: string, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `listContactPersonTypes`
-- **Defined**: `backend/src/db.ts:3126`
-- **Signature**: `export function listContactPersonTypes(): string[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/contacts.ts, frontend/src/lib/components/ContactPersonList.svelte
-
-### `addTypedContactPerson`
-- **Defined**: `backend/src/db.ts:3137`
-- **Signature**: `export function addTypedContactPerson(entityName: string, contactType: string, value: { name: string; phone?: string | null; email?: string | null }, userId: UserId): string {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/contacts.ts
-
-### `getTypedContactPersons`
-- **Defined**: `backend/src/db.ts:3142`
-- **Signature**: `export function getTypedContactPersons(entityName: string): ContactPerson[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/contacts.ts, frontend/src/lib/components/ContactPersonList.svelte
-
-### `deleteTypedContactPerson`
-- **Defined**: `backend/src/db.ts:3149`
-- **Signature**: `export function deleteTypedContactPerson(entityName: string, contactType: string, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/contacts.ts, frontend/src/lib/components/ContactPersonList.svelte
-
-### `setEntityLink`
-- **Defined**: `backend/src/db.ts:3217`
-- **Signature**: `export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId): string {`
-- **Call sites found**: 8
-- **Called from**: backend/src/db-seed.ts, backend/src/db-stock.ts, backend/src/db.ts
-
-### `getEntityLink`
-- **Defined**: `backend/src/db.ts:3229`
-- **Signature**: `export function getEntityLink(entityName: string, linkType: string): string | undefined {`
-- **Call sites found**: 7
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts
-
-### `deleteEntityLink`
-- **Defined**: `backend/src/db.ts:3242`
-- **Signature**: `export function deleteEntityLink(entityName: string, linkType: string, userId: UserId): void {`
-- **Call sites found**: 7
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts
-
-### `setDimensionParent`
-- **Defined**: `backend/src/db.ts:3265`
-- **Signature**: `export function setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId): void {`
-- **Call sites found**: 13
-- **Called from**: backend/src/db-seed.ts, backend/src/db-stock.ts, backend/src/db.ts
-
-### `getDimensionParent`
-- **Defined**: `backend/src/db.ts:3269`
-- **Signature**: `export function getDimensionParent(entityName: string, dimensionName: string): string | undefined {`
-- **Call sites found**: 5
-- **Called from**: backend/src/db.ts
-
-### `deleteDimensionParent`
-- **Defined**: `backend/src/db.ts:3273`
-- **Signature**: `export function deleteDimensionParent(entityName: string, dimensionName: string, userId: UserId): void {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `setContactType`
-- **Defined**: `backend/src/db.ts:3286`
-- **Signature**: `export function setContactType(contactName: string, typeName: string, userId: UserId): void {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db-seed.ts
-
-### `removeContactType`
-- **Defined**: `backend/src/db.ts:3290`
-- **Signature**: `export function removeContactType(contactName: string, typeName: string, userId: UserId): void {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `getContactTypes`
-- **Defined**: `backend/src/db.ts:3294`
-- **Signature**: `export function getContactTypes(contactName: string): string[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `getContactBaseAccounts`
-- **Defined**: `backend/src/db.ts:3313`
-- **Signature**: `export function getContactBaseAccounts(contactName: string): string[] {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `getContactsWithType`
-- **Defined**: `backend/src/db.ts:3319`
-- **Signature**: `export function getContactsWithType(typeName: string): string[] {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `getDimensionChildren`
-- **Defined**: `backend/src/db.ts:3339`
-- **Signature**: `export function getDimensionChildren(parentName: string, dimensionName: string): string[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db-reports.ts
-
-### `getDimensionLinksPointingAt`
-- **Defined**: `backend/src/db.ts:3362`
-- **Signature**: `export function getDimensionLinksPointingAt(targetName: string): { entityName: string; dimensionName: string }[] {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/entities.ts, frontend/src/routes/editor/+page.svelte
-
-### `getDimensionAncestorChain`
-- **Defined**: `backend/src/db.ts:3387`
-- **Signature**: `export function getDimensionAncestorChain(entityName: string, dimensionName: string): string[] {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `registerBankAccount`
-- **Defined**: `backend/src/db.ts:3428`
-- **Signature**: `export function registerBankAccount(accountName: string, business: string, scopeName: string, overdraftLimitMinor: number | null, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/reports.ts, frontend/src/routes/setup/bank-accounts/+page.svelte
-
-### `unregisterBankAccount`
-- **Defined**: `backend/src/db.ts:3447`
-- **Signature**: `export function unregisterBankAccount(accountName: string, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/reports.ts, frontend/src/routes/setup/bank-accounts/+page.svelte
-
-### `getBankAccounts`
-- **Defined**: `backend/src/db.ts:3471`
-- **Signature**: `export function getBankAccounts(business: BusinessName, ledger: LedgerName): BankAccountRow[] {`
-- **Call sites found**: 4
-- **Called from**: backend/src/db.ts, backend/src/routes/reports.ts, frontend/src/routes/setup/bank-accounts/+page.svelte
-
-### `getCashPosition`
-- **Defined**: `backend/src/db.ts:3514`
-- **Signature**: `export function getCashPosition(business: BusinessName, ledger: LedgerName): CashPositionByCurrency[] {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/reports.ts, frontend/src/routes/setup/bank-accounts/+page.svelte
-
-### `getCashFlowForecast`
-- **Defined**: `backend/src/db.ts:3597`
-- **Signature**: `export function getCashFlowForecast(business: BusinessName, ledger: LedgerName, asOfDate: string, horizonDays: number): CashFlowForecast {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/reports.ts, frontend/src/routes/reports/cash-flow-forecast/+page.svelte
-
-### `registerCustomer`
-- **Defined**: `backend/src/db.ts:3729`
-- **Signature**: `export function registerCustomer(input: CustomerRegistrationInput, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/customer-registration.ts, frontend/src/routes/customer-terminal/+page.svelte
-
-### `listPendingCustomers`
-- **Defined**: `backend/src/db.ts:3759`
-- **Signature**: `export function listPendingCustomers(): PendingCustomer[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/customer-registration.ts, frontend/src/routes/pos/+page.svelte
-
-### `verifyCustomer`
-- **Defined**: `backend/src/db.ts:3774`
-- **Signature**: `export function verifyCustomer(customerName: string, approve: boolean): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/customer-registration.ts, frontend/src/routes/pos/+page.svelte
-
-### `authenticateCustomer`
-- **Defined**: `backend/src/db.ts:3787`
-- **Signature**: `export function authenticateCustomer(name: string, password: string): boolean {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/customer-registration.ts
-
-### `getPart`
-- **Defined**: `backend/src/db.ts:3814`
-- **Signature**: `export function getPart(entityName: string): Part | undefined {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/parts.ts, frontend/src/routes/parts/+page.svelte
-
-### `setPart`
-- **Defined**: `backend/src/db.ts:3824`
-- **Signature**: `export function setPart(entityName: string, part: Partial<Part>): void {`
-- **Call sites found**: 4
-- **Called from**: backend/src/db.ts, backend/src/routes/parts.ts, frontend/src/routes/parts/+page.svelte
-
-### `listParts`
-- **Defined**: `backend/src/db.ts:3845`
-- **Signature**: `export function listParts(limit?: number, offset = 0): PartSummary[] {`
-- **Call sites found**: 9
-- **Called from**: backend/src/routes/parts.ts, frontend/src/routes/parts/+page.svelte, frontend/src/routes/pos/+page.svelte, frontend/src/routes/stock/transfer/+page.svelte, frontend/src/routes/stock/write-offs/+page.svelte
-
-### `countParts`
-- **Defined**: `backend/src/db.ts:3868`
-- **Signature**: `export function countParts(): number {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/parts.ts
-
-### `createPart`
-- **Defined**: `backend/src/db.ts:3892`
-- **Signature**: `export function createPart(name: string, parentCategoryOrPartsRoot: string, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db-seed.ts
-
-### `listPartSources`
-- **Defined**: `backend/src/db.ts:3913`
-- **Signature**: `export function listPartSources(partName: string): PartSource[] {`
-- **Call sites found**: 5
-- **Called from**: backend/src/db.ts, backend/src/routes/parts.ts, frontend/src/routes/parts/+page.svelte, frontend/src/routes/stock/po/+page.svelte
-
-### `addOrUpdatePartSource`
-- **Defined**: `backend/src/db.ts:3943`
-- **Signature**: `export function addOrUpdatePartSource(input: PartSourceInput): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/parts.ts, frontend/src/routes/parts/+page.svelte
-
-### `deletePartSource`
-- **Defined**: `backend/src/db.ts:3972`
-- **Signature**: `export function deletePartSource(id: number): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/parts.ts, frontend/src/routes/parts/+page.svelte
-
-### `getLanguages`
-- **Defined**: `backend/src/db.ts:3983`
-- **Signature**: `export function getLanguages(): { id: number; name: string }[] {`
-- **Call sites found**: 10
-- **Called from**: backend/src/db-seed.ts, backend/src/db.ts, backend/src/routes/i18n.ts, frontend/src/routes/contacts/+page.svelte, frontend/src/routes/customer-terminal/+page.svelte, frontend/src/routes/login/+page.svelte, frontend/src/routes/session/+page.svelte, frontend/src/routes/setup/+page.svelte, frontend/src/routes/setup/translations/+page.svelte
-
-### `getDefaultLanguage`
-- **Defined**: `backend/src/db.ts:4002`
-- **Signature**: `export function getDefaultLanguage(): string | null {`
-- **Call sites found**: 4
-- **Called from**: backend/src/invoice.ts, backend/src/routes/i18n.ts, frontend/src/routes/login/+page.svelte, frontend/src/routes/setup/+page.svelte
-
-### `setDefaultLanguage`
-- **Defined**: `backend/src/db.ts:4013`
-- **Signature**: `export function setDefaultLanguage(languageName: string, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/i18n.ts
-
-### `getDivisions`
-- **Defined**: `backend/src/db.ts:4029`
-- **Signature**: `export function getDivisions(): { id: number; name: string; parentName: string | null; centerType: string | null }[] {`
-- **Call sites found**: 5
-- **Called from**: backend/src/db-reports.ts, backend/src/db.ts, backend/src/routes/divisions.ts, frontend/src/routes/reports/profit-and-loss/+page.svelte, frontend/src/routes/setup/bank-accounts/+page.svelte
-
-### `getMenuTree`
-- **Defined**: `backend/src/db.ts:4080`
-- **Signature**: `export function getMenuTree(opts?: { businessName?: string; userId?: number }): MenuSectionRow[] {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/menu.ts, frontend/src/routes/+layout.svelte
-
-### `getScreenTitle`
-- **Defined**: `backend/src/db.ts:4162`
-- **Signature**: `export function getScreenTitle(href: string, opts?: { businessName?: string; userId?: number }): string | undefined {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `setMenuOverride`
-- **Defined**: `backend/src/db.ts:4172`
-- **Signature**: `export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user', scopeId: number, overrideLabel: string | null, hidden: boolean, userId: UserId = asUserId(1)): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/menu.ts
-
-### `deleteMenuOverride`
-- **Defined**: `backend/src/db.ts:4201`
-- **Signature**: `export function deleteMenuOverride(menuItemKey: string, scope: 'business' | 'user', scopeId: number, userId: UserId = asUserId(1)): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/menu.ts
-
-### `setDivisionType`
-- **Defined**: `backend/src/db.ts:4213`
-- **Signature**: `export function setDivisionType(divisionNameOrId: string | EntityId, typeMarkerName: string): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/divisions.ts
-
-### `getDivisionType`
-- **Defined**: `backend/src/db.ts:4255`
-- **Signature**: `export function getDivisionType(divisionName: string): string | null {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `getDivisionTypes`
-- **Defined**: `backend/src/db.ts:4271`
-- **Signature**: `export function getDivisionTypes(): string[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/divisions.ts
-
-### `createDivisionType`
-- **Defined**: `backend/src/db.ts:4291`
-- **Signature**: `export function createDivisionType(name: string, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/divisions.ts
-
-### `getVocabularyWords`
-- **Defined**: `backend/src/db.ts:4318`
-- **Signature**: `export function getVocabularyWords(): VocabularyWord[] {`
-- **Call sites found**: 3
-- **Called from**: backend/src/routes/i18n.ts, frontend/src/routes/setup/translations/+page.svelte
-
-### `getVocabularyAlternates`
-- **Defined**: `backend/src/db.ts:4346`
-- **Signature**: `export function getVocabularyAlternates(wordName: string): string[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/i18n.ts
-
-### `getConceptsWithAlternates`
-- **Defined**: `backend/src/db.ts:4369`
-- **Signature**: `export function getConceptsWithAlternates(): ConceptWithAlternates[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/i18n.ts, frontend/src/routes/setup/vocabulary/+page.svelte
-
-### `setVocabularyPreference`
-- **Defined**: `backend/src/db.ts:4393`
-- **Signature**: `export function setVocabularyPreference(conceptName: string, scope: 'business' | 'user', scopeId: number, preferredAlternateName: string): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/i18n.ts, frontend/src/routes/setup/vocabulary/+page.svelte
-
-### `deleteVocabularyPreference`
-- **Defined**: `backend/src/db.ts:4404`
-- **Signature**: `export function deleteVocabularyPreference(conceptName: string, scope: 'business' | 'user', scopeId: number): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/i18n.ts, frontend/src/routes/setup/vocabulary/+page.svelte
-
-### `getLocalizedText`
-- **Defined**: `backend/src/db.ts:4419`
-- **Signature**: `export function getLocalizedText(language: string, opts?: { businessName?: string; userId?: number }): Record<string, string> {`
-- **Call sites found**: 5
-- **Called from**: backend/src/invoice.ts, backend/src/routes/i18n.ts, frontend/src/routes/+layout.svelte, frontend/src/routes/login/+page.svelte, frontend/src/routes/session/+page.svelte
-
-### `setTranslation`
-- **Defined**: `backend/src/db.ts:4459`
-- **Signature**: `export function setTranslation(conceptName: string, languageName: string, text: string, userId: UserId = asUserId(1)): void {`
-- **Call sites found**: 37
-- **Called from**: backend/src/db-seed.ts, backend/src/db-translations-migrate.ts, backend/src/routes/i18n.ts, frontend/src/routes/setup/translations/+page.svelte
-
-### `getAllTranslations`
-- **Defined**: `backend/src/db.ts:4499`
-- **Signature**: `export function getAllTranslations(languageName: string): Record<string, string> {`
-- **Call sites found**: 0
-- **Called from**: (NONE FOUND - possibly dead code, or only used internally within its own file)
-
-### `getTranslation`
-- **Defined**: `backend/src/db.ts:4513`
-- **Signature**: `export function getTranslation(conceptName: string, languageName: string): string | null {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db-seed.ts, backend/src/db.ts
-
-### `getBusinesses`
-- **Defined**: `backend/src/db.ts:4529`
-- **Signature**: `export function getBusinesses(): { id: number; name: BusinessName }[] {`
-- **Call sites found**: 15
-- **Called from**: backend/src/routes/businesses.ts, frontend/src/routes/arap/ap-payment/+page.svelte, frontend/src/routes/arap/ap-purchase/+page.svelte, frontend/src/routes/arap/ar-receipt/+page.svelte, frontend/src/routes/arap/ar-sale/+page.svelte, frontend/src/routes/arap/cash-purchase/+page.svelte, frontend/src/routes/arap/cash-sale/+page.svelte, frontend/src/routes/post/+page.svelte, frontend/src/routes/projects/+page.svelte, frontend/src/routes/session/+page.svelte, frontend/src/routes/setup/periods/+page.svelte, frontend/src/routes/stock/po/+page.svelte, frontend/src/routes/stock/so/+page.svelte, frontend/src/routes/stock/stock-dispatch/+page.svelte, frontend/src/routes/stock/stock-receipt/+page.svelte
-
-### `getLedgers`
-- **Defined**: `backend/src/db.ts:4544`
-- **Signature**: `export function getLedgers(businessName: BusinessName): { id: number; name: LedgerName }[] {`
-- **Call sites found**: 17
-- **Called from**: backend/src/routes/businesses.ts, frontend/src/routes/arap/ap-payment/+page.svelte, frontend/src/routes/arap/ap-purchase/+page.svelte, frontend/src/routes/arap/ar-receipt/+page.svelte, frontend/src/routes/arap/ar-sale/+page.svelte, frontend/src/routes/arap/cash-purchase/+page.svelte, frontend/src/routes/arap/cash-sale/+page.svelte, frontend/src/routes/post/+page.svelte, frontend/src/routes/projects/+page.svelte, frontend/src/routes/reports/compare/+page.svelte, frontend/src/routes/reports/trial-balance/+page.svelte, frontend/src/routes/session/+page.svelte, frontend/src/routes/setup/periods/+page.svelte, frontend/src/routes/stock/po/+page.svelte, frontend/src/routes/stock/so/+page.svelte, frontend/src/routes/stock/stock-dispatch/+page.svelte, frontend/src/routes/stock/stock-receipt/+page.svelte
-
-### `setupEquityStructure`
-- **Defined**: `backend/src/db.ts:4624`
-- **Signature**: `export function setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaPrototype?: string, partnerNames?: string[]): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/db.ts
-
-### `instantiateChartOfAccounts`
-- **Defined**: `backend/src/db.ts:4680`
-- **Signature**: `export function instantiateChartOfAccounts(businessName: BusinessName, coaPrototype: string | undefined, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db-seed.ts, backend/src/db.ts
-
-### `createBusiness`
-- **Defined**: `backend/src/db.ts:4729`
-- **Signature**: `export function createBusiness(`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/businesses.ts, frontend/src/routes/setup/new-business/+page.svelte
-
-### `getCoaPrototypeAccounts`
-- **Defined**: `backend/src/db.ts:4827`
-- **Signature**: `export function getCoaPrototypeAccounts(businessName: BusinessName, ledgerName: LedgerName): string[] {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/businesses.ts, frontend/src/routes/setup/new-business/+page.svelte
-
-### `stageLine`
-- **Defined**: `backend/src/db.ts:4862`
-- **Signature**: `export function stageLine(line: StagedLine): void {`
-- **Call sites found**: 29
-- **Called from**: backend/src/db-reports.ts, backend/src/db-stock.ts, backend/src/db.ts, backend/src/routes/journal.ts, frontend/src/routes/post/+page.svelte
-
-### `getStagedLines`
-- **Defined**: `backend/src/db.ts:4895`
-- **Signature**: `export function getStagedLines(reference: string, business: BusinessName, ledger: LedgerName): StagedLine[] {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/journal.ts
-
-### `createRecurringJournal`
-- **Defined**: `backend/src/db.ts:4925`
-- **Signature**: `export function createRecurringJournal(`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/journal.ts, frontend/src/routes/post/+page.svelte
-
-### `ensureLocationScopedAccount`
-- **Defined**: `backend/src/db.ts:4985`
-- **Signature**: `export function ensureLocationScopedAccount(baseAccountName: string, locationName: string, userId: UserId): string {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts
-
-### `stageArSale`
-- **Defined**: `backend/src/db.ts:5009`
-- **Signature**: `export function stageArSale(input: ArSaleInput): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/arap.ts, frontend/src/routes/arap/ar-sale/+page.svelte
-
-### `postArSale`
-- **Defined**: `backend/src/db.ts:5019`
-- **Signature**: `export function postArSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: frontend/src/routes/arap/ar-sale/+page.svelte
-
-### `stageArReceipt`
-- **Defined**: `backend/src/db.ts:5045`
-- **Signature**: `export function stageArReceipt(input: ArReceiptInput): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/arap.ts, frontend/src/routes/arap/ar-receipt/+page.svelte
-
-### `postArReceipt`
-- **Defined**: `backend/src/db.ts:5055`
-- **Signature**: `export function postArReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: frontend/src/routes/arap/ar-receipt/+page.svelte
-
-### `stageApPurchase`
-- **Defined**: `backend/src/db.ts:5076`
-- **Signature**: `export function stageApPurchase(input: ApPurchaseInput): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/arap.ts, frontend/src/routes/arap/ap-purchase/+page.svelte
-
-### `postApPurchase`
-- **Defined**: `backend/src/db.ts:5089`
-- **Signature**: `export function postApPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: frontend/src/routes/arap/ap-purchase/+page.svelte
-
-### `stageApPayment`
-- **Defined**: `backend/src/db.ts:5115`
-- **Signature**: `export function stageApPayment(input: ApPaymentInput): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/arap.ts, frontend/src/routes/arap/ap-payment/+page.svelte
-
-### `postApPayment`
-- **Defined**: `backend/src/db.ts:5125`
-- **Signature**: `export function postApPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: frontend/src/routes/arap/ap-payment/+page.svelte
-
-### `stagePurchaseOrder`
-- **Defined**: `backend/src/db.ts:5157`
-- **Signature**: `export function stagePurchaseOrder(input: PurchaseOrderInput): void {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/stock.ts, frontend/src/routes/stock/po/+page.svelte
-
-### `postPurchaseOrder`
-- **Defined**: `backend/src/db.ts:5167`
-- **Signature**: `export function postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts, frontend/src/routes/stock/po/+page.svelte
-
-### `clockInToProject`
-- **Defined**: `backend/src/db.ts:5195`
-- **Signature**: `export function clockInToProject(employeeName: EmployeeName, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): EmployeeClock {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/projects.ts, frontend/src/routes/projects/+page.svelte
-
-### `clockOutOfProject`
-- **Defined**: `backend/src/db.ts:5231`
-- **Signature**: `export function clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/projects.ts, frontend/src/routes/projects/+page.svelte
-
-### `getOpenProjectClockForEmployee`
-- **Defined**: `backend/src/db.ts:5266`
-- **Signature**: `export function getOpenProjectClockForEmployee(employeeName: EmployeeName): EmployeeClock | undefined {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/projects.ts
-
-### `stageStockReceipt`
-- **Defined**: `backend/src/db.ts:5291`
-- **Signature**: `export function stageStockReceipt(input: StockReceiptInput): void {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/stock.ts, frontend/src/routes/stock/stock-receipt/+page.svelte
-
-### `postStockReceipt`
-- **Defined**: `backend/src/db.ts:5306`
-- **Signature**: `export function postStockReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts, frontend/src/routes/stock/stock-receipt/+page.svelte
-
-### `stageSalesOrder`
-- **Defined**: `backend/src/db.ts:5349`
-- **Signature**: `export function stageSalesOrder(input: SalesOrderInput): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/stock.ts, frontend/src/routes/stock/so/+page.svelte
-
-### `postSalesOrder`
-- **Defined**: `backend/src/db.ts:5359`
-- **Signature**: `export function postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: frontend/src/routes/stock/so/+page.svelte
-
-### `stageStockDispatch`
-- **Defined**: `backend/src/db.ts:5384`
-- **Signature**: `export function stageStockDispatch(input: StockDispatchInput): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/stock.ts, frontend/src/routes/stock/stock-dispatch/+page.svelte
-
-### `postStockDispatch`
-- **Defined**: `backend/src/db.ts:5401`
-- **Signature**: `export function postStockDispatch(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 1
-- **Called from**: frontend/src/routes/stock/stock-dispatch/+page.svelte
-
-### `removeStagedLine`
-- **Defined**: `backend/src/db.ts:5438`
-- **Signature**: `export function removeStagedLine(reference: string, business: BusinessName, ledger: LedgerName, account: string): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/journal.ts
-
-### `postJournalEntry`
-- **Defined**: `backend/src/db.ts:5446`
-- **Signature**: `export function postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 15
-- **Called from**: backend/src/db-reports.ts, backend/src/db-stock.ts, backend/src/db.ts, backend/src/routes/journal.ts, frontend/src/routes/post/+page.svelte
-
-### `listJournalEntries`
-- **Defined**: `backend/src/db.ts:5482`
-- **Signature**: `export function listJournalEntries(business: BusinessName, ledger: LedgerName, limit = 100, offset = 0): JournalSummary[] {`
-- **Call sites found**: 3
-- **Called from**: backend/src/routes/journal.ts, frontend/src/lib/pagination.ts, frontend/src/routes/journal/+page.svelte
-
-### `countJournalEntries`
-- **Defined**: `backend/src/db.ts:5505`
-- **Signature**: `export function countJournalEntries(business: BusinessName, ledger: LedgerName): number {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/journal.ts
-
-### `getJournalEntry`
-- **Defined**: `backend/src/db.ts:5528`
-- **Signature**: `export function getJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string): JournalDetail | undefined {`
-- **Call sites found**: 3
-- **Called from**: backend/src/db.ts, backend/src/routes/journal.ts, frontend/src/routes/journal/[id]/[date]/+page.svelte
-
-### `getLedgerDateRange`
-- **Defined**: `backend/src/db.ts:5614`
-- **Signature**: `export function getLedgerDateRange(businessName: BusinessName, ledgerName: LedgerName): LedgerDateRange {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/reports.ts, frontend/src/routes/reports/profit-and-loss/+page.svelte
-
-### `getPeriodLockStatus`
-- **Defined**: `backend/src/db.ts:5626`
-- **Signature**: `export function getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus {`
-- **Call sites found**: 2
-- **Called from**: backend/src/db.ts, backend/src/routes/period.ts
-
-### `closePeriod`
-- **Defined**: `backend/src/db.ts:5636`
-- **Signature**: `export function closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/period.ts, frontend/src/routes/setup/periods/+page.svelte
-
-### `reopenPeriod`
-- **Defined**: `backend/src/db.ts:5642`
-- **Signature**: `export function reopenPeriod(business: BusinessName, ledger: LedgerName, userId: UserId): void {`
-- **Call sites found**: 2
-- **Called from**: backend/src/routes/period.ts, frontend/src/routes/setup/periods/+page.svelte
-
-### `assertPeriodOpen`
-- **Defined**: `backend/src/db.ts:5655`
-- **Signature**: `export function assertPeriodOpen(business: BusinessName, ledger: LedgerName, transdate: string): void {`
-- **Call sites found**: 5
-- **Called from**: backend/src/db-stock.ts, backend/src/db.ts
-
-### `reverseJournalEntry`
-- **Defined**: `backend/src/db.ts:5664`
-- **Signature**: `export function reverseJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, userId: UserId, reversalDate?: string): void {`
-- **Call sites found**: 1
-- **Called from**: backend/src/routes/journal.ts
-
-
-## `backend/src/password.ts` (2 functions)
-
-### `hashPassword`
-- **Defined**: `backend/src/password.ts:8`
-- **Signature**: `export function hashPassword(password: string): string {`
-- **Call sites found**: 3
-- **Called from**: backend/src/auth.ts, backend/src/db.ts
-
-### `verifyPassword`
-- **Defined**: `backend/src/password.ts:14`
-- **Signature**: `export function verifyPassword(password: string, stored: string): boolean {`
-- **Call sites found**: 3
-- **Called from**: backend/src/auth.ts, backend/src/db.ts
+# Function Inventory — every function, its exact prototype, and where it is called from
+
+Generated by `scripts/generate-function-inventory.ts` (`make function-inventory`). **Never hand-edited.** `make check-function-inventory` fails if this file is out of date, and it is part of `make verify-fresh`.
+
+## How it is generated
+
+It uses the TypeScript compiler, not a text search. A prototype is printed by the type checker, so a complex return type is complete. A caller is found by resolving each reference to the *actual* function through imports and re-exports, so two functions that share a name are never confused, and a function passed as a value (Express middleware, for example) is found too. Each entry has no line number on purpose: the file changes only when a prototype or a caller changes, not whenever code above it moves.
+
+**Scope.** Every top-level function and method in `backend/src` and `frontend/src/lib`, including those that are not exported, and the methods of exported objects and classes (`Entity.create`). Functions nested inside other functions are internal and not listed. Callers are searched in the whole backend (source, tests, scripts, fixtures) or the frontend library and its tests.
+
+**Limits, stated plainly.**
+
+- A route handler is an anonymous callback, so its calls show under the file as `(module level)`, not under a handler name.
+- The compiler does not read `.svelte` files. For the frontend library, Svelte callers are found by matching names imported from `$lib` and are labelled as such.
+- The frontend reaches the backend over HTTP, so a frontend wrapper and the backend function it calls are separate entries with no link between them.
+- A function reached only through dynamic access, or through a value typed `any`, would not be found.
+- SQL triggers, views and functions are not included.
+
+<!-- generated:start -->
+
+## Summary
+
+- **Backend:** 421 functions (376 exported); 381 are called from production code; 25 only from tests or tooling; 15 from nowhere the compiler could find.
+- **Frontend library:** 255 functions (241 exported); 223 are called from production code; 2 only from tests or tooling; 30 from nowhere the compiler could find.
+
+### Backend: functions with no callers found
+
+Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
+
+- `backend/src/db.ts`: `typeCategoryOrItemsRootName.validate`, `getLineType`, `removeContactType`, `getContactsWithType`, `getItemProduct`, `getScreenTitle`, `getAllTranslations`
+- `backend/src/primitives.ts`: `Entity.rename`, `Entity.reparent`, `Entity.children`, `Link.mark`, `Link.unmark`, `Link.isMarked`, `Detail.delete`
+- `backend/src/session-context.ts`: `setCurrentBusiness`
+
+### Frontend library: functions with no callers found
+
+Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
+
+- `frontend/src/lib/api.ts`: `asDivisionName`, `getBusinessReports`, `getChartOfAccounts`, `setMenuOverride`, `deleteMenuOverride`, `getProfitAndLossByDivision`, `getVocabularyAlternates`, `getNominatedBankAccounts`, `getStagedLines`, `removeStagedLine`, `stageArSale`, `postArSale`, `stageApPurchase`, `postApPurchase`, `getItemStorageOrigin`, `setItemStorageOrigin`, `listProducts`, `createProduct`, `setItemProduct`, `getScheduleAtLocation`, `dispatchStockFromLocation`, `setItemSourceLeadTime`, `getStockListing`
+- `frontend/src/lib/auth.ts`: `hasRole`
+- `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `session.set`, `session.clear`, `translations.set`
+
+## Backend
+
+### `backend/src/auth-middleware.ts`
+
+**`tokenFrom`**
+
+```
+tokenFrom(req: Request): string | undefined
+```
+
+Called from: production: auth-middleware.ts (attachUser ×1)
+
+**`attachUser`** *(exported)*
+
+```
+attachUser(req: Request, _res: Response, next: NextFunction): void
+```
+
+Called from: production: server.ts ((module level) (as a value))
+
+**`requireAuth`** *(exported)*
+
+```
+requireAuth(req: Request, res: Response, next: NextFunction): Response<any, Record<string, any>>
+```
+
+Called from: production: routes/auth.ts ((module level) (as a value)); routes/i18n.ts ((module level) (as a value)); server.ts ((module level) (as a value))
+
+**`requireRole`** *(exported)*
+
+```
+requireRole(...roles: string[]): (req: Request, res: Response, next: NextFunction) => Response<any, Record<string, any>>
+```
+
+Called from: production: routes/auth.ts ((module level) ×6); routes/businesses.ts ((module level) ×6); routes/contacts.ts ((module level) ×7); routes/customer-registration.ts ((module level) ×2); routes/divisions.ts ((module level) ×2); routes/entities.ts ((module level) ×8); routes/hierarchy.ts ((module level) ×3); routes/i18n.ts ((module level) ×2); and 10 more file(s)
+
+### `backend/src/auth.ts`
+
+**`getUserDetail`**
+
+```
+getUserDetail(userId: number): UserDetail | undefined
+```
+
+Called from: production: auth.ts (changeOwnPassword ×1, changePassword ×1, getSessionUser ×1, login ×1, setOwnDateFormat ×1, setOwnNumberFormat ×1, and 2 more)
+
+**`setUserDetail`**
+
+```
+setUserDetail(userId: number, detail: UserDetail): void
+```
+
+Called from: production: auth.ts (changePassword ×1, createUser ×1, setOwnDateFormat ×1, setOwnNumberFormat ×1, setOwnPageSize ×1, setUserActive ×1)
+
+**`getUserRoleNames`**
+
+```
+getUserRoleNames(userId: number): string[]
+```
+
+Called from: production: auth.ts (getSessionUser ×1, listUsers ×1, login ×1)
+
+**`listUsers`** *(exported)*
+
+```
+listUsers(): UserSummary[]
+```
+
+Called from: production: auth.ts (createUser ×1); routes/auth.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`listRoles`** *(exported)*
+
+```
+listRoles(): { id: number; name: string; }[]
+```
+
+Called from: production: routes/auth.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`createUser`** *(exported)*
+
+```
+createUser(username: string, password: string, roleNames: string[]): UserSummary
+```
+
+Called from: production: routes/auth.ts ((module level) ×1) · tests: 13 call(s) in 2 file(s)
+
+**`setUserRoles`** *(exported)*
+
+```
+setUserRoles(userId: number, roleNames: string[]): void
+```
+
+Called from: production: auth.ts (createUser ×1); routes/auth.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`setUserActive`** *(exported)*
+
+```
+setUserActive(userId: number, active: boolean): void
+```
+
+Called from: production: routes/auth.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`changePassword`** *(exported)*
+
+```
+changePassword(userId: number, newPassword: string): void
+```
+
+Called from: production: auth.ts (changeOwnPassword ×1); routes/auth.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`changeOwnPassword`** *(exported)*
+
+```
+changeOwnPassword(userId: number, currentPassword: string, newPassword: string): void
+```
+
+Called from: production: routes/auth.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`login`** *(exported)*
+
+```
+login(username: string, password: string): { token: string; user: AuthenticatedUser; }
+```
+
+Called from: production: routes/auth.ts ((module level) ×1) · tests: 16 call(s) in 1 file(s)
+
+**`findSessionByToken`**
+
+```
+findSessionByToken(token: string): { id: number; user_id: number; expires_at: string; business_name: string | null; } | undefined
+```
+
+Called from: production: auth.ts (getSessionBusiness ×1, getSessionUser ×1, logout ×1, setSessionBusiness ×1)
+
+**`logout`** *(exported)*
+
+```
+logout(token: string): void
+```
+
+Called from: production: routes/auth.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`setSessionBusiness`** *(exported)*
+
+```
+setSessionBusiness(token: string, businessName: string): void
+```
+
+Called from: production: routes/auth.ts ((module level) ×1)
+
+**`getSessionBusiness`** *(exported)*
+
+```
+getSessionBusiness(token: string): string | null
+```
+
+Called from: production: auth-middleware.ts (attachUser ×1)
+
+**`getSessionUser`** *(exported)*
+
+```
+getSessionUser(token: string | undefined): AuthenticatedUser | null
+```
+
+Called from: production: auth-middleware.ts (attachUser ×1) · tests: 13 call(s) in 1 file(s)
+
+**`setOwnPageSize`** *(exported)*
+
+```
+setOwnPageSize(userId: number, pageSize: number): void
+```
+
+Called from: production: routes/auth.ts ((module level) ×1) · tests: 5 call(s) in 1 file(s)
+
+**`setOwnNumberFormat`** *(exported)*
+
+```
+setOwnNumberFormat(userId: number, numberFormat: string): void
+```
+
+Called from: production: routes/auth.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`setOwnDateFormat`** *(exported)*
+
+```
+setOwnDateFormat(userId: number, dateFormat: string): void
+```
+
+Called from: production: routes/auth.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+### `backend/src/db-journal.ts`
+
+**`stageLine`** *(exported)*
+
+```
+stageLine(line: StagedLine): void
+```
+
+Called from: production: db-journal.ts (postStockDispatch ×5, postStockReceipt ×3, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1); db-stock.ts (adjustLocationCapacity ×2, completeStockTake ×2, dispatchStockFromLocation ×4, ensureLocationCapacityAccount ×2, receiveStockAtLocation ×4, transferStock ×4, and 1 more); db.ts (allocatePayment ×2, completePosSale ×2, convertStorageSpace ×4, openStorageContainer ×4, payEmployeeWages ×4, postInvoice ×4); primitives.ts (Balance.post ×1); routes/journal.ts ((module level) ×1) · tests: 124 call(s) in 1 file(s) · tooling: 37 call(s) in 7 file(s)
+
+**`getStagedLines`** *(exported)*
+
+```
+getStagedLines(reference: string, business: BusinessName, ledger: LedgerName): StagedLine[]
+```
+
+Called from: production: routes/journal.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s)
+
+**`createRecurringJournal`** *(exported)*
+
+```
+createRecurringJournal(business: BusinessName, ledger: LedgerName, reference: string, startDate: string, recurrence: Recurrence, lines: RecurringJournalLine[], userId: UserId, description?: string, recurrenceCount?: number): void
+```
+
+Called from: production: routes/journal.ts ((module level) ×1) · tests: 8 call(s) in 1 file(s)
+
+**`ensureLocationScopedAccount`** *(exported)*
+
+```
+ensureLocationScopedAccount(baseAccountName: string, locationName: string, userId: UserId): string
+```
+
+Called from: production: db-journal.ts (postApPurchase ×1, postArSale ×1)
+
+**`stageArSale`** *(exported)*
+
+```
+stageArSale(input: ArSaleInput): void
+```
+
+Called from: production: routes/arap.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`postArSale`** *(exported)*
+
+```
+postArSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: routes/arap.ts ((module level) (as a value)) · tests: 4 call(s) in 1 file(s)
+
+**`stageArReceipt`** *(exported)*
+
+```
+stageArReceipt(input: ArReceiptInput): void
+```
+
+Called from: production: routes/arap.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
+
+**`postArReceipt`** *(exported)*
+
+```
+postArReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: routes/arap.ts ((module level) (as a value)) · tests: 1 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
+
+**`stageApPurchase`** *(exported)*
+
+```
+stageApPurchase(input: ApPurchaseInput): void
+```
+
+Called from: production: routes/arap.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`postApPurchase`** *(exported)*
+
+```
+postApPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: routes/arap.ts ((module level) (as a value)) · tests: 2 call(s) in 1 file(s)
+
+**`stageApPayment`** *(exported)*
+
+```
+stageApPayment(input: ApPaymentInput): void
+```
+
+Called from: production: routes/arap.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
+
+**`postApPayment`** *(exported)*
+
+```
+postApPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: routes/arap.ts ((module level) (as a value)) · tests: 1 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
+
+**`stagePurchaseOrder`** *(exported)*
+
+```
+stagePurchaseOrder(input: PurchaseOrderInput): void
+```
+
+Called from: production: db-journal.ts (clockInToProject ×1); routes/stock.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`postPurchaseOrder`** *(exported)*
+
+```
+postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: db-journal.ts (clockInToProject ×1); routes/stock.ts ((module level) (as a value)) · tests: 5 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`clockInToProject`** *(exported)*
+
+```
+clockInToProject(employeeName: EmployeeName, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): EmployeeClock
+```
+
+Called from: production: routes/projects.ts ((module level) ×1)
+
+**`getOpenProjectClockEntity`**
+
+```
+getOpenProjectClockEntity(employeeName: string): { id: number; po_reference: string; project_expense_account: string; clocked_in_at: string; } | undefined
+```
+
+Called from: production: db-journal.ts (clockOutOfProject ×1, getOpenProjectClockForEmployee ×1)
+
+**`clockOutOfProject`** *(exported)*
+
+```
+clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: routes/projects.ts ((module level) ×1)
+
+**`getOpenProjectClockForEmployee`** *(exported)*
+
+```
+getOpenProjectClockForEmployee(employeeName: EmployeeName): EmployeeClock | undefined
+```
+
+Called from: production: routes/projects.ts ((module level) ×1)
+
+**`stageStockReceipt`** *(exported)*
+
+```
+stageStockReceipt(input: StockReceiptInput): void
+```
+
+Called from: production: db-journal.ts (clockOutOfProject ×1); routes/stock.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`postStockReceipt`** *(exported)*
+
+```
+postStockReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: db-journal.ts (clockOutOfProject ×1); routes/stock.ts ((module level) (as a value)) · tests: 3 call(s) in 1 file(s)
+
+**`stageLocation`** *(exported)*
+
+```
+stageLocation(input: LocationStagingInput): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`postLocation`** *(exported)*
+
+```
+postLocation(reference: string, business: BusinessName, userId: UserId): TypedNode<"LocationEntityName">
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`stageSalesOrder`** *(exported)*
+
+```
+stageSalesOrder(input: SalesOrderInput): void
+```
+
+Called from: production: routes/stock.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`postSalesOrder`** *(exported)*
+
+```
+postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: routes/stock.ts ((module level) (as a value)) · tests: 2 call(s) in 1 file(s)
+
+**`stageStockDispatch`** *(exported)*
+
+```
+stageStockDispatch(input: StockDispatchInput): void
+```
+
+Called from: production: routes/stock.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s)
+
+**`postStockDispatch`** *(exported)*
+
+```
+postStockDispatch(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: routes/stock.ts ((module level) (as a value)) · tests: 5 call(s) in 1 file(s)
+
+**`removeStagedLine`** *(exported)*
+
+```
+removeStagedLine(reference: string, business: BusinessName, ledger: LedgerName, account: string): void
+```
+
+Called from: production: routes/journal.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`postJournalEntry`** *(exported)*
+
+```
+postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: db-journal.ts (postStockDispatch ×2, postStockReceipt ×1, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1); db-stock.ts (adjustLocationCapacity ×1, completeStockTake ×1, dispatchStockFromLocation ×2, ensureLocationCapacityAccount ×1, receiveStockAtLocation ×2, transferStock ×2, and 1 more); db.ts (allocatePayment ×1, completePosSale ×1, convertStorageSpace ×1, openStorageContainer ×1, payEmployeeWages ×2, postInvoice ×1); routes/journal.ts ((module level) ×1) · tests: 60 call(s) in 1 file(s) · tooling: 14 call(s) in 7 file(s)
+
+**`listJournalEntries`** *(exported)*
+
+```
+listJournalEntries(business: BusinessName, ledger: LedgerName, limit?: number, offset?: number): JournalSummary[]
+```
+
+Called from: production: routes/journal.ts ((module level) ×1) · tests: 9 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`countJournalEntries`** *(exported)*
+
+```
+countJournalEntries(business: BusinessName, ledger: LedgerName): number
+```
+
+Called from: production: routes/journal.ts ((module level) ×1)
+
+**`getJournalEntry`** *(exported)*
+
+```
+getJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string): JournalDetail | undefined
+```
+
+Called from: production: db-journal.ts (reverseJournalEntry ×1); routes/journal.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getLedgerDateRange`** *(exported)*
+
+```
+getLedgerDateRange(businessName: BusinessName, ledgerName: LedgerName): LedgerDateRange
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getPeriodLockStatus`** *(exported)*
+
+```
+getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus
+```
+
+Called from: production: db-journal.ts (assertPeriodOpen ×1); routes/period.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`ensurePeriodLockEntity`**
+
+```
+ensurePeriodLockEntity(business: BusinessName, ledger: LedgerName, userId: UserId): { id: number; name: string; }
+```
+
+Called from: production: db-journal.ts (closePeriod ×1, reopenPeriod ×1)
+
+**`closePeriod`** *(exported)*
+
+```
+closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string, userId: UserId): void
+```
+
+Called from: production: routes/period.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`reopenPeriod`** *(exported)*
+
+```
+reopenPeriod(business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: routes/period.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`assertPeriodOpen`** *(exported)*
+
+```
+assertPeriodOpen(business: BusinessName, ledger: LedgerName, transdate: string): void
+```
+
+Called from: production: db-journal.ts (createRecurringJournal ×1); db-stock.ts (dispatchStockFromLocation ×1, postQuantityMovement ×1, receiveStockAtLocation ×1, transferStock ×1)
+
+**`reverseJournalEntry`** *(exported)*
+
+```
+reverseJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, userId: UserId, reversalDate?: string): void
+```
+
+Called from: production: routes/journal.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s)
+
+### `backend/src/db-matrix-reports.ts`
+
+**`loadEntityIndex`**
+
+```
+loadEntityIndex(): Map<number, { name: string; parent_id: number | null; }>
+```
+
+Called from: production: db-matrix-reports.ts (getAxisValues ×1, getProfitAndLossByAxis ×1, getSalesCogsMatrix ×1, getStockOnHandMatrix ×1)
+
+**`stripLocationSuffix`**
+
+```
+stripLocationSuffix(name: string): string
+```
+
+Called from: production: db-matrix-reports.ts (categoryForAccount ×1, categoryForItem ×1, getStockOnHandMatrix ×2, resolveKey ×2)
+
+**`categoryForAccount`**
+
+```
+categoryForAccount(accountId: number, entityIndex: Map<number, { name: string; parent_id: number | null; }>): string
+```
+
+Called from: production: db-matrix-reports.ts (categoryForItem ×1, resolveKey ×1)
+
+**`categoryForItem`**
+
+```
+categoryForItem(itemId: number, entityIndex: Map<number, { name: string; parent_id: number | null; }>): string
+```
+
+Called from: production: db-matrix-reports.ts (getStockOnHandMatrix ×2)
+
+**`locationForAccount`**
+
+```
+locationForAccount(accountName: string): string | undefined
+```
+
+Called from: production: db-matrix-reports.ts (resolveKey ×1)
+
+**`divisionForLocation`**
+
+```
+divisionForLocation(locationName: string, entityIndex: Map<number, { name: string; parent_id: number | null; }>): string | undefined
+```
+
+Called from: production: db-matrix-reports.ts (getStockOnHandMatrix ×2, resolveKey ×1)
+
+**`resolveKey`**
+
+```
+resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number, { name: string; parent_id: number | null; }>): string
+```
+
+Called from: production: db-matrix-reports.ts (getAxisValues ×4, getProfitAndLossByAxis ×2, getSalesCogsMatrix ×2)
+
+**`getSalesCogsMatrix`** *(exported)*
+
+```
+getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix
+```
+
+Called from: production: routes/matrix-reports.ts ((module level) ×1)
+
+**`getStockOnHandMatrix`** *(exported)*
+
+```
+getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): StockOnHandMatrix
+```
+
+Called from: production: routes/matrix-reports.ts ((module level) ×1)
+
+**`plAccountIds`**
+
+```
+plAccountIds(entityIndex: Map<number, { name: string; parent_id: number | null; }>): Set<number>
+```
+
+Called from: production: db-matrix-reports.ts (getAxisValues ×1, getProfitAndLossByAxis ×1)
+
+**`getProfitAndLossByAxis`** *(exported)*
+
+```
+getProfitAndLossByAxis(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, outerAxis: MatrixAxis, innerAxis: MatrixAxis, outerFilter?: string, innerFilter?: string): ProfitAndLossByAxisNode[]
+```
+
+Called from: production: routes/matrix-reports.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`getAxisValues`** *(exported)*
+
+```
+getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues
+```
+
+Called from: production: routes/matrix-reports.ts ((module level) ×1)
+
+### `backend/src/db-reports.ts`
+
+**`getBusinessReports`** *(exported)*
+
+```
+getBusinessReports(): ReportRow[]
+```
+
+Called from: production: db-reports.ts (buildProfitAndLossFromBalances ×1, computeCloseLines ×1, getBalanceSheet ×1); routes/reports.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`setAccountCurrency`** *(exported)*
+
+```
+setAccountCurrency(accountName: string, currency: string | null, entityId?: number): void
+```
+
+Called from: production: db-reports.ts (ensureCurrencyAccount ×1); db-stock.ts (dispatchStockFromLocation ×2, ensureLocationCapacityAccount ×3, receiveStockAtLocation ×2, setTerminalCurrency ×1, transferStock ×2, writeOffStock ×2); db.ts (buildBankCurrencyStructure ×2, convertStorageSpace ×4, ensureChild ×1, openStorageContainer ×4) · tests: 9 call(s) in 1 file(s)
+
+**`ensureCurrencyAccount`** *(exported)*
+
+```
+ensureCurrencyAccount(baseAccountId: number, currency: string, userId: UserId): { name: string; id: number; }
+```
+
+Called from: production: db-reports.ts (computeCloseLines ×1); db.ts (completePosSale ×4, tagCurrency ×1)
+
+**`ensureCashAtBankAccount`** *(exported)*
+
+```
+ensureCashAtBankAccount(userId: UserId): number
+```
+
+Called from: production: db.ts (completePosSale ×1)
+
+**`getChartOfAccounts`** *(exported)*
+
+```
+getChartOfAccounts(): ChartRow[]
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getLedgerBalancesByDivision`** *(exported)*
+
+```
+getLedgerBalancesByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries?: boolean): Map<number, Map<string | null, number>>
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
+
+**`getLedgerBalancesByDivisionStructural`** *(exported)*
+
+```
+getLedgerBalancesByDivisionStructural(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries?: boolean): Map<number, Map<string | null, number>>
+```
+
+Called from: production: db-reports.ts (computeCloseLines ×1, getProfitAndLossByDivision ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getLedgerBalances`** *(exported)*
+
+```
+getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries?: boolean): Map<number, number>
+```
+
+Called from: production: db-matrix-reports.ts (getAxisValues ×1, getProfitAndLossByAxis ×1); db-reports.ts (getBalanceSheet ×1, getProfitAndLoss ×1, getTrialBalance ×1, getTrialBalanceComparison ×2); db.ts (getBankAccounts ×1)
+
+**`getTrialBalance`** *(exported)*
+
+```
+getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): TrialBalance
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 50 call(s) in 1 file(s) · tooling: 5 call(s) in 3 file(s)
+
+**`getBalanceSheet`** *(exported)*
+
+```
+getBalanceSheet(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): BalanceSheet
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 11 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`buildCategoryTree`** *(exported)*
+
+```
+buildCategoryTree(lines: StatementLine[], accountIdByName: Map<string, number>, rootName: string, normalSide?: "debit" | "credit"): CategoryTreeNode[]
+```
+
+Called from: production: db-reports.ts (buildProfitAndLossFromBalances ×3, getBalanceSheet ×2)
+
+**`getProfitAndLoss`** *(exported)*
+
+```
+getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries?: boolean): ProfitAndLoss
+```
+
+Called from: production: db-reports.ts (getBalanceSheet ×1, getProfitAndLossComparison ×2); routes/reports.ts ((module level) ×1) · tests: 18 call(s) in 1 file(s) · tooling: 4 call(s) in 3 file(s)
+
+**`buildProfitAndLossFromBalances`** *(exported)*
+
+```
+buildProfitAndLossFromBalances(balances: Map<number, number>): ProfitAndLoss
+```
+
+Called from: production: db-matrix-reports.ts (getProfitAndLossByAxis ×2); db-reports.ts (getProfitAndLoss ×1, getProfitAndLossByDivision ×1)
+
+**`getProfitAndLossByDivision`** *(exported)*
+
+```
+getProfitAndLossByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivision[]
+```
+
+Called from: production: db-reports.ts (getProfitAndLossByDivisionTree ×1); routes/reports.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`getProfitAndLossByDivisionTree`** *(exported)*
+
+```
+getProfitAndLossByDivisionTree(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivisionNode[]
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getTrialBalanceComparison`** *(exported)*
+
+```
+getTrialBalanceComparison(businessName: BusinessName, ledgerA: LedgerName, ledgerB: LedgerName): TrialBalanceComparison
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`computeCloseLines`**
+
+```
+computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, userId?: UserId): ComputedClose
+```
+
+Called from: production: db-reports.ts (closeBooks ×1, previewCloseBooks ×1)
+
+**`previewCloseBooks`** *(exported)*
+
+```
+previewCloseBooks(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string): CloseBooksPreview
+```
+
+Called from: production: routes/journal.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`closeBooks`** *(exported)*
+
+```
+closeBooks(business: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, userId: UserId): CloseBooksResult
+```
+
+Called from: production: routes/journal.ts ((module level) ×1) · tests: 11 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`getSalesReport`** *(exported)*
+
+```
+getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): SalesReport
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`getProfitAndLossComparison`** *(exported)*
+
+```
+getProfitAndLossComparison(businessName: BusinessName, ledgerA: LedgerName, ledgerB: LedgerName): ProfitAndLossComparison
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+### `backend/src/db-seed.ts`
+
+**`seedRemainingData`** *(exported)*
+
+```
+seedRemainingData(): void
+```
+
+Called from: production: db.ts ((module level) ×1)
+
+### `backend/src/db-stock.ts`
+
+**`stageQuantityMovementLine`** *(exported)*
+
+```
+stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, locationName?: LocationName, accountId?: number): void
+```
+
+Called from: production: db-stock.ts (completeStockTake ×2, dispatchStockFromLocation ×2, postQuantityMovement ×1, receiveStockAtLocation ×2, transferStock ×2, writeOffStock ×2)
+
+**`postStagedQuantityMovement`** *(exported)*
+
+```
+postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void
+```
+
+Called from: production: db-stock.ts (completeStockTake ×1, dispatchStockFromLocation ×1, postQuantityMovement ×1, receiveStockAtLocation ×1, transferStock ×1, writeOffStock ×1)
+
+**`postQuantityMovement`** *(exported)*
+
+```
+postQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, userId: UserId, transdate?: string, locationName?: LocationName, accountId?: number): void
+```
+
+Called from: production: db-journal.ts (postStockDispatch ×1, postStockReceipt ×1); db-stock.ts (fulfillOrder ×2, placeOrder ×3, receiveLot ×1); db.ts (postInvoice ×1) · tests: 9 call(s) in 1 file(s)
+
+**`getLocationTypes`** *(exported)*
+
+```
+getLocationTypes(): string[]
+```
+
+Called from: production: routes/locations.ts ((module level) ×1)
+
+**`createLocationType`** *(exported)*
+
+```
+createLocationType(name: string, userId: UserId): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1)
+
+**`setLocation`** *(exported)*
+
+```
+setLocation(name: string, location: Location): void
+```
+
+Called from: production: db-journal.ts (postLocation ×1); db-seed.ts (migrateForWineRetailDemoData ×1); db.ts (createAndConfigureLocation ×1); routes/locations.ts ((module level) ×1) · tests: 56 call(s) in 1 file(s) · tooling: 4 call(s) in 3 file(s)
+
+**`getLocation`** *(exported)*
+
+```
+getLocation(name: string): Location | undefined
+```
+
+Called from: production: db-stock.ts (ensureLocationCapacityAccount ×1, getLocationCapacityStatus ×1, getStockListingByLocation ×1, todayAtLocation ×1, transferStock ×2); db.ts (cityDivisionFor ×1, getBusinessConfigurationReport ×1); routes/locations.ts ((module level) ×2) · tooling: 4 call(s) in 2 file(s)
+
+**`todayAtLocation`** *(exported)*
+
+```
+todayAtLocation(locationName: LocationName): string
+```
+
+Called from: production: db-stock.ts (dispatchStockFromLocation ×1, postQuantityMovement ×1, receiveStockAtLocation ×1, transferStock ×1); db.ts (completeCashPurchase ×1, completePosSale ×1)
+
+**`getItemLocation`** *(exported)*
+
+```
+getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels
+```
+
+Called from: production: db-stock.ts (completeStockTake ×1, createStockTake ×1, dispatchStockFromLocation ×1, getStockListingByLocation ×1, transferStock ×1); db.ts (completePosSale ×1, getPickingList ×1, getRestockPickingList ×1); routes/locations.ts ((module level) ×1) · tests: 23 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+
+**`setItemLocationLevelDetails`** *(exported)*
+
+```
+setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, "quantity_on_hand">): void
+```
+
+Called from: production: db-stock.ts (setItemLocationLevels ×1)
+
+**`getLocationCapacityStatus`** *(exported)*
+
+```
+getLocationCapacityStatus(locationName: LocationName): LocationCapacityStatus
+```
+
+Called from: production: db-stock.ts (getStockListingByLocation ×1) · tests: 3 call(s) in 1 file(s)
+
+**`preferredVendorPackageQuantity`**
+
+```
+preferredVendorPackageQuantity(itemName: ItemName): number | null
+```
+
+Called from: production: db-stock.ts (adjustLocationCapacity ×1, getLocationCapacityStatus ×1)
+
+**`createPosTerminal`** *(exported)*
+
+```
+createPosTerminal(terminalName: string, locationName: LocationName, userId: UserId): void
+```
+
+Called from: production: routes/pos.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`listPosTerminals`** *(exported)*
+
+```
+listPosTerminals(locationName: string): { name: string; currency: string | null; }[]
+```
+
+Called from: production: routes/pos.ts ((module level) ×1)
+
+**`setTerminalCurrency`** *(exported)*
+
+```
+setTerminalCurrency(terminalName: string, currency: string | null): void
+```
+
+Called from: production: routes/pos.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`getEffectiveSaleCurrency`** *(exported)*
+
+```
+getEffectiveSaleCurrency(terminalName: string | undefined): string | null
+```
+
+Called from: production: db.ts (completePosSale ×1) · tests: 3 call(s) in 1 file(s)
+
+**`ensureLocationCapacityAccount`** *(exported)*
+
+```
+ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; occupiedAccountId: number; unit: "bottle" | "carton"; }
+```
+
+Called from: production: db-journal.ts (postLocation ×1); db-stock.ts (adjustLocationCapacity ×1); db.ts (createAndConfigureLocation ×1) · tests: 5 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`adjustLocationCapacity`** *(exported)*
+
+```
+adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void
+```
+
+Called from: production: db-stock.ts (completeStockTake ×1, dispatchStockFromLocation ×1, receiveStockAtLocation ×1, transferStock ×2, writeOffStock ×1) · tests: 4 call(s) in 1 file(s)
+
+**`getStockListingByLocation`** *(exported)*
+
+```
+getStockListingByLocation(): StockListingLocationGroup[]
+```
+
+Called from: production: db-stock.ts (createStockTake ×1, getBelowReorderStock ×1, getStockListing ×1, getStockOutRiskReport ×1); routes/locations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`allItemCategories`**
+
+```
+allItemCategories(): Map<string, string | null>
+```
+
+Called from: production: db-stock.ts (getStockMovementReport ×1)
+
+**`allPreferredVendors`**
+
+```
+allPreferredVendors(): Map<string, string>
+```
+
+Called from: production: db-stock.ts (getStockMovementReport ×1)
+
+**`getStockMovementReport`** *(exported)*
+
+```
+getStockMovementReport(ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getStockListing`** *(exported)*
+
+```
+getStockListing(limit?: number, offset?: number): StockListingRow[]
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s)
+
+**`countStockListing`** *(exported)*
+
+```
+countStockListing(): number
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`setItemLocationLevels`** *(exported)*
+
+```
+setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: { minLevel?: number | null; maxLevel?: number | null; reorderLevel?: number | null; shelfSide?: string | null; rack?: string | null; level?: number | null; }): void
+```
+
+Called from: production: db-seed.ts (migrateForWineRetailDemoData ×1); routes/locations.ts ((module level) ×1) · tests: 8 call(s) in 1 file(s)
+
+**`ensureUnitsTrackingBaseAccounts`**
+
+```
+ensureUnitsTrackingBaseAccounts(business: BusinessName, userId: UserId): { onHandId: number; receivedFromId: number; }
+```
+
+Called from: production: db-stock.ts (dispatchStockFromLocation ×1, receiveStockAtLocation ×1, transferStock ×1, writeOffStock ×1)
+
+**`receiveStockAtLocation`** *(exported)*
+
+```
+receiveStockAtLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void
+```
+
+Called from: production: db-seed.ts (migrateForWineRetailDemoData ×1); db.ts (completeCashPurchase ×1); routes/locations.ts ((module level) ×1) · tests: 57 call(s) in 1 file(s) · tooling: 7 call(s) in 3 file(s)
+
+**`dispatchStockFromLocation`** *(exported)*
+
+```
+dispatchStockFromLocation(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void
+```
+
+Called from: production: db.ts (completePosSale ×1, dispatchOrderFromPickingList ×1); routes/locations.ts ((module level) ×1) · tests: 8 call(s) in 1 file(s)
+
+**`transferStock`** *(exported)*
+
+```
+transferStock(business: BusinessName, ledger: LedgerName, itemName: ItemName, fromLocationName: LocationName, toLocationName: LocationName, quantity: number, reference: string, userId?: number, transdate?: string, combinationShape?: [string, string][], combinationValuesAfterLocation?: string[]): void
+```
+
+Called from: production: db.ts (dispatchRestockFromPickingList ×1); routes/locations.ts ((module level) ×1) · tests: 7 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+
+**`getBelowReorderStock`** *(exported)*
+
+```
+getBelowReorderStock(): BelowReorderRow[]
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`setItemSourceLeadTime`** *(exported)*
+
+```
+setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName, days: number, userId: UserId): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getItemLeadTimes`** *(exported)*
+
+```
+getItemLeadTimes(itemName: ItemName): { vendor: string; days: number; }[]
+```
+
+Called from: production: db-stock.ts (getStockOutRiskReport ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getStockOutRiskReport`** *(exported)*
+
+```
+getStockOutRiskReport(windowDays?: number): StockOutRiskRow[]
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`createStockTake`** *(exported)*
+
+```
+createStockTake(locationName: LocationName, takeDate: string, userId: UserId): number
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 5 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`parseStockTakeLine`**
+
+```
+parseStockTakeLine(row: { id: number; item: string; name: string; }): StockTakeLine
+```
+
+Called from: production: db-stock.ts (getStockTake (as a value))
+
+**`getStockTake`** *(exported)*
+
+```
+getStockTake(id: number): StockTake | undefined
+```
+
+Called from: production: db-stock.ts (completeStockTake ×1, recordStockTakeCount ×1); routes/locations.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`recordStockTakeCount`** *(exported)*
+
+```
+recordStockTakeCount(stockTakeId: number, itemName: ItemName, countedQuantity: number): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 8 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`completeStockTake`** *(exported)*
+
+```
+completeStockTake(stockTakeId: number, business: BusinessName, ledger: LedgerName, varianceExpenseAccount: AccountName, inventoryAccount: string, unitCostMinorByItem: Record<string, number>, userId: UserId): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`writeOffStock`** *(exported)*
+
+```
+writeOffStock(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, quantity: number, unitCostMinor: number, writeOffExpenseAccount: AccountName, inventoryAccount: string, reason: string, userId: UserId, transdate?: string, locationName?: LocationName, combinationValues?: string[], combinationShape?: [string, string][]): void
+```
+
+Called from: production: routes/stock-lots.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`receiveLot`** *(exported)*
+
+```
+receiveLot(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, lotNumber: string, receivedDate: string, expirationDate: string | null, quantity: number, userId: UserId, costBasisMinor?: number): void
+```
+
+Called from: production: routes/stock-lots.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`consumeFromLots`** *(exported)*
+
+```
+consumeFromLots(itemName: ItemName, quantity: number): { lot_number: string; consumed: number; expiration_date: string | null; cost_basis_minor: number | null; }[]
+```
+
+Called from: production: routes/stock-lots.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`getExpiringStock`** *(exported)*
+
+```
+getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[]
+```
+
+Called from: production: routes/stock-lots.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`createSystemEntity`** *(exported)*
+
+```
+createSystemEntity(name: string, parentId: number | null): number
+```
+
+Called from: production: db-stock.ts (placeOrder ×1)
+
+**`placeOrder`** *(exported)*
+
+```
+placeOrder(orderReference: string, business: BusinessName, ledger: LedgerName, quantity: number, priceMinor: number, userId: UserId, transdate?: string, vendor?: VendorName, item?: ItemName, location?: LocationName): void
+```
+
+Called from: production: db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`fulfillOrder`** *(exported)*
+
+```
+fulfillOrder(orderReference: string, fulfillingReference: string, business: BusinessName, ledger: LedgerName, quantityFulfilled: number, valueFulfilledMinor: number, userId: UserId, transdate?: string): void
+```
+
+Called from: production: db-journal.ts (postStockDispatch ×1, postStockReceipt ×1) · tests: 4 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`getOrderStatus`** *(exported)*
+
+```
+getOrderStatus(orderReference: string): { quantity: number; value_minor: number; }
+```
+
+Called from: production: db.ts (checkEInvoiceDiscrepancies ×1); routes/stock.ts ((module level) ×1) · tests: 12 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+### `backend/src/db.ts`
+
+**`typeCategoryOrItemsRootName.validate`** *(exported)*
+
+```
+typeCategoryOrItemsRootName.validate(name: string): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`asUserId`** *(exported)*
+
+```
+asUserId(id: number): UserId
+```
+
+Called from: production: db-journal.ts (clockOutOfProject ×1); db-seed.ts ((module level) ×1); db-stock.ts (createSystemEntity ×1, recordStockTakeCount ×1, setItemLocationLevelDetails ×1, setLocation ×7, transferStock ×14); db.ts (addOrUpdateItemSource ×2, allocatePayment ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, recordInvoiceLine ×2, and 8 more); routes/arap.ts (handlePost ×1); routes/auth.ts ((module level) ×4); routes/businesses.ts ((module level) ×4); routes/contacts.ts ((module level) ×6); and 16 more file(s) · tests: 868 call(s) in 1 file(s) · tooling: 13 call(s) in 5 file(s)
+
+**`asEntityId`** *(exported)*
+
+```
+asEntityId(id: number): EntityId
+```
+
+Called from: production: db.ts (create ×1, fetch ×1, fetchById ×1, getHierarchyChain ×1); routes/entities.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`asBusinessName`** *(exported)*
+
+```
+asBusinessName(name: string): BusinessName
+```
+
+Called from: production: db-journal.ts (postStockDispatch ×5, postStockReceipt ×3, reverseJournalEntry ×2); db-seed.ts (migrateForPerBusinessChartOfAccounts ×1, migrateForWineRetailDemoData ×1); db-stock.ts (completeStockTake ×2, writeOffStock ×2); db.ts (allocatePayment ×3, completePosSale ×2, dispatchOrderFromPickingList ×1, payEmployeeWages ×6, postInvoice ×6); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4, handlePost ×1); routes/businesses.ts ((module level) ×7); and 11 more file(s) · tests: 501 call(s) in 1 file(s) · tooling: 7 call(s) in 2 file(s)
+
+**`asLedgerName`** *(exported)*
+
+```
+asLedgerName(name: string): LedgerName
+```
+
+Called from: production: db-journal.ts (postLocation ×1, postStockDispatch ×5, postStockReceipt ×3, reverseJournalEntry ×2); db-seed.ts (migrateForWineRetailDemoData ×1); db-stock.ts (completeStockTake ×2, writeOffStock ×2); db.ts (allocatePayment ×3, completePosSale ×2, createAndConfigureLocation ×1, createBusiness ×2, dispatchOrderFromPickingList ×1, payEmployeeWages ×6, and 1 more); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4, handlePost ×1); routes/invoices.ts ((module level) ×9); and 9 more file(s) · tests: 463 call(s) in 1 file(s) · tooling: 9 call(s) in 3 file(s)
+
+**`asAccountName`** *(exported)*
+
+```
+asAccountName(name: string): AccountName
+```
+
+Called from: production: db-journal.ts (postStockDispatch ×6, postStockReceipt ×4, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, getLedgerBalancesByDivisionStructural ×1); db-stock.ts (adjustLocationCapacity ×2, completeStockTake ×4, dispatchStockFromLocation ×6, ensureLocationCapacityAccount ×2, fulfillOrder ×2, placeOrder ×3, and 4 more); db.ts (allocatePayment ×2, completePosSale ×2, convertStorageSpace ×4, openStorageContainer ×4, payEmployeeWages ×4, postInvoice ×5); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×1); routes/journal.ts ((module level) ×2); routes/locations.ts ((module level) ×1); and 3 more file(s) · tests: 188 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
+
+**`asDivisionName`** *(exported)*
+
+```
+asDivisionName(name: string): DivisionName
+```
+
+Called from: production: db-journal.ts (reverseJournalEntry ×1); db-reports.ts (closeBooks ×1); db.ts (completePosSale ×2, postInvoice ×4) · tests: 11 call(s) in 1 file(s)
+
+**`asLocationName`** *(exported)*
+
+```
+asLocationName(name: string): LocationName
+```
+
+Called from: production: db-journal.ts (postLocation ×2, postPurchaseOrder ×1, postSalesOrder ×1); db-seed.ts (migrateForWineRetailDemoData ×2); db-stock.ts (createStockTake ×1, getStockListingByLocation ×2); db.ts (completeCashPurchase ×1, completePosSale ×1, createAndConfigureLocation ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×2, resolveDispatchLocation ×1); routes/arap.ts ((module level) ×2); routes/invoices.ts ((module level) ×2); routes/locations.ts ((module level) ×10); routes/pos.ts ((module level) ×3) · tests: 175 call(s) in 1 file(s) · tooling: 10 call(s) in 1 file(s)
+
+**`asEmployeeName`** *(exported)*
+
+```
+asEmployeeName(name: string): EmployeeName
+```
+
+Called from: production: routes/projects.ts ((module level) ×3)
+
+**`asCustomerName`** *(exported)*
+
+```
+asCustomerName(name: string): CustomerName
+```
+
+Called from: production: routes/arap.ts ((module level) ×2); routes/invoices.ts ((module level) ×1); routes/pos.ts ((module level) ×1) · tests: 32 call(s) in 1 file(s)
+
+**`asVendorName`** *(exported)*
+
+```
+asVendorName(name: string): VendorName
+```
+
+Called from: production: db-journal.ts (postPurchaseOrder ×1); routes/arap.ts ((module level) ×2); routes/invoices.ts ((module level) ×1); routes/locations.ts ((module level) ×1); routes/pos.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`asItemName`** *(exported)*
+
+```
+asItemName(name: string): ItemName
+```
+
+Called from: production: db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-seed.ts (migrateForWineRetailDemoData ×2); db-stock.ts (completeStockTake ×4, createStockTake ×2, getLocationCapacityStatus ×1, getStockListingByLocation ×1, getStockOutRiskReport ×1); db.ts (completeCashPurchase ×2, completePosSale ×15, createInvoice ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×1, getPickingList ×1, and 2 more); routes/items.ts ((module level) ×2); routes/locations.ts ((module level) ×8); routes/stock-lots.ts ((module level) ×3) · tests: 142 call(s) in 1 file(s) · tooling: 7 call(s) in 1 file(s)
+
+**`getEntityTree`** *(exported)*
+
+```
+getEntityTree(): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null; })[]
+```
+
+Called from: production: db-reports.ts (getSalesReport ×1); db.ts (getBusinessConfigurationReport ×1, getHierarchyChain ×1, isDescendantOf ×1); routes/entities.ts ((module level) ×1); routes/locations.ts ((module level) ×1) · tests: 43 call(s) in 1 file(s) · tooling: 14 call(s) and 1 reference(s) in 7 file(s)
+
+**`orderSiblingsByDisplayOrderPreJoined`**
+
+```
+orderSiblingsByDisplayOrderPreJoined<T extends { id: number; name: string; display_order_next: string | null; }>(siblings: T[]): T[]
+```
+
+Called from: production: db.ts (getEntityTree ×1)
+
+**`getEntity`** *(exported)*
+
+```
+getEntity(id: number): EntityNode | undefined
+```
+
+Called from: production: db.ts (createEntityRaw ×1, deleteEntity ×2, getQualifiedDisplayName ×2, reorderSiblings ×1, reorderSiblingsBulk ×1, updateEntity ×2); routes/entities.ts ((module level) ×2) · tests: 17 call(s) in 1 file(s)
+
+**`getEntityHistory`** *(exported)*
+
+```
+getEntityHistory(id: number): EntityHistoryRow[]
+```
+
+Called from: production: routes/entities.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`resolveId`**
+
+```
+resolveId(name: string | null | undefined, parentId?: number): number | null
+```
+
+Called from: production: db.ts (createEntityRaw ×2, fetch ×1, resolveIdOrThrow ×1, updateEntity ×2)
+
+**`resolveItemId`** *(exported)*
+
+```
+resolveItemId(itemName: ItemName): number | undefined
+```
+
+Called from: production: db-stock.ts (consumeFromLots ×1, createStockTake ×1, dispatchStockFromLocation ×1, receiveLot ×1, receiveStockAtLocation ×1, setItemLocationLevels ×1, and 1 more); db.ts (createInvoice ×1)
+
+**`fetch`** *(exported)*
+
+```
+fetch<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand>
+```
+
+Called from: production: db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForBusinessTypes ×6, migrateForCashSaleCustomer ×1, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 9 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×4, convertStorageSpace ×2, copyChartOfAccountsInto ×1, createBusiness ×3, and 28 more); routes/divisions.ts ((module level) ×1) · tests: 268 call(s) in 1 file(s) · tooling: 62 call(s) in 20 file(s)
+
+**`fetchGlobalCoaCategory`** *(exported)*
+
+```
+fetchGlobalCoaCategory(categoryName: string): TypedNode<"RootName">
+```
+
+Called from: tests: 29 call(s) in 1 file(s)
+
+**`fetchById`** *(exported)*
+
+```
+fetchById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand>
+```
+
+Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenuEntities ×3); db.ts (addFinancialStatementNote ×1, buildBankCurrencyStructure ×1, copyChildren ×2, nominateBankAccount ×1, setEntityLink ×1, setMenuOverride ×1, and 1 more)
+
+**`create`** *(exported)*
+
+```
+create<TParentBrand extends string, TChildBrand extends string>(parent: TypedNode<TParentBrand>, type: TypeDescriptor<TChildBrand>, name: string, userId: UserId): TypedNode<TChildBrand>
+```
+
+Called from: production: db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForBusinessTypes ×7, migrateForCashSaleCustomer ×1, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 9 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×3, copyChildren ×3, createBusiness ×5, createDivisionType ×1, and 22 more); routes/divisions.ts ((module level) ×1) · tests: 294 call(s) in 1 file(s) · tooling: 59 call(s) in 20 file(s)
+
+**`isGenuineCategoryOrItemsRoot`** *(exported)*
+
+```
+isGenuineCategoryOrItemsRoot(name: string): boolean
+```
+
+Called from: production: db.ts (typeCategoryOrItemsRootName.validate ×1)
+
+**`createEntityRaw`** *(exported)*
+
+```
+createEntityRaw(input: NewEntity, userId: UserId): EntityNode
+```
+
+Called from: production: routes/entities.ts ((module level) ×1) · tests: 21 call(s) in 1 file(s)
+
+**`updateEntity`** *(exported)*
+
+```
+updateEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode
+```
+
+Called from: production: auth.ts (login ×1, setUserRoles ×1); db-journal.ts (closePeriod ×1, reopenPeriod ×1); db-seed.ts (migrateForCogsTag ×1, migrateForMenuEntities ×2); db-stock.ts (completeStockTake ×1, createStockTake ×1, placeOrder ×2, recordStockTakeCount ×1, setLocation ×2); db.ts (addOrUpdateItemSource ×1, addTyped ×1, copyChildren ×1, createBusiness ×2, createInvoice ×2, setDefaultLanguage ×1, and 10 more); routes/entities.ts ((module level) ×1) · tests: 13 call(s) in 1 file(s) · tooling: 12 call(s) in 7 file(s)
+
+**`listLineTypes`** *(exported)*
+
+```
+listLineTypes(): string[]
+```
+
+Called from: production: routes/entities.ts ((module level) ×1)
+
+**`setLineType`** *(exported)*
+
+```
+setLineType(entityName: string, lineType: string | null, userId: UserId): void
+```
+
+Called from: production: routes/entities.ts ((module level) ×1)
+
+**`getLineType`** *(exported)*
+
+```
+getLineType(entityName: string): string | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`setItemStorageOrigin`** *(exported)*
+
+```
+setItemStorageOrigin(itemName: ItemName, origin: "Hot" | "Cold" | null, userId: UserId): void
+```
+
+Called from: production: routes/items.ts ((module level) ×1) · tooling: 4 call(s) in 2 file(s)
+
+**`getItemStorageOrigin`** *(exported)*
+
+```
+getItemStorageOrigin(itemName: ItemName): "Hot" | "Cold" | undefined
+```
+
+Called from: production: db.ts (listItems ×1, resolveDispatchLocation ×1); routes/items.ts ((module level) ×1)
+
+**`setLanguageDirection`** *(exported)*
+
+```
+setLanguageDirection(languageName: string, direction: "LTR" | "RTL" | null, userId: UserId): void
+```
+
+Called from: production: routes/i18n.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getLanguageDirection`** *(exported)*
+
+```
+getLanguageDirection(languageName: string): "LTR" | "RTL" | undefined
+```
+
+Called from: production: routes/i18n.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s)
+
+**`orderSiblingsByDisplayOrder`**
+
+```
+orderSiblingsByDisplayOrder<T extends { id: number; name: string; }>(siblings: T[]): T[]
+```
+
+Called from: production: db.ts (reorderSiblings ×1, reorderSiblingsBulk ×1)
+
+**`reorderSiblings`** *(exported)*
+
+```
+reorderSiblings(entityId: EntityId, direction: "up" | "down", userId: UserId): void
+```
+
+Called from: production: routes/entities.ts ((module level) ×1)
+
+**`reorderSiblingsBulk`** *(exported)*
+
+```
+reorderSiblingsBulk(entityIds: number[], direction: "up" | "down", userId: UserId): void
+```
+
+Called from: production: routes/entities.ts ((module level) ×1)
+
+**`relinkDisplayOrderChain`**
+
+```
+relinkDisplayOrderChain(orderedSiblings: { id: number; name: string; }[], userId: UserId): void
+```
+
+Called from: production: db.ts (reorderSiblings ×1, reorderSiblingsBulk ×1)
+
+**`setRelationship`** *(exported)*
+
+```
+setRelationship(entityName: string, relationshipType: string, targetName: string, userId: UserId): void
+```
+
+Called from: production: db-seed.ts (seedWineRetailEmployees ×3); db.ts (createEmployee ×1); routes/entities.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s)
+
+**`getRelationship`** *(exported)*
+
+```
+getRelationship(entityName: string): Relationship | undefined
+```
+
+Called from: production: db.ts (cityDivisionFor ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getEntitiesWithRelationship`** *(exported)*
+
+```
+getEntitiesWithRelationship(relationshipType: string): { source: string; target: string; }[]
+```
+
+Called from: production: db.ts (getHierarchy ×1, getOrganizationChart ×3) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`getHierarchy`** *(exported)*
+
+```
+getHierarchy(rootName: string, relationshipType?: string): HierarchyNode
+```
+
+Called from: production: primitives.ts (Hierarchy.buildTree ×1)
+
+**`getOrganizationChart`** *(exported)*
+
+```
+getOrganizationChart(businessName: BusinessName): OrganizationChart
+```
+
+Called from: production: routes/pos.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`deleteEntity`** *(exported)*
+
+```
+deleteEntity(id: number, userId: UserId): void
+```
+
+Called from: production: auth.ts (getSessionUser ×1, logout ×1, setUserActive ×1, setUserRoles ×1); db-journal.ts (clockOutOfProject ×1); db-stock.ts (setLocation ×3); db.ts (deleteEntityLink ×1, deleteItemSource ×1, deleteMenuOverride ×2, deleteTyped ×1, deleteVocabularyPreference ×1, setEmployeeSchedule ×1, and 3 more); routes/entities.ts ((module level) ×1) · tests: 8 call(s) in 1 file(s)
+
+**`getCreditStatus`** *(exported)*
+
+```
+getCreditStatus(entityName: string): CreditStatus
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1) · tests: 5 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`getAgingBuckets`** *(exported)*
+
+```
+getAgingBuckets(paymentTermsDays: number | null): AgingBucket[]
+```
+
+Called from: production: db.ts (getAgedInvoices ×1) · tests: 6 call(s) in 1 file(s)
+
+**`ensureSystemInvoicesRoot`**
+
+```
+ensureSystemInvoicesRoot(userId: UserId): { id: number; }
+```
+
+Called from: production: db.ts (createInvoice ×1)
+
+**`createInvoice`** *(exported)*
+
+```
+createInvoice(input: InvoiceInput, userId: UserId): number
+```
+
+Called from: production: db.ts (completeCashPurchase ×1, completePosSale ×1, importUblInvoiceAsDraft ×1, payEmployeeWages ×1); routes/invoices.ts ((module level) ×1) · tests: 24 call(s) in 1 file(s) · tooling: 6 call(s) in 1 file(s)
+
+**`getInvoice`** *(exported)*
+
+```
+getInvoice(id: number): Invoice | undefined
+```
+
+Called from: production: db.ts (allocatePayment ×1, completeCashPurchase ×1, completePosSale ×1, confirmPickedLine ×1, createInvoice ×1, dispatchOrderFromPickingList ×1, and 5 more); routes/invoices.ts ((module level) ×1) · tests: 18 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`xmlEscape`**
+
+```
+xmlEscape(s: string): string
+```
+
+Called from: production: db.ts (exportInvoiceAsUbl ×4)
+
+**`exportInvoiceAsUbl`** *(exported)*
+
+```
+exportInvoiceAsUbl(invoiceId: number): string
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`parseUblInvoice`** *(exported)*
+
+```
+parseUblInvoice(xml: string): UblImportResult
+```
+
+Called from: production: db.ts (importUblInvoiceAsDraft ×1)
+
+**`checkEInvoiceDiscrepancies`** *(exported)*
+
+```
+checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[]
+```
+
+Called from: production: db.ts (importUblInvoiceAsDraft ×1)
+
+**`importUblInvoiceAsDraft`** *(exported)*
+
+```
+importUblInvoiceAsDraft(xml: string, business: BusinessName, ledger: LedgerName, vendorName: string, userId: UserId, poReference?: string): { invoiceId: number; discrepancies: EInvoiceDiscrepancy[]; }
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getPickingList`** *(exported)*
+
+```
+getPickingList(invoiceId: number, locationName: LocationName): PickingListLine[]
+```
+
+Called from: production: db.ts (dispatchOrderFromPickingList ×1); routes/invoices.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`confirmPickedLine`** *(exported)*
+
+```
+confirmPickedLine(invoiceId: number, invoiceLineId: number, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`dispatchOrderFromPickingList`** *(exported)*
+
+```
+dispatchOrderFromPickingList(invoiceId: number, locationName: LocationName, revenueAccount: string, taxAccount: string, userId: UserId): void
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`getRestockPickingList`** *(exported)*
+
+```
+getRestockPickingList(runReference: string, warehouseName: LocationName, lines: RestockLineInput[]): PickingListLine[]
+```
+
+Called from: production: db.ts (dispatchRestockFromPickingList ×1); routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`confirmRestockPickedLine`** *(exported)*
+
+```
+confirmRestockPickedLine(runReference: string, itemName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`dispatchRestockFromPickingList`** *(exported)*
+
+```
+dispatchRestockFromPickingList(runReference: string, business: BusinessName, ledger: LedgerName, warehouseName: LocationName, retailOutletName: LocationName, lines: RestockLineInput[], userId: UserId, transdate?: string): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`listInvoices`** *(exported)*
+
+```
+listInvoices(business: BusinessName, ledger: LedgerName, options?: ListInvoicesOptions): Invoice[]
+```
+
+Called from: production: db.ts (getAgedInvoices ×1, getCashFlowForecast ×2, getCounterpartyHistory ×1, getCustomerStatement ×1); routes/invoices.ts ((module level) ×1)
+
+**`countInvoices`** *(exported)*
+
+```
+countInvoices(business: BusinessName, ledger: LedgerName, invoiceType?: "AR" | "AP", source?: "manual" | "pos" | "all"): number
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1)
+
+**`postInvoice`** *(exported)*
+
+```
+postInvoice(id: number, revenueOrExpenseAccount: string | { name: string; id: number; } | ((line: InvoiceLineInput & { id: number; }) => string | { name: string; id: number; }), taxAccount: string, userId: UserId, restockInventory?: boolean, divisionName?: string, counterpartyAccountOverride?: string): void
+```
+
+Called from: production: db.ts (completeCashPurchase ×1, completePosSale ×1, dispatchOrderFromPickingList ×1, payEmployeeWages ×1); routes/invoices.ts ((module level) ×1) · tests: 23 call(s) in 1 file(s) · tooling: 6 call(s) in 1 file(s)
+
+**`allocatePayment`** *(exported)*
+
+```
+allocatePayment(invoiceId: number, paymentReference: string, allocatedMinor: number, allocationDate: string, paymentAccount: string, userId: UserId, skipJournalPosting?: boolean): void
+```
+
+Called from: production: db.ts (completeCashPurchase ×1, completePosSale ×1, payEmployeeWages ×1); routes/invoices.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s) · tooling: 5 call(s) in 1 file(s)
+
+**`getInvoiceOutstandingMinor`** *(exported)*
+
+```
+getInvoiceOutstandingMinor(invoiceId: number): number
+```
+
+Called from: production: db.ts (allocatePayment ×1, getAgedInvoices ×1, getCashFlowForecast ×2); routes/invoices.ts ((module level) ×1) · tests: 7 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`getAgedInvoices`** *(exported)*
+
+```
+getAgedInvoices(business: BusinessName, ledger: LedgerName, invoiceType: "AR" | "AP", asOfDate: string): AgedInvoiceRow[]
+```
+
+Called from: production: db.ts (getAgedSummary ×1, getReminderCandidates ×1); routes/invoices.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getAgedSummary`** *(exported)*
+
+```
+getAgedSummary(business: BusinessName, ledger: LedgerName, invoiceType: "AR" | "AP", asOfDate: string): AgedSummaryRow[]
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getCustomerStatement`** *(exported)*
+
+```
+getCustomerStatement(business: BusinessName, ledger: LedgerName, customerName: string, asOfDate: string): CustomerStatement
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getCounterpartyHistory`** *(exported)*
+
+```
+getCounterpartyHistory(business: BusinessName, ledger: LedgerName, counterpartyName: string): HistoryLine[]
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getItemByUpc`** *(exported)*
+
+```
+getItemByUpc(upc: string): ItemSummary | undefined
+```
+
+Called from: production: routes/pos.ts ((module level) ×2) · tests: 4 call(s) in 1 file(s)
+
+**`isDescendantOf`** *(exported)*
+
+```
+isDescendantOf(entityName: string, rootName: string): boolean
+```
+
+Called from: production: db.ts (isGenuineCategoryOrItemsRoot ×1)
+
+**`getHierarchyChain`** *(exported)*
+
+```
+getHierarchyChain(leafName: ItemName | LocationName): HierarchyChainNode[]
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`getAncestorChain`** *(exported)*
+
+```
+getAncestorChain(entityName: string, rootName: string): string[]
+```
+
+Called from: production: db.ts (ensureProductSalesCogsAccounts ×1)
+
+**`ensureCategoryChain`** *(exported)*
+
+```
+ensureCategoryChain(rootName: string, prefix: string, chain: string[], userId: UserId): { name: string; id: number; }
+```
+
+Called from: production: db.ts (ensureProductSalesCogsAccounts ×2)
+
+**`ensureProductSalesCogsAccounts`** *(exported)*
+
+```
+ensureProductSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
+```
+
+Called from: production: db.ts (completePosSale ×2, ensureProductLocationLeaf ×1, ensureProductTierItem ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`ensureProductInventoryAccount`** *(exported)*
+
+```
+ensureProductInventoryAccount(itemName: ItemName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number; }
+```
+
+Called from: production: db-stock.ts (writeOffStock ×1); db.ts (completePosSale ×1, ensureProductLocationInventoryAccount ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`ensureProductLocationInventoryAccount`** *(exported)*
+
+```
+ensureProductLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number; }
+```
+
+Called from: production: db-stock.ts (completeStockTake ×1); db.ts (completeCashPurchase ×1, completePosSale ×1)
+
+**`ensureBusinessRoot`**
+
+```
+ensureBusinessRoot(businessName: BusinessName, rootName: string, userId: UserId): { id: number; name: string; }
+```
+
+Called from: production: db.ts (defineProductShape ×1, ensureHierarchyGrouping ×1, ensureProductInstance ×1)
+
+**`ensureHierarchyGrouping`** *(exported)*
+
+```
+ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): { id: number; name: string; }
+```
+
+Called from: production: db.ts (defineProductShape ×1, ensureHierarchyValue ×1); routes/hierarchy.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+
+**`ensureHierarchyValue`** *(exported)*
+
+```
+ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): { id: number; name: string; }
+```
+
+Called from: production: db.ts (ensureProductInstance ×1); routes/hierarchy.ts ((module level) ×1) · tests: 14 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
+
+**`defineProductShape`** *(exported)*
+
+```
+defineProductShape(businessName: BusinessName, dimensions: [string, string][], userId: UserId): { id: number; name: string; }[]
+```
+
+Called from: production: db.ts (ensureProductInstance ×1); routes/hierarchy.ts ((module level) ×1) · tests: 7 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+
+**`ensureProductInstance`** *(exported)*
+
+```
+ensureProductInstance(businessName: BusinessName, definitionDimensions: [string, string][], values: string[], userId: UserId): { id: number; name: string; }
+```
+
+Called from: production: db-stock.ts (dispatchStockFromLocation ×1, receiveStockAtLocation ×1, transferStock ×4, writeOffStock ×1); db.ts (completePosSale ×3, convertStorageSpace ×2, ensureCurrencyPair ×1, openStorageContainer ×2) · tests: 8 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
+
+**`getCombinationDisplayName`** *(exported)*
+
+```
+getCombinationDisplayName(entityId: number): string
+```
+
+Called from: production: db-reports.ts (getTrialBalance ×1, toLine ×1); db.ts (ensureCombinationAccountLeaf ×1) · tests: 4 call(s) in 1 file(s)
+
+**`climbInstanceTree`** *(exported)*
+
+```
+climbInstanceTree(instanceId: number): { combinationValues: string[]; combinationShape: [string, string][]; }
+```
+
+Called from: production: db.ts (getCombinationByUpc ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getCombinationByUpc`** *(exported)*
+
+```
+getCombinationByUpc(upc: string): { itemName: string; combinationValues: string[]; combinationShape: [string, string][]; } | undefined
+```
+
+Called from: production: routes/pos.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`ensureCombinationAccountLeaf`** *(exported)*
+
+```
+ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string; }, userId: UserId, baseAccountId?: number): { id: number; name: string; }
+```
+
+Called from: production: db-stock.ts (dispatchStockFromLocation ×3, receiveStockAtLocation ×3, transferStock ×4, writeOffStock ×2); db.ts (completePosSale ×3, convertStorageSpace ×4, openStorageContainer ×4) · tests: 7 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+
+**`ensureStorageCapacityStructure`** *(exported)*
+
+```
+ensureStorageCapacityStructure(parentEntity: { id: number; name: string; }, userId: UserId): { remainingId: number; installedId: number; occupiedId: number; }
+```
+
+Called from: production: db-stock.ts (ensureLocationCapacityAccount ×1); db.ts (convertStorageSpace ×1, openStorageContainer ×1)
+
+**`convertStorageSpace`** *(exported)*
+
+```
+convertStorageSpace(business: BusinessName, ledger: LedgerName, itemName: ItemName, definitionDimensions: [string, string][], fromValues: string[], toValues: string[], quantity: number, userId: UserId, reference?: string): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`openStorageContainer`** *(exported)*
+
+```
+openStorageContainer(business: BusinessName, ledger: LedgerName, definitionDimensions: [string, string][], containerValues: string[], cartonsOpened: number, unitValues: string[], unitsProduced: number, userId: UserId, reference?: string): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`getBusinessHierarchy`** *(exported)*
+
+```
+getBusinessHierarchy(businessName: BusinessName): HierarchyGroupingWithValues[]
+```
+
+Called from: production: routes/hierarchy.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getBusinessProductShapes`** *(exported)*
+
+```
+getBusinessProductShapes(businessName: BusinessName): [string, string][][]
+```
+
+Called from: production: routes/hierarchy.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getProductUnitCostMinor`** *(exported)*
+
+```
+getProductUnitCostMinor(itemName: ItemName): number | null
+```
+
+Called from: production: db-stock.ts (dispatchStockFromLocation ×1, receiveStockAtLocation ×1, transferStock ×1); db.ts (completePosSale ×1)
+
+**`ensureProductTierItem`** *(exported)*
+
+```
+ensureProductTierItem(baseProductName: ItemName, tier: string, userId: UserId): { tierItemName: string; tierItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
+```
+
+Called from: production: db.ts (completePosSale ×4) · tests: 7 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+
+**`ensureProductTierLocationLeaf`** *(exported)*
+
+```
+ensureProductTierLocationLeaf(tierItemName: string, locationName: LocationName, userId: UserId, tierItemId?: number): { leafItemName: string; leafItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
+```
+
+Called from: production: db.ts (completePosSale ×2) · tests: 5 call(s) in 1 file(s)
+
+**`ensureProductLocationLeaf`** *(exported)*
+
+```
+ensureProductLocationLeaf(itemName: ItemName, locationName: LocationName, userId: UserId): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
+```
+
+Called from: production: db.ts (completePosSale ×2)
+
+**`getLocationForAccount`** *(exported)*
+
+```
+getLocationForAccount(accountName: AccountName): string | undefined
+```
+
+Called from: production: db.ts (getDivisionForAccount ×1) · tests: 3 call(s) in 1 file(s)
+
+**`getDivisionForAccount`** *(exported)*
+
+```
+getDivisionForAccount(accountName: AccountName): string | undefined
+```
+
+Called from: production: db-reports.ts (getLedgerBalancesByDivisionStructural ×1) · tests: 3 call(s) in 1 file(s)
+
+**`getQualifiedDisplayName`** *(exported)*
+
+```
+getQualifiedDisplayName(entityId: number): string
+```
+
+Called from: production: db-reports.ts (getTrialBalance ×1, toLine ×1) · tests: 2 call(s) in 1 file(s)
+
+**`ensureProductQuantityAccounts`** *(exported)*
+
+```
+ensureProductQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number; }
+```
+
+Called from: production: db-stock.ts (completeStockTake ×1, dispatchStockFromLocation ×1, placeOrder ×1, receiveStockAtLocation ×1, writeOffStock ×1)
+
+**`cityDivisionFor`** *(exported)*
+
+```
+cityDivisionFor(locationName: string): string | undefined
+```
+
+Called from: production: db-stock.ts (getStockListingByLocation ×1, getStockMovementReport ×2); db.ts (completeCashPurchase ×1, completePosSale ×2, getDivisionForAccount ×1) · tooling: 2 call(s) in 1 file(s)
+
+**`resolveDispatchLocation`** *(exported)*
+
+```
+resolveDispatchLocation(itemName: ItemName, logicalLocationName: LocationName): LocationName
+```
+
+Called from: production: db.ts (completePosSale ×2)
+
+**`completePosSale`** *(exported)*
+
+```
+completePosSale(input: PosSaleInput, userId: UserId): PosSaleResult
+```
+
+Called from: production: routes/pos.ts ((module level) ×1) · tests: 33 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
+
+**`completeCashPurchase`** *(exported)*
+
+```
+completeCashPurchase(input: CashPurchaseInput, userId: UserId): CashPurchaseResult
+```
+
+Called from: production: routes/pos.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`payEmployeeWages`** *(exported)*
+
+```
+payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): PayEmployeeWagesResult
+```
+
+Called from: production: routes/pos.ts ((module level) ×1) · tests: 5 call(s) in 1 file(s)
+
+**`recordReminderSent`** *(exported)*
+
+```
+recordReminderSent(customerName: string): number
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s)
+
+**`resetReminderLevel`** *(exported)*
+
+```
+resetReminderLevel(customerName: string): void
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getReminderCandidates`** *(exported)*
+
+```
+getReminderCandidates(business: BusinessName, ledger: LedgerName, asOfDate: string): ReminderCandidate[]
+```
+
+Called from: production: routes/invoices.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getContact`** *(exported)*
+
+```
+getContact(entityName: string): Contact | undefined
+```
+
+Called from: production: db-journal.ts (clockInToProject ×1, clockOutOfProject ×1); db.ts (completePosSale ×1, createInvoice ×1, getAgedInvoices ×1, getReminderCandidates ×1, getTypedAddresses ×1, getTypedContactPersons ×1, and 2 more); invoice.ts (generateInvoicePdf ×1); routes/contacts.ts ((module level) ×1) · tests: 12 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
+
+**`ensureInvoiceLinesRoot`**
+
+```
+ensureInvoiceLinesRoot(userId: UserId): { id: number; }
+```
+
+Called from: production: db.ts (recordInvoiceLine ×1)
+
+**`recordInvoiceLine`** *(exported)*
+
+```
+recordInvoiceLine(reference: string, business: string, ledger: string, description: string, quantity: number | null, unitPriceMinor: number | null, amountMinor: number, taxMinor: number): void
+```
+
+Called from: production: db-journal.ts (postApPurchase ×1, postArSale ×1, postStockDispatch ×1, postStockReceipt ×1)
+
+**`getInvoiceLine`** *(exported)*
+
+```
+getInvoiceLine(reference: string, business: BusinessName, ledger: LedgerName): InvoiceLine | undefined
+```
+
+Called from: production: invoice.ts (generateInvoicePdf ×1) · tests: 4 call(s) in 1 file(s)
+
+**`getAccountsPostedTo`** *(exported)*
+
+```
+getAccountsPostedTo(reference: string): string[]
+```
+
+Called from: tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`mergeContactDetail`** *(exported)*
+
+```
+mergeContactDetail(entityId: number, fields: Record<string, unknown>): void
+```
+
+Called from: production: db-seed.ts (migrateForWineRetailUpcs ×1); db-stock.ts (setLocation ×1); db.ts (ensureProductTierItem ×1, ensureProductTierLocationLeaf ×1, recordReminderSent ×1, registerCustomer ×1, resetReminderLevel ×1, setContact ×1, and 3 more)
+
+**`setContact`** *(exported)*
+
+```
+setContact(entityName: string, contact: Partial<Contact>): void
+```
+
+Called from: production: db-seed.ts (migrateForCashSaleCustomer ×1, seedWineRetailEmployees ×1); db.ts (addTypedAddress ×1, addTypedContactPerson ×1, addTypedPhone ×1, registerCustomer ×1); routes/contacts.ts ((module level) ×1) · tests: 19 call(s) in 1 file(s) · tooling: 7 call(s) in 3 file(s)
+
+**`setPosPin`** *(exported)*
+
+```
+setPosPin(employeeName: string, pin: string): void
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
+
+**`signOn`** *(exported)*
+
+```
+signOn(employeeName: string, locationName: string): PosShift
+```
+
+Called from: tests: 4 call(s) in 1 file(s)
+
+**`verifyPosPin`** *(exported)*
+
+```
+verifyPosPin(employeeName: string, pin: string): boolean
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`signOff`** *(exported)*
+
+```
+signOff(shiftId: number): void
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`parseShiftEntity`**
+
+```
+parseShiftEntity(row: { id: number; employee: string; location: string; name: string; }): PosShift
+```
+
+Called from: production: db.ts (getActiveShiftsAtLocation (as a value), getOpenShiftForEmployee ×1)
+
+**`getActiveShiftsAtLocation`** *(exported)*
+
+```
+getActiveShiftsAtLocation(locationName: string): PosShift[]
+```
+
+Called from: tests: 3 call(s) in 1 file(s)
+
+**`getOpenShiftForEmployee`** *(exported)*
+
+```
+getOpenShiftForEmployee(employeeName: string): PosShift | undefined
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`setLocationOpenHours`** *(exported)*
+
+```
+setLocationOpenHours(locationName: string, hours: OpenHoursLine[]): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getLocationOpenHours`** *(exported)*
+
+```
+getLocationOpenHours(locationName: string): OpenHoursLine[]
+```
+
+Called from: production: db.ts (setLocationOpenHours ×1); routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`setEmployeeSchedule`** *(exported)*
+
+```
+setEmployeeSchedule(employeeName: string, locationName: string, schedule: ScheduleLine[]): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s)
+
+**`getEmployeeSchedule`** *(exported)*
+
+```
+getEmployeeSchedule(employeeName: string): EmployeeScheduleLine[]
+```
+
+Called from: production: db.ts (getScheduleAtLocation ×1, setEmployeeSchedule ×2); routes/locations.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s)
+
+**`getScheduleAtLocation`** *(exported)*
+
+```
+getScheduleAtLocation(locationName: string): LocationScheduleLine[]
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`ensureAddressType`** *(exported)*
+
+```
+ensureAddressType(typeName: string, userId: UserId): void
+```
+
+Called from: production: db.ts (addTypedAddress ×1)
+
+**`listAddressTypes`** *(exported)*
+
+```
+listAddressTypes(): string[]
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1)
+
+**`addTypedAddress`** *(exported)*
+
+```
+addTypedAddress(entityName: string, addressType: string, value: Partial<Contact>, userId: UserId): string
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`getTypedAddresses`** *(exported)*
+
+```
+getTypedAddresses(entityName: string): TypedAddress[]
+```
+
+Called from: production: db.ts (getBusinessConfigurationReport ×1); routes/contacts.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`deleteTypedAddress`** *(exported)*
+
+```
+deleteTypedAddress(entityName: string, addressType: string, userId: UserId): void
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`ensurePhoneType`** *(exported)*
+
+```
+ensurePhoneType(typeName: string, userId: UserId): void
+```
+
+Called from: production: db.ts (addTypedPhone ×1)
+
+**`listPhoneTypes`** *(exported)*
+
+```
+listPhoneTypes(): string[]
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1)
+
+**`addTypedPhone`** *(exported)*
+
+```
+addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId): string
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`getTypedPhones`** *(exported)*
+
+```
+getTypedPhones(entityName: string): TypedPhone[]
+```
+
+Called from: production: db.ts (getBusinessConfigurationReport ×1); routes/contacts.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`deleteTypedPhone`** *(exported)*
+
+```
+deleteTypedPhone(entityName: string, phoneType: string, userId: UserId): void
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`ensureContactPersonType`** *(exported)*
+
+```
+ensureContactPersonType(typeName: string, userId: UserId): void
+```
+
+Called from: production: db.ts (addTypedContactPerson ×1)
+
+**`listContactPersonTypes`** *(exported)*
+
+```
+listContactPersonTypes(): string[]
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1)
+
+**`addTypedContactPerson`** *(exported)*
+
+```
+addTypedContactPerson(entityName: string, contactType: string, value: { name: string; phone?: string | null; email?: string | null; }, userId: UserId): string
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1)
+
+**`getTypedContactPersons`** *(exported)*
+
+```
+getTypedContactPersons(entityName: string): ContactPerson[]
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1)
+
+**`deleteTypedContactPerson`** *(exported)*
+
+```
+deleteTypedContactPerson(entityName: string, contactType: string, userId: UserId): void
+```
+
+Called from: production: routes/contacts.ts ((module level) ×1)
+
+**`addTyped`**
+
+```
+addTyped<T>(entityName: string, thingSuffix: string, type: string, value: T, save: (recordName: string, value: T) => void, userId: UserId): string
+```
+
+Called from: production: db.ts (addTypedAddress ×1, addTypedContactPerson ×1, addTypedPhone ×1)
+
+**`getTyped`**
+
+```
+getTyped<T>(entityName: string, typeCategory: string, typeKey: string, load: (recordName: string) => Partial<T>): Record<string, unknown>[]
+```
+
+Called from: production: db.ts (getTypedAddresses ×1, getTypedContactPersons ×1, getTypedPhones ×1)
+
+**`deleteTyped`**
+
+```
+deleteTyped(entityName: string, thingSuffix: string, type: string, userId: UserId): void
+```
+
+Called from: production: db.ts (deleteTypedAddress ×1, deleteTypedContactPerson ×1, deleteTypedPhone ×1)
+
+**`getPrototypeOf`** *(exported)*
+
+```
+getPrototypeOf(entityName: string): string | undefined
+```
+
+Called from: tests: 3 call(s) in 1 file(s)
+
+**`setPrototype`** *(exported)*
+
+```
+setPrototype(entityName: string, prototypeName: string, userId: UserId): void
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`seedDefaultHierarchyPrototypes`** *(exported)*
+
+```
+seedDefaultHierarchyPrototypes(business: TypedNode<"BusinessName">, userId: UserId): void
+```
+
+Called from: production: db.ts (createBusiness ×1)
+
+**`setEntityLink`** *(exported)*
+
+```
+setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number, targetId?: number): string
+```
+
+Called from: production: db-seed.ts (migrateForMenuEntities ×1); db-stock.ts (setItemSourceLeadTime ×1); db.ts (addTaskDependency ×1, postBomComponents ×1, registerBankAccount ×2, relinkDisplayOrderChain ×1, setContactType ×1, setDimensionParent ×1, and 4 more); primitives.ts (Link.set ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getEntityLink`** *(exported)*
+
+```
+getEntityLink(entityName: string, linkType: string): string | undefined
+```
+
+Called from: production: db.ts (getBankAccounts ×1, getDimensionParent ×1, getItemStorageOrigin ×1, getLanguageDirection ×1, getLineType ×1, getMenuTree ×1, and 2 more); primitives.ts (Link.get ×1) · tests: 4 call(s) in 1 file(s)
+
+**`deleteEntityLink`** *(exported)*
+
+```
+deleteEntityLink(entityName: string, linkType: string, userId: UserId): void
+```
+
+Called from: production: db-stock.ts (setItemSourceLeadTime ×1); db.ts (deleteBomComponent ×1, deleteDimensionParent ×1, postBomComponents ×1, relinkDisplayOrderChain ×1, removeContactType ×1, setItemStorageOrigin ×1, and 4 more); primitives.ts (Link.delete ×1) · tests: 1 call(s) in 1 file(s)
+
+**`stageBomComponent`** *(exported)*
+
+```
+stageBomComponent(input: { assemblyItem: string; business: string; componentItem: string; quantity: number; unit: string; }): void
+```
+
+Called from: production: routes/items.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s) · tooling: 8 call(s) in 4 file(s)
+
+**`postBomComponents`** *(exported)*
+
+```
+postBomComponents(assemblyItem: string, business: string, userId: UserId): void
+```
+
+Called from: production: routes/items.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s) · tooling: 5 call(s) in 4 file(s)
+
+**`deleteBomComponent`** *(exported)*
+
+```
+deleteBomComponent(assemblyItem: string, componentItem: string, userId: UserId): void
+```
+
+Called from: production: routes/items.ts ((module level) ×1)
+
+**`getBomComponents`** *(exported)*
+
+```
+getBomComponents(assemblyItem: string): { component: string; quantity: number; unit: string; }[]
+```
+
+Called from: production: routes/items.ts ((module level) ×2) · tests: 3 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`createProjectTask`** *(exported)*
+
+```
+createProjectTask(projectName: string, taskName: string, plannedStart: string, plannedEnd: string, userId: UserId): void
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`getProjectTasks`** *(exported)*
+
+```
+getProjectTasks(projectName: string): { task: string; plannedStart: string; plannedEnd: string; }[]
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
+
+**`addTaskDependency`** *(exported)*
+
+```
+addTaskDependency(dependentTask: string, predecessorTask: string, dependencyType: "finish_to_start" | "start_to_start" | "finish_to_finish" | "start_to_finish", userId: UserId): void
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
+
+**`getTaskDependencies`** *(exported)*
+
+```
+getTaskDependencies(dependentTask: string): { predecessor: string; dependencyType: string; }[]
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
+
+**`setDimensionParent`** *(exported)*
+
+```
+setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void
+```
+
+Called from: production: db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db-stock.ts (placeOrder ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureProductLocationInventoryAccount ×1, ensureProductLocationLeaf ×2, ensureProductTierItem ×1, ensureProductTierLocationLeaf ×3) · tests: 7 call(s) in 1 file(s)
+
+**`getDimensionParent`** *(exported)*
+
+```
+getDimensionParent(entityName: string, dimensionName: string): string | undefined
+```
+
+Called from: production: db-matrix-reports.ts (resolveKey ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureProductTierLocationLeaf ×1, getContactBaseAccounts ×1, getDimensionAncestorChain ×1, getLocationForAccount ×1, getVocabularyAlternates ×1) · tests: 9 call(s) in 1 file(s)
+
+**`deleteDimensionParent`** *(exported)*
+
+```
+deleteDimensionParent(entityName: string, dimensionName: string, userId: UserId): void
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
+
+**`ensureContactTypeHeaderAccounts`**
+
+```
+ensureContactTypeHeaderAccounts(userId: UserId): void
+```
+
+Called from: production: db.ts (setContactType ×1)
+
+**`setContactType`** *(exported)*
+
+```
+setContactType(contactName: string, typeName: string, userId: UserId): void
+```
+
+Called from: production: db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3); db.ts (createEmployee ×1, createVendor ×1, registerCustomer ×1) · tests: 1 call(s) in 1 file(s)
+
+**`removeContactType`** *(exported)*
+
+```
+removeContactType(contactName: string, typeName: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`getContactTypes`** *(exported)*
+
+```
+getContactTypes(contactName: string): string[]
+```
+
+Called from: production: db.ts (getContactBaseAccounts ×1) · tests: 5 call(s) in 1 file(s)
+
+**`getContactBaseAccounts`** *(exported)*
+
+```
+getContactBaseAccounts(contactName: string): string[]
+```
+
+Called from: tests: 4 call(s) in 1 file(s)
+
+**`getContactsWithType`** *(exported)*
+
+```
+getContactsWithType(typeName: string): string[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`createVendor`** *(exported)*
+
+```
+createVendor(name: string, userId: UserId): { id: number; }
+```
+
+Called from: production: db.ts (ensureCurrencyExchangeItem ×1); routes/entities.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`createEmployee`** *(exported)*
+
+```
+createEmployee(name: string, placeOfEmployment: string, userId: UserId): { id: number; }
+```
+
+Called from: production: routes/entities.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getDimensionChildren`** *(exported)*
+
+```
+getDimensionChildren(parentName: string, dimensionName: string): string[]
+```
+
+Called from: production: db-reports.ts (sumDimensionDescendants ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getDimensionLinksPointingAt`** *(exported)*
+
+```
+getDimensionLinksPointingAt(targetName: string): { entityName: string; dimensionName: string; }[]
+```
+
+Called from: production: db.ts (getVocabularyAlternates ×1); routes/entities.ts ((module level) ×1)
+
+**`getDimensionAncestorChain`** *(exported)*
+
+```
+getDimensionAncestorChain(entityName: string, dimensionName: string): string[]
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
+
+**`registerBankAccount`** *(exported)*
+
+```
+registerBankAccount(accountName: string, business: string, scopeName: string, overdraftLimitMinor: number | null, userId: UserId): void
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 9 call(s) in 1 file(s)
+
+**`unregisterBankAccount`** *(exported)*
+
+```
+unregisterBankAccount(accountName: string, userId: UserId): void
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getBankAccounts`** *(exported)*
+
+```
+getBankAccounts(business: BusinessName, ledger: LedgerName): BankAccountRow[]
+```
+
+Called from: production: db.ts (getCashFlowForecast ×1, getCashPosition ×1); routes/reports.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s)
+
+**`getCashPosition`** *(exported)*
+
+```
+getCashPosition(business: BusinessName, ledger: LedgerName): CashPositionByCurrency[]
+```
+
+Called from: production: db.ts (getCashFlowForecast ×1); routes/reports.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getCashFlowForecast`** *(exported)*
+
+```
+getCashFlowForecast(business: BusinessName, ledger: LedgerName, asOfDate: string, horizonDays: number): CashFlowForecast
+```
+
+Called from: production: routes/reports.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`registerCustomer`** *(exported)*
+
+```
+registerCustomer(input: CustomerRegistrationInput, userId: UserId): void
+```
+
+Called from: production: routes/customer-registration.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s)
+
+**`listPendingCustomers`** *(exported)*
+
+```
+listPendingCustomers(): PendingCustomer[]
+```
+
+Called from: production: routes/customer-registration.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`verifyCustomer`** *(exported)*
+
+```
+verifyCustomer(customerName: string, approve: boolean): void
+```
+
+Called from: production: routes/customer-registration.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`authenticateCustomer`** *(exported)*
+
+```
+authenticateCustomer(name: string, password: string): boolean
+```
+
+Called from: production: routes/customer-registration.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`listProducts`** *(exported)*
+
+```
+listProducts(): ProductSummary[]
+```
+
+Called from: production: routes/products.ts ((module level) ×1)
+
+**`createProduct`** *(exported)*
+
+```
+createProduct(name: string, parent: string, userId: UserId): void
+```
+
+Called from: production: routes/products.ts ((module level) ×1)
+
+**`getItemProduct`** *(exported)*
+
+```
+getItemProduct(itemName: string): string | null
+```
+
+Called from: nowhere the compiler could find.
+
+**`setItemProduct`** *(exported)*
+
+```
+setItemProduct(itemName: string, productName: string | null, userId: UserId): void
+```
+
+Called from: production: routes/products.ts ((module level) ×1)
+
+**`resolveIdOrThrow`**
+
+```
+resolveIdOrThrow(name: string): number
+```
+
+Called from: production: db.ts (ensureProductQuantityAccounts ×1, setItemProduct ×1, setPrototype ×1)
+
+**`getItem`** *(exported)*
+
+```
+getItem(entityName: string): Item | undefined
+```
+
+Called from: production: db.ts (ensureProductQuantityAccounts ×1); routes/items.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`setItem`** *(exported)*
+
+```
+setItem(entityName: string, item: Partial<Item>): void
+```
+
+Called from: production: db.ts (createItem ×2); routes/items.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s) · tooling: 8 call(s) in 5 file(s)
+
+**`listItems`** *(exported)*
+
+```
+listItems(limit?: number, offset?: number): ItemSummary[]
+```
+
+Called from: production: routes/items.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`countItems`** *(exported)*
+
+```
+countItems(): number
+```
+
+Called from: production: routes/items.ts ((module level) ×1)
+
+**`createItem`** *(exported)*
+
+```
+createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId, businessName?: BusinessName): void
+```
+
+Called from: production: db-seed.ts (migrateForWineRetailDemoData ×1); db.ts (ensureCurrencyExchangeItem ×1) · tests: 57 call(s) in 1 file(s) · tooling: 5 call(s) in 1 file(s)
+
+**`listItemSources`** *(exported)*
+
+```
+listItemSources(itemName: string): ItemSource[]
+```
+
+Called from: production: db.ts (getProductUnitCostMinor ×1); routes/items.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`addOrUpdateItemSource`** *(exported)*
+
+```
+addOrUpdateItemSource(input: ItemSourceInput): void
+```
+
+Called from: production: db.ts (setCurrencyExchangeRate ×2); routes/items.ts ((module level) ×1) · tests: 21 call(s) in 1 file(s) · tooling: 9 call(s) in 3 file(s)
+
+**`getItemPriceForCurrency`** *(exported)*
+
+```
+getItemPriceForCurrency(itemName: string, currency: string | null, productInstanceId?: number): number | null
+```
+
+Called from: production: db.ts (completePosSale ×1) · tests: 5 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`setBusinessHomeCurrency`** *(exported)*
+
+```
+setBusinessHomeCurrency(businessName: string, currencyCode: string, userId: UserId): void
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`getBusinessHomeCurrency`** *(exported)*
+
+```
+getBusinessHomeCurrency(businessName: string): string | null
+```
+
+Called from: production: db.ts (getBusinessConfigurationReport ×1) · tests: 2 call(s) in 1 file(s)
+
+**`nominateLocationCurrency`** *(exported)*
+
+```
+nominateLocationCurrency(locationName: string, currencyCode: string, userId: UserId): void
+```
+
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`getLocationCurrencies`** *(exported)*
+
+```
+getLocationCurrencies(locationName: string): string[]
+```
+
+Called from: production: db.ts (completePosSale ×1); routes/locations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`ensureCurrencyExchangeItem`**
+
+```
+ensureCurrencyExchangeItem(userId: UserId): void
+```
+
+Called from: production: db.ts (ensureCurrencyPair ×1)
+
+**`ensureCurrencyPair`** *(exported)*
+
+```
+ensureCurrencyPair(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId): { id: number; name: string; }
+```
+
+Called from: production: db.ts (setCurrencyExchangeRate ×1) · tests: 2 call(s) in 1 file(s)
+
+**`setCurrencyExchangeRate`** *(exported)*
+
+```
+setCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId, buyRateMinor?: number, sellRateMinor?: number): void
+```
+
+Called from: tests: 8 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`getCurrencyExchangeRate`** *(exported)*
+
+```
+getCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, side: "buy" | "sell"): number | null
+```
+
+Called from: production: db.ts (convertStorageSpace ×1) · tests: 11 call(s) in 1 file(s)
+
+**`listCurrencyPairs`** *(exported)*
+
+```
+listCurrencyPairs(currencies: string[]): { from: string; to: string; }[]
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
+
+**`deleteItemSource`** *(exported)*
+
+```
+deleteItemSource(id: number): void
+```
+
+Called from: production: routes/items.ts ((module level) ×1)
+
+**`getLanguages`** *(exported)*
+
+```
+getLanguages(): { id: number; name: string; }[]
+```
+
+Called from: production: db-seed.ts (migrateForVocabularyAlternates ×1); db.ts (getVocabularyWords ×1); routes/i18n.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getDefaultLanguage`** *(exported)*
+
+```
+getDefaultLanguage(): string | null
+```
+
+Called from: production: invoice.ts (generateInvoicePdf ×1); routes/i18n.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`setDefaultLanguage`** *(exported)*
+
+```
+setDefaultLanguage(languageName: string, userId: UserId): void
+```
+
+Called from: production: routes/i18n.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getDivisions`** *(exported)*
+
+```
+getDivisions(): { id: number; name: string; parentName: string | null; centerType: string | null; }[]
+```
+
+Called from: production: db-reports.ts (getProfitAndLossByDivisionTree ×1); db.ts (cityDivisionFor ×1); routes/divisions.ts ((module level) ×1)
+
+**`getMenuTree`** *(exported)*
+
+```
+getMenuTree(opts?: { businessName?: string; userId?: number; }): MenuSectionRow[]
+```
+
+Called from: production: db.ts (getScreenTitle ×1); routes/menu.ts ((module level) ×1) · tooling: 1 call(s) in 1 file(s)
+
+**`getScreenTitle`** *(exported)*
+
+```
+getScreenTitle(href: string, opts?: { businessName?: string; userId?: number; }): string | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`setMenuOverride`** *(exported)*
+
+```
+setMenuOverride(menuItemKey: string, scope: "business" | "user", scopeId: number, overrideLabel: string | null, hidden: boolean, userId?: UserId): void
+```
+
+Called from: production: routes/menu.ts ((module level) ×1)
+
+**`deleteMenuOverride`** *(exported)*
+
+```
+deleteMenuOverride(menuItemKey: string, scope: "business" | "user", scopeId: number, userId?: UserId): void
+```
+
+Called from: production: routes/menu.ts ((module level) ×1)
+
+**`setDivisionType`** *(exported)*
+
+```
+setDivisionType(divisionNameOrId: string | EntityId, typeMarkerName: string): void
+```
+
+Called from: production: routes/divisions.ts ((module level) ×1) · tests: 10 call(s) in 1 file(s)
+
+**`getDivisionType`** *(exported)*
+
+```
+getDivisionType(divisionName: string): string | null
+```
+
+Called from: production: db-journal.ts (stageLine ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getDivisionTypes`** *(exported)*
+
+```
+getDivisionTypes(): string[]
+```
+
+Called from: production: routes/divisions.ts ((module level) ×1)
+
+**`createDivisionType`** *(exported)*
+
+```
+createDivisionType(name: string, userId: UserId): void
+```
+
+Called from: production: routes/divisions.ts ((module level) ×1)
+
+**`getVocabularyWords`** *(exported)*
+
+```
+getVocabularyWords(): VocabularyWord[]
+```
+
+Called from: production: routes/i18n.ts ((module level) ×1)
+
+**`getVocabularyAlternates`** *(exported)*
+
+```
+getVocabularyAlternates(wordName: string): string[]
+```
+
+Called from: production: routes/i18n.ts ((module level) ×1)
+
+**`getConceptsWithAlternates`** *(exported)*
+
+```
+getConceptsWithAlternates(): ConceptWithAlternates[]
+```
+
+Called from: production: routes/i18n.ts ((module level) ×1)
+
+**`setVocabularyPreference`** *(exported)*
+
+```
+setVocabularyPreference(conceptName: string, scope: "business" | "user", scopeId: number, preferredAlternateName: string): void
+```
+
+Called from: production: routes/i18n.ts ((module level) ×1)
+
+**`deleteVocabularyPreference`** *(exported)*
+
+```
+deleteVocabularyPreference(conceptName: string, scope: "business" | "user", scopeId: number): void
+```
+
+Called from: production: routes/i18n.ts ((module level) ×1)
+
+**`getLocalizedText`** *(exported)*
+
+```
+getLocalizedText(language: string, opts?: { businessName?: string; userId?: number; }): Record<string, string>
+```
+
+Called from: production: invoice.ts (generateInvoicePdf ×1); routes/i18n.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`setTranslation`** *(exported)*
+
+```
+setTranslation(conceptName: string, languageName: string, text: string, userId?: UserId): void
+```
+
+Called from: production: db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForCoaTranslations ×1, migrateForDayOfWeekTranslations ×1, migrateForDivisionAndLocationTypeTranslations ×1, migrateForEnglishStringAuditGap ×12, migrateForEnglishStringAuditTranslations ×4, and 6 more); routes/i18n.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s) · tooling: 8 call(s) in 6 file(s)
+
+**`getAllTranslations`** *(exported)*
+
+```
+getAllTranslations(languageName: string): Record<string, string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getTranslation`** *(exported)*
+
+```
+getTranslation(conceptName: string, languageName: string): string | null
+```
+
+Called from: production: db-seed.ts (migrateForVocabularyAlternates ×1); db.ts (getVocabularyWords ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getBusinesses`** *(exported)*
+
+```
+getBusinesses(): { id: number; name: BusinessName; }[]
+```
+
+Called from: production: routes/businesses.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`getLedgers`** *(exported)*
+
+```
+getLedgers(businessName: BusinessName): { id: number; name: LedgerName; }[]
+```
+
+Called from: production: routes/businesses.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+
+**`addFinancialStatementNote`** *(exported)*
+
+```
+addFinancialStatementNote(businessName: BusinessName, noteText: string, userId: UserId): { id: number; }
+```
+
+Called from: tests: 3 call(s) in 1 file(s)
+
+**`getFinancialStatementNotes`** *(exported)*
+
+```
+getFinancialStatementNotes(businessName: BusinessName): { name: string; text: string; }[]
+```
+
+Called from: production: db.ts (getBusinessConfigurationReport ×1) · tests: 2 call(s) in 1 file(s)
+
+**`createLocation`** *(exported)*
+
+```
+createLocation(businessName: BusinessName, locationName: string, userId: UserId): TypedNode<"LocationEntityName">
+```
+
+Called from: production: db-journal.ts (postLocation ×1); db.ts (createAndConfigureLocation ×1)
+
+**`createAndConfigureLocation`** *(exported)*
+
+```
+createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId): TypedNode<"LocationEntityName">
+```
+
+Called from: tests: 7 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`createItemCategory`** *(exported)*
+
+```
+createItemCategory(businessName: BusinessName, categoryName: string, parentCategoryName: string | undefined, userId: UserId): TypedNode<"RootName">
+```
+
+Called from: tests: 4 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`nominateBankAccount`** *(exported)*
+
+```
+nominateBankAccount(businessName: BusinessName, bankAccountName: string, routingDetail: string, accountNumber: string, userId: UserId): { id: number; }
+```
+
+Called from: production: routes/businesses.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s)
+
+**`getNominatedBankAccounts`** *(exported)*
+
+```
+getNominatedBankAccounts(businessName: BusinessName): { name: string; routingDetail: string; accountNumber: string; }[]
+```
+
+Called from: production: db.ts (getBusinessConfigurationReport ×1); routes/businesses.ts ((module level) ×1)
+
+**`getBusinessConfigurationReport`** *(exported)*
+
+```
+getBusinessConfigurationReport(businessName: BusinessName): BusinessConfigurationReport
+```
+
+Called from: production: routes/businesses.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`buildBankCurrencyStructure`** *(exported)*
+
+```
+buildBankCurrencyStructure<TBrand extends string>(businessName: BusinessName, headerName: string, leafType: TypeDescriptor<TBrand>, selections: { bankAccountName: string; currency: string; }[], userId: UserId): void
+```
+
+Called from: production: routes/businesses.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`setupEquityStructure`** *(exported)*
+
+```
+setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaPrototype?: string, partnerNames?: string[]): void
+```
+
+Called from: production: db.ts (createBusiness ×1)
+
+**`getBusinessTypes`** *(exported)*
+
+```
+getBusinessTypes(): BusinessTypeInfo[]
+```
+
+Called from: production: routes/businesses.ts ((module level) ×1)
+
+**`saveBusinessTypeAnswers`** *(exported)*
+
+```
+saveBusinessTypeAnswers(businessName: BusinessName, answers: Record<string, string>, userId: UserId): void
+```
+
+Called from: production: routes/businesses.ts ((module level) ×1)
+
+**`copyChartOfAccountsInto`** *(exported)*
+
+```
+copyChartOfAccountsInto(business: TypedNode<string>, destRoot: TypedNode<string>, coaPrototype: string | undefined, userId: UserId): void
+```
+
+Called from: production: db-seed.ts (migrateForBusinessTypes ×1); db.ts (instantiateChartOfAccounts ×1)
+
+**`instantiateChartOfAccounts`** *(exported)*
+
+```
+instantiateChartOfAccounts(businessName: BusinessName, coaPrototype: string | undefined, userId: UserId): void
+```
+
+Called from: production: db-seed.ts (migrateForPerBusinessChartOfAccounts ×1); db.ts (createBusiness ×1)
+
+**`createBusiness`** *(exported)*
+
+```
+createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaPrototype?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[]): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName; }
+```
+
+Called from: production: routes/businesses.ts ((module level) ×1) · tests: 29 call(s) in 1 file(s) · tooling: 3 call(s) in 3 file(s)
+
+**`getChartOfAccountsPrototype`** *(exported)*
+
+```
+getChartOfAccountsPrototype(language: string): string[]
+```
+
+Called from: production: routes/businesses.ts ((module level) ×1)
+
+### `backend/src/invoice.ts`
+
+**`money`**
+
+```
+money(minorUnits: number): string
+```
+
+Called from: production: invoice.ts (generateInvoicePdf ×6)
+
+**`generateInvoicePdf`** *(exported)*
+
+```
+generateInvoicePdf(options: InvoiceOptions): Promise<Buffer>
+```
+
+Called from: production: routes/invoice.ts ((module level) ×1)
+
+### `backend/src/password.ts`
+
+**`hashPassword`** *(exported)*
+
+```
+hashPassword(password: string): string
+```
+
+Called from: production: auth.ts (changePassword ×1, createUser ×1); db.ts (registerCustomer ×1) · tests: 3 call(s) in 1 file(s)
+
+**`verifyPassword`** *(exported)*
+
+```
+verifyPassword(password: string, stored: string): boolean
+```
+
+Called from: production: auth.ts (changeOwnPassword ×1, login ×1); db.ts (authenticateCustomer ×1) · tests: 4 call(s) in 1 file(s)
+
+### `backend/src/primitives.ts`
+
+**`Entity.create`** *(exported)*
+
+```
+Entity.create(name: string, parent: string | number, userId: UserId): EntityNode
+```
+
+Called from: production: auth.ts (createUser ×1, login ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, ensureLocationScopedAccount ×1, ensurePeriodLockEntity ×1); db-reports.ts (ensureCashAtBankAccount ×1, ensureCurrencyAccount ×1); db-stock.ts (createLocationType ×1, createPosTerminal ×2, createStockTake ×2, createSystemEntity ×1, ensureLocationCapacityAccount ×3, receiveLot ×1, and 2 more); db.ts (addOrUpdateItemSource ×1, allocatePayment ×1, createInvoice ×2, defineProductShape ×1, ensureAddressType ×1, ensureBusinessRoot ×1, and 19 more); primitives.ts (Detail.set ×1, Link.mark ×1)
+
+**`Entity.get`** *(exported)*
+
+```
+Entity.get(idOrName: number | string, parent?: string): { id: number; name: string; parent_id: number | null; relation_id: number | null; } | undefined
+```
+
+Called from: production: db-journal.ts (ensureLocationScopedAccount ×2); db-stock.ts (createLocationType ×1, createPosTerminal ×2, getItemLocation ×1, getLevelFigure ×1, setItemLocationLevelDetails ×3); db.ts (ensureAddressType ×1, ensureContactPersonType ×1, ensureCurrencyExchangeItem ×2, ensurePhoneType ×1, ensureProductSalesCogsAccounts ×1, setDivisionType ×1); primitives.ts (Detail.delete ×1, Detail.set ×1, Link.isMarked ×1, Link.mark ×1, Link.unmark ×1, Link.withTarget ×1)
+
+**`Entity.getUnder`** *(exported)*
+
+```
+Entity.getUnder(name: string, parentId: number): { id: number; name: string; } | undefined
+```
+
+Called from: production: auth.ts (createUser ×1); db-reports.ts (ensureCurrencyAccount ×1); db-stock.ts (ensureLocationCapacityAccount ×3, ensureUnitsTrackingBaseAccounts ×2, receiveLot ×1, setLevelFigure ×1); db.ts (addOrUpdateItemSource ×1, defineProductShape ×1, deleteVocabularyPreference ×1, ensureBusinessRoot ×1, ensureChild ×1, ensureHierarchyGrouping ×1, and 11 more); primitives.ts (Entity.ensureUnder ×1)
+
+**`Entity.ensureUnder`** *(exported)*
+
+```
+Entity.ensureUnder(name: string, parentId: number, userId: UserId): { id: number; name: string; }
+```
+
+Called from: production: db-stock.ts (setItemLocationLevelDetails ×1); db.ts (ensureCategoryChain ×1, ensureProductInventoryAccount ×1, ensureProductSalesCogsAccounts ×1)
+
+**`Entity.rename`** *(exported)*
+
+```
+Entity.rename(id: number, name: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`Entity.reparent`** *(exported)*
+
+```
+Entity.reparent(id: number, parent: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`Entity.relate`** *(exported)*
+
+```
+Entity.relate(id: number, target: string | null, userId: UserId, targetId?: number): void
+```
+
+Called from: production: db.ts (defineProductShape ×1, ensureProductLocationLeaf ×1, ensureProductSalesCogsAccounts ×1, ensureProductTierLocationLeaf ×1, setDivisionType ×1)
+
+**`Entity.delete`** *(exported)*
+
+```
+Entity.delete(id: number, userId: UserId): void
+```
+
+Called from: production: db-stock.ts (setLevelFigure ×1); db.ts (setDivisionType ×1); primitives.ts (Detail.delete ×1, Link.unmark ×1)
+
+**`Entity.children`** *(exported)*
+
+```
+Entity.children(parentId: number): { id: number; name: string; }[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`Link.set`** *(exported)*
+
+```
+Link.set(entityName: string, linkType: string, target: string, userId: UserId): void
+```
+
+Called from: production: db-stock.ts (setItemLocationLevelDetails ×2)
+
+**`Link.get`** *(exported)*
+
+```
+Link.get(entityName: string, linkType: string): string | undefined
+```
+
+Called from: production: db-stock.ts (getItemLocation ×2)
+
+**`Link.delete`** *(exported)*
+
+```
+Link.delete(entityName: string, linkType: string, userId: UserId): void
+```
+
+Called from: production: db-stock.ts (setItemLocationLevelDetails ×2)
+
+**`Link.mark`** *(exported)*
+
+```
+Link.mark(entityName: string, markType: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`Link.unmark`** *(exported)*
+
+```
+Link.unmark(entityName: string, markType: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`Link.isMarked`** *(exported)*
+
+```
+Link.isMarked(entityName: string, markType: string): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`Link.withTarget`** *(exported)*
+
+```
+Link.withTarget(linkType: string, target: string): string[]
+```
+
+Called from: production: db.ts (getContactsWithType ×1)
+
+**`Balance.post`** *(exported)*
+
+```
+Balance.post(business: string, ledger: string, reference: string, accountName: string, accountId: number, delta: number, userId: UserId, transdate?: string): void
+```
+
+Called from: production: db-stock.ts (setLevelFigure ×1)
+
+**`Balance.get`** *(exported)*
+
+```
+Balance.get(accountId: number): number
+```
+
+Called from: production: db-stock.ts (getLevelFigure ×1, setLevelFigure ×1); routes/reports.ts ((module level) ×1)
+
+**`Balance.getScoped`** *(exported)*
+
+```
+Balance.getScoped(accountName: string, dimensionColumn: "location_id" | "division_id", dimensionName: string): number
+```
+
+Called from: production: db-stock.ts (getItemLocation ×1)
+
+**`Hierarchy.buildTree`** *(exported)*
+
+```
+Hierarchy.buildTree(rootName: string, getProperties: (entityName: string, entityId: number | null) => Record<string, number>, relationshipType?: string): HierarchyTreeNode
+```
+
+Called from: production: db-reports.ts (buildCategoryTree ×1); routes/reports.ts ((module level) ×1)
+
+**`Currency.toDebitCredit`** *(exported)*
+
+```
+Currency.toDebitCredit(amountMinor: number, normalSide?: "debit" | "credit"): { debit_minor: number; credit_minor: number; is_contra: boolean; }
+```
+
+Called from: production: db-reports.ts (toCategoryNode ×1, toLine ×2)
+
+**`Currency.fromDebitCredit`** *(exported)*
+
+```
+Currency.fromDebitCredit(debitMinor: number, creditMinor: number): number
+```
+
+Called from: production: db-reports.ts (buildCategoryTree ×1)
+
+**`Detail.set`** *(exported)*
+
+```
+Detail.set(entityName: string, detailType: string, value: string, userId: UserId): void
+```
+
+Called from: production: db.ts (saveBusinessTypeAnswers ×1)
+
+**`Detail.list`** *(exported)*
+
+```
+Detail.list(entityName: string, detailType?: string): string[]
+```
+
+Called from: production: db.ts (getBusinessConfigurationReport ×3)
+
+**`Detail.delete`** *(exported)*
+
+```
+Detail.delete(entityName: string, detailType: string, value: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+### `backend/src/routes/arap.ts`
+
+**`handlePost`**
+
+```
+handlePost(fn: (reference: string, business: BusinessName, ledger: LedgerName, userId: UserId) => void): (req: import("express").Request, res: import("express").Response) => e.Response<any, Record<string, any>>
+```
+
+Called from: production: routes/arap.ts ((module level) ×4)
+
+### `backend/src/routes/matrix-reports.ts`
+
+**`parseAxis`**
+
+```
+parseAxis(value: unknown): MatrixAxis | null
+```
+
+Called from: production: routes/matrix-reports.ts ((module level) ×6)
+
+### `backend/src/routes/reports.ts`
+
+**`requireBusinessLedger`**
+
+```
+requireBusinessLedger(req: import("express").Request, res: import("express").Response): { business: BusinessName; ledger: LedgerName; } | null
+```
+
+Called from: production: routes/reports.ts ((module level) ×2)
+
+**`requireLedger`**
+
+```
+requireLedger(req: import("express").Request, res: import("express").Response): { business: BusinessName; ledger: LedgerName; } | null
+```
+
+Called from: production: routes/reports.ts ((module level) ×6)
+
+**`requireTwoLedgers`**
+
+```
+requireTwoLedgers(req: import("express").Request, res: import("express").Response): { business: BusinessName; a: LedgerName; b: LedgerName; } | null
+```
+
+Called from: production: routes/reports.ts ((module level) ×2)
+
+### `backend/src/routes/stock.ts`
+
+**`handlePost`**
+
+```
+handlePost(fn: (reference: string, business: BusinessName, ledger: LedgerName, userId: UserId) => void): (req: import("express").Request, res: import("express").Response) => e.Response<any, Record<string, any>>
+```
+
+Called from: production: routes/stock.ts ((module level) ×4)
+
+### `backend/src/server.ts`
+
+**`getAppVersion`**
+
+```
+getAppVersion(): string
+```
+
+Called from: production: server.ts ((module level) ×1)
+
+**`getDbVersion`**
+
+```
+getDbVersion(): string
+```
+
+Called from: production: server.ts ((module level) ×1)
+
+### `backend/src/session-context.ts`
+
+**`runInSessionContext`** *(exported)*
+
+```
+runInSessionContext<T>(context: SessionContext, fn: () => T): T
+```
+
+Called from: production: auth-middleware.ts (attachUser ×1); db-seed.ts (migrateForWineRetailDemoData ×1) · tests: 1 call(s) in 1 file(s)
+
+**`setCurrentBusiness`** *(exported)*
+
+```
+setCurrentBusiness(business: RealBusinessNode): void
+```
+
+Called from: nowhere the compiler could find.
+
+## Frontend library
+
+### `frontend/src/lib/api.ts`
+
+**`asBusinessName`** *(exported)*
+
+```
+asBusinessName(name: string): BusinessName
+```
+
+Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×2, routes/items ×2, routes/locations ×1, routes/pos ×1, routes/post ×4, and 11 more
+
+**`asLedgerName`** *(exported)*
+
+```
+asLedgerName(name: string): LedgerName
+```
+
+Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/items ×1, routes/post ×4, routes/projects ×2, routes/reports/trial-balance ×1, and 8 more
+
+**`asAccountName`** *(exported)*
+
+```
+asAccountName(name: string): AccountName
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/ap-purchase ×0, routes/pos ×1, routes/post ×2, routes/projects ×1, routes/stock/po ×1, routes/stock/stock-take ×1, routes/stock/write-offs ×1
+
+**`asDivisionName`** *(exported)*
+
+```
+asDivisionName(name: string): DivisionName
+```
+
+Called from: nowhere the compiler could find.
+
+**`asLocationName`** *(exported)*
+
+```
+asLocationName(name: string): LocationName
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, routes/arap/ap-purchase ×0, routes/arap/ar-sale ×0, routes/items ×1, routes/pos ×1, routes/setup/business-setup ×5, routes/stock/listing ×1, routes/stock/po ×1, and 2 more
+
+**`asEmployeeName`** *(exported)*
+
+```
+asEmployeeName(name: string): EmployeeName
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/hr ×1, routes/projects ×3, routes/setup/business-setup ×4
+
+**`asCustomerName`** *(exported)*
+
+```
+asCustomerName(name: string): CustomerName
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ar-sale ×0, routes/pos ×1
+
+**`asVendorName`** *(exported)*
+
+```
+asVendorName(name: string): VendorName
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×0, routes/invoices ×1, routes/items ×1, routes/stock/po ×1
+
+**`asItemName`** *(exported)*
+
+```
+asItemName(name: string): ItemName
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/items ×5, routes/pos ×2, routes/stock/listing ×1, routes/stock/po ×1, routes/stock/stock-take ×1, routes/stock/transfer ×2, routes/stock/write-offs ×2
+
+**`compareVersions`** *(exported)*
+
+```
+compareVersions(a: string, b: string): number
+```
+
+Called from: production: api.ts (checkVersion ×1)
+
+**`checkVersion`** *(exported)*
+
+```
+checkVersion(): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1
+
+**`request`**
+
+```
+request<T>(path: string, init?: RequestInit): Promise<T>
+```
+
+Called from: production: api.ts (addOrUpdateItemSource ×1, allocatePaymentToInvoice ×1, apiLogin ×1, apiLogout ×1, buildBankCurrencyStructure ×1, changeOwnPassword ×1, and 185 more)
+
+**`getEntityTree`** *(exported)*
+
+```
+getEntityTree(): Promise<EntityNode[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/contacts ×1, routes/editor ×1, routes/hr ×1, routes/invoices ×1, and 16 more
+
+**`getDimensionLinksPointingAt`** *(exported)*
+
+```
+getDimensionLinksPointingAt(entityId: number): Promise<DimensionLinkPointingAt[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/editor ×1
+
+**`createEntity`** *(exported)*
+
+```
+createEntity(data: { name: string; parent?: string | null; parentId?: number | null; relation?: string | null; accountnumber?: string | null; }): Promise<EntityNode>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/editor ×1, routes/items ×2, routes/locations ×1, routes/setup/business-setup ×1, routes/setup/chart-of-accounts ×1, routes/setup/translations ×2
+
+**`setEntityRelationship`** *(exported)*
+
+```
+setEntityRelationship(entityName: string, relationshipType: string, targetName: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×2
+
+**`createVendor`** *(exported)*
+
+```
+createVendor(name: string): Promise<EntityNode>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/editor ×1
+
+**`createEmployeeContact`** *(exported)*
+
+```
+createEmployeeContact(name: string, placeOfEmployment: string): Promise<EntityNode>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×1
+
+**`updateEntity`** *(exported)*
+
+```
+updateEntity(id: number, data: { name?: string; parent?: string | null; relation?: string | null; accountnumber?: string | null; }): Promise<EntityNode>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/editor ×1, routes/setup/chart-of-accounts ×1
+
+**`deleteEntity`** *(exported)*
+
+```
+deleteEntity(id: number): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/editor ×1, routes/setup/business-setup ×1, routes/setup/chart-of-accounts ×1
+
+**`getBusinessReports`** *(exported)*
+
+```
+getBusinessReports(): Promise<ReportRow[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getChartOfAccounts`** *(exported)*
+
+```
+getChartOfAccounts(): Promise<ChartRow[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getBankAccounts`** *(exported)*
+
+```
+getBankAccounts(business: BusinessName, ledger: LedgerName): Promise<BankAccountRow[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/bank-accounts ×1
+
+**`getCashPosition`** *(exported)*
+
+```
+getCashPosition(business: BusinessName, ledger: LedgerName): Promise<CashPositionByCurrency[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/bank-accounts ×1
+
+**`getCashFlowForecast`** *(exported)*
+
+```
+getCashFlowForecast(business: BusinessName, ledger: LedgerName, asOfDate?: string, horizonDays?: number): Promise<CashFlowForecast>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/cash-flow-forecast ×1
+
+**`registerBankAccount`** *(exported)*
+
+```
+registerBankAccount(accountName: string, business: BusinessName, scopeName: string, overdraftLimitMinor: number | null): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/bank-accounts ×1
+
+**`unregisterBankAccount`** *(exported)*
+
+```
+unregisterBankAccount(accountName: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/bank-accounts ×1
+
+**`getTrialBalance`** *(exported)*
+
+```
+getTrialBalance(business: BusinessName, ledger: LedgerName, asOfDate?: string): Promise<TrialBalance>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/trial-balance ×1
+
+**`getSalesReport`** *(exported)*
+
+```
+getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): Promise<SalesReport>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/sales ×1
+
+**`getMenuTree`** *(exported)*
+
+```
+getMenuTree(businessName?: string): Promise<MenuSectionRow[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1
+
+**`setMenuOverride`** *(exported)*
+
+```
+setMenuOverride(menuItemKey: string, scope: "business" | "user", scopeId: number, overrideLabel: string | null, hidden: boolean): Promise<{ ok: true; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`deleteMenuOverride`** *(exported)*
+
+```
+deleteMenuOverride(menuItemKey: string, scope: "business" | "user", scopeId: number): Promise<{ ok: true; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getBalanceSheet`** *(exported)*
+
+```
+getBalanceSheet(business: BusinessName, ledger: LedgerName, asOfDate?: string): Promise<BalanceSheet>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/balance-sheet ×1
+
+**`getProfitAndLoss`** *(exported)*
+
+```
+getProfitAndLoss(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, divisionName?: string): Promise<ProfitAndLoss>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1
+
+**`getProfitAndLossByDivision`** *(exported)*
+
+```
+getProfitAndLossByDivision(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): Promise<ProfitAndLossByDivision[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getProfitAndLossByDivisionTree`** *(exported)*
+
+```
+getProfitAndLossByDivisionTree(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): Promise<ProfitAndLossByDivisionNode[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1
+
+**`getLedgerDateRange`** *(exported)*
+
+```
+getLedgerDateRange(business: BusinessName, ledger: LedgerName): Promise<LedgerDateRange>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1
+
+**`getLanguages`** *(exported)*
+
+```
+getLanguages(): Promise<{ id: number; name: string; }[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/contacts ×1, routes/customer-terminal ×1, routes/login ×1, routes/session ×1, routes/setup ×1, routes/setup/translations ×2
+
+**`getLanguageDirection`** *(exported)*
+
+```
+getLanguageDirection(language: string): Promise<{ direction: "LTR" | "RTL"; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1, routes/login ×1, routes/session ×1
+
+**`setLanguageDirection`** *(exported)*
+
+```
+setLanguageDirection(language: string, direction: "LTR" | "RTL" | null): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/translations ×1
+
+**`getDefaultLanguage`** *(exported)*
+
+```
+getDefaultLanguage(): Promise<{ language: string | null; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/login ×1, routes/setup ×1
+
+**`setDefaultLanguage`** *(exported)*
+
+```
+setDefaultLanguage(language: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup ×0
+
+**`getLocalizedText`** *(exported)*
+
+```
+getLocalizedText(language: string, businessName?: string): Promise<Record<string, string>>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1, routes/login ×1, routes/session ×1
+
+**`getVocabularyAlternates`** *(exported)*
+
+```
+getVocabularyAlternates(word: string): Promise<string[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getConceptsWithAlternates`** *(exported)*
+
+```
+getConceptsWithAlternates(): Promise<ConceptWithAlternates[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/vocabulary ×1
+
+**`getVocabularyWords`** *(exported)*
+
+```
+getVocabularyWords(): Promise<VocabularyWord[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/translations ×2
+
+**`setVocabularyPreference`** *(exported)*
+
+```
+setVocabularyPreference(conceptName: string, scope: "business" | "user", scopeId: number, preferredAlternateName: string): Promise<{ ok: true; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/vocabulary ×1
+
+**`deleteVocabularyPreference`** *(exported)*
+
+```
+deleteVocabularyPreference(conceptName: string, scope: "business" | "user", scopeId: number): Promise<{ ok: true; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/vocabulary ×1
+
+**`setTranslation`** *(exported)*
+
+```
+setTranslation(entity: string, language: string, text: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/translations ×1
+
+**`getDivisions`** *(exported)*
+
+```
+getDivisions(): Promise<DivisionRecord[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1, routes/setup/bank-accounts ×1
+
+**`createDivision`** *(exported)*
+
+```
+createDivision(name: string, parent: string | null, centerType: string): Promise<{ name: string; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×1
+
+**`getHierarchy`** *(exported)*
+
+```
+getHierarchy(business: string): Promise<HierarchyGroupingWithValues[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/items ×1, routes/locations ×1, routes/setup/hierarchy ×1
+
+**`getProductShapes`** *(exported)*
+
+```
+getProductShapes(business: string): Promise<[string, string][][]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/hierarchy ×1
+
+**`createHierarchyGrouping`** *(exported)*
+
+```
+createHierarchyGrouping(business: string, groupingName: string): Promise<{ name: string; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/hierarchy ×1
+
+**`createHierarchyValue`** *(exported)*
+
+```
+createHierarchyValue(business: string, groupingName: string, valueName: string): Promise<{ name: string; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/hierarchy ×1
+
+**`defineProductShape`** *(exported)*
+
+```
+defineProductShape(business: string, dimensions: [string, string][]): Promise<{ dimensions: [string, string][]; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/hierarchy ×0
+
+**`getBusinesses`** *(exported)*
+
+```
+getBusinesses(): Promise<{ id: number; name: string; }[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/post ×1, routes/projects ×1, routes/session ×1, routes/setup/periods ×1, and 4 more
+
+**`getBusinessTypes`** *(exported)*
+
+```
+getBusinessTypes(): Promise<{ name: string; questions: string[]; }[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/new-business ×1
+
+**`saveBusinessTypeAnswers`** *(exported)*
+
+```
+saveBusinessTypeAnswers(businessName: string, answers: Record<string, string>): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/new-business ×1
+
+**`getLedgers`** *(exported)*
+
+```
+getLedgers(businessName: string): Promise<{ id: number; name: string; }[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/post ×1, routes/projects ×1, routes/reports/compare ×1, routes/reports/trial-balance ×1, and 6 more
+
+**`createBusiness`** *(exported)*
+
+```
+createBusiness(businessName: string, financialYearLabel: string, coaPrototype?: string, secondaryCurrencies?: string[], entityStructure?: "sole_trader" | "partnership" | "llc" | "unlimited_liability" | "publicly_traded", partnerNames?: string[]): Promise<{ business: BusinessName; actualLedger: string; budgetLedger: string; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/new-business ×1
+
+**`getCoaPrototypeAccounts`** *(exported)*
+
+```
+getCoaPrototypeAccounts(language: string): Promise<string[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/new-business ×1
+
+**`nominateBankAccount`** *(exported)*
+
+```
+nominateBankAccount(businessName: string, bankAccountName: string, routingDetail: string, accountNumber: string): Promise<{ id: number; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/new-business ×1
+
+**`getNominatedBankAccounts`** *(exported)*
+
+```
+getNominatedBankAccounts(businessName: string): Promise<{ name: string; routingDetail: string; accountNumber: string; }[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getBusinessConfigurationReport`** *(exported)*
+
+```
+getBusinessConfigurationReport(businessName: string): Promise<BusinessConfigurationReport>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/business-configuration ×1
+
+**`buildBankCurrencyStructure`** *(exported)*
+
+```
+buildBankCurrencyStructure(businessName: string, headerName: string, leafKind: "asset" | "equity", selections: { bankAccountName: string; currency: string; }[]): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/new-business ×1
+
+**`stageLine`** *(exported)*
+
+```
+stageLine(line: StagedLine): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/post ×1
+
+**`getStagedLines`** *(exported)*
+
+```
+getStagedLines(reference: string, business: BusinessName, ledger: LedgerName): Promise<StagedLine[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`removeStagedLine`** *(exported)*
+
+```
+removeStagedLine(reference: string, business: BusinessName, ledger: LedgerName, account: AccountName): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`postJournalEntry`** *(exported)*
+
+```
+postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/post ×1
+
+**`listJournalEntries`** *(exported)*
+
+```
+listJournalEntries(business: BusinessName, ledger: LedgerName, limit?: number, offset?: number): Promise<{ rows: JournalSummary[]; totalCount: number; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/journal ×1
+
+**`getJournalEntry`** *(exported)*
+
+```
+getJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string): Promise<JournalDetail>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/journal/[id]/[date] ×1
+
+**`getTrialBalanceComparison`** *(exported)*
+
+```
+getTrialBalanceComparison(business: BusinessName, a: string, b: string): Promise<TrialBalanceComparison>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/compare ×1
+
+**`getProfitAndLossComparison`** *(exported)*
+
+```
+getProfitAndLossComparison(business: BusinessName, a: string, b: string): Promise<ProfitAndLossComparison>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/compare ×1
+
+**`getContact`** *(exported)*
+
+```
+getContact(name: string): Promise<Contact>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/contacts ×1, routes/editor ×1, routes/hr ×1, routes/setup/business-setup ×1
+
+**`setContact`** *(exported)*
+
+```
+setContact(name: string, contact: Partial<Contact>): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/contacts ×1, routes/editor ×1, routes/setup/business-setup ×1
+
+**`getCreditStatus`** *(exported)*
+
+```
+getCreditStatus(name: string): Promise<CreditStatus>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/ar-sale ×1, routes/contacts ×1
+
+**`getTypedAddresses`** *(exported)*
+
+```
+getTypedAddresses(name: string): Promise<TypedAddress[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): AddressList.svelte ×0
+
+**`setTypedAddress`** *(exported)*
+
+```
+setTypedAddress(name: string, address: Partial<TypedAddress> & { address_type: string; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): AddressList.svelte ×1
+
+**`deleteTypedAddress`** *(exported)*
+
+```
+deleteTypedAddress(name: string, addressType: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): AddressList.svelte ×0
+
+**`getTypedPhones`** *(exported)*
+
+```
+getTypedPhones(name: string): Promise<TypedPhone[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): PhoneList.svelte ×0
+
+**`setTypedPhone`** *(exported)*
+
+```
+setTypedPhone(name: string, phoneType: string, phone: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): PhoneList.svelte ×1
+
+**`deleteTypedPhone`** *(exported)*
+
+```
+deleteTypedPhone(name: string, phoneType: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): PhoneList.svelte ×0
+
+**`listContactPersonTypes`** *(exported)*
+
+```
+listContactPersonTypes(): Promise<string[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): ContactList.svelte ×0
+
+**`listAddressTypes`** *(exported)*
+
+```
+listAddressTypes(): Promise<string[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): AddressList.svelte ×0
+
+**`getLocationTypes`** *(exported)*
+
+```
+getLocationTypes(): Promise<string[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/locations ×2
+
+**`createLocationType`** *(exported)*
+
+```
+createLocationType(name: string): Promise<{ name: string; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/locations ×1
+
+**`listPhoneTypes`** *(exported)*
+
+```
+listPhoneTypes(): Promise<string[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): PhoneList.svelte ×0
+
+**`getTypedContactPersons`** *(exported)*
+
+```
+getTypedContactPersons(name: string): Promise<ContactPerson[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): ContactList.svelte ×0
+
+**`setTypedContactPerson`** *(exported)*
+
+```
+setTypedContactPerson(name: string, contactType: string, value: { name: string; phone?: string | null; email?: string | null; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): ContactList.svelte ×1
+
+**`deleteTypedContactPerson`** *(exported)*
+
+```
+deleteTypedContactPerson(name: string, contactType: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): ContactList.svelte ×0
+
+**`createRecurringJournal`** *(exported)*
+
+```
+createRecurringJournal(business: BusinessName, ledger: LedgerName, reference: string, startDate: string, recurrence: "once" | "weekly" | "monthly" | "yearly", lines: RecurringJournalLine[], description?: string, recurrenceCount?: number): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/post ×1
+
+**`stageArSale`** *(exported)*
+
+```
+stageArSale(input: ArApBaseInput & { customer: string; }): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`postArSale`** *(exported)*
+
+```
+postArSale(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`stageArReceipt`** *(exported)*
+
+```
+stageArReceipt(input: ArApBaseInput & { customer: string; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1
+
+**`postArReceipt`** *(exported)*
+
+```
+postArReceipt(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1
+
+**`stageApPurchase`** *(exported)*
+
+```
+stageApPurchase(input: ArApBaseInput & { vendor: string; expense_account: string; }): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`postApPurchase`** *(exported)*
+
+```
+postApPurchase(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`stageApPayment`** *(exported)*
+
+```
+stageApPayment(input: ArApBaseInput & { vendor: string; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1
+
+**`postApPayment`** *(exported)*
+
+```
+postApPayment(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1
+
+**`apiLogin`** *(exported)*
+
+```
+apiLogin(username: string, password: string): Promise<LoginResponse>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/login ×1
+
+**`apiLogout`** *(exported)*
+
+```
+apiLogout(): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1
+
+**`getUsers`** *(exported)*
+
+```
+getUsers(): Promise<UserSummary[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+
+**`getRoles`** *(exported)*
+
+```
+getRoles(): Promise<{ id: number; name: string; }[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+
+**`createUserAccount`** *(exported)*
+
+```
+createUserAccount(username: string, password: string, roles: string[]): Promise<UserSummary>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+
+**`setUserRolesApi`** *(exported)*
+
+```
+setUserRolesApi(userId: number, roles: string[]): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+
+**`setUserActiveApi`** *(exported)*
+
+```
+setUserActiveApi(userId: number, active: boolean): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+
+**`changeUserPassword`** *(exported)*
+
+```
+changeUserPassword(userId: number, password: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+
+**`reverseJournalEntry`** *(exported)*
+
+```
+reverseJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, reversalDate?: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/journal/[id]/[date] ×0
+
+**`stagePurchaseOrder`** *(exported)*
+
+```
+stagePurchaseOrder(input: PurchaseOrderInput): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/po ×1
+
+**`postPurchaseOrder`** *(exported)*
+
+```
+postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/po ×1
+
+**`stageStockReceipt`** *(exported)*
+
+```
+stageStockReceipt(input: StockReceiptInput): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-receipt ×1
+
+**`postStockReceipt`** *(exported)*
+
+```
+postStockReceipt(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-receipt ×1
+
+**`stageSalesOrder`** *(exported)*
+
+```
+stageSalesOrder(input: SalesOrderInput): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/so ×1
+
+**`postSalesOrder`** *(exported)*
+
+```
+postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/so ×1
+
+**`stageStockDispatch`** *(exported)*
+
+```
+stageStockDispatch(input: StockDispatchInput): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-dispatch ×1
+
+**`postStockDispatch`** *(exported)*
+
+```
+postStockDispatch(reference: string, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-dispatch ×1
+
+**`getOrderStatus`** *(exported)*
+
+```
+getOrderStatus(reference: string): Promise<{ quantity: number; value_minor: number; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-dispatch ×1, routes/stock/stock-receipt ×1
+
+**`getPeriodStatus`** *(exported)*
+
+```
+getPeriodStatus(business: BusinessName, ledger: LedgerName): Promise<PeriodLockStatus>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/post ×1, routes/setup/periods ×1
+
+**`closePeriod`** *(exported)*
+
+```
+closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/periods ×1
+
+**`reopenPeriod`** *(exported)*
+
+```
+reopenPeriod(business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/periods ×1
+
+**`changeOwnPassword`** *(exported)*
+
+```
+changeOwnPassword(currentPassword: string, newPassword: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/account/password ×1
+
+**`setOwnPageSize`** *(exported)*
+
+```
+setOwnPageSize(pageSize: number): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/account/password ×1
+
+**`setOwnNumberFormat`** *(exported)*
+
+```
+setOwnNumberFormat(numberFormat: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/account/password ×1
+
+**`setOwnDateFormat`** *(exported)*
+
+```
+setOwnDateFormat(dateFormat: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/account/password ×1
+
+**`getItemStorageOrigin`** *(exported)*
+
+```
+getItemStorageOrigin(itemName: string): Promise<{ origin: "Hot" | "Cold" | null; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`setItemStorageOrigin`** *(exported)*
+
+```
+setItemStorageOrigin(itemName: string, origin: "Hot" | "Cold" | null): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getBomComponents`** *(exported)*
+
+```
+getBomComponents(itemName: string): Promise<{ components: BomComponent[]; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/items ×1
+
+**`setBomComponent`** *(exported)*
+
+```
+setBomComponent(itemName: string, business: string, componentItem: string, quantity: number, unit: string): Promise<{ components: BomComponent[]; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/items ×1
+
+**`deleteBomComponent`** *(exported)*
+
+```
+deleteBomComponent(itemName: string, componentItem: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/items ×1
+
+**`listItems`** *(exported)*
+
+```
+listItems(limit?: number, offset?: number): Promise<{ rows: ItemSummary[]; totalCount: number; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/items ×5, routes/pos ×1, routes/stock/transfer ×1, routes/stock/write-offs ×1
+
+**`getItem`** *(exported)*
+
+```
+getItem(name: string): Promise<Item>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/items ×1
+
+**`listProducts`** *(exported)*
+
+```
+listProducts(): Promise<ProductSummary[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`createProduct`** *(exported)*
+
+```
+createProduct(name: string, parent?: string): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`setItemProduct`** *(exported)*
+
+```
+setItemProduct(itemName: string, productName: string | null): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`setItem`** *(exported)*
+
+```
+setItem(name: string, item: Partial<Item>): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/items ×2
+
+**`listItemSources`** *(exported)*
+
+```
+listItemSources(itemName: ItemName): Promise<ItemSource[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/items ×2, routes/stock/po ×1
+
+**`addOrUpdateItemSource`** *(exported)*
+
+```
+addOrUpdateItemSource(itemName: ItemName, source: ItemSourceInput): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/items ×1
+
+**`deleteItemSource`** *(exported)*
+
+```
+deleteItemSource(id: number): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/items ×1
+
+**`listInvoices`** *(exported)*
+
+```
+listInvoices(business: BusinessName, ledger: LedgerName, invoiceType?: "AR" | "AP", source?: "manual" | "pos" | "all", limit?: number, offset?: number): Promise<{ rows: Invoice[]; totalCount: number; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/invoices ×1
+
+**`getInvoiceById`** *(exported)*
+
+```
+getInvoiceById(id: number): Promise<Invoice>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/invoices ×1
+
+**`createInvoice`** *(exported)*
+
+```
+createInvoice(input: InvoiceInput): Promise<{ id: number; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/invoices ×1
+
+**`postInvoiceById`** *(exported)*
+
+```
+postInvoiceById(id: number, revenueOrExpenseAccount: string, taxAccount: string, restockInventory?: boolean): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/invoices ×1
+
+**`getInvoiceOutstanding`** *(exported)*
+
+```
+getInvoiceOutstanding(id: number): Promise<{ outstanding_minor: number; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/invoices ×1
+
+**`allocatePaymentToInvoice`** *(exported)*
+
+```
+allocatePaymentToInvoice(id: number, paymentReference: string, allocatedMinor: number, allocationDate: string, paymentAccount: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/invoices ×1
+
+**`exportInvoiceAsEInvoice`** *(exported)*
+
+```
+exportInvoiceAsEInvoice(id: number): Promise<string>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/invoices ×1
+
+**`importEInvoice`** *(exported)*
+
+```
+importEInvoice(xml: string, business: BusinessName, ledger: LedgerName, vendorName: VendorName, poReference?: string): Promise<ImportEInvoiceResult>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/invoices ×1
+
+**`getAgedInvoices`** *(exported)*
+
+```
+getAgedInvoices(business: BusinessName, ledger: LedgerName, invoiceType: "AR" | "AP", asOfDate?: string): Promise<AgedRow[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/aged ×1
+
+**`getAgedSummary`** *(exported)*
+
+```
+getAgedSummary(business: BusinessName, ledger: LedgerName, invoiceType: "AR" | "AP", asOfDate?: string): Promise<AgedSummaryRow[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/aged ×1
+
+**`getCustomerStatement`** *(exported)*
+
+```
+getCustomerStatement(business: BusinessName, ledger: LedgerName, customer: string, asOfDate?: string): Promise<CustomerStatement>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/statement ×1
+
+**`getCounterpartyHistory`** *(exported)*
+
+```
+getCounterpartyHistory(business: BusinessName, ledger: LedgerName, counterparty: string): Promise<HistoryLine[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/contacts ×1
+
+**`getReminderCandidates`** *(exported)*
+
+```
+getReminderCandidates(business: BusinessName, ledger: LedgerName, asOfDate?: string): Promise<ReminderCandidate[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/reminders ×1
+
+**`sendReminder`** *(exported)*
+
+```
+sendReminder(counterparty: string): Promise<{ new_level: number; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/reminders ×1
+
+**`resetReminder`** *(exported)*
+
+```
+resetReminder(counterparty: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/reminders ×1
+
+**`writeOffStock`** *(exported)*
+
+```
+writeOffStock(input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; unitCostMinor: number; writeOffExpenseAccount: string; inventoryAccount: string; reason: string; transdate?: string; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/write-offs ×1
+
+**`receiveLot`** *(exported)*
+
+```
+receiveLot(input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; lotNumber: string; receivedDate: string; expirationDate?: string | null; quantity: number; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/write-offs ×1
+
+**`getExpiringStock`** *(exported)*
+
+```
+getExpiringStock(asOfDate?: string, withinDays?: number): Promise<ExpiringLot[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/write-offs ×1
+
+**`listLocations`** *(exported)*
+
+```
+listLocations(business: BusinessName): Promise<LocationRecord[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/items ×1, routes/locations ×1, routes/pos ×1, routes/stock/po ×1, routes/stock/restock ×1, and 3 more
+
+**`clockInToProject`** *(exported)*
+
+```
+clockInToProject(employeeName: EmployeeName, projectExpenseAccount: string, business: BusinessName, ledger: LedgerName): Promise<EmployeeClock>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/projects ×1
+
+**`clockOutOfProject`** *(exported)*
+
+```
+clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/projects ×1
+
+**`getOpenProjectClock`** *(exported)*
+
+```
+getOpenProjectClock(employeeName: EmployeeName): Promise<EmployeeClock>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/projects ×1
+
+**`getLocationByName`** *(exported)*
+
+```
+getLocationByName(name: string): Promise<LocationRecord>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×1
+
+**`saveLocation`** *(exported)*
+
+```
+saveLocation(name: string, input: LocationInput): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/locations ×3, routes/setup/business-setup ×2
+
+**`createLocation`** *(exported)*
+
+```
+createLocation(name: string, business: string, input: LocationInput): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/locations ×1
+
+**`convertStorageSpace`** *(exported)*
+
+```
+convertStorageSpace(input: { business: string; ledger: string; itemName: string; definitionDimensions: [string, string][]; fromValues: string[]; toValues: string[]; quantity: number; reference?: string; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/locations ×1
+
+**`openStorageContainer`** *(exported)*
+
+```
+openStorageContainer(input: { business: string; ledger: string; definitionDimensions: [string, string][]; containerValues: string[]; cartonsOpened: number; unitValues: string[]; unitsProduced: number; reference?: string; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/locations ×1
+
+**`getLocationCurrencies`** *(exported)*
+
+```
+getLocationCurrencies(locationName: string): Promise<string[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/locations ×1
+
+**`nominateLocationCurrency`** *(exported)*
+
+```
+nominateLocationCurrency(locationName: string, currencyCode: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/locations ×1
+
+**`getPosTerminals`** *(exported)*
+
+```
+getPosTerminals(locationName: string): Promise<PosTerminalRecord[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/pos ×2
+
+**`createPosTerminal`** *(exported)*
+
+```
+createPosTerminal(locationName: string, terminalName: string, currency?: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/pos ×1
+
+**`getLocationOpenHours`** *(exported)*
+
+```
+getLocationOpenHours(locationName: LocationName): Promise<OpenHoursLine[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×1
+
+**`setLocationOpenHours`** *(exported)*
+
+```
+setLocationOpenHours(locationName: LocationName, hours: OpenHoursLine[]): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×1
+
+**`getScheduleAtLocation`** *(exported)*
+
+```
+getScheduleAtLocation(locationName: LocationName): Promise<LocationScheduleLine[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getEmployeeSchedule`** *(exported)*
+
+```
+getEmployeeSchedule(employeeName: EmployeeName): Promise<EmployeeScheduleLine[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×1
+
+**`setEmployeeSchedule`** *(exported)*
+
+```
+setEmployeeSchedule(employeeName: EmployeeName, locationName: LocationName, schedule: ScheduleLine[]): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×2
+
+**`getItemLocation`** *(exported)*
+
+```
+getItemLocation(itemName: ItemName, locationName: LocationName): Promise<ItemLocationLevels>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/transfer ×1
+
+**`setItemLocationLevels`** *(exported)*
+
+```
+setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: { minLevel?: number | null; maxLevel?: number | null; reorderLevel?: number | null; shelfSide?: string | null; rack?: string | null; level?: number | null; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/listing ×1
+
+**`receiveStockAtLocation`** *(exported)*
+
+```
+receiveStockAtLocation(locationName: LocationName, input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][]; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/items ×1
+
+**`dispatchStockFromLocation`** *(exported)*
+
+```
+dispatchStockFromLocation(locationName: LocationName, input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; }): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`transferStock`** *(exported)*
+
+```
+transferStock(input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/transfer ×1
+
+**`getBelowReorderStock`** *(exported)*
+
+```
+getBelowReorderStock(): Promise<BelowReorderRow[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/below-reorder ×1, routes/stock/restock ×2
+
+**`getStockOutRiskReport`** *(exported)*
+
+```
+getStockOutRiskReport(windowDays?: number): Promise<StockOutRiskRow[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/stock-out-risk ×1
+
+**`setItemSourceLeadTime`** *(exported)*
+
+```
+setItemSourceLeadTime(item: string, vendor: string, days: number): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getRestockPickingList`** *(exported)*
+
+```
+getRestockPickingList(runReference: string, warehouseName: string, lines: RestockLineInput[]): Promise<PickingListLine[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/restock ×1
+
+**`confirmRestockPickedLine`** *(exported)*
+
+```
+confirmRestockPickedLine(runReference: string, item: string, business: BusinessName, ledger: LedgerName): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/restock ×1
+
+**`dispatchRestockRun`** *(exported)*
+
+```
+dispatchRestockRun(runReference: string, business: BusinessName, ledger: LedgerName, warehouseName: string, retailOutletName: string, lines: RestockLineInput[], transdate?: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/restock ×1
+
+**`createStockTake`** *(exported)*
+
+```
+createStockTake(locationName: LocationName, takeDate: string): Promise<{ id: number; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-take ×1
+
+**`getStockTake`** *(exported)*
+
+```
+getStockTake(id: number): Promise<StockTake>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-take ×3
+
+**`recordStockTakeCount`** *(exported)*
+
+```
+recordStockTakeCount(id: number, itemName: ItemName, countedQuantity: number): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-take ×1
+
+**`completeStockTake`** *(exported)*
+
+```
+completeStockTake(id: number, business: BusinessName, ledger: LedgerName, varianceExpenseAccount: string, inventoryAccount: string, unitCostMinorByItem: Record<string, number>): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-take ×1
+
+**`lookupItemByUpc`** *(exported)*
+
+```
+lookupItemByUpc(upc: string): Promise<ItemSummary>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/pos ×1
+
+**`completePosSale`** *(exported)*
+
+```
+completePosSale(input: { business: BusinessName; ledger: LedgerName; locationName: LocationName; customerName: CustomerName; lines: PosSaleLineInput[]; revenueAccount?: string; taxAccount: string; paymentMethod?: string; cashTenderedMinor?: number; transdate?: string; terminalName?: string; }): Promise<PosSaleResult>
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/pos ×1
+
+**`completeCashPurchase`** *(exported)*
+
+```
+completeCashPurchase(input: { business: BusinessName; ledger: LedgerName; locationName: LocationName; vendorName: VendorName; lines: CashPurchaseLineInput[]; taxAccount: string; paymentMethod?: string; transdate?: string; }): Promise<CashPurchaseResult>
+```
+
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1
+
+**`payEmployeeWages`** *(exported)*
+
+```
+payEmployeeWages(input: { business: BusinessName; ledger: LedgerName; employeeName: EmployeeName; hours?: number; wagesExpenseAccount?: string; paymentMethod?: string; transdate?: string; }): Promise<PayWagesResult>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/hr ×1
+
+**`getOrganizationChart`** *(exported)*
+
+```
+getOrganizationChart(businessName: string): Promise<OrganizationChart>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/hr ×1, routes/setup/business-setup ×1
+
+**`closeBooks`** *(exported)*
+
+```
+closeBooks(input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string; }): Promise<CloseBooksResult>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/yearend ×1
+
+**`previewCloseBooks`** *(exported)*
+
+```
+previewCloseBooks(input: { ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string; }): Promise<CloseBooksPreview>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/yearend ×1
+
+**`registerCustomer`** *(exported)*
+
+```
+registerCustomer(input: CustomerRegistrationInput): Promise<{ status: string; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/customer-terminal ×1
+
+**`listPendingCustomers`** *(exported)*
+
+```
+listPendingCustomers(): Promise<PendingCustomer[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/pos ×1
+
+**`verifyCustomer`** *(exported)*
+
+```
+verifyCustomer(name: string, approve: boolean): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/pos ×1
+
+**`getStockListing`** *(exported)*
+
+```
+getStockListing(limit?: number, offset?: number): Promise<{ rows: StockListingRow[]; totalCount: number; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`getStockListingByLocation`** *(exported)*
+
+```
+getStockListingByLocation(): Promise<StockListingLocationGroup[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/listing ×1
+
+**`getStockMovementReport`** *(exported)*
+
+```
+getStockMovementReport(ledger: LedgerName, fromDate?: string, toDate?: string): Promise<StockMovementReport>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/stock-movement ×1
+
+### `frontend/src/lib/auth.ts`
+
+**`loadStored`**
+
+```
+loadStored(): AuthState | null
+```
+
+Called from: production: auth.ts (createAuthStore ×1)
+
+**`createAuthStore`**
+
+```
+createAuthStore(): { subscribe: (this: void, run: Subscriber<AuthState>, invalidate?: () => void) => Unsubscriber; set(state: AuthState): void; clear(): void; }
+```
+
+Called from: production: auth.ts ((module level) ×1)
+
+**`hasRole`** *(exported)*
+
+```
+hasRole(state: AuthState | null, ...roles: string[]): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+### `frontend/src/lib/entityTree.ts`
+
+**`isDescendantOf`** *(exported)*
+
+```
+isDescendantOf(entity: EntityNode, ancestorName: string, allEntities: EntityNode[], matchSuffix?: boolean): boolean
+```
+
+Called from: production: entityTree.ts (filterToItems ×1) · tests: 3 call(s) in 1 file(s)
+
+**`isQuantitySubAccount`**
+
+```
+isQuantitySubAccount(entity: EntityNode, allEntities: EntityNode[]): boolean
+```
+
+Called from: production: entityTree.ts (filterToItems ×2)
+
+**`filterToItems`** *(exported)*
+
+```
+filterToItems(entities: EntityNode[]): EntityNode[]
+```
+
+Called from: tests: 1 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/stock/po ×1, routes/stock/so ×1, routes/stock/stock-dispatch ×1, routes/stock/stock-receipt ×1
+
+### `frontend/src/lib/format.ts`
+
+**`todayIsoDate`** *(exported)*
+
+```
+todayIsoDate(): string
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/aged ×1, routes/reports/balance-sheet ×1, routes/reports/cash-flow-forecast ×1, routes/reports/reminders ×1, routes/reports/sales ×2, routes/reports/statement ×1, routes/reports/trial-balance ×1
+
+**`scaleFor`**
+
+```
+scaleFor(unitCode: string | undefined): number
+```
+
+Called from: production: format.ts (decimalPlacesFor ×1, formatAmount ×1)
+
+**`decimalPlacesFor`** *(exported)*
+
+```
+decimalPlacesFor(unitCode: string | undefined): number
+```
+
+Called from: production: format.ts (formatAmount ×1)
+
+**`formatAmount`** *(exported)*
+
+```
+formatAmount(smallestUnits: number, numberFormat: string, unitCode?: string): string
+```
+
+Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, DivisionPLNode.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×4, routes/contacts ×8, and 30 more
+
+**`formatDate`** *(exported)*
+
+```
+formatDate(isoDate: string | null | undefined, dateFormat: string): string
+```
+
+Called from: tests: 9 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/account/password ×1
+
+### `frontend/src/lib/journalGrid.ts`
+
+**`emptyRow`** *(exported)*
+
+```
+emptyRow(): Row
+```
+
+Called from: production: journalGrid.ts (addRow ×1, autoExpandIfTrailingRowFilled ×1, ensureAtLeastOneRow ×1) · tests: 12 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/post ×3
+
+**`toMinorUnits`**
+
+```
+toMinorUnits(text: string): number
+```
+
+Called from: production: journalGrid.ts (creditTotalMinor ×1, debitTotalMinor ×1, hasIncompleteRow ×2, isRowFilled ×2, rowsWithAmount ×2)
+
+**`isRowEmpty`** *(exported)*
+
+```
+isRowEmpty(row: Row): boolean
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`isRowFilled`** *(exported)*
+
+```
+isRowFilled(row: Row): boolean
+```
+
+Called from: production: journalGrid.ts (activeRows (as a value), autoExpandIfTrailingRowFilled ×1) · tests: 5 call(s) in 1 file(s)
+
+**`activeRows`** *(exported)*
+
+```
+activeRows(rows: Row[]): Row[]
+```
+
+Called from: production: journalGrid.ts (isBalanced ×1) · tests: 1 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/post ×3
+
+**`rowsWithAmount`**
+
+```
+rowsWithAmount(rows: Row[]): Row[]
+```
+
+Called from: production: journalGrid.ts (creditTotalMinor ×1, debitTotalMinor ×1)
+
+**`debitTotalMinor`** *(exported)*
+
+```
+debitTotalMinor(rows: Row[]): number
+```
+
+Called from: production: journalGrid.ts (differenceMinor ×1) · tests: 5 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/post ×1
+
+**`creditTotalMinor`** *(exported)*
+
+```
+creditTotalMinor(rows: Row[]): number
+```
+
+Called from: production: journalGrid.ts (differenceMinor ×1) · tests: 5 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/post ×1
+
+**`differenceMinor`** *(exported)*
+
+```
+differenceMinor(rows: Row[]): number
+```
+
+Called from: production: journalGrid.ts (autoBalanceTrailingRow ×1, autoExpandIfTrailingRowFilled ×1, computeSuggestedFill ×1, isBalanced ×1) · tests: 1 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/post ×1
+
+**`hasIncompleteRow`**
+
+```
+hasIncompleteRow(rows: Row[]): boolean
+```
+
+Called from: production: journalGrid.ts (isBalanced ×1)
+
+**`isBalanced`** *(exported)*
+
+```
+isBalanced(rows: Row[]): boolean
+```
+
+Called from: production: journalGrid.ts (canSave ×1) · tests: 11 call(s) in 1 file(s)
+
+**`canSave`** *(exported)*
+
+```
+canSave(rows: Row[]): boolean
+```
+
+Called from: tests: 1 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/post ×1
+
+**`ensureAtLeastOneRow`** *(exported)*
+
+```
+ensureAtLeastOneRow(rows: Row[]): Row[]
+```
+
+Called from: production: journalGrid.ts (removeRowAt ×1) · tests: 2 call(s) in 1 file(s)
+
+**`addRow`** *(exported)*
+
+```
+addRow(rows: Row[]): Row[]
+```
+
+Called from: tests: 3 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/post ×1
+
+**`removeRowAt`** *(exported)*
+
+```
+removeRowAt(rows: Row[], index: number): Row[]
+```
+
+Called from: tests: 2 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/post ×1
+
+**`computeSuggestedFill`** *(exported)*
+
+```
+computeSuggestedFill(rows: Row[], trailingIndex: number): number | null
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`autoBalanceTrailingRow`** *(exported)*
+
+```
+autoBalanceTrailingRow(rows: Row[], changedIndex: number): Row[]
+```
+
+Called from: production: journalGrid.ts (addRow ×1, removeRowAt ×1) · tests: 10 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/post ×1
+
+**`autoExpandIfTrailingRowFilled`** *(exported)*
+
+```
+autoExpandIfTrailingRowFilled(rows: Row[]): Row[]
+```
+
+Called from: tests: 1 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/post ×1
+
+### `frontend/src/lib/matrix-api.ts`
+
+**`matrixRequest`**
+
+```
+matrixRequest<T>(path: string): Promise<T>
+```
+
+Called from: production: matrix-api.ts (getAxisValues ×1, getProfitAndLossByAxis ×1, getSalesCogsMatrix ×1, getStockOnHandMatrix ×1)
+
+**`getSalesCogsMatrix`** *(exported)*
+
+```
+getSalesCogsMatrix(business: string, ledger: string, rowAxis: MatrixAxis, colAxis: MatrixAxis, fromDate?: string, toDate?: string): Promise<SalesCogsMatrix>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/new-pl ×1
+
+**`getStockOnHandMatrix`** *(exported)*
+
+```
+getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): Promise<StockOnHandMatrix>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/new-stock-on-hand ×1
+
+**`getProfitAndLossByAxis`** *(exported)*
+
+```
+getProfitAndLossByAxis(business: string, ledger: string, outerAxis: MatrixAxis, innerAxis: MatrixAxis, fromDate?: string, toDate?: string, outerFilter?: string, innerFilter?: string): Promise<ProfitAndLossByAxisNode[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/new-new-pl ×1, routes/reports/pl-pivot ×1, routes/reports/profit-and-loss ×1
+
+**`getAxisValues`** *(exported)*
+
+```
+getAxisValues(business: string, ledger: string): Promise<AxisValues>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/new-new-pl ×1, routes/reports/pl-pivot ×1, routes/reports/profit-and-loss ×1
+
+### `frontend/src/lib/money.ts`
+
+**`parseMinorUnits`** *(exported)*
+
+```
+parseMinorUnits(text: string): number
+```
+
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×0, routes/arap/ar-sale ×0, routes/post ×2, routes/stock/po ×2, routes/stock/so ×2, routes/stock/stock-dispatch ×3, routes/stock/stock-receipt ×3
+
+**`parseQuantity`** *(exported)*
+
+```
+parseQuantity(text: string): number
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/stock/po ×2, routes/stock/so ×2, routes/stock/stock-dispatch ×2, routes/stock/stock-receipt ×1
+
+### `frontend/src/lib/pagination.ts`
+
+**`deriveFlags`**
+
+```
+deriveFlags(page: number, itemCount: number, pageSize: number, totalCount: number | null): { isFirstPage: boolean; isLastPage: boolean; showPager: boolean; totalCount: number; totalPages: number; }
+```
+
+Called from: production: pagination.ts (createPaginator ×1, load ×1)
+
+**`createPaginator`** *(exported)*
+
+```
+createPaginator<T>(fetchPage: (limit: number, offset: number) => Promise<FetchPageResult<T>>, pageSize?: number): Paginator<T>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/journal ×0
+
+### `frontend/src/lib/session.ts`
+
+**`loadStored`**
+
+```
+loadStored(): SessionContext | null
+```
+
+Called from: production: session.ts (createSessionStore ×1)
+
+**`createSessionStore`**
+
+```
+createSessionStore(): { subscribe: (this: void, run: Subscriber<SessionContext>, invalidate?: () => void) => Unsubscriber; set(context: SessionContext): void; clear(): void; }
+```
+
+Called from: production: session.ts ((module level) ×1)
+
+### `frontend/src/lib/state.svelte.ts`
+
+**`loadStoredAuth`**
+
+```
+loadStoredAuth(): AuthState | null
+```
+
+Called from: production: state.svelte.ts ((module level) ×1)
+
+**`auth.set`** *(exported)*
+
+```
+auth.set(state: AuthState): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`auth.clear`** *(exported)*
+
+```
+auth.clear(): void
+```
+
+Called from: production: api.ts (request ×1)
+
+**`hasRole`** *(exported)*
+
+```
+hasRole(state: AuthState | null, ...roles: string[]): boolean
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1, routes/journal/[id]/[date] ×1, routes/post ×1, routes/setup ×4, routes/setup/users ×1
+
+**`hasUnsavedEdit.set`** *(exported)*
+
+```
+hasUnsavedEdit.set(value: boolean): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`menuTree.set`** *(exported)*
+
+```
+menuTree.set(value: MenuSectionRow[]): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`screenTitle`** *(exported)*
+
+```
+screenTitle(href: string): string | undefined
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1
+
+**`loadStoredSession`**
+
+```
+loadStoredSession(): SessionContext | null
+```
+
+Called from: production: state.svelte.ts ((module level) ×1)
+
+**`session.set`** *(exported)*
+
+```
+session.set(context: SessionContext): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`session.clear`** *(exported)*
+
+```
+session.clear(): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`translations.set`** *(exported)*
+
+```
+translations.set(value: Record<string, string>): void
+```
+
+Called from: nowhere the compiler could find.
+
+### `frontend/src/lib/treeAdapter.ts`
+
+**`toTreePaths`** *(exported)*
+
+```
+toTreePaths(entities: EntityNode[]): TreeItem[]
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/chart-of-accounts ×1, routes/setup/tree ×1
+
+<!-- generated:end -->

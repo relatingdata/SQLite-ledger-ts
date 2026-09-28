@@ -490,6 +490,15 @@ directly, not merely assumed safe: this circular import compiles and works
 correctly at runtime, since the actual call only happens after both
 modules have finished loading.
 
+**Correction (checkpoint 425).** This paragraph presented the `db.ts` ↔ `db-stock.ts`
+cycle as something special that was added and then checked by hand. It was
+neither special nor new in kind. dependency-cruiser (`make check-cycles`) reports **nine**
+import cycles among the 52 backend modules, all centred on `db.ts`: with
+`primitives.ts`, `db-stock.ts`, `db-seed.ts`, `db-reports.ts` and `db-journal.ts`. The
+`db-stock.ts` cycle was one I added; the others predate it. They are recorded as a known
+baseline, and the gate fails only on a *new* cycle. Hand-checking one of them was the wrong
+tool; the standard one finds all of them at once.
+
 Two, real, existing tests updated to match the corrected, nested structure
 rather than the old, flat one. Confirmed directly: the real tutorial
 fixture's own trial run reproduces the exact, corrected structure at both

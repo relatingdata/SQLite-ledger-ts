@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -312,7 +312,7 @@ verify-fresh: reset-db
 	@# Every independent gate runs and reports; one failing gate must never
 	@# hide the others (make normally stops at the first failure, which
 	@# silently masked two of these for a long time).
-	@fail=0; for g in check-docs-coverage check-test-docs check-schema-table-count check-unused check-no-python check-journal-staging-only; do \
+	@fail=0; for g in check-docs-coverage check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only; do \
 	  $(MAKE) $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
 	done; exit $$fail
 
@@ -455,6 +455,52 @@ find-symbols:
 # (generated; not part of the manual). See docs/naming-vocabulary.md.
 analyze-vocabulary:
 	$(RUN_SCRIPT) scripts/analyze-vocabulary.ts
+
+# Counts the lines and files that reference a set of names (NAMES=a,b) or every
+# identifier matching a regex (PATTERN=...), by area: the blast radius of a
+# rename. Write $$ for a literal $ in a make argument.
+find-uses:
+	@if [ -z "$(NAMES)" ] && [ -z "$(PATTERN)" ]; then echo "Usage: make find-uses NAMES=a,b   or   make find-uses PATTERN=<regex>"; exit 1; fi
+	$(RUN_SCRIPT) scripts/find-uses.ts $(if $(NAMES),--names '$(NAMES)') $(if $(PATTERN),--pattern '$(PATTERN)')
+
+# Regenerates docs/function-inventory.md: every function, its exact prototype
+# (from the TypeScript type checker) and where it is called from. Never
+# hand-edited. See docs/function-inventory.md, "How it is generated".
+function-inventory:
+	$(RUN_SCRIPT) scripts/generate-function-inventory.ts
+
+# Fails if docs/function-inventory.md is out of date. Part of verify-fresh.
+check-function-inventory:
+	$(RUN_SCRIPT) scripts/generate-function-inventory.ts --check
+
+# Explains why the inventory says what it does about one function: every
+# reference the compiler found. Usage: make explain-function NAME=transferStock
+explain-function:
+	@if [ -z "$(NAME)" ]; then echo "Usage: make explain-function NAME=<function name>"; exit 1; fi
+	$(RUN_SCRIPT) scripts/generate-function-inventory.ts --explain $(NAME)
+
+# STANDARD TOOLS, used instead of hand-rolled ones. Override the command with
+# e.g. KNIP='npx --yes -p knip@5.30.6 -p typescript@5.6.3 knip' (the newest knip
+# needs more memory than some sandboxes allow).
+KNIP ?= npx --yes knip
+DEPCRUISE ?= npx --yes dependency-cruiser
+
+# knip: exports nothing imports, and files nothing reaches. A report, not a
+# gate: it exits non-zero while there is anything to find. Backend only for now.
+knip:
+	$(KNIP) --no-progress --workspace backend --include exports,files --reporter symbols
+
+# dependency-cruiser: fails on an import cycle that is NOT in the known
+# violations baseline. `make cycles-baseline` re-records that baseline.
+check-cycles:
+	$(DEPCRUISE) --config .dependency-cruiser.json --ignore-known --output-type err backend/src
+
+cycles-baseline:
+	$(DEPCRUISE) --config .dependency-cruiser.json --output-type baseline backend/src > .dependency-cruiser-known-violations.json
+
+# The import graph as a Mermaid diagram (no hand-rolled include graph).
+dependency-graph:
+	$(DEPCRUISE) --config .dependency-cruiser.json --output-type mermaid backend/src
 
 measure-comments:
 	$(RUN_SCRIPT) scripts/measure-code-comments.ts

@@ -19,6 +19,7 @@ if (!fs.existsSync(manualPath)) {
   process.exit(1);
 }
 let manual = fs.readFileSync(manualPath, 'utf-8');
+manual = manual.replace(/<!-- generated:start -->[\s\S]*?<!-- generated:end -->/g, '');
 // A real, honest fix: the baseline document itself lists every known-
 // undocumented name, by name - if searched as-is, every one of those
 // names would appear to "pass" simply by being listed as undocumented,

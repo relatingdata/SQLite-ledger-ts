@@ -32,8 +32,13 @@ const argv = process.argv.slice(2);
 const showIdx = argv.indexOf('--show');
 if (showIdx >= 0) {
   const target = join(ROOT, argv[showIdx + 1] ?? '');
-  const from = Number(argv[argv.indexOf('--from') + 1]) || 1;
-  const to = Number(argv[argv.indexOf('--to') + 1]) || Infinity;
+  const optionNumber = (flag: string, fallback: number): number => {
+    const at = argv.indexOf(flag);
+    const value = at >= 0 ? Number(argv[at + 1]) : NaN;
+    return Number.isFinite(value) && value > 0 ? value : fallback;
+  };
+  const from = optionNumber('--from', 1);
+  const to = optionNumber('--to', Infinity);
   let inBlockShow = false;
   let shown = 0;
   readFileSync(target, 'utf-8').split('\n').forEach((raw, i) => {

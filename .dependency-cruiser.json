@@ -1,0 +1,16 @@
+{
+  "forbidden": [
+    {
+      "name": "no-circular",
+      "severity": "error",
+      "comment": "A module import cycle. Cycles that only resolve at runtime are fragile.",
+      "from": {},
+      "to": { "circular": true }
+    }
+  ],
+  "options": {
+    "doNotFollow": { "path": "node_modules" },
+    "tsPreCompilationDeps": true,
+    "tsConfig": { "fileName": "backend/tsconfig.json" }
+  }
+}

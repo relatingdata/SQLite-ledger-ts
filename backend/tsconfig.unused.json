@@ -18,6 +18,8 @@
     "../scripts/analyze-classification-neutrality.ts",
     "../scripts/analyze-vocabulary.ts",
     "../scripts/find-symbols.ts",
+    "../scripts/find-uses.ts",
+    "../scripts/generate-function-inventory.ts",
     "../scripts/check-test-docs.ts",
     "../scripts/strip-code-comments.ts",
     "../scripts/measure-code-comments.ts",
