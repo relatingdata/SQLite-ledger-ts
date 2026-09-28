@@ -15,7 +15,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const manualPath = path.join(root, 'docs', 'programmer-manual.md');
 
 if (!fs.existsSync(manualPath)) {
-  console.error(`❌ ${manualPath} does not exist — run "cd docs && python3 build-programmer-manual.py" first.`);
+  console.error(`❌ ${manualPath} does not exist — run "make programmer-manual" first.`);
   process.exit(1);
 }
 let manual = fs.readFileSync(manualPath, 'utf-8');

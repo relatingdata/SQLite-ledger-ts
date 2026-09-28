@@ -653,10 +653,14 @@ won't normally need to edit this yourself — it's set up once per screen, by
 whoever builds a new fixture, and every data file that uses that screen
 simply refers to it by name.
 
-**8.3 The control file** (optional). If you want the Step Runner to check its
-own work as it goes — confirming something was really created, or saving a
-picture of the screen — this information goes in a second, small file
-alongside the data file, never mixed into the data file itself.
+**8.3 The control file** (optional). This is how you script a run without
+sitting at the tool yourself — instead of manually choosing, batch by batch,
+whether to run the fast way or watch it happen, this file says so in advance
+for every step. For example: the first few steps run instantly through the
+backend, then the next step switches to actually driving the screen and
+taking a picture of it, then back to instant again — all without anyone
+watching. This information goes in a second, small file alongside the data
+file, never mixed into the data file itself.
 
 ## What's here today, and what's still to come
 

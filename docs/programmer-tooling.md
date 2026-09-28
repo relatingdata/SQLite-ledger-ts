@@ -146,12 +146,13 @@ global-uniqueness rule).
 
 ## 7. Seed-data generation scripts
 
-`backend/scripts/generate-*.py` and a handful of `.ts` equivalents —
-already documented in detail in `backend/scripts/README.md`, which
-this document defers to rather than duplicates. In short: these
-scripts produced the SQL now baked directly into
-`backend/schema/*.sql` (see below) — kept in the repository for
-provenance and auditability, not run as part of normal development.
+**These generators no longer exist in the working tree.** They were
+Python one-shot scripts that wrote to `/tmp/`; the SQL they produced is
+committed in `backend/schema/*.sql` (see below). This project ships no
+Python (`make check-no-python` enforces it), so they were removed at
+checkpoint 417 and remain in git history. What each one did, and why, is
+recorded in `backend/scripts/README.md`, which this document defers to
+rather than duplicates.
 
 ## 8. `backend/schema/` — the real, structural schema and seed data
 
@@ -164,8 +165,9 @@ ledger data), and `30-coa-links.sql` (linking every real business to
 its own real Chart of Accounts prototype — genuinely depends on entities
 from both core and the demo block, so it loads last). `db.ts` loads
 these, concatenated, in this exact, dependency-safe order — see the
-comment directly above that code, and the commit message for
-`backend/scripts/split-schema-historical.py`, for the real, genuine
+comment directly above that code, and the commit message for the
+one-shot script that performed the split (`split-schema-historical.py`,
+since removed with the rest of the Python), for the real, genuine
 dependency issue this split's own verification found and fixed before
 being trusted.
 
@@ -277,7 +279,7 @@ Separates the result into three, real, distinct, alphabetical groups —
 `typeXxxName` `TypeDescriptor` constants, `xxxRouter` Express router
 constants, and real, substantial, ordinary functions — writing to
 `docs/documentation-baseline-report.md`, included directly in the
-Programmer's Manual (`docs/build-programmer-manual.py`'s own chapter
+Programmer's Manual (`scripts/build-programmer-manual.ts`'s own chapter
 list) right after the raw baseline file it complements. A real file-
 target rule (root `Makefile`) regenerates it automatically whenever
 the baseline list, the script itself, or any real backend source file
@@ -388,10 +390,52 @@ by name, and still exits non-zero if any failed. Nothing has been exempted.
 | `check-schema-table-count` | **FAIL** — `db_version` is a fifth permanent table |
 | `check-journal-staging-only` | **FAIL** — `confirmPickedLine`, `confirmRestockPickedLine` |
 
-**`db_version` needs a decision, not a workaround.** The four-table rule reads
-as a deliberate architectural principle. The version feature
-(`docs/skill-version-check.md`) needs somewhere to record which version a
-database file was last migrated to. Options, none chosen: (a) amend the rule
-to allow this one table; (b) use SQLite's built-in `PRAGMA user_version`
-(no table, but an integer — the dotted `0.0.0.400` would need encoding);
-(c) record it as an entity, consistent with everything else being an entity.
+**`db_version` conflicts with an existing skill, which already answers it.**
+`docs/skill-no-new-tables.md` (Part VI) requires asking, before any new table,
+whether the fact can be an entity, a `relation_id` link, or a column on an
+existing extension table, and says a new table is justified only if none of
+those can express it. A database version can be an entity, so option (c) below
+is what that skill points to. (An earlier version of this section said the
+choice was open; it was not — the skill had not been consulted.) Not yet
+implemented: a divergence between the manual and the code is reported, not
+resolved unilaterally.
+
+Options considered: (a) amend the four-table rule; (b) SQLite's built-in
+`PRAGMA user_version` (no table, but an integer, so `0.0.0.400` would need
+encoding); **(c) record it as an entity, consistent with the skill.**
+
+## This project ships no Python
+
+`make check-no-python` (`scripts/check-no-python.ts`) fails on any `.py` file
+or any build file (Makefile, `package.json`, shell, TypeScript) that invokes
+python, and is part of `make verify-fresh`. Prose that merely mentions Python
+is listed as a note, not a failure.
+
+At checkpoint 417 all 17 Python files were removed with `git rm` (recoverable
+from history). Four were ported to TypeScript and each ran from the Makefile:
+
+| Was | Now | Run with |
+|---|---|---|
+| `docs/build-programmer-manual.py` | `scripts/build-programmer-manual.ts` | `make programmer-manual` |
+| `docs/build-user-manual.py` | `scripts/build-user-manual.ts` | `make manual` |
+| `docs/generate-screens-inventory.py` | `scripts/generate-screens-inventory.ts` | `make screens-inventory` |
+| `docs/crop-parts-screenshot.py` | `scripts/crop-parts-screenshot.ts` | `make docs/manual-images/m_parts_cropped.png` |
+
+The programmer-manual front matter moved into
+`docs/programmer-manual-frontmatter.md`, as the user manual already did. Both
+manuals were verified **byte-identical** to the Python output before the Python
+was deleted. The screens inventory differed only in the one line naming its own
+generator. The screenshot cropper now uses Playwright instead of an image
+library; its output has the same dimensions and looks the same, but PNG
+byte-identity cannot be claimed because the encoders differ.
+
+`screens-inventory` had no Makefile target before — it was a Python script run
+by hand, which is exactly what the Makefile-only-execution skill forbids. The
+other thirteen scripts wrote only to `/tmp/` and were never run by the build;
+what each did is preserved in `backend/scripts/README.md`.
+
+## `make analyze-classification`
+
+Measures where the code gives hot/cold, storage, division or category special
+treatment, and writes `docs/classification-neutrality-analysis.md` (generated).
+The interpretation is `docs/classification-neutrality-impact.md`.

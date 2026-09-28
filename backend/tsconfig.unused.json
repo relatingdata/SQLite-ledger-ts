@@ -10,6 +10,12 @@
     "test",
     "scripts/step-runner.ts",
     "scripts/step-runner.test.ts",
+    "../scripts/build-programmer-manual.ts",
+    "../scripts/build-user-manual.ts",
+    "../scripts/generate-screens-inventory.ts",
+    "../scripts/crop-parts-screenshot.ts",
+    "../scripts/check-no-python.ts",
+    "../scripts/analyze-classification-neutrality.ts",
     "../shared-fixtures"
   ]
 }

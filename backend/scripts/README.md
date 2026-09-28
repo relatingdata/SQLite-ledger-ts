@@ -1,14 +1,18 @@
-# Seed data generation scripts
+# Seed data generation scripts (historical record)
 
-These generated the bootstrap SQL that now lives in `schema.sql` — kept
-here for provenance and auditability rather than thrown away once their
-output was copied in. They are not run as part of `make install`/`make
-dev`; the SQL they produced is already committed directly in
-`schema.sql`. Re-running one will regenerate equivalent SQL to stdout
-(or a file, per script) that would need the same manual review and
-`entity_id` collision-checking described below before merging into
-`schema.sql` again — they were not written to be idempotent against an
-already-seeded database.
+**These scripts no longer exist in the working tree.** They were Python,
+and this project ships no Python (`make check-no-python` enforces it).
+Each was a one-shot generator that wrote to `/tmp/`, was reviewed by
+hand, and had its output copied into `backend/schema/`; none was ever run
+by the Makefile, and the SQL they produced is already committed. They
+remain in git history — last present at checkpoint 416 — and in every
+earlier checkpoint bundle, e.g. `git show <commit>:backend/scripts/<file>`.
+
+What follows is the provenance record of what each one did and why, kept
+because that reasoning is not recoverable from the generated SQL alone.
+They were not written to be idempotent against an already-seeded
+database: re-running one would have needed the same manual review and
+`entity_id` collision-checking described below.
 
 ## generate-wine-retail-seed.py
 
@@ -77,8 +81,11 @@ duplicating.
 
 ## generate-danish-vocabulary.py
 
-Generates Danish translations for this project's vocabulary — see the
-script's own docstring for the full sourcing breakdown (which words
-come from LedgerSMB's real Danish locale versus this project's own
-translations) and the license note (LedgerSMB is GPL-2.0-or-later, not
-public domain).
+Generated Danish translations for this project's vocabulary. Some words
+came from LedgerSMB's real Danish locale and the rest were this
+project's own translations. **Licensing note, preserved here because it
+was otherwise recorded only in the deleted script's docstring:**
+LedgerSMB is GPL-2.0-or-later, not public domain, so the words taken from
+its Danish locale carry that licence. The full per-word sourcing
+breakdown is in the script's docstring, recoverable from git history
+(see the top of this file).

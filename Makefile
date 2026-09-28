@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -312,7 +312,7 @@ verify-fresh: reset-db
 	@# Every independent gate runs and reports; one failing gate must never
 	@# hide the others (make normally stops at the first failure, which
 	@# silently masked two of these for a long time).
-	@fail=0; for g in check-docs-coverage check-schema-table-count check-unused check-journal-staging-only; do \
+	@fail=0; for g in check-docs-coverage check-schema-table-count check-unused check-no-python check-journal-staging-only; do \
 	  $(MAKE) $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
 	done; exit $$fail
 
@@ -324,7 +324,7 @@ check-schema-table-count:
 # loudly if any real, exported backend function, Makefile target, or
 # frontend route is never mentioned anywhere in the assembled manual.
 check-docs-coverage: docs/documentation-baseline-report.md
-	cd docs && python3 build-programmer-manual.py
+	$(RUN_SCRIPT) scripts/build-programmer-manual.ts
 	$(RUN_SCRIPT) scripts/check-docs-coverage.ts
 
 check-journal-staging-only:
@@ -417,6 +417,21 @@ check-unused:
 	@cd backend && out=$$($(RUN_BINARY) tsc --project tsconfig.unused.json 2>&1 | grep "TS6133" || true); \
 	if [ -n "$$out" ]; then echo "$$out"; echo "Unused declarations found - remove them."; exit 1; \
 	else echo "No unused imports, functions or locals in src/, test/ or the step-runner."; fi
+
+# Regenerates docs/screens-inventory.md from the frontend routes.
+screens-inventory:
+	$(RUN_SCRIPT) scripts/generate-screens-inventory.ts
+
+# Fails if the project contains any .py file or any build file invoking
+# python. This project ships no Python - see scripts/check-no-python.ts.
+check-no-python:
+	$(RUN_SCRIPT) scripts/check-no-python.ts
+
+# Impact analysis of hardcoded classification terms (hot/cold, storage,
+# division, category): where the code gives one business's suggested
+# hierarchy special treatment. Writes docs/classification-neutrality-analysis.md.
+analyze-classification:
+	$(RUN_SCRIPT) scripts/analyze-classification-neutrality.ts
 
 check-e2e-types:
 	cd e2e && $(RUN_BINARY) tsc --noEmit
@@ -539,8 +554,8 @@ USER_MANUAL_SCREENSHOTS := \
 docs/manual-images/%.png:
 	cp docs/manual-images/coming-soon.png $@
 
-manual: docs/build-user-manual.py $(USER_MANUAL_CHAPTERS) $(USER_MANUAL_SCREENSHOTS)
-	cd docs && python3 build-user-manual.py
+manual: scripts/build-user-manual.ts $(USER_MANUAL_CHAPTERS) $(USER_MANUAL_SCREENSHOTS)
+	$(RUN_SCRIPT) scripts/build-user-manual.ts
 	cd docs && pandoc user-manual.md -o ../sql-ledger-ts_User_Manual.pdf \
 	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
 	  -H manual-header-includes.tex -f markdown+raw_tex --resource-path=.
@@ -697,8 +712,8 @@ docs/manual-images/m_balance_sheet.png: e2e/tests/capture-manual-screenshots.spe
 docs/manual-images/m_items_new_category_full.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/items/+page.svelte $(SEED_DATA_FILES) | ensure-servers
 	cd e2e && MANUAL_SCREEN=m_items_new_category_full $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
 
-docs/manual-images/m_parts_cropped.png: docs/manual-images/m_items_new_category_full.png docs/crop-parts-screenshot.py
-	cd docs && python3 crop-parts-screenshot.py
+docs/manual-images/m_parts_cropped.png: docs/manual-images/m_items_new_category_full.png scripts/crop-parts-screenshot.ts
+	$(RUN_SCRIPT) scripts/crop-parts-screenshot.ts
 
 docs/manual-images/m_locations.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/locations/+page.svelte $(SEED_DATA_FILES) | ensure-servers
 	cd e2e && MANUAL_SCREEN=m_locations $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
@@ -893,8 +908,8 @@ docs/scoped-uniqueness-and-location-accounting.md: \
 	docs/manual-images/pm_new_new_pl_location_axis.png \
 	docs/manual-images/pm_translations_add_word.png
 
-programmer-manual: docs/build-programmer-manual.py $(PROGRAMMER_MANUAL_CHAPTERS)
-	cd docs && python3 build-programmer-manual.py
+programmer-manual: scripts/build-programmer-manual.ts docs/programmer-manual-frontmatter.md $(PROGRAMMER_MANUAL_CHAPTERS)
+	$(RUN_SCRIPT) scripts/build-programmer-manual.ts
 	cd docs && pandoc programmer-manual.md -o ../sql-ledger-ts_Programmer_Manual.pdf \
 	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
 	  -H programmer-manual-header-includes.tex -f markdown+raw_tex --resource-path=.

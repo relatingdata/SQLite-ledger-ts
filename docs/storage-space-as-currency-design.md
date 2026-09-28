@@ -640,12 +640,29 @@ far (its rules and its "what already exists" section):
 - Consistent with this design: the one-directional shelf-to-cold flow, and
   cartons being opened on demand into bottles.
 - **Unresolved overlap, needs a decision:** it models cold storage as a
-  separate, linked "Refrigerated" *sub-location* (`isColdStorageProduct`,
-  `resolveDispatchLocation`, the "Create Cold Section" button on the
-  Locations page). This design models Hot/Cold as a *Storage dimension of
-  the cartesian product* instead. Both mechanisms now exist in the code.
-  The instruction that the new mechanism "entirely replaces the old" was
-  applied to per-location capacity accounts only; it has not been applied to
-  the cold-section mechanism.
+  separate, linked "Refrigerated" *sub-location* (`resolveDispatchLocation`
+  and the "Create Refrigerated Section" button on the Locations page). This
+  design models Hot/Cold as a *Storage dimension of the cartesian product*
+  instead. Both mechanisms now exist in the code. The instruction that the
+  new mechanism "entirely replaces the old" was applied to per-location
+  capacity accounts only; it has not been applied to the cold-section
+  mechanism.
 
-The remaining ~145 lines of that plan have not been read.
+**Correction (checkpoint 417):** the first version of this section named
+`isColdStorageProduct` and `COLD_STORAGE_CATEGORIES` as existing code. They
+do not: `docs/entity-model.md` ("The first real dimension made explicit:
+Storage Origin") records that both were removed entirely, replaced by
+`setItemStorageOrigin`/`getItemStorageOrigin`. The cold-shelf plan and
+`docs/function-inventory.md` are stale on this point. The names were taken
+from the plan's "what already exists" section and never checked against the
+code. `resolveDispatchLocation` does exist (`backend/src/db.ts`).
+
+**3. The manual records Hot/Cold as a deliberate first-class design, which
+the current principle contradicts.** `docs/entity-model.md` documents Storage
+Origin (Hot/Cold) as "the first [dimension] made genuinely explicit, per
+direct instruction". The current principle is that hot/cold, storage,
+division and category are merely *suggested* classification hierarchies with
+no special treatment anywhere in code. These conflict. See
+`docs/classification-neutrality-impact.md` for the measured impact.
+
+The remaining ~145 lines of the cold-shelf plan have not been read.
