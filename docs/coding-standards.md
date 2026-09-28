@@ -55,3 +55,128 @@ This transformation has not yet been performed. It is documented here
 first, per direct instruction, so any real code written between now
 and the retroactive pass has a real, written standard to be checked
 against once the mechanical transformation runs.
+
+## Where explanation lives: comments point, the manual explains
+
+### The rule
+
+Source files and test files carry **a pointer to the manual, not prose.**
+The explanation that used to sit in comments lives in the Programmer's
+Manual, in the chapter for that area of code, *next to the documentation of
+the tests that prove it.* Code and tests are documented together so they read
+as one narrative.
+
+The pointer names a file and a section, so it can be checked by machine:
+
+```
+// Docs: docs/journal-api-reference.md § Recurring journals
+```
+
+A file has one pointer at the top for the whole file, and may carry a more
+specific one on a function where a chapter section covers it. That is the
+whole of a file's comments.
+
+What stays in code, because it is not a comment:
+
+- **Identifiers, types and signatures** — the names are the documentation of
+  *what* something is.
+- **Assertion messages in tests** — they are printed when a test fails, which
+  makes them the first thing I read. They stay, and they should say what was
+  expected and why it matters.
+
+Everything else — the reasoning, the history, the "per direct instruction"
+provenance, the warnings — moves into the manual.
+
+### Why: the rationale, in my own words
+
+I do not remember earlier sessions. Everything I know about this project on
+any given day is what I read that day, plus what the repository and the manual
+tell me. That shapes what documentation has to be, and it is why I asked for
+this rather than merely accepting it.
+
+**Comments woven through code cost me twice.** To find one function in
+`db.ts` I read past thousands of comment lines I mostly do not need. And when I
+*do* need the explanation, it is scattered in fragments across the file with
+no order: I can read a paragraph beside a line, but I cannot read an argument.
+A manual chapter has an order, headings I can search, and room to say a thing
+once and completely.
+
+**Comments go stale silently, and I trust them.** A comment sits next to the
+code, so it looks authoritative because it is adjacent. This project has
+already shown the failure. A planning document and a function inventory kept
+describing `isColdStorageProduct` after it had been removed, and I repeated the
+stale name as fact in a report. I also put explanatory comments back into
+`db-journal.ts`, the one file whose header promises it carries none, and
+nothing noticed. A comment offers nothing to check it against. A manual can be
+checked mechanically — every exported symbol must appear in it, and now every
+test must too — which turns "hopefully still true" into a failing command.
+
+**When a test fails, I start with almost nothing:** a title, an assertion
+message and a stack trace. What I need next, in this order:
+
+1. *What does the test claim, and why does the claim matter?* This is how I
+   tell whether the test is wrong or the code is wrong.
+2. *Where is the code it exercises?* The exact function and file.
+3. *Why is that code built this way?* What a fix must preserve, and which
+   earlier bug shaped it. Without this I "fix" the failure by undoing a
+   decision that was made for a reason.
+4. *What else depends on it?* So I know the blast radius before touching it.
+5. *How do I run just this test?*
+
+A comment above a test answers the first question in a fragment, and never the
+others: it was written in the moment, about the line beneath it, and it does not
+connect the test to the reasoning behind the code.
+
+**Code and tests belong in the same place because a failure involves both.** If
+a test's documentation lives in one file and the code's in another, I read one
+and guess at the other. Documenting them together in one chapter means a single
+search for the failing test's exact title lands on the explanation of the code
+it exercises. The manual is already assembled into one searchable file, so the
+title is the search key.
+
+**The trade-off, stated plainly.** Moving explanation out of the code creates a
+different risk: the manual can describe code that has since changed, whereas
+whoever edits a line at least sees the comment beside it. I am accepting that
+trade because the manual can be *checked* and comments cannot. The checks that
+make it safe are below. One is not yet built: nothing yet verifies that a
+pointer still resolves to a section that exists, so a renamed heading would
+leave pointers dangling.
+
+### How it is measured and enforced
+
+- `make measure-comments` reports comment lines per file and how many files
+  are migrated. It changes nothing.
+- `make check-docs-coverage` fails if an exported function, Makefile target or
+  frontend route is never mentioned in the manual.
+- `make check-test-docs` fails if a test's exact title appears nowhere in the
+  manual. Tests that were undocumented when the check was introduced are
+  listed in `docs/test-documentation-baseline.txt`; the check fails only for
+  a *new* undocumented test, so the gap can shrink but not grow.
+  `make test-docs-baseline` regenerates that list after documenting some.
+
+A caution about the coverage check itself: it counts a symbol as documented if
+it is *mentioned* anywhere in the manual, including inside a generated report.
+That satisfies the checker, not the intent. A real entry explains the symbol.
+
+### The order to migrate in, and where it stands
+
+Measured at checkpoint 418, before the first migration: 7,749 comment lines
+across 264 files, 16% of all non-blank lines. The backend library holds 4,404
+of them (27% of its lines), `db.ts` alone 2,563. The backend tests hold 624. Only
+three files were migrated at all, and `db-journal.ts` was not one of them
+because of the regression above.
+
+Migrate in this order, because it follows the cost of *not* knowing:
+
+1. **Areas whose tests fail in ways that are hard to interpret** — anything
+   that moves money or stock. The storage, capacity and currency mechanisms
+   are done first (see `docs/storage-space-as-currency-design.md`, "Code and
+   tests: where to look") as the worked example of the pattern.
+2. **The rest of the backend library**, largest comment load first: `db.ts`,
+   `db-stock.ts`, `db-reports.ts`.
+3. **The tests**, by the chapter of the code they prove.
+4. **The frontend**, which carries the least (7%).
+
+A migration is only complete when the content has landed in the manual *first*
+and been confirmed there, and only then is the comment replaced. Deleting a
+comment before its content is in the manual loses it.

@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -112,7 +112,7 @@ frontend:
 	cd frontend && $(RUN_NPM_SCRIPT) dev
 
 test:
-	cd backend && $(RUN_TEST) test/*.test.ts
+	cd backend && $(RUN_TEST) test/*.test.ts scripts/*.test.ts
 	cd frontend && $(RUN_TEST) test/*.test.ts
 
 # End-to-end verification against real, deterministic business data —
@@ -432,6 +432,37 @@ check-no-python:
 # hierarchy special treatment. Writes docs/classification-neutrality-analysis.md.
 analyze-classification:
 	$(RUN_SCRIPT) scripts/analyze-classification-neutrality.ts
+
+# Reports code comments per file and how many already point at the
+# Programmer's Manual (docs/coding-standards.md, "Where explanation lives").
+measure-comments:
+	$(RUN_SCRIPT) scripts/measure-code-comments.ts
+
+# Lists one file's comment lines (optionally FROM=n TO=m), so a migration can
+# see exactly what must move into the manual before it is replaced.
+show-comments:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make show-comments FILE=<path> [FROM=<line> TO=<line>]"; exit 1; fi
+	$(RUN_SCRIPT) scripts/measure-code-comments.ts --show $(FILE) $(if $(FROM),--from $(FROM)) $(if $(TO),--to $(TO))
+
+# Every test's exact title must appear in the Programmer's Manual, so a
+# failing test leads straight to the explanation of the code it exercises.
+# Fails only for a NEW undocumented test (docs/test-documentation-baseline.txt
+# holds the known gap). See docs/coding-standards.md, "Where explanation lives".
+check-test-docs:
+	$(RUN_SCRIPT) scripts/build-programmer-manual.ts
+	$(RUN_SCRIPT) scripts/check-test-docs.ts
+
+# Regenerates the baseline of undocumented tests, after documenting some.
+test-docs-baseline:
+	$(RUN_SCRIPT) scripts/build-programmer-manual.ts
+	$(RUN_SCRIPT) scripts/check-test-docs.ts --write-baseline
+
+# Runs only the backend tests whose title contains TEST. The tests share one
+# database, so a test may depend on rows an earlier test created: if one fails
+# alone, run the whole file before concluding the code is broken.
+test-one:
+	@if [ -z "$(TEST)" ]; then echo "Usage: make test-one TEST=<part of a test title>"; exit 1; fi
+	cd backend && $(RUN_TEST) --test-name-pattern="$(TEST)" test/*.test.ts
 
 check-e2e-types:
 	cd e2e && $(RUN_BINARY) tsc --noEmit

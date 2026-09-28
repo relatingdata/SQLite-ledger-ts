@@ -159,6 +159,8 @@ actually created — through the exact, same, typed `createLocation`/
 already uses everywhere, never a raw SQL insert into the `entities` table
 (which is genuinely append-only and self-auditing by design — there is no
 "create entity" SQL statement at all). The real, balanced opening-capacity
-posting (`Storage Capacity Remaining`/`Installed`) happens here too,
-atomically, inside the exact, same, real transaction as the location's own
-creation, then the staged row is cleared.
+posting into the location's built-in `Storage Capacity` structure (`Remaining`,
+`Installed`, `Occupied`; see `docs/storage-space-as-currency-design.md`, "Code
+and tests: where to look") happens here too, atomically, inside the exact,
+same, real transaction as the location's own creation, then the staged row is
+cleared.

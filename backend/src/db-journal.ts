@@ -471,10 +471,6 @@ export interface LocationStagingInput {
   timezone: string;
 }
 
-/** Stages a real, new location's own raw, real form input - per
- * direct, absolute instruction, every real, user-facing data-entry
- * form has a real, dedicated staging table behind it, the exact,
- * same, established shape as stageStockReceipt. */
 export function stageLocation(input: LocationStagingInput): void {
   db.prepare(
     `INSERT INTO location_staging
@@ -489,15 +485,6 @@ export function stageLocation(input: LocationStagingInput): void {
   );
 }
 
-/** Reads a real, staged location and genuinely creates it - the one,
- * real place this actually happens, through the exact, same, typed
- * create()/Entity.create() functions this whole codebase already uses
- * everywhere, never a raw SQL insert into the entities table (which
- * is genuinely append-only and self-auditing - there is no "create
- * entity" SQL statement at all, by design). The real, balanced
- * opening-capacity posting (Storage Capacity Remaining/Installed)
- * happens here too, atomically, as part of the exact, same, real,
- * enclosing transaction. */
 export function postLocation(reference: string, business: BusinessName, userId: UserId): TypedNode<'LocationEntityName'> {
   const staged = db.prepare(`SELECT * FROM location_staging WHERE reference = ? AND business = ?`).get(reference, business) as LocationStagingInput | undefined;
   if (!staged) throw new NotFoundError(`Nothing staged for location ${reference}.`);

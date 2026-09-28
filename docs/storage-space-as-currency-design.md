@@ -666,3 +666,277 @@ no special treatment anywhere in code. These conflict. See
 `docs/classification-neutrality-impact.md` for the measured impact.
 
 The remaining ~145 lines of the cold-shelf plan have not been read.
+
+## 24. Code and tests: where to look
+
+**How to use this section when a test fails.** Search the manual for the failing
+test's exact title. It appears once below, under the step of the story it
+belongs to. Each entry has the same five parts: what the test *proves*, the
+*code under test*, *why the code is shaped that way* (what a fix must preserve),
+*if it fails* (what the failure means and where to look), and how to *run it
+alone*. Read the design decisions first if you have time; they explain the
+shapes the tests check. Run one test with `make test-one TEST="<fragment>"`.
+Verified at checkpoint 418: each of the ten tests below passes when run alone
+against a fresh database (`make reset-db` first). That is not guaranteed of every
+test in the suite, which shares one database, so if a test fails alone, run the
+whole file before concluding the code is broken.
+
+### The story, in the order it happens
+
+1. A **location is created** and, in the same transaction, given a built-in
+   `Storage Capacity` structure holding its opening capacity.
+2. **Stock arrives** (`receiveStockAtLocation`): value, unit count and occupied
+   space are each recorded, each balanced on its own.
+3. Stock **leaves** (`dispatchStockFromLocation`), **relocates**
+   (`transferStock`) or is **lost** (`writeOffStock`).
+4. Cartons are **opened** into bottles (`openStorageContainer`), and space is
+   **converted** between storage combinations (`convertStorageSpace`).
+
+| Function | File | Job |
+|---|---|---|
+| `ensureStorageCapacityStructure` | `backend/src/db.ts` | creates `Storage Capacity` → `Remaining`/`Installed`/`Occupied` under any parent |
+| `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | a location's opening capacity, as a `Bottle` or `Carton` leaf |
+| `adjustLocationCapacity` | `backend/src/db-stock.ts` | moves space between `Remaining` and `Occupied` on every stock movement |
+| `ensureUnitsTrackingBaseAccounts` | `backend/src/db-stock.ts` | creates `Units On Hand` / `Units Received From` under a business |
+| `receiveStockAtLocation`, `dispatchStockFromLocation`, `transferStock`, `writeOffStock` | `backend/src/db-stock.ts` | the four stock movements |
+| `convertStorageSpace`, `openStorageContainer` | `backend/src/db.ts` | the two space operations |
+| `stageLocation`, `postLocation` | `backend/src/db-journal.ts` | the location form's staging and posting |
+
+### Design decisions: why the code is this shape
+
+**D1. `Storage Capacity` is built in, with three leaves.** `Remaining` is space
+still free, `Installed` is total physical capacity, `Occupied` is space in use.
+The identity **Installed = Remaining + Occupied** holds at every moment. The
+structure sits directly under a business and under every location — not under
+Chart of Accounts, so it is deliberately invisible to the Balance Sheet, P&L and
+Trial Balance, which all walk from Chart of Accounts. Each leaf is "amplified" by
+the user-defined combinations in use (for example `Bottle`, `Carton`), each its
+own leaf with its own currency.
+
+**D2. `Installed` moves only when physical capacity is built or removed.** An
+ordinary stock movement merely occupies or frees existing space, so it moves
+space between `Remaining` and `Occupied` and never touches `Installed`. An
+earlier version posted stock movements one-sided against `Remaining` alone,
+breaking the rule that no posting is ever single-sided. `Occupied` exists to be
+`Remaining`'s genuine counterpart.
+
+`adjustLocationCapacity` takes the change in the item's own base unit (bottles):
+**positive when stock arrives** (receipt, transfer in), **negative when it leaves**
+(dispatch, write-off, transfer out, a stock-take shortfall). Capacity moves the
+opposite way: arriving stock consumes space, leaving stock frees it. For a
+location tracked in cartons, the quantity is divided by the item's preferred
+vendor package size, defaulting to 12.
+
+**D3. Names repeat, so leaves are found by id, never by name.** `Remaining` and
+`Installed` legitimately exist under every business and every location.
+`ensureCombinationAccountLeaf` therefore takes an explicit parent id; its
+bare-name lookup would attach a leaf under whichever parent created that name
+first. This is the same class of bug fixed elsewhere in this project.
+
+**D4. Unit counts are a currency too.** How many units exist is a fact
+independent of what they are worth, so it is posted separately, in its own
+currency (`UNITS-<combination values>`), against its own counterpart:
+`Units On Hand` is balanced by `Units Received From`, the way a receipt's
+Inventory is balanced by Accounts Payable. Counts are never blended with dollars
+(`USD`) or space (`SPACE-<values>`); each currency balances on its own.
+
+**D5. A transfer shares one currency across both locations.** The same physical
+units are relocating; they never change kind. The count currency is built from
+the combination values alone, never the location. A first attempt tagged each
+side with its own location and could never balance, since two different
+currencies cannot offset each other. Transfers count 1:1 and never look up a
+rate: a transfer does not repackage or re-denominate.
+
+**D6. A write-off posts only the count, and this leaves a known gap.** The outer,
+non-combination code records the dollar value and credits the *generic*
+per-product Inventory account. The combination block adds only the unit count.
+This was **not** the result of a failing balance. A first version also posted
+value from the combination block; the test then failed for an unrelated reason (a
+missing expense-account entity, see the write-off test below), and the value
+posting was removed on a design theory that it would reduce Inventory twice, not
+on evidence. **Open gap:** a receipt builds value in the *combination's*
+Inventory leaf (D8), but a write-off credits the generic account, so after a
+receipt followed by a write-off the combination's Inventory leaf still holds the
+value of units that no longer exist. Which Inventory account a write-off should
+credit for a combination has not been decided or tested.
+
+**D7. Opening a carton is not a conversion.** Carton-space freed and
+bottle-space consumed are two independent events that merely happen together, one
+physical action. Each balances only against its own `Installed` counterpart, and
+no rate connects them. Converting Hot to Cold, by contrast, is a genuine
+exchange between two currencies with its own one-directional rate; if no rate was
+ever defined, that direction was never meant to be possible (Cold back to Hot).
+Neither operation posts inventory *value*: a carton versus its own bottles is a
+fixed multiplier, like dollars versus cents, never an exchange.
+
+**D8. How the four stock movements are shaped.**
+
+- Every write in a movement happens in **one atomic transaction**. It used to be
+  several separate steps that could diverge if interrupted, such as a quantity
+  movement posting while its capacity adjustment never happened.
+- **Receipt** debits the product's on-hand quantity at the location it arrived
+  at and credits its "on order" quantity. "On order" is an independently
+  meaningful fact, built up when a purchase order is placed (`placeOrder`), not
+  an invented counteritem. A receipt with no matching order (an emergency
+  purchase) simply drives on-order negative, which is a real signal, not an
+  error.
+- A **combination receipt** also builds financial Inventory value the moment
+  stock is first received for that exact combination, at the item's known unit
+  cost (the source `ensureProductLocationLeaf` uses for COGS). An item with no
+  known cost builds no fabricated value. It debits Inventory and credits
+  Accounts Payable, both resolved by explicit id, because "Accounts Payable" is
+  ambiguous by bare name (a Vocabulary word and its translation share it).
+- **Dispatch** mirrors receipt. It rejects more than is on hand *at that
+  location* (a warehouse may have plenty overall while this location has none).
+  It credits on-hand and debits "units sold", the quantity-side counteritem to
+  COGS. A combination dispatch frees the same value and count a receipt built.
+- **Transfer** is not a sale: no GL entry, no revenue, no customer. It rejects
+  locations in different cities (a warehouse serves only its own city's
+  outlets). It uses **one shared reference** for a single balanced two-line entry
+  (debited at the destination, credited at the source, summing to zero), not two
+  postings that merely net out; this is the one case where a quantity account
+  has a genuine other side. It records a queryable movement history, because
+  transfers once updated only the current-state table. A combination transfer
+  moves value from the source location's instance to the destination's; Location
+  is always the combination chain's first dimension.
+- **Write-off** once posted a single unbalanced quantity line with no
+  counteritem, the same class of bug as the stock-take variance fix. When the
+  caller supplies the location, the space the item occupied is freed. Its
+  `inventoryAccount` parameter is deprecated, kept only so existing callers do
+  not break; the function resolves the product's own Inventory sub-account.
+
+**D9. Capacity postings are unique per location.** `transferStock` calls
+`adjustLocationCapacity` twice for one base reference, once per location, so the
+location's name is part of the capacity reference. Without it the second call
+collides with the first on the unique `(reference, business, ledger)` constraint.
+
+**D10. Comments that were wrong, removed at checkpoint 418.** They are recorded
+because each was trusted by the next reader:
+
+- A block above `ensureStorageCapacityStructure` described
+  `ensureStorageBaseAccounts`, a function that no longer exists, and said a base
+  account must live under Chart of Accounts to appear in a report. That is the
+  opposite of D1.
+- A block detached from `convertStorageSpace` listed a third effect, inventory
+  value relocating between combinations. The function does not do that, and per
+  D7 must not.
+- `writeOffStock` carried two adjacent comments that disagreed; the first, saying
+  value *and* count are written off in the combination block, was false (D6).
+- `openStorageContainer` and `postLocation` still called the structure "Storage
+  Capacity Remaining/Installed" after it became nested with a third leaf.
+
+### The tests, in the order the story happens
+
+#### `createAndConfigureLocation: real, atomic, balanced Storage Capacity Remaining/Installed accounts, created as part of location creation itself, never a single-sided posting`
+- **Proves:** creating a location immediately creates `Storage Capacity` under it,
+  with `Carton` leaves under `Remaining` and `Installed` holding +500 / -500 in
+  `SPACE-CARTON`.
+- **Code under test:** `createAndConfigureLocation` (`db.ts`) →
+  `ensureLocationCapacityAccount` (`db-stock.ts`) → `ensureStorageCapacityStructure` (`db.ts`).
+- **Why:** D1, D2.
+- **If it fails:** a missing `Storage Capacity` means the structure is not created
+  directly under the location (check `ensureStorageCapacityStructure`'s parent). A
+  wrong balance or currency points at the opening entry in
+  `ensureLocationCapacityAccount`. Do not fix it by posting only one side.
+- **Run alone:** `make test-one TEST="createAndConfigureLocation: real, atomic"`
+
+#### `stageLocation/postLocation: a real, dedicated staging table behind the location-creation form, matching the exact, established stage/post pattern - the real location, and its own real, balanced capacity accounts, only appear once genuinely posted, never at stage time`
+- **Proves:** staging a location creates nothing; posting creates the location and
+  its capacity structure atomically, then clears the staged row.
+- **Code under test:** `stageLocation`, `postLocation` (`db-journal.ts`);
+  `docs/journal-api-reference.md`, "`stageLocation` / `postLocation`".
+- **Why:** every form has its own staging table; a location is created only through
+  the typed `create()` functions, never a raw insert into `entities` (append-only,
+  self-auditing).
+- **If it fails:** a location existing before the post means staging is creating
+  entities. Missing capacity after the post means `postLocation` no longer calls
+  `ensureLocationCapacityAccount` inside its transaction. A surviving staged row
+  means the cleanup step is missing.
+- **Run alone:** `make test-one TEST="stageLocation/postLocation"`
+
+#### `receiveStockAtLocation with a real combination: parallel currency AND count postings both appear, each genuinely balanced on its own`
+- **Proves:** a combination receipt posts dollar value and unit count as two
+  separate balanced entries; the count sits in `UNITS-SECURE` under
+  `Units On Hand` / `Units Received From` (+12 / -12).
+- **Code under test:** `receiveStockAtLocation`, `ensureUnitsTrackingBaseAccounts` (`db-stock.ts`).
+- **Why:** D4, D8.
+- **If it fails:** missing `Units On Hand` under the business means the count block
+  did not run (is `combinationValues` reaching it?). A wrong balance or currency
+  points at the count entry; an imbalance error usually means the two count legs
+  do not share one currency.
+- **Run alone:** `make test-one TEST="receiveStockAtLocation with a real combination"`
+
+#### `adjustLocationCapacity: a real, genuinely balanced posting against Occupied - never single-sided, and Installed = Remaining + Occupied holds as a real accounting identity`
+- **Proves:** with 100 units of capacity, receiving 10 leaves `Remaining` 90,
+  `Occupied` 10 and `Installed` untouched at 100, and posts exactly one journal
+  entry.
+- **Code under test:** `adjustLocationCapacity`, `ensureLocationCapacityAccount` (`db-stock.ts`).
+- **Why:** D2, D9.
+- **If it fails:** if `Installed` changed, something posted against it during an
+  ordinary movement. If the entry count is not one, the posting has become
+  one-sided or split. If the identity breaks, look for a path that moves `Remaining`
+  without `Occupied`.
+- **Run alone:** `make test-one TEST="adjustLocationCapacity"`
+
+#### `dispatchStockFromLocation with a real combination: parallel currency AND count postings both appear, genuinely reversed from a real receipt, each independently balanced`
+- **Proves:** receiving 12 then dispatching 5 leaves 7 units on hand for that
+  combination.
+- **Code under test:** `dispatchStockFromLocation` (`db-stock.ts`).
+- **Why:** D8, D4.
+- **If it fails:** a count of 12 means the dispatch count block did not run; a
+  count of 17 means it posted with the wrong sign. Compare with the receipt test
+  first; if that fails, fix it before this one.
+- **Run alone:** `make test-one TEST="dispatchStockFromLocation with a real combination"`
+
+#### `transferStock with a real combination: the real unit count moves in parallel with the real dollar value, one, shared, real currency for the same, physical units - genuinely balanced`
+- **Proves:** a transfer of 8 creates two distinct leaves that share `UNITS-SECURE`
+  and hold -8 and +8.
+- **Code under test:** `transferStock` (`db-stock.ts`).
+- **Why:** D5.
+- **If it fails:** "entry does not balance (per currency)" almost always means the
+  currency became location-specific again. Do not fix it by adding a rate lookup.
+- **Run alone:** `make test-one TEST="transferStock with a real combination"`
+
+#### `transferStock: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction`
+- **Proves:** the dollar value of a combination transfer moves from the source
+  location's Inventory leaf to the destination's.
+- **Code under test:** `transferStock` (`db-stock.ts`).
+- **Why:** D8 (transfer).
+- **If it fails:** the failing test that broke *after* the count posting was added
+  was this one, with "entry does not balance", caused by D5's mistake. Suspect the
+  count block before the value block.
+- **Run alone:** `make test-one TEST="transferStock: a real, combination-tagged"`
+
+#### `writeOffStock with a real combination: the real Inventory value and real unit count are both genuinely written off, in parallel, each independently balanced`
+- **Proves:** receiving 10 then writing off 3 leaves 7 units for the combination.
+- **Code under test:** `writeOffStock` (`db-stock.ts`).
+- **Why:** D6, D8. **This title overclaims.** It says value *and* count are written
+  off; the assertion checks only the count, and the combination's Inventory value
+  is *not* reduced (the open gap in D6). The test does not detect that gap.
+- **If it fails:** a "NOT NULL constraint" on `journal_line.account_id` means the
+  expense account entity does not exist yet: the outer code resolves it by bare
+  name, which only finds an existing entity. The test creates it first for that
+  reason. This is a known gap in `ensureProductInventoryAccount` and the outer
+  write-off code, not in the count block.
+- **Run alone:** `make test-one TEST="writeOffStock with a real combination"`
+
+#### `openStorageContainer: opening a carton is two, real, independent space movements - never a rate-linked conversion, and genuinely never requires one to be defined`
+- **Proves:** opening cartons posts two independently balancing currency groups
+  (`SPACE-CARTON`, `SPACE-BOTTLE`) with no rate defined anywhere.
+- **Code under test:** `openStorageContainer` (`db.ts`).
+- **Why:** D7.
+- **If it fails:** an error about a missing exchange rate means a rate lookup was
+  added; there must be none. An imbalance means one of the two groups no longer
+  pairs with its own `Installed` counterpart.
+- **Run alone:** `make test-one TEST="openStorageContainer"`
+
+#### `convertStorageSpace: a real, balanced conversion between storage combinations - never single-sided, and a real, undefined reverse direction genuinely refuses`
+- **Proves:** converting Hot to Cold at a defined rate balances in both currencies,
+  and the reverse direction, for which no rate was defined, throws.
+- **Code under test:** `convertStorageSpace` (`db.ts`); `getCurrencyExchangeRate`.
+- **Why:** D7.
+- **If it fails:** if the reverse conversion succeeds, a rate exists for it: check
+  whether other state defined one, since the test defines a rate in one direction
+  only. If the forward conversion does not balance, the freed and consumed groups
+  are not each paired with their own `Installed` leaf.
+- **Run alone:** `make test-one TEST="convertStorageSpace"`

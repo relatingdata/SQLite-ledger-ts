@@ -1,0 +1,253 @@
+AP Payment form: staging and posting creates the correct Debit AP / Credit Cash entry, reducing the vendor balance
+AP Purchase form: staging and posting creates the correct Debit expense/asset / Credit AP entry
+AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amount+tax, everything balances
+AR Receipt form: staging and posting creates the correct Debit Cash / Credit AR entry, reducing the customer balance
+AR Sale and AP Purchase also record an invoice_line, with no quantity/unit price concept at all (both null)
+AR Sale form: staging and posting creates the correct Debit AR / Credit Sales Revenue entry
+AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable, everything balances
+AR/AP forms reuse the same atomic posting mechanism — an unbalanced-by-construction scenario is not reachable, but a bad reference is rejected clearly, consistent with every other post* function
+Actual and a budget ledger are genuinely isolated in every financial statement — this is the whole point of having separate ledgers, and it was actually broken once
+Balance Sheet and P&L split each line into debit/credit columns per accounting convention, and flag a line whose balance sits opposite its normal side
+Cost Centers apply to purchasing only, Profit Centers apply to both — matching SQL-Ledger's actual Department distinction, not a generic undifferentiated division
+Credit Invoice (restocks) vs Credit Note (does not) — matching SQL-Ledger's real distinction, applied per-line based on whether restocking was actually requested
+Credit Note reverses an invoice correctly — the same mechanism run in reverse, not a parallel schema
+Currency exchange is genuinely a cartesian product (From x To), never one rate per currency - per direct instruction: N currencies means N*N ordered pairs, N of them trivial self-pairs always exactly 1, leaving N*(N-1) real, distinct, independently-configurable buy/sell rates
+Developer role, Employees/Manufacturers/Items branches, and item_source all exist exactly once — the migration that restores these on an existing database is idempotent
+French works as a genuine, complete third language — no special-casing needed for a third language to work at all
+Location open hours and employee weekly scheduling, built entirely on the real entity tree — no new table, each real record is its own, real, named child entity
+Locations: per-location stock, exactly one billing address, warehouse-direct dispatch for large orders, same-city transfers, and below-reorder reporting
+POS clerk sign-on/sign-off: a real employee needs a real PIN, can only be signed on at one real location at a time, and signing off closes the real shift record cleanly
+POS terminal: a complete register sale posts the invoice, dispatches stock from the exact location sold at, and allocates payment atomically, with change due calculated correctly
+Profit and Loss fromDate/toDate is a genuine range, not just a single cutoff — excludes postings both before AND after the window
+Reminders: escalate per customer, cap at level 3, and reset independently of any other contact edit
+The real Hierarchy/Product cartesian mechanism - the full, settled, flat combination_ids design, built and verified end to end
+Trial Balance and Balance Sheet asOfDate correctly excludes postings after the cutoff, without needing a period to be closed at all
+a business nominates one real home currency, stored in its own detail_json - per multicurrency-design.md, "Where currency lives, and precedence"
+a item can be sourced from multiple manufacturer/vendor combinations, and preference is never derived from price
+a item's real retail_price_minor is a genuine lookup field, reachable via every real path a POS screen actually uses — not something the operator types in
+a location nominates a real SET of currencies it trades in, not a single value - per multicurrency-design.md, "Where currency lives, and precedence"
+a new entity has no contact until one is set
+a newly created user can log in with the exact role(s) assigned
+a partial receipt against a purchase order leaves a genuine, correctly-sized back order
+a real Purchase Order still knows its real vendor and item after posting — no extra table, the same real relation every entity already has
+a real business can genuinely be named "Equity" (or "Asset", "Chart of Accounts", "Hierarchies", any other real, structural word this codebase itself already uses) - per direct instruction: a business name and a real, structural CoA category/root name share no real namespace at all, so no real collision should ever be possible
+a real contact can genuinely hold more than one real type at once - a Vendor later also registered as a Customer keeps both, per docs/contact-types-and-translations.md
+a real, nested division hierarchy: filtering a report by a coarser division must include a finer, nested division's own real activity too, not just an exact division_id match
+a realistic set of transactions — cash purchase, cash sale, AR sale, a receipt against it, AP purchase, a payment against it — all post correctly and the full chain (balances, trial balance, balance sheet, P&L) reflects every one of them
+a recurring journal correctly affects Trial Balance for its ledger, across all its occurrences
+a recurring journal expands into the correct number of occurrences, each showing in listJournalEntries
+a recurring journal records who created it — every occurrence it generates shows the same poster
+a renamed-away-from name can be reused immediately for an unrelated new entity
+a row needs both an account and a nonzero amount to count as filled
+a service dispatch (no item, no item_qty, no unit_cost) skips COGS and quantity movement entirely — matches the exact worked example: 10 hours @ 150.00 with 10% tax
+a service receipt (no item_qty) skips the quantity movement, still posts the monetary and tax legs correctly
+a valid session token resolves to the correct user and roles; an invalid one resolves to null
+addFinancialStatementNote/getFinancialStatementNotes: a real, free-text disclosure genuinely belongs to one specific business, never the shared, global Business Reports list itself
+addOrUpdateItemSource/getItemPriceForCurrency: a real, direct, dual-currency pricing scenario - one real product, two real, independently-set prices
+addRow/removeRowAt are the only ways the row count changes — never automatic
+addTypedAddress/getTypedAddresses/addTypedPhone/getTypedPhones: multiple, genuinely typed addresses and phones per entity, zero new tables — reusing parent_id + relation_id + contact recursively
+adjustLocationCapacity: a real, direct check of the capacity math, retail (1:1 bottles) and warehouse (real, per-item carton conversion)
+adjustLocationCapacity: a real, genuinely balanced posting against Occupied - never single-sided, and Installed = Remaining + Occupied holds as a real accounting identity
+aged invoices: bucketed by each customer's own payment terms, and partial payment allocation genuinely reduces what is outstanding
+aged summary rolls up per customer (matching SQL-Ledger's Summary aging view), and counterparty history shows real line-item activity
+allocatePayment: actually posts the real GL movement, not just a tracking record — confirmed directly, since this exact gap once let $920,626.23 in "paid" sales never reach Cash and Bank
+an account is vivified on first post and gets a real balance
+an empty row is empty and not filled
+an entity cannot be made its own parent
+an ordinary General Journal posting records no invoice_line at all — it has no invoice concept
+autoBalanceTrailingRow fills the last row to the correct side and amount, without changing the row count
+autoBalanceTrailingRow never overwrites the last row when the edit that just happened was to that row itself
+balance sheet computes real totals and confirms Assets = Liabilities + Equity
+buildBankCurrencyStructure: the exact, same real mechanism applies to a real partner's own Drawing account, per direct instruction
+business_reports groups categories under their fixed report via relation_id
+businesses and ledgers list correctly
+changeOwnPassword requires proving the current password first — unlike the admin path, which does not need to
+changePassword replaces the password — the old one stops working, the new one works
+chart_of_accounts shows the real hierarchy including sub-accounts
+climbInstanceTree/getCombinationByUpc: a real, scanned barcode resolves directly to its own, exact combination, climbing back up to the real Product root, per direct instruction
+closeBooks: "the whole point of the restructuring" — Retained Earnings itself now carries a real, detailed journal line per real, active profit center, each correctly, independently tagged, still summing to the exact same, single, correct total
+closeBooks: a real, foreign-currency Income account closes against its own, real, currency-tagged Retained Earnings sibling - never the plain, home-currency one, per docs/multicurrency-design.md. Also a real, confirmed regression fix: closing an already-fully-closed ledger a second time correctly rejects with "nothing to close", never a real, confusing PostingError instead
+closeBooks: per direct correction, division is only a real, pure sub-totaling/reporting dimension - every division's net income rolls into the exact same, single, chosen Retained Earnings account, never a separate, division-specific one
+closeBooks: year-end close zeroes every Income/Expense account into Retained Earnings as one reversible entry, with the correct sign for both profit and loss
+closing a period rejects normal posting into it, and reopening lifts that immediately for a correction
+complete end-to-end lifecycle: purchase order -> receipt -> sales order -> dispatch/invoice -> cash collected -> vendor paid, every account balance verified at each step
+completeCashPurchase: a real, immediate cash purchase never touches the vendor's own AP balance at all, even momentarily — the direct counteritem to completePosSale, for a real, immediate purchase
+completePosSale defaults to real, per-product Sales accounts — not one shared aggregate that could never distinguish one product's margin from another's
+completePosSale honors an explicit transdate instead of always using the real current date — the actual bug that broke every backdated/simulated sale
+completePosSale, through a real, foreign-currency terminal at a real, nominated-currency location, correctly resolves the real, foreign price AND correctly posts the real payment into its own, real, currency-tagged "Cash at Bank" sibling - the real gap found and reported earlier this session, now closed per docs/multicurrency-design.md
+completePosSale: a real, genuine combination sale correctly resolves its own, real, combination-specific price, and posts through the new Sales/COGS/Inventory leaves, per direct instruction
+completePosSale: a real, immediate cash sale never touches the customer's own AR balance at all, even momentarily — the exact question directly asked and confirmed: "why are cash sales going through the AR system in any way?"
+completePosSale: the real, live wiring — a real sale with a real tier now genuinely ensures its own, real tier-level item, not just its own Sales/COGS accounts
+completePosSale: the real, live wiring — a real sale with both a real tier and a real, known location now genuinely ensures its own, real (tier, location) leaf, the real, actual posting target
+completePosSale: the real, live, end-to-end border scenario - two real terminals, one real location, one real product, sold in two different, real currencies
+completeStockTake and writeOffStock: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side
+completeStockTake: multiple real, different products sharing the same variance expense account in one real stock take must all post, keeping debit == credit
+computeSuggestedFill returns the amount needed to balance, or null if nothing to suggest
+convertStorageSpace: a real, balanced conversion between storage combinations - never single-sided, and a real, undefined reverse direction genuinely refuses
+create<T>: the real, generic, typed-descriptor creation primitive - genuinely preserves the Springfield principle (scoped, not global, uniqueness)
+createAndConfigureLocation: real, atomic, balanced Storage Capacity Remaining/Installed accounts, created as part of location creation itself, never a single-sided posting
+createBusiness: a brand-new business gets both a real Actual ledger AND a real Budget ledger for the financial year, immediately postable to, using the already-shared Chart of Accounts — no separate CoA setup needed
+createBusiness: a real, forced failure partway through genuinely rolls back everything - never a partially-created business left behind
+createBusiness: real, optional secondary currencies each get a real, automatic "Cash at Bank ({currency})" account, correctly tagged and immediately postable to — a genuinely ordinary business omits this entirely
+createEmployee genuinely tags the new contact as a real Employee type, per docs/contact-types-and-translations.md - Employee correctly derives Accounts Payable as its own base account too, per the same, direct, deliberate accounting point
+createEntityRaw: scoped, not global, uniqueness — the exact, same real rule everywhere else in the entity tree, verified specifically for Vocabulary and its own real translations
+createItem: the original, confirmed gap is now genuinely closed - a non-Category, non-Items-root parent is rejected
+createPosTerminal/setTerminalCurrency/getEffectiveSaleCurrency: a real, direct, border-business scenario - two real terminals, one location, two different currencies
+createProjectTask/getProjectTasks/addTaskDependency/getTaskDependencies: real project scheduling with zero new tables, per direct, absolute instruction
+createRecurringJournal has not touched the Budget ledger — Actual and Budget stay isolated even for recurring entries, same as ordinary ones
+createRecurringJournal rejects an entry that does not balance at its start date
+createRecurringJournal vivifies any account with no BALANCE yet, same guarantee as ordinary posting
+createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree
+createUser rejects a duplicate username and a too-short password
+createVendor genuinely tags the new contact as a real Vendor type, per docs/contact-types-and-translations.md
+creating an entity by name works and rejects duplicates
+creating an entity with a nonexistent parent is rejected
+customer self-registration: a customer is a customer — same contact invoices already use, pending until staff verifies, and the real gate blocks on-account selling until then
+deactivating a user immediately kills their existing sessions and blocks new logins
+debit/credit totals only count active (filled) rows
+deleteEntity closes out the entity permanently, with who and when recorded — it never reappears, even in history queries as "current"
+deleteEntity closes the entity out but deliberately keeps its contact record — a historical fact about a now-closed entity, not something that disappears
+deleteEntity refuses to delete a business's last real Actual or last real Budget ledger, but allows removing a real, genuine duplicate
+deleteEntity refuses to delete an entity with children
+deleteEntity works for a genuinely childless, unposted entity
+dispatchStockFromLocation with a real combination: parallel currency AND count postings both appear, genuinely reversed from a real receipt, each independently balanced
+divisions/profit centers: the same account can be posted to by multiple divisions, and reports can filter to just one
+e-invoicing: a real 3-way match catches a genuine mismatch between a purchase order and an incoming e-invoice
+e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, and a real, incoming one round-trips back through a genuinely separate ledger as a draft, never auto-posted
+ensureAtLeastOneRow is a no-op on a non-empty grid and adds exactly one row to an empty one
+ensureLocationCapacityAccount: a real, one-time opening balance from the location's own static capacity, retail tracks bottles, warehouse tracks carton-equivalents
+ensureProductSalesCogsAccounts: mirrors the real, existing product category tree onto the GL side, not a flat or hardcoded structure
+ensureProductTierItem: the confirmed product/tier/leaf design (docs/multi-dimensional-reporting.md §10) — each real tier its own, distinct, sellable item, the base product name genuinely untouched, no shared-parent corruption across multiple tiers
+ensureProductTierLocationLeaf: location becomes structural, the same real pattern already proven for tier — a real, new, distinct leaf per (tier, location), never re-parenting the shared tier-level item, avoiding the exact bug that broke an earlier tier-restructuring attempt
+entities are append-only: renaming closes out the old row and appends a replacement under the same id, full history preserved
+filterToItems excludes every non-product leaf, and does NOT require is_postable_account — real items never have that flag set at all
+formatAmount applies each explicit pattern directly — never Intl locale inference
+formatAmount handles small amounts, negatives, and zero correctly under every pattern
+formatAmount respects a currency's real ISO 4217 precision when an explicit unit code is given — zero-decimal, three-decimal, and the ordinary two-decimal default all correct
+formatAmount's unit-code mechanism generalizes beyond currency — any unit with its own real precision, same lookup
+formatDate applies each explicit pattern directly to a real ISO date
+formatDate handles null/undefined/empty gracefully, and a datetime string by taking just the date item
+getAccountsPostedTo: finds the real, actual accounts a given reference posted to — used to correct a return to the exact same account the original sale used, not a different, plain fallback
+getAgingBuckets derives 1x/2x/3x buckets from a single term, matching real variation across customers
+getBalanceSheet includes real AR/AP posted directly to customer/vendor names — without this, any ledger with outstanding AR/AP silently fails to balance
+getBalanceSheet: a real close must not leave Current Year Earnings still showing the closed period's net income — a real, direct regression: the Balance Sheet stopped balancing after excludeCloseEntries was added to getProfitAndLoss for report pages
+getBusinessConfigurationReport: everything a real business's own setup actually captured - name, addresses, phones, owner/partners, banking, currencies, divisions, locations, categories - deliberately never item details
+getBusinessHierarchy/getBusinessProductShapes: real, business-scoped listing functions, for the frontend to actually use this mechanism through
+getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-planning design — anticipated AR receipts, committed AP payments, and genuinely recurring cash movements, never one-off historical postings
+getCashFlowForecast: Layer 3 — a real, honest first-shortfall date and amount, evaluated against the real, arranged overdraft limit, never a bare "goes negative" check
+getCreditStatus: a real customer/vendor's own real balance checked against their own real, configured credit limit
+getCustomerStatement: shows every real, posted invoice for one customer — paid, partially paid, and outstanding — correctly respecting a real, historical "as of" date, not just the current, real-time balance
+getHierarchyChain: a real, uniform, non-generic walk up parent_id - genuinely reaches Business for an Item, and confirms the real, separate, already-documented Division/Business gap for a Location
+getItemPriceForCurrency: a real, combination-specific price wins over the base item price, per direct instruction (a cold beer costs more than a warm one)
+getJournalEntry returns full line detail with account numbers
+getLedgerBalancesByDivisionStructural: the real, new, structural version must agree exactly with the existing, tag-based one on real, live sales that carry both
+getLedgerDateRange: reports the real, earliest and latest transdate of what has actually been posted
+getLocationCapacityStatus: a real location's own, current real stock checked against its own, real configured capacity — found to be purely informational and never enforced anywhere, per docs/TODO.md
+getLocationForAccount/getDivisionForAccount: the real, structural replacement for journal_line.division_id — walking a real account to its own, real, structural location and division, not reading a separate tag
+getOrganizationChart: the real, complete chain — Business belongs-to Division belongs-to Location, employees placed at either a real location or the business itself
+getProfitAndLoss: Gross Profit is a real subtotal (Revenue minus COGS specifically), Net Profit unchanged — via the real, bootstrap-tagged COGS account, not a test-only setup
+getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy - not one of the four, recommended default axes - works identically, through the same, real, generic mechanism
+getProfitAndLossByAxis: real, direct reproducibility — every real division and every real location must exactly reproduce the original, division-filtered P&L (Sales AND COGS both), per direct, reported concern
+getProfitAndLossByDivision: "Consolidated per Division" — one real, full P&L per real division actually active in this ledger/date range, income/COGS/operating split intact per division, derived structurally from real, live sales at real locations
+getProfitAndLossByDivisionTree: "Consolidated per Division per Location" — real divisions nested under their own real parent, a genuinely empty node synthesized for a real, top-level division with no direct activity of its own
+getProfitAndLossComparison correctly reconstructs each lines actual amount from debit_minor/credit_minor, not a stale removed field
+getPrototypeOf/setPrototype/seedDefaultHierarchyPrototypes: the real, settled design - identity by what a node points at, not by depth or a compile-time type
+getQualifiedDisplayName never doubles a real, already-qualified name - a real, confirmed bug found directly in the trial balance, where a combination-leaf account's own, real, already-descriptive name (e.g. "Amber Ale 330ml (Bottle) — Eastside Cellar Door") got its own, real parent's name prepended a second time, producing a real, visibly doubled name
+getSalesReport: detailed lines and a genuine category rollup (via the real entity tree, not a hand-maintained list) that both sum to the same real total
+getStockListing/countStockListing: a real, paginated listing of every item/location combination with stock
+getStockListingByLocation: groups the same real stock data by real location, tagging each with its real division where one exists
+getStockMovementReport: the real, physical journey of stock — purchases into a warehouse, a real transfer on to a retail outlet, and a real sale, each correctly enriched with its own real category, division, and vendor
+getTrialBalance: by_currency genuinely separates each real currency's own debit/credit totals - a combined, cross-currency sum can look balanced or unbalanced for entirely the wrong reason
+getTrialBalance: has_quantity_postings correctly flags an account that has genuinely received a real, direct quantity-tracking ("-QTY") posting alongside its own, ordinary value postings
+getTrialBalance: must always balance, even with real posted AR/AP — Customers/Vendors live outside the Chart of Accounts but their real monetary postings must still be included
+invoice_line records genuinely per-line tax, never assumed uniform — one line exempt, another at a different rate entirely
+isBalanced requires at least two real rows and an exact zero difference
+isDescendantOf correctly identifies real ancestry, not just any postable leaf
+isDescendantOf never infinite-loops on a malformed/cyclic tree
+item categories: nested arbitrarily deep in the existing entity tree, and an empty subcategory never shows up as a fake item
+journal postings record who posted them — the other half of the audit trail, alongside entities own append-only history
+languages list and localized_text fallback/override work end to end
+lintSteps: a genuinely correct fixture reports zero real problems
+lintSteps: flags a real value-count mismatch against the registry
+lintSteps: flags a real, data-submitting screen with no real api_function as a real, silent no-op waiting to happen
+lintSteps: flags a screen_name with no real registry entry
+lintSteps: flags an api_function with no real API_REGISTRY entry
+loadScreens: groups fields by screen and sorts by position
+loadSteps: reads a matching .control.csv when present, aligned by row
+loadSteps: reads a purely positional data file with no header row
+loadSteps: reads the real skip column from a matching .control.csv
+login rejects a wrong password, and gives the same error for a nonexistent username (no user enumeration)
+logout invalidates the session immediately
+lot/expiration tracking: consumption is genuinely FIFO by expiration date, not receipt order, and the expiring-stock report only shows what actually still has quantity
+nominateBankAccount/buildBankCurrencyStructure: a real, single bank account in one real currency collapses to one, plain, postable "Cash at Bank" account - no header, no further structure
+nominateBankAccount/buildBankCurrencyStructure: more than one real bank/currency combination genuinely becomes a real header, with one real, postable leaf per ticked combination
+openStorageContainer: opening a carton is two, real, independent space movements - never a rate-linked conversion, and genuinely never requires one to be defined
+parseCsvLine: doubled quotes inside a quoted field
+parseCsvLine: plain fields
+parseCsvLine: quoted fields with embedded commas
+password hashing: correct password verifies, wrong password is rejected
+payEmployeeWages: a real employee treated as AP — real Medicare levy withheld from their own pay, real superannuation as a genuine, separate employer cost, hourly or salaried
+payment_terms_days persists per customer/vendor, since account management practice genuinely varies (30/60/90 for one, 7/14/21 for another, cash only for a third)
+picking/packing/dispatch: a real order becomes a real, shelf-ordered picking list, requires every real line ticked off before it can dispatch, and reduces real, physical stock at the exact location it was actually picked from
+postInvoice: a real, forced failure (posting to a non-existent account) genuinely rolls back everything - the invoice stays a real, untouched draft, no real, orphaned journal entry or staged lines survive
+postJournalEntry: a real multi-currency entry must balance independently per currency — the exact danger this catches: an EUR imbalance masked by an offsetting USD imbalance must never pass
+posting a screen with nothing staged is rejected clearly, not silently a no-op
+posting an unbalanced entry is rejected and leaves staging untouched
+previewCloseBooks: the real, proposed lines it returns exactly match what closeBooks itself actually posts, and nothing is staged or posted by the preview itself
+profit and loss comparison computes variance in the conventional direction (budget minus actual)
+profit and loss computes real totals and net income
+profit and loss excludes a Year End Close entry from its own totals, even when the close happened within the requested date range — a real, direct bug report: "the consolidated p&l shows zero"
+profit and loss income_tree groups by the real category hierarchy, with correct subtotals at every level
+quantity movements and recurring journal start dates are also protected by a closed period, not just ordinary posting
+quantity movements carry a real, queryable location — receive, dispatch, and transfer (both legs) each record where it actually happened, not just updating the current-state snapshot
+real multi-line invoices: header + lines, due date derived from the counterparty's own payment terms, posting creates the actual GL entry
+reassigning a category to a different report via relation changes business_reports immediately
+receiveStockAtLocation with a real combination: parallel currency AND count postings both appear, each genuinely balanced on its own
+receiveStockAtLocation: a real, combination-tagged receipt builds up a real, distinct Inventory value at the exact, right leaf, per direct instruction
+registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, dedicated cash-flow/growth-planning design — real, registered bank accounts scoped correctly to one real business, grouped by real currency, with honest overdraft headroom
+registerCustomer genuinely tags the new contact as a real Customer type, per docs/contact-types-and-translations.md
+removeStagedLine removes exactly one line
+renaming a parent never orphans its children — a childs parent_id keeps resolving correctly with zero other changes
+restocking retail outlets from warehouses: the same real, shelf-ordered picking and refuse-until-complete pattern, but a real internal transfer, not an invoice — a real, distinct reference per real line, since a shared reference across different real products in the same run would genuinely collide
+reverseJournalEntry: a real, confirmed bug fix — reversing a year-end close with multiple, real, division-tagged Retained Earnings lines must genuinely reverse ALL of them, not silently collapse onto just the last one
+reversing a nonexistent occurrence is rejected clearly
+reversing a posted entry creates a new entry with every line negated, and the net effect on balances is exactly zero
+reversing the same occurrence twice is rejected clearly — the real bug this prevents silently corrupted journal_line by attaching a second reversals lines to the first one, since the reversal reference is deterministic
+runStepViaApi: a real createBusiness step, run through the real, live backend, genuinely creates the business
+runStepViaApi: a real, deliberately-wrong verify correctly reports failure, not a false pass
+setContact is a full replace, not a partial merge — calling it again with fewer fields clears the rest
+setContact then getContact round-trips correctly
+setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAncestorChain: the generic, reusable multi-dimension mechanism (docs/multi-dimensional-reporting.md) — a real, reversible up/down index per named dimension, never touching an entity's own relation_id
+setEntityLink/getEntityLink/deleteEntityLink: a real, pure link between two entities that never touches the source entity's own relation_id, unlike setRelationship
+setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this genuinely run out before a fresh order could arrive?
+setLanguageDirection/getLanguageDirection: a real, generic RTL property any language can have, per direct instruction (Hebrew/Arabic on par with every other language, not a hardcoded special case)
+setOwnNumberFormat/setOwnDateFormat: explicit, fixed-choice patterns — not locale inference — defaulting to 1 000.00 / dd/mm/yyyy, rejecting anything outside the fixed list
+setOwnPageSize: a real, user-settable preference, defaulting to 20, rejecting nonsense values
+setRelationship/getRelationship/getEntitiesWithRelationship: the real relationship-type pattern, confirmed the same shape as an ordinary relation_id tag, not a special case
+setUserRoles changes what a session created afterward reflects
+stageBomComponent/postBomComponents/getBomComponents: a real Bill of Materials, built on setEntityLink, per the wine-bar-assemblies-plan design
+stageLocation/postLocation: a real, dedicated staging table behind the location-creation form, matching the exact, established stage/post pattern - the real location, and its own real, balanced capacity accounts, only appear once genuinely posted, never at stage time
+staging + posting a balanced entry works end to end and clears staging
+stock take sheets: ordered by shelf_side/rack (alphabetically, as free text) then level numerically (top to bottom), and completing posts genuine loss/gain variance while leaving uncounted lines untouched
+stock write-offs (breakage/spoilage): a real dual-effect transaction, reducing quantity on hand AND recognizing the actual loss in the GL, not just an adjustment with no accounting consequence
+the bootstrap admin user exists with Administrator role and the documented default password
+the bootstrap tree loads with exactly one root
+the exact bug just fixed: picking an account for the auto-balanced trailing row must not spawn a new row
+the exact feedback-loop bug from before: changing an already-filled row must not use its own stale value
+the exact wage-increase scenario: a mid-schedule amendment applies only from its effective date onward, via the same journal_line row set — no new table, no new journal
+the four real entry screens: PO -> receipt -> SO -> dispatch, using the actual staging/post functions a person would use, not just the underlying primitives
+the fully worked example from multicurrency-design.md: a real sale through a real, nominated-currency location posts every real leg (Revenue, Tax, COGS, Cash) to its own, real, currency-tagged sibling, never converted, genuinely balancing entirely within its own real currency group
+the real bug just fixed: building a 4-line entry incrementally (Cash, Revenue, COGS, then realizing Rent is still needed) must correctly suggest the remaining amount the instant Insert is pressed, not leave the new row blank
+the real reported bug: an auto-suggested amount must count toward the visible running totals immediately, even before its row has an account chosen
+the requested "just keep typing" workflow: completing the last row reveals a new one only if the entry is STILL unbalanced — not just because a row became filled
+the system default display language lives on Application, reachable before any session exists, and setting it preserves append-only history
+transferStock with a real combination: the real unit count moves in parallel with the real dollar value, one, shared, real currency for the same, physical units - genuinely balanced
+transferStock: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction
+trial balance comparison shows Actual and Budget side by side for the same account
+trial balance omits accounts with a zero balance
+trial balance shows every posted account split into debit/credit, and the two columns match
+true double-entry quantity tracking: a real "on order" account for receipts and a real "units sold" account for dispatches — the genuine counteritem, not derived arithmetic, per direct confirmation
+two hashes of the same password are different (salted), but both verify correctly
+typing a negative number into an amount field is never treated as negative — direction comes from which column, never from a typed minus sign
+updateEntity can rename, reparent, and assign an account number
+writeOffStock with a real combination: the real Inventory value and real unit count are both genuinely written off, in parallel, each independently balanced

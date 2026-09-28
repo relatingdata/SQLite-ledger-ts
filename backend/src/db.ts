@@ -2761,62 +2761,16 @@ export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTo
   return leaf;
 }
 
-/** Per direct, absolute correction: no real posting is ever
- * single-sided, storage space is a real set of currencies exactly
- * like dollars, and converting between two real, storage combinations
- * (e.g. Hot-Carton to Cold-Bottle) genuinely moves both real space and
- * real inventory value - never assumed a plain, one-line transfer.
- * Three, real, independently-balanced currency groups, one journal
- * entry, per docs/storage-space-as-currency-design.md §4:
- *  1. the source combination's own real space currency (freed)
- *  2. the destination combination's own real space currency (consumed,
- *     at the real, defined, one-directional exchange rate between the
- *     two - throws if no real rate has ever been set, since an
- *     undefined rate means this real conversion was never meant to be
- *     possible at all, e.g. Cold back to Hot)
- *  3. the real, home-currency inventory value, relocating from the
- *     source combination's own real Inventory leaf to the
- *     destination's - the exact, same, real logic transferStock
- *     already uses between locations, applied here between
- *     combinations instead. */
-/** Per a real, confirmed, separate bug found directly: `ensureLocationCapacityAccount`
- * (checkpoint 395) creates "Storage Capacity Remaining"/"Installed" as a
- * real child of the location itself, never under Chart of Accounts -
- * meaning ensureCombinationAccountLeaf's own bare lookup for these exact
- * names would silently attach a real combination leaf under whichever
- * location happened to create that name first, genuinely unreachable
- * from getTrialBalance's own real, recursive walk. Ensures both exist as
- * real, direct children of this specific business's own Chart of Accounts
- * first - the one, real place a base account must live to ever appear in
- * a real financial report. */
-/** Per direct, absolute correction: the real, "built-in" Hierarchy is
- * named "Storage Capacity," with two, real, named leaves of its own -
- * "Remaining" and "Installed" - never a flat, bare-named pair. This
- * exact, same, real structure lives under both a real business (its
- * own Chart of Accounts) and every real location alike - the one, new
- * mechanism entirely replacing the earlier, real, flat, per-location
- * "Storage Capacity Remaining"/"Installed" pair (checkpoint 395),
- * never unified alongside it. Each real "Remaining"/"Installed" leaf
- * is itself "amplified" by whatever real, user-defined Storage
- * Cartesian Product combinations are actually in use, via
- * ensureCombinationAccountLeaf's own, real, explicit-id form - genuinely
- * unambiguous now that "Remaining"/"Installed" legitimately repeat
- * under every real business and every real location alike. */
+// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function ensureStorageCapacityStructure(parentEntity: { id: number; name: string }, userId: UserId): { remainingId: number; installedId: number; occupiedId: number } {
   const capacity = (Entity.getUnder('Storage Capacity', parentEntity.id) ?? create(parentEntity as TypedNode<string>, typeRootName, 'Storage Capacity', userId)) as { id: number; name: string };
   const remaining = (Entity.getUnder('Remaining', capacity.id) ?? create(capacity as TypedNode<string>, typeRootName, 'Remaining', userId)) as { id: number; name: string };
   const installed = (Entity.getUnder('Installed', capacity.id) ?? create(capacity as TypedNode<string>, typeRootName, 'Installed', userId)) as { id: number; name: string };
-  // Per direct instruction that this is fundamental and must be
-  // completed fully: "Installed" only ever changes when real,
-  // physical capacity itself is built or removed - never when an
-  // ordinary, real stock movement merely occupies or frees existing
-  // space. "Occupied" is that real movement's own, genuine, balanced
-  // counterpart to "Remaining" - the real, meaningful identity
-  // Installed = Remaining + Occupied holds at every real moment.
   const occupied = (Entity.getUnder('Occupied', capacity.id) ?? create(capacity as TypedNode<string>, typeRootName, 'Occupied', userId)) as { id: number; name: string };
   return { remainingId: remaining.id, installedId: installed.id, occupiedId: occupied.id };
 }
 
+// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function convertStorageSpace(
   business: BusinessName,
   ledger: LedgerName,
@@ -2840,16 +2794,6 @@ export function convertStorageSpace(
   setAccountCurrency(fromSpace.name, fromCurrency, fromSpace.id);
   setAccountCurrency(toSpace.name, toCurrency, toSpace.id);
 
-  // Per direct, corrected instruction: a real space conversion (e.g.
-  // Hot to Cold) is a real, genuine exchange between two, real,
-  // distinct currencies, with its own, real, nominated rate - a
-  // missing rate means this real direction was never meant to be
-  // possible at all (e.g. Cold back to Hot). Real inventory VALUE is
-  // never posted here at all - counting a carton versus counting its
-  // own real bottles is exactly like counting dollars versus cents, a
-  // fixed, known multiplier, never an "exchange" with its own real
-  // rate; the real value simply is what it is, and no real journal
-  // entry is needed to re-express it in a different, real unit.
   const spaceRate = fromCurrency === toCurrency ? 1 : getCurrencyExchangeRate(business, fromCurrency, toCurrency, 'sell');
   if (spaceRate == null) throw new ValidationError(`Converting from "${fromValues.join(' + ')}" to "${toValues.join(' + ')}" has never been defined as a real, allowed direction for space.`);
   const toQuantity = Math.round(quantity * spaceRate);
@@ -2868,20 +2812,7 @@ export function convertStorageSpace(
   postJournalEntry(ref, business, ledger, userId);
 }
 
-/** Per direct, corrected instruction: opening a carton is never a real
- * "conversion" between carton-space and bottle-space, and no real
- * exchange rate connects them at all - it is two, real, independent
- * events (carton-space freed, bottle-space separately consumed) that
- * merely happen together because opening a carton is one, real,
- * physical action. Each real space movement balances only against its
- * own real "Storage Capacity Installed" counterpart, in the exact,
- * same way as every other real, single-sided-never posting - never
- * against each other, and never through a real currency-pair rate
- * lookup, since there is genuinely nothing to exchange. Real inventory
- * value is never posted here either, per the exact, same, real reason
- * convertStorageSpace does not: counting a carton versus its own real
- * bottles is a fixed, known multiplier, exactly like counting dollars
- * versus cents, never an exchange. */
+// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function openStorageContainer(
   business: BusinessName,
   ledger: LedgerName,
@@ -2910,12 +2841,8 @@ export function openStorageContainer(
   setAccountCurrency(unitInstalled.name, unitCurrency, unitInstalled.id);
 
   const ref = reference ?? `STORAGE-OPEN-${Date.now()}`;
-  // Container-space freed - a real, complete, independently-balancing
-  // currency group on its own.
   stageLine({ reference: ref, business, ledger, account: asAccountName(containerSpace.name), accountId: containerSpace.id, amount_minor: -cartonsOpened });
   stageLine({ reference: ref, business, ledger, account: asAccountName(containerInstalled.name), accountId: containerInstalled.id, amount_minor: cartonsOpened });
-  // Unit-space consumed - a real, separate, independently-balancing
-  // currency group, never linked to the one above by any rate.
   stageLine({ reference: ref, business, ledger, account: asAccountName(unitSpace.name), accountId: unitSpace.id, amount_minor: unitsProduced });
   stageLine({ reference: ref, business, ledger, account: asAccountName(unitInstalled.name), accountId: unitInstalled.id, amount_minor: -unitsProduced });
   postJournalEntry(ref, business, ledger, userId);
