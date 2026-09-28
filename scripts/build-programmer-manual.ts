@@ -17,6 +17,7 @@ const OUT = join(DOCS, 'programmer-manual.md');
 const PARTS: [string, string[]][] = [
   ['Part I --- Architecture', [
     'coding-standards.md',
+    'naming-vocabulary.md',
     'entity-model.md',
     'journal-api-reference.md',
     'stock-api-reference.md',

@@ -51,8 +51,11 @@ from memory.
 
 - **`{Product} — {Real Purpose}`** (an em-dash, not a hyphen) — a
   real, per-product or per-location *account*, lazily created under
-  its own, real, owning entity: `Amber Ale 330ml — On Order`,
-  `CapTest Outlet — Storage Capacity Remaining`. The text after the
+  its own, real, owning entity: `Amber Ale 330ml — On Order`. (A
+  location's storage capacity no
+  longer follows this pattern: it is a nested `Storage Capacity` →
+  `Remaining` / `Installed` / `Occupied` structure; see
+  `docs/storage-space-as-currency-design.md`.) The text after the
   dash is always a real, specific GL/tracking purpose, never a
   generic label.
 - **`{Concept} Type` / `{Concept} Types`** — a real, user-extensible

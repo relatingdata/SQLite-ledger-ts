@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -416,7 +416,7 @@ check-backend-types:
 check-unused:
 	@cd backend && out=$$($(RUN_BINARY) tsc --project tsconfig.unused.json 2>&1 | grep "TS6133" || true); \
 	if [ -n "$$out" ]; then echo "$$out"; echo "Unused declarations found - remove them."; exit 1; \
-	else echo "No unused imports, functions or locals in src/, test/ or the step-runner."; fi
+	else echo "No unused imports, functions or locals in src/, test/, the step-runner or the root scripts."; fi
 
 # Regenerates docs/screens-inventory.md from the frontend routes.
 screens-inventory:
@@ -449,6 +449,12 @@ strip-comments:
 find-symbols:
 	@if [ -z "$(PATTERN)" ]; then echo "Usage: make find-symbols PATTERN=<regex>"; exit 1; fi
 	$(RUN_SCRIPT) scripts/find-symbols.ts '$(PATTERN)'
+
+# Measures which words the code uses for each concept and which verb prefixes
+# are in use versus defined. Writes docs/naming-vocabulary-analysis.md
+# (generated; not part of the manual). See docs/naming-vocabulary.md.
+analyze-vocabulary:
+	$(RUN_SCRIPT) scripts/analyze-vocabulary.ts
 
 measure-comments:
 	$(RUN_SCRIPT) scripts/measure-code-comments.ts

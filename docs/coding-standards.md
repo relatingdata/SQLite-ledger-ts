@@ -157,7 +157,13 @@ leave pointers dangling.
   greps: use it to ask "does anything named like X exist?" before designing X.
   It matches names only, so it cannot find behaviour that is not named for what
   it does (see `resolveDispatchLocation` in
-  `docs/classification-neutrality-impact.md`).
+  `docs/classification-neutrality-impact.md`). In a `make` argument write `$$`
+  for a literal `$`, or `make` will silently swallow it: a pattern such as
+  `^fetch$` matched nothing until it was written `^fetch$$`.
+- `make analyze-vocabulary` reports which words the code uses for each concept
+  and which verb prefixes are in use versus defined. It writes a generated
+  report that is deliberately not in the manual. The findings and the draft
+  vocabulary are in `docs/naming-vocabulary.md`.
 - `make show-comments FILE=<path> [FROM=<line> TO=<line>]` lists one file's
   comment lines with their exact text and line numbers. Use it before migrating:
   it shows precisely what has to land in the manual first, and gives the exact
