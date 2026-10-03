@@ -27,6 +27,18 @@ practice uses, paired with genuinely tabular, positional, data-driven test
 data — the real data file itself contains **zero commands, zero selectors,
 zero field names.**
 
+## 2a. Comment lines in the data file, per direct instruction
+
+A line in the data file itself, starting with `#`, is a real, free-text explanation of the step(s)
+that follow it — never a data row, never counted as a real step, never touching the control file,
+which stays exactly its own, documented four columns (`path,verify,screenshot,skip`). One or more
+consecutive `#` lines accumulate into a single, real comment, attached to the next real data row
+that follows them, and shown before that step runs — both in `--pretty` and during an actual run,
+either path, api or ui — per direct instruction that a comment is real documentation attached to
+the step it explains, not a side channel kept in a different file. Implemented in
+`splitDataAndComments` (`backend/scripts/step-runner.ts`), called once, inside `loadSteps`, so
+every caller (lint, pretty-print, an actual run) sees the same, real comments consistently.
+
 ## 3. The real data file — pure, positional data
 
 One real row per real step. The screen/action name first, then its real
@@ -203,7 +215,10 @@ real field values, in the exact, real position order the registry defines for
 that screen — column 2 is position 1, column 3 is position 2, and so on. A
 value containing a comma or a double quote must be double-quoted, with any
 internal double quote doubled (standard CSV escaping). No JSON, no selectors,
-no field names, anywhere in this file.
+no field names, anywhere in this file. **A line starting with `#`** is not a
+data row at all — a real, free-text comment explaining the step(s) that
+follow it, accumulated across consecutive `#` lines, shown before that step
+runs (see section 2a above).
 
 **8.2 Screen registry file.** Plain ASCII CSV, header row required, exactly:
 `screen_name,ui_path,open_selector,api_function,submit_selector,position,field_name,field_selector,field_type`.

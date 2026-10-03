@@ -6,14 +6,46 @@ Switch Session,session,/session,,,button:has-text('Continue'),1,businessName,sel
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),1,businessName,input[placeholder='e.g. Corner Store Pty Ltd'],text
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),2,financialYearLabel,input[placeholder='e.g. 2026-27'],text
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),3,businessType,select >> nth=1,select
+Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),4,homeCurrency,,text
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),1,businessName,,text
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),2,locationName,.generic-form fieldset >> nth=0 >> input,text
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),3,city,.generic-form fieldset >> nth=1 >> input,text
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),4,locationType,.generic-form fieldset >> nth=2 >> select,select
+Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),5,division,,text
+Set Location Capacity,data,,,setLocationCapacity,,1,businessName,,text
+Set Location Capacity,data,,,setLocationCapacity,,2,locationName,,text
+Set Location Capacity,data,,,setLocationCapacity,,3,bottleCapacity,,text
+Set Location Capacity,data,,,setLocationCapacity,,4,cartonCapacity,,text
+Create Employee,data,,,createEmployeeAt,,1,businessName,,text
+Create Employee,data,,,createEmployeeAt,,2,employeeName,,text
+Create Employee,data,,,createEmployeeAt,,3,locationName,,text
+Create Provider,data,,,createProviderSimple,,1,businessName,,text
+Create Provider,data,,,createProviderSimple,,2,providerName,,text
 Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),1,businessName,,text
 Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),2,itemName,input[placeholder='New item name'],text
 Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),3,category,select >> nth=0,select
 Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),4,newCategoryName,"input[placeholder=""New category name, e.g. Pinot Noir""]",text
+Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,1,businessName,,text
+Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,2,itemName,,text
+Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,3,providerName,,text
+Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,4,unitCostMinor,,text
+Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,5,packageQuantity,,text
+Post Journal Entry,data,,,postJournalEntrySimple,,1,businessName,,text
+Post Journal Entry,data,,,postJournalEntrySimple,,2,debitAccount,,text
+Post Journal Entry,data,,,postJournalEntrySimple,,3,creditAccount,,text
+Post Journal Entry,data,,,postJournalEntrySimple,,4,amountMinor,,text
+Create Purchase Order,data,,,createPurchaseOrderInCartons,,1,businessName,,text
+Create Purchase Order,data,,,createPurchaseOrderInCartons,,2,providerName,,text
+Create Purchase Order,data,,,createPurchaseOrderInCartons,,3,itemName,,text
+Create Purchase Order,data,,,createPurchaseOrderInCartons,,4,cartons,,text
+Create Purchase Order,data,,,createPurchaseOrderInCartons,,5,pricePerCartonMinor,,text
+Create Purchase Order,data,,,createPurchaseOrderInCartons,,6,reference,,text
+Cash Purchase,data,,,cashPurchaseSimple,,1,businessName,,text
+Cash Purchase,data,,,cashPurchaseSimple,,2,locationName,,text
+Cash Purchase,data,,,cashPurchaseSimple,,3,providerName,,text
+Cash Purchase,data,,,cashPurchaseSimple,,4,itemName,,text
+Cash Purchase,data,,,cashPurchaseSimple,,5,quantity,,text
+Cash Purchase,data,,,cashPurchaseSimple,,6,unitCostMinor,,text
 Receive Into Storage,data,,,receiveStockWithCombination,,1,businessName,,text
 Receive Into Storage,data,,,receiveStockWithCombination,,2,itemName,,text
 Receive Into Storage,data,,,receiveStockWithCombination,,3,locationName,,text
@@ -21,7 +53,18 @@ Receive Into Storage,data,,,receiveStockWithCombination,,4,quantity,,text
 Receive Into Storage,data,,,receiveStockWithCombination,,5,groupingName,,text
 Receive Into Storage,data,,,receiveStockWithCombination,,6,storageValue,,text
 Open Container,data,,,openContainer,,1,businessName,,text
-Open Container,data,,,openContainer,,2,containerValue,,text
-Open Container,data,,,openContainer,,3,cartonsOpened,,text
-Open Container,data,,,openContainer,,4,unitValue,,text
-Open Container,data,,,openContainer,,5,unitsProduced,,text
+Open Container,data,,,openContainer,,2,locationName,,text
+Open Container,data,,,openContainer,,3,containerValue,,text
+Open Container,data,,,openContainer,,4,cartonsOpened,,text
+Open Container,data,,,openContainer,,5,unitValue,,text
+Open Container,data,,,openContainer,,6,unitsProduced,,text
+Transfer Items,data,,,transferItemsSimple,,1,businessName,,text
+Transfer Items,data,,,transferItemsSimple,,2,itemName,,text
+Transfer Items,data,,,transferItemsSimple,,3,fromLocationName,,text
+Transfer Items,data,,,transferItemsSimple,,4,toLocationName,,text
+Transfer Items,data,,,transferItemsSimple,,5,quantity,,text
+POS Sale,data,,,posSaleSimple,,1,businessName,,text
+POS Sale,data,,,posSaleSimple,,2,locationName,,text
+POS Sale,data,,,posSaleSimple,,3,itemName,,text
+POS Sale,data,,,posSaleSimple,,4,quantity,,text
+POS Sale,data,,,posSaleSimple,,5,unitPriceMinor,,text

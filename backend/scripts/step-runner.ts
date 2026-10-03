@@ -50,16 +50,157 @@ export interface Step {
  * the real, actual backend function it calls - extend this as
  * further, real screens are added to screens.csv. */
 export const API_REGISTRY: Record<string, (args: Record<string, string>) => unknown> = {
-  createBusiness: (a) => db.createBusiness(a.businessName as any, a.financialYearLabel, db.asUserId(1)),
-  createAndConfigureLocation: (a) =>
-    db.createAndConfigureLocation(a.businessName as any, a.locationName, {
+  // Per docs/realistic-tutorial-e2e-plan.md, Phase A: Chapter 3 nominates a
+  // home currency at business creation. setBusinessHomeCurrency is a
+  // real, separate, existing function - called immediately after, not
+  // folded into createBusiness itself, which has no currency parameter.
+  createBusiness: (a) => {
+    const result = db.createBusiness(a.businessName as any, a.financialYearLabel, db.asUserId(1));
+    if (a.homeCurrency) db.setBusinessHomeCurrency(a.businessName, a.homeCurrency, db.asUserId(1));
+    return result;
+  },
+  // Per docs/realistic-tutorial-e2e-plan.md, Phase A: Chapter 3's
+  // "Division" is a Hierarchy (per docs/naming-vocabulary.md, Division is
+  // an example classification, never a built-in concept) - the division
+  // field, when given, is ensured as a Hierarchy value the exact, same
+  // way "Storage" and "Container" already are below, never a new,
+  // separate mechanism.
+  createAndConfigureLocation: (a) => {
+    const userId = db.asUserId(1);
+    const result = db.createAndConfigureLocation(a.businessName as any, a.locationName, {
       city: a.city,
       location_type: a.locationType,
       is_billing_address: false,
       bottle_capacity: null,
       carton_capacity: null,
       timezone: 'Australia/Adelaide',
-    } as any, db.asUserId(1)),
+    } as any, userId);
+    if (a.division) {
+      db.ensureHierarchyGrouping(a.businessName as any, 'Division', userId);
+      db.ensureHierarchyValue(a.businessName as any, 'Division', a.division, userId);
+      db.setDimensionParent(a.locationName, 'Division', a.division, userId);
+    }
+    return result;
+  },
+  // Phase B: sets a location's own real shelf (bottle) and carton
+  // capacity after creation, exactly as Chapter 3 describes - "on the
+  // same screen" there, a separate step here since Create Location's
+  // own known screen has no capacity fields of its own yet.
+  setLocationCapacity: (a) => {
+    const loc = db.getLocation(a.locationName, a.businessName as any);
+    if (!loc) throw new Error(`No location named "${a.locationName}" under "${a.businessName}".`);
+    db.setLocation(a.locationName, {
+      ...loc,
+      bottle_capacity: a.bottleCapacity ? Number(a.bottleCapacity) : null,
+      carton_capacity: a.cartonCapacity ? Number(a.cartonCapacity) : null,
+    }, a.businessName as any);
+  },
+  // Phase B: Chapter 3's Business Setup employee creation, at a named
+  // location - createEmployee already exists and takes exactly this
+  // shape.
+  createEmployeeAt: (a) => db.createEmployee(a.employeeName, a.locationName, db.asUserId(1)),
+  // Phase B: Chapter 3's first supplier, name only - createProvider
+  // already exists and takes exactly this shape (per
+  // docs/naming-vocabulary.md, Provider is the code-level name; the
+  // business owner's own displayed label stays separately
+  // translatable).
+  createProviderSimple: (a) => db.createProvider(a.providerName, db.asUserId(1)),
+  // Phase B: a real, generic two-line journal entry (debit one account,
+  // credit another, for the same amount) - used for Chapter 3's own
+  // opening-capital posting. Built on the real, existing stageLine/
+  // postJournalEntry pair, the same, one, real path every other
+  // manual transaction in this application posts through.
+  postJournalEntrySimple: (a) => {
+    const userId = db.asUserId(1);
+    const business = a.businessName as any;
+    const ledger = db.asLedgerName('Actual');
+    const reference = `JE-${Date.now()}`;
+    const amount = Number(a.amountMinor);
+    db.stageLine({ reference, business, ledger, account: a.debitAccount as any, amount_minor: amount });
+    db.stageLine({ reference, business, ledger, account: a.creditAccount as any, amount_minor: -amount });
+    db.postJournalEntry(reference, business, ledger, userId);
+  },
+  // Phase B: sets an item's real cost and real pack size (units per
+  // carton) against a specific, named provider - the real, existing
+  // addOrUpdateItemSource mechanism, which is genuinely
+  // provider-specific (a provider's own offer for an item), unlike
+  // Chapter 3's own narrative, which sets this before any provider
+  // exists. No generic, provider-independent item cost/price mechanism
+  // exists in the backend today (confirmed directly, not assumed) - the
+  // provider is created first in this data file for exactly that reason.
+  setItemCostAndPackSize: (a) =>
+    db.addOrUpdateItemSource({
+      itemName: a.itemName,
+      vendorName: a.providerName,
+      priceMinor: Number(a.unitCostMinor),
+      packageQuantity: Number(a.packageQuantity),
+      isPreferred: true,
+    }),
+  // Phase B: Chapter 3's Purchase Order, placed in whole cartons - "an
+  // important, real detail, easy to get wrong" per the manual itself.
+  // Converts cartons to the item's own real, registered pack size
+  // (read directly from item_source, the one, real place it is kept),
+  // then stages and immediately posts the order - a single, real
+  // step, since this data file has no separate "place the order" row.
+  createPurchaseOrderInCartons: (a) => {
+    const userId = db.asUserId(1);
+    const business = a.businessName as any;
+    const ledger = db.asLedgerName('Actual');
+    const packRow = db.db
+      .prepare(
+        `SELECT isrc.detail_json AS detail_json
+         FROM current_entities item
+         JOIN current_entities isrc ON isrc.parent_id = item.id AND isrc.name LIKE item.name || ' — Source — %'
+         JOIN current_entities vendor ON vendor.id = isrc.relation_id
+         WHERE item.name = ? AND vendor.name = ?
+         ORDER BY isrc.id DESC LIMIT 1`
+      ).get(a.itemName, a.providerName) as { detail_json: string } | undefined;
+    const packageQuantity = packRow ? (JSON.parse(packRow.detail_json).package_quantity ?? 1) : 1;
+    const cartons = Number(a.cartons);
+    const quantity = cartons * packageQuantity;
+    const priceMinorPerUnit = Math.round(Number(a.pricePerCartonMinor) / packageQuantity);
+    db.stagePurchaseOrder({
+      reference: a.reference, business, ledger, vendor: a.providerName, item: a.itemName,
+      quantity, price_minor: priceMinorPerUnit,
+    });
+    db.postPurchaseOrder(a.reference, business, ledger, userId);
+  },
+  // Phase B: Chapter 3's Cash Purchase - receives stock at a location,
+  // at cost, paid in full immediately. completeCashPurchase already
+  // exists and takes exactly this shape.
+  cashPurchaseSimple: (a) => {
+    const userId = db.asUserId(1);
+    return db.completeCashPurchase({
+      business: a.businessName as any,
+      ledger: db.asLedgerName('Actual'),
+      locationName: a.locationName as any,
+      vendorName: a.providerName as any,
+      lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitCostMinor), taxMinor: 0 }],
+      taxAccount: 'Sales Tax Payable' as any,
+      paymentMethod: 'cash',
+    }, userId);
+  },
+  // Phase B: a plain (non-combination) transfer between two named
+  // locations - transferItems already exists and takes exactly this
+  // shape.
+  transferItemsSimple: (a) => {
+    const userId = db.asUserId(1);
+    db.transferItems(a.businessName as any, db.asLedgerName('Actual'), a.itemName as any, a.fromLocationName as any, a.toLocationName as any, Number(a.quantity), `TRANSFER-${a.itemName}-${Date.now()}`, userId);
+  },
+  // Phase B: Chapter 3's retail sale - completePosSale already exists
+  // and takes exactly this shape.
+  posSaleSimple: (a) => {
+    const userId = db.asUserId(1);
+    return db.completePosSale({
+      business: a.businessName as any,
+      ledger: db.asLedgerName('Actual'),
+      locationName: a.locationName as any,
+      customerName: 'Cash Sale' as any,
+      lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitPriceMinor), taxMinor: 0 }],
+      taxAccount: 'Sales Tax Payable' as any,
+      paymentMethod: 'cash',
+    }, userId);
+  },
   // Matches the real, actual UI's own real behaviour exactly: a real
   // "+ New category…" value means create the real, new category
   // first (under this business's own real Items root), then create
@@ -98,6 +239,13 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   // Per direct instruction: exercises the independent, non-rate-linked
   // carton/bottle space case - opening a carton is never a real
   // "conversion," it is two, real, independent space movements.
+  // Per docs/currency-and-quantity-integrity-fix-plan.md, Phase 3 (not
+  // fixed here): openStorageContainer has no location parameter at all,
+  // so it posts to the business root, never a real, specific location -
+  // a separate, already-documented defect. locationName is accepted
+  // here (screens.csv position 2) and recorded in the reference, so it
+  // is not silently discarded, but the posting itself does not scope to
+  // it structurally yet.
   openContainer: (a) => {
     const userId = db.asUserId(1);
     db.ensureHierarchyGrouping(a.businessName as any, 'Container', userId);
@@ -106,7 +254,8 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     db.defineProductShape(a.businessName as any, [['Container', 'Container']], userId);
     db.openStorageContainer(
       a.businessName as any, db.asLedgerName('Actual'), [['Container', 'Container']],
-      [a.containerValue], Number(a.cartonsOpened), [a.unitValue], Number(a.unitsProduced), userId
+      [a.containerValue], Number(a.cartonsOpened), [a.unitValue], Number(a.unitsProduced), userId,
+      `STORAGE-OPEN-${a.locationName}`
     );
   },
 };
@@ -145,6 +294,25 @@ function readCsvLines(path: string): { line: string; fileLine: number }[] {
     .filter((l) => l.line.trim() !== '');
 }
 
+// Per direct instruction: a real line in the data file itself, starting
+// with '#', is a real, free-text explanation of the step(s) that
+// follow it - never a data row, never counted as a real step, never
+// touching the control file at all (which stays exactly the four,
+// documented columns: path, verify, screenshot, skip). One or more
+// consecutive '#' lines accumulate into a single, real comment,
+// attached to the next real data row that follows them, shown before
+// that step runs - pretty-printed or during an actual run, api or ui.
+function splitDataAndComments(lines: { line: string; fileLine: number }[]): { line: string; fileLine: number; comment: string }[] {
+  const out: { line: string; fileLine: number; comment: string }[] = [];
+  let pending: string[] = [];
+  for (const l of lines) {
+    if (l.line.trim().startsWith('#')) { pending.push(l.line.trim().replace(/^#\s?/, '')); continue; }
+    out.push({ ...l, comment: pending.join(' ') });
+    pending = [];
+  }
+  return out;
+}
+
 /** Loads the real screen registry, grouping each screen's own real
  * field rows together, sorted by their own real position. */
 export function loadScreens(path: string): Map<string, Screen> {
@@ -171,7 +339,7 @@ export function loadScreens(path: string): Map<string, Screen> {
  * in position order. Loads the matching, optional .control.csv
  * (same base name) for verify/screenshot, kept entirely separate. */
 export function loadSteps(dataPath: string): Step[] {
-  const lines = readCsvLines(dataPath);
+  const lines = splitDataAndComments(readCsvLines(dataPath));
   const controlPath = dataPath.replace(/\.csv$/, '.control.csv');
   const controlLines = existsSync(controlPath) ? readCsvLines(controlPath).map((l) => l.line) : [];
   const controlRows = controlLines.length > 0 ? controlLines.slice(1).map(parseCsvLine) : [];
@@ -180,7 +348,7 @@ export function loadSteps(dataPath: string): Step[] {
     const fields = parseCsvLine(entry.line);
     const [screen_name, ...values] = fields;
     const control = controlRows[i] ?? [];
-    return { index: i + 1, file_line: entry.fileLine, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '', skip: (control[3] ?? '').toLowerCase() === 'true', comment: control[4] ?? '' };
+    return { index: i + 1, file_line: entry.fileLine, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '', skip: (control[3] ?? '').toLowerCase() === 'true', comment: entry.comment };
   });
 }
 

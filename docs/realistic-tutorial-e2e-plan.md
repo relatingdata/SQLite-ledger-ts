@@ -1,6 +1,34 @@
 # A Realistic Tutorial e2e Test: the Full Plan
 
-**Status: a plan. Nothing in it is built.** It exists because of a direct, confirmed failure,
+**Status: Phases A, B, and C are built and verified. Phase D is deliberately deferred, per direct
+instruction ("worry about simulate-wine-retail-monthly later"). Phase E's core check (a per-currency
+journal review) is done; the rest of Phase E is not.**
+
+**What was built:** every field and screen type listed in Phases A and B below, in
+`shared-fixtures/screens.csv` and `backend/scripts/step-runner.ts`'s `API_REGISTRY`; the full,
+21-step data file (`shared-fixtures/tutorial-steps.csv`) matching Chapter 3's own scenario, using
+real `#`-comment lines per step (a new, real capability — see `docs/skill-step-runner-design.md`
+§2a, §8.1 — not merely an assumed convention); and the multicurrency section (step 17) was
+deliberately left out of this pass, since it depends on `multicurrency-design.md`'s own,
+separately-confirmed build status, per decision 4 below.
+
+**Verified, directly, not assumed:** `--lint` passes (21 real steps, no problems); the full data
+file runs via `--path api`, all 21 steps passing; the full backend (230/230) and frontend (24/24)
+suites still pass; every journal line the run produced was dumped and grouped by currency — zero
+fractional `amount_minor` lines, and the Cash and Bank balance landed at exactly 468400 (AUD cents),
+matching Chapter 3's own numbers by direct arithmetic: 500000 (opening capital) − 33600 (4 cartons ×
+8400) + 1000 (two sales × 2 bottles × 500) = 468400. The per-currency imbalances the review also
+found are not new: they are exactly `docs/currency-and-quantity-integrity-fix-plan.md`'s own,
+already-documented Phase 1 gap (an item's own quantity account carries no currency, unlike its
+counteraccount), now visible at a realistic scale rather than fixed here, since that fix belongs to
+the other plan, not this one.
+
+**Not done:** Phase D (retiring `simulate-wine-retail-month.ts`, the tutorial's own bespoke
+Playwright script, and demo-seeding) — deferred by direct instruction; `--path ui` has not been run
+against the new data file; the multicurrency section (step 17); and the Trial Balance / Stock on
+Hand / Profit & Loss report comparison named in Phase E.5 below.
+
+--- It exists because of a direct, confirmed failure,
 recorded in `docs/skill-manual-as-source-of-truth.md` ("a second, more severe occurrence") and
 `docs/skill-step-runner-design.md` ("honest, real, current status"): the tutorial fixture built
 and rebuilt across a long session was never checked against the one, authoritative, already-written

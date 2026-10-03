@@ -1,12 +1,57 @@
+# Logs in. No accounting, no entities beyond the session.
 "Login","admin","changeme123"
+# Chooses the working business before a new one exists.
 "Select Business","My Business"
-"Create Business","Tutorial Wine Retail Business","2026-27","Sole Trader"
+# Creates the business, its Actual/Budget ledgers, a CoA skeleton, and
+# nominates its real home currency (AUD), per Chapter 3.
+"Create Business","Tutorial Wine Retail Business","2026-27","Sole Trader","AUD"
+# Moves the session into the new business.
 "Switch Session","Tutorial Wine Retail Business"
-"Create Location","Tutorial Wine Retail Business","Head Office","Adelaide","Warehouse"
-"Create Location","Tutorial Wine Retail Business","Main Street Cellar","Adelaide","Retail"
+# Creates the warehouse, within the Adelaide Metro division, per
+# Chapter 3's own Business Setup narrative.
+"Create Location","Tutorial Wine Retail Business","Head Office","Adelaide","Warehouse","Adelaide Metro"
+# Creates the retail outlet, same division - a real retail outlet
+# genuinely holds both sealed cartons and loose bottles at once.
+"Create Location","Tutorial Wine Retail Business","Main Street Cellar","Adelaide","Retail","Adelaide Metro"
+# Chapter 3's own location-capacity step, set directly after creation.
+"Set Location Capacity","Tutorial Wine Retail Business","Head Office","0","40"
+"Set Location Capacity","Tutorial Wine Retail Business","Main Street Cellar","120","10"
+# Chapter 3's Business Setup: the business's first employee, at the
+# warehouse, to receive and later staff the retail counter.
+"Create Employee","Tutorial Wine Retail Business","Jordan Lee","Head Office"
+# Creates the item and its category. No cost/price field exists on
+# this screen - set separately below, once a Provider exists.
 "Create Item","Tutorial Wine Retail Business","Amber Ale 330ml","+ New category…","Beer"
-"Create Item","Tutorial Wine Retail Business","Amber Ale 330ml Can","Beer",""
 "Create Item","Tutorial Wine Retail Business","Highland Single Malt 700ml","+ New category…","Whiskey"
-"Receive Into Storage","Tutorial Wine Retail Business","Amber Ale 330ml","Head Office","240","Storage","Secure"
+# The owner's own opening capital: DR Cash and Bank, CR Owner's
+# Equity, $5,000.00 (500000 minor units) - an assumed figure, since
+# Chapter 3 states the entry's shape but never a number.
+"Post Journal Entry","Tutorial Wine Retail Business","Cash and Bank","Owner's Equity","500000"
+# Chapter 3's first supplier, name only.
+"Create Provider","Tutorial Wine Retail Business","Highland Brewing Co"
+# Amber Ale's real cost ($3.50/bottle = 350 minor units) and real pack
+# size (24 bottles/carton), against this specific provider - no
+# generic, provider-independent cost mechanism exists in the backend.
+"Set Item Cost and Pack Size","Tutorial Wine Retail Business","Amber Ale 330ml","Highland Brewing Co","350","24"
+# Chapter 3's Purchase Order: 4 cartons at $84.00/carton (8400 minor
+# units), placed and posted together.
+"Create Purchase Order","Tutorial Wine Retail Business","Highland Brewing Co","Amber Ale 330ml","4","8400","PO-AMBER-1"
+# Cash Purchase: receives the order at the warehouse, 96 bottles
+# (4 cartons x 24), paid in full on the spot, at the real per-bottle
+# cost (350 minor units).
+"Cash Purchase","Tutorial Wine Retail Business","Head Office","Highland Brewing Co","Amber Ale 330ml","96","350"
+# Stock Transfer: 24 bottles (1 whole carton) warehouse to retail,
+# leaving 72 at the warehouse, per Chapter 3's own numbers.
+"Transfer Items","Tutorial Wine Retail Business","Amber Ale 330ml","Head Office","Main Street Cellar","24"
+# POS Sale, at $5.00/bottle (500 minor units) - run more than once,
+# per Chapter 3; quantity per sale (2) is an assumed figure, since
+# Chapter 3 states the price but never a per-sale quantity.
+"POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500"
+"POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500"
+# Highland Single Malt, received sealed directly at retail (as in the
+# chapter 3 e2e review mid-session), then opened: 1 carton -> 24
+# bottles. Open Container has no location parameter at all (a
+# separate, already-documented defect) - locationName is recorded in
+# its reference only, not yet scoped structurally.
 "Receive Into Storage","Tutorial Wine Retail Business","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure"
-"Open Container","Tutorial Wine Retail Business","Carton","1","Bottle","24"
+"Open Container","Tutorial Wine Retail Business","Main Street Cellar","Carton","1","Bottle","24"
