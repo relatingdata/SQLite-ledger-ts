@@ -29,10 +29,18 @@
 "Post Journal Entry","Tutorial Wine Retail Business","Cash and Bank","Owner's Equity","500000"
 # Chapter 3's first supplier, name only.
 "Create Provider","Tutorial Wine Retail Business","Highland Brewing Co"
-# Amber Ale's real cost ($3.50/bottle = 350 minor units) and real pack
+# Amber Ale's real cost, registered as the per-carton price ($84.00 =
+# 8400 minor units, matching the Purchase Order below) and real pack
 # size (24 bottles/carton), against this specific provider - no
 # generic, provider-independent cost mechanism exists in the backend.
-"Set Item Cost and Pack Size","Tutorial Wine Retail Business","Amber Ale 330ml","Highland Brewing Co","350","24"
+# A real, confirmed bug in an earlier version of this line: 350 was
+# passed here as if it were a per-bottle price, but
+# getItemUnitCostMinor divides this field by package_quantity itself
+# (Math.round(price_minor / package_quantity)) to get the real,
+# per-unit cost ($3.50/bottle) used by every COGS and transfer
+# posting - so this field must carry the per-package price, found by
+# directly reading that function, not assumed.
+"Set Item Cost and Pack Size","Tutorial Wine Retail Business","Amber Ale 330ml","Highland Brewing Co","8400","24"
 # Chapter 3's Purchase Order: 4 cartons at $84.00/carton (8400 minor
 # units), placed and posted together.
 "Create Purchase Order","Tutorial Wine Retail Business","Highland Brewing Co","Amber Ale 330ml","4","8400","PO-AMBER-1"

@@ -17,10 +17,10 @@ import {
   getBelowReorderStock,
   getStockOutRiskReport,
   setItemSourceLeadTime,
-  getStockListing,
-  getStockListingByLocation,
+  getInventoryListing,
+  getInventoryListingByLocation,
   getStockMovementReport,
-  countStockListing,
+  countInventoryListing,
   createStockTake,
   getStockTake,
   recordStockTakeCount,
@@ -433,10 +433,10 @@ export const stockListingRouter = Router();
 stockListingRouter.get('/', (req, res) => {
   const limit = req.query.limit ? Number(req.query.limit) : 100;
   const offset = req.query.offset ? Number(req.query.offset) : 0;
-  res.json({ rows: getStockListing(limit, offset), totalCount: countStockListing() });
+  res.json({ rows: getInventoryListing(limit, offset), totalCount: countInventoryListing() });
 });
 stockListingRouter.get('/by-location', (_req, res) => {
-  res.json(getStockListingByLocation());
+  res.json(getInventoryListingByLocation());
 });
 stockListingRouter.get('/movement', (req, res) => {
   const ledger = req.query.ledger;

@@ -210,10 +210,10 @@ const {
   setLocation,
   getLocation,
   getItemLocation,
-  getStockListing,
-  getStockListingByLocation,
+  getInventoryListing,
+  getInventoryListingByLocation,
   getStockMovementReport,
-  countStockListing,
+  countInventoryListing,
   setAccountCurrency,
   setItemLocationLevels,
   getPickingList,
@@ -2130,7 +2130,7 @@ test('lot/expiration tracking: consumption is genuinely FIFO by expiration date,
   assert.throws(() => consumeFromLots(asItemName('LotTest Dairy'), 999), ValidationError, 'cannot consume more than what is genuinely on hand across all lots');
 });
 
-test('Locations: per-location stock, exactly one billing address, warehouse-direct dispatch for large orders, same-city transfers, and below-reorder reporting', () => {
+test('Locations: per-location stock, exactly one billing address, warehouse-direct dispatch for large orders, same-city transfers, and below-reorder reporting', () => withMyBusinessSession(() => {
   create(myBusinessLocationsRoot(), typeRootName, 'LocTest Head Office', asUserId(1));
   setLocation('LocTest Head Office', { city: 'LocTest City A', location_type: 'Warehouse', is_billing_address: true, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'}, asBusinessName('My Business'));
 
@@ -2188,7 +2188,7 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
   dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-DISP-2', asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), 8 * 24, asUserId(1), '2027-01-12');
   const belowAfter = getBelowReorderStock().filter((r) => r.item === 'LocTest Lager' && r.location === 'LocTest Retail A1');
   assert.equal(belowAfter.length, 1, 'now at or below its own reorder level, correctly surfaced');
-});
+}));
 
 test('quantity movements carry a real, queryable location — receive, dispatch, and transfer (both legs) each record where it actually happened, not just updating the current-state snapshot', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'MoveLocTest Warehouse', asUserId(1));
@@ -2350,7 +2350,7 @@ test('item categories: nested arbitrarily deep in the existing entity tree, and 
   assert.ok(!items.includes('CatTest Chablis'), 'an empty subcategory (no products yet) must not be mistaken for a real item just because it is currently a leaf');
 });
 
-test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free text) then level numerically (top to bottom), and completing posts genuine loss/gain variance while leaving uncounted lines untouched', () => {
+test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free text) then level numerically (top to bottom), and completing posts genuine loss/gain variance while leaving uncounted lines untouched', () => withMyBusinessSession(() => {
   create(myBusinessLocationsRoot(), typeRootName, 'STTest Outlet', asUserId(1));
   setLocation('STTest Outlet', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100 , timezone: 'UTC'}, asBusinessName('My Business'));
 
@@ -2383,9 +2383,9 @@ test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free tex
   const takeId2 = createStockTake(asLocationName('STTest Outlet'), '2027-03-01', asUserId(1));
   recordStockTakeCount(takeId2, asItemName('STTest Merlot'), 45);
   assert.throws(() => completeStockTake(takeId2, asBusinessName('My Business'), asLedgerName('Actual'), asAccountName('Miscellaneous'), 'Inventory', {}, asUserId(1)), ValidationError);
-});
+}));
 
-test('completeStockTake: multiple real, different products sharing the same variance expense account in one real stock take must all post, keeping debit == credit', () => {
+test('completeStockTake: multiple real, different products sharing the same variance expense account in one real stock take must all post, keeping debit == credit', () => withMyBusinessSession(() => {
   // Per direct, reported real-world discrepancy: a full simulation run
   // (test-e2e, outside this sandbox's own resource limits) reported a
   // genuine trial-balance imbalance (debit != credit) after a month-end
@@ -2419,9 +2419,9 @@ test('completeStockTake: multiple real, different products sharing the same vari
   assert.equal(getItemLocation(asItemName('STTest Shiraz'), asLocationName('STTest Outlet 3')).quantity_on_hand, 48);
   assert.equal(getItemLocation(asItemName('STTest Riesling'), asLocationName('STTest Outlet 3')).quantity_on_hand, 33);
   assert.equal(getItemLocation(asItemName('STTest Pinot'), asLocationName('STTest Outlet 3')).quantity_on_hand, 19);
-});
+}));
 
-test('completeStockTake and writeOffItems: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side', () => {
+test('completeStockTake and writeOffItems: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side', () => withMyBusinessSession(() => {
   // Per direct, real report: a real, full simulation run (outside this
   // sandbox) found genuinely unbalanced "Quantity movement" journal
   // entries, referenced <item>-QTY, after a real month-end stock take.
@@ -2452,7 +2452,7 @@ test('completeStockTake and writeOffItems: the real quantity-movement journal en
     .prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ?`)
     .get('QTYBALTEST-WO-QTY') as { total: number };
   assert.equal(woQtyBalance.total, 0, 'the real quantity-movement journal entry for this write-off must itself be balanced');
-});
+}));
 
 test('getLocation/setLocation: two real locations sharing the exact same name under two different real businesses stay genuinely distinct - a confirmed, real bug found by direct review, not a hypothetical', () => {
   const bizA = createBusiness(asBusinessName('SameNameLocTest Co A'), '2027-28', asUserId(1));
@@ -2622,7 +2622,7 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
   assert.equal(cadInvoice?.lines[0]?.unitPriceMinor, 200, 'the real, second sale, same product, same real, shared location, seconds later, at the CAD till, was genuinely, automatically priced at the real, correct, different $2.00 CAD');
 });
 
-test('createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree', () => {
+test('createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree', () => withMyBusinessSession(() => {
   // Per direct, reported bug: test-e2e's month-end stock take threw
   // "Amber Ale 330ml is not on this stock take sheet" - traced to
   // createStockTake building its own item-name-to-id map from every
@@ -2661,7 +2661,7 @@ test('createStockTake resolves an item by its real, scoped item identity, never 
   recordStockTakeCount(takeId, asItemName('STTest Collide'), 38);
   const updated = getStockTake(takeId)!;
   assert.equal(updated.lines[0].counted_quantity, 38, 'the count genuinely attached to the real item on this real sheet');
-});
+}));
 
 test('POS terminal: a complete register sale posts the invoice, dispatches stock from the exact location sold at, and allocates payment atomically, with change due calculated correctly', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'POSTest Outlet', asUserId(1));
@@ -3276,14 +3276,14 @@ test('e-invoicing: a real 3-way match catches a genuine mismatch between a purch
   assert.equal(imported.status, 'draft', 'a real discrepancy must never silently block the import — it must land as a real, reviewable draft, not be refused outright');
 });
 
-test('getStockListing/countStockListing: a real, paginated listing of every item/location combination with stock', () => {
+test('getInventoryListing/countInventoryListing: a real, paginated listing of every item/location combination with stock', () => withMyBusinessSession(() => {
   create(myBusinessLocationsRoot(), typeRootName, 'StockListTest Outlet', asUserId(1));
   setLocation('StockListTest Outlet', { city: 'StockListTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('StockListTest Wine', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKLISTTEST-REC-1', asItemName('StockListTest Wine'), asLocationName('StockListTest Outlet'), 15, asUserId(1), '2027-01-01');
 
-  const countBefore = countStockListing();
-  const listing = getStockListing(1000, 0);
+  const countBefore = countInventoryListing();
+  const listing = getInventoryListing(1000, 0);
   assert.equal(listing.length, countBefore, 'the listing must return exactly as many rows as the count reports, at a large enough page size');
 
   const row = listing.find((r) => r.item === 'StockListTest Wine' && r.location === 'StockListTest Outlet');
@@ -3293,22 +3293,22 @@ test('getStockListing/countStockListing: a real, paginated listing of every item
   assert.equal(row!.max_level, null);
   assert.equal(row!.reorder_level, null);
 
-  withMyBusinessSession(() => setItemLocationLevels(asItemName('StockListTest Wine'), asLocationName('StockListTest Outlet'), { minLevel: 5, maxLevel: 50, reorderLevel: 10 }));
-  const listingAfter = getStockListing(1000, 0);
+  setItemLocationLevels(asItemName('StockListTest Wine'), asLocationName('StockListTest Outlet'), { minLevel: 5, maxLevel: 50, reorderLevel: 10 });
+  const listingAfter = getInventoryListing(1000, 0);
   const rowAfter = listingAfter.find((r) => r.item === 'StockListTest Wine' && r.location === 'StockListTest Outlet');
   assert.equal(rowAfter!.min_level, 5, 'min/max/reorder set via setItemLocationLevels must actually show up in the listing the UI reads');
   assert.equal(rowAfter!.max_level, 50);
   assert.equal(rowAfter!.reorder_level, 10);
 
   // Real pagination — a page of exactly 1 must return exactly 1 row, and offsetting must move to a different row.
-  const page1 = getStockListing(1, 0);
-  const page2 = getStockListing(1, 1);
+  const page1 = getInventoryListing(1, 0);
+  const page2 = getInventoryListing(1, 1);
   assert.equal(page1.length, 1);
   assert.equal(page2.length, 1);
   assert.notDeepEqual(page1[0], page2[0], 'different offsets must return different rows, not the same page twice');
-});
+}));
 
-test('getStockListingByLocation: groups the same real stock data by real location, tagging each with its real division where one exists', () => {
+test('getInventoryListingByLocation: groups the same real stock data by real location, tagging each with its real division where one exists', () => withMyBusinessSession(() => {
   create(requireEntity('Divisions', typeRootName), typeRootName, 'StockGroupTest City Division', asUserId(1));
   setDivisionType('StockGroupTest City Division', 'Profit Center');
   create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet', asUserId(1));
@@ -3318,7 +3318,7 @@ test('getStockListingByLocation: groups the same real stock data by real locatio
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-1', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet'), 10, asUserId(1), '2027-01-01');
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-2', asItemName('StockGroupTest Wine B'), asLocationName('StockGroupTest Outlet'), 7, asUserId(1), '2027-01-01');
 
-  const groups = getStockListingByLocation();
+  const groups = getInventoryListingByLocation();
   const group = groups.find((g) => g.location === 'StockGroupTest Outlet');
   assert.ok(group, 'the real, new location must appear as its own real group');
   assert.equal(group!.city, 'StockGroupTest City Division');
@@ -3331,11 +3331,11 @@ test('getStockListingByLocation: groups the same real stock data by real locatio
   create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet No Division', asUserId(1));
   setLocation('StockGroupTest Outlet No Division', { city: 'A City With No Real Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-3', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet No Division'), 3, asUserId(1), '2027-01-01');
-  const groupsAfter = getStockListingByLocation();
+  const groupsAfter = getInventoryListingByLocation();
   const noDivisionGroup = groupsAfter.find((g) => g.location === 'StockGroupTest Outlet No Division');
   assert.ok(noDivisionGroup, 'a real location must still produce a real group even with no matching division');
   assert.equal(noDivisionGroup!.division, null);
-});
+}));
 
 test('getLedgerDateRange: reports the real, earliest and latest transdate of what has actually been posted', () => {
   create(requireEntity('My Business', typeRootName), typeRootName, 'DateRangeTest Ledger', asUserId(1));
@@ -4127,7 +4127,7 @@ test('setLanguageDirection/getLanguageDirection: a real, generic RTL property an
   assert.equal(getLanguageDirection('LangDirTest Klingon'), undefined, 'a real, direct clear genuinely removes the link entirely');
 });
 
-test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this genuinely run out before a fresh order could arrive?', () => {
+test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this genuinely run out before a fresh order could arrive?', () => withMyBusinessSession(() => {
   const today = new Date().toISOString().slice(0, 10);
 
   create(requireEntity('Items', typeRootName), typeRootName, 'RiskTest Keg', asUserId(1));
@@ -4153,7 +4153,7 @@ test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this ge
   assert.ok(risk, 'genuinely, correctly flagged as at risk');
   assert.equal(risk?.shortest_lead_time_days, 3, 'the shorter of the two real vendor lead times was used, not the longer one');
   assert.ok(risk!.days_until_stockout! < 3, 'days until stockout is genuinely less than the shortest real lead time');
-});
+}));
 
 test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, dedicated cash-flow/growth-planning design — real, registered bank accounts scoped correctly to one real business, grouped by real currency, with honest overdraft headroom', () => {
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'BankRegTest AUD Account', asUserId(1));

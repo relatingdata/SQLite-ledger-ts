@@ -234,7 +234,7 @@ Called from: production: routes/auth.ts ((module level) ×1) · tests: 2 call(s)
 stageLine(line: StagedLine): void
 ```
 
-Called from: production: db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1); db-stock.ts (adjustLocationCapacity ×2, completeStockTake ×2, dispatchItems ×4, ensureLocationCapacityAccount ×2, receiveItems ×4, transferItems ×4, and 1 more); db.ts (allocatePayment ×2, completePosSale ×2, convertStorageSpace ×4, openStorageContainer ×4, payEmployeeWages ×4, postInvoice ×4); primitives.ts (Balance.post ×1); routes/journal.ts ((module level) ×1) · tests: 124 call(s) in 1 file(s) · tooling: 39 call(s) in 8 file(s)
+Called from: production: db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1); db-stock.ts (adjustLocationCapacity ×2, completeStockTake ×2, dispatchItems ×4, ensureLocationCapacityAccount ×2, receiveItems ×4, transferItems ×6, and 1 more); db.ts (allocatePayment ×2, completePosSale ×2, convertStorageSpace ×4, openStorageContainer ×4, payEmployeeWages ×4, postInvoice ×4); primitives.ts (Balance.post ×1); routes/journal.ts ((module level) ×1) · tests: 124 call(s) in 1 file(s) · tooling: 39 call(s) in 8 file(s)
 
 **`getStagedLines`** *(exported)*
 
@@ -450,7 +450,7 @@ Called from: production: routes/journal.ts ((module level) ×1) · tests: 1 call
 postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
-Called from: production: db-journal.ts (postOrderDispatch ×2, postOrderReceipt ×1, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1); db-stock.ts (adjustLocationCapacity ×1, completeStockTake ×1, dispatchItems ×2, ensureLocationCapacityAccount ×1, receiveItems ×2, transferItems ×2, and 1 more); db.ts (allocatePayment ×1, completePosSale ×1, convertStorageSpace ×1, openStorageContainer ×1, payEmployeeWages ×2, postInvoice ×1); routes/journal.ts ((module level) ×1) · tests: 60 call(s) in 1 file(s) · tooling: 15 call(s) in 8 file(s)
+Called from: production: db-journal.ts (postOrderDispatch ×2, postOrderReceipt ×1, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1); db-stock.ts (adjustLocationCapacity ×1, completeStockTake ×1, dispatchItems ×2, ensureLocationCapacityAccount ×1, receiveItems ×2, transferItems ×3, and 1 more); db.ts (allocatePayment ×1, completePosSale ×1, convertStorageSpace ×1, openStorageContainer ×1, payEmployeeWages ×2, postInvoice ×1); routes/journal.ts ((module level) ×1) · tests: 60 call(s) in 1 file(s) · tooling: 15 call(s) in 8 file(s)
 
 **`listJournalEntries`** *(exported)*
 
@@ -866,7 +866,7 @@ Called from: production: db-journal.ts (postLocation ×1); db-seed.ts (migrateFo
 getLocation(name: string, business?: BusinessName): Location | undefined
 ```
 
-Called from: production: db-stock.ts (ensureLocationCapacityAccount ×1, getLocationCapacityStatus ×1, getStockListingByLocation ×1, todayAtLocation ×1, transferItems ×2); db.ts (cityDivisionFor ×1, getBusinessConfigurationReport ×1); routes/locations.ts ((module level) ×2) · tests: 2 call(s) in 1 file(s) · tooling: 5 call(s) in 3 file(s)
+Called from: production: db-stock.ts (ensureLocationCapacityAccount ×1, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, todayAtLocation ×1, transferItems ×2); db.ts (cityDivisionFor ×1, getBusinessConfigurationReport ×1); routes/locations.ts ((module level) ×2) · tests: 2 call(s) in 1 file(s) · tooling: 5 call(s) in 3 file(s)
 
 **`todayAtLocation`** *(exported)*
 
@@ -882,7 +882,7 @@ Called from: production: db-stock.ts (dispatchItems ×1, postQuantityMovement ×
 getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels
 ```
 
-Called from: production: db-stock.ts (completeStockTake ×1, createStockTake ×1, dispatchItems ×1, getStockListingByLocation ×1, transferItems ×1); db.ts (completePosSale ×1, getPickingList ×1, getRestockPickingList ×1); routes/locations.ts ((module level) ×1) · tests: 23 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+Called from: production: db-stock.ts (completeStockTake ×1, createStockTake ×1, dispatchItems ×1, getInventoryListingByLocation ×1, transferItems ×1); db.ts (completePosSale ×1, getPickingList ×1, getRestockPickingList ×1); routes/locations.ts ((module level) ×1) · tests: 23 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
 
 **`setItemLocationLevelDetails`** *(exported)*
 
@@ -898,7 +898,7 @@ Called from: production: db-stock.ts (setItemLocationLevels ×1)
 getLocationCapacityStatus(locationName: LocationName): LocationCapacityStatus
 ```
 
-Called from: production: db-stock.ts (getStockListingByLocation ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: db-stock.ts (getInventoryListingByLocation ×1) · tests: 3 call(s) in 1 file(s)
 
 **`preferredProviderPackageQuantity`**
 
@@ -956,13 +956,13 @@ adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName:
 
 Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, receiveItems ×1, transferItems ×2, writeOffItems ×1) · tests: 4 call(s) in 1 file(s)
 
-**`getStockListingByLocation`** *(exported)*
+**`getInventoryListingByLocation`** *(exported)*
 
 ```
-getStockListingByLocation(): StockListingLocationGroup[]
+getInventoryListingByLocation(): InventoryListingLocationGroup[]
 ```
 
-Called from: production: db-stock.ts (createStockTake ×1, getBelowReorderStock ×1, getStockListing ×1, getStockOutRiskReport ×1); routes/locations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+Called from: production: db-stock.ts (createStockTake ×1, getBelowReorderStock ×1, getInventoryListing ×1, getStockOutRiskReport ×1); routes/locations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
 
 **`allItemCategories`**
 
@@ -988,18 +988,18 @@ getStockMovementReport(ledgerName: string, fromDate?: string, toDate?: string): 
 
 Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
 
-**`getStockListing`** *(exported)*
+**`getInventoryListing`** *(exported)*
 
 ```
-getStockListing(limit?: number, offset?: number): StockListingRow[]
+getInventoryListing(limit?: number, offset?: number): InventoryListingRow[]
 ```
 
 Called from: production: routes/locations.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s)
 
-**`countStockListing`** *(exported)*
+**`countInventoryListing`** *(exported)*
 
 ```
-countStockListing(): number
+countInventoryListing(): number
 ```
 
 Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
@@ -1196,7 +1196,7 @@ Called from: nowhere the compiler could find.
 asUserId(id: number): UserId
 ```
 
-Called from: production: db-journal.ts (clockOutOfProject ×1); db-seed.ts ((module level) ×1); db-stock.ts (createSystemEntity ×1, recordStockTakeCount ×1, setItemLocationLevelDetails ×1, setLocation ×7, transferItems ×14); db.ts (addOrUpdateItemSource ×2, allocatePayment ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, recordInvoiceLine ×2, and 8 more); routes/arap.ts (handlePost ×1); routes/auth.ts ((module level) ×4); routes/businesses.ts ((module level) ×4); routes/contacts.ts ((module level) ×6); and 16 more file(s) · tests: 875 call(s) in 1 file(s) · tooling: 21 call(s) in 5 file(s)
+Called from: production: db-journal.ts (clockOutOfProject ×1); db-seed.ts ((module level) ×1); db-stock.ts (createSystemEntity ×1, recordStockTakeCount ×1, setItemLocationLevelDetails ×1, setLocation ×7, transferItems ×17); db.ts (addOrUpdateItemSource ×2, allocatePayment ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, recordInvoiceLine ×2, and 8 more); routes/arap.ts (handlePost ×1); routes/auth.ts ((module level) ×4); routes/businesses.ts ((module level) ×4); routes/contacts.ts ((module level) ×6); and 16 more file(s) · tests: 875 call(s) in 1 file(s) · tooling: 21 call(s) in 5 file(s)
 
 **`asEntityId`** *(exported)*
 
@@ -1212,7 +1212,7 @@ Called from: production: db.ts (create ×1, getHierarchyChain ×1, requireEntity
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-seed.ts (migrateForPerBusinessChartOfAccounts ×1, migrateForWineRetailDemoData ×1); db-stock.ts (completeStockTake ×2, writeOffItems ×2); db.ts (allocatePayment ×3, completePosSale ×2, dispatchOrderFromPickingList ×1, payEmployeeWages ×6, postInvoice ×6); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4, handlePost ×1); routes/businesses.ts ((module level) ×7); and 11 more file(s) · tests: 559 call(s) in 1 file(s) · tooling: 7 call(s) in 2 file(s)
+Called from: production: db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-seed.ts (migrateForPerBusinessChartOfAccounts ×1, migrateForWineRetailDemoData ×1); db-stock.ts (completeStockTake ×2, getInventoryListingByLocation ×1, writeOffItems ×2); db.ts (allocatePayment ×3, completePosSale ×2, dispatchOrderFromPickingList ×1, payEmployeeWages ×6, postInvoice ×6); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4, handlePost ×1); routes/businesses.ts ((module level) ×7); and 11 more file(s) · tests: 559 call(s) in 1 file(s) · tooling: 7 call(s) in 2 file(s)
 
 **`asLedgerName`** *(exported)*
 
@@ -1244,7 +1244,7 @@ Called from: production: db-journal.ts (reverseJournalEntry ×1); db-reports.ts 
 asLocationName(name: string): LocationName
 ```
 
-Called from: production: db-journal.ts (postLocation ×2, postPurchaseOrder ×1, postSalesOrder ×1); db-seed.ts (migrateForWineRetailDemoData ×2); db-stock.ts (createStockTake ×1, getStockListingByLocation ×2); db.ts (completeCashPurchase ×1, completePosSale ×1, createAndConfigureLocation ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×2, resolveDispatchLocation ×1); routes/arap.ts ((module level) ×2); routes/invoices.ts ((module level) ×2); routes/locations.ts ((module level) ×10); routes/pos.ts ((module level) ×3) · tests: 175 call(s) in 1 file(s) · tooling: 10 call(s) in 1 file(s)
+Called from: production: db-journal.ts (postLocation ×2, postPurchaseOrder ×1, postSalesOrder ×1); db-seed.ts (migrateForWineRetailDemoData ×2); db-stock.ts (createStockTake ×1, getInventoryListingByLocation ×2); db.ts (completeCashPurchase ×1, completePosSale ×1, createAndConfigureLocation ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×2, resolveDispatchLocation ×1); routes/arap.ts ((module level) ×2); routes/invoices.ts ((module level) ×2); routes/locations.ts ((module level) ×10); routes/pos.ts ((module level) ×3) · tests: 175 call(s) in 1 file(s) · tooling: 10 call(s) in 1 file(s)
 
 **`asEmployeeName`** *(exported)*
 
@@ -1276,7 +1276,7 @@ Called from: production: db-journal.ts (postPurchaseOrder ×1); routes/arap.ts (
 asItemName(name: string): ItemName
 ```
 
-Called from: production: db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-seed.ts (migrateForWineRetailDemoData ×2); db-stock.ts (completeStockTake ×4, createStockTake ×2, getLocationCapacityStatus ×1, getStockListingByLocation ×1, getStockOutRiskReport ×1); db.ts (completeCashPurchase ×2, completePosSale ×15, createInvoice ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×1, getPickingList ×1, and 2 more); routes/items.ts ((module level) ×2); routes/locations.ts ((module level) ×8); routes/stock-lots.ts ((module level) ×3) · tests: 142 call(s) in 1 file(s) · tooling: 7 call(s) in 1 file(s)
+Called from: production: db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-seed.ts (migrateForWineRetailDemoData ×2); db-stock.ts (completeStockTake ×4, createStockTake ×2, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockOutRiskReport ×1); db.ts (completeCashPurchase ×2, completePosSale ×15, createInvoice ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×1, getPickingList ×1, and 2 more); routes/items.ts ((module level) ×2); routes/locations.ts ((module level) ×8); routes/stock-lots.ts ((module level) ×3) · tests: 142 call(s) in 1 file(s) · tooling: 7 call(s) in 1 file(s)
 
 **`getEntityTree`** *(exported)*
 
@@ -1772,7 +1772,7 @@ Called from: production: db-stock.ts (writeOffItems ×1); db.ts (completePosSale
 ensureItemLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number; }
 ```
 
-Called from: production: db-stock.ts (completeStockTake ×1); db.ts (completeCashPurchase ×1, completePosSale ×1)
+Called from: production: db-stock.ts (completeStockTake ×1, transferItems ×2); db.ts (completeCashPurchase ×1, completePosSale ×1)
 
 **`ensureBusinessRoot`**
 
@@ -1892,7 +1892,7 @@ Called from: production: routes/hierarchy.ts ((module level) ×1) · tests: 1 ca
 getItemUnitCostMinor(itemName: ItemName): number | null
 ```
 
-Called from: production: db-stock.ts (dispatchItems ×1, receiveItems ×1, transferItems ×1); db.ts (completePosSale ×1)
+Called from: production: db-stock.ts (dispatchItems ×1, receiveItems ×1, transferItems ×2); db.ts (completePosSale ×1)
 
 **`ensureItemTier`** *(exported)*
 
@@ -1956,7 +1956,7 @@ Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, 
 cityDivisionFor(locationName: string): string | undefined
 ```
 
-Called from: production: db-stock.ts (getStockListingByLocation ×1, getStockMovementReport ×2); db.ts (completeCashPurchase ×1, completePosSale ×2, getDivisionForAccount ×1) · tooling: 2 call(s) in 1 file(s)
+Called from: production: db-stock.ts (getInventoryListingByLocation ×1, getStockMovementReport ×2); db.ts (completeCashPurchase ×1, completePosSale ×2, getDivisionForAccount ×1) · tooling: 2 call(s) in 1 file(s)
 
 **`resolveDispatchLocation`** *(exported)*
 
@@ -4812,10 +4812,10 @@ verifyCustomer(name: string, approve: boolean): Promise<void>
 
 Called from: Svelte pages (by name in the file's imports): routes/pos ×1
 
-**`getStockListingByLocation`** *(exported)*
+**`getInventoryListingByLocation`** *(exported)*
 
 ```
-getStockListingByLocation(): Promise<StockListingLocationGroup[]>
+getInventoryListingByLocation(): Promise<InventoryListingLocationGroup[]>
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/stock/listing ×1

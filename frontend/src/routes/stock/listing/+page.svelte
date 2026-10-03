@@ -1,16 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getStockListingByLocation, setItemLocationLevels, asItemName, asLocationName, ApiError, type StockListingLocationGroup, type StockListingRow } from '$lib/api';
+  import { getInventoryListingByLocation, setItemLocationLevels, asItemName, asLocationName, ApiError, type InventoryListingLocationGroup, type InventoryListingRow } from '$lib/api';
   import { translations } from '$lib/state.svelte';
 
-  let groups: StockListingLocationGroup[] = $state([]);
+  let groups: InventoryListingLocationGroup[] = $state([]);
   let loading = $state(true);
   let error = $state('');
 
   async function load() {
     loading = true;
     try {
-      groups = await getStockListingByLocation();
+      groups = await getInventoryListingByLocation();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -22,12 +22,12 @@
 
   // Real division groups, each holding its own real location groups —
   // built directly from the same real division tag
-  // getStockListingByLocation already computed, not re-derived here.
+  // getInventoryListingByLocation already computed, not re-derived here.
   // Locations with no real division fall under a real, explicit
   // "(No division)" group rather than being silently dropped.
   const NO_DIVISION = '__none__';
   let divisionGroups = $derived.by(() => {
-    const byDivision = new Map<string, StockListingLocationGroup[]>();
+    const byDivision = new Map<string, InventoryListingLocationGroup[]>();
     for (const g of groups) {
       const key = g.division ?? NO_DIVISION;
       if (!byDivision.has(key)) byDivision.set(key, []);
@@ -57,11 +57,11 @@
   let saving: Record<string, boolean> = $state({});
   let saveError: Record<string, string> = $state({});
 
-  function key(row: StockListingRow) {
+  function key(row: InventoryListingRow) {
     return `${row.item}::${row.location}`;
   }
 
-  async function saveLevels(row: StockListingRow) {
+  async function saveLevels(row: InventoryListingRow) {
     const k = key(row);
     saving = { ...saving, [k]: true };
     saveError = { ...saveError, [k]: '' };

@@ -1517,7 +1517,7 @@ export const verifyCustomer = (name: string, approve: boolean) =>
 // Stock listing — every item/location combination with real stock
 // ---------------------------------------------------------------------------
 
-export interface StockListingRow {
+export interface InventoryListingRow {
   item: string;
   location: string;
   quantity_on_hand: number;
@@ -1526,8 +1526,8 @@ export interface StockListingRow {
   reorder_level: number | null;
 }
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const getStockListing = (limit = 100, offset = 0) =>
-//   request<{ rows: StockListingRow[]; totalCount: number }>(`/stock-listing?limit=${limit}&offset=${offset}`);
+// export const getInventoryListing = (limit = 100, offset = 0) =>
+//   request<{ rows: InventoryListingRow[]; totalCount: number }>(`/stock-listing?limit=${limit}&offset=${offset}`);
 
 export interface LocationCapacityStatus {
   bottleQuantity: number;
@@ -1537,15 +1537,15 @@ export interface LocationCapacityStatus {
   cartonCapacity: number | null;
   cartonOverCapacity: boolean;
 }
-export interface StockListingLocationGroup {
+export interface InventoryListingLocationGroup {
   location: string;
   city: string | null;
   division: DivisionName | null;
-  rows: StockListingRow[];
+  rows: InventoryListingRow[];
   total_on_hand: number;
   capacity: LocationCapacityStatus;
 }
-export const getStockListingByLocation = () => request<StockListingLocationGroup[]>('/stock-listing/by-location');
+export const getInventoryListingByLocation = () => request<InventoryListingLocationGroup[]>('/stock-listing/by-location');
 
 export interface StockMovementRow {
   item: string;

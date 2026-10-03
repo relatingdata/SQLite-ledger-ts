@@ -404,7 +404,7 @@ export function adjustLocationCapacity(business: BusinessName, ledger: LedgerNam
   postJournalEntry(reference, business, ledger, userId);
 }
 
-export interface StockListingRow {
+export interface InventoryListingRow {
   item: string;
   location: string;
   quantity_on_hand: number;
@@ -413,27 +413,47 @@ export interface StockListingRow {
   reorder_level: number | null;
 }
 
-export interface StockListingLocationGroup {
+export interface InventoryListingLocationGroup {
   location: string;
   city: string | null;
   division: string | null;
-  rows: StockListingRow[];
+  rows: InventoryListingRow[];
   total_on_hand: number;
   capacity: LocationCapacityStatus;
 }
 
-export function getStockListingByLocation(): StockListingLocationGroup[] {
+// Per direct instruction: "Inventory" is the real, correct word for this
+// collection - "Stock" is retired from the code (it stays as a real,
+// translatable Vocabulary word a person reads, and "Stock Take" is UI
+// naming only, never a code term). A real, confirmed, serious bug fixed
+// in the same pass: this query had no business scoping at all, so it
+// aggregated every item and location sharing a name across every real
+// business in the database together - confirmed directly, not assumed,
+// by a genuine item named "Amber Ale 330ml" existing under several,
+// different, unrelated businesses at once. journal already carries its
+// own real business_id; joining through it, rather than matching item
+// and location by bare name alone, is the real, direct fix.
+export function getInventoryListingByLocation(): InventoryListingLocationGroup[] {
   const qtyRows = db
     .prepare(
       `SELECT p.name AS item, l.name AS location, SUM(jl.amount_minor) AS quantity_on_hand
-       FROM journal_line jl
+       FROM journal j
+       JOIN journal_line jl ON jl.journal_id = j.id
        JOIN current_entities p ON p.id = jl.account_id
        JOIN current_entities l ON l.id = jl.location_id
+       WHERE j.business_id = ?
        GROUP BY p.name, l.name
        ORDER BY l.name, p.name`
     )
-    .all() as { item: string; location: string; quantity_on_hand: number }[];
-  const rows: StockListingRow[] = qtyRows.map((r) => {
+    .all(Session.Business.id) as { item: string; location: string; quantity_on_hand: number }[];
+  // Not fully closed: getItemLocation itself still has no business
+  // parameter, so if two different businesses genuinely share both an
+  // item name and a location name, its own min/max/reorder levels could
+  // still come from the wrong one. Narrower than the bug just fixed
+  // above (which mixed quantities across every business unconditionally)
+  // - this one needs both names to collide at once - but real, not
+  // closed, and not fixed in this pass.
+  const rows: InventoryListingRow[] = qtyRows.map((r) => {
     const levels = getItemLocation(asItemName(r.item), asLocationName(r.location));
     return {
       item: r.item,
@@ -445,11 +465,14 @@ export function getStockListingByLocation(): StockListingLocationGroup[] {
     };
   });
 
-  const groups = new Map<string, StockListingLocationGroup>();
+  // getLocationCapacityStatus and cityDivisionFor still have no business
+  // parameter of their own - the same, narrower, not-yet-closed risk
+  // noted above applies to them too, not fixed in this pass.
+  const groups = new Map<string, InventoryListingLocationGroup>();
   for (const row of rows) {
     let group = groups.get(row.location);
     if (!group) {
-      const location = getLocation(row.location);
+      const location = getLocation(row.location, asBusinessName(Session.Business.name));
       const division = cityDivisionFor(row.location) ?? null;
       group = { location: row.location, city: location?.city ?? null, division, rows: [], total_on_hand: 0, capacity: getLocationCapacityStatus(asLocationName(row.location)) };
       groups.set(row.location, group);
@@ -630,24 +653,28 @@ export function getStockMovementReport(ledgerName: string, fromDate?: string, to
   return { receipts, transfers, sales };
 }
 
-export function getStockListing(limit = 100, offset = 0): StockListingRow[] {
-  const all = getStockListingByLocation()
+export function getInventoryListing(limit = 100, offset = 0): InventoryListingRow[] {
+  const all = getInventoryListingByLocation()
     .flatMap((g) => g.rows.map((r) => ({ ...r, location: g.location })))
     .sort((a, b) => (a.item === b.item ? a.location.localeCompare(b.location) : a.item.localeCompare(b.item)));
   return all.slice(offset, offset + limit);
 }
 
-export function countStockListing(): number {
+// Per the same, real fix as getInventoryListingByLocation above: scoped
+// to Session.Business, never a bare, global count across every business.
+export function countInventoryListing(): number {
   const row = db
     .prepare(
       `SELECT COUNT(*) AS total FROM (
-         SELECT 1 FROM journal_line jl
+         SELECT 1 FROM journal j
+         JOIN journal_line jl ON jl.journal_id = j.id
          JOIN current_entities p ON p.id = jl.account_id
          JOIN current_entities l ON l.id = jl.location_id
+         WHERE j.business_id = ?
          GROUP BY p.name, l.name
        )`
     )
-    .get() as { total: number };
+    .get(Session.Business.id) as { total: number };
   return row.total;
 }
 
@@ -838,6 +865,27 @@ export function transferItems(
   adjustLocationCapacity(business, ledger, fromLocationName, itemName, -quantity, date, asUserId(userId), reference);
   adjustLocationCapacity(business, ledger, toLocationName, itemName, quantity, date, asUserId(userId), reference);
 
+  // Per direct instruction: a real, confirmed bug - this plain
+  // (non-combination) path moved quantity and location capacity, but
+  // never any Inventory dollar value at all, unlike the
+  // combination-tagged path just below it, which already does exactly
+  // this. Mirrors that same, existing logic here, using the plain
+  // per-location Inventory account completeCashPurchase already posts
+  // to (ensureItemLocationInventoryAccount), so a transfer genuinely
+  // moves value with the stock, not just its count and its space.
+  if (!(combinationShape && combinationValuesAfterLocation)) {
+    const unitCostMinor = getItemUnitCostMinor(itemName);
+    if (unitCostMinor != null) {
+      const valueMinor = quantity * unitCostMinor;
+      const fromAccount = ensureItemLocationInventoryAccount(itemName, fromLocationName, asUserId(userId));
+      const toAccount = ensureItemLocationInventoryAccount(itemName, toLocationName, asUserId(userId));
+      const valueRef = `${reference}-VALUE`;
+      stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(fromAccount.inventoryAccount), accountId: fromAccount.inventoryAccountId, amount_minor: -valueMinor, memo: `Transfer: ${itemName}` });
+      stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(toAccount.inventoryAccount), accountId: toAccount.inventoryAccountId, amount_minor: valueMinor, memo: `Transfer: ${itemName}` });
+      postJournalEntry(valueRef, business, ledger, asUserId(userId));
+    }
+  }
+
   if (combinationShape && combinationValuesAfterLocation) {
     const unitCostMinor = getItemUnitCostMinor(itemName);
     if (unitCostMinor != null) {
@@ -877,7 +925,7 @@ export interface BelowReorderRow {
 }
 
 export function getBelowReorderStock(): BelowReorderRow[] {
-  return getStockListingByLocation()
+  return getInventoryListingByLocation()
     .flatMap((g) => g.rows.map((r) => ({ ...r, location: g.location })))
     .filter((r): r is BelowReorderRow => r.reorder_level != null && r.quantity_on_hand <= r.reorder_level)
     .sort((a, b) => a.quantity_on_hand - a.reorder_level! - (b.quantity_on_hand - b.reorder_level!));
@@ -927,7 +975,7 @@ export interface StockOutRiskRow {
 }
 
 export function getStockOutRiskReport(windowDays: number = 2): StockOutRiskRow[] {
-  const stockRows = getStockListingByLocation().flatMap((g) => g.rows.map((r) => ({ ...r, location: g.location })));
+  const stockRows = getInventoryListingByLocation().flatMap((g) => g.rows.map((r) => ({ ...r, location: g.location })));
   const results: StockOutRiskRow[] = [];
   for (const row of stockRows) {
     const consumed = db
@@ -984,7 +1032,7 @@ export function createStockTake(locationName: LocationName, takeDate: string, us
   const takeId = takeEntity.id;
 
   const resolvedLocationName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(locationId) as { name: string }).name;
-  const itemsHere = (getStockListingByLocation().find((g) => g.location === resolvedLocationName)?.rows ?? [])
+  const itemsHere = (getInventoryListingByLocation().find((g) => g.location === resolvedLocationName)?.rows ?? [])
     .map((r) => {
       const detail = getItemLocation(asItemName(r.item), asLocationName(resolvedLocationName));
       return { item_id: resolveItemId(asItemName(r.item)), item_name: r.item, quantity_on_hand: r.quantity_on_hand, shelf_side: detail.shelf_side, rack: detail.rack, level: detail.level };

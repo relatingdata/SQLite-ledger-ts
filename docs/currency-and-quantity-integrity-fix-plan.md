@@ -38,14 +38,36 @@ space currencies — never a single choice between them.
 
 ## Two further findings, from `docs/realistic-tutorial-e2e-plan.md`'s Phase E.5
 
-**6. `getStockListing()` has no business-scoping parameter at all**, and aggregates stock across
-every business whose items happen to share a name — confirmed directly, the same bare-name bug
-class as `getLocation`/`setLocation` below, found in a report function this time.
+**6. FIXED. `getStockListing()` had no business-scoping parameter at all**, and aggregated stock
+across every business whose items happened to share a name — confirmed directly, the same
+bare-name bug class as `getLocation`/`setLocation` below, found in a report function this time.
+Renamed to `getInventoryListing`/`getInventoryListingByLocation`/`countInventoryListing`
+throughout (backend, frontend, tests), per direct instruction: "Stock" is retired from the code,
+"Inventory" is the real, correct word for this collection. Fixed using `Session.Business` (real,
+per-session ambient context, per the standing agreement — never an explicit parameter), not a new
+parameter — verified safe by confirming `attachUser` middleware already calls
+`runInSessionContext` globally, before every route, so every HTTP call already has this context
+available.
 
-**7. `transferItems` moves quantity and location capacity, but never Inventory dollar value**,
-between two locations' own sub-accounts — confirmed by reading its implementation directly. A
-balance sheet built from this data misstates where Inventory's value physically sits after a
-transfer.
+**7. FIXED. `transferItems` moved quantity and location capacity, but never Inventory dollar
+value**, between two locations' own sub-accounts for its plain (non-combination) path — confirmed
+by reading its implementation directly. The combination-tagged path already did this correctly;
+the plain path, which the tutorial actually uses, had no equivalent at all. Fixed by mirroring
+that same, existing logic into the plain path, using the real, existing
+`ensureItemLocationInventoryAccount` mechanism `completeCashPurchase` already posts to. Verified
+directly against the tutorial's own numbers: Head Office's Inventory dropped by exactly 8400 (24
+units × the real $3.50/unit cost) after the transfer, and Main Street Cellar's own Inventory,
+COGS, and Sales Revenue accounts all reconciled exactly against the tutorial's own figures. A
+separate, real bug in the tutorial's own data was found and fixed along the way: the "Set Item
+Cost and Pack Size" step had passed a per-unit price (350) where `getItemUnitCostMinor` expects a
+per-package price (it computes `Math.round(price_minor / package_quantity)` itself) — corrected
+to 8400 (the real per-carton price), matching the Purchase Order.
+
+`transferItems` itself still takes explicit `business`/`userId` parameters, not
+`Session.Business`/`Session.UserId` — deliberately not converted in this pass, given its 89 call
+sites across 26 files. The fuller conversion of this and the rest of `db.ts`'s 100+
+business/user-taking functions remains the separate, larger, not-yet-done piece of work this
+chapter's own "governing decision" section already names.
 
 ## What was found, read directly from real journal lines, not assumed
 
