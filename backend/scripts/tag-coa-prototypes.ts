@@ -1,4 +1,4 @@
-import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, getCoaPrototypeAccounts, updateEntity, db, getBusinesses } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, getCoaPrototypeAccounts, updateEntity, db, getBusinesses } from '../src/db.js';
 
 // Real, confirmed representative business+ledger for each real CoA
 // prototype — getCoaPrototypeAccounts on each returns exactly the real
@@ -32,7 +32,7 @@ let prototypesCreated = 0;
 for (const prototypeName of Object.keys(prototypeRepresentatives)) {
   const exists = db.prepare('SELECT 1 FROM current_entities WHERE name = ?').get(prototypeName);
   if (!exists) {
-    create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, prototypeName, 1);
+    create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, prototypeName, 1);
     prototypesCreated++;
   }
 }

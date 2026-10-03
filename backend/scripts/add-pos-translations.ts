@@ -1,4 +1,4 @@
-import { setTranslation, createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
+import { setTranslation, createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
 
 const translations: Record<string, Record<string, string>> = {
   Cart: { German: 'Warenkorb', French: 'Panier', Danish: 'Kurv', Italian: 'Carrello' },
@@ -22,7 +22,7 @@ const translations: Record<string, Record<string, string>> = {
 let added = 0;
 for (const [english, langs] of Object.entries(translations)) {
   const exists = db.prepare('SELECT 1 FROM current_entities WHERE name = ?').get(english);
-  if (!exists) create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, english, 1);
+  if (!exists) create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, english, 1);
   for (const [lang, text] of Object.entries(langs)) {
     setTranslation(english, lang, text);
     added++;

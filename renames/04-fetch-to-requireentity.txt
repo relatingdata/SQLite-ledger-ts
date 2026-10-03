@@ -1,0 +1,9 @@
+# Step 4 of docs/bulk-rename-plan.md: fetch() throws when an entity is
+# missing, unlike get (which returns undefined), and it shadows the
+# platform's own network fetch by name. requireEntity matches the
+# established require-prefix convention (requireAuth, requireRole) for
+# "must be true, otherwise throw." Identifier tokens only, backend/ only -
+# fetch is also a common English word, and the platform's own network call.
+fetch requireEntity
+fetchById requireEntityById
+fetchGlobalCoaCategory requireGlobalCoaCategory

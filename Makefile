@@ -530,8 +530,8 @@ check-sim-unchanged:
 # tracked text files. Refuses if a new name already exists. DRY=1 previews.
 # See docs/bulk-rename-plan.md, "How a rename is applied". Maps live in renames/.
 rename-identifiers:
-	@if [ -z "$(MAP)" ]; then echo "Usage: make rename-identifiers MAP=renames/<file>.txt [DRY=1]"; exit 1; fi
-	$(RUN_SCRIPT) scripts/apply-renames.ts --map $(MAP) $(if $(DRY),--dry-run)
+	@if [ -z "$(MAP)" ]; then echo "Usage: make rename-identifiers MAP=renames/<file>.txt [DRY=1] [IDENTIFIERS_ONLY=1] [UNDER=backend/,scripts/]"; exit 1; fi
+	$(RUN_SCRIPT) scripts/apply-renames.ts --map $(MAP) $(if $(DRY),--dry-run) $(if $(IDENTIFIERS_ONLY),--identifiers-only) $(if $(UNDER),--under $(UNDER))
 
 measure-comments:
 	$(RUN_SCRIPT) scripts/measure-code-comments.ts

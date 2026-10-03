@@ -15,7 +15,7 @@
  */
 import {
   create,
-  fetch,
+  requireEntity,
   typeRootName,
   typeVendorName,
   typeCustomerName,
@@ -132,7 +132,7 @@ async function main() {
   // own, established vendor filter (`parent?.name === 'Accounts
   // Payable'`) genuinely missed this vendor entirely as a real,
   // direct, confirmed consequence.
-  create(fetch('Accounts Payable', typeRootName), typeVendorName, VENDOR, 1);
+  create(requireEntity('Accounts Payable', typeRootName), typeVendorName, VENDOR, 1);
   setContact(VENDOR, { payment_terms_days: 30 });
   for (const [name, category] of [
     ['Freight In', 'Expense'],
@@ -140,7 +140,7 @@ async function main() {
     ['Wine Returns', 'Expense'],
   ] as const) {
     try {
-      create(fetch(category, typeRootName), typeRootName, name, 1);
+      create(requireEntity(category, typeRootName), typeRootName, name, 1);
     } catch {
       // already exists from a prior run — fine, this script is safe to re-run
     }
@@ -170,7 +170,7 @@ async function main() {
     const fridgeCartonCapacity = Math.round(fridgeBottleCapacity / 10); // roughly one carton per 10 bottles of fridge space
     const name = `${outlet.name} — Refrigerated`;
     try {
-      create(fetch(`${BUSINESS} Locations`, typeRootName), typeLocationEntityName, name, 1);
+      create(requireEntity(`${BUSINESS} Locations`, typeRootName), typeLocationEntityName, name, 1);
     } catch {
       // already exists from a prior run
     }
@@ -397,8 +397,8 @@ async function main() {
   // rest of this simulation already, largely does.
   const allocationCustomer = 'Riverside Wine Merchants Pty Ltd';
   const allocationVendor2 = 'Alpine Cellar Imports GmbH';
-  create(fetch('Accounts Receivable', typeRootName), typeCustomerName, allocationCustomer, 1);
-  create(fetch('Accounts Payable', typeRootName), typeVendorName, allocationVendor2, 1);
+  create(requireEntity('Accounts Receivable', typeRootName), typeCustomerName, allocationCustomer, 1);
+  create(requireEntity('Accounts Payable', typeRootName), typeVendorName, allocationVendor2, 1);
 
   // (1) Full payment — a real invoice, paid off completely, in one,
   // single, real receipt.

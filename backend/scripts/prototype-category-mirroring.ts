@@ -16,7 +16,7 @@
  *
  * Run with: node --import tsx backend/scripts/prototype-category-mirroring.ts
  */
-import { getEntityTree, createEntityRaw, create, fetch, typeRootName, db } from '../src/db.js';
+import { getEntityTree, createEntityRaw, create, requireEntity, typeRootName, db } from '../src/db.js';
 
 function getProductCategoryChain(entities: ReturnType<typeof getEntityTree>, itemName: string): string[] {
   const item = entities.find((e) => e.name === itemName);
@@ -35,7 +35,7 @@ function ensureCategoryChain(rootName: string, prefix: string, chain: string[], 
   for (const cat of chain) {
     const catName = `${prefix}${cat}`;
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(catName)) {
-      create(fetch(currentParent, typeRootName), typeRootName, catName, userId);
+      create(requireEntity(currentParent, typeRootName), typeRootName, catName, userId);
     }
     currentParent = catName;
   }

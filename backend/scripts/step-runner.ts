@@ -61,11 +61,11 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   createItemAndCategory: (a) => {
     const userId = db.asUserId(1);
     const categoryName = a.category === '+ New category…' ? a.newCategoryName : a.category;
-    const business = db.fetch(a.businessName as any, db.typeBusinessName, db.fetch('Businesses', db.typeRootName));
-    const itemsRoot = db.fetch('Items', db.typeRootName, business);
+    const business = db.requireEntity(a.businessName as any, db.typeBusinessName, db.requireEntity('Businesses', db.typeRootName));
+    const itemsRoot = db.requireEntity('Items', db.typeRootName, business);
     let categoryEntity;
     try {
-      categoryEntity = db.fetch(categoryName, db.typeRootName, itemsRoot);
+      categoryEntity = db.requireEntity(categoryName, db.typeRootName, itemsRoot);
     } catch {
       categoryEntity = db.createItemCategory(a.businessName as any, categoryName, undefined, userId);
     }

@@ -1,4 +1,4 @@
-import { setTranslation, createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
+import { setTranslation, createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, db } from '../src/db.js';
 import { readFileSync } from 'fs';
 
 // Real, careful, hand-written translations of the 25 simple (no
@@ -17,7 +17,7 @@ const keys = Object.keys(de);
 let added = 0;
 for (const english of keys) {
   const exists = db.prepare('SELECT 1 FROM current_entities WHERE name = ?').get(english);
-  if (!exists) create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, english, 1);
+  if (!exists) create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, english, 1);
   setTranslation(english, 'German', de[english]);
   setTranslation(english, 'French', fr[english]);
   setTranslation(english, 'Danish', da[english]);

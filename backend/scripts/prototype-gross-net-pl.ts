@@ -9,16 +9,16 @@
  *
  * Run with: DB_PATH=/tmp/proto5.db node --import tsx backend/scripts/prototype-gross-net-pl.ts
  */
-import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, updateEntity, stageLine, postJournalEntry, getProfitAndLoss, db } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, updateEntity, stageLine, postJournalEntry, getProfitAndLoss, db } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: tag Cost of Goods Sold as COGS-type, via its own unused relation_id ===');
-  create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'COGS', 1); // a marker entity, same pattern as "Balance Sheet"/"P&L Statement"
+  create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'COGS', 1); // a marker entity, same pattern as "Balance Sheet"/"P&L Statement"
   const cogsAccount = db.prepare(`SELECT id FROM current_entities WHERE name = 'Cost of Goods Sold'`).get() as { id: number };
   updateEntity(cogsAccount.id, { relation: 'COGS' }, 1);
 
   console.log('\n=== Post real revenue, COGS, and an ordinary operating expense ===');
-  create(fetch('My Business', typeRootName), typeRootName, 'GNTest Ledger', 1);
+  create(requireEntity('My Business', typeRootName), typeRootName, 'GNTest Ledger', 1);
 
   stageLine({ reference: 'GNTEST-1', business: 'My Business', ledger: 'GNTest Ledger', transdate: '2027-01-01', account: 'Sales Revenue', amount_minor: -100000 }); // $1,000 revenue
   stageLine({ reference: 'GNTEST-1', business: 'My Business', ledger: 'GNTest Ledger', transdate: '2027-01-01', account: 'Cash and Bank', amount_minor: 100000 });

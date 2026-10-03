@@ -28,7 +28,7 @@ import {
   updateEntity,
   deleteEntity,
   create,
-  fetch,
+  requireEntity,
   typeRootName,
   typeBusinessName,
   type TypedNode,
@@ -140,7 +140,7 @@ export function setLocation(name: string, location: Location): void {
     .all(name, typeRecordName) as { id: number; name: string }[];
   for (const s of staleType) deleteEntity(s.id, asUserId(1));
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(typeRecordName)) {
-    create(fetch('Location Type', typeRootName), typeLocationTypeMarkerName, typeRecordName, asUserId(1));
+    create(requireEntity('Location Type', typeRootName), typeLocationTypeMarkerName, typeRecordName, asUserId(1));
   }
   const typeRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(typeRecordName) as { id: number };
   updateEntity(typeRecord.id, { relation: location.location_type }, asUserId(1));
@@ -156,7 +156,7 @@ export function setLocation(name: string, location: Location): void {
       .all(billingRecordName) as { id: number; name: string }[];
     for (const other of others) deleteEntity(other.id, asUserId(1));
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(billingRecordName)) {
-      create(fetch('Is Billing Address', typeRootName), typeIsBillingAddressMarkerName, billingRecordName, asUserId(1));
+      create(requireEntity('Is Billing Address', typeRootName), typeIsBillingAddressMarkerName, billingRecordName, asUserId(1));
     }
     const billingRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(billingRecordName) as { id: number };
     updateEntity(billingRecord.id, { relation: 'Billing Address' }, asUserId(1));
@@ -656,7 +656,7 @@ export function setItemLocationLevels(
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 function ensureUnitsTrackingBaseAccounts(business: BusinessName, userId: UserId): { onHandId: number; receivedFromId: number } {
-  const businessEntity = fetch(business, typeBusinessName, fetch('Businesses', typeRootName));
+  const businessEntity = requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
   const onHand = (Entity.getUnder('Units On Hand', businessEntity.id) ?? create(businessEntity as TypedNode<string>, typeRootName, 'Units On Hand', userId)) as { id: number; name: string };
   const receivedFrom = (Entity.getUnder('Units Received From', businessEntity.id) ?? create(businessEntity as TypedNode<string>, typeRootName, 'Units Received From', userId)) as { id: number; name: string };
   return { onHandId: onHand.id, receivedFromId: receivedFrom.id };

@@ -16,7 +16,7 @@
  *
  * Run with: node --import tsx backend/scripts/generate-wine-retail-budget.ts
  */
-import { createEntityRaw, create, fetch, typeRootName, stageLine, postJournalEntry, getProfitAndLoss } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, stageLine, postJournalEntry, getProfitAndLoss } from '../src/db.js';
 
 const BUSINESS = 'Wine Retail Business';
 const LEDGER = 'Budget March 2027';
@@ -24,7 +24,7 @@ const LEDGER = 'Budget March 2027';
 async function main() {
   console.log('=== Setting up the Budget ledger ===');
   try {
-    create(fetch(BUSINESS, typeRootName), typeRootName, LEDGER, 1);
+    create(requireEntity(BUSINESS, typeRootName), typeRootName, LEDGER, 1);
   } catch {
     console.log('Ledger already exists — continuing.');
   }

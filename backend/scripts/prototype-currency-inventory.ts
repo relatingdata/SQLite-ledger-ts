@@ -21,7 +21,7 @@
  *
  * Run with: DB_PATH=/tmp/proto4.db node --import tsx backend/scripts/prototype-currency-inventory.ts
  */
-import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, setItem, stageLine, postJournalEntry, receiveLot, consumeFromLots, db } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, setItem, stageLine, postJournalEntry, receiveLot, consumeFromLots, db } from '../src/db.js';
 
 db.exec(`ALTER TABLE account ADD COLUMN currency TEXT`);
 function setAccountCurrency(accountName: string, currency: string) {
@@ -34,17 +34,17 @@ function setAccountCurrency(accountName: string, currency: string) {
  * account — the same entity serves both roles, not two entities kept
  * in sync. */
 function setupCurrency(code: string) {
-  create(fetch('Items', typeRootName), typeRootName, code, 1);
+  create(requireEntity('Items', typeRootName), typeRootName, code, 1);
   setItem(code, { unit_of_measure: 'cent' });
 
   const bank = `Cash at Bank (${code})`;
   const clearing = `FX Conversion Clearing (${code})`;
   const fees = `Delivery Fees (${code})`;
   const gainLoss = `FX Gain/Loss (${code})`;
-  create(fetch('Asset', typeRootName), typeRootName, bank, 1);
-  create(fetch('Asset', typeRootName), typeRootName, clearing, 1);
-  create(fetch('Expense', typeRootName), typeRootName, fees, 1);
-  create(fetch('Income', typeRootName), typeRootName, gainLoss, 1);
+  create(requireEntity('Asset', typeRootName), typeRootName, bank, 1);
+  create(requireEntity('Asset', typeRootName), typeRootName, clearing, 1);
+  create(requireEntity('Expense', typeRootName), typeRootName, fees, 1);
+  create(requireEntity('Income', typeRootName), typeRootName, gainLoss, 1);
   [bank, clearing, fees, gainLoss].forEach((a) => setAccountCurrency(a, code));
   return { bank, clearing, fees, gainLoss };
 }

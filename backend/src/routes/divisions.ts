@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
-import { getDivisions, setDivisionType, create, fetch, typeRootName, typeDivisionName, ValidationError,
+import { getDivisions, setDivisionType, create, requireEntity, typeRootName, typeDivisionName, ValidationError,
   asUserId, type EntityId, getDivisionTypes, createDivisionType,
 } from '../db.js';
 
@@ -40,7 +40,7 @@ divisionsRouter.post('/', requireRole('Administrator', 'Bookkeeper'), (req, res)
   const parsed = createDivisionSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const entity = create(fetch(parsed.data.parent ?? 'Divisions', typeRootName), typeDivisionName, parsed.data.name, asUserId(req.user!.id));
+    const entity = create(requireEntity(parsed.data.parent ?? 'Divisions', typeRootName), typeDivisionName, parsed.data.name, asUserId(req.user!.id));
     setDivisionType(entity.id as EntityId, parsed.data.centerType);
     res.status(201).json({ name: parsed.data.name });
   } catch (err) {

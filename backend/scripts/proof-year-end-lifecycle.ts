@@ -5,7 +5,7 @@
 // per the backend-first-testing skill - no browser, no Playwright,
 // direct function calls, checking every real balance/quantity along
 // the way, not just the final result.
-import { createBusiness, createEntityRaw, create, fetch, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asVendorName, asItemName } from '../src/db.ts';
+import { createBusiness, createEntityRaw, create, requireEntity, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asVendorName, asItemName } from '../src/db.ts';
 import {
   setLocation,
   placeOrder,
@@ -38,22 +38,22 @@ createBusiness(BIZ as any, '2026-27', USER as any);
 check('Business created', true);
 
 console.log(`\n=== 2. Locations - at least one of each real type ===`);
-create(fetch(`${BIZ} Locations`, typeRootName), typeRootName, 'Proof Retail Outlet', USER as any);
+create(requireEntity(`${BIZ} Locations`, typeRootName), typeRootName, 'Proof Retail Outlet', USER as any);
 setLocation('Proof Retail Outlet', { city: 'Adelaide', location_type: 'Retail', is_billing_address: true, bottle_capacity: 200, carton_capacity: 20, timezone: 'Australia/Adelaide' } as any);
-create(fetch(`${BIZ} Locations`, typeRootName), typeRootName, 'Proof Warehouse', USER as any);
+create(requireEntity(`${BIZ} Locations`, typeRootName), typeRootName, 'Proof Warehouse', USER as any);
 setLocation('Proof Warehouse', { city: 'Adelaide', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 100, timezone: 'Australia/Adelaide' } as any);
 check('Retail outlet created', true);
 check('Warehouse created', true);
 
 console.log(`\n=== 3. Staff ===`);
-create(fetch('Employees', typeRootName), typeRootName, 'Proof Employee — Alex Chen', USER as any);
+create(requireEntity('Employees', typeRootName), typeRootName, 'Proof Employee — Alex Chen', USER as any);
 check('Employee created', true);
 
 console.log(`\n=== 4. Minimal products, including one real assembly ===`);
 createItem('Proof Component A', `${BIZ} Items`, USER as any);
 createItem('Proof Component B', `${BIZ} Items`, USER as any);
 createItem('Proof Gift Pack', `${BIZ} Items`, USER as any);
-create(fetch('Accounts Payable', typeRootName), typeRootName, 'Proof Vendor', USER as any);
+create(requireEntity('Accounts Payable', typeRootName), typeRootName, 'Proof Vendor', USER as any);
 addOrUpdateItemSource({ itemName: 'Proof Component A', vendorName: 'Proof Vendor', priceMinor: 500, packageQuantity: 12, isPreferred: true });
 addOrUpdateItemSource({ itemName: 'Proof Component B', vendorName: 'Proof Vendor', priceMinor: 700, packageQuantity: 12, isPreferred: true });
 stageBomComponent({ assemblyItem: 'Proof Gift Pack', business: BIZ, componentItem: 'Proof Component A', quantity: 2, unit: 'each' });
@@ -149,7 +149,7 @@ const tbBeforeClose = getTrialBalance(BIZ as any, LEDGER as any, '2027-06-30');
 check(`Trial balance balanced before close (debit ${tbBeforeClose.total_debit_minor} = credit ${tbBeforeClose.total_credit_minor})`, tbBeforeClose.total_debit_minor === tbBeforeClose.total_credit_minor);
 
 console.log(`\n=== 10. Year-end close ===`);
-create(fetch('Equity', typeRootName), typeRootName, 'Proof Retained Earnings', USER as any);
+create(requireEntity('Equity', typeRootName), typeRootName, 'Proof Retained Earnings', USER as any);
 const preview = previewCloseBooks(BIZ as any, LEDGER as any, '2027-06-30', 'Proof Retained Earnings');
 check(`Close preview found real accounts to zero (${preview.accountsZeroed})`, preview.accountsZeroed > 0);
 closeBooks(BIZ as any, LEDGER as any, '2027-06-30', 'Proof Retained Earnings', USER as any);

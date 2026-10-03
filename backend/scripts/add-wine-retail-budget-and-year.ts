@@ -11,7 +11,7 @@
  * designed to be run immediately after that script, against the same
  * database.
  */
-import { createEntityRaw, create, fetch, typeRootName, stageLine, postJournalEntry, asUserId, asBusinessName, asLedgerName, asAccountName } from '../src/db.ts';
+import { createEntityRaw, create, requireEntity, typeRootName, stageLine, postJournalEntry, asUserId, asBusinessName, asLedgerName, asAccountName } from '../src/db.ts';
 
 const BUSINESS = 'Wine Retail Business';
 const ACTUAL_LEDGER = 'Actual';
@@ -24,7 +24,7 @@ function round1000(minor: number): number {
 async function main() {
   console.log('=== Wine Retail Business: real Budget + 11 more real, summary-level Actual months ===\n');
 
-  create(fetch(BUSINESS, typeRootName), typeRootName, BUDGET_LEDGER, asUserId(1));
+  create(requireEntity(BUSINESS, typeRootName), typeRootName, BUDGET_LEDGER, asUserId(1));
   console.log(`Created real ledger: ${BUDGET_LEDGER}`);
 
   // A real, monthly Budget — rounded to the nearest $1,000 throughout,

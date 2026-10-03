@@ -53,7 +53,7 @@ test('proves the concept: BMW M GmbH\'s real, published 2020 HGB balance sheet a
     ['Proof: Sonstige Steuern', 'Expense'],
     ['Proof: Gewinnabführung', 'Expense'],
   ];
-  for (const [name, category] of accounts) create(fetchGlobalCoaCategory(category), typeRootName, name, asUserId(1));
+  for (const [name, category] of accounts) create(requireGlobalCoaCategory(category), typeRootName, name, asUserId(1));
 
   const bsLines: [string, number][] = [
     ['Proof: Immaterielle Vermögensgegenstände', eur(372)],
@@ -125,7 +125,7 @@ test('proves the concept: Peugeot Citroën Sochaux SNC\'s real, filed 2020 Frenc
     ['Proof: Autres charges', 'Expense'], ['Proof: Charges financières', 'Expense'],
     ['Proof: Charges exceptionnelles', 'Expense'], ['Proof: Impôts sur les bénéfices', 'Expense'],
   ];
-  for (const [name, category] of accounts) create(fetchGlobalCoaCategory(category), typeRootName, name, asUserId(1));
+  for (const [name, category] of accounts) create(requireGlobalCoaCategory(category), typeRootName, name, asUserId(1));
 
   const lines: [string, number][] = [
     ['Proof: Stocks et en-cours', c(87405871.03)],

@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { getSessionUser, getSessionBusiness, type AuthenticatedUser } from './auth.js';
 import { runInSessionContext } from './session-context.js';
-import { fetch as fetchEntity, typeBusinessName, typeRootName } from './db.js';
+import { requireEntity as fetchEntity, typeBusinessName, typeRootName } from './db.js';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

@@ -114,9 +114,9 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `dispatchOrderFromPickingList` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function dispatchOrderFromPickingList(invoiceId: number, locationName: LocationName, revenueAccount: string, taxAccount: string, userId: UserId): void` |
 | `ensureAddressType` | `backend/src/db.ts` | (none) | `function ensureAddressType(typeName: string, userId: UserId): void` |
 | `ensureContactPersonType` | `backend/src/db.ts` | (none) | `function ensureContactPersonType(typeName: string, userId: UserId): void` |
+| `ensureItemTier` | `backend/src/db.ts` | (none) | `function ensureItemTier(baseProductName: ItemName, tier: string, userId: UserId): ` |
 | `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts` | `function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): ` |
 | `ensurePhoneType` | `backend/src/db.ts` | (none) | `function ensurePhoneType(typeName: string, userId: UserId): void` |
-| `ensureProductTierItem` | `backend/src/db.ts` | (none) | `function ensureProductTierItem(baseProductName: ItemName, tier: string, userId: UserId): ` |
 | `exportInvoiceAsUbl` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function exportInvoiceAsUbl(invoiceId: number): string` |
 | `getAccountsPostedTo` | `backend/src/db.ts` | (none) | `function getAccountsPostedTo(reference: string): string[]` |
 | `getActiveShiftsAtLocation` | `backend/src/db.ts` | (none) | `function getActiveShiftsAtLocation(locationName: string): PosShift[]` |
@@ -139,6 +139,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getItemByUpc` | `backend/src/db.ts` | `backend/src/routes/pos.ts` | `function getItemByUpc(upc: string): ItemSummary \| undefined` |
 | `getItemLeadTimes` | `backend/src/db-stock.ts` | (none) | `function getItemLeadTimes(itemName: ItemName): ` |
 | `getItemLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `backend/src/routes/locations.ts` | `function getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels` |
+| `getItemUnitCostMinor` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function getItemUnitCostMinor(itemName: ItemName): number \| null` |
 | `getLanguages` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/routes/i18n.ts` | `function getLanguages(): ` |
 | `getLedgerBalancesByDivision` | `backend/src/db-reports.ts` | (none) | `function getLedgerBalancesByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
 | `getLedgerBalancesByDivisionStructural` | `backend/src/db-reports.ts` | (none) | `function getLedgerBalancesByDivisionStructural(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
@@ -151,7 +152,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getMenuTree` | `backend/src/db.ts` | `backend/src/routes/menu.ts` | `function getMenuTree(opts?: { businessName?: string; userId?: number }): MenuSectionRow[]` |
 | `getOpenShiftForEmployee` | `backend/src/db.ts` | (none) | `function getOpenShiftForEmployee(employeeName: string): PosShift \| undefined` |
 | `getPickingList` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function getPickingList(invoiceId: number, locationName: LocationName): PickingListLine[]` |
-| `getProductUnitCostMinor` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function getProductUnitCostMinor(itemName: ItemName): number \| null` |
 | `getProfitAndLossByAxis` | `backend/src/db-matrix-reports.ts` | `backend/src/routes/matrix-reports.ts` | `function getProfitAndLossByAxis(businessName: BusinessName, ledgerName: LedgerName, fromDate: string \| undefined, toDate: string \| undefined, outerAxis: MatrixAxis, innerAxis: MatrixAxis, outerFilter?: string, innerFilter?: string): ProfitAndLossByAxisNode[]` |
 | `getProfitAndLossByDivision` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getProfitAndLossByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivision[]` |
 | `getProfitAndLossByDivisionTree` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getProfitAndLossByDivisionTree(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivisionNode[]` |

@@ -13,26 +13,26 @@
  *
  * Run with: node --import tsx backend/scripts/prototype-typed-contacts.ts
  */
-import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, setContact, getContact, updateEntity, db } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, setContact, getContact, updateEntity, db } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: Address Types and Phone Types categories ===');
-  create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'Address Types', 1);
+  create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Address Types', 1);
   for (const t of ['Registered Office', 'Billing', 'Delivery', 'Shipping']) {
-    create(fetch('Address Types', typeRootName), typeRootName, t, 1);
+    create(requireEntity('Address Types', typeRootName), typeRootName, t, 1);
   }
-  create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'Phone Types', 1);
+  create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Phone Types', 1);
   for (const t of ['Landline', 'Mobile', 'Home', 'Fax', 'Toll-Free']) {
-    create(fetch('Phone Types', typeRootName), typeRootName, t, 1);
+    create(requireEntity('Phone Types', typeRootName), typeRootName, t, 1);
   }
 
   console.log('\n=== A real store with multiple typed addresses and phones ===');
-  create(fetch('Locations', typeRootName), typeRootName, 'PrototypeTestStore', 1);
+  create(requireEntity('Locations', typeRootName), typeRootName, 'PrototypeTestStore', 1);
 
   function addAddress(entityName: string, addressType: string, value: { address_line1: string; city: string; region?: string; postal_code?: string; country?: string }) {
     const childName = `${entityName} — ${addressType} Address`;
     try {
-      create(fetch(entityName, typeRootName), typeRootName, childName, 1);
+      create(requireEntity(entityName, typeRootName), typeRootName, childName, 1);
     } catch {
       // already exists
     }
@@ -45,7 +45,7 @@ async function main() {
   function addPhone(entityName: string, phoneType: string, number: string) {
     const childName = `${entityName} — ${phoneType} Phone`;
     try {
-      create(fetch(entityName, typeRootName), typeRootName, childName, 1);
+      create(requireEntity(entityName, typeRootName), typeRootName, childName, 1);
     } catch {
       // already exists
     }

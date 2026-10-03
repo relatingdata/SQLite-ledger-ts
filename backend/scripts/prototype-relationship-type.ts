@@ -10,23 +10,23 @@
  *
  * Run with: node --import tsx backend/scripts/prototype-relationship-type.ts
  */
-import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, updateEntity, db } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, updateEntity, db } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: Relationship Types tree ===');
-  create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, 'Relationship Types', 1);
-  create(fetch('Relationship Types', typeRootName), typeRootName, 'Trustee Of', 1);
-  create(fetch('Relationship Types', typeRootName), typeRootName, 'Subsidiary Of', 1);
+  create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Relationship Types', 1);
+  create(requireEntity('Relationship Types', typeRootName), typeRootName, 'Trustee Of', 1);
+  create(requireEntity('Relationship Types', typeRootName), typeRootName, 'Subsidiary Of', 1);
 
   console.log('\n=== Real businesses ===');
-  create(fetch('Businesses', typeRootName), typeRootName, 'Smith Prototype Trust', 1);
-  create(fetch('Businesses', typeRootName), typeRootName, 'Jones Prototype Trust', 1);
-  create(fetch('Businesses', typeRootName), typeRootName, 'Boutique Wine Company', 1);
+  create(requireEntity('Businesses', typeRootName), typeRootName, 'Smith Prototype Trust', 1);
+  create(requireEntity('Businesses', typeRootName), typeRootName, 'Jones Prototype Trust', 1);
+  create(requireEntity('Businesses', typeRootName), typeRootName, 'Boutique Wine Company', 1);
 
   console.log('\n=== The relationship itself: an intermediate entity, type via parent_id, target via its own relation_id ===');
-  const rel1 = create(fetch('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Smith Prototype Trust', 1);
+  const rel1 = create(requireEntity('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Smith Prototype Trust', 1);
   updateEntity(rel1.id, { relation: 'Boutique Wine Company' }, 1);
-  const rel2 = create(fetch('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Jones Prototype Trust', 1);
+  const rel2 = create(requireEntity('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Jones Prototype Trust', 1);
   updateEntity(rel2.id, { relation: 'Boutique Wine Company' }, 1);
 
   console.log('=== The trust points at its own relationship record — the same relation_id mechanism, one recursive hop deeper ===');

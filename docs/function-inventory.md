@@ -1204,7 +1204,7 @@ Called from: production: db-journal.ts (clockOutOfProject ×1); db-seed.ts ((mod
 asEntityId(id: number): EntityId
 ```
 
-Called from: production: db.ts (create ×1, fetch ×1, fetchById ×1, getHierarchyChain ×1); routes/entities.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+Called from: production: db.ts (create ×1, getHierarchyChain ×1, requireEntity ×1, requireEntityById ×1); routes/entities.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
 
 **`asBusinessName`** *(exported)*
 
@@ -1316,7 +1316,7 @@ Called from: production: routes/entities.ts ((module level) ×1) · tests: 3 cal
 resolveId(name: string | null | undefined, parentId?: number): number | null
 ```
 
-Called from: production: db.ts (createEntityRaw ×2, fetch ×1, resolveIdOrThrow ×1, updateEntity ×2)
+Called from: production: db.ts (createEntityRaw ×2, requireEntity ×1, resolveIdOrThrow ×1, updateEntity ×2)
 
 **`resolveItemId`** *(exported)*
 
@@ -1326,26 +1326,26 @@ resolveItemId(itemName: ItemName): number | undefined
 
 Called from: production: db-stock.ts (consumeFromLots ×1, createStockTake ×1, dispatchItems ×1, receiveItems ×1, receiveLot ×1, setItemLocationLevels ×1, and 1 more); db.ts (createInvoice ×1)
 
-**`fetch`** *(exported)*
+**`requireEntity`** *(exported)*
 
 ```
-fetch<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand>
+requireEntity<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand>
 ```
 
 Called from: production: db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForBusinessTypes ×6, migrateForCashSaleCustomer ×1, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 9 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×4, convertStorageSpace ×2, copyChartOfAccountsInto ×1, createBusiness ×3, and 28 more); routes/divisions.ts ((module level) ×1) · tests: 268 call(s) in 1 file(s) · tooling: 62 call(s) in 20 file(s)
 
-**`fetchGlobalCoaCategory`** *(exported)*
+**`requireGlobalCoaCategory`** *(exported)*
 
 ```
-fetchGlobalCoaCategory(categoryName: string): TypedNode<"RootName">
+requireGlobalCoaCategory(categoryName: string): TypedNode<"RootName">
 ```
 
 Called from: tests: 29 call(s) in 1 file(s)
 
-**`fetchById`** *(exported)*
+**`requireEntityById`** *(exported)*
 
 ```
-fetchById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand>
+requireEntityById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand>
 ```
 
 Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenuEntities ×3); db.ts (addFinancialStatementNote ×1, buildBankCurrencyStructure ×1, copyChildren ×2, nominateBankAccount ×1, setEntityLink ×1, setMenuOverride ×1, and 1 more)

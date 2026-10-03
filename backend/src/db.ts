@@ -599,7 +599,7 @@ export interface TypedNode<TBrand extends string> {
  * mangled, business-prefixed name, or be silently, ambiguously
  * resolved to whichever real row a global lookup happened to return
  * first. */
-export function fetch<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand> {
+export function requireEntity<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand> {
   const id = resolveId(name, parent?.id);
   if (id == null) throw new ValidationError(`No entity named "${name}".`);
   if (type.validate && !type.validate(name)) {
@@ -620,16 +620,16 @@ export function fetch<TBrand extends string>(name: string, type: TypeDescriptor<
  * correct, unambiguous replacement, resolving through the one, real,
  * true singleton (Application) down to the one, real, global
  * template, every real time. */
-export function fetchGlobalCoaCategory(categoryName: string): TypedNode<'RootName'> {
-  const application = fetch('Application', typeRootName);
-  const globalCoa = fetch('Chart of Accounts', typeChartOfAccountsRootName, application);
-  return fetch(categoryName, typeRootName, globalCoa);
+export function requireGlobalCoaCategory(categoryName: string): TypedNode<'RootName'> {
+  const application = requireEntity('Application', typeRootName);
+  const globalCoa = requireEntity('Chart of Accounts', typeChartOfAccountsRootName, application);
+  return requireEntity(categoryName, typeRootName, globalCoa);
 }
 
 /** The real, numeric-id counterpart to fetch - for the real, existing
  * cases that already hold an id (from a route param, a prior query),
  * not a name, per no-generic-functions. */
-export function fetchById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand> {
+export function requireEntityById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand> {
   const row = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(id) as { name: string } | undefined;
   if (!row) throw new ValidationError(`No entity with id ${id}.`);
   if (type.validate && !type.validate(row.name)) {
@@ -817,7 +817,7 @@ export function setLineType(entityName: string, lineType: string | null, userId:
     return;
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(lineType)) {
-    create(fetch('Chart of Accounts Line Types', typeRootName), typeLineTypeMarkerName, lineType, userId);
+    create(requireEntity('Chart of Accounts Line Types', typeRootName), typeLineTypeMarkerName, lineType, userId);
   }
   setEntityLink(entityName, 'Line Type', lineType, userId);
 }
@@ -848,7 +848,7 @@ export function setItemStorageOrigin(itemName: ItemName, origin: 'Hot' | 'Cold' 
     return;
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Storage Origin Types')`).get(origin)) {
-    create(fetch('Storage Origin Types', typeRootName), typeStorageOriginMarkerName, origin, userId);
+    create(requireEntity('Storage Origin Types', typeRootName), typeStorageOriginMarkerName, origin, userId);
   }
   setEntityLink(itemName, 'Storage Origin', origin, userId);
 }
@@ -870,7 +870,7 @@ export function setLanguageDirection(languageName: string, direction: 'LTR' | 'R
     return;
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Text Direction Types')`).get(direction)) {
-    create(fetch('Text Direction Types', typeRootName), typeTextDirectionMarkerName, direction, userId);
+    create(requireEntity('Text Direction Types', typeRootName), typeTextDirectionMarkerName, direction, userId);
   }
   setEntityLink(languageName, 'Text Direction', direction, userId);
 }
@@ -1022,7 +1022,7 @@ function relinkDisplayOrderChain(orderedSiblings: { id: number; name: string }[]
 export function setRelationship(entityName: string, relationshipType: string, targetName: string, userId: UserId): void {
   const recordName = `${relationshipType} — ${entityName} → ${targetName}`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
-    create(fetch(relationshipType, typeRootName), typeRelationshipRecordName, recordName, userId);
+    create(requireEntity(relationshipType, typeRootName), typeRelationshipRecordName, recordName, userId);
   }
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
   updateEntity(record.id, { relation: targetName }, userId);
@@ -2568,7 +2568,7 @@ export function ensureItemLocationInventoryAccount(itemName: ItemName, locationN
 // ---------------------------------------------------------------------------
 
 function ensureBusinessRoot(businessName: BusinessName, rootName: string, userId: UserId): { id: number; name: string } {
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   return Entity.getUnder(rootName, business.id) ?? Entity.create(rootName, business.id, userId);
 }
 
@@ -2783,7 +2783,7 @@ export function convertStorageSpace(
   userId: UserId,
   reference?: string
 ): void {
-  const businessEntity = fetch(business, typeBusinessName, fetch('Businesses', typeRootName));
+  const businessEntity = requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
   const { remainingId, installedId } = ensureStorageCapacityStructure(businessEntity, userId);
   const fromInstance = ensureProductInstance(business, definitionDimensions, fromValues, userId);
   const toInstance = ensureProductInstance(business, definitionDimensions, toValues, userId);
@@ -2825,7 +2825,7 @@ export function openStorageContainer(
   userId: UserId,
   reference?: string
 ): void {
-  const businessEntity = fetch(business, typeBusinessName, fetch('Businesses', typeRootName));
+  const businessEntity = requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
   const { remainingId, installedId } = ensureStorageCapacityStructure(businessEntity, userId);
   const containerInstance = ensureProductInstance(business, definitionDimensions, containerValues, userId);
   const unitInstance = ensureProductInstance(business, definitionDimensions, unitValues, userId);
@@ -4043,7 +4043,7 @@ export function setLocationOpenHours(locationName: string, hours: OpenHoursLine[
   }
   for (const h of hours) {
     const recordName = `${locationName} — ${h.day}: ${h.opens_at}–${h.closes_at}`;
-    create(fetch(locationName, typeRootName), typeOpenHoursRecordName, recordName, asUserId(1));
+    create(requireEntity(locationName, typeRootName), typeOpenHoursRecordName, recordName, asUserId(1));
     const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
     updateEntity(record.id, { relation: h.day }, asUserId(1));
   }
@@ -4159,7 +4159,7 @@ export function setEmployeeSchedule(employeeName: string, locationName: string, 
   }
   for (const s of schedule) {
     const recordName = `${employeeName} — ${s.day} at ${locationName}: ${s.starts_at}–${s.ends_at}`;
-    create(fetch(employeeName, typeRootName), typeScheduleRecordName, recordName, asUserId(1));
+    create(requireEntity(employeeName, typeRootName), typeScheduleRecordName, recordName, asUserId(1));
     const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
     updateEntity(record.id, { relation: s.day }, asUserId(1));
   }
@@ -4376,7 +4376,7 @@ export function deleteTypedContactPerson(entityName: string, contactType: string
 function addTyped<T>(entityName: string, thingSuffix: string, type: string, value: T, save: (recordName: string, value: T) => void, userId: UserId): string {
   const recordName = `${entityName} — ${type} ${thingSuffix}`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
-    create(fetch(entityName, typeRootName), typeEntityLinkRecordName, recordName, userId);
+    create(requireEntity(entityName, typeRootName), typeEntityLinkRecordName, recordName, userId);
   }
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
   updateEntity(record.id, { relation: type }, userId);
@@ -4467,7 +4467,7 @@ export function setPrototype(entityName: string, prototypeName: string, userId: 
  * creating its own, second, unscoped one - the real, confirmed bug
  * this had before, now fixed. */
 export function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName'>, userId: UserId): void {
-  const hierarchies = fetch('Hierarchies', typeRootName, business);
+  const hierarchies = requireEntity('Hierarchies', typeRootName, business);
   const division = create(hierarchies, typeRootName, 'Division', userId);
   create(division, typeRootName, 'Location', userId);
   const category = create(hierarchies, typeRootName, 'Category', userId);
@@ -4476,7 +4476,7 @@ export function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName
 
 export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number, targetId?: number): string {
   const recordName = `${entityName} — ${linkType}`;
-  const parentNode = entityId != null ? fetchById(entityId, typeRootName) : fetch(entityName, typeRootName);
+  const parentNode = entityId != null ? requireEntityById(entityId, typeRootName) : requireEntity(entityName, typeRootName);
   let record = Entity.getUnder(recordName, parentNode.id);
   if (!record) {
     const created = create(parentNode, typeEntityLinkRecordName, recordName, userId);
@@ -4604,7 +4604,7 @@ export function createProjectTask(
   userId: UserId
 ): void {
   const name = `${taskName} (${plannedStart} to ${plannedEnd})`;
-  create(fetch(`${projectName} Tasks`, typeRootName), typeProjectTaskName, name, userId);
+  create(requireEntity(`${projectName} Tasks`, typeRootName), typeProjectTaskName, name, userId);
 }
 
 /** Every real task under one real project, with its own schedule
@@ -4784,7 +4784,7 @@ export function getContactBaseAccounts(contactName: string): string[] {
  * is genuinely available the moment the rest of the app catches up to
  * reading it. */
 export function createVendor(name: string, userId: UserId): { id: number } {
-  const entity = create(fetch('Accounts Payable', typeRootName), typeVendorName, name, userId);
+  const entity = create(requireEntity('Accounts Payable', typeRootName), typeVendorName, name, userId);
   setContactType(name, 'Vendor', userId);
   return entity;
 }
@@ -4796,7 +4796,7 @@ export function createVendor(name: string, userId: UserId): { id: number } {
  * genuinely unrelated to contact typing), plus the real, missing
  * setContactType call this session found and fixed. */
 export function createEmployee(name: string, placeOfEmployment: string, userId: UserId): { id: number } {
-  const entity = create(fetch('Employees', typeRootName), typeEmployeeName, name, userId);
+  const entity = create(requireEntity('Employees', typeRootName), typeEmployeeName, name, userId);
   setRelationship(name, 'Place of Employment', placeOfEmployment, userId);
   setContactType(name, 'Employee', userId);
   return entity;
@@ -5203,7 +5203,7 @@ export function registerCustomer(input: CustomerRegistrationInput, userId: UserI
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(input.name)) {
     throw new ValidationError(`"${input.name}" already exists — choose a different name, or ask staff to look up the existing account.`);
   }
-  create(fetch('Customers', typeRootName), typeCustomerName, input.name, userId);
+  create(requireEntity('Customers', typeRootName), typeCustomerName, input.name, userId);
   setContactType(input.name, 'Customer', userId);
   setContact(input.name, {
     email: input.email,
@@ -5335,7 +5335,7 @@ export function listProducts(): ProductSummary[] {
  * directly under "Items"; it just has to be the real, direct parent
  * of the Items eventually created under it. */
 export function createProduct(name: string, parent: string, userId: UserId): void {
-  create(fetch(parent, typeCategoryOrItemsRootName), typeItemName, name, userId);
+  create(requireEntity(parent, typeCategoryOrItemsRootName), typeItemName, name, userId);
 }
 
 /** The real, current Product an Item belongs to, or null if this
@@ -5481,13 +5481,13 @@ export function createItem(name: string, parentCategoryOrItemsRoot: string, user
     // naming a real, deeply-nested category (not necessarily a
     // direct child of Items), which a real, scoped lookup cannot
     // find without knowing its own, real, further parent chain.
-    const parent = fetch(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName);
+    const parent = requireEntity(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName);
     create(parent, typeItemName, name, userId);
     setItem(name, { description: null, unit_of_measure: null, upc: null });
     return;
   }
-  const itemsRoot = fetch('Items', typeRootName, fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName)));
-  const parent = parentCategoryOrItemsRoot === 'Items' ? itemsRoot : fetch(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName, itemsRoot);
+  const itemsRoot = requireEntity('Items', typeRootName, requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName)));
+  const parent = parentCategoryOrItemsRoot === 'Items' ? itemsRoot : requireEntity(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName, itemsRoot);
   create(parent, typeItemName, name, userId);
   setItem(name, { description: null, unit_of_measure: null, upc: null });
 }
@@ -5773,7 +5773,7 @@ export function getCurrencyExchangeRate(businessName: BusinessName, fromCurrency
   // business -> Hierarchy -> "Currency" -> value, and business ->
   // Product -> the pair's own instance, found by its own, real,
   // exact combination_ids match - never a guessed, composed name.
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const hierarchyRoot = Entity.getUnder('Hierarchy', business.id);
   if (!hierarchyRoot) return null;
   const currencyGrouping = Entity.getUnder('Currency', hierarchyRoot.id);
@@ -6032,7 +6032,7 @@ export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user',
   if (!menuItemName) throw new NotFoundError(`No real menu item with id ${entityId}.`);
   const overrideName = `${menuItemName} — Override: ${scope} ${scopeId}`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(overrideName, entityId)) {
-    create(fetchById(entityId, typeRootName), typeMenuOverrideName, overrideName, userId);
+    create(requireEntityById(entityId, typeRootName), typeMenuOverrideName, overrideName, userId);
   }
   if (overrideLabel) {
     // A real override label is a real Vocabulary word first — the
@@ -6040,7 +6040,7 @@ export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user',
     // already uses — ensured to exist before linking to it, never a
     // bare string on the override record itself.
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(overrideLabel)) {
-      create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, overrideLabel, userId);
+      create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, overrideLabel, userId);
     }
     setEntityLink(overrideName, 'Label', overrideLabel, userId);
   } else {
@@ -6048,7 +6048,7 @@ export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user',
   }
   const hiddenMarkerName = `${overrideName} — Hidden`;
   const hiddenMarkerExists = !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(hiddenMarkerName);
-  if (hidden && !hiddenMarkerExists) create(fetch(overrideName, typeMenuOverrideName), typeHiddenMarkerName, hiddenMarkerName, userId);
+  if (hidden && !hiddenMarkerExists) create(requireEntity(overrideName, typeMenuOverrideName), typeHiddenMarkerName, hiddenMarkerName, userId);
   if (!hidden && hiddenMarkerExists) {
     const markerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(hiddenMarkerName) as { id: number }).id;
     deleteEntity(markerId, userId);
@@ -6146,7 +6146,7 @@ export function createDivisionType(name: string, userId: UserId): void {
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) {
     throw new ValidationError(`"${name}" already exists.`);
   }
-  create(fetch('Vocabulary', typeRootName), typeVocabularyWordName, name, userId);
+  create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, name, userId);
 }
 
 /** Every real, known alternate name for the same, real concept
@@ -6361,7 +6361,7 @@ export function setTranslation(conceptName: string, languageName: string, text: 
   // allowed to halt every other, real, unrelated translation.
   let created;
   try {
-    created = create(fetchById(languageId, typeRootName), typeTranslationConceptName, text, userId);
+    created = create(requireEntityById(languageId, typeRootName), typeTranslationConceptName, text, userId);
   } catch (e) {
     const existing = db.prepare(`SELECT c.name AS concept FROM current_entities e JOIN current_entities c ON c.id = e.relation_id WHERE e.parent_id = ? AND e.name = ?`).get(languageId, text) as { concept: string } | undefined;
     // Per direct instruction: temporarily suppressed from stderr (100+
@@ -6553,18 +6553,18 @@ export type EntityStructure = 'sole_trader' | 'partnership' | 'llc' | 'unlimited
  * notes are its own, real, business-scoped data, the same, real
  * principle already established for Bank Accounts). */
 export function addFinancialStatementNote(businessName: BusinessName, noteText: string, userId: UserId): { id: number } {
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   let notesRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Notes to the Financial Statements' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
   if (!notesRoot) notesRoot = create(business, typeRootName, 'Notes to the Financial Statements', userId);
   const countRow = db.prepare(`SELECT COUNT(*) AS n FROM current_entities WHERE parent_id = ?`).get(notesRoot.id) as { n: number };
   const noteName = `${businessName} — Note ${countRow.n + 1}`;
-  const note = create(fetchById(notesRoot.id, typeRootName), typeRootName, noteName, userId);
+  const note = create(requireEntityById(notesRoot.id, typeRootName), typeRootName, noteName, userId);
   db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ text: noteText }), note.id);
   return { id: note.id };
 }
 
 export function getFinancialStatementNotes(businessName: BusinessName): { name: string; text: string }[] {
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const notesRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Notes to the Financial Statements' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
   if (!notesRoot) return [];
   const rows = db.prepare(`SELECT name, detail_json FROM current_entities WHERE parent_id = ? ORDER BY name`).all(notesRoot.id) as { name: string; detail_json: string }[];
@@ -6584,8 +6584,8 @@ export function getFinancialStatementNotes(businessName: BusinessName): { name: 
  * this business's own, real, scoped "Locations" root directly - never
  * a bare, ambiguous name. */
 export function createLocation(businessName: BusinessName, locationName: string, userId: UserId): TypedNode<'LocationEntityName'> {
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
-  const locationsRoot = fetch('Locations', typeRootName, business);
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
+  const locationsRoot = requireEntity('Locations', typeRootName, business);
   return create(locationsRoot, typeLocationEntityName, locationName, userId);
 }
 
@@ -6614,23 +6614,23 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
  * specific business, per direct instruction eliminating generic
  * createEntity from ordinary application flows entirely. */
 export function createItemCategory(businessName: BusinessName, categoryName: string, parentCategoryName: string | undefined, userId: UserId): TypedNode<'RootName'> {
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
-  const itemsRoot = fetch('Items', typeRootName, business);
-  const parent = parentCategoryName ? fetch(parentCategoryName, typeRootName, itemsRoot) : itemsRoot;
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
+  const itemsRoot = requireEntity('Items', typeRootName, business);
+  const parent = parentCategoryName ? requireEntity(parentCategoryName, typeRootName, itemsRoot) : itemsRoot;
   return create(parent, typeRootName, categoryName, userId);
 }
 
 export function nominateBankAccount(businessName: BusinessName, bankAccountName: string, routingDetail: string, accountNumber: string, userId: UserId): { id: number } {
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   let bankAccountsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Bank Accounts' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
   if (!bankAccountsRoot) bankAccountsRoot = create(business, typeRootName, 'Bank Accounts', userId);
-  const account = create(fetchById(bankAccountsRoot.id, typeRootName), typeRootName, bankAccountName, userId);
+  const account = create(requireEntityById(bankAccountsRoot.id, typeRootName), typeRootName, bankAccountName, userId);
   db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ routingDetail, accountNumber }), account.id);
   return { id: account.id };
 }
 
 export function getNominatedBankAccounts(businessName: BusinessName): { name: string; routingDetail: string; accountNumber: string }[] {
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const bankAccountsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Bank Accounts' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
   if (!bankAccountsRoot) return [];
   const rows = db.prepare(`SELECT name, detail_json FROM current_entities WHERE parent_id = ?`).all(bankAccountsRoot.id) as { name: string; detail_json: string }[];
@@ -6665,7 +6665,7 @@ export interface BusinessConfigurationReport {
  * stitching-together of many, separately-shaped calls the caller has
  * to know about individually. */
 export function getBusinessConfigurationReport(businessName: BusinessName): BusinessConfigurationReport {
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const entities = getEntityTree();
 
   // Owner/Partner names - the real, stored Detail answers for the
@@ -6737,8 +6737,8 @@ export function buildBankCurrencyStructure<TBrand extends string>(
   selections: { bankAccountName: string; currency: string }[],
   userId: UserId
 ): void {
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
-  const parentCategory = fetch(leafType.brand === 'EquityAccountName' ? 'Equity' : 'Asset', typeRootName, fetch('Chart of Accounts', typeChartOfAccountsRootName, business));
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
+  const parentCategory = requireEntity(leafType.brand === 'EquityAccountName' ? 'Equity' : 'Asset', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, business));
   if (selections.length === 1) {
     create(parentCategory, leafType, headerName, userId);
     if (selections[0].currency) setAccountCurrency(headerName, selections[0].currency);
@@ -6747,7 +6747,7 @@ export function buildBankCurrencyStructure<TBrand extends string>(
   const header = create(parentCategory, typeRootName, headerName, userId);
   for (const selection of selections) {
     const leafName = `${headerName} — ${selection.bankAccountName} (${selection.currency})`;
-    create(fetchById(header.id, typeRootName), leafType, leafName, userId);
+    create(requireEntityById(header.id, typeRootName), leafType, leafName, userId);
     setAccountCurrency(leafName, selection.currency);
   }
 }
@@ -6765,9 +6765,9 @@ export function setupEquityStructure(businessName: BusinessName, structure: Enti
   // accounts belong under this one, specific business's own real
   // Equity, never the shared, global template, and never a genuinely
   // different, other real business's own, separate copy.
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
-  const businessCoa = fetch('Chart of Accounts', typeChartOfAccountsRootName, business);
-  const businessEquity = fetch('Equity', typeRootName, businessCoa);
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
+  const businessCoa = requireEntity('Chart of Accounts', typeChartOfAccountsRootName, business);
+  const businessEquity = requireEntity('Equity', typeRootName, businessCoa);
   const tag = (accountName: string) => {
     if (coaPrototype) {
       updateEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(accountName, businessEquity.id) as { id: number }).id, { relation: coaPrototype }, userId);
@@ -6873,7 +6873,7 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
     (db.prepare(`SELECT id FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary') AND name LIKE '% CoA'`).all() as { id: number }[]).map((r) => r.id)
   );
   const sourceRootId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Chart of Accounts'`).get() as { id: number }).id;
-  const businessVocabulary = fetch('Vocabulary', typeRootName, business);
+  const businessVocabulary = requireEntity('Vocabulary', typeRootName, business);
 
   function copyChildren(sourceId: number, destParentId: number): void {
     const children = db.prepare(`SELECT id, name, relation_id FROM current_entities WHERE parent_id = ?`).all(sourceId) as { id: number; name: string; relation_id: number | null }[];
@@ -6889,7 +6889,7 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
         // duplicated test account before this fix).
         if (child.relation_id === prototypeId) {
           const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
-          if (!existing) create(fetchById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
+          if (!existing) create(requireEntityById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
         }
       } else {
         // A real, confirmed, further fix, found directly: "has any
@@ -6930,7 +6930,7 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
 
         let mirror = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
         if (!mirror) {
-          mirror = create(fetchById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
+          mirror = create(requireEntityById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
           updateEntity(mirror.id, { relation: child.name }, userId);
         }
         copyChildren(child.id, mirror.id);
@@ -6941,7 +6941,7 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
 }
 
 export function instantiateChartOfAccounts(businessName: BusinessName, coaPrototype: string | undefined, userId: UserId): void {
-  const business = fetch(businessName, typeBusinessName, fetch('Businesses', typeRootName));
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = ?`).get(business.id)) return;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Vocabulary' AND parent_id = ?`).get(business.id)) {
     create(business, typeRootName, 'Vocabulary', userId);
@@ -6987,7 +6987,7 @@ export function createBusiness(
   partnerNames?: string[]
 ): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName } {
   return db.transaction((): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName } => {
-  const businessesRoot = fetch('Businesses', typeRootName);
+  const businessesRoot = requireEntity('Businesses', typeRootName);
   const business = create(businessesRoot, typeBusinessName, businessName, userId);
   const actualLedger = asLedgerName(`Actual`);
   const budgetLedger = asLedgerName(`Budget ${financialYearLabel}`);
@@ -7049,8 +7049,8 @@ export function createBusiness(
   for (const currency of secondaryCurrencies ?? []) {
     const accountName = `Cash at Bank (${currency})`;
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(accountName)) {
-      const businessCoa = fetch('Chart of Accounts', typeChartOfAccountsRootName, business);
-      const businessAsset = fetch('Asset', typeRootName, businessCoa);
+      const businessCoa = requireEntity('Chart of Accounts', typeChartOfAccountsRootName, business);
+      const businessAsset = requireEntity('Asset', typeRootName, businessCoa);
       create(businessAsset, typeAssetAccountName, accountName, userId);
     }
     // The same real logic as setAccountCurrency (backend/src/db-reports.ts)

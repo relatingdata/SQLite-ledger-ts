@@ -16,19 +16,19 @@
  *
  * Run with: DB_PATH=/tmp/proto.db node --import tsx backend/scripts/prototype-multicurrency.ts
  */
-import { createEntityRaw, create, fetch, typeRootName, typeVocabularyWordName, setItem, stageLine, postJournalEntry, receiveLot, consumeFromLots, addOrUpdateItemSource } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, setItem, stageLine, postJournalEntry, receiveLot, consumeFromLots, addOrUpdateItemSource } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: EUR and USD as real items, same commodity mechanism as wine ===');
-  create(fetch('Items', typeRootName), typeRootName, 'EUR', 1);
+  create(requireEntity('Items', typeRootName), typeRootName, 'EUR', 1);
   setItem('EUR', { unit_of_measure: 'cent' });
-  create(fetch('Items', typeRootName), typeRootName, 'USD', 1);
+  create(requireEntity('Items', typeRootName), typeRootName, 'USD', 1);
   setItem('USD', { unit_of_measure: 'cent' });
-  create(fetch('Asset', typeRootName), typeRootName, 'FX Conversion Clearing', 1);
-  create(fetch('Expense', typeRootName), typeRootName, 'Delivery Fees', 1);
-  create(fetch('Income', typeRootName), typeRootName, 'FX Gain/Loss', 1);
-  create(fetch('Asset', typeRootName), typeRootName, 'Cash at Bank (EUR)', 1);
-  create(fetch('Asset', typeRootName), typeRootName, 'Cash at Bank (USD)', 1);
+  create(requireEntity('Asset', typeRootName), typeRootName, 'FX Conversion Clearing', 1);
+  create(requireEntity('Expense', typeRootName), typeRootName, 'Delivery Fees', 1);
+  create(requireEntity('Income', typeRootName), typeRootName, 'FX Gain/Loss', 1);
+  create(requireEntity('Asset', typeRootName), typeRootName, 'Cash at Bank (EUR)', 1);
+  create(requireEntity('Asset', typeRootName), typeRootName, 'Cash at Bank (USD)', 1);
 
   console.log('\n=== Canned delivery fee template: max(perUnitRate * cartons, minimum) ===');
   // A "bank fee" generalized into a delivery/handling fee — the same
@@ -38,7 +38,7 @@ async function main() {
   // field. How a carton is internally packed (12 loose, 4 six-packs, 6
   // quads) is a separate, downstream concern package_quantity already
   // handles per vendor/product; the fee only needs the carton count.
-  create(fetch('Vendors', typeRootName), typeRootName, 'FX Broker', 1);
+  create(requireEntity('Vendors', typeRootName), typeRootName, 'FX Broker', 1);
   addOrUpdateItemSource({ itemName: 'EUR', vendorName: 'FX Broker', package_quantity: 10000 }); // "cartons" here = units of 100.00 EUR each, an arbitrary but real packaging convention for this prototype
   function deliveryFee(orderQuantityBaseUnits: number, packageQuantity: number, perUnitRateMinor: number, minimumFeeMinor: number): number {
     const cartons = Math.ceil(orderQuantityBaseUnits / packageQuantity);
