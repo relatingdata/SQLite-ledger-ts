@@ -36,6 +36,17 @@ carton has been damaged and partially written off, which puts a few loose bottle
 warehouse's stock too. A location's storage capacity is therefore two, separate, simultaneous
 space currencies — never a single choice between them.
 
+## Two further findings, from `docs/realistic-tutorial-e2e-plan.md`'s Phase E.5
+
+**6. `getStockListing()` has no business-scoping parameter at all**, and aggregates stock across
+every business whose items happen to share a name — confirmed directly, the same bare-name bug
+class as `getLocation`/`setLocation` below, found in a report function this time.
+
+**7. `transferItems` moves quantity and location capacity, but never Inventory dollar value**,
+between two locations' own sub-accounts — confirmed by reading its implementation directly. A
+balance sheet built from this data misstates where Inventory's value physically sits after a
+transfer.
+
 ## What was found, read directly from real journal lines, not assumed
 
 **1. Every quantity movement is genuinely unbalanced per currency.** `stageQuantityMovementLine`'s

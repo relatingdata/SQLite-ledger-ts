@@ -25,8 +25,33 @@ the other plan, not this one.
 
 **Not done:** Phase D (retiring `simulate-wine-retail-month.ts`, the tutorial's own bespoke
 Playwright script, and demo-seeding) — deferred by direct instruction; `--path ui` has not been run
-against the new data file; the multicurrency section (step 17); and the Trial Balance / Stock on
-Hand / Profit & Loss report comparison named in Phase E.5 below.
+against the new data file; the multicurrency section (step 17).
+
+## Phase E.5 completed: two further, real gaps found by the report comparison
+
+**The Trial Balance itself is correct and properly business-scoped**, including its own, real
+per-currency breakdown (`TrialBalance.by_currency`) — confirmed balanced, 502060 = 502060, in a
+single currency group.
+
+**A real, confirmed, new gap: `getStockListing()` has no business-scoping parameter at all.**
+Called plainly, it returned "Amber Ale 330ml @ Head Office qty_on_hand=427" and even a location,
+"Riverside Cellars," that does not exist in this tutorial's own business. Traced directly: at least
+five distinct item entities are named "Amber Ale 330ml" across different businesses in this
+database, and `getStockListing` aggregates all of them with no way to tell them apart — the same
+bare-name-ambiguity bug class already found and fixed in `getLocation`/`setLocation`
+(`docs/currency-and-quantity-integrity-fix-plan.md`, Phase 0), found again in a report function.
+Not fixed here — reported, per `manual-as-source-of-truth`'s own discipline, as a stop point for a
+decision.
+
+**A second, real, confirmed gap: `transferItems` moves quantity and location capacity (space), but
+never any dollar value, between two locations' own Inventory sub-accounts.** Confirmed by reading
+its own implementation: it calls `stageQuantityMovementLine` and `adjustLocationCapacity` for both
+locations, and touches no Inventory account at all. The Trial Balance proves this concretely:
+"Amber Ale 330ml — Head Office" still carries the full $336.00 (the entire Cash Purchase) even
+after 24 of 96 units were transferred to Main Street Cellar. A balance sheet built from this data
+would misstate where Inventory's dollar value physically sits after any transfer. Not fixed here,
+for the same reason — a new, confirmed finding for the already-documented currency and quantity
+work, not resolved unilaterally in this pass.
 
 --- It exists because of a direct, confirmed failure,
 recorded in `docs/skill-manual-as-source-of-truth.md` ("a second, more severe occurrence") and

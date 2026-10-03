@@ -24,6 +24,7 @@ const PARTS: [string, string[]][] = [
     'stock-api-reference.md',
     'skill-step-runner-design.md',
     'realistic-tutorial-e2e-plan.md',
+    'web-ui-interface-plan.md',
     'entity-chains.md',
     'money-model.md',
     'multi-dimensional-reporting.md',
