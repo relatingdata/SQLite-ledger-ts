@@ -293,6 +293,35 @@ feature (section 11) remain design-only. The real tutorial fixture covers
 only five of the tutorial's own, real, full step count - extending it further
 is real, further, incremental work.
 
+**A real, serious, confirmed gap, found by direct correction, not caught
+internally: the replacement mandate stated at the very top of this chapter —
+"replacing the tutorial e2e's own, bespoke Playwright script, the wine-retail
+simulation script, and demo-seeding" — has not been carried out.**
+`backend/scripts/simulate-wine-retail-month.ts` still exists today, still
+runs, and was treated across a long, separate session as a legitimate,
+parallel testing mechanism — type errors fixed in it, a real bug found and
+fixed inside it, its history bisected across dozens of commits — all without
+once checking this chapter's own opening line, which already named it for
+retirement. See `docs/skill-manual-as-source-of-truth.md`'s own "a second,
+more severe occurrence" entry for the full, honest account of how this
+happened. The concrete debt this leaves: all three named mechanisms
+(the simulation script, the tutorial's bespoke Playwright script, and
+demo-seeding) still need converting into Step Runner data files, per
+`docs/realistic-tutorial-e2e-plan.md`.
+
+**A second, related, separate gap, found by direct line-by-line comparison
+against the User Manual's own Chapter 3**: `tutorial-steps.csv`, even at its
+fullest point this session, covered perhaps a third of Chapter 3's full,
+written scenario — it never expressed a Division, a Warehouse created
+through Business Setup, an Employee, a location's own static capacity, an
+item's own cost/price/pack size, a Vendor, a Purchase Order, a Cash Purchase,
+a Stock Transfer, a POS sale, or the owner's own opening-capital journal
+entry — not because these were decided against, but because no screen type
+or field existed yet to express them, and this was never checked against
+Chapter 3 directly until asked for, repeatedly, by direct instruction. The
+full, itemized gap and the plan to close it are in
+`docs/realistic-tutorial-e2e-plan.md`.
+
 ## 13. A real design proposal — session-establishing screens are one, real, logical step
 
 Per a direct, real question raised while reviewing the lint check's own output:

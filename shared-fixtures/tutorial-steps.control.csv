@@ -1,8 +1,13 @@
-path,verify,screenshot,skip
-,,login_landing,false
-,,,false
-,business_exists,new_business_created,false
-,,session_switched,false
-,location_exists,locations_created,false
-,,first_product_created,false
-,,beer_can_variant_created,false
+path,verify,screenshot,skip,comment
+,,login_landing,false,No accounting. Authenticates the session only.
+,,,false,No accounting. Chooses which business's data this session sees.
+,business_exists,new_business_created,false,"No journal entries. Creates the business, its Actual/Budget ledgers, and a Chart-of-Accounts skeleton. No home currency, bank account, or opening capital is supplied by this step's own fields, so nothing can yet be bought - that gap is real and not yet closed."
+,,session_switched,false,No accounting. Moves the session's working business to the one just created.
+,location_exists,locations_created,false,"ENTITIES EXPECTED: Head Office, a Warehouse location. No journal entries - this step's own fields carry no capacity (bottle_capacity/carton_capacity), no division, and no address/phone, so no real, physical size or place in the business exists yet for this location; its Storage Capacity structure may be lazily prepared but has nothing to open a balance from."
+,,locations_created,false,"ENTITIES EXPECTED: Main Street Cellar, a Retail location - a real retail outlet genuinely holds both sealed cartons and loose bottles at once, unlike a warehouse. Same gaps as Head Office: no division, no capacity, no address/phone."
+,,first_product_created,false,"No accounting. Creates the item and its Category hierarchy value (Beer). This step's own fields carry no Size hierarchy value, no Storage requirement, no package_quantity (units per carton), no unit of measure, and no registered Provider or price - so this item has a name and a category, and nothing else real about it yet."
+,,beer_can_variant_created,false,"No accounting. Same item, a Can variant, under the existing Beer category. Same gaps as above."
+,,,false,"No accounting. Creates Highland Single Malt 700ml under a new Whiskey category. A later step opens 1 carton into 24 bottles for this item, so its real pack size is 24 - but nothing in this step, or any step, states that fact structurally; it is only implied by a coincidence between two unrelated steps."
+,,,false,"240 units of Amber Ale 330ml arrive, sealed, at Head Office - a bulk, high-volume item landing at the warehouse first, the realistic flow before any of it reaches a retail shelf. Expected: (1) the item's own quantity account DR 240 / On Order CR 240, in the item's real unit; (2) the Secure combination's own parallel count, DR/CR 240 UNITS-SECURE; (3) Head Office's own carton-space capacity, DR/CR 10 SPACE-CARTON (240 divided by 24 per carton, no fraction). No dollar line - no unit cost is supplied by this step's own fields, and no Provider exists yet to owe money to."
+,,,false,"24 units of Highland Single Malt 700ml arrive, sealed, directly at Main Street Cellar - a lower-volume, premium item received straight to retail rather than via the warehouse, since no Transfer step exists yet in this file to move stock from Head Office to Main Street Cellar afterward. Expected: the same three-entry shape as above, scaled to 24 units and 1 carton. Same missing-cost gap."
+,,,false,"The one-way, physical, irreversible act of breaking open the 1 sealed carton of Highland Single Malt just received, turning it into 24 loose bottles. This step's own fields have NO location column at all, so it cannot say which location's carton is being opened - assumed here to mean Main Street Cellar's, since that is where the carton just arrived, but the data itself does not say so. Expected: two independent entries at that location - the carton side (1 SPACE-CARTON freed) and the bottle side (24 SPACE-BOTTLE consumed) - never summed together into one number."

@@ -26,6 +26,43 @@ When a real user reports a defect in the running application, or reports that th
 
 A chapter documenting an already-built mechanism states which real function, in which real file, implements it — "see `getTrialBalance` in `backend/src/db-reports.ts`," not just a description of what trial balances do. This is what makes "check the manual first" actually save the exploratory step it's meant to save; a manual that describes behavior without pointing at its own implementation still sends the next reader back into `grep`.
 
+## A second, more severe occurrence: treating a superseded mechanism as legitimate because it ran
+
+Per direct correction, a second, confirmed instance of this exact skill being violated — worse than
+the first, because the answer was not merely one `grep` away but stated as the opening line of the
+very manual chapter that governs the mechanism in question. Asked to produce a realistic tutorial
+end-to-end test, a large amount of effort was spent running, type-checking, and debugging
+`backend/scripts/simulate-wine-retail-month.ts` as a legitimate, parallel testing path — fixing over
+150 type errors in it, bisecting it across git history, finding and fixing a real bug inside it —
+all without once checking whether this script was supposed to exist at all. It was not: the Step
+Runner chapter's own opening line states, "per direct instruction," that this script is one of three
+mechanisms (the others being the tutorial's own bespoke Playwright script and demo-seeding) the Step
+Runner exists specifically **to replace**. A passing result, or a script that runs without error, was
+treated as evidence of legitimacy — it is not. Whether code runs is a property of the code; whether
+it is the sanctioned way to do something is a property of a decision, and only the manual holds that.
+
+**The concrete rules this produced, now permanent, not merely a restated intention:**
+
+1. **Before treating any script or mechanism as a legitimate test path, search the manual for its
+   own literal filename first** — not "check the manual when something feels off," a mechanical,
+   named-file search before the first time it is run or edited in a session.
+2. **The sighting of two parallel mechanisms doing the same apparent job is itself the trigger to
+   search the manual, not a reason to proceed with both.** The moment two things look like they do
+   the same work (a bespoke script and a general-purpose runner; two parallel account trees; two
+   contact-type tags), that duplication is exactly the shape of thing this project's own history
+   shows gets explicitly, deliberately resolved somewhere in the manual — stop and search before
+   assuming either one, or both, are still valid.
+3. **State the manual check out loud, every time**, per this skill's own existing rule above,
+   restated here because it was the rule most directly skipped: "checking the Programmer's Manual
+   for X first," visibly, not folded silently into an answer.
+4. **After any environment or context loss (a sandbox reset, a long-conversation compaction),
+   re-read the relevant manual chapter before resuming work from memory.** Reconstructing lost work
+   from recollection of the conversation, without re-checking it against the manual's own record, is
+   precisely the failure this skill exists to prevent — memory is exactly what the manual is for.
+5. **A passing test, a clean compile, or a script that runs to completion is evidence the code
+   works — never evidence that the code, or the mechanism it belongs to, was authorized to exist.**
+   Those are two separate questions, and only the second one is answered by the manual.
+
 ## Why this exists
 
 Per direct instruction: this project accumulates real, hard-won knowledge (the entity-tree architecture, the translation mechanism, the RTL layout mechanism, the real testing pyramid, the currency-as-commodity design) precisely so it does not need to be rediscovered, at real cost, every single time. Treating the manuals as disposable narration of what already happened, rather than as the live, authoritative, continuously-improved specification of how this system actually works and is meant to work, wastes that investment — and, left unchecked, produces exactly the failure this skill was tightened to prevent: a real, already-documented answer, missed, because code was checked before the manual that already held it.

@@ -37,6 +37,13 @@ export interface Step {
   verify: string;
   screenshot: string;
   skip: boolean; // true if this real step's own control row marks it to be skipped
+  // Per direct instruction: a real, free-text explanation of what this
+  // step does and why - the real accounting or entity-creation
+  // reasoning, not restated step mechanics - read from the control
+  // file's own 5th column, shown before the step runs, both pretty-
+  // printed and during an actual run (api or ui), so a person reading
+  // the real output sees the real intent alongside the real result.
+  comment: string;
 }
 
 /** The one, real registry mapping a screen's own api_function name to
@@ -173,7 +180,7 @@ export function loadSteps(dataPath: string): Step[] {
     const fields = parseCsvLine(entry.line);
     const [screen_name, ...values] = fields;
     const control = controlRows[i] ?? [];
-    return { index: i + 1, file_line: entry.fileLine, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '', skip: (control[3] ?? '').toLowerCase() === 'true' };
+    return { index: i + 1, file_line: entry.fileLine, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '', skip: (control[3] ?? '').toLowerCase() === 'true', comment: control[4] ?? '' };
   });
 }
 
@@ -219,6 +226,7 @@ export function prettyPrintSteps(steps: Step[], screens: Map<string, Screen>): s
   const lines: string[] = [];
   for (const s of steps) {
     lines.push(`\n━━━ ${s.index}: ${s.screen_name} ━━━`);
+    if (s.comment) lines.push(`  # ${s.comment}`);
     const screen = screens.get(s.screen_name);
     const args = buildArgs(s, screen);
     for (const [k, v] of Object.entries(args)) lines.push(`  ${k}: ${v}`);
@@ -360,6 +368,7 @@ async function main() {
     }
     for (const step of batch) {
       const stepPath = step.path || path;
+      if (step.comment) console.log(`\n# ${step.comment}`);
       const result = stepPath === 'ui' ? await runStepViaUi(await ensureUiPage(), step, screens, screenshotDir) : runStepViaApi(step, screens);
       console.log(result.ok ? `✅ ${step.index}: ${step.screen_name} (${stepPath})` : `❌ ${step.index}: ${step.screen_name} (${stepPath}): ${result.error}`);
       if (!result.ok && !nonInteractive) {
