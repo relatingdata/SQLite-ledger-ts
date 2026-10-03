@@ -242,7 +242,7 @@ const {
   setContactType,
   getContactTypes,
   getContactBaseAccounts,
-  createVendor,
+  createProvider,
   createEmployee,
   listPendingCustomers,
   verifyCustomer,
@@ -258,7 +258,7 @@ const {
   asAccountName,
   asDivisionName,
   asCustomerName,
-  asVendorName,
+  asProviderName,
   setBusinessHomeCurrency,
   getBusinessHomeCurrency,
   nominateLocationCurrency,
@@ -903,7 +903,7 @@ test('AR Receipt form: staging and posting creates the correct Debit Cash / Cred
 });
 
 test('AP Purchase form: staging and posting creates the correct Debit expense/asset / Credit AP entry', () => {
-  stageAPPurchase({ reference: 'APF-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), vendor: asVendorName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 15000, transdate: '2027-07-01' });
+  stageAPPurchase({ reference: 'APF-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), vendor: asProviderName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 15000, transdate: '2027-07-01' });
   postAPPurchase('APF-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
@@ -915,7 +915,7 @@ test('AP Purchase form: staging and posting creates the correct Debit expense/as
 
 test('AP Payment form: staging and posting creates the correct Debit AP / Credit Cash entry, reducing the vendor balance', () => {
   const before = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Supplies Pty Ltd')!.credit_minor;
-  stageAPPayment({ reference: 'APP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), vendor: asVendorName('Acme Supplies Pty Ltd'), amount_minor: 5000, transdate: '2027-07-15' });
+  stageAPPayment({ reference: 'APP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), vendor: asProviderName('Acme Supplies Pty Ltd'), amount_minor: 5000, transdate: '2027-07-15' });
   postAPPayment('APP-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
 
   const after = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Supplies Pty Ltd')!.credit_minor;
@@ -1360,7 +1360,7 @@ test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable
 
 test('AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amount+tax, everything balances', () => {
   create(requireEntity('My Business', typeRootName), typeRootName, 'Tax Test Ledger AP', asUserId(1));
-  stageAPPurchase({ reference: 'TAX-AP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Tax Test Ledger AP'), vendor: asVendorName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 50000, tax_minor: 5000, transdate: '2027-12-01' });
+  stageAPPurchase({ reference: 'TAX-AP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Tax Test Ledger AP'), vendor: asProviderName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 50000, tax_minor: 5000, transdate: '2027-12-01' });
   postAPPurchase('TAX-AP-1', asBusinessName('My Business'), asLedgerName('Tax Test Ledger AP'), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Tax Test Ledger AP'));
@@ -3061,7 +3061,7 @@ test('completeCashPurchase: a real, immediate cash purchase never touches the ve
       business: asBusinessName('My Business'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('CashPurTest Warehouse'),
-      vendorName: asVendorName('CashPurTest Vendor'),
+      vendorName: asProviderName('CashPurTest Vendor'),
       paymentMethod: 'cash',
       lines: [{ itemName: 'CashPurTest Wine', quantity: 24, unitPriceMinor: 1500, taxMinor: 0 }],
       taxAccount: asAccountName('Sales Tax Payable'),
@@ -4100,8 +4100,8 @@ test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this ge
 
   // Two real, known vendors for the same item - the risk calculation
   // must use the SHORTER one, per direct instruction.
-  setItemSourceLeadTime(asItemName('RiskTest Keg'), asVendorName('RiskTest Brewery'), 3, asUserId(1));
-  setItemSourceLeadTime(asItemName('RiskTest Keg'), asVendorName('RiskTest Slow Brewery'), 14, asUserId(1));
+  setItemSourceLeadTime(asItemName('RiskTest Keg'), asProviderName('RiskTest Brewery'), 3, asUserId(1));
+  setItemSourceLeadTime(asItemName('RiskTest Keg'), asProviderName('RiskTest Slow Brewery'), 14, asUserId(1));
   const leadTimes = getItemLeadTimes(asItemName('RiskTest Keg'));
   assert.equal(leadTimes.length, 2, 'both real, known vendor lead times were recorded');
 
@@ -5423,14 +5423,14 @@ test('registerCustomer genuinely tags the new contact as a real Customer type, p
   assert.deepEqual(getContactBaseAccounts('ContactTypeTest Customer'), ['Accounts Receivable']);
 });
 
-test('createVendor genuinely tags the new contact as a real Vendor type, per docs/contact-types-and-translations.md', () => {
-  createVendor('ContactTypeTest Vendor', asUserId(1));
+test('createProvider genuinely tags the new contact as a real Vendor type, per docs/contact-types-and-translations.md', () => {
+  createProvider('ContactTypeTest Vendor', asUserId(1));
   assert.deepEqual(getContactTypes('ContactTypeTest Vendor'), ['Vendor']);
   assert.deepEqual(getContactBaseAccounts('ContactTypeTest Vendor'), ['Accounts Payable']);
 });
 
 test('a real contact can genuinely hold more than one real type at once - a Vendor later also registered as a Customer keeps both, per docs/contact-types-and-translations.md', () => {
-  createVendor('ContactTypeTest Dual', asUserId(1));
+  createProvider('ContactTypeTest Dual', asUserId(1));
   assert.deepEqual(getContactTypes('ContactTypeTest Dual'), ['Vendor']);
   setContactType('ContactTypeTest Dual', 'Customer', asUserId(1));
   assert.deepEqual(getContactTypes('ContactTypeTest Dual').sort(), ['Customer', 'Vendor']);

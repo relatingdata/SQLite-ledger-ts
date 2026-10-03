@@ -14,7 +14,7 @@
     postInvoiceById,
     asBusinessName,
     asLedgerName,
-    asVendorName,
+    asProviderName,
     asAccountName,
     asLocationName,
     ApiError,

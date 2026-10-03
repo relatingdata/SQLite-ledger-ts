@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getEntityTree, getEntity, getEntityHistory, createEntityRaw, updateEntity, deleteEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
   asUserId,
-  createVendor,
+  createProvider,
   createEmployee,
 } from '../db.js';
 import { requireRole } from '../auth-middleware.js';
@@ -25,7 +25,7 @@ entitiesRouter.post('/vendor', requireRole('Administrator', 'Bookkeeper'), (req,
   const parsed = vendorSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const entity = createVendor(parsed.data.name, asUserId(req.user!.id));
+    const entity = createProvider(parsed.data.name, asUserId(req.user!.id));
     res.status(201).json(entity);
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });

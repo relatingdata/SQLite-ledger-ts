@@ -17,7 +17,7 @@
     deleteBomComponent,
     deleteItemSource,
     asItemName,
-    asVendorName,
+    asProviderName,
     ApiError,
     listLocations,
     getHierarchy,
@@ -283,7 +283,7 @@
     try {
       await addOrUpdateItemSource(asItemName(selectedName), {
         manufacturerName: sourceManufacturer || null,
-        vendorName: asVendorName(sourceVendor),
+        vendorName: asProviderName(sourceVendor),
         vendorSku: sourceSku || null,
         vendorUpc: sourceUpc || null,
         priceMinor: sourcePrice ? Math.round(Math.abs(Number(sourcePrice)) * 100) : null,

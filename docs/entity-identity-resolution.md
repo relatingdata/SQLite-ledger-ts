@@ -81,7 +81,7 @@ export type DivisionName = string & { readonly __brand: 'DivisionName' };
 export type LocationName = string & { readonly __brand: 'LocationName' };
 export type EmployeeName = string & { readonly __brand: 'EmployeeName' };
 export type CustomerName = string & { readonly __brand: 'CustomerName' };
-export type VendorName = string & { readonly __brand: 'VendorName' };
+export type ProviderName = string & { readonly __brand: 'ProviderName' };
 export type PartName = string & { readonly __brand: 'PartName' };
 ```
 

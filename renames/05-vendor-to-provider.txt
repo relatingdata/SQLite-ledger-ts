@@ -1,0 +1,11 @@
+# Step 5 of docs/bulk-rename-plan.md: Supplier and Vendor are almost
+# synonyms and stay as translatable Vocabulary labels a person reads -
+# Provider is proposed for code. Identifier tokens only: the strings
+# "Vendor"/"Vendors" (Vocabulary words, the entity root name, UI labels)
+# must not change, only the code identifiers naming the concept.
+VendorName ProviderName
+typeVendorName typeProviderName
+asVendorName asProviderName
+createVendor createProvider
+preferredVendorPackageQuantity preferredProviderPackageQuantity
+allPreferredVendors allPreferredProviders

@@ -5,7 +5,7 @@
 // per the backend-first-testing skill - no browser, no Playwright,
 // direct function calls, checking every real balance/quantity along
 // the way, not just the final result.
-import { createBusiness, createEntityRaw, create, requireEntity, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asVendorName, asItemName } from '../src/db.ts';
+import { createBusiness, createEntityRaw, create, requireEntity, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asProviderName, asItemName } from '../src/db.ts';
 import {
   setLocation,
   placeOrder,
@@ -63,7 +63,7 @@ const bom = getBomComponents('Proof Gift Pack');
 check('Assembly (Proof Gift Pack) has exactly 2 real components', bom.length === 2);
 
 console.log(`\n=== 5. Order and receive stock at the warehouse ===`);
-placeOrder('PO-PROOF-1', BIZ as any, LEDGER as any, 96, 500, USER as any, '2026-07-01', asVendorName('Proof Vendor'), asItemName('Proof Component A'), asLocationName('Proof Warehouse'));
+placeOrder('PO-PROOF-1', BIZ as any, LEDGER as any, 96, 500, USER as any, '2026-07-01', asProviderName('Proof Vendor'), asItemName('Proof Component A'), asLocationName('Proof Warehouse'));
 receiveItems(BIZ as any, LEDGER as any, 'REC-PROOF-1', asItemName('Proof Component A'), asLocationName('Proof Warehouse'), 96, USER as any, '2026-07-05');
 fulfillOrder('PO-PROOF-1', 'REC-PROOF-1', BIZ as any, LEDGER as any, 96, 500, USER as any, '2026-07-05');
 const orderStatus = getOrderStatus('PO-PROOF-1');

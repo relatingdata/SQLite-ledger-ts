@@ -10,7 +10,7 @@ only once actually fixed, not once merely acknowledged.
 1. **`docs/entity-model.md`'s own `createEntity` migration section** — stated "two
    real call sites still use generic `createEntity` directly" (the Entity Tree
    Editor route, and `Entity.create`). Checked directly and found this was already
-   stale: `createVendor`, `createEmployee` (`db.ts`), and `primitives.ts`'s own
+   stale: `createProvider`, `createEmployee` (`db.ts`), and `primitives.ts`'s own
    `create`/`ensure` helpers also still call it. Being fixed now, alongside the
    real removal of `createEntity` itself - this entry should close once that work
    lands and the section is rewritten to match reality.

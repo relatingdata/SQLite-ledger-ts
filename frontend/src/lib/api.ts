@@ -28,7 +28,7 @@ export type DivisionName = string & { readonly __brand: 'DivisionName' };
 export type LocationName = string & { readonly __brand: 'LocationName' };
 export type EmployeeName = string & { readonly __brand: 'EmployeeName' };
 export type CustomerName = string & { readonly __brand: 'CustomerName' };
-export type VendorName = string & { readonly __brand: 'VendorName' };
+export type ProviderName = string & { readonly __brand: 'ProviderName' };
 export type ItemName = string & { readonly __brand: 'ItemName' };
 export function asBusinessName(name: string): BusinessName {
   return name as BusinessName;
@@ -52,8 +52,8 @@ export function asEmployeeName(name: string): EmployeeName {
 export function asCustomerName(name: string): CustomerName {
   return name as CustomerName;
 }
-export function asVendorName(name: string): VendorName {
-  return name as VendorName;
+export function asProviderName(name: string): ProviderName {
+  return name as ProviderName;
 }
 export function asItemName(name: string): ItemName {
   return name as ItemName;
@@ -157,7 +157,7 @@ export const setEntityRelationship = (entityName: string, relationshipType: stri
 // Per docs/contact-types-and-translations.md: the one, real, correct
 // way a new vendor or employee is created - genuinely tagged with its
 // own real Contact Type, never left to structural parent alone.
-export const createVendor = (name: string) => request<EntityNode>('/entities/vendor', { method: 'POST', body: JSON.stringify({ name }) });
+export const createProvider = (name: string) => request<EntityNode>('/entities/vendor', { method: 'POST', body: JSON.stringify({ name }) });
 export const createEmployeeContact = (name: string, placeOfEmployment: string) =>
   request<EntityNode>('/entities/employee', { method: 'POST', body: JSON.stringify({ name, placeOfEmployment }) });
 
@@ -895,7 +895,7 @@ export interface ItemSource {
 }
 export interface ItemSourceInput {
   manufacturerName?: string | null;
-  vendorName: VendorName;
+  vendorName: ProviderName;
   vendorSku?: string | null;
   vendorUpc?: string | null;
   priceMinor?: number | null;
@@ -1029,7 +1029,7 @@ export interface ImportEInvoiceResult {
   invoiceId: number;
   discrepancies: EInvoiceDiscrepancy[];
 }
-export const importEInvoice = (xml: string, business: BusinessName, ledger: LedgerName, vendorName: VendorName, poReference?: string) =>
+export const importEInvoice = (xml: string, business: BusinessName, ledger: LedgerName, vendorName: ProviderName, poReference?: string) =>
   request<ImportEInvoiceResult>('/invoices/import-e-invoice', { method: 'POST', body: JSON.stringify({ xml, business, ledger, vendorName, poReference }) });
 
 export interface AgedRow {
@@ -1430,7 +1430,7 @@ export const completeCashPurchase = (input: {
   business: BusinessName;
   ledger: LedgerName;
   locationName: LocationName;
-  vendorName: VendorName;
+  vendorName: ProviderName;
   lines: CashPurchaseLineInput[];
   taxAccount: string;
   paymentMethod?: string;

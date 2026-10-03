@@ -900,10 +900,10 @@ getLocationCapacityStatus(locationName: LocationName): LocationCapacityStatus
 
 Called from: production: db-stock.ts (getStockListingByLocation ×1) · tests: 3 call(s) in 1 file(s)
 
-**`preferredVendorPackageQuantity`**
+**`preferredProviderPackageQuantity`**
 
 ```
-preferredVendorPackageQuantity(itemName: ItemName): number | null
+preferredProviderPackageQuantity(itemName: ItemName): number | null
 ```
 
 Called from: production: db-stock.ts (adjustLocationCapacity ×1, getLocationCapacityStatus ×1)
@@ -972,10 +972,10 @@ allItemCategories(): Map<string, string | null>
 
 Called from: production: db-stock.ts (getStockMovementReport ×1)
 
-**`allPreferredVendors`**
+**`allPreferredProviders`**
 
 ```
-allPreferredVendors(): Map<string, string>
+allPreferredProviders(): Map<string, string>
 ```
 
 Called from: production: db-stock.ts (getStockMovementReport ×1)
@@ -1055,7 +1055,7 @@ Called from: production: routes/locations.ts ((module level) ×1) · tests: 2 ca
 **`setItemSourceLeadTime`** *(exported)*
 
 ```
-setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName, days: number, userId: UserId): void
+setItemSourceLeadTime(itemName: ItemName, vendorName: ProviderName, days: number, userId: UserId): void
 ```
 
 Called from: production: routes/locations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
@@ -1159,7 +1159,7 @@ Called from: production: db-stock.ts (placeOrder ×1)
 **`placeOrder`** *(exported)*
 
 ```
-placeOrder(orderReference: string, business: BusinessName, ledger: LedgerName, quantity: number, priceMinor: number, userId: UserId, transdate?: string, vendor?: VendorName, item?: ItemName, location?: LocationName): void
+placeOrder(orderReference: string, business: BusinessName, ledger: LedgerName, quantity: number, priceMinor: number, userId: UserId, transdate?: string, vendor?: ProviderName, item?: ItemName, location?: LocationName): void
 ```
 
 Called from: production: db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
@@ -1262,10 +1262,10 @@ asCustomerName(name: string): CustomerName
 
 Called from: production: routes/arap.ts ((module level) ×2); routes/invoices.ts ((module level) ×1); routes/pos.ts ((module level) ×1) · tests: 32 call(s) in 1 file(s)
 
-**`asVendorName`** *(exported)*
+**`asProviderName`** *(exported)*
 
 ```
-asVendorName(name: string): VendorName
+asProviderName(name: string): ProviderName
 ```
 
 Called from: production: db-journal.ts (postPurchaseOrder ×1); routes/arap.ts ((module level) ×2); routes/invoices.ts ((module level) ×1); routes/locations.ts ((module level) ×1); routes/pos.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
@@ -2460,7 +2460,7 @@ Called from: production: db.ts (setContactType ×1)
 setContactType(contactName: string, typeName: string, userId: UserId): void
 ```
 
-Called from: production: db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3); db.ts (createEmployee ×1, createVendor ×1, registerCustomer ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3); db.ts (createEmployee ×1, createProvider ×1, registerCustomer ×1) · tests: 1 call(s) in 1 file(s)
 
 **`getContactTypes`** *(exported)*
 
@@ -2478,10 +2478,10 @@ getContactBaseAccounts(contactName: string): string[]
 
 Called from: tests: 4 call(s) in 1 file(s)
 
-**`createVendor`** *(exported)*
+**`createProvider`** *(exported)*
 
 ```
-createVendor(name: string, userId: UserId): { id: number; }
+createProvider(name: string, userId: UserId): { id: number; }
 ```
 
 Called from: production: db.ts (ensureCurrencyExchangeItem ×1); routes/entities.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
@@ -3436,10 +3436,10 @@ asCustomerName(name: string): CustomerName
 
 Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ar-sale ×0, routes/pos ×1
 
-**`asVendorName`** *(exported)*
+**`asProviderName`** *(exported)*
 
 ```
-asVendorName(name: string): VendorName
+asProviderName(name: string): ProviderName
 ```
 
 Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×0, routes/invoices ×1, routes/items ×1, routes/stock/po ×1
@@ -3508,10 +3508,10 @@ setEntityRelationship(entityName: string, relationshipType: string, targetName: 
 
 Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×2
 
-**`createVendor`** *(exported)*
+**`createProvider`** *(exported)*
 
 ```
-createVendor(name: string): Promise<EntityNode>
+createProvider(name: string): Promise<EntityNode>
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/editor ×1
@@ -4407,7 +4407,7 @@ Called from: Svelte pages (by name in the file's imports): routes/invoices ×1
 **`importEInvoice`** *(exported)*
 
 ```
-importEInvoice(xml: string, business: BusinessName, ledger: LedgerName, vendorName: VendorName, poReference?: string): Promise<ImportEInvoiceResult>
+importEInvoice(xml: string, business: BusinessName, ledger: LedgerName, vendorName: ProviderName, poReference?: string): Promise<ImportEInvoiceResult>
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/invoices ×1
@@ -4751,7 +4751,7 @@ Called from: Svelte pages (by name in the file's imports): CashTransaction.svelt
 **`completeCashPurchase`** *(exported)*
 
 ```
-completeCashPurchase(input: { business: BusinessName; ledger: LedgerName; locationName: LocationName; vendorName: VendorName; lines: CashPurchaseLineInput[]; taxAccount: string; paymentMethod?: string; transdate?: string; }): Promise<CashPurchaseResult>
+completeCashPurchase(input: { business: BusinessName; ledger: LedgerName; locationName: LocationName; vendorName: ProviderName; lines: CashPurchaseLineInput[]; taxAccount: string; paymentMethod?: string; transdate?: string; }): Promise<CashPurchaseResult>
 ```
 
 Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1

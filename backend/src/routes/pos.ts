@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
-import { getItemByUpc, getCombinationByUpc, completePosSale, completeCashPurchase, payEmployeeWages, getOrganizationChart, asBusinessName, asLedgerName, asLocationName, asCustomerName, asVendorName, asAccountName, ValidationError, NotFoundError,
+import { getItemByUpc, getCombinationByUpc, completePosSale, completeCashPurchase, payEmployeeWages, getOrganizationChart, asBusinessName, asLedgerName, asLocationName, asCustomerName, asProviderName, asAccountName, ValidationError, NotFoundError,
   asUserId,
 } from '../db.js';
 import { createPosTerminal, listPosTerminals, setTerminalCurrency } from '../db-stock.js';
@@ -107,7 +107,7 @@ posRouter.post('/complete-cash-purchase', requireRole('Administrator', 'Bookkeep
         business: asBusinessName(parsed.data.business),
         ledger: asLedgerName(parsed.data.ledger),
         locationName: asLocationName(parsed.data.locationName),
-        vendorName: asVendorName(parsed.data.vendorName),
+        vendorName: asProviderName(parsed.data.vendorName),
         taxAccount: asAccountName(parsed.data.taxAccount),
       },
       asUserId(req.user!.id)

@@ -31,13 +31,13 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `typeMenuSectionName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeMenuSectionName = { brand: 'MenuSectionName' };` |
 | `typeOpenHoursRecordName` | `backend/src/db.ts` | (none) | `const typeOpenHoursRecordName = { brand: 'OpenHoursRecordName' };` |
 | `typeProjectTaskName` | `backend/src/db.ts` | (none) | `const typeProjectTaskName = { brand: 'ProjectTaskName' };` |
+| `typeProviderName` | `backend/src/db.ts` | (none) | `const typeProviderName = { brand: 'ProviderName' };` |
 | `typeRelationshipRecordName` | `backend/src/db.ts` | (none) | `const typeRelationshipRecordName = { brand: 'RelationshipRecordName' };` |
 | `typeRootName` | `backend/src/db.ts` | `backend/src/auth-middleware.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/divisions.ts` | `const typeRootName = { brand: 'RootName' };` |
 | `typeScheduleRecordName` | `backend/src/db.ts` | (none) | `const typeScheduleRecordName = { brand: 'ScheduleRecordName' };` |
 | `typeStorageOriginMarkerName` | `backend/src/db.ts` | (none) | `const typeStorageOriginMarkerName = { brand: 'StorageOriginMarkerName' };` |
 | `typeTextDirectionMarkerName` | `backend/src/db.ts` | (none) | `const typeTextDirectionMarkerName = { brand: 'TextDirectionMarkerName' };` |
 | `typeTranslationConceptName` | `backend/src/db.ts` | (none) | `const typeTranslationConceptName = { brand: 'TranslationConceptName' };` |
-| `typeVendorName` | `backend/src/db.ts` | (none) | `const typeVendorName = { brand: 'VendorName' };` |
 
 ## Router Constants (31, alphabetical)
 
@@ -90,8 +90,8 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `asEntityId` | `backend/src/db.ts` | `backend/src/routes/entities.ts` | `function asEntityId(id: number): EntityId` |
 | `asItemName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/items.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/stock-lots.ts` | `function asItemName(name: string): ItemName` |
 | `asLocationName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asLocationName(name: string): LocationName` |
+| `asProviderName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asProviderName(name: string): ProviderName` |
 | `asUserId` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/auth.ts`, `backend/src/routes/businesses.ts`, `backend/src/routes/contacts.ts`, `backend/src/routes/customer-registration.ts`, `backend/src/routes/divisions.ts`, `backend/src/routes/entities.ts`, `backend/src/routes/hierarchy.ts`, `backend/src/routes/i18n.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/items.ts`, `backend/src/routes/journal.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/period.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/products.ts`, `backend/src/routes/projects.ts`, `backend/src/routes/reports.ts`, `backend/src/routes/stock-lots.ts`, `backend/src/routes/stock.ts` | `function asUserId(id: number): UserId` |
-| `asVendorName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asVendorName(name: string): VendorName` |
 | `attachUser` | `backend/src/auth-middleware.ts` | `backend/src/server.ts` | `function attachUser(req: Request, _res: Response, next: NextFunction): void` |
 | `authenticateCustomer` | `backend/src/db.ts` | `backend/src/routes/customer-registration.ts` | `function authenticateCustomer(name: string, password: string): boolean` |
 | `buildProfitAndLossFromBalances` | `backend/src/db-reports.ts` | `backend/src/db-matrix-reports.ts` | `function buildProfitAndLossFromBalances(balances: Map<number, number>): ProfitAndLoss` |
@@ -186,7 +186,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `setItemLocationLevelDetails` | `backend/src/db-stock.ts` | (none) | `function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>): void` |
 | `setItemLocationLevels` | `backend/src/db-stock.ts` | `backend/src/db-seed.ts`, `backend/src/routes/locations.ts` | `function setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: {     minLevel?: number \| null;     maxLevel?: number \| null;     reorderLevel?: number \| null;     shelfSide?: string \| null;     rack?: string \| null;     level?: number \| null;   }): void` |
 | `setItemProduct` | `backend/src/db.ts` | `backend/src/routes/products.ts` | `function setItemProduct(itemName: string, productName: string \| null, userId: UserId): void` |
-| `setItemSourceLeadTime` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName, days: number, userId: UserId): void` |
+| `setItemSourceLeadTime` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function setItemSourceLeadTime(itemName: ItemName, vendorName: ProviderName, days: number, userId: UserId): void` |
 | `setLocationOpenHours` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function setLocationOpenHours(locationName: string, hours: OpenHoursLine[]): void` |
 | `setMenuOverride` | `backend/src/db.ts` | `backend/src/primitives.ts`, `backend/src/routes/menu.ts` | `function setMenuOverride(menuItemKey: string, scope: 'business' \| 'user', scopeId: number, overrideLabel: string \| null, hidden: boolean, userId: UserId = asUserId(1)): void` |
 | `setOwnDateFormat` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function setOwnDateFormat(userId: number, dateFormat: string): void` |

@@ -20,7 +20,7 @@
     allocatePaymentToInvoice,
     asBusinessName,
     asLedgerName,
-    asVendorName,
+    asProviderName,
     asCustomerName,
     ApiError,
     type EntityNode,
@@ -138,7 +138,7 @@
     saving = true;
     try {
       if (isPayment) {
-        await stageAPPayment({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), vendor: asVendorName(partyName), amount_minor, transdate, description: description || undefined });
+        await stageAPPayment({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), vendor: asProviderName(partyName), amount_minor, transdate, description: description || undefined });
         await postAPPayment(reference, asBusinessName(business), asLedgerName(ledger));
       } else {
         await stageARReceipt({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), customer: asCustomerName(partyName), amount_minor, transdate, description: description || undefined });

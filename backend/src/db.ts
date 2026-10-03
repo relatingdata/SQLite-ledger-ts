@@ -209,7 +209,7 @@ export class NotFoundError extends Error {}
 // assumed correct.
 export const typeBusinessName: TypeDescriptor<'BusinessName'> = { brand: 'BusinessName' };
 export const typeEmployeeName: TypeDescriptor<'EmployeeName'> = { brand: 'EmployeeName' };
-export const typeVendorName: TypeDescriptor<'VendorName'> = { brand: 'VendorName' };
+export const typeProviderName: TypeDescriptor<'ProviderName'> = { brand: 'ProviderName' };
 export const typeCustomerName: TypeDescriptor<'CustomerName'> = { brand: 'CustomerName' };
 export const typeCategoryOrItemsRootName: TypeDescriptor<'CategoryOrItemsRootName'> = {
   brand: 'CategoryOrItemsRootName',
@@ -289,7 +289,7 @@ export type DivisionName = string & { readonly __brand: 'DivisionName' };
 export type LocationName = string & { readonly __brand: 'LocationName' };
 export type EmployeeName = string & { readonly __brand: 'EmployeeName' };
 export type CustomerName = string & { readonly __brand: 'CustomerName' };
-export type VendorName = string & { readonly __brand: 'VendorName' };
+export type ProviderName = string & { readonly __brand: 'ProviderName' };
 export type ItemName = string & { readonly __brand: 'ItemName' };
 // Numeric IDs get the exact, same treatment, for the exact, same real
 // reason — a plain `number` can't distinguish "who performed this
@@ -332,8 +332,8 @@ export function asEmployeeName(name: string): EmployeeName {
 export function asCustomerName(name: string): CustomerName {
   return name as CustomerName;
 }
-export function asVendorName(name: string): VendorName {
-  return name as VendorName;
+export function asProviderName(name: string): ProviderName {
+  return name as ProviderName;
 }
 export function asItemName(name: string): ItemName {
   return name as ItemName;
@@ -3473,7 +3473,7 @@ export interface CashPurchaseInput {
   business: BusinessName;
   ledger: LedgerName;
   locationName: LocationName;
-  vendorName: VendorName;
+  vendorName: ProviderName;
   lines: CashPurchaseLineInput[];
   taxAccount: AccountName;
   /** Present for cash/EFT, where the purchase is paid in full
@@ -4783,8 +4783,8 @@ export function getContactBaseAccounts(contactName: string): string[] {
  * Contact Type too, so the documented, intended multi-type capability
  * is genuinely available the moment the rest of the app catches up to
  * reading it. */
-export function createVendor(name: string, userId: UserId): { id: number } {
-  const entity = create(requireEntity('Accounts Payable', typeRootName), typeVendorName, name, userId);
+export function createProvider(name: string, userId: UserId): { id: number } {
+  const entity = create(requireEntity('Accounts Payable', typeRootName), typeProviderName, name, userId);
   setContactType(name, 'Vendor', userId);
   return entity;
 }
@@ -5722,7 +5722,7 @@ const CURRENCY_EXCHANGE_SHAPE: [string, string][] = [
 function ensureCurrencyExchangeItem(userId: UserId): void {
   if (!Entity.get(CURRENCY_EXCHANGE_ITEM_NAME)) createItem(CURRENCY_EXCHANGE_ITEM_NAME, 'Items', userId);
   for (const vendorName of ['FX Market (Buy)', 'FX Market (Sell)']) {
-    if (!Entity.get(vendorName)) createVendor(vendorName, userId);
+    if (!Entity.get(vendorName)) createProvider(vendorName, userId);
   }
 }
 

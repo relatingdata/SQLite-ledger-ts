@@ -45,7 +45,7 @@ import {
   type UserId,
   type AccountName,
   type ItemName,
-  type VendorName,
+  type ProviderName,
   type LocationName,
 } from './db.js';
 
@@ -282,7 +282,7 @@ export function getLocationCapacityStatus(locationName: LocationName): LocationC
 
   const bottleQuantity = rows.reduce((s, r) => s + r.qty, 0);
   const cartonQuantity = rows.reduce((s, r) => {
-    const packageQty = preferredVendorPackageQuantity(asItemName(r.item)) ?? 12; // a real, reasonable default when no real vendor relationship exists at all
+    const packageQty = preferredProviderPackageQuantity(asItemName(r.item)) ?? 12; // a real, reasonable default when no real vendor relationship exists at all
     return s + r.qty / packageQty;
   }, 0);
 
@@ -298,7 +298,7 @@ export function getLocationCapacityStatus(locationName: LocationName): LocationC
   };
 }
 
-function preferredVendorPackageQuantity(itemName: ItemName): number | null {
+function preferredProviderPackageQuantity(itemName: ItemName): number | null {
   const row = db
     .prepare(
       `SELECT ps.package_quantity
@@ -369,7 +369,7 @@ export function ensureLocationCapacityAccount(business: BusinessName, ledger: Le
 export function adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void {
   if (itemQuantityDelta === 0) return;
   const { capacityAccount, capacityAccountId, occupiedAccountId, unit } = ensureLocationCapacityAccount(business, ledger, locationName, userId);
-  const conversionFactor = unit === 'carton' ? preferredVendorPackageQuantity(itemName) ?? 12 : 1;
+  const conversionFactor = unit === 'carton' ? preferredProviderPackageQuantity(itemName) ?? 12 : 1;
   const capacityDelta = -(itemQuantityDelta / conversionFactor);
   const reference = `${referenceSuffix}-CAPACITY-${locationName}`;
   stageLine({ reference, business, ledger, transdate, account: asAccountName(capacityAccount), accountId: capacityAccountId, amount_minor: capacityDelta });
@@ -471,7 +471,7 @@ function allItemCategories(): Map<string, string | null> {
   return new Map(rows.map((r) => [r.item, r.category]));
 }
 
-function allPreferredVendors(): Map<string, string> {
+function allPreferredProviders(): Map<string, string> {
   const rows = db
     .prepare(
       `SELECT p.name AS item, v.name AS vendor, ps.is_preferred
@@ -493,7 +493,7 @@ export function getStockMovementReport(ledgerName: string, fromDate?: string, to
   const dateFilter = `AND (? IS NULL OR j.transdate >= ?) AND (? IS NULL OR j.transdate <= ?)`;
   const dateParams = [fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null];
   const categories = allItemCategories();
-  const vendors = allPreferredVendors();
+  const vendors = allPreferredProviders();
 
   const receiptRows = db
     .prepare(
@@ -856,7 +856,7 @@ export function getBelowReorderStock(): BelowReorderRow[] {
     .sort((a, b) => a.quantity_on_hand - a.reorder_level! - (b.quantity_on_hand - b.reorder_level!));
 }
 
-export function setItemSourceLeadTime(itemName: ItemName, vendorName: VendorName, days: number, userId: UserId): void {
+export function setItemSourceLeadTime(itemName: ItemName, vendorName: ProviderName, days: number, userId: UserId): void {
   const existing = db
     .prepare(
       `SELECT child.name AS link_name
@@ -1242,7 +1242,7 @@ export function placeOrder(
   priceMinor: number,
   userId: UserId,
   transdate?: string,
-  vendor?: VendorName,
+  vendor?: ProviderName,
   item?: ItemName,
   location?: LocationName
 ): void {

@@ -11,7 +11,7 @@ import {
   asLedgerName,
   asAccountName,
   asDivisionName,
-  asVendorName,
+  asProviderName,
   asItemName,
   asLocationName,
   getDivisionType,
@@ -29,7 +29,7 @@ import {
   type TypedNode,
   type AccountName,
   type DivisionName,
-  type VendorName,
+  type ProviderName,
   type CustomerName,
   type LocationName,
   type EmployeeName,
@@ -227,7 +227,7 @@ export interface APPurchaseInput {
   reference: string;
   business: BusinessName;
   ledger: LedgerName;
-  vendor: VendorName;
+  vendor: ProviderName;
   expense_account: AccountName;
   amount_minor: number;
   tax_minor?: number;
@@ -267,7 +267,7 @@ export interface APPaymentInput {
   reference: string;
   business: BusinessName;
   ledger: LedgerName;
-  vendor: VendorName;
+  vendor: ProviderName;
   amount_minor: number;
   transdate?: string;
   description?: string;
@@ -319,7 +319,7 @@ export function postPurchaseOrder(reference: string, business: BusinessName, led
     .prepare(`SELECT * FROM po_staging WHERE reference = ? AND business = ? AND ledger = ?`)
     .get(reference, business, ledger) as PurchaseOrderInput | undefined;
   if (!staged) throw new NotFoundError(`Nothing staged for purchase order ${reference}.`);
-  placeOrder(reference, business, ledger, staged.quantity, staged.quantity * staged.price_minor, userId, staged.transdate, asVendorName(staged.vendor), asItemName(staged.item), staged.location ? asLocationName(staged.location) : undefined);
+  placeOrder(reference, business, ledger, staged.quantity, staged.quantity * staged.price_minor, userId, staged.transdate, asProviderName(staged.vendor), asItemName(staged.item), staged.location ? asLocationName(staged.location) : undefined);
   db.prepare(`DELETE FROM po_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
 }
 

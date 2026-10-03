@@ -17,7 +17,7 @@ import {
   create,
   requireEntity,
   typeRootName,
-  typeVendorName,
+  typeProviderName,
   typeCustomerName,
   typeCategoryOrItemsRootName,
   typeItemName,
@@ -132,7 +132,7 @@ async function main() {
   // own, established vendor filter (`parent?.name === 'Accounts
   // Payable'`) genuinely missed this vendor entirely as a real,
   // direct, confirmed consequence.
-  create(requireEntity('Accounts Payable', typeRootName), typeVendorName, VENDOR, 1);
+  create(requireEntity('Accounts Payable', typeRootName), typeProviderName, VENDOR, 1);
   setContact(VENDOR, { payment_terms_days: 30 });
   for (const [name, category] of [
     ['Freight In', 'Expense'],
@@ -398,7 +398,7 @@ async function main() {
   const allocationCustomer = 'Riverside Wine Merchants Pty Ltd';
   const allocationVendor2 = 'Alpine Cellar Imports GmbH';
   create(requireEntity('Accounts Receivable', typeRootName), typeCustomerName, allocationCustomer, 1);
-  create(requireEntity('Accounts Payable', typeRootName), typeVendorName, allocationVendor2, 1);
+  create(requireEntity('Accounts Payable', typeRootName), typeProviderName, allocationVendor2, 1);
 
   // (1) Full payment — a real invoice, paid off completely, in one,
   // single, real receipt.

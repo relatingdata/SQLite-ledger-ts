@@ -37,7 +37,7 @@ constant is a real, standard Express router instance, one per real
 route file - structurally identical, self-explanatory from its own
 file name, and not a business concept worth prose on its own.
 
-- `typeVendorName`
+- `typeProviderName`
 - `typeCustomerName`
 - `typeItemName`
 - `typeRootName`
@@ -144,7 +144,7 @@ file name, and not a business concept worth prose on its own.
 - `asLocationName`
 - `asEmployeeName`
 - `asCustomerName`
-- `asVendorName`
+- `asProviderName`
 - `asItemName`
 - `getCreditStatus`
 - `getAgingBuckets`

@@ -565,9 +565,9 @@ Reachable via `GET /businesses/:name/configuration-report` and the `Business Con
 
 ## Every `TypeDescriptor` constant, documented directly
 
-Per direct instruction: every real `typeXxxName` constant (`backend/src/db.ts`) exists purely for compile-time type safety — each brands a `TypedNode`/`TypedName` as one, specific, real kind of entity name, so a `VendorName` can never be passed where an `ItemName` is expected, even though both are plain strings at runtime. None of these constants carry real, further behavior of their own beyond their own, real `brand` (and, where present, a real `validate`/`validNames` check) — documented here as a group, by real, structural purpose, rather than repeating the same one-line explanation 24 separate times:
+Per direct instruction: every real `typeXxxName` constant (`backend/src/db.ts`) exists purely for compile-time type safety — each brands a `TypedNode`/`TypedName` as one, specific, real kind of entity name, so a `ProviderName` can never be passed where an `ItemName` is expected, even though both are plain strings at runtime. None of these constants carry real, further behavior of their own beyond their own, real `brand` (and, where present, a real `validate`/`validNames` check) — documented here as a group, by real, structural purpose, rather than repeating the same one-line explanation 24 separate times:
 
-**Real, named contact/business-entity kinds**: `typeVendorName`, `typeCustomerName` — the same, real, typed-view pattern already documented above for contacts (a vendor/customer is a real, named entity, tagged with its own real Contact Type).
+**Real, named contact/business-entity kinds**: `typeProviderName`, `typeCustomerName` — the same, real, typed-view pattern already documented above for contacts (a vendor/customer is a real, named entity, tagged with its own real Contact Type).
 
 **Real, structural/reporting kinds**: `typeItemName` (a real, sellable/stockable inventory unit), `typeLedgerName` (a real ledger — Actual, or a named Budget), `typeExpenseCategoryName` (a real expense-category leaf under the Chart of Accounts).
 
@@ -585,7 +585,7 @@ Per direct instruction: every real `typeXxxName` constant (`backend/src/db.ts`) 
 
 ## Every `asXxxName`/`asXxxId` helper, documented directly
 
-`asUserId`, `asEntityId`, `asDivisionName`, `asLocationName`, `asEmployeeName`, `asCustomerName`, `asVendorName`, `asItemName` (`backend/src/db.ts`) are the real, direct, run-time-free branding functions paired with the `TypeDescriptor` constants above — each takes a plain string (or number, for the two `Id` cases) and returns it branded as the matching real type, purely a compile-time cast with no real, runtime validation of its own (validation, where it exists, is the paired `TypeDescriptor`'s own, separate `validate`/`validNames` check, applied by `fetch`, not by these). Used at the one, real boundary where an untyped value (a route's own `req.params`, a raw database row) first becomes a real, typed value the rest of this codebase's own functions can trust.
+`asUserId`, `asEntityId`, `asDivisionName`, `asLocationName`, `asEmployeeName`, `asCustomerName`, `asProviderName`, `asItemName` (`backend/src/db.ts`) are the real, direct, run-time-free branding functions paired with the `TypeDescriptor` constants above — each takes a plain string (or number, for the two `Id` cases) and returns it branded as the matching real type, purely a compile-time cast with no real, runtime validation of its own (validation, where it exists, is the paired `TypeDescriptor`'s own, separate `validate`/`validNames` check, applied by `fetch`, not by these). Used at the one, real boundary where an untyped value (a route's own `req.params`, a raw database row) first becomes a real, typed value the rest of this codebase's own functions can trust.
 
 ## Every Express router constant, documented directly
 
@@ -662,7 +662,7 @@ deliberate exceptions: the Entity Tree Editor's own route, and `primitives.ts`'s
 
 **`createLocation`**/**`createItemCategory`** — real, new, typed, dedicated
 functions replacing generic `createEntity` for these two, ordinary, everyday
-application flows, matching `createVendor`/`createEmployee`'s own, established,
+application flows, matching `createProvider`/`createEmployee`'s own, established,
 suffix-free naming (an earlier `...Entity`-suffixed name for each was corrected
 directly, per a sharp, direct question asked mid-session, which also caught a real,
 unneeded duplicate of the already-existing `createItem`).

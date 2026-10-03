@@ -3,7 +3,7 @@
   import {
     getEntityTree,
     createEntity,
-    createVendor,
+    createProvider,
     updateEntity,
     deleteEntity,
     getContact,
@@ -254,7 +254,7 @@
       // common case, rather than leaving a person to create a
       // structurally-parented-but-untyped vendor by hand.
       if (newParent === 'Accounts Payable' && !newRelation) {
-        await createVendor(newName);
+        await createProvider(newName);
       } else {
         await createEntity({
           name: newName,

@@ -76,7 +76,7 @@ true, singleton concepts that exist exactly once, ever, with no possible collisi
 
 ### A real, confirmed, live violation, found while correcting this document's own example
 
-Checked directly against the real, live code, not assumed: `createVendor` and
+Checked directly against the real, live code, not assumed: `createProvider` and
 `createEmployee` (`backend/src/db.ts`) create every real vendor and every real
 employee under a single, bare, global `'Accounts Payable'`/`'Employees'` parent —
 shared across every real business at once, not scoped to any one specific business's

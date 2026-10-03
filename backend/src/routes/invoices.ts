@@ -25,7 +25,7 @@ import {
   asLedgerName,
   asLocationName,
   asCustomerName,
-  asVendorName,
+  asProviderName,
   ValidationError,
   NotFoundError,
   asUserId,
@@ -160,7 +160,7 @@ invoicesRouter.post('/import-e-invoice', requireRole('Administrator', 'Bookkeepe
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const d = parsed.data;
-    const result = importUblInvoiceAsDraft(d.xml, asBusinessName(d.business), asLedgerName(d.ledger), asVendorName(d.vendorName), asUserId(req.user!.id), d.poReference);
+    const result = importUblInvoiceAsDraft(d.xml, asBusinessName(d.business), asLedgerName(d.ledger), asProviderName(d.vendorName), asUserId(req.user!.id), d.poReference);
     res.json(result);
   } catch (err) {
     if (err instanceof ValidationError) return res.status(400).json({ error: err.message });

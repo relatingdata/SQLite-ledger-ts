@@ -40,7 +40,7 @@ import {
   asAccountName,
   asItemName,
   asLocationName,
-  asVendorName,
+  asProviderName,
   asUserId,
   getLocationTypes,
   createLocationType,
@@ -421,7 +421,7 @@ stockOutRiskRouter.post('/lead-time', requireRole('Administrator', 'Bookkeeper')
   const parsed = setLeadTimeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    setItemSourceLeadTime(asItemName(parsed.data.item), asVendorName(parsed.data.vendor), parsed.data.days, asUserId(req.user!.id));
+    setItemSourceLeadTime(asItemName(parsed.data.item), asProviderName(parsed.data.vendor), parsed.data.days, asUserId(req.user!.id));
     res.status(204).end();
   } catch (err) {
     console.error(err);

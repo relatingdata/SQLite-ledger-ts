@@ -113,7 +113,7 @@ surface as a warning. The carton-equivalent quantity is computed per product usi
 product's own preferred-vendor `package_quantity`, not a flat bottles-per-carton figure, since
 that genuinely varies (wine and spirits at 12, beer at 24).
 
-**`preferredVendorPackageQuantity`** (private) supplies that conversion. Per
+**`preferredProviderPackageQuantity`** (private) supplies that conversion. Per
 `no-new-tables`, there is no exchange-rate table: the existing `item_source.package_quantity`
 field *is* the carton-to-bottles rate. It is one-directional (a carton broken open becomes
 bottles; bottles are never reassembled), matching `docs/cold-shelf-storage-inventory-model-plan.md`.
@@ -151,7 +151,7 @@ division, for a report wanting detail per location or division. **It is delibera
 paginated:** a grouped view is read a location at a time, not row by row, and the number of
 locations for one business stays small even as its catalogue grows.
 
-**`allItemCategories` and `allPreferredVendors`** (private) each fetch every item's category or
+**`allItemCategories` and `allPreferredProviders`** (private) each fetch every item's category or
 preferred vendor (or first vendor on file) in **one query**, to avoid a query per row on a
 report that can have thousands. *Measured:* the naive per-row version took nearly 4 seconds to
 load one month of Wine Retail Company data, too slow for a report page.

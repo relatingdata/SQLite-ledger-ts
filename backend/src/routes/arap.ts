@@ -12,7 +12,7 @@ import {
   asBusinessName,
   asLedgerName,
   asCustomerName,
-  asVendorName,
+  asProviderName,
   asAccountName,
   asLocationName,
   PostingError,
@@ -84,7 +84,7 @@ arAPRouter.post('/ap-purchase/stage', (req, res) => {
     ...parsed.data,
     business: asBusinessName(parsed.data.business),
     ledger: asLedgerName(parsed.data.ledger),
-    vendor: asVendorName(parsed.data.vendor),
+    vendor: asProviderName(parsed.data.vendor),
     expense_account: asAccountName(parsed.data.expense_account),
     location: parsed.data.location ? asLocationName(parsed.data.location) : undefined,
   });
@@ -100,7 +100,7 @@ arAPRouter.post('/ap-payment/stage', (req, res) => {
     ...parsed.data,
     business: asBusinessName(parsed.data.business),
     ledger: asLedgerName(parsed.data.ledger),
-    vendor: asVendorName(parsed.data.vendor),
+    vendor: asProviderName(parsed.data.vendor),
   });
   res.status(204).end();
 });

@@ -4,7 +4,7 @@
   import { formatAmount } from '$lib/format';
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
-  import { getBusinesses, getLedgers, getEntityTree, stagePurchaseOrder, postPurchaseOrder, listItemSources, listLocations, asBusinessName, asLedgerName, asVendorName, asAccountName, asLocationName, asItemName, ApiError, type EntityNode, type ItemSource, type LocationRecord } from '$lib/api';
+  import { getBusinesses, getLedgers, getEntityTree, stagePurchaseOrder, postPurchaseOrder, listItemSources, listLocations, asBusinessName, asLedgerName, asProviderName, asAccountName, asLocationName, asItemName, ApiError, type EntityNode, type ItemSource, type LocationRecord } from '$lib/api';
   import { parseMinorUnits, parseQuantity } from '$lib/money';
   import { filterToItems } from '$lib/entityTree';
 
@@ -122,7 +122,7 @@
     saving = true;
     try {
       const price_minor = parseMinorUnits(price);
-      await stagePurchaseOrder({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), vendor: asVendorName(vendor), item: asAccountName(item), quantity: parseQuantity(quantity), price_minor, location: deliveryLocation ? asLocationName(deliveryLocation) : undefined, transdate, description: description || undefined });
+      await stagePurchaseOrder({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), vendor: asProviderName(vendor), item: asAccountName(item), quantity: parseQuantity(quantity), price_minor, location: deliveryLocation ? asLocationName(deliveryLocation) : undefined, transdate, description: description || undefined });
       await postPurchaseOrder(reference, asBusinessName(business), asLedgerName(ledger));
       message = `Purchase Order ${reference} placed with ${vendor}.`;
       reference = '';

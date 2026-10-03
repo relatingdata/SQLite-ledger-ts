@@ -19,7 +19,7 @@
     type Invoice,
     type InvoiceLine,
     type ImportEInvoiceResult,
-    asVendorName,
+    asProviderName,
   } from '$lib/api';
   import { translations } from '$lib/state.svelte';
 
@@ -253,7 +253,7 @@
     importing = true;
     error = '';
     try {
-      importResult = await importEInvoice(importPreviewXml, session.current.businessName, session.current.ledgerName, asVendorName(importVendor), importPoReference || undefined);
+      importResult = await importEInvoice(importPreviewXml, session.current.businessName, session.current.ledgerName, asProviderName(importVendor), importPoReference || undefined);
       await loadAll();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not import this e-invoice.';
