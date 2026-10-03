@@ -208,6 +208,7 @@ const {
   consumeFromLots,
   getExpiringStock,
   setLocation,
+  getLocation,
   getItemLocation,
   getStockListing,
   getStockListingByLocation,
@@ -272,6 +273,25 @@ const {
 // confirmed, direct cause of a real, hard-to-diagnose cross-test
 // interference bug, found directly by reproducing it, not guessed.
 const { createUser } = await import('../src/auth.ts');
+
+// Per direct instruction, Phase 0 of docs/currency-and-quantity-integrity-fix-plan.md:
+// a real, confirmed gap found while fixing getLocation/setLocation's own
+// bare-name ambiguity - "My Business," the shared test business, was
+// never actually given its own real "Locations" root by the seed data,
+// unlike a business created through createBusiness itself. Every test
+// using the old, bare `requireEntity('Locations', typeRootName)` was
+// therefore never really creating its own location under "My Business"
+// at all - it was silently finding whichever business's Locations
+// happened to exist first. This helper creates it, once, lazily, the
+// first time any test genuinely needs it.
+function myBusinessLocationsRoot() {
+  const myBusiness = requireEntity(asBusinessName('My Business'), typeBusinessName, requireEntity('Businesses', typeRootName));
+  try {
+    return requireEntity('Locations', typeRootName, myBusiness);
+  } catch {
+    return create(myBusiness, typeRootName, 'Locations', asUserId(1));
+  }
+}
 
 after(() => {
   for (const suffix of ['', '-wal', '-shm']) {
@@ -1088,8 +1108,8 @@ test('a real Purchase Order still knows its real vendor and item after posting �
 });
 
 test('getLocationCapacityStatus: a real location\'s own, current real stock checked against its own, real configured capacity — found to be purely informational and never enforced anywhere, per docs/TODO.md', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'CapTest Outlet', asUserId(1));
-  setLocation('CapTest Outlet', { city: 'CapTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'CapTest Outlet', asUserId(1));
+  setLocation('CapTest Outlet', { city: 'CapTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10 , timezone: 'UTC'}, asBusinessName('My Business'));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'CapTest Vendor', asUserId(1));
   createItem('CapTest Wine', 'Items', asUserId(1));
   addOrUpdateItemSource({ itemName: 'CapTest Wine', vendorName: 'CapTest Vendor', priceMinor: 1500, packageQuantity: 12, isPreferred: true }); // 12 bottles per real carton
@@ -1109,8 +1129,8 @@ test('getLocationCapacityStatus: a real location\'s own, current real stock chec
   assert.equal(after.cartonOverCapacity, true, 'a real 10.83 cartons against a real 10-carton capacity must correctly show as over');
 
   // A real location with no configured capacity at all — never silently treated as "over" just because none was set.
-  create(requireEntity('Locations', typeRootName), typeRootName, 'CapTest No Capacity Outlet', asUserId(1));
-  setLocation('CapTest No Capacity Outlet', { city: 'CapTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'CapTest No Capacity Outlet', asUserId(1));
+  setLocation('CapTest No Capacity Outlet', { city: 'CapTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'}, asBusinessName('My Business'));
   const noCapacity = getLocationCapacityStatus(asLocationName('CapTest No Capacity Outlet'));
   assert.equal(noCapacity.bottleCapacity, null);
   assert.equal(noCapacity.bottleOverCapacity, false);
@@ -1118,8 +1138,8 @@ test('getLocationCapacityStatus: a real location\'s own, current real stock chec
 
 test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picking list, requires every real line ticked off before it can dispatch, and reduces real, physical stock at the exact location it was actually picked from', () => {
   create(requireEntity('My Business', typeRootName), typeRootName, 'PickTest Ledger', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'PickTest Outlet', asUserId(1));
-  setLocation('PickTest Outlet', { city: 'PickTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'PickTest Outlet', asUserId(1));
+  setLocation('PickTest Outlet', { city: 'PickTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('PickTest Front Wine', 'Items', asUserId(1));
   createItem('PickTest Back Wine', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-1', asItemName('PickTest Front Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
@@ -1173,10 +1193,10 @@ test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picki
 
 test('restocking retail outlets from warehouses: the same real, shelf-ordered picking and refuse-until-complete pattern, but a real internal transfer, not an invoice — a real, distinct reference per real line, since a shared reference across different real products in the same run would genuinely collide', () => {
   create(requireEntity('My Business', typeRootName), typeRootName, 'RestockTest Ledger', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'RestockTest Warehouse', asUserId(1));
-  setLocation('RestockTest Warehouse', { city: 'RestockTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'RestockTest Outlet', asUserId(1));
-  setLocation('RestockTest Outlet', { city: 'RestockTest City', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'RestockTest Warehouse', asUserId(1));
+  setLocation('RestockTest Warehouse', { city: 'RestockTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'RestockTest Outlet', asUserId(1));
+  setLocation('RestockTest Outlet', { city: 'RestockTest City', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('RestockTest Wine A', 'Items', asUserId(1));
   createItem('RestockTest Wine B', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-1', asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
@@ -2111,14 +2131,14 @@ test('lot/expiration tracking: consumption is genuinely FIFO by expiration date,
 });
 
 test('Locations: per-location stock, exactly one billing address, warehouse-direct dispatch for large orders, same-city transfers, and below-reorder reporting', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'LocTest Head Office', asUserId(1));
-  setLocation('LocTest Head Office', { city: 'LocTest City A', location_type: 'Warehouse', is_billing_address: true, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'LocTest Head Office', asUserId(1));
+  setLocation('LocTest Head Office', { city: 'LocTest City A', location_type: 'Warehouse', is_billing_address: true, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'}, asBusinessName('My Business'));
 
-  create(requireEntity('Locations', typeRootName), typeRootName, 'LocTest Retail A1', asUserId(1));
-  setLocation('LocTest Retail A1', { city: 'LocTest City A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 2000, carton_capacity: 300 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'LocTest Retail A1', asUserId(1));
+  setLocation('LocTest Retail A1', { city: 'LocTest City A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 2000, carton_capacity: 300 , timezone: 'UTC'}, asBusinessName('My Business'));
 
-  create(requireEntity('Locations', typeRootName), typeRootName, 'LocTest Retail B1', asUserId(1));
-  setLocation('LocTest Retail B1', { city: 'LocTest City B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1800, carton_capacity: 280 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'LocTest Retail B1', asUserId(1));
+  setLocation('LocTest Retail B1', { city: 'LocTest City B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1800, carton_capacity: 280 , timezone: 'UTC'}, asBusinessName('My Business'));
 
   const billingCount = (
     db.prepare(`SELECT COUNT(*) AS c FROM current_entities e JOIN current_entities rel_type ON rel_type.id = e.parent_id AND rel_type.name = 'Is Billing Address'`).get() as { c: number }
@@ -2171,10 +2191,10 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
 });
 
 test('quantity movements carry a real, queryable location — receive, dispatch, and transfer (both legs) each record where it actually happened, not just updating the current-state snapshot', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'MoveLocTest Warehouse', asUserId(1));
-  setLocation('MoveLocTest Warehouse', { city: 'MoveLocTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'MoveLocTest Outlet', asUserId(1));
-  setLocation('MoveLocTest Outlet', { city: 'MoveLocTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'MoveLocTest Warehouse', asUserId(1));
+  setLocation('MoveLocTest Warehouse', { city: 'MoveLocTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'MoveLocTest Outlet', asUserId(1));
+  setLocation('MoveLocTest Outlet', { city: 'MoveLocTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('MoveLocTest Wine', 'Items', asUserId(1));
 
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'MOVELOCTEST-REC', asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Warehouse'), 100, asUserId(1), '2027-09-01');
@@ -2210,10 +2230,10 @@ test('quantity movements carry a real, queryable location — receive, dispatch,
 
 test('true double-entry quantity tracking: a real "on order" account for receipts and a real "units sold" account for dispatches — the genuine counteritem, not derived arithmetic, per direct confirmation', () => {
   create(requireEntity('My Business', typeRootName), typeRootName, 'DblEntryQty Ledger', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'DblEntryQty Warehouse', asUserId(1));
-  setLocation('DblEntryQty Warehouse', { city: 'DblEntryQty City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'DblEntryQty Outlet', asUserId(1));
-  setLocation('DblEntryQty Outlet', { city: 'DblEntryQty City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'DblEntryQty Warehouse', asUserId(1));
+  setLocation('DblEntryQty Warehouse', { city: 'DblEntryQty City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'DblEntryQty Outlet', asUserId(1));
+  setLocation('DblEntryQty Outlet', { city: 'DblEntryQty City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'DblEntryQty Vendor', asUserId(1));
   createItem('DblEntryQty Wine', 'Items', asUserId(1));
 
@@ -2264,10 +2284,10 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
   create(requireEntity('My Business', typeRootName), typeRootName, 'SMRTest Ledger', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'SMRTest Region', asUserId(1));
   setDivisionType('SMRTest Region', 'Profit Center');
-  create(requireEntity('Locations', typeRootName), typeRootName, 'SMRTest Warehouse', asUserId(1));
-  setLocation('SMRTest Warehouse', { city: 'SMRTest Region', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'SMRTest Outlet', asUserId(1));
-  setLocation('SMRTest Outlet', { city: 'SMRTest Region', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Warehouse', asUserId(1));
+  setLocation('SMRTest Warehouse', { city: 'SMRTest Region', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Outlet', asUserId(1));
+  setLocation('SMRTest Outlet', { city: 'SMRTest Region', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
   create(requireEntity('Items', typeRootName), typeRootName, 'SMRTest Category', asUserId(1));
   createItem('SMRTest Wine', 'SMRTest Category', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'SMRTest Vendor', asUserId(1));
@@ -2331,8 +2351,8 @@ test('item categories: nested arbitrarily deep in the existing entity tree, and 
 });
 
 test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free text) then level numerically (top to bottom), and completing posts genuine loss/gain variance while leaving uncounted lines untouched', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'STTest Outlet', asUserId(1));
-  setLocation('STTest Outlet', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'STTest Outlet', asUserId(1));
+  setLocation('STTest Outlet', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100 , timezone: 'UTC'}, asBusinessName('My Business'));
 
   createItem('STTest Merlot', 'Items', asUserId(1));
   createItem('STTest Chardonnay', 'Items', asUserId(1));
@@ -2374,8 +2394,8 @@ test('completeStockTake: multiple real, different products sharing the same vari
   // scenario, at a larger scale. Reproduced here directly, at the real,
   // correct, backend-function level, per the backend-first-testing
   // skill - no browser, no full simulation.
-  create(requireEntity('Locations', typeRootName), typeRootName, 'STTest Outlet 3', asUserId(1));
-  setLocation('STTest Outlet 3', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'STTest Outlet 3', asUserId(1));
+  setLocation('STTest Outlet 3', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100, timezone: 'UTC' }, asBusinessName('My Business'));
 
   createItem('STTest Shiraz', 'Items', asUserId(1));
   createItem('STTest Riesling', 'Items', asUserId(1));
@@ -2408,8 +2428,8 @@ test('completeStockTake and writeOffItems: the real quantity-movement journal en
   // The earlier test above only checked the dollar-value side's own
   // Trial Balance - it never actually queried the real, separate
   // quantity-movement journal entries this test checks directly.
-  create(requireEntity('Locations', typeRootName), typeRootName, 'QTYBalTest Outlet', asUserId(1));
-  setLocation('QTYBalTest Outlet', { city: 'QTYBalTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'QTYBalTest Outlet', asUserId(1));
+  setLocation('QTYBalTest Outlet', { city: 'QTYBalTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('My Business'));
   createItem('QTYBalTest Wine', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-REC', asItemName('QTYBalTest Wine'), asLocationName('QTYBalTest Outlet'), 40, asUserId(1), '2027-01-01');
 
@@ -2434,16 +2454,34 @@ test('completeStockTake and writeOffItems: the real quantity-movement journal en
   assert.equal(woQtyBalance.total, 0, 'the real quantity-movement journal entry for this write-off must itself be balanced');
 });
 
+test('getLocation/setLocation: two real locations sharing the exact same name under two different real businesses stay genuinely distinct - a confirmed, real bug found by direct review, not a hypothetical', () => {
+  const bizA = createBusiness(asBusinessName('SameNameLocTest Co A'), '2027-28', asUserId(1));
+  const bizB = createBusiness(asBusinessName('SameNameLocTest Co B'), '2027-28', asUserId(1));
+  const rootA = requireEntity('Locations', typeRootName, requireEntity(bizA.business, typeBusinessName, requireEntity('Businesses', typeRootName)));
+  const rootB = requireEntity('Locations', typeRootName, requireEntity(bizB.business, typeBusinessName, requireEntity('Businesses', typeRootName)));
+  create(rootA, typeRootName, 'Shared Name Outlet', asUserId(1));
+  create(rootB, typeRootName, 'Shared Name Outlet', asUserId(1));
+  setLocation('Shared Name Outlet', { city: 'City A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: null, timezone: 'UTC' }, bizA.business);
+  setLocation('Shared Name Outlet', { city: 'City B', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 50, timezone: 'UTC' }, bizB.business);
+
+  const seenByA = getLocation('Shared Name Outlet', bizA.business);
+  const seenByB = getLocation('Shared Name Outlet', bizB.business);
+  assert.equal(seenByA?.city, 'City A', 'business A must see its own, real location, never the other business\'s');
+  assert.equal(seenByB?.city, 'City B', 'business B must see its own, real location, never the other business\'s');
+  assert.equal(seenByA?.bottle_capacity, 100);
+  assert.equal(seenByB?.carton_capacity, 50);
+});
+
 test('ensureLocationCapacityAccount: a real, one-time opening balance from the location\'s own static capacity, retail tracks bottles, warehouse tracks carton-equivalents', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'CapAcctTest Retail', asUserId(1));
-  setLocation('CapAcctTest Retail', { city: 'CapAcctTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'CapAcctTest Retail', asUserId(1));
+  setLocation('CapAcctTest Retail', { city: 'CapAcctTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('My Business'));
   const retail = ensureLocationCapacityAccount(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAcctTest Retail'), asUserId(1));
   assert.equal(retail.unit, 'bottle', 'a location with a real bottle_capacity set tracks in bottles');
   const retailBalance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(retail.capacityAccountId) as { total: number };
   assert.equal(retailBalance.total, 200);
 
-  create(requireEntity('Locations', typeRootName), typeRootName, 'CapAcctTest Warehouse', asUserId(1));
-  setLocation('CapAcctTest Warehouse', { city: 'CapAcctTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 50, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'CapAcctTest Warehouse', asUserId(1));
+  setLocation('CapAcctTest Warehouse', { city: 'CapAcctTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('My Business'));
   const warehouse = ensureLocationCapacityAccount(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAcctTest Warehouse'), asUserId(1));
   assert.equal(warehouse.unit, 'carton', 'a location with no bottle_capacity, only carton_capacity, tracks in carton-equivalents');
   const warehouseBalance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(warehouse.capacityAccountId) as { total: number };
@@ -2456,8 +2494,8 @@ test('ensureLocationCapacityAccount: a real, one-time opening balance from the l
 });
 
 test('adjustLocationCapacity: a real, direct check of the capacity math, retail (1:1 bottles) and warehouse (real, per-item carton conversion)', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'CapAdjTest Retail', asUserId(1));
-  setLocation('CapAdjTest Retail', { city: 'CapAdjTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'CapAdjTest Retail', asUserId(1));
+  setLocation('CapAdjTest Retail', { city: 'CapAdjTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' }, asBusinessName('My Business'));
   createItem('CapAdjTest Wine', 'Items', asUserId(1));
   const retail = ensureLocationCapacityAccount(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAdjTest Retail'), asUserId(1));
 
@@ -2470,8 +2508,8 @@ test('adjustLocationCapacity: a real, direct check of the capacity math, retail 
   assert.equal(balance.total, 80, 'dispatching 10 real bottles frees exactly 10 units of real capacity back up (70 + 10)');
 
   // Warehouse: a real, specific item with a real, known package_quantity of 12.
-  create(requireEntity('Locations', typeRootName), typeRootName, 'CapAdjTest Warehouse', asUserId(1));
-  setLocation('CapAdjTest Warehouse', { city: 'CapAdjTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 20, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'CapAdjTest Warehouse', asUserId(1));
+  setLocation('CapAdjTest Warehouse', { city: 'CapAdjTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('My Business'));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'CapAdjTest Vendor', asUserId(1));
   addOrUpdateItemSource({ itemName: 'CapAdjTest Wine', vendorName: 'CapAdjTest Vendor', priceMinor: 1500, packageQuantity: 12, isPreferred: true });
   const warehouse = ensureLocationCapacityAccount(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAdjTest Warehouse'), asUserId(1));
@@ -2486,8 +2524,8 @@ test('createPosTerminal/setTerminalCurrency/getEffectiveSaleCurrency: a real, di
   // Slice 2 - a real business on a border, one real, shared location,
   // two real, physical terminals, each transacting in a different,
   // real currency.
-  create(requireEntity('Locations', typeRootName), typeRootName, 'BorderTest Outlet', asUserId(1));
-  setLocation('BorderTest Outlet', { city: 'BorderTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'BorderTest Outlet', asUserId(1));
+  setLocation('BorderTest Outlet', { city: 'BorderTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('My Business'));
 
   createPosTerminal('BorderTest Front Till (USD)', asLocationName('BorderTest Outlet'), asUserId(1));
   createPosTerminal('BorderTest Front Till (CAD)', asLocationName('BorderTest Outlet'), asUserId(1));
@@ -2532,8 +2570,8 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
   // on a border, one real, shared location, two real, physical
   // terminals, one real product, each sale automatically priced in
   // the selling terminal's own, real, correct currency.
-  create(requireEntity('Locations', typeRootName), typeRootName, 'BorderE2E Outlet', asUserId(1));
-  setLocation('BorderE2E Outlet', { city: 'BorderE2E City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'BorderE2E Outlet', asUserId(1));
+  setLocation('BorderE2E Outlet', { city: 'BorderE2E City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('My Business'));
   nominateLocationCurrency('BorderE2E Outlet' as any, 'USD', asUserId(1));
   nominateLocationCurrency('BorderE2E Outlet' as any, 'CAD', asUserId(1));
   createPosTerminal('BorderE2E Till (USD)', asLocationName('BorderE2E Outlet'), asUserId(1));
@@ -2595,8 +2633,8 @@ test('createStockTake resolves an item by its real, scoped item identity, never 
   // call, no browser, no Playwright - deliberately creating the exact
   // same class of collision (a real, same-named entity of a
   // genuinely different kind) the reported bug depended on.
-  create(requireEntity('Locations', typeRootName), typeRootName, 'STTest Outlet 2', asUserId(1));
-  setLocation('STTest Outlet 2', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'STTest Outlet 2', asUserId(1));
+  setLocation('STTest Outlet 2', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('My Business'));
   createItem('STTest Collide', 'Items', asUserId(1)); // the real item, created first
 
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-COLLIDE', asItemName('STTest Collide'), asLocationName('STTest Outlet 2'), 40, asUserId(1), '2027-01-01');
@@ -2608,7 +2646,7 @@ test('createStockTake resolves an item by its real, scoped item identity, never 
   // the same name in the resulting map. The real, reported bug's own
   // colliding entity was created after the item during a long-running
   // simulation - reproduced here with the same, real ordering.
-  create(requireEntity('Locations', typeRootName), typeRootName, 'STTest Collide', asUserId(1));
+  create(myBusinessLocationsRoot(), typeRootName, 'STTest Collide', asUserId(1));
 
   const takeId = createStockTake(asLocationName('STTest Outlet 2'), '2027-02-01', asUserId(1));
   const take = getStockTake(takeId)!;
@@ -2626,8 +2664,8 @@ test('createStockTake resolves an item by its real, scoped item identity, never 
 });
 
 test('POS terminal: a complete register sale posts the invoice, dispatches stock from the exact location sold at, and allocates payment atomically, with change due calculated correctly', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'POSTest Outlet', asUserId(1));
-  setLocation('POSTest Outlet', { city: 'POSTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'POSTest Outlet', asUserId(1));
+  setLocation('POSTest Outlet', { city: 'POSTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('POSTest Merlot', 'Items', asUserId(1));
   setItem('POSTest Merlot', { upc: '0123456789012' });
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'POSTEST-REC-1', asItemName('POSTest Merlot'), asLocationName('POSTest Outlet'), 20, asUserId(1), '2027-01-01');
@@ -2737,8 +2775,8 @@ test('customer self-registration: a customer is a customer — same contact invo
 
   // The real gate: still pending, so on-account selling must be
   // rejected outright — even though the customer/contact fully exists.
-  create(requireEntity('Locations', typeRootName), typeRootName, 'RegTest Outlet', asUserId(1));
-  setLocation('RegTest Outlet', { city: 'RegTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'RegTest Outlet', asUserId(1));
+  setLocation('RegTest Outlet', { city: 'RegTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('RegTest Wine', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'REGTEST-REC-1', asItemName('RegTest Wine'), asLocationName('RegTest Outlet'), 10, asUserId(1), '2027-01-01');
 
@@ -2897,10 +2935,10 @@ test("closeBooks: per direct correction, division is only a real, pure sub-total
   create(requireEntity('Divisions', typeRootName), typeRootName, 'MultiDivCloseTest Wholesale Division', asUserId(1));
   setDivisionType('MultiDivCloseTest Retail Division', 'Profit Center');
   setDivisionType('MultiDivCloseTest Wholesale Division', 'Profit Center');
-  create(requireEntity('Locations', typeRootName), typeRootName, 'MultiDivCloseTest Retail Outlet', asUserId(1));
-  setLocation('MultiDivCloseTest Retail Outlet', { city: 'MultiDivCloseTest Retail Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'MultiDivCloseTest Wholesale Outlet', asUserId(1));
-  setLocation('MultiDivCloseTest Wholesale Outlet', { city: 'MultiDivCloseTest Wholesale Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'MultiDivCloseTest Retail Outlet', asUserId(1));
+  setLocation('MultiDivCloseTest Retail Outlet', { city: 'MultiDivCloseTest Retail Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'MultiDivCloseTest Wholesale Outlet', asUserId(1));
+  setLocation('MultiDivCloseTest Wholesale Outlet', { city: 'MultiDivCloseTest Wholesale Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('MultiDivCloseTest Merlot', 'Items', asUserId(1));
   receiveItems(biz.business, biz.actualLedger, 'MDCT-REC-A', asItemName('MultiDivCloseTest Merlot'), asLocationName('MultiDivCloseTest Retail Outlet'), 20, asUserId(1), '2027-01-01');
   receiveItems(biz.business, biz.actualLedger, 'MDCT-REC-B', asItemName('MultiDivCloseTest Merlot'), asLocationName('MultiDivCloseTest Wholesale Outlet'), 20, asUserId(1), '2027-01-01');
@@ -2964,8 +3002,8 @@ test('getBalanceSheet includes real AR/AP posted directly to customer/vendor nam
 });
 
 test('completePosSale honors an explicit transdate instead of always using the real current date — the actual bug that broke every backdated/simulated sale', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'POSDateTest Outlet', asUserId(1));
-  setLocation('POSDateTest Outlet', { city: 'POSDateTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'POSDateTest Outlet', asUserId(1));
+  setLocation('POSDateTest Outlet', { city: 'POSDateTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('POSDateTest Wine', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'POSDATETEST-REC-1', asItemName('POSDateTest Wine'), asLocationName('POSDateTest Outlet'), 10, asUserId(1), '2027-01-01');
 
@@ -3004,8 +3042,8 @@ test('completePosSale honors an explicit transdate instead of always using the r
 });
 
 test('completePosSale: a real, immediate cash sale never touches the customer\'s own AR balance at all, even momentarily — the exact question directly asked and confirmed: "why are cash sales going through the AR system in any way?"', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'CashARTest Outlet', asUserId(1));
-  setLocation('CashARTest Outlet', { city: 'CashARTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'CashARTest Outlet', asUserId(1));
+  setLocation('CashARTest Outlet', { city: 'CashARTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('CashARTest Wine', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'CASHARTEST-REC-1', asItemName('CashARTest Wine'), asLocationName('CashARTest Outlet'), 10, asUserId(1), '2027-01-01');
   create(requireEntity('Customers', typeRootName), typeRootName, 'CashARTest Customer', asUserId(1));
@@ -3050,8 +3088,8 @@ test('completePosSale: a real, immediate cash sale never touches the customer\'s
 });
 
 test('completeCashPurchase: a real, immediate cash purchase never touches the vendor\'s own AP balance at all, even momentarily — the direct counteritem to completePosSale, for a real, immediate purchase', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'CashPurTest Warehouse', asUserId(1));
-  setLocation('CashPurTest Warehouse', { city: 'CashPurTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'CashPurTest Warehouse', asUserId(1));
+  setLocation('CashPurTest Warehouse', { city: 'CashPurTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'CashPurTest Vendor', asUserId(1));
   createItem('CashPurTest Wine', 'Items', asUserId(1));
 
@@ -3146,7 +3184,7 @@ test('payEmployeeWages: a real employee treated as AP — real Medicare levy wit
 test('getOrganizationChart: the real, complete chain — Business belongs-to Division belongs-to Location, employees placed at either a real location or the business itself', () => {
   create(requireEntity('Businesses', typeRootName), typeRootName, 'OrgChartTest Co', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'OrgChartTest Region', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'OrgChartTest Store', asUserId(1));
+  create(myBusinessLocationsRoot(), typeRootName, 'OrgChartTest Store', asUserId(1));
   create(requireEntity('Employees', typeRootName), typeRootName, 'OrgChartTest Retail Staff', asUserId(1));
   create(requireEntity('Employees', typeRootName), typeRootName, 'OrgChartTest CEO', asUserId(1));
 
@@ -3239,8 +3277,8 @@ test('e-invoicing: a real 3-way match catches a genuine mismatch between a purch
 });
 
 test('getStockListing/countStockListing: a real, paginated listing of every item/location combination with stock', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'StockListTest Outlet', asUserId(1));
-  setLocation('StockListTest Outlet', { city: 'StockListTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'StockListTest Outlet', asUserId(1));
+  setLocation('StockListTest Outlet', { city: 'StockListTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('StockListTest Wine', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKLISTTEST-REC-1', asItemName('StockListTest Wine'), asLocationName('StockListTest Outlet'), 15, asUserId(1), '2027-01-01');
 
@@ -3273,8 +3311,8 @@ test('getStockListing/countStockListing: a real, paginated listing of every item
 test('getStockListingByLocation: groups the same real stock data by real location, tagging each with its real division where one exists', () => {
   create(requireEntity('Divisions', typeRootName), typeRootName, 'StockGroupTest City Division', asUserId(1));
   setDivisionType('StockGroupTest City Division', 'Profit Center');
-  create(requireEntity('Locations', typeRootName), typeRootName, 'StockGroupTest Outlet', asUserId(1));
-  setLocation('StockGroupTest Outlet', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet', asUserId(1));
+  setLocation('StockGroupTest Outlet', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('StockGroupTest Wine A', 'Items', asUserId(1));
   createItem('StockGroupTest Wine B', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-1', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet'), 10, asUserId(1), '2027-01-01');
@@ -3290,8 +3328,8 @@ test('getStockListingByLocation: groups the same real stock data by real locatio
   assert.equal(group!.total_on_hand, 17, "a group's own total must be the real sum of its real rows' on-hand quantities");
 
   // A location whose city has no matching real division must still appear as a real group — just with division: null, not silently dropped.
-  create(requireEntity('Locations', typeRootName), typeRootName, 'StockGroupTest Outlet No Division', asUserId(1));
-  setLocation('StockGroupTest Outlet No Division', { city: 'A City With No Real Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet No Division', asUserId(1));
+  setLocation('StockGroupTest Outlet No Division', { city: 'A City With No Real Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-3', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet No Division'), 3, asUserId(1), '2027-01-01');
   const groupsAfter = getStockListingByLocation();
   const noDivisionGroup = groupsAfter.find((g) => g.location === 'StockGroupTest Outlet No Division');
@@ -3515,8 +3553,8 @@ test('allocatePayment: actually posts the real GL movement, not just a tracking 
 });
 
 test('completePosSale defaults to real, per-product Sales accounts — not one shared aggregate that could never distinguish one product\'s margin from another\'s', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'PerProductTest Outlet', asUserId(1));
-  setLocation('PerProductTest Outlet', { city: 'PerProductTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'PerProductTest Outlet', asUserId(1));
+  setLocation('PerProductTest Outlet', { city: 'PerProductTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('PerProductTest Wine A', 'Items', asUserId(1));
   createItem('PerProductTest Wine B', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PPTEST-REC-1', asItemName('PerProductTest Wine A'), asLocationName('PerProductTest Outlet'), 10, asUserId(1), '2027-01-01');
@@ -3624,7 +3662,7 @@ test('setRelationship/getRelationship/getEntitiesWithRelationship: the real rela
 });
 
 test('addTypedAddress/getTypedAddresses/addTypedPhone/getTypedPhones: multiple, genuinely typed addresses and phones per entity, zero new tables — reusing parent_id + relation_id + contact recursively', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'TypedContactTest Store', asUserId(1));
+  create(myBusinessLocationsRoot(), typeRootName, 'TypedContactTest Store', asUserId(1));
 
   addTypedAddress('TypedContactTest Store', 'Registered Office', { address_line1: '1 Corporate Way', city: 'Springfield' }, asUserId(1));
   addTypedAddress('TypedContactTest Store', 'Delivery', { address_line1: '42 Market Street', city: 'Springfield' }, asUserId(1));
@@ -3787,8 +3825,8 @@ test('ensureItemSalesCogsAccounts: mirrors the real, existing product category t
 
 test('POS clerk sign-on/sign-off: a real employee needs a real PIN, can only be signed on at one real location at a time, and signing off closes the real shift record cleanly', () => {
   create(requireEntity('Employees', typeRootName), typeRootName, 'ShiftTest Employee', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'ShiftTest Location A', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'ShiftTest Location B', asUserId(1));
+  create(myBusinessLocationsRoot(), typeRootName, 'ShiftTest Location A', asUserId(1));
+  create(myBusinessLocationsRoot(), typeRootName, 'ShiftTest Location B', asUserId(1));
 
   assert.throws(() => signOn('ShiftTest Employee', 'ShiftTest Location A'), /no real PIN set yet/, 'must refuse to sign on an employee with no real PIN configured at all');
 
@@ -3858,7 +3896,7 @@ test('previewCloseBooks: the real, proposed lines it returns exactly match what 
 });
 
 test('Location open hours and employee weekly scheduling, built entirely on the real entity tree — no new table, each real record is its own, real, named child entity', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'ScheduleTest Location', asUserId(1));
+  create(myBusinessLocationsRoot(), typeRootName, 'ScheduleTest Location', asUserId(1));
   create(requireEntity('Employees', typeRootName), typeRootName, 'ScheduleTest Employee', asUserId(1));
 
   setLocationOpenHours('ScheduleTest Location', [
@@ -4095,8 +4133,8 @@ test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this ge
   create(requireEntity('Items', typeRootName), typeRootName, 'RiskTest Keg', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'RiskTest Brewery', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'RiskTest Slow Brewery', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'RiskTest Bar', asUserId(1));
-  setLocation('RiskTest Bar', { city: 'RiskTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 0, carton_capacity: 10, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'RiskTest Bar', asUserId(1));
+  setLocation('RiskTest Bar', { city: 'RiskTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 0, carton_capacity: 10, timezone: 'UTC' }, asBusinessName('My Business'));
 
   // Two real, known vendors for the same item - the risk calculation
   // must use the SHORTER one, per direct instruction.
@@ -4378,10 +4416,10 @@ test('ensureItemTier: the confirmed product/tier/leaf design (docs/multi-dimensi
 test('getProfitAndLossByDivision: "Consolidated per Division" — one real, full P&L per real division actually active in this ledger/date range, income/COGS/operating split intact per division, derived structurally from real, live sales at real locations', () => {
   create(requireEntity('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division A', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division B', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'PLDivTest3 Outlet A', asUserId(1));
-  setLocation('PLDivTest3 Outlet A', { city: 'PLDivTest3 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'PLDivTest3 Outlet B', asUserId(1));
-  setLocation('PLDivTest3 Outlet B', { city: 'PLDivTest3 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'PLDivTest3 Outlet A', asUserId(1));
+  setLocation('PLDivTest3 Outlet A', { city: 'PLDivTest3 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'PLDivTest3 Outlet B', asUserId(1));
+  setLocation('PLDivTest3 Outlet B', { city: 'PLDivTest3 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('PLDivTest3 Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PLDIVTEST3-REC-A', asItemName('PLDivTest3 Merlot'), asLocationName('PLDivTest3 Outlet A'), 20, asUserId(1), today);
@@ -4430,10 +4468,10 @@ test('getProfitAndLossByDivisionTree: "Consolidated per Division per Location" �
   create(requireEntity('Divisions', typeRootName), typeRootName, 'PLTreeTest City', asUserId(1));
   create(requireEntity('PLTreeTest City', typeRootName), typeRootName, 'PLTreeTest Store A', asUserId(1));
   create(requireEntity('PLTreeTest City', typeRootName), typeRootName, 'PLTreeTest Store B', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'PLTreeTest Outlet A', asUserId(1));
-  setLocation('PLTreeTest Outlet A', { city: 'PLTreeTest Store A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'PLTreeTest Outlet B', asUserId(1));
-  setLocation('PLTreeTest Outlet B', { city: 'PLTreeTest Store B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'PLTreeTest Outlet A', asUserId(1));
+  setLocation('PLTreeTest Outlet A', { city: 'PLTreeTest Store A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'PLTreeTest Outlet B', asUserId(1));
+  setLocation('PLTreeTest Outlet B', { city: 'PLTreeTest Store B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('PLTreeTest Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PLTREETEST-REC-A', asItemName('PLTreeTest Merlot'), asLocationName('PLTreeTest Outlet A'), 20, asUserId(1), today);
@@ -4469,10 +4507,10 @@ test('closeBooks: "the whole point of the restructuring" — Retained Earnings i
   create(requireEntity('Divisions', typeRootName), typeRootName, 'DetailedCloseTest Division B', asUserId(1));
   setDivisionType('DetailedCloseTest Division A', 'Profit Center');
   setDivisionType('DetailedCloseTest Division B', 'Profit Center');
-  create(requireEntity('Locations', typeRootName), typeRootName, 'DetailedCloseTest Outlet A', asUserId(1));
-  setLocation('DetailedCloseTest Outlet A', { city: 'DetailedCloseTest Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'DetailedCloseTest Outlet B', asUserId(1));
-  setLocation('DetailedCloseTest Outlet B', { city: 'DetailedCloseTest Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'DetailedCloseTest Outlet A', asUserId(1));
+  setLocation('DetailedCloseTest Outlet A', { city: 'DetailedCloseTest Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'DetailedCloseTest Outlet B', asUserId(1));
+  setLocation('DetailedCloseTest Outlet B', { city: 'DetailedCloseTest Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('DetailedCloseTest Merlot', 'Items', asUserId(1));
   receiveItems(biz.business, biz.actualLedger, 'DCT-REC-A', asItemName('DetailedCloseTest Merlot'), asLocationName('DetailedCloseTest Outlet A'), 20, asUserId(1), '2027-01-01');
   receiveItems(biz.business, biz.actualLedger, 'DCT-REC-B', asItemName('DetailedCloseTest Merlot'), asLocationName('DetailedCloseTest Outlet B'), 20, asUserId(1), '2027-01-01');
@@ -4522,8 +4560,8 @@ test('closeBooks: "the whole point of the restructuring" — Retained Earnings i
 });
 
 test('completePosSale: the real, live wiring — a real sale with a real tier now genuinely ensures its own, real tier-level item, not just its own Sales/COGS accounts', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'PosWireTest2 Outlet', asUserId(1));
-  setLocation('PosWireTest2 Outlet', { city: 'PosWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'PosWireTest2 Outlet', asUserId(1));
+  setLocation('PosWireTest2 Outlet', { city: 'PosWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('PosWireTest2 Merlot', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'POSWIRE2-REC-1', asItemName('PosWireTest2 Merlot'), asLocationName('PosWireTest2 Outlet'), 20, asUserId(1), '2027-01-01');
 
@@ -4568,10 +4606,10 @@ test('reverseJournalEntry: a real, confirmed bug fix — reversing a year-end cl
   const biz = createBusiness(asBusinessName('ReverseCloseTest2 Co'), '2027-28', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'ReverseCloseTest2 Division A', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'ReverseCloseTest2 Division B', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'ReverseCloseTest2 Outlet A', asUserId(1));
-  setLocation('ReverseCloseTest2 Outlet A', { city: 'ReverseCloseTest2 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'ReverseCloseTest2 Outlet B', asUserId(1));
-  setLocation('ReverseCloseTest2 Outlet B', { city: 'ReverseCloseTest2 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'ReverseCloseTest2 Outlet A', asUserId(1));
+  setLocation('ReverseCloseTest2 Outlet A', { city: 'ReverseCloseTest2 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'ReverseCloseTest2 Outlet B', asUserId(1));
+  setLocation('ReverseCloseTest2 Outlet B', { city: 'ReverseCloseTest2 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('ReverseCloseTest2 Merlot', 'Items', asUserId(1));
   receiveItems(biz.business, biz.actualLedger, 'RCT2-REC-A', asItemName('ReverseCloseTest2 Merlot'), asLocationName('ReverseCloseTest2 Outlet A'), 20, asUserId(1), '2027-06-01');
   receiveItems(biz.business, biz.actualLedger, 'RCT2-REC-B', asItemName('ReverseCloseTest2 Merlot'), asLocationName('ReverseCloseTest2 Outlet B'), 20, asUserId(1), '2027-06-01');
@@ -4612,10 +4650,10 @@ test('ensureItemTierLocationLeaf: location becomes structural, the same real pat
   create(requireEntity('Items', typeRootName), typeRootName, 'LocTest2 Beer', asUserId(1));
   create(requireEntity('LocTest2 Beer', typeRootName), typeRootName, 'LocTest2 Ale', asUserId(1));
   create(requireEntity('LocTest2 Ale', typeRootName), typeRootName, 'LocTest2 Amber Ale 330ml', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'LocTest2 Riverside Cellars', asUserId(1));
-  setLocation('LocTest2 Riverside Cellars', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'LocTest2 Uptown Wine', asUserId(1));
-  setLocation('LocTest2 Uptown Wine', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'LocTest2 Riverside Cellars', asUserId(1));
+  setLocation('LocTest2 Riverside Cellars', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'LocTest2 Uptown Wine', asUserId(1));
+  setLocation('LocTest2 Uptown Wine', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
 
   const bottle = ensureItemTier(asItemName('LocTest2 Amber Ale 330ml'), 'Bottle', asUserId(1));
   const locA = ensureItemTierLocationLeaf(bottle.tierItemName, asLocationName('LocTest2 Riverside Cellars'), asUserId(1), bottle.tierItemId);
@@ -4648,8 +4686,8 @@ test('ensureItemTierLocationLeaf: location becomes structural, the same real pat
 });
 
 test('completePosSale: the real, live wiring — a real sale with both a real tier and a real, known location now genuinely ensures its own, real (tier, location) leaf, the real, actual posting target', () => {
-  create(requireEntity('Locations', typeRootName), typeRootName, 'LiveWireTest2 Outlet', asUserId(1));
-  setLocation('LiveWireTest2 Outlet', { city: 'LiveWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'LiveWireTest2 Outlet', asUserId(1));
+  setLocation('LiveWireTest2 Outlet', { city: 'LiveWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('LiveWireTest2 Merlot', 'Items', asUserId(1));
   receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LWT2-REC-1', asItemName('LiveWireTest2 Merlot'), asLocationName('LiveWireTest2 Outlet'), 20, asUserId(1), '2027-01-01');
 
@@ -4691,8 +4729,8 @@ test('completePosSale: the real, live wiring — a real sale with both a real ti
 
 test('getLocationForAccount/getDivisionForAccount: the real, structural replacement for journal_line.division_id — walking a real account to its own, real, structural location and division, not reading a separate tag', () => {
   create(requireEntity('Divisions', typeRootName), typeRootName, 'DeriveTest2 Springfield', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'DeriveTest2 Outlet', asUserId(1));
-  setLocation('DeriveTest2 Outlet', { city: 'DeriveTest2 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'DeriveTest2 Outlet', asUserId(1));
+  setLocation('DeriveTest2 Outlet', { city: 'DeriveTest2 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   create(requireEntity('Items', typeRootName), typeRootName, 'DeriveTest2 Beer', asUserId(1));
   create(requireEntity('DeriveTest2 Beer', typeRootName), typeRootName, 'DeriveTest2 Ale', asUserId(1));
   create(requireEntity('DeriveTest2 Ale', typeRootName), typeRootName, 'DeriveTest2 Amber Ale 330ml', asUserId(1));
@@ -4716,10 +4754,10 @@ test('getLedgerBalancesByDivisionStructural: the real, new, structural version m
   const biz = createBusiness(asBusinessName('StructTest6 Co'), '2027-28', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'StructTest6 Springfield', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'StructTest6 Rivertown', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'StructTest6 Outlet A', asUserId(1));
-  setLocation('StructTest6 Outlet A', { city: 'StructTest6 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
-  create(requireEntity('Locations', typeRootName), typeRootName, 'StructTest6 Outlet B', asUserId(1));
-  setLocation('StructTest6 Outlet B', { city: 'StructTest6 Rivertown', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'StructTest6 Outlet A', asUserId(1));
+  setLocation('StructTest6 Outlet A', { city: 'StructTest6 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  create(myBusinessLocationsRoot(), typeRootName, 'StructTest6 Outlet B', asUserId(1));
+  setLocation('StructTest6 Outlet B', { city: 'StructTest6 Rivertown', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('StructTest6 Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
   receiveItems(biz.business, biz.actualLedger, 'ST6-REC-1', asItemName('StructTest6 Merlot'), asLocationName('StructTest6 Outlet A'), 20, asUserId(1), today);
@@ -4755,8 +4793,8 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
   const { getProfitAndLossByAxis } = await import('../src/db-matrix-reports.ts');
   const biz = createBusiness(asBusinessName('ReproTest Co'), '2027-28', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'ReproTest Division', asUserId(1));
-  create(requireEntity('Locations', typeRootName), typeRootName, 'ReproTest Outlet', asUserId(1));
-  setLocation('ReproTest Outlet', { city: 'ReproTest Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'});
+  create(myBusinessLocationsRoot(), typeRootName, 'ReproTest Outlet', asUserId(1));
+  setLocation('ReproTest Outlet', { city: 'ReproTest Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('ReproTest Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
   receiveItems(biz.business, biz.actualLedger, 'REPRO-REC-1', asItemName('ReproTest Merlot'), asLocationName('ReproTest Outlet'), 20, asUserId(1), today);
@@ -4795,8 +4833,8 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
 test('getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy - not one of the four, recommended default axes - works identically, through the same, real, generic mechanism', async () => {
   const { getProfitAndLossByAxis } = await import('../src/db-matrix-reports.ts');
   const biz = createBusiness(asBusinessName('BottleSizeTest Co'), '2027-28', asUserId(1));
-  createEntityRaw({ name: 'BottleSizeTest Outlet', parent: 'Locations' }, asUserId(1));
-  setLocation('BottleSizeTest Outlet', { city: 'BottleSizeTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80, timezone: 'UTC' });
+  create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'BottleSizeTest Outlet', asUserId(1));
+  setLocation('BottleSizeTest Outlet', { city: 'BottleSizeTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80, timezone: 'UTC' }, biz.business);
   createItem('BottleSizeTest Amber Ale', 'Items', asUserId(1));
   createItem('BottleSizeTest Merlot', 'Items', asUserId(1));
 
@@ -5125,6 +5163,15 @@ test('receiveItems: a real, combination-tagged receipt builds up a real, distinc
 
 test('transferItems: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction', () => {
   const biz = asBusinessName('Wine Retail Business');
+  const wrbEntity = requireEntity(biz, typeBusinessName, requireEntity('Businesses', typeRootName));
+  let wrbLocationsRoot;
+  try { wrbLocationsRoot = requireEntity('Locations', typeRootName, wrbEntity); } catch { wrbLocationsRoot = create(wrbEntity, typeRootName, 'Locations', asUserId(1)); }
+  for (const locName of ['TransferComboTest Head Office', 'TransferComboTest Riverside Cellars']) {
+    try { requireEntity(locName, typeRootName, wrbLocationsRoot); } catch {
+      create(wrbLocationsRoot, typeRootName, locName, asUserId(1));
+      setLocation(locName, { city: 'Adelaide', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: null, timezone: 'UTC' }, biz);
+    }
+  }
   createItem('TransferComboTest Lager', 'Items', asUserId(1));
   createEntityRaw({ name: 'TransferComboTest Vendor', parent: 'Vendors' }, asUserId(1));
   addOrUpdateItemSource({ itemName: 'TransferComboTest Lager', vendorName: 'TransferComboTest Vendor', priceMinor: 600, packageQuantity: 1, isPreferred: true });
@@ -5134,11 +5181,11 @@ test('transferItems: a real, combination-tagged transfer correctly moves the rea
     ['Item', 'Beer'],
     ['Storage', 'Storage'],
   ];
-  receiveItems(biz, 'Actual' as any, 'TRANSFERCOMBO-REC-1', asItemName('TransferComboTest Lager'), asLocationName('Head Office'), 24, asUserId(1), undefined, ['Head Office', 'TransferComboTest Lager', 'Cold'], shape);
-  transferItems(biz, 'Actual' as any, asItemName('TransferComboTest Lager'), asLocationName('Head Office'), asLocationName('Riverside Cellars'), 10, 'TRANSFERCOMBO-XFER-1', 1, undefined, shape, ['TransferComboTest Lager', 'Cold']);
+  receiveItems(biz, 'Actual' as any, 'TRANSFERCOMBO-REC-1', asItemName('TransferComboTest Lager'), asLocationName('TransferComboTest Head Office'), 24, asUserId(1), undefined, ['TransferComboTest Head Office', 'TransferComboTest Lager', 'Cold'], shape);
+  transferItems(biz, 'Actual' as any, asItemName('TransferComboTest Lager'), asLocationName('TransferComboTest Head Office'), asLocationName('TransferComboTest Riverside Cellars'), 10, 'TRANSFERCOMBO-XFER-1', 1, undefined, shape, ['TransferComboTest Lager', 'Cold']);
 
-  const fromInstance = ensureProductInstance(biz, shape, ['Head Office', 'TransferComboTest Lager', 'Cold'], asUserId(1));
-  const toInstance = ensureProductInstance(biz, shape, ['Riverside Cellars', 'TransferComboTest Lager', 'Cold'], asUserId(1));
+  const fromInstance = ensureProductInstance(biz, shape, ['TransferComboTest Head Office', 'TransferComboTest Lager', 'Cold'], asUserId(1));
+  const toInstance = ensureProductInstance(biz, shape, ['TransferComboTest Riverside Cellars', 'TransferComboTest Lager', 'Cold'], asUserId(1));
   const fromLeaf = ensureCombinationAccountLeaf('Inventory', fromInstance, asUserId(1));
   const toLeaf = ensureCombinationAccountLeaf('Inventory', toInstance, asUserId(1));
   const fromBalance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(fromLeaf.id) as { balance_minor: number } | undefined;
@@ -5262,8 +5309,8 @@ test('getQualifiedDisplayName never doubles a real, already-qualified name - a r
 });
 
 test('completePosSale, through a real, foreign-currency terminal at a real, nominated-currency location, correctly resolves the real, foreign price AND correctly posts the real payment into its own, real, currency-tagged "Cash at Bank" sibling - the real gap found and reported earlier this session, now closed per docs/multicurrency-design.md', () => {
-  createEntityRaw({ name: 'FXPosTest Outlet', parent: 'Locations' }, asUserId(1));
-  setLocation('FXPosTest Outlet', { city: 'FXPosTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'FXPosTest Outlet', asUserId(1));
+  setLocation('FXPosTest Outlet', { city: 'FXPosTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('My Business'));
   nominateLocationCurrency('FXPosTest Outlet' as any, 'USD', asUserId(1));
   createEntityRaw({ name: 'FXPosTest Vendor', parent: 'Vendors' }, asUserId(1));
   createItem('FXPosTest Water', 'Items', asUserId(1));
@@ -5316,8 +5363,8 @@ test('a business nominates one real home currency, stored in its own detail_json
 });
 
 test('a location nominates a real SET of currencies it trades in, not a single value - per multicurrency-design.md, "Where currency lives, and precedence"', () => {
-  createEntityRaw({ name: 'CcyLocTest Outlet', parent: 'Locations' }, asUserId(1));
-  setLocation('CcyLocTest Outlet', { city: 'Test', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'CcyLocTest Outlet', asUserId(1));
+  setLocation('CcyLocTest Outlet', { city: 'Test', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' }, asBusinessName('My Business'));
   assert.deepEqual(getLocationCurrencies('CcyLocTest Outlet' as any), [], 'a real, genuinely ordinary location nominates nothing extra by default');
   nominateLocationCurrency('CcyLocTest Outlet' as any, 'USD', asUserId(1));
   nominateLocationCurrency('CcyLocTest Outlet' as any, 'EUR', asUserId(1));
@@ -5326,8 +5373,8 @@ test('a location nominates a real SET of currencies it trades in, not a single v
 
 test('the fully worked example from multicurrency-design.md: a real sale through a real, nominated-currency location posts every real leg (Revenue, Tax, COGS, Cash) to its own, real, currency-tagged sibling, never converted, genuinely balancing entirely within its own real currency group', () => {
   setBusinessHomeCurrency('My Business' as any, 'AUD', asUserId(1));
-  createEntityRaw({ name: 'WorkedEx Outlet', parent: 'Locations' }, asUserId(1));
-  setLocation('WorkedEx Outlet', { city: 'Border Town', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' });
+  create(myBusinessLocationsRoot(), typeRootName, 'WorkedEx Outlet', asUserId(1));
+  setLocation('WorkedEx Outlet', { city: 'Border Town', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('My Business'));
   nominateLocationCurrency('WorkedEx Outlet' as any, 'USD', asUserId(1));
   createPosTerminal('WorkedEx USD Till', 'WorkedEx Outlet' as any, asUserId(1));
   setTerminalCurrency('WorkedEx USD Till', 'USD');
@@ -5423,17 +5470,17 @@ test('registerCustomer genuinely tags the new contact as a real Customer type, p
   assert.deepEqual(getContactBaseAccounts('ContactTypeTest Customer'), ['Accounts Receivable']);
 });
 
-test('createProvider genuinely tags the new contact as a real Vendor type, per docs/contact-types-and-translations.md', () => {
-  createProvider('ContactTypeTest Vendor', asUserId(1));
-  assert.deepEqual(getContactTypes('ContactTypeTest Vendor'), ['Vendor']);
-  assert.deepEqual(getContactBaseAccounts('ContactTypeTest Vendor'), ['Accounts Payable']);
+test('createProvider genuinely tags the new contact as a real Provider type, per docs/contact-types-and-translations.md', () => {
+  createProvider('ContactTypeTest Provider', asUserId(1));
+  assert.deepEqual(getContactTypes('ContactTypeTest Provider'), ['Provider']);
+  assert.deepEqual(getContactBaseAccounts('ContactTypeTest Provider'), ['Accounts Payable']);
 });
 
-test('a real contact can genuinely hold more than one real type at once - a Vendor later also registered as a Customer keeps both, per docs/contact-types-and-translations.md', () => {
+test('a real contact can genuinely hold more than one real type at once - a Provider later also registered as a Customer keeps both, per docs/contact-types-and-translations.md', () => {
   createProvider('ContactTypeTest Dual', asUserId(1));
-  assert.deepEqual(getContactTypes('ContactTypeTest Dual'), ['Vendor']);
+  assert.deepEqual(getContactTypes('ContactTypeTest Dual'), ['Provider']);
   setContactType('ContactTypeTest Dual', 'Customer', asUserId(1));
-  assert.deepEqual(getContactTypes('ContactTypeTest Dual').sort(), ['Customer', 'Vendor']);
+  assert.deepEqual(getContactTypes('ContactTypeTest Dual').sort(), ['Customer', 'Provider']);
   assert.deepEqual(getContactBaseAccounts('ContactTypeTest Dual').sort(), ['Accounts Payable', 'Accounts Receivable']);
 });
 

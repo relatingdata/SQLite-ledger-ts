@@ -122,8 +122,18 @@ export function createLocationType(name: string, userId: UserId): void {
   Entity.create(name, 'Location Types', userId);
 }
 
-export function setLocation(name: string, location: Location): void {
-  const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name) as { id: number } | undefined)?.id;
+// Per direct instruction (Phase 0 of docs/currency-and-quantity-integrity-fix-plan.md):
+// the exact, same bare-name bug as getLocation, found one function
+// away from it - this one is worse, since it WRITES: a confirmed,
+// real bug where a brand-new location's own contact details (city,
+// capacity, timezone) were silently written onto an unrelated,
+// pre-existing entity of the same name under a different business,
+// leaving the real, new location with no contact row at all.
+export function setLocation(name: string, location: Location, business?: BusinessName): void {
+  const id = (business
+    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`).get(name, business) as { id: number } | undefined)
+    : (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name) as { id: number } | undefined)
+  )?.id;
   if (!id) throw new ValidationError(`No location named "${name}".`);
   mergeContactDetail(id, { city: location.city, bottle_capacity: location.bottle_capacity, carton_capacity: location.carton_capacity, timezone: location.timezone });
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Location Types')`).get(location.location_type)) {
@@ -166,13 +176,30 @@ export function setLocation(name: string, location: Location): void {
   }
 }
 
-export function getLocation(name: string): Location | undefined {
-  const row = db
-    .prepare(
-      `SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone
-       FROM contact c JOIN current_entities e ON e.id = c.entity_id WHERE e.name = ?`
-    )
-    .get(name) as { city: string; bottle_capacity: number | null; carton_capacity: number | null; timezone: string } | undefined;
+// Per direct instruction (Phase 0 of docs/currency-and-quantity-integrity-fix-plan.md):
+// a bare name lookup cannot tell two, real locations of the same name
+// apart when they belong to two different businesses (scoped
+// uniqueness correctly allows this). A confirmed, real bug: a location
+// created fresh under one business silently resolved, at every later
+// operation, to an unrelated, pre-existing location of the same name
+// under a different business entirely. When `business` is known, it
+// must be part of the SQL that SELECTS the row, never a check applied
+// afterwards to whichever row an unscoped query happened to return
+// first - a confirmed, real bug in an earlier version of this same
+// fix, caught directly by testing it, not merely by reasoning about it.
+export function getLocation(name: string, business?: BusinessName): Location | undefined {
+  const row = (business
+    ? db.prepare(
+        `SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone, e.id as entity_id
+         FROM contact c
+         JOIN current_entities e ON e.id = c.entity_id
+         WHERE e.name = ? AND e.parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`
+      ).get(name, business)
+    : db.prepare(
+        `SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone, e.id as entity_id
+         FROM contact c JOIN current_entities e ON e.id = c.entity_id WHERE e.name = ?`
+      ).get(name)
+  ) as { city: string; bottle_capacity: number | null; carton_capacity: number | null; timezone: string; entity_id: number } | undefined;
   if (!row) return undefined;
   const typeRow = db
     .prepare(
@@ -341,7 +368,7 @@ export function getEffectiveSaleCurrency(terminalName: string | undefined): stri
 export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; occupiedAccountId: number; unit: 'bottle' | 'carton' } {
   const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
-  const loc = getLocation(locationName);
+  const loc = getLocation(locationName, business);
   const unit: 'bottle' | 'carton' = loc?.bottle_capacity != null ? 'bottle' : 'carton';
   const leafName = unit === 'bottle' ? 'Bottle' : 'Carton';
   const { remainingId, installedId, occupiedId } = ensureStorageCapacityStructure({ id: locationId, name: locationName }, userId);
@@ -786,8 +813,8 @@ export function transferItems(
   combinationValuesAfterLocation?: string[]
 ): void {
   if (quantity <= 0) throw new ValidationError('Transfer quantity must be positive.');
-  const fromLoc = getLocation(fromLocationName);
-  const toLoc = getLocation(toLocationName);
+  const fromLoc = getLocation(fromLocationName, business);
+  const toLoc = getLocation(toLocationName, business);
   if (!fromLoc) throw new ValidationError(`No location named "${fromLocationName}".`);
   if (!toLoc) throw new ValidationError(`No location named "${toLocationName}".`);
   if (fromLoc.city !== toLoc.city) {

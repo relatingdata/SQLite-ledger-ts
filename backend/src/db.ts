@@ -1605,13 +1605,13 @@ export interface EInvoiceDiscrepancy {
  * "discrepancy" here). */
 export function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[] {
   if (!poReference) return [];
-  const poVendor = db.prepare(`SELECT relation_id FROM current_entities WHERE name = ?`).get(`${poReference} Qty`) as { relation_id: number | null } | undefined;
+  const poProvider = db.prepare(`SELECT relation_id FROM current_entities WHERE name = ?`).get(`${poReference} Qty`) as { relation_id: number | null } | undefined;
   const poItem = db.prepare(`SELECT relation_id FROM current_entities WHERE name = ?`).get(`${poReference} Value`) as { relation_id: number | null } | undefined;
   const discrepancies: EInvoiceDiscrepancy[] = [];
-  if (poVendor?.relation_id) {
-    const vendorName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(poVendor.relation_id) as { name: string } | undefined)?.name;
-    if (vendorName && vendorName !== parsed.supplierName) {
-      discrepancies.push({ field: 'Vendor', poValue: vendorName, invoiceValue: parsed.supplierName });
+  if (poProvider?.relation_id) {
+    const providerName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(poProvider.relation_id) as { name: string } | undefined)?.name;
+    if (providerName && providerName !== parsed.supplierName) {
+      discrepancies.push({ field: 'Provider', poValue: providerName, invoiceValue: parsed.supplierName });
     }
   }
   const status = poItem ? getOrderStatus(poReference) : null;
@@ -4721,7 +4721,7 @@ export function deleteDimensionParent(entityName: string, dimensionName: string,
  * bootstrap step. */
 function ensureContactTypeHeaderAccounts(userId: UserId): void {
   const pairs: [string, string][] = [
-    ['Vendor', 'Accounts Payable'],
+    ['Provider', 'Accounts Payable'],
     ['Customer', 'Accounts Receivable'],
     ['Employee', 'Accounts Payable'],
   ];
@@ -4785,7 +4785,7 @@ export function getContactBaseAccounts(contactName: string): string[] {
  * reading it. */
 export function createProvider(name: string, userId: UserId): { id: number } {
   const entity = create(requireEntity('Accounts Payable', typeRootName), typeProviderName, name, userId);
-  setContactType(name, 'Vendor', userId);
+  setContactType(name, 'Provider', userId);
   return entity;
 }
 
@@ -6599,7 +6599,7 @@ export function createLocation(businessName: BusinessName, locationName: string,
 export function createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId): TypedNode<'LocationEntityName'> {
   return db.transaction(() => {
     const entity = createLocation(businessName, locationName, userId);
-    setLocation(locationName, location);
+    setLocation(locationName, location, businessName);
     // Per direct instruction: the real Storage Capacity Remaining/
     // Installed accounts, and their own real, balanced opening
     // posting, are created here, atomically, as part of the real

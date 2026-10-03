@@ -64,6 +64,7 @@ const PARTS: [string, string[]][] = [
     'business-generality-scenario.md',
     'assembly-production-design.md',
     'bulk-rename-plan.md',
+    'currency-and-quantity-integrity-fix-plan.md',
     'unused-functions.md',
     'coa-class-instance-plan.md',
     'ui-completeness-plan.md',

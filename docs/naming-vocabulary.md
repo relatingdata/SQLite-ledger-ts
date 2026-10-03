@@ -26,7 +26,7 @@ the earlier conventions chapter.
 | **Division**, **Category** | *examples* of hierarchical classifications of Locations and Items | used by the Wine Retail Business and the Wine Tutorial Business in the user manual. Suggestions, not built in. |
 | **Save**, **Update** | labels on a UI Submit button | translatable Vocabulary words, not code verbs |
 | **AR**, **AP**, **GL**, **P&L** | Accounts Receivable, Accounts Payable, General Ledger, Profit and Loss | always capitalised, always with those meanings, **in code names as well as prose**. In prose the abbreviation is explained at its first use. |
-| **Supplier**, **Vendor** | almost synonyms; who we buy from | Vocabulary Items, translatable labels a person reads. Not the code term. |
+| **Provider** | who we buy from | **settled, clarified: "Provider" everywhere in the code** — every type, function, and the internal contact-type key. The business owner's own, displayed label stays separately configurable (Vendor, Supplier, Provider, Purveyor, whatever fits their enterprise), via the existing, translatable Vocabulary word and its alternates — the frontend is "at the mercy of the user" choosing it, not the code. |
 | **Stock** | the quantity of an Item available for sale | not the Item itself. Compare *Stocktake*, which counts it. |
 | **Inventory** | the Items held at Locations | the accounting and holding view; Stock is the part of it available for sale |
 

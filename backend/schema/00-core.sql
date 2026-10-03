@@ -2240,6 +2240,12 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (428, 428, 'Active', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (429, 429, 'Price', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (430, 430, 'Vendor', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
+-- Per direct instruction: "Provider" everywhere in the code - the internal,
+-- canonical contact-type key. The business owner's displayed label stays
+-- separately translatable (Vendor, Supplier, Provider, Purveyor, whatever
+-- fits their enterprise) via "Vendor" and "Suppliers" above/below and the
+-- Vocabulary-alternates mechanism (see migrateForVocabularyAlternates).
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (60823, 60823, 'Provider', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (431, 431, 'AP Payment', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (432, 432, 'AP Purchase', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (433, 433, 'AR / AP', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);

@@ -498,7 +498,7 @@ export function postLocation(reference: string, business: BusinessName, userId: 
       bottle_capacity: staged.bottle_capacity ?? null,
       carton_capacity: staged.carton_capacity ?? null,
       timezone: staged.timezone,
-    } as StockLocation);
+    } as StockLocation, business);
     ensureLocationCapacityAccount(business, asLedgerName('Actual'), asLocationName(staged.location_name), userId);
     db.prepare(`DELETE FROM location_staging WHERE reference = ? AND business = ?`).run(reference, business);
     return entity;
