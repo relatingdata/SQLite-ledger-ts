@@ -6,6 +6,7 @@
     { href: '/reports/balance-sheet', title: translations.current['Balance Sheet'] ?? 'Balance Sheet', description: 'Assets, Liabilities, and Equity — including unclosed net income.' },
     { href: '/reports/profit-and-loss', title: translations.current['Profit and Loss Statement'] ?? 'Profit and Loss Statement', description: 'Income and Expenses, and the resulting net income.' },
     { href: '/reports/compare', title: translations.current['Compare Ledgers'] ?? 'Compare Ledgers', description: 'Actual vs. a budget or scenario, side by side, with variance.' },
+    { href: '/reports/storage-space', title: translations.current['Inventory and Storage'] ?? 'Inventory and Storage', description: 'Each location\'s own, real, physical storage space — Installed, Occupied, and Remaining, per storage unit. Outside Chart of Accounts, so never on the Trial Balance.' },
   ]);
 </script>
 

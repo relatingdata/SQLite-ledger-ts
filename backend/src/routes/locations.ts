@@ -19,6 +19,7 @@ import {
   setItemSourceLeadTime,
   getInventoryListing,
   getInventoryListingByLocation,
+  getStorageSpaceReport,
   getStockMovementReport,
   countInventoryListing,
   createStockTake,
@@ -439,6 +440,9 @@ stockListingRouter.get('/', (req, res) => {
 });
 stockListingRouter.get('/by-location', (_req, res) => {
   res.json(getInventoryListingByLocation());
+});
+stockListingRouter.get('/storage-space', (_req, res) => {
+  res.json(getStorageSpaceReport());
 });
 stockListingRouter.get('/movement', (req, res) => {
   const ledger = req.query.ledger;

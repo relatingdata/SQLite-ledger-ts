@@ -2518,10 +2518,11 @@ export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, 
  * Sheet category-tree walk (already proven for Accounts Receivable)
  * picks this up automatically and shows it as genuinely expandable,
  * with no further, separate reporting code needed at all. */
-export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number } {
+export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId, tier?: string): { inventoryAccount: string; inventoryAccountId: number } {
   const inventoryParentId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Inventory'`).get() as { id: number }).id;
-  const row = Entity.ensureUnder(itemName, inventoryParentId, userId);
-  return { inventoryAccount: itemName, inventoryAccountId: row.id };
+  const accountName = tier ? `${itemName} (${tier})` : itemName;
+  const row = Entity.ensureUnder(accountName, inventoryParentId, userId);
+  return { inventoryAccount: accountName, inventoryAccountId: row.id };
 }
 
 /** The exact, same, real (product, location) leaf pattern as
@@ -2530,9 +2531,9 @@ export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId): 
  * in accounts that are determined by the cartesian product of
  * products and locations" — Inventory is not a special case exempt
  * from this. */
-export function ensureItemLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId): { inventoryAccount: string; inventoryAccountId: number } {
-  const { inventoryAccountId: baseId } = ensureItemInventoryAccount(itemName, userId);
-  const locationAccount = `${itemName} — ${locationName}`;
+export function ensureItemLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId, tier?: string): { inventoryAccount: string; inventoryAccountId: number } {
+  const { inventoryAccountId: baseId } = ensureItemInventoryAccount(itemName, userId, tier);
+  const locationAccount = `${itemName}${tier ? ` (${tier})` : ''} — ${locationName}`;
   const existing = Entity.getUnder(locationAccount, baseId);
   const row = existing ?? Entity.create(locationAccount, baseId, userId);
   if (!existing) setDimensionParent(locationAccount, 'Location', locationName, userId);
@@ -2776,6 +2777,14 @@ export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTo
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
+export function ensureLocationStorageRoot(business: BusinessName, locationName: string, userId: UserId): { id: number; name: string } {
+  const businessEntity = requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
+  let coa: { id: number; name: string };
+  try { coa = requireEntity('Chart of Accounts', typeRootName, businessEntity); } catch { coa = create(businessEntity, typeRootName, 'Chart of Accounts', userId); }
+  const storage = (Entity.getUnder('Storage', coa.id) ?? create(coa as TypedNode<string>, typeRootName, 'Storage', userId)) as { id: number; name: string };
+  return (Entity.getUnder(locationName, storage.id) ?? create(storage as TypedNode<string>, typeRootName, locationName, userId)) as { id: number; name: string };
+}
+
 export function ensureStorageCapacityStructure(parentEntity: { id: number; name: string }, userId: UserId): { remainingId: number; installedId: number; occupiedId: number } {
   const capacity = (Entity.getUnder('Storage Capacity', parentEntity.id) ?? create(parentEntity as TypedNode<string>, typeRootName, 'Storage Capacity', userId)) as { id: number; name: string };
   const remaining = (Entity.getUnder('Remaining', capacity.id) ?? create(capacity as TypedNode<string>, typeRootName, 'Remaining', userId)) as { id: number; name: string };
@@ -2864,7 +2873,8 @@ export function openStorageContainer(
     ).get(locationName, business, business, business) as { id: number } | undefined
   )?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
-  const { remainingId, occupiedId } = ensureStorageCapacityStructure({ id: locationId, name: locationName }, userId);
+  const storageRoot = ensureLocationStorageRoot(business, locationName, userId);
+  const { remainingId, occupiedId } = ensureStorageCapacityStructure(storageRoot, userId);
   const containerInstance = ensureProductInstance(business, definitionDimensions, containerValues, userId);
   const unitInstance = ensureProductInstance(business, definitionDimensions, unitValues, userId);
   const containerSpace = ensureCombinationAccountLeaf('Remaining', containerInstance, userId, remainingId);
@@ -2899,50 +2909,27 @@ export function openStorageContainer(
   stageLine({ reference: ref, business, ledger, account: asAccountName(unitOccupied.name), accountId: unitOccupied.id, amount_minor: unitsProduced });
   postJournalEntry(ref, business, ledger, userId);
 
-  // Per direct instruction: this real, specific item's own quantity is
-  // mirrored too - the number of "hot"/carton-form units of this item
-  // genuinely decreases, and the number of "cold"/unit-form units of
-  // this same item genuinely increases, using the exact, same, real
-  // On Hand mechanism already established for transferItems' own
-  // combination-tagged path, scoped to this one item and location.
-  const itemFromInstance = ensureProductInstance(business, [...definitionDimensions, ['Item', 'Item']], [...containerValues, itemName], userId);
-  const itemToInstance = ensureProductInstance(business, [...definitionDimensions, ['Item', 'Item']], [...unitValues, itemName], userId);
-  const { onHandId, receivedFromId } = ensureUnitsTrackingBaseAccounts(business, userId);
-  const itemFromOnHand = ensureCombinationAccountLeaf('On Hand', itemFromInstance, userId, onHandId);
-  const itemFromContra = ensureCombinationAccountLeaf('On Hand', itemFromInstance, userId, receivedFromId);
-  const itemToOnHand = ensureCombinationAccountLeaf('On Hand', itemToInstance, userId, onHandId);
-  const itemToContra = ensureCombinationAccountLeaf('On Hand', itemToInstance, userId, receivedFromId);
-  const fromUnitsCurrency = `UNITS-${containerValues.join('-').toUpperCase()}`;
-  const toUnitsCurrency = `UNITS-${unitValues.join('-').toUpperCase()}`;
-  setAccountCurrency(itemFromOnHand.name, fromUnitsCurrency, itemFromOnHand.id);
-  setAccountCurrency(itemFromContra.name, fromUnitsCurrency, itemFromContra.id);
-  setAccountCurrency(itemToOnHand.name, toUnitsCurrency, itemToOnHand.id);
-  setAccountCurrency(itemToContra.name, toUnitsCurrency, itemToContra.id);
-  // The carton-form side: this item's own On Hand count in that form
-  // is consumed - On Hand decreases, its own contra increases, both
-  // within the real "carton" currency, balancing on their own.
-  const countRef = `${ref}-ITEM-COUNT`;
-  stageLine({ reference: countRef, business, ledger, account: asAccountName(itemFromOnHand.name), accountId: itemFromOnHand.id, amount_minor: -cartonsOpened, memo: `Open container (count): ${itemName}` });
-  stageLine({ reference: countRef, business, ledger, account: asAccountName(itemFromContra.name), accountId: itemFromContra.id, amount_minor: cartonsOpened, memo: `Open container (count): ${itemName}` });
-  // The bottle-form side: this item's own On Hand count in that form
-  // is produced - On Hand increases, its own contra decreases, both
-  // within the real "bottle" currency, independently balancing too.
-  stageLine({ reference: countRef, business, ledger, account: asAccountName(itemToOnHand.name), accountId: itemToOnHand.id, amount_minor: unitsProduced, memo: `Open container (count): ${itemName}` });
-  stageLine({ reference: countRef, business, ledger, account: asAccountName(itemToContra.name), accountId: itemToContra.id, amount_minor: -unitsProduced, memo: `Open container (count): ${itemName}` });
-  postJournalEntry(countRef, business, ledger, userId);
-
-  // The item's own Inventory value is unchanged in total, only
-  // re-tagged - the same real dollars that were "hot" cartons are now
-  // "cold" loose bottles, mirrored as a real, balanced value movement
-  // between the two combination-tagged Inventory leaves.
+  // Per direct instruction: a dozen 12-bottle cartons and single
+  // bottles are genuinely stored in two, separate sets of (Inventory,
+  // Sales, COGS) accounts - the same, real, already-established
+  // tier-naming pattern ensureItemSalesCogsAccounts already uses
+  // ("Item (Carton)", "Item (Bottle)"), now extended to Inventory too.
+  // No contra accounting: a carton is an exact, convertible shorthand
+  // for its real units - like a dollar for 100 cents - so the same,
+  // real dollar value simply moves directly from the carton-tier
+  // account to the bottle-tier account, both the same real currency,
+  // balancing on its own - exactly how transferItems already moves
+  // value directly between two locations' own Inventory accounts.
   const unitCostMinor = getItemUnitCostMinor(itemName);
   if (unitCostMinor != null) {
     const valueMinor = unitsProduced * unitCostMinor;
-    const fromValueLeaf = ensureCombinationAccountLeaf('Inventory', itemFromInstance, userId);
-    const toValueLeaf = ensureCombinationAccountLeaf('Inventory', itemToInstance, userId);
+    const fromTier = containerValues.join(' ');
+    const toTier = unitValues.join(' ');
+    const fromInv = ensureItemLocationInventoryAccount(itemName, locationName, userId, fromTier);
+    const toInv = ensureItemLocationInventoryAccount(itemName, locationName, userId, toTier);
     const valueRef = `${ref}-ITEM-VALUE`;
-    stageLine({ reference: valueRef, business, ledger, account: asAccountName(fromValueLeaf.name), accountId: fromValueLeaf.id, amount_minor: -valueMinor, memo: `Open container (value): ${itemName}` });
-    stageLine({ reference: valueRef, business, ledger, account: asAccountName(toValueLeaf.name), accountId: toValueLeaf.id, amount_minor: valueMinor, memo: `Open container (value): ${itemName}` });
+    stageLine({ reference: valueRef, business, ledger, account: asAccountName(fromInv.inventoryAccount), accountId: fromInv.inventoryAccountId, amount_minor: -valueMinor, memo: `Open container: ${itemName}` });
+    stageLine({ reference: valueRef, business, ledger, account: asAccountName(toInv.inventoryAccount), accountId: toInv.inventoryAccountId, amount_minor: valueMinor, memo: `Open container: ${itemName}` });
     postJournalEntry(valueRef, business, ledger, userId);
   }
 }
@@ -3519,8 +3506,8 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       }
       if (!(line.combinationValues && line.combinationShape)) {
         const resolved = input.locationName
-          ? ensureItemLocationInventoryAccount(asItemName(line.itemName), input.locationName, userId)
-          : ensureItemInventoryAccount(asItemName(line.itemName), userId);
+          ? ensureItemLocationInventoryAccount(asItemName(line.itemName), input.locationName, userId, line.tier)
+          : ensureItemInventoryAccount(asItemName(line.itemName), userId, line.tier);
         inv = resolved;
       }
       // Per docs/multicurrency-design.md: COGS and Inventory, the
@@ -3565,6 +3552,7 @@ export interface CashPurchaseLineInput {
   quantity: number;
   unitPriceMinor: number;
   taxMinor: number;
+  tier?: string;
 }
 
 export interface CashPurchaseInput {
@@ -3629,7 +3617,7 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
 
     postInvoice(
       invoiceId,
-      (line) => (line.itemName ? (() => { const inv = ensureItemLocationInventoryAccount(asItemName(line.itemName!), input.locationName, userId); return { name: inv.inventoryAccount, id: inv.inventoryAccountId }; })() : 'Inventory'),
+      (line) => (line.itemName ? (() => { const sourceLine = input.lines.find((l) => l.itemName === line.itemName); const inv = ensureItemLocationInventoryAccount(asItemName(line.itemName!), input.locationName, userId, sourceLine?.tier); return { name: inv.inventoryAccount, id: inv.inventoryAccountId }; })() : 'Inventory'),
       input.taxAccount,
       userId,
       false,
@@ -7216,7 +7204,7 @@ export function getChartOfAccountsPrototype(language: string): string[] {
 export * from './db-journal.js';
 import { stageLine, postJournalEntry } from './db-journal.js';
 export * from './db-stock.js';
-import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, ensureUnitsTrackingBaseAccounts, type Location as StockLocation } from './db-stock.js';
+import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, type Location as StockLocation } from './db-stock.js';
 
 
 // Migrates every real, existing translation into the entity-only

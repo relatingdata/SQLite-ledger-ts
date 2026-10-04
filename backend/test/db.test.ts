@@ -5678,8 +5678,21 @@ test('createAndConfigureLocation: real, atomic, balanced Storage Capacity Remain
   const entities = getEntityTree();
   const locationEntity = entities.find((e) => e.name === 'Capacity Test Warehouse');
   assert.ok(locationEntity, 'the real location itself must exist');
-  const capacity = entities.find((e) => e.name === 'Storage Capacity' && e.parent_id === locationEntity!.id);
-  assert.ok(capacity, 'the real, built-in Storage Capacity structure must exist directly under the location');
+  // Per direct correction: Storage accounts are real financial accounts
+  // and live under Chart of Accounts (the same level as Balance Sheet
+  // and P&L's own categories), under a real "Storage" node with the
+  // real location underneath - never a location-tree artifact, since
+  // the Trial Balance can only see what Chart of Accounts contains.
+  // Scoped properly, via requireEntity, to this test's own real
+  // business - getEntityTree()'s own bare find() would otherwise pick
+  // up whichever other business's own "Chart of Accounts" happened to
+  // come first, the exact, same bare-name collision class fixed
+  // repeatedly elsewhere this session.
+  const storageRoot = requireEntity('Storage', typeRootName, requireEntity('Chart of Accounts', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))));
+  const locationStorage = entities.find((e) => e.name === 'Capacity Test Warehouse' && e.parent_id === storageRoot.id);
+  assert.ok(locationStorage, 'a real, distinct "Capacity Test Warehouse" node must exist under Chart of Accounts > Storage - distinct from the real location entity itself, which lives under Locations');
+  const capacity = entities.find((e) => e.name === 'Storage Capacity' && e.parent_id === locationStorage!.id);
+  assert.ok(capacity, 'the real, built-in Storage Capacity structure must exist under Chart of Accounts > Storage > the location');
   const remainingRoot = entities.find((e) => e.name === 'Remaining' && e.parent_id === capacity!.id);
   const installedRoot = entities.find((e) => e.name === 'Installed' && e.parent_id === capacity!.id);
   assert.ok(remainingRoot && installedRoot, 'both real leaves of Storage Capacity must exist immediately, not lazily');
@@ -5720,8 +5733,14 @@ test('stageLocation/postLocation: a real, dedicated staging table behind the loc
 
   const entities = getEntityTree();
   assert.ok(entities.some((e) => e.name === 'Staged Warehouse'), 'the real location must genuinely exist once posted');
-  const remaining = entities.find((e) => e.name === 'Storage Capacity' && e.parent_id === entity.id);
-  assert.ok(remaining, 'the real, built-in Storage Capacity structure must exist too, created atomically as part of the real post');
+  // Per direct correction: Storage Capacity lives under Chart of
+  // Accounts > Storage > the location - a real financial account, not
+  // directly under the location entity itself. Scoped properly, via
+  // requireEntity, to this test's own real business.
+  const storageRootForStaging = requireEntity('Storage', typeRootName, requireEntity('Chart of Accounts', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))));
+  const locationStorageForStaging = entities.find((e) => e.name === 'Staged Warehouse' && e.parent_id === storageRootForStaging.id);
+  const remaining = locationStorageForStaging && entities.find((e) => e.name === 'Storage Capacity' && e.parent_id === locationStorageForStaging.id);
+  assert.ok(remaining, 'the real, built-in Storage Capacity structure must exist too, created atomically as part of the real post, under Chart of Accounts > Storage > the location');
 
   const stillStaged = db.prepare(`SELECT 1 FROM location_staging WHERE reference = 'LOC-STAGE-TEST-1'`).get();
   assert.equal(stillStaged, undefined, 'the real, staged row must be cleared once genuinely posted, matching the established stock-receipt pattern');
@@ -5781,13 +5800,15 @@ test('openStorageContainer: opening a carton is two, real, independent space mov
   const journalCountBefore = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
   openStorageContainer(biz.business, biz.actualLedger, asLocationName('OpenContainerTest Outlet'), asItemName('OpenContainerTest Wine'), [['Container', 'Container']], ['Carton'], 1, ['Bottle'], 24, userId, 'OPEN-TEST-1');
   const journalCountAfter = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
-  // Per direct instruction: there is no contra accounting - opening a
-  // container is an ordinary movement mirrored in both the real
-  // storage-space accounts and the real item's own On Hand quantity,
-  // posted as two, real, separate journal entries (no third, Inventory
-  // value entry here, since this test never registers a real cost for
-  // the item via addOrUpdateItemSource).
-  assert.equal(journalCountAfter, journalCountBefore + 2, 'opening a container must mirror the movement in both the storage-space accounts and the item\'s own On Hand quantity, as two real journal entries');
+  // Per direct correction: there is no contra accounting, and no
+  // separate item-quantity posting at all - a carton is an exact,
+  // convertible shorthand for its real units (like a dollar for 100
+  // cents), so the item's own real quantity never changes when a
+  // carton is opened. Only the real, physical storage-space accounts
+  // move here; this test's item has no registered cost (via
+  // addOrUpdateItemSource), so no Inventory-value entry posts either -
+  // just the one, real storage-space entry.
+  assert.equal(journalCountAfter, journalCountBefore + 1, 'opening a container with no registered cost must post exactly the one, real storage-space entry');
 
   // Per a real, confirmed, pre-existing, separate bug found while
   // writing this test - ensureCombinationAccountLeaf's own base-account
@@ -5809,6 +5830,39 @@ test('openStorageContainer: opening a carton is two, real, independent space mov
   assert.equal(byCurrency.get('SPACE-BOTTLE'), 0, 'the real, separate SPACE-BOTTLE currency group must independently balance on its own too - never linked to the carton group by any rate');
 });
 
+test('openStorageContainer: a dozen 12-bottle cartons (144 bottles) moves directly into its own, real, bottle-tier Inventory account, with no contra accounting of any kind - the same real dollar value, just re-tagged, per direct instruction', () => {
+  const biz = createBusiness(asBusinessName('DozenTest Co'), '2027-28', asUserId(1));
+  const userId = asUserId(1);
+  create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'DozenTest Outlet', userId);
+  setLocation('DozenTest Outlet', { city: 'DozenTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, biz.business);
+  createItem('DozenTest Wine', 'Items', userId);
+  createProvider('DozenTest Provider', userId);
+  // priceMinor is the real, per-carton price (per
+  // docs/currency-and-quantity-integrity-fix-plan.md: getItemUnitCostMinor
+  // divides this by packageQuantity itself) - 1200/12 = 100 minor units
+  // per real bottle.
+  addOrUpdateItemSource({ itemName: 'DozenTest Wine', vendorName: 'DozenTest Provider', priceMinor: 1200, packageQuantity: 12, isPreferred: true });
+  ensureHierarchyGrouping(biz.business, 'Container', userId);
+  ensureHierarchyValue(biz.business, 'Container', 'Carton', userId);
+  ensureHierarchyValue(biz.business, 'Container', 'Bottle', userId);
+  defineProductShape(biz.business, [['Container', 'Container']], userId);
+
+  openStorageContainer(biz.business, biz.actualLedger, asLocationName('DozenTest Outlet'), asItemName('DozenTest Wine'), [['Container', 'Container']], ['Carton'], 12, ['Bottle'], 144, userId, 'DOZEN-TEST-1');
+
+  const cartonAccount = db.prepare(`SELECT id FROM current_entities WHERE name = 'DozenTest Wine (Carton) — DozenTest Outlet'`).get() as { id: number } | undefined;
+  const bottleAccount = db.prepare(`SELECT id FROM current_entities WHERE name = 'DozenTest Wine (Bottle) — DozenTest Outlet'`).get() as { id: number } | undefined;
+  assert.ok(cartonAccount, 'a real, separate, carton-tier Inventory account must exist for this item at this location');
+  assert.ok(bottleAccount, 'a real, separate, bottle-tier Inventory account must exist too - never the same, shared account');
+  assert.notEqual(cartonAccount!.id, bottleAccount!.id, 'the two tiers must be genuinely different, real accounts, never one account under two names');
+
+  const netFor = (accountId: number) => (db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS net FROM journal_line jl WHERE jl.account_id = ?`).get(accountId) as { net: number }).net;
+  // 144 real bottles x 100 minor units/bottle = 14400 - the same, real
+  // dollar value, moved directly from one tier's account to the
+  // other, no contra account of any kind involved.
+  assert.equal(netFor(cartonAccount!.id), -14400, "the carton-tier account must show the real value leaving, exactly - never a fraction, never a contra-account artifact");
+  assert.equal(netFor(bottleAccount!.id), 14400, 'the bottle-tier account must show the exact, same real value arriving');
+});
+
 test('adjustLocationCapacity: a real, genuinely balanced posting against Occupied - never single-sided, and Installed = Remaining + Occupied holds as a real accounting identity', () => {
   const biz = createBusiness(asBusinessName('OccupiedTest Co'), '2027-28', asUserId(1));
   const userId = asUserId(1);
@@ -5823,8 +5877,13 @@ test('adjustLocationCapacity: a real, genuinely balanced posting against Occupie
   assert.equal(journalCountAfter, journalCountBefore + 1, 'a real capacity adjustment must post exactly one, real, new, balanced journal entry - never a bare, single-sided posting');
 
   const entities = getEntityTree();
-  const loc = entities.find((e) => e.name === 'Occupied Test Outlet');
-  const capacity = entities.find((e) => e.name === 'Storage Capacity' && e.parent_id === loc?.id);
+  // Per direct correction: Storage Capacity lives under Chart of
+  // Accounts > Storage > the location, a real financial account, not
+  // directly under the location entity. Scoped properly, via
+  // requireEntity, to this test's own real business.
+  const storageRootForOccupied = requireEntity('Storage', typeRootName, requireEntity('Chart of Accounts', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))));
+  const locationStorageForOccupied = entities.find((e) => e.name === 'Occupied Test Outlet' && e.parent_id === storageRootForOccupied.id);
+  const capacity = entities.find((e) => e.name === 'Storage Capacity' && e.parent_id === locationStorageForOccupied?.id);
   const remainingRoot = entities.find((e) => e.name === 'Remaining' && e.parent_id === capacity?.id);
   const installedRoot = entities.find((e) => e.name === 'Installed' && e.parent_id === capacity?.id);
   const occupiedRoot = entities.find((e) => e.name === 'Occupied' && e.parent_id === capacity?.id);

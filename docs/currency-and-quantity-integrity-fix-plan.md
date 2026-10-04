@@ -36,47 +36,97 @@ carton has been damaged and partially written off, which puts a few loose bottle
 warehouse's stock too. A location's storage capacity is therefore two, separate, simultaneous
 space currencies — never a single choice between them.
 
-## `openStorageContainer` rebuilt correctly, per direct instruction
+## `openStorageContainer` rebuilt correctly — final, corrected account
 
-Per direct correction: **there is no contra accounting here.** Opening a container is an ordinary
-internal stock movement at one location, mirrored on both sides exactly like any other movement
-(a receipt, a transfer) — never a special, separate mechanism. The corrected model, stated
-directly: each location's `Installed` (set once, a real, user-defined storage size - Carton,
-Bottle, Six-pack, Hot, Cold, any size) balances against `Unoccupied` at opening, with `Occupied`
-tracked separately; every item movement in, out, or around a location mirrors itself in both the
-storage accounts and the item's own real accounts (units and currency) — inventory is always per
-location and per business.
+**There is no contra accounting here, anywhere.** Per direct, explicit correction (an intermediate
+version of this fix, described in an earlier revision of this section, wrongly added a contra-
+accounted "On Hand" quantity tracking for the item itself — removed entirely, corrected below):
 
-Rebuilt `openStorageContainer` to do exactly this, in three parts:
-1. **Storage-space accounts** (already fixed above): `Occupied`/`Remaining` only, for both the
-   container form and the unit form, at the real, specific location — `Installed` is never
-   touched by this or any other movement.
-2. **The item's own On Hand quantity**, newly added (the function previously had no `itemName`
-   parameter at all, so it could never say which item's quantity was moving): the carton form's
-   real count decreases, the bottle form's real count increases, each posted against its own
-   contra account (`ensureUnitsTrackingBaseAccounts`'s `onHandId`/`receivedFromId`, the exact
-   mechanism `receiveItems` already uses) within its own real currency (`UNITS-CARTON`,
-   `UNITS-BOTTLE`) — found necessary directly, by a real balance failure: the two forms' real
-   quantities (1 carton, 24 bottles) are genuinely different numbers and can never balance against
-   each other directly, only each against its own contra.
-3. **The item's own Inventory value**, unchanged in total, only re-tagged: the same real dollars
-   move from the carton-tagged Inventory leaf to the bottle-tagged one.
+A dozen is an exact, convertible shorthand for 12 units, exactly like a dollar is shorthand for 100
+cents — a real exchange rate, correctly modelled as a currency pair, which is exactly what
+`item_source.package_quantity`/`getItemUnitCostMinor` already do for an item's own quantity and
+value. **Physical storage space is a different kind of thing entirely — not a shorthand for
+anything, and not convertible.** Carton-shaped shelf space and loose-bottle shelf space are two,
+genuinely separate, independent physical resources; opening a carton does not "convert" one into
+the other, it is a real, physical event that happens to free one and consume the other. See
+`docs/storage-space-as-currency-design.md` §3 for the full, corrected model.
 
-A second, real business rule added: a location with no real bottle shelving (`bottle_capacity`
-null) cannot open a carton at all — there is nowhere for the resulting loose bottles to go.
+The real, final, built shape of `openStorageContainer`, in two independent parts, neither needing
+any contra account of any kind:
+1. **Storage-space accounts**: `Occupied`/`Remaining` only, for both the container form and the
+   unit form, at the real, specific location, each within its own, separate space currency
+   (`SPACE-CARTON`, `SPACE-BOTTLE`) that never links to the other by any rate. `Installed` is
+   never touched by this or any other movement.
+2. **The item's own Inventory value**, unchanged in total, only re-tagged: the same real dollars
+   move directly from the item's own carton-tier Inventory account to its own bottle-tier account
+   (`ensureItemLocationInventoryAccount`'s own, newly-added `tier` parameter — `"Item (Carton)"`,
+   `"Item (Bottle)"`, the same naming `ensureItemSalesCogsAccounts` already uses for Sales and
+   COGS) — a plain, direct, two-line transfer within the item's own home currency, balancing on
+   its own, exactly the way `transferItems` already moves value directly between two locations.
+   No On Hand quantity posting of any kind — the item's own real quantity never changes when a
+   carton is opened, so nothing needs to be posted for it at all.
+
+**A second, real, separate gap found and fixed while building this**: `ensureItemLocationInventoryAccount`
+and `ensureItemInventoryAccount` had no `tier` parameter at all, while `ensureItemSalesCogsAccounts`
+already had one — so a sale or receipt tagged with a real tier (`"Carton"`, `"Bottle"`) correctly
+posted its Sales/COGS to the tier-specific account, but its Inventory movement fell through to one,
+shared, un-tiered account regardless of tier. Confirmed directly: per the business owner's own
+example, a dozen 12-bottle cartons (144 bottles) and single bottles (loose) must be stored in two,
+genuinely separate sets of (Inventory, Sales, COGS) accounts, never one, shared Inventory account
+pretending to hold both. Fixed by adding the same, optional `tier` parameter to both Inventory
+functions, and wiring it through `completePosSale`'s own Inventory resolution and
+`completeCashPurchase`'s (which had no way to express a tier for received stock at all —
+`CashPurchaseLineInput` gained a `tier` field).
+
+A second, real business rule, unrelated to the above: a location with no real bottle shelving
+(`bottle_capacity` null) cannot open a carton at all — there is nowhere for the resulting loose
+bottles to go.
 
 `openStorageContainer`'s signature changed (added `locationName`, `itemName`) — every caller
 updated: the HTTP route's schema and the frontend's wrapper and page (`/locations`, a new
 item-name field added to its own Open Container form), the Step Runner's registry and
-`screens.csv`, the tutorial data file, and the one direct unit test, whose own assertion ("exactly
-one journal entry") was itself corrected to match the new, real, multi-sided posting (two entries:
-storage-space and the item's own On Hand count, no value entry in that test since it never
-registers a real cost).
+`screens.csv`, the tutorial data file, and the direct unit tests (the original's own assertion
+corrected to match the new, real, single-entry posting when no cost is registered; a new, second
+test added, matching the business owner's own dozen-cartons example exactly).
 
-**Verified, by direct reconciliation**: the tutorial's own Highland Single Malt 700ml now shows
-exactly -1 in `Units On Hand > Carton` and +24 in `Units On Hand > Bottle`; Main Street Cellar's
-bottle-space accounts remain correctly balanced (68 + 52 = 120) and unaffected by the carton-side
-movement; full backend suite 230/230, full frontend suite 24/24, tutorial 19/19 via the API.
+**Verified, by direct reconciliation, matching the given example precisely**: a dozen 12-bottle
+cartons (144 bottles) at $100/bottle moves exactly $144.00 (14400 minor units) directly from the
+item's own `"Wine (Carton) — Location"` Inventory account to its own, separate
+`"Wine (Bottle) — Location"` account — confirmed as two, genuinely different, real accounts, never
+one account under two names. The tutorial's own Main Street Cellar bottle-space accounts remain
+correctly balanced (68 + 52 = 120) and unaffected by the carton-side movement (its own item,
+Highland Single Malt, has no registered cost, so correctly posts no Inventory-value entry at all).
+Full backend suite 231/231, full frontend suite 24/24, tutorial 19/19 via the API.
+
+## Storage accounts moved under Chart of Accounts, per direct, firm correction
+
+Immediately after the `openStorageContainer` rebuild above, a direct correction: Storage Capacity
+accounts are real financial accounts, not an artifact of the Location tree living outside Chart of
+Accounts. `ensureLocationStorageRoot` (`backend/src/db.ts`) now resolves
+`Chart of Accounts → Storage → {location name}`, and every location's own Storage Capacity
+structure (`ensureLocationCapacityAccount` in `db-stock.ts`, `openStorageContainer` in `db.ts`) is
+built underneath it, never directly under the Location entity. The existing Trial Balance — which
+only ever walks Chart of Accounts — now shows these accounts naturally.
+
+Three tests broken by this, all the same, familiar pattern, found and fixed directly rather than
+assumed to share one cause: each had its own bare `getEntityTree().find((e) => e.name === ...)`
+lookup for "Chart of Accounts" or "Storage," which silently picked up whichever other business's
+own, same-named node happened to come first in the global entity list — the exact, same bare-name
+collision class fixed repeatedly elsewhere this session, this time in the session's own test fixes.
+Corrected by scoping each lookup through `requireEntity`, properly, to that test's own real
+business.
+
+**Verified by direct reconciliation**: the tutorial's own Trial Balance now shows
+`Installed — Bottle`, `Installed — Carton`, `Occupied — Bottle`, `Occupied — Carton`,
+`Remaining — Bottle`, and `Remaining — Carton` as real rows, and its own `by_currency` breakdown
+shows three, genuinely separate, independently-balanced groups: the home currency (502000 = 502000),
+`SPACE-BOTTLE` (120 = 120), and `SPACE-CARTON` (41 = 41) — directly answering "does the Trial
+Balance work per currency/storage unit?" with yes, now. Full backend suite 231/231, full frontend
+suite 24/24, tutorial 19/19 via the API.
+
+A real, new, complementary report (`getStorageSpaceReport`) was also added, grouping these same
+accounts by location rather than the Trial Balance's own flat list — see
+`docs/storage-space-as-currency-design.md` §3a.
 
 ## A third, confirmed finding: a location's opening capacity balance can be silently lost — FIXED
 

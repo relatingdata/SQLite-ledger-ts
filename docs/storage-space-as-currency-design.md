@@ -1,9 +1,14 @@
-# Storage space as currencies — a real, consolidated design, for approval before any implementation
+# Storage space as currencies — a real design, partially built
 
 Per direct instruction, built entirely on what the manual already documents
 (`docs/cartesian-account-linking-plan.md`, `docs/multicurrency-design.md`) —
 no new mechanism invented, only the existing Hierarchy/Product/currency-pair
-system applied to a new domain. Nothing here is implemented yet.
+system applied to a new domain. Section 3's own original proposal (an
+exchange-rate currency pair between storage currencies) was corrected,
+directly, before being built that way - see section 3 for the real,
+corrected model. `openStorageContainer` (`backend/src/db.ts`) implements
+sections 1-4 of this chapter as corrected; the Admin recording feature and
+the rest of this chapter's own proposals remain design-only.
 
 ## 1. The core, corrected principle
 
@@ -36,43 +41,83 @@ combination's own accounts under Inventory, "Storage Capacity Remaining,"
 and "Storage Capacity Installed" alike — the same, one mechanism for all
 three, not a special case for capacity.
 
-## 3. Exchange rates between storage currencies — one-directional by design
+**Storage accounts are real financial accounts, per direct, firm
+correction** — not an artifact living under the Location tree, outside
+Chart of Accounts. `ensureLocationStorageRoot` (`backend/src/db.ts`)
+resolves `Chart of Accounts → Storage → {location name}`, a real node at
+the same level as Balance Sheet and P&L's own categories (Asset, Liability,
+Equity, Income, Expense); every location's own Storage Capacity structure
+is built underneath it, never directly under the Location entity. This
+means the existing Trial Balance — which already, correctly, only walks
+Chart of Accounts — shows these accounts naturally, with no separate
+mechanism needed to surface them. An earlier version of this chapter
+treated their absence from the Trial Balance as the accounts' own, correct,
+intended design; that was wrong, found and corrected directly.
 
-Per direct instruction: converting Hot-Bottle to Cold-Bottle is a real
-currency pair (`ensureCurrencyPair`), exactly like USD→EUR, with its own
-real rate (`setCurrencyExchangeRate`) — here, a unit ratio (1 bottle → 1
-bottle) or a repackaging ratio (1 carton → 24 bottles), not necessarily a
-decimal multiplier; the mechanism doesn't distinguish a "physical" ratio
-from a "monetary" one, any more than it distinguishes £→s (20) from
-s→d (12). **Irreversibility is expressed structurally, per pair, as a
-missing reverse rate** — Hot→Cold is defined; Cold→Hot is simply never
-configured, exactly as the manual already treats any undefined pair.
-Carton→Bottle and Hot→Cold are independent pairs, each with its own,
-independent reversibility.
+## 3. No exchange rate between storage currencies — corrected, per direct instruction
 
-## 4. The real, complete transaction shape — corrected, three balanced groups
+**This section's own, earlier proposal was wrong, and was never actually built this way.** It
+proposed treating a conversion between two storage currencies (Hot-Bottle to Cold-Bottle, say) as
+a real currency pair with its own exchange rate — exactly like USD→EUR. Per direct, explicit
+correction: **physical storage space is not convertible at all, and needs no exchange rate, no
+currency pair, and no contra accounting of any kind.**
 
-Per direct correction, twice: no Expense account is involved (this is
-inventory movement, not a purchase), and the item's own real inventory
-*value* genuinely moves between the two combinations' own Inventory leaves —
-this is `transferItems`'s already-proven logic, applied to a combination
-instance instead of a geographic location, never a new mechanism.
+The real distinction, stated directly: a dozen is a *shorthand* for 12 units, exactly like a
+dollar is shorthand for 100 cents — a real, exact, convertible exchange rate, correctly modelled
+as a currency pair (this is what `item_source.package_quantity`/`getItemUnitCostMinor` already do
+for an item's own quantity and value). **Physical storage space is a different kind of thing
+entirely — not a shorthand for anything, and not convertible.** Carton-shaped shelf space and
+loose-bottle shelf space are two, separate, genuinely independent physical resources. Opening a
+carton does not "convert" one into the other at some rate; it is a real, physical event that
+happens to free one kind of space and consume a different, unrelated kind, in whatever real
+quantities that event actually involves.
 
-One journal entry, converting 1 carton of Hot-Carton beer to 24 bottles of
-Cold-Bottle beer:
+**The real, correct, built model**: each storage currency (`SPACE-CARTON`, `SPACE-BOTTLE`, and so
+on) balances entirely on its own, independently, the same way USD and EUR each balance on their
+own within one journal entry that happens to touch both — never linked to each other by any rate,
+never requiring a contra account to bridge them. Opening a container posts two, completely
+separate pairs: the container currency's own `Occupied`/`Remaining` pair (space freed) and the
+unit currency's own, separate `Occupied`/`Remaining` pair (space consumed) — each pair balances to
+zero within its own currency alone, with no line of any kind connecting the two currencies to each
+other. See `backend/src/db.ts`'s `openStorageContainer` for the real, built implementation, and
+`docs/currency-and-quantity-integrity-fix-plan.md` for the full correction history.
 
-1. **SPACE-HOT-CARTON** (zero on its own): Debit Space Conversion Clearing
-   (SPACE-HOT-CARTON), Credit SPACE-HOT-CARTON — 1 unit of space freed.
-2. **SPACE-COLD-BOTTLE** (zero on its own): Debit SPACE-COLD-BOTTLE, Credit
-   Space Conversion Clearing (SPACE-COLD-BOTTLE) — 24 units of space
-   consumed, at the real, defined carton→bottle rate.
-3. **Home currency** (zero on its own): Debit Inventory (Cold-Bottle leaf),
-   Credit Inventory (Hot-Carton leaf) — the stock's real, current carrying
-   value relocating, no gain or loss, a pure move.
+## 3a. A real, complementary report: Inventory and Storage
 
-A real, explicit fee (refrigeration handling, if a business genuinely
-charges one) is a real, fourth, separate, optional currency group — never
-assumed, only posted when a real transaction actually states one.
+Per direct instruction, a new report (`getStorageSpaceReport`, `backend/src/db-stock.ts`) presents
+these same accounts grouped by real location instead of in the Trial Balance's own, flat,
+account-by-account list — for each location, every real storage-unit currency it uses, with its
+own Installed/Occupied/Remaining figures and a direct, real reconciliation check
+(`Occupied + Remaining = |Installed|`, flagged plainly when it does not hold). Reachable from
+Reports → Inventory and Storage (`frontend/src/routes/reports/storage-space`). This is genuinely
+complementary to the Trial Balance, not a replacement for it or a workaround for its own,
+corrected ability to show these accounts — a location-centric view a flat account list cannot
+easily give.
+
+## 4. The real, complete transaction shape — as actually built, no clearing account, no rate
+
+Per direct correction: no Expense account, no "Space Conversion Clearing" account of any kind, and
+no rate between the two space currencies — opening a container needs none of these. The item's own
+real Inventory value moves directly between its own two, real, tier-specific Inventory accounts
+(`ensureItemLocationInventoryAccount`'s own `tier` parameter — `"Item (Carton)"`, `"Item (Bottle)"`
+— the same naming `ensureItemSalesCogsAccounts` already uses for Sales and COGS), exactly the way
+`transferItems` already moves value directly between two locations' own Inventory accounts, with
+no contra of any kind.
+
+Three, genuinely separate journal entries, opening 1 carton of a 24-bottle-per-carton wine at $7.00
+a bottle ($168.00 a carton) into 24 loose bottles, at one location:
+
+1. **Storage-space entry, `SPACE-CARTON` and `SPACE-BOTTLE` each balance on their own, within the
+   same entry, never linked to each other**: Credit `Remaining (Carton)` 1 / Debit `Occupied
+   (Carton)` 1 — the carton-space freed; Debit `Remaining (Bottle)` 24 / Credit `Occupied (Bottle)`
+   24 — the bottle-space consumed.
+2. **Item Inventory value, home currency, balances on its own**: Credit `Wine (Carton) — Location`
+   16800 / Debit `Wine (Bottle) — Location` 16800 — the same $168.00, moved directly from the
+   carton-tier account to the bottle-tier account, no rate, no clearing account, no gain or loss.
+
+A real, explicit fee (refrigeration handling, if a business genuinely charges one) would be a real,
+separate, optional entry of its own — never assumed, only posted when a real transaction actually
+states one; not yet built.
 
 ## 5. Where this touches the existing system
 

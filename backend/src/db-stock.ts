@@ -2,7 +2,7 @@
 
 import { DateTime } from 'luxon';
 import { db } from './db.js';
-import { ensureStorageCapacityStructure } from './db.js';
+import { ensureStorageCapacityStructure, ensureLocationStorageRoot } from './db.js';
 import { Entity, Link, Balance } from './primitives.js';
 import { Session } from './session-context.js';
 import {
@@ -397,7 +397,8 @@ export function ensureLocationCapacityAccount(business: BusinessName, ledger: Le
   const loc = getLocation(locationName, business);
   const unit: 'bottle' | 'carton' = loc?.bottle_capacity != null ? 'bottle' : 'carton';
   const leafName = unit === 'bottle' ? 'Bottle' : 'Carton';
-  const { remainingId, installedId, occupiedId } = ensureStorageCapacityStructure({ id: locationId, name: locationName }, userId);
+  const storageRoot = ensureLocationStorageRoot(business, locationName, userId);
+  const { remainingId, installedId, occupiedId } = ensureStorageCapacityStructure(storageRoot, userId);
   const currency = `SPACE-${unit.toUpperCase()}`;
   const occupied = Entity.getUnder(leafName, occupiedId) ?? Entity.create(leafName, occupiedId, userId);
   setAccountCurrency(occupied.name, currency, occupied.id);
@@ -459,6 +460,65 @@ export interface InventoryListingLocationGroup {
 // different, unrelated businesses at once. journal already carries its
 // own real business_id; joining through it, rather than matching item
 // and location by bare name alone, is the real, direct fix.
+export interface StorageSpaceRow {
+  location: string;
+  currency: string;
+  kind: 'Installed' | 'Occupied' | 'Remaining';
+  balance_minor: number;
+}
+
+export interface StorageSpaceLocationGroup {
+  location: string;
+  currencies: { currency: string; installed_minor: number; occupied_minor: number; remaining_minor: number; balanced: boolean }[];
+}
+
+// Per direct instruction: a real, new report, since the Trial Balance
+// cannot and should not show these accounts - they are physical
+// storage-space accounts under each real Location, never financial
+// accounts under Chart of Accounts, so getLedgerBalances' own
+// real_accounts CTE (which only walks Chart of Accounts) structurally
+// excludes them. Scoped to Session.Business, the same, standing
+// agreement already applied elsewhere.
+export function getStorageSpaceReport(): StorageSpaceLocationGroup[] {
+  const rows = db
+    .prepare(
+      `SELECT loc.name AS location, a.currency AS currency, kind.name AS kind, SUM(jl.amount_minor) AS balance_minor
+       FROM journal j
+       JOIN journal_line jl ON jl.journal_id = j.id
+       JOIN account a ON a.entity_id = jl.account_id
+       JOIN current_entities leaf ON leaf.id = jl.account_id
+       JOIN current_entities kind ON kind.id = leaf.parent_id
+       JOIN current_entities capacity ON capacity.id = kind.parent_id
+       JOIN current_entities loc ON loc.id = capacity.parent_id
+       WHERE j.business_id = ? AND capacity.name = 'Storage Capacity' AND kind.name IN ('Installed', 'Occupied', 'Remaining') AND a.currency IS NOT NULL
+       GROUP BY loc.name, a.currency, kind.name
+       HAVING SUM(jl.amount_minor) != 0`
+    )
+    .all(Session.Business.id) as { location: string; currency: string; kind: string; balance_minor: number }[];
+
+  const groups = new Map<string, StorageSpaceLocationGroup>();
+  for (const r of rows) {
+    let group = groups.get(r.location);
+    if (!group) { group = { location: r.location, currencies: [] }; groups.set(r.location, group); }
+    let cur = group.currencies.find((c) => c.currency === r.currency);
+    if (!cur) { cur = { currency: r.currency, installed_minor: 0, occupied_minor: 0, remaining_minor: 0, balanced: false }; group.currencies.push(cur); }
+    if (r.kind === 'Installed') cur.installed_minor = r.balance_minor;
+    else if (r.kind === 'Occupied') cur.occupied_minor = r.balance_minor;
+    else if (r.kind === 'Remaining') cur.remaining_minor = r.balance_minor;
+  }
+  for (const group of groups.values()) {
+    for (const cur of group.currencies) {
+      // Per direct instruction: Installed balances against Remaining at
+      // opening (Occupied starts at zero) - a real, direct check that
+      // the two still genuinely reconcile: however much space is
+      // occupied or remaining must sum to exactly the real, installed
+      // total, never a fraction, never a mismatch.
+      cur.balanced = cur.occupied_minor + cur.remaining_minor === -cur.installed_minor;
+    }
+  }
+  return [...groups.values()].sort((a, b) => a.location.localeCompare(b.location));
+}
+
 export function getInventoryListingByLocation(): InventoryListingLocationGroup[] {
   const qtyRows = db
     .prepare(

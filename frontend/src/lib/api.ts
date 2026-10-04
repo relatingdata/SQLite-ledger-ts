@@ -1549,6 +1549,24 @@ export interface InventoryListingLocationGroup {
 }
 export const getInventoryListingByLocation = () => request<InventoryListingLocationGroup[]>('/stock-listing/by-location');
 
+// Per direct instruction: a real, new report - Storage Capacity
+// accounts live under each real Location, structurally outside Chart
+// of Accounts, so the Trial Balance can never show them. This report
+// reads them directly, grouped by location and real storage-unit
+// currency (e.g. SPACE-CARTON, SPACE-BOTTLE).
+export interface StorageSpaceCurrencyRow {
+  currency: string;
+  installed_minor: number;
+  occupied_minor: number;
+  remaining_minor: number;
+  balanced: boolean;
+}
+export interface StorageSpaceLocationGroup {
+  location: string;
+  currencies: StorageSpaceCurrencyRow[];
+}
+export const getStorageSpaceReport = () => request<StorageSpaceLocationGroup[]>('/stock-listing/storage-space');
+
 export interface StockMovementRow {
   item: string;
   category: string | null;

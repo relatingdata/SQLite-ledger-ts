@@ -398,6 +398,26 @@ A real, partial stock transfer moves a portion of what the warehouse received th
 
 ![The transfer completed.](manual-images/t27_transfer_to_main_street_done.png)
 
+## Opening a sealed carton: two different things that are easy to confuse
+
+A carton is a convenient, exact shorthand for a number of bottles — a dozen 12-bottle cartons is
+simply 144 bottles, exactly the way a dollar is a convenient shorthand for 100 cents. Once an
+item's own real cost and pack size are known, the system always knows how many bottles a carton
+holds, and converts between the two freely wherever it matters — placing an order, receiving it,
+checking the Trial Balance. No separate accounting step is needed just to say "a carton is 24
+bottles"; it is the same, single fact, used consistently everywhere.
+
+**Shelf space is not like that at all.** A warehouse shelf built for sealed cartons and a
+refrigerator shelf built for loose bottles are two real, physically different things — a business
+cannot "convert" carton-shelf-space into bottle-shelf-space by any formula, the way it can convert
+a carton count into a bottle count. **Opening a Container** is the one, real screen for this: it
+records the real, physical event of breaking open a sealed carton and placing its bottles on a
+shelf — one real carton's worth of shelf space is freed at the same time as a real number of loose
+bottles' worth of shelf space is used up, and these are tracked as two, entirely separate figures,
+never combined into one number. The item's own total value does not change when this happens —
+the same wine, worth the same amount, is simply now sitting loose instead of sealed — only where it
+physically sits, and how, changes.
+
 ## Selling at the retail outlet
 
 A real retail sale, run more than once, sells real stock at the retail outlet's own real selling price. Selling price and cost move together throughout this tutorial's own worked numbers: a real cost of \$3.50 per bottle marked up to a real selling price of \$5.00 per bottle --- the real, live Trial Balance continues to balance after every one of these postings, and the real, live Profit \& Loss shows a genuine profit once the retail markup has actually been sold through.
