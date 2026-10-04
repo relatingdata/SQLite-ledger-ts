@@ -1205,6 +1205,8 @@ export const convertStorageSpace = (input: {
 export const openStorageContainer = (input: {
   business: string;
   ledger: string;
+  location: string;
+  item: string;
   definitionDimensions: [string, string][];
   containerValues: string[];
   cartonsOpened: number;

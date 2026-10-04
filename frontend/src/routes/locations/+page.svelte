@@ -73,6 +73,7 @@
   // combinations) that read whichever real groupings a business
   // already defined there.
   let hierarchyGroupings: HierarchyGroupingWithValues[] = $state([]);
+  let openContainerItem = $state('');
   let openContainerGrouping = $state('');
   let openContainerFrom = $state('');
   let openContainerTo = $state('');
@@ -88,7 +89,7 @@
   let storageActionError = $state('');
 
   async function doOpenContainer() {
-    if (!session.current?.businessName || !openContainerGrouping || !openContainerFrom || !openContainerTo) return;
+    if (!session.current?.businessName || !selectedName || !openContainerItem || !openContainerGrouping || !openContainerFrom || !openContainerTo) return;
     openingContainer = true;
     storageActionError = '';
     storageActionMessage = '';
@@ -96,6 +97,8 @@
       await openStorageContainer({
         business: session.current.businessName,
         ledger: session.current.ledgerName,
+        location: selectedName,
+        item: openContainerItem,
         definitionDimensions: [[openContainerGrouping, openContainerGrouping]],
         containerValues: [openContainerFrom],
         cartonsOpened: Number(openContainerCartonsOpened) || 1,
@@ -522,6 +525,9 @@
                 <h4>{translations.current['Open a Container'] ?? 'Open a Container'}</h4>
                 <p class="hint">{translations.current['Two, independent space movements — never a conversion, and never linked by a rate.'] ?? 'Two, independent space movements — never a conversion, and never linked by a rate.'}</p>
                 <div class="add-row">
+                  <input bind:value={openContainerItem} placeholder={translations.current['Item name…'] ?? 'Item name…'} />
+                </div>
+                <div class="add-row">
                   <select bind:value={openContainerGrouping}>
                     <option value="">{translations.current['Grouping…'] ?? 'Grouping…'}</option>
                     {#each hierarchyGroupings as g}<option value={g.grouping}>{g.grouping}</option>{/each}
@@ -544,7 +550,7 @@
                     <input bind:value={openContainerUnitsProduced} inputmode="numeric" placeholder="e.g. 24" style="max-width:6rem" />
                   </div>
                 {/if}
-                <button class="btn small" onclick={doOpenContainer} disabled={openingContainer || !openContainerGrouping || !openContainerFrom || !openContainerTo}>
+                <button class="btn small" onclick={doOpenContainer} disabled={openingContainer || !openContainerItem || !openContainerGrouping || !openContainerFrom || !openContainerTo}>
                   {openingContainer ? '…' : (translations.current['Open Container'] ?? 'Open Container')}
                 </button>
               </div>

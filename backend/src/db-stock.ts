@@ -735,7 +735,7 @@ export function setItemLocationLevels(
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
-function ensureUnitsTrackingBaseAccounts(business: BusinessName, userId: UserId): { onHandId: number; receivedFromId: number } {
+export function ensureUnitsTrackingBaseAccounts(business: BusinessName, userId: UserId): { onHandId: number; receivedFromId: number } {
   const businessEntity = requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
   const onHand = (Entity.getUnder('Units On Hand', businessEntity.id) ?? create(businessEntity as TypedNode<string>, typeRootName, 'Units On Hand', userId)) as { id: number; name: string };
   const receivedFrom = (Entity.getUnder('Units Received From', businessEntity.id) ?? create(businessEntity as TypedNode<string>, typeRootName, 'Units Received From', userId)) as { id: number; name: string };

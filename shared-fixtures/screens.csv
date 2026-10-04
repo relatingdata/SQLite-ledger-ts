@@ -52,10 +52,11 @@ Receive Into Storage,data,,,receiveStockWithCombination,,5,groupingName,,text
 Receive Into Storage,data,,,receiveStockWithCombination,,6,storageValue,,text
 Open Container,data,,,openContainer,,1,businessName,,text
 Open Container,data,,,openContainer,,2,locationName,,text
-Open Container,data,,,openContainer,,3,containerValue,,text
-Open Container,data,,,openContainer,,4,cartonsOpened,,text
-Open Container,data,,,openContainer,,5,unitValue,,text
-Open Container,data,,,openContainer,,6,unitsProduced,,text
+Open Container,data,,,openContainer,,3,itemName,,text
+Open Container,data,,,openContainer,,4,containerValue,,text
+Open Container,data,,,openContainer,,5,cartonsOpened,,text
+Open Container,data,,,openContainer,,6,unitValue,,text
+Open Container,data,,,openContainer,,7,unitsProduced,,text
 Transfer Items,data,,,transferItemsSimple,,1,businessName,,text
 Transfer Items,data,,,transferItemsSimple,,2,itemName,,text
 Transfer Items,data,,,transferItemsSimple,,3,fromLocationName,,text

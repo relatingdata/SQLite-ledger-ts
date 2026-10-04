@@ -240,13 +240,10 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   // Per direct instruction: exercises the independent, non-rate-linked
   // carton/bottle space case - opening a carton is never a real
   // "conversion," it is two, real, independent space movements.
-  // Per docs/currency-and-quantity-integrity-fix-plan.md, Phase 3 (not
-  // fixed here): openStorageContainer has no location parameter at all,
-  // so it posts to the business root, never a real, specific location -
-  // a separate, already-documented defect. locationName is accepted
-  // here (screens.csv position 2) and recorded in the reference, so it
-  // is not silently discarded, but the posting itself does not scope to
-  // it structurally yet.
+  // Per direct instruction, the already-documented Phase 3 gap is now
+  // closed: openStorageContainer takes a real locationName and scopes
+  // its posting to that specific location, and refuses the operation
+  // if that location has no real bottle shelving at all.
   openContainer: (a) => {
     const userId = db.asUserId(1);
     db.ensureHierarchyGrouping(a.businessName as any, 'Container', userId);
@@ -254,7 +251,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     db.ensureHierarchyValue(a.businessName as any, 'Container', a.unitValue, userId);
     db.defineProductShape(a.businessName as any, [['Container', 'Container']], userId);
     db.openStorageContainer(
-      a.businessName as any, db.asLedgerName('Actual'), [['Container', 'Container']],
+      a.businessName as any, db.asLedgerName('Actual'), a.locationName as any, a.itemName as any, [['Container', 'Container']],
       [a.containerValue], Number(a.cartonsOpened), [a.unitValue], Number(a.unitsProduced), userId,
       `STORAGE-OPEN-${a.locationName}`
     );

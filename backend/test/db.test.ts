@@ -5762,6 +5762,11 @@ test('convertStorageSpace: a real, balanced conversion between storage combinati
 test('openStorageContainer: opening a carton is two, real, independent space movements - never a rate-linked conversion, and genuinely never requires one to be defined', () => {
   const biz = createBusiness(asBusinessName('OpenContainerTest Co'), '2027-28', asUserId(1));
   const userId = asUserId(1);
+  // Per direct instruction: openStorageContainer now requires a real
+  // location with real bottle shelving - there is nowhere for the
+  // resulting loose bottles to go otherwise.
+  create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'OpenContainerTest Outlet', userId);
+  setLocation('OpenContainerTest Outlet', { city: 'OpenContainerTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, biz.business);
   ensureHierarchyGrouping(biz.business, 'Container', userId);
   ensureHierarchyValue(biz.business, 'Container', 'Carton', userId);
   ensureHierarchyValue(biz.business, 'Container', 'Bottle', userId);
@@ -5771,11 +5776,18 @@ test('openStorageContainer: opening a carton is two, real, independent space mov
   const coa = requireEntity('Chart of Accounts', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName)));
   try { create(coa, typeRootName, 'Storage Space Remaining', userId); } catch { /* already exists */ }
   try { create(coa, typeRootName, 'Storage Space Installed', userId); } catch { /* already exists */ }
+  createItem('OpenContainerTest Wine', 'Items', userId);
 
   const journalCountBefore = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
-  openStorageContainer(biz.business, biz.actualLedger, [['Container', 'Container']], ['Carton'], 1, ['Bottle'], 24, userId, 'OPEN-TEST-1');
+  openStorageContainer(biz.business, biz.actualLedger, asLocationName('OpenContainerTest Outlet'), asItemName('OpenContainerTest Wine'), [['Container', 'Container']], ['Carton'], 1, ['Bottle'], 24, userId, 'OPEN-TEST-1');
   const journalCountAfter = (db.prepare(`SELECT COUNT(*) as c FROM journal`).get() as { c: number }).c;
-  assert.equal(journalCountAfter, journalCountBefore + 1, 'opening a container must post exactly one, real, new journal entry');
+  // Per direct instruction: there is no contra accounting - opening a
+  // container is an ordinary movement mirrored in both the real
+  // storage-space accounts and the real item's own On Hand quantity,
+  // posted as two, real, separate journal entries (no third, Inventory
+  // value entry here, since this test never registers a real cost for
+  // the item via addOrUpdateItemSource).
+  assert.equal(journalCountAfter, journalCountBefore + 2, 'opening a container must mirror the movement in both the storage-space accounts and the item\'s own On Hand quantity, as two real journal entries');
 
   // Per a real, confirmed, pre-existing, separate bug found while
   // writing this test - ensureCombinationAccountLeaf's own base-account

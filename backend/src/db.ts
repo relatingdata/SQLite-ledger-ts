@@ -2742,7 +2742,20 @@ export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTo
   // matching exactly - genuinely unambiguous, since it's the same,
   // stable array copied directly from the real Product Instance this
   // leaf represents, never a bare name.
-  const existing = combinationIds != null ? (db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(baseId, combinationIds) as { id: number; name: string } | undefined) : undefined;
+  const existingByCombination = combinationIds != null
+    ? (db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(baseId, combinationIds) as { id: number; name: string } | undefined)
+    : undefined;
+  // A real, newly-exposed gap, found directly: combination_ids alone is
+  // not enough, since this instance can genuinely have a real,
+  // non-null combination_ids (e.g. a single-dimension "Bottle" under
+  // "Container") while an already-existing leaf of the same bare name
+  // under this same parent was created by a completely different
+  // mechanism that never set combination_ids at all (a location's own,
+  // plain capacity-tracking account) - tried whenever the first lookup
+  // finds nothing, not only when combinationIds is null, or creating
+  // it again throws a genuine, real uniqueness error.
+  const existing = existingByCombination
+    ?? (db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND name = ?`).get(baseId, instanceTopNode.name) as { id: number; name: string } | undefined);
   if (existing) return existing;
   // A real, second, genuine issue found directly, per direct
   // question: the bare terminal value alone ("Cold") is a real,
@@ -2814,9 +2827,19 @@ export function convertStorageSpace(
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
+// Per direct instruction: opening a sealed carton into loose bottles is
+// constrained to a real, specific location - fixing the already-
+// documented gap (docs/currency-and-quantity-integrity-fix-plan.md,
+// Phase 3) where this posted to the business root, disconnected from
+// wherever the carton was actually, physically opened. A second, real
+// business rule enforced here too: a location with no real bottle
+// shelving (bottle_capacity null or zero) cannot open a carton at all
+// - there is nowhere for the resulting loose bottles to physically go.
 export function openStorageContainer(
   business: BusinessName,
   ledger: LedgerName,
+  locationName: LocationName,
+  itemName: ItemName,
   definitionDimensions: [string, string][],
   containerValues: string[],
   cartonsOpened: number,
@@ -2825,28 +2848,103 @@ export function openStorageContainer(
   userId: UserId,
   reference?: string
 ): void {
-  const businessEntity = requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
-  const { remainingId, installedId } = ensureStorageCapacityStructure(businessEntity, userId);
+  const loc = getLocation(locationName, business);
+  if (!loc) throw new ValidationError(`No location named "${locationName}".`);
+  if (!loc.bottle_capacity) {
+    throw new ValidationError(`"${locationName}" has no real bottle shelving (bottle capacity is not set) - a sealed carton cannot be opened into loose bottles here, since there is nowhere for them to go.`);
+  }
+  if (!resolveItemId(itemName)) throw new ValidationError(`No item named "${itemName}".`);
+  const locationId = (
+    db.prepare(
+      `SELECT id FROM current_entities WHERE name = ? AND parent_id IN (
+         SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)
+         UNION
+         SELECT id FROM current_entities WHERE name = ? || ' Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)
+       )`
+    ).get(locationName, business, business, business) as { id: number } | undefined
+  )?.id;
+  if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
+  const { remainingId, occupiedId } = ensureStorageCapacityStructure({ id: locationId, name: locationName }, userId);
   const containerInstance = ensureProductInstance(business, definitionDimensions, containerValues, userId);
   const unitInstance = ensureProductInstance(business, definitionDimensions, unitValues, userId);
   const containerSpace = ensureCombinationAccountLeaf('Remaining', containerInstance, userId, remainingId);
-  const containerInstalled = ensureCombinationAccountLeaf('Installed', containerInstance, userId, installedId);
+  const containerOccupied = ensureCombinationAccountLeaf('Occupied', containerInstance, userId, occupiedId);
   const unitSpace = ensureCombinationAccountLeaf('Remaining', unitInstance, userId, remainingId);
-  const unitInstalled = ensureCombinationAccountLeaf('Installed', unitInstance, userId, installedId);
+  const unitOccupied = ensureCombinationAccountLeaf('Occupied', unitInstance, userId, occupiedId);
 
   const containerCurrency = `SPACE-${containerValues.join('-').toUpperCase()}`;
   const unitCurrency = `SPACE-${unitValues.join('-').toUpperCase()}`;
   setAccountCurrency(containerSpace.name, containerCurrency, containerSpace.id);
-  setAccountCurrency(containerInstalled.name, containerCurrency, containerInstalled.id);
+  setAccountCurrency(containerOccupied.name, containerCurrency, containerOccupied.id);
   setAccountCurrency(unitSpace.name, unitCurrency, unitSpace.id);
-  setAccountCurrency(unitInstalled.name, unitCurrency, unitInstalled.id);
+  setAccountCurrency(unitOccupied.name, unitCurrency, unitOccupied.id);
 
   const ref = reference ?? `STORAGE-OPEN-${Date.now()}`;
-  stageLine({ reference: ref, business, ledger, account: asAccountName(containerSpace.name), accountId: containerSpace.id, amount_minor: -cartonsOpened });
-  stageLine({ reference: ref, business, ledger, account: asAccountName(containerInstalled.name), accountId: containerInstalled.id, amount_minor: cartonsOpened });
-  stageLine({ reference: ref, business, ledger, account: asAccountName(unitSpace.name), accountId: unitSpace.id, amount_minor: unitsProduced });
-  stageLine({ reference: ref, business, ledger, account: asAccountName(unitInstalled.name), accountId: unitInstalled.id, amount_minor: -unitsProduced });
+  // Per direct instruction: there is no contra accounting here. Opening
+  // a carton is an ordinary internal stock movement at this one
+  // location - mirrored, like any other movement, in both the real
+  // storage-space accounts (this side) and the real item accounts
+  // (below), never touching Installed, which is set once and never
+  // moved by any later movement.
+  //
+  // The container side: cartonsOpened worth of carton-space is freed -
+  // Remaining increases, Occupied decreases, exactly as
+  // adjustLocationCapacity's own pattern does for any item leaving.
+  stageLine({ reference: ref, business, ledger, account: asAccountName(containerSpace.name), accountId: containerSpace.id, amount_minor: cartonsOpened });
+  stageLine({ reference: ref, business, ledger, account: asAccountName(containerOccupied.name), accountId: containerOccupied.id, amount_minor: -cartonsOpened });
+  // The unit side: unitsProduced worth of bottle-space is now occupied -
+  // Remaining decreases, Occupied increases, the same sign convention
+  // reversed, since this side is stock arriving, not leaving.
+  stageLine({ reference: ref, business, ledger, account: asAccountName(unitSpace.name), accountId: unitSpace.id, amount_minor: -unitsProduced });
+  stageLine({ reference: ref, business, ledger, account: asAccountName(unitOccupied.name), accountId: unitOccupied.id, amount_minor: unitsProduced });
   postJournalEntry(ref, business, ledger, userId);
+
+  // Per direct instruction: this real, specific item's own quantity is
+  // mirrored too - the number of "hot"/carton-form units of this item
+  // genuinely decreases, and the number of "cold"/unit-form units of
+  // this same item genuinely increases, using the exact, same, real
+  // On Hand mechanism already established for transferItems' own
+  // combination-tagged path, scoped to this one item and location.
+  const itemFromInstance = ensureProductInstance(business, [...definitionDimensions, ['Item', 'Item']], [...containerValues, itemName], userId);
+  const itemToInstance = ensureProductInstance(business, [...definitionDimensions, ['Item', 'Item']], [...unitValues, itemName], userId);
+  const { onHandId, receivedFromId } = ensureUnitsTrackingBaseAccounts(business, userId);
+  const itemFromOnHand = ensureCombinationAccountLeaf('On Hand', itemFromInstance, userId, onHandId);
+  const itemFromContra = ensureCombinationAccountLeaf('On Hand', itemFromInstance, userId, receivedFromId);
+  const itemToOnHand = ensureCombinationAccountLeaf('On Hand', itemToInstance, userId, onHandId);
+  const itemToContra = ensureCombinationAccountLeaf('On Hand', itemToInstance, userId, receivedFromId);
+  const fromUnitsCurrency = `UNITS-${containerValues.join('-').toUpperCase()}`;
+  const toUnitsCurrency = `UNITS-${unitValues.join('-').toUpperCase()}`;
+  setAccountCurrency(itemFromOnHand.name, fromUnitsCurrency, itemFromOnHand.id);
+  setAccountCurrency(itemFromContra.name, fromUnitsCurrency, itemFromContra.id);
+  setAccountCurrency(itemToOnHand.name, toUnitsCurrency, itemToOnHand.id);
+  setAccountCurrency(itemToContra.name, toUnitsCurrency, itemToContra.id);
+  // The carton-form side: this item's own On Hand count in that form
+  // is consumed - On Hand decreases, its own contra increases, both
+  // within the real "carton" currency, balancing on their own.
+  const countRef = `${ref}-ITEM-COUNT`;
+  stageLine({ reference: countRef, business, ledger, account: asAccountName(itemFromOnHand.name), accountId: itemFromOnHand.id, amount_minor: -cartonsOpened, memo: `Open container (count): ${itemName}` });
+  stageLine({ reference: countRef, business, ledger, account: asAccountName(itemFromContra.name), accountId: itemFromContra.id, amount_minor: cartonsOpened, memo: `Open container (count): ${itemName}` });
+  // The bottle-form side: this item's own On Hand count in that form
+  // is produced - On Hand increases, its own contra decreases, both
+  // within the real "bottle" currency, independently balancing too.
+  stageLine({ reference: countRef, business, ledger, account: asAccountName(itemToOnHand.name), accountId: itemToOnHand.id, amount_minor: unitsProduced, memo: `Open container (count): ${itemName}` });
+  stageLine({ reference: countRef, business, ledger, account: asAccountName(itemToContra.name), accountId: itemToContra.id, amount_minor: -unitsProduced, memo: `Open container (count): ${itemName}` });
+  postJournalEntry(countRef, business, ledger, userId);
+
+  // The item's own Inventory value is unchanged in total, only
+  // re-tagged - the same real dollars that were "hot" cartons are now
+  // "cold" loose bottles, mirrored as a real, balanced value movement
+  // between the two combination-tagged Inventory leaves.
+  const unitCostMinor = getItemUnitCostMinor(itemName);
+  if (unitCostMinor != null) {
+    const valueMinor = unitsProduced * unitCostMinor;
+    const fromValueLeaf = ensureCombinationAccountLeaf('Inventory', itemFromInstance, userId);
+    const toValueLeaf = ensureCombinationAccountLeaf('Inventory', itemToInstance, userId);
+    const valueRef = `${ref}-ITEM-VALUE`;
+    stageLine({ reference: valueRef, business, ledger, account: asAccountName(fromValueLeaf.name), accountId: fromValueLeaf.id, amount_minor: -valueMinor, memo: `Open container (value): ${itemName}` });
+    stageLine({ reference: valueRef, business, ledger, account: asAccountName(toValueLeaf.name), accountId: toValueLeaf.id, amount_minor: valueMinor, memo: `Open container (value): ${itemName}` });
+    postJournalEntry(valueRef, business, ledger, userId);
+  }
 }
 
 /** Per direct instruction: real, business-scoped listing functions
@@ -7118,7 +7216,7 @@ export function getChartOfAccountsPrototype(language: string): string[] {
 export * from './db-journal.js';
 import { stageLine, postJournalEntry } from './db-journal.js';
 export * from './db-stock.js';
-import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, type Location as StockLocation } from './db-stock.js';
+import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, ensureUnitsTrackingBaseAccounts, type Location as StockLocation } from './db-stock.js';
 
 
 // Migrates every real, existing translation into the entity-only

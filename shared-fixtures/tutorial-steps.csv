@@ -64,8 +64,10 @@
 "POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500"
 # Highland Single Malt, received sealed directly at retail (as in the
 # chapter 3 e2e review mid-session), then opened: 1 carton -> 24
-# bottles. Open Container has no location parameter at all (a
-# separate, already-documented defect) - locationName is recorded in
-# its reference only, not yet scoped structurally.
+# bottles. Open Container is now constrained to a real, specific
+# location with real bottle shelving, and mirrors the item's own
+# quantity between its "Carton" and "Bottle" forms, alongside the
+# location's own storage-space accounts - no contra accounting, an
+# ordinary internal stock movement.
 "Receive Into Storage","Tutorial Wine Retail Business","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure"
-"Open Container","Tutorial Wine Retail Business","Main Street Cellar","Carton","1","Bottle","24"
+"Open Container","Tutorial Wine Retail Business","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24"

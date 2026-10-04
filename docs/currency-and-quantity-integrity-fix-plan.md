@@ -36,6 +36,48 @@ carton has been damaged and partially written off, which puts a few loose bottle
 warehouse's stock too. A location's storage capacity is therefore two, separate, simultaneous
 space currencies — never a single choice between them.
 
+## `openStorageContainer` rebuilt correctly, per direct instruction
+
+Per direct correction: **there is no contra accounting here.** Opening a container is an ordinary
+internal stock movement at one location, mirrored on both sides exactly like any other movement
+(a receipt, a transfer) — never a special, separate mechanism. The corrected model, stated
+directly: each location's `Installed` (set once, a real, user-defined storage size - Carton,
+Bottle, Six-pack, Hot, Cold, any size) balances against `Unoccupied` at opening, with `Occupied`
+tracked separately; every item movement in, out, or around a location mirrors itself in both the
+storage accounts and the item's own real accounts (units and currency) — inventory is always per
+location and per business.
+
+Rebuilt `openStorageContainer` to do exactly this, in three parts:
+1. **Storage-space accounts** (already fixed above): `Occupied`/`Remaining` only, for both the
+   container form and the unit form, at the real, specific location — `Installed` is never
+   touched by this or any other movement.
+2. **The item's own On Hand quantity**, newly added (the function previously had no `itemName`
+   parameter at all, so it could never say which item's quantity was moving): the carton form's
+   real count decreases, the bottle form's real count increases, each posted against its own
+   contra account (`ensureUnitsTrackingBaseAccounts`'s `onHandId`/`receivedFromId`, the exact
+   mechanism `receiveItems` already uses) within its own real currency (`UNITS-CARTON`,
+   `UNITS-BOTTLE`) — found necessary directly, by a real balance failure: the two forms' real
+   quantities (1 carton, 24 bottles) are genuinely different numbers and can never balance against
+   each other directly, only each against its own contra.
+3. **The item's own Inventory value**, unchanged in total, only re-tagged: the same real dollars
+   move from the carton-tagged Inventory leaf to the bottle-tagged one.
+
+A second, real business rule added: a location with no real bottle shelving (`bottle_capacity`
+null) cannot open a carton at all — there is nowhere for the resulting loose bottles to go.
+
+`openStorageContainer`'s signature changed (added `locationName`, `itemName`) — every caller
+updated: the HTTP route's schema and the frontend's wrapper and page (`/locations`, a new
+item-name field added to its own Open Container form), the Step Runner's registry and
+`screens.csv`, the tutorial data file, and the one direct unit test, whose own assertion ("exactly
+one journal entry") was itself corrected to match the new, real, multi-sided posting (two entries:
+storage-space and the item's own On Hand count, no value entry in that test since it never
+registers a real cost).
+
+**Verified, by direct reconciliation**: the tutorial's own Highland Single Malt 700ml now shows
+exactly -1 in `Units On Hand > Carton` and +24 in `Units On Hand > Bottle`; Main Street Cellar's
+bottle-space accounts remain correctly balanced (68 + 52 = 120) and unaffected by the carton-side
+movement; full backend suite 230/230, full frontend suite 24/24, tutorial 19/19 via the API.
+
 ## A third, confirmed finding: a location's opening capacity balance can be silently lost — FIXED
 
 Found by direct investigation, continuing the "does it correctly account for storage space"

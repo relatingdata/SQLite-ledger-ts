@@ -116,6 +116,8 @@ locationsRouter.post('/convert-storage', requireRole('Administrator', 'Bookkeepe
 const openContainerSchema = z.object({
   business: z.string().min(1),
   ledger: z.string().min(1),
+  location: z.string().min(1),
+  item: z.string().min(1),
   definitionDimensions: z.array(z.tuple([z.string(), z.string()])),
   containerValues: z.array(z.string()),
   cartonsOpened: z.number().int().positive(),
@@ -128,7 +130,7 @@ locationsRouter.post('/open-container', requireRole('Administrator', 'Bookkeeper
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const d = parsed.data;
-    openStorageContainer(asBusinessName(d.business), asLedgerName(d.ledger), d.definitionDimensions, d.containerValues, d.cartonsOpened, d.unitValues, d.unitsProduced, asUserId(req.user!.id), d.reference);
+    openStorageContainer(asBusinessName(d.business), asLedgerName(d.ledger), asLocationName(d.location), asItemName(d.item), d.definitionDimensions, d.containerValues, d.cartonsOpened, d.unitValues, d.unitsProduced, asUserId(req.user!.id), d.reference);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
