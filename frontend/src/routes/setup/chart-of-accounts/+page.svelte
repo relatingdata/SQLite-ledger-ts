@@ -3,7 +3,7 @@
   import { Tree, type LTreeNode } from '@keenmate/svelte-treeview';
   import { getEntityTree, createEntity, updateEntity, deleteEntity, ApiError, type EntityNode } from '$lib/api';
   import { toTreePaths, type TreeItem } from '$lib/treeAdapter';
-  import { auth } from '$lib/state.svelte';
+  import { auth, session } from '$lib/state.svelte';
   import { formatAmount } from '$lib/format';
   import { translations } from '$lib/state.svelte';
 
@@ -52,9 +52,14 @@
     error = '';
     try {
       allEntities = await getEntityTree();
-      const coaRoot = allEntities.find((e) => e.name === 'Chart of Accounts');
+      const biz = allEntities.find((e) => e.name === session.current?.businessName);
+      if (!biz) {
+        error = 'No real business selected.';
+        return;
+      }
+      const coaRoot = allEntities.find((e) => e.name === 'Chart of Accounts' && e.parent_id === biz.id);
       if (!coaRoot) {
-        error = 'No real "Chart of Accounts" entity found.';
+        error = 'No real "Chart of Accounts" entity found for this business.';
         return;
       }
       const included = new Set<number>([coaRoot.id]);

@@ -408,19 +408,14 @@ export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerNa
   const nameCounts = new Map<string, number>();
   for (const a of relevantAccounts) nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1);
 
-  // Per direct request: which of these exact accounts has ever
-  // received a real, direct quantity-tracking posting (unit counts,
-  // never dollars) - checked once, for every relevant account at
-  // once, rather than one query per row.
-  const quantityAccountIds = new Set(
-    relevantAccounts.length === 0
-      ? []
-      : (
-          db
-            .prepare(`SELECT DISTINCT account_id FROM journal_occurrences WHERE reference LIKE '%-QTY' AND account_id IN (${relevantAccounts.map(() => '?').join(',')})`)
-            .all(...relevantAccounts.map((a) => a.id)) as { account_id: number }[]
-        ).map((r) => r.account_id)
-  );
+  // Per direct instruction: no filter of any kind - a real, direct,
+  // structural check on the account's own real currency column
+  // (already present on every account above), not a reference-string
+  // pattern. A non-null currency is itself what a quantity or
+  // storage-space account is, since every one of those is explicitly
+  // tagged via setAccountCurrency - the home currency is the only
+  // null.
+  const quantityAccountIds = new Set(relevantAccounts.filter((a) => a.currency != null).map((a) => a.id));
 
   const rows: TrialBalanceRow[] = accounts
     .map((a) => {

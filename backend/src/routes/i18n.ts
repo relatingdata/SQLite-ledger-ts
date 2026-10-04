@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getLanguages, getLocalizedText, setTranslation, getDefaultLanguage, setDefaultLanguage, getVocabularyAlternates, getConceptsWithAlternates, getVocabularyWords, setVocabularyPreference, deleteVocabularyPreference, getLanguageDirection, setLanguageDirection, ValidationError,
-  asUserId,
+  asUserId, ensureVocabularyAlternate, db,
 } from '../db.js';
 import { requireAuth, requireRole } from '../auth-middleware.js';
 
@@ -84,7 +84,21 @@ i18nRouter.post('/vocabulary-preference', requireAuth, (req, res) => {
   const parsed = vocabularyPreferenceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    setVocabularyPreference(parsed.data.conceptName, parsed.data.scope, parsed.data.scopeId, parsed.data.preferredAlternateName);
+    const { conceptName, scope, scopeId, preferredAlternateName } = parsed.data;
+    // Per direct instruction: a word stays in the real, global
+    // Vocabulary by default. Only the moment a genuinely new name is
+    // chosen - not yet a known entity at all - does it get a real,
+    // local, business-owned Vocabulary word, and even then only after
+    // checking whether a real, global synonym with that exact text
+    // already exists.
+    const alreadyExists = db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(preferredAlternateName);
+    if (!alreadyExists) {
+      if (scope !== 'business') return res.status(400).json({ error: 'A genuinely new name can only be added for a real business, not a user preference alone.' });
+      const businessName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(scopeId) as { name: string } | undefined)?.name;
+      if (!businessName) return res.status(400).json({ error: 'No real business with that id.' });
+      ensureVocabularyAlternate(conceptName, preferredAlternateName, businessName, asUserId(1));
+    }
+    setVocabularyPreference(conceptName, scope, scopeId, preferredAlternateName);
     res.json({ ok: true });
   } catch (err) {
     if (err instanceof ValidationError) return res.status(400).json({ error: err.message });

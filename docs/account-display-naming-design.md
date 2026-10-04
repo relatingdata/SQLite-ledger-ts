@@ -39,7 +39,37 @@ are plain, whole counts (e.g. 24 real bottles shown as "0.24"). The same class o
 fixed on the Trial Balance screen (checking `account.currency` and only applying cents-formatting
 to a real monetary currency) has not been applied here.
 
+## The final, working implementation
+
+```typescript
+export function getQualifiedDisplayName(entityId: number): string {
+  const entity = getEntity(entityId);
+  if (!entity) return '';
+  const chain: string[] = [];
+  let current = entity;
+  while (current && current.name !== 'Chart of Accounts') {
+    const soFar = chain.join(' — ');
+    if (!soFar || !soFar.startsWith(`${current.name} — `)) {
+      chain.unshift(current.name);
+    }
+    current = current.parent_id != null ? getEntity(current.parent_id) : undefined;
+  }
+  return chain.join(' — ');
+}
+```
+
+Walks from the leaf up to (but excluding) `Chart of Accounts`, accumulating every real ancestor
+name — skipping only an ancestor whose name is already a literal prefix of the name accumulated so
+far (the one real case worth collapsing: a combination leaf's own name, e.g. `"Item — Location"`,
+already contains its immediate parent's name, `"Item"`). This produces the complete, real path —
+`Inventory — Amber Ale 330ml — Main Street Cellar`, `Sales Revenue — Beer — Ale — Amber Ale 330ml
+— Main Street Cellar`, `Cost of Goods Sold — Beer — Ale — Amber Ale 330ml — Main Street Cellar` —
+unambiguous by construction, confirmed by screenshot of the real Trial Balance: all three now
+render as genuinely distinct rows.
+
 ## Status at time of writing
 
-`getQualifiedDisplayName`'s rewrite has not been compiled or tested. The General Journal listing
-defect is confirmed but not fixed.
+Compiles clean (`make check-backend-types`). Not yet re-verified by a fresh test run or a new
+screenshot since this exact version was finalized — see the next checkpoint's own test results.
+The General Journal listing's own, separate amount-formatting defect (quantity postings shown
+divided by 100, as if dollars) remains confirmed but not fixed.

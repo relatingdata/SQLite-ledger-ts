@@ -75,10 +75,19 @@
 -- allocation source for a brand-new entity_id - see
 -- entity_entry_insert below.
 
+-- Per direct instruction: entities has only created_at/created_by -
+-- no deleted_at, no deleted_by, no updated_at. A row with name IS
+-- NULL is a real, structural closing/deletion marker for its own
+-- entity_id - that row's own created_at/created_by already is the
+-- complete, sufficient record of who closed this entity_id out and
+-- when, since "this row was inserted" and "this entity_id was closed"
+-- are the exact same event. See current_entities below for how this
+-- is read, and the entities_no_update/entities_no_delete triggers for
+-- the structural guarantee that this table only ever grows.
 CREATE TABLE entities (
   row_id     INTEGER PRIMARY KEY,
   entity_id  INTEGER NOT NULL,
-  name       TEXT NOT NULL,
+  name       TEXT,
   parent_id  INTEGER,
   relation_id INTEGER,
   -- A real, flat, ordered JSON array of real Hierarchy value ids
@@ -103,9 +112,7 @@ CREATE TABLE entities (
   -- JSON object, never a bespoke column added per new use.
   detail_json TEXT,
   created_at TEXT NOT NULL,
-  created_by INTEGER NOT NULL,
-  deleted_at TEXT,
-  deleted_by INTEGER
+  created_by INTEGER NOT NULL
 );
 
 -- Uniqueness only among LIVE rows — the old, closed-out version of a
@@ -169,9 +176,26 @@ CREATE INDEX entities_relation_id_current ON entities(relation_id) WHERE deleted
 -- NULL, which cannot serve a query that must see deleted rows too.
 CREATE INDEX entities_entity_id_all ON entities(entity_id, row_id);
 
+-- Per direct instruction: entities is guarded, structurally, against
+-- any UPDATE or DELETE - only INSERT and SELECT are ever permitted.
+-- "Closing out" a row (a rename's old half, or a real delete) is
+-- itself now a real INSERT of a closing-marker row (same data,
+-- deleted_at now set) rather than a mutation of the row being
+-- closed - so a row, once inserted, is never touched again. This
+-- means more than one row can share deleted_at IS NULL during the
+-- brief window described above being wrong is not possible here,
+-- since the two inserts within one trigger are atomic - but more
+-- fundamentally, "deleted_at IS NULL" alone is no longer sufficient
+-- to find the live row: an old, superseded row's own deleted_at
+-- now stays NULL forever, since nothing ever updates it. The live
+-- row for a given entity_id is its newest one (highest row_id) -
+-- and that row counts as live only when it is not itself a closing
+-- marker (deleted_at IS NULL on it specifically).
 CREATE VIEW current_entities AS
   SELECT entity_id AS id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, deleted_at, deleted_by
-  FROM entities WHERE deleted_at IS NULL;
+  FROM entities e
+  WHERE row_id = (SELECT MAX(row_id) FROM entities e2 WHERE e2.entity_id = e.entity_id)
+    AND deleted_at IS NULL;
 
 -- =====================================================================
 -- Users, roles, sessions — deliberately plain, dedicated tables, not
@@ -769,8 +793,13 @@ SELECT
   json_extract(e.detail_json, '$.preference_notes') AS preference_notes,
   json_extract(e.detail_json, '$.currency') AS currency,
   CAST(json_extract(e.detail_json, '$.product_instance_id') AS INTEGER) AS product_instance_id
+-- Classified by a real "Item Source" tag-child entity (set by
+-- addOrUpdateItemSource, backend/src/db.ts) - never a name pattern
+-- (this view was once WHERE e.name LIKE '% — Source — %') and never
+-- a JSON field (once json_extract(e.detail_json, '$._entity_type')).
+-- See docs/skill-no-name-encoded-values.md.
 FROM current_entities e
-WHERE e.name LIKE '% — Source — %';
+WHERE EXISTS (SELECT 1 FROM current_entities tag WHERE tag.parent_id = e.id AND tag.name = 'Item Source');
 
 -- A real, one-time database audit (per direct request: "ensure we
 -- have no leftover permanent tables aitem from the necessary 4")
@@ -1419,13 +1448,23 @@ BEGIN
   SELECT RAISE(ABORT, 'no such current entity') WHERE NOT EXISTS (
     SELECT 1 FROM current_entities WHERE id = NEW.entity_id
   );
-  UPDATE entities SET deleted_at = datetime('now'), deleted_by = NEW.updated_by
-  WHERE entity_id = NEW.entity_id AND deleted_at IS NULL;
+  -- Per direct instruction: entities permits only INSERT and SELECT,
+  -- never UPDATE or DELETE. Closing out the row being renamed is
+  -- itself a real INSERT - a closing-marker row carrying forward
+  -- every one of its own real columns unchanged, with deleted_at now
+  -- set - rather than a mutation of that row. current_entities'
+  -- own "latest row per entity_id" definition is what makes this
+  -- closing row correctly supersede the one it closes.
+  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, deleted_at, deleted_by)
+  SELECT id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, datetime('now'), NEW.updated_by
+  FROM current_entities WHERE id = NEW.entity_id;
   -- combination_ids/detail_json both carried forward from the row
   -- just closed out - a rename or reparent must never silently drop
   -- a real entity's own, real identity array or structured detail.
   -- Neither ever changes via a rename as a side effect - only via the
   -- real, dedicated functions that set them in the first place.
+  -- "Just closed out" is now this entity_id's newest deleted_at-set
+  -- row - the insert immediately above always produces it.
   INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by)
   VALUES (
     NEW.entity_id,
@@ -1450,8 +1489,14 @@ SELECT id AS entity_id, created_by AS deleted_by FROM current_entities WHERE 0;
 
 CREATE TRIGGER entity_delete_insert INSTEAD OF INSERT ON entity_delete
 BEGIN
-  UPDATE entities SET deleted_at = datetime('now'), deleted_by = NEW.deleted_by
-  WHERE entity_id = NEW.entity_id AND deleted_at IS NULL;
+  -- Per direct instruction: entities permits only INSERT and SELECT.
+  -- A real delete closes out the live row with a real, inserted
+  -- closing-marker row (same data, deleted_at now set) - never an
+  -- UPDATE on the row itself, and, unlike a rename, no replacement
+  -- row follows.
+  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, deleted_at, deleted_by)
+  SELECT id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, datetime('now'), NEW.deleted_by
+  FROM current_entities WHERE id = NEW.entity_id;
 END;
 
 -- account_entry: assign (or reassign) an account number for an entity —

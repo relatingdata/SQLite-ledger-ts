@@ -23,7 +23,6 @@ import {
   resolveItemId,
   setDimensionParent,
   setEntityLink,
-  deleteEntityLink,
   stageLine,
   updateEntity,
   deleteEntity,
@@ -631,69 +630,65 @@ export function getStockMovementReport(ledgerName: string, fromDate?: string, to
   const categories = allItemCategories();
   const vendors = allPreferredProviders();
 
-  const receiptRows = db
+  const movementRows = db
     .prepare(
-      `SELECT p.name AS item, l.name AS location, jl.amount_minor AS quantity, j.transdate AS date
+      `SELECT jl.journal_id, j.reference, p.name AS item, l.name AS location, jl.amount_minor AS quantity, j.transdate AS date
        FROM journal_line jl
        JOIN journal j ON j.id = jl.journal_id
        JOIN current_entities p ON p.id = jl.account_id
        JOIN current_entities l ON l.id = jl.location_id
-       WHERE j.ledger_id = ? AND j.reference LIKE '%-RECV' ${dateFilter}
+       WHERE j.ledger_id = ? ${dateFilter}
        ORDER BY j.transdate, l.name, p.name`
     )
-    .all(ledgerId, ...dateParams) as { item: string; location: string; quantity: number; date: string }[];
-  const receipts: OrderReceiptRow[] = receiptRows.map((r) => ({
-    item: r.item,
-    category: categories.get(r.item) ?? null,
-    quantity: r.quantity,
-    date: r.date,
-    location: r.location,
-    division: cityDivisionFor(r.location) ?? null,
-    vendor: vendors.get(r.item) ?? null,
-  }));
-
-  const transferLegRows = db
-    .prepare(
-      `SELECT jl.journal_id, p.name AS item, l.name AS location, jl.amount_minor AS quantity, j.transdate AS date
-       FROM journal_line jl
-       JOIN journal j ON j.id = jl.journal_id
-       JOIN current_entities p ON p.id = jl.account_id
-       JOIN current_entities l ON l.id = jl.location_id
-       WHERE j.ledger_id = ? AND j.reference LIKE '%-XFER%' ${dateFilter}
-       ORDER BY j.transdate, p.name`
-    )
-    .all(ledgerId, ...dateParams) as { journal_id: number; item: string; location: string; quantity: number; date: string }[];
-  const legsByJournalId = new Map<number, typeof transferLegRows>();
-  for (const r of transferLegRows) {
-    if (!legsByJournalId.has(r.journal_id)) legsByJournalId.set(r.journal_id, []);
-    legsByJournalId.get(r.journal_id)!.push(r);
+    .all(ledgerId, ...dateParams) as { journal_id: number; reference: string; item: string; location: string; quantity: number; date: string }[];
+  const movementsByJournalId = new Map<number, typeof movementRows>();
+  for (const r of movementRows) {
+    if (!movementsByJournalId.has(r.journal_id)) movementsByJournalId.set(r.journal_id, []);
+    movementsByJournalId.get(r.journal_id)!.push(r);
   }
+
+  const receipts: OrderReceiptRow[] = [];
   const transfers: StockTransferRow[] = [];
-  for (const legs of legsByJournalId.values()) {
-    const outLeg = legs.find((l) => l.quantity < 0);
-    const inLeg = legs.find((l) => l.quantity > 0);
-    if (!outLeg || !inLeg) continue; // a real, genuine quantity movement that isn't actually a two-legged transfer — skip rather than guess
-    transfers.push({
-      item: inLeg.item,
-      category: categories.get(inLeg.item) ?? null,
-      quantity: inLeg.quantity,
-      date: inLeg.date,
-      from_location: outLeg.location,
-      to_location: inLeg.location,
-    });
+  const saleRows: { reference: string; item: string; location: string; quantity: number; date: string }[] = [];
+  for (const lines of movementsByJournalId.values()) {
+    const distinctLocations = new Set(lines.map((l) => l.location));
+    if (distinctLocations.size === 2) {
+      // Two real, distinct locations sharing this one, real journal
+      // entry is structurally what a transfer's own two legs are -
+      // one location's own count decreasing, the other's increasing.
+      const outLeg = lines.find((l) => l.quantity < 0);
+      const inLeg = lines.find((l) => l.quantity > 0);
+      if (!outLeg || !inLeg) continue;
+      transfers.push({
+        item: inLeg.item,
+        category: categories.get(inLeg.item) ?? null,
+        quantity: inLeg.quantity,
+        date: inLeg.date,
+        from_location: outLeg.location,
+        to_location: inLeg.location,
+      });
+    } else {
+      // One real location: a positive quantity is stock arriving (a
+      // receipt), a negative quantity is stock leaving (a dispatch) -
+      // the sign itself is the real, structural distinction, never a
+      // reference-string pattern.
+      for (const r of lines) {
+        if (r.quantity > 0) {
+          receipts.push({
+            item: r.item,
+            category: categories.get(r.item) ?? null,
+            quantity: r.quantity,
+            date: r.date,
+            location: r.location,
+            division: cityDivisionFor(r.location) ?? null,
+            vendor: vendors.get(r.item) ?? null,
+          });
+        } else if (r.quantity < 0) {
+          saleRows.push(r);
+        }
+      }
+    }
   }
-
-  const saleRows = db
-    .prepare(
-      `SELECT j.reference, p.name AS item, l.name AS location, jl.amount_minor AS quantity, j.transdate AS date
-       FROM journal_line jl
-       JOIN journal j ON j.id = jl.journal_id
-       JOIN current_entities p ON p.id = jl.account_id
-       JOIN current_entities l ON l.id = jl.location_id
-       WHERE j.ledger_id = ? AND j.reference LIKE '%-DISPATCH-%' AND jl.amount_minor < 0 ${dateFilter}
-       ORDER BY j.transdate, l.name, p.name`
-    )
-    .all(ledgerId, ...dateParams) as { reference: string; item: string; location: string; quantity: number; date: string }[];
 
   const salesPostings = db
     .prepare(
@@ -1018,36 +1013,27 @@ export function getBelowReorderStock(): BelowReorderRow[] {
 }
 
 export function setItemSourceLeadTime(itemName: ItemName, vendorName: ProviderName, days: number, userId: UserId): void {
-  const existing = db
-    .prepare(
-      `SELECT child.name AS link_name
-       FROM current_entities child
-       JOIN current_entities parent ON parent.id = child.parent_id
-       WHERE parent.name = ? AND child.name LIKE ? || ' — Lead Time: ' || ? || ' (%'`
-    )
-    .get(itemName, itemName, vendorName) as { link_name: string } | undefined;
-  if (existing) {
-    const oldLinkType = existing.link_name.slice(`${itemName} — `.length);
-    deleteEntityLink(itemName, oldLinkType, userId);
+  const linkType = `Lead Time — ${vendorName}`;
+  setEntityLink(itemName, linkType, vendorName, userId);
+  const record = Entity.get(`${itemName} — ${linkType}`, itemName);
+  if (record) {
+    Entity.tag(record.id, 'Lead Time', userId);
+    Entity.setAttr(record.id, 'Days', String(days), userId);
   }
-  setEntityLink(itemName, `Lead Time: ${vendorName} (${days} days)`, vendorName, userId);
 }
 
 export function getItemLeadTimes(itemName: ItemName): { vendor: string; days: number }[] {
   const rows = db
     .prepare(
-      `SELECT child.name AS link_name
+      `SELECT child.id, target.name AS vendor
        FROM current_entities child
        JOIN current_entities parent ON parent.id = child.parent_id
-       WHERE parent.name = ? AND child.name LIKE ? || ' — Lead Time: %'`
+       JOIN current_entities target ON target.id = child.relation_id
+       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Lead Time'
+       WHERE parent.name = ?`
     )
-    .all(itemName, itemName) as { link_name: string }[];
-  const results: { vendor: string; days: number }[] = [];
-  for (const row of rows) {
-    const match = row.link_name.match(/ — Lead Time: (.+) \((\d+) days\)$/);
-    if (match) results.push({ vendor: match[1], days: parseInt(match[2], 10) });
-  }
-  return results;
+    .all(itemName) as { id: number; vendor: string }[];
+  return rows.map((row) => ({ vendor: row.vendor, days: Number(Entity.getAttr(row.id, 'Days') ?? 0) }));
 }
 
 export interface StockOutRiskRow {

@@ -3223,7 +3223,7 @@ export function getQualifiedDisplayName(entityId: number): string {
     // ensureCombinationAccountLeaf's "Item — Location" under a parent
     // also named "Item"), never collapsed further than that.
     const soFar = chain.join(' — ');
-    if (!(soFar && soFar.startsWith(`${current.name} — `)) && current.name !== soFar.split(' — ')[0]) {
+    if (!soFar || !soFar.startsWith(`${current.name} — `)) {
       chain.unshift(current.name);
     }
     current = current.parent_id != null ? getEntity(current.parent_id) : undefined;
@@ -3314,7 +3314,7 @@ export function resolveDispatchLocation(itemName: ItemName, logicalLocationName:
       `SELECT cold.name
        FROM current_entities cold
        JOIN current_entities logical ON logical.id = cold.relation_id
-       WHERE logical.name = ? AND cold.name LIKE '%Refrigerated%'`
+       WHERE logical.name = ?`
     )
     .get(logicalLocationName) as { name: string } | undefined;
   return coldSubLocation ? asLocationName(coldSubLocation.name) : logicalLocationName;
@@ -4036,8 +4036,11 @@ export function signOn(employeeName: string, locationName: string): PosShift {
   if (!location) throw new ValidationError(`No location named "${locationName}".`);
   const contact = db.prepare(`SELECT pos_pin FROM contact WHERE entity_id = ?`).get(employee.id) as { pos_pin: string | null } | undefined;
   if (!contact?.pos_pin) throw new ValidationError(`"${employeeName}" has no real PIN set yet — cannot sign on.`);
+  // No JSON, no wildcard: a real, presence-only "Open" tag-child
+  // entity, matched exactly - never a name suffix and never a JSON
+  // field.
   const alreadyOpen = db
-    .prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? AND name LIKE '% — Open'`)
+    .prepare(`SELECT 1 FROM current_entities parent JOIN current_entities tag ON tag.parent_id = parent.id AND tag.name = 'Open' WHERE parent.id = ?`)
     .get(employee.id);
   if (alreadyOpen) throw new ValidationError(`"${employeeName}" is already signed on somewhere — sign off first.`);
   const signedOnAt = new Date().toISOString();
@@ -4045,10 +4048,13 @@ export function signOn(employeeName: string, locationName: string): PosShift {
   // across shifts, unlike the Period Lock entity, since this
   // application's own, real timecard needs every real, past shift
   // kept as its own, distinct, queryable record, not just the latest
-  // state. relation_id points directly at the real location - no
-  // string-encoding needed for that part, unlike the timestamp.
-  const shiftEntity = Entity.create(`${employeeName} — Shift — ${signedOnAt} — Open`, employee.id, asUserId(1));
+  // state. relation_id points directly at the real location. The
+  // shift's own, real created_at column is its real signed_on_at -
+  // no separate attribute needed for a fact this entity's own
+  // creation already records.
+  const shiftEntity = Entity.create(`${employeeName} — Shift — ${signedOnAt}`, employee.id, asUserId(1));
   updateEntity(shiftEntity.id, { relation: locationName }, asUserId(1));
+  Entity.tag(shiftEntity.id, 'Open', asUserId(1));
   return { id: shiftEntity.id, employee: employeeName, location: locationName, signed_on_at: signedOnAt, signed_off_at: null };
 }
 
@@ -4066,54 +4072,54 @@ export function verifyPosPin(employeeName: string, pin: string): boolean {
  * genuine end timestamp against that same shift, closing the real
  * timecard record it started. */
 export function signOff(shiftId: number): void {
-  const shift = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(shiftId) as { name: string } | undefined;
-  if (!shift) throw new ValidationError(`No real shift with id ${shiftId}.`);
-  if (!shift.name.endsWith(' — Open')) throw new ValidationError(`This shift is already signed off.`);
+  if (!Entity.hasTag(shiftId, 'Open')) throw new ValidationError(`No real shift with id ${shiftId}, or it is already signed off.`);
   const signedOffAt = new Date().toISOString();
-  updateEntity(shiftId, { name: `${shift.name.slice(0, -' — Open'.length)} — Closed at ${signedOffAt}` }, asUserId(1));
+  const openTag = Entity.getUnder('Open', shiftId);
+  if (openTag) Entity.delete(openTag.id, asUserId(1));
+  Entity.setAttr(shiftId, 'Signed Off At', signedOffAt, asUserId(1));
 }
 
-function parseShiftEntity(row: { id: number; employee: string; location: string; name: string }): PosShift {
-  // Real shift entity name shape: "<employee> — Shift — <signed_on_at> — Open" or "... — Closed at <signed_off_at>".
-  const afterShiftMarker = row.name.split(' — Shift — ')[1];
-  const [signedOnAt, statusPart] = afterShiftMarker.split(' — ');
-  const signed_off_at = statusPart.startsWith('Closed at ') ? statusPart.slice('Closed at '.length) : null;
-  return { id: row.id, employee: row.employee, location: row.location, signed_on_at: signedOnAt, signed_off_at };
+function parseShiftEntity(row: { id: number; employee: string; location: string; created_at: string }): PosShift {
+  return { id: row.id, employee: row.employee, location: row.location, signed_on_at: row.created_at, signed_off_at: Entity.getAttr(row.id, 'Signed Off At') ?? null };
 }
 
 /** Every real, currently-open shift at a given location — the real,
  * shared, server-side state every terminal at that same location
  * queries, per direct requirement: signing on at any one terminal
  * must activate that clerk's "sales clerk" button on every terminal
- * at that same location, not just the one they signed on at. */
+ * at that same location, not just the one they signed on at. No
+ * JSON, no wildcard: a real, presence-only "Open" tag, matched
+ * exactly. */
 export function getActiveShiftsAtLocation(locationName: string): PosShift[] {
   const rows = db
     .prepare(
-      `SELECT s.id, emp.name AS employee, loc.name AS location, s.name
+      `SELECT s.id, emp.name AS employee, loc.name AS location, s.created_at
        FROM current_entities s
        JOIN current_entities emp ON emp.id = s.parent_id
        JOIN current_entities loc ON loc.id = s.relation_id
-       WHERE loc.name = ? AND s.name LIKE '% — Shift — % — Open'
+       JOIN current_entities tag ON tag.parent_id = s.id AND tag.name = 'Open'
+       WHERE loc.name = ?
        ORDER BY s.created_at`
     )
-    .all(locationName) as { id: number; employee: string; location: string; name: string }[];
+    .all(locationName) as { id: number; employee: string; location: string; created_at: string }[];
   return rows.map(parseShiftEntity);
 }
 
 /** A real employee's own, real, currently-open shift, if any —
  * regardless of location. Used to confirm a specific employee is
  * genuinely signed on before letting them act as the active clerk on
- * a real sale. */
+ * a real sale. No JSON, no wildcard, same as above. */
 export function getOpenShiftForEmployee(employeeName: string): PosShift | undefined {
   const row = db
     .prepare(
-      `SELECT s.id, emp.name AS employee, loc.name AS location, s.name
+      `SELECT s.id, emp.name AS employee, loc.name AS location, s.created_at
        FROM current_entities s
        JOIN current_entities emp ON emp.id = s.parent_id
        JOIN current_entities loc ON loc.id = s.relation_id
-       WHERE emp.name = ? AND s.name LIKE '% — Shift — % — Open'`
+       JOIN current_entities tag ON tag.parent_id = s.id AND tag.name = 'Open'
+       WHERE emp.name = ?`
     )
-    .get(employeeName) as { id: number; employee: string; location: string; name: string } | undefined;
+    .get(employeeName) as { id: number; employee: string; location: string; created_at: string } | undefined;
   return row ? parseShiftEntity(row) : undefined;
 }
 
@@ -4582,6 +4588,11 @@ export function setEntityLink(entityName: string, linkType: string, targetName: 
   if (!record) {
     const created = create(parentNode, typeEntityLinkRecordName, recordName, userId);
     record = { id: created.id, name: created.name };
+    // No JSON, no wildcard: the real link type is a real, named
+    // tag-child entity of this link record, found later by an exact
+    // (parent, name) match (Link.withTarget), never by inspecting
+    // this record's own name for a pattern and never a JSON field.
+    Entity.tag(record.id, linkType, userId);
   }
   updateEntity(record.id, targetId != null ? { relationId: targetId } : { relation: targetName }, userId);
   return recordName;
@@ -4605,7 +4616,20 @@ export function getEntityLink(entityName: string, linkType: string): string | un
 export function deleteEntityLink(entityName: string, linkType: string, userId: UserId): void {
   const recordName = `${entityName} — ${linkType}`;
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
-  if (record) deleteEntity(record.id, userId);
+  if (record) {
+    // This link record's own, known tag/attribute children (set by
+    // Entity.tag/setAttr when the link was created) are safe to
+    // delete here, specifically, since this caller knows exactly
+    // what it itself put there - never a blanket cascade in
+    // deleteEntity, which has no way to distinguish these from a
+    // genuine, separate, structural child it must never silently
+    // delete.
+    for (const child of Entity.children(record.id)) {
+      for (const grandchild of Entity.children(child.id)) deleteEntity(grandchild.id, userId);
+      deleteEntity(child.id, userId);
+    }
+    deleteEntity(record.id, userId);
+  }
 }
 
 /** One real, staged Bill-of-Materials component line, not yet posted. */
@@ -4631,66 +4655,51 @@ export function postBomComponents(assemblyItem: string, business: string, userId
     .prepare(`SELECT component_item, quantity, unit FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`)
     .all(assemblyItem, business) as { component_item: string; quantity: number; unit: string }[];
   for (const row of rows) {
-    // A real, existing link for this same component (any old
-    // quantity) must be removed first - the quantity lives inside the
-    // link-type string itself, so a changed quantity is a genuinely
-    // different name to setEntityLink's own exact-match replace logic,
-    // and would otherwise create a real, duplicate second link rather
-    // than replacing the old one. Confirmed directly by a real test
-    // failure (3 components instead of 2) before this fix.
-    const existingLinks = db
-      .prepare(
-        `SELECT child.name AS link_name
-         FROM current_entities child
-         JOIN current_entities parent ON parent.id = child.parent_id
-         WHERE parent.name = ? AND child.name LIKE ? || ' — BOM: ' || ? || ' (%'`
-      )
-      .all(assemblyItem, assemblyItem, row.component_item) as { link_name: string }[];
-    for (const existing of existingLinks) {
-      const oldLinkType = existing.link_name.slice(`${assemblyItem} — `.length);
-      deleteEntityLink(assemblyItem, oldLinkType, userId);
-    }
-    const linkType = `BOM: ${row.component_item} (${row.quantity}${row.unit})`;
+    // No JSON, no wildcard: the link name is fixed and deterministic
+    // per component (setEntityLink's own exact-match find-or-create
+    // handles "update this component's own existing link" on its
+    // own), tagged "BOM" to find every component at once, with the
+    // real quantity and unit each their own real, named child entity,
+    // replaced in place - never a changed value producing a
+    // genuinely different name and a real, duplicate second link.
+    const linkType = `BOM — ${row.component_item}`;
     setEntityLink(assemblyItem, linkType, row.component_item, userId);
+    const record = Entity.get(`${assemblyItem} — ${linkType}`, assemblyItem);
+    if (record) {
+      Entity.tag(record.id, 'BOM', userId);
+      Entity.setAttr(record.id, 'Quantity', String(row.quantity), userId);
+      Entity.setAttr(record.id, 'Unit', row.unit, userId);
+    }
   }
   db.prepare(`DELETE FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`).run(assemblyItem, business);
 }
 
 /** Removes one real, posted BOM component by component name (ignoring
- * its current quantity), mirroring the same lookup already proven
- * inside postBomComponents. */
+ * its current quantity) - a direct, exact delete, no filter needed
+ * since the link name is fixed and deterministic per component. */
 export function deleteBomComponent(assemblyItem: string, componentItem: string, userId: UserId): void {
-  const existingLinks = db
-    .prepare(
-      `SELECT child.name AS link_name
-       FROM current_entities child
-       JOIN current_entities parent ON parent.id = child.parent_id
-       WHERE parent.name = ? AND child.name LIKE ? || ' — BOM: ' || ? || ' (%'`
-    )
-    .all(assemblyItem, assemblyItem, componentItem) as { link_name: string }[];
-  for (const existing of existingLinks) {
-    const linkType = existing.link_name.slice(`${assemblyItem} — `.length);
-    deleteEntityLink(assemblyItem, linkType, userId);
-  }
+  deleteEntityLink(assemblyItem, `BOM — ${componentItem}`, userId);
 }
 
-/** Every real, posted BOM component for one assembly Item, parsed
- * back out of its own link-entity name. */
+/** Every real, posted BOM component for one assembly Item, read
+ * directly from each link's own, real attribute children - never
+ * JSON, never parsed back out of a name. */
 export function getBomComponents(assemblyItem: string): { component: string; quantity: number; unit: string }[] {
   const rows = db
     .prepare(
-      `SELECT child.name AS link_name
+      `SELECT child.id, target.name AS component
        FROM current_entities child
        JOIN current_entities parent ON parent.id = child.parent_id
-       WHERE parent.name = ? AND child.name LIKE ? || ' — BOM: %'`
+       JOIN current_entities target ON target.id = child.relation_id
+       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'BOM'
+       WHERE parent.name = ?`
     )
-    .all(assemblyItem, assemblyItem) as { link_name: string }[];
-  const results: { component: string; quantity: number; unit: string }[] = [];
-  for (const row of rows) {
-    const match = row.link_name.match(/ — BOM: (.+) \(([0-9.]+)([a-z]+)\)$/);
-    if (match) results.push({ component: match[1], quantity: parseFloat(match[2]), unit: match[3] });
-  }
-  return results;
+    .all(assemblyItem) as { id: number; component: string }[];
+  return rows.map((row) => ({
+    component: row.component,
+    quantity: Number(Entity.getAttr(row.id, 'Quantity') ?? 0),
+    unit: Entity.getAttr(row.id, 'Unit') ?? '',
+  }));
 }
 
 /** A real Task, per direct instruction with NO new tables of any
@@ -4738,39 +4747,35 @@ export function addTaskDependency(
   dependencyType: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish',
   userId: UserId
 ): void {
-  // A real task's own entity name has its schedule baked directly
-  // into it (e.g. "Frame the walls (2026-09-06 to 2026-09-12)") - a
-  // real, direct lookup by prefix resolves the caller's plain task
-  // name to that real, full name before using it, rather than
-  // assuming the caller already knows the exact, full name.
-  const resolve = (plainName: string): string => {
-    const row = db.prepare(`SELECT name FROM current_entities WHERE name LIKE ? || ' (%'`).get(plainName) as { name: string } | undefined;
-    return row?.name ?? plainName;
-  };
-  const dependentFullName = resolve(dependentTask);
-  const predecessorFullName = resolve(predecessorTask);
-  const linkType = `Depends On: ${predecessorTask} (${dependencyType})`;
-  setEntityLink(dependentFullName, linkType, predecessorFullName, userId);
+  // No JSON, no wildcard: both task names are the real, exact, full
+  // entity names the caller already has - never a plain name resolved
+  // by a prefix guess. The link name is fixed and deterministic per
+  // predecessor, tagged "Dependency" to find every predecessor at
+  // once, with the real dependency type its own, named child entity.
+  const linkType = `Depends On — ${predecessorTask}`;
+  setEntityLink(dependentTask, linkType, predecessorTask, userId);
+  const record = Entity.get(`${dependentTask} — ${linkType}`, dependentTask);
+  if (record) {
+    Entity.tag(record.id, 'Dependency', userId);
+    Entity.setAttr(record.id, 'Dependency Type', dependencyType, userId);
+  }
 }
 
 /** Every real predecessor of one real task, with its real dependency
- * type, parsed back out of its own link-entity's own name. */
+ * type, read directly from each link's own, real attribute child -
+ * never JSON, never parsed back out of a name. */
 export function getTaskDependencies(dependentTask: string): { predecessor: string; dependencyType: string }[] {
-  const resolved = (db.prepare(`SELECT name FROM current_entities WHERE name LIKE ? || ' (%'`).get(dependentTask) as { name: string } | undefined)?.name ?? dependentTask;
   const rows = db
     .prepare(
-      `SELECT child.name AS link_name
+      `SELECT child.id, target.name AS predecessor
        FROM current_entities child
        JOIN current_entities parent ON parent.id = child.parent_id
-       WHERE parent.name = ? AND child.name LIKE ? || ' — Depends On: %'`
+       JOIN current_entities target ON target.id = child.relation_id
+       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Dependency'
+       WHERE parent.name = ?`
     )
-    .all(resolved, resolved) as { link_name: string }[];
-  const results: { predecessor: string; dependencyType: string }[] = [];
-  for (const row of rows) {
-    const match = row.link_name.match(/ — Depends On: (.+) \((\w+)\)$/);
-    if (match) results.push({ predecessor: match[1], dependencyType: match[2] });
-  }
-  return results;
+    .all(dependentTask) as { id: number; predecessor: string }[];
+  return rows.map((row) => ({ predecessor: row.predecessor, dependencyType: Entity.getAttr(row.id, 'Dependency Type') ?? '' }));
 }
 
 /** The real, generic "dimension" mechanism from
@@ -5689,6 +5694,7 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
     const created = Entity.create(sourceName, itemId, asUserId(1));
     updateEntity(created.id, { relation: input.vendorName }, asUserId(1));
     db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(detail, created.id);
+    Entity.tag(created.id, 'Item Source', asUserId(1));
   }
 }
 
@@ -5926,7 +5932,7 @@ export function listCurrencyPairs(currencies: string[]): { from: string; to: str
 }
 
 export function deleteItemSource(id: number): void {
-  const row = db.prepare(`SELECT id FROM current_entities WHERE id = ? AND name LIKE '% — Source — %'`).get(id) as { id: number } | undefined;
+  const row = Entity.hasTag(id, 'Item Source') ? { id } : undefined;
   if (!row) throw new NotFoundError(`No item source with id ${id}.`);
   deleteEntity(id, asUserId(1));
 }
@@ -6328,7 +6334,7 @@ export function getConceptsWithAlternates(): ConceptWithAlternates[] {
        FROM current_entities link
        JOIN current_entities target ON target.id = link.relation_id
        JOIN current_entities orig ON orig.id = link.parent_id
-       WHERE link.name LIKE orig.name || ' — Dimension: Header Account'`
+       WHERE link.name = orig.name || ' — Dimension: Header Account'`
     )
     .all() as { target_name: string; entity_name: string; entity_id: number }[];
   const byTarget = new Map<string, { name: string; id: number }[]>();
@@ -6345,6 +6351,32 @@ export function getConceptsWithAlternates(): ConceptWithAlternates[] {
     }));
 }
 
+/** Per direct instruction: a word and its translations stay owned by
+ * the one, real, global Vocabulary by default and are never copied
+ * into a business's own Vocabulary just because that business adopted
+ * them. Only the moment a business (or user) actually chooses a
+ * genuinely new name not already known anywhere does a real, local,
+ * business-owned Vocabulary word get created for it - and even then,
+ * only after first checking whether that exact text already exists as
+ * a real, global synonym for some other concept, reusing that same,
+ * real entity rather than creating a redundant, duplicate one. The
+ * concept's own "Header Account" Dimension link (the same, real,
+ * established synonym mechanism getConceptsWithAlternates already
+ * reads) is created pointing at this one, real alternate either way -
+ * setVocabularyPreference and getLocalizedText that follow never care
+ * which case applied, since relation_id just points at whichever
+ * real entity now carries the name. */
+export function ensureVocabularyAlternate(conceptName: string, desiredText: string, businessName: string, userId: UserId): string {
+  const existingAnywhere = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(desiredText) as { id: number } | undefined;
+  if (!existingAnywhere) {
+    const businessVocabulary = requireEntity('Vocabulary', typeRootName, requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName)));
+    create(businessVocabulary, typeRootName, desiredText, userId);
+  }
+  const alreadyLinked = db.prepare(`SELECT 1 FROM current_entities link JOIN current_entities target ON target.id = link.relation_id WHERE link.name = ? AND target.name = ?`).get(`${desiredText} — Dimension: Header Account`, conceptName);
+  if (!alreadyLinked) setEntityLink(desiredText, 'Dimension: Header Account', conceptName, userId);
+  return desiredText;
+}
+
 export function setVocabularyPreference(conceptName: string, scope: 'business' | 'user', scopeId: number, preferredAlternateName: string): void {
   const conceptId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined)?.id;
   if (!conceptId) throw new ValidationError(`No real entity named "${conceptName}".`);
@@ -6359,12 +6391,10 @@ export function setVocabularyPreference(conceptName: string, scope: 'business' |
   // alternate - the one, real fact this preference actually records.
   const prefName = `${conceptName} — Preference — ${scope}:${scopeId}`;
   const existing = Entity.getUnder(prefName, conceptId);
-  if (existing) {
-    updateEntity(existing.id, { relation: preferredAlternateName }, asUserId(1));
-  } else {
-    const created = Entity.create(prefName, conceptId, asUserId(1));
-    updateEntity(created.id, { relation: preferredAlternateName }, asUserId(1));
-  }
+  const record = existing ?? Entity.create(prefName, conceptId, asUserId(1));
+  updateEntity(record.id, { relation: preferredAlternateName }, asUserId(1));
+  Entity.tag(record.id, scope, asUserId(1));
+  Entity.setAttr(record.id, 'Scope Id', String(scopeId), asUserId(1));
 }
 
 export function deleteVocabularyPreference(conceptName: string, scope: 'business' | 'user', scopeId: number): void {
@@ -6395,11 +6425,14 @@ export function getLocalizedText(language: string, opts?: { businessName?: strin
   const businessId = opts.businessName ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(opts.businessName) as { id: number } | undefined)?.id : undefined;
   const preferences = db
     .prepare(
-      `SELECT pref.parent_id AS concept_id, alt.name AS alternate_name,
-              CASE WHEN pref.name LIKE '% — Preference — user:%' THEN 'user' ELSE 'business' END AS scope
+      `SELECT pref.parent_id AS concept_id, alt.name AS alternate_name, tag.name AS scope
        FROM current_entities pref
        JOIN current_entities alt ON alt.id = pref.relation_id
-       WHERE (pref.name LIKE '% — Preference — user:' || ?) OR (pref.name LIKE '% — Preference — business:' || ?)`
+       JOIN current_entities tag ON tag.parent_id = pref.id AND tag.name IN ('user', 'business')
+       JOIN current_entities scopeAttrType ON scopeAttrType.parent_id = pref.id AND scopeAttrType.name = 'Scope Id'
+       JOIN current_entities scopeAttrValue ON scopeAttrValue.parent_id = scopeAttrType.id
+       WHERE (tag.name = 'user' AND CAST(scopeAttrValue.name AS INTEGER) = ?)
+          OR (tag.name = 'business' AND CAST(scopeAttrValue.name AS INTEGER) = ?)`
     )
     .all(opts.userId ?? -1, businessId ?? -1) as { concept_id: number; scope: 'business' | 'user'; alternate_name: string }[];
   if (preferences.length === 0) return map;

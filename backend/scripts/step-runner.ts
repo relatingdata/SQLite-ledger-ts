@@ -149,14 +149,14 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const ledger = db.asLedgerName('Actual');
     const packRow = db.db
       .prepare(
-        `SELECT isrc.detail_json AS detail_json
-         FROM current_entities item
-         JOIN current_entities isrc ON isrc.parent_id = item.id AND isrc.name LIKE item.name || ' — Source — %'
-         JOIN current_entities vendor ON vendor.id = isrc.relation_id
+        `SELECT src.package_quantity AS package_quantity
+         FROM item_source src
+         JOIN current_entities item ON item.id = src.item_id
+         JOIN current_entities vendor ON vendor.id = src.vendor_id
          WHERE item.name = ? AND vendor.name = ?
-         ORDER BY isrc.id DESC LIMIT 1`
-      ).get(a.itemName, a.providerName) as { detail_json: string } | undefined;
-    const packageQuantity = packRow ? (JSON.parse(packRow.detail_json).package_quantity ?? 1) : 1;
+         ORDER BY src.id DESC LIMIT 1`
+      ).get(a.itemName, a.providerName) as { package_quantity: number | null } | undefined;
+    const packageQuantity = packRow?.package_quantity ?? 1;
     const cartons = Number(a.cartons);
     const quantity = cartons * packageQuantity;
     const priceMinorPerUnit = Math.round(Number(a.pricePerCartonMinor) / packageQuantity);

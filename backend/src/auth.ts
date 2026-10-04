@@ -42,7 +42,7 @@ function setUserDetail(userId: number, detail: UserDetail): void {
 function getUserRoleNames(userId: number): string[] {
   return (
     db
-      .prepare(`SELECT role.name FROM current_entities link JOIN current_entities role ON role.id = link.relation_id WHERE link.parent_id = ? AND link.name LIKE '% — Role — %'`)
+      .prepare(`SELECT role.name FROM current_entities link JOIN current_entities role ON role.id = link.relation_id JOIN current_entities tag ON tag.parent_id = link.id AND tag.name = 'Role' WHERE link.parent_id = ?`)
       .all(userId) as { name: string }[]
   ).map((r) => r.name);
 }
@@ -89,12 +89,13 @@ export function setUserRoles(userId: number, roleNames: string[]): void {
     if (!row) throw new ValidationError(`No such role "${name}".`);
     return { id: row.id, name };
   });
-  const existingLinks = db.prepare(`SELECT id FROM current_entities WHERE parent_id = ? AND name LIKE '% — Role — %'`).all(userId) as { id: number }[];
+  const existingLinks = db.prepare(`SELECT link.id FROM current_entities link JOIN current_entities tag ON tag.parent_id = link.id AND tag.name = 'Role' WHERE link.parent_id = ?`).all(userId) as { id: number }[];
   for (const link of existingLinks) deleteEntity(link.id, 1 as never);
   const userRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(userId) as { name: string };
   for (const role of roleIds) {
     const created = Entity.create(`${userRow.name} — Role — ${role.name}`, userId, 1 as never);
     updateEntity(created.id, { relation: role.name }, 1 as never);
+    Entity.tag(created.id, 'Role', 1 as never);
   }
 }
 

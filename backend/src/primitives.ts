@@ -86,6 +86,32 @@ export const Entity = {
   children(parentId: number): { id: number; name: string }[] {
     return db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ?`).all(parentId) as any;
   },
+  /** Per direct instruction: no JSON of any kind. A real fact about
+   * an entity (a lead time in days, a BOM quantity, a dependency
+   * type, which of several real kinds a child is) is itself a real,
+   * named child entity, found by a real, exact (parent, name)
+   * lookup, never a name pattern and never a JSON field. tag/hasTag:
+   * a real, presence-only marker, found by exact name under this one
+   * entity. setAttr/getAttr: one real, single-valued fact (a
+   * quantity, a date, a status) as its own, real, single child under
+   * a real, named type-grouping, replaced in place whenever it
+   * changes rather than accumulated. */
+  tag(id: number, tagName: string, userId: UserId): void {
+    Entity.ensureUnder(tagName, id, userId);
+  },
+  hasTag(id: number, tagName: string): boolean {
+    return !!Entity.getUnder(tagName, id);
+  },
+  setAttr(id: number, attrType: string, value: string, userId: UserId): void {
+    const typeNode = Entity.ensureUnder(attrType, id, userId);
+    for (const child of Entity.children(typeNode.id)) Entity.delete(child.id, userId);
+    Entity.create(value, typeNode.id, userId);
+  },
+  getAttr(id: number, attrType: string): string | undefined {
+    const typeNode = Entity.getUnder(attrType, id);
+    if (!typeNode) return undefined;
+    return Entity.children(typeNode.id)[0]?.name;
+  },
 };
 
 // ===========================================================================
@@ -120,16 +146,22 @@ export const Link = {
   },
   /** Every real entity name genuinely linked to a real target, under
    * a real linkType — replaces getContactsWithType/
-   * getEntitiesWithRelationship-style scans. */
+   * getEntitiesWithRelationship-style scans. No filter of any kind,
+   * and no JSON: the real link-type is a real, named tag-child
+   * entity of the link record itself, matched exactly by (parent,
+   * name) — the same, real mechanism Entity.tag already provides. */
   withTarget(linkType: string, target: string): string[] {
-    const suffix = ` — ${linkType}`;
     return (
       db
-        .prepare(`SELECT parent.name AS owner FROM current_entities rec JOIN current_entities parent ON parent.id = rec.parent_id WHERE rec.name LIKE '%' || ? AND rec.relation_id = (SELECT id FROM current_entities WHERE name = ?)`)
-        .all(suffix, target) as { owner: string }[]
-    )
-      .map((r) => r.owner)
-      .filter((name) => Entity.get(`${name}${suffix}`)?.name !== undefined);
+        .prepare(
+          `SELECT parent.name AS owner
+           FROM current_entities rec
+           JOIN current_entities parent ON parent.id = rec.parent_id
+           JOIN current_entities tag ON tag.parent_id = rec.id AND tag.name = ?
+           WHERE rec.relation_id = (SELECT id FROM current_entities WHERE name = ?)`
+        )
+        .all(linkType, target) as { owner: string }[]
+    ).map((r) => r.owner);
   },
 };
 
@@ -272,17 +304,24 @@ export const Currency = {
 
 export const Detail = {
   set(entityName: string, detailType: string, value: string, userId: UserId): void {
-    const recordName = `${entityName} — ${detailType}: ${value}`;
-    if (!Entity.get(recordName)) Entity.create(recordName, entityName, userId);
+    const owner = Entity.get(entityName);
+    if (!owner) throw new Error(`No entity named "${entityName}".`);
+    const typeNode = Entity.ensureUnder(detailType, owner.id, userId);
+    Entity.ensureUnder(value, typeNode.id, userId);
   },
   list(entityName: string, detailType?: string): string[] {
-    const prefix = detailType ? `${entityName} — ${detailType}: ` : `${entityName} — `;
-    return (db.prepare(`SELECT name FROM current_entities WHERE name LIKE ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).all(`${prefix}%`, entityName) as { name: string }[]).map(
-      (r) => r.name.replace(prefix, '')
-    );
+    const owner = Entity.get(entityName);
+    if (!owner) return [];
+    if (detailType) {
+      const typeNode = Entity.getUnder(detailType, owner.id);
+      return typeNode ? Entity.children(typeNode.id).map((c) => c.name) : [];
+    }
+    return Entity.children(owner.id).flatMap((typeNode) => Entity.children(typeNode.id).map((c) => c.name));
   },
   delete(entityName: string, detailType: string, value: string, userId: UserId): void {
-    const row = Entity.get(`${entityName} — ${detailType}: ${value}`);
+    const owner = Entity.get(entityName);
+    const typeNode = owner && Entity.getUnder(detailType, owner.id);
+    const row = typeNode && Entity.getUnder(value, typeNode.id);
     if (row) Entity.delete(row.id, userId);
   },
 };

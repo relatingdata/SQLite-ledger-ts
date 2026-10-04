@@ -634,6 +634,14 @@ export interface JournalSummary {
   posted_by: string;
   total_debit_minor: number;
   total_credit_minor: number;
+  // Per direct correction, matching the Trial Balance's own, already-
+  // fixed approach: a real quantity or storage-space posting is a
+  // plain, whole count, never a dollar figure divided by 100 - this
+  // entry's own real currency (null means the business's home
+  // currency) tells the real caller which formatting applies. One
+  // real journal entry spanning more than one real currency produces
+  // one real row per currency here, never a single, blended total.
+  currency: string | null;
 }
 
 export function listJournalEntries(business: BusinessName, ledger: LedgerName, limit = 100, offset = 0): JournalSummary[] {
@@ -641,16 +649,17 @@ export function listJournalEntries(business: BusinessName, ledger: LedgerName, l
     .prepare(
       `SELECT jo.journal_id, jo.transdate AS occurrence_date, jo.reference, jo.description,
               biz.name AS business, led.name AS ledger, j.recurrence, COALESCE(u.name, CASE WHEN jo.user_id = 1 THEN 'admin' ELSE NULL END) AS posted_by,
+              a.currency AS currency,
               COALESCE(SUM(CASE WHEN jo.amount_minor > 0 THEN jo.amount_minor ELSE 0 END), 0) AS total_debit_minor,
               COALESCE(SUM(CASE WHEN jo.amount_minor < 0 THEN -jo.amount_minor ELSE 0 END), 0) AS total_credit_minor
        FROM journal_occurrences jo
        JOIN journal j ON j.id = jo.journal_id
        JOIN current_entities biz ON biz.id = jo.business_id
        JOIN current_entities led ON led.id = jo.ledger_id
+       JOIN account a ON a.entity_id = jo.account_id
        LEFT JOIN current_entities u ON u.id = jo.user_id AND u.parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')
        WHERE biz.name = ? AND led.name = ?
-         AND jo.reference NOT LIKE '%-QTY'
-       GROUP BY jo.journal_id, jo.transdate
+       GROUP BY jo.journal_id, jo.transdate, a.currency
        ORDER BY jo.transdate DESC, jo.journal_id DESC
        LIMIT ? OFFSET ?`
     )
@@ -665,9 +674,9 @@ export function countJournalEntries(business: BusinessName, ledger: LedgerName):
          FROM journal_occurrences jo
          JOIN current_entities biz ON biz.id = jo.business_id
          JOIN current_entities led ON led.id = jo.ledger_id
+         JOIN account a ON a.entity_id = jo.account_id
          WHERE biz.name = ? AND led.name = ?
-           AND jo.reference NOT LIKE '%-QTY'
-         GROUP BY jo.journal_id, jo.transdate
+         GROUP BY jo.journal_id, jo.transdate, a.currency
        )`
     )
     .get(business, ledger) as { total: number };
@@ -719,7 +728,7 @@ export function getJournalEntry(business: BusinessName, ledger: LedgerName, jour
   const total_debit_minor = lines.filter((l) => l.amount_minor > 0).reduce((s, l) => s + l.amount_minor, 0);
   const total_credit_minor = lines.filter((l) => l.amount_minor < 0).reduce((s, l) => s - l.amount_minor, 0);
 
-  return { ...header, lines, total_debit_minor, total_credit_minor };
+  return { ...header, lines, total_debit_minor, total_credit_minor, currency: null };
 }
 
 export interface PeriodLockStatus {
