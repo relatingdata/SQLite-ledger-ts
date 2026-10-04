@@ -365,8 +365,34 @@ export function getEffectiveSaleCurrency(terminalName: string | undefined): stri
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
+// Per direct instruction: a second, separate bare-name lookup in this
+// same function, found by direct investigation of the tutorial's own
+// Head Office postings landing on an unrelated, pre-existing "Head
+// Office" entity under a different division entirely - confirmed by
+// tracing the real journal lines directly. getLocation below was
+// already scoped (checkpoint 432), but it was only ever used to
+// determine bottle vs. carton; the real entity id the Storage Capacity
+// structure is actually built under came from this separate, unscoped
+// query, untouched by that earlier fix. Scoped the same way getLocation
+// itself is: filtered within the SQL by the real business, never a
+// check on whichever row an unscoped query happened to return first.
 export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; occupiedAccountId: number; unit: 'bottle' | 'carton' } {
-  const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
+  // The pre-existing "Wine Retail Business" seed data has its own,
+  // real, already-documented gap (docs/multi-dimensional-reporting.md
+  // §2, confirmed directly in test's own getHierarchyChain assertion):
+  // its own Locations root is named "{business} Locations", not the
+  // standard "Locations" every other business uses. Tolerated here with
+  // an explicit fallback, not silently masked - the standard name is
+  // always tried first.
+  const locationId = (
+    db.prepare(
+      `SELECT id FROM current_entities WHERE name = ? AND parent_id IN (
+         SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)
+         UNION
+         SELECT id FROM current_entities WHERE name = ? || ' Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)
+       )`
+    ).get(locationName, business, business, business) as { id: number } | undefined
+  )?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   const loc = getLocation(locationName, business);
   const unit: 'bottle' | 'carton' = loc?.bottle_capacity != null ? 'bottle' : 'carton';

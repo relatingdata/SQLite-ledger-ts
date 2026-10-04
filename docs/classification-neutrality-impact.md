@@ -17,6 +17,24 @@ storage 106/41/55 in 17 files; **division 351/123/232 in 30 files**; category
 171/53/157 in 26 files. Tests and tooling add a further 149/182/37 (division)
 and 116/123/30 (category), which would also need updating.
 
+## A further, confirmed finding: "Wine Retail Business" lives in the main source tree, not test code
+
+Per direct instruction to check — not investigated further yet, only confirmed and recorded:
+**`backend/src/db-seed.ts`** contains real, executable functions, part of the compiled application,
+not confined to tests or `shared-fixtures/`, that hardcode the creation of a specific demo
+business: `migrateForWineRetailDemoData()` and `migrateForWineRetailCompany()`, the latter creating
+`create(requireEntity('Businesses', typeRootName), typeBusinessName, 'Wine Retail Business', ...)`
+directly. This is demo/seed data logic, not core accounting logic, but it genuinely lives in the
+main source tree, not confined to test code as hoped.
+
+**A separate, lower-severity, unconfirmed finding noted at the same time:** "Retail" appears as a
+hardcoded string literal throughout several frontend pages (`locations`, `setup/business-setup`,
+`stock/restock`, `pos`) — `locationType === 'Retail'`, default values, filtering logic — a built-in
+location-type concept in frontend logic rather than user-extensible Vocabulary. Not yet checked
+whether this was an earlier, deliberate decision or an oversight; `db.ts`'s own comments mentioning
+"Red Wine," "Merlot," or "Wine Retail Business" are illustrative prose only, not code behavior, and
+are not a concern.
+
 ## Read this before trusting any number
 
 - **Name-based detection misses the sneakiest cases.** `resolveDispatchLocation`

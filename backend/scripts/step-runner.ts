@@ -65,14 +65,28 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   // field, when given, is ensured as a Hierarchy value the exact, same
   // way "Storage" and "Container" already are below, never a new,
   // separate mechanism.
+  // Per docs/currency-and-quantity-integrity-fix-plan.md, "a third,
+  // confirmed finding": capacity is folded into creation itself, not a
+  // later, separate step - createAndConfigureLocation's own, existing
+  // design calls ensureLocationCapacityAccount immediately, atomically,
+  // specifically so the real opening balance is known and posted at
+  // creation time, never lazily. A real, confirmed bug was found and
+  // fixed here: an earlier version of this registry entry passed null
+  // capacity at creation and set the real number via a separate
+  // setLocationCapacity step afterward - this created the Storage
+  // Capacity structure with opening = 0 (silently correct for a
+  // capacity of zero), and by the time the real capacity was later
+  // known, the structure already existed, so the real opening balance
+  // was never posted at all. Matches Chapter 3's own narrative too:
+  // capacity is set "directly on the same screen" as creation.
   createAndConfigureLocation: (a) => {
     const userId = db.asUserId(1);
     const result = db.createAndConfigureLocation(a.businessName as any, a.locationName, {
       city: a.city,
       location_type: a.locationType,
       is_billing_address: false,
-      bottle_capacity: null,
-      carton_capacity: null,
+      bottle_capacity: a.bottleCapacity ? Number(a.bottleCapacity) : null,
+      carton_capacity: a.cartonCapacity ? Number(a.cartonCapacity) : null,
       timezone: 'Australia/Adelaide',
     } as any, userId);
     if (a.division) {
@@ -81,19 +95,6 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       db.setDimensionParent(a.locationName, 'Division', a.division, userId);
     }
     return result;
-  },
-  // Phase B: sets a location's own real shelf (bottle) and carton
-  // capacity after creation, exactly as Chapter 3 describes - "on the
-  // same screen" there, a separate step here since Create Location's
-  // own known screen has no capacity fields of its own yet.
-  setLocationCapacity: (a) => {
-    const loc = db.getLocation(a.locationName, a.businessName as any);
-    if (!loc) throw new Error(`No location named "${a.locationName}" under "${a.businessName}".`);
-    db.setLocation(a.locationName, {
-      ...loc,
-      bottle_capacity: a.bottleCapacity ? Number(a.bottleCapacity) : null,
-      carton_capacity: a.cartonCapacity ? Number(a.cartonCapacity) : null,
-    }, a.businessName as any);
   },
   // Phase B: Chapter 3's Business Setup employee creation, at a named
   // location - createEmployee already exists and takes exactly this

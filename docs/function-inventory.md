@@ -858,7 +858,7 @@ Called from: production: routes/locations.ts ((module level) ×1)
 setLocation(name: string, location: Location, business?: BusinessName): void
 ```
 
-Called from: production: db-journal.ts (postLocation ×1); db-seed.ts (migrateForWineRetailDemoData ×1); db.ts (createAndConfigureLocation ×1); routes/locations.ts ((module level) ×1) · tests: 59 call(s) in 1 file(s) · tooling: 5 call(s) in 4 file(s)
+Called from: production: db-journal.ts (postLocation ×1); db-seed.ts (migrateForWineRetailDemoData ×1); db.ts (createAndConfigureLocation ×1); routes/locations.ts ((module level) ×1) · tests: 59 call(s) in 1 file(s) · tooling: 4 call(s) in 3 file(s)
 
 **`getLocation`** *(exported)*
 
@@ -866,7 +866,7 @@ Called from: production: db-journal.ts (postLocation ×1); db-seed.ts (migrateFo
 getLocation(name: string, business?: BusinessName): Location | undefined
 ```
 
-Called from: production: db-stock.ts (ensureLocationCapacityAccount ×1, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, todayAtLocation ×1, transferItems ×2); db.ts (cityDivisionFor ×1, getBusinessConfigurationReport ×1); routes/locations.ts ((module level) ×2) · tests: 2 call(s) in 1 file(s) · tooling: 5 call(s) in 3 file(s)
+Called from: production: db-stock.ts (ensureLocationCapacityAccount ×1, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, todayAtLocation ×1, transferItems ×2); db.ts (cityDivisionFor ×1, getBusinessConfigurationReport ×1); routes/locations.ts ((module level) ×2) · tests: 2 call(s) in 1 file(s) · tooling: 4 call(s) in 2 file(s)
 
 **`todayAtLocation`** *(exported)*
 
@@ -1212,7 +1212,7 @@ Called from: production: db.ts (create ×1, getHierarchyChain ×1, requireEntity
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-seed.ts (migrateForPerBusinessChartOfAccounts ×1, migrateForWineRetailDemoData ×1); db-stock.ts (completeStockTake ×2, getInventoryListingByLocation ×1, writeOffItems ×2); db.ts (allocatePayment ×3, completePosSale ×2, dispatchOrderFromPickingList ×1, payEmployeeWages ×6, postInvoice ×6); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4, handlePost ×1); routes/businesses.ts ((module level) ×7); and 11 more file(s) · tests: 559 call(s) in 1 file(s) · tooling: 7 call(s) in 2 file(s)
+Called from: production: db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-seed.ts (migrateForPerBusinessChartOfAccounts ×1, migrateForWineRetailDemoData ×2); db-stock.ts (completeStockTake ×2, getInventoryListingByLocation ×1, writeOffItems ×2); db.ts (allocatePayment ×3, completePosSale ×2, dispatchOrderFromPickingList ×1, payEmployeeWages ×6, postInvoice ×6); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4, handlePost ×1); routes/businesses.ts ((module level) ×7); and 11 more file(s) · tests: 550 call(s) in 1 file(s) · tooling: 7 call(s) in 2 file(s)
 
 **`asLedgerName`** *(exported)*
 
@@ -1332,7 +1332,7 @@ Called from: production: db-stock.ts (consumeFromLots ×1, createStockTake ×1, 
 requireEntity<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand>
 ```
 
-Called from: production: db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForBusinessTypes ×6, migrateForCashSaleCustomer ×1, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 9 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×4, convertStorageSpace ×2, copyChartOfAccountsInto ×1, createBusiness ×3, and 28 more); routes/divisions.ts ((module level) ×1) · tests: 226 call(s) in 1 file(s) · tooling: 62 call(s) in 20 file(s)
+Called from: production: db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForBusinessTypes ×6, migrateForCashSaleCustomer ×1, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 9 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×4, convertStorageSpace ×2, copyChartOfAccountsInto ×1, createBusiness ×3, and 28 more); routes/divisions.ts ((module level) ×1) · tests: 253 call(s) in 1 file(s) · tooling: 62 call(s) in 20 file(s)
 
 **`requireGlobalCoaCategory`** *(exported)*
 

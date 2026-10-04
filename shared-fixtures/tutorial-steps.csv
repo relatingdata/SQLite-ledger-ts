@@ -7,15 +7,21 @@
 "Create Business","Tutorial Wine Retail Business","2026-27","Sole Trader","AUD"
 # Moves the session into the new business.
 "Switch Session","Tutorial Wine Retail Business"
-# Creates the warehouse, within the Adelaide Metro division, per
-# Chapter 3's own Business Setup narrative.
-"Create Location","Tutorial Wine Retail Business","Head Office","Adelaide","Warehouse","Adelaide Metro"
-# Creates the retail outlet, same division - a real retail outlet
-# genuinely holds both sealed cartons and loose bottles at once.
-"Create Location","Tutorial Wine Retail Business","Main Street Cellar","Adelaide","Retail","Adelaide Metro"
-# Chapter 3's own location-capacity step, set directly after creation.
-"Set Location Capacity","Tutorial Wine Retail Business","Head Office","0","40"
-"Set Location Capacity","Tutorial Wine Retail Business","Main Street Cellar","120","10"
+# Creates the warehouse, within the Adelaide Metro division, and its
+# real carton capacity, directly on the same screen, per Chapter 3's
+# own narrative - a real, confirmed bug was found and fixed here: an
+# earlier version set capacity via a separate, later step, which
+# silently lost the real opening balance entirely, since
+# createAndConfigureLocation's own design posts the opening entry
+# atomically at creation, before that later step could ever run.
+# bottleCapacity is left blank, not "0" (a truthy string in
+# JavaScript), so this warehouse genuinely tracks carton space, never
+# bottle space.
+"Create Location","Tutorial Wine Retail Business","Head Office","Adelaide","Warehouse","Adelaide Metro","","40"
+# Creates the retail outlet, same division, with its own real shelf
+# (bottle) and carton capacity - a real retail outlet genuinely holds
+# both sealed cartons and loose bottles at once.
+"Create Location","Tutorial Wine Retail Business","Main Street Cellar","Adelaide","Retail","Adelaide Metro","120","10"
 # Chapter 3's Business Setup: the business's first employee, at the
 # warehouse, to receive and later staff the retail counter.
 "Create Employee","Tutorial Wine Retail Business","Jordan Lee","Head Office"

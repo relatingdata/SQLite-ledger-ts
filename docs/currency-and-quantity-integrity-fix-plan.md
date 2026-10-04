@@ -36,6 +36,43 @@ carton has been damaged and partially written off, which puts a few loose bottle
 warehouse's stock too. A location's storage capacity is therefore two, separate, simultaneous
 space currencies — never a single choice between them.
 
+## A third, confirmed finding: a location's opening capacity balance can be silently lost — FIXED
+
+Found by direct investigation, continuing the "does it correctly account for storage space"
+review: `createAndConfigureLocation` calls `ensureLocationCapacityAccount` immediately, at
+location-creation time, per its own, existing, direct-instruction design — "never lazily, the
+first time some later, real stock movement happens to touch this location." This is correct
+**only if the real capacity is already known at creation time.** The tutorial's own "Set Location
+Capacity" step (`docs/realistic-tutorial-e2e-plan.md`, Phase B) was built as a *separate* step
+after location creation, passing `bottle_capacity: null, carton_capacity: null` to
+`createAndConfigureLocation` itself. This creates the `Remaining`/`Installed`/`Occupied` leaves
+immediately, with `opening = 0` (since capacity is still unknown), so no opening entry posts —
+correctly, for a capacity of zero. When "Set Location Capacity" later sets the real number (40
+cartons, say), the leaves already exist, so the next real call to `ensureLocationCapacityAccount`
+(during a receipt or transfer) never re-checks or re-posts the now-known opening balance. The
+location's real, physical capacity is silently never recorded; only its *changes* (receipts,
+transfers) post correctly from a starting point of zero instead of the real number.
+
+**Fixed**, not by patching the posting logic, but by retiring "Set Location Capacity" as a
+separate step entirely and folding its fields into "Create Location" itself — matching both User
+Manual Chapter 3's own narrative ("directly on the same screen") and
+`createAndConfigureLocation`'s own, pre-existing design intent, which already insists the real
+capacity be known atomically at creation specifically to avoid this class of bug.
+`shared-fixtures/screens.csv`, `backend/scripts/step-runner.ts`'s registry, and the tutorial data
+file were all updated together; the control file's row count was corrected to match the now-19,
+not 21, real steps.
+
+**Verified by direct reconciliation, not just that the suites pass:** every journal line touching
+`Storage Capacity` was dumped and summed by account. Head Office (Installed −40, Occupied 3,
+Remaining 37) and Main Street Cellar (Installed −120, Occupied 44, Remaining 76) both satisfy
+`Occupied + Remaining = |Installed|` exactly. Full backend suite 230/230, full frontend suite
+24/24, `svelte-check` 0 errors, tutorial 19/19 via the API.
+
+**What this does not fix, deliberately left as is**: the business-root `Storage Capacity` entries
+(from "Open Container") are unchanged — `openStorageContainer`'s own location-scoping gap (listed
+below, unfixed) is a separate, larger piece of work (its own signature needs a location
+parameter), not addressed in this pass.
+
 ## Two further findings, from `docs/realistic-tutorial-e2e-plan.md`'s Phase E.5
 
 **6. FIXED. `getStockListing()` had no business-scoping parameter at all**, and aggregated stock

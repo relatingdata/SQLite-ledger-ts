@@ -1,6 +1,6 @@
 itemName,locationName,qty,minLevel,maxLevel,reorderLevel,shelfSide,rack,level
 Ch\u{e2}teau Dubois Merlot 2021,Head Office,447,48,720,96,,,
-Ch\u{e2}teau Dubois Merlot 2021,Riverside Cellars,13,12,60,18,Front,A,1
+Ch\u{e2}teau Dubois Merlot 2021,Lakeside Cellars,13,12,60,18,Front,A,1
 Barossa Valley Merlot 2022,Warehouse B,132,48,720,96,,,
 Barossa Valley Merlot 2022,Uptown Wine & Spirits,23,12,60,18,Back,B,2
 Napa Ridge Cabernet Sauvignon 2020,Head Office,245,48,720,96,,,
@@ -8,7 +8,7 @@ Napa Ridge Cabernet Sauvignon 2020,Eastside Cellar Door,20,12,60,18,Front,C,3
 Coonawarra Cabernet 2021,Warehouse B,191,48,720,96,,,
 Coonawarra Cabernet 2021,Harbourside Bottle Shop,12,12,60,18,Back,D,4
 Central Otago Pinot Noir 2022,Head Office,466,48,720,96,,,
-Central Otago Pinot Noir 2022,Riverside Cellars,40,12,60,18,Front,A,5
+Central Otago Pinot Noir 2022,Lakeside Cellars,40,12,60,18,Front,A,5
 C\u{f4}te de Nuits Pinot Noir 2021,Warehouse B,164,48,720,96,,,
 C\u{f4}te de Nuits Pinot Noir 2021,Uptown Wine & Spirits,43,12,60,18,Back,B,1
 Barossa Shiraz 2021,Head Office,336,48,720,96,,,
@@ -16,7 +16,7 @@ Barossa Shiraz 2021,Harbourside Bottle Shop,8,12,60,18,Front,C,2
 Hunter Valley Shiraz 2020,Warehouse B,135,48,720,96,,,
 Hunter Valley Shiraz 2020,Market Square Liquor,11,12,60,18,Back,D,3
 Margaret River Chardonnay 2022,Head Office,231,48,720,96,,,
-Margaret River Chardonnay 2022,Riverside Cellars,20,12,60,18,Front,A,4
+Margaret River Chardonnay 2022,Lakeside Cellars,20,12,60,18,Front,A,4
 Sonoma Chardonnay 2021,Warehouse B,378,48,720,96,,,
 Sonoma Chardonnay 2021,Uptown Wine & Spirits,44,12,60,18,Back,B,5
 Marlborough Sauvignon Blanc 2023,Head Office,133,48,720,96,,,
@@ -24,7 +24,7 @@ Marlborough Sauvignon Blanc 2023,Market Square Liquor,41,12,60,18,Front,C,1
 Loire Valley Sauvignon Blanc 2022,Warehouse B,221,48,720,96,,,
 Loire Valley Sauvignon Blanc 2022,Eastside Cellar Door,47,12,60,18,Back,D,2
 Chablis Premier Cru 2021,Head Office,479,48,720,96,,,
-Chablis Premier Cru 2021,Riverside Cellars,40,12,60,18,Front,A,3
+Chablis Premier Cru 2021,Lakeside Cellars,40,12,60,18,Front,A,3
 Petit Chablis 2022,Warehouse B,334,48,720,96,,,
 Petit Chablis 2022,Uptown Wine & Spirits,20,12,60,18,Back,B,4
 Mosel Riesling 2022,Head Office,349,48,720,96,,,
@@ -32,7 +32,7 @@ Mosel Riesling 2022,Eastside Cellar Door,43,12,60,18,Front,C,5
 Clare Valley Riesling 2021,Warehouse B,262,48,720,96,,,
 Clare Valley Riesling 2021,Harbourside Bottle Shop,6,12,60,18,Back,D,1
 Grande Maison Champagne Brut,Head Office,201,48,720,96,,,
-Grande Maison Champagne Brut,Riverside Cellars,33,12,60,18,Front,A,2
+Grande Maison Champagne Brut,Lakeside Cellars,33,12,60,18,Front,A,2
 Grande Maison Champagne Ros\u{e9},Warehouse B,294,48,720,96,,,
 Grande Maison Champagne Ros\u{e9},Uptown Wine & Spirits,23,12,60,18,Back,B,3
 Veneto Prosecco DOC,Head Office,199,48,720,96,,,
@@ -40,7 +40,7 @@ Veneto Prosecco DOC,Harbourside Bottle Shop,19,12,60,18,Front,C,4
 Prosecco Extra Dry,Warehouse B,292,48,720,96,,,
 Prosecco Extra Dry,Market Square Liquor,12,12,60,18,Back,D,5
 Pened\u{e8}s Cava Brut,Head Office,167,48,720,96,,,
-Pened\u{e8}s Cava Brut,Riverside Cellars,30,12,60,18,Front,A,1
+Pened\u{e8}s Cava Brut,Lakeside Cellars,30,12,60,18,Front,A,1
 Cava Ros\u{e9},Warehouse B,169,48,720,96,,,
 Cava Ros\u{e9},Uptown Wine & Spirits,28,12,60,18,Back,B,2
 Golden Lager 330ml,Head Office,296,48,720,96,,,
@@ -48,7 +48,7 @@ Golden Lager 330ml,Market Square Liquor,44,12,60,18,Front,C,3
 Premium Pilsner 330ml,Warehouse B,255,48,720,96,,,
 Premium Pilsner 330ml,Eastside Cellar Door,8,12,60,18,Back,D,4
 Amber Ale 330ml,Head Office,355,48,720,96,,,
-Amber Ale 330ml,Riverside Cellars,40,12,60,18,Front,A,5
+Amber Ale 330ml,Lakeside Cellars,40,12,60,18,Front,A,5
 Pale Ale 330ml,Warehouse B,183,48,720,96,,,
 Pale Ale 330ml,Uptown Wine & Spirits,30,12,60,18,Back,B,1
 Classic Stout 330ml,Head Office,160,48,720,96,,,
@@ -56,7 +56,7 @@ Classic Stout 330ml,Eastside Cellar Door,41,12,60,18,Front,C,2
 Imperial Stout 330ml,Warehouse B,270,48,720,96,,,
 Imperial Stout 330ml,Harbourside Bottle Shop,46,12,60,18,Back,D,3
 Highland Single Malt 700ml,Head Office,436,48,720,96,,,
-Highland Single Malt 700ml,Riverside Cellars,29,12,60,18,Front,A,4
+Highland Single Malt 700ml,Lakeside Cellars,29,12,60,18,Front,A,4
 Blended Scotch 700ml,Warehouse B,415,48,720,96,,,
 Blended Scotch 700ml,Uptown Wine & Spirits,18,12,60,18,Back,B,5
 Premium Vodka 700ml,Head Office,480,48,720,96,,,
@@ -64,7 +64,7 @@ Premium Vodka 700ml,Harbourside Bottle Shop,10,12,60,18,Front,C,1
 Craft Vodka 700ml,Warehouse B,143,48,720,96,,,
 Craft Vodka 700ml,Market Square Liquor,48,12,60,18,Back,D,2
 London Dry Gin 700ml,Head Office,236,48,720,96,,,
-London Dry Gin 700ml,Riverside Cellars,24,12,60,18,Front,A,3
+London Dry Gin 700ml,Lakeside Cellars,24,12,60,18,Front,A,3
 Botanical Gin 700ml,Warehouse B,160,48,720,96,,,
 Botanical Gin 700ml,Uptown Wine & Spirits,20,12,60,18,Back,B,4
 Spiced Rum 700ml,Head Office,171,48,720,96,,,

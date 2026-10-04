@@ -83,7 +83,7 @@ narrative against that screen's current, real field list in `shared-fixtures/scr
 | 3 | Create the business | Create Business | businessName, financialYearLabel, businessType | **home currency**, CoA-prototype choice (country/jurisdiction match) |
 | 4 | Switch session | Switch Session | businessName | — |
 | 5 | Create the first location | Create Location | businessName, locationName, city, locationType | — |
-| 6 | Set that location's shelf/carton capacity | **NEW**: Set Location Capacity | — | locationName, bottleCapacity, cartonCapacity |
+| 6 | Set that location's shelf/carton capacity | **BUILT, folded into Create Location itself** (see `docs/currency-and-quantity-integrity-fix-plan.md`, "a third, confirmed finding") | bottleCapacity, cartonCapacity | — |
 | 6a | *(optional)* a second typed address for the location | **NEW**: Add Typed Address | — | entityName, addressType, address fields |
 | 7 | Business Setup: first Division | **NEW**: Create Division | — | businessName, divisionName |
 | 7a | Business Setup: Warehouse within that Division | Create Location (extended) | businessName, locationName, city, locationType | **division** |
@@ -132,7 +132,12 @@ the corresponding `API_REGISTRY` function accepting and using the new argument.
 
 In the order Chapter 3 needs them:
 
-1. **Set Location Capacity** — sets `bottle_capacity`/`carton_capacity` on an existing location.
+1. ~~Set Location Capacity~~ — **built, but not as a separate screen.** A real, confirmed bug was
+   found: creating a location first and setting its real capacity afterward, as a separate step,
+   caused `createAndConfigureLocation`'s own opening-balance posting to run with capacity still
+   unknown, silently losing the real opening balance forever (see
+   `docs/currency-and-quantity-integrity-fix-plan.md`). Fixed by folding `bottleCapacity`/
+   `cartonCapacity` into "Create Location" itself, matching Chapter 3's own narrative.
 2. **Create Division** — creates a Division (a reporting grouping, per Chapter 3's own description:
    "a real profit or cost center").
 3. **Create Employee** — creates an employee at a given location.

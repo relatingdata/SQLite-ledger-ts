@@ -106,9 +106,23 @@ function migrateForWineRetailDemoData() {
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(subcategory)) create(requireEntity(category, typeCategoryOrItemsRootName), typeCategoryOrItemsRootName, subcategory, SEED_USER_ID);
   }
 
+  // Per direct instruction: the same bare-name lookup already fixed
+  // elsewhere (getLocation/setLocation, checkpoint 432), found here too
+  // - confirmed, not merely suspected, by this function's own locations
+  // ("Head Office" among them) resolving to an unrelated, pre-existing
+  // entity once the stricter ensureLocationCapacityAccount fix stopped
+  // tolerating the ambiguity. Scoped to "My Business", the same real
+  // business the stock-level seeding just below already uses.
+  const myBusinessEntity = requireEntity('My Business', typeBusinessName, requireEntity('Businesses', typeRootName));
+  let myBusinessLocationsRoot;
+  try { myBusinessLocationsRoot = requireEntity('Locations', typeRootName, myBusinessEntity); } catch { myBusinessLocationsRoot = create(myBusinessEntity, typeRootName, 'Locations', SEED_USER_ID); }
   for (const loc of loadDemoLocations()) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(loc.name)) create(requireEntity('Locations', typeRootName), typeLocationEntityName, loc.name, SEED_USER_ID);
-    setLocation(loc.name, { city: loc.city, location_type: loc.locationType, is_billing_address: loc.isBilling, bottle_capacity: loc.bottleCap, carton_capacity: loc.cartonCap, timezone: loc.timezone });
+    // The same bare-name pattern, a second time within this one fix: an
+    // unscoped existence check saw this name already existing
+    // elsewhere in the database and wrongly skipped creating My
+    // Business's own, real location at all.
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(loc.name, myBusinessLocationsRoot.id)) create(myBusinessLocationsRoot, typeLocationEntityName, loc.name, SEED_USER_ID);
+    setLocation(loc.name, { city: loc.city, location_type: loc.locationType, is_billing_address: loc.isBilling, bottle_capacity: loc.bottleCap, carton_capacity: loc.cartonCap, timezone: loc.timezone }, asBusinessName('My Business'));
   }
 
   for (const { name, subcategory } of loadDemoProducts()) {
@@ -471,9 +485,9 @@ function seedWineRetailEmployees() {
   }
 
   const staff: StaffDef[] = [
-    // Riverside Cellars (Springfield) — retail, at least two
-    { name: 'Chloe Ferraro', role: 'Retail Assistant', location: 'Riverside Cellars', city: 'Springfield', address: '14 Willow Court', phone: '0412 558 213', wageMinorPerHour: 2850, employedAt: 'Riverside Cellars' },
-    { name: 'Jack Whitfield', role: 'Retail Assistant', location: 'Riverside Cellars', city: 'Springfield', address: '27 Alderney Street', phone: '0433 902 447', wageMinorPerHour: 2850, employedAt: 'Riverside Cellars' },
+    // Lakeside Cellars (Springfield) — retail, at least two
+    { name: 'Chloe Ferraro', role: 'Retail Assistant', location: 'Lakeside Cellars', city: 'Springfield', address: '14 Willow Court', phone: '0412 558 213', wageMinorPerHour: 2850, employedAt: 'Lakeside Cellars' },
+    { name: 'Jack Whitfield', role: 'Retail Assistant', location: 'Lakeside Cellars', city: 'Springfield', address: '27 Alderney Street', phone: '0433 902 447', wageMinorPerHour: 2850, employedAt: 'Lakeside Cellars' },
     // Uptown Wine & Spirits (Springfield) — retail, at least two
     { name: 'Priya Nandakumar', role: 'Retail Assistant', location: 'Uptown Wine & Spirits', city: 'Springfield', address: '9 Blackwood Lane', phone: '0421 774 038', wageMinorPerHour: 2850, employedAt: 'Uptown Wine & Spirits' },
     { name: 'Ryan Delacroix', role: 'Retail Assistant', location: 'Uptown Wine & Spirits', city: 'Springfield', address: '52 Fenwick Road', phone: '0455 129 806', wageMinorPerHour: 2850, employedAt: 'Uptown Wine & Spirits' },
@@ -545,7 +559,7 @@ function seedWineRetailEmployees() {
   // employment) Employee.
   const locationDivisions: Record<string, string> = {
     'Head Office': 'Head Office',
-    'Riverside Cellars': 'Riverside Cellars',
+    'Lakeside Cellars': 'Lakeside Cellars',
     'Uptown Wine & Spirits': 'Uptown Wine & Spirits',
     'Warehouse B': 'Warehouse B',
     'Harbourside Bottle Shop': 'Harbourside Bottle Shop',

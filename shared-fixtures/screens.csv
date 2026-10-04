@@ -12,10 +12,8 @@ Create Location,data,/locations,button:has-text('+ New Location'),createAndConfi
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),3,city,.generic-form fieldset >> nth=1 >> input,text
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),4,locationType,.generic-form fieldset >> nth=2 >> select,select
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),5,division,,text
-Set Location Capacity,data,,,setLocationCapacity,,1,businessName,,text
-Set Location Capacity,data,,,setLocationCapacity,,2,locationName,,text
-Set Location Capacity,data,,,setLocationCapacity,,3,bottleCapacity,,text
-Set Location Capacity,data,,,setLocationCapacity,,4,cartonCapacity,,text
+Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),6,bottleCapacity,,text
+Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),7,cartonCapacity,,text
 Create Employee,data,,,createEmployeeAt,,1,businessName,,text
 Create Employee,data,,,createEmployeeAt,,2,employeeName,,text
 Create Employee,data,,,createEmployeeAt,,3,locationName,,text
