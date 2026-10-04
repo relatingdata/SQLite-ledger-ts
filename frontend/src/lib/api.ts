@@ -246,11 +246,20 @@ export interface TrialBalanceRow {
   accountnumber: string | null;
   debit_minor: number;
   credit_minor: number;
+  currency: string | null;
+  has_quantity_postings: boolean;
+}
+export interface TrialBalanceCurrencySubtotal {
+  currency: string | null;
+  total_debit_minor: number;
+  total_credit_minor: number;
+  balanced: boolean;
 }
 export interface TrialBalance {
   rows: TrialBalanceRow[];
   total_debit_minor: number;
   total_credit_minor: number;
+  by_currency: TrialBalanceCurrencySubtotal[];
 }
 export const getTrialBalance = (business: BusinessName, ledger: LedgerName, asOfDate?: string) =>
   request<TrialBalance>(`/reports/trial-balance?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${asOfDate ? `&asOfDate=${asOfDate}` : ''}`);

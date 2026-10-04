@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
   import { auth } from '$lib/state.svelte';
-  import { getLedgers, getTrialBalance, asLedgerName, ApiError, type TrialBalance } from '$lib/api';
+  import { getLedgers, getTrialBalance, asLedgerName, ApiError, type TrialBalance, type TrialBalanceRow, type TrialBalanceCurrencySubtotal } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { formatAmount, todayIsoDate } from '$lib/format';
 
@@ -46,6 +46,35 @@
   });
 
   const fmt = (c: number) => formatAmount(c, auth.current?.user.number_format ?? '1 000.00');
+
+  // Per the User Manual's own specification of this screen: every
+  // currency genuinely present gets its own, clearly separate group of
+  // rows, never one flat list mixing a dollar account next to a
+  // bottle-count account as if they were the same kind of number. A
+  // real storage-unit or quantity currency is shown as a plain,
+  // whole-number count (fmt would wrongly treat it as cents); only a
+  // null (home) or other real monetary currency is run through fmt.
+  interface CurrencyGroup {
+    currency: string | null;
+    rows: TrialBalanceRow[];
+    subtotal: { total_debit_minor: number; total_credit_minor: number; balanced: boolean } | undefined;
+  }
+  function groupByCurrency(result: TrialBalance | null): CurrencyGroup[] {
+    if (!result) return [];
+    const allRows: TrialBalanceRow[] = result.rows;
+    const subtotals: TrialBalanceCurrencySubtotal[] = result.by_currency;
+    const currencies: (string | null)[] = [];
+    for (const r of allRows) if (!currencies.includes(r.currency)) currencies.push(r.currency);
+    currencies.sort((a, b) => (a ?? '').localeCompare(b ?? ''));
+    return currencies.map((currency) => ({
+      currency,
+      rows: allRows.filter((r) => r.currency === currency),
+      subtotal: subtotals.find((c) => c.currency === currency),
+    }));
+  }
+  let groups = $derived(groupByCurrency(tb));
+  const isMonetary = (currency: string | null) => currency === null || !currency.startsWith('SPACE-');
+  const fmtForCurrency = (amount: number, currency: string | null) => (isMonetary(currency) ? fmt(amount) : amount.toLocaleString());
 </script>
 
 <svelte:head><title>{translations.current['Trial Balance'] ?? 'Trial Balance'}</title></svelte:head>
@@ -75,38 +104,60 @@
 {:else if error}
   <p class="error">{error}</p>
 {:else if tb}
-  <div class="grid-box">
-    <table>
-      <thead>
-        <tr>
-          <th>{translations.current['Account Number'] ?? 'Account #'}</th>
-          <th>{translations.current['Account'] ?? 'Account'}</th>
-          <th class="num">{translations.current['Debit'] ?? 'Debit'}</th>
-          <th class="num">{translations.current['Credit'] ?? 'Credit'}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each tb.rows as row}
+  {#each groups as group}
+    <div class="grid-box currency-group">
+      <h3 class="currency-label">
+        {group.currency ?? (translations.current['Home Currency'] ?? 'Home Currency')}
+        {#if group.subtotal && !group.subtotal.balanced}
+          <span class="warn">⚠ {translations.current['Out of balance'] ?? 'Out of balance'}</span>
+        {/if}
+      </h3>
+      <table>
+        <thead>
           <tr>
-            <td class="mono">{row.accountnumber ?? ''}</td>
-            <td>{translations.current[row.name] ?? row.name}</td>
-            <td class="num mono amount-debit">{row.debit_minor ? fmt(row.debit_minor) : ''}</td>
-            <td class="num mono amount-credit">{row.credit_minor ? fmt(row.credit_minor) : ''}</td>
+            <th>{translations.current['Account Number'] ?? 'Account #'}</th>
+            <th>{translations.current['Account'] ?? 'Account'}</th>
+            <th class="num">{translations.current['Debit'] ?? 'Debit'}</th>
+            <th class="num">{translations.current['Credit'] ?? 'Credit'}</th>
           </tr>
-        {/each}
-      </tbody>
-      <tfoot>
-        <tr class="totals-row">
-          <td colspan="2"><strong>{translations.current['Total'] ?? 'Total'}</strong></td>
-          <td class="num mono amount-debit"><strong>{fmt(tb.total_debit_minor)}</strong></td>
-          <td class="num mono amount-credit"><strong>{fmt(tb.total_credit_minor)}</strong></td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-  <p class="status" class:balanced={tb.total_debit_minor === tb.total_credit_minor}>
-    {tb.total_debit_minor === tb.total_credit_minor ? '✓ Balanced' : 'Out of balance'}
-  </p>
+        </thead>
+        <tbody>
+          {#each group.rows as row}
+            <tr>
+              <td class="mono">{row.accountnumber ?? ''}</td>
+              <td>
+                {translations.current[row.name] ?? row.name}
+                {#if row.has_quantity_postings}
+                  <span class="badge" title={translations.current['This account mixes a real quantity-tracking posting with an ordinary dollar posting - its balance may not be a plain dollar figure without a closer look.'] ?? "This account mixes a real quantity-tracking posting with an ordinary dollar posting - its balance may not be a plain dollar figure without a closer look."}>{translations.current['qty'] ?? 'qty'}</span>
+                {/if}
+              </td>
+              <td class="num mono amount-debit">{row.debit_minor ? fmtForCurrency(row.debit_minor, row.currency) : ''}</td>
+              <td class="num mono amount-credit">{row.credit_minor ? fmtForCurrency(row.credit_minor, row.currency) : ''}</td>
+            </tr>
+          {/each}
+        </tbody>
+        <tfoot>
+          <tr class="totals-row">
+            <td colspan="2"><strong>{translations.current['Subtotal'] ?? 'Subtotal'}</strong></td>
+            <td class="num mono amount-debit"><strong>{fmtForCurrency(group.subtotal?.total_debit_minor ?? 0, group.currency)}</strong></td>
+            <td class="num mono amount-credit"><strong>{fmtForCurrency(group.subtotal?.total_credit_minor ?? 0, group.currency)}</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  {/each}
+
+  {#if groups.length === 1}
+    <!-- Per the User Manual's own specification: the combined total is
+         only genuinely meaningful, and only shown, when exactly one
+         currency is present - summing different currencies together
+         is not a real number. -->
+    <p class="status" class:balanced={tb.total_debit_minor === tb.total_credit_minor}>
+      {tb.total_debit_minor === tb.total_credit_minor ? '✓ Balanced' : 'Out of balance'}
+    </p>
+  {:else if groups.length > 1}
+    <p class="hint">{translations.current['More than one currency is present - see each currency\'s own subtotal above; a single combined total across different currencies would not be a real number.'] ?? "More than one currency is present - see each currency's own subtotal above; a single combined total across different currencies would not be a real number."}</p>
+  {/if}
 {/if}
 </fieldset>
 
@@ -161,5 +212,42 @@
     cursor: pointer;
     font-size: var(--font-size-base);
     padding: 0.4rem 0;
+  }
+
+  .currency-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .currency-label {
+    margin: 0;
+    padding: 0.5rem 0.8rem;
+    font-size: var(--font-size-base);
+    background: var(--rule);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .warn {
+    color: var(--danger, #b00);
+    font-weight: 600;
+    font-size: 0.9em;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.75em;
+    padding: 0.05em 0.4em;
+    border-radius: 3px;
+    background: var(--rule-strong);
+    color: var(--ink-soft);
+    margin-left: 0.4em;
+    cursor: help;
+  }
+
+  .hint {
+    text-align: center;
+    color: var(--ink-soft);
+    margin-top: 1rem;
   }
 </style>

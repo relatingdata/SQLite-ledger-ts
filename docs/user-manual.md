@@ -247,7 +247,7 @@ Any real line with a small disclosure triangle next to it --- Accounts Receivabl
 
 The Trial Balance, the Profit and Loss statement, and the Balance Sheet each treat a business trading in more than one currency differently, on purpose:
 
-**The Trial Balance never converts anything.** Each real currency present shows its own, real, unconverted debit and credit columns, and each currency's own columns must independently balance --- the report's whole purpose is to prove the books are genuinely correct, currency by currency, so folding in an assumed exchange rate would hide the one thing it exists to check.
+**The Trial Balance never converts anything.** Each real currency present shows its own, real, unconverted debit and credit columns, and each currency's own columns must independently balance --- the report's whole purpose is to prove the books are genuinely correct, currency by currency, so folding in an assumed exchange rate would hide the one thing it exists to check. See "Trial Balance" later in this chapter for the full, descriptive specification of exactly what the screen must show.
 
 **The Profit and Loss statement and the Balance Sheet offer a choice of three views**, since these reports exist to show a single, readable picture of the business, and a reader reasonably wants to see that picture in more than one way:
 
@@ -849,7 +849,44 @@ Real income earned from actually doing business — selling goods or services. O
 
 ### Trial Balance
 
-A real report listing every account's own real balance, split into its debit or credit side — the most basic real check that the books are internally consistent (total debits must equal total credits).
+A real report listing every account's own real balance, split into its debit or credit side — the
+most basic real check that the books are internally consistent. **This section is the full,
+descriptive specification of what the screen must show** — not a design note ahead of the
+mechanism, since the mechanism (`getTrialBalance`) already exists and already returns everything
+described here; see the Programmer's Manual for exactly which function and fields.
+
+**One real business genuinely posts in more than one currency at once** — its own home currency
+(dollars and cents), and, wherever this application tracks a physical quantity rather than a
+dollar value, a real, separate currency of its own (a count of bottles, a count of cartons, a
+count of carton-shaped shelf space, and so on — see "A carton is a convenient, exact shorthand"
+earlier in this chapter). **A Trial Balance that silently adds these together into one number is
+not reporting a real quantity at all** — 24 bottles plus $1.00 is not $25.00, and a screen that
+shows "25" as if it were has actively hidden the one thing this report exists to prove.
+
+**The screen must show, for the real business and ledger currently selected:**
+
+1. **Every account with a real, non-zero balance, grouped by its own real currency** — never one,
+   single, flat list mixing a dollar account next to a bottle-count account as if they were the
+   same kind of number. Each currency genuinely present (the business's own home currency, and any
+   further currency — a real foreign currency, or a real storage-unit currency like
+   `SPACE-BOTTLE`) gets its own, clearly labelled group of rows.
+2. **Each group's own subtotal, and whether that group balances on its own** — a real, direct
+   pass/fail for each currency independently (debits equal credits, within that currency alone),
+   never inferred from the combined total alone, since a combined total can appear to balance by
+   coincidence even when a specific currency genuinely does not.
+3. **A clear, visible warning on any currency group that does not balance** — this is not a
+   cosmetic detail; an unbalanced group is a real, serious problem with the books, and the screen
+   exists specifically to surface it, not to quietly let it blend into a combined number that still
+   happens to look fine.
+4. **A visible marker on any account whose own balance mixes a real quantity-tracking posting
+   together with an ordinary dollar posting** — a real, known, narrower class of account (see the
+   Programmer's Manual) whose own balance cannot be trusted as a plain dollar figure without a
+   closer, separate look; the reader is told this plainly, at the row, not left to discover it by
+   accident.
+5. **The combined, all-currency total is shown only when genuinely meaningful** — that is, only
+   when exactly one currency is present for the business/ledger being reported on. The moment a
+   second, real currency appears, the combined figure is not shown as a dollar amount at all; the
+   per-currency subtotals above are the real, correct way to read the report at that point.
 
 ### Vendor = Supplier = a real Accounts Payable account
 

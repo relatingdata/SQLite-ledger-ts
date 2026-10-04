@@ -104,10 +104,31 @@ set on every real movement).
    `writeOffItems`, `completeStockTake`) to guarantee each one always posts
    the full, real set of required lots (dollars, units, and space) for that
    kind of movement — today, only some of these are consistently posted.
-4. **Not yet done**: updating `getTrialBalance` and the real Inventory
-   Listing report to display each of these real, distinct currencies
-   clearly, separately, per direct instruction that "the same applies to the
-   Inventory report."
+4. **Done for the Trial Balance screen** — found, by direct, close inspection prompted
+   directly, to have been left half-finished: `getTrialBalance` (`backend/src/db-reports.ts`)
+   already computed `TrialBalance.by_currency` correctly — confirmed directly, by calling it and
+   reading its real return value — but the real screen a person actually sees
+   (`frontend/src/routes/reports/trial-balance/+page.svelte`) never read that field at all, and the
+   frontend's own, separately-maintained `TrialBalance`/`TrialBalanceRow` interfaces
+   (`frontend/src/lib/api.ts`) didn't even declare `by_currency`, `currency`, or
+   `has_quantity_postings` as fields, despite the backend already returning all three on every
+   request. Checking that a backend function returns the right value is not the same claim as
+   checking that a person sees it — an earlier report of this feature "working" rested only on the
+   first, not the second, and was wrong to claim both.
+
+   **Fixed, per the User Manual's own "Trial Balance" section, now the complete, descriptive
+   specification this screen is built against** (not a design-ahead-of-implementation note — the
+   mechanism already existed): the frontend interfaces were corrected to declare the fields the
+   backend already sends; the screen now groups every row by its own real `currency`, shows each
+   group's own subtotal and `balanced` flag with a visible warning when a group does not balance,
+   marks any row with `has_quantity_postings` set, and shows the combined, all-currency total only
+   when exactly one currency is present for the business/ledger being viewed — summing different
+   currencies together, as the screen did before this fix, is not a real number.
+
+   **The Inventory Listing report's own equivalent work remains not yet done** — this pass covered
+   only the Trial Balance screen, per what was directly asked; `getInventoryListing`'s own rows
+   carry a `min_level`/`max_level`/`reorder_level` shape with no currency field at all today, and
+   have not been checked for the same gap.
 5. **A real, further, separate, confirmed gap, raised directly and not yet
    designed**: storage capacity today is two, fixed fields per location
    (bottle/carton, with separate hot/cold variants) — the real, better design
