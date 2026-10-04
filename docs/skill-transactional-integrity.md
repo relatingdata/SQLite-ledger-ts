@@ -129,6 +129,19 @@ set on every real movement).
    only the Trial Balance screen, per what was directly asked; `getInventoryListing`'s own rows
    carry a `min_level`/`max_level`/`reorder_level` shape with no currency field at all today, and
    have not been checked for the same gap.
+
+   **Confirmed by an actual screenshot of the rendered page, not only by compiling and
+   type-checking** — a real, direct lesson from the prior claim that this already "worked." Three
+   separate, correctly-labelled groups render (Home Currency, `SPACE-BOTTLE`, `SPACE-CARTON`),
+   each with its own subtotal, and the real "more than one currency is present" message shows
+   instead of a combined total, since three groups genuinely exist. A real operational gotcha
+   found while getting this screenshot, worth recording since it will recur: the backend dev
+   server (`npm run dev`, under `tsx watch`) opens its own, real SQLite connection once, at
+   startup, and does not notice when `make reset-db` later deletes and recreates the database file
+   out from under it — the running server keeps serving empty results against its own, now-stale
+   file handle, while a freshly-started script (a direct `tsx` call, a fresh test run) correctly
+   sees the real, current data. The dev server must be restarted after `make reset-db`, not just
+   left running across it, before trusting what it serves.
 5. **A real, further, separate, confirmed gap, raised directly and not yet
    designed**: storage capacity today is two, fixed fields per location
    (bottle/carton, with separate hot/cold variants) — the real, better design

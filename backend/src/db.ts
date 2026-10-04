@@ -3201,19 +3201,34 @@ export function getDivisionForAccount(accountName: AccountName): string | undefi
  * explicit accountId over a name lookup everywhere it posts. */
 export function getQualifiedDisplayName(entityId: number): string {
   const entity = getEntity(entityId);
-  if (!entity || entity.parent_id == null) return entity?.name ?? '';
-  const parent = getEntity(entity.parent_id);
-  if (!parent) return entity.name;
-  // A real, confirmed bug fix: a combination-leaf account's own, real
-  // name is already, genuinely fully-qualified (ensureCombinationAccountLeaf
-  // names it with the full, real combination chain, including its own,
-  // real parent's name as a prefix) - prepending the parent's name
-  // again here produced a real, visibly doubled name (confirmed
-  // directly in the trial balance: "X — X — Y" instead of "X — Y").
-  // Only prepend when the child's own, real name doesn't already,
-  // genuinely start with it.
-  if (entity.name.startsWith(`${parent.name} — `) || entity.name === parent.name) return entity.name;
-  return `${parent.name} — ${entity.name}`;
+  if (!entity) return '';
+  // Per direct correction: the complete, real path, from "Chart of
+  // Accounts" itself (exclusive) down to the leaf (inclusive) - never
+  // a partial walk that stops at the first non-repeating ancestor.
+  // "Walk up just enough to disambiguate from one other, known
+  // duplicate" is itself fragile: a real Sales Revenue leaf and a real
+  // Cost of Goods Sold leaf for the same item both nest under the
+  // same, real category structure (Beer > Ale), so stopping at "Ale"
+  // leaves them genuinely, visibly identical - the complete path
+  // (Sales Revenue > Beer > Ale > Item > Item — Location vs. Cost of
+  // Goods Sold > Beer > Ale > Item > Item — Location) is unambiguous
+  // by construction, with no cleverness needed to find "just enough."
+  const chain: string[] = [];
+  let current: { id: number; name: string; parent_id: number | null } | undefined = entity;
+  while (current && current.name !== 'Chart of Accounts') {
+    // Skip a node whose own name is already, literally a prefix of
+    // the name already accumulated - the one, real case genuinely
+    // worth collapsing (a combination leaf's own name already
+    // contains its immediate parent's name, e.g.
+    // ensureCombinationAccountLeaf's "Item — Location" under a parent
+    // also named "Item"), never collapsed further than that.
+    const soFar = chain.join(' — ');
+    if (!(soFar && soFar.startsWith(`${current.name} — `)) && current.name !== soFar.split(' — ')[0]) {
+      chain.unshift(current.name);
+    }
+    current = current.parent_id != null ? getEntity(current.parent_id) : undefined;
+  }
+  return chain.join(' — ');
 }
 
 export function ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number } {
