@@ -2,6 +2,7 @@ import { db } from './db.js';
 import { runInSessionContext } from './session-context.js';
 import {
   supersedeEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId } from './db.js';
+import { Entity } from './primitives.js';
 import { loadAllTranslations } from '../../shared-fixtures/translations.js';
 import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels, loadDemoUpcs } from '../../shared-fixtures/wine-retail-demo-data.js';
 
@@ -449,8 +450,10 @@ function migrateForWineRetailCompany() {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Wine Retail Business'`).get()) {
     create(requireEntity('Businesses', typeRootName), typeBusinessName, 'Wine Retail Business', SEED_USER_ID);
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Actual' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Wine Retail Business')`).get()) {
-    create(requireEntity('Wine Retail Business', typeBusinessName), typeLedgerName, 'Actual', SEED_USER_ID);
+  const business = requireEntity('Wine Retail Business', typeBusinessName);
+  const ledgersRoot = (Entity.getUnder('Ledgers', business.id) ?? create(business, typeRootName, 'Ledgers', SEED_USER_ID)) as { id: number; name: string };
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Actual' AND parent_id = ?`).get(ledgersRoot.id)) {
+    create(requireEntityById(ledgersRoot.id, typeRootName), typeLedgerName, 'Actual', SEED_USER_ID);
   }
 }
 if (SEED_DEMO_BUSINESSES) migrateForWineRetailCompany();

@@ -1220,7 +1220,8 @@ export function revokeEntity(id: number, userId: UserId): void {
   // real children or direct postings of its own — journal_line
   // references the real account, not the ledger).
   const parent = entity.parent_id ? getEntity(entity.parent_id) : null;
-  if (parent && db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses') AND id = ?`).get(parent.id)) {
+  const isRealLedgersNode = parent && parent.name === 'Ledgers' && db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses') AND id = ?`).get(parent.parent_id ?? -1);
+  if (parent && isRealLedgersNode) {
     const siblingLedgers = db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(parent.id) as { name: string }[];
     const isActual = entity.name.endsWith(' Actual') || entity.name === 'Actual';
     const isBudget = / Budget /.test(` ${entity.name} `) || entity.name.startsWith('Budget ') || entity.name === 'Budget';
@@ -2043,7 +2044,7 @@ export function postInvoice(
   }
 
   const journalId = (
-    db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`)
+    db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`)
       .get(invoice.reference, invoice.business, invoice.ledger, invoice.business) as { id: number }
   ).id;
   Entity.mergeDetailJson(id, JSON.stringify({ status: 'posted', posted_journal_id: journalId }));
@@ -6589,11 +6590,9 @@ export function getBusinesses(): { id: number; name: BusinessName }[] {
  * real entity, not a ledger at all, that a person could accidentally
  * select and then find no real accounts postable to it. */
 export function getLedgers(businessName: BusinessName): { id: number; name: LedgerName }[] {
-  const excludedNames = [...PER_BUSINESS_ROOTS.map((r) => r.name), 'Chart of Accounts'];
-  const placeholders = excludedNames.map(() => '?').join(', ');
   return db
-    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = ?) AND name NOT IN (${placeholders})`)
-    .all(businessName, ...excludedNames) as { id: number; name: LedgerName }[];
+    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`)
+    .all(businessName) as { id: number; name: LedgerName }[];
 }
 
 /** Creates a brand-new business, real and ready to actually transact
@@ -7111,6 +7110,7 @@ export const PER_BUSINESS_ROOTS: { name: string; type: TypeDescriptor<string> }[
   { name: 'Contacts', type: typeBusinessContactsRootName },
   { name: 'Hierarchies', type: typeRootName },
   { name: 'Vocabulary', type: typeRootName },
+  { name: 'Ledgers', type: typeRootName },
 ];
 
 export function createBusiness(
@@ -7125,25 +7125,28 @@ export function createBusiness(
   return db.transaction((): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName } => {
   const businessesRoot = requireEntity('Businesses', typeRootName);
   const business = create(businessesRoot, typeBusinessName, businessName, userId);
-  const actualLedger = asLedgerName(`Actual`);
-  const budgetLedger = asLedgerName(`Budget ${financialYearLabel}`);
-  create(business, typeLedgerName, actualLedger, userId);
-  create(business, typeLedgerName, budgetLedger, userId);
   // Every real, structural root a new business gets, per the one,
   // single, real, consolidated list above (PER_BUSINESS_ROOTS) -
-  // Locations, Items, Contacts, and Hierarchies today; adding a
-  // further one is a genuine, real, one-line addition to that list
-  // alone, never a further edit here. Per a real, confirmed,
-  // fundamental correction: each one is a real, plain name (never
-  // business-prefixed) - create()'s own uniqueness check is already
-  // scoped by real, direct parent, never global, so "Locations" under
-  // one real business and "Locations" under a genuinely different
-  // real business were never actually in conflict at all; resolving
-  // one back by name uses fetch's own, real, further, optional parent
-  // argument (see fetch, above) to disambiguate, never a mangled name.
+  // Locations, Items, Contacts, Hierarchies, Vocabulary, and Ledgers
+  // today; adding a further one is a genuine, real, one-line addition
+  // to that list alone, never a further edit here. Per a real,
+  // confirmed, fundamental correction: each one is a real, plain name
+  // (never business-prefixed) - create()'s own uniqueness check is
+  // already scoped by real, direct parent, never global, so
+  // "Locations" under one real business and "Locations" under a
+  // genuinely different real business were never actually in conflict
+  // at all; resolving one back by name uses fetch's own, real,
+  // further, optional parent argument (see fetch, above) to
+  // disambiguate, never a mangled name. Ledgers must exist before the
+  // real ledgers below are parented under it.
   for (const root of PER_BUSINESS_ROOTS) {
     create(business, root.type, root.name, userId);
   }
+  const ledgersRoot = requireEntity('Ledgers', typeRootName, business);
+  const actualLedger = asLedgerName(`Actual`);
+  const budgetLedger = asLedgerName(`Budget ${financialYearLabel}`);
+  create(ledgersRoot, typeLedgerName, actualLedger, userId);
+  create(ledgersRoot, typeLedgerName, budgetLedger, userId);
   // A real, second fix, found via the real, full-lifecycle Playwright
   // test: a new business was never actually tagged with its own real
   // CoA prototype relation at all — only the original, hand-tagged demo

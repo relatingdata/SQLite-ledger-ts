@@ -206,7 +206,7 @@ export function getLedgerBalancesByDivision(
        JOIN journal_occurrences jo ON jo.account_id = a.entity_id
        JOIN journal j ON j.id = jo.journal_id
        LEFT JOIN current_entities d ON d.id = jo.division_id
-       WHERE jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))
+       WHERE jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
          AND (? IS NULL OR jo.transdate >= ?)
          AND (? IS NULL OR jo.transdate <= ?)
          AND (? = 0 OR j.reference NOT LIKE 'CLOSE-%')
@@ -262,7 +262,7 @@ export function getLedgerBalancesByDivisionStructural(
        JOIN real_accounts ra ON ra.id = a.entity_id
        JOIN journal_occurrences jo ON jo.account_id = a.entity_id
        JOIN journal j ON j.id = jo.journal_id
-       WHERE jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))
+       WHERE jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
          AND (? IS NULL OR jo.transdate >= ?)
          AND (? IS NULL OR jo.transdate <= ?)
          AND (? = 0 OR j.reference NOT LIKE 'CLOSE-%')
@@ -313,7 +313,7 @@ export function getLedgerBalances(businessName: BusinessName, ledgerName: Ledger
          SELECT e.id FROM current_entities e JOIN division_and_descendants d ON e.parent_id = d.id
        )
        SELECT a.entity_id AS id,
-              COALESCE(SUM(CASE WHEN jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))
+              COALESCE(SUM(CASE WHEN jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
                                  AND (? IS NULL OR jo.transdate >= ?)
                                  AND (? IS NULL OR jo.transdate <= ?)
                                  AND (? IS NULL OR jo.division_id IN (SELECT id FROM division_and_descendants))
@@ -588,7 +588,7 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
          SELECT COALESCE(SUM(jo.amount_minor), 0) AS total
          FROM journal_occurrences jo
          WHERE jo.account_id IN (SELECT id FROM walk)
-           AND jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))
+           AND jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
            AND (? IS NULL OR jo.transdate <= ?)
            AND (? IS NULL OR jo.division_id = (SELECT id FROM current_entities WHERE name = ?))`
       )
@@ -1306,7 +1306,7 @@ export function getSalesReport(business: BusinessName, ledger: LedgerName, fromD
        JOIN invoice i ON i.id = l.invoice_id
        LEFT JOIN current_entities pe ON pe.id = l.item_id
        WHERE i.business_id = (SELECT id FROM current_entities WHERE name = ?)
-         AND i.ledger_id = (SELECT id FROM current_entities WHERE name = ?)
+         AND i.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
          AND i.invoice_type = 'AR'
          AND i.document_type = 'invoice'
          AND i.status = 'posted'
@@ -1314,7 +1314,7 @@ export function getSalesReport(business: BusinessName, ledger: LedgerName, fromD
          AND (? IS NULL OR i.invoice_date <= ?)
        ORDER BY i.invoice_date, i.reference, l.line_order`
     )
-    .all(business, ledger, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as (SalesReportLine & { item_id: number | null })[];
+    .all(business, ledger, business, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as (SalesReportLine & { item_id: number | null })[];
 
   const entities = getEntityTree();
   const categoryOf = (itemId: number | null): string => {

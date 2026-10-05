@@ -495,8 +495,14 @@ INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM
 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (34, 34, 'Businesses', 0, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (35, 35, 'My Business', 34, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (36, 36, 'Actual', 35, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (37, 37, 'Proposed Growth Budget 2026-27', 35, '2026-01-01', 1);
+-- Per the real, new structure createBusiness itself now builds: every
+-- real ledger lives under its own business's own, real Ledgers node,
+-- never directly under the business. My Business is hand-seeded, raw
+-- data (bypassing createBusiness entirely), so this must be built by
+-- hand here too, to match.
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (999000, 999000, 'Ledgers', 35, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (36, 36, 'Actual', 999000, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (37, 37, 'Proposed Growth Budget 2026-27', 999000, '2026-01-01', 1);
 
 -- Reusable UI vocabulary — each word exists exactly once. Wherever the
 -- application shows, say, a save action or a Debit column, anywhere at
@@ -1475,7 +1481,8 @@ SELECT
   END AS locked_through_date
 FROM current_entities e
 JOIN current_entities ledg ON ledg.id = e.parent_id
-JOIN current_entities biz ON biz.id = ledg.parent_id
+JOIN current_entities ledgers_root ON ledgers_root.id = ledg.parent_id
+JOIN current_entities biz ON biz.id = ledgers_root.parent_id
 WHERE e.name LIKE (biz.name || ' — ' || ledg.name || ' — Period Lock — %');
 
 -- =====================================================================
@@ -1767,7 +1774,7 @@ BEGIN
   INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id)
   SELECT
     (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))),
-    (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))),
+    (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))))),
     NEW.reference,
     (SELECT description FROM journal_entry_staging
      WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
@@ -1783,7 +1790,7 @@ BEGIN
     (SELECT j.id FROM journal j
      WHERE j.reference = NEW.reference
        AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
-       AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))))),
+       AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))))),
     COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account)),
     COALESCE(
       (SELECT transdate FROM journal_entry_staging
@@ -1892,7 +1899,7 @@ BEGIN
   INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id)
   SELECT
     (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))),
-    (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))),
+    (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))))),
     NEW.reference,
     (SELECT description FROM journal_entry_staging
      WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
@@ -1908,7 +1915,7 @@ BEGIN
     (SELECT j.id FROM journal j
      WHERE j.reference = NEW.reference
        AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
-       AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))))),
+       AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))))),
     COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account)),
     COALESCE(
       (SELECT transdate FROM journal_entry_staging

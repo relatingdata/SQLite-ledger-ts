@@ -242,7 +242,7 @@ export function getSalesCogsMatrix(businessName: BusinessName, ledgerName: Ledge
        JOIN sales_cogs_accounts sca ON sca.id = a.entity_id
        JOIN journal_occurrences jo ON jo.account_id = a.entity_id
        JOIN journal j ON j.id = jo.journal_id
-       WHERE jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))
+       WHERE jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
          AND (? IS NULL OR jo.transdate >= ?)
          AND (? IS NULL OR jo.transdate <= ?)
          AND j.reference NOT LIKE 'CLOSE-%'

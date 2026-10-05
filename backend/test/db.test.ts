@@ -352,8 +352,9 @@ test('revokeEntity works for a genuinely childless, unposted entity', () => {
 
 test('revokeEntity refuses to delete a business\'s last real Actual or last real Budget ledger, but allows removing a real, genuine duplicate', () => {
   create(requireEntity('Businesses', typeRootName), typeRootName, 'LedgerRuleTest Business', asUserId(1));
-  create(requireEntity('LedgerRuleTest Business', typeRootName), typeRootName, 'LedgerRuleTest Business Actual', asUserId(1));
-  create(requireEntity('LedgerRuleTest Business', typeRootName), typeRootName, 'LedgerRuleTest Business Budget 2026-27', asUserId(1));
+  create(requireEntity('LedgerRuleTest Business', typeRootName), typeRootName, 'Ledgers', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('LedgerRuleTest Business', typeRootName)), typeRootName, 'LedgerRuleTest Business Actual', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('LedgerRuleTest Business', typeRootName)), typeRootName, 'LedgerRuleTest Business Budget 2026-27', asUserId(1));
 
   const actual = getEntity(getEntityTree().find((e) => e.name === 'LedgerRuleTest Business Actual')!.id)!;
   const budget = getEntity(getEntityTree().find((e) => e.name === 'LedgerRuleTest Business Budget 2026-27')!.id)!;
@@ -364,7 +365,7 @@ test('revokeEntity refuses to delete a business\'s last real Actual or last real
   // A real, genuine second Actual-type ledger for the same business
   // CAN be deleted — the rule protects the last one of each real
   // kind, not every real ledger unconditionally.
-  const dup = create(requireEntity('LedgerRuleTest Business', typeRootName), typeRootName, 'LedgerRuleTest Business Second Actual', asUserId(1));
+  const dup = create(requireEntity('Ledgers', typeRootName, requireEntity('LedgerRuleTest Business', typeRootName)), typeRootName, 'LedgerRuleTest Business Second Actual', asUserId(1));
   revokeEntity(dup.id, asUserId(1));
   assert.equal(getEntity(dup.id)!.relation_id, null);
 
@@ -548,7 +549,7 @@ test('profit and loss computes real totals and net income', () => {
 });
 
 test('profit and loss excludes a Year End Close entry from its own totals, even when the close happened within the requested date range — a real, direct bug report: "the consolidated p&l shows zero"', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'PLCloseTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PLCloseTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'PLCloseTest Revenue', asUserId(1));
 
   stageLine({ reference: 'PLCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('PLCloseTest Ledger'), transdate: '2027-04-01', account: asAccountName('PLCloseTest Revenue'), amount_minor: -50000 });
@@ -572,7 +573,7 @@ test('profit and loss income_tree groups by the real category hierarchy, with co
   // Self-contained, not dependent on the wine simulation ever having
   // been run — creates its own real, two-level category chain, its
   // own real products under it, and posts real sales directly.
-  create(requireEntity('My Business', typeRootName), typeRootName, 'PL Tree Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PL Tree Test Ledger', asUserId(1));
   create(requireEntity('Items', typeRootName), typeRootName, 'PL Tree Beverages', asUserId(1));
   create(requireEntity('PL Tree Beverages', typeRootName), typeRootName, 'PL Tree Cider', asUserId(1));
   create(requireEntity('PL Tree Cider', typeRootName), typeRootName, 'PL Tree Dry Cider 500ml', asUserId(1));
@@ -827,7 +828,7 @@ test('a realistic set of transactions — cash purchase, cash sale, AR sale, a r
   // A fresh, dedicated ledger for this test so its numbers are easy to
   // reason about in isolation from everything else already posted
   // elsewhere in this test run.
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Worked Set Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Worked Set Ledger', asUserId(1));
 
   function post(reference: string, lines: { account: string; amount_minor: number; memo?: string }[]) {
     for (const line of lines) {
@@ -947,7 +948,7 @@ test('AR/AP forms reuse the same atomic posting mechanism — an unbalanced-by-c
 });
 
 test('reversing a posted entry creates a new entry with every line negated, and the net effect on balances is exactly zero', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Reversal Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Reversal Test Ledger', asUserId(1));
   stageLine({ reference: 'REV-SOURCE', business: asBusinessName('My Business'), ledger: asLedgerName('Reversal Test Ledger'), transdate: '2027-09-01', account: asAccountName('Cash and Bank'), amount_minor: 7500 });
   stageLine({ reference: 'REV-SOURCE', business: asBusinessName('My Business'), ledger: asLedgerName('Reversal Test Ledger'), transdate: '2027-09-01', account: asAccountName('Sales Revenue'), amount_minor: -7500 });
   postJournalEntry('REV-SOURCE', asBusinessName('My Business'), asLedgerName('Reversal Test Ledger'), asUserId(1));
@@ -980,7 +981,7 @@ test('complete end-to-end lifecycle: purchase order -> receipt -> sales order ->
   // A fresh, dedicated ledger and a fresh batch of Widget accounts, so
   // this test's numbers are easy to verify in isolation from anything
   // else posted elsewhere in this test run.
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Lifecycle Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Lifecycle Test Ledger', asUserId(1));
   create(requireEntity('Stock Quantities', typeRootName), typeRootName, 'LTWidget Batch Qty', asUserId(1));
   create(requireEntity('Inventory', typeRootName), typeRootName, 'LTWidget Batch Value', asUserId(1));
   const business = 'My Business';
@@ -1052,7 +1053,7 @@ test('complete end-to-end lifecycle: purchase order -> receipt -> sales order ->
 });
 
 test('a partial receipt against a purchase order leaves a genuine, correctly-sized back order', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Backorder Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Backorder Test Ledger', asUserId(1));
   create(requireEntity('Stock Quantities', typeRootName), typeRootName, 'BOWidget Batch Qty', asUserId(1));
   create(requireEntity('Inventory', typeRootName), typeRootName, 'BOWidget Batch Value', asUserId(1));
   const business = 'My Business';
@@ -1076,7 +1077,7 @@ test('a partial receipt against a purchase order leaves a genuine, correctly-siz
 });
 
 test('a real Purchase Order still knows its real vendor and item after posting — no extra table, the same real relation every entity already has', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'PORelationTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PORelationTest Ledger', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'PORelationTest Vendor', asUserId(1));
   createItem('PORelationTest Wine', 'Items', asUserId(1));
 
@@ -1137,7 +1138,7 @@ test('getLocationCapacityStatus: a real location\'s own, current real stock chec
 });
 
 test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picking list, requires every real line ticked off before it can dispatch, and reduces real, physical stock at the exact location it was actually picked from', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'PickTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PickTest Ledger', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'PickTest Outlet', asUserId(1));
   setLocation('PickTest Outlet', { city: 'PickTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('PickTest Front Wine', 'Items', asUserId(1));
@@ -1192,7 +1193,7 @@ test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picki
 });
 
 test('restocking retail outlets from warehouses: the same real, shelf-ordered picking and refuse-until-complete pattern, but a real internal transfer, not an invoice — a real, distinct reference per real line, since a shared reference across different real products in the same run would genuinely collide', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'RestockTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'RestockTest Ledger', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'RestockTest Warehouse', asUserId(1));
   setLocation('RestockTest Warehouse', { city: 'RestockTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
   create(myBusinessLocationsRoot(), typeRootName, 'RestockTest Outlet', asUserId(1));
@@ -1229,7 +1230,7 @@ test('restocking retail outlets from warehouses: the same real, shelf-ordered pi
 });
 
 test('the four real entry screens: PO -> receipt -> SO -> dispatch, using the actual staging/post functions a person would use, not just the underlying primitives', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Screens Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Screens Test Ledger', asUserId(1));
   create(requireEntity('Stock Quantities', typeRootName), typeRootName, 'SCWidget Batch Qty', asUserId(1));
   create(requireEntity('Inventory', typeRootName), typeRootName, 'SCWidget Batch Value', asUserId(1));
   const business = 'My Business';
@@ -1367,7 +1368,7 @@ test('a recurring journal records who created it — every occurrence it generat
 });
 
 test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable, everything balances', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Tax Test Ledger AR', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Tax Test Ledger AR', asUserId(1));
   stageARSale({ reference: 'TAX-AR-1', business: asBusinessName('My Business'), ledger: asLedgerName('Tax Test Ledger AR'), customer: asCustomerName('Acme Corp'), amount_minor: 100000, tax_minor: 10000, transdate: '2027-12-01' });
   postARSale('TAX-AR-1', asBusinessName('My Business'), asLedgerName('Tax Test Ledger AR'), asUserId(1));
 
@@ -1379,7 +1380,7 @@ test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable
 });
 
 test('AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amount+tax, everything balances', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Tax Test Ledger AP', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Tax Test Ledger AP', asUserId(1));
   stageAPPurchase({ reference: 'TAX-AP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Tax Test Ledger AP'), vendor: asProviderName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 50000, tax_minor: 5000, transdate: '2027-12-01' });
   postAPPurchase('TAX-AP-1', asBusinessName('My Business'), asLedgerName('Tax Test Ledger AP'), asUserId(1));
 
@@ -1391,7 +1392,7 @@ test('AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amo
 });
 
 test('a service dispatch (no item, no item_qty, no unit_cost) skips COGS and quantity movement entirely — matches the exact worked example: 10 hours @ 150.00 with 10% tax', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Service Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Service Test Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'Service Test Ledger';
 
@@ -1412,7 +1413,7 @@ test('a service dispatch (no item, no item_qty, no unit_cost) skips COGS and qua
 });
 
 test('a service receipt (no item_qty) skips the quantity movement, still posts the monetary and tax legs correctly', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Service Receipt Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Service Receipt Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'Service Receipt Ledger';
 
@@ -1432,7 +1433,7 @@ test('a service receipt (no item_qty) skips the quantity movement, still posts t
 });
 
 test('invoice_line records genuinely per-line tax, never assumed uniform — one line exempt, another at a different rate entirely', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Invoice Line Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Invoice Line Test Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'Invoice Line Test Ledger';
   create(requireEntity('Stock Quantities', typeRootName), typeRootName, 'ILWidget Batch Qty', asUserId(1));
@@ -1471,7 +1472,7 @@ test('invoice_line records genuinely per-line tax, never assumed uniform — one
 });
 
 test('AR Sale and AP Purchase also record an invoice_line, with no quantity/unit price concept at all (both null)', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Invoice Line Flat Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Invoice Line Flat Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'Invoice Line Flat Ledger';
   stageARSale({ reference: 'IL-FLAT-AR', business: asBusinessName(business), ledger: asLedgerName(ledger), customer: asCustomerName('Acme Corp'), amount_minor: 10000, tax_minor: 1000, transdate: '2027-05-01', description: 'Flat sale' });
@@ -1484,7 +1485,7 @@ test('AR Sale and AP Purchase also record an invoice_line, with no quantity/unit
 });
 
 test('an ordinary General Journal posting records no invoice_line at all — it has no invoice concept', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'No Invoice Line Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'No Invoice Line Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'No Invoice Line Ledger';
   stageLine({ reference: 'GJ-NO-INV', business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: '2027-05-01', account: asAccountName('Cash and Bank'), amount_minor: 500 });
@@ -1494,7 +1495,7 @@ test('an ordinary General Journal posting records no invoice_line at all — it 
 });
 
 test('closing a period rejects normal posting into it, and reopening lifts that immediately for a correction', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Period Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Period Test Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'Period Test Ledger';
 
@@ -1527,7 +1528,7 @@ test('closing a period rejects normal posting into it, and reopening lifts that 
 });
 
 test('quantity movements and recurring journal start dates are also protected by a closed period, not just ordinary posting', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Period Test Ledger 2', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Period Test Ledger 2', asUserId(1));
   const business = 'My Business';
   const ledger = 'Period Test Ledger 2';
   create(requireEntity('Stock Quantities', typeRootName), typeRootName, 'PeriodTest Batch Qty', asUserId(1));
@@ -1550,7 +1551,7 @@ test('quantity movements and recurring journal start dates are also protected by
 });
 
 test('Trial Balance and Balance Sheet asOfDate correctly excludes postings after the cutoff, without needing a period to be closed at all', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'AsOf Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'AsOf Test Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'AsOf Test Ledger';
 
@@ -1576,7 +1577,7 @@ test('Trial Balance and Balance Sheet asOfDate correctly excludes postings after
 });
 
 test('Profit and Loss fromDate/toDate is a genuine range, not just a single cutoff — excludes postings both before AND after the window', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'PL Range Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PL Range Test Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'PL Range Test Ledger';
 
@@ -1604,7 +1605,7 @@ test('Profit and Loss fromDate/toDate is a genuine range, not just a single cuto
 });
 
 test('reversing the same occurrence twice is rejected clearly — the real bug this prevents silently corrupted journal_line by attaching a second reversals lines to the first one, since the reversal reference is deterministic', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Double Reversal Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Double Reversal Test Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'Double Reversal Test Ledger';
 
@@ -1638,7 +1639,7 @@ test('reversing the same occurrence twice is rejected clearly — the real bug t
 });
 
 test('Balance Sheet and P&L split each line into debit/credit columns per accounting convention, and flag a line whose balance sits opposite its normal side', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'Contra Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Contra Test Ledger', asUserId(1));
   const business = 'My Business';
   const ledger = 'Contra Test Ledger';
 
@@ -1673,8 +1674,8 @@ test('Balance Sheet and P&L split each line into debit/credit columns per accoun
 });
 
 test('getProfitAndLossComparison correctly reconstructs each lines actual amount from debit_minor/credit_minor, not a stale removed field', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'PLC Fix Test A', asUserId(1));
-  create(requireEntity('My Business', typeRootName), typeRootName, 'PLC Fix Test B', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PLC Fix Test A', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PLC Fix Test B', asUserId(1));
   stageLine({ reference: 'PLCFIX-A', business: asBusinessName('My Business'), ledger: asLedgerName('PLC Fix Test A'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 2500 });
   stageLine({ reference: 'PLCFIX-A', business: asBusinessName('My Business'), ledger: asLedgerName('PLC Fix Test A'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -2500 });
   postJournalEntry('PLCFIX-A', asBusinessName('My Business'), asLedgerName('PLC Fix Test A'), asUserId(1));
@@ -1725,7 +1726,7 @@ test('getCreditStatus: a real customer/vendor\'s own real balance checked agains
   assert.equal(before.overLimit, false);
   assert.equal(before.remainingMinor, 500000);
 
-  create(requireEntity('My Business', typeRootName), typeRootName, 'CreditStatusTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'CreditStatusTest Ledger', asUserId(1));
   stageLine({ reference: 'CST-1', business: asBusinessName('My Business'), ledger: asLedgerName('CreditStatusTest Ledger'), account: asAccountName('Inventory'), amount_minor: 600000 });
   stageLine({ reference: 'CST-1', business: asBusinessName('My Business'), ledger: asLedgerName('CreditStatusTest Ledger'), account: asAccountName('CreditStatusTest Vendor'), amount_minor: -600000 });
   postJournalEntry('CST-1', asBusinessName('My Business'), asLedgerName('CreditStatusTest Ledger'), asUserId(1));
@@ -1814,7 +1815,7 @@ test('Developer role, Employees/Manufacturers/Items branches, and item_source al
 test('divisions/profit centers: the same account can be posted to by multiple divisions, and reports can filter to just one', () => {
   create(requireEntity('Divisions', typeRootName), typeRootName, 'DivTest Manufacturing', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'DivTest Services', asUserId(1));
-  create(requireEntity('My Business', typeRootName), typeRootName, 'DivTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'DivTest Ledger', asUserId(1));
 
   stageLine({ reference: 'DIVT-1', business: asBusinessName('My Business'), ledger: asLedgerName('DivTest Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 1000, division: asDivisionName('DivTest Manufacturing') });
   stageLine({ reference: 'DIVT-1', business: asBusinessName('My Business'), ledger: asLedgerName('DivTest Ledger'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -1000, division: asDivisionName('DivTest Manufacturing') });
@@ -2229,7 +2230,7 @@ test('quantity movements carry a real, queryable location — receive, dispatch,
 });
 
 test('true double-entry quantity tracking: a real "on order" account for receipts and a real "units sold" account for dispatches — the genuine counteritem, not derived arithmetic, per direct confirmation', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'DblEntryQty Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'DblEntryQty Ledger', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'DblEntryQty Warehouse', asUserId(1));
   setLocation('DblEntryQty Warehouse', { city: 'DblEntryQty City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
   create(myBusinessLocationsRoot(), typeRootName, 'DblEntryQty Outlet', asUserId(1));
@@ -2281,7 +2282,7 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
 });
 
 test('getStockMovementReport: the real, physical journey of stock — purchases into a warehouse, a real transfer on to a retail outlet, and a real sale, each correctly enriched with its own real category, division, and vendor', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'SMRTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'SMRTest Ledger', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'SMRTest Region', asUserId(1));
   setDivisionType('SMRTest Region', 'Profit Center');
   create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Warehouse', asUserId(1));
@@ -2865,7 +2866,7 @@ test('customer self-registration: a customer is a customer — same contact invo
 });
 
 test('closeBooks: year-end close zeroes every Income/Expense account into Retained Earnings as one reversible entry, with the correct sign for both profit and loss', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'CloseBooks Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'CloseBooks Test Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'CloseTest Revenue', asUserId(1));
   create(requireGlobalCoaCategory('Expense'), typeRootName, 'CloseTest Expense', asUserId(1));
 
@@ -2906,7 +2907,7 @@ test('closeBooks: year-end close zeroes every Income/Expense account into Retain
 });
 
 test('getBalanceSheet: a real close must not leave Current Year Earnings still showing the closed period\'s net income — a real, direct regression: the Balance Sheet stopped balancing after excludeCloseEntries was added to getProfitAndLoss for report pages', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'BSCloseTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'BSCloseTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'BSCloseTest Revenue', asUserId(1));
 
   stageLine({ reference: 'BSCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('BSCloseTest Ledger'), transdate: '2027-08-01', account: asAccountName('BSCloseTest Revenue'), amount_minor: -70000 });
@@ -2977,7 +2978,7 @@ test("closeBooks: per direct correction, division is only a real, pure sub-total
 });
 
 test('getBalanceSheet includes real AR/AP posted directly to customer/vendor names — without this, any ledger with outstanding AR/AP silently fails to balance', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'BSTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'BSTest Ledger', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'BSTest Vendor', asUserId(1));
   setContact('BSTest Vendor', { payment_terms_days: 30 });
 
@@ -3214,7 +3215,7 @@ test('getOrganizationChart: the real, complete chain — Business belongs-to Div
 
 
 test('e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, and a real, incoming one round-trips back through a genuinely separate ledger as a draft, never auto-posted', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'EInvTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'EInvTest Ledger', asUserId(1));
   create(requireEntity('Customers', typeRootName), typeRootName, 'EInvTest Customer', asUserId(1));
   const invoiceId = createInvoice(
     {
@@ -3236,7 +3237,7 @@ test('e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, an
   assert.ok(xml.includes('450.00'), 'the real line amount must appear as a real, formatted currency value');
 
   // A genuinely separate receiving ledger — the real, realistic case, not importing back into the same books it came from.
-  create(requireEntity('My Business', typeRootName), typeRootName, 'EInvTest Receiving Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'EInvTest Receiving Ledger', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'EInvTest Vendor', asUserId(1));
   const result = importUblInvoiceAsDraft(xml, asBusinessName('My Business'), asLedgerName('EInvTest Receiving Ledger'), 'EInvTest Vendor', asUserId(1));
 
@@ -3251,7 +3252,7 @@ test('e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, an
 });
 
 test('e-invoicing: a real 3-way match catches a genuine mismatch between a purchase order and an incoming e-invoice', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'EInvDiscTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'EInvDiscTest Ledger', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'EInvDiscTest Vendor', asUserId(1));
   create(requireEntity('Items', typeRootName), typeRootName, 'EInvDiscTest Item', asUserId(1));
 
@@ -3338,7 +3339,7 @@ test('getInventoryListingByLocation: groups the same real stock data by real loc
 }));
 
 test('getLedgerDateRange: reports the real, earliest and latest transdate of what has actually been posted', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'DateRangeTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'DateRangeTest Ledger', asUserId(1));
   const empty = getLedgerDateRange(asBusinessName('My Business'), asLedgerName('DateRangeTest Ledger'));
   assert.equal(empty.earliest, null, 'a real ledger with nothing posted yet must report a real null range, not a misleading fallback date');
   assert.equal(empty.latest, null);
@@ -3368,7 +3369,7 @@ test('getLedgerDateRange: reports the real, earliest and latest transdate of wha
 });
 
 test('getAccountsPostedTo: finds the real, actual accounts a given reference posted to — used to correct a return to the exact same account the original sale used, not a different, plain fallback', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'AcctsPostedTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'AcctsPostedTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'AcctsPostedTest Revenue (Tier A)', asUserId(1));
   stageLine({ reference: 'APT-1', business: asBusinessName('My Business'), ledger: asLedgerName('AcctsPostedTest Ledger'), transdate: '2027-06-01', account: asAccountName('AcctsPostedTest Revenue (Tier A)'), amount_minor: -5000 });
   stageLine({ reference: 'APT-1', business: asBusinessName('My Business'), ledger: asLedgerName('AcctsPostedTest Ledger'), transdate: '2027-06-01', account: asAccountName('Cash and Bank'), amount_minor: 5000 });
@@ -3383,7 +3384,7 @@ test('getAccountsPostedTo: finds the real, actual accounts a given reference pos
 });
 
 test('a real, nested division hierarchy: filtering a report by a coarser division must include a finer, nested division\'s own real activity too, not just an exact division_id match', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'HierarchyTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'HierarchyTest Ledger', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'HierarchyTest Region', asUserId(1));
   setDivisionType('HierarchyTest Region', 'Profit Center');
   create(requireEntity('HierarchyTest Region', typeRootName), typeRootName, 'HierarchyTest Outlet', asUserId(1));
@@ -3406,7 +3407,7 @@ test('a real, nested division hierarchy: filtering a report by a coarser divisio
 });
 
 test('postJournalEntry: a real multi-currency entry must balance independently per currency — the exact danger this catches: an EUR imbalance masked by an offsetting USD imbalance must never pass', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'CcyTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'CcyTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'CcyTest Cash (EUR)', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'CcyTest Clearing (EUR)', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'CcyTest Cash (USD)', asUserId(1));
@@ -3440,7 +3441,7 @@ test('postJournalEntry: a real multi-currency entry must balance independently p
 });
 
 test('getTrialBalance: by_currency genuinely separates each real currency\'s own debit/credit totals - a combined, cross-currency sum can look balanced or unbalanced for entirely the wrong reason', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'CcyTBTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'CcyTBTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'CcyTBTest Cash (EUR)', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'CcyTBTest Clearing (EUR)', asUserId(1));
   setAccountCurrency('CcyTBTest Cash (EUR)', 'EUR');
@@ -3490,7 +3491,7 @@ test('getTrialBalance: has_quantity_postings correctly flags an account that has
 });
 
 test('getProfitAndLoss: Gross Profit is a real subtotal (Revenue minus COGS specifically), Net Profit unchanged — via the real, bootstrap-tagged COGS account, not a test-only setup', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'GrossProfit Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'GrossProfit Test Ledger', asUserId(1));
 
   stageLine({ reference: 'GPTEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -100000 });
   stageLine({ reference: 'GPTEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 100000 });
@@ -3515,7 +3516,7 @@ test('getProfitAndLoss: Gross Profit is a real subtotal (Revenue minus COGS spec
 });
 
 test('getTrialBalance: must always balance, even with real posted AR/AP — Customers/Vendors live outside the Chart of Accounts but their real monetary postings must still be included', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'TBBalance Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'TBBalance Test Ledger', asUserId(1));
   create(requireEntity('Customers', typeRootName), typeRootName, 'TBBalance Test Customer', asUserId(1));
 
   // A real AR-style posting: Accounts Receivable debited, Sales Revenue
@@ -3533,7 +3534,7 @@ test('getTrialBalance: must always balance, even with real posted AR/AP — Cust
 });
 
 test('allocatePayment: actually posts the real GL movement, not just a tracking record — confirmed directly, since this exact gap once let $920,626.23 in "paid" sales never reach Cash and Bank', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'AllocGL Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'AllocGL Test Ledger', asUserId(1));
   create(requireEntity('Customers', typeRootName), typeRootName, 'AllocGL Test Customer', asUserId(1));
 
   const inv = createInvoice({
@@ -3607,7 +3608,7 @@ test('a item\'s real retail_price_minor is a genuine lookup field, reachable via
 });
 
 test('getSalesReport: detailed lines and a genuine category rollup (via the real entity tree, not a hand-maintained list) that both sum to the same real total', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'SalesReportTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'SalesReportTest Ledger', asUserId(1));
   create(requireEntity('Customers', typeRootName), typeRootName, 'SalesReportTest Customer', asUserId(1));
   createItem('SalesReportTest Merlot', 'Merlot', asUserId(1));
   createItem('SalesReportTest Shiraz', 'Shiraz', asUserId(1));
@@ -3863,7 +3864,7 @@ test('POS clerk sign-on/sign-off: a real employee needs a real PIN, can only be 
 });
 
 test('previewCloseBooks: the real, proposed lines it returns exactly match what closeBooks itself actually posts, and nothing is staged or posted by the preview itself', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'PreviewCloseTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PreviewCloseTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'PreviewCloseTest Revenue', asUserId(1));
   create(requireGlobalCoaCategory('Equity'), typeRootName, 'PreviewCloseTest Retained Earnings', asUserId(1));
 
@@ -5431,7 +5432,7 @@ test('the fully worked example from multicurrency-design.md: a real sale through
 
 
 test('closeBooks: a real, foreign-currency Income account closes against its own, real, currency-tagged Retained Earnings sibling - never the plain, home-currency one, per docs/multicurrency-design.md. Also a real, confirmed regression fix: closing an already-fully-closed ledger a second time correctly rejects with "nothing to close", never a real, confusing PostingError instead', () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'CloseCcyTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'CloseCcyTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'CloseCcyTest Revenue', asUserId(1));
   setAccountCurrency('CloseCcyTest Revenue', 'USD');
   createEntityRaw({ name: 'CloseCcyTest Cash (USD)', parent: 'Asset' }, asUserId(1));

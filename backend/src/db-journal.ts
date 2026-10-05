@@ -747,7 +747,7 @@ export function getLedgerDateRange(businessName: BusinessName, ledgerName: Ledge
     .prepare(
       `SELECT MIN(j.transdate) AS earliest, MAX(j.transdate) AS latest
        FROM journal j
-       WHERE j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))
+       WHERE j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
          AND j.reference NOT LIKE 'CLOSE-%'`
     )
     .get(ledgerName, businessName) as { earliest: string | null; latest: string | null };
@@ -809,7 +809,7 @@ export function reverseJournalEntry(business: BusinessName, ledger: LedgerName, 
 
   const alreadyReversed = db
     .prepare(
-      `SELECT 1 FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`
+      `SELECT 1 FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`
     )
     .get(reversalReference, original.business, original.ledger, original.business);
   if (alreadyReversed) {
@@ -834,6 +834,6 @@ export function reverseJournalEntry(business: BusinessName, ledger: LedgerName, 
   postJournalEntry(reversalReference, asBusinessName(original.business), asLedgerName(original.ledger), userId);
 
   db.prepare(
-    `UPDATE journal SET reversal_of = ? WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`
+    `UPDATE journal SET reversal_of = ? WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`
   ).run(journalId, reversalReference, original.business, original.ledger, original.business);
 }
