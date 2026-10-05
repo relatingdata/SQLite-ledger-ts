@@ -66,7 +66,7 @@ const {
   typeAssetAccountName,
   typeEquityAccountName,
   typeChartOfAccountsRootName,
-  updateEntity,
+  supersedeEntity,
   setRelationship,
   setEntityLink,
   getEntityLink,
@@ -322,22 +322,22 @@ test('creating an entity with a nonexistent parent is rejected', () => {
   assert.throws(() => create(requireEntity('Nonexistent Parent Name', typeRootName), typeRootName, 'Orphan', asUserId(1)));
 });
 
-test('updateEntity can rename, reparent, and assign an account number', () => {
+test('supersedeEntity can rename, reparent, and assign an account number', () => {
   const e = create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'Delta Pty Ltd', asUserId(1));
-  const renamed = updateEntity(e.id, { name: 'Delta Pty Ltd (renamed)' }, asUserId(1));
+  const renamed = supersedeEntity(e.id, { name: 'Delta Pty Ltd (renamed)' }, asUserId(1));
   assert.equal(renamed.name, 'Delta Pty Ltd (renamed)');
 
-  const reparented = updateEntity(e.id, { parent: 'Accounts Payable' }, asUserId(1));
+  const reparented = supersedeEntity(e.id, { parent: 'Accounts Payable' }, asUserId(1));
   const parent = getEntity(reparented.parent_id!);
   assert.equal(parent!.name, 'Accounts Payable');
 
-  const withAccount = updateEntity(e.id, { accountnumber: '9999.001' }, asUserId(1));
+  const withAccount = supersedeEntity(e.id, { accountnumber: '9999.001' }, asUserId(1));
   assert.equal(withAccount.accountnumber, '9999.001');
 });
 
 test('an entity cannot be made its own parent', () => {
   const e = create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'Self Parent Test', asUserId(1));
-  assert.throws(() => updateEntity(e.id, { parent: 'Self Parent Test' }, asUserId(1)));
+  assert.throws(() => supersedeEntity(e.id, { parent: 'Self Parent Test' }, asUserId(1)));
 });
 
 test('deleteEntity refuses to delete an entity with children', () => {
@@ -390,14 +390,14 @@ test('chart_of_accounts shows the real hierarchy including sub-accounts', () => 
 });
 
 test('reassigning a category to a different report via relation changes business_reports immediately', () => {
-  updateEntity(getEntity(getEntityTree().find((e) => e.name === 'Equity')!.id)!.id, {
+  supersedeEntity(getEntity(getEntityTree().find((e) => e.name === 'Equity')!.id)!.id, {
     relation: 'Profit and Loss Statement',
   }, asUserId(1));
   let rows = getBusinessReports();
   assert.equal(rows.find((r) => r.category === 'Equity')?.report, 'Profit and Loss Statement');
 
   // put it back for later tests
-  updateEntity(getEntityTree().find((e) => e.name === 'Equity')!.id, { relation: 'Balance Sheet' }, asUserId(1));
+  supersedeEntity(getEntityTree().find((e) => e.name === 'Equity')!.id, { relation: 'Balance Sheet' }, asUserId(1));
   rows = getBusinessReports();
   assert.equal(rows.find((r) => r.category === 'Equity')?.report, 'Balance Sheet');
 });
@@ -1290,7 +1290,7 @@ test('entities are append-only: renaming closes out the old row and appends a re
   const user2 = createUser('renamer1', 'xxxxxxxx', ['Bookkeeper']).id;
 
   const created = create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'Epsilon Test Co', asUserId(1));
-  updateEntity(created.id, { name: 'Epsilon Test Corporation' }, asUserId(user2));
+  supersedeEntity(created.id, { name: 'Epsilon Test Corporation' }, asUserId(user2));
 
   const current = getEntity(created.id)!;
   assert.equal(current.name, 'Epsilon Test Corporation', 'the live version reflects the rename');
@@ -1308,7 +1308,7 @@ test('entities are append-only: renaming closes out the old row and appends a re
 
 test('a renamed-away-from name can be reused immediately for an unrelated new entity', () => {
   const original = create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'Zeta Test Co', asUserId(1));
-  updateEntity(original.id, { name: 'Zeta Test Corporation' }, asUserId(1));
+  supersedeEntity(original.id, { name: 'Zeta Test Corporation' }, asUserId(1));
 
   const reused = create(requireEntity('Accounts Payable', typeRootName), typeRootName, 'Zeta Test Co', asUserId(1));
   assert.notEqual(reused.id, original.id, 'this must be a genuinely different logical entity, not the same one resurrected');
@@ -1319,7 +1319,7 @@ test('renaming a parent never orphans its children — a childs parent_id keeps 
   const parent = create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'Eta Parent Co', asUserId(1));
   const child = create(requireEntity('Eta Parent Co', typeRootName), typeRootName, 'Eta Child Contact', asUserId(1));
 
-  updateEntity(parent.id, { name: 'Eta Parent Corporation' }, asUserId(1));
+  supersedeEntity(parent.id, { name: 'Eta Parent Corporation' }, asUserId(1));
 
   const childAfter = getEntity(child.id)!;
   assert.equal(childAfter.parent_id, parent.id, "the child's parent_id is unchanged — same stable id, new name resolved automatically");
@@ -4023,7 +4023,7 @@ test("setEntityLink/getEntityLink/deleteEntityLink: a real, pure link between tw
   // real CoA prototype), then confirm setEntityLink leaves it genuinely
   // untouched.
   const acctId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('EntityLinkTest Account') as { id: number }).id;
-  updateEntity(acctId, { relation: 'English CoA' }, asUserId(1));
+  supersedeEntity(acctId, { relation: 'English CoA' }, asUserId(1));
 
   setEntityLink('EntityLinkTest Account', 'Division', 'EntityLinkTest Division', asUserId(1));
 
@@ -4196,7 +4196,7 @@ test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, 
   // a real CoA prototype first, matching how createBusiness actually
   // does this, and confirming it's genuinely untouched afterward.
   const acctId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('BankRegTest AUD Account') as { id: number }).id;
-  updateEntity(acctId, { relation: 'English CoA' }, asUserId(1));
+  supersedeEntity(acctId, { relation: 'English CoA' }, asUserId(1));
   registerBankAccount('BankRegTest AUD Account', 'My Business', 'My Business', 200000, asUserId(1)); // re-register, changing the limit
   const entities = getEntityTree();
   const acct = entities.find((e) => e.name === 'BankRegTest AUD Account')!;
@@ -4351,7 +4351,7 @@ test("setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAnc
   // own relation_id (e.g. a real CoA-prototype tag) must stay genuinely
   // untouched by setting or re-setting its own dimension parent.
   const acctId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('DimTest2 Amber Ale Sales') as { id: number }).id;
-  updateEntity(acctId, { relation: 'English CoA' }, asUserId(1));
+  supersedeEntity(acctId, { relation: 'English CoA' }, asUserId(1));
   setDimensionParent('DimTest2 Amber Ale Sales', 'Division/Location', 'DimTest2 Uptown Wine', asUserId(1)); // re-set to a different location
   const tree = getEntityTree();
   const acct = tree.find((e) => e.name === 'DimTest2 Amber Ale Sales')!;
@@ -5078,7 +5078,7 @@ test('The real Hierarchy/Product cartesian mechanism - the full, settled, flat c
   // and automatically.
   const coldHierarchyId = db.prepare(`SELECT id FROM current_entities WHERE name = 'Cold' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Storage' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`).get(biz) as { id: number } | undefined;
   assert.ok(coldHierarchyId, 'the real Cold Hierarchy value exists and is directly resolvable');
-  updateEntity(coldHierarchyId!.id, { name: 'Chilled' }, asUserId(1));
+  supersedeEntity(coldHierarchyId!.id, { name: 'Chilled' }, asUserId(1));
   assert.equal(getCombinationDisplayName(instance.id), 'Riverside Cellars — Lager — 330ml — can — single — Chilled', 'renaming a real Hierarchy value is correctly, automatically reflected everywhere, with zero writes to combination_ids itself');
   assert.equal(getCombinationDisplayName(invLeaf.id), 'Riverside Cellars — Lager — 330ml — can — single — Chilled', 'the real Inventory leaf, sharing the exact, same, real combination_ids array, reflects the rename identically');
 });

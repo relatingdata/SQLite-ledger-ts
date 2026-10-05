@@ -135,7 +135,7 @@ for (const group of ['common', 'backend', 'frontend'] as const) {
 // real, structural fact ("lives under"); relation_id is a real,
 // lateral fact ("refers to / is a translation of"). This extracts
 // every real, direct createEntity({ parent: ... }) and
-// updateEntity(..., { relation: ... }) call across these files.
+// supersedeEntity(..., { relation: ... }) call across these files.
 console.log('\n## Parent Link / Sibling (Relation) Link Index\n');
 console.log('See `docs/naming-conventions-and-entity-glossary.md` for what these two, real, distinct link kinds mean.\n');
 console.log('### Real `parent:` usages (structural — "this entity lives under that one")\n');

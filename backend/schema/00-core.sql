@@ -76,18 +76,18 @@
 -- entity_entry_insert below.
 
 -- Per direct instruction: entities has only created_at/created_by -
--- no deleted_at, no deleted_by, no updated_at. A row with name IS
--- NULL is a real, structural closing/deletion marker for its own
--- entity_id - that row's own created_at/created_by already is the
--- complete, sufficient record of who closed this entity_id out and
--- when, since "this row was inserted" and "this entity_id was closed"
--- are the exact same event. See current_entities below for how this
--- is read, and the entities_no_update/entities_no_delete triggers for
--- the structural guarantee that this table only ever grows.
+-- no deleted_at, no deleted_by, no updated_at, and no special,
+-- deletion-marker row shape. Every row is an ordinary row. For a
+-- given entity_id, the current row is simply the one with the latest
+-- created_at (row_id as the tiebreaker for a same-millisecond
+-- collision) - "if a younger entity exists, it is the current one."
+-- See current_entities below for how this is read, and the
+-- entities_no_update/entities_no_delete triggers for the structural
+-- guarantee that this table only ever grows, never mutates in place.
 CREATE TABLE entities (
   row_id     INTEGER PRIMARY KEY,
   entity_id  INTEGER NOT NULL,
-  name       TEXT,
+  name       TEXT NOT NULL,
   parent_id  INTEGER,
   relation_id INTEGER,
   -- A real, flat, ordered JSON array of real Hierarchy value ids
@@ -118,7 +118,24 @@ CREATE TABLE entities (
 -- Uniqueness only among LIVE rows — the old, closed-out version of a
 -- renamed entity keeps its old name forever (that's the whole point),
 -- so a plain UNIQUE would break the instant anything was ever renamed.
-CREATE UNIQUE INDEX entities_name_current ON entities(parent_id, name) WHERE deleted_at IS NULL;
+-- Uniqueness among the current rows only - the old, superseded
+-- version of a renamed entity keeps its old name forever (that's the
+-- whole point). SQLite's own partial-index WHERE clause can only
+-- filter on a simple, uncorrelated condition - it cannot express
+-- "only this entity_id's own current row," since that requires
+-- comparing against every other row for the same entity_id. Enforced
+-- here instead, as a real, direct BEFORE INSERT check: no two
+-- different, live entities under the same real parent may share a
+-- real name. (A rename's own new row is checked the same way as any
+-- insert - it simply never collides with its own prior row, since
+-- that prior row's own name is, by definition, being superseded.)
+CREATE TRIGGER entities_name_unique BEFORE INSERT ON entities
+WHEN EXISTS (
+  SELECT 1 FROM current_entities WHERE parent_id IS NEW.parent_id AND name = NEW.name AND id != NEW.entity_id
+)
+BEGIN
+  SELECT RAISE(ABORT, 'entities: a different, live entity already has this name under this parent');
+END;
 
 -- Per direct instruction: a real, application-level version stamp on
 -- the database itself, distinct from the running application's own
@@ -146,13 +163,13 @@ INSERT INTO db_version (id, version) VALUES (1, '0.0.0.400');
 -- the composite (parent_id, name) index above, not a direct seek,
 -- since a composite index can only be searched efficiently by its
 -- own real, leading column(s).
-CREATE INDEX entities_name_lookup ON entities(name) WHERE deleted_at IS NULL;
+CREATE INDEX entities_name_lookup ON entities(name);
 
--- entity_id-based lookups (getEntity(id), updateEntity(id, ...), and
+-- entity_id-based lookups (getEntity(id), supersedeEntity(id, ...), and
 -- similar) are also extremely common throughout this codebase, and
 -- entity_id itself had no real index at all — confirmed directly via
 -- EXPLAIN QUERY PLAN that this also triggered a full scan.
-CREATE INDEX entities_entity_id_current ON entities(entity_id) WHERE deleted_at IS NULL;
+CREATE INDEX entities_entity_id_current ON entities(entity_id);
 
 -- relation_id-based lookups (localized_text's own "does anything
 -- point at this entity" check, dimension links, and similar) are
@@ -162,19 +179,76 @@ CREATE INDEX entities_entity_id_current ON entities(entity_id) WHERE deleted_at 
 -- each real, correlated EXISTS check (the direct, confirmed cause of
 -- localized_text taking ~2.8 real seconds once this project's own,
 -- real data grew past a few thousand entities).
-CREATE INDEX entities_relation_id_current ON entities(relation_id) WHERE deleted_at IS NULL AND relation_id IS NOT NULL;
+CREATE INDEX entities_relation_id_current ON entities(relation_id) WHERE relation_id IS NOT NULL;
 
--- A real, full (non-partial) index on entity_id, covering every real
--- row including closed-out/deleted ones - confirmed directly, via
--- EXPLAIN QUERY PLAN, that the contact view's own real "latest row
--- for this entity_id, deleted or not" lookup (needed so a contact's
--- own real detail survives entity deletion, exactly as this schema's
--- own, established rename-safety/history guarantee always intended)
--- forced a real, full, unindexed scan of every one of this table's
--- own, live rows for each real, correlated lookup - the existing,
--- partial entities_entity_id_current index only covers deleted_at IS
--- NULL, which cannot serve a query that must see deleted rows too.
+-- A real index covering (entity_id, row_id) together - the exact
+-- shape current_entities' own "latest row for this entity_id" lookup
+-- needs, avoiding a second lookup for row_id after finding entity_id.
 CREATE INDEX entities_entity_id_all ON entities(entity_id, row_id);
+
+-- Per direct instruction: entities is guarded, structurally, against
+-- any UPDATE or DELETE - only INSERT and SELECT are ever permitted,
+-- enforced here, by the database itself, not by convention or code
+-- review. Every legitimate way to change what an entity_id currently
+-- means is itself an INSERT (entity_update, entity_revoke, both
+-- above) - nothing in this codebase ever needs to run a raw UPDATE or
+-- DELETE against this table directly.
+CREATE TRIGGER entities_no_update BEFORE UPDATE ON entities
+BEGIN
+  SELECT RAISE(ABORT, 'entities is append-only: UPDATE is never permitted, only INSERT and SELECT. Use entity_update instead.');
+END;
+
+CREATE TRIGGER entities_no_delete BEFORE DELETE ON entities
+BEGIN
+  SELECT RAISE(ABORT, 'entities is append-only: DELETE is never permitted, only INSERT and SELECT. Use entity_revoke instead.');
+END;
+
+-- Two real, small, reusable insert-only mechanisms, replacing every
+-- direct "UPDATE entities SET relation_id = ..." / "SET detail_json =
+-- json_set(...)" statement throughout the seed data and TypeScript -
+-- each inserts a younger row carrying every other column forward
+-- unchanged, never touching the row it supersedes.
+--   INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (122, 45);
+CREATE VIEW entity_set_relation AS SELECT id AS entity_id, relation_id FROM current_entities WHERE 0;
+CREATE TRIGGER entity_set_relation_insert INSTEAD OF INSERT ON entity_set_relation
+BEGIN
+  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by)
+  SELECT id, name, parent_id, NEW.relation_id, combination_ids, detail_json, strftime('%Y-%m-%d %H:%M:%f', 'now'), 1
+  FROM current_entities WHERE id = NEW.entity_id;
+END;
+-- A real, direct JSON merge (SQLite's own json_patch) into the
+-- current detail_json, computed inside the trigger itself from the
+-- real, live row - the caller passes only the fields actually
+-- changing, same as json_set did before, just insert-only now.
+--   INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (122, '{"city":"Springfield"}');
+CREATE VIEW entity_merge_detail AS SELECT id AS entity_id, detail_json AS patch_json FROM current_entities WHERE 0;
+CREATE TRIGGER entity_merge_detail_insert INSTEAD OF INSERT ON entity_merge_detail
+BEGIN
+  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by)
+  SELECT id, name, parent_id, relation_id, combination_ids, json_patch(COALESCE(detail_json, '{}'), NEW.patch_json), strftime('%Y-%m-%d %H:%M:%f', 'now'), 1
+  FROM current_entities WHERE id = NEW.entity_id;
+END;
+-- A full detail_json replace - most TypeScript callers already
+-- compute the whole, new object themselves (often from the current
+-- one, spread and extended) rather than a partial patch.
+--   INSERT INTO entity_set_detail (entity_id, detail_json) VALUES (122, '{"a":1}');
+CREATE VIEW entity_set_detail AS SELECT id AS entity_id, detail_json FROM current_entities WHERE 0;
+CREATE TRIGGER entity_set_detail_insert INSTEAD OF INSERT ON entity_set_detail
+BEGIN
+  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by)
+  SELECT id, name, parent_id, relation_id, combination_ids, NEW.detail_json, strftime('%Y-%m-%d %H:%M:%f', 'now'), 1
+  FROM current_entities WHERE id = NEW.entity_id;
+END;
+-- A combination_ids replace - set once, at creation, on a Product
+-- Instance or a combination leaf (never changed by a rename).
+--   INSERT INTO entity_set_combination_ids (entity_id, combination_ids) VALUES (122, '[41,88]');
+CREATE VIEW entity_set_combination_ids AS SELECT id AS entity_id, combination_ids FROM current_entities WHERE 0;
+CREATE TRIGGER entity_set_combination_ids_insert INSTEAD OF INSERT ON entity_set_combination_ids
+BEGIN
+  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by)
+  SELECT id, name, parent_id, relation_id, NEW.combination_ids, detail_json, strftime('%Y-%m-%d %H:%M:%f', 'now'), 1
+  FROM current_entities WHERE id = NEW.entity_id;
+END;
 
 -- Per direct instruction: entities is guarded, structurally, against
 -- any UPDATE or DELETE - only INSERT and SELECT are ever permitted.
@@ -192,10 +266,12 @@ CREATE INDEX entities_entity_id_all ON entities(entity_id, row_id);
 -- and that row counts as live only when it is not itself a closing
 -- marker (deleted_at IS NULL on it specifically).
 CREATE VIEW current_entities AS
-  SELECT entity_id AS id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, deleted_at, deleted_by
+  SELECT entity_id AS id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by
   FROM entities e
-  WHERE row_id = (SELECT MAX(row_id) FROM entities e2 WHERE e2.entity_id = e.entity_id)
-    AND deleted_at IS NULL;
+  WHERE row_id = (
+    SELECT row_id FROM entities e2 WHERE e2.entity_id = e.entity_id
+    ORDER BY created_at DESC, row_id DESC LIMIT 1
+  );
 
 -- =====================================================================
 -- Users, roles, sessions — deliberately plain, dedicated tables, not
@@ -231,6 +307,17 @@ CREATE VIEW current_entities AS
 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (0, 0, 'Root', NULL, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (1, 1, 'Application', 0, '2026-01-01', 1);
+-- A real, true-singleton marker, sibling to Application. There is no
+-- "delete" anywhere in this design - only ever a younger value
+-- superseding an older one, the complete history staying in this one
+-- table forever, auditable: who changed what, when. A presence-only
+-- fact about an entity (a real tag - "this shift is open," "this user
+-- holds this role") is itself link-shaped: its own current row's
+-- relation_id points at this one, real marker when the fact is true.
+-- Revoking the fact is the exact same operation as any other change -
+-- supersede that row so its new, current value's relation_id is NULL,
+-- pointing at nothing. See Entity.tag/untag/hasTag (primitives.ts).
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (60824, 60824, 'Active', 0, '2026-01-01', 1);
 
 -- roles/users/sessions, as real, plain entities under "Application" -
 -- see the real, direct comment above (where the removed tables used
@@ -395,13 +482,16 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- subtotal above Net Profit. Same relation_id mechanism, reused one
 -- level deeper than the report/category tagging above.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (310, 310, 'COGS', 31, '2026-01-01', 1);
-UPDATE entities SET relation_id = 310 WHERE name = 'Cost of Goods Sold';
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM current_entities WHERE name = 'Cost of Goods Sold'), 310);
 
 -- The report/category mapping as real, editable data (see the note on
 -- relation_id above) rather than logic in a view — reassigning which
 -- report a category (and everything under it) appears on is one UPDATE.
-UPDATE entities SET relation_id = 32 WHERE name IN ('Asset', 'Liability', 'Equity');
-UPDATE entities SET relation_id = 33 WHERE name IN ('Income', 'Expense');
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM current_entities WHERE name = 'Asset'), 32);
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM current_entities WHERE name = 'Liability'), 32);
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM current_entities WHERE name = 'Equity'), 32);
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM current_entities WHERE name = 'Income'), 33);
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM current_entities WHERE name = 'Expense'), 33);
 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (34, 34, 'Businesses', 0, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (35, 35, 'My Business', 34, '2026-01-01', 1);
@@ -497,10 +587,10 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- Receivable', ...) call, handcrafted here in SQL to match this
 -- file's own, established, direct-SQL seeding convention.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (539, 539, 'Customers — Dimension: Header Account', 115, '2026-01-01', 1);
-UPDATE entities SET relation_id = (SELECT id FROM current_entities WHERE name = 'Accounts Receivable') WHERE entity_id = 539;
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (539, (SELECT id FROM current_entities WHERE name = 'Accounts Receivable'));
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (116, 116, 'Vendors', 38, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (540, 540, 'Vendors — Dimension: Header Account', 116, '2026-01-01', 1);
-UPDATE entities SET relation_id = (SELECT id FROM current_entities WHERE name = 'Accounts Payable') WHERE entity_id = 540;
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (540, (SELECT id FROM current_entities WHERE name = 'Accounts Payable'));
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (117, 117, 'Phone', 38, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (118, 118, 'Email', 38, '2026-01-01', 1);
 
@@ -799,7 +889,7 @@ SELECT
 -- a JSON field (once json_extract(e.detail_json, '$._entity_type')).
 -- See docs/skill-no-name-encoded-values.md.
 FROM current_entities e
-WHERE EXISTS (SELECT 1 FROM current_entities tag WHERE tag.parent_id = e.id AND tag.name = 'Item Source');
+WHERE EXISTS (SELECT 1 FROM current_entities tag WHERE tag.parent_id = e.id AND tag.name = 'Item Source' AND tag.relation_id IS NOT NULL);
 
 -- A real, one-time database audit (per direct request: "ensure we
 -- have no leftover permanent tables aitem from the necessary 4")
@@ -1416,16 +1506,15 @@ BEGIN
   -- construction only at the moment of creation (a rename appends a
   -- new row_id under the same, unchanged entity_id afterward, exactly
   -- as it always did).
-  INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by)
-  VALUES (
-    0,
+  INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by)
+  SELECT
+    (SELECT COALESCE(MAX(row_id), 0) + 1 FROM entities),
+    (SELECT COALESCE(MAX(row_id), 0) + 1 FROM entities),
     NEW.name,
     COALESCE(NEW.parent_id, (SELECT id FROM current_entities WHERE name = NEW.parent)),
     COALESCE(NEW.relation_id, (SELECT id FROM current_entities WHERE name = NEW.relation)),
-    datetime('now'),
-    NEW.created_by
-  );
-  UPDATE entities SET entity_id = row_id WHERE row_id = last_insert_rowid();
+    strftime('%Y-%m-%d %H:%M:%f', 'now'),
+    NEW.created_by;
 END;
 
 -- entity_update: rename and/or reparent/re-relation an EXISTING entity —
@@ -1448,54 +1537,49 @@ BEGIN
   SELECT RAISE(ABORT, 'no such current entity') WHERE NOT EXISTS (
     SELECT 1 FROM current_entities WHERE id = NEW.entity_id
   );
-  -- Per direct instruction: entities permits only INSERT and SELECT,
-  -- never UPDATE or DELETE. Closing out the row being renamed is
-  -- itself a real INSERT - a closing-marker row carrying forward
-  -- every one of its own real columns unchanged, with deleted_at now
-  -- set - rather than a mutation of that row. current_entities'
-  -- own "latest row per entity_id" definition is what makes this
-  -- closing row correctly supersede the one it closes.
-  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, deleted_at, deleted_by)
-  SELECT id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, datetime('now'), NEW.updated_by
-  FROM current_entities WHERE id = NEW.entity_id;
-  -- combination_ids/detail_json both carried forward from the row
-  -- just closed out - a rename or reparent must never silently drop
-  -- a real entity's own, real identity array or structured detail.
-  -- Neither ever changes via a rename as a side effect - only via the
-  -- real, dedicated functions that set them in the first place.
-  -- "Just closed out" is now this entity_id's newest deleted_at-set
-  -- row - the insert immediately above always produces it.
+  -- Per the final, settled design: no "close out the old row" step at
+  -- all. A younger row for the same entity_id already supersedes an
+  -- older one under current_entities' own "latest created_at, row_id
+  -- as tiebreaker" definition - nothing needs to be done to the row
+  -- being renamed. combination_ids/detail_json are carried forward
+  -- from current_entities directly (still the live row at this exact
+  -- point, since this is the only insert in this trigger) - a rename
+  -- or reparent must never silently drop a real entity's own, real
+  -- identity array or structured detail; neither ever changes via a
+  -- rename as a side effect, only via the real, dedicated functions
+  -- that set them in the first place.
   INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by)
-  VALUES (
+  SELECT
     NEW.entity_id,
     NEW.name,
     COALESCE(NEW.parent_id, (SELECT id FROM current_entities WHERE name = NEW.parent)),
     COALESCE(NEW.relation_id, (SELECT id FROM current_entities WHERE name = NEW.relation)),
-    (SELECT combination_ids FROM entities WHERE entity_id = NEW.entity_id AND deleted_at IS NOT NULL ORDER BY row_id DESC LIMIT 1),
-    (SELECT detail_json FROM entities WHERE entity_id = NEW.entity_id AND deleted_at IS NOT NULL ORDER BY row_id DESC LIMIT 1),
-    datetime('now'),
+    combination_ids,
+    detail_json,
+    strftime('%Y-%m-%d %H:%M:%f', 'now'),
     NEW.updated_by
-  );
+  FROM current_entities WHERE id = NEW.entity_id;
 END;
 
--- entity_delete: close out an entity with no replacement — a real
--- delete, self-auditing (who, when), rather than the row disappearing.
--- The children/postings validation that used to guard this stays in
--- TypeScript (deleteEntity), already tested there; this trigger only
--- does the close-out itself once that's been checked.
---   INSERT INTO entity_delete (entity_id, deleted_by) VALUES (13, 5);
-CREATE VIEW entity_delete AS
-SELECT id AS entity_id, created_by AS deleted_by FROM current_entities WHERE 0;
+-- entity_revoke: supersede an entity's own current value so its
+-- relation_id becomes NULL - the real, settled replacement for
+-- "delete," confirmed directly: there is no delete anywhere in this
+-- design, only ever a younger value superseding an older one, the
+-- complete history staying in this one table forever, auditable (who
+-- changed what, when). Same name, same parent, same
+-- combination_ids/detail_json, carried forward unchanged - only
+-- relation_id changes, to NULL. The children/postings validation that
+-- used to guard "delete" stays in TypeScript, already tested there;
+-- this trigger only does the real, insert-only supersession itself
+-- once that's been checked.
+--   INSERT INTO entity_revoke (entity_id, revoked_by) VALUES (13, 5);
+CREATE VIEW entity_revoke AS
+SELECT id AS entity_id, created_by AS revoked_by FROM current_entities WHERE 0;
 
-CREATE TRIGGER entity_delete_insert INSTEAD OF INSERT ON entity_delete
+CREATE TRIGGER entity_revoke_insert INSTEAD OF INSERT ON entity_revoke
 BEGIN
-  -- Per direct instruction: entities permits only INSERT and SELECT.
-  -- A real delete closes out the live row with a real, inserted
-  -- closing-marker row (same data, deleted_at now set) - never an
-  -- UPDATE on the row itself, and, unlike a rename, no replacement
-  -- row follows.
-  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, deleted_at, deleted_by)
-  SELECT id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by, datetime('now'), NEW.deleted_by
+  INSERT INTO entities (entity_id, name, parent_id, relation_id, combination_ids, detail_json, created_at, created_by)
+  SELECT id, name, parent_id, NULL, combination_ids, detail_json, strftime('%Y-%m-%d %H:%M:%f', 'now'), NEW.revoked_by
   FROM current_entities WHERE id = NEW.entity_id;
 END;
 
@@ -1937,13 +2021,13 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- records themselves are created further down, after Location
 -- Type/Is Billing Address (their own real parent categories) are
 -- actually defined, near Relationship Types.
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Springfield', '$.bottle_capacity', NULL, '$.carton_capacity', 6000, '$.timezone', 'Australia/Sydney') WHERE entity_id = 122 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Springfield', '$.bottle_capacity', 2200, '$.carton_capacity', 100, '$.timezone', 'Australia/Sydney') WHERE entity_id = 123 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Springfield', '$.bottle_capacity', 1600, '$.carton_capacity', 75, '$.timezone', 'Australia/Sydney') WHERE entity_id = 124 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Rivertown', '$.bottle_capacity', NULL, '$.carton_capacity', 5000, '$.timezone', 'Australia/Brisbane') WHERE entity_id = 125 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Rivertown', '$.bottle_capacity', 1900, '$.carton_capacity', 85, '$.timezone', 'Australia/Brisbane') WHERE entity_id = 126 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Rivertown', '$.bottle_capacity', 1400, '$.carton_capacity', 65, '$.timezone', 'Australia/Brisbane') WHERE entity_id = 127 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.city', 'Rivertown', '$.bottle_capacity', 1100, '$.carton_capacity', 50, '$.timezone', 'Australia/Brisbane') WHERE entity_id = 128 AND deleted_at IS NULL;
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (122, json_object('__is_contact', 1, 'city', 'Springfield', 'bottle_capacity', NULL, 'carton_capacity', 6000, 'timezone', 'Australia/Sydney'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (123, json_object('__is_contact', 1, 'city', 'Springfield', 'bottle_capacity', 2200, 'carton_capacity', 100, 'timezone', 'Australia/Sydney'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (124, json_object('__is_contact', 1, 'city', 'Springfield', 'bottle_capacity', 1600, 'carton_capacity', 75, 'timezone', 'Australia/Sydney'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (125, json_object('__is_contact', 1, 'city', 'Rivertown', 'bottle_capacity', NULL, 'carton_capacity', 5000, 'timezone', 'Australia/Brisbane'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (126, json_object('__is_contact', 1, 'city', 'Rivertown', 'bottle_capacity', 1900, 'carton_capacity', 85, 'timezone', 'Australia/Brisbane'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (127, json_object('__is_contact', 1, 'city', 'Rivertown', 'bottle_capacity', 1400, 'carton_capacity', 65, 'timezone', 'Australia/Brisbane'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (128, json_object('__is_contact', 1, 'city', 'Rivertown', 'bottle_capacity', 1100, 'carton_capacity', 50, 'timezone', 'Australia/Brisbane'));
 
 -- Categories and subcategories
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (129, 129, 'Red Wine', (SELECT id FROM current_entities WHERE name = 'Items'), '2026-01-01', 1);
@@ -2008,42 +2092,42 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (186, 186, 'Spiced Rum 700ml', (SELECT id FROM current_entities WHERE name = 'Rum'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (187, 187, 'Dark Rum 700ml', (SELECT id FROM current_entities WHERE name = 'Rum'), '2026-01-01', 1);
 
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000001') WHERE entity_id = 152 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000018') WHERE entity_id = 153 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000025') WHERE entity_id = 154 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000032') WHERE entity_id = 155 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000049') WHERE entity_id = 156 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000056') WHERE entity_id = 157 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000063') WHERE entity_id = 158 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000070') WHERE entity_id = 159 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000087') WHERE entity_id = 160 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000094') WHERE entity_id = 161 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000100') WHERE entity_id = 162 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000117') WHERE entity_id = 163 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000124') WHERE entity_id = 164 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000131') WHERE entity_id = 165 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000148') WHERE entity_id = 166 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000155') WHERE entity_id = 167 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000162') WHERE entity_id = 168 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000179') WHERE entity_id = 169 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000186') WHERE entity_id = 170 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000193') WHERE entity_id = 171 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000209') WHERE entity_id = 172 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000216') WHERE entity_id = 173 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000223') WHERE entity_id = 174 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000230') WHERE entity_id = 175 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000247') WHERE entity_id = 176 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000254') WHERE entity_id = 177 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000261') WHERE entity_id = 178 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000278') WHERE entity_id = 179 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000285') WHERE entity_id = 180 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000292') WHERE entity_id = 181 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000308') WHERE entity_id = 182 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000315') WHERE entity_id = 183 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000322') WHERE entity_id = 184 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000339') WHERE entity_id = 185 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000346') WHERE entity_id = 186 AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_description', NULL, '$.item_unit_of_measure', 'bottle', '$.item_upc', '9300001000353') WHERE entity_id = 187 AND deleted_at IS NULL;
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (152, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000001'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (153, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000018'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (154, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000025'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (155, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000032'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (156, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000049'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (157, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000056'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (158, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000063'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (159, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000070'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (160, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000087'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (161, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000094'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (162, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000100'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (163, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000117'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (164, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000124'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (165, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000131'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (166, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000148'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (167, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000155'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (168, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000162'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (169, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000179'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (170, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000186'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (171, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000193'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (172, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000209'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (173, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000216'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (174, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000223'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (175, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000230'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (176, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000247'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (177, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000254'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (178, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000261'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (179, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000278'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (180, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000285'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (181, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000292'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (182, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000308'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (183, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000315'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (184, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000322'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (185, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000339'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (186, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000346'));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (187, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000353'));
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (244, 244, 'Stock Transfer', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (245, 245, 'Below Reorder', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (246, 246, 'Stock Take', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
@@ -2105,7 +2189,7 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- account — a real contact entity (needed since createInvoice requires
 -- an existing counterparty), not a special-cased null customer.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (309, 309, 'Cash Sale', (SELECT id FROM current_entities WHERE name = 'Customers'), '2026-01-01', 1);
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.payment_terms_days', 0) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Cash Sale') AND deleted_at IS NULL;
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Cash Sale'), json_object('__is_contact', 1, 'payment_terms_days', 0));
 
 -- Italian and Swiss (German/French/Italian) chart of accounts —
 -- adapted from Tekki's real SQL-Ledger fork (GPLv3, see NOTICE.md
@@ -2127,9 +2211,9 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (825, 825, 'LTR', (SELECT id FROM current_entities WHERE name = 'Text Direction Types'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (826, 826, 'RTL', (SELECT id FROM current_entities WHERE name = 'Text Direction Types'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (827, 827, 'Hebrew — Text Direction', (SELECT id FROM current_entities WHERE name = 'Hebrew'), '2026-01-01', 1);
-UPDATE entities SET relation_id = (SELECT id FROM current_entities WHERE name = 'RTL') WHERE entity_id = 827;
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (827, (SELECT id FROM current_entities WHERE name = 'RTL'));
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (828, 828, 'Arabic — Text Direction', (SELECT id FROM current_entities WHERE name = 'Arabic'), '2026-01-01', 1);
-UPDATE entities SET relation_id = (SELECT id FROM current_entities WHERE name = 'RTL') WHERE entity_id = 828;
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (828, (SELECT id FROM current_entities WHERE name = 'RTL'));
 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (312, 312, 'Ditta Italiana Srl', (SELECT id FROM current_entities WHERE name = 'Businesses'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (313, 313, 'Actual', 312, '2026-01-01', 1);
@@ -2426,42 +2510,42 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- Real, deterministic retail (selling) prices for every seed product
 -- — a POS screen must be able to look this up, never ask the operator
 -- to type a price in from memory (the real, reported bug this fixes).
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 785) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Amber Ale 330ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5200) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Barossa Shiraz 2021') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2650) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Barossa Valley Merlot 2022') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3800) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Blended Scotch 700ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 6850) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Botanical Gin 700ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 6600) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Cava Rosé') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3350) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Central Otago Pinot Noir 2022') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5400) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Chablis Premier Cru 2021') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5500) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Château Dubois Merlot 2021') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3250) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Clare Valley Riesling 2021') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 1030) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Classic Stout 330ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5250) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Coonawarra Cabernet 2021') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5000) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Craft Vodka 700ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3200) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Côte de Nuits Pinot Noir 2021') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4750) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Dark Rum 700ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 1200) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Golden Lager 330ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3300) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Grande Maison Champagne Brut') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2400) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Grande Maison Champagne Rosé') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4600) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Highland Single Malt 700ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2250) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Hunter Valley Shiraz 2020') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 865) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Imperial Stout 330ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4150) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Loire Valley Sauvignon Blanc 2022') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 6150) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'London Dry Gin 700ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4150) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Margaret River Chardonnay 2022') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 3150) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Marlborough Sauvignon Blanc 2023') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2250) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Mosel Riesling 2022') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2500) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Napa Ridge Cabernet Sauvignon 2020') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 840) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Pale Ale 330ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4150) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Penedès Cava Brut') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4100) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Petit Chablis 2022') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 810) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Premium Pilsner 330ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 8400) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Premium Vodka 700ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 6850) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Prosecco Extra Dry') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 2850) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Sonoma Chardonnay 2021') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 4550) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Spiced Rum 700ml') AND deleted_at IS NULL;
-UPDATE entities SET detail_json = json_set(COALESCE(detail_json, '{}'), '$.__is_contact', 1, '$.item_retail_price_minor', 5200) WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Veneto Prosecco DOC') AND deleted_at IS NULL;
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Amber Ale 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 785));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Barossa Shiraz 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 5200));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Barossa Valley Merlot 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 2650));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Blended Scotch 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 3800));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Botanical Gin 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 6850));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Cava Rosé'), json_object('__is_contact', 1, 'item_retail_price_minor', 6600));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Central Otago Pinot Noir 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 3350));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Chablis Premier Cru 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 5400));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Château Dubois Merlot 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 5500));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Clare Valley Riesling 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 3250));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Classic Stout 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 1030));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Coonawarra Cabernet 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 5250));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Craft Vodka 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 5000));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Côte de Nuits Pinot Noir 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 3200));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Dark Rum 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 4750));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Golden Lager 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 1200));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Grande Maison Champagne Brut'), json_object('__is_contact', 1, 'item_retail_price_minor', 3300));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Grande Maison Champagne Rosé'), json_object('__is_contact', 1, 'item_retail_price_minor', 2400));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Highland Single Malt 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 4600));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Hunter Valley Shiraz 2020'), json_object('__is_contact', 1, 'item_retail_price_minor', 2250));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Imperial Stout 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 865));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Loire Valley Sauvignon Blanc 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 4150));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'London Dry Gin 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 6150));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Margaret River Chardonnay 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 4150));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Marlborough Sauvignon Blanc 2023'), json_object('__is_contact', 1, 'item_retail_price_minor', 3150));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Mosel Riesling 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 2250));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Napa Ridge Cabernet Sauvignon 2020'), json_object('__is_contact', 1, 'item_retail_price_minor', 2500));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Pale Ale 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 840));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Penedès Cava Brut'), json_object('__is_contact', 1, 'item_retail_price_minor', 4150));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Petit Chablis 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 4100));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Premium Pilsner 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 810));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Premium Vodka 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 8400));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Prosecco Extra Dry'), json_object('__is_contact', 1, 'item_retail_price_minor', 6850));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Sonoma Chardonnay 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 2850));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Spiced Rum 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 4550));
+INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Veneto Prosecco DOC'), json_object('__is_contact', 1, 'item_retail_price_minor', 5200));
 -- Relationship Types — the real category tree the relationship-type
 -- pattern hangs off (setRelationship/getRelationship/
 -- getEntitiesWithRelationship, see docs/entity-model.md). Confirmed

@@ -161,7 +161,7 @@ export const createProvider = (name: string) => request<EntityNode>('/entities/v
 export const createEmployeeContact = (name: string, placeOfEmployment: string) =>
   request<EntityNode>('/entities/employee', { method: 'POST', body: JSON.stringify({ name, placeOfEmployment }) });
 
-export const updateEntity = (
+export const supersedeEntity = (
   id: number,
   data: { name?: string; parent?: string | null; relation?: string | null; accountnumber?: string | null }
 ) => request<EntityNode>(`/entities/${id}`, { method: 'PATCH', body: JSON.stringify(data) });

@@ -39,7 +39,7 @@ import {
   completeStockTake,
   closeBooks,
   getEntityTree,
-  updateEntity,
+  supersedeEntity,
   getLocation,
   setLocation,
   addOrUpdateItemSource,
@@ -197,7 +197,7 @@ async function main() {
     // link is what lets completePosSale route a cold product there
     // automatically, so the real POS "store" dropdown only ever needs
     // to show the one, real, logical outlet.
-    updateEntity(getEntityTree().find((e) => e.name === name)!.id, { relation: outlet.name }, 1);
+    supersedeEntity(getEntityTree().find((e) => e.name === name)!.id, { relation: outlet.name }, 1);
     refrigeratedOutlets.push({ name, city: outlet.city, location_type: 'Retail' });
   }
   console.log(`Refrigerated displays set up at all ${refrigeratedOutlets.length} retail outlets, each sized proportionally to its own shop.`);

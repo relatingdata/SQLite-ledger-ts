@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db, ValidationError, NotFoundError, updateEntity, deleteEntity } from './db.js';
+import { db, ValidationError, NotFoundError, supersedeEntity } from './db.js';
 import { Entity } from './primitives.js';
 import { hashPassword, verifyPassword } from './password.js';
 
@@ -36,13 +36,13 @@ function getUserDetail(userId: number): UserDetail | undefined {
 }
 
 function setUserDetail(userId: number, detail: UserDetail): void {
-  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), userId);
+  Entity.setDetailJson(userId, JSON.stringify(detail));
 }
 
 function getUserRoleNames(userId: number): string[] {
   return (
     db
-      .prepare(`SELECT role.name FROM current_entities link JOIN current_entities role ON role.id = link.relation_id JOIN current_entities tag ON tag.parent_id = link.id AND tag.name = 'Role' WHERE link.parent_id = ?`)
+      .prepare(`SELECT role.name FROM current_entities link JOIN current_entities role ON role.id = link.relation_id JOIN current_entities tag ON tag.parent_id = link.id AND tag.name = 'Role' AND tag.relation_id IS NOT NULL WHERE link.parent_id = ?`)
       .all(userId) as { name: string }[]
   ).map((r) => r.name);
 }
@@ -89,12 +89,12 @@ export function setUserRoles(userId: number, roleNames: string[]): void {
     if (!row) throw new ValidationError(`No such role "${name}".`);
     return { id: row.id, name };
   });
-  const existingLinks = db.prepare(`SELECT link.id FROM current_entities link JOIN current_entities tag ON tag.parent_id = link.id AND tag.name = 'Role' WHERE link.parent_id = ?`).all(userId) as { id: number }[];
-  for (const link of existingLinks) deleteEntity(link.id, 1 as never);
+  const existingLinks = db.prepare(`SELECT link.id FROM current_entities link JOIN current_entities tag ON tag.parent_id = link.id AND tag.name = 'Role' AND tag.relation_id IS NOT NULL WHERE link.parent_id = ?`).all(userId) as { id: number }[];
+  for (const link of existingLinks) Entity.untag(link.id, 'Role', 1 as never);
   const userRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(userId) as { name: string };
   for (const role of roleIds) {
     const created = Entity.create(`${userRow.name} — Role — ${role.name}`, userId, 1 as never);
-    updateEntity(created.id, { relation: role.name }, 1 as never);
+    supersedeEntity(created.id, { relation: role.name }, 1 as never);
     Entity.tag(created.id, 'Role', 1 as never);
   }
 }
@@ -106,7 +106,7 @@ export function setUserActive(userId: number, active: boolean): void {
   setUserDetail(userId, detail);
   if (!active) {
     const sessions = db.prepare(`SELECT id FROM current_entities WHERE relation_id = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`).all(userId) as { id: number }[];
-    for (const s of sessions) deleteEntity(s.id, 1 as never);
+    for (const s of sessions) Entity.relate(s.id, null, 1 as never);
   }
 }
 
@@ -156,8 +156,8 @@ export function login(username: string, password: string): { token: string; user
   const expiresAt = new Date(Date.now() + SESSION_LIFETIME_MS).toISOString();
   const sessionsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'System Sessions'`).get() as { id: number };
   const sessionEntity = Entity.create(`Session — ${token}`, sessionsRoot.id, 1 as never);
-  updateEntity(sessionEntity.id, { relation: username }, 1 as never);
-  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ expires_at: expiresAt }), sessionEntity.id);
+  supersedeEntity(sessionEntity.id, { relation: username }, 1 as never);
+  Entity.setDetailJson(sessionEntity.id, JSON.stringify({ expires_at: expiresAt }));
 
   const roles = getUserRoleNames(userRow.id);
 
@@ -169,7 +169,7 @@ export function login(username: string, password: string): { token: string; user
 
 function findSessionByToken(token: string): { id: number; user_id: number; expires_at: string; business_name: string | null } | undefined {
   const row = db
-    .prepare(`SELECT id, relation_id AS user_id, detail_json FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`)
+    .prepare(`SELECT id, relation_id AS user_id, detail_json FROM current_entities WHERE name = ? AND relation_id IS NOT NULL AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`)
     .get(`Session — ${token}`) as { id: number; user_id: number; detail_json: string } | undefined;
   if (!row) return undefined;
   const detail = JSON.parse(row.detail_json);
@@ -178,7 +178,7 @@ function findSessionByToken(token: string): { id: number; user_id: number; expir
 
 export function logout(token: string): void {
   const session = findSessionByToken(token);
-  if (session) deleteEntity(session.id, 1 as never);
+  if (session) Entity.relate(session.id, null, 1 as never);
 }
 
 /** Sets this one, real, connected session's own current business - the
@@ -194,7 +194,7 @@ export function setSessionBusiness(token: string, businessName: string): void {
   const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(session.id) as { detail_json: string };
   const detail = JSON.parse(row.detail_json);
   detail.business_name = businessName;
-  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), session.id);
+  Entity.setDetailJson(session.id, JSON.stringify(detail));
 }
 
 export function getSessionBusiness(token: string): string | null {
@@ -210,7 +210,7 @@ export function getSessionUser(token: string | undefined): AuthenticatedUser | n
   if (!detail) return null;
   if (!detail.active) return null;
   if (new Date(session.expires_at).getTime() < Date.now()) {
-    deleteEntity(session.id, 1 as never);
+    Entity.relate(session.id, null, 1 as never);
     return null;
   }
   const userRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(session.user_id) as { name: string };

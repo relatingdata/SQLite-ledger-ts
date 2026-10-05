@@ -24,8 +24,7 @@ import {
   setDimensionParent,
   setEntityLink,
   stageLine,
-  updateEntity,
-  deleteEntity,
+  supersedeEntity,
   create,
   requireEntity,
   typeRootName,
@@ -147,12 +146,12 @@ export function setLocation(name: string, location: Location, business?: Busines
        AND name != ?`
     )
     .all(name, typeRecordName) as { id: number; name: string }[];
-  for (const s of staleType) deleteEntity(s.id, asUserId(1));
+  for (const s of staleType) Entity.relate(s.id, null, asUserId(1));
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(typeRecordName)) {
     create(requireEntity('Location Type', typeRootName), typeLocationTypeMarkerName, typeRecordName, asUserId(1));
   }
   const typeRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(typeRecordName) as { id: number };
-  updateEntity(typeRecord.id, { relation: location.location_type }, asUserId(1));
+  supersedeEntity(typeRecord.id, { relation: location.location_type }, asUserId(1));
 
   const billingRecordName = `Is Billing Address — ${name} → Billing Address`;
   if (location.is_billing_address) {
@@ -163,15 +162,15 @@ export function setLocation(name: string, location: Location, business?: Busines
          WHERE e.name != ?`
       )
       .all(billingRecordName) as { id: number; name: string }[];
-    for (const other of others) deleteEntity(other.id, asUserId(1));
+    for (const other of others) Entity.relate(other.id, null, asUserId(1));
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(billingRecordName)) {
       create(requireEntity('Is Billing Address', typeRootName), typeIsBillingAddressMarkerName, billingRecordName, asUserId(1));
     }
     const billingRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(billingRecordName) as { id: number };
-    updateEntity(billingRecord.id, { relation: 'Billing Address' }, asUserId(1));
+    supersedeEntity(billingRecord.id, { relation: 'Billing Address' }, asUserId(1));
   } else {
     const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(billingRecordName) as { id: number } | undefined;
-    if (existing) deleteEntity(existing.id, asUserId(1));
+    if (existing) Entity.relate(existing.id, null, asUserId(1));
   }
 }
 
@@ -1029,7 +1028,7 @@ export function getItemLeadTimes(itemName: ItemName): { vendor: string; days: nu
        FROM current_entities child
        JOIN current_entities parent ON parent.id = child.parent_id
        JOIN current_entities target ON target.id = child.relation_id
-       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Lead Time'
+       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Lead Time' AND tag.relation_id IS NOT NULL
        WHERE parent.name = ?`
     )
     .all(itemName) as { id: number; vendor: string }[];
@@ -1125,7 +1124,7 @@ export function createStockTake(locationName: LocationName, takeDate: string, us
       takeId,
       userId
     );
-    updateEntity(lineEntity.id, { relation: p.item_name }, userId);
+    supersedeEntity(lineEntity.id, { relation: p.item_name }, userId);
   }
 
   return takeId;
@@ -1181,7 +1180,7 @@ export function recordStockTakeCount(stockTakeId: number, itemName: ItemName, co
   if (!line) throw new ValidationError(`"${itemName}" is not on this stock take sheet.`);
   const row = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(line.id) as { name: string };
   const newName = row.name.replace(/counted:\d*$/, `counted:${countedQuantity}`);
-  updateEntity(line.id, { name: newName }, asUserId(1));
+  supersedeEntity(line.id, { name: newName }, asUserId(1));
 }
 
 export function completeStockTake(
@@ -1222,7 +1221,7 @@ export function completeStockTake(
   }
 
   const takeRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(stockTakeId) as { name: string };
-  updateEntity(stockTakeId, { name: takeRow.name.replace(/ — draft$/, ' — completed') }, userId);
+  supersedeEntity(stockTakeId, { name: takeRow.name.replace(/ — draft$/, ' — completed') }, userId);
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
@@ -1296,11 +1295,11 @@ export function receiveLot(
     const detail = JSON.parse(row.detail_json);
     detail.quantity_on_hand += quantity;
     detail.cost_basis_minor = (detail.cost_basis_minor ?? 0) + (costBasisMinor ?? 0);
-    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), existing.id);
+    Entity.setDetailJson(existing.id, JSON.stringify(detail));
   } else {
     const created = Entity.create(lotName, itemId, userId);
     const detail = { received_date: receivedDate, expiration_date: expirationDate, quantity_on_hand: quantity, cost_basis_minor: costBasisMinor ?? null };
-    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), created.id);
+    Entity.setDetailJson(created.id, JSON.stringify(detail));
   }
 
   postQuantityMovement(business, ledger, reference, asAccountName(itemName), quantity, userId, receivedDate);
@@ -1342,7 +1341,7 @@ export function consumeFromLots(itemName: ItemName, quantity: number): { lot_num
     const detail = JSON.parse(row.detail_json);
     detail.quantity_on_hand -= take;
     detail.cost_basis_minor = costBasisTaken != null ? lot.cost_basis_minor! - costBasisTaken : lot.cost_basis_minor;
-    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), lot.id);
+    Entity.setDetailJson(lot.id, JSON.stringify(detail));
     consumed.push({ lot_number: lot.lot_number, consumed: take, expiration_date: lot.expiration_date, cost_basis_minor: costBasisTaken });
     remaining -= take;
   }
@@ -1401,8 +1400,8 @@ export function placeOrder(
     const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name);
     if (!existing) createSystemEntity(name, ordersId);
   }
-  if (vendor) updateEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(qtyName) as { id: number }).id, { relation: vendor }, userId);
-  if (item) updateEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(valueName) as { id: number }).id, { relation: item }, userId);
+  if (vendor) supersedeEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(qtyName) as { id: number }).id, { relation: vendor }, userId);
+  if (item) supersedeEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(valueName) as { id: number }).id, { relation: item }, userId);
   if (location) setDimensionParent(qtyName, 'Location', location, userId);
   postQuantityMovement(business, ledger, `${orderReference}-PLACE`, asAccountName(qtyName), quantity, userId, transdate);
   postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueName), priceMinor, userId, transdate);

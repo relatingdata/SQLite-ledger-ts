@@ -13,7 +13,7 @@
  *
  * Run with: node --import tsx backend/scripts/prototype-typed-contacts.ts
  */
-import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, setContact, getContact, updateEntity, db } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, setContact, getContact, supersedeEntity, db } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: Address Types and Phone Types categories ===');
@@ -37,7 +37,7 @@ async function main() {
       // already exists
     }
     const child = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(childName) as { id: number };
-    updateEntity(child.id, { relation: addressType }, 1);
+    supersedeEntity(child.id, { relation: addressType }, 1);
     setContact(childName, value);
     return childName;
   }
@@ -50,7 +50,7 @@ async function main() {
       // already exists
     }
     const child = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(childName) as { id: number };
-    updateEntity(child.id, { relation: phoneType }, 1);
+    supersedeEntity(child.id, { relation: phoneType }, 1);
     setContact(childName, { phone: number });
     return childName;
   }

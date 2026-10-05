@@ -4,7 +4,7 @@
     getEntityTree,
     createEntity,
     createProvider,
-    updateEntity,
+    supersedeEntity,
     deleteEntity,
     getContact,
     setContact,
@@ -204,7 +204,7 @@
     saving = true;
     error = '';
     try {
-      await updateEntity(selectedId, {
+      await supersedeEntity(selectedId, {
         name: editName,
         parent: editParent || null,
         relation: editRelation || null,

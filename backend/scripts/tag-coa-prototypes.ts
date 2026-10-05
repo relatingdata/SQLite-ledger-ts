@@ -1,4 +1,4 @@
-import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, getCoaPrototypeAccounts, updateEntity, db, getBusinesses } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, getCoaPrototypeAccounts, supersedeEntity, db, getBusinesses } from '../src/db.js';
 
 // Real, confirmed representative business+ledger for each real CoA
 // prototype — getCoaPrototypeAccounts on each returns exactly the real
@@ -47,7 +47,7 @@ for (const [prototypeName, { business, ledger }] of Object.entries(prototypeRepr
     // about the same account where one is already set, by checking
     // first rather than clobbering.
     if (entity.relation_id != null) continue;
-    updateEntity(entity.id, { relation: prototypeName }, 1);
+    supersedeEntity(entity.id, { relation: prototypeName }, 1);
     accountsTagged++;
   }
 }
@@ -60,7 +60,7 @@ for (const biz of allBusinesses) {
     console.warn('No known prototype for business:', biz.name, '- leaving untagged');
     continue;
   }
-  updateEntity(biz.id, { relation: prototypeName }, 1);
+  supersedeEntity(biz.id, { relation: prototypeName }, 1);
   businessesTagged++;
 }
 

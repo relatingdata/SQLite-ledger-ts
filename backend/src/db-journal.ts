@@ -15,8 +15,7 @@ import {
   asItemName,
   asLocationName,
   getDivisionType,
-  updateEntity,
-  deleteEntity,
+  supersedeEntity,
   getContact,
   setDimensionParent,
   recordInvoiceLine,
@@ -336,7 +335,7 @@ export function clockInToProject(employeeName: EmployeeName, projectExpenseAccou
   if (!contact.wage_minor_per_hour) throw new ValidationError(`"${employeeName}" has no real, configured hourly wage rate yet — set one on the Contacts page first.`);
   const employee = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number } | undefined;
   if (!employee) throw new ValidationError(`No employee named "${employeeName}".`);
-  const alreadyClocked = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? AND name LIKE 'Clocked In — %'`).get(employee.id);
+  const alreadyClocked = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? AND name LIKE 'Clocked In — %' AND relation_id IS NOT NULL`).get(employee.id);
   if (alreadyClocked) throw new ValidationError(`"${employeeName}" is already clocked in on a real project — clock out first.`);
 
   const clockedInAt = new Date().toISOString();
@@ -354,7 +353,8 @@ export function clockInToProject(employeeName: EmployeeName, projectExpenseAccou
   });
   postPurchaseOrder(poReference, business, ledger, userId);
 
-  Entity.create(`Clocked In — ${poReference} — ${projectExpenseAccount} — ${clockedInAt}`, employee.id, userId);
+  const clockEntity = Entity.create(`Clocked In — ${poReference} — ${projectExpenseAccount} — ${clockedInAt}`, employee.id, userId);
+  Entity.relate(clockEntity.id, 'Active', userId);
   return { employee: employeeName, po_reference: poReference, project_expense_account: projectExpenseAccount, clocked_in_at: clockedInAt };
 }
 
@@ -363,7 +363,7 @@ function getOpenProjectClockEntity(employeeName: string): { id: number; po_refer
     .prepare(
       `SELECT c.id, c.name FROM current_entities c
        JOIN current_entities emp ON emp.id = c.parent_id
-       WHERE emp.name = ? AND c.name LIKE 'Clocked In — %'`
+       WHERE emp.name = ? AND c.name LIKE 'Clocked In — %' AND c.relation_id IS NOT NULL`
     )
     .get(employeeName) as { id: number; name: string } | undefined;
   if (!row) return undefined;
@@ -396,7 +396,7 @@ export function clockOutOfProject(employeeName: EmployeeName, business: Business
   });
   postOrderReceipt(receiptReference, business, ledger, userId);
 
-  deleteEntity(open.id, asUserId(1));
+  Entity.relate(open.id, null, asUserId(1));
 }
 
 export function getOpenProjectClockForEmployee(employeeName: EmployeeName): EmployeeClock | undefined {
@@ -784,12 +784,12 @@ function ensurePeriodLockEntity(business: BusinessName, ledger: LedgerName, user
 
 export function closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string, userId: UserId): void {
   const lockEntity = ensurePeriodLockEntity(business, ledger, userId);
-  updateEntity(lockEntity.id, { name: `${business} — ${ledger} — Period Lock — Locked through ${throughDate}` }, userId);
+  supersedeEntity(lockEntity.id, { name: `${business} — ${ledger} — Period Lock — Locked through ${throughDate}` }, userId);
 }
 
 export function reopenPeriod(business: BusinessName, ledger: LedgerName, userId: UserId): void {
   const lockEntity = ensurePeriodLockEntity(business, ledger, userId);
-  updateEntity(lockEntity.id, { name: `${business} — ${ledger} — Period Lock — Open` }, userId);
+  supersedeEntity(lockEntity.id, { name: `${business} — ${ledger} — Period Lock — Open` }, userId);
 }
 
 export function assertPeriodOpen(business: BusinessName, ledger: LedgerName, transdate: string): void {

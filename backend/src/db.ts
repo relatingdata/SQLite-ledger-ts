@@ -488,17 +488,18 @@ export interface EntityHistoryRow {
   relation_id: number | null;
   created_at: string;
   created_by: number;
-  deleted_at: string | null;
-  deleted_by: number | null;
 }
 
 /** Every version an entity has ever had, oldest first — the point of
  * the whole append-only design: nothing about this is reconstructed or
- * inferred, it's simply every row that was ever written, in order. */
+ * inferred, it's simply every row that was ever written, in order. A
+ * real delete is itself one more row in this same history - a
+ * reparent under the real "Deleted" root - not a separate, flagged
+ * event; look at a row's own parent_id to see this. */
 export function getEntityHistory(id: number): EntityHistoryRow[] {
   return db
     .prepare(
-      `SELECT name, parent_id, relation_id, created_at, created_by, deleted_at, deleted_by
+      `SELECT name, parent_id, relation_id, created_at, created_by
        FROM entities WHERE entity_id = ? ORDER BY row_id`
     )
     .all(id) as EntityHistoryRow[];
@@ -750,7 +751,13 @@ export interface EntityUpdate {
  * than updating in place. Fields not provided keep their current value
  * carried forward onto the new row; entity_update needs the full set on
  * every write, so this fetches whatever wasn't explicitly changed. */
-export function updateEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode {
+/** Per direct, absolute instruction: no function implying in-place
+ * mutation may exist in this design. This name states exactly what
+ * happens: the current row for id is superseded by a new one carrying
+ * the given changes, every other field carried forward unchanged -
+ * the same, real, pre-existing entity_update insert-only mechanism
+ * underneath, never a new one. */
+export function supersedeEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode {
   const current = getEntity(id);
   if (!current) throw new NotFoundError(`Entity ${id} not found.`);
 
@@ -1025,10 +1032,10 @@ export function setRelationship(entityName: string, relationshipType: string, ta
     create(requireEntity(relationshipType, typeRootName), typeRelationshipRecordName, recordName, userId);
   }
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
-  updateEntity(record.id, { relation: targetName }, userId);
+  supersedeEntity(record.id, { relation: targetName }, userId);
   const entity = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(entityName) as { id: number } | undefined;
   if (!entity) throw new NotFoundError(`No entity named "${entityName}".`);
-  updateEntity(entity.id, { relation: recordName }, userId);
+  supersedeEntity(entity.id, { relation: recordName }, userId);
 }
 
 /** The single-entity lookup: "what relationship does entityName have,
@@ -1387,9 +1394,10 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
   return db.transaction((): number => {
   const invoicesRoot = ensureSystemInvoicesRoot(userId);
   const invoiceEntity = Entity.create(`${input.business} — ${input.ledger} — ${input.reference}`, invoicesRoot.id, userId);
-  updateEntity(invoiceEntity.id, { relation: input.counterpartyName }, userId);
+  supersedeEntity(invoiceEntity.id, { relation: input.counterpartyName }, userId);
   const invoiceId = invoiceEntity.id;
-  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(
+  Entity.setDetailJson(
+    invoiceId,
     JSON.stringify({
       invoice_type: input.invoiceType,
       document_type: input.documentType ?? 'invoice',
@@ -1404,15 +1412,15 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
       user_id: userId,
       posted_journal_id: null,
       source: input.source ?? 'manual',
-    }),
-    invoiceId
+    })
   );
 
   input.lines.forEach((line, i) => {
     const itemId = line.itemName ? resolveItemId(asItemName(line.itemName)) : null;
     const lineEntity = Entity.create(`Line — ${i}`, invoiceId, userId);
-    if (itemId) updateEntity(lineEntity.id, { relation: line.itemName }, userId);
-    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(
+    if (itemId) supersedeEntity(lineEntity.id, { relation: line.itemName }, userId);
+    Entity.setDetailJson(
+      lineEntity.id,
       JSON.stringify({
         line_order: i,
         description: line.description,
@@ -1421,8 +1429,7 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
         amount_minor: line.amountMinor,
         tax_minor: line.taxMinor ?? 0,
         dispatch_reference: line.dispatchReference ?? null,
-      }),
-      lineEntity.id
+      })
     );
   });
 
@@ -2039,9 +2046,7 @@ export function postInvoice(
     db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`)
       .get(invoice.reference, invoice.business, invoice.ledger, invoice.business) as { id: number }
   ).id;
-  db.prepare(
-    `UPDATE entities SET detail_json = json_set(detail_json, '$.status', 'posted', '$.posted_journal_id', ?) WHERE entity_id = ? AND deleted_at IS NULL`
-  ).run(journalId, id);
+  Entity.mergeDetailJson(id, JSON.stringify({ status: 'posted', posted_journal_id: journalId }));
   })();
 }
 
@@ -2103,9 +2108,9 @@ export function allocatePayment(
   // could silently leave a real, "successful" allocation on record
   // even when the actual, real cash movement never posted at all.
   const allocEntity = Entity.create(`Payment — ${paymentReference}`, invoiceId, asUserId(1));
-  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(
-    JSON.stringify({ payment_reference: paymentReference, allocated_minor: allocatedMinor, allocation_date: allocationDate }),
-    allocEntity.id
+  Entity.setDetailJson(
+    allocEntity.id,
+    JSON.stringify({ payment_reference: paymentReference, allocated_minor: allocatedMinor, allocation_date: allocationDate })
   );
   })();
 }
@@ -2647,7 +2652,7 @@ export function ensureProductInstance(businessName: BusinessName, definitionDime
   if (existing) return existing;
   const name = values.join(' — ');
   const created = Entity.create(name, product.id, userId);
-  db.prepare(`UPDATE entities SET combination_ids = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(combinationIdsJson, created.id);
+  Entity.setCombinationIds(created.id, combinationIdsJson);
   return created;
 }
 
@@ -2772,7 +2777,7 @@ export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTo
   // afterward - a report re-derives it live from combination_ids.
   const leafName = combinationIds != null ? getCombinationDisplayName(instanceTopNode.id) : instanceTopNode.name;
   const leaf = Entity.create(leafName, baseId, userId);
-  if (combinationIds != null) db.prepare(`UPDATE entities SET combination_ids = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(combinationIds, leaf.id);
+  if (combinationIds != null) Entity.setCombinationIds(leaf.id, combinationIds);
   return leaf;
 }
 
@@ -3928,10 +3933,10 @@ export function recordInvoiceLine(reference: string, business: string, ledger: s
   const existing = Entity.getUnder(name, root.id);
   const detail = { description, quantity, unit_price_minor: unitPriceMinor, amount_minor: amountMinor, tax_minor: taxMinor };
   if (existing) {
-    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), existing.id);
+    Entity.setDetailJson(existing.id, JSON.stringify(detail));
   } else {
     const created = Entity.create(name, root.id, asUserId(1));
-    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(detail), created.id);
+    Entity.setDetailJson(created.id, JSON.stringify(detail));
   }
 }
 
@@ -3974,7 +3979,7 @@ export function mergeContactDetail(entityId: number, fields: Record<string, unkn
   const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(entityId) as { detail_json: string | null } | undefined;
   const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
   const merged = { ...current, __is_contact: true, ...fields };
-  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify(merged), entityId);
+  Entity.setDetailJson(entityId, JSON.stringify(merged));
 }
 
 export function setContact(entityName: string, contact: Partial<Contact>): void {
@@ -4040,7 +4045,7 @@ export function signOn(employeeName: string, locationName: string): PosShift {
   // entity, matched exactly - never a name suffix and never a JSON
   // field.
   const alreadyOpen = db
-    .prepare(`SELECT 1 FROM current_entities parent JOIN current_entities tag ON tag.parent_id = parent.id AND tag.name = 'Open' WHERE parent.id = ?`)
+    .prepare(`SELECT 1 FROM current_entities parent JOIN current_entities tag ON tag.parent_id = parent.id AND tag.name = 'Open' AND tag.relation_id IS NOT NULL WHERE parent.id = ?`)
     .get(employee.id);
   if (alreadyOpen) throw new ValidationError(`"${employeeName}" is already signed on somewhere — sign off first.`);
   const signedOnAt = new Date().toISOString();
@@ -4053,7 +4058,7 @@ export function signOn(employeeName: string, locationName: string): PosShift {
   // no separate attribute needed for a fact this entity's own
   // creation already records.
   const shiftEntity = Entity.create(`${employeeName} — Shift — ${signedOnAt}`, employee.id, asUserId(1));
-  updateEntity(shiftEntity.id, { relation: locationName }, asUserId(1));
+  supersedeEntity(shiftEntity.id, { relation: locationName }, asUserId(1));
   Entity.tag(shiftEntity.id, 'Open', asUserId(1));
   return { id: shiftEntity.id, employee: employeeName, location: locationName, signed_on_at: signedOnAt, signed_off_at: null };
 }
@@ -4074,8 +4079,7 @@ export function verifyPosPin(employeeName: string, pin: string): boolean {
 export function signOff(shiftId: number): void {
   if (!Entity.hasTag(shiftId, 'Open')) throw new ValidationError(`No real shift with id ${shiftId}, or it is already signed off.`);
   const signedOffAt = new Date().toISOString();
-  const openTag = Entity.getUnder('Open', shiftId);
-  if (openTag) Entity.delete(openTag.id, asUserId(1));
+  Entity.untag(shiftId, 'Open', asUserId(1));
   Entity.setAttr(shiftId, 'Signed Off At', signedOffAt, asUserId(1));
 }
 
@@ -4097,7 +4101,7 @@ export function getActiveShiftsAtLocation(locationName: string): PosShift[] {
        FROM current_entities s
        JOIN current_entities emp ON emp.id = s.parent_id
        JOIN current_entities loc ON loc.id = s.relation_id
-       JOIN current_entities tag ON tag.parent_id = s.id AND tag.name = 'Open'
+       JOIN current_entities tag ON tag.parent_id = s.id AND tag.name = 'Open' AND tag.relation_id IS NOT NULL
        WHERE loc.name = ?
        ORDER BY s.created_at`
     )
@@ -4116,7 +4120,7 @@ export function getOpenShiftForEmployee(employeeName: string): PosShift | undefi
        FROM current_entities s
        JOIN current_entities emp ON emp.id = s.parent_id
        JOIN current_entities loc ON loc.id = s.relation_id
-       JOIN current_entities tag ON tag.parent_id = s.id AND tag.name = 'Open'
+       JOIN current_entities tag ON tag.parent_id = s.id AND tag.name = 'Open' AND tag.relation_id IS NOT NULL
        WHERE emp.name = ?`
     )
     .get(employeeName) as { id: number; employee: string; location: string; created_at: string } | undefined;
@@ -4146,13 +4150,15 @@ export function setLocationOpenHours(locationName: string, hours: OpenHoursLine[
     if (h.opens_at >= h.closes_at) throw new ValidationError(`${h.day}: opening time must be before closing time.`);
   }
   for (const existing of getLocationOpenHours(locationName)) {
-    deleteEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(`${locationName} — ${existing.day}: ${existing.opens_at}–${existing.closes_at}`) as { id: number }).id, asUserId(1));
+    const existingId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(`${locationName} — ${existing.day}: ${existing.opens_at}–${existing.closes_at}`) as { id: number }).id;
+    Entity.relate(existingId, null, asUserId(1));
   }
   for (const h of hours) {
     const recordName = `${locationName} — ${h.day}: ${h.opens_at}–${h.closes_at}`;
-    create(requireEntity(locationName, typeRootName), typeOpenHoursRecordName, recordName, asUserId(1));
+    const existingRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
+    if (!existingRecord) create(requireEntity(locationName, typeRootName), typeOpenHoursRecordName, recordName, asUserId(1));
     const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
-    updateEntity(record.id, { relation: h.day }, asUserId(1));
+    supersedeEntity(record.id, { relation: h.day }, asUserId(1));
   }
 }
 
@@ -4262,13 +4268,14 @@ export function setEmployeeSchedule(employeeName: string, locationName: string, 
   for (const existing of getEmployeeSchedule(employeeName).filter((e) => e.location === locationName)) {
     const recordName = `${employeeName} — ${existing.day} at ${locationName}: ${existing.starts_at}–${existing.ends_at}`;
     const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
-    if (record) deleteEntity(record.id, asUserId(1));
+    if (record) Entity.relate(record.id, null, asUserId(1));
   }
   for (const s of schedule) {
     const recordName = `${employeeName} — ${s.day} at ${locationName}: ${s.starts_at}–${s.ends_at}`;
-    create(requireEntity(employeeName, typeRootName), typeScheduleRecordName, recordName, asUserId(1));
+    const existingRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
+    if (!existingRecord) create(requireEntity(employeeName, typeRootName), typeScheduleRecordName, recordName, asUserId(1));
     const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
-    updateEntity(record.id, { relation: s.day }, asUserId(1));
+    supersedeEntity(record.id, { relation: s.day }, asUserId(1));
   }
 }
 
@@ -4486,7 +4493,7 @@ function addTyped<T>(entityName: string, thingSuffix: string, type: string, valu
     create(requireEntity(entityName, typeRootName), typeEntityLinkRecordName, recordName, userId);
   }
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
-  updateEntity(record.id, { relation: type }, userId);
+  supersedeEntity(record.id, { relation: type }, userId);
   save(recordName, value);
   return recordName;
 }
@@ -4519,7 +4526,7 @@ function getTyped<T>(entityName: string, typeCategory: string, typeKey: string, 
 function deleteTyped(entityName: string, thingSuffix: string, type: string, userId: UserId): void {
   const recordName = `${entityName} — ${type} ${thingSuffix}`;
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
-  if (record) deleteEntity(record.id, userId);
+  if (record) Entity.relate(record.id, null, userId);
 }
 
 /** A real, small, third generic alongside addTyped<T>/getTyped<T>
@@ -4561,7 +4568,7 @@ export function getPrototypeOf(entityName: string): string | undefined {
  * entities; this is a direct, structural "what kind is this" fact
  * about the entity itself). */
 export function setPrototype(entityName: string, prototypeName: string, userId: UserId): void {
-  updateEntity(resolveIdOrThrow(entityName), { relation: prototypeName }, userId);
+  supersedeEntity(resolveIdOrThrow(entityName), { relation: prototypeName }, userId);
 }
 
 /** Seeds the real, default, recommended hierarchy prototypes for a
@@ -4594,7 +4601,7 @@ export function setEntityLink(entityName: string, linkType: string, targetName: 
     // this record's own name for a pattern and never a JSON field.
     Entity.tag(record.id, linkType, userId);
   }
-  updateEntity(record.id, targetId != null ? { relationId: targetId } : { relation: targetName }, userId);
+  supersedeEntity(record.id, targetId != null ? { relationId: targetId } : { relation: targetName }, userId);
   return recordName;
 }
 
@@ -4617,18 +4624,12 @@ export function deleteEntityLink(entityName: string, linkType: string, userId: U
   const recordName = `${entityName} — ${linkType}`;
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
   if (record) {
-    // This link record's own, known tag/attribute children (set by
-    // Entity.tag/setAttr when the link was created) are safe to
-    // delete here, specifically, since this caller knows exactly
-    // what it itself put there - never a blanket cascade in
-    // deleteEntity, which has no way to distinguish these from a
-    // genuine, separate, structural child it must never silently
-    // delete.
-    for (const child of Entity.children(record.id)) {
-      for (const grandchild of Entity.children(child.id)) deleteEntity(grandchild.id, userId);
-      deleteEntity(child.id, userId);
-    }
-    deleteEntity(record.id, userId);
+    // Untags this link's own linkType fact - the same, exact tag
+    // setEntityLink applied when this link was created. The link's
+    // own relation_id (which component, which vendor, which
+    // predecessor) is left entirely unchanged - a true, permanent,
+    // historical fact, same as any other entity's own history.
+    Entity.untag(record.id, linkType, userId);
   }
 }
 
@@ -4678,7 +4679,10 @@ export function postBomComponents(assemblyItem: string, business: string, userId
  * its current quantity) - a direct, exact delete, no filter needed
  * since the link name is fixed and deterministic per component. */
 export function deleteBomComponent(assemblyItem: string, componentItem: string, userId: UserId): void {
-  deleteEntityLink(assemblyItem, `BOM — ${componentItem}`, userId);
+  const linkType = `BOM — ${componentItem}`;
+  const record = Entity.get(`${assemblyItem} — ${linkType}`, assemblyItem);
+  if (record) Entity.untag(record.id, 'BOM', userId);
+  deleteEntityLink(assemblyItem, linkType, userId);
 }
 
 /** Every real, posted BOM component for one assembly Item, read
@@ -4691,7 +4695,7 @@ export function getBomComponents(assemblyItem: string): { component: string; qua
        FROM current_entities child
        JOIN current_entities parent ON parent.id = child.parent_id
        JOIN current_entities target ON target.id = child.relation_id
-       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'BOM'
+       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'BOM' AND tag.relation_id IS NOT NULL
        WHERE parent.name = ?`
     )
     .all(assemblyItem) as { id: number; component: string }[];
@@ -4771,7 +4775,7 @@ export function getTaskDependencies(dependentTask: string): { predecessor: strin
        FROM current_entities child
        JOIN current_entities parent ON parent.id = child.parent_id
        JOIN current_entities target ON target.id = child.relation_id
-       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Dependency'
+       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Dependency' AND tag.relation_id IS NOT NULL
        WHERE parent.name = ?`
     )
     .all(dependentTask) as { id: number; predecessor: string }[];
@@ -5466,7 +5470,7 @@ export function createProduct(name: string, parent: string, userId: UserId): voi
  * Items list into Product groupings after the fact, not just at
  * creation time. */
 export function setItemProduct(itemName: string, productName: string | null, userId: UserId): void {
-  updateEntity(resolveIdOrThrow(itemName), { parent: productName ?? 'Items' }, userId);
+  supersedeEntity(resolveIdOrThrow(itemName), { parent: productName ?? 'Items' }, userId);
 }
 
 function resolveIdOrThrow(name: string): number {
@@ -5689,11 +5693,11 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
   });
   const existing = Entity.getUnder(sourceName, itemId);
   if (existing) {
-    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(detail, existing.id);
+    Entity.setDetailJson(existing.id, detail);
   } else {
     const created = Entity.create(sourceName, itemId, asUserId(1));
-    updateEntity(created.id, { relation: input.vendorName }, asUserId(1));
-    db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(detail, created.id);
+    supersedeEntity(created.id, { relation: input.vendorName }, asUserId(1));
+    Entity.setDetailJson(created.id, detail);
     Entity.tag(created.id, 'Item Source', asUserId(1));
   }
 }
@@ -5766,7 +5770,7 @@ export function setBusinessHomeCurrency(businessName: string, currencyCode: stri
   if (!businessId) throw new ValidationError(`No business named "${businessName}".`);
   const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(businessId) as { detail_json: string | null } | undefined;
   const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
-  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ ...current, home_currency: currencyCode }), businessId);
+  Entity.setDetailJson(businessId, JSON.stringify({ ...current, home_currency: currencyCode }));
 }
 
 export function getBusinessHomeCurrency(businessName: string): string | null {
@@ -5787,7 +5791,7 @@ export function nominateLocationCurrency(locationName: string, currencyCode: str
   const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
   const currencies: string[] = current.currencies ?? [];
   if (!currencies.includes(currencyCode)) currencies.push(currencyCode);
-  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ ...current, currencies }), locationId);
+  Entity.setDetailJson(locationId, JSON.stringify({ ...current, currencies }));
 }
 
 export function getLocationCurrencies(locationName: string): string[] {
@@ -5932,9 +5936,8 @@ export function listCurrencyPairs(currencies: string[]): { from: string; to: str
 }
 
 export function deleteItemSource(id: number): void {
-  const row = Entity.hasTag(id, 'Item Source') ? { id } : undefined;
-  if (!row) throw new NotFoundError(`No item source with id ${id}.`);
-  deleteEntity(id, asUserId(1));
+  if (!Entity.hasTag(id, 'Item Source')) throw new NotFoundError(`No item source with id ${id}.`);
+  Entity.untag(id, 'Item Source', asUserId(1));
 }
 
 export * from './db-reports.js';
@@ -5979,7 +5982,7 @@ export function setDefaultLanguage(languageName: string, userId: UserId): void {
   const application = db.prepare(`SELECT id FROM current_entities WHERE name = 'Application'`).get() as { id: number };
   // Uses the same entity_update mechanism as every other entity change
   // — entities is append-only, a raw UPDATE would violate that.
-  updateEntity(application.id, { relation: languageName }, userId);
+  supersedeEntity(application.id, { relation: languageName }, userId);
 }
 
 /** Every real division that exists — a division is just an ordinary
@@ -6050,14 +6053,16 @@ export function getMenuTree(opts?: { businessName?: string; userId?: number }): 
   function resolveOverride(entityName: string): { label: string | null; hidden: boolean } | null {
     if (opts?.userId != null) {
       const scope = `user ${opts.userId}`;
+      const overrideRow = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(`${entityName} — Override: ${scope}`) as { id: number } | undefined;
       const label = getEntityLink(`${entityName} — Override: ${scope}`, 'Label');
-      const hidden = !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(`${entityName} — Override: ${scope} — Hidden`);
+      const hidden = overrideRow ? Entity.hasTag(overrideRow.id, 'Hidden') : false;
       if (label !== undefined || hidden) return { label: label ?? null, hidden };
     }
     if (businessId != null) {
       const scope = `business ${businessId}`;
+      const overrideRow = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(`${entityName} — Override: ${scope}`) as { id: number } | undefined;
       const label = getEntityLink(`${entityName} — Override: ${scope}`, 'Label');
-      const hidden = !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(`${entityName} — Override: ${scope} — Hidden`);
+      const hidden = overrideRow ? Entity.hasTag(overrideRow.id, 'Hidden') : false;
       if (label !== undefined || hidden) return { label: label ?? null, hidden };
     }
     return null;
@@ -6153,13 +6158,9 @@ export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user',
   } else {
     deleteEntityLink(overrideName, 'Label', userId);
   }
-  const hiddenMarkerName = `${overrideName} — Hidden`;
-  const hiddenMarkerExists = !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(hiddenMarkerName);
-  if (hidden && !hiddenMarkerExists) create(requireEntity(overrideName, typeMenuOverrideName), typeHiddenMarkerName, hiddenMarkerName, userId);
-  if (!hidden && hiddenMarkerExists) {
-    const markerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(hiddenMarkerName) as { id: number }).id;
-    deleteEntity(markerId, userId);
-  }
+  const overrideId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(overrideName) as { id: number }).id;
+  if (hidden) Entity.tag(overrideId, 'Hidden', userId);
+  else Entity.untag(overrideId, 'Hidden', userId);
 }
 
 export function deleteMenuOverride(menuItemKey: string, scope: 'business' | 'user', scopeId: number, userId: UserId = asUserId(1)): void {
@@ -6169,9 +6170,8 @@ export function deleteMenuOverride(menuItemKey: string, scope: 'business' | 'use
   const overrideName = `${menuItemName} — Override: ${scope} ${scopeId}`;
   const row = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(overrideName) as { id: number } | undefined;
   if (!row) return;
-  const children = db.prepare(`SELECT id FROM current_entities WHERE parent_id = ?`).all(row.id) as { id: number }[];
-  for (const child of children) deleteEntity(child.id, userId);
-  deleteEntity(row.id, userId);
+  Entity.untag(row.id, 'Hidden', userId);
+  deleteEntityLink(overrideName, 'Label', userId);
 }
 
 export function setDivisionType(divisionNameOrId: string | EntityId, typeMarkerName: string): void {
@@ -6392,7 +6392,7 @@ export function setVocabularyPreference(conceptName: string, scope: 'business' |
   const prefName = `${conceptName} — Preference — ${scope}:${scopeId}`;
   const existing = Entity.getUnder(prefName, conceptId);
   const record = existing ?? Entity.create(prefName, conceptId, asUserId(1));
-  updateEntity(record.id, { relation: preferredAlternateName }, asUserId(1));
+  supersedeEntity(record.id, { relation: preferredAlternateName }, asUserId(1));
   Entity.tag(record.id, scope, asUserId(1));
   Entity.setAttr(record.id, 'Scope Id', String(scopeId), asUserId(1));
 }
@@ -6402,7 +6402,7 @@ export function deleteVocabularyPreference(conceptName: string, scope: 'business
   if (!conceptId) return;
   const prefName = `${conceptName} — Preference — ${scope}:${scopeId}`;
   const existing = Entity.getUnder(prefName, conceptId);
-  if (existing) deleteEntity(existing.id, asUserId(1));
+  if (existing) Entity.untag(existing.id, scope, asUserId(1));
 }
 
 /** getLocalizedText, extended with the real, 3-tier vocabulary-
@@ -6428,7 +6428,7 @@ export function getLocalizedText(language: string, opts?: { businessName?: strin
       `SELECT pref.parent_id AS concept_id, alt.name AS alternate_name, tag.name AS scope
        FROM current_entities pref
        JOIN current_entities alt ON alt.id = pref.relation_id
-       JOIN current_entities tag ON tag.parent_id = pref.id AND tag.name IN ('user', 'business')
+       JOIN current_entities tag ON tag.parent_id = pref.id AND tag.name IN ('user', 'business') AND tag.relation_id IS NOT NULL
        JOIN current_entities scopeAttrType ON scopeAttrType.parent_id = pref.id AND scopeAttrType.name = 'Scope Id'
        JOIN current_entities scopeAttrValue ON scopeAttrValue.parent_id = scopeAttrType.id
        WHERE (tag.name = 'user' AND CAST(scopeAttrValue.name AS INTEGER) = ?)
@@ -6480,22 +6480,24 @@ export function setTranslation(conceptName: string, languageName: string, text: 
   const stale = db
     .prepare(`SELECT e.id, e.name FROM current_entities e WHERE e.parent_id = ? AND e.relation_id = ?`)
     .get(languageId, conceptId) as { id: number; name: string } | undefined;
-  if (stale) {
-    if (stale.name === text) return; // already correct, nothing to do
-    deleteEntity(stale.id, userId);
-  }
+  if (stale && stale.name === text) return; // already correct, nothing to do
 
-  // createEntity's own, established, scoped uniqueness (parent_id,
-  // name) already, correctly rejects a genuine collision — two
-  // different concepts sharing the exact same word under the exact
-  // same language. Per direct instruction: this is a genuine bug in
-  // how this application's own words are used (or a genuine ambiguity
-  // in human language itself), to be flagged and studied, never
-  // silently worked around with a suffix or similar — but also never
-  // allowed to halt every other, real, unrelated translation.
+  // createEntity's/Entity.rename's own, established, scoped uniqueness
+  // (parent_id, name) already, correctly rejects a genuine collision —
+  // two different concepts sharing the exact same word under the
+  // exact same language. Per direct instruction: this is a genuine bug
+  // in how this application's own words are used (or a genuine
+  // ambiguity in human language itself), to be flagged and studied,
+  // never silently worked around with a suffix or similar — but also
+  // never allowed to halt every other, real, unrelated translation.
   let created;
   try {
-    created = create(requireEntityById(languageId, typeRootName), typeTranslationConceptName, text, userId);
+    if (stale) {
+      Entity.rename(stale.id, text, userId);
+      created = { id: stale.id, name: text };
+    } else {
+      created = create(requireEntityById(languageId, typeRootName), typeTranslationConceptName, text, userId);
+    }
   } catch (e) {
     const existing = db.prepare(`SELECT c.name AS concept FROM current_entities e JOIN current_entities c ON c.id = e.relation_id WHERE e.parent_id = ? AND e.name = ?`).get(languageId, text) as { concept: string } | undefined;
     // Per direct instruction: temporarily suppressed from stderr (100+
@@ -6508,9 +6510,9 @@ export function setTranslation(conceptName: string, languageName: string, text: 
     );
     return;
   }
-  // A real, confirmed bug fix: updateEntity(created.id, { relation:
+  // A real, confirmed bug fix: supersedeEntity(created.id, { relation:
   // conceptName }, userId) would re-resolve conceptName as a plain
-  // string, all over again, through updateEntity's own, separate,
+  // string, all over again, through supersedeEntity's own, separate,
   // genuinely shared, general-purpose relation-resolution helper -
   // which is NOT Vocabulary-scoped, and so silently threw away the
   // correct, already-resolved conceptId computed above, replacing it
@@ -6519,7 +6521,7 @@ export function setTranslation(conceptName: string, languageName: string, text: 
   // one of six, real, separate ledger entities sharing that name).
   // Setting relation_id directly from the already-correct conceptId,
   // via the same, real entity_update audit-trail mechanism
-  // updateEntity itself uses, avoids this re-resolution entirely.
+  // supersedeEntity itself uses, avoids this re-resolution entirely.
   db.prepare(`INSERT INTO entity_update (entity_id, name, parent, parent_id, relation, relation_id, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
     created.id,
     created.name,
@@ -6693,7 +6695,7 @@ export function addFinancialStatementNote(businessName: BusinessName, noteText: 
   const countRow = db.prepare(`SELECT COUNT(*) AS n FROM current_entities WHERE parent_id = ?`).get(notesRoot.id) as { n: number };
   const noteName = `${businessName} — Note ${countRow.n + 1}`;
   const note = create(requireEntityById(notesRoot.id, typeRootName), typeRootName, noteName, userId);
-  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ text: noteText }), note.id);
+  Entity.setDetailJson(note.id, JSON.stringify({ text: noteText }));
   return { id: note.id };
 }
 
@@ -6759,7 +6761,7 @@ export function nominateBankAccount(businessName: BusinessName, bankAccountName:
   let bankAccountsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Bank Accounts' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
   if (!bankAccountsRoot) bankAccountsRoot = create(business, typeRootName, 'Bank Accounts', userId);
   const account = create(requireEntityById(bankAccountsRoot.id, typeRootName), typeRootName, bankAccountName, userId);
-  db.prepare(`UPDATE entities SET detail_json = ? WHERE entity_id = ? AND deleted_at IS NULL`).run(JSON.stringify({ routingDetail, accountNumber }), account.id);
+  Entity.setDetailJson(account.id, JSON.stringify({ routingDetail, accountNumber }));
   return { id: account.id };
 }
 
@@ -6904,7 +6906,7 @@ export function setupEquityStructure(businessName: BusinessName, structure: Enti
   const businessEquity = requireEntity('Equity', typeRootName, businessCoa);
   const tag = (accountName: string) => {
     if (coaPrototype) {
-      updateEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(accountName, businessEquity.id) as { id: number }).id, { relation: coaPrototype }, userId);
+      supersedeEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(accountName, businessEquity.id) as { id: number }).id, { relation: coaPrototype }, userId);
     }
   };
   const ensure = (accountName: string) => {
@@ -7065,7 +7067,7 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
         let mirror = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
         if (!mirror) {
           mirror = create(requireEntityById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
-          updateEntity(mirror.id, { relation: child.name }, userId);
+          supersedeEntity(mirror.id, { relation: child.name }, userId);
         }
         copyChildren(child.id, mirror.id);
       }
@@ -7154,7 +7156,7 @@ export function createBusiness(
   // the new business with its real, chosen prototype here, the same
   // real relation mechanism the demo businesses already use.
   if (coaPrototype) {
-    updateEntity(
+    supersedeEntity(
       (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(businessName) as { id: number }).id,
       { relation: coaPrototype },
       userId
@@ -7194,7 +7196,7 @@ export function createBusiness(
     db.prepare(`INSERT INTO account (entity_id) VALUES ((SELECT id FROM current_entities WHERE name = ?)) ON CONFLICT (entity_id) DO NOTHING`).run(accountName);
     db.prepare(`UPDATE account SET currency = ? WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).run(currency, accountName);
     if (coaPrototype) {
-      updateEntity(
+      supersedeEntity(
         (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(accountName) as { id: number }).id,
         { relation: coaPrototype },
         userId

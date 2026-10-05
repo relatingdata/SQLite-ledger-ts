@@ -4,7 +4,7 @@
 // door. Real, working code, not a plan: uses the real, existing
 // createEntityRaw/setLocation/setItemStorageOrigin/stageBomComponent/
 // postBomComponents functions already built and tested this session.
-import { createEntityRaw, create, requireEntity, typeRootName, getEntityTree, updateEntity, setItem, setItemStorageOrigin, stageBomComponent, postBomComponents, asUserId } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, getEntityTree, supersedeEntity, setItem, setItemStorageOrigin, stageBomComponent, postBomComponents, asUserId } from '../src/db.js';
 import { setLocation } from '../src/db-stock.js';
 
 const BUSINESS = 'Wine Retail Business';
@@ -38,7 +38,7 @@ setLocation('The Vinyl Room', {
 // A real, direct relation to its real, main supplier next door — the
 // same, single relation_id mechanism already used for Refrigerated
 // sub-locations pointing to their own real, logical parent outlet.
-updateEntity(entityId('The Vinyl Room'), { relation: SUPPLIER_OUTLET }, USER);
+supersedeEntity(entityId('The Vinyl Room'), { relation: SUPPLIER_OUTLET }, USER);
 console.log(`The Vinyl Room created, mainly supplied by ${SUPPLIER_OUTLET}.`);
 
 console.log('\n=== 2. Real, large-format base components (keg, CO2, syrup) ===');

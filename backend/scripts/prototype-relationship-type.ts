@@ -10,7 +10,7 @@
  *
  * Run with: node --import tsx backend/scripts/prototype-relationship-type.ts
  */
-import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, updateEntity, db } from '../src/db.js';
+import { createEntityRaw, create, requireEntity, typeRootName, typeVocabularyWordName, supersedeEntity, db } from '../src/db.js';
 
 async function main() {
   console.log('=== Setup: Relationship Types tree ===');
@@ -25,15 +25,15 @@ async function main() {
 
   console.log('\n=== The relationship itself: an intermediate entity, type via parent_id, target via its own relation_id ===');
   const rel1 = create(requireEntity('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Smith Prototype Trust', 1);
-  updateEntity(rel1.id, { relation: 'Boutique Wine Company' }, 1);
+  supersedeEntity(rel1.id, { relation: 'Boutique Wine Company' }, 1);
   const rel2 = create(requireEntity('Trustee Of', typeRootName), typeRootName, 'Trustee relationship — Jones Prototype Trust', 1);
-  updateEntity(rel2.id, { relation: 'Boutique Wine Company' }, 1);
+  supersedeEntity(rel2.id, { relation: 'Boutique Wine Company' }, 1);
 
   console.log('=== The trust points at its own relationship record — the same relation_id mechanism, one recursive hop deeper ===');
   const smith = db.prepare(`SELECT id FROM current_entities WHERE name = 'Smith Prototype Trust'`).get() as { id: number };
-  updateEntity(smith.id, { relation: 'Trustee relationship — Smith Prototype Trust' }, 1);
+  supersedeEntity(smith.id, { relation: 'Trustee relationship — Smith Prototype Trust' }, 1);
   const jones = db.prepare(`SELECT id FROM current_entities WHERE name = 'Jones Prototype Trust'`).get() as { id: number };
-  updateEntity(jones.id, { relation: 'Trustee relationship — Jones Prototype Trust' }, 1);
+  supersedeEntity(jones.id, { relation: 'Trustee relationship — Jones Prototype Trust' }, 1);
 
   console.log('\n=== Query 1: "What relationship does Smith Prototype Trust have, and with whom?" ===');
   const query1 = db

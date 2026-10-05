@@ -1,7 +1,7 @@
 import { db } from './db.js';
 import { runInSessionContext } from './session-context.js';
 import {
-  updateEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId } from './db.js';
+  supersedeEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId } from './db.js';
 import { loadAllTranslations } from '../../shared-fixtures/translations.js';
 import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels, loadDemoUpcs } from '../../shared-fixtures/wine-retail-demo-data.js';
 
@@ -1187,7 +1187,7 @@ function migrateForCogsTag() {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'COGS'`).get()) {
     create(requireEntity('Business Reports', typeRootName), typeRootName, 'COGS', SEED_USER_ID);
   }
-  updateEntity(cogs.id, { relation: 'COGS' }, SEED_USER_ID);
+  supersedeEntity(cogs.id, { relation: 'COGS' }, SEED_USER_ID);
 }
 migrateForCogsTag();
 
@@ -1396,7 +1396,7 @@ function migrateForMenuEntities() {
     const sectionEntity = create(requireEntity('Menu', typeRootName), typeMenuSectionName, sectionName, SEED_USER_ID);
     const existingSectionVocabWord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(section.label) as { id: number } | undefined;
     if (existingSectionVocabWord) {
-      updateEntity(sectionEntity.id, { relation: section.label }, SEED_USER_ID);
+      supersedeEntity(sectionEntity.id, { relation: section.label }, SEED_USER_ID);
     }
 
     for (const link of section.links) {
@@ -1437,7 +1437,7 @@ function migrateForMenuEntities() {
 
       const existingVocabWord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(link.label) as { id: number } | undefined;
       if (existingVocabWord) {
-        updateEntity(linkEntity.id, { relation: link.label }, SEED_USER_ID);
+        supersedeEntity(linkEntity.id, { relation: link.label }, SEED_USER_ID);
       }
     }
   }

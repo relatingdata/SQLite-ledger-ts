@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Tree, type LTreeNode } from '@keenmate/svelte-treeview';
-  import { getEntityTree, createEntity, updateEntity, deleteEntity, ApiError, type EntityNode } from '$lib/api';
+  import { getEntityTree, createEntity, supersedeEntity, deleteEntity, ApiError, type EntityNode } from '$lib/api';
   import { toTreePaths, type TreeItem } from '$lib/treeAdapter';
   import { auth, session } from '$lib/state.svelte';
   import { formatAmount } from '$lib/format';
@@ -127,7 +127,7 @@
     renaming = true;
     error = '';
     try {
-      await updateEntity(selectedEntity.id, { name: renameValue.trim() });
+      await supersedeEntity(selectedEntity.id, { name: renameValue.trim() });
       message = `${T('Renamed to')} "${renameValue.trim()}".`;
       await load();
     } catch (e) {

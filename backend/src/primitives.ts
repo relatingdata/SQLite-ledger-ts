@@ -14,7 +14,7 @@
 import { db } from './db.js';
 import {
   createEntityRaw as _createEntity,
-  updateEntity as _updateEntity,
+  supersedeEntity as _supersedeEntity,
   deleteEntity as _deleteEntity,
   getEntity as _getEntity,
   setEntityLink,
@@ -72,13 +72,13 @@ export const Entity = {
   },
 
   rename(id: number, name: string, userId: UserId): void {
-    _updateEntity(id, { name }, userId);
+    _supersedeEntity(id, { name }, userId);
   },
   reparent(id: number, parent: string, userId: UserId): void {
-    _updateEntity(id, { parent }, userId);
+    _supersedeEntity(id, { parent }, userId);
   },
   relate(id: number, target: string | null, userId: UserId, targetId?: number): void {
-    _updateEntity(id, targetId !== undefined ? { relationId: targetId } : { relation: target }, userId);
+    _supersedeEntity(id, targetId !== undefined ? { relationId: targetId } : { relation: target }, userId);
   },
   delete(id: number, userId: UserId): void {
     _deleteEntity(id, userId);
@@ -97,20 +97,48 @@ export const Entity = {
    * a real, named type-grouping, replaced in place whenever it
    * changes rather than accumulated. */
   tag(id: number, tagName: string, userId: UserId): void {
-    Entity.ensureUnder(tagName, id, userId);
+    const tagNode = Entity.ensureUnder(tagName, id, userId);
+    Entity.relate(tagNode.id, 'Active', userId);
+  },
+  /** Supersedes the tag's own current value so its relation_id becomes
+   * NULL - the real, settled replacement for removing a tag. The tag
+   * entity itself is never removed; its history (once active, now
+   * not) stays in this one table forever. */
+  untag(id: number, tagName: string, userId: UserId): void {
+    const tagNode = Entity.getUnder(tagName, id);
+    if (tagNode) Entity.relate(tagNode.id, null, userId);
   },
   hasTag(id: number, tagName: string): boolean {
-    return !!Entity.getUnder(tagName, id);
+    const row = db.prepare(`SELECT relation_id FROM current_entities WHERE parent_id = ? AND name = ?`).get(id, tagName) as { relation_id: number | null } | undefined;
+    return row?.relation_id != null;
   },
   setAttr(id: number, attrType: string, value: string, userId: UserId): void {
     const typeNode = Entity.ensureUnder(attrType, id, userId);
-    for (const child of Entity.children(typeNode.id)) Entity.delete(child.id, userId);
-    Entity.create(value, typeNode.id, userId);
+    const existing = Entity.children(typeNode.id)[0];
+    if (existing) Entity.rename(existing.id, value, userId);
+    else Entity.create(value, typeNode.id, userId);
   },
   getAttr(id: number, attrType: string): string | undefined {
     const typeNode = Entity.getUnder(attrType, id);
     if (!typeNode) return undefined;
     return Entity.children(typeNode.id)[0]?.name;
+  },
+  /** Per direct instruction: entities permits only INSERT and SELECT.
+   * These three wrap the real, insert-only mechanisms
+   * (entity_set_detail/entity_merge_detail/entity_set_relation/
+   * entity_set_combination_ids, backend/schema/00-core.sql) that
+   * replace every direct "UPDATE entities SET ..." call site. */
+  setDetailJson(id: number, detailJson: string): void {
+    db.prepare(`INSERT INTO entity_set_detail (entity_id, detail_json) VALUES (?, ?)`).run(id, detailJson);
+  },
+  mergeDetailJson(id: number, patchJson: string): void {
+    db.prepare(`INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (?, ?)`).run(id, patchJson);
+  },
+  setRelationId(id: number, relationId: number | null): void {
+    db.prepare(`INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (?, ?)`).run(id, relationId);
+  },
+  setCombinationIds(id: number, combinationIdsJson: string): void {
+    db.prepare(`INSERT INTO entity_set_combination_ids (entity_id, combination_ids) VALUES (?, ?)`).run(id, combinationIdsJson);
   },
 };
 
@@ -157,7 +185,7 @@ export const Link = {
           `SELECT parent.name AS owner
            FROM current_entities rec
            JOIN current_entities parent ON parent.id = rec.parent_id
-           JOIN current_entities tag ON tag.parent_id = rec.id AND tag.name = ?
+           JOIN current_entities tag ON tag.parent_id = rec.id AND tag.name = ? AND tag.relation_id IS NOT NULL
            WHERE rec.relation_id = (SELECT id FROM current_entities WHERE name = ?)`
         )
         .all(linkType, target) as { owner: string }[]

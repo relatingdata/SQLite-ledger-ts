@@ -1,4 +1,4 @@
-import { updateEntity, db } from '../src/db.js';
+import { supersedeEntity, db } from '../src/db.js';
 
 const german = [
   'Aktienkapital', 'Anzahlungen von Kunden', 'Aufwand für Dienstleistungen', 'Bankkontokorrent',
@@ -46,7 +46,7 @@ for (const [names, prototype] of groups) {
       skippedAlreadyTagged++;
       continue;
     }
-    updateEntity(entity.id, { relation: prototype }, 1);
+    supersedeEntity(entity.id, { relation: prototype }, 1);
     tagged++;
   }
 }

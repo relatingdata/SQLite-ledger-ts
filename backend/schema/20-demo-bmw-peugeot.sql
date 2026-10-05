@@ -42,7 +42,7 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- own locations, since they were never actually scoped to it).
 -- Re-parented via new history rows for the same real entity_id, not a
 -- destructive UPDATE — the exact same append-only mechanism
--- updateEntity uses at runtime, just written directly here since this
+-- supersedeEntity uses at runtime, just written directly here since this
 -- is bootstrap data. The original creation rows above (entity_id
 -- 122-128) are deliberately left alone — item_location and other
 -- bootstrap data reference them by entity_id directly and need them

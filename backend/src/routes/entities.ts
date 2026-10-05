@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getEntityTree, getEntity, getEntityHistory, createEntityRaw, updateEntity, deleteEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
+import { getEntityTree, getEntity, getEntityHistory, createEntityRaw, supersedeEntity, deleteEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
   asUserId,
   createProvider,
   createEmployee,
@@ -91,7 +91,7 @@ entitiesRouter.post('/', requireRole('Administrator', 'Bookkeeper'), (req, res) 
   }
 });
 
-const updateEntitySchema = z.object({
+const supersedeEntitySchema = z.object({
   name: z.string().min(1).max(200).optional(),
   parent: z.string().nullable().optional(),
   relation: z.string().nullable().optional(),
@@ -99,10 +99,10 @@ const updateEntitySchema = z.object({
 });
 
 entitiesRouter.patch('/:id', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
-  const parsed = updateEntitySchema.safeParse(req.body);
+  const parsed = supersedeEntitySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    res.json(updateEntity(Number(req.params.id), parsed.data, asUserId(req.user!.id)));
+    res.json(supersedeEntity(Number(req.params.id), parsed.data, asUserId(req.user!.id)));
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
