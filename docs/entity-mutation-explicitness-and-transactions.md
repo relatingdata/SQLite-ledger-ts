@@ -29,29 +29,40 @@ than one entity-mutating call (`Entity.create`, `Entity.tag`, `Entity.setAttr`, 
 new `Entity.supersede` below, or any raw `INSERT INTO entity_*`) as part of one logical operation
 must be wrapped in `db.transaction()`, including the 9 already correct and every one not yet audited.
 
-## The replacement for `updateEntity`
+## The replacement for `updateEntity` — done, matching what was actually built
 
-`Entity.supersede(id, { name?, parent?, parentId?, relation?, relationId? }, userId)`
-(`backend/src/primitives.ts`) — an honestly-named function whose name itself states what happens:
-the current row for `id` is superseded by a new one carrying the given changes, every other field
-carried forward unchanged. It is a thin, direct wrapper around the same, real `entity_update`
-insert-only view already in the schema — **not a new mechanism**, a new, honest name replacing a
-misleading one, with every call site required to show it's calling something named for what it does.
+**`supersedeEntity(id, { name?, parent?, parentId?, relation?, relationId? }, userId)`**
+(`backend/src/db.ts`, not `primitives.ts` — `getEntity`/`resolveId`, which this needs, already live
+there, and moving it would have created a circular import) — an honestly-named function whose name
+itself states what happens: the current row for `id` is superseded by a new one carrying the given
+changes, every other field carried forward unchanged. A thin, direct rename of the same, real
+`entity_update` insert-only mechanism already in the schema — not a new one.
 
-`updateEntity` is deleted entirely, not deprecated or aliased — there must be nothing left that a
-future caller could reach for under the old, misleading name.
+`updateEntity` was deleted entirely, not deprecated or aliased, across every file in the repository
+(backend, frontend, tests, scripts) — confirmed directly, zero occurrences remain anywhere.
 
-## Implementation plan, one step at a time
+## A second, parallel rename, confirmed necessary by direct, later correction: `deleteEntity` → `revokeEntity`
 
-1. Add `Entity.supersede` to `primitives.ts` (the exact logic `updateEntity` already has, moved and
-   renamed, calling the same `entity_update` insert).
-2. Convert all 37 `updateEntity` call sites to `Entity.supersede`, file by file
-   (`primitives.ts` → `auth.ts` → `db-journal.ts` → `db-seed.ts` → `db-stock.ts` → `db.ts`),
-   `make check-backend-types` after each file.
-3. Delete the `updateEntity` function itself once every call site is converted and compiles clean.
-4. Audit every function containing more than one entity-mutating call for transaction safety, file
-   by file, same order as step 2. Wrap each in `db.transaction()` where not already covered by an
-   enclosing one. A function already called from inside another's transaction does not need its own
+Per direct, absolute correction after this chapter's own first version: **there is no delete
+anywhere in this design either** — only ever a younger value superseding an older one, the complete
+history staying in the `entities` table forever. `deleteEntity` was renamed to `revokeEntity`,
+matching the real `entity_revoke` mechanism (supersedes `relation_id` to `NULL`, confirmed in
+`docs/entities-append-only-redesign.md`). This only applies to genuinely link-shaped entities
+(something whose current value's real point is what it points at — a role grant, a tag's own
+presence-fact); a plain, structural entity (a ledger, a temporary record) has no natural
+`relation_id` to supersede to `NULL` and is never "revoked" at all under this design — confirmed
+directly by a real test failure this uncovered, not assumed.
+
+## Implementation plan — completed
+
+1. ~~Add `Entity.supersede` to `primitives.ts`~~ — done as `supersedeEntity` in `db.ts` instead, for
+   the import-cycle reason above.
+2. All 37 `updateEntity` call sites converted to `supersedeEntity`, confirmed by a repository-wide
+   search finding zero remaining occurrences.
+3. `updateEntity` deleted entirely once every call site compiled clean.
+4. Transaction-safety audit for multi-step sequences: **not yet done** — remains open work, tracked
+   here, not yet started as of this chapter's latest revision. A function already called from inside
+   another's transaction does not need its own
    (better-sqlite3's nesting handles this correctly) — but must not be left unwrapped when called on
    its own, directly, from a route.
 5. Full backend suite (`make test`) after every file in steps 2 and 4, not batched to the end.

@@ -15,7 +15,7 @@ import { db } from './db.js';
 import {
   createEntityRaw as _createEntity,
   supersedeEntity as _supersedeEntity,
-  deleteEntity as _deleteEntity,
+  revokeEntity as _revokeEntity,
   getEntity as _getEntity,
   setEntityLink,
   getEntityLink,
@@ -80,8 +80,8 @@ export const Entity = {
   relate(id: number, target: string | null, userId: UserId, targetId?: number): void {
     _supersedeEntity(id, targetId !== undefined ? { relationId: targetId } : { relation: target }, userId);
   },
-  delete(id: number, userId: UserId): void {
-    _deleteEntity(id, userId);
+  revoke(id: number, userId: UserId): void {
+    _revokeEntity(id, userId);
   },
   children(parentId: number): { id: number; name: string }[] {
     return db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ?`).all(parentId) as any;
@@ -163,14 +163,16 @@ export const Link = {
    * Subheading", "Hidden" — all the same, real shape). */
   mark(entityName: string, markType: string, userId: UserId): void {
     const name = `${entityName} — ${markType}`;
-    if (!Entity.get(name)) Entity.create(name, entityName, userId);
+    const row = Entity.get(name) ?? Entity.create(name, entityName, userId);
+    Entity.relate(row.id, 'Active', userId);
   },
   unmark(entityName: string, markType: string, userId: UserId): void {
     const row = Entity.get(`${entityName} — ${markType}`);
-    if (row) Entity.delete(row.id, userId);
+    if (row) Entity.relate(row.id, null, userId);
   },
   isMarked(entityName: string, markType: string): boolean {
-    return !!Entity.get(`${entityName} — ${markType}`);
+    const row = db.prepare(`SELECT relation_id FROM current_entities WHERE name = ?`).get(`${entityName} — ${markType}`) as { relation_id: number | null } | undefined;
+    return row?.relation_id != null;
   },
   /** Every real entity name genuinely linked to a real target, under
    * a real linkType — replaces getContactsWithType/
@@ -335,21 +337,23 @@ export const Detail = {
     const owner = Entity.get(entityName);
     if (!owner) throw new Error(`No entity named "${entityName}".`);
     const typeNode = Entity.ensureUnder(detailType, owner.id, userId);
-    Entity.ensureUnder(value, typeNode.id, userId);
+    const row = Entity.getUnder(value, typeNode.id) ?? Entity.create(value, typeNode.id, userId);
+    Entity.relate(row.id, 'Active', userId);
   },
   list(entityName: string, detailType?: string): string[] {
     const owner = Entity.get(entityName);
     if (!owner) return [];
+    const activeChildren = (parentId: number) => db.prepare(`SELECT name FROM current_entities WHERE parent_id = ? AND relation_id IS NOT NULL`).all(parentId) as { name: string }[];
     if (detailType) {
       const typeNode = Entity.getUnder(detailType, owner.id);
-      return typeNode ? Entity.children(typeNode.id).map((c) => c.name) : [];
+      return typeNode ? activeChildren(typeNode.id).map((c) => c.name) : [];
     }
-    return Entity.children(owner.id).flatMap((typeNode) => Entity.children(typeNode.id).map((c) => c.name));
+    return Entity.children(owner.id).flatMap((typeNode) => activeChildren(typeNode.id).map((c) => c.name));
   },
   delete(entityName: string, detailType: string, value: string, userId: UserId): void {
     const owner = Entity.get(entityName);
     const typeNode = owner && Entity.getUnder(detailType, owner.id);
     const row = typeNode && Entity.getUnder(value, typeNode.id);
-    if (row) Entity.delete(row.id, userId);
+    if (row) Entity.relate(row.id, null, userId);
   },
 };

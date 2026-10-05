@@ -116,6 +116,43 @@ After logging in, before you reach any real screen, you choose three things: whi
 
 ![The business/ledger/language choice screen, immediately after logging in.](manual-images/m_choose_business.png)
 
+## What happens when a financial year ends
+
+At the end of a financial year, your business doesn't stop and start a brand new set of books from
+nothing. Instead, a **new ledger** is opened for the new year, and your real, ongoing balances ---
+your bank balance, what customers still owe you, what you still owe your suppliers, and everything
+else on your Balance Sheet --- carry straight across into it, so you can keep trading without
+missing a beat. The year that just ended isn't thrown away either: its own ledger stays open,
+exactly as it was, so your accountant can still make any final corrections needed to get that
+year's own figures exactly right, completely separately from the new year's own, already-running
+activity.
+
+Two kinds of account behave differently at this moment:
+
+- **Profit and Loss accounts** --- your sales, your costs, your expenses --- are specific to one
+  year. They're totalled up, the real profit or loss for the year is calculated, and that one
+  figure is carried into your Equity as Retained Earnings. The new year then starts these accounts
+  fresh, at zero, ready to record the new year's own trading.
+- **Balance Sheet accounts** --- your bank account, your debtors, your creditors, your loans, your
+  equipment --- are carried forward at their real, final closing balance from the old year, because
+  they represent real things your business still has or still owes, not something that resets just
+  because the calendar turned over.
+
+**A worked example.** Say in the last month of the year, your business pays $12,000 for a full
+year's rent upfront. By year-end, you've only used three months of it, so $9,000 is a genuine rent
+expense for the year just ending, and $3,000 is **Prepaid Rent** --- a real asset, since you've
+already paid for something you haven't used yet. That $3,000 carries straight into the new year's
+own Balance Sheet as an asset, and gets expensed gradually as the following months of rent are
+actually used.
+
+At the same time, say your business has used electricity in the last few weeks of the year, but the
+bill hasn't arrived yet. Your accountant estimates it --- say $450 --- and records it as an expense
+for the year that's ending (since that's genuinely when the electricity was used) and as a real
+liability, **Accrued Expenses**, since you'll have to pay it eventually. That $450 liability also
+carries into the new year's Balance Sheet. When the real bill finally arrives and is paid in the new
+year, it settles against that carried-forward liability --- it is not counted as a new expense all
+over again, since the real cost was already, correctly recognized in the year it actually happened.
+
 ## The main screen, once you're in
 
 Once a business, ledger, and language are chosen, you land on the main screen. The top bar shows every real, major section of the application --- General Ledger, Accounts Receivable, Accounts Payable, Cash, and more --- with a real, contextual sidebar on the left showing every screen within whichever section is currently selected.

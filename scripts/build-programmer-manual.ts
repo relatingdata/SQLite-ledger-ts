@@ -55,6 +55,12 @@ const PARTS: [string, string[]][] = [
     'foreign-currency-receipts-and-payments.md',
     'menu-as-entity-tree-plan.md',
     'translator-form-and-guard-rails-plan.md',
+    'account-display-naming-design.md',
+    'skill-no-name-encoded-values.md',
+    'entities-append-only-redesign.md',
+    'entity-mutation-explicitness-and-transactions.md',
+    'structured-data-prototype-instance-design.md',
+    'ledger-scoped-accounts-and-rollover.md',
   ]],
   ['Part IV --- Planning and Roadmap', [
     'expansion-walker-design.md',

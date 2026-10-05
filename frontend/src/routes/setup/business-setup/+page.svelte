@@ -21,7 +21,7 @@
     getEmployeeSchedule,
     setEmployeeSchedule,
     getEntityTree,
-    deleteEntity,
+    revokeEntity,
     ApiError,
     type OrganizationChart,
     type LocationRecord,
@@ -141,7 +141,7 @@
       const entities = await getEntityTree();
       const target = entities.find((e) => e.name === selection!.name);
       if (!target) throw new Error(`${translations.current['No real entity named'] ?? 'No real entity named'} "${selection!.name}".`);
-      await deleteEntity(target.id);
+      await revokeEntity(target.id);
       selection = null;
       await loadChart();
     } catch (e) {

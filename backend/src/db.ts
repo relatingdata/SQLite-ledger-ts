@@ -1205,15 +1205,15 @@ export function getOrganizationChart(businessName: BusinessName): OrganizationCh
   return { business: businessName, companyWideEmployees, divisions };
 }
 
-export function deleteEntity(id: number, userId: UserId): void {
+export function revokeEntity(id: number, userId: UserId): void {
   const hasChildren = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? LIMIT 1`).get(id);
-  if (hasChildren) throw new ValidationError('Cannot delete an entity that still has children — move or delete them first.');
+  if (hasChildren) throw new ValidationError('Cannot revoke an entity that still has children — move or revoke them first.');
   const hasPostings = db.prepare(`SELECT 1 FROM journal_line WHERE account_id = ? LIMIT 1`).get(id);
-  if (hasPostings) throw new ValidationError('Cannot delete an entity that has journal postings against it.');
+  if (hasPostings) throw new ValidationError('Cannot revoke an entity that has journal postings against it.');
   const entity = getEntity(id);
   if (!entity) throw new NotFoundError(`Entity ${id} not found.`);
   // Per direct rule: every real business must always have both a
-  // real Actual ledger and a real Budget ledger — never deletable
+  // real Actual ledger and a real Budget ledger — never revocable
   // down to zero of either kind, even a genuinely empty, brand-new
   // one with no real postings yet at all (the two checks above
   // wouldn't otherwise catch this, since a ledger itself carries no
@@ -1230,10 +1230,10 @@ export function deleteEntity(id: number, userId: UserId): void {
     if (isBudget && otherBudgetCount === 0) throw new ValidationError(`"${parent.name}" must always have a real Budget ledger — this is its only one.`);
   }
   // account/contact/translation rows are deliberately left in place —
-  // they're historical facts about this now-closed-out entity_id (what
-  // was its phone number, its account number, when it was deleted),
+  // they're historical facts about this now-superseded entity_id (what
+  // was its phone number, its account number, when it was revoked),
   // consistent with everything else here never disappearing outright.
-  db.prepare(`INSERT INTO entity_delete (entity_id, deleted_by) VALUES (?, ?)`).run(id, userId);
+  db.prepare(`INSERT INTO entity_revoke (entity_id, revoked_by) VALUES (?, ?)`).run(id, userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -6208,7 +6208,7 @@ export function setDivisionType(divisionNameOrId: string | EntityId, typeMarkerN
        AND name != ?`
     )
     .all(divisionName, recordName) as { id: number; name: string }[];
-  for (const s of stale) Entity.delete(s.id, asUserId(1));
+  for (const s of stale) Entity.relate(s.id, null, asUserId(1));
   const record = Entity.get(recordName) ?? Entity.create(recordName, 'Division Type', asUserId(1));
   Entity.relate(record.id, typeMarkerName, asUserId(1));
 }

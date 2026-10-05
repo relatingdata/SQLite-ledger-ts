@@ -99,7 +99,7 @@ const {
   getCashFlowForecast,
   getRelationship,
   getEntitiesWithRelationship,
-  deleteEntity,
+  revokeEntity,
   getBusinessReports,
   getChartOfAccounts,
   getTrialBalance,
@@ -340,17 +340,17 @@ test('an entity cannot be made its own parent', () => {
   assert.throws(() => supersedeEntity(e.id, { parent: 'Self Parent Test' }, asUserId(1)));
 });
 
-test('deleteEntity refuses to delete an entity with children', () => {
-  assert.throws(() => deleteEntity(getEntity(1)!.id, asUserId(1))); // Application has children
+test('revokeEntity refuses to delete an entity with children', () => {
+  assert.throws(() => revokeEntity(getEntity(1)!.id, asUserId(1))); // Application has children
 });
 
-test('deleteEntity works for a genuinely childless, unposted entity', () => {
+test('revokeEntity works for a genuinely childless, unposted entity', () => {
   const e = create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'Temporary Test Entity', asUserId(1));
-  deleteEntity(e.id, asUserId(1));
-  assert.equal(getEntity(e.id), undefined);
+  revokeEntity(e.id, asUserId(1));
+  assert.equal(getEntity(e.id)!.relation_id, null);
 });
 
-test('deleteEntity refuses to delete a business\'s last real Actual or last real Budget ledger, but allows removing a real, genuine duplicate', () => {
+test('revokeEntity refuses to delete a business\'s last real Actual or last real Budget ledger, but allows removing a real, genuine duplicate', () => {
   create(requireEntity('Businesses', typeRootName), typeRootName, 'LedgerRuleTest Business', asUserId(1));
   create(requireEntity('LedgerRuleTest Business', typeRootName), typeRootName, 'LedgerRuleTest Business Actual', asUserId(1));
   create(requireEntity('LedgerRuleTest Business', typeRootName), typeRootName, 'LedgerRuleTest Business Budget 2026-27', asUserId(1));
@@ -358,19 +358,19 @@ test('deleteEntity refuses to delete a business\'s last real Actual or last real
   const actual = getEntity(getEntityTree().find((e) => e.name === 'LedgerRuleTest Business Actual')!.id)!;
   const budget = getEntity(getEntityTree().find((e) => e.name === 'LedgerRuleTest Business Budget 2026-27')!.id)!;
 
-  assert.throws(() => deleteEntity(actual.id, asUserId(1)), /must always have a real Actual ledger/);
-  assert.throws(() => deleteEntity(budget.id, asUserId(1)), /must always have a real Budget ledger/);
+  assert.throws(() => revokeEntity(actual.id, asUserId(1)), /must always have a real Actual ledger/);
+  assert.throws(() => revokeEntity(budget.id, asUserId(1)), /must always have a real Budget ledger/);
 
   // A real, genuine second Actual-type ledger for the same business
   // CAN be deleted — the rule protects the last one of each real
   // kind, not every real ledger unconditionally.
   const dup = create(requireEntity('LedgerRuleTest Business', typeRootName), typeRootName, 'LedgerRuleTest Business Second Actual', asUserId(1));
-  deleteEntity(dup.id, asUserId(1));
-  assert.equal(getEntity(dup.id), undefined);
+  revokeEntity(dup.id, asUserId(1));
+  assert.equal(getEntity(dup.id)!.relation_id, null);
 
   // The real, original, only-remaining Actual ledger is still,
   // genuinely protected afterward.
-  assert.throws(() => deleteEntity(actual.id, asUserId(1)), /must always have a real Actual ledger/);
+  assert.throws(() => revokeEntity(actual.id, asUserId(1)), /must always have a real Actual ledger/);
 });
 
 test('business_reports groups categories under their fixed report via relation_id', () => {
@@ -725,10 +725,10 @@ test('setContact is a full replace, not a partial merge — calling it again wit
   assert.equal(c!.email, null, 'email was not resent, so it is correctly cleared, not preserved');
 });
 
-test('deleteEntity closes the entity out but deliberately keeps its contact record — a historical fact about a now-closed entity, not something that disappears', () => {
+test('revokeEntity closes the entity out but deliberately keeps its contact record — a historical fact about a now-closed entity, not something that disappears', () => {
   const e = create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'Delta Contact Test', asUserId(1));
   setContact('Delta Contact Test', { phone: '555-1111' });
-  deleteEntity(e.id, asUserId(1));
+  revokeEntity(e.id, asUserId(1));
   assert.equal(getEntity(e.id), undefined, 'the entity itself is closed out — no longer current');
   const row = db.prepare(`SELECT phone FROM contact WHERE entity_id = ?`).get(e.id) as { phone: string } | undefined;
   assert.equal(row?.phone, '555-1111', 'the contact row is deliberately NOT removed — it stays as history');
@@ -1328,9 +1328,9 @@ test('renaming a parent never orphans its children — a childs parent_id keeps 
   assert.equal(parentNode.name, 'Eta Parent Corporation');
 });
 
-test('deleteEntity closes out the entity permanently, with who and when recorded — it never reappears, even in history queries as "current"', () => {
+test('revokeEntity closes out the entity permanently, with who and when recorded — it never reappears, even in history queries as "current"', () => {
   const e = create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'Theta Test Co', asUserId(1));
-  deleteEntity(e.id, asUserId(1));
+  revokeEntity(e.id, asUserId(1));
   assert.equal(getEntity(e.id), undefined);
   const history = getEntityHistory(e.id);
   assert.equal(history.length, 1, 'a straight delete with no prior rename is just one closed-out row');

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getEntityTree, getEntity, getEntityHistory, createEntityRaw, supersedeEntity, deleteEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
+import { getEntityTree, getEntity, getEntityHistory, createEntityRaw, supersedeEntity, revokeEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
   asUserId,
   createProvider,
   createEmployee,
@@ -154,7 +154,7 @@ entitiesRouter.post('/reorder', requireRole('Administrator', 'Bookkeeper'), (req
 
 entitiesRouter.delete('/:id', requireRole('Administrator'), (req, res) => {
   try {
-    deleteEntity(Number(req.params.id), asUserId(req.user!.id));
+    revokeEntity(Number(req.params.id), asUserId(req.user!.id));
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });

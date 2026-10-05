@@ -258,7 +258,10 @@ export function setItemLocationLevelDetails(itemName: ItemName, locationName: Lo
     const figureName = `${levelsRecordName} — ${field}`;
     const existing = Entity.getUnder(figureName, levelsRecord.id);
     if (value == null) {
-      if (existing) Entity.delete(existing.id, userId);
+      if (existing) {
+        const currentBalance = Balance.get(existing.id);
+        if (currentBalance !== 0) Balance.post(Session.Business.name, Session.Ledger, `LEVEL-CLEAR-${existing.id}-${Date.now()}`, figureName, existing.id, -currentBalance, userId);
+      }
       return;
     }
     const figure = existing ?? Entity.create(figureName, levelsRecord.id, userId);

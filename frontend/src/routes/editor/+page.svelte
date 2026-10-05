@@ -5,7 +5,7 @@
     createEntity,
     createProvider,
     supersedeEntity,
-    deleteEntity,
+    revokeEntity,
     getContact,
     setContact,
     getDimensionLinksPointingAt,
@@ -225,7 +225,7 @@
     if (!confirm(`Delete "${editName}"? This cannot be undone.`)) return;
     error = '';
     try {
-      await deleteEntity(selectedId);
+      await revokeEntity(selectedId);
       selectedId = null;
       await load();
     } catch (e) {

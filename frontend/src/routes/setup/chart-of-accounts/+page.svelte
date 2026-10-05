@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Tree, type LTreeNode } from '@keenmate/svelte-treeview';
-  import { getEntityTree, createEntity, supersedeEntity, deleteEntity, ApiError, type EntityNode } from '$lib/api';
+  import { getEntityTree, createEntity, supersedeEntity, revokeEntity, ApiError, type EntityNode } from '$lib/api';
   import { toTreePaths, type TreeItem } from '$lib/treeAdapter';
   import { auth, session } from '$lib/state.svelte';
   import { formatAmount } from '$lib/format';
@@ -16,7 +16,7 @@
   // Real, direct, structural anchors — the Balance Sheet and P&L's
   // own shape rests on these existing exactly where they are. Never
   // offered for rename or delete here, regardless of whether the
-  // real, underlying deleteEntity safeguards (no children, no
+  // real, underlying revokeEntity safeguards (no children, no
   // postings) would technically allow it — this is a real, additional,
   // deliberate guard rail for the accounting structure itself, not
   // just data integrity.
@@ -143,7 +143,7 @@
     deleting = true;
     error = '';
     try {
-      await deleteEntity(selectedEntity.id);
+      await revokeEntity(selectedEntity.id);
       message = `"${T(selectedEntity.name)}" ${T('deleted.')}`;
       selectedNode = null;
       selectedEntity = null;

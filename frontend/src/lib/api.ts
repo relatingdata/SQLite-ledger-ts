@@ -166,7 +166,7 @@ export const supersedeEntity = (
   data: { name?: string; parent?: string | null; relation?: string | null; accountnumber?: string | null }
 ) => request<EntityNode>(`/entities/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 
-export const deleteEntity = (id: number) => request<void>(`/entities/${id}`, { method: 'DELETE' });
+export const revokeEntity = (id: number) => request<void>(`/entities/${id}`, { method: 'DELETE' });
 
 export interface ReportRow {
   report: string;
