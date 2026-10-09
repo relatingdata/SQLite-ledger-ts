@@ -26,14 +26,64 @@ Both resolve `entity_id` directly to the bare Chart of Accounts leaf (e.g. `Char
 
 ## The year/period rollover procedure
 
-1. **Close the period's own Income and Expense accounts into the Balance Sheet first** — the standard closing entry: net profit or loss for the period is posted into a real Equity account (Retained Earnings), using the old ledger's own accounts, exactly as today.
+**The one, absolute rule this procedure never violates: nothing ever posts across ledgers.** A real
+journal entry's own `ledger_id` is singular, always — there is no "transfer" primitive, and there
+must never be one. Rollover is not one operation that spans two ledgers; it is several entirely
+separate, ordinary operations, each scoped to exactly one ledger.
+
+1. **Close the old period's own Income and Expense accounts into the Balance Sheet first** — the
+   standard closing entry (`closeBooks`, already built): net profit or loss is posted into Retained
+   Earnings, entirely within the old ledger, exactly as today.
 2. **Create the new ledger's own `Ledgers` child** (`<Business> > Ledgers > <New Ledger Name>`).
-3. **For every real, "used" Balance Sheet posting-account node in the old ledger** (a real Asset/Liability/Equity node with a genuine non-zero closing balance — not every possible Chart of Accounts leaf, only the ones actually posted to) — create a new, separate node under the new ledger, with `relation_id` pointing at the **same** Chart of Accounts posting leaf the old one pointed at, and its own opening `account.balance_minor` set to the old node's real, final closing balance.
-4. **The business continues trading in the new ledger immediately** — ordinary, ongoing postings go against the new ledger's own, fresh nodes.
-5. **The old ledger's own nodes remain exactly as they were, fully postable** — a late-discovered adjustment, a correction, an audit finding for the just-closed period still posts against the old ledger's own accounts, preparing the final, true reports for that period, without disturbing the new ledger's own, already-ongoing activity in any way.
+3. **Structural phase — set up the new ledger's own accounts, before any posting at all.** For every
+   real, "used" Balance Sheet posting-account node in the old ledger (a genuine non-zero closing
+   balance — not every possible Chart of Accounts leaf), create its corresponding node directly
+   under the new ledger (`Entity.create` + `Entity.relate` to the same, real Chart of Accounts
+   posting leaf the old node pointed at) — a structural, administrative act, never a journal
+   entry, and never something left to lazy, implicit creation the way an ordinary posting already
+   lazily creates its own account row today. This must happen before step 4 can post anything at
+   all, since the accounts it posts against must already exist.
+4. **Read phase — compute each one's real, final closing balance in the old ledger.** A plain read
+   (the same real mechanism Trial Balance already uses), nothing written anywhere.
+5. **Post phase — one real, ordinary, balanced journal entry, entirely within the new ledger.**
+   Staged and posted exactly like any other entry in this application, establishing the new ledger's
+   own opening balances against the nodes created in step 3 — never referencing the old ledger at
+   all.
+6. **The business continues trading in the new ledger immediately** — ordinary, ongoing postings go
+   against the new ledger's own, now-opened nodes.
+7. **The old ledger's own nodes remain exactly as they were, fully postable** — a late-discovered
+   adjustment, a correction, an audit finding for the just-closed period still posts entirely within
+   the old ledger, preparing the final, true reports for that period, without ever touching the new
+   ledger's own, already-ongoing activity.
 
-Income and Expense accounts are **not** carried forward — a new ledger's own Income/Expense nodes start fresh, at zero, created lazily on first posting exactly as today; only the real, "used" Balance Sheet accounts carry a real, continuing balance across the rollover.
+Income and Expense accounts are **not** carried forward — the new ledger's own Income/Expense nodes
+start fresh, at zero, created lazily on first posting exactly as today; only the real, "used"
+Balance Sheet accounts carry a real, continuing balance across the rollover, and only via steps 3–5
+above, never a direct copy.
 
-## Implementation status
+## Implementation status — built and directly verified
 
-Design only, not yet built: the `Ledgers` grouping node, the ledger-scoped posting-account node convention, the change to `account_entry_insert`/`post_journal_entry_insert`'s own account-resolution logic, and the rollover procedure itself. `createBusiness`, `account_entry_insert`, `post_journal_entry_insert`, and every function resolving `journal_line.account_id` by bare CoA-leaf name are the real, confirmed places this touches. Not yet scoped into an implementation plan with its own testing plan — that is the natural next step once this design itself is confirmed.
+**Built**: the `Ledgers` grouping node (`createBusiness`, `PER_BUSINESS_ROOTS`); `createLedger`
+(`db.ts`) for adding a further real ledger; `findLedgerScopedAccount`/`stageLine` (`db-journal.ts`)
+resolving a real, already-existing ledger-scoped node when one exists, falling back to today's bare
+CoA-leaf behavior unchanged otherwise — never creating one lazily; `rolloverToNewPeriod`
+(`db-reports.ts`), the real, three-phase procedure above, exactly as confirmed; `business_reports`
+(`00-core.sql`) fixed to display a ledger-scoped node under its own, real parent account's name,
+found by the one, real, narrow test (`relation_id` points at a real ledger entity whose own parent
+is literally named `"Ledgers"`) — never a broad "has a child" or "parent is in the walk" test, both
+of which were tried and found to incorrectly affect every ordinary account's own category parent
+too.
+
+**Directly verified**, against the real `Tutorial Wine Retail Business`, via the real e2e tutorial
+(19/19 steps) followed by `closeBooks` → `createLedger` → `rolloverToNewPeriod`:
+- The new ledger's own Balance Sheet exactly matches the old ledger's own real closing balances,
+  balanced, with correct, real account names (not the ledger's own name, confirmed after finding
+  and fixing that exact display bug).
+- The old ledger's own Balance Sheet is completely, genuinely unchanged after the rollover —
+  confirmed directly, not assumed — proving nothing crossed ledgers.
+
+**Not yet done**: a tutorial step exercising this through the real step-runner/`tutorial-steps.csv`;
+a Web UI page for `createLedger`/`rolloverToNewPeriod`; Playwright/UI verification; the
+`account_entry_insert`/`post_journal_entry_insert` schema triggers themselves were deliberately left
+unchanged — the whole design works without touching them, since `stageLine`'s own pre-resolution of
+`accountId` is sufficient.

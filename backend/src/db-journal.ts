@@ -50,7 +50,31 @@ export interface StagedLine {
   bankReference?: string;
 }
 
+/** Resolves a real, already-existing, ledger-scoped posting-account
+ * node for (accountName, ledger) - never creates one. Only the
+ * explicit, structural rollover phase creates these nodes
+ * (docs/ledger-scoped-accounts-and-rollover.md); an ordinary posting
+ * must never create one lazily, the same way it must never silently
+ * acquire its own, separate Balance Sheet carried forward. The node
+ * is a real child of the real CoA leaf itself (parent_id) - a genuine
+ * descendant of Chart of Accounts, so every existing report's own
+ * tree walk already finds it, with no changes anywhere else - named
+ * after, and pointing via relation_id at, the real ledger it belongs
+ * to. Returns undefined when no such node exists yet, so the caller
+ * falls back to today's existing, bare CoA-leaf resolution unchanged -
+ * the normal, correct behavior for a business with only ever one real
+ * ledger in use, exactly like the tutorial. */
+function findLedgerScopedAccount(ledger: LedgerName, accountName: string): number | undefined {
+  const coaLeaf = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(accountName) as { id: number } | undefined;
+  if (!coaLeaf) return undefined;
+  return Entity.getUnder(ledger, coaLeaf.id)?.id;
+}
+
 export function stageLine(line: StagedLine): void {
+  if (!line.accountId) {
+    const resolved = findLedgerScopedAccount(line.ledger, line.account);
+    if (resolved) line.accountId = resolved;
+  }
   if (line.division) {
     const centerType = getDivisionType(line.division);
     if (centerType === 'Cost Center') {

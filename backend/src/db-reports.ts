@@ -1268,6 +1268,79 @@ export function closeBooks(business: BusinessName, ledger: LedgerName, asOfDate:
 }
 
 
+export interface RolloverResult {
+  newLedger: LedgerName;
+  accountsCarriedForward: number;
+  openingBalanceReference: string;
+}
+
+/** The real, three-phase year/period rollover, per direct, confirmed
+ * design (docs/ledger-scoped-accounts-and-rollover.md). Must be called
+ * after closeBooks has already closed the old ledger's own Income and
+ * Expense accounts into Retained Earnings — this function only ever
+ * touches real Balance Sheet accounts (Asset/Liability/Equity), never
+ * Income/Expense, which start fresh, lazily, in the new ledger exactly
+ * as today.
+ *
+ * Nothing here ever posts across ledgers - there is no "transfer"
+ * primitive, and must never be one. Phase 1 (structural) creates real
+ * entities directly, no journal entry at all. Phase 2 (read) is a
+ * plain read. Phase 3 (post) is one, ordinary, balanced journal entry
+ * entirely within the new ledger. */
+export function rolloverToNewPeriod(business: BusinessName, oldLedger: LedgerName, newLedger: LedgerName, asOfDate: string, userId: UserId): RolloverResult {
+  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(business) as { id: number } | undefined)?.id;
+  if (!businessId) throw new ValidationError(`No real business named "${business}".`);
+  const ledgersRootId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = ?`).get(businessId) as { id: number } | undefined)?.id;
+  if (!ledgersRootId) throw new ValidationError(`No real "Ledgers" node for "${business}" — this business was not created with the current, real structure.`);
+  const newLedgerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(newLedger, ledgersRootId) as { id: number } | undefined)?.id;
+  if (!newLedgerId) throw new ValidationError(`No real ledger named "${newLedger}" under "${business}" — create it first.`);
+
+  // Phase 2 (read) done first, since phase 1 needs to know which real
+  // accounts genuinely carry a non-zero closing balance - a plain
+  // read, nothing written anywhere yet.
+  const bs = getBalanceSheet(business, oldLedger, asOfDate);
+  const usedLines = [...bs.assets, ...bs.liabilities, ...bs.equity].filter((l) => l.debit_minor !== 0 || l.credit_minor !== 0);
+
+  if (usedLines.length === 0) {
+    throw new ValidationError(`Nothing to carry forward for "${oldLedger}" as of ${asOfDate} — every Balance Sheet account is already zero.`);
+  }
+
+  // Phase 1 (structural): create each real account's own node as a
+  // real child of the real Chart of Accounts posting leaf itself -
+  // named after the new ledger, relation_id pointing at that real
+  // ledger entity. A genuine descendant of Chart of Accounts, so
+  // every existing report's own real_accounts-style tree walk finds
+  // it automatically, with no changes anywhere else. No journal entry
+  // anywhere in this phase.
+  for (const line of usedLines) {
+    const coaLeaf = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(line.name) as { id: number } | undefined;
+    if (!coaLeaf) continue;
+    const existing = Entity.getUnder(newLedger, coaLeaf.id);
+    if (!existing) {
+      const node = Entity.create(newLedger, coaLeaf.id, userId);
+      Entity.relate(node.id, null, userId, newLedgerId);
+    }
+  }
+
+  // Phase 3 (post): one, ordinary, balanced journal entry, entirely
+  // within the new ledger - never referencing the old ledger at all.
+  const reference = `ROLLOVER-${newLedger}-${asOfDate}`;
+  for (const line of usedLines) {
+    stageLine({
+      reference,
+      business,
+      ledger: newLedger,
+      transdate: asOfDate,
+      account: asAccountName(line.name),
+      amount_minor: line.debit_minor - line.credit_minor,
+      memo: `Opening balance carried forward from ${oldLedger}`,
+    });
+  }
+  postJournalEntry(reference, business, newLedger, userId);
+
+  return { newLedger, accountsCarriedForward: usedLines.length, openingBalanceReference: reference };
+}
+
 export interface SalesReportLine {
   invoice_date: string;
   reference: string;

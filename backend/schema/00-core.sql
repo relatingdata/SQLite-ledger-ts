@@ -1662,17 +1662,17 @@ WHERE l.parent_id = (SELECT id FROM current_entities WHERE name = 'Languages');
 -- relation_id — a real, editable relationship, not hardcoded logic.
 --   SELECT * FROM business_reports WHERE report = 'Balance Sheet';
 CREATE VIEW business_reports AS
-WITH RECURSIVE coa_walk(id, name, depth, category_id, combination_ids) AS (
-  SELECT e.id, e.name, 0, e.id, e.combination_ids
+WITH RECURSIVE coa_walk(id, name, depth, category_id, combination_ids, parent_id, relation_id) AS (
+  SELECT e.id, e.name, 0, e.id, e.combination_ids, e.parent_id, e.relation_id
   FROM current_entities e WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = 'Chart of Accounts')
   UNION ALL
-  SELECT e.id, e.name, w.depth + 1, w.category_id, e.combination_ids
+  SELECT e.id, e.name, w.depth + 1, w.category_id, e.combination_ids, e.parent_id, e.relation_id
   FROM current_entities e JOIN coa_walk w ON e.parent_id = w.id
 )
 SELECT
   rpt.name AS report,
   cat.name AS category,
-  w.name AS account,
+  COALESCE(parent_e.name, w.name) AS account,
   w.id AS account_id,
   w.depth,
   w.combination_ids,
@@ -1682,8 +1682,17 @@ FROM coa_walk w
 JOIN current_entities cat ON cat.id = w.category_id
 JOIN current_entities rpt ON rpt.id = cat.relation_id
 LEFT JOIN account a ON a.entity_id = w.id
+-- The one, real, narrow test: this row is itself a real,
+-- ledger-scoped node precisely when its own relation_id points at a
+-- real ledger entity (one whose own parent is literally named
+-- "Ledgers") - never "has any child at all" or "parent is anywhere in
+-- coa_walk," both of which wrongly matched every ordinary account's
+-- own category parent too.
+LEFT JOIN current_entities rel ON rel.id = w.relation_id
+LEFT JOIN current_entities rel_parent ON rel_parent.id = rel.parent_id AND rel_parent.name = 'Ledgers'
+LEFT JOIN current_entities parent_e ON parent_e.id = w.parent_id AND rel_parent.id IS NOT NULL
 WHERE w.depth >= 1
-ORDER BY report, category, w.name;
+ORDER BY report, category, COALESCE(parent_e.name, w.name);
 
 -- chart_of_accounts: the traditional flattened chart-of-accounts view —
 -- every account, in hierarchical order, under its real category. This

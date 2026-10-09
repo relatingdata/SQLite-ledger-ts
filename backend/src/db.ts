@@ -7217,6 +7217,18 @@ export function createBusiness(
   })();
 }
 
+/** Creates one further real ledger under an existing business's own,
+ * real Ledgers node - the real, direct prerequisite for the year/
+ * period rollover procedure (docs/ledger-scoped-accounts-and-rollover.md),
+ * whose own structural phase requires the new ledger to already exist. */
+export function createLedger(businessName: BusinessName, ledgerName: LedgerName, userId: UserId): void {
+  const business = requireEntity(businessName, typeBusinessName);
+  const ledgersRoot = requireEntity('Ledgers', typeRootName, business);
+  const existing = Entity.getUnder(ledgerName, ledgersRoot.id);
+  if (existing) throw new ValidationError(`"${ledgerName}" already exists under "${businessName}".`);
+  create(ledgersRoot, typeLedgerName, ledgerName, userId);
+}
+
 /** Every real account a given real CoA prototype/language would actually
  * give a new business - walking the one, real, global Chart of
  * Accounts template directly (never a specific, already-existing

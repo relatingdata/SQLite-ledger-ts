@@ -9,6 +9,8 @@ import {
   createRecurringJournal,
   reverseJournalEntry,
   closeBooks,
+  createLedger,
+  rolloverToNewPeriod,
   previewCloseBooks,
   listJournalEntries,
   countJournalEntries,
@@ -195,5 +197,45 @@ journalRouter.post('/close-books', requireRole('Administrator', 'Bookkeeper'), (
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not close books.' });
+  }
+});
+const createLedgerSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+});
+journalRouter.post('/create-ledger', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = createLedgerSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    createLedger(asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger), asUserId(req.user!.id));
+    res.status(201).json({ ledger: parsed.data.ledger });
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not create the new ledger.' });
+  }
+});
+const rolloverSchema = z.object({
+  business: z.string().min(1),
+  oldLedger: z.string().min(1),
+  newLedger: z.string().min(1),
+  asOfDate: z.string().min(1),
+});
+journalRouter.post('/rollover-to-new-period', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = rolloverSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const result = rolloverToNewPeriod(
+      asBusinessName(parsed.data.business),
+      asLedgerName(parsed.data.oldLedger),
+      asLedgerName(parsed.data.newLedger),
+      parsed.data.asOfDate,
+      asUserId(req.user!.id)
+    );
+    res.status(201).json(result);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not roll over to the new period.' });
   }
 });
