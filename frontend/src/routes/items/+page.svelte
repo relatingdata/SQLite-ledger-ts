@@ -109,7 +109,7 @@
         quantity: Number(receiveQuantity),
         combinationValues: receiveGrouping && receiveStorageValue ? [receiveStorageValue] : undefined,
         combinationShape: receiveGrouping && receiveStorageValue ? [[receiveGrouping, receiveGrouping]] : undefined,
-      });
+      }, 'Receive Into Storage');
       receiveMessage = translations.current['Stock received.'] ?? 'Stock received.';
       receiveQuantity = '';
     } catch (e) {
@@ -246,13 +246,13 @@
         // already returns the real, new entity's own real id directly
         // - use that, never search anything.
         const itemsRootId = itemsRoot()?.id;
-        const newCategory = await createEntity({ name: newCategoryName.trim(), parentId: itemsRootId });
+        const newCategory = await createEntity({ name: newCategoryName.trim(), parentId: itemsRootId }, 'Create Item');
         parentCategory = newCategoryName.trim();
         parentCategoryId = newCategory.id;
       } else {
         parentCategoryId = entities.find((e) => e.name === parentCategory && e.parent_id === itemsRoot()?.id)?.id;
       }
-      await createEntity({ name: newItemName, parentId: parentCategoryId });
+      await createEntity({ name: newItemName, parentId: parentCategoryId }, 'Create Item');
       // A real, pre-existing bug fixed here, not introduced by this
       // change: listItems requires a real `item` table row (INNER
       // JOIN), but this function only ever created the bare entity —
@@ -291,7 +291,7 @@
         packageQuantity: sourcePackageQty ? Math.round(Math.abs(Number(sourcePackageQty))) : null,
         isPreferred: sourcePreferred,
         preferenceNotes: sourceNotes || null,
-      });
+      }, 'Set Item Cost and Pack Size');
       sources = await listItemSources(asItemName(selectedName));
       items = (await listItems()).rows;
       sourceManufacturer = '';

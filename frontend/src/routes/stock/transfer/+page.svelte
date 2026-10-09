@@ -73,7 +73,7 @@
         toLocationName: asLocationName(toLocation),
         quantity: Math.round(Math.abs(Number(quantity))),
         reference: String(v.reference ?? ''),
-      });
+      }, 'Transfer Items');
       values.quantity = '';
       values.reference = '';
       await checkFromQty();

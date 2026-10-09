@@ -281,63 +281,78 @@ with a real JSON body is the real, true shape of "a real backend action" — `AP
 in-process call is a real, deliberate shortcut around this same shape, for testing speed, never the
 same thing.
 
-## 11. The real Admin recording feature ("completing the circle")
+## 11. The real Admin recording feature ("completing the circle") — built, directly verified
 
-**Reconciled with a later, direct, more specific request**: one real toggle,
-not two — "Record" — near Logout, triggering one real backend API call to
-start or stop. While on, every real backend request made during the real,
-live session is appended as a real data-file row, in the exact, same ASCII
-format `tutorial-steps.csv` itself uses, to a real file named
-`<user>.recording` (the real, currently logged-in user's own name) — opened
-in append mode on start, closed on stop. No separate control-file pairing in
-this version, no `{sessionId}`-based naming — a deliberately simpler shape
-than the original proposal above, per direct instruction.
+**One real toggle** — "Record" — near Logout, visible only to an
+Administrator, triggering one real backend API call to start or stop
+(`POST /api/recording/start`, `POST /api/recording/stop`; two real, separate,
+idempotent endpoints, not a single toggle endpoint — a real, direct decision:
+a blind toggle risks doing the opposite of what the person intended the
+moment the frontend's own idea of "on or off" drifts from the backend's
+real state, e.g. a page reload or a second tab). While on, every real
+request from a real, tagged screen is appended as a real data-file row to
+`<user>.recording` (the real, currently logged-in user's own username),
+opened in append mode on start, closed on stop. The toggle requests
+themselves are never recorded — only a real, plain-text comment line,
+`# recording commenced on <ISO date>` / `# recording concluded on <ISO
+date>`, using this file format's own, already-established comment
+convention (§2a).
 
-**The real, confirmed translation challenge, found by direct inspection —
-not assumed solvable, checked.** The recording middleware observes a real
-HTTP request (`POST /api/journal/create-ledger`, a real JSON body) — the
-real `API_REGISTRY`/`screens.csv` world speaks `screen_name` plus positional
-field values instead (§10a above). Translating one into the other requires a
-real, reverse lookup, and three, real, confirmed complications, found
-directly rather than assumed away:
+**The real, confirmed translation problem, found by direct inspection, and
+the real solution that replaced the original reverse-lookup-table design
+above (now superseded).** A pure (HTTP method, path) → screen_name lookup
+cannot work: checked directly, the real `createEntity` endpoint is shared by
+at least six, genuinely different, real frontend pages (the generic entity
+editor, Items, Locations, Business Setup, Chart of Accounts, Translations) —
+the same signature, several, real, different meanings. The real fix: the
+frontend itself now attaches a real, explicit `X-Screen-Name` header to each
+specific, real call site that corresponds to a tracked screen
+(`frontend/src/lib/api.ts`'s `request<T>(path, init, screenName?)`, its third,
+optional parameter) — the recorder never has to guess.
 
-1. **Not every real screen has a real `api_function` at all.** Checked
-   directly against `shared-fixtures/screens.csv`: `Login` and `Select
-   Business` (both `screen_kind=session`) have an empty `api_function`
-   column — these are handled structurally by the step-runner itself, not
-   via a named registry entry, so a reverse lookup from HTTP request to
-   screen name has no entry to find for them at all. A session being
-   established by a real login/business-selection flow needs its own,
-   separate, direct handling in the recorder, not the same table-lookup the
-   rest of this mechanism uses.
-2. **One real screen name maps to one real HTTP endpoint, but several real,
-   positional fields** — the reverse table is keyed by (HTTP method, real
-   path pattern), not by field; a matched request's own JSON body must then
-   be decomposed back into the real, positional order `screens.csv`'s own
-   `position`/`field_name` columns define for that specific screen, field by
-   field, not assumed to already be in the right order.
-3. **The real table itself does not exist as data today** — it must be
-   built, once, from the real, existing sources: `screens.csv`'s own
-   `api_function` column cross-referenced against the real HTTP method/path
-   each named function in `frontend/src/lib/api.ts` actually issues (the
-   `request<T>(path, init)` helper, confirmed directly at
-   `frontend/src/lib/api.ts:103`). This is real, one-time, generated work,
-   not something invented freshly per request at record time.
+**Two further, real, confirmed, honest limitations, found directly, not
+hidden**:
+- **Not every real screen has a real frontend page at all.** Checked
+  directly: `Cash Purchase` and `Create Employee` are called from no real
+  `+page.svelte` anywhere — real, confirmed gaps in the application itself,
+  not something the recorder can paper over, since there is nothing real to
+  tag.
+- **A screen's own `field_name` does not always match its real request
+  body's own field names.** Confirmed directly for `Create Business`:
+  `businessType`/`homeCurrency` (its own `screens.csv` field names) do not
+  exist in the real request body at all (`coaPrototype` is the real field;
+  `homeCurrency` is set via a wholly separate, later call). The recorder
+  reads each positional field by the same name from the real body and
+  leaves it blank when absent — an honest, best-effort reconstruction, never
+  a guess.
 
-**The real backend mechanism**: a toggle, scoped per real, logged-in user
-(not global), held in server memory (or a real, per-session marker), checked
-by a thin, real Express middleware mounted after `attachUser` and before the
-named routers (§10a) — when a real user's own recording is active, the
-middleware looks up the real, matched (method, path) in the reverse table
-above, translates the real request body into the real, positional field
-values for that real screen, and appends one real CSV row to
-`<user>.recording`, opened once on start and kept open (append mode) until
-stop closes it — never reopened per request.
+**The real backend mechanism** (`backend/src/recording.ts`): a `Map<userId,
+{stream}>` tracks which real users are currently recording, read by
+`isRecording` (checked both by the middleware and by `recordingRouter`'s own
+`GET /api/recording` status check); `startRecording`/`stopRecording` open/
+close the real file (the latter, confirmed directly by testing, must be
+properly awaited — `stream.end()` is asynchronous, and an unawaited stop
+risked the file never actually finishing its write before the process moved
+on); `recordRequest` reads `shared-fixtures/screens.csv` once, lazily,
+groups it by `screen_name`, and writes one real CSV row per matched,
+successful (2xx) request. `recordingMiddleware`, mounted after `attachUser`
+and before the named routers, reads the real `X-Screen-Name` header and
+calls `recordRequest` only once the real response has genuinely succeeded —
+a failed attempt is never written. `recordingRouter`
+(`backend/src/routes/recording.ts`) exposes all three real endpoints
+(`GET /api/recording`, `POST /api/recording/start`, `POST /api/recording/stop`),
+mounted behind `requireAuth` like every other real router.
 
-**Not yet built**: the reverse-lookup table itself, the middleware, the
-`POST`/real toggle endpoint, and the real frontend toggle control. This
-section is the complete, real design; implementation is separate, future
-work.
+**Directly verified**, calling the real mechanism directly (not assumed
+correct): starting a recording, recording two real, different screens'
+own data, stopping, and reading the resulting file back — the real comment
+lines, the real, correctly positioned field values (including a genuinely
+empty position where the real request body had no matching field), in the
+exact order `screens.csv` itself defines.
+
+**Not yet done**: an end-to-end Playwright/browser confirmation of the real
+toggle button itself — only the backend mechanism and the frontend's own
+compiled code have been verified so far.
 
 ## 12. Honest, real, current status
 

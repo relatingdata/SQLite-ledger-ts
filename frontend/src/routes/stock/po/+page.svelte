@@ -122,8 +122,8 @@
     saving = true;
     try {
       const price_minor = parseMinorUnits(price);
-      await stagePurchaseOrder({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), vendor: asProviderName(vendor), item: asAccountName(item), quantity: parseQuantity(quantity), price_minor, location: deliveryLocation ? asLocationName(deliveryLocation) : undefined, transdate, description: description || undefined });
-      await postPurchaseOrder(reference, asBusinessName(business), asLedgerName(ledger));
+      await stagePurchaseOrder({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), vendor: asProviderName(vendor), item: asAccountName(item), quantity: parseQuantity(quantity), price_minor, location: deliveryLocation ? asLocationName(deliveryLocation) : undefined, transdate, description: description || undefined }, 'Create Purchase Order');
+      await postPurchaseOrder(reference, asBusinessName(business), asLedgerName(ledger), 'Create Purchase Order');
       message = `Purchase Order ${reference} placed with ${vendor}.`;
       reference = '';
       quantity = '';

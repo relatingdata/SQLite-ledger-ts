@@ -197,6 +197,8 @@
       }));
 
       if (recurrence === 'once') {
+        const matchesSimpleJournalEntryScreen = lines.length === 2;
+        const screenName = matchesSimpleJournalEntryScreen ? 'Post Journal Entry' : undefined;
         for (const line of lines) {
           await stageLine({
             reference,
@@ -207,9 +209,9 @@
             account: asAccountName(line.account),
             amount_minor: line.amount_minor,
             memo: line.memo,
-          });
+          }, screenName);
         }
-        await postJournalEntry(reference, asBusinessName(business), asLedgerName(ledger));
+        await postJournalEntry(reference, asBusinessName(business), asLedgerName(ledger), screenName);
       } else {
         await createRecurringJournal(
           asBusinessName(business),

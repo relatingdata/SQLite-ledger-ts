@@ -254,7 +254,7 @@
       // common case, rather than leaving a person to create a
       // structurally-parented-but-untyped vendor by hand.
       if (newParent === 'Accounts Payable' && !newRelation) {
-        await createProvider(newName);
+        await createProvider(newName, 'Create Provider');
       } else {
         await createEntity({
           name: newName,

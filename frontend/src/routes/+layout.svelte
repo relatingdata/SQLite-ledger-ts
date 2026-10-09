@@ -5,7 +5,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
-  import { getLocalizedText, apiLogout, getMenuTree, getLanguageDirection, checkVersion, type MenuSectionRow } from '$lib/api';
+  import { getLocalizedText, apiLogout, getMenuTree, getLanguageDirection, checkVersion, getRecordingStatus, startRecording, stopRecording, type MenuSectionRow } from '$lib/api';
   import { session } from '$lib/state.svelte';
   import { auth, hasRole } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
@@ -318,6 +318,23 @@
     timeStyle: 'long',
   }).format(now)} (${resolvedLocale})`);
 
+  let recordingActive = $state(false);
+  let recordingBusy = $state(false);
+  const isAdministrator = $derived(auth.current?.user.roles.includes('Administrator') ?? false);
+
+  async function toggleRecording() {
+    if (recordingBusy) return;
+    recordingBusy = true;
+    try {
+      const result = recordingActive ? await stopRecording() : await startRecording();
+      recordingActive = result.recording;
+    } catch {
+      /* a real, failed toggle (e.g. a stale state) leaves recordingActive as it was - the person can retry */
+    } finally {
+      recordingBusy = false;
+    }
+  }
+
   onMount(() => {
     loadTranslations();
     loadTextDirection();
@@ -328,6 +345,9 @@
       clockInterval = setInterval(() => {
         now = new Date();
       }, 30000);
+    }
+    if (isAdministrator) {
+      getRecordingStatus().then((r) => { recordingActive = r.recording; }).catch(() => {});
     }
   });
   onDestroy(() => {
@@ -374,7 +394,7 @@
             <span class="legend-segment"><strong>{translations.current['Business:'] ?? 'Business:'}</strong> {session.current.businessName}</span>
             <span class="legend-segment"><strong>{translations.current['Ledger:'] ?? 'Ledger:'}</strong> {(() => { const l = session.current.ledgerName.startsWith(session.current.businessName) ? session.current.ledgerName.slice(session.current.businessName.length).trim() : session.current.ledgerName; return translations.current[l] ?? l; })()}</span>
           </span>
-          <span class="legend-right"><a href="/account/password" class="link">{translations.current['Change password'] ?? 'Change password'}</a> - <button type="button" class="link" onclick={logout}>{translations.current['Log out'] ?? 'Log out'}</button></span>
+          <span class="legend-right">{#if isAdministrator}<button type="button" class="link" onclick={toggleRecording} disabled={recordingBusy} aria-pressed={recordingActive}>{recordingActive ? (translations.current['Recording: on'] ?? 'Recording: on') : (translations.current['Recording: off'] ?? 'Recording: off')}</button> - {/if}<a href="/account/password" class="link">{translations.current['Change password'] ?? 'Change password'}</a> - <button type="button" class="link" onclick={logout}>{translations.current['Log out'] ?? 'Log out'}</button></span>
         </legend>
         <div class="top-bar-inner">
           <div class="top-bar-items" role="toolbar" tabindex="0" aria-label={translations.current['Sections'] ?? 'Sections'} onkeydown={onTopBarKeydown}>

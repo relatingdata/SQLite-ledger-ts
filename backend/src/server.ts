@@ -27,12 +27,15 @@ import { stockRouter } from './routes/stock.js';
 import { invoiceRouter } from './routes/invoice.js';
 import { periodRouter } from './routes/period.js';
 import { projectsRouter } from './routes/projects.js';
+import { recordingRouter } from './routes/recording.js';
+import { recordingMiddleware } from './recording.js';
 import { attachUser, requireAuth, requireRole } from './auth-middleware.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(attachUser);
+app.use(recordingMiddleware);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function getAppVersion(): string {
@@ -44,6 +47,7 @@ function getDbVersion(): string {
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, appVersion: getAppVersion(), dbVersion: getDbVersion() }));
 app.use('/api/auth', authRouter); // has its own per-route requireAuth — /login must stay public
+app.use('/api/recording', requireAuth, recordingRouter);
 app.use('/api/entities', requireAuth, entitiesRouter);
 app.use('/api/reports', requireAuth, reportsRouter);
 app.use('/api/reports/matrix', requireAuth, matrixReportsRouter);

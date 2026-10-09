@@ -100,10 +100,11 @@ export async function checkVersion(): Promise<void> {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, screenName?: string): Promise<T> {
   const current = auth.current;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (current) headers.Authorization = `Bearer ${current.token}`;
+  if (screenName) headers['X-Screen-Name'] = screenName;
 
   let res: Response;
   try {
@@ -149,15 +150,15 @@ export interface DimensionLinkPointingAt {
 }
 export const getDimensionLinksPointingAt = (entityId: number) => request<DimensionLinkPointingAt[]>(`/entities/${entityId}/dimension-links`);
 
-export const createEntity = (data: { name: string; parent?: string | null; parentId?: number | null; relation?: string | null; accountnumber?: string | null }) =>
-  request<EntityNode>('/entities', { method: 'POST', body: JSON.stringify(data) });
+export const createEntity = (data: { name: string; parent?: string | null; parentId?: number | null; relation?: string | null; accountnumber?: string | null }, screenName?: string) =>
+  request<EntityNode>('/entities', { method: 'POST', body: JSON.stringify(data) }, screenName);
 export const setEntityRelationship = (entityName: string, relationshipType: string, targetName: string) =>
   request<void>('/entities/relationship', { method: 'POST', body: JSON.stringify({ entityName, relationshipType, targetName }) });
 
 // Per docs/contact-types-and-translations.md: the one, real, correct
 // way a new vendor or employee is created - genuinely tagged with its
 // own real Contact Type, never left to structural parent alone.
-export const createProvider = (name: string) => request<EntityNode>('/entities/vendor', { method: 'POST', body: JSON.stringify({ name }) });
+export const createProvider = (name: string, screenName?: string) => request<EntityNode>('/entities/vendor', { method: 'POST', body: JSON.stringify({ name }) }, screenName);
 export const createEmployeeContact = (name: string, placeOfEmployment: string) =>
   request<EntityNode>('/entities/employee', { method: 'POST', body: JSON.stringify({ name, placeOfEmployment }) });
 
@@ -452,12 +453,13 @@ export const createBusiness = (
   coaPrototype?: string,
   secondaryCurrencies?: string[],
   entityStructure?: 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded',
-  partnerNames?: string[]
+  partnerNames?: string[],
+  screenName?: string
 ) =>
   request<{ business: BusinessName; actualLedger: string; budgetLedger: string }>('/businesses', {
     method: 'POST',
     body: JSON.stringify({ businessName, financialYearLabel, coaPrototype, secondaryCurrencies, entityStructure, partnerNames }),
-  });
+  }, screenName);
 export const getCoaPrototypeAccounts = (language: string) => request<string[]>(`/businesses/coa-prototype/${encodeURIComponent(language)}`);
 
 export const nominateBankAccount = (businessName: string, bankAccountName: string, routingDetail: string, accountNumber: string) =>
@@ -507,7 +509,7 @@ export interface StagedLine {
   memo?: string;
 }
 
-export const stageLine = (line: StagedLine) => request<void>('/journal/staging', { method: 'POST', body: JSON.stringify(line) });
+export const stageLine = (line: StagedLine, screenName?: string) => request<void>('/journal/staging', { method: 'POST', body: JSON.stringify(line) }, screenName);
 
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
 // export const getStagedLines = (reference: string, business: BusinessName, ledger: LedgerName) =>
@@ -522,8 +524,8 @@ export const stageLine = (line: StagedLine) => request<void>('/journal/staging',
 //     { method: 'DELETE' }
 //   );
 
-export const postJournalEntry = (reference: string, business: BusinessName, ledger: LedgerName) =>
-  request<void>('/journal/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+export const postJournalEntry = (reference: string, business: BusinessName, ledger: LedgerName, screenName?: string) =>
+  request<void>('/journal/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) }, screenName);
 
 export interface JournalSummary {
   journal_id: number;
@@ -766,10 +768,10 @@ export interface PurchaseOrderInput {
   transdate?: string;
   description?: string;
 }
-export const stagePurchaseOrder = (input: PurchaseOrderInput) =>
-  request<void>('/stock/po/stage', { method: 'POST', body: JSON.stringify(input) });
-export const postPurchaseOrder = (reference: string, business: BusinessName, ledger: LedgerName) =>
-  request<void>('/stock/po/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+export const stagePurchaseOrder = (input: PurchaseOrderInput, screenName?: string) =>
+  request<void>('/stock/po/stage', { method: 'POST', body: JSON.stringify(input) }, screenName);
+export const postPurchaseOrder = (reference: string, business: BusinessName, ledger: LedgerName, screenName?: string) =>
+  request<void>('/stock/po/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) }, screenName);
 
 export interface OrderReceiptInput {
   reference: string;
@@ -844,6 +846,10 @@ export const reopenPeriod = (business: BusinessName, ledger: LedgerName) =>
 
 export const changeOwnPassword = (currentPassword: string, newPassword: string) =>
   request<void>('/auth/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) });
+
+export const getRecordingStatus = () => request<{ recording: boolean }>('/recording');
+export const startRecording = () => request<{ recording: boolean }>('/recording/start', { method: 'POST' });
+export const stopRecording = () => request<{ recording: boolean }>('/recording/stop', { method: 'POST' });
 
 export const setOwnPageSize = (pageSize: number) => request<void>('/auth/me/page-size', { method: 'PUT', body: JSON.stringify({ pageSize }) });
 export const setOwnNumberFormat = (numberFormat: string) =>
@@ -936,8 +942,8 @@ export interface ProductSummary {
 export const setItem = (name: string, item: Partial<Item>) =>
   request<void>(`/items/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(item) });
 export const listItemSources = (itemName: ItemName) => request<ItemSource[]>(`/items/${encodeURIComponent(itemName)}/sources`);
-export const addOrUpdateItemSource = (itemName: ItemName, source: ItemSourceInput) =>
-  request<void>(`/items/${encodeURIComponent(itemName)}/sources`, { method: 'POST', body: JSON.stringify(source) });
+export const addOrUpdateItemSource = (itemName: ItemName, source: ItemSourceInput, screenName?: string) =>
+  request<void>(`/items/${encodeURIComponent(itemName)}/sources`, { method: 'POST', body: JSON.stringify(source) }, screenName);
 export const deleteItemSource = (id: number) => request<void>(`/items/sources/${id}`, { method: 'DELETE' });
 
 // ---------------------------------------------------------------------------
@@ -1191,8 +1197,8 @@ export const saveLocation = (name: string, input: LocationInput) =>
 // the real, balanced Storage Capacity Remaining/Installed accounts)
 // all happen server-side before this call resolves; the backend never
 // responds until its own real transaction has genuinely committed.
-export const createLocation = (name: string, business: string, input: LocationInput) =>
-  request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'POST', body: JSON.stringify(input) });
+export const createLocation = (name: string, business: string, input: LocationInput, screenName?: string) =>
+  request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'POST', body: JSON.stringify(input) }, screenName);
 
 // Per direct instruction: real storage space, exactly like real
 // currency, follows the exact, same Hierarchy/Product cartesian
@@ -1222,7 +1228,7 @@ export const openStorageContainer = (input: {
   unitValues: string[];
   unitsProduced: number;
   reference?: string;
-}) => request<void>('/locations/open-container', { method: 'POST', body: JSON.stringify(input) });
+}, screenName?: string) => request<void>('/locations/open-container', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
 // Per docs/multicurrency-design.md: a location's own, real, nominated
 // SET of further currencies it trades in. Nearly every real location
@@ -1284,8 +1290,9 @@ export const setItemLocationLevels = (
 
 export const receiveItems = (
   locationName: LocationName,
-  input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] }
-) => request<void>(`/locations/${encodeURIComponent(locationName)}/receive`, { method: 'POST', body: JSON.stringify(input) });
+  input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] },
+  screenName?: string
+) => request<void>(`/locations/${encodeURIComponent(locationName)}/receive`, { method: 'POST', body: JSON.stringify(input) }, screenName);
 
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
 // export const dispatchItems = (
@@ -1293,8 +1300,8 @@ export const receiveItems = (
 //   input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string }
 // ) => request<void>(`/locations/${encodeURIComponent(locationName)}/dispatch`, { method: 'POST', body: JSON.stringify(input) });
 
-export const transferItems = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string }) =>
-  request<void>('/locations/transfer', { method: 'POST', body: JSON.stringify(input) });
+export const transferItems = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string }, screenName?: string) =>
+  request<void>('/locations/transfer', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
 export interface BelowReorderRow {
   item: string;
@@ -1424,7 +1431,7 @@ export const completePosSale = (input: {
   cashTenderedMinor?: number;
   transdate?: string;
   terminalName?: string;
-}) => request<PosSaleResult>('/pos/complete-sale', { method: 'POST', body: JSON.stringify(input) });
+}, screenName?: string) => request<PosSaleResult>('/pos/complete-sale', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
 export interface CashPurchaseLineInput {
   itemName: ItemName;

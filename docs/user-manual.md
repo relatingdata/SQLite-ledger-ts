@@ -153,11 +153,11 @@ carries into the new year's Balance Sheet. When the real bill finally arrives an
 year, it settles against that carried-forward liability --- it is not counted as a new expense all
 over again, since the real cost was already, correctly recognized in the year it actually happened.
 
-## Recording your own actions for later replay (planned, not yet available)
+## Recording your own actions for later replay
 
-Near the Log out link, an administrator will see a **Record** switch. Turning it on starts a real,
-running log of everything you do in the application from that point on — every save, every posting,
-every change — written to a file named after you. Turning it off closes that file.
+Near the Log out link, an administrator sees a **Record** switch. Turning it on starts a real,
+running log of everything you do in the application from that point on, written to a file named
+after you. Turning it off closes that file.
 
 This isn't just a diary of clicks. The file it produces is written in exactly the same format this
 application's own testing tool already reads — so a real sequence of actions you perform by hand
@@ -166,8 +166,10 @@ steps still produce the same, correct results. If you ever find yourself doing t
 sequence of setup steps more than once — training a new starter, demonstrating a feature, or
 checking that a change hasn't broken something that used to work — this is what you'd turn on first.
 
-This feature is fully designed but not yet built. When it is, this chapter will be updated with
-exactly where to find the switch and what the resulting file looks like.
+A couple of honest limits, as things stand today: only actions with a real, matching screen are
+recorded — a small number of newer or less common actions aren't tracked yet, and turning the switch
+itself on or off is never recorded as a step, only noted with a plain comment line showing when
+recording started or stopped.
 
 ## The main screen, once you're in
 

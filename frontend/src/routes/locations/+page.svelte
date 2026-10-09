@@ -104,7 +104,7 @@
         cartonsOpened: Number(openContainerCartonsOpened) || 1,
         unitValues: [openContainerTo],
         unitsProduced: Number(openContainerUnitsProduced) || 0,
-      });
+      }, 'Open Container');
       storageActionMessage = translations.current['Container opened.'] ?? 'Container opened.';
       openContainerUnitsProduced = '';
     } catch (e) {
@@ -204,7 +204,7 @@
         bottle_capacity: null,
         carton_capacity: null,
         timezone: String(v.timezone ?? 'UTC'),
-      });
+      }, 'Create Location');
     } catch (e) {
       throw e instanceof ApiError ? e : new Error('Could not create location.');
     }

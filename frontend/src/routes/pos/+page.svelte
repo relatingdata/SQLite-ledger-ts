@@ -199,7 +199,7 @@
         paymentMethod: onAccount ? undefined : paymentMethod,
         cashTenderedMinor: onAccount ? undefined : cashTenderedMinor,
         terminalName: terminalName || undefined,
-      });
+      }, 'POS Sale');
       receipt = result;
       cart = [];
       cashTendered = '';
