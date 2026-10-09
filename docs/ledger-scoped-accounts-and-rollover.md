@@ -87,3 +87,10 @@ a Web UI page for `createLedger`/`rolloverToNewPeriod`; Playwright/UI verificati
 `account_entry_insert`/`post_journal_entry_insert` schema triggers themselves were deliberately left
 unchanged — the whole design works without touching them, since `stageLine`'s own pre-resolution of
 `accountId` is sufficient.
+
+**A known, confirmed, separate, pre-existing bug, found while verifying this work, not yet
+fixed**: `getStockMovementReport` (`backend/src/db-stock.ts`) resolves its own ledger by a bare,
+business-unscoped name (`SELECT id FROM current_entities WHERE name = ?`) — confirmed directly, this
+silently returns a *different* business's own, same-named ledger's data instead of the real,
+intended one, the moment two real businesses genuinely share a ledger name (as "Actual" now
+commonly is). Not caused by this chapter's own work, but newly, directly exposed by it.

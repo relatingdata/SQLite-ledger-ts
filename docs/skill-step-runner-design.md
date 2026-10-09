@@ -260,16 +260,84 @@ the control panel's own browser tab shows only the step table, controls, and
 results log. The web interface adds no new, real UI-rendering complexity at
 all; it is a thin, real front end over the exact, same, already-built engine.
 
+## 10a. `API_REGISTRY`'s own real contract — confirmed directly, a genuine, prior documentation gap
+
+`API_REGISTRY` (`backend/scripts/step-runner.ts`) is `Record<string, (args: Record<string, string>)
+=> unknown>` — one entry per real screen name, each a real TypeScript function. Confirmed directly,
+reading a real entry: `createBusiness: (a) => { const result = db.createBusiness(a.businessName as
+any, a.financialYearLabel, db.asUserId(1)); ... }` — **this calls the real backend function
+directly, in-process. `--path api` issues no real HTTP request at all.** This had never been stated
+plainly anywhere before being checked directly, and matters precisely because the Admin recording
+feature below must capture a real, running HTTP session (a genuine user, in the genuine frontend) —
+a different, separate layer from `API_REGISTRY`, which exists purely to drive the step-runner's own
+fast, no-browser testing path.
+
+**The real HTTP layer**, the one the recording feature actually observes, is the real Express app
+(`backend/src/server.ts`): `app.use(cors())` → `app.use(express.json())` → `app.use(attachUser)` (the
+real, authenticated session) → one real router per `/api/...` prefix (`entitiesRouter`,
+`reportsRouter`, `journalRouter`, `itemsRouter`, and so on — each one real file under
+`backend/src/routes/`), most behind `requireAuth`. A real, logged-in `POST /api/journal/create-ledger`
+with a real JSON body is the real, true shape of "a real backend action" — `API_REGISTRY`'s own
+in-process call is a real, deliberate shortcut around this same shape, for testing speed, never the
+same thing.
+
 ## 11. The real Admin recording feature ("completing the circle")
 
-Near the Logout control, an Administrator sees two, real toggles — "Record
-Frontend" and "Record Backend." While either is on, every real action (a
-frontend click/fill/navigation, or a backend request) is logged as a real
-data-file row plus its matching control-file row, in the exact, real format
-above. Stopping writes `shared-fixtures/recorded-{sessionId}.csv` (and its
-matching `.control.csv`) — directly loadable by the step-runner itself,
-closing the circle from a real, live session back into a real, replayable
-fixture.
+**Reconciled with a later, direct, more specific request**: one real toggle,
+not two — "Record" — near Logout, triggering one real backend API call to
+start or stop. While on, every real backend request made during the real,
+live session is appended as a real data-file row, in the exact, same ASCII
+format `tutorial-steps.csv` itself uses, to a real file named
+`<user>.recording` (the real, currently logged-in user's own name) — opened
+in append mode on start, closed on stop. No separate control-file pairing in
+this version, no `{sessionId}`-based naming — a deliberately simpler shape
+than the original proposal above, per direct instruction.
+
+**The real, confirmed translation challenge, found by direct inspection —
+not assumed solvable, checked.** The recording middleware observes a real
+HTTP request (`POST /api/journal/create-ledger`, a real JSON body) — the
+real `API_REGISTRY`/`screens.csv` world speaks `screen_name` plus positional
+field values instead (§10a above). Translating one into the other requires a
+real, reverse lookup, and three, real, confirmed complications, found
+directly rather than assumed away:
+
+1. **Not every real screen has a real `api_function` at all.** Checked
+   directly against `shared-fixtures/screens.csv`: `Login` and `Select
+   Business` (both `screen_kind=session`) have an empty `api_function`
+   column — these are handled structurally by the step-runner itself, not
+   via a named registry entry, so a reverse lookup from HTTP request to
+   screen name has no entry to find for them at all. A session being
+   established by a real login/business-selection flow needs its own,
+   separate, direct handling in the recorder, not the same table-lookup the
+   rest of this mechanism uses.
+2. **One real screen name maps to one real HTTP endpoint, but several real,
+   positional fields** — the reverse table is keyed by (HTTP method, real
+   path pattern), not by field; a matched request's own JSON body must then
+   be decomposed back into the real, positional order `screens.csv`'s own
+   `position`/`field_name` columns define for that specific screen, field by
+   field, not assumed to already be in the right order.
+3. **The real table itself does not exist as data today** — it must be
+   built, once, from the real, existing sources: `screens.csv`'s own
+   `api_function` column cross-referenced against the real HTTP method/path
+   each named function in `frontend/src/lib/api.ts` actually issues (the
+   `request<T>(path, init)` helper, confirmed directly at
+   `frontend/src/lib/api.ts:103`). This is real, one-time, generated work,
+   not something invented freshly per request at record time.
+
+**The real backend mechanism**: a toggle, scoped per real, logged-in user
+(not global), held in server memory (or a real, per-session marker), checked
+by a thin, real Express middleware mounted after `attachUser` and before the
+named routers (§10a) — when a real user's own recording is active, the
+middleware looks up the real, matched (method, path) in the reverse table
+above, translates the real request body into the real, positional field
+values for that real screen, and appends one real CSV row to
+`<user>.recording`, opened once on start and kept open (append mode) until
+stop closes it — never reopened per request.
+
+**Not yet built**: the reverse-lookup table itself, the middleware, the
+`POST`/real toggle endpoint, and the real frontend toggle control. This
+section is the complete, real design; implementation is separate, future
+work.
 
 ## 12. Honest, real, current status
 

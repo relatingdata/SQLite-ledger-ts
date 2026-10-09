@@ -153,6 +153,22 @@ carries into the new year's Balance Sheet. When the real bill finally arrives an
 year, it settles against that carried-forward liability --- it is not counted as a new expense all
 over again, since the real cost was already, correctly recognized in the year it actually happened.
 
+## Recording your own actions for later replay (planned, not yet available)
+
+Near the Log out link, an administrator will see a **Record** switch. Turning it on starts a real,
+running log of everything you do in the application from that point on — every save, every posting,
+every change — written to a file named after you. Turning it off closes that file.
+
+This isn't just a diary of clicks. The file it produces is written in exactly the same format this
+application's own testing tool already reads — so a real sequence of actions you perform by hand
+today can be saved, handed to someone else, or replayed automatically later, to check that the same
+steps still produce the same, correct results. If you ever find yourself doing the same careful
+sequence of setup steps more than once — training a new starter, demonstrating a feature, or
+checking that a change hasn't broken something that used to work — this is what you'd turn on first.
+
+This feature is fully designed but not yet built. When it is, this chapter will be updated with
+exactly where to find the switch and what the resulting file looks like.
+
 ## The main screen, once you're in
 
 Once a business, ledger, and language are chosen, you land on the main screen. The top bar shows every real, major section of the application --- General Ledger, Accounts Receivable, Accounts Payable, Cash, and more --- with a real, contextual sidebar on the left showing every screen within whichever section is currently selected.
