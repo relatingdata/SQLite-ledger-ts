@@ -82,11 +82,19 @@ too.
 - The old ledger's own Balance Sheet is completely, genuinely unchanged after the rollover —
   confirmed directly, not assumed — proving nothing crossed ledgers.
 
-**Not yet done**: a tutorial step exercising this through the real step-runner/`tutorial-steps.csv`;
-a Web UI page for `createLedger`/`rolloverToNewPeriod`; Playwright/UI verification; the
-`account_entry_insert`/`post_journal_entry_insert` schema triggers themselves were deliberately left
-unchanged — the whole design works without touching them, since `stageLine`'s own pre-resolution of
-`accountId` is sufficient.
+**Now exercised through the real e2e tutorial, via `--path api`**: three new, real screens (`Close
+Books`, `Create Ledger`, `Rollover To New Period`; `shared-fixtures/screens.csv`, each with its own
+`API_REGISTRY` entry in `backend/scripts/step-runner.ts`) and three new, real steps appended to
+`shared-fixtures/tutorial-steps.csv`, closing "Actual" as of 2027-06-30, creating "Actual 2027-28",
+and rolling over as of 2027-07-01. The full, real tutorial (22 steps) passes end to end; directly
+verified afterward (not merely "didn't throw"): both ledgers' own real Balance Sheets read back
+correct, matching, balanced figures.
+
+**Not yet done**: a Web UI page for `createLedger`/`rolloverToNewPeriod` (these three screens have no
+real `ui_path` yet, API-path only, same as several other tutorial steps); Playwright/UI verification;
+the `account_entry_insert`/`post_journal_entry_insert` schema triggers themselves were deliberately
+left unchanged — the whole design works without touching them, since `stageLine`'s own
+pre-resolution of `accountId` is sufficient.
 
 **A known, confirmed, separate, pre-existing bug, found while verifying this work, not yet
 fixed**: `getStockMovementReport` (`backend/src/db-stock.ts`) resolves its own ledger by a bare,

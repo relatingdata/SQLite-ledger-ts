@@ -67,3 +67,13 @@ POS Sale,data,,,posSaleSimple,,2,locationName,,text
 POS Sale,data,,,posSaleSimple,,3,itemName,,text
 POS Sale,data,,,posSaleSimple,,4,quantity,,text
 POS Sale,data,,,posSaleSimple,,5,unitPriceMinor,,text
+Close Books,data,,,closeBooksSimple,,1,businessName,,text
+Close Books,data,,,closeBooksSimple,,2,ledger,,text
+Close Books,data,,,closeBooksSimple,,3,asOfDate,,text
+Close Books,data,,,closeBooksSimple,,4,retainedEarningsAccount,,text
+Create Ledger,data,,,createLedgerSimple,,1,businessName,,text
+Create Ledger,data,,,createLedgerSimple,,2,ledger,,text
+Rollover To New Period,data,,,rolloverToNewPeriodSimple,,1,businessName,,text
+Rollover To New Period,data,,,rolloverToNewPeriodSimple,,2,oldLedger,,text
+Rollover To New Period,data,,,rolloverToNewPeriodSimple,,3,newLedger,,text
+Rollover To New Period,data,,,rolloverToNewPeriodSimple,,4,asOfDate,,text

@@ -256,6 +256,30 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       `STORAGE-OPEN-${a.locationName}`
     );
   },
+  // Per docs/ledger-scoped-accounts-and-rollover.md: the standard
+  // closing entry - net profit or loss for the period is posted into
+  // Retained Earnings, entirely within the one, named ledger.
+  closeBooksSimple: (a) => {
+    const userId = db.asUserId(1);
+    return db.closeBooks(a.businessName as any, a.ledger as any, a.asOfDate, a.retainedEarningsAccount as any, userId);
+  },
+  // Per docs/ledger-scoped-accounts-and-rollover.md: creates a further
+  // real ledger under the business's own, real Ledgers node - the
+  // real, direct prerequisite rolloverToNewPeriod needs before it can
+  // do anything at all.
+  createLedgerSimple: (a) => {
+    const userId = db.asUserId(1);
+    db.createLedger(a.businessName as any, a.ledger as any, userId);
+  },
+  // Per docs/ledger-scoped-accounts-and-rollover.md: the real,
+  // three-phase rollover itself - structural (new ledger's own
+  // account nodes), read (old ledger's own real closing balances),
+  // post (one, ordinary, balanced journal entry, entirely within the
+  // new ledger). Never posts across ledgers.
+  rolloverToNewPeriodSimple: (a) => {
+    const userId = db.asUserId(1);
+    return db.rolloverToNewPeriod(a.businessName as any, a.oldLedger as any, a.newLedger as any, a.asOfDate, userId);
+  },
 };
 
 /** The one, real registry of named, shared verifications - the same,

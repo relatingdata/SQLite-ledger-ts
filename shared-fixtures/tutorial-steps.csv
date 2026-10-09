@@ -71,3 +71,13 @@
 # ordinary internal stock movement.
 "Receive Into Storage","Tutorial Wine Retail Business","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure"
 "Open Container","Tutorial Wine Retail Business","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24"
+
+# The real year/period rollover procedure (docs/ledger-scoped-accounts-and-
+# rollover.md), exercised end to end. Nothing ever posts across ledgers:
+# closing the old period's Income/Expense into Retained Earnings happens
+# entirely within "Actual"; the new ledger's own account nodes are created
+# structurally, before any posting; the real, final, balanced opening entry
+# posts only within the new ledger, never referencing the old one.
+"Close Books","Tutorial Wine Retail Business","Actual","2027-06-30","Retained Earnings"
+"Create Ledger","Tutorial Wine Retail Business","Actual 2027-28"
+"Rollover To New Period","Tutorial Wine Retail Business","Actual","Actual 2027-28","2027-07-01"
