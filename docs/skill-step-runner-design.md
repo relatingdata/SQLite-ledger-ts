@@ -802,3 +802,118 @@ Item's own submissions: both showed `net::ERR_ABORTED`, yet both left
 correct server-side state) — the same shape of blind spot that made finding
 1 possible to miss in the first place, worth closing generally, not only for
 today's two findings.
+
+## 19. A real, new design: `--path ui` verifying itself through the already-built Recording feature, not just "nothing threw"
+
+Per direct instruction, checked first: this specific integration — wiring
+`--path ui` itself to the Admin Recording feature (section 11) as its own
+verification mechanism — **was never previously documented or built.**
+Searched the whole of this document end to end: section 11's own recording
+mechanism is real, complete, and already directly verified over HTTP (11,
+11a–11d) — that part is not lost work, it is intact and correct. What has
+never existed is step-runner.ts *using* it. `backend/scripts/step-runner.ts`
+has zero references to recording anywhere. This is genuinely new design,
+not a regression — stated plainly, since the standing concern was that it
+might be lost work.
+
+**The real idea, stated plainly**: section 18 found that `runStepViaUi`'s
+own success check — "did any Playwright action throw" — is too weak to
+catch a UI step that goes through the motions but never produces the real,
+correct backend effect (the `net::ERR_ABORTED` cases in section 18 are
+exactly this: no exception, yet an incomplete real result). The Recording
+feature already solves exactly this class of problem for a human, manually
+proving a screen's own real HTTP call shape — section 11d's own worked
+example recorded a real `Cash Sale` and got back exactly the right
+fields, in the right positions, over real HTTP. **The same mechanism, used
+automatically around a `--path ui` run, turns "nothing threw" into "the
+real backend logged the real, same-shaped, same-valued request this step
+was supposed to make."**
+
+**The real design**:
+1. Immediately after the real Login step succeeds, call
+   `POST /api/recording/start` — via `page.request`, which shares the
+   real, authenticated browser session's own cookies, so this is a real,
+   logged-in call, not a separate, artificial session.
+2. Run the rest of the steps exactly as today.
+3. After the last step, call `POST /api/recording/stop`.
+4. Read back `<username>.recording` (the real, same username the Login
+   step used) and compare it, in order, against the subsequence of this
+   run's own steps that (a) executed via the real UI (not an API
+   fallback), (b) are a `data`-kind screen, and (c) reported `ok: true`.
+   Since a recorded row's own values are read from wherever the real
+   request body/params/query actually carries them (`REAL_FIELD_SOURCE_
+   OVERRIDES`), not reinterpreted, **a correctly-recorded row's values
+   must equal the step's own original `values` array, position for
+   position** — any mismatch, or a UI step with no matching recorded row
+   at all, is a real, independently-confirmed failure, never assumed
+   from "the click didn't throw."
+5. A position whose real route has no matching field at all (the honest,
+   structural gaps already named in section 11: `Create Business`'s own
+   `homeCurrency`, `Create Location`'s own `division`) is expected to come
+   back blank — the comparison must know this, not flag it as a false
+   mismatch.
+
+This needs no new selectors, no new screen-specific knowledge in the test
+runner — it reuses the one, real, already-built, already-verified
+mechanism exactly as designed, as the run's own, true, independent
+verification oracle.
+
+### Built, and two real bugs found and fixed getting it working
+
+**First real bug, found immediately**: `page.request.post('/api/recording/start')`
+used a relative URL. The browser context's own `baseURL` is the real
+frontend's own origin (`localhost:5173`) — confirmed directly,
+`frontend/vite.config.ts` has no `/api` proxy at all, the exact, same
+reason the real frontend's own `api.ts` always calls `localhost:3001`
+directly. `page.request` does not throw on a non-2xx response, so this
+silently "succeeded" against the wrong origin and did nothing. Fixed: the
+real, absolute backend URL, and the response's own `.ok()` checked
+explicitly rather than trusting "did not throw" — the same honest lesson
+section 18 already drew for `runStepViaUi` itself, now applied here too.
+
+**Second real bug, found right after**: once pointed at the real backend,
+the call came back `401`. This application's own auth is a bearer token
+(`Authorization: Bearer <token>`), attached manually by the frontend's own
+code, stored in `sessionStorage` (`frontend/src/lib/state.svelte.ts`,
+`'sql-ledger-ts-auth'`) — never a cookie, so `page.request` carries none of
+it automatically. Fixed with a new `authHeader(page)` helper that reads the
+real token straight out of the real, live browser's own `sessionStorage`
+and attaches it to both the start and stop calls.
+
+**A separate, real, confirmed environmental hazard, found and fixed while
+chasing what first looked like a third bug**: a `--path ui` run that
+exceeds this harness's own tool-level timeout can leave its underlying
+`node`/Playwright/`chromium` process alive as an orphan, no longer
+attached to the `tsx watch`/`npm exec` shell wrapper that first launched
+it (`pkill -f "tsx watch"` does not match the real, leaf process at all —
+its own command line is `node ... src/server.ts`, no "tsx watch" substring
+once the parent shell has already exited). Two such runs against the same
+database, overlapping, produce exactly the cascade of "already exists"/
+`UNIQUE constraint failed` errors this document's own section 18 first
+attributed to real application bugs — a real, confirmed false lead, caught
+only by checking `ps aux` directly rather than trusting a clean reset.
+**The real fix, going forward**: always confirm zero `src/server.ts`/
+`vite dev`/`step-runner`/`chromium` processes remain (by PID, not by a
+`pkill` pattern assumed to match) before treating a database as freshly
+reset, and give a `--path ui` run enough time up front rather than retrying
+immediately after a timeout.
+
+**Confirmed working, on a verified-fresh database, with every
+leftover-process risk checked for first**: the full 26-step tutorial ran
+cleanly — `recording started for "admin"` logged right after Login,
+`stop` succeeded, the real `admin.recording` file read back and compared.
+The verification's own output matched exactly what section 11's already-
+documented, honest gaps predicted — `Create Business`'s own `homeCurrency`
+and `Create Location`'s own `division`/capacity fields come back blank,
+exactly as `REAL_FIELD_SOURCE_OVERRIDES`'s own comments already said they
+would, confirming those are real, pre-existing, known application gaps,
+not something this new check got wrong — **plus one genuinely new, real
+finding this check surfaced that nothing had caught before**: `Create
+Item`'s own two real entity-creation calls are independently, correctly
+recorded, but under the screen name `Create Entity`, never `Create Item` —
+the real frontend call sites for this screen are still tagged with the
+older `X-Screen-Name: Create Entity` header, never updated when `Create
+Item` became its own, dedicated screen (section 11b). A real, small,
+honest gap in the frontend's own tagging, caught only because this
+verification compares against the real, expected screen name and not just
+the real, expected values.

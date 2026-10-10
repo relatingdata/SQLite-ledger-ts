@@ -702,9 +702,31 @@ npx tsx scripts/step-runner.ts <data-file.csv>
 ```
 
 By default, it shows you the next step and asks whether to go ahead. Answer
-`y` (or press Enter) to run it, or `n` to stop. To check a file without
-running anything, use `--lint` (reports any problems) or `--pretty` (prints
-every step in a readable form).
+`y` (or press Enter) to run it, or `n` to stop. Add `--non-interactive` to
+run every step straight through without asking, needed for any unattended
+run. To check a file without running anything, use `--lint` (reports any
+problems) or `--pretty` (prints every step in a readable form).
+
+Two genuinely different ways to run the same file: `--path api` (the
+default) carries out each step instantly through the application's own
+backend, with no browser at all — fast, and the right choice for loading
+data. `--path ui` drives an actual, real browser through the actual,
+real screens, the way a person would — slower, and the right choice for
+confirming the screens themselves still work, not just the data they
+produce. A few further options matter specifically for `--path ui`:
+
+- `--fallback-to-api`: if a real UI step fails, immediately retries the
+  same step through the backend instead, so one broken screen doesn't
+  stop every later step that depends on its data existing. The UI
+  failure is still reported — this never hides a real problem, it just
+  keeps the rest of the run going.
+- `--verify-via-recording`: turns on the Record feature (see "Recording
+  your own actions for later replay," above) for the whole run, then
+  checks its own output against what each step was supposed to do. This
+  catches a screen that looks like it worked — no error, no stuck
+  button — but quietly didn't produce the real, correct result underneath.
+- `--delay MS`: how long to pause between steps while watching a
+  `--path ui` run (default 5 seconds; ignored with `--non-interactive`).
 
 ## Section 8: File Formats
 
@@ -714,10 +736,13 @@ example, `Login` or `Create Business`), and every item after that is one
 piece of information for that screen, in the same order every time — the
 same order you'd write down when filling in a paper form for that screen. If
 any piece of information itself contains a comma, put quotation marks around
-it. For example:
+it. A line starting with `#` is a plain comment, not a step — it's shown
+before the step that follows it, explaining what that step is really doing
+and why. For example:
 
 ```
 "Login","admin","changeme123","English"
+# Creates the business, its ledgers, and a starting Chart of Accounts.
 "Create Business","Wine Tutorial Business","2026-27","Sole Trader"
 ```
 
@@ -726,7 +751,11 @@ alongside the data file, that tells the Step Runner what each screen's own
 pieces of information mean and how to find them on the actual screen. You
 won't normally need to edit this yourself — it's set up once per screen, by
 whoever builds a new fixture, and every data file that uses that screen
-simply refers to it by name.
+simply refers to it by name. A real, honest note: not every screen used in
+a data file has this real, on-screen wiring filled in yet — for one that
+doesn't, `--path ui` reports that step as a real, honest failure (rather
+than silently doing nothing and claiming success), and `--fallback-to-api`
+is what gets a run like that past it.
 
 **8.3 The control file** (optional). This is how you script a run without
 sitting at the tool yourself — instead of manually choosing, batch by batch,
@@ -739,11 +768,12 @@ file, never mixed into the data file itself.
 
 ## What's here today, and what's still to come
 
-Right now, the Step Runner's design has been finalized and written up in
-full, and its earlier, working parts (checking a file for problems, showing
-it in a readable form) exist for an older version of the file format. Bringing
-those, and the part that actually drives the screens, up to date with the
-format described above is in progress.
+The Step Runner's core design is finished and working: both `--path api`
+and `--path ui`, the control file, `--fallback-to-api`, and
+`--verify-via-recording` are all real, built, and exercised against the
+application's own real tutorial. Not every screen the tutorial touches has
+its real, on-screen wiring filled in yet (8.2) — this is tracked and
+visible, never hidden, in each run's own output.
 # Glossary
 
 *Also available in [German](glossary.de.md) · [French](glossary.fr.md) · [Danish](glossary.da.md) · [Italian](glossary.it.md).*

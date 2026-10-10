@@ -8,8 +8,12 @@
 
 import { readFileSync, mkdirSync, existsSync } from 'fs';
 import { createInterface } from 'readline';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { chromium, type Browser, type Page } from 'playwright';
 import * as db from '../src/db.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export interface ScreenField {
   position: number;
@@ -511,6 +515,26 @@ export function runStepViaApi(step: Step, screens: Map<string, Screen>): { ok: b
   }
 }
 
+/** Reads the real, currently logged-in session's own bearer token
+ * straight out of the real browser's own sessionStorage (confirmed
+ * directly, frontend/src/lib/state.svelte.ts: 'sql-ledger-ts-auth',
+ * deliberately sessionStorage, never a cookie) - the real, same token
+ * the frontend's own api.ts attaches as `Authorization: Bearer
+ * <token>` to every real call. A raw `page.request` call carries none
+ * of this automatically (it is not cookie-based auth), which is
+ * exactly why the first version of the recording-verification feature
+ * (§19) silently got a real 401 back without ever throwing. */
+async function authHeader(page: Page): Promise<Record<string, string>> {
+  const raw = await page.evaluate(() => sessionStorage.getItem('sql-ledger-ts-auth'));
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as { token?: string };
+    return parsed.token ? { Authorization: `Bearer ${parsed.token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 export async function runStepViaUi(page: Page, step: Step, screens: Map<string, Screen>, screenshotDir: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const screen = screens.get(step.screen_name);
@@ -580,7 +604,7 @@ async function main() {
   const args = process.argv.slice(2);
   const dataPath = args[0];
   if (!dataPath) {
-    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api]');
+    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api] [--verify-via-recording]');
     process.exit(1);
   }
   const screensPath = args.includes('--screens') ? args[args.indexOf('--screens') + 1] : dataPath.replace(/[^/]+$/, 'screens.csv');
@@ -601,6 +625,15 @@ async function main() {
   // run still reports every real UI failure as a real failure, never
   // silently papered over, unless this is explicitly asked for.
   const fallbackToApi = args.includes('--fallback-to-api');
+  // Per direct instruction: a --path ui run should prove its own real
+  // UI actions genuinely produced the real, correct backend call -
+  // not just "nothing threw" - by reusing the already-built Admin
+  // Recording feature (docs/skill-step-runner-design.md §11, §19) as
+  // an independent, externally-generated oracle. Off by default -
+  // this needs a real, logged-in Login step to actually run via the
+  // UI first, which isn't true of every possible run (--only N on a
+  // later step, for instance).
+  const verifyViaRecording = args.includes('--verify-via-recording');
 
   const screens = loadScreens(screensPath);
   let allSteps = loadSteps(dataPath);
@@ -637,6 +670,16 @@ async function main() {
   }
   if (path === 'ui') await ensureUiPage();
 
+  // Recording verification state (--verify-via-recording). Started
+  // right after a real, successful, UI-driven Login step; every
+  // further real, successfully UI-driven, data-kind step's own
+  // values are the real, expected row the backend's own recording
+  // mechanism should independently produce - compared, not assumed,
+  // once the run finishes.
+  let recordingStarted = false;
+  let recordingUsername: string | undefined;
+  const recordedExpectations: { screen_name: string; values: string[] }[] = [];
+
   let index = 0;
   while (index < allSteps.length) {
     const batch = allSteps.slice(index, index + (nonInteractive ? allSteps.length : stepsArg));
@@ -649,7 +692,37 @@ async function main() {
       const stepPath = step.path || path;
       if (step.comment) console.log(`\n# ${step.comment}`);
       let result = stepPath === 'ui' ? await runStepViaUi(await ensureUiPage(), step, screens, screenshotDir) : runStepViaApi(step, screens);
+      const uiSucceededDirectly = stepPath === 'ui' && result.ok;
       console.log(result.ok ? `✅ ${step.index}: ${step.screen_name} (${stepPath})` : `❌ ${step.index}: ${step.screen_name} (${stepPath}): ${result.error}`);
+      if (verifyViaRecording && uiSucceededDirectly) {
+        if (step.screen_name === 'Login' && !recordingStarted) {
+          try {
+            // A real, absolute URL, deliberately - the browser
+            // context's own baseURL is the real frontend's own origin
+            // (localhost:5173, never proxying /api anywhere - checked
+            // directly, frontend/vite.config.ts has no proxy at all),
+            // the exact, same reason the real frontend's own api.ts
+            // always calls localhost:3001 directly, never a relative
+            // path. A relative '/api/...' here would silently resolve
+            // against the wrong origin and never throw - `page.request`
+            // does not throw on a non-2xx response, so its own real
+            // status is checked explicitly instead of trusting "did
+            // not throw" the same way section 18 already found wrong
+            // for runStepViaUi itself.
+            const startResp = await (await ensureUiPage()).request.post('http://localhost:3001/api/recording/start', {
+              headers: await authHeader(await ensureUiPage()),
+            });
+            if (!startResp.ok()) throw new Error(`POST /api/recording/start returned ${startResp.status()}`);
+            recordingStarted = true;
+            recordingUsername = step.values[0];
+            console.log(`   ↳ recording started for "${recordingUsername}"`);
+          } catch (err) {
+            console.log(`   ↳ could not start recording: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        } else if (recordingStarted && (screens.get(step.screen_name)?.screen_kind ?? 'data') === 'data') {
+          recordedExpectations.push({ screen_name: step.screen_name, values: step.values });
+        }
+      }
       // Per direct request: a real UI step that fails is retried once,
       // immediately, via the API path - the same, real, live backend
       // and database the browser's own session is already pointed at
@@ -672,6 +745,51 @@ async function main() {
       if (stepPath === 'ui' && !nonInteractive) await new Promise((r) => setTimeout(r, delayMs));
     }
     index += batch.length;
+  }
+  if (verifyViaRecording && recordingStarted && page) {
+    try {
+      const stopResp = await page.request.post('http://localhost:3001/api/recording/stop', { headers: await authHeader(page) });
+      if (!stopResp.ok()) console.log(`Could not stop recording: POST /api/recording/stop returned ${stopResp.status()}`);
+    } catch (err) {
+      console.log(`Could not stop recording: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    // The real recording file lives at the real project root
+    // (backend/src/recording.ts's own join(__dirname, '../../', ...)
+    // - this file's own __dirname is backend/scripts, the same, real
+    // two-levels-up distance), in the exact, same, plain data-file
+    // format loadSteps() already reads - so it is read back with the
+    // exact, same parser, never a separate one.
+    const recordingPath = join(__dirname, '../../', `${recordingUsername}.recording`);
+    if (existsSync(recordingPath)) {
+      const actualRows = loadSteps(recordingPath);
+      console.log(`\n=== Recording verification (${recordedExpectations.length} expected real UI action(s), ${actualRows.length} real recorded row(s)) ===`);
+      const max = Math.max(recordedExpectations.length, actualRows.length);
+      let mismatches = 0;
+      for (let i = 0; i < max; i++) {
+        const expected = recordedExpectations[i];
+        const actual = actualRows[i];
+        if (!expected) { console.log(`  [${i}] ❌ unexpected extra recorded row: ${actual.screen_name} ${JSON.stringify(actual.values)}`); mismatches++; continue; }
+        if (!actual) { console.log(`  [${i}] ❌ missing recorded row for expected ${expected.screen_name} ${JSON.stringify(expected.values)}`); mismatches++; continue; }
+        if (actual.screen_name !== expected.screen_name) { console.log(`  [${i}] ❌ screen mismatch: expected ${expected.screen_name}, recorded ${actual.screen_name}`); mismatches++; continue; }
+        const valueProblems: string[] = [];
+        for (let j = 0; j < expected.values.length; j++) {
+          const exp = expected.values[j] ?? '';
+          const act = actual.values[j] ?? '';
+          if (exp !== act) {
+            valueProblems.push(act === ''
+              ? `position ${j + 1}: expected "${exp}", recorded blank (either a known, honest gap in REAL_FIELD_SOURCE_OVERRIDES, or a real, confirmed bug - check backend/src/recording.ts directly)`
+              : `position ${j + 1}: expected "${exp}", recorded "${act}"`);
+          }
+        }
+        if (valueProblems.length > 0) { console.log(`  [${i}] ⚠️  ${expected.screen_name}: ${valueProblems.join('; ')}`); mismatches++; }
+        else console.log(`  [${i}] ✅ ${expected.screen_name}: recorded exactly as expected`);
+      }
+      console.log(mismatches === 0
+        ? `Recording verification: all ${recordedExpectations.length} real UI action(s) independently confirmed by the real backend.`
+        : `Recording verification: ${mismatches} of ${max} real UI action(s) did NOT match what the backend actually recorded.`);
+    } else {
+      console.log(`Recording verification requested but no recording file was found at ${recordingPath}.`);
+    }
   }
   if (browser) await browser.close();
   console.log(`\nDone - ${allSteps.length} step(s) processed.`);
