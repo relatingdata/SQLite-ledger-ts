@@ -505,6 +505,16 @@ export interface StagedLine {
   description?: string;
   transdate?: string;
   account: AccountName;
+  // Per a real, confirmed bug found and fixed directly while verifying
+  // Phase 1 against a real, live browser: two genuinely different,
+  // real accounts (different parent, different id) can share the
+  // exact, same literal name - Open Container's own "Remaining"/
+  // "Occupied" leaves do, for instance. Staging by bare name alone is
+  // then ambiguous; passing the account's own, already-resolved,
+  // real id (when the caller has one) removes the ambiguity, the
+  // exact, same way the backend's own, original, equivalent, direct
+  // stageLine calls already always did.
+  accountId?: number;
   amount_minor: number;
   memo?: string;
 }
@@ -1181,8 +1191,22 @@ export const clockOutOfProject = (employeeName: EmployeeName, business: Business
 export const getOpenProjectClock = (employeeName: EmployeeName) =>
   request<EmployeeClock | null>(`/projects/open-clock?employeeName=${encodeURIComponent(employeeName)}`);
 export const getLocationByName = (name: string) => request<LocationRecord>(`/locations/${encodeURIComponent(name)}`);
-export const saveLocation = (name: string, input: LocationInput) =>
-  request<void>(`/locations/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(input) });
+// Per a real, confirmed bug found and fixed directly while verifying
+// Phase 1 against a real, live browser: this call used to PUT with no
+// business query parameter at all, so the backend's own setLocation
+// had no way to scope its lookup by business and fell back to a bare
+// name match - silently landing on WHICHEVER entity named, say, "Main
+// Street Cellar" the database happened to return first. Once that
+// location has its own GL "Storage" account root (created the first
+// time any real storage-combination action touches it - Receive Into
+// Storage, Open Container, Convert Storage), that root's own child
+// node shares the exact, same literal name as the location itself,
+// and a bare, unscoped lookup can land there instead of on the real
+// location contact - confirmed directly against the database, not
+// merely suspected. createLocation already passed business for this
+// same reason; saveLocation simply never did.
+export const saveLocation = (name: string, input: LocationInput, business: string) =>
+  request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'PUT', body: JSON.stringify(input) });
 
 // Per direct, absolute instruction: the frontend must await this real,
 // single, atomic request in full - the real staging and posting (and
@@ -1233,8 +1257,14 @@ export interface ResolvedOpenContainerAccounts {
   containerOccupiedAccount: string;
   unitSpaceAccount: string;
   unitOccupiedAccount: string;
+  containerSpaceAccountId: number;
+  containerOccupiedAccountId: number;
+  unitSpaceAccountId: number;
+  unitOccupiedAccountId: number;
   inventoryFromAccount: string;
   inventoryToAccount: string;
+  inventoryFromAccountId: number;
+  inventoryToAccountId: number;
   unitCostMinor: number | null;
 }
 export const resolveOpenContainerAccounts = (input: {

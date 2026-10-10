@@ -3018,11 +3018,28 @@ export interface ResolvedOpenContainerAccounts {
   containerOccupiedAccount: string;
   unitSpaceAccount: string;
   unitOccupiedAccount: string;
+  /** Per a real, confirmed bug found and fixed directly while
+   * verifying Phase 1 against a real, live browser: these leaf
+   * accounts are named purely after their own combination value (e.g.
+   * "Carton"), with no prefix distinguishing "Remaining" from
+   * "Occupied" - two genuinely different real accounts (different
+   * parent_id, different id) can and do share the exact, same literal
+   * name. openStorageContainer's own, original posting already
+   * carried this correctly by staging with each account's own, real,
+   * explicit accountId; the frontend has no other way to tell these
+   * apart, since it only ever sees the name string otherwise - so
+   * every one of these four ids must travel alongside its own name. */
+  containerSpaceAccountId: number;
+  containerOccupiedAccountId: number;
+  unitSpaceAccountId: number;
+  unitOccupiedAccountId: number;
   /** The real, tier-scoped Inventory accounts the item's own dollar
    * value moves between — the exact, same resolution
    * openStorageContainer's own item-value block already does. */
   inventoryFromAccount: string;
   inventoryToAccount: string;
+  inventoryFromAccountId: number;
+  inventoryToAccountId: number;
   /** This item's known, real per-unit cost, or null when no real cost
    * is known yet — the frontend then posts no real Inventory-value
    * entry at all, never a fabricated cost, the exact, same real
@@ -3086,8 +3103,14 @@ export function resolveOpenContainerAccounts(
     containerOccupiedAccount: containerOccupied.name,
     unitSpaceAccount: unitSpace.name,
     unitOccupiedAccount: unitOccupied.name,
+    containerSpaceAccountId: containerSpace.id,
+    containerOccupiedAccountId: containerOccupied.id,
+    unitSpaceAccountId: unitSpace.id,
+    unitOccupiedAccountId: unitOccupied.id,
     inventoryFromAccount: fromInv.inventoryAccount,
     inventoryToAccount: toInv.inventoryAccount,
+    inventoryFromAccountId: fromInv.inventoryAccountId,
+    inventoryToAccountId: toInv.inventoryAccountId,
     unitCostMinor: getItemUnitCostMinor(itemName),
   };
 }

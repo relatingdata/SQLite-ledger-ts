@@ -51,6 +51,16 @@ const stageLineSchema = z.object({
   description: z.string().optional(),
   transdate: z.string().optional(),
   account: z.string().min(1),
+  // Per a real, confirmed bug found and fixed directly while
+  // verifying Phase 1 against a real, live browser: this generic
+  // staging endpoint never accepted a real accountId at all, so a
+  // caller staging by bare account name alone has no way to
+  // disambiguate two real, different accounts (different parent,
+  // different id) that happen to share the exact, same literal name
+  // - Open Container's own "Remaining"/"Occupied" leaves do, for
+  // instance. Optional, since most real callers' account names are
+  // already unique and need nothing further.
+  accountId: z.number().int().optional(),
   amount_minor: z.number().int(),
   memo: z.string().optional(),
 });

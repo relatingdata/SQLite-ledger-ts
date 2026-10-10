@@ -24,6 +24,14 @@ import { stageLine, postJournalEntry, type AccountName, type BusinessName, type 
 
 export interface CannedLine {
   account: string;
+  // Per a real, confirmed bug found and fixed directly while
+  // verifying Phase 1 against a real, live browser: not every real
+  // account has a name unique enough to stage by on its own - Open
+  // Container's own "Remaining"/"Occupied" leaf accounts can
+  // genuinely share the exact, same literal name. Carrying the
+  // account's own, already-resolved, real id alongside its name
+  // (when the resolver returned one) removes that ambiguity.
+  accountId?: number;
   amount_minor: number;
 }
 
@@ -169,23 +177,29 @@ export function openContainerLines(input: {
   containerOccupiedAccount: string;
   unitSpaceAccount: string;
   unitOccupiedAccount: string;
+  containerSpaceAccountId: number;
+  containerOccupiedAccountId: number;
+  unitSpaceAccountId: number;
+  unitOccupiedAccountId: number;
   inventoryFromAccount: string;
   inventoryToAccount: string;
+  inventoryFromAccountId: number;
+  inventoryToAccountId: number;
   unitCostMinor: number | null;
 }): { spaceLines: CannedLine[]; valueLines: CannedLine[] } {
   const spaceLines: CannedLine[] = [
-    { account: input.containerSpaceAccount, amount_minor: input.cartonsOpened },
-    { account: input.containerOccupiedAccount, amount_minor: -input.cartonsOpened },
-    { account: input.unitSpaceAccount, amount_minor: -input.unitsProduced },
-    { account: input.unitOccupiedAccount, amount_minor: input.unitsProduced },
+    { account: input.containerSpaceAccount, accountId: input.containerSpaceAccountId, amount_minor: input.cartonsOpened },
+    { account: input.containerOccupiedAccount, accountId: input.containerOccupiedAccountId, amount_minor: -input.cartonsOpened },
+    { account: input.unitSpaceAccount, accountId: input.unitSpaceAccountId, amount_minor: -input.unitsProduced },
+    { account: input.unitOccupiedAccount, accountId: input.unitOccupiedAccountId, amount_minor: input.unitsProduced },
   ];
   let valueLines: CannedLine[] = [];
   if (input.unitCostMinor != null) {
     const valueMinor = input.unitsProduced * input.unitCostMinor;
     if (valueMinor > 0) {
       valueLines = [
-        { account: input.inventoryFromAccount, amount_minor: -valueMinor },
-        { account: input.inventoryToAccount, amount_minor: valueMinor },
+        { account: input.inventoryFromAccount, accountId: input.inventoryFromAccountId, amount_minor: -valueMinor },
+        { account: input.inventoryToAccount, accountId: input.inventoryToAccountId, amount_minor: valueMinor },
       ];
     }
   }

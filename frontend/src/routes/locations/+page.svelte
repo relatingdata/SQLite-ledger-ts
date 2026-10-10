@@ -127,19 +127,25 @@
         containerOccupiedAccount: resolved.containerOccupiedAccount,
         unitSpaceAccount: resolved.unitSpaceAccount,
         unitOccupiedAccount: resolved.unitOccupiedAccount,
+        containerSpaceAccountId: resolved.containerSpaceAccountId,
+        containerOccupiedAccountId: resolved.containerOccupiedAccountId,
+        unitSpaceAccountId: resolved.unitSpaceAccountId,
+        unitOccupiedAccountId: resolved.unitOccupiedAccountId,
         inventoryFromAccount: resolved.inventoryFromAccount,
         inventoryToAccount: resolved.inventoryToAccount,
+        inventoryFromAccountId: resolved.inventoryFromAccountId,
+        inventoryToAccountId: resolved.inventoryToAccountId,
         unitCostMinor: resolved.unitCostMinor,
       });
       const reference = freshReference('STORAGE-OPEN');
       for (const line of built.spaceLines) {
-        await stageLine({ reference, business, ledger, account: asAccountName(line.account), amount_minor: line.amount_minor }, 'Open Container');
+        await stageLine({ reference, business, ledger, account: asAccountName(line.account), accountId: line.accountId, amount_minor: line.amount_minor }, 'Open Container');
       }
       await postJournalEntry(reference, business, ledger, 'Open Container');
       if (built.valueLines.length > 0) {
         const valueReference = `${reference}-ITEM-VALUE`;
         for (const line of built.valueLines) {
-          await stageLine({ reference: valueReference, business, ledger, account: asAccountName(line.account), amount_minor: line.amount_minor }, 'Open Container');
+          await stageLine({ reference: valueReference, business, ledger, account: asAccountName(line.account), accountId: line.accountId, amount_minor: line.amount_minor }, 'Open Container');
         }
         await postJournalEntry(valueReference, business, ledger, 'Open Container');
       }
@@ -280,19 +286,23 @@
   let totalCartonCapacity = $derived((cartonCapacity ? Number(cartonCapacity) : 0) + (coldCartonCapacity ? Number(coldCartonCapacity) : 0));
 
   async function save() {
-    if (!selectedName) return;
+    if (!selectedName || !session.current?.businessName) return;
     saving = true;
     error = '';
     message = '';
     try {
-      await saveLocation(selectedName, {
-        city,
-        location_type: locationType,
-        is_billing_address: false,
-        bottle_capacity: bottleCapacity ? Number(bottleCapacity) : null,
-        carton_capacity: cartonCapacity ? Number(cartonCapacity) : null,
-        timezone,
-      });
+      await saveLocation(
+        selectedName,
+        {
+          city,
+          location_type: locationType,
+          is_billing_address: false,
+          bottle_capacity: bottleCapacity ? Number(bottleCapacity) : null,
+          carton_capacity: cartonCapacity ? Number(cartonCapacity) : null,
+          timezone,
+        },
+        session.current.businessName
+      );
       message = 'Saved.';
       await loadAll();
       const loc = locations.find((l) => l.name === selectedName);
@@ -305,20 +315,24 @@
   }
 
   async function createColdSection() {
-    if (!selectedName) return;
+    if (!selectedName || !session.current?.businessName) return;
     coldSaving = true;
     error = '';
     try {
       const coldName = selectedName + COLD_SUFFIX;
       await createEntity({ name: coldName, parentId: thisBusinessLocationsId() });
-      await saveLocation(coldName, {
-        city,
-        location_type: 'Retail',
-        is_billing_address: false,
-        bottle_capacity: coldBottleCapacity ? Number(coldBottleCapacity) : null,
-        carton_capacity: coldCartonCapacity ? Number(coldCartonCapacity) : null,
-        timezone,
-      });
+      await saveLocation(
+        coldName,
+        {
+          city,
+          location_type: 'Retail',
+          is_billing_address: false,
+          bottle_capacity: coldBottleCapacity ? Number(coldBottleCapacity) : null,
+          carton_capacity: coldCartonCapacity ? Number(coldCartonCapacity) : null,
+          timezone,
+        },
+        session.current.businessName
+      );
       addingCold = false;
       await loadAll();
       const loc = locations.find((l) => l.name === selectedName);
@@ -331,18 +345,22 @@
   }
 
   async function saveCold() {
-    if (!coldLocation) return;
+    if (!coldLocation || !session.current?.businessName) return;
     coldSaving = true;
     error = '';
     try {
-      await saveLocation(coldLocation.name, {
-        city,
-        location_type: 'Retail',
-        is_billing_address: false,
-        bottle_capacity: coldBottleCapacity ? Number(coldBottleCapacity) : null,
-        carton_capacity: coldCartonCapacity ? Number(coldCartonCapacity) : null,
-        timezone,
-      });
+      await saveLocation(
+        coldLocation.name,
+        {
+          city,
+          location_type: 'Retail',
+          is_billing_address: false,
+          bottle_capacity: coldBottleCapacity ? Number(coldBottleCapacity) : null,
+          carton_capacity: coldCartonCapacity ? Number(coldCartonCapacity) : null,
+          timezone,
+        },
+        session.current.businessName
+      );
       message = 'Saved.';
       await loadAll();
     } catch (e) {

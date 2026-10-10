@@ -186,6 +186,135 @@ locationsRouter.post('/resolve-open-container-accounts', requireRole('Administra
   }
 });
 
+const resolveReceiveAccountsSchema = z.object({
+  business: z.string().min(1),
+  itemName: z.string().min(1),
+  combinationValues: z.array(z.string()).optional(),
+  combinationShape: z.array(z.tuple([z.string(), z.string()])).optional(),
+});
+
+locationsRouter.post('/resolve-receive-accounts', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = resolveReceiveAccountsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    const result = resolveReceiveAccounts(asBusinessName(d.business), asItemName(d.itemName), d.combinationShape, d.combinationValues, asUserId(req.user!.id));
+    res.json(result);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not resolve accounts.' });
+  }
+});
+
+// Per a real, confirmed bug found and fixed directly while verifying
+// Phase 1 against a real, live browser: every bare, single-path-
+// segment POST route below this comment used to be registered AFTER
+// the catch-all `POST /:name` location-creation route further down
+// this file — since Express matches routes in registration order,
+// any request to e.g. "/locations/transfer" was actually caught by
+// that earlier, generic `/:name` handler first (treating "transfer"
+// itself as a location name to create), never reaching its own,
+// real, intended handler at all. This affected /transfer itself (pre-
+// existing, not introduced by this session's own Phase 1 work) as
+// well as every new, single-segment Phase 1 endpoint added alongside
+// it (/transfer-stock, /resolve-transfer-accounts, the
+// /resolve-receive-accounts route just above). Every real route with
+// more than one path segment (e.g. /:name/receive-stock) was never
+// affected, since `/:name` only ever matches one, bare segment.
+// Fixed by moving every real, single-segment POST route to before
+// the catch-all, exactly where the pre-existing /convert-storage,
+// /open-container, and /resolve-open-container-accounts routes above
+// already correctly lived — confirmed directly via a real Playwright
+// run against the real, live Stock Transfer screen, not assumed.
+const transferSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  itemName: z.string().min(1),
+  fromLocationName: z.string().min(1),
+  toLocationName: z.string().min(1),
+  quantity: z.number().int().positive(),
+  reference: z.string().min(1),
+  transdate: z.string().optional(),
+});
+
+locationsRouter.post('/transfer', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = transferSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    transferItems(asBusinessName(d.business), asLedgerName(d.ledger), asItemName(d.itemName), asLocationName(d.fromLocationName), asLocationName(d.toLocationName), d.quantity, d.reference, asUserId(req.user!.id), d.transdate);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not transfer stock.' });
+  }
+});
+
+// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+// narrow, physical-only counterpart to /transfer above — quantity
+// movement and location-capacity adjustment only, no real dollar
+// VALUE journal entry, used by the frontend-driven Stock Transfer
+// screen, which posts that VALUE entry itself via the generic
+// /journal/staging+/journal/post calls. /transfer itself is left
+// completely unchanged for every other, real, backend-to-backend
+// caller (restocking, proof scripts, every existing test).
+locationsRouter.post('/transfer-stock', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = transferSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    transferStock(
+      {
+        business: asBusinessName(d.business),
+        ledger: asLedgerName(d.ledger),
+        itemName: asItemName(d.itemName),
+        fromLocationName: asLocationName(d.fromLocationName),
+        toLocationName: asLocationName(d.toLocationName),
+        quantity: d.quantity,
+        reference: d.reference,
+        transdate: d.transdate,
+      },
+      asUserId(req.user!.id)
+    );
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not transfer stock.' });
+  }
+});
+
+const resolveTransferAccountsSchema = z.object({
+  business: z.string().min(1),
+  itemName: z.string().min(1),
+  fromLocationName: z.string().min(1),
+  toLocationName: z.string().min(1),
+});
+
+locationsRouter.post('/resolve-transfer-accounts', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = resolveTransferAccountsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    const result = resolveTransferAccounts(
+      asBusinessName(d.business),
+      asItemName(d.itemName),
+      asLocationName(d.fromLocationName),
+      asLocationName(d.toLocationName),
+      asUserId(req.user!.id)
+    );
+    res.json(result);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not resolve accounts.' });
+  }
+});
+
 locationsRouter.get('/:name', (req, res) => {
   const location = getLocation(req.params.name);
   if (!location) return res.status(404).json({ error: 'No such location.' });
@@ -238,18 +367,40 @@ locationsRouter.post('/:name', requireRole('Administrator', 'Bookkeeper'), (req,
   }
 });
 
+// Per a real, confirmed bug found and fixed directly while verifying
+// Phase 1 against a real, live browser: this route used to call
+// setLocation with no business at all, so its lookup fell back to the
+// exact, same, bare, unscoped name match the comment on setLocation's
+// own definition already warns is dangerous - except that warning was
+// only ever about two DIFFERENT businesses sharing a location name.
+// Within a single business, once any real storage-combination action
+// (Receive Into Storage, Open Container, Convert Storage) has touched
+// a location, that location's own GL "Storage" account root gets a
+// child node with the exact, same literal name as the location itself
+// - so a bare lookup can resolve to that GL node instead of the real
+// location contact, and this route would then silently write the
+// location's own real capacity onto it, confirmed directly against
+// the database. The sibling POST /:name route (location creation)
+// already required and used a real business query parameter for the
+// exact, same reason; this one simply never did.
 locationsRouter.put('/:name', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
   const parsed = locationSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const business = req.query.business as string;
+  if (!business) return res.status(400).json({ error: 'business query parameter is required.' });
   try {
-    setLocation(req.params.name, {
-      city: parsed.data.city,
-      location_type: parsed.data.location_type,
-      is_billing_address: parsed.data.is_billing_address,
-      bottle_capacity: parsed.data.bottle_capacity ?? null,
-      carton_capacity: parsed.data.carton_capacity ?? null,
-      timezone: parsed.data.timezone,
-    });
+    setLocation(
+      req.params.name,
+      {
+        city: parsed.data.city,
+        location_type: parsed.data.location_type,
+        is_billing_address: parsed.data.is_billing_address,
+        bottle_capacity: parsed.data.bottle_capacity ?? null,
+        carton_capacity: parsed.data.carton_capacity ?? null,
+        timezone: parsed.data.timezone,
+      },
+      asBusinessName(business)
+    );
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
@@ -367,28 +518,6 @@ locationsRouter.post('/:name/receive-stock', requireRole('Administrator', 'Bookk
   }
 });
 
-const resolveReceiveAccountsSchema = z.object({
-  business: z.string().min(1),
-  itemName: z.string().min(1),
-  combinationValues: z.array(z.string()).optional(),
-  combinationShape: z.array(z.tuple([z.string(), z.string()])).optional(),
-});
-
-locationsRouter.post('/resolve-receive-accounts', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
-  const parsed = resolveReceiveAccountsSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  try {
-    const d = parsed.data;
-    const result = resolveReceiveAccounts(asBusinessName(d.business), asItemName(d.itemName), d.combinationShape, d.combinationValues, asUserId(req.user!.id));
-    res.json(result);
-  } catch (err) {
-    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
-    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
-    console.error(err);
-    res.status(500).json({ error: 'Could not resolve accounts.' });
-  }
-});
-
 locationsRouter.post('/:name/dispatch', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
   const parsed = movementSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
@@ -400,93 +529,6 @@ locationsRouter.post('/:name/dispatch', requireRole('Administrator', 'Bookkeeper
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not dispatch stock.' });
-  }
-});
-
-const transferSchema = z.object({
-  business: z.string().min(1),
-  ledger: z.string().min(1),
-  itemName: z.string().min(1),
-  fromLocationName: z.string().min(1),
-  toLocationName: z.string().min(1),
-  quantity: z.number().int().positive(),
-  reference: z.string().min(1),
-  transdate: z.string().optional(),
-});
-
-locationsRouter.post('/transfer', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
-  const parsed = transferSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  try {
-    const d = parsed.data;
-    transferItems(asBusinessName(d.business), asLedgerName(d.ledger), asItemName(d.itemName), asLocationName(d.fromLocationName), asLocationName(d.toLocationName), d.quantity, d.reference, asUserId(req.user!.id), d.transdate);
-    res.status(204).end();
-  } catch (err) {
-    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
-    console.error(err);
-    res.status(500).json({ error: 'Could not transfer stock.' });
-  }
-});
-
-// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
-// narrow, physical-only counterpart to /transfer above — quantity
-// movement and location-capacity adjustment only, no real dollar
-// VALUE journal entry, used by the frontend-driven Stock Transfer
-// screen, which posts that VALUE entry itself via the generic
-// /journal/staging+/journal/post calls. /transfer itself is left
-// completely unchanged for every other, real, backend-to-backend
-// caller (restocking, proof scripts, every existing test).
-locationsRouter.post('/transfer-stock', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
-  const parsed = transferSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  try {
-    const d = parsed.data;
-    transferStock(
-      {
-        business: asBusinessName(d.business),
-        ledger: asLedgerName(d.ledger),
-        itemName: asItemName(d.itemName),
-        fromLocationName: asLocationName(d.fromLocationName),
-        toLocationName: asLocationName(d.toLocationName),
-        quantity: d.quantity,
-        reference: d.reference,
-        transdate: d.transdate,
-      },
-      asUserId(req.user!.id)
-    );
-    res.status(204).end();
-  } catch (err) {
-    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
-    console.error(err);
-    res.status(500).json({ error: 'Could not transfer stock.' });
-  }
-});
-
-const resolveTransferAccountsSchema = z.object({
-  business: z.string().min(1),
-  itemName: z.string().min(1),
-  fromLocationName: z.string().min(1),
-  toLocationName: z.string().min(1),
-});
-
-locationsRouter.post('/resolve-transfer-accounts', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
-  const parsed = resolveTransferAccountsSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  try {
-    const d = parsed.data;
-    const result = resolveTransferAccounts(
-      asBusinessName(d.business),
-      asItemName(d.itemName),
-      asLocationName(d.fromLocationName),
-      asLocationName(d.toLocationName),
-      asUserId(req.user!.id)
-    );
-    res.json(result);
-  } catch (err) {
-    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
-    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
-    console.error(err);
-    res.status(500).json({ error: 'Could not resolve accounts.' });
   }
 });
 

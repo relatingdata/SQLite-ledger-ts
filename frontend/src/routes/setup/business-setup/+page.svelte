@@ -96,7 +96,11 @@
       const biz = treeEntities.find((e) => e.name === session.current!.businessName);
       const locationsId = biz ? treeEntities.find((e) => e.name === 'Locations' && e.parent_id === biz.id)?.id : undefined;
       await createEntity({ name: newLocationName.trim(), parentId: locationsId });
-      await saveLocation(newLocationName.trim(), { city: newLocationCity.trim(), location_type: newLocationType, is_billing_address: false, timezone: newLocationTimezone });
+      await saveLocation(
+        newLocationName.trim(),
+        { city: newLocationCity.trim(), location_type: newLocationType, is_billing_address: false, timezone: newLocationTimezone },
+        session.current.businessName
+      );
       await setEntityRelationship(newLocationName.trim(), 'Belongs To Division', divisionName);
       newLocationName = '';
       newLocationCity = '';
@@ -184,19 +188,23 @@
   }
 
   async function saveLocationDetail() {
-    if (!locationRecord || selection?.type !== 'location') return;
+    if (!locationRecord || selection?.type !== 'location' || !session.current?.businessName) return;
     locationSaving = true;
     locationSaveError = '';
     locationSaveMessage = '';
     try {
-      await saveLocation(selection.name, {
-        city: locationRecord.city,
-        location_type: locationRecord.location_type,
-        is_billing_address: locationRecord.is_billing_address,
-        bottle_capacity: locationRecord.bottle_capacity,
-        carton_capacity: locationRecord.carton_capacity,
-        timezone: locationRecord.timezone,
-      });
+      await saveLocation(
+        selection.name,
+        {
+          city: locationRecord.city,
+          location_type: locationRecord.location_type,
+          is_billing_address: locationRecord.is_billing_address,
+          bottle_capacity: locationRecord.bottle_capacity,
+          carton_capacity: locationRecord.carton_capacity,
+          timezone: locationRecord.timezone,
+        },
+        session.current.businessName
+      );
       await setLocationOpenHours(
         asLocationName(selection.name),
         openHours.map((h) => ({ day: h.day, opens_at: h.from_time, closes_at: h.to_time }))
