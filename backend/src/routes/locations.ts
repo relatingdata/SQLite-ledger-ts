@@ -176,7 +176,15 @@ locationsRouter.post('/:name', requireRole('Administrator', 'Bookkeeper'), (req,
       timezone: parsed.data.timezone,
     });
     postLocation(reference, asBusinessName(business), asUserId(req.user!.id));
-    res.status(201).end();
+    // 204, not 201: no body is returned (the frontend's createLocation
+    // declares request<void>), and every sibling "nothing to return"
+    // route in this file already uses 204 - 201 with an empty body
+    // was a real, confirmed bug: the frontend's generic request<T>
+    // helper only skips res.json() for status 204, so a 201 with an
+    // empty body made it throw a raw SyntaxError on res.json(), which
+    // the page then miscaught as a generic "Could not create
+    // location." - hiding a call that had actually already succeeded.
+    res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);

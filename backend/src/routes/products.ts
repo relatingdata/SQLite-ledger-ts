@@ -16,7 +16,12 @@ productsRouter.post('/', requireRole('Administrator', 'Bookkeeper'), (req, res) 
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     createProduct(parsed.data.name, parsed.data.parent, asUserId(req.user!.id));
-    res.status(201).end();
+    // 204, not 201: same real bug fixed in locations.ts's POST /:name -
+    // the frontend's generic request<T> only skips res.json() for
+    // status 204, so a 201 with an empty body throws a raw SyntaxError
+    // that gets miscaught as a generic failure message, even though
+    // the create genuinely succeeded.
+    res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
