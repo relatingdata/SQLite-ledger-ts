@@ -54,8 +54,40 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   // home currency at business creation. setBusinessHomeCurrency is a
   // real, separate, existing function - called immediately after, not
   // folded into createBusiness itself, which has no currency parameter.
+  //
+  // A real, confirmed bug found and fixed directly: this entry never
+  // read screens.csv's own "businessType" position (the real new-business
+  // page's second select, "Sole Trader"/"Partnership"/...) at all, so
+  // neither coaPrototype nor entityStructure ever reached db.createBusiness
+  // on the API path - unlike the real frontend (frontend/src/routes/setup/
+  // new-business/+page.svelte), which always submits both: a coaPrototype
+  // (its own, separate, first select, defaulting to COA_PROTOTYPES[0] =
+  // "English CoA") and an entityStructure (mapped from the business-type
+  // select via BUSINESS_TYPE_TO_ENTITY_STRUCTURE). Without a coaPrototype,
+  // copyChartOfAccountsInto never copies any of the universal, English-
+  // CoA-tagged leaves (Sales Revenue, Cost of Goods Sold, Inventory,
+  // Owner's Equity) into the new business's own Chart of Accounts at all,
+  // so every later, lazy, per-combination leaf (ensureCombinationAccountLeaf
+  // et al.) fell back to the bare, global lookup and posted onto the
+  // shared, global template entities instead - invisible to
+  // getBusinessReports' own, correct, business-scoped walk. Mirrors the
+  // frontend's own defaults/mapping exactly, not a new, separate design.
   createBusiness: (a) => {
-    const result = db.createBusiness(a.businessName as any, a.financialYearLabel, db.asUserId(1));
+    const BUSINESS_TYPE_TO_ENTITY_STRUCTURE: Record<string, string> = {
+      'Sole Trader': 'sole_trader',
+      Partnership: 'partnership',
+      'Pty Ltd Company': 'llc',
+      'Incorporated Company': 'publicly_traded',
+    };
+    const entityStructure = a.businessType ? BUSINESS_TYPE_TO_ENTITY_STRUCTURE[a.businessType] : undefined;
+    const result = db.createBusiness(
+      a.businessName as any,
+      a.financialYearLabel,
+      db.asUserId(1),
+      'English CoA',
+      undefined,
+      entityStructure as any
+    );
     if (a.homeCurrency) db.setBusinessHomeCurrency(a.businessName, a.homeCurrency, db.asUserId(1));
     return result;
   },

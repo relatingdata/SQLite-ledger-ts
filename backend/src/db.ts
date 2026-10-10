@@ -2474,9 +2474,20 @@ export function getAncestorChain(entityName: string, rootName: string): string[]
  * sub-categories) gets one real grouping level, one broken down
  * further gets more — without a single line of code changing between
  * the two. */
-export function ensureCategoryChain(rootName: string, prefix: string, chain: string[], userId: UserId): { name: string; id: number } {
+export function ensureCategoryChain(rootName: string, prefix: string, chain: string[], userId: UserId, business?: BusinessName): { name: string; id: number } {
   let currentParent = rootName;
-  let currentParentId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(rootName) as { id: number } | undefined)?.id ?? null;
+  // A real, confirmed bug, found and fixed directly: the bare, global
+  // lookup below put every lazily-created Sales Revenue/COGS category
+  // onto the one, shared, global Chart of Accounts template, invisible
+  // to getBusinessReports' own, correct, business-scoped walk - the
+  // direct, confirmed root cause of the Close Books/Rollover failures.
+  // business is optional, appended last, purely for backward
+  // compatibility with every existing caller (unit tests, scripts)
+  // that never had a business to pass - every real, live call from
+  // the application's own transaction flows now passes it.
+  let currentParentId = business
+    ? resolveBusinessCoaAccountId(business, rootName)
+    : ((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(rootName) as { id: number } | undefined)?.id ?? null);
   for (const cat of chain) {
     const catName = `${prefix}${cat}`;
     const row = currentParentId ? Entity.ensureUnder(catName, currentParentId, userId) : Entity.create(catName, rootName, userId);
@@ -2511,16 +2522,16 @@ export function ensureCategoryChain(rootName: string, prefix: string, chain: str
  * a carton's margin are real, different facts, not the same number
  * shown twice — blending them back into one account would silently
  * undo the whole point of splitting by product in the first place. */
-export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
+export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
   const suffix = tier ? ` (${tier})` : '';
   const salesAccount = `${itemName}${suffix}`;
   const cogsAccount = `${itemName}${suffix}`;
   const categoryChain = getAncestorChain(itemName, 'Items');
 
-  const salesParent = ensureCategoryChain('Sales Revenue', '', categoryChain, userId);
+  const salesParent = ensureCategoryChain('Sales Revenue', '', categoryChain, userId, business);
   const salesRow = Entity.ensureUnder(salesAccount, salesParent.id, userId);
 
-  const cogsParent = ensureCategoryChain('Cost of Goods Sold', '', categoryChain, userId);
+  const cogsParent = ensureCategoryChain('Cost of Goods Sold', '', categoryChain, userId, business);
   const existingCogs = Entity.getUnder(cogsAccount, cogsParent.id);
   const cogsRow = existingCogs ?? Entity.create(cogsAccount, cogsParent.id, userId);
   if (!existingCogs || !Entity.get(cogsRow.id)?.relation_id) Entity.relate(cogsRow.id, 'COGS', userId);
@@ -2536,8 +2547,17 @@ export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, 
  * Sheet category-tree walk (already proven for Accounts Receivable)
  * picks this up automatically and shows it as genuinely expandable,
  * with no further, separate reporting code needed at all. */
-export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId, tier?: string): { inventoryAccount: string; inventoryAccountId: number } {
-  const inventoryParentId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Inventory'`).get() as { id: number }).id;
+export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName): { inventoryAccount: string; inventoryAccountId: number } {
+  // A real, confirmed bug, found and fixed directly: this bare, global
+  // lookup put every lazily-created, per-product Inventory leaf onto
+  // the one, shared, global Chart of Accounts template, invisible to
+  // getBusinessReports'/getBalanceSheet's own, correct, business-scoped
+  // walk - a real, confirmed cause of the year/period rollover's own
+  // entry failing to balance (the Inventory side of the Balance Sheet
+  // silently missing). business is optional, appended last, purely for
+  // backward compatibility with every existing caller that never had a
+  // business to pass.
+  const inventoryParentId = business ? resolveBusinessCoaAccountId(business, 'Inventory') : (db.prepare(`SELECT id FROM current_entities WHERE name = 'Inventory'`).get() as { id: number }).id;
   const accountName = tier ? `${itemName} (${tier})` : itemName;
   const row = Entity.ensureUnder(accountName, inventoryParentId, userId);
   return { inventoryAccount: accountName, inventoryAccountId: row.id };
@@ -2549,8 +2569,8 @@ export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId, t
  * in accounts that are determined by the cartesian product of
  * products and locations" — Inventory is not a special case exempt
  * from this. */
-export function ensureItemLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId, tier?: string): { inventoryAccount: string; inventoryAccountId: number } {
-  const { inventoryAccountId: baseId } = ensureItemInventoryAccount(itemName, userId, tier);
+export function ensureItemLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId, tier?: string, business?: BusinessName): { inventoryAccount: string; inventoryAccountId: number } {
+  const { inventoryAccountId: baseId } = ensureItemInventoryAccount(itemName, userId, tier, business);
   const locationAccount = `${itemName}${tier ? ` (${tier})` : ''} — ${locationName}`;
   const existing = Entity.getUnder(locationAccount, baseId);
   const row = existing ?? Entity.create(locationAccount, baseId, userId);
@@ -2740,6 +2760,34 @@ export function getCombinationByUpc(upc: string): { itemName: string; combinatio
   if (!row) return undefined;
   const { combinationValues, combinationShape } = climbInstanceTree(row.product_instance_id);
   return { itemName: row.item_name, combinationValues, combinationShape };
+}
+
+/** Resolves a known Chart-of-Accounts header name (e.g. "Sales
+ * Revenue", "Cost of Goods Sold", "Inventory") within one specific
+ * business's own Chart of Accounts subtree — the exact, same,
+ * business-scoped recursive walk post_journal_entry_insert's own
+ * trigger already uses (00-core.sql), so a real Cartesian Product
+ * leaf created under this header always lands on this business's own
+ * copy, never the shared, global template. Falls back to the old,
+ * bare, global lookup only when this specific business genuinely has
+ * no own CoA copy at all (the legacy "My Business" case, which never
+ * gets a real Chart of Accounts of its own) — never silently, always
+ * as a last resort, mirroring the trigger's own COALESCE fallback. */
+export function resolveBusinessCoaAccountId(businessName: BusinessName, accountName: string): number {
+  const row = db
+    .prepare(
+      `WITH RECURSIVE biz_coa(id) AS (
+         SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)
+         UNION ALL
+         SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id
+       )
+       SELECT id FROM current_entities WHERE name = ? AND id IN (SELECT id FROM biz_coa) LIMIT 1`
+    )
+    .get(businessName, accountName) as { id: number } | undefined;
+  if (row) return row.id;
+  const fallback = db.prepare(`SELECT id FROM current_entities WHERE name = ? LIMIT 1`).get(accountName) as { id: number } | undefined;
+  if (!fallback) throw new ValidationError(`No real account named "${accountName}".`);
+  return fallback.id;
 }
 
 /** Creates one real, new leaf directly under a real, existing,
@@ -2943,8 +2991,8 @@ export function openStorageContainer(
     const valueMinor = unitsProduced * unitCostMinor;
     const fromTier = containerValues.join(' ');
     const toTier = unitValues.join(' ');
-    const fromInv = ensureItemLocationInventoryAccount(itemName, locationName, userId, fromTier);
-    const toInv = ensureItemLocationInventoryAccount(itemName, locationName, userId, toTier);
+    const fromInv = ensureItemLocationInventoryAccount(itemName, locationName, userId, fromTier, business);
+    const toInv = ensureItemLocationInventoryAccount(itemName, locationName, userId, toTier, business);
     const valueRef = `${ref}-ITEM-VALUE`;
     stageLine({ reference: valueRef, business, ledger, account: asAccountName(fromInv.inventoryAccount), accountId: fromInv.inventoryAccountId, amount_minor: -valueMinor, memo: `Open container: ${itemName}` });
     stageLine({ reference: valueRef, business, ledger, account: asAccountName(toInv.inventoryAccount), accountId: toInv.inventoryAccountId, amount_minor: valueMinor, memo: `Open container: ${itemName}` });
@@ -3054,8 +3102,8 @@ export function getItemUnitCostMinor(itemName: ItemName): number | null {
  * tier as its own, separate, brand-new entity instead, there is
  * nothing shared to break — every tier's own real leaf has exactly
  * one real Sales leaf of its own, from the moment it's first created. */
-export function ensureItemTier(baseProductName: ItemName, tier: string, userId: UserId): { tierItemName: string; tierItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
-  const { salesAccount, salesAccountId, cogsAccount, cogsAccountId } = ensureItemSalesCogsAccounts(baseProductName, userId, tier);
+export function ensureItemTier(baseProductName: ItemName, tier: string, userId: UserId, business?: BusinessName): { tierItemName: string; tierItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
+  const { salesAccount, salesAccountId, cogsAccount, cogsAccountId } = ensureItemSalesCogsAccounts(baseProductName, userId, tier, business);
   const tierItemName = `${baseProductName} (${tier})`;
 
   const existing = Entity.getUnder(tierItemName, salesAccountId);
@@ -3152,8 +3200,8 @@ export function ensureItemTierLocationLeaf(tierItemName: string, locationName: L
  * location dimension are independent of each other; a product having
  * only one real selling unit doesn't mean it's only ever sold from
  * one real place. */
-export function ensureItemLocationLeaf(itemName: ItemName, locationName: LocationName, userId: UserId): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
-  const { salesAccount: baseSales, salesAccountId: baseSalesId, cogsAccount: baseCogs, cogsAccountId: baseCogsId } = ensureItemSalesCogsAccounts(itemName, userId);
+export function ensureItemLocationLeaf(itemName: ItemName, locationName: LocationName, userId: UserId, business?: BusinessName): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
+  const { salesAccount: baseSales, salesAccountId: baseSalesId, cogsAccount: baseCogs, cogsAccountId: baseCogsId } = ensureItemSalesCogsAccounts(itemName, userId, undefined, business);
   const salesAccount = `${baseSales} — ${locationName}`;
   const cogsAccount = `${baseCogs} — ${locationName}`;
 
@@ -3443,23 +3491,23 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
           const combo = input.lines.find((l) => l.itemName === line.itemName);
           if (combo?.combinationValues && combo?.combinationShape) {
             const instanceTop = ensureProductInstance(input.business, combo.combinationShape, combo.combinationValues, userId);
-            const leaf = ensureCombinationAccountLeaf('Sales Revenue', instanceTop, userId);
+            const leaf = ensureCombinationAccountLeaf('Sales Revenue', instanceTop, userId, resolveBusinessCoaAccountId(input.business, 'Sales Revenue'));
             return tagCurrency({ name: leaf.name, id: leaf.id });
           }
           if (tier && input.locationName) {
-            const tierItem = ensureItemTier(asItemName(line.itemName), tier, userId);
+            const tierItem = ensureItemTier(asItemName(line.itemName), tier, userId, input.business);
             const leaf = ensureItemTierLocationLeaf(tierItem.tierItemName, input.locationName, userId, tierItem.tierItemId);
             return tagCurrency({ name: leaf.salesAccount, id: leaf.salesAccountId });
           }
           if (tier) {
-            const tierItem = ensureItemTier(asItemName(line.itemName), tier, userId);
+            const tierItem = ensureItemTier(asItemName(line.itemName), tier, userId, input.business);
             return tagCurrency({ name: tierItem.salesAccount, id: tierItem.salesAccountId });
           }
           if (input.locationName) {
-            const leaf = ensureItemLocationLeaf(asItemName(line.itemName), input.locationName, userId);
+            const leaf = ensureItemLocationLeaf(asItemName(line.itemName), input.locationName, userId, input.business);
             return tagCurrency({ name: leaf.salesAccount, id: leaf.salesAccountId });
           }
-          const base = ensureItemSalesCogsAccounts(asItemName(line.itemName), userId);
+          const base = ensureItemSalesCogsAccounts(asItemName(line.itemName), userId, undefined, input.business);
           return tagCurrency({ name: base.salesAccount, id: base.salesAccountId });
         }),
       (() => {
@@ -3514,33 +3562,33 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       let inv: { inventoryAccount: string; inventoryAccountId: number } | undefined;
       if (line.combinationValues && line.combinationShape) {
         const instanceTop = ensureProductInstance(input.business, line.combinationShape, line.combinationValues, userId);
-        const cogsLeaf = ensureCombinationAccountLeaf('Cost of Goods Sold', instanceTop, userId);
-        const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId);
+        const cogsLeaf = ensureCombinationAccountLeaf('Cost of Goods Sold', instanceTop, userId, resolveBusinessCoaAccountId(input.business, 'Cost of Goods Sold'));
+        const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId, resolveBusinessCoaAccountId(input.business, 'Inventory'));
         cogsAccount = cogsLeaf.name;
         cogsAccountId = cogsLeaf.id;
         inv = { inventoryAccount: invLeaf.name, inventoryAccountId: invLeaf.id };
       } else if (line.tier && input.locationName) {
-        const tierItem = ensureItemTier(asItemName(line.itemName), line.tier, userId);
+        const tierItem = ensureItemTier(asItemName(line.itemName), line.tier, userId, input.business);
         const leaf = ensureItemTierLocationLeaf(tierItem.tierItemName, input.locationName, userId, tierItem.tierItemId);
         cogsAccount = leaf.cogsAccount;
         cogsAccountId = leaf.cogsAccountId;
       } else if (line.tier) {
-        const tierItem = ensureItemTier(asItemName(line.itemName), line.tier, userId);
+        const tierItem = ensureItemTier(asItemName(line.itemName), line.tier, userId, input.business);
         cogsAccount = tierItem.cogsAccount;
         cogsAccountId = tierItem.cogsAccountId;
       } else if (input.locationName) {
-        const leaf = ensureItemLocationLeaf(asItemName(line.itemName), input.locationName, userId);
+        const leaf = ensureItemLocationLeaf(asItemName(line.itemName), input.locationName, userId, input.business);
         cogsAccount = leaf.cogsAccount;
         cogsAccountId = leaf.cogsAccountId;
       } else {
-        const base = ensureItemSalesCogsAccounts(asItemName(line.itemName), userId);
+        const base = ensureItemSalesCogsAccounts(asItemName(line.itemName), userId, undefined, input.business);
         cogsAccount = base.cogsAccount;
         cogsAccountId = base.cogsAccountId;
       }
       if (!(line.combinationValues && line.combinationShape)) {
         const resolved = input.locationName
-          ? ensureItemLocationInventoryAccount(asItemName(line.itemName), input.locationName, userId, line.tier)
-          : ensureItemInventoryAccount(asItemName(line.itemName), userId, line.tier);
+          ? ensureItemLocationInventoryAccount(asItemName(line.itemName), input.locationName, userId, line.tier, input.business)
+          : ensureItemInventoryAccount(asItemName(line.itemName), userId, line.tier, input.business);
         inv = resolved;
       }
       // Per docs/multicurrency-design.md: COGS and Inventory, the
@@ -3650,7 +3698,7 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
 
     postInvoice(
       invoiceId,
-      (line) => (line.itemName ? (() => { const sourceLine = input.lines.find((l) => l.itemName === line.itemName); const inv = ensureItemLocationInventoryAccount(asItemName(line.itemName!), input.locationName, userId, sourceLine?.tier); return { name: inv.inventoryAccount, id: inv.inventoryAccountId }; })() : 'Inventory'),
+      (line) => (line.itemName ? (() => { const sourceLine = input.lines.find((l) => l.itemName === line.itemName); const inv = ensureItemLocationInventoryAccount(asItemName(line.itemName!), input.locationName, userId, sourceLine?.tier, input.business); return { name: inv.inventoryAccount, id: inv.inventoryAccountId }; })() : 'Inventory'),
       input.taxAccount,
       userId,
       false,
@@ -7080,7 +7128,23 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
         // never get its own, real, further Vocabulary copy.
         const realChildren = db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(child.id) as { name: string }[];
         const hasRealStructuralChild = realChildren.some((c) => !c.name.startsWith(`${child.name} — `));
-        if (!hasRealStructuralChild) continue;
+        // A real, confirmed, further finding: "Cost of Goods Sold"
+        // cannot carry an "% CoA" prototype tag at all - its one real
+        // relation_id slot is already spoken for by the Gross Profit
+        // report's own "COGS" category marker (see getBusinessReports),
+        // so it never takes the isPrototypeTagged branch above and
+        // depended entirely on hasRealStructuralChild - genuinely true
+        // only by coincidence, while demo per-product leaves happened
+        // to exist under the global template. On a fresh database with
+        // zero demo data it has none, and was silently never copied
+        // into any new business's own CoA at all - the direct, root
+        // cause of every later, lazy COGS leaf (ensureCombinationAccountLeaf)
+        // falling back to the bare, global lookup. Named explicitly here,
+        // the same, established, by-name-exception style this function
+        // already uses throughout (Chart of Accounts, Vocabulary, etc.),
+        // since it is a real, fixed, known header, not a general rule.
+        const alwaysCopyRegardlessOfDemoData = child.name === 'Cost of Goods Sold';
+        if (!hasRealStructuralChild && !alwaysCopyRegardlessOfDemoData) continue;
 
         // A non-leaf, structural category (Asset/Liability/...) is a
         // real, genuine copy, per direct, fundamental correction: a

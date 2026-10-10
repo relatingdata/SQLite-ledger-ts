@@ -1,4 +1,4 @@
-import { db, getQualifiedDisplayName, getCombinationDisplayName } from './db.js';
+import { db, getQualifiedDisplayName, getCombinationDisplayName, resolveBusinessCoaAccountId } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
 import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, asDivisionName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
@@ -1422,11 +1422,17 @@ export function rolloverToNewPeriod(business: BusinessName, oldLedger: LedgerNam
   // it automatically, with no changes anywhere else. No journal entry
   // anywhere in this phase.
   for (const line of usedLines) {
-    const coaLeaf = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(line.name) as { id: number } | undefined;
-    if (!coaLeaf) continue;
-    const existing = Entity.getUnder(newLedger, coaLeaf.id);
+    // A real, confirmed bug, found and fixed directly: this bare,
+    // global lookup could resolve to a completely different, same-
+    // named account under some other business's own Chart of Accounts
+    // copy (or the shared, global template), rather than this specific
+    // business's own leaf — business-scoped via resolveBusinessCoaAccountId,
+    // the exact, same fix already applied throughout the lazy account-
+    // creation functions above.
+    const coaLeafId = resolveBusinessCoaAccountId(business, line.name);
+    const existing = Entity.getUnder(newLedger, coaLeafId);
     if (!existing) {
-      const node = Entity.create(newLedger, coaLeaf.id, userId);
+      const node = Entity.create(newLedger, coaLeafId, userId);
       Entity.relate(node.id, null, userId, newLedgerId);
     }
   }

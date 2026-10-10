@@ -20,6 +20,7 @@ import {
   getItemUnitCostMinor,
   ensureProductInstance,
   ensureCombinationAccountLeaf,
+  resolveBusinessCoaAccountId,
   resolveItemId,
   setDimensionParent,
   setEntityLink,
@@ -835,9 +836,9 @@ export function receiveItems(
     const unitCostMinor = getItemUnitCostMinor(itemName);
     if (unitCostMinor != null) {
       const valueMinor = quantity * unitCostMinor;
-      const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId);
+      const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId, resolveBusinessCoaAccountId(business, 'Inventory'));
       const valueRef = `${reference}-VALUE`;
-      const apId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Accounts Payable' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Liability')`).get() as { id: number }).id;
+      const apId = resolveBusinessCoaAccountId(business, 'Accounts Payable');
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(invLeaf.name), accountId: invLeaf.id, amount_minor: valueMinor, memo: `Combination stock receipt: ${itemName}` });
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName('Accounts Payable'), accountId: apId, amount_minor: -valueMinor, memo: `Combination stock receipt: ${itemName}` });
       postJournalEntry(valueRef, business, ledger, userId);
@@ -889,10 +890,9 @@ export function dispatchItems(
     const unitCostMinor = getItemUnitCostMinor(itemName);
     if (unitCostMinor != null) {
       const valueMinor = quantity * unitCostMinor;
-      const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId);
+      const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId, resolveBusinessCoaAccountId(business, 'Inventory'));
       const valueRef = `${reference}-VALUE`;
-      const cogsId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Cost of Goods Sold' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Expense')`).get() as { id: number } | undefined)?.id
-        ?? (db.prepare(`SELECT id FROM current_entities WHERE name = 'Cost of Goods Sold'`).get() as { id: number }).id;
+      const cogsId = resolveBusinessCoaAccountId(business, 'Cost of Goods Sold');
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(invLeaf.name), accountId: invLeaf.id, amount_minor: -valueMinor, memo: `Combination stock dispatch: ${itemName}` });
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName('Cost of Goods Sold'), accountId: cogsId, amount_minor: valueMinor, memo: `Combination stock dispatch: ${itemName}` });
       postJournalEntry(valueRef, business, ledger, userId);
@@ -963,8 +963,8 @@ export function transferItems(
     const unitCostMinor = getItemUnitCostMinor(itemName);
     if (unitCostMinor != null) {
       const valueMinor = quantity * unitCostMinor;
-      const fromAccount = ensureItemLocationInventoryAccount(itemName, fromLocationName, asUserId(userId));
-      const toAccount = ensureItemLocationInventoryAccount(itemName, toLocationName, asUserId(userId));
+      const fromAccount = ensureItemLocationInventoryAccount(itemName, fromLocationName, asUserId(userId), undefined, business);
+      const toAccount = ensureItemLocationInventoryAccount(itemName, toLocationName, asUserId(userId), undefined, business);
       const valueRef = `${reference}-VALUE`;
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(fromAccount.inventoryAccount), accountId: fromAccount.inventoryAccountId, amount_minor: -valueMinor, memo: `Transfer: ${itemName}` });
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(toAccount.inventoryAccount), accountId: toAccount.inventoryAccountId, amount_minor: valueMinor, memo: `Transfer: ${itemName}` });
@@ -978,8 +978,9 @@ export function transferItems(
       const valueMinor = quantity * unitCostMinor;
       const fromInstance = ensureProductInstance(business, combinationShape, [fromLocationName, ...combinationValuesAfterLocation], asUserId(userId));
       const toInstance = ensureProductInstance(business, combinationShape, [toLocationName, ...combinationValuesAfterLocation], asUserId(userId));
-      const fromLeaf = ensureCombinationAccountLeaf('Inventory', fromInstance, asUserId(userId));
-      const toLeaf = ensureCombinationAccountLeaf('Inventory', toInstance, asUserId(userId));
+      const inventoryAccountId = resolveBusinessCoaAccountId(business, 'Inventory');
+      const fromLeaf = ensureCombinationAccountLeaf('Inventory', fromInstance, asUserId(userId), inventoryAccountId);
+      const toLeaf = ensureCombinationAccountLeaf('Inventory', toInstance, asUserId(userId), inventoryAccountId);
       const valueRef = `${reference}-VALUE`;
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(fromLeaf.name), accountId: fromLeaf.id, amount_minor: -valueMinor, memo: `Combination transfer: ${itemName}` });
       stageLine({ reference: valueRef, business, ledger, transdate: date, account: asAccountName(toLeaf.name), accountId: toLeaf.id, amount_minor: valueMinor, memo: `Combination transfer: ${itemName}` });
@@ -1211,7 +1212,7 @@ export function completeStockTake(
     if (unitCostMinor == null) throw new ValidationError(`No unit cost given for "${line.item}", which has a variance and needs one to be valued.`);
     const valueMinor = variance * unitCostMinor;
     const reference = `STOCKTAKE-${stockTakeId}-${line.item}`;
-    { const inv = ensureItemLocationInventoryAccount(asItemName(line.item), take.location as LocationName, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: valueMinor, memo: `Stock take variance: ${line.item}` }); }
+    { const inv = ensureItemLocationInventoryAccount(asItemName(line.item), take.location as LocationName, userId, undefined, asBusinessName(business)); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: valueMinor, memo: `Stock take variance: ${line.item}` }); }
     stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: take.take_date, account: asAccountName(varianceExpenseAccount), amount_minor: -valueMinor });
 
     const currentOnHand = getItemLocation(asItemName(line.item), take.location as LocationName).quantity_on_hand;
@@ -1253,7 +1254,7 @@ export function writeOffItems(
   const date = transdate ?? new Date().toISOString().slice(0, 10);
 
   stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: date, description: reason, account: asAccountName(writeOffExpenseAccount), amount_minor: totalMinor });
-  { const inv = ensureItemInventoryAccount(itemName, userId); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: -totalMinor }); }
+  { const inv = ensureItemInventoryAccount(itemName, userId, undefined, asBusinessName(business)); stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: date, account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: -totalMinor }); }
   postJournalEntry(reference, business, ledger, userId);
 
   const { writeOffAccount, writeOffAccountId } = ensureItemQuantityAccounts(itemName, userId);
