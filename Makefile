@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -234,6 +234,44 @@ ensure-servers:
 	else \
 	  echo "starting backend..."; \
 	  ( cd backend && setsid nohup $(RUN_NPM_SCRIPT) dev > /tmp/sql-ledger-ts-backend.log 2>&1 < /dev/null & echo $$! > $(BACKEND_PID) ); \
+	  for i in $$(seq 1 30); do curl -sf http://localhost:3001/api/health > /dev/null 2>&1 && break; sleep 1; done; \
+	fi
+	@if $(FRONTEND_HEALTHY); then \
+	  echo "frontend already healthy, reusing (pid $$(cat $(FRONTEND_PID)))"; \
+	else \
+	  echo "starting frontend..."; \
+	  ( cd frontend && setsid nohup $(RUN_NPM_SCRIPT) dev > /tmp/sql-ledger-ts-frontend.log 2>&1 < /dev/null & echo $$! > $(FRONTEND_PID) ); \
+	  for i in $$(seq 1 30); do curl -sf http://localhost:5173 > /dev/null 2>&1 && break; sleep 1; done; \
+	fi
+
+# The exact, same, real, detached-server pattern as ensure-servers
+# above, but for the one, real, recurring case that one had no answer
+# for at all: driving the real UI path (Playwright) against a
+# database with only the one, real, dummy "My Business" - no Wine
+# Retail Business, no BMW/Peugeot/Ditta/Schweizer - the exact, same
+# real data `make dev-no-demo` gives a person at a real keyboard, but
+# detached, so a real, unattended script (step-runner's own `--path
+# ui`, among others) can depend on it the same way every other
+# screenshot/Playwright target already depends on `ensure-servers`.
+# Reuses the real, same pid files - `stop-servers` below works on a
+# server started either way, and `servers-status` reports it the same
+# way too. Never silently reuses an already-running backend that was
+# started WITHOUT this flag (demo businesses already loaded) - a
+# stale, wrongly-seeded server is worse than a slow, correct restart,
+# so this target always stops the existing backend first when it
+# can't tell which flag it was started with.
+ensure-servers-no-demo:
+	@mkdir -p $(PID_DIR)
+	@if [ -f $(BACKEND_PID) ] && kill -0 $$(cat $(BACKEND_PID)) 2>/dev/null && ! grep -q 'SEED_DEMO_BUSINESSES=false' /proc/$$(cat $(BACKEND_PID))/environ 2>/dev/null; then \
+	  echo "backend is running without SEED_DEMO_BUSINESSES=false - stopping it first (this target never reuses a wrongly-seeded server)"; \
+	  PID=$$(cat $(BACKEND_PID)); kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; rm -f $(BACKEND_PID); \
+	  pkill -9 -f "tsx watch src/server.ts" 2>/dev/null || true; \
+	fi
+	@if $(BACKEND_HEALTHY); then \
+	  echo "backend already healthy (SEED_DEMO_BUSINESSES=false), reusing (pid $$(cat $(BACKEND_PID)))"; \
+	else \
+	  echo "starting backend with SEED_DEMO_BUSINESSES=false..."; \
+	  ( cd backend && setsid nohup env SEED_DEMO_BUSINESSES=false $(RUN_NPM_SCRIPT) dev > /tmp/sql-ledger-ts-backend.log 2>&1 < /dev/null & echo $$! > $(BACKEND_PID) ); \
 	  for i in $$(seq 1 30); do curl -sf http://localhost:3001/api/health > /dev/null 2>&1 && break; sleep 1; done; \
 	fi
 	@if $(FRONTEND_HEALTHY); then \

@@ -515,6 +515,26 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
   try {
     const screen = screens.get(step.screen_name);
     const args = buildArgs(step, screen);
+    // A real, honest failure, not a silent no-op: if screens.csv has no
+    // real UI wiring at all for this screen (no ui_path/open_selector to
+    // reach it, no submit_selector to commit it, and no field actually
+    // has a field_selector to drive), there is genuinely no UI
+    // interaction this function can perform. Previously this fell
+    // through every `if` below untouched and returned `ok: true` having
+    // done nothing - a confirmed, real false-positive that let UI-path
+    // runs report success for steps the browser never touched. Fail
+    // loudly instead, so --fallback-to-api (and a plain run) see the
+    // truth.
+    const hasAnyRealUiWiring = !!(
+      screen &&
+      (screen.ui_path || screen.open_selector || screen.submit_selector || screen.fields.some((f) => f.field_selector))
+    );
+    if (!hasAnyRealUiWiring) {
+      return {
+        ok: false,
+        error: `screens.csv has no real UI wiring (ui_path/open_selector/submit_selector/field_selector) for screen "${step.screen_name}" - only api_function is set, so there is no browser interaction to perform. This screen's UI path has never actually been implemented/tested.`,
+      };
+    }
     if (screen?.ui_path && !page.url().endsWith(screen.ui_path)) await page.goto(screen.ui_path);
     if (screen?.open_selector) {
       await page.locator(screen.open_selector).click();
@@ -560,7 +580,7 @@ async function main() {
   const args = process.argv.slice(2);
   const dataPath = args[0];
   if (!dataPath) {
-    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME]');
+    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api]');
     process.exit(1);
   }
   const screensPath = args.includes('--screens') ? args[args.indexOf('--screens') + 1] : dataPath.replace(/[^/]+$/, 'screens.csv');
@@ -574,6 +594,13 @@ async function main() {
   const screenshotDir = args.includes('--screenshot-dir') ? args[args.indexOf('--screenshot-dir') + 1] : 'docs/manual-images-tutorial';
   const inlineVerify = args.includes('--verify') ? args[args.indexOf('--verify') + 1] : undefined;
   const inlineScreenshot = args.includes('--screenshot') ? args[args.indexOf('--screenshot') + 1] : undefined;
+  // Per direct request: a real UI step that fails is retried once,
+  // immediately, via the API path, so one, real, still-broken UI
+  // interaction doesn't block every later step that genuinely depends
+  // on this one's data existing. Off by default - a pure --path ui
+  // run still reports every real UI failure as a real failure, never
+  // silently papered over, unless this is explicitly asked for.
+  const fallbackToApi = args.includes('--fallback-to-api');
 
   const screens = loadScreens(screensPath);
   let allSteps = loadSteps(dataPath);
@@ -621,8 +648,23 @@ async function main() {
     for (const step of batch) {
       const stepPath = step.path || path;
       if (step.comment) console.log(`\n# ${step.comment}`);
-      const result = stepPath === 'ui' ? await runStepViaUi(await ensureUiPage(), step, screens, screenshotDir) : runStepViaApi(step, screens);
+      let result = stepPath === 'ui' ? await runStepViaUi(await ensureUiPage(), step, screens, screenshotDir) : runStepViaApi(step, screens);
       console.log(result.ok ? `✅ ${step.index}: ${step.screen_name} (${stepPath})` : `❌ ${step.index}: ${step.screen_name} (${stepPath}): ${result.error}`);
+      // Per direct request: a real UI step that fails is retried once,
+      // immediately, via the API path - the same, real, live backend
+      // and database the browser's own session is already pointed at
+      // (never a separate one), so the fallback's own effect is
+      // genuinely visible to the next, real UI step. Reported as its
+      // own, distinct, real line - never silently folded into the
+      // original UI result - so a reader can tell "the UI genuinely
+      // works" from "the UI is broken here, the API covered for it."
+      if (!result.ok && stepPath === 'ui' && fallbackToApi) {
+        const apiResult = runStepViaApi(step, screens);
+        console.log(apiResult.ok
+          ? `   ↳ ✅ ${step.index}: ${step.screen_name} (api fallback, after ui failure)`
+          : `   ↳ ❌ ${step.index}: ${step.screen_name} (api fallback also failed): ${apiResult.error}`);
+        result = apiResult;
+      }
       if (!result.ok && !nonInteractive) {
         const cont = await prompt('Step failed. Continue anyway? [y/N] ');
         if (cont.trim().toLowerCase() !== 'y') { if (browser) await browser.close(); return; }

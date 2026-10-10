@@ -223,6 +223,21 @@ confirmed directly: the first capture in a fresh run took ~22s
 (server startup included), the next, immediately after, ~12s (servers
 reused).
 
+**`make ensure-servers-no-demo`** is the exact, same, real, detached
+pattern as `ensure-servers`, for the one, real, recurring case that one
+has no answer for: driving the real UI path (`step-runner.ts --path
+ui`, or any Playwright run) against a database with only the one,
+real, dummy "My Business" — no Wine Retail Business, no BMW/Peugeot/
+Ditta/Schweizer — the exact, same, real data `make dev-no-demo` gives a
+person at a real keyboard, but detached, so an unattended script can
+depend on it. Reuses the exact, same, real pid files — `servers-status`
+and `stop-servers` work on a server started either way. **Never
+silently reuses a backend already running without this flag** (demo
+businesses already loaded): it checks the already-running backend's own
+real environment (`/proc/<pid>/environ`) for `SEED_DEMO_BUSINESSES=false`
+and, if that check can't confirm it, stops and restarts the backend
+rather than risk running a no-demo test against a wrongly-seeded one.
+
 **A real, confirmed bug, found directly, not assumed**: `make
 stop-servers` originally only killed the single, top-level pid
 recorded by `setsid nohup npm run dev & echo $! > $PID_FILE` — never

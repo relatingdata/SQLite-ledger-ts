@@ -136,6 +136,11 @@ step-runner <data.csv> [--screens screens.csv] [options]
                                for verify/screenshot, since no flags apply per-step)
   --delay MS                  real pause between UI-path steps (default: 5000)
   --ui                        open Playwright's own Inspector (--path ui only)
+  --fallback-to-api           when a --path ui step fails, immediately retry the same
+                               step via the real API call, in the same database, leaving
+                               the browser session untouched; the fallback's own outcome
+                               is reported as a distinct, clearly-labeled line ("   ↳ ..."),
+                               never folded into the UI step's own result
   --screenshot-dir DIR        where real screenshots are saved
   --verify NAME                (single-step mode) the real check to run after this step
   --screenshot NAME             (single-step mode) the real screenshot name for this step
@@ -717,3 +722,83 @@ since a step's own control-file `path` always takes precedence. This
 defeated the whole purpose of `test-e2e-tutorial` as a browser-free target.
 Fixed by leaving `path` blank in the control file, deferring to whichever
 real `--path` the caller actually asked for.
+
+## 18. A real, serious, confirmed gap in `runStepViaUi` itself, found and fixed — and the two genuine UI bugs it had been hiding
+
+Per direct instruction: run the full, real, 26-step tutorial via `--path ui`,
+falling back to `--path api` whenever a UI step genuinely fails, and confirm
+whether a failing UI step fails *completely* enough to retry safely. The
+first such run reported **26/26 ✅** with zero fallbacks triggered — and yet
+the resulting database held **zero rows across `journal`, `journal_line`,
+and `journal_entry_staging`, combined.** Every money-moving step (Stage
+Journal Line, Post Journal Entry, Cash Purchase, POS Sale, Cash Sale, Close
+Books, Rollover, and more) had silently done nothing.
+
+**The real root cause, confirmed directly**, not assumed: `runStepViaUi`'s
+own success detection only ever caught a thrown Playwright exception or an
+explicit `verify` registry failure — it never checked whether *any* real
+browser interaction actually took place. `screens.csv` has real UI wiring
+(`ui_path`/`open_selector`/`field_selector`/`submit_selector`) for only 5 of
+the tutorial's 19 distinct screen types (Login, Select Business, Switch
+Session, Create Business, Create Location, Create Item); the other 14 have
+only `api_function` set, every UI column genuinely blank. `runStepViaUi`'s own
+field loop and submit guard silently skip everything for these rows — the
+function does nothing at all and still returns `{ ok: true }`. Confirmed by
+a throwaway Playwright trace script (section 4 of `docs/
+programmer-tooling.md`'s own documented technique), driving the real
+`runStepViaUi` with `page.on('console'/'requestfinished'/'requestfailed')`
+handlers attached: zero network requests fired for Create Employee or any
+step from Stage Journal Line onward.
+
+**Fixed**: `runStepViaUi` now fails honestly (`{ ok: false, error: '...no
+real UI wiring...' }`) when a screen has none of the four UI columns set at
+all, rather than silently returning success having done nothing. A new
+`--fallback-to-api` CLI flag (section 6) retries the exact same step via the
+real API call, in the same database, the moment a UI step fails, reporting
+the fallback's own outcome as a distinct, clearly-labeled line.
+
+**With both fixes in place, re-run from a fresh database, the UI run is now
+honest, and reveals two genuine, confirmed UI bugs** (full detail in `docs/
+api-e2e-readiness-and-seed-separation-plan.md` Part 3):
+
+1. **Create Location, back-to-back ("Main Street Cellar")**: the real browser
+   genuinely times out after 30s waiting for `button:has-text('+ New
+   Location')` to become clickable again, right after using the same button
+   moments earlier for "Head Office" — a real frontend bug in the
+   create-location flow, not a selector or test-runner problem (the same
+   selector worked correctly the first time). **This step does not fail
+   completely**: the location is already created server-side by the time the
+   UI step reports failure — with its name and carton-capacity structure, but
+   genuinely missing its bottle-capacity structure — so the API fallback
+   correctly, safely refuses to duplicate it ("already exists under this
+   real, same parent") rather than making it worse, but leaves the missing
+   structure unrepaired. This directly, confirmedly cascades into a real
+   failure three steps later: Open Container's own "no real bottle shelving"
+   check correctly refuses to open a carton into a location that never got
+   its bottle capacity set.
+2. **The 14 screens with no real UI wiring at all** (above): these fail
+   *completely*, in the good sense — nothing is attempted, nothing is
+   written — so the API fallback for every one of them is genuinely safe,
+   and every one succeeded cleanly.
+
+Confirmed directly: with the fix and fallback in place, the resulting
+database now has 28 real journal entries / 58 journal lines (previously
+zero), a correctly-located "Jordan Lee" employee (previously missing
+entirely), and a real, balanced trial balance for "Tutorial Wine Retail
+Business" after Close Books and Rollover — the only residual defect being
+"Main Street Cellar"'s missing bottle-capacity structure, a direct,
+confirmed consequence of bug 1 above, not of the fallback mechanism itself.
+
+**Not yet done, stated honestly**: the real frontend bug behind finding 1
+(what state — modal, toast, pending navigation — blocks the "+ New Location"
+button immediately after a successful creation) has not been investigated
+inside the Svelte component itself. Real UI wiring for the 14 screens listed
+above has not been built — until it is, their UI path is correctly reported
+as "not implemented" rather than silently passing. `runStepViaUi` still
+cannot distinguish a fully-successful submission from one whose request the
+browser aborted client-side while the server still processed it correctly
+(seen directly in the pre-fix trace for both Create Location's and Create
+Item's own submissions: both showed `net::ERR_ABORTED`, yet both left
+correct server-side state) — the same shape of blind spot that made finding
+1 possible to miss in the first place, worth closing generally, not only for
+today's two findings.
