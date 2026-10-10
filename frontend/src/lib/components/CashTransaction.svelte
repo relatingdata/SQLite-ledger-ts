@@ -15,16 +15,15 @@
     listLocations,
     getEntityTree,
     listItems,
-    completePosSale,
     resolveCashTransactionAccounts,
+    resolveSaleAccounts,
     receiveStock,
+    dispatchStock,
     stageLine,
     postJournalEntry,
     asBusinessName,
     asLedgerName,
     asLocationName,
-    asProviderName,
-    asCustomerName,
     asAccountName,
     asItemName,
     ApiError,
@@ -32,7 +31,7 @@
     type EntityNode,
     type ItemSummary,
   } from '$lib/api';
-  import { cashPurchaseLines, freshReference } from '$lib/canned-journal';
+  import { cashPurchaseLines, posSaleLines, freshReference } from '$lib/canned-journal';
 
   let { direction }: { direction: 'purchase' | 'sale' } = $props();
 
@@ -197,16 +196,75 @@
         const totalMinor = purchaseLines.reduce((s, l) => s + l.quantity * l.unitPriceMinor + l.taxMinor, 0);
         result = { invoiceId: 0, reference, totalMinor };
       } else {
-        result = await completePosSale({
+        // Per docs/canned-journal-to-frontend-design.md Phase 1: the
+        // exact, same real pattern as the purchase branch above,
+        // mirrored for the sale side — the canned account selection
+        // moves client-side (posSaleLines), the backend is only asked
+        // to resolve/create the real Sales/COGS/Inventory accounts
+        // (plus each item's own, real, known per-unit cost) and to
+        // dispatch the real, physical stock. Per the real precedent
+        // already established and committed for Cash Purchase: a real,
+        // immediate-cash sale creates no genuine invoice/receivable
+        // record at all, just a direct journal posting plus the real,
+        // physical stock side effect.
+        const saleLines = commonLines.map((l) => ({ ...l, itemName: l.itemName as string }));
+        const resolved = await resolveSaleAccounts({
+          business: asBusinessName(business),
+          locationName: asLocationName(locationName),
+          items: saleLines.map((l) => ({ itemName: l.itemName })),
+          wantCashAccount: !!paymentMethod,
+        });
+        if (!resolved.cashAccount) throw new Error('No payment account resolved for this sale.');
+        const reference = freshReference('CASHSALE');
+        const built = posSaleLines({
+          lines: saleLines,
+          salesAccounts: resolved.salesAccounts,
+          cogsAccounts: resolved.cogsAccounts,
+          inventoryAccounts: resolved.inventoryAccounts,
+          unitCostMinor: resolved.unitCostMinor,
+          taxAccount,
+          cashAccount: resolved.cashAccount,
+        });
+        // Dispatched first, deliberately, before anything is staged or
+        // posted: dispatchStock is the one, real step genuinely likely
+        // to fail (not enough real stock on hand) — a failed dispatch
+        // must never leave a real, posted journal entry behind for
+        // stock that was never actually sent out.
+        await dispatchStock({
           business: asBusinessName(business),
           ledger: asLedgerName(ledger),
+          reference,
           locationName: asLocationName(locationName),
-          customerName: asCustomerName(partyName),
-          lines: commonLines,
-          taxAccount,
-          paymentMethod,
+          lines: saleLines.map((l) => ({ itemName: l.itemName, quantity: l.quantity })),
           transdate,
         }, 'Cash Sale');
+        for (const line of built.lines) {
+          await stageLine({
+            reference,
+            business: asBusinessName(business),
+            ledger: asLedgerName(ledger),
+            transdate,
+            account: asAccountName(line.account),
+            amount_minor: line.amount_minor,
+          }, 'Cash Sale');
+        }
+        await postJournalEntry(reference, asBusinessName(business), asLedgerName(ledger), 'Cash Sale');
+        if (built.cogsLines.length > 0) {
+          const cogsReference = `${reference}-COGS`;
+          for (const line of built.cogsLines) {
+            await stageLine({
+              reference: cogsReference,
+              business: asBusinessName(business),
+              ledger: asLedgerName(ledger),
+              transdate,
+              account: asAccountName(line.account),
+              amount_minor: line.amount_minor,
+            }, 'Cash Sale');
+          }
+          await postJournalEntry(cogsReference, asBusinessName(business), asLedgerName(ledger), 'Cash Sale');
+        }
+        const totalMinor = saleLines.reduce((s, l) => s + l.quantity * l.unitPriceMinor + l.taxMinor, 0);
+        result = { invoiceId: 0, reference, totalMinor };
       }
       lines = [];
     } catch (e) {

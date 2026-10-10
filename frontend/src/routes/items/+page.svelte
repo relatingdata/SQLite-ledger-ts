@@ -21,10 +21,14 @@
     ApiError,
     listLocations,
     getHierarchy,
-    receiveItems,
+    receiveIntoStorageStock,
+    resolveReceiveAccounts,
+    stageLine,
+    postJournalEntry,
     asBusinessName,
     asLedgerName,
     asLocationName,
+    asAccountName,
     type EntityNode,
     type ItemSummary,
     type Item,
@@ -32,6 +36,7 @@
     type LocationRecord,
     type HierarchyGroupingWithValues,
   } from '$lib/api';
+  import { receiveIntoStorageLines, freshReference } from '$lib/canned-journal';
 
   let entities: EntityNode[] = $state([]);
   let items: ItemSummary[] = $state([]);
@@ -100,16 +105,46 @@
     receiveError = '';
     receiveMessage = '';
     try {
-      const reference = `RECEIVE-${selectedName}-${Date.now()}`;
-      await receiveItems(asLocationName(receiveLocation), {
-        business: asBusinessName(session.current.businessName),
-        ledger: asLedgerName(session.current.ledgerName),
+      // Per docs/canned-journal-to-frontend-design.md Phase 1: the
+      // real, physical quantity movement (and, for a real,
+      // combination-tracked receipt, the real parallel units-on-hand
+      // count tracking) is done first, deliberately, before anything
+      // else is staged or posted — receiveIntoStorageStock is the one,
+      // real step genuinely likely to fail. The canned account
+      // selection for the real dollar VALUE entry (only ever relevant
+      // for a combination-tracked receipt) is computed here,
+      // client-side, by the one, shared receiveIntoStorageLines
+      // function — the backend is only asked to resolve/create the
+      // real Inventory account (a real, stateful side effect).
+      const business = asBusinessName(session.current.businessName);
+      const ledger = asLedgerName(session.current.ledgerName);
+      const quantity = Number(receiveQuantity);
+      const combinationValues = receiveGrouping && receiveStorageValue ? [receiveStorageValue] : undefined;
+      const combinationShape: [string, string][] | undefined = receiveGrouping && receiveStorageValue ? [[receiveGrouping, receiveGrouping]] : undefined;
+      const reference = freshReference(`RECEIVE-${selectedName}`);
+      await receiveIntoStorageStock(asLocationName(receiveLocation), {
+        business,
+        ledger,
         reference,
         itemName: asItemName(selectedName),
-        quantity: Number(receiveQuantity),
-        combinationValues: receiveGrouping && receiveStorageValue ? [receiveStorageValue] : undefined,
-        combinationShape: receiveGrouping && receiveStorageValue ? [[receiveGrouping, receiveGrouping]] : undefined,
+        quantity,
+        combinationValues,
+        combinationShape,
       }, 'Receive Into Storage');
+      const resolved = await resolveReceiveAccounts({
+        business,
+        itemName: asItemName(selectedName),
+        combinationValues,
+        combinationShape,
+      });
+      const builtLines = receiveIntoStorageLines({ quantity, resolved });
+      if (builtLines.length > 0) {
+        const valueReference = `${reference}-VALUE`;
+        for (const line of builtLines) {
+          await stageLine({ reference: valueReference, business, ledger, account: asAccountName(line.account), amount_minor: line.amount_minor }, 'Receive Into Storage');
+        }
+        await postJournalEntry(valueReference, business, ledger, 'Receive Into Storage');
+      }
       receiveMessage = translations.current['Stock received.'] ?? 'Stock received.';
       receiveQuantity = '';
     } catch (e) {

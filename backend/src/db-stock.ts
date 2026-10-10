@@ -857,6 +857,112 @@ export function receiveItems(
   })();
 }
 
+export interface ReceiveStockPhysicalInput {
+  business: BusinessName;
+  ledger: LedgerName;
+  reference: string;
+  itemName: ItemName;
+  locationName: LocationName;
+  quantity: number;
+  transdate?: string;
+  combinationValues?: string[];
+  combinationShape?: [string, string][];
+}
+
+/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+ * physical-and-unit-tracking half of receiveItems only — the real
+ * quantity movement, the real location-capacity adjustment, and (for
+ * a real, combination-tracked receipt) the real, parallel "units on
+ * hand" count tracking (its own, separate, non-dollar real currency —
+ * UNITS-<combination>, not a journal entry in any ordinary, dollar
+ * sense) — with no real dollar VALUE journal entry of any kind. The
+ * real dollar Inventory/Accounts-Payable VALUE entry a combination
+ * receipt also used to post (see receiveIntoStorageLines in
+ * frontend/src/lib/canned-journal.ts) is posted separately, from the
+ * frontend, through the exact, same generic
+ * /journal/staging+/journal/post calls the General Journal screen's
+ * own "Save" button uses.
+ *
+ * receiveItems itself is deliberately left completely unchanged —
+ * every other real caller (Cash Purchase's own /pos/receive-stock
+ * endpoint, the tutorial's own proof scripts, every existing test) is
+ * a genuine backend-to-backend call with no browser-side canned-
+ * journal step of its own to post that VALUE entry instead. */
+export function receiveStockPhysical(input: ReceiveStockPhysicalInput, userId: UserId): void {
+  const { business, ledger, reference, itemName, locationName, quantity, transdate, combinationValues, combinationShape } = input;
+  if (quantity <= 0) throw new ValidationError('Received quantity must be positive.');
+  const itemId = resolveItemId(itemName);
+  if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
+  const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
+  if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
+
+  db.transaction(() => {
+    const date = transdate ?? todayAtLocation(locationName);
+    assertPeriodOpen(business, ledger, date);
+    const { onOrderAccount, onOrderAccountId } = ensureItemQuantityAccounts(itemName, userId);
+    stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, locationName);
+    stageQuantityMovementLine(business, ledger, reference, asAccountName(onOrderAccount), -quantity, date, undefined, onOrderAccountId);
+    postStagedQuantityMovement(business, ledger, reference, userId);
+    adjustLocationCapacity(business, ledger, locationName, itemName, quantity, date, userId, reference);
+
+    if (combinationValues && combinationShape) {
+      const instanceTop = ensureProductInstance(business, combinationShape, combinationValues, userId);
+      const { onHandId, receivedFromId } = ensureUnitsTrackingBaseAccounts(business, userId);
+      const unitsOnHand = ensureCombinationAccountLeaf('On Hand', instanceTop, userId, onHandId);
+      const receivedFrom = ensureCombinationAccountLeaf('On Hand', instanceTop, userId, receivedFromId);
+      const unitsCurrency = `UNITS-${combinationValues.join('-').toUpperCase()}`;
+      setAccountCurrency(unitsOnHand.name, unitsCurrency, unitsOnHand.id);
+      setAccountCurrency(receivedFrom.name, unitsCurrency, receivedFrom.id);
+      const countRef = `${reference}-COUNT`;
+      stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(unitsOnHand.name), accountId: unitsOnHand.id, amount_minor: quantity, memo: `Combination stock receipt (count): ${itemName}` });
+      stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(receivedFrom.name), accountId: receivedFrom.id, amount_minor: -quantity, memo: `Combination stock receipt (count): ${itemName}` });
+      postJournalEntry(countRef, business, ledger, userId);
+    }
+  })();
+}
+
+export interface ResolvedReceiveAccounts {
+  /** The real, combination-tier Inventory account the item's dollar
+   * value is received into — the exact, same real, stateful account
+   * creation (ensureProductInstance/ensureCombinationAccountLeaf)
+   * receiveItems's own combination-receipt VALUE block already does. */
+  inventoryAccount: string;
+  /** The real, control Accounts Payable account — the exact, same,
+   * real name receiveItems's own combination-receipt VALUE block
+   * already posts to. */
+  payableAccount: string;
+  /** This item's known, real per-unit cost, or null when no real cost
+   * is known yet — the frontend then posts no real VALUE journal
+   * entry at all, never a fabricated cost, the exact, same real
+   * behavior receiveItems's own combination-receipt VALUE block
+   * already used. */
+  unitCostMinor: number | null;
+}
+
+/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+ * account-resolution counterpart to receiveStock/resolveSaleAccounts/
+ * etc. for Receive Into Storage — only ever relevant for a real,
+ * combination-tracked receipt (an ordinary, plain receipt posts no
+ * real dollar journal entry at all, before or after this migration,
+ * so this returns null for one). No division/category of any kind is
+ * ever resolved or returned here. */
+export function resolveReceiveAccounts(
+  business: BusinessName,
+  itemName: ItemName,
+  combinationShape: [string, string][] | undefined,
+  combinationValues: string[] | undefined,
+  userId: UserId
+): ResolvedReceiveAccounts | null {
+  if (!combinationShape || !combinationValues) return null;
+  const instanceTop = ensureProductInstance(business, combinationShape, combinationValues, userId);
+  const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, userId, resolveBusinessCoaAccountId(business, 'Inventory'));
+  return {
+    inventoryAccount: invLeaf.name,
+    payableAccount: 'Accounts Payable',
+    unitCostMinor: getItemUnitCostMinor(itemName),
+  };
+}
+
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function dispatchItems(
   business: BusinessName,
@@ -999,6 +1105,62 @@ export function transferItems(
     stageLine({ reference: countRef, business, ledger, transdate: date, account: asAccountName(toUnits.name), accountId: toUnits.id, amount_minor: quantity, memo: `Combination transfer (count): ${itemName}` });
     postJournalEntry(countRef, business, ledger, asUserId(userId));
   }
+  })();
+}
+
+export interface TransferStockInput {
+  business: BusinessName;
+  ledger: LedgerName;
+  itemName: ItemName;
+  fromLocationName: LocationName;
+  toLocationName: LocationName;
+  quantity: number;
+  reference: string;
+  transdate?: string;
+}
+
+/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+ * physical half of an ordinary (non-combination) stock transfer only —
+ * the real quantity movement and real location-capacity adjustment,
+ * with no real dollar VALUE journal entry of any kind, and the exact,
+ * same real validation transferItems already does (same city, enough
+ * real stock on hand). The real Stock Transfer screen's own canned,
+ * dollar-value VALUE entry (see transferLines in
+ * frontend/src/lib/canned-journal.ts) is posted separately, from the
+ * frontend, through the exact, same generic
+ * /journal/staging+/journal/post calls the General Journal screen's
+ * own "Save" button uses.
+ *
+ * transferItems itself is deliberately left completely unchanged —
+ * every other real caller (restocking, the tutorial's own proof
+ * scripts, every existing test) is a genuine backend-to-backend call
+ * with no browser-side canned-journal step of its own to post that
+ * VALUE entry instead, so it still needs transferItems to do the
+ * whole, real job itself, VALUE entry included. */
+export function transferStock(input: TransferStockInput, userId: UserId): void {
+  const { business, ledger, itemName, fromLocationName, toLocationName, quantity, reference, transdate } = input;
+  if (quantity <= 0) throw new ValidationError('Transfer quantity must be positive.');
+  const fromLoc = getLocation(fromLocationName, business);
+  const toLoc = getLocation(toLocationName, business);
+  if (!fromLoc) throw new ValidationError(`No location named "${fromLocationName}".`);
+  if (!toLoc) throw new ValidationError(`No location named "${toLocationName}".`);
+  if (fromLoc.city !== toLoc.city) {
+    throw new ValidationError(`"${fromLocationName}" (${fromLoc.city}) and "${toLocationName}" (${toLoc.city}) are in different cities — a transfer can only move stock within the same city.`);
+  }
+  const current = getItemLocation(itemName, fromLocationName);
+  if (quantity > current.quantity_on_hand) {
+    throw new ValidationError(`Only ${current.quantity_on_hand} of "${itemName}" on hand at "${fromLocationName}" — cannot transfer ${quantity}.`);
+  }
+  resolveItemId(itemName); // validates the real item exists; throws otherwise
+
+  const date = transdate ?? todayAtLocation(fromLocationName);
+  assertPeriodOpen(business, ledger, date);
+  db.transaction(() => {
+    stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), -quantity, date, fromLocationName);
+    stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, toLocationName);
+    postStagedQuantityMovement(business, ledger, reference, userId);
+    adjustLocationCapacity(business, ledger, fromLocationName, itemName, -quantity, date, userId, reference);
+    adjustLocationCapacity(business, ledger, toLocationName, itemName, quantity, date, userId, reference);
   })();
 }
 

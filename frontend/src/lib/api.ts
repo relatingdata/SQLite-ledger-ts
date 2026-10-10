@@ -1222,6 +1222,31 @@ export const openStorageContainer = (input: {
   reference?: string;
 }, screenName?: string) => request<void>('/locations/open-container', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
+// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+// account-resolution counterpart to openStorageContainer above — the
+// Open Container screen's own, frontend-driven canned journal flow
+// uses this to resolve/create every real account it needs, then posts
+// both of its own real journal entries itself via stageLine/
+// postJournalEntry.
+export interface ResolvedOpenContainerAccounts {
+  containerSpaceAccount: string;
+  containerOccupiedAccount: string;
+  unitSpaceAccount: string;
+  unitOccupiedAccount: string;
+  inventoryFromAccount: string;
+  inventoryToAccount: string;
+  unitCostMinor: number | null;
+}
+export const resolveOpenContainerAccounts = (input: {
+  business: string;
+  location: string;
+  item: string;
+  definitionDimensions: [string, string][];
+  containerValues: string[];
+  unitValues: string[];
+}, screenName?: string) =>
+  request<ResolvedOpenContainerAccounts>('/locations/resolve-open-container-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
+
 // Per docs/multicurrency-design.md: a location's own, real, nominated
 // SET of further currencies it trades in. Nearly every real location
 // returns an empty array here.
@@ -1286,6 +1311,28 @@ export const receiveItems = (
   screenName?: string
 ) => request<void>(`/locations/${encodeURIComponent(locationName)}/receive`, { method: 'POST', body: JSON.stringify(input) }, screenName);
 
+// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+// physical-and-unit-tracking-only counterpart to receiveItems above —
+// the Receive Into Storage screen's own, frontend-driven canned
+// journal flow posts its own real dollar VALUE entry itself (a real,
+// combination-tracked receipt only), then calls this endpoint only for
+// the real, physical side effect.
+export const receiveIntoStorageStock = (
+  locationName: LocationName,
+  input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] },
+  screenName?: string
+) => request<void>(`/locations/${encodeURIComponent(locationName)}/receive-stock`, { method: 'POST', body: JSON.stringify(input) }, screenName);
+
+export interface ResolvedReceiveAccounts {
+  inventoryAccount: string;
+  payableAccount: string;
+  unitCostMinor: number | null;
+}
+export const resolveReceiveAccounts = (
+  input: { business: BusinessName; itemName: ItemName; combinationValues?: string[]; combinationShape?: [string, string][] },
+  screenName?: string
+) => request<ResolvedReceiveAccounts | null>('/locations/resolve-receive-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
+
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
 // export const dispatchItems = (
 //   locationName: LocationName,
@@ -1294,6 +1341,23 @@ export const receiveItems = (
 
 export const transferItems = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string }, screenName?: string) =>
   request<void>('/locations/transfer', { method: 'POST', body: JSON.stringify(input) }, screenName);
+
+// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+// narrow, physical-only counterpart to transferItems above — the Stock
+// Transfer screen's own, frontend-driven canned journal flow posts its
+// own real dollar VALUE entry itself (see transferLines in
+// canned-journal.ts), then calls this endpoint only for the real,
+// physical quantity-movement/location-capacity side effect.
+export const transferStock = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string; transdate?: string }, screenName?: string) =>
+  request<void>('/locations/transfer-stock', { method: 'POST', body: JSON.stringify(input) }, screenName);
+
+export interface ResolvedTransferAccounts {
+  fromInventoryAccount: string;
+  toInventoryAccount: string;
+  unitCostMinor: number | null;
+}
+export const resolveTransferAccounts = (input: { business: BusinessName; itemName: ItemName; fromLocationName: string; toLocationName: string }, screenName?: string) =>
+  request<ResolvedTransferAccounts>('/locations/resolve-transfer-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
 export interface BelowReorderRow {
   item: string;
@@ -1472,6 +1536,34 @@ export const receiveStock = (input: {
   lines: { itemName: string; quantity: number }[];
   transdate?: string;
 }, screenName?: string) => request<void>('/pos/receive-stock', { method: 'POST', body: JSON.stringify(input) }, screenName);
+
+// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+// sale-side counterpart to the two above — resolving/creating the real
+// Sales/COGS/Inventory accounts (plus each item's own, real, known
+// per-unit cost) and the real, physical stock-dispatch side effect.
+export interface ResolvedSaleAccounts {
+  salesAccounts: Record<string, string>;
+  cogsAccounts: Record<string, string>;
+  inventoryAccounts: Record<string, string>;
+  unitCostMinor: Record<string, number | null>;
+  cashAccount?: string;
+}
+export const resolveSaleAccounts = (input: {
+  business: BusinessName;
+  locationName: LocationName;
+  items: { itemName: string; tier?: string }[];
+  wantCashAccount: boolean;
+}, screenName?: string) =>
+  request<ResolvedSaleAccounts>('/pos/resolve-sale-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
+
+export const dispatchStock = (input: {
+  business: BusinessName;
+  ledger: LedgerName;
+  reference: string;
+  locationName: LocationName;
+  lines: { itemName: string; quantity: number }[];
+  transdate?: string;
+}, screenName?: string) => request<void>('/pos/dispatch-stock', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
 export interface PayWagesResult {
   invoiceId: number;

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
 import { getItemByUpc, getCombinationByUpc, completePosSale, completeCashPurchase, payEmployeeWages, getOrganizationChart, asBusinessName, asLedgerName, asLocationName, asCustomerName, asProviderName, asAccountName, asItemName, ValidationError, NotFoundError,
-  asUserId, resolveCashTransactionAccounts, receiveItems,
+  asUserId, resolveCashTransactionAccounts, receiveItems, resolveSaleAccounts, dispatchItems, resolveDispatchLocation,
 } from '../db.js';
 import { createPosTerminal, listPosTerminals, setTerminalCurrency } from '../db-stock.js';
 
@@ -154,6 +154,37 @@ posRouter.post('/resolve-cash-transaction-accounts', requireRole('Administrator'
   }
 });
 
+// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+// sale-side counterpart to /resolve-cash-transaction-accounts above —
+// resolves/creates the real Sales/COGS/Inventory leaves a canned Cash
+// Sale needs, plus each item's own, real, known per-unit cost.
+const resolveSaleAccountsSchema = z.object({
+  business: z.string().min(1),
+  locationName: z.string().min(1),
+  items: z.array(z.object({ itemName: z.string().min(1), tier: z.string().optional() })).min(1),
+  wantCashAccount: z.boolean(),
+});
+
+posRouter.post('/resolve-sale-accounts', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = resolveSaleAccountsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const result = resolveSaleAccounts(
+      asBusinessName(parsed.data.business),
+      asLocationName(parsed.data.locationName),
+      parsed.data.items,
+      asUserId(req.user!.id),
+      parsed.data.wantCashAccount
+    );
+    res.json(result);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not resolve accounts.' });
+  }
+});
+
 const receiveStockSchema = z.object({
   business: z.string().min(1),
   ledger: z.string().min(1),
@@ -186,6 +217,42 @@ posRouter.post('/receive-stock', requireRole('Administrator', 'Bookkeeper'), (re
     if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not receive stock.' });
+  }
+});
+
+const dispatchStockSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  reference: z.string().min(1),
+  locationName: z.string().min(1),
+  lines: z.array(z.object({ itemName: z.string().min(1), quantity: z.number().int().positive() })).min(1),
+  transdate: z.string().optional(),
+});
+
+posRouter.post('/dispatch-stock', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = dispatchStockSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const { business, ledger, reference, locationName, lines, transdate } = parsed.data;
+    for (const line of lines) {
+      const itemName = asItemName(line.itemName);
+      dispatchItems(
+        asBusinessName(business),
+        asLedgerName(ledger),
+        `${reference}-DISPATCH-${line.itemName}`,
+        itemName,
+        resolveDispatchLocation(itemName, asLocationName(locationName)),
+        line.quantity,
+        asUserId(req.user!.id),
+        transdate
+      );
+    }
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not dispatch stock.' });
   }
 });
 

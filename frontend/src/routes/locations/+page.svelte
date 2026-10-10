@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getEntityTree, listLocations, saveLocation, createLocation, createEntity, asBusinessName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, getHierarchy, convertStorageSpace, openStorageContainer, type EntityNode, type LocationRecord, type HierarchyGroupingWithValues } from '$lib/api';
+  import { getEntityTree, listLocations, saveLocation, createLocation, createEntity, asBusinessName, asLedgerName, asAccountName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, getHierarchy, convertStorageSpace, resolveOpenContainerAccounts, stageLine, postJournalEntry, type EntityNode, type LocationRecord, type HierarchyGroupingWithValues } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { session } from '$lib/state.svelte';
+  import { openContainerLines, freshReference } from '$lib/canned-journal';
   import AddressList from '$lib/components/AddressList.svelte';
   import PhoneList from '$lib/components/PhoneList.svelte';
   import ContactList from '$lib/components/ContactList.svelte';
@@ -94,17 +95,54 @@
     storageActionError = '';
     storageActionMessage = '';
     try {
-      await openStorageContainer({
+      // Per docs/canned-journal-to-frontend-design.md Phase 1: the
+      // canned account selection (which account, how much) is now
+      // computed here, client-side, by the one, shared
+      // openContainerLines function — the backend is only asked to
+      // resolve/create the real storage-space and Inventory accounts
+      // (a real, stateful side effect); the actual posting goes
+      // through the exact, same, generic journal staging+post calls
+      // the General Journal screen's own "Save" button uses. Opening a
+      // container has no real physical stock-quantity side effect of
+      // its own (it only reclassifies which real tier the same real
+      // stock already sits in), so there is no separate "do the real
+      // side effect" call needed here, unlike Transfer/Dispatch.
+      const business = asBusinessName(session.current.businessName);
+      const ledger = asLedgerName(session.current.ledgerName);
+      const definitionDimensions: [string, string][] = [[openContainerGrouping, openContainerGrouping]];
+      const cartonsOpened = Number(openContainerCartonsOpened) || 1;
+      const unitsProduced = Number(openContainerUnitsProduced) || 0;
+      const resolved = await resolveOpenContainerAccounts({
         business: session.current.businessName,
-        ledger: session.current.ledgerName,
         location: selectedName,
         item: openContainerItem,
-        definitionDimensions: [[openContainerGrouping, openContainerGrouping]],
+        definitionDimensions,
         containerValues: [openContainerFrom],
-        cartonsOpened: Number(openContainerCartonsOpened) || 1,
         unitValues: [openContainerTo],
-        unitsProduced: Number(openContainerUnitsProduced) || 0,
-      }, 'Open Container');
+      });
+      const built = openContainerLines({
+        cartonsOpened,
+        unitsProduced,
+        containerSpaceAccount: resolved.containerSpaceAccount,
+        containerOccupiedAccount: resolved.containerOccupiedAccount,
+        unitSpaceAccount: resolved.unitSpaceAccount,
+        unitOccupiedAccount: resolved.unitOccupiedAccount,
+        inventoryFromAccount: resolved.inventoryFromAccount,
+        inventoryToAccount: resolved.inventoryToAccount,
+        unitCostMinor: resolved.unitCostMinor,
+      });
+      const reference = freshReference('STORAGE-OPEN');
+      for (const line of built.spaceLines) {
+        await stageLine({ reference, business, ledger, account: asAccountName(line.account), amount_minor: line.amount_minor }, 'Open Container');
+      }
+      await postJournalEntry(reference, business, ledger, 'Open Container');
+      if (built.valueLines.length > 0) {
+        const valueReference = `${reference}-ITEM-VALUE`;
+        for (const line of built.valueLines) {
+          await stageLine({ reference: valueReference, business, ledger, account: asAccountName(line.account), amount_minor: line.amount_minor }, 'Open Container');
+        }
+        await postJournalEntry(valueReference, business, ledger, 'Open Container');
+      }
       storageActionMessage = translations.current['Container opened.'] ?? 'Container opened.';
       openContainerUnitsProduced = '';
     } catch (e) {

@@ -3005,6 +3005,93 @@ export function openStorageContainer(
   }
 }
 
+export interface ResolvedOpenContainerAccounts {
+  /** The real, currency-tagged Storage-Capacity "Remaining"/"Occupied"
+   * account names for the container's own tier (e.g. "Carton") and the
+   * unit tier it's opened into (e.g. "Bottle") — the real, stateful
+   * combination-account creation (ensureProductInstance/
+   * ensureCombinationAccountLeaf/setAccountCurrency) openStorageContainer
+   * itself already does, done here instead so the frontend can build
+   * the deterministic space-movement lines against already-real,
+   * already-existing accounts. */
+  containerSpaceAccount: string;
+  containerOccupiedAccount: string;
+  unitSpaceAccount: string;
+  unitOccupiedAccount: string;
+  /** The real, tier-scoped Inventory accounts the item's own dollar
+   * value moves between — the exact, same resolution
+   * openStorageContainer's own item-value block already does. */
+  inventoryFromAccount: string;
+  inventoryToAccount: string;
+  /** This item's known, real per-unit cost, or null when no real cost
+   * is known yet — the frontend then posts no real Inventory-value
+   * entry at all, never a fabricated cost, the exact, same real
+   * behavior openStorageContainer's own item-value block already
+   * used. */
+  unitCostMinor: number | null;
+}
+
+/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+ * account-resolution counterpart to resolveCashTransactionAccounts/
+ * resolveSaleAccounts/resolveTransferAccounts for Open Container —
+ * unlike those, opening a container has no real physical
+ * quantity-on-hand side effect at all (it only reclassifies which
+ * real storage-space/Inventory tier the same real stock already sits
+ * in), so there is no separate "do the real side effect" endpoint
+ * needed here: once every real account below genuinely exists, both
+ * of Open Container's own real journal entries (the space movement,
+ * and the dollar Inventory-value movement) are a deterministic,
+ * given-the-form's-own-inputs computation — frontend/src/lib/
+ * canned-journal.ts's openContainerLines. No division/category of any
+ * kind is ever resolved or returned here. */
+export function resolveOpenContainerAccounts(
+  business: BusinessName,
+  locationName: LocationName,
+  itemName: ItemName,
+  definitionDimensions: [string, string][],
+  containerValues: string[],
+  unitValues: string[],
+  userId: UserId
+): ResolvedOpenContainerAccounts {
+  const loc = getLocation(locationName, business);
+  if (!loc) throw new ValidationError(`No location named "${locationName}".`);
+  if (!loc.bottle_capacity) {
+    throw new ValidationError(`"${locationName}" has no real bottle shelving (bottle capacity is not set) - a sealed carton cannot be opened into loose bottles here, since there is nowhere for them to go.`);
+  }
+  if (!resolveItemId(itemName)) throw new ValidationError(`No item named "${itemName}".`);
+
+  const storageRoot = ensureLocationStorageRoot(business, locationName, userId);
+  const { remainingId, occupiedId } = ensureStorageCapacityStructure(storageRoot, userId);
+  const containerInstance = ensureProductInstance(business, definitionDimensions, containerValues, userId);
+  const unitInstance = ensureProductInstance(business, definitionDimensions, unitValues, userId);
+  const containerSpace = ensureCombinationAccountLeaf('Remaining', containerInstance, userId, remainingId);
+  const containerOccupied = ensureCombinationAccountLeaf('Occupied', containerInstance, userId, occupiedId);
+  const unitSpace = ensureCombinationAccountLeaf('Remaining', unitInstance, userId, remainingId);
+  const unitOccupied = ensureCombinationAccountLeaf('Occupied', unitInstance, userId, occupiedId);
+
+  const containerCurrency = `SPACE-${containerValues.join('-').toUpperCase()}`;
+  const unitCurrency = `SPACE-${unitValues.join('-').toUpperCase()}`;
+  setAccountCurrency(containerSpace.name, containerCurrency, containerSpace.id);
+  setAccountCurrency(containerOccupied.name, containerCurrency, containerOccupied.id);
+  setAccountCurrency(unitSpace.name, unitCurrency, unitSpace.id);
+  setAccountCurrency(unitOccupied.name, unitCurrency, unitOccupied.id);
+
+  const fromTier = containerValues.join(' ');
+  const toTier = unitValues.join(' ');
+  const fromInv = ensureItemLocationInventoryAccount(itemName, locationName, userId, fromTier, business);
+  const toInv = ensureItemLocationInventoryAccount(itemName, locationName, userId, toTier, business);
+
+  return {
+    containerSpaceAccount: containerSpace.name,
+    containerOccupiedAccount: containerOccupied.name,
+    unitSpaceAccount: unitSpace.name,
+    unitOccupiedAccount: unitOccupied.name,
+    inventoryFromAccount: fromInv.inventoryAccount,
+    inventoryToAccount: toInv.inventoryAccount,
+    unitCostMinor: getItemUnitCostMinor(itemName),
+  };
+}
+
 /** Per direct instruction: real, business-scoped listing functions
  * for the frontend to actually use this mechanism through -
  * "Hierarchy" and "Product" are real, bare, non-globally-unique names
@@ -3701,6 +3788,125 @@ export function resolveCashTransactionAccounts(
   return {
     inventoryAccounts,
     cashAccount: wantCashAccount ? resolveCashAtBankAccount(business, undefined, userId).name : undefined,
+  };
+}
+
+export interface ResolvedSaleAccounts {
+  /** itemName (+ " (" + tier + ")" when a tier was given) -> that
+   * line's real, tier/location-aware Sales Revenue account — the
+   * exact, same account resolution completePosSale's own revenueAccount
+   * resolver closure used to compute server-side. */
+  salesAccounts: Record<string, string>;
+  /** Same keying -> that line's real COGS account. */
+  cogsAccounts: Record<string, string>;
+  /** Same keying -> that line's real, location-scoped Inventory
+   * account — the real credit side of the COGS entry, the exact, same
+   * account resolveCashTransactionAccounts already resolves for the
+   * purchase side. */
+  inventoryAccounts: Record<string, string>;
+  /** Same keying -> that item's known, real per-unit cost, or null
+   * when no real cost is known yet — the frontend then posts no real
+   * COGS/Inventory line for that line at all, never a fabricated cost,
+   * the exact, same real behavior completePosSale's own COGS loop
+   * already used. */
+  unitCostMinor: Record<string, number | null>;
+  /** The real Cash-and-Bank account to post the full, immediate
+   * payment against — only resolved when paymentMethod was actually
+   * given. */
+  cashAccount?: string;
+}
+
+/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+ * sale-side counterpart to resolveCashTransactionAccounts — the one,
+ * real, narrow piece of "which account" that cannot move to the
+ * frontend (does this real, tier/location-qualified Sales/COGS/
+ * Inventory leaf already exist, and if not, create it) plus the one,
+ * real, stateful fact the frontend has no other way to learn (this
+ * item's known, real per-unit cost). Everything else about a canned
+ * Cash Sale's own journal entry is a deterministic, given-the-form's-
+ * own-inputs computation (frontend/src/lib/canned-journal.ts). No
+ * division/category of any kind is ever resolved or returned here —
+ * a journal entry never carries one; every real dimension is already
+ * baked into the account's own name. */
+export function resolveSaleAccounts(
+  business: BusinessName,
+  locationName: LocationName,
+  items: { itemName: string; tier?: string }[],
+  userId: UserId,
+  wantCashAccount: boolean
+): ResolvedSaleAccounts {
+  const salesAccounts: Record<string, string> = {};
+  const cogsAccounts: Record<string, string> = {};
+  const inventoryAccounts: Record<string, string> = {};
+  const unitCostMinor: Record<string, number | null> = {};
+  for (const { itemName, tier } of items) {
+    const key = tier ? `${itemName} (${tier})` : itemName;
+    if (tier) {
+      const tierItem = ensureItemTier(asItemName(itemName), tier, userId, business);
+      const leaf = ensureItemTierLocationLeaf(tierItem.tierItemName, locationName, userId, tierItem.tierItemId);
+      salesAccounts[key] = leaf.salesAccount;
+      cogsAccounts[key] = leaf.cogsAccount;
+    } else {
+      const leaf = ensureItemLocationLeaf(asItemName(itemName), locationName, userId, business);
+      salesAccounts[key] = leaf.salesAccount;
+      cogsAccounts[key] = leaf.cogsAccount;
+    }
+    const { inventoryAccount } = ensureItemLocationInventoryAccount(asItemName(itemName), locationName, userId, tier, business);
+    inventoryAccounts[key] = inventoryAccount;
+    unitCostMinor[key] = getItemUnitCostMinor(asItemName(itemName));
+  }
+  return {
+    salesAccounts,
+    cogsAccounts,
+    inventoryAccounts,
+    unitCostMinor,
+    cashAccount: wantCashAccount ? resolveCashAtBankAccount(business, undefined, userId).name : undefined,
+  };
+}
+
+export interface ResolvedTransferAccounts {
+  /** The real, location-scoped Inventory account the item's value is
+   * currently sitting in — the exact, same account
+   * resolveCashTransactionAccounts already resolves for the purchase
+   * side. */
+  fromInventoryAccount: string;
+  /** The real, location-scoped Inventory account that value moves
+   * into. */
+  toInventoryAccount: string;
+  /** This item's known, real per-unit cost, or null when no real cost
+   * is known yet — the frontend then posts no real VALUE journal
+   * entry for this transfer at all (only the real, physical
+   * quantity-movement side effect, done separately via transferStock),
+   * never a fabricated cost, the exact, same real behavior
+   * transferItems's own plain, non-combination VALUE-posting branch
+   * already used. */
+  unitCostMinor: number | null;
+}
+
+/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+ * transfer-side counterpart to resolveCashTransactionAccounts/
+ * resolveSaleAccounts — the one, real, narrow piece of "which account"
+ * that cannot move to the frontend (does this real, location-
+ * qualified Inventory leaf already exist at either real location, and
+ * if not, create it) plus the one, real, stateful fact the frontend
+ * has no other way to learn (this item's known, real per-unit cost).
+ * The real, physical quantity movement and location-capacity
+ * adjustment stay entirely server-side (see transferStock) — neither
+ * of those is a journal entry at all. No division/category of any
+ * kind is ever resolved or returned here. */
+export function resolveTransferAccounts(
+  business: BusinessName,
+  itemName: ItemName,
+  fromLocationName: LocationName,
+  toLocationName: LocationName,
+  userId: UserId
+): ResolvedTransferAccounts {
+  const { inventoryAccount: fromInventoryAccount } = ensureItemLocationInventoryAccount(itemName, fromLocationName, userId, undefined, business);
+  const { inventoryAccount: toInventoryAccount } = ensureItemLocationInventoryAccount(itemName, toLocationName, userId, undefined, business);
+  return {
+    fromInventoryAccount,
+    toInventoryAccount,
+    unitCostMinor: getItemUnitCostMinor(itemName),
   };
 }
 

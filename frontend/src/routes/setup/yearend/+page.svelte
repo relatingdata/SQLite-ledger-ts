@@ -299,9 +299,4 @@
   .division-list li {
     margin: 0.1rem 0;
   }
-  .line-division {
-    color: var(--ink-soft);
-    font-size: var(--font-size-base);
-    font-style: italic;
-  }
 </style>

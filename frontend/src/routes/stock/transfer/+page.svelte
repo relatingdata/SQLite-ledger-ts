@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { listLocations, listItems, getItemLocation, transferItems, asBusinessName, asLedgerName, asItemName, asLocationName, ApiError, type LocationRecord, type ItemSummary, type ItemLocationLevels } from '$lib/api';
+  import { listLocations, listItems, getItemLocation, resolveTransferAccounts, transferStock, stageLine, postJournalEntry, asBusinessName, asLedgerName, asItemName, asLocationName, asAccountName, ApiError, type LocationRecord, type ItemSummary, type ItemLocationLevels } from '$lib/api';
   import { session } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
   import Form from '$lib/components/Form.svelte';
+  import { transferLines } from '$lib/canned-journal';
 
   let locations: LocationRecord[] = $state([]);
   let items: ItemSummary[] = $state([]);
@@ -62,18 +63,58 @@
     const itemName = String(v.item ?? '');
     const fromLocation = String(v.fromLocation ?? '');
     const toLocation = String(v.toLocation ?? '');
-    const quantity = String(v.quantity ?? '');
+    const quantity = Math.round(Math.abs(Number(v.quantity ?? '')));
+    const reference = String(v.reference ?? '');
     if (!itemName || !fromLocation || !toLocation) return;
     try {
-      await transferItems({
-        business: asBusinessName(session.current?.businessName ?? ''),
-        ledger: asLedgerName(session.current?.ledgerName ?? ''),
+      const business = asBusinessName(session.current?.businessName ?? '');
+      const ledger = asLedgerName(session.current?.ledgerName ?? '');
+      // Per docs/canned-journal-to-frontend-design.md Phase 1: the
+      // real, physical quantity movement is done first, deliberately,
+      // before anything is staged or posted — transferStock is the one,
+      // real step genuinely likely to fail (not enough real stock on
+      // hand, or the two real locations aren't actually in the same
+      // city), and a failed transfer must never leave a real, posted
+      // dollar journal entry behind for stock that never actually
+      // moved. The canned account selection (which account, how much)
+      // for the real dollar VALUE entry is computed here, client-side,
+      // by the one, shared transferLines function — the backend is
+      // only asked to resolve/create the real Inventory accounts (a
+      // real, stateful side effect) and to move the real stock.
+      await transferStock({
+        business,
+        ledger,
         itemName: asItemName(itemName),
         fromLocationName: asLocationName(fromLocation),
         toLocationName: asLocationName(toLocation),
-        quantity: Math.round(Math.abs(Number(quantity))),
-        reference: String(v.reference ?? ''),
+        quantity,
+        reference,
       }, 'Transfer Items');
+      const resolved = await resolveTransferAccounts({
+        business,
+        itemName: asItemName(itemName),
+        fromLocationName: asLocationName(fromLocation),
+        toLocationName: asLocationName(toLocation),
+      });
+      const builtLines = transferLines({
+        quantity,
+        fromInventoryAccount: resolved.fromInventoryAccount,
+        toInventoryAccount: resolved.toInventoryAccount,
+        unitCostMinor: resolved.unitCostMinor,
+      });
+      if (builtLines.length > 0) {
+        const valueReference = `${reference}-VALUE`;
+        for (const line of builtLines) {
+          await stageLine({
+            reference: valueReference,
+            business,
+            ledger,
+            account: asAccountName(line.account),
+            amount_minor: line.amount_minor,
+          }, 'Transfer Items');
+        }
+        await postJournalEntry(valueReference, business, ledger, 'Transfer Items');
+      }
       values.quantity = '';
       values.reference = '';
       await checkFromQty();
@@ -87,7 +128,7 @@
 
 <fieldset class="page-title">
   <legend>{translations.current['Stock Transfer'] ?? 'Stock Transfer'}</legend>
-  <p class="intro">{translations.current['Move stock between two locations in the same city — a warehouse dispatching to its local retail outlets, for example. Not a sale: no GL entry, no revenue, no customer, just stock moving between places this business controls.'] ?? 'Move stock between two locations in the same city — a warehouse dispatching to its local retail outlets, for example. Not a sale: no GL entry, no revenue, no customer, just stock moving between places this business controls.'}</p>
+  <p class="intro">{translations.current['Move stock between two locations in the same city — a warehouse dispatching to its local retail outlets, for example. Not a sale: no revenue, no customer, just the item\'s own real Inventory value moving between the two real, location-scoped accounts it sits in, along with the physical stock itself.'] ?? 'Move stock between two locations in the same city — a warehouse dispatching to its local retail outlets, for example. Not a sale: no revenue, no customer, just the item\'s own real Inventory value moving between the two real, location-scoped accounts it sits in, along with the physical stock itself.'}</p>
 
   {#if loading}
   <p>Loading…</p>

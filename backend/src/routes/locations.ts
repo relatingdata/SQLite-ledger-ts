@@ -10,10 +10,15 @@ import {
   getItemLocation,
   setItemLocationLevels,
   receiveItems,
+  receiveStockPhysical,
+  resolveReceiveAccounts,
   convertStorageSpace,
   openStorageContainer,
   dispatchItems,
   transferItems,
+  transferStock,
+  resolveTransferAccounts,
+  resolveOpenContainerAccounts,
   getBelowReorderStock,
   getStockOutRiskReport,
   setItemSourceLeadTime,
@@ -137,6 +142,47 @@ locationsRouter.post('/open-container', requireRole('Administrator', 'Bookkeeper
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not open container.' });
+  }
+});
+
+// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+// account-resolution counterpart to /open-container above — resolves/
+// creates every real storage-space and Inventory account Open
+// Container needs, so the frontend-driven Open Container screen can
+// build and post both of its own real journal entries (the space
+// movement, and the dollar Inventory-value movement) itself, through
+// the generic /journal/staging+/journal/post calls. /open-container
+// itself is left completely unchanged for every other, real,
+// backend-to-backend caller (the tutorial's own step-runner, every
+// existing test).
+const resolveOpenContainerAccountsSchema = z.object({
+  business: z.string().min(1),
+  location: z.string().min(1),
+  item: z.string().min(1),
+  definitionDimensions: z.array(z.tuple([z.string(), z.string()])),
+  containerValues: z.array(z.string()),
+  unitValues: z.array(z.string()),
+});
+locationsRouter.post('/resolve-open-container-accounts', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = resolveOpenContainerAccountsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    const result = resolveOpenContainerAccounts(
+      asBusinessName(d.business),
+      asLocationName(d.location),
+      asItemName(d.item),
+      d.definitionDimensions,
+      d.containerValues,
+      d.unitValues,
+      asUserId(req.user!.id)
+    );
+    res.json(result);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not resolve accounts.' });
   }
 });
 
@@ -285,6 +331,64 @@ locationsRouter.post('/:name/receive', requireRole('Administrator', 'Bookkeeper'
   }
 });
 
+// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+// physical-and-unit-tracking-only counterpart to /:name/receive above —
+// used by the frontend-driven Receive Into Storage screen, which posts
+// its own real dollar VALUE entry itself (a real, combination-tracked
+// receipt only — an ordinary, plain receipt has no dollar journal
+// entry at all, before or after this migration). /:name/receive itself
+// is left completely unchanged for every other, real, backend-to-
+// backend caller (Cash Purchase's own /pos/receive-stock, proof
+// scripts, every existing test).
+locationsRouter.post('/:name/receive-stock', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = movementSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    receiveStockPhysical(
+      {
+        business: asBusinessName(d.business),
+        ledger: asLedgerName(d.ledger),
+        reference: d.reference,
+        itemName: asItemName(d.itemName),
+        locationName: asLocationName(req.params.name),
+        quantity: d.quantity,
+        transdate: d.transdate,
+        combinationValues: d.combinationValues,
+        combinationShape: d.combinationShape,
+      },
+      asUserId(req.user!.id)
+    );
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not receive stock.' });
+  }
+});
+
+const resolveReceiveAccountsSchema = z.object({
+  business: z.string().min(1),
+  itemName: z.string().min(1),
+  combinationValues: z.array(z.string()).optional(),
+  combinationShape: z.array(z.tuple([z.string(), z.string()])).optional(),
+});
+
+locationsRouter.post('/resolve-receive-accounts', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = resolveReceiveAccountsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    const result = resolveReceiveAccounts(asBusinessName(d.business), asItemName(d.itemName), d.combinationShape, d.combinationValues, asUserId(req.user!.id));
+    res.json(result);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not resolve accounts.' });
+  }
+});
+
 locationsRouter.post('/:name/dispatch', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
   const parsed = movementSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
@@ -321,6 +425,68 @@ locationsRouter.post('/transfer', requireRole('Administrator', 'Bookkeeper'), (r
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not transfer stock.' });
+  }
+});
+
+// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
+// narrow, physical-only counterpart to /transfer above — quantity
+// movement and location-capacity adjustment only, no real dollar
+// VALUE journal entry, used by the frontend-driven Stock Transfer
+// screen, which posts that VALUE entry itself via the generic
+// /journal/staging+/journal/post calls. /transfer itself is left
+// completely unchanged for every other, real, backend-to-backend
+// caller (restocking, proof scripts, every existing test).
+locationsRouter.post('/transfer-stock', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = transferSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    transferStock(
+      {
+        business: asBusinessName(d.business),
+        ledger: asLedgerName(d.ledger),
+        itemName: asItemName(d.itemName),
+        fromLocationName: asLocationName(d.fromLocationName),
+        toLocationName: asLocationName(d.toLocationName),
+        quantity: d.quantity,
+        reference: d.reference,
+        transdate: d.transdate,
+      },
+      asUserId(req.user!.id)
+    );
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not transfer stock.' });
+  }
+});
+
+const resolveTransferAccountsSchema = z.object({
+  business: z.string().min(1),
+  itemName: z.string().min(1),
+  fromLocationName: z.string().min(1),
+  toLocationName: z.string().min(1),
+});
+
+locationsRouter.post('/resolve-transfer-accounts', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = resolveTransferAccountsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const d = parsed.data;
+    const result = resolveTransferAccounts(
+      asBusinessName(d.business),
+      asItemName(d.itemName),
+      asLocationName(d.fromLocationName),
+      asLocationName(d.toLocationName),
+      asUserId(req.user!.id)
+    );
+    res.json(result);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not resolve accounts.' });
   }
 });
 

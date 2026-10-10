@@ -64,6 +64,159 @@ export function cashPurchaseLines(input: {
   return result;
 }
 
+/** Cash Sale's real, canned shape — the exact, same account selection
+ * completePosSale's own revenueAccount resolver closure and COGS loop
+ * used to compute server-side, split into two separate results since
+ * the real backend always posted these as two separate journal
+ * entries (the main sale entry, and a second, COGS-only entry, posted
+ * only when at least one line's real per-unit cost is actually known):
+ * credit each item's own, real Sales Revenue account for that line's
+ * amount; credit the real tax account for the total tax, if any; debit
+ * the real Cash-and-Bank account for the grand total. Separately,
+ * for every line whose real per-unit cost is known, debit that item's
+ * own COGS account and credit its own, real, location-scoped
+ * Inventory account for the real cost of goods sold — a genuinely new
+ * product with no known cost yet simply posts no COGS/Inventory line
+ * for itself, never a fabricated cost. No division/category field
+ * anywhere — every real dimension already lives in the account's own
+ * name. */
+export function posSaleLines(input: {
+  lines: { itemName: string; quantity: number; unitPriceMinor: number; taxMinor: number; tier?: string }[];
+  salesAccounts: Record<string, string>;
+  cogsAccounts: Record<string, string>;
+  inventoryAccounts: Record<string, string>;
+  unitCostMinor: Record<string, number | null>;
+  taxAccount: string;
+  cashAccount: string;
+}): { lines: CannedLine[]; cogsLines: CannedLine[] } {
+  const lines: CannedLine[] = [];
+  const cogsLines: CannedLine[] = [];
+  let taxTotal = 0;
+  let grandTotal = 0;
+  for (const l of input.lines) {
+    const key = l.tier ? `${l.itemName} (${l.tier})` : l.itemName;
+    const salesAccount = input.salesAccounts[key];
+    if (!salesAccount) throw new Error(`No resolved Sales Revenue account for "${key}".`);
+    const amount = l.quantity * l.unitPriceMinor;
+    lines.push({ account: salesAccount, amount_minor: -amount });
+    taxTotal += l.taxMinor;
+    grandTotal += amount + l.taxMinor;
+
+    const unitCost = input.unitCostMinor[key];
+    if (unitCost != null) {
+      const lineCogs = l.quantity * unitCost;
+      if (lineCogs > 0) {
+        const cogsAccount = input.cogsAccounts[key];
+        const inventoryAccount = input.inventoryAccounts[key];
+        if (!cogsAccount || !inventoryAccount) throw new Error(`No resolved COGS/Inventory account for "${key}".`);
+        cogsLines.push({ account: cogsAccount, amount_minor: lineCogs });
+        cogsLines.push({ account: inventoryAccount, amount_minor: -lineCogs });
+      }
+    }
+  }
+  if (taxTotal !== 0) lines.push({ account: input.taxAccount, amount_minor: -taxTotal });
+  lines.push({ account: input.cashAccount, amount_minor: grandTotal });
+  return { lines, cogsLines };
+}
+
+/** Stock Transfer's real, canned shape — the exact, same real dollar
+ * movement transferItems's own plain, non-combination VALUE-posting
+ * branch used to compute server-side: credit the item's real,
+ * location-scoped Inventory account at the source location for the
+ * real cost of the quantity moved, debit the real, matching Inventory
+ * account at the destination. Returns an empty line list when this
+ * item's own, real per-unit cost isn't known yet — the exact, same
+ * real behavior that branch already used (no fabricated cost, no
+ * entry posted at all), leaving only the real, physical stock
+ * movement (transferStock) to actually happen. No division/category
+ * field anywhere — each account's own name already carries its real
+ * location. */
+export function transferLines(input: {
+  quantity: number;
+  fromInventoryAccount: string;
+  toInventoryAccount: string;
+  unitCostMinor: number | null;
+}): CannedLine[] {
+  if (input.unitCostMinor == null) return [];
+  const valueMinor = input.quantity * input.unitCostMinor;
+  if (valueMinor <= 0) return [];
+  return [
+    { account: input.fromInventoryAccount, amount_minor: -valueMinor },
+    { account: input.toInventoryAccount, amount_minor: valueMinor },
+  ];
+}
+
+/** Open Container's real, canned shape — the exact, same two, real,
+ * independent journal entries openStorageContainer itself used to
+ * compute server-side, returned separately since they're genuinely
+ * posted as two separate journal entries (the real storage-space
+ * movement always posts; the real dollar Inventory-value movement
+ * only posts when this item's own, real per-unit cost is actually
+ * known — never a fabricated cost): the container's own real
+ * "Remaining" space increases and its "Occupied" space decreases by
+ * cartonsOpened (space freed, the container is now empty); the unit's
+ * own real "Remaining" space decreases and its "Occupied" space
+ * increases by unitsProduced (space taken up by the newly-loose
+ * units) — no contra accounting of any kind, per direct instruction.
+ * Separately, the same, real dollar Inventory value simply moves
+ * directly from the container tier's own Inventory account to the
+ * unit tier's own Inventory account, the same real dollar value just
+ * re-tagged. No division/category field anywhere. */
+export function openContainerLines(input: {
+  cartonsOpened: number;
+  unitsProduced: number;
+  containerSpaceAccount: string;
+  containerOccupiedAccount: string;
+  unitSpaceAccount: string;
+  unitOccupiedAccount: string;
+  inventoryFromAccount: string;
+  inventoryToAccount: string;
+  unitCostMinor: number | null;
+}): { spaceLines: CannedLine[]; valueLines: CannedLine[] } {
+  const spaceLines: CannedLine[] = [
+    { account: input.containerSpaceAccount, amount_minor: input.cartonsOpened },
+    { account: input.containerOccupiedAccount, amount_minor: -input.cartonsOpened },
+    { account: input.unitSpaceAccount, amount_minor: -input.unitsProduced },
+    { account: input.unitOccupiedAccount, amount_minor: input.unitsProduced },
+  ];
+  let valueLines: CannedLine[] = [];
+  if (input.unitCostMinor != null) {
+    const valueMinor = input.unitsProduced * input.unitCostMinor;
+    if (valueMinor > 0) {
+      valueLines = [
+        { account: input.inventoryFromAccount, amount_minor: -valueMinor },
+        { account: input.inventoryToAccount, amount_minor: valueMinor },
+      ];
+    }
+  }
+  return { spaceLines, valueLines };
+}
+
+/** Receive Into Storage's real, canned shape — relevant only for a
+ * real, combination-tracked receipt (an ordinary, plain receipt posts
+ * no real dollar journal entry at all, before or after this
+ * migration): the exact, same real dollar movement receiveItems's own
+ * combination-receipt VALUE block used to compute server-side — debit
+ * the item's own, real, combination-tier Inventory account for the
+ * real cost of the quantity received, credit the real, control
+ * Accounts Payable account. Returns an empty line list when either no
+ * combination was given, or this item's own, real per-unit cost isn't
+ * known yet — the exact, same real behavior that block already used
+ * (no fabricated cost, no entry posted at all). No division/category
+ * field anywhere. */
+export function receiveIntoStorageLines(input: {
+  quantity: number;
+  resolved: { inventoryAccount: string; payableAccount: string; unitCostMinor: number | null } | null;
+}): CannedLine[] {
+  if (!input.resolved || input.resolved.unitCostMinor == null) return [];
+  const valueMinor = input.quantity * input.resolved.unitCostMinor;
+  if (valueMinor <= 0) return [];
+  return [
+    { account: input.resolved.inventoryAccount, amount_minor: valueMinor },
+    { account: input.resolved.payableAccount, amount_minor: -valueMinor },
+  ];
+}
+
 /** A real, fresh, unique reference for a canned entry built client-side
  * — the same shape (`<PREFIX>-<timestamp>-<random>`) the backend's own
  * canned functions used to generate server-side. */
