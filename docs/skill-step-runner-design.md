@@ -416,6 +416,94 @@ same, real kind of action, finalizing something already staged); `Create Item`'s
 `Create Entity` rows (`name`, `parent`), the real, generic shape `createEntity`'s own route actually
 has — never a screen-specific one.
 
+## 11b-ii. Critical correction, made explicit before any further work: staging rows are never independently real — the UI never stages a line until it already holds a complete, balanced entry to submit
+
+**11b above describes the `--path api` replay model only, and is correct for that path.** It must
+never be read as a description of what the real, live General Journal screen does when a human (or
+Playwright, driving that same real screen) uses it — those are two genuinely different things, and
+conflating them was a real, confirmed mistake.
+
+**The real, corrected rule, stated plainly, so it cannot be missed again:** `POST /journal/staging`
+is a real endpoint, but it is never meaningful, and never called, on its own, while a line is still
+being composed. The real General Journal page (`/post`) holds every line the user is building
+**only in client-side state**, in memory, in the browser — not on the server — until the user has
+entered a **complete, balanced** entry (debits equal credits, per `docs/journal-api-reference.md`'s
+own balance rule) and clicks the one, real "Save" action. Only then does the real frontend fire the
+real HTTP calls at all: one `POST /journal/staging` per line, immediately followed by one
+`POST /journal/post` — all within the same, single, atomic user action, back to back, never paused
+or left half-done between them. There is no real browser state, ever, in which the server holds some
+but not all of an entry's lines while the user is still working. An unbalanced, incomplete entry
+produces **zero** network calls, not a partial one — confirmed directly: clicking the local
+"insert line" control with only one line entered made no request at all (no `/api/journal/*` traffic
+of any kind), because that control only appends to the in-page array; it does not touch the network.
+
+**What this means for driving the real, live UI (the `--path ui` step runner), as opposed to replaying
+over the API directly:** the `Stage Journal Line` / `Post Journal Entry` screens.csv rows **do not
+each correspond to a separate, real UI submission**, even though they correspond to separate, real
+HTTP calls on the `--path api` side. On the UI side, the correct, real interaction is: open the
+General Journal screen once; for each `Stage Journal Line` row, fill that row's fields into the
+on-page line builder and press the real "insert another line" action (no submit, no network call
+expected — this is purely local state); only on the final `Post Journal Entry` row does the runner
+click the one, real "Save" button — and that single click is what fires every real
+`POST /journal/staging` call plus the final `POST /journal/post` call together, because that is the
+only moment the real browser ever does so. **A `--path ui` design that expects a network round trip,
+a screenshot-worthy state change, or any server-visible effect after each individual
+`Stage Journal Line` row is driving against a model of the screen that does not exist in the real
+application, and will never pass.** The same rule applies to `Stage Purchase Order` / `Post Purchase
+Order` if and when that screen's real UI turns out to follow the same staged-then-posted shape —
+confirm its real, live behavior the same way before wiring it, rather than assuming the API-path
+shape carries over.
+
+**The one, narrow fix this requires in `runStepViaUi`/`screens.csv`, not yet built:** a `Stage
+Journal Line` row's real UI action is "fill these fields into the builder row, then press insert" —
+it must never have a `submit_selector` that expects to end the step (there is nothing to wait for on
+the network); only `Post Journal Entry`'s row carries the real `submit_selector` for the screen's one,
+real "Save" button, and that click is the step that must be awaited for a real, server-visible
+effect (a new journal entry, confirmed via `GET /api/journal`).
+
+### Testing strategy for the General Journal API — the two paths must assert different things, at different moments, on purpose
+
+The `--path api` path and the `--path ui` path are not two ways of testing the same moments; they
+are testing two genuinely different real surfaces (direct HTTP vs. the real browser), and each one's
+assertions must match what is actually real on that surface. Treating them as interchangeable is the
+mistake that produced this whole correction, so the testing strategy states it separately, per path:
+
+- **`--path api` (direct HTTP replay) — every row IS independently real, and must be asserted as
+  such.** Each `Stage Journal Line` row really does send its own, separate, real
+  `POST /journal/staging` call, and the server really does hold it durably the moment that call
+  returns — this is the one real path where mid-sequence server state genuinely exists and is
+  correct to check. The test strategy here: after each `Stage Journal Line` call, it is valid (and
+  useful, for catching regressions) to call `GET /journal/staging/:reference/:business/:ledger`
+  directly and confirm the line just sent is present; after the final `Post Journal Entry` call,
+  confirm via `GET /api/journal` that a real, posted entry now exists, and separately confirm an
+  **unbalanced** attempt (debits ≠ credits) is rejected by `POST /journal/post` with the real
+  `PostingError`/409 the route already returns — this is the one, real, server-side guard the whole
+  "never partially real" rule depends on, so a passing test suite must exercise it directly, not
+  just assume it.
+
+- **`--path ui` (driving the real, live browser) — nothing is real, and nothing must be asserted,
+  until the one, final "Save" click.** Between opening the General Journal screen and clicking
+  "Save," the test must not assert against the server at all — there is genuinely nothing there to
+  find, and a test that polls `/journal/staging` mid-sequence here is testing a server state that
+  the real application never produces. The correct sequence: fill each line's fields into the
+  on-page builder, press the real "insert another line" control, and move straight to the next
+  line — asserting only that the row now appears **in the page itself** (its own, local DOM state,
+  via `page.locator(...)`, never a network call) if any mid-sequence assertion is wanted at all.
+  Only after the one, real "Save" click does a server-side assertion become valid — at that point,
+  and only that point, `GET /api/journal` should show the new, posted entry, exactly as the
+  `--path api` path's own final assertion does. A screenshot captured for a `Stage Journal Line`
+  step is therefore a screenshot of the growing, in-page builder (showing the row was added
+  locally), never a "saved" or "posted" state; the one screenshot that should show a real, saved
+  journal entry is the `Post Journal Entry` step's own, after the Save click resolves.
+
+- **Both paths must agree on the one thing that is really, server-side true in both: the final,
+  posted result.** The two paths never need to agree on what happens in between — because in
+  between, they are testing two different real things (the server's own staging table on the API
+  path; nothing at all, by design, on the UI path) — but they must both converge on the same,
+  single, real check at the end: the posted entry exists, is balanced, and its two lines hit the
+  two correct accounts for the correct amounts. That final convergence, not the intermediate steps,
+  is what makes the two paths comparable test strategies for the same real feature.
+
 ## 11c. The real, path-aware field-source resolver — built, every tracked screen now checked and confirmed
 
 `FieldSource` (`backend/src/recording.ts`) gained an optional, real `path` — a sequence of array

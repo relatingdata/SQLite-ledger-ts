@@ -67,6 +67,7 @@ journalRouter.post('/staging', requireRole('Administrator', 'Bookkeeper'), (req,
     });
     res.status(204).end();
   } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not stage line.' });
   }

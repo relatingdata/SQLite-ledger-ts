@@ -699,24 +699,16 @@ export interface ARAPBaseInput {
   description?: string;
 }
 
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const stageARSale = (input: ARAPBaseInput & { customer: string }) =>
-//   request<void>('/arap/ar-sale/stage', { method: 'POST', body: JSON.stringify(input) });
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const postARSale = (reference: string, business: BusinessName, ledger: LedgerName) =>
-//   request<void>('/arap/ar-sale/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+// stageARSale/postARSale removed entirely (docs/canned-journal-to-frontend-design.md)
+// — confirmed dead (no references anywhere), and their backend route/table/trigger removed too.
 
 export const stageARReceipt = (input: ARAPBaseInput & { customer: string }) =>
   request<void>('/arap/ar-receipt/stage', { method: 'POST', body: JSON.stringify(input) });
 export const postARReceipt = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/arap/ar-receipt/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
 
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const stageAPPurchase = (input: ARAPBaseInput & { vendor: string; expense_account: string }) =>
-//   request<void>('/arap/ap-purchase/stage', { method: 'POST', body: JSON.stringify(input) });
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const postAPPurchase = (reference: string, business: BusinessName, ledger: LedgerName) =>
-//   request<void>('/arap/ap-purchase/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+// stageAPPurchase/postAPPurchase removed entirely (docs/canned-journal-to-frontend-design.md)
+// — confirmed dead (no references anywhere), and their backend route/table/trigger removed too.
 
 export const stageAPPayment = (input: ARAPBaseInput & { vendor: string }) =>
   request<void>('/arap/ap-payment/stage', { method: 'POST', body: JSON.stringify(input) });
@@ -1455,6 +1447,32 @@ export const completeCashPurchase = (input: {
   paymentMethod?: string;
   transdate?: string;
 }, screenName?: string) => request<CashPurchaseResult>('/pos/complete-cash-purchase', { method: 'POST', body: JSON.stringify(input) }, screenName);
+
+// Per docs/canned-journal-to-frontend-design.md Phase 0: the two, real,
+// narrow server-side steps Cash Purchase's new, frontend-driven canned
+// journal flow still needs — resolving/creating the real accounts
+// (a real, stateful side effect), and the real, physical stock-receipt
+// side effect. Neither of these is a journal entry.
+export interface ResolvedCashTransactionAccounts {
+  inventoryAccounts: Record<string, string>;
+  cashAccount?: string;
+}
+export const resolveCashTransactionAccounts = (input: {
+  business: BusinessName;
+  locationName: LocationName;
+  items: { itemName: string; tier?: string }[];
+  wantCashAccount: boolean;
+}, screenName?: string) =>
+  request<ResolvedCashTransactionAccounts>('/pos/resolve-cash-transaction-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
+
+export const receiveStock = (input: {
+  business: BusinessName;
+  ledger: LedgerName;
+  reference: string;
+  locationName: LocationName;
+  lines: { itemName: string; quantity: number }[];
+  transdate?: string;
+}, screenName?: string) => request<void>('/pos/receive-stock', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
 export interface PayWagesResult {
   invoiceId: number;

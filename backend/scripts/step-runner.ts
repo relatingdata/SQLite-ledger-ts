@@ -117,20 +117,21 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   // capacity is set "directly on the same screen" as creation.
   createAndConfigureLocation: (a) => {
     const userId = db.asUserId(1);
-    const result = db.createAndConfigureLocation(a.businessName as any, a.locationName, {
+    // Per docs/skill-step-runner-design.md §20: division is now set
+    // by createAndConfigureLocation itself, atomically, both as the
+    // Hierarchy dimension tag (division-breakdown reports) and as the
+    // real "Belongs To Division" relationship the org chart/Business
+    // Setup's employee tree actually reads - a real, confirmed gap,
+    // found and fixed at its one, real, single source, not patched
+    // here a second time.
+    return db.createAndConfigureLocation(a.businessName as any, a.locationName, {
       city: a.city,
       location_type: a.locationType,
       is_billing_address: false,
       bottle_capacity: a.bottleCapacity ? Number(a.bottleCapacity) : null,
       carton_capacity: a.cartonCapacity ? Number(a.cartonCapacity) : null,
       timezone: 'Australia/Adelaide',
-    } as any, userId);
-    if (a.division) {
-      db.ensureHierarchyGrouping(a.businessName as any, 'Division', userId);
-      db.ensureHierarchyValue(a.businessName as any, 'Division', a.division, userId);
-      db.setDimensionParent(a.locationName, 'Division', a.division, userId);
-    }
-    return result;
+    } as any, userId, a.division || undefined);
   },
   // Phase B: Chapter 3's Business Setup employee creation, at a named
   // location - createEmployee already exists and takes exactly this
@@ -560,9 +561,20 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
       };
     }
     if (screen?.ui_path && !page.url().endsWith(screen.ui_path)) await page.goto(screen.ui_path);
+    // open_selector is almost always one, real click - but a real
+    // screen can genuinely need more than one real action to reach
+    // its own form (e.g. Business Setup's real Insert-key tree:
+    // select a real row, then press a real key - never a click on
+    // its own). ";;"-separated steps, each either a real Playwright
+    // selector (clicked) or "key:Name" (a real key press), cover
+    // this without the runner ever needing to know anything about
+    // what screen it's driving - still purely generic.
     if (screen?.open_selector) {
-      await page.locator(screen.open_selector).click();
-      await page.waitForTimeout(500);
+      for (const action of screen.open_selector.split(';;').map((a) => a.trim()).filter(Boolean)) {
+        if (action.startsWith('key:')) await page.keyboard.press(action.slice(4));
+        else await page.locator(action).click();
+        await page.waitForTimeout(300);
+      }
     }
     if (screen) {
       for (const field of screen.fields) {
@@ -572,6 +584,16 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         const locator = page.locator(field.field_selector);
         if (field.field_type === 'select') await locator.selectOption({ label: value });
         else if (field.field_type === 'check') await (value === 'true' ? locator.check() : locator.uncheck());
+        // A real, generic, screen-agnostic unit conversion, not a
+        // per-screen special case: several real data-file values are
+        // genuinely stored in minor currency units (matching the real
+        // API path exactly - e.g. unitCostMinor), while the matching
+        // real UI field genuinely displays/accepts whole-currency
+        // decimal amounts (e.g. "3.50", never "350"). "money" tells
+        // the runner to convert, the same way "select"/"check" already
+        // tell it how to apply a value - never anything specific to
+        // which real screen this is.
+        else if (field.field_type === 'money') await locator.fill((Number(value) / 100).toFixed(2));
         else await locator.fill(value);
         await page.waitForTimeout(200);
       }

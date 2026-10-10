@@ -40,7 +40,7 @@
 "Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual","Owner's Equity","-500000"
 "Post Journal Entry","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual"
 # Chapter 3's first supplier, name only.
-"Create Provider","Tutorial Wine Retail Business","Highland Brewing Co"
+"Create Provider","Tutorial Wine Retail Business","Highland Brewing Co","Accounts Payable"
 # Amber Ale's real cost, registered as the per-carton price ($84.00 =
 # 8400 minor units, matching the Purchase Order below) and real pack
 # size (24 bottles/carton), against this specific provider - no
@@ -77,7 +77,7 @@
 # customer-facing flow), then records the sale itself as a real Cash
 # Sale - the same, real, immediate, no-account-balance screen Cash
 # Purchase's own counterpart.
-"Create Customer","Tutorial Wine Retail Business","Riverside Restaurant"
+"Create Customer","Tutorial Wine Retail Business","Riverside Restaurant","Customers"
 "Cash Sale","Tutorial Wine Retail Business","Main Street Cellar","Riverside Restaurant","Amber Ale 330ml","12","500"
 # Highland Single Malt, received sealed directly at retail (as in the
 # chapter 3 e2e review mid-session), then opened: 1 carton -> 24

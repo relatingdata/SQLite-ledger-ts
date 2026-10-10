@@ -15,8 +15,11 @@
     listLocations,
     getEntityTree,
     listItems,
-    completeCashPurchase,
     completePosSale,
+    resolveCashTransactionAccounts,
+    receiveStock,
+    stageLine,
+    postJournalEntry,
     asBusinessName,
     asLedgerName,
     asLocationName,
@@ -29,6 +32,7 @@
     type EntityNode,
     type ItemSummary,
   } from '$lib/api';
+  import { cashPurchaseLines, freshReference } from '$lib/canned-journal';
 
   let { direction }: { direction: 'purchase' | 'sale' } = $props();
 
@@ -147,16 +151,51 @@
       // point with a real, unfilled line still present.
       const commonLines = lines.filter((l) => l.itemName.trim()).map(({ key, ...l }) => ({ ...l, itemName: asItemName(l.itemName) }));
       if (isPurchase) {
-        result = await completeCashPurchase({
+        // Per docs/canned-journal-to-frontend-design.md Phase 0: the
+        // canned account selection (which account, how much) is now
+        // computed here, client-side, by the one, shared
+        // cashPurchaseLines function — the backend is only asked to
+        // resolve/create the real Inventory accounts (a real, stateful
+        // side effect) and to receive the physical stock; the actual
+        // posting goes through the exact, same, generic journal
+        // staging+post calls the General Journal screen's own "Save"
+        // button uses.
+        const purchaseLines = commonLines.map((l) => ({ ...l, itemName: l.itemName as string }));
+        const resolved = await resolveCashTransactionAccounts({
+          business: asBusinessName(business),
+          locationName: asLocationName(locationName),
+          items: purchaseLines.map((l) => ({ itemName: l.itemName })),
+          wantCashAccount: !!paymentMethod,
+        });
+        if (!resolved.cashAccount) throw new Error('No payment account resolved for this purchase.');
+        const reference = freshReference('CASHPUR');
+        const builtLines = cashPurchaseLines({
+          lines: purchaseLines,
+          inventoryAccounts: resolved.inventoryAccounts,
+          taxAccount,
+          cashAccount: resolved.cashAccount,
+        });
+        for (const line of builtLines) {
+          await stageLine({
+            reference,
+            business: asBusinessName(business),
+            ledger: asLedgerName(ledger),
+            transdate,
+            account: asAccountName(line.account),
+            amount_minor: line.amount_minor,
+          }, 'Cash Purchase');
+        }
+        await postJournalEntry(reference, asBusinessName(business), asLedgerName(ledger), 'Cash Purchase');
+        await receiveStock({
           business: asBusinessName(business),
           ledger: asLedgerName(ledger),
+          reference,
           locationName: asLocationName(locationName),
-          vendorName: asProviderName(partyName),
-          lines: commonLines,
-          taxAccount: asAccountName(taxAccount),
-          paymentMethod,
+          lines: purchaseLines.map((l) => ({ itemName: l.itemName, quantity: l.quantity })),
           transdate,
         }, 'Cash Purchase');
+        const totalMinor = purchaseLines.reduce((s, l) => s + l.quantity * l.unitPriceMinor + l.taxMinor, 0);
+        result = { invoiceId: 0, reference, totalMinor };
       } else {
         result = await completePosSale({
           business: asBusinessName(business),

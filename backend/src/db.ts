@@ -3658,6 +3658,49 @@ export interface CashPurchaseResult {
   totalMinor: number;
 }
 
+export interface ResolvedCashTransactionAccounts {
+  /** itemName (+ " (" + tier + ")" when a tier was given) -> the real,
+   * location-scoped Inventory account name, creating that account the
+   * first time this exact (item, location, tier) combination is used —
+   * a real, stateful side effect that must stay server-side (two
+   * concurrent users' browsers cannot both safely decide whether this
+   * account already exists). */
+  inventoryAccounts: Record<string, string>;
+  /** The real Cash-and-Bank account to post the full, immediate payment
+   * against — only resolved when paymentMethod was actually given. */
+  cashAccount?: string;
+}
+
+/** Per docs/canned-journal-to-frontend-design.md: the one, real,
+ * narrow piece of "which account" that cannot move to the frontend —
+ * everything else about which account a canned Cash Purchase/Cash Sale
+ * debits or credits is a deterministic given-the-form's-own-inputs
+ * computation (frontend/src/lib/canned-journal.ts); only "does this
+ * specific item's own, real, location-qualified Inventory account
+ * (the real cartesian-product account name) already exist, and if not,
+ * create it" is a real, stateful fact only the server can safely own.
+ * No division/category of any kind is ever resolved or returned here —
+ * per direct, explicit correction, a journal entry never carries one;
+ * every real dimension is already baked into the account's own name. */
+export function resolveCashTransactionAccounts(
+  business: BusinessName,
+  locationName: LocationName,
+  items: { itemName: string; tier?: string }[],
+  userId: UserId,
+  wantCashAccount: boolean
+): ResolvedCashTransactionAccounts {
+  const inventoryAccounts: Record<string, string> = {};
+  for (const { itemName, tier } of items) {
+    const key = tier ? `${itemName} (${tier})` : itemName;
+    const { inventoryAccount } = ensureItemLocationInventoryAccount(asItemName(itemName), locationName, userId, tier, business);
+    inventoryAccounts[key] = inventoryAccount;
+  }
+  return {
+    inventoryAccounts,
+    cashAccount: wantCashAccount ? resolveCashAtBankAccount(business, undefined, userId).name : undefined,
+  };
+}
+
 /** Completes a full, immediate-payment purchase as one atomic
  * operation — the real, direct counteritem to completePosSale, mirroring
  * its exact structure for the purchase side: posts the invoice
@@ -6813,8 +6856,35 @@ export function createLocation(businessName: BusinessName, locationName: string,
  * real, separate steps a caller could complete only one of - now one,
  * real, single db.transaction(), so it either fully applies or fully
  * doesn't, per the real, absolute transactional-integrity
- * requirement. */
-export function createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId): TypedNode<'LocationEntityName'> {
+ * requirement.
+ *
+ * A real, confirmed gap, found directly (not assumed) while wiring
+ * the tutorial e2e test through the real UI: a location's optional
+ * `division` was previously only ever recorded as a Hierarchy
+ * dimension tag (ensureHierarchyValue/setDimensionParent) - the real
+ * mechanism division-breakdown reports (e.g. Close Books' preview)
+ * actually read. That is a genuinely separate, non-overlapping
+ * mechanism from the real "Belongs To Division" entity relationship
+ * getOrganizationChart() actually reads (see business-setup's own
+ * real location-creation flow) - so a location created this way
+ * never appeared in the real org chart at all, and Business Setup's
+ * own "+ Insert employee" could never be reached for it, however it
+ * was created.
+ *
+ * Per direct correction: a real business genuinely does not have to
+ * have any divisions at all - `division` here stays optional, never
+ * required. getOrganizationChart() already, directly supports this
+ * exact case: a location with no real, separate division of its own
+ * is a genuine, single-location "division" that simply targets
+ * itself. So every real location gets a real "Belongs To Division"
+ * relationship unconditionally, the one, real, single place this is
+ * ever recorded - targeting the given, real, shared division name
+ * when one is provided, or targeting the location's own name when
+ * none is, never left unset either way. The separate Hierarchy
+ * dimension tag (division-breakdown reports) stays conditional on a
+ * real division name actually being given - a location with no
+ * division has nothing real for that dimension to tag. */
+export function createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId, division?: string): TypedNode<'LocationEntityName'> {
   return db.transaction(() => {
     const entity = createLocation(businessName, locationName, userId);
     setLocation(locationName, location, businessName);
@@ -6824,6 +6894,20 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
     // location's own creation - never lazily, the first time some
     // later, real stock movement happens to touch this location.
     ensureLocationCapacityAccount(businessName, asLedgerName('Actual'), asLocationName(locationName), userId);
+    if (division) {
+      ensureHierarchyGrouping(businessName, 'Division', userId);
+      ensureHierarchyValue(businessName, 'Division', division, userId);
+      setDimensionParent(locationName, 'Division', division, userId);
+      // getOrganizationChart() only ever recognizes a shared,
+      // multi-location division name as real once the division
+      // entity itself also carries a real "Belongs To Business"
+      // relationship back to this business. setRelationship is
+      // already idempotent (keyed on the real record name), so
+      // calling it again for a division shared by a later location
+      // is always safe.
+      setRelationship(division, 'Belongs To Business', businessName, userId);
+    }
+    setRelationship(locationName, 'Belongs To Division', division || locationName, userId);
     return entity;
   })();
 }

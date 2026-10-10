@@ -20,8 +20,8 @@ import { locationsRouter, belowReorderRouter, stockOutRiskRouter, stockListingRo
 import { divisionsRouter } from './routes/divisions.js';
 import { hierarchyRouter } from './routes/hierarchy.js';
 import { posRouter } from './routes/pos.js';
-import { customerRegistrationRouter, customerVerificationRouter } from './routes/customer-registration.js';
 import { arAPRouter } from './routes/arap.js';
+import { customerRegistrationRouter, customerVerificationRouter } from './routes/customer-registration.js';
 import { authRouter } from './routes/auth.js';
 import { stockRouter } from './routes/stock.js';
 import { invoiceRouter } from './routes/invoice.js';
@@ -55,6 +55,7 @@ app.use('/api/menu', requireAuth, menuRouter);
 app.use('/api/i18n', i18nRouter);
 app.use('/api/businesses', requireAuth, businessesRouter);
 app.use('/api/journal', requireAuth, journalRouter);
+app.use('/api/arap', requireAuth, requireRole('Administrator', 'Bookkeeper'), arAPRouter);
 app.use('/api/contacts', requireAuth, contactsRouter);
 app.use('/api/items', requireAuth, itemsRouter);
 app.use('/api/products', requireAuth, productsRouter);
@@ -72,7 +73,6 @@ app.use('/api/stock-takes', requireAuth, stockTakesRouter);
 app.use('/api/pos', requireAuth, posRouter);
 app.use('/api/customers', customerRegistrationRouter); // public — self-service terminal, no staff login
 app.use('/api/customer-verification', requireAuth, customerVerificationRouter);
-app.use('/api/arap', requireAuth, requireRole('Administrator', 'Bookkeeper'), arAPRouter);
 app.use('/api/projects', requireAuth, projectsRouter);
 app.use('/api/stock', requireAuth, requireRole('Administrator', 'Bookkeeper'), stockRouter);
 app.use('/api/invoice', requireAuth, requireRole('Administrator', 'Bookkeeper'), invoiceRouter);

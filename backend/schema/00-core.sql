@@ -1153,38 +1153,19 @@ CREATE TABLE assembly_bom_staging (
   PRIMARY KEY (assembly_item, business, component_item)
 );
 
-CREATE TABLE ar_sale_staging (
-  reference    TEXT NOT NULL,
-  business     TEXT NOT NULL,
-  ledger       TEXT NOT NULL,
-  customer     TEXT NOT NULL,
-  amount_minor INTEGER NOT NULL,
-  tax_minor    INTEGER NOT NULL DEFAULT 0, -- posted to Sales Tax Payable, on top of amount_minor
-  location     TEXT, -- real, direct, per-invoice location this sale genuinely belongs to (not per line)
-  transdate    TEXT,
-  description  TEXT NOT NULL DEFAULT '',
-  PRIMARY KEY (reference, business, ledger)
-);
-
-CREATE VIEW ar_sale_post AS SELECT '' AS reference, '' AS business, '' AS ledger, 0 AS user_id;
-CREATE TRIGGER ar_sale_post_insert INSTEAD OF INSERT ON ar_sale_post
-BEGIN
-  SELECT RAISE(ABORT, 'nothing staged for this AR sale') WHERE NOT EXISTS (
-    SELECT 1 FROM ar_sale_staging WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger
-  );
-  INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, amount_minor)
-  SELECT s.reference, s.business, s.ledger, s.description, s.transdate, s.customer, s.amount_minor + s.tax_minor
-  FROM ar_sale_staging s WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
-  INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, amount_minor)
-  SELECT s.reference, s.business, s.ledger, s.description, s.transdate,
-    CASE WHEN s.location IS NOT NULL THEN 'Sales Revenue — ' || s.location ELSE 'Sales Revenue' END, -s.amount_minor
-  FROM ar_sale_staging s WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
-  INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, amount_minor)
-  SELECT s.reference, s.business, s.ledger, s.description, s.transdate, 'Sales Tax Payable', -s.tax_minor
-  FROM ar_sale_staging s WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger AND s.tax_minor != 0;
-  INSERT INTO post_journal_entry (reference, business, ledger, user_id) VALUES (NEW.reference, NEW.business, NEW.ledger, NEW.user_id);
-  DELETE FROM ar_sale_staging WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger;
-END;
+-- ar_sale_staging/ar_sale_post and ap_purchase_staging/ap_purchase_post
+-- removed entirely (docs/canned-journal-to-frontend-design.md): confirmed
+-- directly that no live code called either one — frontend/src/lib/api.ts's
+-- own calls into /arap/ar-sale and /arap/ap-purchase were commented out
+-- (dead on both ends). ar_receipt_staging/ar_receipt_post and
+-- ap_payment_staging/ap_payment_post, immediately below, are a genuinely
+-- different case — PaymentReceipt.svelte really does call
+-- stageARReceipt/postARReceipt/stageAPPayment/postAPPayment, so those two
+-- stay exactly as they were; only the two, confirmed-dead ones are gone.
+-- The real, live canned account-selection logic this project is actually
+-- moving to the frontend (Cash Purchase, Cash Sale/POS Sale, etc.) was
+-- never any of these four — see completeCashPurchase/postInvoice in
+-- backend/src/db.ts and the same design doc's phased plan.
 
 CREATE TABLE ar_receipt_staging (
   reference    TEXT NOT NULL,
@@ -1211,40 +1192,6 @@ BEGIN
   FROM ar_receipt_staging s WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
   INSERT INTO post_journal_entry (reference, business, ledger, user_id) VALUES (NEW.reference, NEW.business, NEW.ledger, NEW.user_id);
   DELETE FROM ar_receipt_staging WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger;
-END;
-
-CREATE TABLE ap_purchase_staging (
-  reference    TEXT NOT NULL,
-  business     TEXT NOT NULL,
-  ledger       TEXT NOT NULL,
-  vendor       TEXT NOT NULL,
-  expense_account TEXT NOT NULL, -- which expense/asset account this purchase is for (Office, Inventory, etc.)
-  amount_minor INTEGER NOT NULL,
-  tax_minor    INTEGER NOT NULL DEFAULT 0, -- posted to Purchases Tax Claimed, on top of amount_minor
-  location     TEXT, -- real, direct, per-invoice location this purchase genuinely belongs to (not per line)
-  transdate    TEXT,
-  description  TEXT NOT NULL DEFAULT '',
-  PRIMARY KEY (reference, business, ledger)
-);
-
-CREATE VIEW ap_purchase_post AS SELECT '' AS reference, '' AS business, '' AS ledger, 0 AS user_id;
-CREATE TRIGGER ap_purchase_post_insert INSTEAD OF INSERT ON ap_purchase_post
-BEGIN
-  SELECT RAISE(ABORT, 'nothing staged for this AP purchase') WHERE NOT EXISTS (
-    SELECT 1 FROM ap_purchase_staging WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger
-  );
-  INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, amount_minor)
-  SELECT s.reference, s.business, s.ledger, s.description, s.transdate,
-    CASE WHEN s.location IS NOT NULL THEN s.expense_account || ' — ' || s.location ELSE s.expense_account END, s.amount_minor
-  FROM ap_purchase_staging s WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
-  INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, amount_minor)
-  SELECT s.reference, s.business, s.ledger, s.description, s.transdate, 'Purchases Tax Claimed', s.tax_minor
-  FROM ap_purchase_staging s WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger AND s.tax_minor != 0;
-  INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, amount_minor)
-  SELECT s.reference, s.business, s.ledger, s.description, s.transdate, s.vendor, -(s.amount_minor + s.tax_minor)
-  FROM ap_purchase_staging s WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
-  INSERT INTO post_journal_entry (reference, business, ledger, user_id) VALUES (NEW.reference, NEW.business, NEW.ledger, NEW.user_id);
-  DELETE FROM ap_purchase_staging WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger;
 END;
 
 CREATE TABLE ap_payment_staging (

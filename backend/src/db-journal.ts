@@ -19,6 +19,7 @@ import {
   supersedeEntity,
   getContact,
   setDimensionParent,
+  setRelationship,
   recordInvoiceLine,
   createLocation,
   setLocation,
@@ -31,7 +32,6 @@ import {
   type DivisionName,
   type ProviderName,
   type CustomerName,
-  type LocationName,
   type EmployeeName,
   type UserId,
 } from './db.js';
@@ -185,41 +185,16 @@ export function ensureLocationScopedAccount(baseAccountName: string, locationNam
   return locationAccount;
 }
 
-export interface ARSaleInput {
-  reference: string;
-  business: BusinessName;
-  ledger: LedgerName;
-  customer: CustomerName;
-  amount_minor: number;
-  tax_minor?: number;
-  location?: LocationName;
-  transdate?: string;
-  description?: string;
-}
-
-export function stageARSale(input: ARSaleInput): void {
-  db.prepare(
-    `INSERT INTO ar_sale_staging (reference, business, ledger, customer, amount_minor, tax_minor, location, transdate, description)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business, ledger) DO UPDATE SET
-       customer = excluded.customer, amount_minor = excluded.amount_minor, tax_minor = excluded.tax_minor,
-       location = excluded.location, transdate = excluded.transdate, description = excluded.description`
-  ).run(input.reference, input.business, input.ledger, input.customer, input.amount_minor, input.tax_minor ?? 0, input.location ?? null, input.transdate ?? null, input.description ?? '');
-}
-
-export function postARSale(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  const staged = db
-    .prepare(`SELECT * FROM ar_sale_staging WHERE reference = ? AND business = ? AND ledger = ?`)
-    .get(reference, business, ledger) as (ARSaleInput & { tax_minor: number }) | undefined;
-  if (!staged) throw new NotFoundError(`Nothing staged for AR sale ${reference}.`);
-  if (staged.location) ensureLocationScopedAccount('Sales Revenue', staged.location, userId);
-  try {
-    db.prepare(`INSERT INTO ar_sale_post (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
-  } catch (err) {
-    throw new PostingError(err instanceof Error ? err.message : String(err));
-  }
-  recordInvoiceLine(reference, business, ledger, staged.description || 'Sale', null, null, staged.amount_minor, staged.tax_minor);
-}
+// stageARSale/postARSale and stageAPPurchase/postAPPurchase removed
+// entirely (docs/canned-journal-to-frontend-design.md) — confirmed
+// directly that nothing live called either one (frontend/src/lib/api.ts's
+// own calls into their routes were commented out). stageARReceipt/
+// postARReceipt and stageAPPayment/postAPPayment, immediately below, stay
+// exactly as they were — PaymentReceipt.svelte genuinely calls them. See
+// that design doc for the real, live canned-journal logic this project is
+// actually moving to the frontend (Cash Purchase, Cash Sale/POS Sale,
+// etc. — completeCashPurchase and friends in db.ts), which none of this
+// ever was.
 
 export interface ARReceiptInput {
   reference: string;
@@ -247,46 +222,6 @@ export function postARReceipt(reference: string, business: BusinessName, ledger:
   } catch (err) {
     throw new PostingError(err instanceof Error ? err.message : String(err));
   }
-}
-
-export interface APPurchaseInput {
-  reference: string;
-  business: BusinessName;
-  ledger: LedgerName;
-  vendor: ProviderName;
-  expense_account: AccountName;
-  amount_minor: number;
-  tax_minor?: number;
-  location?: LocationName;
-  transdate?: string;
-  description?: string;
-}
-
-export function stageAPPurchase(input: APPurchaseInput): void {
-  db.prepare(
-    `INSERT INTO ap_purchase_staging (reference, business, ledger, vendor, expense_account, amount_minor, tax_minor, location, transdate, description)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business, ledger) DO UPDATE SET
-       vendor = excluded.vendor, expense_account = excluded.expense_account, amount_minor = excluded.amount_minor,
-       tax_minor = excluded.tax_minor, location = excluded.location, transdate = excluded.transdate, description = excluded.description`
-  ).run(
-    input.reference, input.business, input.ledger, input.vendor, input.expense_account,
-    input.amount_minor, input.tax_minor ?? 0, input.location ?? null, input.transdate ?? null, input.description ?? ''
-  );
-}
-
-export function postAPPurchase(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  const staged = db
-    .prepare(`SELECT * FROM ap_purchase_staging WHERE reference = ? AND business = ? AND ledger = ?`)
-    .get(reference, business, ledger) as (APPurchaseInput & { tax_minor: number }) | undefined;
-  if (!staged) throw new NotFoundError(`Nothing staged for AP purchase ${reference}.`);
-  if (staged.location) ensureLocationScopedAccount(staged.expense_account, staged.location, userId);
-  try {
-    db.prepare(`INSERT INTO ap_purchase_post (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
-  } catch (err) {
-    throw new PostingError(err instanceof Error ? err.message : String(err));
-  }
-  recordInvoiceLine(reference, business, ledger, staged.description || 'Purchase', null, null, staged.amount_minor, staged.tax_minor);
 }
 
 export interface APPaymentInput {
@@ -527,6 +462,17 @@ export function postLocation(reference: string, business: BusinessName, userId: 
       timezone: staged.timezone,
     } as StockLocation, business);
     ensureLocationCapacityAccount(business, asLedgerName('Actual'), asLocationName(staged.location_name), userId);
+    // A real, confirmed gap, found directly: this real screen has no
+    // division concept at all, but getOrganizationChart() (Business
+    // Setup's own "+ Insert employee" tree) only ever recognizes a
+    // real location once it carries a real "Belongs To Division"
+    // relationship - a single-location "division" that simply
+    // targets itself is the genuine, real, already-supported case for
+    // exactly this (a real business genuinely does not have to have
+    // any divisions at all). Set unconditionally here too, so a real
+    // location created through this real screen is just as reachable
+    // from Business Setup as one created through it directly.
+    setRelationship(staged.location_name, 'Belongs To Division', staged.location_name, userId);
     db.prepare(`DELETE FROM location_staging WHERE reference = ? AND business = ?`).run(reference, business);
     return entity;
   })();
