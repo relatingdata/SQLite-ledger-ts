@@ -4900,6 +4900,19 @@ export function createProvider(name: string, userId: UserId): { id: number } {
   return entity;
 }
 
+/** The real, missing, staff-side way to create a customer directly -
+ * mirroring createProvider exactly. registerCustomer (above this file,
+ * in the self-service section) is a genuinely different, real flow -
+ * the customer typing their own details, landing in 'pending' status
+ * until staff verifies them. This one is for staff creating a real,
+ * already-usable account directly - a phone order taken on someone's
+ * behalf, say - the same, direct way a vendor or employee is created. */
+export function createCustomer(name: string, userId: UserId): { id: number } {
+  const entity = create(requireEntity('Customers', typeRootName), typeCustomerName, name, userId);
+  setContactType(name, 'Customer', userId);
+  return entity;
+}
+
 /** The one, real, correct way a new employee is created, per direct
  * instruction and docs/contact-types-and-translations.md - the exact,
  * same, real logic Business Setup's own, existing employee-creation

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getEntityTree, getEntity, getEntityHistory, createEntityRaw, supersedeEntity, revokeEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
   asUserId,
   createProvider,
+  createCustomer,
   createEmployee,
 } from '../db.js';
 import { requireRole } from '../auth-middleware.js';
@@ -31,6 +32,20 @@ entitiesRouter.post('/vendor', requireRole('Administrator', 'Bookkeeper'), (req,
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not create that vendor.' });
+  }
+});
+
+const customerSchema = z.object({ name: z.string().min(1) });
+entitiesRouter.post('/customer', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = customerSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const entity = createCustomer(parsed.data.name, asUserId(req.user!.id));
+    res.status(201).json(entity);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not create that customer.' });
   }
 });
 

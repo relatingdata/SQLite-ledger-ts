@@ -106,6 +106,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   // business owner's own displayed label stays separately
   // translatable).
   createProviderSimple: (a) => db.createProvider(a.providerName, db.asUserId(1)),
+  createCustomerSimple: (a) => db.createCustomer(a.customerName, db.asUserId(1)),
   // Per docs/skill-step-runner-design.md §11b: the real, granular,
   // complete-in-itself General Journal screens - one real row per
   // real HTTP call, matching /journal/staging and /journal/post
@@ -194,6 +195,18 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       locationName: a.locationName as any,
       vendorName: a.providerName as any,
       lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitCostMinor), taxMinor: 0 }],
+      taxAccount: 'Sales Tax Payable' as any,
+      paymentMethod: 'cash',
+    }, userId);
+  },
+  cashSaleSimple: (a) => {
+    const userId = db.asUserId(1);
+    return db.completePosSale({
+      business: a.businessName as any,
+      ledger: db.asLedgerName('Actual'),
+      locationName: a.locationName as any,
+      customerName: a.customerName as any,
+      lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitPriceMinor), taxMinor: 0 }],
       taxAccount: 'Sales Tax Payable' as any,
       paymentMethod: 'cash',
     }, userId);

@@ -167,7 +167,7 @@
           taxAccount,
           paymentMethod,
           transdate,
-        });
+        }, 'Cash Sale');
       }
       lines = [];
     } catch (e) {

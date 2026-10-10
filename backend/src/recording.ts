@@ -159,6 +159,23 @@ const REAL_FIELD_SOURCE_OVERRIDES: Record<string, Record<string, FieldSource>> =
     quantity: { from: 'body', key: 'lines', path: [0, 'quantity'] },
     unitCostMinor: { from: 'body', key: 'lines', path: [0, 'unitPriceMinor'] },
   },
+  'Create Customer': {
+    // Confirmed directly (backend/src/routes/entities.ts, customerSchema):
+    // the real body is just { name } - no real business field at all,
+    // same, honest, structural reason as Create Provider's own
+    // businessName.
+    customerName: { from: 'body', key: 'name' },
+  },
+  'Cash Sale': {
+    // Confirmed directly (backend/src/routes/pos.ts, saleSchema +
+    // saleLineSchema) - the exact, same, real, shared endpoint POS
+    // Sale itself uses.
+    businessName: { from: 'body', key: 'business' },
+    customerName: { from: 'body', key: 'customerName' },
+    itemName: { from: 'body', key: 'lines', path: [0, 'itemName'] },
+    quantity: { from: 'body', key: 'lines', path: [0, 'quantity'] },
+    unitPriceMinor: { from: 'body', key: 'lines', path: [0, 'unitPriceMinor'] },
+  },
   'Receive Into Storage': {
     // Confirmed directly (backend/src/routes/locations.ts,
     // movementSchema + the real /:name/receive route): business, not

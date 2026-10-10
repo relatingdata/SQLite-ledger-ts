@@ -68,6 +68,17 @@
 # Chapter 3 states the price but never a per-sale quantity.
 "POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500"
 "POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500"
+# A real, named party - not through the POS register, no cart, no
+# scanning: a local restaurant phones in an order for half a carton
+# (12 bottles - the real stock on hand at this point in the tutorial
+# allows no more) of Amber Ale, paid cash on the spot when collected.
+# Staff takes the order directly, creating the real, named account
+# first (no self-registration involved - that's a genuinely different,
+# customer-facing flow), then records the sale itself as a real Cash
+# Sale - the same, real, immediate, no-account-balance screen Cash
+# Purchase's own counterpart.
+"Create Customer","Tutorial Wine Retail Business","Riverside Restaurant"
+"Cash Sale","Tutorial Wine Retail Business","Main Street Cellar","Riverside Restaurant","Amber Ale 330ml","12","500"
 # Highland Single Malt, received sealed directly at retail (as in the
 # chapter 3 e2e review mid-session), then opened: 1 carton -> 24
 # bottles. Open Container is now constrained to a real, specific

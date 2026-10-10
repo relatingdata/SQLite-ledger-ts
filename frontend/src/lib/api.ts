@@ -159,6 +159,7 @@ export const setEntityRelationship = (entityName: string, relationshipType: stri
 // way a new vendor or employee is created - genuinely tagged with its
 // own real Contact Type, never left to structural parent alone.
 export const createProvider = (name: string, screenName?: string) => request<EntityNode>('/entities/vendor', { method: 'POST', body: JSON.stringify({ name }) }, screenName);
+export const createCustomer = (name: string, screenName?: string) => request<EntityNode>('/entities/customer', { method: 'POST', body: JSON.stringify({ name }) }, screenName);
 export const createEmployeeContact = (name: string, placeOfEmployment: string) =>
   request<EntityNode>('/entities/employee', { method: 'POST', body: JSON.stringify({ name, placeOfEmployment }) });
 

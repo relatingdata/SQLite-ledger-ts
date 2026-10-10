@@ -447,6 +447,35 @@ correctly too.
 **Not yet done**: `Cash Purchase` and `Receive Into Storage`'s own overrides compile clean but have
 not yet been exercised with a real, direct HTTP request the way the others above have been.
 
+## 11d. The real Cash Sale scenario — a real, confirmed gap found in the application itself, not just the tutorial
+
+Asked directly whether the tutorial exercised a bulk, phone-ordered sale (not through the POS
+register) — it did not, and checking further found something larger: **there was no real, staff-side
+way to create a named customer at all.** Confirmed directly: `entitiesRouter` has dedicated
+`/vendor` and `/employee` endpoints, but no `/customer`; `createInvoice` requires the named party to
+already exist, no lazy creation; `registerCustomer` exists but is a genuinely different, real flow —
+a customer typing their own details at self-service, landing in `'pending'` status — never something
+staff would use to take a phone order on someone's behalf.
+
+**The real fix, built**: `createCustomer` (`backend/src/db.ts`), mirroring `createProvider` exactly,
+and the real, new `POST /api/entities/customer` route to match `/vendor`. The real `Cash Sale` screen
+itself (`shared-fixtures/screens.csv`, its own `API_REGISTRY` entry, its own recording overrides) uses
+the exact, same, real `completePosSale` endpoint `POS Sale` and `Cash Purchase` already use — a real,
+immediate, no-account sale, confirmed directly against its own, real `customerName` comment ("the
+generic walk-in 'Cash Sale' contact for a no-account sale").
+
+**Added to `tutorial-steps.csv`**: a real, named party, "Riverside Restaurant," phones in an order for
+half a carton (12 bottles — the real stock on hand at that point in the tutorial allows no more,
+found directly by testing and adjusting from an initial, too-large assumption) of Amber Ale, paid cash
+on collection. **Confirmed directly**: the full, real tutorial (now 26 steps) passes end to end via
+`--path api`; the real recording mechanism, tested directly over HTTP against fresh data, captured
+both new screens completely and correctly:
+
+```
+Create Customer,,Lakeside Bistro
+Cash Sale,Tutorial Wine Retail Business,Main Street Cellar,Lakeside Bistro,Amber Ale 330ml,4,500
+```
+
 **Directly verified**, calling the real mechanism directly (not assumed
 correct): starting a recording, recording two real, different screens'
 own data, stopping, and reading the resulting file back — the real comment

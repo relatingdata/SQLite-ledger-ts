@@ -93,3 +93,11 @@ Stage Purchase Order,data,,,stagePurchaseOrderSimple,,7,priceMinor,,text
 Post Purchase Order,data,,,postPurchaseOrderSimple,,1,reference,,text
 Post Purchase Order,data,,,postPurchaseOrderSimple,,2,businessName,,text
 Post Purchase Order,data,,,postPurchaseOrderSimple,,3,ledger,,text
+Cash Sale,data,,,cashSaleSimple,,1,businessName,,text
+Cash Sale,data,,,cashSaleSimple,,2,locationName,,text
+Cash Sale,data,,,cashSaleSimple,,3,customerName,,text
+Cash Sale,data,,,cashSaleSimple,,4,itemName,,text
+Cash Sale,data,,,cashSaleSimple,,5,quantity,,text
+Cash Sale,data,,,cashSaleSimple,,6,unitPriceMinor,,text
+Create Customer,data,,,createCustomerSimple,,1,businessName,,text
+Create Customer,data,,,createCustomerSimple,,2,customerName,,text
