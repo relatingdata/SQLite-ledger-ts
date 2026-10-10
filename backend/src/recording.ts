@@ -159,6 +159,12 @@ const REAL_FIELD_SOURCE_OVERRIDES: Record<string, Record<string, FieldSource>> =
     quantity: { from: 'body', key: 'lines', path: [0, 'quantity'] },
     unitCostMinor: { from: 'body', key: 'lines', path: [0, 'unitPriceMinor'] },
   },
+  'Create Provider': {
+    // A real, confirmed, pre-existing gap, found while reviewing the
+    // consolidated /entities/contact route: providerName never
+    // matched the real body's own name key.
+    providerName: { from: 'body', key: 'name' },
+  },
   'Create Customer': {
     // Confirmed directly (backend/src/routes/entities.ts, customerSchema):
     // the real body is just { name } - no real business field at all,

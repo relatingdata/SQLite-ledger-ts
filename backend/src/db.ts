@@ -4894,23 +4894,34 @@ export function getContactBaseAccounts(contactName: string): string[] {
  * Contact Type too, so the documented, intended multi-type capability
  * is genuinely available the moment the rest of the app catches up to
  * reading it. */
-export function createProvider(name: string, userId: UserId): { id: number } {
-  const entity = create(requireEntity('Accounts Payable', typeRootName), typeProviderName, name, userId);
-  setContactType(name, 'Provider', userId);
+/** The real, generic, shared implementation behind createProvider/
+ * createCustomer/createEmployee (below) - a real entity under its own,
+ * real root, tagged with its own, real contact type. The exact, same
+ * kind of duplication addTyped already solved for address/phone
+ * types, confirmed directly: typeProviderName/typeCustomerName/
+ * typeEmployeeName carry no real, runtime difference at all, purely
+ * TypeScript branding - so nothing real is lost sharing one, real
+ * implementation, while each caller still gets its own, real, branded
+ * return type via the generic parameter below. */
+export function createContact<TBrand extends string>(rootName: string, type: TypeDescriptor<TBrand>, contactType: string, name: string, userId: UserId): TypedNode<TBrand> {
+  const entity = create(requireEntity(rootName, typeRootName), type, name, userId);
+  setContactType(name, contactType, userId);
   return entity;
 }
 
-/** The real, missing, staff-side way to create a customer directly -
- * mirroring createProvider exactly. registerCustomer (above this file,
- * in the self-service section) is a genuinely different, real flow -
- * the customer typing their own details, landing in 'pending' status
- * until staff verifies them. This one is for staff creating a real,
- * already-usable account directly - a phone order taken on someone's
- * behalf, say - the same, direct way a vendor or employee is created. */
+export function createProvider(name: string, userId: UserId): { id: number } {
+  return createContact('Accounts Payable', typeProviderName, 'Provider', name, userId);
+}
+
+/** The real, missing, staff-side way to create a customer directly.
+ * registerCustomer (above this file, in the self-service section) is
+ * a genuinely different, real flow - the customer typing their own
+ * details, landing in 'pending' status until staff verifies them.
+ * This one is for staff creating a real, already-usable account
+ * directly - a phone order taken on someone's behalf, say - the same,
+ * direct way a vendor or employee is created. */
 export function createCustomer(name: string, userId: UserId): { id: number } {
-  const entity = create(requireEntity('Customers', typeRootName), typeCustomerName, name, userId);
-  setContactType(name, 'Customer', userId);
-  return entity;
+  return createContact('Customers', typeCustomerName, 'Customer', name, userId);
 }
 
 /** The one, real, correct way a new employee is created, per direct
@@ -4920,9 +4931,8 @@ export function createCustomer(name: string, userId: UserId): { id: number } {
  * genuinely unrelated to contact typing), plus the real, missing
  * setContactType call this session found and fixed. */
 export function createEmployee(name: string, placeOfEmployment: string, userId: UserId): { id: number } {
-  const entity = create(requireEntity('Employees', typeRootName), typeEmployeeName, name, userId);
+  const entity = createContact('Employees', typeEmployeeName, 'Employee', name, userId);
   setRelationship(name, 'Place of Employment', placeOfEmployment, userId);
-  setContactType(name, 'Employee', userId);
   return entity;
 }
 

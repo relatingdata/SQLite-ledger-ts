@@ -19,47 +19,36 @@ entitiesRouter.get('/line-types', (_req, res) => {
 });
 
 // Per docs/contact-types-and-translations.md: the one, real, correct
-// way a new vendor or employee is created - genuinely tagged with its
-// own real Contact Type, never left to structural parent alone.
-const vendorSchema = z.object({ name: z.string().min(1) });
-entitiesRouter.post('/vendor', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
-  const parsed = vendorSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  try {
-    const entity = createProvider(parsed.data.name, asUserId(req.user!.id));
-    res.status(201).json(entity);
-  } catch (err) {
-    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
-    console.error(err);
-    res.status(500).json({ error: 'Could not create that vendor.' });
-  }
+// way a new vendor, customer, or employee is created - genuinely
+// tagged with its own real Contact Type, never left to structural
+// parent alone. One, real, generic route - confirmed directly, the
+// three, real, separate contact-type-creation functions behind this
+// were nearly identical, the exact, same kind of duplication
+// addTypedAddress/addTypedPhone already solved for address/phone
+// types - never three, separate, near-duplicate routes.
+const contactSchema = z.object({
+  type: z.enum(['vendor', 'customer', 'employee']),
+  name: z.string().min(1),
+  placeOfEmployment: z.string().min(1).optional(),
 });
-
-const customerSchema = z.object({ name: z.string().min(1) });
-entitiesRouter.post('/customer', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
-  const parsed = customerSchema.safeParse(req.body);
+entitiesRouter.post('/contact', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = contactSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  try {
-    const entity = createCustomer(parsed.data.name, asUserId(req.user!.id));
-    res.status(201).json(entity);
-  } catch (err) {
-    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
-    console.error(err);
-    res.status(500).json({ error: 'Could not create that customer.' });
+  const { type, name } = parsed.data;
+  if (type === 'employee' && !parsed.data.placeOfEmployment) {
+    return res.status(400).json({ error: 'placeOfEmployment is required for a real employee.' });
   }
-});
-
-const employeeSchema = z.object({ name: z.string().min(1), placeOfEmployment: z.string().min(1) });
-entitiesRouter.post('/employee', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
-  const parsed = employeeSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const entity = createEmployee(parsed.data.name, parsed.data.placeOfEmployment, asUserId(req.user!.id));
+    const userId = asUserId(req.user!.id);
+    const entity =
+      type === 'vendor' ? createProvider(name, userId) :
+      type === 'customer' ? createCustomer(name, userId) :
+      createEmployee(name, parsed.data.placeOfEmployment as string, userId);
     res.status(201).json(entity);
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
-    res.status(500).json({ error: 'Could not create that employee.' });
+    res.status(500).json({ error: `Could not create that ${type}.` });
   }
 });
 

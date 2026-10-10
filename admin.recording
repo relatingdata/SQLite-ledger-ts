@@ -23,3 +23,7 @@ Open Container,Tutorial Wine Retail Business,Main Street Cellar,Highland Single 
 Create Customer,,Lakeside Bistro
 Cash Sale,Tutorial Wine Retail Business,Main Street Cellar,Lakeside Bistro,Amber Ale 330ml,4,500
 # recording concluded on 2026-10-10T03:15:04.574Z
+# recording commenced on 2026-10-10T03:27:16.969Z
+Create Provider,,Coastal Imports
+Create Customer,,Hilltop Cafe
+# recording concluded on 2026-10-10T03:27:17.023Z
