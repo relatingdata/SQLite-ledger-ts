@@ -1632,13 +1632,52 @@ export const closeBooks = (input: { business: BusinessName; ledger: LedgerName; 
   request<CloseBooksResult>('/journal/close-books', { method: 'POST', body: JSON.stringify(input) });
 
 export interface CloseBooksPreview {
-  lines: { account: AccountName; amount_minor: number }[];
+  lines: {
+    account: AccountName;
+    // Per the exact, same real "Remaining"/"Occupied" naming-collision
+    // fix already applied throughout this migration (see StagedLine
+    // above): the backend's own CloseBooksLine already resolves and
+    // returns this whenever it has one (the currency-tagged Retained
+    // Earnings leaf in particular is created fresh and has no other,
+    // safer way to be addressed than by its own, real id), so the
+    // frontend now carries it through too rather than staging by bare
+    // name alone.
+    accountId?: number;
+    amount_minor: number;
+  }[];
   netIncomeMinor: number;
   accountsZeroed: number;
   divisionBreakdown: { division: DivisionName | null; netIncomeMinor: number }[];
 }
-export const previewCloseBooks = (input: { ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string }) =>
+// Per a real, confirmed bug found directly while porting Close Books
+// onto the frontend-driven canned-journal pattern: this always omitted
+// `business`, even though the backend's own previewCloseBooksSchema
+// has always required it — every real call before now was relying on
+// the backend accepting an already-malformed request, which it never
+// actually does (it 400s). Fixed here rather than left in place.
+export const previewCloseBooks = (input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string }) =>
   request<CloseBooksPreview>('/journal/preview-close-books', { method: 'POST', body: JSON.stringify(input) });
+
+// Per docs/canned-journal-to-frontend-design.md's Phase 2: the real,
+// shared split (computeCloseLines/previewCloseBooks/closeBooks) is
+// mirrored here for Rollover (resolveRolloverLines/rolloverToNewPeriod,
+// both backend/src/db-reports.ts) — resolveRolloverLines does the
+// genuinely stateful half (creating each carried-forward account's
+// own node under the new ledger) and returns the real, already-
+// computed opening-balance lines for the frontend to post itself via
+// the exact, same generic stageLine/postJournalEntry every other
+// canned screen already uses, rather than re-deriving the trial-
+// balance arithmetic a second time on the frontend.
+export interface ResolvedRollover {
+  reference: string;
+  lines: { account: AccountName; amount_minor: number }[];
+  accountsCarriedForward: number;
+}
+export const resolveRolloverLines = (input: { business: BusinessName; oldLedger: LedgerName; newLedger: LedgerName; asOfDate: string }) =>
+  request<ResolvedRollover>('/journal/resolve-rollover-lines', { method: 'POST', body: JSON.stringify(input) });
+
+export const createLedger = (business: BusinessName, ledger: LedgerName) =>
+  request<{ ledger: string }>('/journal/create-ledger', { method: 'POST', body: JSON.stringify({ business, ledger }) });
 
 // ---------------------------------------------------------------------------
 // Customer self-registration and verification

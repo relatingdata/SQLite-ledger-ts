@@ -140,5 +140,134 @@ posted result, not just in the new code's intent. The real, physical stock recei
 the real storage-capacity usage posting both fired correctly as their own, separate, non-journal
 side effects, exactly as designed.
 
-Cash Sale/POS Sale, Transfer Items, Open Container, and Receive Into Storage (Phase 1) are not yet
-started — `completePosSale` and the rest of `db.ts`'s canned logic for those screens is untouched.
+## Phase 1 — done, verified directly against the real, live app
+
+Built: `posSaleLines`, `transferLines`, `openContainerLines`, `receiveIntoStorageLines` in
+`canned-journal.ts`; `resolveSaleAccounts`/`dispatchStock` (Cash Sale), `transferStock`/
+`resolveTransferAccounts` (Transfer Items), `resolveOpenContainerAccounts` (Open Container), and
+`receiveIntoStorageStock`/`resolveReceiveAccounts` (Receive Into Storage) as the real, narrow,
+stateful backend endpoints each screen still genuinely needs. `CashTransaction.svelte`'s sale
+branch, `stock/transfer/+page.svelte`, `locations/+page.svelte`'s `doOpenContainer`, and
+`items/+page.svelte`'s `doReceiveIntoStorage` were all rewritten to call these and post through the
+same generic `/journal/staging`+`/journal/post` calls Phase 0 already proved.
+
+Verified live, end to end, via a real Playwright run against the running app (not assumed from the
+code alone, and not via the pre-existing `screens.csv`/`step-runner.ts` harness, which turned out to
+have no real UI wiring for most of these screens — a pre-existing gap, left as-is): Transfer Items
+(24 bottles, Head Office → Main Street Cellar, with a real dollar VALUE entry since the item's unit
+cost is known), Receive Into Storage (24 units tagged "Carton", no known unit cost yet — the real
+"no VALUE entry" path), and Open Container (1 Carton → 24 loose Bottles) all posted correctly
+through their real screens.
+
+That verification run surfaced three genuine, pre-existing bugs, none introduced by this port but
+all blocking real verification of it until fixed (commit `76ea3a1`):
+
+- **Express route-shadowing in `locations.ts`:** several real, single-segment `POST` routes
+  (`/transfer`, `/transfer-stock`, `/resolve-transfer-accounts`, `/resolve-receive-accounts`) were
+  registered *after* the catch-all `POST /:name` (location create/update) — Express matches by
+  registration order, not specificity, so every request to them was silently caught by `/:name`
+  instead. This affected the pre-existing `/transfer` route too: Transfer Items had likely never
+  actually worked via a real HTTP POST from a browser, only via direct backend-function calls in
+  unit tests. Fixed by moving every real, single-segment route ahead of the wildcard.
+- **Unscoped lookup in `PUT /locations/:name`:** the Locations page's own Save button never passed
+  `business` to `setLocation`, so its lookup fell back to a bare name match. Once a location has had
+  any real storage-combination action against it, that location's own GL "Storage" account root
+  gets a child node sharing the exact, same literal name as the location itself — a same-business,
+  same-name collision the existing business-scoping fix (for the different-businesses case) never
+  covered. Saving capacity after that silently wrote onto the wrong entity. Fixed by threading
+  `business` through, matching what `POST /:name` already did.
+- **Open Container's "Remaining"/"Occupied" leaf accounts can share one literal name:** e.g. both
+  named "Carton", differing only by parent (not reflected in the name string). Staging by bare name
+  alone collapsed two real, different accounts into one, breaking posting with a `UNIQUE constraint
+  failed` on `(journal_id, account_id, effective_date)`. The original `openStorageContainer`
+  function always avoided this by staging with each account's own, already-resolved `accountId`;
+  the new frontend-driven path had no way to do that until `resolveOpenContainerAccounts` was
+  extended to also return each account's real id, threaded through `canned-journal.ts` and into
+  `stageLine`'s now-optional `accountId` field.
+
+## Phase 2 — investigated directly; the plan above was wrong about what it actually is
+
+Checked both pieces against the real code before writing anything, the same way Phase 0's
+investigation corrected its own premise. Neither one is a case-2 instance in the sense this
+document defined:
+
+**Purchase Order / Stage Purchase Order / Post Purchase Order: nothing to port.** `placeOrder`/
+`fulfillOrder` (`backend/src/db-stock.ts`) never touch the generic journal staging table at all —
+they post quantity movements against synthetic, reference-scoped tracking entities
+(`${orderReference} Qty`/`${orderReference} Value`), which is open-order bookkeeping, not a
+discretionary choice of real Chart-of-Accounts leaves. The one function in this area that does post
+a real journal entry, `postOrderReceipt` (`backend/src/db-journal.ts`), already takes the vendor
+and item/account as plain strings the person chose themselves on the Stock Receipt screen's own
+vendor/account dropdowns (`frontend/src/routes/stock/stock-receipt/+page.svelte`) — there is no
+backend logic deciding *which* account to use, unlike `postInvoice`'s real, algorithmic
+location-scoped Inventory resolution for Cash Purchase/Sale. This screen is already, functionally,
+exactly like the General Journal screen: the person picks the accounts, the submit handler posts
+them. `postOrderReceipt` bundling that post together with its own further, genuinely stateful side
+effects (the item's own quantity movement, `fulfillOrder`'s decrement of the order's own running
+balance, `recordInvoiceLine`) is the same, correct shape Phase 1's narrow stateful endpoints
+already use — nothing here needs to move anywhere. **No changes made.**
+
+**Close Books / Rollover: a real case-2 instance — ported, directly, per explicit instruction.**
+An earlier pass through this document reasoned that `computeCloseLines`/`rolloverToNewPeriod`
+(`backend/src/db-reports.ts`) genuinely decide, server-side, which accounts and amounts post, and
+that re-deriving that arithmetic a second time on the frontend — correct rounding, correct currency
+grouping, correct division sub-totaling, across *every* Income/Expense or Balance Sheet account in
+the ledger — would risk two independent implementations drifting apart, for an action whose failure
+mode is corrupted financial history rather than one wrong sale. That reasoning missed something,
+pointed out directly: there is no re-derivation needed at all, because `previewCloseBooks` already
+computes and *returns* the exact lines `closeBooks` would post, without posting them
+(`CloseBooksLine[]` — `{ account, accountId?, amount_minor }[]`). The frontend doesn't need to
+reconstruct the trial-balance arithmetic; it only needs to take the lines the backend already
+computed and post them itself, through the exact same generic `stageLine`/`postJournalEntry` calls
+every other canned screen already uses. The same shape was then built for Rollover, which had no
+existing frontend screen at all: `rolloverToNewPeriod`'s own Phase 1 (create each carried-forward
+account's own node under the new ledger — a real, stateful write) and Phase 2 (read the old
+ledger's non-zero Balance Sheet lines) were split out into a new, shared `resolveRolloverLines`,
+mirroring the already-proven `computeCloseLines`/`previewCloseBooks`/`closeBooks` split exactly;
+`rolloverToNewPeriod` itself is unchanged in behavior, now just calling the shared function
+internally for backward compatibility with any direct backend/test/script caller.
+
+Concretely:
+- `backend/src/db-reports.ts`: added `resolveRolloverLines` (Phase 1 + Phase 2, returns
+  `{ reference, lines, accountsCarriedForward }` without posting); `rolloverToNewPeriod` now calls
+  it and does Phase 3 (stage + post) itself, same as before.
+- `backend/src/routes/journal.ts`: added `POST /journal/resolve-rollover-lines`, the
+  frontend-facing twin of `/journal/preview-close-books` — genuinely stateful (Phase 1 writes), not
+  a side-effect-free preview, the same shape this codebase's other resolve-then-post endpoints
+  (`resolveOpenContainerAccounts`, `resolveTransferAccounts`, etc.) already use.
+- `frontend/src/lib/api.ts`: added `accountId?: number` to `CloseBooksPreview.lines` (mirroring the
+  backend's own `CloseBooksLine`, the same "Remaining"/"Occupied" naming-collision fix Phase 1
+  already applied elsewhere); fixed a real, confirmed bug found directly while doing this —
+  `previewCloseBooks`'s own input type had always omitted `business`, even though the backend's
+  `previewCloseBooksSchema` has always required it; added `resolveRolloverLines` and `createLedger`
+  wrappers.
+- `frontend/src/routes/setup/yearend/+page.svelte`: `acceptAndClose()` now posts `preview.lines`
+  directly (reference `CLOSE-${ledger}-${asOfDate}`, matching the backend's own convention) instead
+  of calling the old, all-in-one `closeBooks()`; a new "Roll over to a new period" section lets the
+  person name or pick a ledger, resolve the real, proposed opening-balance lines, review them, and
+  accept/post them the same way the Close Books preview already works.
+
+Verified directly against the real, live app (not just code review): a fresh, self-contained
+Playwright run built its own business via the real `/setup/new-business` UI, posted a genuinely
+unclosed Rent expense through General Journal, closed the books (preview showed the real lines,
+accept posted them and zeroed the account), then rolled over into a brand-new ledger created on
+the fly (resolve showed Cash and Bank's own real, adjusted balance, accept posted it as that
+ledger's opening balance). `tsc --noEmit` (backend, same 6 pre-existing baseline errors),
+`svelte-check` (frontend, 0 errors/warnings), and the backend test suite (134 pass / 80 fail,
+unchanged baseline) all confirmed unaffected.
+
+One, real, separate, pre-existing bug was found and fixed along the way, unrelated to this port
+itself: `backend/schema/20-demo-bmw-peugeot.sql` still ran
+`UPDATE entities SET deleted_at = ..., deleted_by = ... WHERE entity_id = ...` immediately before
+several of its own re-parenting `INSERT`s — left over from this project's earlier, rejected
+"close out the old row" design; the `entities` table has had no such columns at all since the real,
+settled "no delete, only supersede" design, so every one of those `UPDATE`s broke a genuinely
+fresh, from-scratch, demo-seeded (`SEED_DEMO_BUSINESSES` unset/true) backend startup outright. The
+dead `UPDATE`s were removed; the `INSERT`s alone were always sufficient. A second, separate,
+pre-existing issue was found in the same demo-seeded path (a `NOT NULL constraint failed:
+journal.ledger_id` from `post_journal_entry`, since that file's own BMW/Peugeot ledgers were never
+given the `Ledgers` structural parent node the current, real design requires) but was left alone —
+out of scope for this change, and why this port's own verification above built a fresh business via
+the UI rather than depending on that demo data at all.
+
+Phase 2, as originally scoped, is therefore complete.

@@ -72,4 +72,26 @@ test('Year End Close: posts a real, unclosed expense through the real General Jo
   await page.getByRole('button', { name: 'Preview the close' }).click();
   await page.waitForTimeout(1000);
   await expect(page.locator('.error')).toContainText('Nothing to close');
+
+  // Now roll over into a brand-new period, through the actual UI —
+  // resolve the real opening-balance lines first (new ledger created
+  // on the fly), then accept and post them.
+  const newLedgerName = `Rollover Test ${Date.now()}`;
+  await page.locator('fieldset:has-text("New ledger") input[type="text"]').fill(newLedgerName);
+  await page.waitForTimeout(300);
+  await page.getByRole('button', { name: 'Resolve opening balances' }).click();
+  await page.waitForTimeout(1500);
+
+  const rolloverPreviewTable = page.locator('.preview-box .preview-table').last();
+  await expect(rolloverPreviewTable).toBeVisible();
+  await expect(rolloverPreviewTable).toContainText('Cash');
+
+  await page.getByRole('button', { name: 'Accept and roll over' }).click();
+  await page.waitForTimeout(1200);
+
+  const rolloverResult = page.locator('.close-result').last();
+  await expect(rolloverResult).toBeVisible();
+  await expect(rolloverResult).toContainText('Rolled over');
+  await expect(rolloverResult).toContainText(newLedgerName);
+  await expect(rolloverResult).toContainText('Accounts carried forward');
 });

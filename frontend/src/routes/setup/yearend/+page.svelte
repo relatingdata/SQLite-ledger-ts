@@ -4,7 +4,22 @@
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
-  import { getEntityTree, previewCloseBooks, closeBooks, ApiError, type EntityNode, type CloseBooksResult, type CloseBooksPreview } from '$lib/api';
+  import {
+    getEntityTree,
+    previewCloseBooks,
+    stageLine,
+    postJournalEntry,
+    getLedgers,
+    createLedger,
+    resolveRolloverLines,
+    asLedgerName,
+    asAccountName,
+    ApiError,
+    type EntityNode,
+    type CloseBooksResult,
+    type CloseBooksPreview,
+    type ResolvedRollover,
+  } from '$lib/api';
 
   let entities: EntityNode[] = [];
   let loading = true;
@@ -37,6 +52,9 @@
       const ownersEquity = equityAccounts.find((e) => e.name === "Owner's Equity");
       retainedEarningsAccount = ownersEquity?.name ?? equityAccounts[0]?.name ?? '';
       equityAccountOptions = equityAccounts;
+      if (session.current) {
+        ledgers = await getLedgers(session.current.businessName);
+      }
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -60,7 +78,7 @@
     preview = null;
     result = null;
     try {
-      preview = await previewCloseBooks({ ledger: session.current.ledgerName, asOfDate, retainedEarningsAccount });
+      preview = await previewCloseBooks({ business: session.current.businessName, ledger: session.current.ledgerName, asOfDate, retainedEarningsAccount });
     } catch (e) {
       previewError = e instanceof ApiError ? e.message : 'Could not preview the close.';
     } finally {
@@ -68,17 +86,34 @@
     }
   }
 
+  // Per direct instruction, the real logic here is sound and not
+  // unlike the P&L-into-consolidated-revenue close itself: posts the
+  // exact, same, already-computed preview.lines directly from the
+  // frontend via the exact, same generic stageLine/postJournalEntry
+  // calls the General Journal screen's own "Save" button already
+  // uses, rather than the old all-in-one closeBooks() backend call —
+  // previewCloseBooks has already done all the real arithmetic, so
+  // there is nothing left to re-derive here, only to post.
   async function acceptAndClose() {
     if (!session.current || !preview) return;
     closing = true;
     closeError = '';
     try {
-      result = await closeBooks({
-        business: session.current.businessName,
-        ledger: session.current.ledgerName,
-        asOfDate,
-        retainedEarningsAccount,
-      });
+      const reference = `CLOSE-${session.current.ledgerName}-${asOfDate}`;
+      for (const line of preview.lines) {
+        await stageLine({
+          reference,
+          business: session.current.businessName,
+          ledger: session.current.ledgerName,
+          transdate: asOfDate,
+          account: asAccountName(line.account),
+          accountId: line.accountId,
+          amount_minor: line.amount_minor,
+          memo: line.account === retainedEarningsAccount ? 'Year-end close — net income retained' : 'Year-end close',
+        });
+      }
+      await postJournalEntry(reference, session.current.businessName, session.current.ledgerName);
+      result = { reference, netIncomeMinor: preview.netIncomeMinor, accountsZeroed: preview.accountsZeroed, divisionBreakdown: preview.divisionBreakdown };
       preview = null;
     } catch (e) {
       closeError = e instanceof ApiError ? e.message : 'Could not close the books.';
@@ -90,6 +125,106 @@
   function reject() {
     preview = null;
     previewError = '';
+  }
+
+  // --- Roll over to a new period --------------------------------------
+  // Per direct instruction: the real logic here is sound too, and not
+  // unlike the close above — resolveRolloverLines does the genuinely
+  // stateful half (creating each carried-forward account's own node
+  // under the new ledger) server-side and returns the real,
+  // already-computed opening-balance lines; the frontend then posts
+  // them itself via the exact, same generic stageLine/postJournalEntry
+  // calls, rather than re-deriving anything.
+  const NEW_LEDGER_OPTION = '__new__';
+  let ledgers: { id: number; name: string }[] = [];
+  let selectedLedgerOption = NEW_LEDGER_OPTION;
+  let newLedgerName = '';
+
+  let rolloverResolving = false;
+  let rolloverError = '';
+  let rolloverResolved: ResolvedRollover | null = null;
+
+  let rolloverPosting = false;
+  let rolloverPostError = '';
+  let rolloverResult: { reference: string; accountsCarriedForward: number; newLedger: string } | null = null;
+
+  function targetLedgerName(): string {
+    return selectedLedgerOption === NEW_LEDGER_OPTION ? newLedgerName.trim() : selectedLedgerOption;
+  }
+
+  function resetRollover() {
+    rolloverResolved = null;
+    rolloverError = '';
+    rolloverResult = null;
+    rolloverPostError = '';
+  }
+
+  async function resolveRollover() {
+    if (!session.current) return;
+    const target = targetLedgerName();
+    if (!target) {
+      rolloverError = 'Name the new ledger first.';
+      return;
+    }
+    resetRollover();
+    rolloverResolving = true;
+    try {
+      if (selectedLedgerOption === NEW_LEDGER_OPTION) {
+        try {
+          await createLedger(session.current.businessName, asLedgerName(target));
+        } catch (e) {
+          // A real ledger of this exact name may already exist from an
+          // earlier, half-finished attempt — rolling into it is still a
+          // real, valid case. Any other, genuine problem creating it
+          // surfaces anyway, below, once resolveRolloverLines itself
+          // can't find the ledger it needs.
+          if (!(e instanceof ApiError)) throw e;
+        }
+        ledgers = await getLedgers(session.current.businessName);
+      }
+      rolloverResolved = await resolveRolloverLines({
+        business: session.current.businessName,
+        oldLedger: session.current.ledgerName,
+        newLedger: asLedgerName(target),
+        asOfDate,
+      });
+    } catch (e) {
+      rolloverError = e instanceof ApiError ? e.message : 'Could not resolve the rollover.';
+    } finally {
+      rolloverResolving = false;
+    }
+  }
+
+  async function acceptRollover() {
+    if (!session.current || !rolloverResolved) return;
+    const target = asLedgerName(targetLedgerName());
+    rolloverPosting = true;
+    rolloverPostError = '';
+    try {
+      for (const line of rolloverResolved.lines) {
+        await stageLine({
+          reference: rolloverResolved.reference,
+          business: session.current.businessName,
+          ledger: target,
+          transdate: asOfDate,
+          account: asAccountName(line.account),
+          amount_minor: line.amount_minor,
+          memo: `Opening balance carried forward from ${session.current.ledgerName}`,
+        });
+      }
+      await postJournalEntry(rolloverResolved.reference, session.current.businessName, target);
+      rolloverResult = { reference: rolloverResolved.reference, accountsCarriedForward: rolloverResolved.accountsCarriedForward, newLedger: target };
+      rolloverResolved = null;
+    } catch (e) {
+      rolloverPostError = e instanceof ApiError ? e.message : 'Could not post the opening balances.';
+    } finally {
+      rolloverPosting = false;
+    }
+  }
+
+  function rejectRollover() {
+    rolloverResolved = null;
+    rolloverError = '';
   }
 
   const fmt = (c: number) => formatAmount(c, auth.current?.user.number_format ?? '1 000.00');
@@ -196,6 +331,73 @@
         </p>
       </div>
     {/if}
+  </div>
+
+  <div class="card form-card">
+    <fieldset>
+      <legend>{translations.current['Roll over to a new period'] ?? 'Roll over to a new period'}</legend>
+      <p class="intro">
+        {translations.current['Carries every real, non-zero Balance Sheet account — Cash, Inventory, Accounts Receivable/Payable, and every other real asset/liability/equity — forward into a new ledger as that ledger\'s own opening balance, as of the date above. Run this after closing the books above, since a real rollover should only ever carry forward real Balance Sheet accounts once Income/Expense have already been closed into Retained Earnings.'] ?? 'Carries every real, non-zero Balance Sheet account — Cash, Inventory, Accounts Receivable/Payable, and every other real asset/liability/equity — forward into a new ledger as that ledger\'s own opening balance, as of the date above. Run this after closing the books above, since a real rollover should only ever carry forward real Balance Sheet accounts once Income/Expense have already been closed into Retained Earnings.'}
+      </p>
+
+      <fieldset>
+        <legend>{translations.current['New ledger'] ?? 'New ledger'}</legend>
+        <select bind:value={selectedLedgerOption} onchange={resetRollover}>
+          <option value={NEW_LEDGER_OPTION}>{translations.current['+ New ledger…'] ?? '+ New ledger…'}</option>
+          {#each ledgers as l}<option value={l.name}>{l.name}</option>{/each}
+        </select>
+        {#if selectedLedgerOption === NEW_LEDGER_OPTION}
+          <input type="text" bind:value={newLedgerName} oninput={resetRollover} placeholder={translations.current['New ledger name'] ?? 'New ledger name'} />
+        {/if}
+      </fieldset>
+
+      {#if !rolloverResolved && !rolloverResult}
+        {#if rolloverError}<p class="error">{rolloverError}</p>{/if}
+        <button class="btn" onclick={resolveRollover} disabled={rolloverResolving}>
+          {rolloverResolving ? 'Resolving…' : (translations.current['Resolve opening balances'] ?? 'Resolve opening balances')}
+        </button>
+      {/if}
+
+      {#if rolloverResolved}
+        <div class="preview-box">
+          <p class="preview-heading">{translations.current['Proposed opening-balance entry'] ?? 'Proposed opening-balance entry'}</p>
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th>{translations.current['Account'] ?? 'Account'}</th>
+                <th class="num">{translations.current['Debit'] ?? 'Debit'}</th>
+                <th class="num">{translations.current['Credit'] ?? 'Credit'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each rolloverResolved.lines as line}
+                <tr>
+                  <td>{line.account}</td>
+                  <td class="num">{line.amount_minor > 0 ? fmt(line.amount_minor) : ''}</td>
+                  <td class="num">{line.amount_minor < 0 ? fmt(-line.amount_minor) : ''}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+
+          {#if rolloverPostError}<p class="error">{rolloverPostError}</p>{/if}
+          <div class="decision-row">
+            <button class="btn secondary" onclick={rejectRollover} disabled={rolloverPosting}>{translations.current['Reject'] ?? 'Reject'}</button>
+            <button class="btn" onclick={acceptRollover} disabled={rolloverPosting}>
+              {rolloverPosting ? 'Posting…' : (translations.current['Accept and roll over'] ?? 'Accept and roll over')}
+            </button>
+          </div>
+        </div>
+      {/if}
+
+      {#if rolloverResult}
+        <div class="close-result">
+          <p><strong>{translations.current['Rolled over'] ?? 'Rolled over'}: {rolloverResult.reference}</strong></p>
+          <p>{translations.current['New ledger'] ?? 'New ledger'}: {rolloverResult.newLedger}</p>
+          <p>{translations.current['Accounts carried forward'] ?? 'Accounts carried forward'}: {rolloverResult.accountsCarriedForward}</p>
+        </div>
+      {/if}
+    </fieldset>
   </div>
 {/if}
 

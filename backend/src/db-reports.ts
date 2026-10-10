@@ -1339,20 +1339,38 @@ export interface RolloverResult {
   openingBalanceReference: string;
 }
 
-/** The real, three-phase year/period rollover, per direct, confirmed
- * design (docs/ledger-scoped-accounts-and-rollover.md). Must be called
- * after closeBooks has already closed the old ledger's own Income and
- * Expense accounts into Retained Earnings — this function only ever
- * touches real Balance Sheet accounts (Asset/Liability/Equity), never
- * Income/Expense, which start fresh, lazily, in the new ledger exactly
- * as today.
+export interface RolloverLine {
+  account: string;
+  amount_minor: number;
+}
+export interface ResolvedRollover {
+  reference: string;
+  lines: RolloverLine[];
+  accountsCarriedForward: number;
+}
+
+/** The real, shared computation both resolveRolloverLines (the
+ * frontend-facing "resolve, don't post" endpoint — see
+ * docs/canned-journal-to-frontend-design.md's Phase 2 section) and
+ * rolloverToNewPeriod itself use — kept as one, single source of
+ * truth so a frontend-driven rollover can never drift from what the
+ * direct, backend-only call would have posted. Mirrors exactly the
+ * same split already proven safe for Close Books (computeCloseLines /
+ * previewCloseBooks / closeBooks, above).
  *
- * Nothing here ever posts across ledgers - there is no "transfer"
- * primitive, and must never be one. Phase 1 (structural) creates real
- * entities directly, no journal entry at all. Phase 2 (read) is a
- * plain read. Phase 3 (post) is one, ordinary, balanced journal entry
- * entirely within the new ledger. */
-export function rolloverToNewPeriod(business: BusinessName, oldLedger: LedgerName, newLedger: LedgerName, asOfDate: string, userId: UserId): RolloverResult {
+ * Does Phase 1 (structural) and Phase 2 (read) of the real,
+ * three-phase rollover, per direct, confirmed design
+ * (docs/ledger-scoped-accounts-and-rollover.md) — creates each real,
+ * non-zero Balance Sheet account's own node under the new ledger (so
+ * the lines returned below can actually be staged against them
+ * afterwards), then returns the real, proposed opening-balance lines
+ * without staging or posting a single one of them. Phase 1 is a real,
+ * structural write (new entities), not a side-effect-free preview —
+ * the same, already-proven shape as this codebase's other
+ * resolve-then-post endpoints (resolveOpenContainerAccounts,
+ * resolveTransferAccounts, etc.): the backend keeps the genuinely
+ * stateful account-creation piece, the caller does the posting. */
+export function resolveRolloverLines(business: BusinessName, oldLedger: LedgerName, newLedger: LedgerName, asOfDate: string, userId: UserId): ResolvedRollover {
   const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(business) as { id: number } | undefined)?.id;
   if (!businessId) throw new ValidationError(`No real business named "${business}".`);
   const ledgersRootId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = ?`).get(businessId) as { id: number } | undefined)?.id;
@@ -1393,23 +1411,48 @@ export function rolloverToNewPeriod(business: BusinessName, oldLedger: LedgerNam
     }
   }
 
-  // Phase 3 (post): one, ordinary, balanced journal entry, entirely
-  // within the new ledger - never referencing the old ledger at all.
   const reference = `ROLLOVER-${newLedger}-${asOfDate}`;
-  for (const line of usedLines) {
+  const lines: RolloverLine[] = usedLines.map((line) => ({ account: line.name, amount_minor: line.debit_minor - line.credit_minor }));
+
+  return { reference, lines, accountsCarriedForward: usedLines.length };
+}
+
+/** The real, three-phase year/period rollover, per direct, confirmed
+ * design (docs/ledger-scoped-accounts-and-rollover.md). Must be called
+ * after closeBooks has already closed the old ledger's own Income and
+ * Expense accounts into Retained Earnings — this function only ever
+ * touches real Balance Sheet accounts (Asset/Liability/Equity), never
+ * Income/Expense, which start fresh, lazily, in the new ledger exactly
+ * as today.
+ *
+ * Nothing here ever posts across ledgers - there is no "transfer"
+ * primitive, and must never be one. Phase 1 (structural) creates real
+ * entities directly, no journal entry at all. Phase 2 (read) is a
+ * plain read. Phase 3 (post) is one, ordinary, balanced journal entry
+ * entirely within the new ledger. Kept intact (rather than removed in
+ * favor of the frontend calling resolveRolloverLines + stageLine/
+ * postJournalEntry itself) for backward compatibility with any direct
+ * backend/test/script caller — it now simply calls the shared
+ * resolveRolloverLines for phases 1+2 and does phase 3 itself, the
+ * exact, same sharing pattern closeBooks already uses with
+ * computeCloseLines. */
+export function rolloverToNewPeriod(business: BusinessName, oldLedger: LedgerName, newLedger: LedgerName, asOfDate: string, userId: UserId): RolloverResult {
+  const resolved = resolveRolloverLines(business, oldLedger, newLedger, asOfDate, userId);
+
+  for (const line of resolved.lines) {
     stageLine({
-      reference,
+      reference: resolved.reference,
       business,
       ledger: newLedger,
       transdate: asOfDate,
-      account: asAccountName(line.name),
-      amount_minor: line.debit_minor - line.credit_minor,
+      account: asAccountName(line.account),
+      amount_minor: line.amount_minor,
       memo: `Opening balance carried forward from ${oldLedger}`,
     });
   }
-  postJournalEntry(reference, business, newLedger, userId);
+  postJournalEntry(resolved.reference, business, newLedger, userId);
 
-  return { newLedger, accountsCarriedForward: usedLines.length, openingBalanceReference: reference };
+  return { newLedger, accountsCarriedForward: resolved.accountsCarriedForward, openingBalanceReference: resolved.reference };
 }
 
 export interface SalesReportLine {

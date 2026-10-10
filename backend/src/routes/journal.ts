@@ -11,6 +11,7 @@ import {
   closeBooks,
   createLedger,
   rolloverToNewPeriod,
+  resolveRolloverLines,
   previewCloseBooks,
   listJournalEntries,
   countJournalEntries,
@@ -248,5 +249,32 @@ journalRouter.post('/rollover-to-new-period', requireRole('Administrator', 'Book
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not roll over to the new period.' });
+  }
+});
+
+// Per the canned-journal-to-frontend migration's Phase 2 (see
+// docs/canned-journal-to-frontend-design.md): the genuinely stateful
+// half of rollover (creating each carried-forward account's own node
+// under the new ledger) stays here, server-side; the frontend then
+// posts the returned, already-computed opening-balance lines itself
+// via the exact, same generic /journal/staging + /journal/post calls
+// every other canned screen already uses — the same split already
+// proven safe for Close Books (previewCloseBooks / computeCloseLines).
+journalRouter.post('/resolve-rollover-lines', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = rolloverSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const resolved = resolveRolloverLines(
+      asBusinessName(parsed.data.business),
+      asLedgerName(parsed.data.oldLedger),
+      asLedgerName(parsed.data.newLedger),
+      parsed.data.asOfDate,
+      asUserId(req.user!.id)
+    );
+    res.json(resolved);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not resolve the rollover lines.' });
   }
 });
