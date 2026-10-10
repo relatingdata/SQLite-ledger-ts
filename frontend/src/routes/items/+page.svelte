@@ -246,13 +246,13 @@
         // already returns the real, new entity's own real id directly
         // - use that, never search anything.
         const itemsRootId = itemsRoot()?.id;
-        const newCategory = await createEntity({ name: newCategoryName.trim(), parentId: itemsRootId }, 'Create Item');
+        const newCategory = await createEntity({ name: newCategoryName.trim(), parentId: itemsRootId }, 'Create Entity');
         parentCategory = newCategoryName.trim();
         parentCategoryId = newCategory.id;
       } else {
         parentCategoryId = entities.find((e) => e.name === parentCategory && e.parent_id === itemsRoot()?.id)?.id;
       }
-      await createEntity({ name: newItemName, parentId: parentCategoryId }, 'Create Item');
+      await createEntity({ name: newItemName, parentId: parentCategoryId }, 'Create Entity');
       // A real, pre-existing bug fixed here, not introduced by this
       // change: listItems requires a real `item` table row (INNER
       // JOIN), but this function only ever created the bare entity —

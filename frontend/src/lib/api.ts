@@ -1453,7 +1453,7 @@ export const completeCashPurchase = (input: {
   taxAccount: string;
   paymentMethod?: string;
   transdate?: string;
-}) => request<CashPurchaseResult>('/pos/complete-cash-purchase', { method: 'POST', body: JSON.stringify(input) });
+}, screenName?: string) => request<CashPurchaseResult>('/pos/complete-cash-purchase', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
 export interface PayWagesResult {
   invoiceId: number;

@@ -344,6 +344,7 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, detail_json, created_a
 -- role granted, relation_id pointing at that real role - the exact,
 -- same, real pattern already proven for vocabulary_preference.
 INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (907, 907, 'admin — Role — Administrator', 906, 901, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (60826, 60826, 'Role', 907, 60824, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (908, 908, 'System Sessions', 1, '2026-01-01', 1);
 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (2, 2, 'Languages', 1, '2026-01-01', 1);

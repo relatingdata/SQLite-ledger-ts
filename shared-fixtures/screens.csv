@@ -28,10 +28,9 @@ Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,2,itemName,,text
 Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,3,providerName,,text
 Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,4,unitCostMinor,,text
 Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,5,packageQuantity,,text
-Post Journal Entry,data,,,postJournalEntrySimple,,1,businessName,,text
-Post Journal Entry,data,,,postJournalEntrySimple,,2,debitAccount,,text
-Post Journal Entry,data,,,postJournalEntrySimple,,3,creditAccount,,text
-Post Journal Entry,data,,,postJournalEntrySimple,,4,amountMinor,,text
+Post Journal Entry,data,,,postJournalEntrySimple,,1,reference,,text
+Post Journal Entry,data,,,postJournalEntrySimple,,2,businessName,,text
+Post Journal Entry,data,,,postJournalEntrySimple,,3,ledger,,text
 Create Purchase Order,data,,,createPurchaseOrderInCartons,,1,businessName,,text
 Create Purchase Order,data,,,createPurchaseOrderInCartons,,2,providerName,,text
 Create Purchase Order,data,,,createPurchaseOrderInCartons,,3,itemName,,text
@@ -77,3 +76,20 @@ Rollover To New Period,data,,,rolloverToNewPeriodSimple,,1,businessName,,text
 Rollover To New Period,data,,,rolloverToNewPeriodSimple,,2,oldLedger,,text
 Rollover To New Period,data,,,rolloverToNewPeriodSimple,,3,newLedger,,text
 Rollover To New Period,data,,,rolloverToNewPeriodSimple,,4,asOfDate,,text
+Stage Journal Line,data,,,stageJournalLine,,1,reference,,text
+Stage Journal Line,data,,,stageJournalLine,,2,businessName,,text
+Stage Journal Line,data,,,stageJournalLine,,3,ledger,,text
+Stage Journal Line,data,,,stageJournalLine,,4,account,,text
+Stage Journal Line,data,,,stageJournalLine,,5,amountMinor,,text
+Create Entity,data,,,createEntitySimple,,1,name,,text
+Create Entity,data,,,createEntitySimple,,2,parent,,text
+Stage Purchase Order,data,,,stagePurchaseOrderSimple,,1,reference,,text
+Stage Purchase Order,data,,,stagePurchaseOrderSimple,,2,businessName,,text
+Stage Purchase Order,data,,,stagePurchaseOrderSimple,,3,ledger,,text
+Stage Purchase Order,data,,,stagePurchaseOrderSimple,,4,vendor,,text
+Stage Purchase Order,data,,,stagePurchaseOrderSimple,,5,item,,text
+Stage Purchase Order,data,,,stagePurchaseOrderSimple,,6,quantity,,text
+Stage Purchase Order,data,,,stagePurchaseOrderSimple,,7,priceMinor,,text
+Post Purchase Order,data,,,postPurchaseOrderSimple,,1,reference,,text
+Post Purchase Order,data,,,postPurchaseOrderSimple,,2,businessName,,text
+Post Purchase Order,data,,,postPurchaseOrderSimple,,3,ledger,,text

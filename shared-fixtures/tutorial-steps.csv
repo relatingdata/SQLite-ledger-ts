@@ -31,8 +31,14 @@
 "Create Item","Tutorial Wine Retail Business","Highland Single Malt 700ml","+ New category…","Whiskey"
 # The owner's own opening capital: DR Cash and Bank, CR Owner's
 # Equity, $5,000.00 (500000 minor units) - an assumed figure, since
-# Chapter 3 states the entry's shape but never a number.
-"Post Journal Entry","Tutorial Wine Retail Business","Cash and Bank","Owner's Equity","500000"
+# Chapter 3 states the entry's shape but never a number. Per the real,
+# settled design (docs/skill-step-runner-design.md §11b): recorded,
+# and replayed, as the real, separate sequence of calls a genuine
+# browser session actually makes - two real staged lines, then one
+# real post - never one, combined, artificial row.
+"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual","Cash and Bank","500000"
+"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual","Owner's Equity","-500000"
+"Post Journal Entry","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual"
 # Chapter 3's first supplier, name only.
 "Create Provider","Tutorial Wine Retail Business","Highland Brewing Co"
 # Amber Ale's real cost, registered as the per-carton price ($84.00 =

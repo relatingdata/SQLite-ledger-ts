@@ -156,7 +156,7 @@
           taxAccount: asAccountName(taxAccount),
           paymentMethod,
           transdate,
-        });
+        }, 'Cash Purchase');
       } else {
         result = await completePosSale({
           business: asBusinessName(business),

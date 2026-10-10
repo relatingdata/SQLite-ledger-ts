@@ -52,6 +52,126 @@ interface ScreenField {
   fieldName: string;
 }
 
+/** `key` is the top-level key in the named source; `path`, when given,
+ * is followed from there - a real, nested route through arrays
+ * (numeric indices) and objects (string keys) together, e.g.
+ * `{ key: 'lines', path: [0, 'itemName'] }` reads `body.lines[0].itemName`. */
+type FieldSource = { from: 'params' | 'query' | 'body'; key: string; path?: (string | number)[] };
+
+function resolveFieldSource(sources: RequestSources, source: FieldSource): unknown {
+  let value: unknown = sources[source.from][source.key];
+  for (const step of source.path ?? []) {
+    if (value == null) return undefined;
+    value = (value as Record<string | number, unknown>)[step];
+  }
+  return value;
+}
+
+/** Real, hand-verified, per-screen overrides for where a position's real
+ * value actually lives, checked directly against each real route's own
+ * code - never assumed to be "the body, same name as screens.csv". A
+ * screen/field_name pair with no entry here falls back to the body, same
+ * name (REAL_FIELD_SOURCES' own default, below). */
+const REAL_FIELD_SOURCE_OVERRIDES: Record<string, Record<string, FieldSource>> = {
+  'Create Business': {
+    // Confirmed directly (backend/src/routes/businesses.ts): the real
+    // request body's own key is coaPrototype, not businessType.
+    businessType: { from: 'body', key: 'coaPrototype' },
+    // Confirmed directly: no real route sets this today - the real
+    // frontend page (setup/new-business) has no real homeCurrency field
+    // at all, only secondaryCurrencies, a separate, different concept.
+    // Left with no override - this position can never be captured from
+    // a real request, and is always recorded blank; a real, honest,
+    // structural gap in the application itself, not this mechanism.
+  },
+  'Create Location': {
+    // Confirmed directly (backend/src/routes/locations.ts): the real
+    // business name is a query parameter, never the body.
+    businessName: { from: 'query', key: 'business' },
+    // Confirmed directly: the real location name is the URL's own path
+    // segment (POST /locations/:name), never the body.
+    locationName: { from: 'params', key: 'name' },
+    // Confirmed directly: the real body key is location_type, not
+    // locationType.
+    locationType: { from: 'body', key: 'location_type' },
+    // Confirmed directly: no real route sets a real Division for a new
+    // location today - the real frontend page has no such field at all.
+    // Left with no override, always recorded blank, same, honest reason
+    // as Create Business's own homeCurrency, above.
+    bottleCapacity: { from: 'body', key: 'bottle_capacity' },
+    cartonCapacity: { from: 'body', key: 'carton_capacity' },
+  },
+  'Stage Journal Line': {
+    // Confirmed directly (backend/src/routes/journal.ts, stageLineSchema):
+    // the real body keys are business and amount_minor.
+    businessName: { from: 'body', key: 'business' },
+    amountMinor: { from: 'body', key: 'amount_minor' },
+  },
+  'Post Journal Entry': {
+    // Confirmed directly (backend/src/routes/journal.ts, postSchema).
+    businessName: { from: 'body', key: 'business' },
+  },
+  'Post Purchase Order': {
+    // Confirmed directly (backend/src/routes/stock.ts, handlePost) -
+    // the exact, same, real shape as Post Journal Entry, above - both
+    // are the same, real kind of action, finalizing something already
+    // staged.
+    businessName: { from: 'body', key: 'business' },
+  },
+  'Stage Purchase Order': {
+    // Confirmed directly (backend/src/routes/stock.ts, base + poSchema).
+    businessName: { from: 'body', key: 'business' },
+    priceMinor: { from: 'body', key: 'price_minor' },
+  },
+  // 'Create Entity': no overrides needed - name/parent match the real
+  // body (backend/src/routes/entities.ts) exactly.
+  'Open Container': {
+    // Confirmed directly (backend/src/routes/locations.ts,
+    // openContainerSchema): business/location/item, not
+    // businessName/locationName/itemName; containerValue/unitValue are
+    // each the real array's own first (and, for this tutorial, only)
+    // element.
+    businessName: { from: 'body', key: 'business' },
+    locationName: { from: 'body', key: 'location' },
+    itemName: { from: 'body', key: 'item' },
+    containerValue: { from: 'body', key: 'containerValues', path: [0] },
+    unitValue: { from: 'body', key: 'unitValues', path: [0] },
+  },
+  'POS Sale': {
+    // Confirmed directly (backend/src/routes/pos.ts, saleSchema +
+    // saleLineSchema): business, not businessName; the real line
+    // fields live inside the real lines array's own, single, first
+    // element - this tutorial's own screen only ever records one line.
+    businessName: { from: 'body', key: 'business' },
+    itemName: { from: 'body', key: 'lines', path: [0, 'itemName'] },
+    quantity: { from: 'body', key: 'lines', path: [0, 'quantity'] },
+    unitPriceMinor: { from: 'body', key: 'lines', path: [0, 'unitPriceMinor'] },
+  },
+  'Cash Purchase': {
+    // Confirmed directly (backend/src/routes/pos.ts, purchaseSchema +
+    // purchaseLineSchema): business/vendorName, not
+    // businessName/providerName; same, real, nested line shape as POS
+    // Sale, above.
+    businessName: { from: 'body', key: 'business' },
+    locationName: { from: 'body', key: 'locationName' },
+    providerName: { from: 'body', key: 'vendorName' },
+    itemName: { from: 'body', key: 'lines', path: [0, 'itemName'] },
+    quantity: { from: 'body', key: 'lines', path: [0, 'quantity'] },
+    unitCostMinor: { from: 'body', key: 'lines', path: [0, 'unitPriceMinor'] },
+  },
+  'Receive Into Storage': {
+    // Confirmed directly (backend/src/routes/locations.ts,
+    // movementSchema + the real /:name/receive route): business, not
+    // businessName; the real location name is the URL's own path
+    // segment; groupingName/storageValue are each the real, nested
+    // combination arrays' own first element.
+    businessName: { from: 'body', key: 'business' },
+    locationName: { from: 'params', key: 'name' },
+    groupingName: { from: 'body', key: 'combinationShape', path: [0, 0] },
+    storageValue: { from: 'body', key: 'combinationValues', path: [0] },
+  },
+};
+
 let screenFieldsCache: Map<string, ScreenField[]> | undefined;
 
 /** Every real screen's own, real, positional field list, grouped by
@@ -127,13 +247,21 @@ export function stopRecording(userId: number): Promise<void> {
  * is read from the real request body by its own, real, matching name;
  * a field whose name does not match the real body's own shape is left
  * blank (the stated, honest limitation above), never guessed. */
-export function recordRequest(userId: number, screenName: string, body: Record<string, unknown>): void {
+export interface RequestSources {
+  params: Record<string, unknown>;
+  query: Record<string, unknown>;
+  body: Record<string, unknown>;
+}
+
+export function recordRequest(userId: number, screenName: string, sources: RequestSources): void {
   const state = activeRecordings.get(userId);
   if (!state) return;
   const fields = screenFields().get(screenName);
   if (!fields) return;
+  const overrides = REAL_FIELD_SOURCE_OVERRIDES[screenName] ?? {};
   const row = [screenName, ...fields.map((f) => {
-    const value = body[f.fieldName];
+    const override = overrides[f.fieldName];
+    const value = override ? resolveFieldSource(sources, override) : sources.body[f.fieldName];
     return value == null ? '' : String(value);
   })];
   state.stream.write(row.map(writeCsvField).join(',') + '\n');
@@ -152,10 +280,17 @@ export function recordingMiddleware(req: import('express').Request, res: import(
   const screenName = req.headers['x-screen-name'] as string | undefined;
   const userId = req.user?.id;
   if (!screenName || userId == null || !isRecording(userId)) return next();
-  const body = (req.body ?? {}) as Record<string, unknown>;
   res.on('finish', () => {
     if (res.statusCode >= 200 && res.statusCode < 300) {
-      recordRequest(userId, screenName, body);
+      // req.params is only genuinely populated once Express's own
+      // routing has matched the real, specific route - true by now,
+      // since the real response has already finished.
+      const sources: RequestSources = {
+        params: (req.params ?? {}) as Record<string, unknown>,
+        query: (req.query ?? {}) as Record<string, unknown>,
+        body: (req.body ?? {}) as Record<string, unknown>,
+      };
+      recordRequest(userId, screenName, sources);
     }
   });
   next();

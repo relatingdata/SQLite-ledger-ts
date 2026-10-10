@@ -106,20 +106,37 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   // business owner's own displayed label stays separately
   // translatable).
   createProviderSimple: (a) => db.createProvider(a.providerName, db.asUserId(1)),
-  // Phase B: a real, generic two-line journal entry (debit one account,
-  // credit another, for the same amount) - used for Chapter 3's own
-  // opening-capital posting. Built on the real, existing stageLine/
-  // postJournalEntry pair, the same, one, real path every other
-  // manual transaction in this application posts through.
+  // Per docs/skill-step-runner-design.md §11b: the real, granular,
+  // complete-in-itself General Journal screens - one real row per
+  // real HTTP call, matching /journal/staging and /journal/post
+  // exactly, never one, combined, artificial row standing in for
+  // a whole, multi-line entry.
+  stageJournalLine: (a) => {
+    db.stageLine({ reference: a.reference, business: a.businessName as any, ledger: a.ledger as any, account: a.account as any, amount_minor: Number(a.amountMinor) });
+  },
   postJournalEntrySimple: (a) => {
     const userId = db.asUserId(1);
-    const business = a.businessName as any;
-    const ledger = db.asLedgerName('Actual');
-    const reference = `JE-${Date.now()}`;
-    const amount = Number(a.amountMinor);
-    db.stageLine({ reference, business, ledger, account: a.debitAccount as any, amount_minor: amount });
-    db.stageLine({ reference, business, ledger, account: a.creditAccount as any, amount_minor: -amount });
-    db.postJournalEntry(reference, business, ledger, userId);
+    db.postJournalEntry(a.reference, a.businessName as any, a.ledger as any, userId);
+  },
+  // Per docs/skill-step-runner-design.md §11b: the real, generic
+  // createEntity shape (name, parent) - matching POST /entities
+  // exactly, the same, real, shared endpoint several, genuinely
+  // different real screens (Create Item's own category and item
+  // steps, among others) actually call.
+  createEntitySimple: (a) => {
+    db.createEntityRaw({ name: a.name, parent: a.parent || undefined }, db.asUserId(1));
+  },
+  // Per docs/skill-step-runner-design.md §11b: matching
+  // POST /stock/po/stage exactly.
+  stagePurchaseOrderSimple: (a) => {
+    db.stagePurchaseOrder({
+      reference: a.reference, business: a.businessName as any, ledger: a.ledger as any,
+      vendor: a.vendor as any, item: a.item as any, quantity: Number(a.quantity), price_minor: Number(a.priceMinor),
+    });
+  },
+  postPurchaseOrderSimple: (a) => {
+    const userId = db.asUserId(1);
+    db.postPurchaseOrder(a.reference, a.businessName as any, a.ledger as any, userId);
   },
   // Phase B: sets an item's real cost and real pack size (units per
   // carton) against a specific, named provider - the real, existing

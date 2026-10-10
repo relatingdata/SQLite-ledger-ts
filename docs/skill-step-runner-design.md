@@ -343,6 +343,110 @@ a failed attempt is never written. `recordingRouter`
 (`GET /api/recording`, `POST /api/recording/start`, `POST /api/recording/stop`),
 mounted behind `requireAuth` like every other real router.
 
+## 11a. The real field-source problem, found by direct testing, not assumed solved
+
+The first, working version of recording read every field from the real request's own JSON body, by
+the same name `screens.csv` itself uses. Tested directly, this was wrong: a real "Create Location"
+request carries its own location name in the URL path itself and its own business name in the query
+string — neither lives in the body at all — so the recorded row came back with two real, required
+positions genuinely blank. **A recording that cannot be replayed is not a real recording at all**,
+whatever it looks like on screen.
+
+The real fix, confirmed directly against the real route's own code (never assumed from the schema
+name alone): `recordRequest` now takes all three real request sources — `req.params`, `req.query`,
+`req.body` — and a real, explicit, hand-verified override table
+(`REAL_FIELD_SOURCE_OVERRIDES`, `backend/src/recording.ts`) names exactly where each position's real
+value lives whenever it differs from "the body, same name." A real, separate, confirmed bug found
+while building this: `req.params` is only genuinely populated once Express's own routing has matched
+the real route, which happens *after* this middleware calls `next()` — the real capture had to move
+inside the `res.on('finish', ...)` callback, by which point routing has genuinely completed.
+
+**Surveying every real, tracked screen's own route directly** (not assumed consistent) found this
+same class of problem is widespread, not isolated to one screen: array-nested fields (an item's own
+`quantity`/`unitPriceMinor` living inside a real `lines[0]`, not at the top level), differently-named
+body keys (`vendorName` for the real body, `providerName` for the screen), and — the deepest problem —
+**several real screens whose own, tutorial-only field shape does not correspond to any single, real
+HTTP call at all**, because the real, underlying action is genuinely more than one real request.
+
+## 11b. The real, corrected design principle, confirmed directly: a screen may make several real API calls, and each must be complete in itself
+
+The first instinct — buffer values across a screen's several real calls, then write one, combined
+row once enough is known — was wrong, and rejected before being built. It would need real, stateful
+tracking of "which call is this, within this screen's own sequence," fragile exactly where real
+`stageLine` calls (the common case below) are genuinely interchangeable and unordered from the
+server's own point of view. **The real, correct principle, stated plainly: there is no "the screen's
+own row" at all — there is only ever one real row per real, successful HTTP call, each one complete
+in itself**, carrying exactly what that one, specific, real request genuinely sent and nothing it
+didn't. A screen that makes three real calls is recorded, and replayed, as three real, separate,
+ordinary rows — never specially recombined.
+
+This is not a limitation to work around; it is the honest, correct shape of what actually happened,
+and it is simpler than buffering, not more complex: `recordRequest` never needs to know whether a
+call is "the first of three" or "the only one" — every call is handled identically.
+
+### The real, worked example: the General Journal
+
+The tutorial-authoring convenience screen `Post Journal Entry` (`businessName`, `debitAccount`,
+`creditAccount`, `amountMinor` — one, combined row standing in for a whole, two-line entry) does not
+correspond to any single, real HTTP call. The real, underlying application makes **two or more**
+separate, real requests: one `POST /api/journal/staging` per real line (confirmed directly,
+`backend/src/routes/journal.ts` — `reference`, `business`, `ledger`, `account`, `amount_minor`,
+plus optional `description`/`transdate`/`memo`), then one, final `POST /api/journal/post`
+(`reference`, `business`, `ledger` only) to actually post the entry.
+
+**The real, corrected screens** (`shared-fixtures/screens.csv`): `Stage Journal Line`
+(`reference`, `businessName`, `ledger`, `account`, `amountMinor`) — one real row per real staged
+line, matching `/journal/staging` exactly — and `Post Journal Entry`, simplified to its own, real,
+three-field shape (`reference`, `businessName`, `ledger`), matching `/journal/post` exactly. A real,
+ordinary, two-line journal entry (debit one account, credit another) is therefore recorded, and
+replayed, as **three real, separate, complete rows** — two `Stage Journal Line` rows, then one
+`Post Journal Entry` row — exactly reproducing the real, actual sequence of calls a genuine browser
+session makes, never a single, artificial, four-field row standing in for all of it.
+
+The same, real principle applies wherever this pattern recurs: `Create Purchase Order`'s own real
+`stage`/`post` pair becomes `Stage Purchase Order` + `Post Purchase Order` (the latter sharing the
+exact, same, simple `reference`/`businessName`/`ledger` shape as `Post Journal Entry` — both are the
+same, real kind of action, finalizing something already staged); `Create Item`'s own, real, shared
+`createEntity` calls (one for a new category, one for the item itself) become real, separate
+`Create Entity` rows (`name`, `parent`), the real, generic shape `createEntity`'s own route actually
+has — never a screen-specific one.
+
+## 11c. The real, path-aware field-source resolver — built, every tracked screen now checked and confirmed
+
+`FieldSource` (`backend/src/recording.ts`) gained an optional, real `path` — a sequence of array
+indices and object keys followed from the named source's own top-level key, e.g.
+`{ key: 'lines', path: [0, 'itemName'] }` reads `body.lines[0].itemName`. `resolveFieldSource` walks
+it, returning `undefined` (recorded blank, never a guess) the moment any step along the way is
+missing.
+
+**Every real, tracked screen's own override now checked directly against its own, real route code**,
+not assumed from its name: `Open Container` (`business`/`location`/`item`, not
+`businessName`/`locationName`/`itemName`; `containerValues[0]`/`unitValues[0]`); `POS Sale` and
+`Cash Purchase` (`business`, not `businessName`; `vendorName` for `Cash Purchase`'s own
+`providerName`; every line field nested inside the real `lines[0]`); `Receive Into Storage`
+(`business`, not `businessName`; the real location name is the URL's own path segment, not the body;
+`combinationShape[0][0]`/`combinationValues[0]`).
+
+**`API_REGISTRY` entries added** for every new, granular screen (`stageJournalLine`,
+`postJournalEntrySimple` simplified, `createEntitySimple`, `stagePurchaseOrderSimple`,
+`postPurchaseOrderSimple`) — each a thin, direct, one-to-one call into the same, real backend function
+its own real route calls.
+
+**`tutorial-steps.csv`'s own `Post Journal Entry` row rewritten** into its own, real, three-row
+sequence (two `Stage Journal Line` rows, one `Post Journal Entry` row) — confirmed directly: the full,
+real tutorial (now 24 steps) passes end to end via `--path api`, and the real Balance Sheet numbers on
+both ledgers remain exactly correct afterward, no regression from the rewrite.
+
+**Directly verified, over real HTTP, against the real, running server** — not merely "compiles":
+the real General Journal sequence (two `Stage Journal Line` calls, one `Post Journal Entry` call)
+recorded exactly, completely, with every field in its real, correct position; `POS Sale`'s own,
+real, nested line fields (`itemName`, `quantity`, `unitPriceMinor`) resolved correctly from inside
+the real `lines[0]`; `Open Container`'s own, real `containerValues[0]`/`unitValues[0]` resolved
+correctly too.
+
+**Not yet done**: `Cash Purchase` and `Receive Into Storage`'s own overrides compile clean but have
+not yet been exercised with a real, direct HTTP request the way the others above have been.
+
 **Directly verified**, calling the real mechanism directly (not assumed
 correct): starting a recording, recording two real, different screens'
 own data, stopping, and reading the resulting file back — the real comment
