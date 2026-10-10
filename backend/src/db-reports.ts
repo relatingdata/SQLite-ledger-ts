@@ -1,6 +1,6 @@
 import { db, getQualifiedDisplayName, getCombinationDisplayName, resolveBusinessCoaAccountId } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
-import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, asDivisionName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 
 // ---------------------------------------------------------------------------
@@ -285,55 +285,6 @@ export function getChartOfAccounts(business: string): ChartRow[] {
 // zero once Customers/Vendors are correctly included — the bug was
 // only ever in which accounts this function chose to sum, never in
 // the posted data itself).
-/** Every (account, division) pair's real balance — used specifically
- * by closeBooks, which needs to know not just each account's total
- * balance but which real division(s) actually contributed to it, so
- * a period with multiple real profit centers correctly rolls each
- * division's own net income into its own real Retained Earnings leaf,
- * rather than collapsing every division together into one figure. A
- * line with no division at all groups under the null key. */
-export function getLedgerBalancesByDivision(
-  businessName: BusinessName,
-  ledgerName: LedgerName,
-  fromDate?: string,
-  toDate?: string,
-  excludeCloseEntries = false
-): Map<number, Map<string | null, number>> {
-  const rows = db
-    .prepare(
-      `WITH RECURSIVE real_accounts(id) AS (
-         SELECT id FROM current_entities WHERE name = 'Chart of Accounts'
-         UNION ALL
-         SELECT e.id FROM current_entities e
-         JOIN real_accounts r ON e.parent_id = r.id
-         WHERE NOT EXISTS (SELECT 1 FROM contact WHERE entity_id = r.id)
-       )
-       SELECT a.entity_id AS id, d.name AS division_name,
-              SUM(jo.amount_minor) AS balance_minor
-       FROM account a
-       JOIN real_accounts ra ON ra.id = a.entity_id
-       JOIN journal_occurrences jo ON jo.account_id = a.entity_id
-       JOIN journal j ON j.id = jo.journal_id
-       LEFT JOIN current_entities d ON d.id = jo.division_id
-       WHERE jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
-         AND (? IS NULL OR jo.transdate >= ?)
-         AND (? IS NULL OR jo.transdate <= ?)
-         AND (? = 0 OR j.reference NOT LIKE 'CLOSE-%')
-       GROUP BY a.entity_id, jo.division_id`
-    )
-    .all(ledgerName, businessName, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, excludeCloseEntries ? 1 : 0) as {
-    id: number;
-    division_name: string | null;
-    balance_minor: number;
-  }[];
-  const result = new Map<number, Map<string | null, number>>();
-  for (const r of rows) {
-    if (!result.has(r.id)) result.set(r.id, new Map());
-    result.get(r.id)!.set(r.division_name, r.balance_minor);
-  }
-  return result;
-}
-
 /** A real, new, parallel implementation of getLedgerBalancesByDivision
  * above, using the real, structural location/division derivation
  * (getDivisionForAccount) instead of reading journal_line.division_id
@@ -391,7 +342,7 @@ export function getLedgerBalancesByDivisionStructural(
   return result;
 }
 
-export function getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries = false): Map<number, number> {
+export function getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, number> {
   const rows = db
     .prepare(
       `WITH RECURSIVE real_accounts(id) AS (
@@ -410,22 +361,11 @@ export function getLedgerBalances(businessName: BusinessName, ledgerName: Ledger
          SELECT id FROM real_accounts
          UNION
          SELECT id FROM contact_accounts
-       ),
-       -- The requested division and every real division nested under
-       -- it — a division can be genuinely nested (e.g. a real
-       -- per-location division under a real per-city one), and
-       -- filtering by the coarser one must include the finer one's
-       -- own real activity too, not just an exact division_id match.
-       division_and_descendants(id) AS (
-         SELECT id FROM current_entities WHERE name = ?
-         UNION ALL
-         SELECT e.id FROM current_entities e JOIN division_and_descendants d ON e.parent_id = d.id
        )
        SELECT a.entity_id AS id,
               COALESCE(SUM(CASE WHEN jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
                                  AND (? IS NULL OR jo.transdate >= ?)
                                  AND (? IS NULL OR jo.transdate <= ?)
-                                 AND (? IS NULL OR jo.division_id IN (SELECT id FROM division_and_descendants))
                                  AND (? = 0 OR j.reference NOT LIKE 'CLOSE-%')
                                  THEN jo.amount_minor ELSE 0 END), 0) AS balance_minor
        FROM account a
@@ -434,7 +374,7 @@ export function getLedgerBalances(businessName: BusinessName, ledgerName: Ledger
        LEFT JOIN journal j ON j.id = jo.journal_id
        GROUP BY a.entity_id`
     )
-    .all(divisionName ?? '__none__', ledgerName, businessName, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, divisionName ?? null, excludeCloseEntries ? 1 : 0) as {
+    .all(ledgerName, businessName, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, excludeCloseEntries ? 1 : 0) as {
     id: number;
     balance_minor: number;
   }[];
@@ -493,8 +433,8 @@ export interface TrialBalance {
 
 /** Every account with a non-zero balance *in the given ledger*, split
  * into its debit or credit column — the classic trial balance report. */
-export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): TrialBalance {
-  const balances = getLedgerBalances(businessName, ledgerName, undefined, asOfDate, divisionName);
+export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string): TrialBalance {
+  const balances = getLedgerBalances(businessName, ledgerName, undefined, asOfDate);
   const accounts = db
     .prepare(`SELECT e.id, e.name, e.parent_id, e.combination_ids, a.accountnumber, a.currency FROM account a JOIN current_entities e ON e.id = a.entity_id`)
     .all() as { id: number; name: string; parent_id: number | null; combination_ids: string | null; accountnumber: string | null; currency: string | null }[];
@@ -626,8 +566,8 @@ export interface BalanceSheet {
  * corresponding Equity entry, and Assets = Liabilities + Equity would
  * be false. This was caught by a real test failure (62345 != 0), not
  * assumed correct and shipped. */
-export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): BalanceSheet {
-  const balances = getLedgerBalances(businessName, ledgerName, undefined, asOfDate, divisionName);
+export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string): BalanceSheet {
+  const balances = getLedgerBalances(businessName, ledgerName, undefined, asOfDate);
   const rows = getBusinessReports(businessName)
     .filter((r) => r.report === 'Balance Sheet')
     .map((r) => ({ ...r, balance_minor: balances.get(r.account_id) ?? 0 }))
@@ -698,10 +638,9 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
          FROM journal_occurrences jo
          WHERE jo.account_id IN (SELECT id FROM walk)
            AND jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
-           AND (? IS NULL OR jo.transdate <= ?)
-           AND (? IS NULL OR jo.division_id = (SELECT id FROM current_entities WHERE name = ?))`
+           AND (? IS NULL OR jo.transdate <= ?)`
       )
-      .get(...dimensionChildren, ledgerName, businessName, asOfDate ?? null, asOfDate ?? null, divisionName ?? null, divisionName ?? null) as { total: number };
+      .get(...dimensionChildren, ledgerName, businessName, asOfDate ?? null, asOfDate ?? null) as { total: number };
     return row.total;
   };
 
@@ -730,7 +669,7 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
     liabilities_tree.push({ ...line, is_leaf: true, children: [] });
   }
 
-  const { net_income_minor } = getProfitAndLoss(businessName, ledgerName, undefined, undefined, divisionName, false);
+  const { net_income_minor } = getProfitAndLoss(businessName, ledgerName, undefined, undefined, false);
   if (net_income_minor !== 0) {
     // Same signed convention as the raw ledger balances (credit-normal,
     // negative for a genuine credit/profit) so it splits into
@@ -862,8 +801,8 @@ export function buildCategoryTree(lines: StatementLine[], accountIdByName: Map<s
 
 /** Income, Expenses, and Net Income — for the given ledger specifically,
  * same reasoning as getBalanceSheet above. */
-export function getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries = true): ProfitAndLoss {
-  const balances = getLedgerBalances(businessName, ledgerName, fromDate, toDate, divisionName, excludeCloseEntries);
+export function getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = true): ProfitAndLoss {
+  const balances = getLedgerBalances(businessName, ledgerName, fromDate, toDate, excludeCloseEntries);
   return buildProfitAndLossFromBalances(businessName, balances);
 }
 
@@ -1023,6 +962,39 @@ export function getProfitAndLossByDivision(businessName: BusinessName, ledgerNam
       division,
       profitAndLoss: buildProfitAndLossFromBalances(businessName, balances),
     }));
+}
+
+/** A single real division's own, rolled-up P&L — its own direct
+ * activity PLUS every real, nested division beneath it (e.g. a real
+ * per-location division under a real per-city one), the exact same
+ * "coarser division includes its finer descendants" behavior the
+ * real report pages depend on. Built from the exact same, real,
+ * structural per-division balances getProfitAndLossByDivision already
+ * computes, just summed across the requested division's own real
+ * subtree instead of split out division by division. */
+export function getProfitAndLossForDivision(businessName: BusinessName, ledgerName: LedgerName, divisionName: string, fromDate?: string, toDate?: string): ProfitAndLoss {
+  const divisions = getDivisions();
+  const descendants = new Set<string>([divisionName]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const d of divisions) {
+      if (d.parentName && descendants.has(d.parentName) && !descendants.has(d.name)) {
+        descendants.add(d.name);
+        grew = true;
+      }
+    }
+  }
+  const balancesByDivision = getLedgerBalancesByDivisionStructural(businessName, ledgerName, fromDate, toDate, true);
+  const combined = new Map<number, number>();
+  for (const [accountId, divisionMap] of balancesByDivision.entries()) {
+    let total = 0;
+    for (const [division, balance] of divisionMap.entries()) {
+      if (division !== null && descendants.has(division)) total += balance;
+    }
+    if (total !== 0) combined.set(accountId, total);
+  }
+  return buildProfitAndLossFromBalances(businessName, combined);
 }
 
 export interface ProfitAndLossByDivisionNode extends ProfitAndLossByDivision {
@@ -1235,15 +1207,6 @@ export interface CloseBooksLine {
   account: string;
   accountId?: number;
   amount_minor: number;
-  /** Per direct request: "the whole point of the restructuring" —
-   * the real Retained Earnings posting is now broken into several,
-   * real, separate lines, one per real, active profit center, each
-   * tagged with its own real division. Every other, ordinary
-   * Income/Expense-zeroing line stays combined across divisions
-   * (undefined here) — only the destination of the close, Retained
-   * Earnings, carries the real, meaningful "which profit center
-   * earned this" breakdown. */
-  division?: string;
 }
 interface ComputedClose {
   lines: CloseBooksLine[];
@@ -1292,21 +1255,22 @@ function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfD
   }
 
   if (accountsZeroed > 0) {
-    // Per direct request: "the whole point of the restructuring" —
-    // Retained Earnings is broken into several, real, separate lines,
-    // one per real, active profit center, rather than one, single,
-    // combined line. Each real division's own net income becomes its
-    // own real line, tagged with its own division; a genuinely
-    // untagged remainder (division: null) still posts as its own
-    // real, division-less line, exactly as an ordinary posting would.
-    for (const { division, currency, net } of netIncomeByDivisionCurrency.values()) {
+    // One, single, combined Retained Earnings line per real currency
+    // — division is purely a reporting dimension (divisionBreakdown,
+    // below, is the informational summary of it), never a structural
+    // split in what actually posts here.
+    const netByCurrency = new Map<string | null, number>();
+    for (const { currency, net } of netIncomeByDivisionCurrency.values()) {
+      netByCurrency.set(currency, (netByCurrency.get(currency) ?? 0) + net);
+    }
+    for (const [currency, net] of netByCurrency) {
       if (net === 0) continue;
       if (currency && userId) {
         const retainedEarningsId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(retainedEarningsAccount) as { id: number }).id;
         const tagged = ensureCurrencyAccount(retainedEarningsId, currency, userId);
-        lines.push({ account: tagged.name, accountId: tagged.id, amount_minor: -net, ...(division !== null ? { division } : {}) });
+        lines.push({ account: tagged.name, accountId: tagged.id, amount_minor: -net });
       } else {
-        lines.push({ account: retainedEarningsAccount, amount_minor: -net, ...(division !== null ? { division } : {}) });
+        lines.push({ account: retainedEarningsAccount, amount_minor: -net });
       }
     }
   }
@@ -1350,13 +1314,6 @@ export function closeBooks(business: BusinessName, ledger: LedgerName, asOfDate:
     throw new ValidationError(`Nothing to close for "${ledger}" as of ${asOfDate} — every Income/Expense account is already zero.`);
   }
 
-  // journal_entry_staging's own real key now includes division (see
-  // schema.sql), per direct request: "the whole point of the
-  // restructuring" — every ordinary Income/Expense-zeroing line still
-  // stays combined across divisions (line.division is undefined for
-  // these), but Retained Earnings itself may now genuinely appear
-  // several times in computed.lines, once per real, active division,
-  // each staged as its own, real, separate row rather than merged.
   for (const line of computed.lines) {
     stageLine({
       reference,
@@ -1366,8 +1323,7 @@ export function closeBooks(business: BusinessName, ledger: LedgerName, asOfDate:
       account: asAccountName(line.account),
       accountId: line.accountId,
       amount_minor: line.amount_minor,
-      division: line.division ? asDivisionName(line.division) : undefined,
-      memo: line.account === retainedEarningsAccount ? (line.division ? `Year-end close — net income retained (${line.division})` : 'Year-end close — net income retained') : 'Year-end close',
+      memo: line.account === retainedEarningsAccount ? 'Year-end close — net income retained' : 'Year-end close',
     });
   }
 

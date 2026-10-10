@@ -3,7 +3,6 @@
 
 import { db } from './db.js';
 import { Entity } from './primitives.js';
-import { getBusinessReports } from './db-reports.js';
 import {
   ValidationError,
   NotFoundError,
@@ -11,11 +10,9 @@ import {
   asBusinessName,
   asLedgerName,
   asAccountName,
-  asDivisionName,
   asProviderName,
   asItemName,
   asLocationName,
-  getDivisionType,
   supersedeEntity,
   getContact,
   setDimensionParent,
@@ -29,7 +26,6 @@ import {
   type LedgerName,
   type TypedNode,
   type AccountName,
-  type DivisionName,
   type ProviderName,
   type CustomerName,
   type EmployeeName,
@@ -47,7 +43,6 @@ export interface StagedLine {
   accountId?: number;
   amount_minor: number;
   memo?: string;
-  division?: DivisionName;
   bankReference?: string;
 }
 
@@ -76,25 +71,10 @@ export function stageLine(line: StagedLine): void {
     const resolved = findLedgerScopedAccount(line.ledger, line.account);
     if (resolved) line.accountId = resolved;
   }
-  if (line.division) {
-    const centerType = getDivisionType(line.division);
-    if (centerType === 'Cost Center') {
-      // Business-scoped, not a bare, unscoped business_reports read -
-      // the same real bug class fixed in getChartOfAccounts/
-      // getBusinessReports: an unscoped lookup could silently match a
-      // same-named account belonging to a different business.
-      const category = getBusinessReports(line.business).find((r) => r.account === line.account)?.category;
-      if (category === 'Income') {
-        throw new ValidationError(
-          `"${line.division}" is a Cost Center — it applies to purchasing only and cannot be used on an income account like "${line.account}". Use a Profit Center for sales-side postings.`
-        );
-      }
-    }
-  }
   db.prepare(
-    `INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, account_id, amount_minor, memo, division, bank_reference)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business, ledger, account, account_id, location, division) DO UPDATE SET amount_minor = excluded.amount_minor, memo = excluded.memo, bank_reference = excluded.bank_reference, account_id = excluded.account_id`
+    `INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, account_id, amount_minor, memo, bank_reference)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (reference, business, ledger, account, account_id, location) DO UPDATE SET amount_minor = excluded.amount_minor, memo = excluded.memo, bank_reference = excluded.bank_reference, account_id = excluded.account_id`
   ).run(
     line.reference,
     line.business,
@@ -105,7 +85,6 @@ export function stageLine(line: StagedLine): void {
     line.accountId ?? null,
     line.amount_minor,
     line.memo ?? '',
-    line.division ?? '',
     line.bankReference ?? null
   );
 }
@@ -113,7 +92,7 @@ export function stageLine(line: StagedLine): void {
 export function getStagedLines(reference: string, business: BusinessName, ledger: LedgerName): StagedLine[] {
   return db
     .prepare(
-      `SELECT reference, business, ledger, description, transdate, account, amount_minor, memo, division, bank_reference AS bankReference
+      `SELECT reference, business, ledger, description, transdate, account, amount_minor, memo, bank_reference AS bankReference
        FROM journal_entry_staging WHERE reference = ? AND business = ? AND ledger = ?`
     )
     .all(reference, business, ledger) as StagedLine[];
@@ -657,7 +636,7 @@ export function countJournalEntries(business: BusinessName, ledger: LedgerName):
 }
 
 export interface JournalDetail extends JournalSummary {
-  lines: { account: string; accountnumber: string | null; amount_minor: number; memo: string; division: string | null }[];
+  lines: { account: string; accountnumber: string | null; amount_minor: number; memo: string }[];
 }
 
 export function getJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string): JournalDetail | undefined {
@@ -689,14 +668,13 @@ export function getJournalEntry(business: BusinessName, ledger: LedgerName, jour
 
   const lines = db
     .prepare(
-      `SELECT e.name AS account, a.accountnumber, jo.amount_minor, jo.memo, d.name AS division
+      `SELECT e.name AS account, a.accountnumber, jo.amount_minor, jo.memo
        FROM journal_occurrences jo
        JOIN current_entities e ON e.id = jo.account_id
        LEFT JOIN account a ON a.entity_id = e.id
-       LEFT JOIN current_entities d ON d.id = jo.division_id
        WHERE jo.journal_id = ? AND jo.transdate = ?`
     )
-    .all(journalId, occurrenceDate) as { account: string; accountnumber: string | null; amount_minor: number; memo: string; division: string | null }[];
+    .all(journalId, occurrenceDate) as { account: string; accountnumber: string | null; amount_minor: number; memo: string }[];
 
   const total_debit_minor = lines.filter((l) => l.amount_minor > 0).reduce((s, l) => s + l.amount_minor, 0);
   const total_credit_minor = lines.filter((l) => l.amount_minor < 0).reduce((s, l) => s - l.amount_minor, 0);
@@ -801,7 +779,6 @@ export function reverseJournalEntry(business: BusinessName, ledger: LedgerName, 
       account: asAccountName(line.account),
       amount_minor: -line.amount_minor,
       memo: line.memo,
-      division: line.division ? asDivisionName(line.division) : undefined,
     });
   }
   postJournalEntry(reversalReference, asBusinessName(original.business), asLedgerName(original.ledger), userId);

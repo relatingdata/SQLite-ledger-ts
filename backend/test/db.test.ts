@@ -105,6 +105,7 @@ const {
   getTrialBalance,
   getBalanceSheet,
   getProfitAndLoss,
+  getProfitAndLossForDivision,
   getProfitAndLossByDivision,
   getProfitAndLossByDivisionTree,
   getTrialBalanceComparison,
@@ -195,8 +196,6 @@ const {
   allocatePayment,
   getInvoiceOutstandingMinor,
   getAgedInvoices,
-  setDivisionType,
-  getDivisionType,
   recordReminderSent,
   resetReminderLevel,
   getReminderCandidates,
@@ -257,7 +256,6 @@ const {
   asUserId,
   asLedgerName,
   asAccountName,
-  asDivisionName,
   asCustomerName,
   asProviderName,
   setBusinessHomeCurrency,
@@ -1812,28 +1810,6 @@ test('Developer role, Employees/Manufacturers/Items branches, and item_source al
   assert.ok(itemSourceView, 'item_source (now a real, direct compatibility view over entities.detail_json) must exist');
 });
 
-test('divisions/profit centers: the same account can be posted to by multiple divisions, and reports can filter to just one', () => {
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'DivTest Manufacturing', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'DivTest Services', asUserId(1));
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'DivTest Ledger', asUserId(1));
-
-  stageLine({ reference: 'DIVT-1', business: asBusinessName('My Business'), ledger: asLedgerName('DivTest Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 1000, division: asDivisionName('DivTest Manufacturing') });
-  stageLine({ reference: 'DIVT-1', business: asBusinessName('My Business'), ledger: asLedgerName('DivTest Ledger'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -1000, division: asDivisionName('DivTest Manufacturing') });
-  postJournalEntry('DIVT-1', asBusinessName('My Business'), asLedgerName('DivTest Ledger'), asUserId(1));
-
-  stageLine({ reference: 'DIVT-2', business: asBusinessName('My Business'), ledger: asLedgerName('DivTest Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 500, division: asDivisionName('DivTest Services') });
-  stageLine({ reference: 'DIVT-2', business: asBusinessName('My Business'), ledger: asLedgerName('DivTest Ledger'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -500, division: asDivisionName('DivTest Services') });
-  postJournalEntry('DIVT-2', asBusinessName('My Business'), asLedgerName('DivTest Ledger'), asUserId(1));
-
-  const combined = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('DivTest Ledger'));
-  const mfg = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('DivTest Ledger'), undefined, undefined, 'DivTest Manufacturing');
-  const svc = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('DivTest Ledger'), undefined, undefined, 'DivTest Services');
-
-  assert.equal(combined.total_income_minor, 1500, 'combined reflects both divisions posting to the same account');
-  assert.equal(mfg.total_income_minor, 1000, 'filtered to exactly the Manufacturing division');
-  assert.equal(svc.total_income_minor, 500, 'filtered to exactly the Services division');
-});
-
 test('real multi-line invoices: header + lines, due date derived from the counterparty\'s own payment terms, posting creates the actual GL entry', () => {
   setContact('Acme Corp', { payment_terms_days: 14 });
 
@@ -1965,29 +1941,6 @@ test('aged invoices: bucketed by each customer\'s own payment terms, and partial
   allocatePayment(inv2, 'RCPTTEST-3', 5000, '2027-01-20', 'Cash and Bank', asUserId(1));
   const agedAfterFullPayment = getAgedInvoices(asBusinessName('My Business'), asLedgerName('Actual'), 'AR', '2027-03-01');
   assert.ok(!agedAfterFullPayment.some((r) => r.reference === 'AGETEST-2'), 'a fully-paid invoice is not outstanding, so it must not show up as aged');
-});
-
-test('Cost Centers apply to purchasing only, Profit Centers apply to both — matching SQL-Ledger\'s actual Department distinction, not a generic undifferentiated division', () => {
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'CPTest Factory Floor', asUserId(1));
-  setDivisionType('CPTest Factory Floor', 'Cost Center');
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'CPTest Product Sales', asUserId(1));
-  setDivisionType('CPTest Product Sales', 'Profit Center');
-
-  assert.equal(getDivisionType('CPTest Factory Floor'), 'Cost Center');
-  assert.equal(getDivisionType('CPTest Product Sales'), 'Profit Center');
-
-  // A Cost Center on an expense account is fine — that's its purpose.
-  stageLine({ reference: 'CPT-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName('Rent'), amount_minor: 1000, division: asDivisionName('CPTest Factory Floor') });
-
-  // A Cost Center on an income account must be rejected — Cost Centers
-  // apply to purchasing only, never sales.
-  assert.throws(
-    () => stageLine({ reference: 'CPT-2', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -1000, division: asDivisionName('CPTest Factory Floor') }),
-    ValidationError
-  );
-
-  // A Profit Center on an income account is fine — Profit Centers apply to both.
-  stageLine({ reference: 'CPT-3', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -1000, division: asDivisionName('CPTest Product Sales') });
 });
 
 test('Credit Invoice (restocks) vs Credit Note (does not) — matching SQL-Ledger\'s real distinction, applied per-line based on whether restocking was actually requested', () => {
@@ -2284,7 +2237,6 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
 test('getStockMovementReport: the real, physical journey of stock — purchases into a warehouse, a real transfer on to a retail outlet, and a real sale, each correctly enriched with its own real category, division, and vendor', () => {
   create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'SMRTest Ledger', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'SMRTest Region', asUserId(1));
-  setDivisionType('SMRTest Region', 'Profit Center');
   create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Warehouse', asUserId(1));
   setLocation('SMRTest Warehouse', { city: 'SMRTest Region', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
   create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Outlet', asUserId(1));
@@ -2934,8 +2886,6 @@ test("closeBooks: per direct correction, division is only a real, pure sub-total
   const biz = createBusiness(asBusinessName('MultiDivCloseTest Co'), '2027-28', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'MultiDivCloseTest Retail Division', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'MultiDivCloseTest Wholesale Division', asUserId(1));
-  setDivisionType('MultiDivCloseTest Retail Division', 'Profit Center');
-  setDivisionType('MultiDivCloseTest Wholesale Division', 'Profit Center');
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'MultiDivCloseTest Retail Outlet', asUserId(1));
   setLocation('MultiDivCloseTest Retail Outlet', { city: 'MultiDivCloseTest Retail Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'MultiDivCloseTest Wholesale Outlet', asUserId(1));
@@ -3311,7 +3261,6 @@ test('getInventoryListing/countInventoryListing: a real, paginated listing of ev
 
 test('getInventoryListingByLocation: groups the same real stock data by real location, tagging each with its real division where one exists', () => withMyBusinessSession(() => {
   create(requireEntity('Divisions', typeRootName), typeRootName, 'StockGroupTest City Division', asUserId(1));
-  setDivisionType('StockGroupTest City Division', 'Profit Center');
   create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet', asUserId(1));
   setLocation('StockGroupTest Outlet', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
   createItem('StockGroupTest Wine A', 'Items', asUserId(1));
@@ -3381,29 +3330,6 @@ test('getAccountsPostedTo: finds the real, actual accounts a given reference pos
   assert.equal(accounts.length, 2, "must report every real, distinct account this reference touched, not just the first one it happens to find");
 
   assert.deepEqual(getAccountsPostedTo('APT-NONEXISTENT'), [], 'a reference that was never posted must report a real, empty list, not throw or return a misleading fallback');
-});
-
-test('a real, nested division hierarchy: filtering a report by a coarser division must include a finer, nested division\'s own real activity too, not just an exact division_id match', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'HierarchyTest Ledger', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'HierarchyTest Region', asUserId(1));
-  setDivisionType('HierarchyTest Region', 'Profit Center');
-  create(requireEntity('HierarchyTest Region', typeRootName), typeRootName, 'HierarchyTest Outlet', asUserId(1));
-  setDivisionType('HierarchyTest Outlet', 'Profit Center');
-  create(requireGlobalCoaCategory('Income'), typeRootName, 'HierarchyTest Revenue', asUserId(1));
-
-  function post(reference: string, division: string, amount: number) {
-    stageLine({ reference, business: asBusinessName('My Business'), ledger: asLedgerName('HierarchyTest Ledger'), transdate: '2027-07-01', account: asAccountName('HierarchyTest Revenue'), amount_minor: -amount, division: asDivisionName(division) });
-    stageLine({ reference, business: asBusinessName('My Business'), ledger: asLedgerName('HierarchyTest Ledger'), transdate: '2027-07-01', account: asAccountName('Cash and Bank'), amount_minor: amount, division: asDivisionName(division) });
-    postJournalEntry(reference, asBusinessName('My Business'), asLedgerName('HierarchyTest Ledger'), asUserId(1));
-  }
-  post('HT-1', 'HierarchyTest Outlet', 30000); // the finer, nested division
-  post('HT-2', 'HierarchyTest Region', 5000); // real activity tagged directly at the coarser level too (e.g. a region-wide adjustment)
-
-  const outletOnly = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('HierarchyTest Ledger'), undefined, undefined, 'HierarchyTest Outlet');
-  assert.equal(outletOnly.total_income_minor, 30000, 'filtering by the finer division must show only its own real activity');
-
-  const regionAll = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('HierarchyTest Ledger'), undefined, undefined, 'HierarchyTest Region');
-  assert.equal(regionAll.total_income_minor, 35000, "filtering by the coarser division must include BOTH its own direct activity AND its real, nested division's activity — the exact hierarchical behavior per-location P&L depends on");
 });
 
 test('postJournalEntry: a real multi-currency entry must balance independently per currency — the exact danger this catches: an EUR imbalance masked by an offsetting USD imbalance must never pass', () => {
@@ -4502,12 +4428,10 @@ test('getProfitAndLossByDivisionTree: "Consolidated per Division per Location" �
   assert.ok(tree.some((n) => n.division === null), '(No division) must remain a real, top-level root, never nested under anything');
 });
 
-test('closeBooks: "the whole point of the restructuring" — Retained Earnings itself now carries a real, detailed journal line per real, active profit center, each correctly, independently tagged, still summing to the exact same, single, correct total', () => {
+test('closeBooks: division is only a pure reporting dimension — every division\'s net income rolls into one, single, combined Retained Earnings line, never a separate line per division', () => {
   const biz = createBusiness(asBusinessName('DetailedCloseTest Co'), '2027-28', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'DetailedCloseTest Division A', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'DetailedCloseTest Division B', asUserId(1));
-  setDivisionType('DetailedCloseTest Division A', 'Profit Center');
-  setDivisionType('DetailedCloseTest Division B', 'Profit Center');
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'DetailedCloseTest Outlet A', asUserId(1));
   setLocation('DetailedCloseTest Outlet A', { city: 'DetailedCloseTest Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'DetailedCloseTest Outlet B', asUserId(1));
@@ -4529,35 +4453,25 @@ test('closeBooks: "the whole point of the restructuring" — Retained Earnings i
 
   const reLines = db
     .prepare(
-      `SELECT jl.amount_minor, d.name AS division
+      `SELECT jl.amount_minor
        FROM journal_line jl
        JOIN journal j ON j.id = jl.journal_id
        JOIN current_entities e ON e.id = jl.account_id
-       LEFT JOIN current_entities d ON d.id = jl.division_id
        WHERE j.reference LIKE 'CLOSE-%' AND e.name = ?
          AND j.business_id = (SELECT id FROM current_entities WHERE name = ?)
          AND j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`
     )
-    .all("Owner's Equity", biz.business, biz.actualLedger, biz.business) as { amount_minor: number; division: string | null }[];
+    .all("Owner's Equity", biz.business, biz.actualLedger, biz.business) as { amount_minor: number }[];
 
-  assert.equal(reLines.length, 3, 'the whole point of the restructuring — a real, separate, detailed line per real, active profit center, not one, single, combined line');
+  assert.equal(reLines.length, 1, 'division is only a pure reporting dimension — every division\'s net income rolls into exactly one, single, combined Retained Earnings line');
+  assert.equal(reLines[0].amount_minor, -180000, "Division A's $1,000 + Division B's $600 + the real, undivided $200 remainder = $1,800 total, correctly credited (negative — Retained Earnings is credit-normal)");
 
-  const divA = reLines.find((l) => l.division === 'DetailedCloseTest Division A');
-  const divB = reLines.find((l) => l.division === 'DetailedCloseTest Division B');
-  const undivided = reLines.find((l) => l.division === null);
-  assert.ok(divA && divB && undivided, 'all three real, distinct lines must be present — two real divisions plus the real, undivided remainder');
-  assert.equal(divA!.amount_minor, -100000, "Division A's own real $1,000 profit, correctly credited (negative — Retained Earnings is credit-normal)");
-  assert.equal(divB!.amount_minor, -60000, "Division B's own real $600 profit, correctly credited");
-  assert.equal(undivided!.amount_minor, -20000, 'the real, undivided $200 remainder, correctly credited under no division at all');
-
-  // The real, whole entry must still, genuinely balance overall — a
-  // real, detailed breakdown on one side must never come at the cost
-  // of the fundamental double-entry guarantee.
+  // The real, whole entry must still, genuinely balance overall.
   const allLines = db
     .prepare(`SELECT jl.amount_minor FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference LIKE 'CLOSE-%' AND j.business_id = (SELECT id FROM current_entities WHERE name = ?) AND j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`)
     .all(biz.business, biz.actualLedger, biz.business) as { amount_minor: number }[];
   const total = allLines.reduce((s, l) => s + l.amount_minor, 0);
-  assert.equal(total, 0, 'the real, whole close entry must still sum to exactly zero, regardless of how many real, separate Retained Earnings lines it now contains');
+  assert.equal(total, 0, 'the real, whole close entry must still sum to exactly zero');
 });
 
 test('completePosSale: the real, live wiring — a real sale with a real tier now genuinely ensures its own, real tier-level item, not just its own Sales/COGS accounts', () => {
@@ -4603,7 +4517,7 @@ test('completePosSale: the real, live wiring — a real sale with a real tier no
   assert.equal(getItemLocation(asItemName('PosWireTest2 Merlot'), asLocationName('PosWireTest2 Outlet')).quantity_on_hand, 18, 'stock-tracking still, correctly resolves through the real, base, tier-less item — unchanged in this step');
 });
 
-test('reverseJournalEntry: a real, confirmed bug fix — reversing a year-end close with multiple, real, division-tagged Retained Earnings lines must genuinely reverse ALL of them, not silently collapse onto just the last one', () => {
+test('reverseJournalEntry: a real year-end close, with activity spread across multiple real divisions rolling into one, single, combined Retained Earnings line, must reverse cleanly and balance to zero', () => {
   const biz = createBusiness(asBusinessName('ReverseCloseTest2 Co'), '2027-28', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'ReverseCloseTest2 Division A', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'ReverseCloseTest2 Division B', asUserId(1));
@@ -4627,21 +4541,18 @@ test('reverseJournalEntry: a real, confirmed bug fix — reversing a year-end cl
 
   const reversalLines = db
     .prepare(
-      `SELECT jl.amount_minor, d.name AS division, e.name AS account
+      `SELECT jl.amount_minor, e.name AS account
        FROM journal_line jl
        JOIN journal j ON j.id = jl.journal_id
        JOIN current_entities e ON e.id = jl.account_id
-       LEFT JOIN current_entities d ON d.id = jl.division_id
        WHERE j.reference = ?`
     )
-    .all(`${closeResult.reference}-REV-2027-12-31`) as { amount_minor: number; division: string | null; account: string }[];
+    .all(`${closeResult.reference}-REV-2027-12-31`) as { amount_minor: number; account: string }[];
 
-  assert.equal(reversalLines.length, 4, 'the real reversal must contain all four, real, distinct original lines — two real, division-tagged Retained Earnings lines plus two, real, separate, location-specific Sales-zeroing lines — not collapse onto fewer');
-  const revDivA = reversalLines.find((l) => l.division === 'ReverseCloseTest2 Division A');
-  const revDivB = reversalLines.find((l) => l.division === 'ReverseCloseTest2 Division B');
-  assert.ok(revDivA && revDivB, "both real, division-tagged Retained Earnings lines must survive the reversal independently, each with their own real division intact");
-  assert.equal(revDivA!.amount_minor, 50000);
-  assert.equal(revDivB!.amount_minor, 30000);
+  assert.equal(reversalLines.length, 3, 'the real reversal must contain all three, real, distinct original lines — one, single, combined Retained Earnings line plus two, real, separate, location-specific Sales-zeroing lines — not collapse onto fewer');
+  const retainedEarnings = reversalLines.find((l) => l.account === "Owner's Equity");
+  assert.ok(retainedEarnings, 'the one, single, combined Retained Earnings line must survive the reversal');
+  assert.equal(retainedEarnings!.amount_minor, 80000, "Division A's $500 + Division B's $300, reversed as one combined line");
 
   const total = reversalLines.reduce((s, l) => s + l.amount_minor, 0);
   assert.equal(total, 0, 'the real, whole reversal entry must genuinely balance to exactly zero');
@@ -4751,7 +4662,7 @@ test('getLocationForAccount/getDivisionForAccount: the real, structural replacem
   assert.equal(getDivisionForAccount(asAccountName('Cash and Bank')), undefined);
 });
 
-test('getLedgerBalancesByDivisionStructural: the real, new, structural version must agree exactly with the existing, tag-based one on real, live sales that carry both', () => {
+test('getLedgerBalancesByDivisionStructural: correctly derives division by walking location, per real, live sale, at multiple real outlets', () => {
   const biz = createBusiness(asBusinessName('StructTest6 Co'), '2027-28', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'StructTest6 Springfield', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'StructTest6 Rivertown', asUserId(1));
@@ -4767,7 +4678,6 @@ test('getLedgerBalancesByDivisionStructural: the real, new, structural version m
   completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('StructTest6 Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'StructTest6 Merlot', quantity: 2, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 5000 }, asUserId(1));
   completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('StructTest6 Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'StructTest6 Merlot', quantity: 3, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 5000 }, asUserId(1));
 
-  const oldResult = getLedgerBalancesByDivision(biz.business, biz.actualLedger);
   const newResult = getLedgerBalancesByDivisionStructural(biz.business, biz.actualLedger);
 
   const tree = getEntityTree();
@@ -4783,11 +4693,9 @@ test('getLedgerBalancesByDivisionStructural: the real, new, structural version m
     return out;
   }
 
-  const oldSales = salesByDivision(oldResult);
   const newSales = salesByDivision(newResult);
-  assert.equal(newSales['StructTest6 Springfield'], -3000, 'the real, new, structural version must correctly derive the real division from the real, structural location link');
+  assert.equal(newSales['StructTest6 Springfield'], -3000, 'the real, structural version must correctly derive the real division from the real, structural location link');
   assert.equal(newSales['StructTest6 Rivertown'], -4500);
-  assert.deepEqual(newSales, oldSales, 'the real, new, structural version must agree exactly with the real, existing, tag-based one on the exact same, real, live data');
 });
 
 test('getProfitAndLossByAxis: real, direct reproducibility — every real division and every real location must exactly reproduce the original, division-filtered P&L (Sales AND COGS both), per direct, reported concern', async () => {
@@ -4816,11 +4724,11 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
   // reads a real, different, older mechanism.
   const tierItem = ensureItemTier(asItemName('ReproTest Merlot'), 'Bottle', asUserId(1));
   const { cogsAccount, cogsAccountId } = ensureItemTierLocationLeaf(tierItem.tierItemName, asLocationName('ReproTest Outlet'), asUserId(1), tierItem.tierItemId);
-  stageLine({ reference: 'REPRO-COGS', business: biz.business, ledger: biz.actualLedger, transdate: today, account: asAccountName(cogsAccount), accountId: cogsAccountId, amount_minor: 2000, division: asDivisionName('ReproTest Division') });
-  stageLine({ reference: 'REPRO-COGS', business: biz.business, ledger: biz.actualLedger, transdate: today, account: asAccountName('Inventory'), amount_minor: -2000, division: asDivisionName('ReproTest Division') });
+  stageLine({ reference: 'REPRO-COGS', business: biz.business, ledger: biz.actualLedger, transdate: today, account: asAccountName(cogsAccount), accountId: cogsAccountId, amount_minor: 2000 });
+  stageLine({ reference: 'REPRO-COGS', business: biz.business, ledger: biz.actualLedger, transdate: today, account: asAccountName('Inventory'), amount_minor: -2000 });
   postJournalEntry('REPRO-COGS', biz.business, biz.actualLedger, asUserId(1));
 
-  const originalPL = getProfitAndLoss(biz.business, biz.actualLedger, undefined, undefined, 'ReproTest Division');
+  const originalPL = getProfitAndLossForDivision(biz.business, biz.actualLedger, 'ReproTest Division');
   const newNewPLByDivision = getProfitAndLossByAxis(biz.business, biz.actualLedger, undefined, undefined, 'Division', 'Consolidated', 'ReproTest Division');
   const newNewPLByLocation = getProfitAndLossByAxis(biz.business, biz.actualLedger, undefined, undefined, 'Location', 'Consolidated', 'ReproTest Outlet');
 

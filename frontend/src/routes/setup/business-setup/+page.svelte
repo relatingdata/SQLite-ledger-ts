@@ -68,7 +68,7 @@
     creatingDivision = true;
     divisionError = '';
     try {
-      await createDivision(newDivisionName.trim(), null, 'Profit Center');
+      await createDivision(newDivisionName.trim(), null);
       await setEntityRelationship(newDivisionName.trim(), 'Belongs To Business', session.current.businessName);
       newDivisionName = '';
       showAddDivision = false;

@@ -423,11 +423,10 @@ export interface DivisionRecord {
   id: number;
   name: string;
   parentName: string | null;
-  centerType: string | null;
 }
 export const getDivisions = () => request<DivisionRecord[]>('/divisions');
-export const createDivision = (name: string, parent: string | null, centerType: string) =>
-  request<{ name: string }>('/divisions', { method: 'POST', body: JSON.stringify({ name, parent, centerType }) });
+export const createDivision = (name: string, parent: string | null) =>
+  request<{ name: string }>('/divisions', { method: 'POST', body: JSON.stringify({ name, parent }) });
 
 export interface HierarchyGroupingWithValues {
   grouping: string;
@@ -546,7 +545,7 @@ export const listJournalEntries = (business: BusinessName, ledger: LedgerName, l
   );
 
 export interface JournalDetail extends JournalSummary {
-  lines: { account: AccountName; accountnumber: string | null; amount_minor: number; memo: string; division: DivisionName | null }[];
+  lines: { account: AccountName; accountnumber: string | null; amount_minor: number; memo: string }[];
 }
 
 export const getJournalEntry = (business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string) =>
@@ -1511,7 +1510,7 @@ export const closeBooks = (input: { business: BusinessName; ledger: LedgerName; 
   request<CloseBooksResult>('/journal/close-books', { method: 'POST', body: JSON.stringify(input) });
 
 export interface CloseBooksPreview {
-  lines: { account: AccountName; amount_minor: number; division?: string }[];
+  lines: { account: AccountName; amount_minor: number }[];
   netIncomeMinor: number;
   accountsZeroed: number;
   divisionBreakdown: { division: DivisionName | null; netIncomeMinor: number }[];

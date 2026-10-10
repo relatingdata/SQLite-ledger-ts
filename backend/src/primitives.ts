@@ -227,7 +227,7 @@ export const Balance = {
    * (e.g. one real location) — the real replacement for every
    * hand-rolled "SUM(journal_line...) WHERE ... AND location_id = ?"
    * query scattered across get* functions. */
-  getScoped(accountName: string, dimensionColumn: 'location_id' | 'division_id', dimensionName: string): number {
+  getScoped(accountName: string, dimensionColumn: 'location_id', dimensionName: string): number {
     const row = db
       .prepare(
         `SELECT SUM(jl.amount_minor) AS total

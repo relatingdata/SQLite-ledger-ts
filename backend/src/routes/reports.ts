@@ -10,6 +10,7 @@ import {
   getProfitAndLoss,
   getProfitAndLossByDivision,
   getProfitAndLossByDivisionTree,
+  getProfitAndLossForDivision,
   getTrialBalanceComparison,
   getProfitAndLossComparison,
   getSalesReport,
@@ -148,7 +149,7 @@ reportsRouter.get('/profit-and-loss', (req, res) => {
   const fromDate = typeof req.query.fromDate === 'string' ? req.query.fromDate : undefined;
   const toDate = typeof req.query.toDate === 'string' ? req.query.toDate : undefined;
   const division = typeof req.query.division === 'string' ? req.query.division : undefined;
-  res.json(getProfitAndLoss(scope.business, scope.ledger, fromDate, toDate, division));
+  res.json(division ? getProfitAndLossForDivision(scope.business, scope.ledger, division, fromDate, toDate) : getProfitAndLoss(scope.business, scope.ledger, fromDate, toDate));
 });
 
 /** A real, full drill-down tree for any real hierarchy root — every

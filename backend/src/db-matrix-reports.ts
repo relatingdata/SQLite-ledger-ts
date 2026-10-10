@@ -468,7 +468,7 @@ export function getProfitAndLossByAxis(
 ): ProfitAndLossByAxisNode[] {
   const entityIndex = loadEntityIndex();
   const validIds = plAccountIds(entityIndex);
-  const balances = getLedgerBalances(businessName, ledgerName, fromDate, toDate, undefined, true);
+  const balances = getLedgerBalances(businessName, ledgerName, fromDate, toDate, true);
 
   // Every real, non-zero, real P&L account's own real outer/inner
   // axis keys, resolved once, up front.
@@ -527,7 +527,7 @@ export interface AxisValues {
 export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues {
   const entityIndex = loadEntityIndex();
   const validIds = plAccountIds(entityIndex);
-  const balances = getLedgerBalances(businessName, ledgerName, undefined, undefined, undefined, true);
+  const balances = getLedgerBalances(businessName, ledgerName, undefined, undefined, true);
 
   const products = new Set<string>();
   const categories = new Set<string>();

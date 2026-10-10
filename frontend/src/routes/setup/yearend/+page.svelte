@@ -150,7 +150,7 @@
           <tbody>
             {#each preview.lines as line}
               <tr>
-                <td>{line.account}{#if line.division}<span class="line-division"> — {line.division}</span>{/if}</td>
+                <td>{line.account}</td>
                 <td class="num">{line.amount_minor > 0 ? fmt(line.amount_minor) : ''}</td>
                 <td class="num">{line.amount_minor < 0 ? fmt(-line.amount_minor) : ''}</td>
               </tr>
@@ -160,7 +160,7 @@
         <p class="preview-net">{translations.current['Net Income'] ?? 'Net Income'}: <strong>{fmt(preview.netIncomeMinor)}</strong></p>
 
         {#if preview.divisionBreakdown.length > 0}
-          <p class="division-heading">{translations.current['Summary by division/location profit center (the same, real detail shown above, per line)'] ?? 'Summary by division/location profit center (the same, real detail shown above, per line)'}:</p>
+          <p class="division-heading">{translations.current['Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)'] ?? 'Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)'}:</p>
           <ul class="division-list">
             {#each preview.divisionBreakdown as d}
               <li>{d.division ?? (translations.current['(No division)'] ?? '(No division)')}: {fmt(d.netIncomeMinor)}</li>

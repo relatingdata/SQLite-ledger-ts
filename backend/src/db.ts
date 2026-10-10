@@ -81,8 +81,21 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 const dbPath = process.env.DB_PATH ?? path.join(dataDir, 'entities.sqlite');
 // DB_VERBOSE=1 npm run dev prints every SQL statement as it executes —
 // a real-time view of what the app is actually doing to the database,
-// useful for watching workflows unfold without a separate tool.
+// useful for watching workflows unfold without a separate tool. A real,
+// confirmed gap found directly: this comment documented the feature but
+// nothing ever implemented it. Fixed here by wrapping prepare() itself
+// (not the Database constructor's own options, which the real, cross-
+// runtime RuntimeDatabase abstraction above — bun:sqlite vs.
+// better-sqlite3 — does not uniformly support) so this works identically
+// under every real runtime this project targets.
 export const db = new Database(dbPath);
+if (process.env.DB_VERBOSE) {
+  const realPrepare = db.prepare.bind(db);
+  db.prepare = ((sql: string) => {
+    console.log('[SQL]', sql.replace(/\s+/g, ' ').trim());
+    return realPrepare(sql);
+  }) as typeof db.prepare;
+}
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
 
@@ -331,9 +344,6 @@ export function asLedgerName(name: string): LedgerName {
 }
 export function asAccountName(name: string): AccountName {
   return name as AccountName;
-}
-export function asDivisionName(name: string): DivisionName {
-  return name as DivisionName;
 }
 export function asLocationName(name: string): LocationName {
   return name as LocationName;
@@ -1952,7 +1962,6 @@ export function postInvoice(
   taxAccount: string,
   userId: UserId,
   restockInventory = false,
-  divisionName?: string,
   counterpartyAccountOverride?: string
 ): void {
   db.transaction(() => {
@@ -1986,7 +1995,6 @@ export function postInvoice(
     // purposes) is completely untouched either way.
     account: asAccountName(counterpartyAccountOverride ?? invoice.counterparty),
     amount_minor: sign * total,
-    division: divisionName ? asDivisionName(divisionName) : undefined,
   });
   if (typeof revenueOrExpenseAccount === 'function') {
     for (const line of invoice.lines) {
@@ -2001,7 +2009,6 @@ export function postInvoice(
         account: asAccountName(accountName),
         accountId,
         amount_minor: -sign * line.amountMinor,
-        division: divisionName ? asDivisionName(divisionName) : undefined,
       });
     }
   } else {
@@ -2015,7 +2022,6 @@ export function postInvoice(
       account: asAccountName(accountName),
       accountId,
       amount_minor: -sign * invoice.total_amount_minor,
-      division: divisionName ? asDivisionName(divisionName) : undefined,
     });
   }
   if (invoice.total_tax_minor !== 0) {
@@ -2026,7 +2032,6 @@ export function postInvoice(
       transdate: invoice.invoice_date,
       account: asAccountName(taxAccount),
       amount_minor: -sign * invoice.total_tax_minor,
-      division: divisionName ? asDivisionName(divisionName) : undefined,
     });
   }
   postJournalEntry(invoice.reference, asBusinessName(invoice.business), asLedgerName(invoice.ledger), userId);
@@ -3517,7 +3522,6 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       })(),
       userId,
       false,
-      cityDivisionFor(input.locationName),
       // A real, immediate cash sale has no genuine receivable at all,
       // even momentarily — post straight to the real payment account
       // instead of the customer's own AR balance. A genuine
@@ -3551,7 +3555,6 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
     // itself, rather than a fabricated, invented cost.
     const cogsRef = `${reference}-COGS`;
     let cogsTotal = 0;
-    const cogsDivision = cityDivisionFor(input.locationName);
     for (const line of input.lines) {
       const unitCostMinor = getItemUnitCostMinor(asItemName(line.itemName));
       if (unitCostMinor == null) continue;
@@ -3602,8 +3605,8 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
         const taggedInv = ensureCurrencyAccount(inv!.inventoryAccountId, effectiveCurrency, userId);
         inv = { inventoryAccount: taggedInv.name, inventoryAccountId: taggedInv.id };
       }
-      stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(cogsAccount), accountId: cogsAccountId, amount_minor: lineCogsMinor, division: cogsDivision ? asDivisionName(cogsDivision) : undefined });
-      stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(inv!.inventoryAccount), accountId: inv!.inventoryAccountId, amount_minor: -lineCogsMinor, division: cogsDivision ? asDivisionName(cogsDivision) : undefined });
+      stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(cogsAccount), accountId: cogsAccountId, amount_minor: lineCogsMinor });
+      stageLine({ reference: cogsRef, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(inv!.inventoryAccount), accountId: inv!.inventoryAccountId, amount_minor: -lineCogsMinor });
       cogsTotal += lineCogsMinor;
     }
     if (cogsTotal > 0) postJournalEntry(cogsRef, input.business, input.ledger, userId);
@@ -3745,7 +3748,6 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
       input.taxAccount,
       userId,
       false,
-      cityDivisionFor(input.locationName),
       // The same, real reasoning completePosSale already uses for a
       // cash sale — a real, immediate cash purchase has no genuine
       // payable at all, even momentarily; post straight to the real
@@ -3863,7 +3865,7 @@ export function payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): 
       },
       userId
     );
-    postInvoice(invoiceId, wagesAccount, 'Sales Tax Payable', userId, false, undefined, undefined);
+    postInvoice(invoiceId, wagesAccount, 'Sales Tax Payable', userId, false, undefined);
 
     // Withholds the real Medicare levy from the employee's own real
     // balance — reduces what they're owed, and records a real,
@@ -6115,11 +6117,8 @@ export function setDefaultLanguage(languageName: string, userId: UserId): void {
 /** Every real division that exists — a division is just an ordinary
  * entity under "Divisions" (at any depth, since a division can itself
  * be nested, e.g. "Retail" -> "Retail North", the same real hierarchy
- * a product category can have), with an optional real cost/profit
- * type set via setDivisionType. A division with no type set yet still
- * shows up here (type: null) — creating the entity and classifying it
- * are two separate, real steps, not one. */
-export function getDivisions(): { id: number; name: string; parentName: string | null; centerType: string | null }[] {
+ * a product category can have). */
+export function getDivisions(): { id: number; name: string; parentName: string | null }[] {
   const rows = db
     .prepare(
       `WITH RECURSIVE divisions_tree(id) AS (
@@ -6127,23 +6126,18 @@ export function getDivisions(): { id: number; name: string; parentName: string |
          UNION ALL
          SELECT e.id FROM current_entities e JOIN divisions_tree t ON e.parent_id = t.id
        )
-       SELECT e.id, e.name, p.name AS parent_name,
-              (SELECT rel.name FROM current_entities rec
-                 JOIN current_entities rel ON rel.id = rec.relation_id
-                 WHERE rec.parent_id = (SELECT id FROM current_entities WHERE name = 'Division Type')
-                 AND rec.name = 'Division Type — ' || e.name || ' → ' || rel.name) AS type_marker
+       SELECT e.id, e.name, p.name AS parent_name
        FROM current_entities e
        JOIN divisions_tree dt ON dt.id = e.id
        LEFT JOIN current_entities p ON p.id = e.parent_id
        WHERE e.name != 'Divisions'
        ORDER BY e.name`
     )
-    .all() as { id: number; name: string; parent_name: string; type_marker: string | null }[];
+    .all() as { id: number; name: string; parent_name: string }[];
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
     parentName: r.parent_name === 'Divisions' ? null : r.parent_name,
-    centerType: r.type_marker,
   }));
 }
 
@@ -6299,88 +6293,6 @@ export function deleteMenuOverride(menuItemKey: string, scope: 'business' | 'use
   if (!row) return;
   Entity.untag(row.id, 'Hidden', userId);
   deleteEntityLink(overrideName, 'Label', userId);
-}
-
-export function setDivisionType(divisionNameOrId: string | EntityId, typeMarkerName: string): void {
-  const divisionName =
-    typeof divisionNameOrId === 'number'
-      ? (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(divisionNameOrId) as { name: string } | undefined)?.name
-      : divisionNameOrId;
-  if (!divisionName || !db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(divisionName)) {
-    throw new ValidationError(`No division named "${divisionNameOrId}".`);
-  }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary')`).get(typeMarkerName)) {
-    throw new ValidationError(`No division type named "${typeMarkerName}" — add it first (a real, user-extensible Vocabulary word, not a fixed, built-in list).`);
-  }
-  // A division is genuinely nothing more than an ordinary entity — its
-  // own "kind" recorded as a real, direct, named record entity
-  // ("Division Type — {division} → {marker}"), found by its own
-  // predictable name, never touching the division's own relation_id
-  // slot — that slot is already used, separately, by
-  // cityDivisionFor's own linked-location mechanism for the seven
-  // real, per-location divisions, and an entity only ever has one.
-  // The marker itself is genuinely any real Vocabulary word, per
-  // direct, non-negotiable instruction: every real "type" a real,
-  // human administrator sees must be user-extensible and
-  // translatable, never a fixed, compile-time set of choices.
-  const recordName = `Division Type — ${divisionName} → ${typeMarkerName}`;
-  // Remove any other, real, previous "Division Type — {division} →
-  // ..." record first — never leaving a stale, contradictory one
-  // behind alongside a new one for the exact, same, real division.
-  const stale = db
-    .prepare(
-      `SELECT id, name FROM current_entities
-       WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Division Type')
-       AND name = 'Division Type — ' || ? || ' → ' || (SELECT name FROM current_entities WHERE id = relation_id)
-       AND name != ?`
-    )
-    .all(divisionName, recordName) as { id: number; name: string }[];
-  for (const s of stale) Entity.relate(s.id, null, asUserId(1));
-  const record = Entity.get(recordName) ?? Entity.create(recordName, 'Division Type', asUserId(1));
-  Entity.relate(record.id, typeMarkerName, asUserId(1));
-}
-
-export function getDivisionType(divisionName: string): string | null {
-  const row = db
-    .prepare(
-      `SELECT rel.name AS marker
-       FROM current_entities rec
-       JOIN current_entities rel ON rel.id = rec.relation_id
-       WHERE rec.parent_id = (SELECT id FROM current_entities WHERE name = 'Division Type')
-       AND rec.name = 'Division Type — ' || ? || ' → ' || rel.name`
-    )
-    .get(divisionName) as { marker: string } | undefined;
-  return row?.marker ?? null;
-}
-
-/** Every real, currently-available division type — genuinely just
- * Vocabulary words, user-extensible via createDivisionType, never a
- * fixed, built-in list. */
-export function getDivisionTypes(): string[] {
-  return (
-    db
-      .prepare(
-        `WITH RECURSIVE marks(id) AS (
-           SELECT relation_id FROM current_entities
-           WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Division Type') AND relation_id IS NOT NULL
-         )
-         SELECT DISTINCT e.name FROM current_entities e JOIN marks m ON m.id = e.id ORDER BY e.name`
-      )
-      .all() as { name: string }[]
-  ).map((r) => r.name);
-}
-
-/** Adds a brand-new, real division type — a plain Vocabulary word, a
- * real, human administrator can add directly (e.g. "Region", "Cost
- * Center", "Profit Center", or any real, custom kind a business
- * needs), per direct, non-negotiable instruction: every real "type" a
- * human sees must be user-extensible and translatable, never a fixed,
- * compile-time list. */
-export function createDivisionType(name: string, userId: UserId): void {
-  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) {
-    throw new ValidationError(`"${name}" already exists.`);
-  }
-  create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, name, userId);
 }
 
 /** Every real, known alternate name for the same, real concept

@@ -436,10 +436,12 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- is what item_source exists for, below.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (102, 102, 'Items', 1, '2026-01-01', 1);
 
--- Divisions — profit centers, tracked as a real dimension on
--- journal_line (division_id) rather than duplicated accounts per
--- division. A memo branch like Employees/Manufacturers/Items above:
--- directory entries, not GL accounts.
+-- Divisions — the real, multi-level org-chart division hierarchy
+-- (Belongs To Division relationships below; used for division-
+-- breakdown reports via the location->division lookup, never as a
+-- field on journal entries themselves). A memo branch like
+-- Employees/Manufacturers/Items above: directory entries, not GL
+-- accounts.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (120, 120, 'Divisions', 1, '2026-01-01', 1);
 
 -- Locations — retail outlets and warehouses, as real entities. A
@@ -742,15 +744,6 @@ WHERE e.row_id = (SELECT MAX(row_id) FROM entities e2 WHERE e2.entity_id = e.ent
 -- clockOutOfProject in db.ts.
 
 
--- division: a 1:1 extension of a Division entity — the real
--- distinction SQL-Ledger itself uses (Departments marked as Cost
--- Center or Profit Center), not a generic, undifferentiated
--- "division" — a Cost Center applies to purchasing (AP/expense)
--- postings only; a Profit Center applies to both purchasing and
--- sales (AR/income). A genuine consolidation across several
--- cost/profit centers, if ever needed, is just an ordinary parent
--- entity above them in the tree — the existing parent_id mechanism
--- already does this, no separate schema required.
 -- menu_section/menu_link/menu_override: removed entirely, per direct
 -- correction — every real hierarchy and every real relationship-link
 -- type belongs in the self-auditing entity tree, absolutely nowhere
@@ -968,17 +961,8 @@ CREATE TABLE journal_line (
   effective_date TEXT NOT NULL,
   amount_minor   INTEGER NOT NULL,          -- positive = debit, negative = credit
   memo           TEXT NOT NULL DEFAULT '',
-  -- Optional profit-center/division tag — a real, separate dimension
-  -- from the account itself, not a duplicated set of accounts per
-  -- division. The same "Sales Revenue" account can be posted to by
-  -- both a Manufacturing division and a Services division, and
-  -- reports can roll up combined or split by division, without
-  -- multiplying the Chart of Accounts by the number of divisions.
-  division_id    INTEGER,
   -- Which real location a quantity movement (receive/dispatch/
-  -- transfer/write-off) actually happened at — distinct from
-  -- division_id (a financial reporting dimension) since a quantity
-  -- movement isn't itself a financial posting; NULL for every real,
+  -- transfer/write-off) actually happened at; NULL for every real,
   -- ordinary financial journal_line, which has no location of its
   -- own. Only ever set directly by postQuantityMovement, never
   -- inferred.
@@ -1009,16 +993,8 @@ CREATE TABLE journal_line (
 -- real, ordinary financial journal_line (location_id IS NULL) —
 -- genuinely does NOT apply to quantity-movement lines, which
 -- legitimately can and do share (journal_id, account_id,
--- effective_date) across two different, real locations. Also allows
--- a real, genuine exception, per direct request: a year-end close
--- posting several, real, separate lines to the same Retained Earnings
--- account within one entry, one per real, active division — see
--- closeBooks. COALESCE(division_id, -1) rather than the raw column:
--- SQLite treats NULL as distinct from itself in a unique index, so
--- two real, genuinely untagged (division_id IS NULL) lines would
--- otherwise silently evade this guarantee entirely — the exact,
--- original duplicate-line mistake this index exists to prevent.
-CREATE UNIQUE INDEX journal_line_unique_ordinary ON journal_line(journal_id, account_id, effective_date, COALESCE(division_id, -1)) WHERE location_id IS NULL;
+-- effective_date) across two different, real locations.
+CREATE UNIQUE INDEX journal_line_unique_ordinary ON journal_line(journal_id, account_id, effective_date) WHERE location_id IS NULL;
 
 -- Expands every journal into its actual occurrences: for 'once', just
 -- itself; for a recurring journal, one row per scheduled date, with each
@@ -1057,8 +1033,7 @@ SELECT
   j.user_id,
   jl.account_id,
   jl.amount_minor,
-  jl.memo,
-  jl.division_id
+  jl.memo
 FROM occurrences o
 JOIN journal j ON j.id = o.journal_id
 JOIN journal_line jl ON jl.journal_id = o.journal_id
@@ -1100,17 +1075,6 @@ CREATE TABLE journal_entry_staging (
   account_id   INTEGER,
   amount_minor INTEGER NOT NULL,
   memo         TEXT NOT NULL DEFAULT '',
-  -- Optional profit-center/division name, same dimension as
-  -- journal_line.division_id. NOT NULL with a real, shared default
-  -- rather than nullable, for the exact same real reason `location`
-  -- below already is: SQLite treats NULL as distinct from itself in a
-  -- primary key, so a nullable division would silently let two real,
-  -- ordinary financial lines stage against the same account twice.
-  -- The real, genuine case this now correctly allows instead: a
-  -- year-end close posting several, real, separate lines to the same
-  -- Retained Earnings account, one per real, active division — see
-  -- closeBooks.
-  division     TEXT NOT NULL DEFAULT '',
   bank_reference TEXT, -- the bank's own real cheque/EFT reference number, same dimension as journal_line.bank_reference
   -- The real, physical location a quantity movement actually happened
   -- at, same dimension as journal_line.location_id — '' (not NULL) and
@@ -1125,7 +1089,7 @@ CREATE TABLE journal_entry_staging (
   -- reference — true double-entry quantity tracking, not two separate,
   -- merely-netting-to-zero postings.
   location     TEXT NOT NULL DEFAULT '',
-  PRIMARY KEY (reference, business, ledger, account, account_id, location, division)
+  PRIMARY KEY (reference, business, ledger, account, account_id, location)
 );
 
 -- Four real, form-specific staging tables — each shaped exactly to the
@@ -1790,7 +1754,7 @@ BEGIN
     ),
     NEW.user_id;
 
-  INSERT INTO journal_line (journal_id, account_id, effective_date, amount_minor, memo, division_id, bank_reference)
+  INSERT INTO journal_line (journal_id, account_id, effective_date, amount_minor, memo, bank_reference)
   SELECT
     (SELECT j.id FROM journal j
      WHERE j.reference = NEW.reference
@@ -1804,7 +1768,6 @@ BEGIN
     ),
     s.amount_minor,
     s.memo,
-    (SELECT id FROM current_entities WHERE name = s.division),
     s.bank_reference
   FROM journal_entry_staging s
   WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
@@ -2355,16 +2318,6 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (528, 528, 'Place of Employment', (SELECT id FROM current_entities WHERE name = 'Relationship Types'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (529, 529, 'Belongs To Business', (SELECT id FROM current_entities WHERE name = 'Relationship Types'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (530, 530, 'Belongs To Division', (SELECT id FROM current_entities WHERE name = 'Relationship Types'), '2026-01-01', 1);
-
--- Division Type — a real, direct replacement for the division
--- table's own dedicated center_type column, per direct, non-
--- negotiable instruction: a division is genuinely nothing more than
--- an ordinary entity — its own "kind" (cost vs profit center) carried
--- via this exact, same, established, two-hop relationship mechanism
--- "Belongs To Division" above already uses, not a dedicated table.
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (783, 783, 'Division Type', (SELECT id FROM current_entities WHERE name = 'Relationship Types'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (784, 784, 'Cost Center', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (785, 785, 'Profit Center', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 
 -- Address Types and Phone Types — the categories the typed-address/
 -- phone pattern hangs off (addTypedAddress/getTypedAddresses/

@@ -641,23 +641,6 @@ function migrateForDayOfWeekTranslations() {
 }
 migrateForDayOfWeekTranslations();
 
-function migrateForDivisionAndLocationTypeTranslations() {
-  const words: [string, string, string][] = [
-    ['Cost Center', 'German', 'Kostenstelle'],
-    ['Cost Center', 'French', 'Centre de coût'],
-    ['Cost Center', 'Danish', 'Omkostningssted'],
-    ['Cost Center', 'Italian', 'Centro di costo'],
-    ['Profit Center', 'German', 'Gewinnzentrum'],
-    ['Profit Center', 'French', 'Centre de profit'],
-    ['Profit Center', 'Danish', 'Resultatcenter'],
-    ['Profit Center', 'Italian', 'Centro di profitto'],
-  ];
-  for (const [entity, language, text] of words) {
-    setTranslation(entity, language, text);
-  }
-}
-migrateForDivisionAndLocationTypeTranslations();
-
 function migrateForEnglishStringAuditGap() {
   // Short words/phrases first
   const short: [string, string, string, string, string][] = [
