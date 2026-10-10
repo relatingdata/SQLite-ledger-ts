@@ -29,12 +29,16 @@ import {
 
 export const reportsRouter = Router();
 
-reportsRouter.get('/business-reports', (_req, res) => {
-  res.json(getBusinessReports());
+reportsRouter.get('/business-reports', (req, res) => {
+  const business = req.query.business as string;
+  if (!business) return res.status(400).json({ error: 'business query parameter is required.' });
+  res.json(getBusinessReports(business));
 });
 
-reportsRouter.get('/chart-of-accounts', (_req, res) => {
-  res.json(getChartOfAccounts());
+reportsRouter.get('/chart-of-accounts', (req, res) => {
+  const business = req.query.business as string;
+  if (!business) return res.status(400).json({ error: 'business query parameter is required.' });
+  res.json(getChartOfAccounts(business));
 });
 
 function requireBusinessLedger(req: import('express').Request, res: import('express').Response): { business: BusinessName; ledger: LedgerName } | null {

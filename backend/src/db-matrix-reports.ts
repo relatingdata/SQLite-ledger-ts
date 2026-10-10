@@ -487,7 +487,7 @@ export function getProfitAndLossByAxis(
   for (const outerKey of outerKeys) {
     const outerRows = resolved.filter((r) => r.outerKey === outerKey);
     const outerBalances = new Map(outerRows.map((r) => [r.id, r.balance]));
-    const outerPL = buildProfitAndLossFromBalances(outerBalances);
+    const outerPL = buildProfitAndLossFromBalances(businessName, outerBalances);
 
     const innerKeys = [...new Set(outerRows.map((r) => r.innerKey))].sort();
     const children: ProfitAndLossByAxisNode[] = [];
@@ -500,7 +500,7 @@ export function getProfitAndLossByAxis(
       for (const innerKey of innerKeys) {
         const innerRows = outerRows.filter((r) => r.innerKey === innerKey);
         const innerBalances = new Map(innerRows.map((r) => [r.id, r.balance]));
-        children.push({ key: innerKey, profitAndLoss: buildProfitAndLossFromBalances(innerBalances), children: [] });
+        children.push({ key: innerKey, profitAndLoss: buildProfitAndLossFromBalances(businessName, innerBalances), children: [] });
       }
     }
 

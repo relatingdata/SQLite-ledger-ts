@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { hashPassword, verifyPassword } from './password.js';
 import { Entity, Detail } from './primitives.js';
-import { getLedgerBalances, ensureCurrencyAccount, ensureCashAtBankAccount, setAccountCurrency } from './db-reports.js';
+import { getLedgerBalances, ensureCurrencyAccount, resolveCashAtBankAccount, setAccountCurrency } from './db-reports.js';
 
 // ---------------------------------------------------------------------------
 // The real data model, stated plainly here since it spans many real
@@ -3470,7 +3470,7 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       // currency when one applies, using "Cash at Bank" as the real
       // base - the exact, same, real base name createBusiness's own
       // secondary-currency setup already uses.
-      input.paymentMethod ? (effectiveCurrency ? ensureCurrencyAccount(ensureCashAtBankAccount(userId), effectiveCurrency, userId).name : 'Cash and Bank') : undefined
+      input.paymentMethod ? resolveCashAtBankAccount(input.business, effectiveCurrency ?? undefined, userId).name : undefined
     );
 
     for (const line of input.lines) {
@@ -3558,7 +3558,7 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       // only records the real allocation fact so
       // getInvoiceOutstandingMinor correctly shows zero, not a
       // second, redundant journal entry.
-      allocatePayment(invoiceId, `${reference}-PAYMENT`, totalMinor, today, 'Cash and Bank', userId, true);
+      allocatePayment(invoiceId, `${reference}-PAYMENT`, totalMinor, today, resolveCashAtBankAccount(input.business, effectiveCurrency ?? undefined, userId).name, userId, true);
       if (input.cashTenderedMinor != null) {
         changeDueMinor = Math.max(0, input.cashTenderedMinor - totalMinor);
       }
@@ -3647,7 +3647,7 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
       // cash sale — a real, immediate cash purchase has no genuine
       // payable at all, even momentarily; post straight to the real
       // payment account instead of the vendor's own AP balance.
-      input.paymentMethod ? 'Cash and Bank' : undefined
+      input.paymentMethod ? resolveCashAtBankAccount(input.business, undefined, userId).name : undefined
     );
 
     for (const line of input.lines) {
@@ -3658,7 +3658,7 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
     const totalMinor = invoice.total_amount_minor + invoice.total_tax_minor;
 
     if (input.paymentMethod) {
-      allocatePayment(invoiceId, `${reference}-PAYMENT`, totalMinor, today, 'Cash and Bank', userId, true);
+      allocatePayment(invoiceId, `${reference}-PAYMENT`, totalMinor, today, resolveCashAtBankAccount(input.business, undefined, userId).name, userId, true);
     }
 
     return { invoiceId, reference, totalMinor };
@@ -3776,7 +3776,7 @@ export function payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): 
     postJournalEntry(`${reference}-SUPER`, asBusinessName(input.business), asLedgerName(input.ledger), userId);
 
     if (input.paymentMethod) {
-      allocatePayment(invoiceId, `${reference}-PAYMENT`, netMinor, today, 'Cash and Bank', userId, true);
+      allocatePayment(invoiceId, `${reference}-PAYMENT`, netMinor, today, resolveCashAtBankAccount(asBusinessName(input.business), undefined, userId).name, userId, true);
     }
 
     return { invoiceId, reference, grossMinor, medicareLevyMinor, superannuationMinor, netMinor };
@@ -7232,6 +7232,13 @@ export function createBusiness(
   if (entityStructure) {
     setupEquityStructure(businessName, entityStructure, userId, coaPrototype, partnerNames);
   }
+  // Ensures a real, business-scoped "Cash at Bank" exists from
+  // creation, even for a business that never runs the bank-account
+  // wizard (nominateBankAccount/buildBankCurrencyStructure) at all -
+  // without this, a business's first posting that needs it
+  // (stageLine has no lazy-vivification path of its own) fails with
+  // "NOT NULL constraint failed: journal_line.account_id".
+  resolveCashAtBankAccount(businessName, undefined, userId);
   // Per docs/general-typed-hierarchy-resolution-plan.md - a real,
   // recommended, non-privileged starting point every new business
   // gets, immediately renameable/deletable/extensible.

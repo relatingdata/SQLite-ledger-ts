@@ -3,6 +3,7 @@
 
 import { db } from './db.js';
 import { Entity } from './primitives.js';
+import { getBusinessReports } from './db-reports.js';
 import {
   ValidationError,
   NotFoundError,
@@ -78,9 +79,11 @@ export function stageLine(line: StagedLine): void {
   if (line.division) {
     const centerType = getDivisionType(line.division);
     if (centerType === 'Cost Center') {
-      const category = (
-        db.prepare(`SELECT category FROM business_reports WHERE account = ?`).get(line.account) as { category: string } | undefined
-      )?.category;
+      // Business-scoped, not a bare, unscoped business_reports read -
+      // the same real bug class fixed in getChartOfAccounts/
+      // getBusinessReports: an unscoped lookup could silently match a
+      // same-named account belonging to a different business.
+      const category = getBusinessReports(line.business).find((r) => r.account === line.account)?.category;
       if (category === 'Income') {
         throw new ValidationError(
           `"${line.division}" is a Cost Center — it applies to purchasing only and cannot be used on an income account like "${line.account}". Use a Profit Center for sales-side postings.`

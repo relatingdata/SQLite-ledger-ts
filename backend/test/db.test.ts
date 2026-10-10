@@ -375,7 +375,7 @@ test('revokeEntity refuses to delete a business\'s last real Actual or last real
 });
 
 test('business_reports groups categories under their fixed report via relation_id', () => {
-  const rows = getBusinessReports();
+  const rows = getBusinessReports('My Business');
   const balanceSheetCategories = new Set(rows.filter((r) => r.report === 'Balance Sheet').map((r) => r.category));
   const plCategories = new Set(rows.filter((r) => r.report === 'Profit and Loss Statement').map((r) => r.category));
   assert.ok(balanceSheetCategories.has('Asset'));

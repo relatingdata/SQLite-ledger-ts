@@ -1,6 +1,6 @@
 import { db, getQualifiedDisplayName, getCombinationDisplayName } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
-import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, asDivisionName, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, asDivisionName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 
 // ---------------------------------------------------------------------------
@@ -22,9 +22,60 @@ export interface ReportRow {
  * under) — NOT scoped to a ledger. Its balance_minor column is the same
  * all-ledgers-combined total as account.balance_minor (see the note on
  * that column below) — fine for browsing the hierarchy, not meant for
- * financial statements, which use getLedgerBalances instead. */
-export function getBusinessReports(): ReportRow[] {
-  return db.prepare(`SELECT * FROM business_reports`).all() as ReportRow[];
+ * financial statements, which use getLedgerBalances instead.
+ *
+ * Replaces a direct read of the business_reports view - confirmed,
+ * directly, TWO real, separate bugs in that view:
+ *   1. Same unscoped-root bug as getChartOfAccounts - its own
+ *      recursive walk's base case, `WHERE e.parent_id = (SELECT id
+ *      FROM current_entities WHERE name = 'Chart of Accounts')`, is a
+ *      bare predicate with no business scoping, so it silently walks
+ *      every business's own Chart of Accounts at once.
+ *   2. A genuine TWO-LEVEL indirection the view's own single join
+ *      never accounted for: a business's own category (its own real
+ *      "Asset", say) has relation_id pointing at the GLOBAL category
+ *      of the same name, not at the report directly - and only THAT
+ *      global category's own relation_id finally points at the real
+ *      report ("Balance Sheet"). Confirmed directly by tracing one
+ *      real row: {id: 1006434, name: 'Asset', relation_id: 6} -> {id:
+ *      6, name: 'Asset', relation_id: 32} -> {id: 32, name: 'Balance
+ *      Sheet'}. The view's one join only ever reached the first hop,
+ *      so `report` showed the category's own name ("Asset") instead
+ *      of the real report name, and every real caller's own
+ *      `.filter(r => r.report === 'Balance Sheet')` silently matched
+ *      nothing at all. */
+export function getBusinessReports(business: string): ReportRow[] {
+  return db
+    .prepare(
+      `WITH RECURSIVE coa_walk(id, name, depth, category_id, combination_ids, parent_id, relation_id) AS (
+        SELECT e.id, e.name, 0, e.id, e.combination_ids, e.parent_id, e.relation_id
+        FROM current_entities e
+        WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))
+        UNION ALL
+        SELECT e.id, e.name, w.depth + 1, w.category_id, e.combination_ids, e.parent_id, e.relation_id
+        FROM current_entities e JOIN coa_walk w ON e.parent_id = w.id
+      )
+      SELECT
+        rpt.name AS report,
+        cat.name AS category,
+        COALESCE(parent_e.name, w.name) AS account,
+        w.id AS account_id,
+        w.depth,
+        w.combination_ids,
+        a.accountnumber,
+        a.balance_minor
+      FROM coa_walk w
+      JOIN current_entities cat ON cat.id = w.category_id
+      JOIN current_entities global_cat ON global_cat.id = cat.relation_id
+      JOIN current_entities rpt ON rpt.id = global_cat.relation_id
+      LEFT JOIN account a ON a.entity_id = w.id
+      LEFT JOIN current_entities rel ON rel.id = w.relation_id
+      LEFT JOIN current_entities rel_parent ON rel_parent.id = rel.parent_id AND rel_parent.name = 'Ledgers'
+      LEFT JOIN current_entities parent_e ON parent_e.id = w.parent_id AND rel_parent.id IS NOT NULL
+      WHERE w.depth >= 1
+      ORDER BY report, category, COALESCE(parent_e.name, w.name)`
+    )
+    .all(business) as ReportRow[];
 }
 
 export interface ChartRow {
@@ -98,23 +149,81 @@ export function ensureCurrencyAccount(baseAccountId: number, currency: string, u
   return { name: currencyAccountName, id: existing.id };
 }
 
-/** "Cash at Bank" itself may not yet exist as a plain, base, postable
- * account at all - per direct instruction, this is expected: it was
- * genuinely removed from the static CoA prototypes once business-
- * type-specific configuration took over creating it, the exact, same,
- * real pattern createBusiness's own secondary-currency logic already
- * uses (creating it fresh, under "Asset", the first time it's
- * needed). Returns its real, existing or newly-created id, so a
- * caller can then hand that real id to ensureCurrencyAccount. */
-export function ensureCashAtBankAccount(userId: UserId): number {
-  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = 'Cash at Bank'`).get() as { id: number } | undefined;
-  if (existing) return existing.id;
-  const assetId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Asset'`).get() as { id: number }).id;
-  return Entity.create('Cash at Bank', assetId, userId).id;
+/** Replaces ensureCashAtBankAccount - confirmed, directly, a real,
+ * standing bug: "Cash at Bank" was a bare, unscoped name lookup
+ * (`WHERE name = 'Cash at Bank'`, no parent at all), so it resolved
+ * to the ONE, single, global entity the whole application shared -
+ * every business's own postings landed on the exact same account,
+ * even though nominateBankAccount/buildBankCurrencyStructure already,
+ * correctly build a real, separate "Cash at Bank" structure under
+ * each business's own "Asset" category at business-creation time
+ * (see docs/bank-accounts-and-currencies-design.md; confirmed
+ * directly, per the user's own answer, settling the design tension
+ * this raised against the rollover work: every business genuinely
+ * gets its own Cash at Bank, the shared/universal entity was the bug,
+ * not the intended design).
+ *
+ * Three real cases, resolved against this one, specific business's
+ * own "Asset" category:
+ *   - nothing yet under "Cash at Bank" for this business - lazily
+ *     creates a plain, base account there (the one-bank/one-currency
+ *     case, or a business that never ran the wizard at all);
+ *   - a plain, single, postable leaf already (one bank, one
+ *     currency) - returned directly;
+ *   - a real header with multiple real currency leaves underneath
+ *     (buildBankCurrencyStructure's multi-combination case) -
+ *     resolved by the requested currency, falling back to this
+ *     business's own home currency. */
+export function resolveCashAtBankAccount(business: BusinessName, currency: string | undefined, userId: UserId): { name: string; id: number } {
+  const businessRow = requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
+  const assetRow = requireEntity('Asset', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, businessRow));
+  const existing = Entity.getUnder('Cash at Bank', assetRow.id);
+  if (!existing) {
+    const created = Entity.create('Cash at Bank', assetRow.id, userId);
+    return { name: created.name, id: created.id };
+  }
+  const children = Entity.children(existing.id);
+  if (children.length === 0) return { name: existing.name, id: existing.id };
+  const effectiveCurrency = currency ?? getBusinessHomeCurrency(business) ?? undefined;
+  const leaf = children.find((c) => effectiveCurrency && c.name.endsWith(`(${effectiveCurrency})`));
+  if (!leaf) throw new ValidationError(`"${business}" has no real "Cash at Bank" account for ${effectiveCurrency ?? 'its own home currency'} - see buildBankCurrencyStructure.`);
+  return leaf;
 }
 
-export function getChartOfAccounts(): ChartRow[] {
-  return db.prepare(`SELECT * FROM chart_of_accounts`).all() as ChartRow[];
+/** Replaces a direct read of the chart_of_accounts view - confirmed,
+ * directly, the exact same real bug class as resolveCashAtBankAccount:
+ * that view's own recursive walk starts from `WHERE e.name = 'Chart
+ * of Accounts'` with no scoping at all, which - since every business
+ * genuinely has its own, separate "Chart of Accounts" root node -
+ * doesn't resolve to one arbitrary business, it walks EVERY business's
+ * own Chart of Accounts simultaneously and mixes them into one,
+ * undifferentiated listing (confirmed directly: "Asset" appeared 4
+ * times in a real listing with only a handful of real businesses).
+ * This is a real, direct, business-scoped recursive query instead,
+ * taking the one, specific business this listing is actually for. */
+export function getChartOfAccounts(business: string): ChartRow[] {
+  // Same shape as the old chart_of_accounts view exactly (root itself
+  // at depth 0, excluded from the final rows; "path" prefixed with
+  // "Chart of Accounts > ") - only the base case's root lookup is
+  // scoped to this one, specific business, in place of the view's
+  // bare, unscoped `WHERE e.name = 'Chart of Accounts'`.
+  return db
+    .prepare(
+      `WITH RECURSIVE walk(id, name, depth, path) AS (
+        SELECT e.id, e.name, 0, e.name
+        FROM current_entities e
+        WHERE e.id = (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))
+        UNION ALL
+        SELECT e.id, e.name, w.depth + 1, w.path || ' > ' || e.name
+        FROM current_entities e JOIN walk w ON e.parent_id = w.id
+      )
+      SELECT w.id, w.name, w.depth, w.path, a.accountnumber, a.balance_minor
+      FROM walk w
+      LEFT JOIN account a ON a.entity_id = w.id
+      WHERE w.depth >= 1
+      ORDER BY w.path`
+    )
+    .all(business) as ChartRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -519,7 +628,7 @@ export interface BalanceSheet {
  * assumed correct and shipped. */
 export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string, divisionName?: string): BalanceSheet {
   const balances = getLedgerBalances(businessName, ledgerName, undefined, asOfDate, divisionName);
-  const rows = getBusinessReports()
+  const rows = getBusinessReports(businessName)
     .filter((r) => r.report === 'Balance Sheet')
     .map((r) => ({ ...r, balance_minor: balances.get(r.account_id) ?? 0 }))
     .filter((r) => r.balance_minor !== 0);
@@ -755,7 +864,7 @@ export function buildCategoryTree(lines: StatementLine[], accountIdByName: Map<s
  * same reasoning as getBalanceSheet above. */
 export function getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, divisionName?: string, excludeCloseEntries = true): ProfitAndLoss {
   const balances = getLedgerBalances(businessName, ledgerName, fromDate, toDate, divisionName, excludeCloseEntries);
-  return buildProfitAndLossFromBalances(balances);
+  return buildProfitAndLossFromBalances(businessName, balances);
 }
 
 /** The real, shared logic behind every real P&L, factored out so it
@@ -767,8 +876,8 @@ export function getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerN
  * live, fixed here). getProfitAndLoss itself is now a thin wrapper:
  * fetch the one, real balance map this ledger/date-range/division
  * needs, then hand it to this real, shared builder. */
-export function buildProfitAndLossFromBalances(balances: Map<number, number>): ProfitAndLoss {
-  const rows = getBusinessReports()
+export function buildProfitAndLossFromBalances(business: string, balances: Map<number, number>): ProfitAndLoss {
+  const rows = getBusinessReports(business)
     .filter((r) => r.report === 'Profit and Loss Statement')
     .map((r) => ({ ...r, balance_minor: balances.get(r.account_id) ?? 0 }))
     .filter((r) => r.balance_minor !== 0);
@@ -912,7 +1021,7 @@ export function getProfitAndLossByDivision(businessName: BusinessName, ledgerNam
     .sort(([a], [b]) => (a ?? '').localeCompare(b ?? ''))
     .map(([division, balances]) => ({
       division,
-      profitAndLoss: buildProfitAndLossFromBalances(balances),
+      profitAndLoss: buildProfitAndLossFromBalances(businessName, balances),
     }));
 }
 
@@ -1149,7 +1258,7 @@ interface ComputedClose {
  * lines without staging or posting anything at all. */
 function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, userId?: UserId): ComputedClose {
   const balancesByDivision = getLedgerBalancesByDivisionStructural(businessName, ledger, undefined, asOfDate);
-  const rows = getBusinessReports().filter((r) => r.report === 'Profit and Loss Statement' || r.category === 'Income' || r.category === 'Expense');
+  const rows = getBusinessReports(businessName).filter((r) => r.report === 'Profit and Loss Statement' || r.category === 'Income' || r.category === 'Expense');
 
   let netIncomeMinor = 0;
   let accountsZeroed = 0;

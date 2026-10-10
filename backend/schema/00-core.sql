@@ -359,12 +359,16 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (10, 10, 'Expense', 5, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (11, 11, 'Cash and Bank', 6, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (12, 12, 'Accounts Receivable', 6, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (13, 13, 'Acme Corp', 12, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (14, 14, 'Beta Pty Ltd', 12, '2026-01-01', 1);
+-- Per direct, standing instruction: no test/demo customer or vendor
+-- names ("Acme Corp", "Beta Pty Ltd", "Acme Supplies Pty Ltd") belong
+-- in core data at all - that's test data, loaded by a unit test
+-- itself (or a real business, through the real application) if and
+-- when it's actually needed, never pre-seeded here. (entity_ids 13,
+-- 14, 18 deliberately left unused, not renumbered, so nothing earlier
+-- in this file's own sequence shifts.)
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (15, 15, 'Inventory', 6, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (16, 16, 'Fixed Assets', 6, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (17, 17, 'Accounts Payable', 7, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (18, 18, 'Acme Supplies Pty Ltd', 17, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (19, 19, 'Loans Payable', 7, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (20, 20, 'Sales Tax Payable', 7, '2026-01-01', 1);
 -- Real, new liability accounts for real employee wage withholding and
@@ -1532,7 +1536,7 @@ END;
 -- resolving correctly without needing to change anywhere else. The old
 -- row's name is freed the instant it's closed out, so the new row can
 -- reuse it (a no-op rename) or take a brand new one.
---   INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES (13, 'Acme Corporation', 'Accounts Receivable', NULL, 5);
+--   INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES (11, 'Cash and Bank (renamed)', 'Asset', NULL, 5);
 CREATE VIEW entity_update AS
 SELECT e.id AS entity_id, e.name, p.name AS parent, p.id AS parent_id, s.name AS relation, s.id AS relation_id, e.created_by AS updated_by
 FROM current_entities e
@@ -1727,7 +1731,51 @@ ORDER BY w.path;
 -- are left exactly as they were, for correction. This is one statement
 -- with cascading trigger effects, which SQLite always runs atomically —
 -- a crash partway through cannot leave things half-done.
---   INSERT INTO post_journal_entry (reference, business, ledger, user_id) VALUES ('CS-1001', 'My Business', 'Actual', 1);
+--
+-- A staged line with no accountId (the common case for a hand-staged
+-- or test-staged entry, and for a few call sites like the cash
+-- postings in completePosSale/completeCashPurchase/payEmployeeWages
+-- that resolve a name but not an id) is vivified by name - confirmed,
+-- directly, a real, significant, standing bug: this used to be a
+-- bare, unscoped `SELECT id FROM current_entities WHERE name =
+-- s.account`, which, since the exact same account name can genuinely
+-- exist once per business (the whole point of copyChartOfAccountsInto
+-- copying "Cash and Bank" etc. into each business's own real Chart of
+-- Accounts), resolved to whichever one of those SQLite happened to
+-- return - confirmed directly: every business's own "Cash and Bank"
+-- postings were silently landing on entity_id=11, the GLOBAL
+-- template copy, not that business's own real, separate one. Every
+-- financial report built directly from account.balance_minor still
+-- looked internally consistent, because both the posting AND the
+-- report-building queries shared the exact same wrong resolution -
+-- but the moment a report is correctly, separately scoped to one
+-- specific business's own real Chart of Accounts subtree (see
+-- getChartOfAccounts/getBusinessReports), it can no longer find a
+-- balance posted against a different business's own entity, or the
+-- shared global one. Now scoped: a real, recursive walk of this one,
+-- specific business's own "Chart of Accounts" subtree (the exact,
+-- same kind of walk getChartOfAccounts/getBusinessReports already
+-- do), matched by name only within that walk - this does NOT resolve
+-- the separate, smaller, pre-existing, documented case of the exact
+-- same name appearing TWICE within one business's own tree (e.g. a
+-- shared COGS/Inventory leaf name) - every real call site that could
+-- hit that ambiguity already passes a real, explicit accountId
+-- instead of relying on this name fallback at all.
+--
+-- Wrapped in a further COALESCE with the original, bare, unscoped
+-- lookup as a genuine, deliberate fallback - confirmed directly
+-- necessary, not just defensive: 'My Business' (the one legacy,
+-- pre-multi-tenancy demo business seeded right here in this same
+-- against the GLOBAL Chart of Accounts - it never gets its own real,
+-- separate copy via copyChartOfAccountsInto the way every business
+-- actually created through createBusiness/the setup wizard does. A
+-- business-scoped-only lookup would resolve to NULL for 'My
+-- Business' specifically (it has no own "Chart of Accounts" child
+-- entity to walk at all) and trip this table's own NOT NULL
+-- constraint on journal_line.account_id. The scoped lookup still
+-- always wins first when a business genuinely has its own copy -
+-- this fallback only ever matters for the one legacy business that
+-- doesn't.
 CREATE VIEW post_journal_entry AS SELECT '' AS reference, '' AS business, '' AS ledger, 0 AS user_id;
 
 CREATE TRIGGER post_journal_entry_insert INSTEAD OF INSERT ON post_journal_entry
@@ -1766,7 +1814,7 @@ BEGIN
     SELECT 1 FROM (
       SELECT COALESCE(a.currency, '') AS grp, SUM(s.amount_minor) AS grp_sum
       FROM journal_entry_staging s
-      LEFT JOIN account a ON a.entity_id = COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account))
+      LEFT JOIN account a ON a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
       WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
       GROUP BY COALESCE(a.currency, '')
     )
@@ -1774,11 +1822,11 @@ BEGIN
   );
 
   INSERT INTO account (entity_id)
-  SELECT DISTINCT COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account))
+  SELECT DISTINCT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
   FROM journal_entry_staging s
   WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
     AND NOT EXISTS (
-      SELECT 1 FROM account a WHERE a.entity_id = COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account))
+      SELECT 1 FROM account a WHERE a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
     );
 
   INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id)
@@ -1801,7 +1849,7 @@ BEGIN
      WHERE j.reference = NEW.reference
        AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
        AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))))),
-    COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account)),
+    COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))),
     COALESCE(
       (SELECT transdate FROM journal_entry_staging
        WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
@@ -1817,11 +1865,11 @@ BEGIN
   UPDATE account
   SET balance_minor = balance_minor + (
     SELECT SUM(s.amount_minor) FROM journal_entry_staging s
-    WHERE COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account)) = account.entity_id
+    WHERE COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))) = account.entity_id
       AND s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
   )
   WHERE entity_id IN (
-    SELECT COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account))
+    SELECT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
     FROM journal_entry_staging s
     WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
   );
@@ -1899,11 +1947,11 @@ BEGIN
   -- see the real, direct discussion in docs/testing.md.
 
   INSERT INTO account (entity_id)
-  SELECT DISTINCT COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account))
+  SELECT DISTINCT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
   FROM journal_entry_staging s
   WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
     AND NOT EXISTS (
-      SELECT 1 FROM account a WHERE a.entity_id = COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account))
+      SELECT 1 FROM account a WHERE a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
     );
 
   INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id)
@@ -1926,7 +1974,7 @@ BEGIN
      WHERE j.reference = NEW.reference
        AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
        AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))))),
-    COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account)),
+    COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))),
     COALESCE(
       (SELECT transdate FROM journal_entry_staging
        WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
@@ -1941,11 +1989,11 @@ BEGIN
   UPDATE account
   SET balance_minor = balance_minor + (
     SELECT SUM(s.amount_minor) FROM journal_entry_staging s
-    WHERE COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account)) = account.entity_id
+    WHERE COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))) = account.entity_id
       AND s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
   )
   WHERE entity_id IN (
-    SELECT COALESCE(s.account_id, (SELECT id FROM current_entities WHERE name = s.account))
+    SELECT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
     FROM journal_entry_staging s
     WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
   );
@@ -1961,12 +2009,9 @@ END;
 -- actually set up. Standard ranges: 1000s assets, 2000s liabilities,
 -- 3000s equity, 4000s income, 5000-6000s expense.
 INSERT INTO account_entry (name, accountnumber) VALUES ('Cash and Bank', '1000');
-INSERT INTO account_entry (name, accountnumber) VALUES ('Acme Corp', '1110');
-INSERT INTO account_entry (name, accountnumber) VALUES ('Beta Pty Ltd', '1120');
 INSERT INTO account_entry (name, accountnumber) VALUES ('Inventory', '1200');
 INSERT INTO account_entry (name, accountnumber) VALUES ('Fixed Assets', '1300');
 INSERT INTO account_entry (name, accountnumber) VALUES ('Purchases Tax Claimed', '1400');
-INSERT INTO account_entry (name, accountnumber) VALUES ('Acme Supplies Pty Ltd', '2110');
 INSERT INTO account_entry (name, accountnumber) VALUES ('Loans Payable', '2200');
 INSERT INTO account_entry (name, accountnumber) VALUES ('Sales Tax Payable', '2300');
 INSERT INTO account_entry (name, accountnumber) VALUES ('Owner''s Equity', '3000');
@@ -2006,145 +2051,13 @@ INSERT INTO account_entry (name, accountnumber) VALUES ('Miscellaneous', '6900')
 -- Reports rather than Vocabulary but are translated the same way).
 
 
-INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, amount_minor, memo)
-VALUES ('CS-1001', 'My Business', 'Actual', 'Cash sale — counter sale', '2026-07-19', 'Cash and Bank', 50000, 'Cash received');
-INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, amount_minor, memo)
-VALUES ('CS-1001', 'My Business', 'Actual', 'Cash sale — counter sale', '2026-07-19', 'Sales Revenue', -50000, 'Counter sale');
+-- The CS-1001 bootstrap demo posting under "My Business", and the
+-- entire Wine/Beer/Spirits demonstration business data (locations,
+-- categories, products, their prices) that used to follow here, were
+-- removed per direct, standing instruction: no business data of any
+-- kind belongs in core data — see the note above "Real translations"
+-- further down, and docs/general-typed-hierarchy-resolution-plan.md.
 
-INSERT INTO post_journal_entry (reference, business, ledger, user_id) VALUES ('CS-1001', 'My Business', 'Actual', 1);
--- Wine/Beer/Spirits retail demonstration data: locations
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (122, 122, 'Head Office', (SELECT id FROM current_entities WHERE name = 'Locations'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (123, 123, 'Riverside Cellars', (SELECT id FROM current_entities WHERE name = 'Locations'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (124, 124, 'Uptown Wine & Spirits', (SELECT id FROM current_entities WHERE name = 'Locations'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (125, 125, 'Warehouse B', (SELECT id FROM current_entities WHERE name = 'Locations'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (126, 126, 'Harbourside Bottle Shop', (SELECT id FROM current_entities WHERE name = 'Locations'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (127, 127, 'Market Square Liquor', (SELECT id FROM current_entities WHERE name = 'Locations'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (128, 128, 'Eastside Cellar Door', (SELECT id FROM current_entities WHERE name = 'Locations'), '2026-01-01', 1);
-
--- Capacity reasoning, grounded in real physical constraints, not
--- arbitrary numbers: a small-to-medium independent wine/spirits shop
--- realistically displays roughly 1,000-2,500 bottles on shelving at
--- once (bottle_capacity below). Its backroom/storage area for
--- unopened cartons is genuinely much smaller than the shop floor
--- itself — real retail backrooms are a fraction of the sales floor,
--- not comparable in scale — so carton_capacity is set at roughly 4-5%
--- of bottle_capacity, not the ~14-15% this data previously (and
--- unrealistically) used. A real distribution warehouse, by contrast,
--- genuinely does hold thousands of cartons (set separately, below).
--- A real, physical location's own plain data (city, capacity,
--- timezone) lives on contact (the established, general-purpose,
--- per-entity table); its own type/billing-address tags are real,
--- named relationship records — see setLocation/getLocation. Those
--- records themselves are created further down, after Location
--- Type/Is Billing Address (their own real parent categories) are
--- actually defined, near Relationship Types.
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (122, json_object('__is_contact', 1, 'city', 'Springfield', 'bottle_capacity', NULL, 'carton_capacity', 6000, 'timezone', 'Australia/Sydney'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (123, json_object('__is_contact', 1, 'city', 'Springfield', 'bottle_capacity', 2200, 'carton_capacity', 100, 'timezone', 'Australia/Sydney'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (124, json_object('__is_contact', 1, 'city', 'Springfield', 'bottle_capacity', 1600, 'carton_capacity', 75, 'timezone', 'Australia/Sydney'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (125, json_object('__is_contact', 1, 'city', 'Rivertown', 'bottle_capacity', NULL, 'carton_capacity', 5000, 'timezone', 'Australia/Brisbane'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (126, json_object('__is_contact', 1, 'city', 'Rivertown', 'bottle_capacity', 1900, 'carton_capacity', 85, 'timezone', 'Australia/Brisbane'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (127, json_object('__is_contact', 1, 'city', 'Rivertown', 'bottle_capacity', 1400, 'carton_capacity', 65, 'timezone', 'Australia/Brisbane'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (128, json_object('__is_contact', 1, 'city', 'Rivertown', 'bottle_capacity', 1100, 'carton_capacity', 50, 'timezone', 'Australia/Brisbane'));
-
--- Categories and subcategories
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (129, 129, 'Red Wine', (SELECT id FROM current_entities WHERE name = 'Items'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (130, 130, 'White Wine', (SELECT id FROM current_entities WHERE name = 'Items'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (131, 131, 'Sparkling Wine', (SELECT id FROM current_entities WHERE name = 'Items'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (132, 132, 'Beer', (SELECT id FROM current_entities WHERE name = 'Items'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (133, 133, 'Spirits', (SELECT id FROM current_entities WHERE name = 'Items'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (134, 134, 'Merlot', (SELECT id FROM current_entities WHERE name = 'Red Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (135, 135, 'Cabernet Sauvignon', (SELECT id FROM current_entities WHERE name = 'Red Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (136, 136, 'Pinot Noir', (SELECT id FROM current_entities WHERE name = 'Red Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (137, 137, 'Shiraz', (SELECT id FROM current_entities WHERE name = 'Red Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (138, 138, 'Chardonnay', (SELECT id FROM current_entities WHERE name = 'White Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (139, 139, 'Sauvignon Blanc', (SELECT id FROM current_entities WHERE name = 'White Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (140, 140, 'Chablis', (SELECT id FROM current_entities WHERE name = 'White Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (141, 141, 'Riesling', (SELECT id FROM current_entities WHERE name = 'White Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (142, 142, 'Champagne', (SELECT id FROM current_entities WHERE name = 'Sparkling Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (143, 143, 'Prosecco', (SELECT id FROM current_entities WHERE name = 'Sparkling Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (144, 144, 'Cava', (SELECT id FROM current_entities WHERE name = 'Sparkling Wine'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (145, 145, 'Lager', (SELECT id FROM current_entities WHERE name = 'Beer'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (146, 146, 'Ale', (SELECT id FROM current_entities WHERE name = 'Beer'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (147, 147, 'Stout', (SELECT id FROM current_entities WHERE name = 'Beer'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (148, 148, 'Whisky', (SELECT id FROM current_entities WHERE name = 'Spirits'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (149, 149, 'Vodka', (SELECT id FROM current_entities WHERE name = 'Spirits'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (150, 150, 'Gin', (SELECT id FROM current_entities WHERE name = 'Spirits'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (151, 151, 'Rum', (SELECT id FROM current_entities WHERE name = 'Spirits'), '2026-01-01', 1);
-
--- Products (a item row for each, description/UOM/UPC left for the business to fill in)
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (152, 152, 'Château Dubois Merlot 2021', (SELECT id FROM current_entities WHERE name = 'Merlot'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (153, 153, 'Barossa Valley Merlot 2022', (SELECT id FROM current_entities WHERE name = 'Merlot'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (154, 154, 'Napa Ridge Cabernet Sauvignon 2020', (SELECT id FROM current_entities WHERE name = 'Cabernet Sauvignon'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (155, 155, 'Coonawarra Cabernet 2021', (SELECT id FROM current_entities WHERE name = 'Cabernet Sauvignon'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (156, 156, 'Central Otago Pinot Noir 2022', (SELECT id FROM current_entities WHERE name = 'Pinot Noir'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (157, 157, 'Côte de Nuits Pinot Noir 2021', (SELECT id FROM current_entities WHERE name = 'Pinot Noir'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (158, 158, 'Barossa Shiraz 2021', (SELECT id FROM current_entities WHERE name = 'Shiraz'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (159, 159, 'Hunter Valley Shiraz 2020', (SELECT id FROM current_entities WHERE name = 'Shiraz'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (160, 160, 'Margaret River Chardonnay 2022', (SELECT id FROM current_entities WHERE name = 'Chardonnay'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (161, 161, 'Sonoma Chardonnay 2021', (SELECT id FROM current_entities WHERE name = 'Chardonnay'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (162, 162, 'Marlborough Sauvignon Blanc 2023', (SELECT id FROM current_entities WHERE name = 'Sauvignon Blanc'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (163, 163, 'Loire Valley Sauvignon Blanc 2022', (SELECT id FROM current_entities WHERE name = 'Sauvignon Blanc'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (164, 164, 'Chablis Premier Cru 2021', (SELECT id FROM current_entities WHERE name = 'Chablis'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (165, 165, 'Petit Chablis 2022', (SELECT id FROM current_entities WHERE name = 'Chablis'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (166, 166, 'Mosel Riesling 2022', (SELECT id FROM current_entities WHERE name = 'Riesling'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (167, 167, 'Clare Valley Riesling 2021', (SELECT id FROM current_entities WHERE name = 'Riesling'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (168, 168, 'Grande Maison Champagne Brut', (SELECT id FROM current_entities WHERE name = 'Champagne'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (169, 169, 'Grande Maison Champagne Rosé', (SELECT id FROM current_entities WHERE name = 'Champagne'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (170, 170, 'Veneto Prosecco DOC', (SELECT id FROM current_entities WHERE name = 'Prosecco'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (171, 171, 'Prosecco Extra Dry', (SELECT id FROM current_entities WHERE name = 'Prosecco'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (172, 172, 'Penedès Cava Brut', (SELECT id FROM current_entities WHERE name = 'Cava'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (173, 173, 'Cava Rosé', (SELECT id FROM current_entities WHERE name = 'Cava'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (174, 174, 'Golden Lager 330ml', (SELECT id FROM current_entities WHERE name = 'Lager'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (175, 175, 'Premium Pilsner 330ml', (SELECT id FROM current_entities WHERE name = 'Lager'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (176, 176, 'Amber Ale 330ml', (SELECT id FROM current_entities WHERE name = 'Ale'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (177, 177, 'Pale Ale 330ml', (SELECT id FROM current_entities WHERE name = 'Ale'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (178, 178, 'Classic Stout 330ml', (SELECT id FROM current_entities WHERE name = 'Stout'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (179, 179, 'Imperial Stout 330ml', (SELECT id FROM current_entities WHERE name = 'Stout'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (180, 180, 'Highland Single Malt 700ml', (SELECT id FROM current_entities WHERE name = 'Whisky'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (181, 181, 'Blended Scotch 700ml', (SELECT id FROM current_entities WHERE name = 'Whisky'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (182, 182, 'Premium Vodka 700ml', (SELECT id FROM current_entities WHERE name = 'Vodka'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (183, 183, 'Craft Vodka 700ml', (SELECT id FROM current_entities WHERE name = 'Vodka'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (184, 184, 'London Dry Gin 700ml', (SELECT id FROM current_entities WHERE name = 'Gin'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (185, 185, 'Botanical Gin 700ml', (SELECT id FROM current_entities WHERE name = 'Gin'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (186, 186, 'Spiced Rum 700ml', (SELECT id FROM current_entities WHERE name = 'Rum'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (187, 187, 'Dark Rum 700ml', (SELECT id FROM current_entities WHERE name = 'Rum'), '2026-01-01', 1);
-
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (152, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000001'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (153, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000018'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (154, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000025'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (155, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000032'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (156, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000049'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (157, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000056'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (158, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000063'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (159, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000070'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (160, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000087'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (161, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000094'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (162, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000100'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (163, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000117'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (164, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000124'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (165, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000131'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (166, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000148'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (167, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000155'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (168, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000162'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (169, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000179'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (170, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000186'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (171, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000193'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (172, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000209'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (173, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000216'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (174, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000223'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (175, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000230'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (176, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000247'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (177, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000254'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (178, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000261'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (179, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000278'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (180, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000285'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (181, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000292'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (182, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000308'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (183, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000315'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (184, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000322'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (185, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000339'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (186, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000346'));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES (187, json_object('__is_contact', 1, 'item_description', NULL, 'item_unit_of_measure', 'bottle', 'item_upc', '9300001000353'));
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (244, 244, 'Stock Transfer', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (245, 245, 'Below Reorder', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (246, 246, 'Stock Take', (SELECT id FROM current_entities WHERE name = 'Vocabulary'), '2026-01-01', 1);
@@ -2527,42 +2440,6 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- Real, deterministic retail (selling) prices for every seed product
 -- — a POS screen must be able to look this up, never ask the operator
 -- to type a price in from memory (the real, reported bug this fixes).
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Amber Ale 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 785));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Barossa Shiraz 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 5200));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Barossa Valley Merlot 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 2650));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Blended Scotch 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 3800));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Botanical Gin 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 6850));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Cava Rosé'), json_object('__is_contact', 1, 'item_retail_price_minor', 6600));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Central Otago Pinot Noir 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 3350));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Chablis Premier Cru 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 5400));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Château Dubois Merlot 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 5500));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Clare Valley Riesling 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 3250));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Classic Stout 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 1030));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Coonawarra Cabernet 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 5250));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Craft Vodka 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 5000));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Côte de Nuits Pinot Noir 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 3200));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Dark Rum 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 4750));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Golden Lager 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 1200));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Grande Maison Champagne Brut'), json_object('__is_contact', 1, 'item_retail_price_minor', 3300));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Grande Maison Champagne Rosé'), json_object('__is_contact', 1, 'item_retail_price_minor', 2400));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Highland Single Malt 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 4600));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Hunter Valley Shiraz 2020'), json_object('__is_contact', 1, 'item_retail_price_minor', 2250));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Imperial Stout 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 865));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Loire Valley Sauvignon Blanc 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 4150));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'London Dry Gin 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 6150));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Margaret River Chardonnay 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 4150));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Marlborough Sauvignon Blanc 2023'), json_object('__is_contact', 1, 'item_retail_price_minor', 3150));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Mosel Riesling 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 2250));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Napa Ridge Cabernet Sauvignon 2020'), json_object('__is_contact', 1, 'item_retail_price_minor', 2500));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Pale Ale 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 840));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Penedès Cava Brut'), json_object('__is_contact', 1, 'item_retail_price_minor', 4150));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Petit Chablis 2022'), json_object('__is_contact', 1, 'item_retail_price_minor', 4100));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Premium Pilsner 330ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 810));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Premium Vodka 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 8400));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Prosecco Extra Dry'), json_object('__is_contact', 1, 'item_retail_price_minor', 6850));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Sonoma Chardonnay 2021'), json_object('__is_contact', 1, 'item_retail_price_minor', 2850));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Spiced Rum 700ml'), json_object('__is_contact', 1, 'item_retail_price_minor', 4550));
-INSERT INTO entity_merge_detail (entity_id, patch_json) VALUES ((SELECT id FROM current_entities WHERE name = 'Veneto Prosecco DOC'), json_object('__is_contact', 1, 'item_retail_price_minor', 5200));
 -- Relationship Types — the real category tree the relationship-type
 -- pattern hangs off (setRelationship/getRelationship/
 -- getEntitiesWithRelationship, see docs/entity-model.md). Confirmed
@@ -2588,14 +2465,6 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- Address already exists as a real, existing vocabulary word (251) —
 -- reused directly, not duplicated.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (798, 798, 'Is Billing Address', (SELECT id FROM current_entities WHERE name = 'Relationship Types'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (800, 800, 'Location Type — Head Office → Warehouse', (SELECT id FROM current_entities WHERE name = 'Location Type'), (SELECT id FROM current_entities WHERE name = 'Warehouse'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (801, 801, 'Is Billing Address — Head Office → Billing Address', (SELECT id FROM current_entities WHERE name = 'Is Billing Address'), (SELECT id FROM current_entities WHERE name = 'Billing Address'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (802, 802, 'Location Type — Riverside Cellars → Retail', (SELECT id FROM current_entities WHERE name = 'Location Type'), (SELECT id FROM current_entities WHERE name = 'Retail'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (803, 803, 'Location Type — Uptown Wine & Spirits → Retail', (SELECT id FROM current_entities WHERE name = 'Location Type'), (SELECT id FROM current_entities WHERE name = 'Retail'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (804, 804, 'Location Type — Warehouse B → Warehouse', (SELECT id FROM current_entities WHERE name = 'Location Type'), (SELECT id FROM current_entities WHERE name = 'Warehouse'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (805, 805, 'Location Type — Harbourside Bottle Shop → Retail', (SELECT id FROM current_entities WHERE name = 'Location Type'), (SELECT id FROM current_entities WHERE name = 'Retail'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (806, 806, 'Location Type — Market Square Liquor → Retail', (SELECT id FROM current_entities WHERE name = 'Location Type'), (SELECT id FROM current_entities WHERE name = 'Retail'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (807, 807, 'Location Type — Eastside Cellar Door → Retail', (SELECT id FROM current_entities WHERE name = 'Location Type'), (SELECT id FROM current_entities WHERE name = 'Retail'), '2026-01-01', 1);
 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (350, 350, 'Trustee Of', (SELECT id FROM current_entities WHERE name = 'Relationship Types'), '2026-01-01', 1);
 
@@ -2901,56 +2770,28 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- Translations UI (169 of them) or directly (the 11 that live
 -- outside Vocabulary, under Business Reports, Chart of Accounts,
 -- or Application -- no real UI screen currently reaches those).
--- Two real divisions for Wine Retail Business, per direct request
--- ("add a division to the Wine Business, just per city is fine") —
--- Springfield and Rivertown, the two real cities its own real
--- locations already sit in. Both real profit centers. row_id
--- deliberately omitted (SQLite auto-assigns it) — an earlier version
--- of this insert specified it explicitly and collided with the real,
--- already-in-use auto-increment sequence, caught immediately by a
--- real UNIQUE constraint failure on load, not silently wrong data.
-INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES (513, 'Springfield', (SELECT id FROM current_entities WHERE name = 'Divisions'), '2026-01-01', 1);
-INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (786, 'Division Type — Springfield → Profit Center', (SELECT id FROM current_entities WHERE name = 'Division Type'), (SELECT id FROM current_entities WHERE name = 'Profit Center'), '2026-01-01', 1);
-INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES (514, 'Rivertown', (SELECT id FROM current_entities WHERE name = 'Divisions'), '2026-01-01', 1);
-INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (787, 'Division Type — Rivertown → Profit Center', (SELECT id FROM current_entities WHERE name = 'Division Type'), (SELECT id FROM current_entities WHERE name = 'Profit Center'), '2026-01-01', 1);
+--
+-- Per direct, standing instruction: no business data of any kind
+-- belongs in this core schema file, not even unowned/global template
+-- furniture — Location/Division and Item/Category are themselves
+-- just one, optional, suggested way to organize a business's own
+-- locations and items (see docs/general-typed-hierarchy-resolution-
+-- plan.md: "simply what a new business gets seeded with by default,
+-- for convenience — not a fixed, closed set"), and any real business
+-- data (locations, divisions, categories, items, prices, vendors,
+-- postings) is built entirely through the real application itself —
+-- the Step Runner's own fixtures (see docs/skill-step-runner-design.md),
+-- or a real person using the real screens — never pre-seeded here.
+-- The "Wine Retail Business" demo locations/divisions/categories/
+-- items/prices and the "My Business" CS-1001 bootstrap posting that
+-- used to live in this section were removed for exactly this reason —
+-- confirmed, directly, a real source of name collisions with data the
+-- tutorial and full e2e fixtures build themselves (e.g. a tutorial-
+-- created "Amber Ale 330ml" item colliding with this file's own,
+-- same-named global template product).
 
--- Seven real, per-location divisions for Wine Retail Business, per
--- direct request ("per location P&L") — nested under their real city
--- division (Springfield/Rivertown), and explicitly linked to their
--- real location via relation, not by name. Each genuinely shares its
--- own exact name with its own real location — confirmed directly,
--- live: scoped uniqueness (unique among real, direct siblings under
--- the same real parent, not globally) already, correctly allows this,
--- since a division (parent: a real city division) and a location
--- (parent: "{business} Locations") are never real siblings. An
--- earlier, real comment here claimed "a division can never literally
--- share its location's own name, since entity names are globally
--- unique" — genuinely incorrect even at the time it was written,
--- confirmed directly against entities_name_current, the real unique
--- index this whole system's own scoped-uniqueness principle rests on
--- (scoped by (parent_id, name), never name alone). The real "Division"
--- suffix below was a real, unnecessary consequence of that mistaken
--- diagnosis, not a genuine requirement.
--- The hierarchical division filter (getLedgerBalances) means
--- filtering by the coarser city division still correctly includes
--- these finer, nested ones too.
-INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES (515, 'Head Office', (SELECT id FROM current_entities WHERE name = 'Springfield'), '2026-01-01', 1);
-INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (788, 'Division Type — Head Office → Profit Center', (SELECT id FROM current_entities WHERE name = 'Division Type'), (SELECT id FROM current_entities WHERE name = 'Profit Center'), '2026-01-01', 1);
 
-INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES (516, 'Riverside Cellars', (SELECT id FROM current_entities WHERE name = 'Springfield'), '2026-01-01', 1);
-INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (789, 'Division Type — Riverside Cellars → Profit Center', (SELECT id FROM current_entities WHERE name = 'Division Type'), (SELECT id FROM current_entities WHERE name = 'Profit Center'), '2026-01-01', 1);
 
-INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES (517, 'Uptown Wine & Spirits', (SELECT id FROM current_entities WHERE name = 'Springfield'), '2026-01-01', 1);
-INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (790, 'Division Type — Uptown Wine & Spirits → Profit Center', (SELECT id FROM current_entities WHERE name = 'Division Type'), (SELECT id FROM current_entities WHERE name = 'Profit Center'), '2026-01-01', 1);
 
-INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES (518, 'Warehouse B', (SELECT id FROM current_entities WHERE name = 'Rivertown'), '2026-01-01', 1);
-INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (791, 'Division Type — Warehouse B → Profit Center', (SELECT id FROM current_entities WHERE name = 'Division Type'), (SELECT id FROM current_entities WHERE name = 'Profit Center'), '2026-01-01', 1);
 
-INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES (519, 'Harbourside Bottle Shop', (SELECT id FROM current_entities WHERE name = 'Rivertown'), '2026-01-01', 1);
-INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (792, 'Division Type — Harbourside Bottle Shop → Profit Center', (SELECT id FROM current_entities WHERE name = 'Division Type'), (SELECT id FROM current_entities WHERE name = 'Profit Center'), '2026-01-01', 1);
 
-INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES (520, 'Market Square Liquor', (SELECT id FROM current_entities WHERE name = 'Rivertown'), '2026-01-01', 1);
-INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (793, 'Division Type — Market Square Liquor → Profit Center', (SELECT id FROM current_entities WHERE name = 'Division Type'), (SELECT id FROM current_entities WHERE name = 'Profit Center'), '2026-01-01', 1);
-
-INSERT INTO entities (entity_id, name, parent_id, created_at, created_by) VALUES (521, 'Eastside Cellar Door', (SELECT id FROM current_entities WHERE name = 'Rivertown'), '2026-01-01', 1);
-INSERT INTO entities (entity_id, name, parent_id, relation_id, created_at, created_by) VALUES (794, 'Division Type — Eastside Cellar Door → Profit Center', (SELECT id FROM current_entities WHERE name = 'Division Type'), (SELECT id FROM current_entities WHERE name = 'Profit Center'), '2026-01-01', 1);
