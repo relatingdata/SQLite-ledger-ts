@@ -121,20 +121,32 @@ if (!alreadyInitialized) {
   // vocabulary file (each only depends on its own real, target
   // entity already existing, all of which live in core).
   const schemaDir = path.join(__dirname, '..', 'schema');
-  // Controls whether the foreign demo businesses (BMW M GmbH, Peugeot
-  // Citroën Sochaux SNC, Ditta Italiana Srl, Schweizer KMU AG) are
-  // seeded at all — the exact, same, real flag db-seed.ts uses for
-  // Wine Retail Business. Per direct instruction: only 'My Business'
-  // (the one dummy company for login) should exist, so a person can
-  // build Wine Retail Business from scratch via Playwright rather than
-  // have it pre-populated.
+  // Controls whether any demo/business data at all is seeded — the
+  // exact, same, real flag db-seed.ts uses for Wine Retail Business.
+  // Per direct, standing instruction: 00-core.sql itself now carries
+  // NO business or demo data of any kind, not even unowned/global
+  // template furniture — only structural entities, vocabulary/
+  // translations, and the admin user. Every real demo business (BMW
+  // M GmbH, Peugeot Citroën Sochaux SNC, Ditta Italiana Srl, Schweizer
+  // KMU AG) lives entirely in its own, separately-gated file, loaded
+  // as a whole unit below — never as a content-pattern filter over
+  // 00-core.sql's own text (a real, confirmed gap in that old
+  // approach left two businesses' own child ledger entities behind as
+  // dangling parent_id rows, caught directly by a real integrity
+  // check, since a line-pattern filter only ever removes the lines it
+  // was written to recognize — a business's own name — not every
+  // line that depends on it). So a 'My Business' (the one dummy
+  // company for login) should exist, so a person can build a real
+  // business from scratch via the application itself rather than have
+  // one pre-populated.
   const seedDemoBusinesses = process.env.SEED_DEMO_BUSINESSES !== 'false';
   const readSchema = (f: string) => fs.readFileSync(path.join(schemaDir, f), 'utf8');
-  const foreignBusinessLinePattern = /'Ditta Italiana Srl'|'Schweizer KMU AG'/;
 
-  const coreSql = readSchema('00-core.sql');
-  db.exec(seedDemoBusinesses ? coreSql : coreSql.split('\n').filter((line) => !foreignBusinessLinePattern.test(line)).join('\n'));
-  if (seedDemoBusinesses) db.exec(readSchema('20-demo-bmw-peugeot.sql'));
+  db.exec(readSchema('00-core.sql'));
+  if (seedDemoBusinesses) {
+    db.exec(readSchema('20-demo-bmw-peugeot.sql'));
+    db.exec(readSchema('20-demo-italian-swiss.sql'));
+  }
 
   // 30-coa-links.sql links every real, existing account (both core's
   // own real accounts and, when present, the foreign demo businesses'
