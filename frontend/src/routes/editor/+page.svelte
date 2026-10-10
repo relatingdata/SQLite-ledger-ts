@@ -4,6 +4,7 @@
     getEntityTree,
     createEntity,
     createProvider,
+    createCustomer,
     supersedeEntity,
     revokeEntity,
     getContact,
@@ -255,6 +256,8 @@
       // structurally-parented-but-untyped vendor by hand.
       if (newParent === 'Accounts Payable' && !newRelation) {
         await createProvider(newName, 'Create Provider');
+      } else if (newParent === 'Customers' && !newRelation) {
+        await createCustomer(newName, 'Create Customer');
       } else {
         await createEntity({
           name: newName,

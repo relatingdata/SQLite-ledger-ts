@@ -96,9 +96,15 @@ the `account_entry_insert`/`post_journal_entry_insert` schema triggers themselve
 left unchanged — the whole design works without touching them, since `stageLine`'s own
 pre-resolution of `accountId` is sufficient.
 
-**A known, confirmed, separate, pre-existing bug, found while verifying this work, not yet
-fixed**: `getStockMovementReport` (`backend/src/db-stock.ts`) resolves its own ledger by a bare,
-business-unscoped name (`SELECT id FROM current_entities WHERE name = ?`) — confirmed directly, this
-silently returns a *different* business's own, same-named ledger's data instead of the real,
-intended one, the moment two real businesses genuinely share a ledger name (as "Actual" now
-commonly is). Not caused by this chapter's own work, but newly, directly exposed by it.
+**A known, confirmed, separate, pre-existing bug, found while verifying this work — fixed.**
+`getStockMovementReport` (`backend/src/db-stock.ts`) resolved its own ledger by a bare,
+business-unscoped name — confirmed directly, this silently returned a *different* business's own,
+same-named ledger's data instead of the real, intended one, the moment two real businesses genuinely
+shared a ledger name (as "Actual" commonly is). Not caused by this chapter's own work, but found by
+it. Fixed by adding the missing `business` parameter (the function's signature, its one real route,
+its frontend wrapper, and the one real page calling it, all updated to match) and scoping the ledger
+lookup the same, established way as every other fix in this chapter. Directly verified, over real
+HTTP, against the real, running server: `Tutorial Wine Retail Business` now correctly shows its own,
+real activity (2 receipts, 1 transfer, 3 sales — matching the real tutorial exactly), and `My
+Business` now correctly, independently shows its own, completely different figures (1 receipt, 0
+transfers, 0 sales) — confirming the two are no longer conflated.

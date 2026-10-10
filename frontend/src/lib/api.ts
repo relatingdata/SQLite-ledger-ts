@@ -1610,7 +1610,7 @@ export interface StockMovementReport {
   transfers: StockTransferRow[];
   sales: StockSaleRow[];
 }
-export const getStockMovementReport = (ledger: LedgerName, fromDate?: string, toDate?: string) =>
+export const getStockMovementReport = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string) =>
   request<StockMovementReport>(
-    `/stock-listing/movement?ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
+    `/stock-listing/movement?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
   );

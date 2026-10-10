@@ -445,12 +445,14 @@ stockListingRouter.get('/storage-space', (_req, res) => {
   res.json(getStorageSpaceReport());
 });
 stockListingRouter.get('/movement', (req, res) => {
+  const business = req.query.business;
   const ledger = req.query.ledger;
+  if (typeof business !== 'string' || !business) return res.status(400).json({ error: 'business is required.' });
   if (typeof ledger !== 'string' || !ledger) return res.status(400).json({ error: 'ledger is required.' });
   const fromDate = typeof req.query.fromDate === 'string' ? req.query.fromDate : undefined;
   const toDate = typeof req.query.toDate === 'string' ? req.query.toDate : undefined;
   try {
-    res.json(getStockMovementReport(ledger, fromDate, toDate));
+    res.json(getStockMovementReport(business, ledger, fromDate, toDate));
   } catch (err) {
     if (err instanceof ValidationError) return res.status(404).json({ error: err.message });
     console.error(err);

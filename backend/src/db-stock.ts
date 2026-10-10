@@ -623,9 +623,12 @@ function allPreferredProviders(): Map<string, string> {
   return map;
 }
 
-export function getStockMovementReport(ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport {
-  const ledgerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(ledgerName) as { id: number } | undefined)?.id;
-  if (!ledgerId) throw new ValidationError(`No ledger named "${ledgerName}".`);
+export function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport {
+  const ledgerId = (
+    db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`)
+      .get(ledgerName, business) as { id: number } | undefined
+  )?.id;
+  if (!ledgerId) throw new ValidationError(`No real ledger named "${ledgerName}" under "${business}".`);
 
   const dateFilter = `AND (? IS NULL OR j.transdate >= ?) AND (? IS NULL OR j.transdate <= ?)`;
   const dateParams = [fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null];

@@ -22,7 +22,7 @@
     const requestId = ++latestRequestId;
     loading = true;
     try {
-      const result = await (session.current ? getStockMovementReport(session.current.ledgerName, fromDate || undefined, toDate || undefined) : Promise.reject(new Error('No ledger selected.')));
+      const result = await (session.current ? getStockMovementReport(session.current.businessName, session.current.ledgerName, fromDate || undefined, toDate || undefined) : Promise.reject(new Error('No ledger selected.')));
       if (requestId !== latestRequestId) return;
       report = result;
     } catch (e) {
