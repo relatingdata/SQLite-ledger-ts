@@ -505,11 +505,12 @@ export const buildBankCurrencyStructure = (
   businessName: string,
   headerName: string,
   leafKind: 'asset' | 'equity',
-  selections: { bankAccountName: string; currency: string }[]
+  selections: { bankAccountName: string; currency: string }[],
+  homeCurrency: string
 ) =>
   request<void>(`/businesses/${encodeURIComponent(businessName)}/bank-currency-structure`, {
     method: 'POST',
-    body: JSON.stringify({ headerName, leafKind, selections }),
+    body: JSON.stringify({ headerName, leafKind, selections, homeCurrency }),
   });
 
 export interface StagedLine {
@@ -1346,8 +1347,10 @@ export const getItemLocation = (itemName: ItemName, locationName: LocationName) 
 export const setItemLocationLevels = (
   itemName: ItemName,
   locationName: LocationName,
-  levels: { minLevel?: number | null; maxLevel?: number | null; reorderLevel?: number | null; shelfSide?: string | null; rack?: string | null; level?: number | null }
-) => request<void>(`/locations/${encodeURIComponent(locationName)}/items/${encodeURIComponent(itemName)}`, { method: 'PUT', body: JSON.stringify(levels) });
+  levels: { minLevel?: number | null; maxLevel?: number | null; reorderLevel?: number | null; shelfSide?: string | null; rack?: string | null; level?: number | null },
+  businessName: string,
+  ledgerName?: string
+) => request<void>(`/locations/${encodeURIComponent(locationName)}/items/${encodeURIComponent(itemName)}`, { method: 'PUT', body: JSON.stringify({ ...levels, business: businessName, ledger: ledgerName }) });
 
 export const receiveItems = (
   locationName: LocationName,
@@ -1477,8 +1480,8 @@ export interface StockTake {
   lines: StockTakeLine[];
 }
 
-export const createStockTake = (locationName: LocationName, takeDate: string) =>
-  request<{ id: number }>('/stock-takes', { method: 'POST', body: JSON.stringify({ locationName, takeDate }) });
+export const createStockTake = (locationName: LocationName, takeDate: string, businessName?: string) =>
+  request<{ id: number }>('/stock-takes', { method: 'POST', body: JSON.stringify({ locationName, takeDate, business: businessName }) });
 export const getStockTake = (id: number) => request<StockTake>(`/stock-takes/${id}`);
 export const recordStockTakeCount = (id: number, itemName: ItemName, countedQuantity: number) =>
   request<void>(`/stock-takes/${id}/count`, { method: 'POST', body: JSON.stringify({ itemName, countedQuantity }) });
@@ -1761,7 +1764,8 @@ export interface InventoryListingLocationGroup {
   total_on_hand: number;
   capacity: LocationCapacityStatus;
 }
-export const getInventoryListingByLocation = () => request<InventoryListingLocationGroup[]>('/stock-listing/by-location');
+export const getInventoryListingByLocation = (businessName: string) =>
+  request<InventoryListingLocationGroup[]>(`/stock-listing/by-location?business=${encodeURIComponent(businessName)}`);
 
 // Per direct instruction: a real, new report - Storage Capacity
 // accounts live under each real Location, structurally outside Chart

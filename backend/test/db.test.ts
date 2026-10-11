@@ -5566,7 +5566,7 @@ test('a real business can genuinely be named "Equity" (or "Asset", "Chart of Acc
 test('nominateBankAccount/buildBankCurrencyStructure: a real, single bank account in one real currency collapses to one, plain, postable "Cash at Bank" account - no header, no further structure', () => {
   const biz = createBusiness(asBusinessName('BankCurrencySingle Co'), '2027-28', asUserId(1));
   nominateBankAccount(biz.business, 'Westpac Business Cheque', '032-001', '123456', asUserId(1));
-  buildBankCurrencyStructure(biz.business, 'Cash at Bank', typeAssetAccountName, [{ bankAccountName: 'Westpac Business Cheque', currency: 'AUD' }], asUserId(1));
+  buildBankCurrencyStructure(biz.business, 'Cash at Bank', typeAssetAccountName, [{ bankAccountName: 'Westpac Business Cheque', currency: 'AUD' }], asUserId(1), 'AUD');
 
   const businessAsset = requireEntity('Asset', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))));
   const cashAtBank = requireEntity('Cash at Bank', typeRootName, businessAsset);
@@ -5587,7 +5587,8 @@ test('nominateBankAccount/buildBankCurrencyStructure: more than one real bank/cu
       { bankAccountName: 'Westpac Business Cheque', currency: 'AUD' },
       { bankAccountName: 'HSBC Business Account', currency: 'USD' },
     ],
-    asUserId(1)
+    asUserId(1),
+    'AUD'
   );
 
   const businessAsset = requireEntity('Asset', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))));
@@ -5628,7 +5629,8 @@ test('buildBankCurrencyStructure: the exact, same real mechanism applies to a re
       { bankAccountName: 'Westpac Business Cheque', currency: 'AUD' },
       { bankAccountName: 'HSBC Business Account', currency: 'USD' },
     ],
-    asUserId(1)
+    asUserId(1),
+    'AUD'
   );
 
   const entities = getEntityTree();

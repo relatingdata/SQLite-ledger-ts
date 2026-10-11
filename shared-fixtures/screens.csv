@@ -7,6 +7,16 @@ Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),2,financialYearLabel,input[placeholder='e.g. 2026-27'],text
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),3,businessType,select >> nth=1,select
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),4,homeCurrency,,text
+Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),5,coaPrototype,select >> nth=0,select
+Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),6,secondaryCurrencies,,text
+Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),1,businessName,,text
+Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),2,bankAccountName,"input[placeholder='Bank name, e.g. Westpac Business Cheque']",text
+Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),3,routingDetail,input[placeholder='BSB / routing detail'],text
+Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),4,accountNumber,input[placeholder='Account number'],text
+Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),1,businessName,,text
+Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),2,bankAccountName,,text
+Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),3,currency,input[placeholder='e.g. AUD'],text
+Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),4,confirmCombination,table input[type=checkbox],check
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),1,businessName,,text
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),2,locationName,.generic-form fieldset >> nth=0 >> input,text
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),3,city,.generic-form fieldset >> nth=1 >> input,text
@@ -29,9 +39,9 @@ Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,2,itemName,,text
 Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,3,providerName,,text
 Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,4,unitCostMinor,,text
 Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,5,packageQuantity,,text
-Post Journal Entry,data,,,postJournalEntrySimple,,1,reference,,text
-Post Journal Entry,data,,,postJournalEntrySimple,,2,businessName,,text
-Post Journal Entry,data,,,postJournalEntrySimple,,3,ledger,,text
+Post Journal Entry,data,/post,,postJournalEntrySimple,button:has-text('Save'),1,reference,,text
+Post Journal Entry,data,/post,,postJournalEntrySimple,button:has-text('Save'),2,businessName,,text
+Post Journal Entry,data,/post,,postJournalEntrySimple,button:has-text('Save'),3,ledger,,text
 Create Purchase Order,data,,,createPurchaseOrderInCartons,,1,businessName,,text
 Create Purchase Order,data,,,createPurchaseOrderInCartons,,2,providerName,,text
 Create Purchase Order,data,,,createPurchaseOrderInCartons,,3,itemName,,text
@@ -77,11 +87,11 @@ Rollover To New Period,data,,,rolloverToNewPeriodSimple,,1,businessName,,text
 Rollover To New Period,data,,,rolloverToNewPeriodSimple,,2,oldLedger,,text
 Rollover To New Period,data,,,rolloverToNewPeriodSimple,,3,newLedger,,text
 Rollover To New Period,data,,,rolloverToNewPeriodSimple,,4,asOfDate,,text
-Stage Journal Line,data,,,stageJournalLine,,1,reference,,text
-Stage Journal Line,data,,,stageJournalLine,,2,businessName,,text
-Stage Journal Line,data,,,stageJournalLine,,3,ledger,,text
-Stage Journal Line,data,,,stageJournalLine,,4,account,,text
-Stage Journal Line,data,,,stageJournalLine,,5,amountMinor,,text
+Stage Journal Line,data,/post,,stageJournalLine,,1,reference,"input[placeholder='e.g. GJ-1001']",text
+Stage Journal Line,data,/post,,stageJournalLine,,2,businessName,,text
+Stage Journal Line,data,/post,,stageJournalLine,,3,ledger,,text
+Stage Journal Line,data,/post,,stageJournalLine,,4,account,table:has(select) tbody tr:last-child select,select
+Stage Journal Line,data,/post,,stageJournalLine,,5,amountMinor,"table:has(select) tbody tr:last-child td:nth-child(3) input|table:has(select) tbody tr:last-child td:nth-child(4) input",signed_money
 Create Entity,data,,,createEntitySimple,,1,name,,text
 Create Entity,data,,,createEntitySimple,,2,parent,,text
 Stage Purchase Order,data,,,stagePurchaseOrderSimple,,1,reference,,text

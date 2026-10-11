@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-playwright playwright-tutorial playwright-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations playwright-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end playwright-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -76,7 +76,7 @@ dev:
 # Same as `dev` above, but with only the one, real, dummy "My
 # Business" for login — no Wine Retail Business, no BMW/Peugeot/Ditta/
 # Schweizer. Use this to build a real business entirely from scratch
-# via the UI or Playwright, with nothing pre-populated. This flag must
+# via the UI or a driven browser test, with nothing pre-populated. This flag must
 # genuinely be set on every real backend start (not just the first) —
 # seedRemainingData runs every time the backend loads, so a plain
 # `make dev` afterwards would silently re-seed the demo businesses.
@@ -133,16 +133,26 @@ test-e2e: reset-db
 # The real, augmented tutorial fixture (shared-fixtures/tutorial-steps.csv),
 # run via the fast, direct API path - no browser, no running servers
 # needed, since runStepViaApi calls the real backend functions directly.
+# A real, confirmed, pre-existing bug, found and fixed directly here:
+# this fixture creates its own, real "Tutorial Wine Retail Business"
+# from scratch and genuinely never wants the demo businesses (Wine
+# Retail Business, BMW/Peugeot/Ditta/Schweizer) pre-seeded alongside
+# it - SEED_DEMO_BUSINESSES=false was missing here, so a plain run
+# tripped the real, pre-existing demo-seed bug in
+# migrateForWineRetailDemoData, unrelated to this fixture itself.
 test-e2e-tutorial: reset-db
 	@echo "Running the real, augmented tutorial fixture via the API path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path api --non-interactive
+	cd backend && SEED_DEMO_BUSINESSES=false $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path api --non-interactive
 
 # The exact, same, real tutorial fixture, driven through an actual,
 # real, live browser instead - genuinely proving the real UI screens
-# themselves, not just the backend functions behind them.
-test-e2e-tutorial-playwright: reset-db ensure-servers
+# themselves, not just the backend functions behind them. Depends on
+# ensure-servers-no-demo (not plain ensure-servers), for the exact,
+# same, real reason as test-e2e-tutorial above - this fixture must
+# never run against a server already seeded with demo businesses.
+test-e2e-tutorial-browser: reset-db ensure-servers-no-demo
 	@echo "Running the real, augmented tutorial fixture via the real, driven UI path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive
+	cd backend && SEED_DEMO_BUSINESSES=false $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive
 
 # A real, minimal, fast, backend-only proof of a complete business
 # lifecycle: locations of each real type, staff, an assembly, a full
@@ -155,45 +165,45 @@ proof-year-end: reset-db
 
 # Per direct instruction: shares the exact same real, already-populated
 # database test-e2e itself creates - simulate-wine-retail-month.ts runs
-# first, then Playwright verifies every real language is present and
-# exercises the UI against that same, real, already-built business,
-# rather than rebuilding it from scratch via slow UI clicks.
-test-e2e-playwright: reset-db
+# first, then the driven browser test verifies every real language is
+# present and exercises the UI against that same, real, already-built
+# business, rather than rebuilding it from scratch via slow UI clicks.
+test-e2e-browser-languages: reset-db
 	cd backend && $(RUN_SCRIPT) scripts/simulate-wine-retail-month.ts
-	cd e2e && $(RUN_BINARY) playwright test full-e2e-with-languages --reporter=list
+	cd e2e && $(RUN_NPM_SCRIPT) browser-run -- test full-e2e-with-languages --reporter=list
 	@echo ""
 
-# Real, end-to-end browser tests (Playwright) — genuinely different
-# from test-e2e above (a backend-only, headless simulation). This
-# drives an actual browser through the actual running app. Playwright's
-# own config (e2e/playwright.config.ts) already starts both the
+# Real, end-to-end browser tests — genuinely different from test-e2e
+# above (a backend-only, headless simulation). This drives an actual
+# browser through the actual running app. The browser test runner's
+# own config, in e2e/, already starts both the
 # backend and frontend dev servers itself if they aren't already
 # running — no need to `make dev` first. Always resets the database
 # first, since the tutorial genuinely creates a new business (Wine
 # Retail Company itself) from scratch and expects a clean starting
 # point — SEED_DEMO_BUSINESSES=false so it doesn't already exist
-# (Playwright's own webServer spawns $(RUN_NPM_SCRIPT) dev as a child process,
+# (the runner's own webServer spawns $(RUN_NPM_SCRIPT) dev as a child process,
 # inheriting this shell's own environment, so the flag reaches the
 # backend it auto-starts too).
-playwright-tutorial: reset-db
+e2e-spec-tutorial: reset-db
 	@echo "Running the real Wine Retail Business tutorial walkthrough in a real browser, built entirely from scratch (login through the first General Journal transaction)..."
-	cd e2e && SEED_DEMO_BUSINESSES=false $(RUN_BINARY) playwright test tutorial-walkthrough --reporter=list
+	cd e2e && SEED_DEMO_BUSINESSES=false $(RUN_NPM_SCRIPT) browser-run -- test tutorial-walkthrough --reporter=list
 
-# The full, real Playwright browser suite — every real .spec.ts file
-# in e2e/tests. Takes several minutes. Use playwright-tutorial above
+# The full, real driven browser-test suite — every real .spec.ts file
+# in e2e/tests. Takes several minutes. Use e2e-spec-tutorial above
 # for a quick, targeted check instead.
-playwright-all: reset-db
-	@echo "Running the full, real Playwright browser suite..."
-	cd e2e && $(RUN_BINARY) playwright test --reporter=list
+e2e-spec-all: reset-db
+	@echo "Running the full, real driven browser-test suite..."
+	cd e2e && $(RUN_NPM_SCRIPT) browser-run -- test --reporter=list
 
 # A real, generic, reusable target for running one, specific, named
-# Playwright test against whatever is already running - does NOT
+# browser test against whatever is already running - does NOT
 # reset the database, per the many real cases (a screenshot for
 # approval, a targeted regression check) where the current, live data
-# is exactly what's needed. Usage: make playwright-one TEST=<name>
-playwright-one:
-	@if [ -z "$(TEST)" ]; then echo "Usage: make playwright-one TEST=<spec-file-name>"; exit 1; fi
-	cd e2e && $(RUN_BINARY) playwright test $(TEST) --reporter=list --workers=1
+# is exactly what's needed. Usage: make e2e-spec-one TEST=<name>
+e2e-spec-one:
+	@if [ -z "$(TEST)" ]; then echo "Usage: make e2e-spec-one TEST=<spec-file-name>"; exit 1; fi
+	cd e2e && $(RUN_NPM_SCRIPT) browser-run -- test $(TEST) --reporter=list --workers=1
 
 # A real, direct, explicit way to know whether the real backend/
 # frontend dev servers are already up and genuinely healthy - not
@@ -246,13 +256,13 @@ ensure-servers:
 
 # The exact, same, real, detached-server pattern as ensure-servers
 # above, but for the one, real, recurring case that one had no answer
-# for at all: driving the real UI path (Playwright) against a
+# for at all: driving the real UI path (a driven browser) against a
 # database with only the one, real, dummy "My Business" - no Wine
 # Retail Business, no BMW/Peugeot/Ditta/Schweizer - the exact, same
 # real data `make dev-no-demo` gives a person at a real keyboard, but
 # detached, so a real, unattended script (step-runner's own `--path
 # ui`, among others) can depend on it the same way every other
-# screenshot/Playwright target already depends on `ensure-servers`.
+# screenshot/browser-test target already depends on `ensure-servers`.
 # Reuses the real, same pid files - `stop-servers` below works on a
 # server started either way, and `servers-status` reports it the same
 # way too. Never silently reuses an already-running backend that was
@@ -299,10 +309,10 @@ stop-servers:
 # A real, fast, minimal smoke layer - every real route visited once,
 # checking only that it loads without a real, unhandled error. See
 # docs/min-e2e-coverage-plan.md for the full, real rationale. Distinct
-# from playwright-all (the full, detailed, existing suite) and
-# playwright-tutorial (the from-scratch business walkthrough).
-playwright-smoke:
-	cd e2e && $(RUN_BINARY) playwright test min-e2e-route-smoke --reporter=list --workers=1
+# from e2e-spec-all (the full, detailed, existing suite) and
+# e2e-spec-tutorial (the from-scratch business walkthrough).
+e2e-spec-smoke:
+	cd e2e && $(RUN_NPM_SCRIPT) browser-run -- test min-e2e-route-smoke --reporter=list --workers=1
 
 # The full, real demo dataset: one detailed month (as above) plus a
 # real, 12-month Budget and 11 more real, summary-level Actual months
@@ -733,178 +743,178 @@ manual: scripts/build-user-manual.ts $(USER_MANUAL_CHAPTERS) $(USER_MANUAL_SCREE
 # script itself, so touching one Svelte file only invalidates the
 # screenshots that genuinely depend on it, not all of them.
 docs/manual-images/setup_chart_of_accounts.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/chart-of-accounts/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=setup_chart_of_accounts $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_chart_of_accounts $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_periods.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/periods/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=setup_periods $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_periods $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_translations.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/translations/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=setup_translations $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_translations $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_users.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/users/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=setup_users $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_users $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_vocabulary.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/vocabulary/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=setup_vocabulary $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_vocabulary $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_yearend.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/yearend/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=setup_yearend $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_yearend $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_listing.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/listing/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=stock_listing $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_listing $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_restock.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/restock/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=stock_restock $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_restock $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_new_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-pl/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_new_pl $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_new_pl $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_new_stock_on_hand.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-stock-on-hand/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_new_stock_on_hand $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_new_stock_on_hand $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_old_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/old-pl/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_old_pl $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_old_pl $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_profit_and_loss.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/profit-and-loss/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_profit_and_loss $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_profit_and_loss $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_reminders.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/reminders/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_reminders $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_reminders $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_sales.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/sales/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_sales $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_sales $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_statement.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/statement/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_statement $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_statement $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_stock_movement.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/stock-movement/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_stock_movement $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_stock_movement $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_trial_balance.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/trial-balance/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_trial_balance $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_trial_balance $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/setup_bank_accounts.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/bank-accounts/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=setup_bank_accounts $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=setup_bank_accounts $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/account_password.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/account/password/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=account_password $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=account_password $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/customer_terminal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/customer-terminal/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=customer_terminal $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=customer_terminal $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/editor.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/editor/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=editor $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=editor $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/invoices.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/invoices/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=invoices $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=invoices $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/journal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/journal/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=journal $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=journal $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_aged.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/aged/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_aged $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_aged $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_below_reorder.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/below-reorder/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_below_reorder $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_below_reorder $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_cash_flow_forecast.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/cash-flow-forecast/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_cash_flow_forecast $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_cash_flow_forecast $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_compare.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/compare/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_compare $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_compare $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_new_new_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-new-pl/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_new_new_pl $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=reports_new_new_pl $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ar_sale.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ar-sale/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=ar_sale $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ar_sale $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ar_receipt.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ar-receipt/+page.svelte frontend/src/lib/components/PaymentReceipt.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=ar_receipt $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ar_receipt $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ap_purchase.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ap-purchase/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=ap_purchase $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ap_purchase $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ap_payment.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ap-payment/+page.svelte frontend/src/lib/components/PaymentReceipt.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=ap_payment $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=ap_payment $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/cash_sale.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/cash-sale/+page.svelte frontend/src/lib/components/CashTransaction.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=cash_sale $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=cash_sale $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/cash_purchase.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/cash-purchase/+page.svelte frontend/src/lib/components/CashTransaction.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=cash_purchase $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=cash_purchase $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/projects.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/projects/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=projects $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=projects $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/hr_wages.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/hr/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=hr_wages $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=hr_wages $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/write_offs.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/write-offs/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=write_offs $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=write_offs $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_take.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-take/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=stock_take $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_take $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_transfer.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/transfer/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=stock_transfer $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_transfer $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_dispatch.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-dispatch/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=stock_dispatch $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_dispatch $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/stock_receipt.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/stock-receipt/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=stock_receipt $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=stock_receipt $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/sales_order.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/so/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=sales_order $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=sales_order $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/general_journal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/post/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=general_journal $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=general_journal $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/pos_terminal.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/pos/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=pos_terminal $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=pos_terminal $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/purchase_order.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/po/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=purchase_order $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=purchase_order $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_multi_location_schedule.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/business-setup/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_multi_location_schedule $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_multi_location_schedule $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_contact_persons.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/contacts/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_contact_persons $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_contact_persons $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_balance_sheet.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/balance-sheet/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_balance_sheet $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_balance_sheet $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_items_new_category_full.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/items/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_items_new_category_full $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_items_new_category_full $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_parts_cropped.png: docs/manual-images/m_items_new_category_full.png scripts/crop-parts-screenshot.ts
 	$(RUN_SCRIPT) scripts/crop-parts-screenshot.ts
 
 docs/manual-images/m_locations.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/locations/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_locations $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_locations $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_business_setup.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/business-setup/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_business_setup $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_business_setup $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_new_business.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/new-business/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_new_business $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_new_business $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_configuration_landing.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/setup/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_configuration_landing $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_configuration_landing $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_login.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/login/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_login $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_login $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_home.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_home $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_home $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/m_choose_business.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/session/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=m_choose_business $(RUN_BINARY) playwright test capture-manual-screenshots --reporter=list
+	cd e2e && MANUAL_SCREEN=m_choose_business $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 # Real, live screenshot capture for the manual, in each real,
-# supported language — a real, shared Playwright script
+# supported language — a real, shared browser-driving script
 # Per direct correction: no blanket "capture every screenshot"
 # target - each real screenshot has its own, individual, real rule
 # above, depending only on the specific frontend route file(s) it
@@ -1129,7 +1139,7 @@ checkpoint:
 	cd .. && zip -rq /mnt/user-data/outputs/sql-ledger-ts_$(CHECKPOINT).zip sql-ledger-ts \
 	  -x "*/node_modules/*" "*/.svelte-kit/*" "*/.git/*" "*/__pycache__/*" \
 	     "*/data/*.sqlite-wal" "*/data/*.sqlite-shm" "*/data/archive/*" \
-	     "*/e2e/test-results/*" "*/playwright-report/*" "*/test-results/*" \
+	     "*/e2e/test-results/*" "*/test-results/*" \
 	     "*/docs/manual-images*" "*.pdf"
 	@echo "Checkpoint $(CHECKPOINT): committed, bundled, and zipped."
 

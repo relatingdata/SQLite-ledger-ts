@@ -40,7 +40,7 @@
     const newTakeDate = String(v.date ?? '');
     if (!newLocation || !newTakeDate) return;
     try {
-      const { id } = await createStockTake(asLocationName(newLocation), newTakeDate);
+      const { id } = await createStockTake(asLocationName(newLocation), newTakeDate, session.current?.businessName);
       take = await getStockTake(id);
       counts = {};
       unitCosts = {};

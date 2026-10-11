@@ -3,8 +3,23 @@
 # Chooses the working business before a new one exists.
 "Select Business","My Business"
 # Creates the business, its Actual/Budget ledgers, a CoA skeleton, and
-# nominates its real home currency (AUD), per Chapter 3.
-"Create Business","Tutorial Wine Retail Business","2026-27","Sole Trader","AUD"
+# nominates its real home currency (AUD), per Chapter 3. Also exercises
+# the real CoA-prototype selector (kept at the real, same "English /
+# generic" default every later step in this fixture already assumes,
+# since switching it would change every real account name downstream)
+# and the real, optional "accept additional currencies" acceptance -
+# NZD, a real, further currency this business is willing to take cash
+# in, alongside its own real home currency.
+"Create Business","Tutorial Wine Retail Business","2026-27","Sole Trader","AUD","English / generic","NZD"
+# The real, post-creation banking wizard, immediately following
+# business creation on the exact, same real screen (never a separate
+# navigation) - nominates the business's one real bank account, then
+# confirms the one real bank/currency combination to build "Cash at
+# Bank" from, per docs/user-manual-ch2-configuration.md's own,
+# already-written "Setup then walks through the business's own real
+# banking arrangement" section.
+"Nominate Bank Account","Tutorial Wine Retail Business","Westpac Business Cheque","032-001","123456"
+"Build Bank Currency Structure","Tutorial Wine Retail Business","Westpac Business Cheque","AUD","true"
 # Moves the session into the new business.
 "Switch Session","Tutorial Wine Retail Business"
 # Creates the warehouse, within the Adelaide Metro division, and its

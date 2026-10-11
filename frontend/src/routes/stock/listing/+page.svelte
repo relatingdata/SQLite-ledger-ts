@@ -1,16 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getInventoryListingByLocation, setItemLocationLevels, asItemName, asLocationName, ApiError, type InventoryListingLocationGroup, type InventoryListingRow } from '$lib/api';
-  import { translations } from '$lib/state.svelte';
+  import { translations, session } from '$lib/state.svelte';
 
   let groups: InventoryListingLocationGroup[] = $state([]);
   let loading = $state(true);
   let error = $state('');
 
   async function load() {
+    if (!session.current) return;
     loading = true;
     try {
-      groups = await getInventoryListingByLocation();
+      groups = await getInventoryListingByLocation(session.current.businessName);
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -62,15 +63,22 @@
   }
 
   async function saveLevels(row: InventoryListingRow) {
+    if (!session.current) return;
     const k = key(row);
     saving = { ...saving, [k]: true };
     saveError = { ...saveError, [k]: '' };
     try {
-      await setItemLocationLevels(asItemName(row.item), asLocationName(row.location), {
-        minLevel: row.min_level,
-        maxLevel: row.max_level,
-        reorderLevel: row.reorder_level,
-      });
+      await setItemLocationLevels(
+        asItemName(row.item),
+        asLocationName(row.location),
+        {
+          minLevel: row.min_level,
+          maxLevel: row.max_level,
+          reorderLevel: row.reorder_level,
+        },
+        session.current.businessName,
+        session.current.ledgerName
+      );
     } catch (e) {
       saveError = { ...saveError, [k]: e instanceof ApiError ? e.message : 'Failed to save.' };
     } finally {

@@ -203,7 +203,7 @@
     bankCurrencyBuilding = true;
     bankCurrencyError = '';
     try {
-      await buildBankCurrencyStructure(result.business, 'Cash at Bank', 'asset', selections);
+      await buildBankCurrencyStructure(result.business, 'Cash at Bank', 'asset', selections, wizardHomeCurrency.trim().toUpperCase());
       bankCurrencyBuilt = true;
     } catch (e) {
       bankCurrencyError = e instanceof ApiError ? e.message : 'Could not build the real Cash at Bank structure.';

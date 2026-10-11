@@ -7305,20 +7305,65 @@ export function buildBankCurrencyStructure<TBrand extends string>(
   headerName: string,
   leafType: TypeDescriptor<TBrand>,
   selections: { bankAccountName: string; currency: string }[],
-  userId: UserId
+  userId: UserId,
+  homeCurrency: string
 ): void {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const parentCategory = requireEntity(leafType.brand === 'EquityAccountName' ? 'Equity' : 'Asset', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, business));
+  // A real, confirmed bug, found directly while exercising this
+  // wizard end-to-end through the real UI for the first time: a
+  // business's own Chart of Accounts prototype (English CoA, in
+  // particular) already ships a real "Cash at Bank" leaf by default
+  // — this wizard's own single-bank/single-currency path then threw
+  // "already exists" the very first time it was ever actually used,
+  // never reaching the real, intended "ensure this specific real
+  // structure exists" behavior its own doc comment above already
+  // describes. Entity.ensureUnder (not create) genuinely tolerates a
+  // same-named leaf already being there, reusing it rather than
+  // failing — the same, real "ensure" shape every other lazy
+  // account-creation function in this file already uses.
+  //
+  // A second, further, real, confirmed bug, found directly right
+  // after fixing the first one, while actually posting a real Cash
+  // Purchase through the resulting account for the first time: this
+  // function used to currency-tag the single-bank/single-currency
+  // leaf with its own, real account.currency unconditionally (e.g.
+  // "Cash at Bank" -> currency "AUD"). But account.currency has one,
+  // real, specific, pre-existing meaning in this schema (see
+  // setAccountCurrency's own doc comment above) - a currency-specific
+  // SIBLING of a home-currency account, for a genuinely
+  // foreign-denominated transaction. Tagging the business's own,
+  // single, ordinary Cash at Bank account this way pulled it OUT of
+  // the real, NULL/home-currency group that every other ordinary
+  // account (Inventory, Tax, Sales, COGS...) posts in by default -
+  // and since nothing in this app ever actually called the real,
+  // genuine setBusinessHomeCurrency function either (confirmed
+  // directly: zero call sites, anywhere, before this fix), there was
+  // no real home currency on record for post_journal_entry_insert's
+  // own, correct per-currency balance check to fall back to. The
+  // result: the very first ordinary, single-currency Cash
+  // Purchase/Cash Sale through this account failed outright with
+  // "entry does not balance (per currency)" - the cash leg landed in
+  // its own real "AUD" group while every other leg landed in the
+  // real, NULL, home group. Fixed here, directly, at the one real
+  // place a business's home currency is actually first nominated: the
+  // selected currency is recorded as this business's own real home
+  // currency, and the single, ordinary Cash at Bank leaf is left
+  // genuinely untagged (home/NULL), exactly like every other ordinary
+  // account. The same real principle applies to the multi-selection
+  // branch below - only a leaf whose own currency genuinely differs
+  // from the business's real home currency is a real, foreign
+  // sibling, and gets tagged; the home-currency leaf stays untagged.
+  setBusinessHomeCurrency(businessName, homeCurrency, userId);
   if (selections.length === 1) {
-    create(parentCategory, leafType, headerName, userId);
-    if (selections[0].currency) setAccountCurrency(headerName, selections[0].currency);
+    Entity.ensureUnder(headerName, parentCategory.id, userId);
     return;
   }
-  const header = create(parentCategory, typeRootName, headerName, userId);
+  const header = Entity.ensureUnder(headerName, parentCategory.id, userId);
   for (const selection of selections) {
     const leafName = `${headerName} — ${selection.bankAccountName} (${selection.currency})`;
-    create(requireEntityById(header.id, typeRootName), leafType, leafName, userId);
-    setAccountCurrency(leafName, selection.currency);
+    Entity.ensureUnder(leafName, header.id, userId);
+    if (selection.currency !== homeCurrency) setAccountCurrency(leafName, selection.currency);
   }
 }
 

@@ -83,17 +83,70 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       'Pty Ltd Company': 'llc',
       'Incorporated Company': 'publicly_traded',
     };
+    // A further, real, confirmed gap, found and fixed in the same
+    // pass as the one above: coaPrototype was hardcoded to 'English
+    // CoA' here, and secondaryCurrencies was always undefined - the
+    // real new-business page's own CoA-prototype select (its first,
+    // real <select>, "English / generic"/"German"/"French") and its
+    // own, real, optional "Accept additional currencies" section were
+    // never actually reachable from the API path at all, exercising
+    // neither coaPrototype nor secondaryCurrencies genuinely. Mapped
+    // here the exact, same way the real frontend does (COA_PROTOTYPES'
+    // own label -> prototypeName mapping, frontend/src/routes/setup/
+    // new-business/+page.svelte), so a data row naming "German" (the
+    // real, visible select-option label) resolves to the real, same
+    // "German CoA" prototype name db.createBusiness itself expects -
+    // never a new, separate, parallel mapping.
+    const COA_PROTOTYPE_LABEL_TO_NAME: Record<string, string> = {
+      'English / generic': 'English CoA',
+      German: 'German CoA',
+      French: 'French CoA',
+    };
+    const coaPrototype = a.coaPrototype ? (COA_PROTOTYPE_LABEL_TO_NAME[a.coaPrototype] ?? a.coaPrototype) : 'English CoA';
+    const secondaryCurrencies = a.secondaryCurrencies
+      ? a.secondaryCurrencies.split(',').map((c) => c.trim().toUpperCase()).filter(Boolean)
+      : undefined;
     const entityStructure = a.businessType ? BUSINESS_TYPE_TO_ENTITY_STRUCTURE[a.businessType] : undefined;
     const result = db.createBusiness(
       a.businessName as any,
       a.financialYearLabel,
       db.asUserId(1),
-      'English CoA',
-      undefined,
+      coaPrototype,
+      secondaryCurrencies,
       entityStructure as any
     );
     if (a.homeCurrency) db.setBusinessHomeCurrency(a.businessName, a.homeCurrency, db.asUserId(1));
     return result;
+  },
+  // A real, further, confirmed gap: the real post-creation banking
+  // wizard on /setup/new-business (nominate a bank account, then
+  // confirm the real bank x currency combination to build "Cash at
+  // Bank" from) was never exercised by this tool at all - neither
+  // path. nominateBankAccountSimple matches POST
+  // /businesses/:name/bank-accounts exactly (see
+  // frontend/src/routes/setup/new-business/+page.svelte's own
+  // nominateBank function).
+  nominateBankAccountSimple: (a) => db.nominateBankAccount(a.businessName as any, a.bankAccountName, a.routingDetail, a.accountNumber, db.asUserId(1)),
+  // The real, same-shaped counterpart for the wizard's own final,
+  // real "Confirm and build Cash at Bank" step - matches
+  // buildBankCurrencyStructure's own, real, current signature exactly
+  // (see its own doc comment in backend/src/db.ts for why
+  // homeCurrency is a real, required, separate argument, not folded
+  // into a selection's own currency field). This tutorial fixture's
+  // own real business trades in exactly one bank, one currency - the
+  // real, single-selection branch - so one, real selection is enough
+  // to genuinely exercise it; a further, real, multi-bank/multi-
+  // currency case is a separate, further fixture, not this one.
+  buildBankCurrencyStructureSimple: (a) => {
+    const userId = db.asUserId(1);
+    db.buildBankCurrencyStructure(
+      a.businessName as any,
+      'Cash at Bank',
+      db.typeAssetAccountName,
+      [{ bankAccountName: a.bankAccountName, currency: a.currency }],
+      userId,
+      a.currency
+    );
   },
   // Per docs/realistic-tutorial-e2e-plan.md, Phase A: Chapter 3's
   // "Division" is a Hierarchy (per docs/naming-vocabulary.md, Division is
@@ -354,6 +407,11 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
 export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => boolean> = {
   business_exists: (a) => db.getEntityTree().some((e) => e.name === a.businessName),
   location_exists: (a) => db.getEntityTree().some((e) => e.name === a.locationName),
+  // Confirms the real, post-creation banking wizard's own "Confirm and
+  // build Cash at Bank" step genuinely built a real, postable Cash at
+  // Bank account - the same, simple, direct, name-based style every
+  // other real verify entry here already uses.
+  cash_at_bank_exists: () => db.getEntityTree().some((e) => e.name === 'Cash at Bank'),
 };
 
 /** A minimal, real CSV field parser handling real, quoted fields with
@@ -581,6 +639,24 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         if (!field.field_selector) continue;
         const value = step.values[field.position - 1] ?? '';
         if (value === '') continue;
+        // "signed_money" is the one, narrow, generic extension a real
+        // debit/credit grid needs (docs/skill-step-runner-design.md
+        // §11b-ii): a single minor-units value is genuinely routed to
+        // one of two different real inputs depending only on its own
+        // sign - never a per-screen special case, the same "tell the
+        // runner how to apply this value" contract "select"/"check"/
+        // "money" already use. field_selector carries both real
+        // locators, "<debit>|<credit>", because this is the only
+        // field_type that ever needs two.
+        if (field.field_type === 'signed_money') {
+          const [debitSelector, creditSelector] = field.field_selector.split('|');
+          const minorUnits = Number(value);
+          if (minorUnits === 0) continue;
+          const targetSelector = minorUnits > 0 ? debitSelector : creditSelector;
+          await page.locator(targetSelector).fill((Math.abs(minorUnits) / 100).toFixed(2));
+          await page.waitForTimeout(200);
+          continue;
+        }
         const locator = page.locator(field.field_selector);
         if (field.field_type === 'select') await locator.selectOption({ label: value });
         else if (field.field_type === 'check') await (value === 'true' ? locator.check() : locator.uncheck());

@@ -249,41 +249,58 @@ export function getItemLocation(itemName: ItemName, locationName: LocationName):
   };
 }
 
-export function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>): void {
-  const userId = asUserId(Session.UserId);
+/** A real, confirmed bug, found directly alongside
+ * getInventoryListingByLocation's own (see its own doc comment
+ * below): this read Session.UserId/Session.Business/Session.Ledger
+ * ambiently — fine for a caller that has genuinely established that
+ * context first (db-seed.ts; every db.test.ts call wrapped in
+ * withMyBusinessSession), but every real HTTP route reaching this
+ * never has, since nothing in this application's own, actual,
+ * current usage ever establishes it per-request (see
+ * docs/session-business-context.md's own, honest status). Fixed
+ * without breaking either real, existing caller: business/ledger/
+ * userId are now real, optional, explicit parameters, falling back
+ * to the exact, same ambient Session.* read only when genuinely
+ * omitted — the new real HTTP route below passes them explicitly;
+ * every already-working, session-context-wrapped caller is
+ * completely unaffected. */
+export function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, business?: BusinessName, ledger?: LedgerName, userId?: UserId): void {
+  const resolvedUserId = userId ?? asUserId(Session.UserId);
+  const resolvedBusiness = business ?? Session.Business.name;
+  const resolvedLedger = ledger ?? Session.Ledger;
   const item = Entity.get(itemName);
   if (!item) throw new ValidationError(`No item named "${itemName}".`);
   const levelsRecordName = `${itemName} — ${locationName} — Levels`;
-  const levelsRecord = Entity.ensureUnder(levelsRecordName, item.id, userId);
+  const levelsRecord = Entity.ensureUnder(levelsRecordName, item.id, resolvedUserId);
   function setLevelFigure(field: 'Min Level' | 'Max Level' | 'Reorder Level' | 'Shelf Level', value: number | null): void {
     const figureName = `${levelsRecordName} — ${field}`;
     const existing = Entity.getUnder(figureName, levelsRecord.id);
     if (value == null) {
       if (existing) {
         const currentBalance = Balance.get(existing.id);
-        if (currentBalance !== 0) Balance.post(Session.Business.name, Session.Ledger, `LEVEL-CLEAR-${existing.id}-${Date.now()}`, figureName, existing.id, -currentBalance, userId);
+        if (currentBalance !== 0) Balance.post(resolvedBusiness, resolvedLedger, `LEVEL-CLEAR-${existing.id}-${Date.now()}`, figureName, existing.id, -currentBalance, resolvedUserId);
       }
       return;
     }
-    const figure = existing ?? Entity.create(figureName, levelsRecord.id, userId);
+    const figure = existing ?? Entity.create(figureName, levelsRecord.id, resolvedUserId);
     const delta = value - Balance.get(figure.id);
-    if (delta !== 0) Balance.post(Session.Business.name, Session.Ledger, `LEVEL-${figure.id}-${Date.now()}`, figureName, figure.id, delta, userId);
+    if (delta !== 0) Balance.post(resolvedBusiness, resolvedLedger, `LEVEL-${figure.id}-${Date.now()}`, figureName, figure.id, delta, resolvedUserId);
   }
   setLevelFigure('Min Level', levels.min_level);
   setLevelFigure('Max Level', levels.max_level);
   setLevelFigure('Reorder Level', levels.reorder_level);
   setLevelFigure('Shelf Level', levels.level);
   if (levels.shelf_side) {
-    if (!Entity.get(levels.shelf_side)) Entity.create(levels.shelf_side, 'Vocabulary', userId);
-    Link.set(levelsRecordName, 'Shelf Side', levels.shelf_side, userId);
+    if (!Entity.get(levels.shelf_side)) Entity.create(levels.shelf_side, 'Vocabulary', resolvedUserId);
+    Link.set(levelsRecordName, 'Shelf Side', levels.shelf_side, resolvedUserId);
   } else {
-    Link.delete(levelsRecordName, 'Shelf Side', userId);
+    Link.delete(levelsRecordName, 'Shelf Side', resolvedUserId);
   }
   if (levels.rack) {
-    if (!Entity.get(levels.rack)) Entity.create(levels.rack, 'Vocabulary', userId);
-    Link.set(levelsRecordName, 'Rack', levels.rack, userId);
+    if (!Entity.get(levels.rack)) Entity.create(levels.rack, 'Vocabulary', resolvedUserId);
+    Link.set(levelsRecordName, 'Rack', levels.rack, resolvedUserId);
   } else {
-    Link.delete(levelsRecordName, 'Rack', userId);
+    Link.delete(levelsRecordName, 'Rack', resolvedUserId);
   }
 }
 
@@ -521,7 +538,36 @@ export function getStorageSpaceReport(): StorageSpaceLocationGroup[] {
   return [...groups.values()].sort((a, b) => a.location.localeCompare(b.location));
 }
 
-export function getInventoryListingByLocation(): InventoryListingLocationGroup[] {
+/** A real, confirmed bug, found directly while exercising the real
+ * /stock/listing screen end-to-end through the UI for the first
+ * time: this read `Session.Business.id` — the real, ambient session-
+ * context primitive — but nothing in this application's own, actual,
+ * current usage ever establishes that context (per
+ * docs/session-business-context.md's own, honest status: the real,
+ * working business selection is the frontend's own client-side
+ * session store, never the backend session record this primitive
+ * reads). Every real call through the live /stock/listing HTTP route
+ * threw "No real, current business - this was read outside a real
+ * session context," without exception. Fixed without breaking any
+ * of this same function's own several other, already-working,
+ * internal callers in this file (which never had a real business to
+ * hand it in the first place): business is now a real, optional,
+ * explicit parameter, falling back to the exact, same ambient
+ * Session.Business.id only when genuinely omitted — the HTTP route
+ * below now passes it explicitly. */
+export function getInventoryListingByLocation(business?: BusinessName): InventoryListingLocationGroup[] {
+  // A further, real, confirmed continuation of the same bug class
+  // documented just above: this function has a SECOND, independent
+  // ambient Session.Business read further down (building each real
+  // location group's own `location`/`city` fields), missed in the
+  // first pass since it only throws once a real business actually has
+  // stock recorded at more than one location - the single-location
+  // "Barossa Shiraz" scenario this was first found against never
+  // reached it. The real, resolved business name is now carried
+  // through from the same, single, optional parameter above, not
+  // re-read ambiently a second time.
+  const resolvedBusiness = business ?? asBusinessName(Session.Business.name);
+  const businessId = business ? requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName)).id : Session.Business.id;
   const qtyRows = db
     .prepare(
       `SELECT p.name AS item, l.name AS location, SUM(jl.amount_minor) AS quantity_on_hand
@@ -533,7 +579,7 @@ export function getInventoryListingByLocation(): InventoryListingLocationGroup[]
        GROUP BY p.name, l.name
        ORDER BY l.name, p.name`
     )
-    .all(Session.Business.id) as { item: string; location: string; quantity_on_hand: number }[];
+    .all(businessId) as { item: string; location: string; quantity_on_hand: number }[];
   // Not fully closed: getItemLocation itself still has no business
   // parameter, so if two different businesses genuinely share both an
   // item name and a location name, its own min/max/reorder levels could
@@ -560,7 +606,7 @@ export function getInventoryListingByLocation(): InventoryListingLocationGroup[]
   for (const row of rows) {
     let group = groups.get(row.location);
     if (!group) {
-      const location = getLocation(row.location, asBusinessName(Session.Business.name));
+      const location = getLocation(row.location, resolvedBusiness);
       const division = cityDivisionFor(row.location) ?? null;
       group = { location: row.location, city: location?.city ?? null, division, rows: [], total_on_hand: 0, capacity: getLocationCapacityStatus(asLocationName(row.location)) };
       groups.set(row.location, group);
@@ -775,7 +821,10 @@ export function setItemLocationLevels(
     shelfSide?: string | null;
     rack?: string | null;
     level?: number | null;
-  }
+  },
+  business?: BusinessName,
+  ledger?: LedgerName,
+  userId?: UserId
 ): void {
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
@@ -791,7 +840,10 @@ export function setItemLocationLevels(
       shelf_side: levels.shelfSide ?? null,
       rack: levels.rack ?? null,
       level: levels.level ?? null,
-    }
+    },
+    business,
+    ledger,
+    userId
   );
 }
 
@@ -1264,7 +1316,7 @@ export interface StockTake {
   lines: StockTakeLine[];
 }
 
-export function createStockTake(locationName: LocationName, takeDate: string, userId: UserId): number {
+export function createStockTake(locationName: LocationName, takeDate: string, userId: UserId, business?: BusinessName): number {
   const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
@@ -1272,7 +1324,15 @@ export function createStockTake(locationName: LocationName, takeDate: string, us
   const takeId = takeEntity.id;
 
   const resolvedLocationName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(locationId) as { name: string }).name;
-  const itemsHere = (getInventoryListingByLocation().find((g) => g.location === resolvedLocationName)?.rows ?? [])
+  // The same, real, ambient-Session.Business read bug class, found
+  // directly again, right here: getInventoryListingByLocation() with
+  // no real business supplied falls back to the real, ambient
+  // Session.Business, which this app's real, live HTTP requests never
+  // establish (see that function's own doc comment above). business
+  // is now a real, optional, explicit parameter here too, threaded
+  // through from the real, live /stock-takes route, the exact, same
+  // fix already applied to every other real call site of this kind.
+  const itemsHere = (getInventoryListingByLocation(business).find((g) => g.location === resolvedLocationName)?.rows ?? [])
     .map((r) => {
       const detail = getItemLocation(asItemName(r.item), asLocationName(resolvedLocationName));
       return { item_id: resolveItemId(asItemName(r.item)), item_name: r.item, quantity_on_hand: r.quantity_on_hand, shelf_side: detail.shelf_side, rack: detail.rack, level: detail.level };

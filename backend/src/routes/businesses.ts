@@ -129,13 +129,18 @@ const buildBankCurrencyStructureSchema = z.object({
   headerName: z.string().min(1),
   leafKind: z.enum(['asset', 'equity']),
   selections: z.array(z.object({ bankAccountName: z.string().min(1), currency: z.string().min(1) })).min(1),
+  // The real currency this business actually trades/reports in by
+  // default - recorded here, the one real place a business's home
+  // currency is first ever nominated (see buildBankCurrencyStructure's
+  // own doc comment for why this is required, not optional).
+  homeCurrency: z.string().min(1),
 });
 businessesRouter.post('/:name/bank-currency-structure', requireRole('Administrator'), (req, res) => {
   const parsed = buildBankCurrencyStructureSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const leafType = parsed.data.leafKind === 'asset' ? typeAssetAccountName : typeEquityAccountName;
-    buildBankCurrencyStructure(asBusinessName(req.params.name), parsed.data.headerName, leafType, parsed.data.selections, asUserId(req.user!.id));
+    buildBankCurrencyStructure(asBusinessName(req.params.name), parsed.data.headerName, leafType, parsed.data.selections, asUserId(req.user!.id), parsed.data.homeCurrency);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(400).json({ error: err.message });

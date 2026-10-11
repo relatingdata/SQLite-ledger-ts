@@ -442,13 +442,22 @@ const levelsSchema = z.object({
   shelfSide: z.string().nullable().optional(),
   rack: z.string().nullable().optional(),
   level: z.number().int().nullable().optional(),
+  // Per the real, confirmed bug fixed directly in
+  // setItemLocationLevelDetails (backend/src/db-stock.ts): this route
+  // never had a real business/ledger to pass at all before now,
+  // relying entirely on an ambient session context this application
+  // never actually establishes per-request — every real call threw.
+  // business is required; ledger defaults to "Actual", the real,
+  // ordinary ledger every other screen already defaults to.
+  business: z.string().min(1),
+  ledger: z.string().min(1).optional(),
 });
 
 locationsRouter.put('/:name/items/:itemName', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
   const parsed = levelsSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    setItemLocationLevels(asItemName(req.params.itemName), asLocationName(req.params.name), parsed.data);
+    setItemLocationLevels(asItemName(req.params.itemName), asLocationName(req.params.name), parsed.data, asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger ?? 'Actual'), asUserId(req.user!.id));
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
@@ -654,8 +663,10 @@ stockListingRouter.get('/', (req, res) => {
   const offset = req.query.offset ? Number(req.query.offset) : 0;
   res.json({ rows: getInventoryListing(limit, offset), totalCount: countInventoryListing() });
 });
-stockListingRouter.get('/by-location', (_req, res) => {
-  res.json(getInventoryListingByLocation());
+stockListingRouter.get('/by-location', (req, res) => {
+  const business = req.query.business;
+  if (typeof business !== 'string' || !business) return res.status(400).json({ error: 'business is required.' });
+  res.json(getInventoryListingByLocation(asBusinessName(business)));
 });
 stockListingRouter.get('/storage-space', (_req, res) => {
   res.json(getStorageSpaceReport());
@@ -678,12 +689,12 @@ stockListingRouter.get('/movement', (req, res) => {
 
 export const stockTakesRouter = Router();
 
-const createTakeSchema = z.object({ locationName: z.string().min(1), takeDate: z.string().min(1) });
+const createTakeSchema = z.object({ locationName: z.string().min(1), takeDate: z.string().min(1), business: z.string().min(1).optional() });
 stockTakesRouter.post('/', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
   const parsed = createTakeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const id = createStockTake(asLocationName(parsed.data.locationName), parsed.data.takeDate, asUserId(req.user!.id));
+    const id = createStockTake(asLocationName(parsed.data.locationName), parsed.data.takeDate, asUserId(req.user!.id), parsed.data.business ? asBusinessName(parsed.data.business) : undefined);
     res.status(201).json({ id });
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });

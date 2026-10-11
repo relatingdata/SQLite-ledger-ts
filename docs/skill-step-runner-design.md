@@ -1005,3 +1005,49 @@ Item` became its own, dedicated screen (section 11b). A real, small,
 honest gap in the frontend's own tagging, caught only because this
 verification compares against the real, expected screen name and not just
 the real, expected values.
+
+## 20. Real, codegen-based selector discovery — agreed, built: `backend/scripts/discover-selectors.ts`
+
+**The settled rule, restated plainly so it is never missed again:** a real
+selector for `screens.csv` is found by directly inspecting the real, live
+DOM/accessibility tree of the real, running application - never by reading
+the Svelte source and guessing, and never by relying on an author's own
+CSS styling class (`.grid`, `.btn`, `.num` and similar are real, visual
+styling names a developer can rename for purely cosmetic reasons without
+changing the real screen at all - a selector built from one is fragile in
+exactly the way a real, accessible, forms-and-menus selector is not). The
+test runner has, by design, zero idea the application happens to be built
+in Svelte, and must never be given a reason to care - it drives a real
+browser against real HTML forms and menus, nothing more, nothing less,
+exactly the way a real person (or a screen reader) would.
+
+Real `playwright codegen` is the standard, well-known tool for this exact
+job, but it works by recording a real human's clicks in a real, visible
+GUI browser - not available to an agent operating headlessly, with no
+real display to click in. `backend/scripts/discover-selectors.ts` is the
+agent-usable equivalent, built for exactly this gap: it launches a real
+browser (optionally logging in first, `--after-login`), navigates to the
+one, real screen path given on the command line, and dumps (a) the real
+accessibility tree (role + accessible name for every real interactive
+node - the same real layer a screen reader, or real Playwright codegen's
+own role-based locators, already use) and (b) every real native form
+control's own real attributes (`placeholder`, `type`, and for a real
+`<select>`, its real option labels, in real document order). Both outputs
+are read directly off the live page; neither ever touches a `.svelte`
+file or any CSS class name.
+
+**Usage** (never wired into the Makefile, and never run by the automated
+test suite - this is a one-off, human/agent-run authoring aid for
+populating `screens.csv`, not part of the "zero Playwright in the
+Makefile" test-execution path):
+
+```
+cd backend && npx tsx scripts/discover-selectors.ts /editor --after-login
+```
+
+**Not yet done**: a real wrapper that also exercises a specific, named
+`open_selector`/form-filling sequence first (so a screen reachable only
+after a multi-step real interaction, e.g. a dynamically-appearing grid
+row, can be inspected mid-flow, not only on first load) remains future
+work - today's version inspects whatever a plain `page.goto` to the given
+path reveals.

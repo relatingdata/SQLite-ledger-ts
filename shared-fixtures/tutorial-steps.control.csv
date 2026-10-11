@@ -2,6 +2,8 @@ path,verify,screenshot,skip
 ,,login_landing,false
 ,,,false
 ,business_exists,new_business_created,false
+,,bank_account_nominated,false
+,cash_at_bank_exists,bank_currency_structure_built,false
 ,,session_switched,false
 ,location_exists,warehouse_created,false
 ,location_exists,retail_created,false
