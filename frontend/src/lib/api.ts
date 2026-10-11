@@ -447,14 +447,20 @@ export const saveBusinessTypeAnswers = (businessName: string, answers: Record<st
   request<void>(`/businesses/${encodeURIComponent(businessName)}/business-type-answers`, { method: 'POST', body: JSON.stringify({ answers }) });
 export const getLedgers = (businessName: string) =>
   request<{ id: number; name: string }[]>(`/businesses/${encodeURIComponent(businessName)}/ledgers`);
-// Per docs/profit-centers-design.md's Phase A: the structural CoA
-// support alone — no session/UI integration yet (that's Phase C), so
-// these two wrappers exist for a future screen (or a script/test) to
-// call, not wired into any screen themselves yet.
+// Per docs/profit-centers-design.md's Phase A (structural CoA
+// support) and Phase C (session integration, now wired into the
+// /session page's own picker, the exact same, real way Business/
+// Ledger already are there).
 export const getProfitCenters = (businessName: string) =>
   request<{ id: number; name: string }[]>(`/businesses/${encodeURIComponent(businessName)}/profit-centers`);
 export const createProfitCenter = (businessName: string, profitCenterName: string) =>
   request<{ id: number; name: string }>(`/businesses/${encodeURIComponent(businessName)}/profit-centers`, { method: 'POST', body: JSON.stringify({ profitCenterName }) });
+// Per docs/profit-centers-design.md's Phase C: the exact, same real
+// mechanism as setSessionBusiness above, for the real, current
+// Profit Center instead — trust model only, honestly, the same real,
+// temporary gap Business itself already has today.
+export const setSessionProfitCenter = (profitCenterName: string | null) =>
+  request<void>('/session/profit-center', { method: 'POST', body: JSON.stringify({ profitCenterName }) });
 export const createBusiness = (
   businessName: string,
   financialYearLabel: string,
@@ -1635,6 +1641,10 @@ export interface CloseBooksResult {
   netIncomeMinor: number;
   accountsZeroed: number;
   divisionBreakdown: { division: DivisionName | null; netIncomeMinor: number }[];
+  // Per docs/profit-centers-design.md's Phase B: the real, structural
+  // counterpart to divisionBreakdown — one entry per real Profit
+  // Center with a non-zero net result this close.
+  profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
 export const closeBooks = (input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string }) =>
   request<CloseBooksResult>('/journal/close-books', { method: 'POST', body: JSON.stringify(input) });
@@ -1656,6 +1666,7 @@ export interface CloseBooksPreview {
   netIncomeMinor: number;
   accountsZeroed: number;
   divisionBreakdown: { division: DivisionName | null; netIncomeMinor: number }[];
+  profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
 // Per a real, confirmed bug found directly while porting Close Books
 // onto the frontend-driven canned-journal pattern: this always omitted

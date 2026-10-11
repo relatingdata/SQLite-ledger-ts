@@ -2,18 +2,20 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-  import { getBusinesses, getLedgers, getLanguages, getLocalizedText, getLanguageDirection, asBusinessName, asLedgerName, ApiError } from '$lib/api';
+  import { getBusinesses, getLedgers, getProfitCenters, getLanguages, getLocalizedText, getLanguageDirection, asBusinessName, asLedgerName, ApiError } from '$lib/api';
   import { session } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
 
   let businesses: { id: number; name: string }[] = $state([]);
   let ledgers: { id: number; name: string }[] = $state([]);
+  let profitCenters: { id: number; name: string }[] = $state([]);
   let languages: { id: number; name: string }[] = $state([]);
   let loading = $state(true);
   let error = $state('');
 
   let selectedBusinessId: number | '' = $state('');
   let selectedLedgerId: number | '' = $state('');
+  let selectedProfitCenterId: number | '' = $state('');
   let selectedLanguageId: number | '' = $state('');
 
   async function load() {
@@ -32,6 +34,7 @@
         languages[0]?.id ??
         '';
       await loadLedgers();
+      await loadProfitCenters();
       await applyDisplayLanguage();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
@@ -55,10 +58,34 @@
     selectedLedgerId = preferred?.id ?? ledgers[0]?.id ?? '';
   }
 
+  // Per docs/profit-centers-design.md's Phase C: a business with zero
+  // real Profit Centers (every business, until one is explicitly
+  // created) gets an empty list here and no picker shown at all —
+  // purely additive, exactly like Phase A's own structural accounts.
+  async function loadProfitCenters() {
+    if (!selectedBusinessId) {
+      profitCenters = [];
+      selectedProfitCenterId = '';
+      return;
+    }
+    const businessName = businesses.find((b) => b.id === selectedBusinessId)?.name;
+    if (!businessName) return;
+    profitCenters = await getProfitCenters(businessName);
+    const current = session.current;
+    const preferred =
+      current && current.businessName === businessName && current.profitCenterName
+        ? profitCenters.find((p) => p.name === current.profitCenterName)
+        : undefined;
+    selectedProfitCenterId = preferred?.id ?? '';
+  }
+
   onMount(load);
 
   $effect(() => {
-    if (selectedBusinessId) loadLedgers();
+    if (selectedBusinessId) {
+      loadLedgers();
+      loadProfitCenters();
+    }
   });
 
   // Reactive display translation — the same pattern the login page
@@ -89,6 +116,12 @@
     const business = businesses.find((b) => b.id === selectedBusinessId)!;
     const ledger = ledgers.find((l) => l.id === selectedLedgerId)!;
     const language = languages.find((l) => l.id === selectedLanguageId)!;
+    // A real Profit Center is only ever included when this business
+    // actually has one chosen — a business with none (every business,
+    // until Phase A's own createProfitCenter is used) must store
+    // exactly what it always has, undefined, never a stray, empty
+    // value.
+    const profitCenter = selectedProfitCenterId ? profitCenters.find((p) => p.id === selectedProfitCenterId) : undefined;
     session.set({
       businessId: business.id,
       businessName: asBusinessName(business.name),
@@ -96,6 +129,7 @@
       ledgerName: asLedgerName(ledger.name),
       languageId: language.id,
       languageName: language.name,
+      ...(profitCenter ? { profitCenterId: profitCenter.id, profitCenterName: profitCenter.name } : {}),
     });
     goto('/');
   }
@@ -140,6 +174,18 @@
         {/each}
       </select>
     </fieldset>
+
+    {#if profitCenters.length > 0}
+      <fieldset>
+        <legend>{translations.current['Profit Center'] ?? 'Profit Center'}</legend>
+        <select bind:value={selectedProfitCenterId}>
+          <option value="">{translations.current['(none)'] ?? '(none)'}</option>
+          {#each profitCenters as p}
+            <option value={p.id}>{translations.current[p.name] ?? p.name}</option>
+          {/each}
+        </select>
+      </fieldset>
+    {/if}
 
     <fieldset>
       <legend>{translations.current['Language'] ?? 'Language'}</legend>

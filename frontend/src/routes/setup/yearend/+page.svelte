@@ -113,7 +113,7 @@
         });
       }
       await postJournalEntry(reference, session.current.businessName, session.current.ledgerName);
-      result = { reference, netIncomeMinor: preview.netIncomeMinor, accountsZeroed: preview.accountsZeroed, divisionBreakdown: preview.divisionBreakdown };
+      result = { reference, netIncomeMinor: preview.netIncomeMinor, accountsZeroed: preview.accountsZeroed, divisionBreakdown: preview.divisionBreakdown, profitCenterBreakdown: preview.profitCenterBreakdown };
       preview = null;
     } catch (e) {
       closeError = e instanceof ApiError ? e.message : 'Could not close the books.';

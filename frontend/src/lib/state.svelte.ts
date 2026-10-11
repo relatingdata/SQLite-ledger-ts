@@ -132,6 +132,18 @@ export interface SessionContext {
   ledgerName: LedgerName;
   languageId: number;
   languageName: string;
+  // Per docs/profit-centers-design.md's Phase C: chosen the exact,
+  // same real way Business already is — automatically, with no
+  // visible choice, for an ordinary user restricted to one; a picker,
+  // like Business/Ledger above, for staff with access to several.
+  // Both undefined for every business with zero real Profit Centers
+  // — the exact same, real case as before this feature existed.
+  // Trust model only, honestly: nothing here is enforced yet (see the
+  // design doc's own, direct finding that Business itself isn't
+  // either) - any ordinary user can still pick any real Profit Center
+  // shown, same as Business today.
+  profitCenterId?: number;
+  profitCenterName?: string;
 }
 
 const SESSION_STORAGE_KEY = 'sql-ledger-ts-session';

@@ -2722,6 +2722,42 @@ function resolveProfitCenterGroupNode(business: BusinessName, headerId: number, 
   return row;
 }
 
+/** Per docs/profit-centers-design.md's Phase B: which real Profit
+ * Center (if any) a real GL account's own, structural position
+ * belongs under — walking straight up its parent chain, since a
+ * Profit Center is a real, structural grouping node an account nests
+ * under, not a per-line tag the way Division is. Stops at the first
+ * ancestor carrying a real "Dimension: Profit Center" link — the
+ * exact, same tagged grouping node resolveProfitCenterGroupNode
+ * creates.
+ *
+ * Deliberately does NOT reuse getDimensionParent/getEntityLink here:
+ * those resolve a link record by a bare `${entityName} — ${linkType}`
+ * name, with no parent disambiguation at all — genuinely ambiguous
+ * for a Profit Center, whose own grouping-node name recurs once each
+ * under Sales Revenue, Cost of Goods Sold, and Inventory, each a real,
+ * separate grouping node with its own, separate link. This query is
+ * scoped by the real, specific ancestor id at each step instead, the
+ * same disambiguation-by-id already proven throughout this file. */
+export function getAccountProfitCenter(accountId: number): string | null {
+  let currentId: number | null = accountId;
+  while (currentId != null) {
+    const row = db
+      .prepare(
+        `SELECT target.name AS name
+         FROM current_entities rec
+         JOIN current_entities target ON target.id = rec.relation_id
+         JOIN current_entities tag ON tag.parent_id = rec.id AND tag.name = 'Dimension: Profit Center' AND tag.relation_id IS NOT NULL
+         WHERE rec.parent_id = ?`
+      )
+      .get(currentId) as { name: string } | undefined;
+    if (row) return row.name;
+    const parent = db.prepare(`SELECT parent_id FROM current_entities WHERE id = ?`).get(currentId) as { parent_id: number | null } | undefined;
+    currentId = parent?.parent_id ?? null;
+  }
+  return null;
+}
+
 /** Defines the real, ordered shape of a Product combination for a
  * business - a real chain of dimension nodes, each one's own
  * relation_id pointing at the real Hierarchy grouping it represents.

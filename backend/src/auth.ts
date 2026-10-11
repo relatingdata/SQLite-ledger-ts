@@ -167,13 +167,13 @@ export function login(username: string, password: string): { token: string; user
   };
 }
 
-function findSessionByToken(token: string): { id: number; user_id: number; expires_at: string; business_name: string | null } | undefined {
+function findSessionByToken(token: string): { id: number; user_id: number; expires_at: string; business_name: string | null; profit_center_name: string | null } | undefined {
   const row = db
     .prepare(`SELECT id, relation_id AS user_id, detail_json FROM current_entities WHERE name = ? AND relation_id IS NOT NULL AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`)
     .get(`Session — ${token}`) as { id: number; user_id: number; detail_json: string } | undefined;
   if (!row) return undefined;
   const detail = JSON.parse(row.detail_json);
-  return { id: row.id, user_id: row.user_id, expires_at: detail.expires_at, business_name: detail.business_name ?? null };
+  return { id: row.id, user_id: row.user_id, expires_at: detail.expires_at, business_name: detail.business_name ?? null, profit_center_name: detail.profit_center_name ?? null };
 }
 
 export function logout(token: string): void {
@@ -200,6 +200,31 @@ export function setSessionBusiness(token: string, businessName: string): void {
 export function getSessionBusiness(token: string): string | null {
   const session = findSessionByToken(token);
   return session?.business_name ?? null;
+}
+
+/** Per docs/profit-centers-design.md's Phase C: the exact, same real
+ * mechanism as setSessionBusiness/getSessionBusiness above, for the
+ * real, current Profit Center instead — a third, independent field
+ * alongside business_name on the one, same session record. Trust-
+ * model only, honestly: per the design doc's own, direct finding,
+ * there is no real, per-user restriction on which businesses a person
+ * may pick either, so a Profit Center picker gets the exact, same
+ * real, temporary gap today's business picker already has, not a
+ * regression introduced here. Setting it to a business a person
+ * cannot actually use yet goes entirely unchecked - same as business
+ * itself, today. */
+export function setSessionProfitCenter(token: string, profitCenterName: string | null): void {
+  const session = findSessionByToken(token);
+  if (!session) throw new AuthError('Session not found or expired.');
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(session.id) as { detail_json: string };
+  const detail = JSON.parse(row.detail_json);
+  detail.profit_center_name = profitCenterName;
+  Entity.setDetailJson(session.id, JSON.stringify(detail));
+}
+
+export function getSessionProfitCenter(token: string): string | null {
+  const session = findSessionByToken(token);
+  return session?.profit_center_name ?? null;
 }
 
 export function getSessionUser(token: string | undefined): AuthenticatedUser | null {

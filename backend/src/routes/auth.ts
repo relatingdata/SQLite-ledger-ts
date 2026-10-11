@@ -14,6 +14,7 @@ import {
   setOwnNumberFormat,
   setOwnDateFormat,
   setSessionBusiness,
+  setSessionProfitCenter,
   AuthError,
 } from '../auth.js';
 import { ValidationError, NotFoundError,
@@ -68,6 +69,30 @@ authRouter.post('/session/business', requireAuth, (req, res) => {
     if (err instanceof AuthError) return res.status(401).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not set the current business.' });
+  }
+});
+
+const sessionProfitCenterSchema = z.object({ profitCenterName: z.string().min(1).nullable() });
+
+// Per docs/profit-centers-design.md's Phase C: the exact, same real
+// mechanism as /session/business above, for the real, current Profit
+// Center instead. null explicitly clears it (switching back to "no
+// Profit Center chosen"), the same real, honest trust-model-only gap
+// /session/business itself already has — nothing here is enforced
+// against what this user may actually pick.
+authRouter.post('/session/profit-center', requireAuth, (req, res) => {
+  const parsed = sessionProfitCenterSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const header = req.headers.authorization;
+  const token = header?.startsWith('Bearer ') ? header.slice('Bearer '.length) : undefined;
+  if (!token) return res.status(401).json({ error: 'Not logged in.' });
+  try {
+    setSessionProfitCenter(token, parsed.data.profitCenterName);
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof AuthError) return res.status(401).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not set the current Profit Center.' });
   }
 });
 

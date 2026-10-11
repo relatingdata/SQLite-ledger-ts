@@ -265,6 +265,8 @@ const {
   getBusinessHomeCurrency,
   nominateLocationCurrency,
   getLocationCurrencies,
+  resolveBusinessCoaAccountId,
+  requireEntityById,
 } = await import('../src/db.ts');
 // Deferred, per the exact, same, real reason db.ts itself is deferred
 // above - a static, top-level import of auth.ts (which itself imports
@@ -3826,6 +3828,58 @@ test('Profit Centers (Phase A): Sales Revenue/COGS/Inventory leaves nest under a
     () => ensureItemSalesCogsAccounts(asItemName('PCAcctTest Second Wine'), asUserId(1), undefined, asBusinessName('PCAcctTest Co'), 'Nonexistent Center'),
     /No real Profit Center named/
   );
+});
+
+test('Profit Centers (Phase B, docs/profit-centers-design.md): closeBooks posts a Profit Center\'s own net income into its own, real, Profit-Center-tagged Retained Earnings sibling - never the plain, shared one - and profitCenterBreakdown reports it; a business with zero Profit Centers used gets exactly one, unchanged, null-profitCenter entry', () => {
+  createBusiness(asBusinessName('PCCloseTest Co'), '2027-28', asUserId(1), 'English CoA');
+  createProfitCenter(asBusinessName('PCCloseTest Co'), 'Downtown Store', asUserId(1));
+  createItem('PCCloseTest Wine', 'Items', asUserId(1));
+
+  // One real, uniquely-named Retained Earnings leaf under this one
+  // business's own, real, business-scoped Equity header - never the
+  // bare, unscoped "Retained Earnings" name every English-CoA
+  // business's own copy would otherwise share, the exact, same real
+  // ambiguity this session already found and fixed throughout the
+  // lazy account-creation functions themselves (resolveBusinessCoaAccountId).
+  const equityHeaderId = resolveBusinessCoaAccountId(asBusinessName('PCCloseTest Co'), 'Equity');
+  const retainedEarnings = create(requireEntityById(equityHeaderId, typeRootName), typeRootName, 'PCCloseTest Retained Earnings', asUserId(1));
+
+  // One sale, scoped to the real "Downtown Store" Profit Center -
+  // lands under Income > Sales Revenue > Downtown Store > PCCloseTest
+  // Wine, per Phase A.
+  const accounts = ensureItemSalesCogsAccounts(asItemName('PCCloseTest Wine'), asUserId(1), undefined, asBusinessName('PCCloseTest Co'), 'Downtown Store');
+  stageLine({ reference: 'PCCLOSE-1', business: asBusinessName('PCCloseTest Co'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName(accounts.salesAccount), accountId: accounts.salesAccountId, amount_minor: -75000 });
+  stageLine({ reference: 'PCCLOSE-1', business: asBusinessName('PCCloseTest Co'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 75000 });
+  postJournalEntry('PCCLOSE-1', asBusinessName('PCCloseTest Co'), asLedgerName('Actual'), asUserId(1));
+
+  const result = closeBooks(asBusinessName('PCCloseTest Co'), asLedgerName('Actual'), '2027-01-31', retainedEarnings.name, asUserId(1));
+  assert.equal(result.accountsZeroed, 1);
+  assert.equal(result.netIncomeMinor, 75000);
+  assert.deepEqual(result.profitCenterBreakdown, [{ profitCenter: 'Downtown Store', netIncomeMinor: 75000 }], 'the real net income this close actually posted must show up, broken down by its own, real Profit Center');
+
+  const pcRetained = db.prepare(`SELECT a.balance_minor FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name = ?`).get('PCCloseTest Retained Earnings (Profit Center: Downtown Store)') as { balance_minor: number } | undefined;
+  assert.ok(pcRetained, 'a real, Profit-Center-tagged Retained Earnings sibling must exist, genuinely separate from the plain, shared one');
+  assert.equal(pcRetained!.balance_minor, -75000, "the Profit Center's own real net income closes into its own, real, tagged Retained Earnings sibling, never the plain, shared one");
+
+  const plainRetained = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(retainedEarnings.id) as { balance_minor: number } | undefined;
+  assert.equal(plainRetained?.balance_minor ?? 0, 0, 'the plain, shared Retained Earnings account must stay untouched - every real dollar of this Profit Center\'s own net income went to its own, real sibling instead');
+
+  // A second business, with zero real Profit Centers ever created or
+  // used — per the whole, real point of this feature being purely
+  // additive, closing it must behave exactly as it always has: one,
+  // single, plain Retained Earnings line, and profitCenterBreakdown
+  // showing exactly one entry, { profitCenter: null, ... }, carrying
+  // the exact same, real total netIncomeMinor always already reported.
+  createBusiness(asBusinessName('PCCloseTest Unaffected Co'), '2027-28', asUserId(1), 'English CoA');
+  createItem('PCCloseTest Unaffected Wine', 'Items', asUserId(1));
+  const plainAccounts = ensureItemSalesCogsAccounts(asItemName('PCCloseTest Unaffected Wine'), asUserId(1), undefined, asBusinessName('PCCloseTest Unaffected Co'));
+  const plainEquityHeaderId = resolveBusinessCoaAccountId(asBusinessName('PCCloseTest Unaffected Co'), 'Equity');
+  const plainRetainedAccount = create(requireEntityById(plainEquityHeaderId, typeRootName), typeRootName, 'PCCloseTest Unaffected Retained Earnings', asUserId(1));
+  stageLine({ reference: 'PCCLOSE-2', business: asBusinessName('PCCloseTest Unaffected Co'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName(plainAccounts.salesAccount), accountId: plainAccounts.salesAccountId, amount_minor: -30000 });
+  stageLine({ reference: 'PCCLOSE-2', business: asBusinessName('PCCloseTest Unaffected Co'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 30000 });
+  postJournalEntry('PCCLOSE-2', asBusinessName('PCCloseTest Unaffected Co'), asLedgerName('Actual'), asUserId(1));
+  const plainResult = closeBooks(asBusinessName('PCCloseTest Unaffected Co'), asLedgerName('Actual'), '2027-01-31', plainRetainedAccount.name, asUserId(1));
+  assert.deepEqual(plainResult.profitCenterBreakdown, [{ profitCenter: null, netIncomeMinor: 30000 }], 'a business that never used a Profit Center at all must still get exactly one, real, unaffected breakdown entry carrying the whole, real net income');
 });
 
 test('POS clerk sign-on/sign-off: a real employee needs a real PIN, can only be signed on at one real location at a time, and signing off closes the real shift record cleanly', () => {

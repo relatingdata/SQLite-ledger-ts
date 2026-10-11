@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { getSessionUser, getSessionBusiness, type AuthenticatedUser } from './auth.js';
+import { getSessionUser, getSessionBusiness, getSessionProfitCenter, type AuthenticatedUser } from './auth.js';
 import { runInSessionContext } from './session-context.js';
 import { requireEntity as fetchEntity, typeBusinessName, typeRootName } from './db.js';
 
@@ -8,6 +8,15 @@ declare global {
   namespace Express {
     interface Request {
       user?: AuthenticatedUser;
+      // Per docs/profit-centers-design.md's Phase C: the real,
+      // currently-selected Profit Center for this one, real,
+      // connected session - the exact, same real shape as
+      // getSessionBusiness/businessName above, set by attachUser
+      // whenever a session has one chosen. null/undefined both mean
+      // "none chosen" - a business with zero Profit Centers, or a
+      // user who hasn't picked one yet, are the exact same, real
+      // case: every route works exactly as it always has.
+      profitCenter?: string | null;
     }
   }
 }
@@ -33,6 +42,7 @@ export function attachUser(req: Request, _res: Response, next: NextFunction) {
   const token = tokenFrom(req);
   req.user = getSessionUser(token) ?? undefined;
   if (req.user) {
+    req.profitCenter = getSessionProfitCenter(token!);
     const businessName = getSessionBusiness(token!);
     if (businessName) {
       try {

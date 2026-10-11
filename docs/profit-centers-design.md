@@ -103,19 +103,53 @@ Built directly against the real code, not sketched:
   Center name. `tsc --noEmit` (backend, same 6 pre-existing baseline errors),
   `svelte-check` (frontend, 0 errors/warnings), and the backend test suite (136 pass —
   134 plus these 2 new — / 80 fail, unchanged baseline) all confirmed.
-- **Close Books** (not yet built — Phase B): `computeCloseLines` (`backend/src/db-reports.ts` ~1222) already
-  groups net income by `(division, currency)` internally before posting per-currency.
-  It gains a third grouping key, Profit Center, and posts one real line per
-  `(profitCenter, currency)` combination with a non-zero result, each into its own
-  `ensureCurrencyAccount`-style Retained Earnings sibling (nesting both dimensions
-  the same way currency alone does today — `Retained Earnings (Profit Center X)
-  (EUR)` when both apply). `divisionBreakdown` gains a sibling,
-  `profitCenterBreakdown`, for the same, real, informational reporting purpose.
+- **Close Books — Phase B, done and verified.** `computeCloseLines`
+  (`backend/src/db-reports.ts`) now groups net income by `(division, currency,
+  Profit Center)` — the real new piece being `getAccountProfitCenter(accountId)`
+  (`backend/src/db.ts`), which walks straight up a real GL account's own parent
+  chain to find the first ancestor carrying a real "Dimension: Profit Center" link
+  (never `getDimensionParent`/`getEntityLink` directly — those resolve a bare
+  `${entityName} — ${linkType}` name with no parent disambiguation at all, genuinely
+  ambiguous for a Profit Center grouping node, whose own name recurs three times).
+  Posts one real line per non-zero `(currency, Profit Center)` combination, each
+  into its own real sibling: `ensureProfitCenterRetainedEarningsAccount` first
+  (`Retained Earnings (Profit Center: X)`), then `ensureCurrencyAccount` on top of
+  that when a currency also applies (`Retained Earnings (Profit Center: X) (EUR)`).
+  `divisionBreakdown` is unaffected (still merges over Profit Center, so its own
+  shape never changes); `profitCenterBreakdown` is the new, parallel summary,
+  merged over division and currency — one entry per real Profit Center with a
+  non-zero result, or exactly one `{ profitCenter: null, ... }` entry carrying the
+  whole, real net income for a business that never used one. Verified directly: a
+  real sale scoped to a real Profit Center closes into its own, real, tagged
+  sibling while the plain, shared Retained Earnings stays untouched; a second,
+  unrelated business using zero Profit Centers gets the exact, same, single,
+  unaffected close it always has. `tsc`/`svelte-check`/the backend test suite all
+  confirmed with zero regressions (one new passing test).
 - **Rollover**: `resolveRolloverLines`/`rolloverToNewPeriod`
   (`backend/src/db-reports.ts`) read the old ledger's non-zero Balance Sheet lines —
   unaffected in shape, since Profit Centers never touch the Balance Sheet directly;
   the new ledger simply ends up with however many Retained Earnings siblings the old
   one closed with.
+- **Session integration — Phase C, done and verified (trust model only).**
+  `setSessionProfitCenter`/`getSessionProfitCenter` (`backend/src/auth.ts`) add
+  `profit_center_name` as a third field on the one, same session record
+  `business_name` already lives on; `attachUser` (`backend/src/auth-middleware.ts`)
+  attaches it as `req.profitCenter`, and a new `POST /session/profit-center` route
+  exposes it. Per a real, direct finding made while building this: the backend's
+  own `setSessionBusiness`/`getSessionBusiness` mechanism this mirrors is not
+  actually what drives the running app at all — the real, working business/ledger/
+  language selection is a purely client-side store
+  (`frontend/src/lib/state.svelte.ts`'s `session`, backed by `localStorage`), read
+  and set entirely from the `/session` page; the backend session record is a
+  separate, still-unwired piece (per `docs/session-business-context.md`'s own,
+  honest status). Built both, for parity and honesty with the design above, but the
+  piece that actually matters for a working picker is the real one: `SessionContext`
+  gained optional `profitCenterId`/`profitCenterName` fields, and the `/session`
+  page now loads `getProfitCenters` for the selected business and shows a picker —
+  only when that business actually has at least one, so a business with zero stays
+  exactly as it is today, no empty/forced picker ever shown. No enforcement of any
+  kind yet, matching today's actual Business behavior honestly rather than
+  pretending to be stricter than it is.
 
 ### Session integration — leans directly on the half-built session-business-context design
 
@@ -157,13 +191,16 @@ honest, temporary gap, not silently assumed solved.
   Sold/Inventory headers rather than a separate, owned subtree (see the corrected
   structural model above). A business created today with zero Profit Centers behaves
   exactly as before — verified, not just assumed.
-- **Phase B — Close Books extension**: `computeCloseLines` grouping and posting by
-  Profit Center, `ensureCurrencyAccount`-style Retained Earnings siblings,
-  `profitCenterBreakdown`.
-- **Phase C — session integration, trust model only**: `profit_center_name` added to
-  the session record and `req.profitCenter`, a picker on the `/session` page exactly
-  like today's business/ledger dropdowns, no enforcement yet (matching today's actual
-  Business behavior honestly, not a regression).
+- **Phase B — Close Books extension: done.** `computeCloseLines` grouping and
+  posting by Profit Center, `ensureProfitCenterRetainedEarningsAccount` siblings
+  (stacked with `ensureCurrencyAccount` when both apply), `profitCenterBreakdown`.
+  Verified — see above.
+- **Phase C — session integration, trust model only: done.** `profit_center_name`
+  added to the session record and `req.profitCenter`; a real picker on the
+  `/session` page's own, actually-working client-side session store, shown only for
+  a business with at least one real Profit Center. No enforcement yet, matching
+  today's actual Business behavior honestly, not a regression. Verified — see
+  above.
 - **Phase D — real per-user access control (separate, bigger, later)**: the
   user-to-business and user-to-profit-center grant mechanism itself, built once,
   covering both dimensions, finishing the session-context route conversion along the

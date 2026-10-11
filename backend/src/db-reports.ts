@@ -1,6 +1,6 @@
 import { db, getQualifiedDisplayName, getCombinationDisplayName, resolveBusinessCoaAccountId } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
-import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, getAccountProfitCenter, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 
 // ---------------------------------------------------------------------------
@@ -147,6 +147,26 @@ export function ensureCurrencyAccount(baseAccountId: number, currency: string, u
   const existing = Entity.getUnder(currencyAccountName, base.parent_id) ?? Entity.create(currencyAccountName, base.parent_id, userId);
   setAccountCurrency(currencyAccountName, currency);
   return { name: currencyAccountName, id: existing.id };
+}
+
+/** Per docs/profit-centers-design.md: the one, real, structural thing
+ * a Profit Center adds to the Balance Sheet — a real, postable
+ * sibling under the business's one, shared Retained Earnings account,
+ * named after the Profit Center, created the moment that Profit
+ * Center first closes with a non-zero result. Equity is never
+ * duplicated; it only ever grows one more real leaf, the exact, same
+ * shape ensureCurrencyAccount above already proves for a foreign
+ * currency closing against the same, shared Retained Earnings.
+ * Deliberately parenthesized as "(Profit Center: X)" rather than bare
+ * "(X)" so it can never collide with - and, when both apply, nests
+ * cleanly underneath - a currency-tagged sibling built by
+ * ensureCurrencyAccount on top of this one's own id. */
+export function ensureProfitCenterRetainedEarningsAccount(baseAccountId: number, profitCenterName: string, userId: UserId): { name: string; id: number } {
+  const base = db.prepare(`SELECT name, parent_id FROM current_entities WHERE id = ?`).get(baseAccountId) as { name: string; parent_id: number } | undefined;
+  if (!base) throw new ValidationError(`No such account id: ${baseAccountId}.`);
+  const pcAccountName = `${base.name} (Profit Center: ${profitCenterName})`;
+  const existing = Entity.getUnder(pcAccountName, base.parent_id) ?? Entity.create(pcAccountName, base.parent_id, userId);
+  return { name: pcAccountName, id: existing.id };
 }
 
 /** Replaces ensureCashAtBankAccount - confirmed, directly, a real,
@@ -1174,6 +1194,15 @@ export interface CloseBooksResult {
    * null division is the real, undivided remainder (any income/
    * expense posted with no division at all). */
   divisionBreakdown: { division: string | null; netIncomeMinor: number }[];
+  /** Per docs/profit-centers-design.md's Phase B: the real, structural
+   * counterpart to divisionBreakdown above — one entry per real
+   * Profit Center with a non-zero net result this close, merged
+   * across division and currency (unlike divisionBreakdown, which
+   * keeps a separate entry per currency bucket). A business with zero
+   * Profit Centers gets exactly one entry here, { profitCenter: null,
+   * netIncomeMinor: <the whole, real net income> } — the same, real
+   * total closeBooks always reported before this field existed. */
+  profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
 
 /** Year-end (or any period) close: zeroes every Income and Expense
@@ -1213,6 +1242,7 @@ interface ComputedClose {
   netIncomeMinor: number;
   accountsZeroed: number;
   divisionBreakdown: { division: string | null; netIncomeMinor: number }[];
+  profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
 
 /** The real, shared computation both previewCloseBooks and closeBooks
@@ -1229,24 +1259,32 @@ function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfD
   // Income/Expense account against the exact, same, plain, home-
   // currency Retained Earnings genuinely breaks the per-currency
   // balance check the exact, same way an un-tagged Cash leg once did
-  // - grouped by (division, currency) together now, not division
-  // alone, so each real currency's own net income closes against its
-  // own, real, currency-tagged Retained Earnings sibling.
-  const netIncomeByDivisionCurrency = new Map<string, { division: string | null; currency: string | null; net: number }>();
+  // - grouped by (division, currency, Profit Center) together now,
+  // not division alone, so each real currency's own net income closes
+  // against its own, real, currency-tagged Retained Earnings sibling,
+  // and each real Profit Center's own net income closes against its
+  // own, real, Profit-Center-tagged sibling (per
+  // docs/profit-centers-design.md's Phase B). Unlike division and
+  // currency, a Profit Center is never read off the journal line — a
+  // real account's own, structural position already determines it
+  // (getAccountProfitCenter), constant for every division/balance
+  // under one account.
+  const netByGroup = new Map<string, { division: string | null; currency: string | null; profitCenter: string | null; net: number }>();
   const lines: CloseBooksLine[] = [];
 
   for (const r of rows) {
     const divisionBalances = balancesByDivision.get(r.account_id);
     if (!divisionBalances) continue;
     const currency = (db.prepare(`SELECT currency FROM account WHERE entity_id = ?`).get(r.account_id) as { currency: string | null } | undefined)?.currency ?? null;
+    const profitCenter = getAccountProfitCenter(r.account_id);
     let accountTotal = 0;
     for (const [divisionName, balance] of divisionBalances) {
       if (balance === 0) continue;
       accountTotal += balance;
-      const key = `${divisionName ?? ''}\u0000${currency ?? ''}`;
-      const existing = netIncomeByDivisionCurrency.get(key) ?? { division: divisionName, currency, net: 0 };
+      const key = `${divisionName ?? ''}\u0000${currency ?? ''}\u0000${profitCenter ?? ''}`;
+      const existing = netByGroup.get(key) ?? { division: divisionName, currency, profitCenter, net: 0 };
       existing.net -= balance;
-      netIncomeByDivisionCurrency.set(key, existing);
+      netByGroup.set(key, existing);
     }
     if (accountTotal === 0) continue;
     lines.push({ account: r.account, accountId: r.account_id, amount_minor: -accountTotal });
@@ -1255,19 +1293,25 @@ function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfD
   }
 
   if (accountsZeroed > 0) {
-    // One, single, combined Retained Earnings line per real currency
-    // — division is purely a reporting dimension (divisionBreakdown,
-    // below, is the informational summary of it), never a structural
-    // split in what actually posts here.
-    const netByCurrency = new Map<string | null, number>();
-    for (const { currency, net } of netIncomeByDivisionCurrency.values()) {
-      netByCurrency.set(currency, (netByCurrency.get(currency) ?? 0) + net);
+    // One, single, combined Retained Earnings line per real
+    // (currency, Profit Center) combination — division stays purely a
+    // reporting dimension (divisionBreakdown, below, is the
+    // informational summary of it), never a structural split in what
+    // actually posts here; Profit Center, unlike division, genuinely
+    // IS a structural split, per docs/profit-centers-design.md.
+    const netByCurrencyProfitCenter = new Map<string, { currency: string | null; profitCenter: string | null; net: number }>();
+    for (const { currency, profitCenter, net } of netByGroup.values()) {
+      const key = `${currency ?? ''}\u0000${profitCenter ?? ''}`;
+      const existing = netByCurrencyProfitCenter.get(key) ?? { currency, profitCenter, net: 0 };
+      existing.net += net;
+      netByCurrencyProfitCenter.set(key, existing);
     }
-    for (const [currency, net] of netByCurrency) {
+    for (const { currency, profitCenter, net } of netByCurrencyProfitCenter.values()) {
       if (net === 0) continue;
-      if (currency && userId) {
+      if ((currency || profitCenter) && userId) {
         const retainedEarningsId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(retainedEarningsAccount) as { id: number }).id;
-        const tagged = ensureCurrencyAccount(retainedEarningsId, currency, userId);
+        const target = profitCenter ? ensureProfitCenterRetainedEarningsAccount(retainedEarningsId, profitCenter, userId) : { id: retainedEarningsId, name: retainedEarningsAccount };
+        const tagged = currency ? ensureCurrencyAccount(target.id, currency, userId) : target;
         lines.push({ account: tagged.name, accountId: tagged.id, amount_minor: -net });
       } else {
         lines.push({ account: retainedEarningsAccount, amount_minor: -net });
@@ -1275,12 +1319,32 @@ function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfD
     }
   }
 
-  const divisionBreakdown = Array.from(netIncomeByDivisionCurrency.values())
-    .filter(({ net }) => net !== 0)
-    .map(({ division, net }) => ({ division, netIncomeMinor: net }))
-    .sort((a, b) => (a.division ?? '').localeCompare(b.division ?? ''));
+  const divisionBreakdown = (() => {
+    const netByDivisionCurrency = new Map<string, { division: string | null; currency: string | null; net: number }>();
+    for (const { division, currency, net } of netByGroup.values()) {
+      const key = `${division ?? ''}\u0000${currency ?? ''}`;
+      const existing = netByDivisionCurrency.get(key) ?? { division, currency, net: 0 };
+      existing.net += net;
+      netByDivisionCurrency.set(key, existing);
+    }
+    return Array.from(netByDivisionCurrency.values())
+      .filter(({ net }) => net !== 0)
+      .map(({ division, net }) => ({ division, netIncomeMinor: net }))
+      .sort((a, b) => (a.division ?? '').localeCompare(b.division ?? ''));
+  })();
 
-  return { lines, netIncomeMinor, accountsZeroed, divisionBreakdown };
+  const profitCenterBreakdown = (() => {
+    const netByProfitCenter = new Map<string | null, number>();
+    for (const { profitCenter, net } of netByGroup.values()) {
+      netByProfitCenter.set(profitCenter, (netByProfitCenter.get(profitCenter) ?? 0) + net);
+    }
+    return Array.from(netByProfitCenter.entries())
+      .filter(([, net]) => net !== 0)
+      .map(([profitCenter, net]) => ({ profitCenter, netIncomeMinor: net }))
+      .sort((a, b) => (a.profitCenter ?? '').localeCompare(b.profitCenter ?? ''));
+  })();
+
+  return { lines, netIncomeMinor, accountsZeroed, divisionBreakdown, profitCenterBreakdown };
 }
 
 export interface CloseBooksPreview {
@@ -1288,6 +1352,7 @@ export interface CloseBooksPreview {
   netIncomeMinor: number;
   accountsZeroed: number;
   divisionBreakdown: { division: string | null; netIncomeMinor: number }[];
+  profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
 
 /** A real, live preview of exactly what closeBooks would post, given
@@ -1329,7 +1394,7 @@ export function closeBooks(business: BusinessName, ledger: LedgerName, asOfDate:
 
   postJournalEntry(reference, business, ledger, userId);
 
-  return { reference, netIncomeMinor: computed.netIncomeMinor, accountsZeroed: computed.accountsZeroed, divisionBreakdown: computed.divisionBreakdown };
+  return { reference, netIncomeMinor: computed.netIncomeMinor, accountsZeroed: computed.accountsZeroed, divisionBreakdown: computed.divisionBreakdown, profitCenterBreakdown: computed.profitCenterBreakdown };
 }
 
 
