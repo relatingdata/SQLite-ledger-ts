@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
 import { getBusinesses, getLedgers, createBusiness, getChartOfAccountsPrototype, getBusinessTypes, saveBusinessTypeAnswers, asBusinessName, ValidationError,
   asUserId, nominateBankAccount, getNominatedBankAccounts, buildBankCurrencyStructure, typeAssetAccountName, typeEquityAccountName, getBusinessConfigurationReport,
+  createProfitCenter, getProfitCenters,
 } from '../db.js';
 
 export const businessesRouter = Router();
@@ -21,6 +22,30 @@ businessesRouter.get('/types', (_req, res) => {
 
 businessesRouter.get('/:name/ledgers', (req, res) => {
   res.json(getLedgers(asBusinessName(req.params.name)));
+});
+
+// Per docs/profit-centers-design.md's Phase A: every real Profit
+// Center for one business — empty for a business that has never
+// created one, which is every business today, since this is purely
+// additive.
+businessesRouter.get('/:name/profit-centers', (req, res) => {
+  res.json(getProfitCenters(asBusinessName(req.params.name)));
+});
+
+const createProfitCenterSchema = z.object({
+  profitCenterName: z.string().min(1),
+});
+businessesRouter.post('/:name/profit-centers', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = createProfitCenterSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    const result = createProfitCenter(asBusinessName(req.params.name), parsed.data.profitCenterName, asUserId(req.user!.id));
+    res.status(201).json(result);
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not create the Profit Center.' });
+  }
 });
 
 // Real accounts a given Chart of Accounts "prototype" (English/German/

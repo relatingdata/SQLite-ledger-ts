@@ -122,6 +122,9 @@ const {
   openStorageContainer,
   createItemCategory,
   ensureItemInventoryAccount,
+  ensureItemLocationInventoryAccount,
+  createProfitCenter,
+  getProfitCenters,
   createAndConfigureLocation,
   stageLocation,
   postLocation,
@@ -3748,6 +3751,81 @@ test('ensureItemSalesCogsAccounts: mirrors the real, existing product category t
   assert.equal(flatParent.name, 'CategoryMirrorTest FlatCategory');
   const flatRoot = getEntityTree().find((e) => e.id === flatParent.parent_id)!;
   assert.equal(flatRoot.name, 'Sales Revenue', 'a product with no sub-category still gets exactly one real grouping level under the real, existing Sales Revenue heading, not a fixed number of levels regardless of the real catalog depth');
+});
+
+test('Profit Centers (Phase A, docs/profit-centers-design.md): a business starts with none, creating one is real and rejects a duplicate, and getProfitCenters is scoped per business', () => {
+  createBusiness(asBusinessName('PCTest Co'), '2027-28', asUserId(1), 'English CoA');
+  assert.deepEqual(getProfitCenters(asBusinessName('PCTest Co')), [], 'a freshly created business must start with zero real Profit Centers — purely additive, never automatic');
+
+  const pc = createProfitCenter(asBusinessName('PCTest Co'), 'Downtown Store', asUserId(1));
+  assert.equal(pc.name, 'Downtown Store');
+  assert.deepEqual(getProfitCenters(asBusinessName('PCTest Co')).map((p) => p.name), ['Downtown Store']);
+
+  assert.throws(() => createProfitCenter(asBusinessName('PCTest Co'), 'Downtown Store', asUserId(1)), /already exists/, 'a second, real Profit Center of the exact same name for the exact same business must be rejected, not silently create a duplicate');
+
+  createBusiness(asBusinessName('PCTest Other Co'), '2027-28', asUserId(1), 'English CoA');
+  assert.deepEqual(getProfitCenters(asBusinessName('PCTest Other Co')), [], "a genuinely different business must never see another business's own Profit Centers");
+});
+
+test('Profit Centers (Phase A): Sales Revenue/COGS/Inventory leaves nest under a real, named Profit Center grouping node, directly under the exact, same shared headers — zero change at all when no profitCenter is passed', () => {
+  createBusiness(asBusinessName('PCAcctTest Co'), '2027-28', asUserId(1), 'English CoA');
+  createProfitCenter(asBusinessName('PCAcctTest Co'), 'Warehouse Ops', asUserId(1));
+  createItem('PCAcctTest Wine', 'Items', asUserId(1));
+
+  // No profitCenter passed — must land exactly where it always has,
+  // flat under the shared Sales Revenue/Cost of Goods Sold/Inventory
+  // headers, provably unaffected by this feature's own existence.
+  const flat = ensureItemSalesCogsAccounts(asItemName('PCAcctTest Wine'), asUserId(1), undefined, asBusinessName('PCAcctTest Co'));
+  const flatInventory = ensureItemInventoryAccount(asItemName('PCAcctTest Wine'), asUserId(1), undefined, asBusinessName('PCAcctTest Co'));
+  let entities = getEntityTree();
+  const flatSalesParent = entities.find((e) => e.id === entities.find((x) => x.id === flat.salesAccountId)!.parent_id)!;
+  assert.equal(flatSalesParent.name, 'Sales Revenue', 'with no Profit Center given, the leaf must sit directly under the real, shared Sales Revenue header, exactly as before this feature existed');
+  const flatInventoryParent = entities.find((e) => e.id === entities.find((x) => x.id === flatInventory.inventoryAccountId)!.parent_id)!;
+  assert.equal(flatInventoryParent.name, 'Inventory');
+
+  // A second item, this time explicitly scoped to the real "Warehouse
+  // Ops" Profit Center — must land one real level deeper, under a
+  // real grouping node named after it, still directly under the exact
+  // same shared headers (never a separate Income/Expense/Inventory
+  // section of its own).
+  createItem('PCAcctTest Second Wine', 'Items', asUserId(1));
+  const scoped = ensureItemSalesCogsAccounts(asItemName('PCAcctTest Second Wine'), asUserId(1), undefined, asBusinessName('PCAcctTest Co'), 'Warehouse Ops');
+  const scopedInventory = ensureItemInventoryAccount(asItemName('PCAcctTest Second Wine'), asUserId(1), undefined, asBusinessName('PCAcctTest Co'), 'Warehouse Ops');
+  entities = getEntityTree();
+
+  const scopedSalesLeaf = entities.find((e) => e.id === scoped.salesAccountId)!;
+  const scopedSalesGroup = entities.find((e) => e.id === scopedSalesLeaf.parent_id)!;
+  assert.equal(scopedSalesGroup.name, 'Warehouse Ops', 'a scoped item must nest one real level deeper, under a real grouping node named after its own Profit Center');
+  const scopedSalesRoot = entities.find((e) => e.id === scopedSalesGroup.parent_id)!;
+  assert.equal(scopedSalesRoot.name, 'Sales Revenue', 'the Profit Center grouping node itself must still sit directly under the real, shared Sales Revenue header — never a separate section of its own');
+
+  const scopedCogsLeaf = entities.find((e) => e.id === scoped.cogsAccountId)!;
+  const scopedCogsGroup = entities.find((e) => e.id === scopedCogsLeaf.parent_id)!;
+  assert.equal(scopedCogsGroup.name, 'Warehouse Ops');
+  const scopedCogsRoot = entities.find((e) => e.id === scopedCogsGroup.parent_id)!;
+  assert.equal(scopedCogsRoot.name, 'Cost of Goods Sold');
+
+  const scopedInventoryLeaf = entities.find((e) => e.id === scopedInventory.inventoryAccountId)!;
+  const scopedInventoryGroup = entities.find((e) => e.id === scopedInventoryLeaf.parent_id)!;
+  assert.equal(scopedInventoryGroup.name, 'Warehouse Ops');
+  const scopedInventoryRoot = entities.find((e) => e.id === scopedInventoryGroup.parent_id)!;
+  assert.equal(scopedInventoryRoot.name, 'Inventory', 'the Profit Center grouping node under Inventory must still sit directly under the real, shared Inventory header — so getBalanceSheet still finds and totals it with no separate reporting path');
+
+  // location-scoped Inventory must thread the Profit Center through
+  // unchanged in shape — the (item, location) leaf still nests one
+  // further, real level under the Profit Center's own grouping node.
+  create(requireEntity('Locations', typeRootName, requireEntity('PCAcctTest Co', typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'PCAcctTest Location', asUserId(1));
+  const scopedLocationInventory = ensureItemLocationInventoryAccount(asItemName('PCAcctTest Second Wine'), asLocationName('PCAcctTest Location'), asUserId(1), undefined, asBusinessName('PCAcctTest Co'), 'Warehouse Ops');
+  entities = getEntityTree();
+  const locLeaf = entities.find((e) => e.id === scopedLocationInventory.inventoryAccountId)!;
+  assert.equal(locLeaf.parent_id, scopedInventory.inventoryAccountId, 'the location-scoped leaf must still nest directly under this item\'s own (now Profit-Center-scoped) base Inventory account');
+
+  // A typo'd or unknown Profit Center name must fail loudly, never
+  // silently create an orphaned grouping node under a real GL header.
+  assert.throws(
+    () => ensureItemSalesCogsAccounts(asItemName('PCAcctTest Second Wine'), asUserId(1), undefined, asBusinessName('PCAcctTest Co'), 'Nonexistent Center'),
+    /No real Profit Center named/
+  );
 });
 
 test('POS clerk sign-on/sign-off: a real employee needs a real PIN, can only be signed on at one real location at a time, and signing off closes the real shift record cleanly', () => {

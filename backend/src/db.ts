@@ -2479,7 +2479,7 @@ export function getAncestorChain(entityName: string, rootName: string): string[]
  * sub-categories) gets one real grouping level, one broken down
  * further gets more — without a single line of code changing between
  * the two. */
-export function ensureCategoryChain(rootName: string, prefix: string, chain: string[], userId: UserId, business?: BusinessName): { name: string; id: number } {
+export function ensureCategoryChain(rootName: string, prefix: string, chain: string[], userId: UserId, business?: BusinessName, profitCenter?: string): { name: string; id: number } {
   let currentParent = rootName;
   // A real, confirmed bug, found and fixed directly: the bare, global
   // lookup below put every lazily-created Sales Revenue/COGS category
@@ -2493,6 +2493,18 @@ export function ensureCategoryChain(rootName: string, prefix: string, chain: str
   let currentParentId = business
     ? resolveBusinessCoaAccountId(business, rootName)
     : ((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(rootName) as { id: number } | undefined)?.id ?? null);
+  // Per docs/profit-centers-design.md's Phase A: a real Profit Center,
+  // when given, is one further, real grouping level inserted directly
+  // under the shared header, before this item's own real category
+  // chain — so a Profit Center's own P&L shows every one of its own
+  // categories, same as the business's overall P&L does today, just
+  // scoped underneath its own, real, named node. Omitted entirely
+  // (today's exact behavior) when no profitCenter is passed.
+  if (profitCenter && business && currentParentId) {
+    const pcNode = resolveProfitCenterGroupNode(business, currentParentId, profitCenter, userId);
+    currentParent = profitCenter;
+    currentParentId = pcNode.id;
+  }
   for (const cat of chain) {
     const catName = `${prefix}${cat}`;
     const row = currentParentId ? Entity.ensureUnder(catName, currentParentId, userId) : Entity.create(catName, rootName, userId);
@@ -2527,16 +2539,16 @@ export function ensureCategoryChain(rootName: string, prefix: string, chain: str
  * a carton's margin are real, different facts, not the same number
  * shown twice — blending them back into one account would silently
  * undo the whole point of splitting by product in the first place. */
-export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
+export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
   const suffix = tier ? ` (${tier})` : '';
   const salesAccount = `${itemName}${suffix}`;
   const cogsAccount = `${itemName}${suffix}`;
   const categoryChain = getAncestorChain(itemName, 'Items');
 
-  const salesParent = ensureCategoryChain('Sales Revenue', '', categoryChain, userId, business);
+  const salesParent = ensureCategoryChain('Sales Revenue', '', categoryChain, userId, business, profitCenter);
   const salesRow = Entity.ensureUnder(salesAccount, salesParent.id, userId);
 
-  const cogsParent = ensureCategoryChain('Cost of Goods Sold', '', categoryChain, userId, business);
+  const cogsParent = ensureCategoryChain('Cost of Goods Sold', '', categoryChain, userId, business, profitCenter);
   const existingCogs = Entity.getUnder(cogsAccount, cogsParent.id);
   const cogsRow = existingCogs ?? Entity.create(cogsAccount, cogsParent.id, userId);
   if (!existingCogs || !Entity.get(cogsRow.id)?.relation_id) Entity.relate(cogsRow.id, 'COGS', userId);
@@ -2552,7 +2564,7 @@ export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, 
  * Sheet category-tree walk (already proven for Accounts Receivable)
  * picks this up automatically and shows it as genuinely expandable,
  * with no further, separate reporting code needed at all. */
-export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName): { inventoryAccount: string; inventoryAccountId: number } {
+export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { inventoryAccount: string; inventoryAccountId: number } {
   // A real, confirmed bug, found and fixed directly: this bare, global
   // lookup put every lazily-created, per-product Inventory leaf onto
   // the one, shared, global Chart of Accounts template, invisible to
@@ -2562,7 +2574,14 @@ export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId, t
   // silently missing). business is optional, appended last, purely for
   // backward compatibility with every existing caller that never had a
   // business to pass.
-  const inventoryParentId = business ? resolveBusinessCoaAccountId(business, 'Inventory') : (db.prepare(`SELECT id FROM current_entities WHERE name = 'Inventory'`).get() as { id: number }).id;
+  let inventoryParentId = business ? resolveBusinessCoaAccountId(business, 'Inventory') : (db.prepare(`SELECT id FROM current_entities WHERE name = 'Inventory'`).get() as { id: number }).id;
+  // Per docs/profit-centers-design.md's Phase A: a real Profit
+  // Center's own Inventory grouping node, nested directly under the
+  // one, real, shared Inventory header — never a separate Inventory
+  // section of its own, so getBalanceSheet's existing, structural
+  // category-tree walk still finds and totals every Profit Center's
+  // own leaves automatically, with no separate reporting path.
+  if (profitCenter && business) inventoryParentId = resolveProfitCenterGroupNode(business, inventoryParentId, profitCenter, userId).id;
   const accountName = tier ? `${itemName} (${tier})` : itemName;
   const row = Entity.ensureUnder(accountName, inventoryParentId, userId);
   return { inventoryAccount: accountName, inventoryAccountId: row.id };
@@ -2574,8 +2593,8 @@ export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId, t
  * in accounts that are determined by the cartesian product of
  * products and locations" — Inventory is not a special case exempt
  * from this. */
-export function ensureItemLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId, tier?: string, business?: BusinessName): { inventoryAccount: string; inventoryAccountId: number } {
-  const { inventoryAccountId: baseId } = ensureItemInventoryAccount(itemName, userId, tier, business);
+export function ensureItemLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { inventoryAccount: string; inventoryAccountId: number } {
+  const { inventoryAccountId: baseId } = ensureItemInventoryAccount(itemName, userId, tier, business, profitCenter);
   const locationAccount = `${itemName}${tier ? ` (${tier})` : ''} — ${locationName}`;
   const existing = Entity.getUnder(locationAccount, baseId);
   const row = existing ?? Entity.create(locationAccount, baseId, userId);
@@ -2629,6 +2648,78 @@ export function ensureHierarchyGrouping(businessName: BusinessName, groupingName
 export function ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): { id: number; name: string } {
   const grouping = ensureHierarchyGrouping(businessName, groupingName, userId);
   return Entity.getUnder(valueName, grouping.id) ?? Entity.create(valueName, grouping.id, userId);
+}
+
+// ---------------------------------------------------------------------------
+// Profit Centers, per docs/profit-centers-design.md's Phase A: a real,
+// structural subtree inside one business's own CoA — its own Sales
+// Revenue/Cost of Goods Sold/Inventory grouping nodes, nested one
+// level deeper than today's product-category grouping, under the
+// exact, same, real, shared Sales Revenue/Cost of Goods Sold/
+// Inventory headers every business already has. Deliberately NOT a
+// second, separate root alongside Chart of Accounts (an earlier, since-
+// corrected version of this design considered that) — nesting inside
+// the one, real, shared CoA means getBalanceSheet/getProfitAndLoss/
+// business_reports' own, existing, structural tree walk picks up
+// every Profit Center's own leaves automatically, with no separate
+// reporting path to keep in sync. A Profit Center has no Balance
+// Sheet of its own: the one, real exception is its own Retained
+// Earnings sibling (see computeCloseLines's own profit-center
+// grouping), nested under the business's one, single, shared Equity,
+// never a second Equity section.
+// ---------------------------------------------------------------------------
+
+/** Creates a real, new Profit Center directly under this business's
+ * own "Profit Centers" root (lazily ensured here too, for a business
+ * created before this feature existed — the same, established,
+ * backward-compatible "ensure the root, then the real node under it"
+ * pattern as ensureHierarchyGrouping above). Per direct instruction,
+ * this is a real, named thing a business chooses to create — not
+ * automatic, not required, and ordinary posting is entirely
+ * unaffected until a real item/account resolver is explicitly told to
+ * scope itself to one (see resolveProfitCenterGroupNode below). */
+export function createProfitCenter(businessName: BusinessName, profitCenterName: string, userId: UserId): { id: number; name: string } {
+  const root = ensureBusinessRoot(businessName, 'Profit Centers', userId);
+  if (Entity.getUnder(profitCenterName, root.id)) {
+    throw new ValidationError(`"${profitCenterName}" already exists as a Profit Center for "${businessName}".`);
+  }
+  return Entity.create(profitCenterName, root.id, userId);
+}
+
+/** Every real, existing Profit Center for one business — empty for a
+ * business that has never created one, including every business that
+ * existed before this feature did. */
+export function getProfitCenters(businessName: BusinessName): { id: number; name: string }[] {
+  const root = db
+    .prepare(`SELECT id FROM current_entities WHERE name = 'Profit Centers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`)
+    .get(businessName) as { id: number } | undefined;
+  if (!root) return [];
+  return db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? ORDER BY name`).all(root.id) as { id: number; name: string }[];
+}
+
+/** The one, real, shared mechanism every per-item resolver below uses
+ * to scope itself to a Profit Center: given a real CoA header's own id
+ * (Sales Revenue, Cost of Goods Sold, or Inventory — already resolved,
+ * business-scoped), ensures a real grouping node named after the
+ * Profit Center directly under it, tagged back to the real Profit
+ * Center entity via the exact, same generic dimension-link mechanism
+ * (setDimensionParent) ensureItemLocationInventoryAccount already uses
+ * for Location — disambiguated by this grouping node's own, real id,
+ * since the exact, same Profit Center name genuinely recurs three
+ * times (once each under Sales Revenue, Cost of Goods Sold, and
+ * Inventory), the same, real, confirmed "same literal name, different
+ * real account" shape Open Container's own leaves already proved
+ * needs an explicit id, not a bare name lookup.
+ *
+ * Validates the Profit Center is real for this business first — a
+ * typo here must fail loudly, never silently create an unrelated,
+ * orphaned grouping node under a real GL header. */
+function resolveProfitCenterGroupNode(business: BusinessName, headerId: number, profitCenterName: string, userId: UserId): { id: number; name: string } {
+  const pc = getProfitCenters(business).find((p) => p.name === profitCenterName);
+  if (!pc) throw new ValidationError(`No real Profit Center named "${profitCenterName}" for "${business}" — create it first.`);
+  const row = Entity.ensureUnder(profitCenterName, headerId, userId);
+  setDimensionParent(profitCenterName, 'Profit Center', profitCenterName, userId, row.id, pc.id);
+  return row;
 }
 
 /** Defines the real, ordered shape of a Product combination for a
@@ -7435,6 +7526,13 @@ export const PER_BUSINESS_ROOTS: { name: string; type: TypeDescriptor<string> }[
   { name: 'Hierarchies', type: typeRootName },
   { name: 'Vocabulary', type: typeRootName },
   { name: 'Ledgers', type: typeRootName },
+  // Per docs/profit-centers-design.md's Phase A: a real, empty root
+  // every business gets, holding zero real Profit Centers until one
+  // is explicitly created (createProfitCenter, below) — purely
+  // additive, a business with none behaves exactly as it already did,
+  // since every per-item resolver below only ever looks under here
+  // when a caller actually passes a real profitCenter name.
+  { name: 'Profit Centers', type: typeRootName },
 ];
 
 export function createBusiness(

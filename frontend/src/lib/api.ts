@@ -447,6 +447,14 @@ export const saveBusinessTypeAnswers = (businessName: string, answers: Record<st
   request<void>(`/businesses/${encodeURIComponent(businessName)}/business-type-answers`, { method: 'POST', body: JSON.stringify({ answers }) });
 export const getLedgers = (businessName: string) =>
   request<{ id: number; name: string }[]>(`/businesses/${encodeURIComponent(businessName)}/ledgers`);
+// Per docs/profit-centers-design.md's Phase A: the structural CoA
+// support alone — no session/UI integration yet (that's Phase C), so
+// these two wrappers exist for a future screen (or a script/test) to
+// call, not wired into any screen themselves yet.
+export const getProfitCenters = (businessName: string) =>
+  request<{ id: number; name: string }[]>(`/businesses/${encodeURIComponent(businessName)}/profit-centers`);
+export const createProfitCenter = (businessName: string, profitCenterName: string) =>
+  request<{ id: number; name: string }>(`/businesses/${encodeURIComponent(businessName)}/profit-centers`, { method: 'POST', body: JSON.stringify({ profitCenterName }) });
 export const createBusiness = (
   businessName: string,
   financialYearLabel: string,
