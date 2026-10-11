@@ -18,8 +18,18 @@
 -- accounts, sourced from Tekki's own parallel Swiss French/Italian
 -- charts, which share identical account numbers.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (312, 312, 'Ditta Italiana Srl', (SELECT id FROM current_entities WHERE name = 'Businesses'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (313, 313, 'Actual', 312, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (552, 552, 'Ditta Italiana Srl Budget 2026-27', 312, '2026-01-01', 1);
+-- A real, confirmed bug fixed here, the same real fix applied in
+-- 20-demo-bmw-peugeot.sql (see its own, fuller comment): every real
+-- business's own ledgers must live under a real, dedicated "Ledgers"
+-- container entity (confirmed against both `createBusiness`, db.ts,
+-- and `My Business`'s own correct seed data in 00-core.sql), never
+-- directly under the business itself - this file's own two
+-- businesses skipped it, which the real `post_journal_entry_insert`
+-- trigger's own `ledger_id` lookup could never resolve, leaving it
+-- NULL (`NOT NULL constraint failed: journal.ledger_id`).
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (700004, 700004, 'Ledgers', 312, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (313, 313, 'Actual', 700004, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (552, 552, 'Ditta Italiana Srl Budget 2026-27', 700004, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (314, 314, 'Banca c/c', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
 INSERT INTO account_entry (name, accountnumber) VALUES ('Banca c/c', '4480105');
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (315, 315, 'Cassa e valori', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
@@ -53,8 +63,10 @@ INSERT INTO account_entry (name, accountnumber) VALUES ('Spese telefoniche', '70
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (329, 329, 'Spese di assicurazione', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
 INSERT INTO account_entry (name, accountnumber) VALUES ('Spese di assicurazione', '7025030');
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (330, 330, 'Schweizer KMU AG', (SELECT id FROM current_entities WHERE name = 'Businesses'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (331, 331, 'Actual', 330, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (553, 553, 'Schweizer KMU AG Budget 2026-27', 330, '2026-01-01', 1);
+-- Same real fix as Ditta Italiana Srl's own "Ledgers" container above.
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (700005, 700005, 'Ledgers', 330, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (331, 331, 'Actual', 700005, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (553, 553, 'Schweizer KMU AG Budget 2026-27', 700005, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (332, 332, 'Kasse', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
 INSERT INTO account_entry (name, accountnumber) VALUES ('Kasse', 'CH-1000');
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (333, 333, 'Bank', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);

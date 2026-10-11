@@ -173,18 +173,32 @@ if (!alreadyInitialized) {
   // really exists in the database at this point — never guessed at
   // or hand-enumerated — so this stays correct even if the foreign
   // file's own real account set changes later.
+  //
+  // A real, confirmed, second, separate reason this same filter is now
+  // applied unconditionally (not just when `seedDemoBusinesses` is
+  // false), found live via a real, repeated crash starting the backend
+  // with demo businesses seeded (`SqliteError: no such current
+  // entity`): this file's own "Amber Ale 330ml" line (a real Wine
+  // Retail product's own CoA-prototype link) genuinely depends on an
+  // entity that is NEVER created by any schema SQL file at all —
+  // Wine Retail's own real product catalog is seeded later, in
+  // TypeScript, by `migrateForWineRetailDemoData` (db-seed.ts), which
+  // only runs once `db.ts`'s own module load reaches it, well after
+  // this file already ran. The real `seedDemoBusinesses` flag was
+  // never actually the right condition for this filter — real
+  // forward-references like this one exist either way, and the exact,
+  // same, already-proven "does this entity genuinely exist yet"
+  // filter already handles them correctly, so it now runs every time.
   const coaLinksSql = readSchema('30-coa-links.sql');
-  const filteredCoaLinksSql = seedDemoBusinesses
-    ? coaLinksSql
-    : coaLinksSql
-        .split('\n')
-        .filter((line) => {
-          const match = line.match(/WHERE name = '((?:[^'\\]|\\.)*)'\)/);
-          if (!match) return true; // not a real, single-entity-lookup line — keep it as-is
-          const entityName = match[1].replace(/''/g, "'");
-          return !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entityName);
-        })
-        .join('\n');
+  const filteredCoaLinksSql = coaLinksSql
+    .split('\n')
+    .filter((line) => {
+      const match = line.match(/WHERE name = '((?:[^'\\]|\\.)*)'\)/);
+      if (!match) return true; // not a real, single-entity-lookup line — keep it as-is
+      const entityName = match[1].replace(/''/g, "'");
+      return !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entityName);
+    })
+    .join('\n');
   db.exec(filteredCoaLinksSql);
 
   for (const f of ['10-vocab-english.sql', '10-vocab-german.sql', '10-vocab-french.sql', '10-vocab-danish.sql', '10-vocab-italian.sql']) {

@@ -420,6 +420,26 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // transfer unsaved, with a visible, real validation error on screen,
   // while the click itself still "succeeded" with no exception.
   transfer_landed: (a) => db.getInventoryListingByLocation(a.businessName as any).some((g) => g.location === a.toLocationName && g.rows.some((r) => r.item === a.itemName)),
+  // Confirms the real Purchase Order screen genuinely staged AND posted
+  // a real, balanced journal entry under this reference - the same
+  // real, direct way `listJournalEntries` itself already reports every
+  // other real posted entry, rather than trusting a real UI click that
+  // may have only staged, not posted (or vice versa).
+  //
+  // A real, confirmed bug fixed here, found live: this check used to
+  // require an EXACT match (`j.reference === a.reference`), but
+  // `placeOrder` (backend/src/db-stock.ts) never posts a journal entry
+  // under the bare order reference at all - every quantity movement it
+  // posts is suffixed (`${reference}-PLACE`, `${reference}-PLACE-
+  // VALUE`, `${reference}-PLACE-ONORDER`), confirmed directly via a
+  // live query against the real `journal` table after a real, UI-driven
+  // Purchase Order (the real screenshot for this exact run already
+  // showed "Purchase Order PO-AMBER-1 placed with Highland Brewing Co."
+  // - the real UI and backend had genuinely succeeded the whole time;
+  // only this exact-match check was wrong). Fixed to match on the real,
+  // confirmed `-PLACE` suffix convention instead.
+  purchase_order_posted: (a) => db.listJournalEntries(a.businessName as any, db.asLedgerName('Actual'), 500, 0).some((j) => j.reference === `${a.reference}-PLACE`),
+  item_source_registered: (a) => db.listItemSources(a.itemName).some((s) => s.vendor_name === a.providerName),
 };
 
 /** A minimal, real CSV field parser handling real, quoted fields with

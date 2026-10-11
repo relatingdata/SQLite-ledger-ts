@@ -43,7 +43,19 @@
   // svelte-ignore state_referenced_locally
   const isPurchase = direction === 'purchase';
   const partyLabel = isPurchase ? 'Vendor' : 'Customer';
-  const partyParentEntity = isPurchase ? 'Accounts Payable' : 'Accounts Receivable';
+  // Real, confirmed bug (found while diagnosing why a real, just-created
+  // customer never appeared in this real Cash Sale screen's own party
+  // list): backend's own createProvider parents a new real provider
+  // directly under the real 'Accounts Payable' CoA account (confirmed
+  // directly - Highland Brewing Co's own real parent_id resolves to that
+  // real account), so 'Accounts Payable' here is correct and matches.
+  // backend's own createCustomer, by contrast, parents a new real
+  // customer under 'Customers' - a real, structural Vocabulary category,
+  // never the real 'Accounts Receivable' CoA account - confirmed
+  // directly the same way. The real string here was simply the wrong
+  // one for the sale side; 'Customers' is the one that actually matches
+  // where createCustomer puts a real customer.
+  const partyParentEntity = isPurchase ? 'Accounts Payable' : 'Customers';
   const locationLabel = isPurchase ? 'Receive at location' : 'Dispatch from location';
   const totalLabel = isPurchase ? 'Total to pay' : 'Total owed';
   const completeLabel = isPurchase ? 'Complete purchase' : 'Complete sale';

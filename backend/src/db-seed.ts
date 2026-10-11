@@ -1,7 +1,7 @@
 import { db } from './db.js';
 import { runInSessionContext } from './session-context.js';
 import {
-  supersedeEntity, createItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId } from './db.js';
+  supersedeEntity, asEntityId, setItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeItemName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId, type TypedNode } from './db.js';
 import { Entity } from './primitives.js';
 import { loadAllTranslations } from '../../shared-fixtures/translations.js';
 import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels, loadDemoUpcs } from '../../shared-fixtures/wine-retail-demo-data.js';
@@ -98,13 +98,66 @@ function migrateForWineRetailDemoData() {
   // after this function has actually run once.
   if (db.prepare(`SELECT 1 FROM journal WHERE reference LIKE 'WINE-SEED-%' LIMIT 1`).get()) return;
 
+  // A real, confirmed, two-part bug fixed here, found live via a real,
+  // repeated crash in the separate, non-Tutorial `capture-manual-
+  // screenshots` pipeline: `ValidationError: "Lager" exists, but is
+  // not a genuine CategoryOrItemsRootName`.
+  //
+  // Part 1 (the original, root cause): the exact same bare-name-
+  // existence pattern already fixed just below for Locations ("the
+  // same bare-name lookup already fixed elsewhere... found here too")
+  // was never applied to categories/subcategories here, one real level
+  // up in this same function. `loadTranslationsFromSharedCsv` (above,
+  // real module-load order) creates a real, standalone Vocabulary
+  // entity literally named "Lager" first - the real Danish translation
+  // of "Inventory" (confirmed directly in
+  // shared-fixtures/translations.ts: `['Inventory', 'Danish',
+  // 'Lager']`) - genuinely unrelated to the real Wine Retail beer
+  // subcategory of the exact same bare name. By the time this loop ran,
+  // its own bare, unscoped `WHERE name = ?` existence check saw that
+  // unrelated Vocabulary entity and wrongly concluded the real "Lager"
+  // subcategory already existed, silently skipping its real creation.
+  //
+  // Part 2 (a real, deeper bug this fix's first attempt ran straight
+  // into): scoping the EXISTENCE check alone isn't enough, because
+  // `requireEntity`'s own `type.validate(name)` call (used by every
+  // real `typeCategoryOrItemsRootName` lookup, including a correctly
+  // *id*-scoped `requireEntity(subcategory, typeCategoryOrItemsRootName,
+  // categoryEntity)`) only ever receives the plain, bare NAME, never
+  // the already-resolved id - and `isGenuineCategoryOrItemsRoot` ->
+  // `isDescendantOf` then does its OWN, completely separate, bare,
+  // unscoped `entities.find((e) => e.name === entityName)` lookup
+  // internally, silently discarding the real, correct, scoped id
+  // `resolveId` had just found. So even a fully, correctly id-scoped
+  // `requireEntity` call for "Lager" still re-resolved the unrelated
+  // Vocabulary entity internally, via that second, hidden, unscoped
+  // lookup, and still failed. Fixed by never routing an already-
+  // disambiguated, scoped id back through `requireEntity`'s own name-
+  // based `validate()` at all here - each real category/subcategory
+  // TypedNode is built directly from its own, already-proven-correct,
+  // scoped id instead (via `create()`'s own direct return, or a
+  // directly scoped `SELECT ... WHERE parent_id = ?` when it already
+  // exists), matching create()'s own, real, scoped uniqueness
+  // semantics throughout - never a bare, global name match again.
+  const itemsRoot = requireEntity('Items', typeRootName);
   const categories = loadDemoCategories();
   const catNames = Array.from(new Set(categories.map((c) => c.category)));
+  const categoryEntities = new Map<string, TypedNode<'CategoryOrItemsRootName'>>();
   for (const cat of catNames) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(cat)) create(requireEntity('Items', typeRootName), typeCategoryOrItemsRootName, cat, SEED_USER_ID);
+    const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(cat, itemsRoot.id) as { id: number } | undefined;
+    categoryEntities.set(cat, existing ? { id: asEntityId(existing.id), name: cat as string & { __brand: 'CategoryOrItemsRootName' } } : create(itemsRoot, typeCategoryOrItemsRootName, cat, SEED_USER_ID));
   }
+  // Each real subcategory's own, already-disambiguated TypedNode is
+  // recorded directly here, as it's created/found — never re-looked-up
+  // by its own bare name later (the product loop below needs it too,
+  // and `createItem`'s own unscoped 3-arg path, which this fix
+  // deliberately no longer calls for products below, has this exact
+  // same two-part bug).
+  const subcategoryEntities = new Map<string, TypedNode<'CategoryOrItemsRootName'>>();
   for (const { category, subcategory } of categories) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(subcategory)) create(requireEntity(category, typeCategoryOrItemsRootName), typeCategoryOrItemsRootName, subcategory, SEED_USER_ID);
+    const categoryEntity = categoryEntities.get(category)!;
+    const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(subcategory, categoryEntity.id) as { id: number } | undefined;
+    subcategoryEntities.set(subcategory, existing ? { id: asEntityId(existing.id), name: subcategory as string & { __brand: 'CategoryOrItemsRootName' } } : create(categoryEntity, typeCategoryOrItemsRootName, subcategory, SEED_USER_ID));
   }
 
   // Per direct instruction: the same bare-name lookup already fixed
@@ -127,7 +180,19 @@ function migrateForWineRetailDemoData() {
   }
 
   for (const { name, subcategory } of loadDemoProducts()) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) createItem(name, subcategory, SEED_USER_ID);
+    const subcategoryEntity = subcategoryEntities.get(subcategory);
+    if (!subcategoryEntity) throw new Error(`Real demo product "${name}" names a subcategory ("${subcategory}") that was never seeded above - a genuine data-file mismatch, not a lookup bug.`);
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, subcategoryEntity.id)) {
+      // Deliberately not `createItem(name, subcategory, SEED_USER_ID)`:
+      // that call's own unscoped, bare-name re-resolution of
+      // `subcategory` is exactly the real mechanism that let an
+      // unrelated, same-named Vocabulary entity win in the first place
+      // (see the real, confirmed "Lager" crash this whole fix
+      // addresses). `subcategoryEntity` above is already the real,
+      // disambiguated, correct parent — used directly here instead.
+      create(subcategoryEntity, typeItemName, name, SEED_USER_ID);
+      setItem(name, { description: null, unit_of_measure: null, upc: null });
+    }
   }
 
   const myBusinessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('My Business') as { id: number }).id;

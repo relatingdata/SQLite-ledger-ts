@@ -168,11 +168,14 @@ this one screen (against the ~2s of real backend wait and the step-runner's
 own fixed per-field/post-submit waits) was not chased further this block of
 work and remains open for future investigation.
 
-## Bugs found and reported, not yet fixed
+## Bugs found and fixed (all four, in a later pass)
 
 Per direct instruction, every real discrepancy between the application's own
 behavior and its own documented design is reported immediately on discovery,
-never silently worked around. The following remain open:
+never silently worked around. The following were all found and reported
+first, then investigated and fixed in a later pass, each verified against a
+real, full, re-run Tutorial e2e test (or, for the demo-seed bug, a real
+backend startup with demo businesses seeded):
 
 ### The `Customers` translation/vocabulary label collision
 
@@ -182,37 +185,110 @@ directly, by searching all 3,846 real options in one such select: the entity
 named `Customers` renders as `"Menu Link: Accounts Receivable (Debtors /
 Sales) — Customers"`, because `translations.current['Customers']` resolves to
 that decorated, help-text label instead of leaving the plain name alone. This
-currently blocks the Tutorial fixture's own `Create Customer` and `Cash Sale`
-UI-path steps outright — `selectOption({label: 'Customers'})` genuinely never
-matches, and hits Playwright's own real 30-second timeout every time.
+blocked the Tutorial fixture's own `Create Customer` and `Cash Sale` UI-path
+steps outright — `selectOption({label: 'Customers'})` genuinely never
+matched, and hit Playwright's own real 30-second timeout every time.
+
+**Fixed**: root-caused to a real filtering bug, not a translation collision —
+the real "Customers" entity genuinely lives under Vocabulary (one of
+Vocabulary's own 14 real, structural category roots, out of 742 total direct
+children, the other 728 being pure leaf UI-label/help-text words), and
+`/editor`'s own `parentableEntities` filter excluded the WHOLE Vocabulary
+subtree unconditionally, hiding this real, legitimate, selectable parent
+along with the help text. Fixed to exclude only Vocabulary's own *childless*
+direct children (`frontend/src/routes/editor/+page.svelte`). A second,
+separate bug then surfaced once Customers became selectable:
+`CashTransaction.svelte`'s hardcoded sale-side parent, `'Accounts
+Receivable'`, didn't match where `createCustomer` actually parents new
+customers (`'Customers'`) — fixed by correcting that literal string. Both
+`Create Customer` and `Cash Sale` now pass.
 
 ### `/stock/po`'s "Item" dropdown offers dimensions, not catalog items
 
 The real Purchase Order screen's own "Item" field is legended correctly, but
 its real options — confirmed directly via a raw `page.locator('main').innerHTML()`
-dump — are `Count Adjustment`, `On Order`, `Units Sold`, `Write-off`, `Item
+dump — were `Count Adjustment`, `On Order`, `Units Sold`, `Write-off`, `Item
 Source`: real dimension/account names, never a real catalog item such as
-"Amber Ale 330ml". This currently blocks the Tutorial fixture's own `Create
-Purchase Order` UI-path step; it is exercised at the API layer only.
+"Amber Ale 330ml". This blocked the Tutorial fixture's own `Create Purchase
+Order` UI-path step; it was exercised at the API layer only.
 
-### The whole-manual build's own demo-data seed is currently broken
+**Fixed**, in two layers: first, `entityTree.ts`'s `isQuantitySubAccount`
+checked for a stale, prefixed naming convention (`${itemName} — On Order`)
+that never matched the real, bare names (`'On Order'`, `'Units Sold'`,
+`'Count Adjustment'`, `'Write-off'`) `ensureItemQuantityAccounts` actually
+creates (`backend/src/db.ts`). Second, once an item source is registered, it
+gains a further, deeper internal record (an auto-generated `"<item> — Source
+— ..."` node, itself parenting a literal `'Item Source'` leaf) that the same,
+narrow, per-name check didn't generalize to. Replaced with a single,
+recursive `isInternalItemRecord` check that walks from any entity up to
+"Items", excluding it (and transitively anything beneath it) the moment any
+ancestor along the way matches a known internal-record name or the generated
+`" — Source — "` naming pattern — so a future internal per-item record type
+doesn't need its own fresh fix. `Create Purchase Order` now passes, verified
+via both a live form inspection and the full Tutorial e2e run (with the
+real `purchase_order_posted` verify check itself also fixed — see
+`backend/scripts/step-runner.ts`: it required an exact-match journal
+reference, but `placeOrder` only ever posts under a suffixed one,
+`${reference}-PLACE`, confirmed via a direct query against the real
+`journal` table).
+
+### The whole-manual build's own demo-data seed was broken
 
 Found while verifying this chapter's own screenshots: `make manual`'s separate,
 non-Tutorial screenshot pipeline (`capture-manual-screenshots`, a real,
 pre-existing Playwright spec, distinct from the Tutorial's own step-runner)
-fails its own backend startup outright —
+failed its own backend startup outright —
 `ValidationError: "Lager" exists, but is not a genuine CategoryOrItemsRootName`,
-thrown from `migrateForWineRetailDemoData` (`backend/src/db-seed.ts:130`) via
-`createItem` (`backend/src/db.ts:6079`). This is unrelated to anything built or
-changed in this block of work, was not investigated further, and blocks
-regenerating the manual's other (non-Tutorial) chapters' own screenshots until
-fixed.
+thrown from `migrateForWineRetailDemoData` (`backend/src/db-seed.ts`) via
+`createItem` (`backend/src/db.ts`).
 
-### `Create Provider`'s own, real residual slowness, not yet explained
+**Fixed**, in four layers, each found only once the previous one was cleared:
+(1) `migrateForWineRetailDemoData`'s own category/subcategory existence
+checks were bare, unscoped `WHERE name = ?` lookups — the real Danish
+translation of "Inventory" happens to be "Lager" (`shared-fixtures/
+translations.ts`), a real, standalone Vocabulary entity created earlier at
+module load, so the existence check wrongly saw it and skipped creating the
+real Wine Retail beer subcategory of the same bare name; (2) even once scoped
+by parent id, `requireEntity`'s own `type.validate(name)` call turned out to
+re-resolve the entity *by bare name again*, internally and separately
+(`isGenuineCategoryOrItemsRoot` → `isDescendantOf`), silently discarding the
+correct, already-scoped id — fixed by building each category/subcategory's
+`TypedNode` directly from its own proven-correct, scoped id, never routing it
+back through `requireEntity`'s name-based validation; (3) one layer further
+in, `30-coa-links.sql` (raw schema SQL) referenced `'Amber Ale 330ml'`, a Wine
+Retail product that is never created by any schema SQL file at all — only
+later, in TypeScript, by this same function — so its own forward-reference
+existence filter (already used when demo businesses are skipped) is now
+applied unconditionally in `db.ts`; (4) deepest of all: `20-demo-bmw-
+peugeot.sql` and `20-demo-italian-swiss.sql` parented every demo business's
+own `Actual`/`Budget` ledger entities directly under the business itself,
+never under a real `Ledgers` container the way `createBusiness` (and
+`My Business`'s own seed data) both genuinely do — so the real
+`post_journal_entry_insert` trigger's own `ledger_id` lookup could never
+resolve, and every demo business's own seeded balance-sheet/P&L postings
+failed with a `NOT NULL constraint failed: journal.ledger_id`. Fixed by
+giving each demo business its own real `Ledgers` container and reparenting
+its ledgers under it. Verified: a full, fresh `make reset-db` + backend start
+with demo businesses seeded now succeeds cleanly (`Entities backend listening
+on http://localhost:3001`, all 6 businesses present, 406 journal entries
+posted), and the Tutorial e2e suite (which seeds with demo businesses
+disabled) still passes unaffected.
+
+### `Create Provider`'s own, real residual slowness
 
 Even after the `/items` fix above, the fixture's own `Create Provider` step
-(`/editor`) still takes ~18 real seconds — unchanged, since its own
-`parentableEntities` list-builder (`frontend/src/routes/editor/+page.svelte`,
-lines 37–52) already uses an efficient, Set-based exclusion pass, not the same
-O(n² × depth) pattern found in `/items`. The real cause of this one screen's
-own remaining slowness was not identified this block of work.
+(`/editor`) still took ~18 real seconds, even though every real network call
+it made finished in well under 300ms and the real page navigation itself
+finished in ~300ms too.
+
+**Fixed**: the exact same O(n² × depth) bug class, found a third time —
+`/editor`'s own real entities table renders every real entity in the whole
+business (4,623 of them in this real seed data) as its own real row, and each
+row calls `nameFor` *twice* (once for its own parent's name, once for its own
+relation's name); `nameFor` did a real, direct `entities.find(...)`, an O(n)
+linear scan, on every one of those ~9,246 real calls. Fixed the same way as
+both earlier occurrences: one real, memoized `id → entity` `Map`, built once
+per real entities load, turning every `nameFor` call into an O(1) lookup.
+Verified directly, re-running the full Tutorial e2e test: `Create Provider`
+fell from ~18s to ~5.5s, and `Create Customer` (the same screen) fell from
+~10s to ~4.6s.

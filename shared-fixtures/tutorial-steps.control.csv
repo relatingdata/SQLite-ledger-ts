@@ -14,8 +14,8 @@ path,verify,screenshot,skip
 ,,journal_line_2_staged,false
 ,,journal_entry_posted,false
 ,,provider_created,false
-,,,false
-,,,false
+,item_source_registered,item_cost_set,false
+,purchase_order_posted,purchase_order_placed,false
 ,,cash_purchase_done,false
 ,transfer_landed,transfer_done,false
 ,,,false

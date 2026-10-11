@@ -1,7 +1,27 @@
 -- German BMW / French Peugeot demo ledger data, split out per direct request.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (188, 188, 'BMW M GmbH', (SELECT id FROM current_entities WHERE name = 'Businesses'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (189, 189, 'Actual', (SELECT id FROM current_entities WHERE name = 'BMW M GmbH'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (550, 550, 'BMW M GmbH Budget 2026-27', (SELECT id FROM current_entities WHERE name = 'BMW M GmbH'), '2026-01-01', 1);
+-- A real, confirmed bug fixed here, found live via a real, repeated
+-- crash starting the backend with demo businesses seeded
+-- (`SqliteError: NOT NULL constraint failed: journal.ledger_id`,
+-- thrown from the real `post_journal_entry_insert` trigger in
+-- 00-core.sql while seeding this very file): every real business's
+-- own ledgers genuinely live under a real, dedicated "Ledgers"
+-- container entity, never directly under the business itself -
+-- confirmed directly against both `createBusiness` (db.ts) and
+-- `My Business`'s own, real, correct seed data a few lines up in
+-- 00-core.sql (`'Ledgers', ... 'Actual', 999000, ...`). This file's
+-- own "Actual"/Budget lines, for every one of its three real
+-- businesses, skipped that real container and parented them directly
+-- under the business instead - the real, structural gap the post-
+-- journal trigger's own `ledger_id` lookup (which requires exactly
+-- that "Ledgers" parent) could never resolve, leaving `ledger_id`
+-- NULL. Fixed by giving each business its own, real "Ledgers"
+-- container here too, and reparenting its existing "Actual"/Budget
+-- entities under it - never renamed, so nothing that already
+-- references their own, real, existing names elsewhere is affected.
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (700001, 700001, 'Ledgers', (SELECT id FROM current_entities WHERE name = 'BMW M GmbH'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (189, 189, 'Actual', 700001, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (550, 550, 'BMW M GmbH Budget 2026-27', 700001, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (190, 190, 'Immaterielle Vermögensgegenstände', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (191, 191, 'Sachanlagen', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (192, 192, 'Vorräte', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
@@ -26,8 +46,10 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (211, 211, 'Sonstige Steuern', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (212, 212, 'Gewinnabführung', (SELECT id FROM current_entities WHERE name = 'Expense'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (213, 213, 'Peugeot Citroën Sochaux SNC', (SELECT id FROM current_entities WHERE name = 'Businesses'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (214, 214, 'Actual', (SELECT id FROM current_entities WHERE name = 'Peugeot Citroën Sochaux SNC'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (551, 551, 'Peugeot Citroën Sochaux SNC Budget 2026-27', (SELECT id FROM current_entities WHERE name = 'Peugeot Citroën Sochaux SNC'), '2026-01-01', 1);
+-- Same real fix as BMW M GmbH's own "Ledgers" container just above.
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (700002, 700002, 'Ledgers', (SELECT id FROM current_entities WHERE name = 'Peugeot Citroën Sochaux SNC'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (214, 214, 'Actual', 700002, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (551, 551, 'Peugeot Citroën Sochaux SNC Budget 2026-27', 700002, '2026-01-01', 1);
 
 -- Wine Retail Business — a real, selectable business (not just the
 -- global Locations/Items data, which stays accessible via its own
@@ -87,7 +109,9 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50816, 131, 'Sparkling Wine', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50817, 132, 'Beer', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (50818, 133, 'Spirits', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business Items'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (297, 297, 'Actual', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business'), '2026-01-01', 1);
+-- Same real fix as BMW M GmbH's own "Ledgers" container above.
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (700003, 700003, 'Ledgers', (SELECT id FROM current_entities WHERE name = 'Wine Retail Business'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (297, 297, 'Actual', 700003, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (215, 215, 'Stocks et en-cours', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (216, 216, 'Créances clients et comptes rattachés', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (217, 217, 'Autres créances', (SELECT id FROM current_entities WHERE name = 'Asset'), '2026-01-01', 1);

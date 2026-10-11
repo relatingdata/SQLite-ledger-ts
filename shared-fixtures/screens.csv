@@ -34,20 +34,20 @@ Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),1,busine
 Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),2,itemName,input[placeholder='New item name'],text
 Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),3,category,select >> nth=0,select
 Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),4,newCategoryName,"input[placeholder=""New category name, e.g. Pinot Noir""]",text
-Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,1,businessName,,text
-Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,2,itemName,,text
-Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,3,providerName,,text
-Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,4,unitCostMinor,,text
-Set Item Cost and Pack Size,data,,,setItemCostAndPackSize,,5,packageQuantity,,text
+Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),1,businessName,,text
+Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),2,itemName,,text
+Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),3,providerName,select >> nth=2,select
+Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),4,unitCostMinor,input[placeholder='0.00'],money
+Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),5,packageQuantity,input[placeholder='e.g. 100'],text
 Post Journal Entry,data,/post,,postJournalEntrySimple,button:has-text('Save'),1,reference,,text
 Post Journal Entry,data,/post,,postJournalEntrySimple,button:has-text('Save'),2,businessName,,text
 Post Journal Entry,data,/post,,postJournalEntrySimple,button:has-text('Save'),3,ledger,,text
-Create Purchase Order,data,,,createPurchaseOrderInCartons,,1,businessName,,text
-Create Purchase Order,data,,,createPurchaseOrderInCartons,,2,providerName,,text
-Create Purchase Order,data,,,createPurchaseOrderInCartons,,3,itemName,,text
-Create Purchase Order,data,,,createPurchaseOrderInCartons,,4,cartons,,text
-Create Purchase Order,data,,,createPurchaseOrderInCartons,,5,pricePerCartonMinor,,text
-Create Purchase Order,data,,,createPurchaseOrderInCartons,,6,reference,,text
+Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),1,businessName,,text
+Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),3,itemName,select >> nth=0,select
+Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),2,providerName,select >> nth=1,select
+Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),4,cartons,input[placeholder='0'],text
+Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),5,pricePerCartonMinor,input[placeholder='0.00'],money
+Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),6,reference,input[placeholder='e.g. PO-1001'],text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),1,businessName,,text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),2,locationName,select >> nth=1,select
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),3,providerName,select >> nth=0,select

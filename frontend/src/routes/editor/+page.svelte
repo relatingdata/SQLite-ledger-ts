@@ -23,6 +23,27 @@
 
   let entities: EntityNode[] = $state([]);
 
+  // A real, significant, confirmed bug fixed here, found live by timing
+  // a real, UI-driven "Create Provider" step (and "Create Customer",
+  // which shares this same screen): the real step itself consistently
+  // took ~18s even though every real network call it made (confirmed
+  // via step-runner's own [net] timing) finished in well under 300ms,
+  // and the real page navigation itself ([load]) finished in ~300ms
+  // too — meaning the real, unaccounted-for ~16s+ was genuinely spent
+  // somewhere else entirely on the client, the exact same real class of
+  // bug already found and fixed twice this session (see /items'
+  // `categories` block, entityTree.ts). Root-caused here to `nameFor`
+  // (below): the real entities table renders every real entity in the
+  // whole business (4,623 of them in this real seed data) as its own
+  // real table row, and each real row calls `nameFor` TWICE (once for
+  // its own parent's name, once for its own relation's name) — and
+  // `nameFor` did a real, direct `entities.find(...)`, an O(n) linear
+  // scan, on every single one of those ~9,246 real calls. Fixed the
+  // same way as both earlier occurrences: one real, memoized `id →
+  // entity` Map, built once per real entities load, turning every real
+  // `nameFor` call into a real, direct, O(1) map lookup instead.
+  let entitiesById = $derived.by(() => new Map(entities.map((e) => [e.id, e])));
+
   // Every real entity is a valid parent/relation target in principle
   // (this editor is deliberately generic), but Vocabulary and its
   // descendants (translated UI labels, and now full-sentence help
@@ -37,16 +58,37 @@
   let parentableEntities = $derived.by(() => {
     const vocab = entities.find((e) => e.name === 'Vocabulary');
     if (!vocab) return entities;
+    // Real, confirmed bug (reported earlier as "Customers renders as a
+    // long, decorated Menu Link string instead of its own plain name"):
+    // the real "Customers" entity genuinely lives under Vocabulary
+    // (Customers < Vocabulary < Application < Root) — it is, structurally,
+    // one of Vocabulary's own real children, the exact same real place
+    // every ordinary, leaf UI-label word (`Save`, `Cancel`, `Date`, every
+    // genuinely long help-text sentence) also lives. The previous version
+    // below excluded the WHOLE real Vocabulary subtree unconditionally,
+    // which correctly hid the leaf words and help text, but also silently
+    // hid this real, legitimate, selectable Parent target along with
+    // them — there was never a real "Customers" option left in the list
+    // for a real UI session (or this real automated test) to select; a
+    // different, unrelated "Menu Link: ... — Customers" structural node
+    // happened to survive the filter and merely shares the word
+    // "Customers" in its own, real, raw name.
+    //
+    // The real, confirmed, generic distinguishing signal (checked
+    // directly against this real seed data): of Vocabulary's 742 real
+    // direct children, only 14 — exactly the real, structural category
+    // roots real business entities get created under (`Customers`,
+    // `Vendors`, `Relationship Types`, `Address Types`, `Contact Person
+    // Types`, and similar) — have any real children of their own
+    // anywhere in the tree. Every real, pure leaf UI-label word and
+    // every real help-text sentence has none. So only Vocabulary's own
+    // real, childless direct children are excluded here — never the
+    // whole subtree — leaving every real, structural category (and
+    // everything real underneath one) genuinely selectable.
+    const hasOwnChildren = new Set(entities.filter((e) => e.parent_id != null).map((e) => e.parent_id));
     const excludedIds = new Set<number>([vocab.id]);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const e of entities) {
-        if (e.parent_id != null && excludedIds.has(e.parent_id) && !excludedIds.has(e.id)) {
-          excludedIds.add(e.id);
-          changed = true;
-        }
-      }
+    for (const e of entities) {
+      if (e.parent_id === vocab.id && !hasOwnChildren.has(e.id)) excludedIds.add(e.id);
     }
     return entities.filter((e) => !excludedIds.has(e.id));
   });
@@ -186,7 +228,7 @@
 
   function nameFor(id: number | null): string {
     if (id == null) return '—';
-    return entities.find((e) => e.id === id)?.name ?? '—';
+    return entitiesById.get(id)?.name ?? '—';
   }
 
   async function saveEdit() {

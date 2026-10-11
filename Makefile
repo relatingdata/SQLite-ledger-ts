@@ -275,7 +275,7 @@ ensure-servers-no-demo:
 	@if [ -f $(BACKEND_PID) ] && kill -0 $$(cat $(BACKEND_PID)) 2>/dev/null && ! grep -q 'SEED_DEMO_BUSINESSES=false' /proc/$$(cat $(BACKEND_PID))/environ 2>/dev/null; then \
 	  echo "backend is running without SEED_DEMO_BUSINESSES=false - stopping it first (this target never reuses a wrongly-seeded server)"; \
 	  PID=$$(cat $(BACKEND_PID)); kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; rm -f $(BACKEND_PID); \
-	  pkill -9 -f "tsx watch src/server.ts" 2>/dev/null || true; \
+	  sh scripts/safe-pkill.sh "tsx watch src/server.ts"; \
 	fi
 	@if $(BACKEND_HEALTHY); then \
 	  echo "backend already healthy (SEED_DEMO_BUSINESSES=false), reusing (pid $$(cat $(BACKEND_PID)))"; \
@@ -303,8 +303,8 @@ stop-servers:
 	  kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; \
 	  rm -f $(FRONTEND_PID); echo "frontend stopped"; \
 	fi
-	@pkill -9 -f "tsx watch src/server.ts" 2>/dev/null || true
-	@pkill -9 -f "vite dev" 2>/dev/null || true
+	@sh scripts/safe-pkill.sh "tsx watch src/server.ts"
+	@sh scripts/safe-pkill.sh "vite dev"
 
 # A real, fast, minimal smoke layer - every real route visited once,
 # checking only that it loads without a real, unhandled error. See
@@ -613,11 +613,28 @@ test-one:
 check-e2e-types:
 	cd e2e && $(RUN_BINARY) tsc --noEmit
 
+# Real, confirmed second bug, found directly while this exact branch
+# finally started running on every real invocation (it never had before -
+# a real backend simply was never already running when reset-db ran, until
+# ensure-servers-no-demo started leaving one up between runs): a plain
+# `pkill -9 -f "tsx watch src/server.ts"` matches against every real
+# process's own, full command line - including the real shell CURRENTLY
+# RUNNING this very recipe line, since make passes the whole recipe
+# (pattern string included) to one real `sh -c` invocation, whose own
+# command line genuinely contains that exact text. Confirmed directly:
+# `bash -c 'echo tsx watch src/server.ts; pgrep -f "tsx watch
+# src/server.ts"'` matches and would kill its own, real, running shell.
+# Fixed generically, once, in scripts/safe-pkill.sh (walks each real
+# candidate's own ancestor/descendant chain, never kills this recipe's
+# own real shell or anything above or below it) - used here and by
+# ensure-servers-no-demo/stop-servers below, replacing the three further,
+# real, same-shaped, latent instances of this exact bug found alongside
+# it.
 reset-db:
 	@if [ -f $(BACKEND_PID) ] && kill -0 $$(cat $(BACKEND_PID)) 2>/dev/null; then \
 		echo "A real backend is still running and holds entities.sqlite open - stopping it first, so deleting the file below can't leave it serving a stale, now-deleted inode (the real, confirmed cause of repeated 'business already exists on a supposedly fresh db' failures)."; \
 		PID=$$(cat $(BACKEND_PID)); kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; rm -f $(BACKEND_PID); \
-		pkill -9 -f "tsx watch src/server.ts" 2>/dev/null || true; \
+		sh scripts/safe-pkill.sh "tsx watch src/server.ts"; \
 		sleep 1; \
 	fi
 	@if [ -f backend/data/entities.sqlite ]; then \
