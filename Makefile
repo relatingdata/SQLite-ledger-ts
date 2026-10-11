@@ -614,6 +614,12 @@ check-e2e-types:
 	cd e2e && $(RUN_BINARY) tsc --noEmit
 
 reset-db:
+	@if [ -f $(BACKEND_PID) ] && kill -0 $$(cat $(BACKEND_PID)) 2>/dev/null; then \
+		echo "A real backend is still running and holds entities.sqlite open - stopping it first, so deleting the file below can't leave it serving a stale, now-deleted inode (the real, confirmed cause of repeated 'business already exists on a supposedly fresh db' failures)."; \
+		PID=$$(cat $(BACKEND_PID)); kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; rm -f $(BACKEND_PID); \
+		pkill -9 -f "tsx watch src/server.ts" 2>/dev/null || true; \
+		sleep 1; \
+	fi
 	@if [ -f backend/data/entities.sqlite ]; then \
 		mkdir -p backend/data/archive; \
 		cp backend/data/entities.sqlite backend/data/archive/entities-$$(date +%Y%m%d-%H%M%S).sqlite; \
@@ -998,7 +1004,11 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/general-typed-hierarchy-resolution-plan.md \
 	docs/cartesian-account-linking-plan.md \
 	docs/inventory-lifecycle-blow-by-blow.md \
-	docs/file-inventory-appendix.md
+	docs/file-inventory-appendix.md \
+	docs/session-business-context.md \
+	docs/ledger-scoped-accounts-and-rollover.md \
+	docs/profit-centers-design.md \
+	docs/tutorial-e2e-hardening-2026-10.md
 
 # docs/screens-staging-triggers-functions.md references 17 specific
 # screenshots directly - a real, explicit Make dependency, so this

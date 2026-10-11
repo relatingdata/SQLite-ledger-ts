@@ -42,6 +42,12 @@ async function main() {
 
   const browser = await chromium.launch();
   const page = await browser.newPage();
+  page.on('console', (msg) => console.error(`[console:${msg.type()}] ${msg.text()}`));
+  page.on('pageerror', (err) => console.error(`[pageerror] ${err.message}`));
+  page.on('requestfailed', (req) => console.error(`[requestfailed] ${req.url()} ${req.failure()?.errorText}`));
+  page.on('response', (res) => {
+    if (res.url().includes('3001') || res.status() >= 400) console.error(`[response ${res.status()}] ${res.url()}`);
+  });
 
   if (afterLogin || afterSession) {
     await page.goto(`${baseUrl}/login`);
@@ -60,41 +66,52 @@ async function main() {
     if (page.url().endsWith('/session')) {
       if (sessionBusiness) await page.locator('select >> nth=0').selectOption({ label: sessionBusiness });
       await page.locator("button:has-text('Continue')").click();
-      await page.waitForTimeout(500);
+      await page.waitForLoadState('networkidle');
+      await page.waitForTimeout(1500);
+      console.error(`--- real, live URL right after /session Continue click: ${page.url()} ---`);
     }
   }
 
-  await page.goto(`${baseUrl}${urlPath}`);
-  await page.waitForTimeout(500);
+  if (flags.includes('--click-link')) {
+    const idx = flags.indexOf('--click-link');
+    const section = flags[idx + 1];
+    const linkText = flags[idx + 2];
+    await page.locator(`button:has-text('${section}')`).click();
+    await page.waitForTimeout(300);
+    await page.locator(`a:text-is('${linkText}')`).click();
+  } else {
+    await page.goto(`${baseUrl}${urlPath}`);
+  }
+  await page.waitForTimeout(3000);
   console.error(`--- real, live URL after navigation: ${page.url()} ---`);
-
-  // The real accessibility tree - exactly what a screen reader (or a
-  // human using real Playwright codegen) would see: role + accessible
-  // name for every real interactive node. No CSS, no framework internals.
-  const snapshot = await page.accessibility.snapshot({ interestingOnly: true });
-  console.log(JSON.stringify(snapshot, null, 2));
 
   // Native HTML attributes real form controls carry - placeholder, type,
   // and (for <select>) the real option labels, in real document order.
   // This is the concrete data screens.csv's own field_selector column
   // needs, read directly off the live page, never off a .svelte file.
-  const controls = await page.evaluate(() => {
-    const out: Array<Record<string, unknown>> = [];
-    document.querySelectorAll('input, select, button, textarea').forEach((el) => {
-      const tag = el.tagName.toLowerCase();
-      const entry: Record<string, unknown> = {
-        tag,
-        type: (el as HTMLInputElement).type || undefined,
-        placeholder: (el as HTMLInputElement).placeholder || undefined,
-        text: tag === 'button' ? el.textContent?.trim() : undefined,
-      };
-      if (tag === 'select') {
-        entry.options = Array.from((el as HTMLSelectElement).options).map((o) => o.textContent?.trim());
-      }
-      out.push(entry);
-    });
-    return out;
-  });
+  // Scoped under <main> specifically (never global document): the real,
+  // live app chrome (nav) sits outside <main>, and a global
+  // document.querySelectorAll call from page.evaluate was found, directly,
+  // to miss <main>'s own real content on at least one real, confirmed
+  // screen even though page.locator('main').innerHTML() saw it correctly
+  // moments earlier in the same run - real, unexplained, not yet
+  // root-caused. Scoping through Playwright's own locator API (proven
+  // reliable) sidesteps it rather than trusting the global evaluate.
+  const handles = await page.locator('main input, main select, main button, main textarea').all();
+  const controls: Array<Record<string, unknown>> = [];
+  for (const h of handles) {
+    const tag = await h.evaluate((el) => el.tagName.toLowerCase());
+    const entry: Record<string, unknown> = {
+      tag,
+      type: await h.evaluate((el) => (el as HTMLInputElement).type || undefined),
+      placeholder: await h.evaluate((el) => (el as HTMLInputElement).placeholder || undefined),
+      text: tag === 'button' ? (await h.textContent())?.trim() : undefined,
+    };
+    if (tag === 'select') {
+      entry.options = await h.evaluate((el) => Array.from((el as HTMLSelectElement).options).map((o) => o.textContent?.trim()));
+    }
+    controls.push(entry);
+  }
   console.log('--- real, native form controls, in real document order ---');
   console.log(JSON.stringify(controls, null, 2));
 

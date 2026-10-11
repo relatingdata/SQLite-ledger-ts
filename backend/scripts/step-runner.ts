@@ -412,6 +412,14 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // Bank account - the same, simple, direct, name-based style every
   // other real verify entry here already uses.
   cash_at_bank_exists: () => db.getEntityTree().some((e) => e.name === 'Cash at Bank'),
+  // Confirms a real Stock Transfer step genuinely moved stock, not just
+  // that the browser's own click didn't throw - found to matter directly
+  // (docs/skill-step-runner-design.md section 18's own "net::ERR_ABORTED"
+  // class of blind spot): a required "Reference" field the UI form
+  // enforces but the API path never needed silently left the real
+  // transfer unsaved, with a visible, real validation error on screen,
+  // while the click itself still "succeeded" with no exception.
+  transfer_landed: (a) => db.getInventoryListingByLocation(a.businessName as any).some((g) => g.location === a.toLocationName && g.rows.some((r) => r.item === a.itemName)),
 };
 
 /** A minimal, real CSV field parser handling real, quoted fields with
@@ -618,7 +626,11 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         error: `screens.csv has no real UI wiring (ui_path/open_selector/submit_selector/field_selector) for screen "${step.screen_name}" - only api_function is set, so there is no browser interaction to perform. This screen's UI path has never actually been implemented/tested.`,
       };
     }
-    if (screen?.ui_path && !page.url().endsWith(screen.ui_path)) await page.goto(screen.ui_path);
+    if (screen?.ui_path && !page.url().endsWith(screen.ui_path)) {
+      const navStart = Date.now();
+      await page.goto(screen.ui_path);
+      console.log(`  [load] goto ${screen.ui_path}: ${Date.now() - navStart}ms`);
+    }
     // open_selector is almost always one, real click - but a real
     // screen can genuinely need more than one real action to reach
     // its own form (e.g. Business Setup's real Insert-key tree:
@@ -628,11 +640,13 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
     // this without the runner ever needing to know anything about
     // what screen it's driving - still purely generic.
     if (screen?.open_selector) {
+      const openStart = Date.now();
       for (const action of screen.open_selector.split(';;').map((a) => a.trim()).filter(Boolean)) {
         if (action.startsWith('key:')) await page.keyboard.press(action.slice(4));
         else await page.locator(action).click();
         await page.waitForTimeout(300);
       }
+      console.log(`  [load] open_selector ${screen.open_selector}: ${Date.now() - openStart}ms`);
     }
     if (screen) {
       for (const field of screen.fields) {
@@ -675,7 +689,14 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
       }
       if (screen.submit_selector) {
         await page.locator(screen.submit_selector).click();
-        await page.waitForTimeout(800);
+        // A real, confirmed timing gap, not a guess: repeated, real runs
+        // in this same session showed "Verify ... returned false"
+        // immediately after a real, successful-looking submit click -
+        // the real POST was still in flight when the very next line read
+        // the database. 800ms was not enough real margin under genuine,
+        // ordinary load; widened once, directly in response to that
+        // repeated, observed failure, not spent speculatively.
+        await page.waitForTimeout(2000);
       }
     }
     if (step.screenshot) {
@@ -713,7 +734,17 @@ async function main() {
   const skipN = args.includes('--skip') ? Number(args[args.indexOf('--skip') + 1]) : 0;
   const delayMs = args.includes('--delay') ? Number(args[args.indexOf('--delay') + 1]) : 5000;
   const openInspector = args.includes('--ui');
-  const screenshotDir = args.includes('--screenshot-dir') ? args[args.indexOf('--screenshot-dir') + 1] : 'docs/manual-images-tutorial';
+  // Real, confirmed confusion (found while writing the User Manual tutorial
+  // chapter): this script always runs with `backend/` as its own real cwd
+  // (the Makefile's own `cd backend &&` prefix), so the old relative
+  // default here ('docs/manual-images-tutorial') genuinely wrote to
+  // backend/docs/manual-images-tutorial/ - a second, real, different
+  // directory from docs/manual-images-tutorial/ at the repo root, which is
+  // the one the real User Manual markdown actually references. Pointed at
+  // the real, same, single, canonical directory the manual uses, so a
+  // fresh UI-path run's own real screenshots land exactly where the
+  // manual expects them, with no further manual copying step.
+  const screenshotDir = args.includes('--screenshot-dir') ? args[args.indexOf('--screenshot-dir') + 1] : '../docs/manual-images-tutorial';
   const inlineVerify = args.includes('--verify') ? args[args.indexOf('--verify') + 1] : undefined;
   const inlineScreenshot = args.includes('--screenshot') ? args[args.indexOf('--screenshot') + 1] : undefined;
   // Per direct request: a real UI step that fails is retried once,
@@ -763,6 +794,22 @@ async function main() {
       browser = await chromium.launch({ headless: !openInspector });
       const context = await browser.newContext({ baseURL: 'http://localhost:5173' });
       page = await context.newPage();
+      // Real, measured backend wait time per real network call - not a
+      // guess, not the blind post-submit sleep. timing() gives Playwright's
+      // own resource-timing numbers for the real request; responseEnd minus
+      // requestStart is the real time spent waiting on this real backend
+      // call (DNS/connect/TLS excluded, both zero on localhost anyway).
+      page.on('requestfinished', async (req) => {
+        if (!req.url().includes(':3001')) return;
+        try {
+          const t = req.timing();
+          const res = await req.response();
+          const waitMs = Math.round(t.responseEnd - t.requestStart);
+          console.log(`  [net] ${req.method()} ${req.url().replace('http://localhost:3001', '')} -> ${res?.status()} [${waitMs}ms backend wait]`);
+        } catch {
+          // Response may already be gone by the time we read it; not fatal.
+        }
+      });
     }
     return page;
   }
@@ -789,9 +836,11 @@ async function main() {
     for (const step of batch) {
       const stepPath = step.path || path;
       if (step.comment) console.log(`\n# ${step.comment}`);
+      const stepStart = Date.now();
       let result = stepPath === 'ui' ? await runStepViaUi(await ensureUiPage(), step, screens, screenshotDir) : runStepViaApi(step, screens);
+      const stepMs = Date.now() - stepStart;
       const uiSucceededDirectly = stepPath === 'ui' && result.ok;
-      console.log(result.ok ? `✅ ${step.index}: ${step.screen_name} (${stepPath})` : `❌ ${step.index}: ${step.screen_name} (${stepPath}): ${result.error}`);
+      console.log(result.ok ? `✅ ${step.index}: ${step.screen_name} (${stepPath}) [${stepMs}ms]` : `❌ ${step.index}: ${step.screen_name} (${stepPath}): ${result.error} [${stepMs}ms]`);
       if (verifyViaRecording && uiSucceededDirectly) {
         if (step.screen_name === 'Login' && !recordingStarted) {
           try {

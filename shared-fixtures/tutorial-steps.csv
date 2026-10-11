@@ -77,7 +77,7 @@
 "Cash Purchase","Tutorial Wine Retail Business","Head Office","Highland Brewing Co","Amber Ale 330ml","96","350"
 # Stock Transfer: 24 bottles (1 whole carton) warehouse to retail,
 # leaving 72 at the warehouse, per Chapter 3's own numbers.
-"Transfer Items","Tutorial Wine Retail Business","Amber Ale 330ml","Head Office","Main Street Cellar","24"
+"Transfer Items","Tutorial Wine Retail Business","Amber Ale 330ml","Head Office","Main Street Cellar","24","TRANSFER-AMBER-1"
 # POS Sale, at $5.00/bottle (500 minor units) - run more than once,
 # per Chapter 3; quantity per sale (2) is an assumed figure, since
 # Chapter 3 states the price but never a per-sale quantity.

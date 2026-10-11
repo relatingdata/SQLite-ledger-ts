@@ -195,19 +195,46 @@
     }
     return entities.find((e) => e.name === 'Items');
   };
+  // Real, confirmed performance bug (found via Playwright network timing on
+  // the real Create Item step - every real backend call returned in under
+  // 350ms, yet the real step took 20-45 real seconds): the previous version
+  // of this block called `entities.find()` (an O(n) linear scan) at every
+  // single hop while walking each entity's own parent chain, for every one
+  // of the thousands of real entities in the real, whole chart-of-accounts/
+  // vocabulary/menu tree - O(n^2 x depth) real comparisons, blocking the
+  // real browser's own main thread for tens of real seconds. Fixed by
+  // building one real id->entity Map up front (O(n), done once) and
+  // memoizing each real node's own "is this node under Items" answer as
+  // it's computed, so no real node's own real ancestor chain is ever
+  // walked more than once - true O(n) overall, no behavior change.
   let categories = $derived.by(() => {
     const root = itemsRoot();
     if (!root) return [];
-    const isUnderItems = (id: number): boolean => {
-      let current = entities.find((e) => e.id === id);
-      while (current) {
-        if (current.id === root.id) return true;
-        current = entities.find((e) => e.id === current!.parent_id);
-      }
-      return false;
-    };
+    const byId = new Map(entities.map((e) => [e.id, e]));
     const hasChildren = new Set(entities.filter((e) => e.parent_id != null).map((e) => e.parent_id));
-    return entities.filter((e) => e.id !== root.id && isUnderItems(e.id) && hasChildren.has(e.id)).sort((a, b) => a.name.localeCompare(b.name));
+    const underItemsCache = new Map<number, boolean>();
+    const isUnderItems = (id: number): boolean => {
+      const cached = underItemsCache.get(id);
+      if (cached !== undefined) return cached;
+      const chain: number[] = [];
+      let current = byId.get(id);
+      let result = false;
+      while (current) {
+        if (current.id === root.id) { result = true; break; }
+        const alreadyKnown = underItemsCache.get(current.id);
+        if (alreadyKnown !== undefined) { result = alreadyKnown; break; }
+        chain.push(current.id);
+        current = current.parent_id != null ? byId.get(current.parent_id) : undefined;
+      }
+      for (const nodeId of chain) underItemsCache.set(nodeId, result);
+      underItemsCache.set(id, result);
+      return result;
+    };
+    // The cheap, Set-backed check runs first now, so the expensive
+    // ancestor-chain walk only ever runs for real nodes that actually
+    // have children - never for every leaf account/vocabulary node in
+    // the whole real tree.
+    return entities.filter((e) => e.id !== root.id && hasChildren.has(e.id) && isUnderItems(e.id)).sort((a, b) => a.name.localeCompare(b.name));
   });
 
   // Each real item's own real category (its direct parent's name) —

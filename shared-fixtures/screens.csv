@@ -67,11 +67,12 @@ Open Container,data,,,openContainer,,4,containerValue,,text
 Open Container,data,,,openContainer,,5,cartonsOpened,,text
 Open Container,data,,,openContainer,,6,unitValue,,text
 Open Container,data,,,openContainer,,7,unitsProduced,,text
-Transfer Items,data,,,transferItemsSimple,,1,businessName,,text
-Transfer Items,data,,,transferItemsSimple,,2,itemName,,text
-Transfer Items,data,,,transferItemsSimple,,3,fromLocationName,,text
-Transfer Items,data,,,transferItemsSimple,,4,toLocationName,,text
-Transfer Items,data,,,transferItemsSimple,,5,quantity,,text
+Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),1,businessName,,text
+Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),3,fromLocationName,select >> nth=1,select
+Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),2,itemName,select >> nth=0,select
+Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),4,toLocationName,select >> nth=2,select
+Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),5,quantity,input[type=number],text
+Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),6,reference,input[type=text],text
 POS Sale,data,,,posSaleSimple,,1,businessName,,text
 POS Sale,data,,,posSaleSimple,,2,locationName,,text
 POS Sale,data,,,posSaleSimple,,3,itemName,,text
