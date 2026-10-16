@@ -6043,11 +6043,24 @@ export interface ItemSummary {
   product: string | null;
 }
 
-export function listItems(limit?: number, offset = 0): ItemSummary[] {
+/** A real, confirmed, live scoping bug fixed here: this function used
+ * to seed its own recursive tree from `name = 'Items' OR name LIKE '%
+ * Items'` with no business qualifier at all - matching every
+ * business's own Items root (and the single, real, global Application
+ * root literally named 'Items') at once, so every caller saw every
+ * business's Items mixed together, plus whatever had leaked onto the
+ * global root. Items are scoped per business - see
+ * `docs/scoped-uniqueness-and-location-accounting.md` - so this now
+ * takes the real, required `businessName` the same, direct way
+ * `locations.ts`'s own route already requires it. A business with no
+ * Items root of its own yet (the bootstrap "admin" business, for
+ * instance) correctly gets an empty list, not every other business's
+ * catalogue. */
+export function listItems(businessName: BusinessName, limit?: number, offset = 0): ItemSummary[] {
   const rows = db
     .prepare(
       `WITH RECURSIVE items_tree(id) AS (
-         SELECT id FROM current_entities WHERE name = 'Items' OR name LIKE '% Items'
+         SELECT id FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')) AND (name = 'Items' OR name LIKE '% Items')
          UNION ALL
          SELECT e.id FROM current_entities e JOIN items_tree t ON e.parent_id = t.id
        )
@@ -6062,18 +6075,19 @@ export function listItems(limit?: number, offset = 0): ItemSummary[] {
        ORDER BY e.name
        LIMIT ? OFFSET ?`
     )
-    .all(limit ?? -1, offset) as (ItemSummary & { parentName: string })[];
+    .all(businessName, limit ?? -1, offset) as (ItemSummary & { parentName: string })[];
   return rows.map((r) => ({ ...r, storage_origin: getItemStorageOrigin(asItemName(r.name)) ?? null, product: r.parentName === 'Items' || r.parentName.endsWith(' Items') ? null : r.parentName }));
 }
 
-/** The real, total count of every real item — used by the frontend
- * pagination mechanism (Pager/createPaginator) to show "page n of
- * nn", not just Newer/Older. */
-export function countItems(): number {
+/** The real, total count of every real item within one real business
+ * — used by the frontend pagination mechanism (Pager/createPaginator)
+ * to show "page n of nn", not just Newer/Older. Scoped the same,
+ * direct way listItems above now is, for the exact same reason. */
+export function countItems(businessName: BusinessName): number {
   const row = db
     .prepare(
       `WITH RECURSIVE items_tree(id) AS (
-         SELECT id FROM current_entities WHERE name = 'Items' OR name LIKE '% Items'
+         SELECT id FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')) AND (name = 'Items' OR name LIKE '% Items')
          UNION ALL
          SELECT e.id FROM current_entities e JOIN items_tree t ON e.parent_id = t.id
        )
@@ -6083,7 +6097,7 @@ export function countItems(): number {
        JOIN contact p ON p.entity_id = e.id
        WHERE e.name != 'Items' AND e.name NOT LIKE '% Items'`
     )
-    .get() as { total: number };
+    .get(businessName) as { total: number };
   return row.total;
 }
 

@@ -17,7 +17,7 @@
   async function loadAll() {
     loading = true;
     try {
-      [entities, { rows: items }, expiring] = await Promise.all([getEntityTree(), listItems(), getExpiringStock(undefined, withinDays)]);
+      [entities, { rows: items }, expiring] = await Promise.all([getEntityTree(), listItems(session.current?.businessName ?? ''), getExpiringStock(undefined, withinDays)]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {

@@ -1,14 +1,16 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
-import { listItems, countItems, getItem, setItem, setItemStorageOrigin, getItemStorageOrigin, listItemSources, addOrUpdateItemSource, deleteItemSource, stageBomComponent, postBomComponents, getBomComponents, deleteBomComponent, ValidationError, NotFoundError, asUserId, asItemName } from '../db.js';
+import { listItems, countItems, getItem, setItem, setItemStorageOrigin, getItemStorageOrigin, listItemSources, addOrUpdateItemSource, deleteItemSource, stageBomComponent, postBomComponents, getBomComponents, deleteBomComponent, ValidationError, NotFoundError, asUserId, asItemName, asBusinessName } from '../db.js';
 
 export const itemsRouter = Router();
 
 itemsRouter.get('/', (req, res) => {
   const limit = req.query.limit ? Number(req.query.limit) : undefined;
   const offset = req.query.offset ? Number(req.query.offset) : 0;
-  res.json({ rows: listItems(limit, offset), totalCount: countItems() });
+  const business = req.query.business as string;
+  if (!business) return res.status(400).json({ error: 'business query parameter is required — items are scoped per business.' });
+  res.json({ rows: listItems(asBusinessName(business), limit, offset), totalCount: countItems(asBusinessName(business)) });
 });
 
 itemsRouter.get('/:name', (req, res) => {

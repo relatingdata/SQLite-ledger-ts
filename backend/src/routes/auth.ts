@@ -15,10 +15,14 @@ import {
   setOwnDateFormat,
   setSessionBusiness,
   setSessionProfitCenter,
+  getUserRoleMatrix,
+  setUserRoleInBusiness,
+  unsetUserRoleInBusiness,
   AuthError,
 } from '../auth.js';
 import { ValidationError, NotFoundError,
   asUserId,
+  asBusinessName,
 } from '../db.js';
 import { requireAuth, requireRole } from '../auth-middleware.js';
 
@@ -211,6 +215,41 @@ authRouter.put('/me/number-format', requireAuth, (req, res) => {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not update number format.' });
+  }
+});
+
+// Per docs/user-business-role-matrix-design.md: the real, per-business
+// User × Role matrix - a genuine Cartesian Product, scoped per
+// business, additive alongside the existing, global setUserRoles
+// above (which stays exactly as it was).
+authRouter.get('/businesses/:business/role-matrix', requireAuth, requireRole('Administrator'), (req, res) => {
+  try {
+    res.json(getUserRoleMatrix(asBusinessName(req.params.business)));
+  } catch (err) {
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not load the role matrix.' });
+  }
+});
+
+authRouter.put('/businesses/:business/role-matrix/:user/:role', requireAuth, requireRole('Administrator'), (req, res) => {
+  try {
+    setUserRoleInBusiness(asBusinessName(req.params.business), req.params.user, req.params.role, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError || err instanceof NotFoundError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not set this cell of the role matrix.' });
+  }
+});
+
+authRouter.delete('/businesses/:business/role-matrix/:user/:role', requireAuth, requireRole('Administrator'), (req, res) => {
+  try {
+    unsetUserRoleInBusiness(asBusinessName(req.params.business), req.params.user, req.params.role, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not clear this cell of the role matrix.' });
   }
 });
 

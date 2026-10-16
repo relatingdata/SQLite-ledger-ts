@@ -139,7 +139,29 @@ function migrateForWineRetailDemoData() {
   // directly scoped `SELECT ... WHERE parent_id = ?` when it already
   // exists), matching create()'s own, real, scoped uniqueness
   // semantics throughout - never a bare, global name match again.
-  const itemsRoot = requireEntity('Items', typeRootName);
+  //
+  // A real, further, confirmed bug found directly, live, in a freshly
+  // reset database: `requireEntity('Items', typeRootName)` with no
+  // parent at all still resolved to the one, single, real, GLOBAL
+  // Items root (direct child of Application) - not this business's
+  // own real Items root at all. Every category below (Red Wine, White
+  // Wine, Beer, Spirits, Soft Drink, Cocktails, Snacks, Sparkling
+  // Wine) was being created a second time, as a real, genuine
+  // duplicate, directly under the global Items root, alongside the
+  // already-correct ones the static seed SQL creates under this
+  // business's own, real "Wine Retail Business Items" root - a real,
+  // live violation of exactly the scoping this whole chapter is
+  // about. Fixed by resolving this business's own, real, scoped Items
+  // root first, the same, direct pattern `createBusiness` itself uses
+  // for a genuinely new business (PER_BUSINESS_ROOTS) - never the
+  // bare, global name again. (This business's own Items root still
+  // carries its own, real, pre-existing, not-yet-migrated "Wine
+  // Retail Business Items" name rather than the newer, plain "Items"
+  // convention - a real, separate, already-documented gap, left
+  // alone here; this fix only stops the real, further duplication
+  // onto the wrong, global root.)
+  const wineRetailBusiness = requireEntity('Wine Retail Business', typeBusinessName, requireEntity('Businesses', typeRootName));
+  const itemsRoot = requireEntity('Wine Retail Business Items', typeRootName, wineRetailBusiness);
   const categories = loadDemoCategories();
   const catNames = Array.from(new Set(categories.map((c) => c.category)));
   const categoryEntities = new Map<string, TypedNode<'CategoryOrItemsRootName'>>();

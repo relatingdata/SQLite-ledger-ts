@@ -1043,7 +1043,9 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/session-business-context.md \
 	docs/ledger-scoped-accounts-and-rollover.md \
 	docs/profit-centers-design.md \
-	docs/tutorial-e2e-hardening-2026-10.md
+	docs/tutorial-e2e-hardening-2026-10.md \
+	docs/access-control-design.md \
+	docs/user-business-role-matrix-design.md
 
 # docs/screens-staging-triggers-functions.md references 17 specific
 # screenshots directly - a real, explicit Make dependency, so this

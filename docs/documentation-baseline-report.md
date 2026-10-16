@@ -14,14 +14,14 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `typeBusinessTypeQuestionName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeBusinessTypeQuestionName = { brand: 'BusinessTypeQuestionName' };` |
 | `typeBusinessTypeQuestionsRootName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeBusinessTypeQuestionsRootName = { brand: 'BusinessTypeQuestionsRootName' };` |
 | `typeChartOfAccountsNodeName` | `backend/src/db.ts` | (none) | `const typeChartOfAccountsNodeName = { brand: 'ChartOfAccountsNodeName' };` |
-| `typeChartOfAccountsRootName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeChartOfAccountsRootName = { brand: 'ChartOfAccountsRootName' };` |
+| `typeChartOfAccountsRootName` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-seed.ts` | `const typeChartOfAccountsRootName = { brand: 'ChartOfAccountsRootName' };` |
 | `typeCustomerName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeCustomerName = { brand: 'CustomerName' };` |
 | `typeEntityLinkRecordName` | `backend/src/db.ts` | (none) | `const typeEntityLinkRecordName = { brand: 'EntityLinkRecordName' };` |
 | `typeEquityAccountName` | `backend/src/db.ts` | `backend/src/routes/businesses.ts` | `const typeEquityAccountName = { brand: 'EquityAccountName' };` |
 | `typeExpenseCategoryName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeExpenseCategoryName = { brand: 'ExpenseCategoryName' };` |
 | `typeHiddenMarkerName` | `backend/src/db.ts` | (none) | `const typeHiddenMarkerName = { brand: 'HiddenMarkerName' };` |
 | `typeIsBillingAddressMarkerName` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `const typeIsBillingAddressMarkerName = { brand: 'IsBillingAddressMarkerName' };` |
-| `typeItemName` | `backend/src/db.ts` | (none) | `const typeItemName = { brand: 'ItemName' };` |
+| `typeItemName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeItemName = { brand: 'ItemName' };` |
 | `typeLedgerName` | `backend/src/db.ts` | `backend/src/db-seed.ts` | `const typeLedgerName = { brand: 'LedgerName' };` |
 | `typeLineTypeMarkerName` | `backend/src/db.ts` | (none) | `const typeLineTypeMarkerName = { brand: 'LineTypeMarkerName' };` |
 | `typeLocationTypeMarkerName` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `const typeLocationTypeMarkerName = { brand: 'LocationTypeMarkerName' };` |
@@ -33,7 +33,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `typeProjectTaskName` | `backend/src/db.ts` | (none) | `const typeProjectTaskName = { brand: 'ProjectTaskName' };` |
 | `typeProviderName` | `backend/src/db.ts` | (none) | `const typeProviderName = { brand: 'ProviderName' };` |
 | `typeRelationshipRecordName` | `backend/src/db.ts` | (none) | `const typeRelationshipRecordName = { brand: 'RelationshipRecordName' };` |
-| `typeRootName` | `backend/src/db.ts` | `backend/src/auth-middleware.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/divisions.ts` | `const typeRootName = { brand: 'RootName' };` |
+| `typeRootName` | `backend/src/db.ts` | `backend/src/auth-middleware.ts`, `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/divisions.ts` | `const typeRootName = { brand: 'RootName' };` |
 | `typeScheduleRecordName` | `backend/src/db.ts` | (none) | `const typeScheduleRecordName = { brand: 'ScheduleRecordName' };` |
 | `typeStorageOriginMarkerName` | `backend/src/db.ts` | (none) | `const typeStorageOriginMarkerName = { brand: 'StorageOriginMarkerName' };` |
 | `typeTextDirectionMarkerName` | `backend/src/db.ts` | (none) | `const typeTextDirectionMarkerName = { brand: 'TextDirectionMarkerName' };` |
@@ -75,31 +75,28 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `stockRouter` | `backend/src/routes/stock.ts` | `backend/src/server.ts` | `const stockRouter = Router();` |
 | `stockTakesRouter` | `backend/src/routes/locations.ts` | `backend/src/server.ts` | `const stockTakesRouter = Router();` |
 
-## Functions (124, alphabetical)
+## Functions (116, alphabetical)
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
 | `addOrUpdateItemSource` | `backend/src/db.ts` | `backend/src/routes/items.ts` | `function addOrUpdateItemSource(input: ItemSourceInput): void` |
-| `addTypedAddress` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function addTypedAddress(entityName: string, addressType: string, value: Partial<Contact>, userId: UserId): string` |
+| `addTypedAddress` | `backend/src/db.ts` | `backend/src/routes/contacts.ts`, `backend/src/routes/entities.ts` | `function addTypedAddress(entityName: string, addressType: string, value: Partial<Contact>, userId: UserId): string` |
 | `addTypedContactPerson` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function addTypedContactPerson(entityName: string, contactType: string, value: { name: string; phone?: string \| null; email?: string \| null }, userId: UserId): string` |
-| `addTypedPhone` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId): string` |
-| `adjustLocationCapacity` | `backend/src/db-stock.ts` | (none) | `function adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void` |
+| `addTypedPhone` | `backend/src/db.ts` | `backend/src/routes/contacts.ts`, `backend/src/routes/entities.ts` | `function addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId): string` |
+| `adjustLocationCapacity` | `backend/src/db-stock.ts` | `backend/src/db.ts` | `function adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void` |
 | `asCustomerName` | `backend/src/db.ts` | `backend/src/routes/arap.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/pos.ts` | `function asCustomerName(name: string): CustomerName` |
-| `asDivisionName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-reports.ts` | `function asDivisionName(name: string): DivisionName` |
 | `asEmployeeName` | `backend/src/db.ts` | `backend/src/routes/projects.ts` | `function asEmployeeName(name: string): EmployeeName` |
-| `asEntityId` | `backend/src/db.ts` | `backend/src/routes/entities.ts` | `function asEntityId(id: number): EntityId` |
-| `asItemName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/items.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/stock-lots.ts` | `function asItemName(name: string): ItemName` |
-| `asLocationName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asLocationName(name: string): LocationName` |
+| `asEntityId` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/routes/entities.ts` | `function asEntityId(id: number): EntityId` |
+| `asItemName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/items.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/stock-lots.ts` | `function asItemName(name: string): ItemName` |
+| `asLocationName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asLocationName(name: string): LocationName` |
 | `asProviderName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asProviderName(name: string): ProviderName` |
 | `asUserId` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/auth.ts`, `backend/src/routes/businesses.ts`, `backend/src/routes/contacts.ts`, `backend/src/routes/customer-registration.ts`, `backend/src/routes/divisions.ts`, `backend/src/routes/entities.ts`, `backend/src/routes/hierarchy.ts`, `backend/src/routes/i18n.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/items.ts`, `backend/src/routes/journal.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/period.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/products.ts`, `backend/src/routes/projects.ts`, `backend/src/routes/reports.ts`, `backend/src/routes/stock-lots.ts`, `backend/src/routes/stock.ts` | `function asUserId(id: number): UserId` |
-| `attachUser` | `backend/src/auth-middleware.ts` | `backend/src/server.ts` | `function attachUser(req: Request, _res: Response, next: NextFunction): void` |
+| `attachUser` | `backend/src/auth-middleware.ts` | `backend/src/recording.ts`, `backend/src/server.ts` | `function attachUser(req: Request, _res: Response, next: NextFunction): void` |
 | `authenticateCustomer` | `backend/src/db.ts` | `backend/src/routes/customer-registration.ts` | `function authenticateCustomer(name: string, password: string): boolean` |
-| `buildProfitAndLossFromBalances` | `backend/src/db-reports.ts` | `backend/src/db-matrix-reports.ts` | `function buildProfitAndLossFromBalances(balances: Map<number, number>): ProfitAndLoss` |
+| `buildProfitAndLossFromBalances` | `backend/src/db-reports.ts` | `backend/src/db-matrix-reports.ts` | `function buildProfitAndLossFromBalances(business: string, balances: Map<number, number>): ProfitAndLoss` |
 | `changeOwnPassword` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function changeOwnPassword(userId: number, currentPassword: string, newPassword: string): void` |
 | `changePassword` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function changePassword(userId: number, newPassword: string): void` |
 | `checkEInvoiceDiscrepancies` | `backend/src/db.ts` | (none) | `function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[]` |
-| `countStockListing` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function countStockListing(): number` |
-| `createDivisionType` | `backend/src/db.ts` | `backend/src/routes/divisions.ts` | `function createDivisionType(name: string, userId: UserId): void` |
 | `createLocationType` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function createLocationType(name: string, userId: UserId): void` |
 | `createProduct` | `backend/src/db.ts` | `backend/src/routes/products.ts` | `function createProduct(name: string, parent: string, userId: UserId): void` |
 | `createSystemEntity` | `backend/src/db-stock.ts` | (none) | `function createSystemEntity(name: string, parentId: number \| null): number` |
@@ -114,8 +111,8 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `dispatchOrderFromPickingList` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function dispatchOrderFromPickingList(invoiceId: number, locationName: LocationName, revenueAccount: string, taxAccount: string, userId: UserId): void` |
 | `ensureAddressType` | `backend/src/db.ts` | (none) | `function ensureAddressType(typeName: string, userId: UserId): void` |
 | `ensureContactPersonType` | `backend/src/db.ts` | (none) | `function ensureContactPersonType(typeName: string, userId: UserId): void` |
-| `ensureItemTier` | `backend/src/db.ts` | (none) | `function ensureItemTier(baseProductName: ItemName, tier: string, userId: UserId): ` |
-| `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts` | `function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): ` |
+| `ensureItemTier` | `backend/src/db.ts` | (none) | `function ensureItemTier(baseProductName: ItemName, tier: string, userId: UserId, business?: BusinessName): ` |
+| `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db.ts` | `function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): ` |
 | `ensurePhoneType` | `backend/src/db.ts` | (none) | `function ensurePhoneType(typeName: string, userId: UserId): void` |
 | `exportInvoiceAsUbl` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function exportInvoiceAsUbl(invoiceId: number): string` |
 | `getAccountsPostedTo` | `backend/src/db.ts` | (none) | `function getAccountsPostedTo(reference: string): string[]` |
@@ -125,14 +122,12 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getBankAccounts` | `backend/src/db.ts` | `backend/src/routes/reports.ts` | `function getBankAccounts(business: BusinessName, ledger: LedgerName): BankAccountRow[]` |
 | `getBusinesses` | `backend/src/db.ts` | `backend/src/routes/businesses.ts` | `function getBusinesses(): ` |
 | `getCashFlowForecast` | `backend/src/db.ts` | `backend/src/routes/reports.ts` | `function getCashFlowForecast(business: BusinessName, ledger: LedgerName, asOfDate: string, horizonDays: number): CashFlowForecast` |
-| `getChartOfAccounts` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getChartOfAccounts(): ChartRow[]` |
+| `getChartOfAccounts` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getChartOfAccounts(business: string): ChartRow[]` |
 | `getConceptsWithAlternates` | `backend/src/db.ts` | `backend/src/routes/i18n.ts` | `function getConceptsWithAlternates(): ConceptWithAlternates[]` |
 | `getCreditStatus` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function getCreditStatus(entityName: string): CreditStatus` |
 | `getDimensionAncestorChain` | `backend/src/db.ts` | (none) | `function getDimensionAncestorChain(entityName: string, dimensionName: string): string[]` |
 | `getDimensionLinksPointingAt` | `backend/src/db.ts` | `backend/src/routes/entities.ts` | `function getDimensionLinksPointingAt(targetName: string): ` |
 | `getDivisions` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/routes/divisions.ts` | `function getDivisions(): ` |
-| `getDivisionType` | `backend/src/db.ts` | `backend/src/db-journal.ts` | `function getDivisionType(divisionName: string): string \| null` |
-| `getDivisionTypes` | `backend/src/db.ts` | `backend/src/routes/divisions.ts` | `function getDivisionTypes(): string[]` |
 | `getEmployeeSchedule` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function getEmployeeSchedule(employeeName: string): EmployeeScheduleLine[]` |
 | `getExpiringStock` | `backend/src/db-stock.ts` | `backend/src/routes/stock-lots.ts` | `function getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[]` |
 | `getInvoiceOutstandingMinor` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function getInvoiceOutstandingMinor(invoiceId: number): number` |
@@ -141,7 +136,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getItemLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `backend/src/routes/locations.ts` | `function getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels` |
 | `getItemUnitCostMinor` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function getItemUnitCostMinor(itemName: ItemName): number \| null` |
 | `getLanguages` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/routes/i18n.ts` | `function getLanguages(): ` |
-| `getLedgerBalancesByDivision` | `backend/src/db-reports.ts` | (none) | `function getLedgerBalancesByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
 | `getLedgerBalancesByDivisionStructural` | `backend/src/db-reports.ts` | (none) | `function getLedgerBalancesByDivisionStructural(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
 | `getLedgerDateRange` | `backend/src/db-journal.ts` | `backend/src/routes/reports.ts` | `function getLedgerDateRange(businessName: BusinessName, ledgerName: LedgerName): LedgerDateRange` |
 | `getLedgers` | `backend/src/db.ts` | `backend/src/routes/businesses.ts` | `function getLedgers(businessName: BusinessName): ` |
@@ -159,8 +153,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getSalesReport` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): SalesReport` |
 | `getScheduleAtLocation` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function getScheduleAtLocation(locationName: string): LocationScheduleLine[]` |
 | `getSessionUser` | `backend/src/auth.ts` | `backend/src/auth-middleware.ts` | `function getSessionUser(token: string \| undefined): AuthenticatedUser \| null` |
-| `getStockListingByLocation` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockListingByLocation(): StockListingLocationGroup[]` |
-| `getStockMovementReport` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockMovementReport(ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport` |
+| `getStockMovementReport` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport` |
 | `getStockOnHandMatrix` | `backend/src/db-matrix-reports.ts` | `backend/src/routes/matrix-reports.ts` | `function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): StockOnHandMatrix` |
 | `getStockOutRiskReport` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockOutRiskReport(windowDays: number = 2): StockOutRiskRow[]` |
 | `getStockTake` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockTake(id: number): StockTake \| undefined` |
@@ -181,10 +174,9 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `registerCustomer` | `backend/src/db.ts` | `backend/src/routes/customer-registration.ts` | `function registerCustomer(input: CustomerRegistrationInput, userId: UserId): void` |
 | `requireAuth` | `backend/src/auth-middleware.ts` | `backend/src/routes/auth.ts`, `backend/src/routes/i18n.ts`, `backend/src/server.ts` | `function requireAuth(req: Request, res: Response, next: NextFunction): void` |
 | `resetReminderLevel` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function resetReminderLevel(customerName: string): void` |
-| `setDivisionType` | `backend/src/db.ts` | `backend/src/routes/divisions.ts` | `function setDivisionType(divisionNameOrId: string \| EntityId, typeMarkerName: string): void` |
 | `setEmployeeSchedule` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function setEmployeeSchedule(employeeName: string, locationName: string, schedule: ScheduleLine[]): void` |
-| `setItemLocationLevelDetails` | `backend/src/db-stock.ts` | (none) | `function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>): void` |
-| `setItemLocationLevels` | `backend/src/db-stock.ts` | `backend/src/db-seed.ts`, `backend/src/routes/locations.ts` | `function setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: {     minLevel?: number \| null;     maxLevel?: number \| null;     reorderLevel?: number \| null;     shelfSide?: string \| null;     rack?: string \| null;     level?: number \| null;   }): void` |
+| `setItemLocationLevelDetails` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, business?: BusinessName, ledger?: LedgerName, userId?: UserId): void` |
+| `setItemLocationLevels` | `backend/src/db-stock.ts` | `backend/src/db-seed.ts`, `backend/src/routes/locations.ts` | `function setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: {     minLevel?: number \| null;     maxLevel?: number \| null;     reorderLevel?: number \| null;     shelfSide?: string \| null;     rack?: string \| null;     level?: number \| null;   }, business?: BusinessName, ledger?: LedgerName, userId?: UserId): void` |
 | `setItemProduct` | `backend/src/db.ts` | `backend/src/routes/products.ts` | `function setItemProduct(itemName: string, productName: string \| null, userId: UserId): void` |
 | `setItemSourceLeadTime` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function setItemSourceLeadTime(itemName: ItemName, vendorName: ProviderName, days: number, userId: UserId): void` |
 | `setLocationOpenHours` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function setLocationOpenHours(locationName: string, hours: OpenHoursLine[]): void` |
@@ -204,4 +196,4 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `verifyPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/db.ts` | `function verifyPassword(password: string, stored: string): boolean` |
 | `verifyPosPin` | `backend/src/db.ts` | (none) | `function verifyPosPin(employeeName: string, pin: string): boolean` |
 
-187 real, tracked baseline names reported (32 TypeDescriptor constants, 31 router constants, 124 functions, 0 other constants) out of 207 total names in the baseline file.
+179 real, tracked baseline names reported (32 TypeDescriptor constants, 31 router constants, 116 functions, 0 other constants) out of 207 total names in the baseline file.

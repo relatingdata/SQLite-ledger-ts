@@ -93,8 +93,11 @@
 
   onMount(async () => {
     try {
-      [businesses, entities, items] = await Promise.all([getBusinesses(), getEntityTree(), listItems().then((r) => r.rows)]);
+      [businesses, entities] = await Promise.all([getBusinesses(), getEntityTree()]);
       business = session.current?.businessName ?? businesses[0]?.name ?? '';
+      // Items are scoped per business - never fetched before the real
+      // business is known.
+      if (business) items = (await listItems(business)).rows;
       await loadLedgers();
       locations = await listLocations(asBusinessName(business));
     } catch (e) {

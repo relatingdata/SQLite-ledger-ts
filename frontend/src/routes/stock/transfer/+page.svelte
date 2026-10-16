@@ -17,7 +17,7 @@
   async function loadAll() {
     loading = true;
     try {
-      [locations, { rows: items }] = await Promise.all([listLocations(asBusinessName(session.current?.businessName ?? '')), listItems()]);
+      [locations, { rows: items }] = await Promise.all([listLocations(asBusinessName(session.current?.businessName ?? '')), listItems(session.current?.businessName ?? '')]);
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {

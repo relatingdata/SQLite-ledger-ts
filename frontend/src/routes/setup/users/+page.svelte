@@ -9,8 +9,13 @@
     setUserRolesApi,
     setUserActiveApi,
     changeUserPassword,
+    getBusinesses,
+    getUserRoleMatrix,
+    setUserRoleInBusiness,
+    unsetUserRoleInBusiness,
     ApiError,
     type UserSummary,
+    type UserRoleMatrix,
   } from '$lib/api';
 
   import Form from '$lib/components/Form.svelte';
@@ -21,12 +26,49 @@
   let error = '';
   let message = '';
 
+  // Per docs/user-business-role-matrix-design.md: a real, genuine,
+  // per-business Cartesian Product of User × Role - a second, real
+  // fact, additive alongside the global roles table above (which
+  // this never changes).
+  let businesses: { id: number; name: string }[] = [];
+  let matrixBusiness = '';
+  let matrix: UserRoleMatrix | null = null;
+  let matrixError = '';
+
+  async function loadMatrix() {
+    if (!matrixBusiness) {
+      matrix = null;
+      return;
+    }
+    matrixError = '';
+    try {
+      matrix = await getUserRoleMatrix(matrixBusiness);
+    } catch (e) {
+      matrixError = e instanceof ApiError ? e.message : 'Could not load the role matrix.';
+    }
+  }
+
+  async function toggleMatrixCell(username: string, roleName: string) {
+    if (!matrixBusiness || !matrix) return;
+    matrixError = '';
+    const isSet = matrix.assignments.some((a) => a.user === username && a.role === roleName);
+    try {
+      if (isSet) await unsetUserRoleInBusiness(matrixBusiness, username, roleName);
+      else await setUserRoleInBusiness(matrixBusiness, username, roleName);
+      await loadMatrix();
+    } catch (e) {
+      matrixError = e instanceof ApiError ? e.message : 'Could not update the role matrix.';
+    }
+  }
+
   let newUserValues: Record<string, string | number | string[]> = { username: '', password: '', roles: [] };
 
   async function load() {
     loading = true;
     try {
-      [users, roles] = await Promise.all([getUsers(), getRoles()]);
+      [users, roles, businesses] = await Promise.all([getUsers(), getRoles(), getBusinesses()]);
+      if (!matrixBusiness && businesses[0]) matrixBusiness = businesses[0].name;
+      await loadMatrix();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -135,6 +177,40 @@
         {/each}
       </tbody>
     </table>
+  </div>
+
+  <div class="card">
+    <h3>{translations.current['Roles per business'] ?? 'Roles per business'}</h3>
+    <p class="hint">{translations.current['Which roles a user holds in one specific business — a separate fact from the global role above, additive and independent of it.'] ?? 'Which roles a user holds in one specific business — a separate fact from the global role above, additive and independent of it.'}</p>
+    <label>
+      {translations.current['Business'] ?? 'Business'}
+      <select bind:value={matrixBusiness} onchange={loadMatrix}>
+        {#each businesses as b}<option value={b.name}>{b.name}</option>{/each}
+      </select>
+    </label>
+    {#if matrixError}<p class="error">{matrixError}</p>{/if}
+    {#if matrix}
+      <table>
+        <thead>
+          <tr>
+            <th>{translations.current['Username'] ?? 'Username'}</th>
+            {#each matrix.roles as r}<th>{translations.current[r] ?? r}</th>{/each}
+          </tr>
+        </thead>
+        <tbody>
+          {#each matrix.users as u}
+            <tr>
+              <td>{u}</td>
+              {#each matrix.roles as r}
+                <td>
+                  <input type="checkbox" checked={matrix.assignments.some((a) => a.user === u && a.role === r)} onchange={() => toggleMatrixCell(u, r)} />
+                </td>
+              {/each}
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
   </div>
 
   <div class="card form-card">

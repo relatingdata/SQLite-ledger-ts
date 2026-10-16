@@ -161,7 +161,7 @@
     loading = true;
     try {
       const [entityTree, itemsResult, loadedLocations, loadedGroupings] = await Promise.all([
-        getEntityTree(), listItems(),
+        getEntityTree(), session.current?.businessName ? listItems(session.current.businessName) : Promise.resolve({ rows: [], totalCount: 0 }),
         session.current?.businessName ? listLocations(asBusinessName(session.current.businessName)) : Promise.resolve([]),
         session.current?.businessName ? getHierarchy(session.current.businessName) : Promise.resolve([]),
       ]);
@@ -268,7 +268,7 @@
     message = '';
     try {
       await setItem(selectedName, item);
-      items = (await listItems()).rows;
+      if (session.current?.businessName) items = (await listItems(session.current.businessName)).rows;
       message = `Saved ${selectedName}.`;
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not save item.';
@@ -323,7 +323,7 @@
       // ensures the real row exists immediately.
       await setItem(newItemName, { description: null, unit_of_measure: null, upc: null });
       entities = await getEntityTree();
-      items = (await listItems()).rows;
+      if (session.current?.businessName) items = (await listItems(session.current.businessName)).rows;
       const created = newItemName;
       newItemName = '';
       newCategoryName = '';
@@ -355,7 +355,7 @@
         preferenceNotes: sourceNotes || null,
       }, 'Set Item Cost and Pack Size');
       sources = await listItemSources(asItemName(selectedName));
-      items = (await listItems()).rows;
+      if (session.current?.businessName) items = (await listItems(session.current.businessName)).rows;
       sourceManufacturer = '';
       sourceVendor = '';
       sourceSku = '';
@@ -377,7 +377,7 @@
     try {
       await deleteItemSource(id);
       sources = sources.filter((s) => s.id !== id);
-      items = (await listItems()).rows;
+      if (session.current?.businessName) items = (await listItems(session.current.businessName)).rows;
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not remove this source.';
     }

@@ -114,7 +114,7 @@
 
   onMount(async () => {
     try {
-      [locations, { rows: items }] = await Promise.all([listLocations(asBusinessName(session.current?.businessName ?? '')), listItems()]);
+      [locations, { rows: items }] = await Promise.all([listLocations(asBusinessName(session.current?.businessName ?? '')), listItems(session.current?.businessName ?? '')]);
       const firstRetail = locations.find((l) => l.location_type === 'Retail');
       if (firstRetail) locationName = firstRetail.name;
     } catch (e) {

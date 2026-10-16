@@ -96,7 +96,7 @@
       if (session.current) {
         business = session.current.businessName;
         entities = await getEntityTree();
-        items = (await listItems()).rows;
+        items = (await listItems(business)).rows;
       }
       if (business) await loadForBusiness();
     } catch (e) {

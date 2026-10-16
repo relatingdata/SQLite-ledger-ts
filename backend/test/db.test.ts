@@ -12,6 +12,21 @@ function withMyBusinessSession<T>(fn: () => T): T {
   const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get('admin') as { id: number }).id;
   return runInSessionContext({ userId: 1, business: { id: businessId, name: 'admin' }, ledger: 'Actual' }, fn);
 }
+
+/** Items are scoped per business (listItems/countItems, db.ts) - the
+ * real "admin" business the rest of this file already treats as its
+ * one, permanent, always-present test business doesn't carry its own
+ * Items root by default (it's the hand-seeded bootstrap business, not
+ * one created through createBusiness/PER_BUSINESS_ROOTS), so this
+ * creates it once, idempotently, the first time a test here needs a
+ * real, business-scoped home for a test item or category - never a
+ * bare, global "Items" again. */
+function adminItemsRoot(): TypedNode<'RootName'> {
+  const adminBusinessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get('admin') as { id: number }).id;
+  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = 'Items' AND parent_id = ?`).get(adminBusinessId) as { id: number } | undefined;
+  if (existing) return { id: asEntityId(existing.id), name: 'Items' as string & { __brand: 'RootName' } };
+  return create({ id: asEntityId(adminBusinessId), name: asBusinessName('admin') }, typeRootName, 'Items', asUserId(1));
+}
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -1748,7 +1763,7 @@ test('getCreditStatus: a real customer/vendor\'s own real balance checked agains
 });
 
 test('a item can be sourced from multiple manufacturer/vendor combinations, and preference is never derived from price', () => {
-  create(requireEntity('Items', typeRootName), typeRootName, 'PT-M6x20 Hex Bolt', asUserId(1));
+  create(adminItemsRoot(), typeRootName, 'PT-M6x20 Hex Bolt', asUserId(1));
   setItem('PT-M6x20 Hex Bolt', { description: 'Zinc-plated steel hex bolt', unit_of_measure: 'each', upc: '012345678905' });
   create(requireEntity('Manufacturers', typeRootName), typeRootName, 'PT-Acme Fasteners', asUserId(1));
   create(requireEntity('Manufacturers', typeRootName), typeRootName, 'PT-Beta Fasteners', asUserId(1));
@@ -1774,7 +1789,7 @@ test('a item can be sourced from multiple manufacturer/vendor combinations, and 
   assert.notEqual(cheaper.vendor_name, preferred.vendor_name, 'the cheaper source is explicitly NOT the preferred one — preference is a real choice, not derived from price');
   assert.equal(preferred.price_minor, 12, 'the preferred source costs more, and that is fine — local stock and reliability were the actual reasons');
 
-  const items = listItems();
+  const items = listItems(asBusinessName('admin'));
   const thisItem = items.find((p) => p.name === 'PT-M6x20 Hex Bolt')!;
   assert.equal(thisItem.source_count, 2);
 
@@ -1802,14 +1817,30 @@ test('the system default display language lives on Application, reachable before
   assert.throws(() => setDefaultLanguage('Not A Real Language', asUserId(1)), ValidationError);
 });
 
-test('Developer role, Employees/Manufacturers/Items branches, and item_source all exist exactly once — the migration that restores these on an existing database is idempotent', () => {
+test('Developer role, the global Employees/Manufacturers branches, and item_source all exist exactly once — the migration that restores these on an existing database is idempotent', () => {
   const developerRoleCount = (db.prepare(`SELECT COUNT(*) AS c FROM current_entities WHERE name = 'Developer' AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Roles')`).get() as { c: number }).c;
   assert.equal(developerRoleCount, 1);
 
-  for (const name of ['Employees', 'Manufacturers', 'Items']) {
+  // Employees and Manufacturers are genuinely global, singleton
+  // branches (business-scoping goes through the "Place of Employment"
+  // relationship, not tree parentage - see db-seed.ts's
+  // seedWineRetailEmployees). "Items" is deliberately NOT in this
+  // list any more: per a real, confirmed, live scoping bug fixed this
+  // session (listItems/countItems, db.ts), Items is genuinely
+  // per-business - every real business gets its own, direct child
+  // named "Items" (PER_BUSINESS_ROOTS) - so more than one real entity
+  // named "Items" existing at once, each under a genuinely different
+  // business, is correct, not a duplicate.
+  for (const name of ['Employees', 'Manufacturers']) {
     const matches = db.prepare(`SELECT COUNT(*) AS c FROM current_entities WHERE name = ?`).get(name) as { c: number };
     assert.equal(matches.c, 1, `${name} must exist exactly once`);
   }
+  // The one, real, global Application-level "Items" root must still
+  // exist exactly once, and exactly once only there - never
+  // accidentally duplicated onto itself, and never confused with any
+  // business's own, separate, per-business "Items" root.
+  const globalItemsCount = (db.prepare(`SELECT COUNT(*) AS c FROM current_entities WHERE name = 'Items' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')`).get() as { c: number }).c;
+  assert.equal(globalItemsCount, 1, 'the global Items root must exist exactly once');
 
   const itemSourceView = db.prepare(`SELECT 1 FROM sqlite_master WHERE type='view' AND name='item_source'`).get();
   assert.ok(itemSourceView, 'item_source (now a real, direct compatibility view over entities.detail_json) must exist');
@@ -2294,14 +2325,14 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
 });
 
 test('item categories: nested arbitrarily deep in the existing entity tree, and an empty subcategory never shows up as a fake item', () => {
-  create(requireEntity('Items', typeRootName), typeRootName, 'CatTest Red Wine', asUserId(1));
-  create(requireEntity('Items', typeRootName), typeRootName, 'CatTest White Wine', asUserId(1));
+  create(adminItemsRoot(), typeRootName, 'CatTest Red Wine', asUserId(1));
+  create(adminItemsRoot(), typeRootName, 'CatTest White Wine', asUserId(1));
   create(requireEntity('CatTest Red Wine', typeRootName), typeRootName, 'CatTest Merlot', asUserId(1));
   create(requireEntity('CatTest White Wine', typeRootName), typeRootName, 'CatTest Chablis', asUserId(1)); // deliberately left empty
 
   createItem('CatTest Château Merlot 2020', 'CatTest Merlot', asUserId(1));
 
-  const items = listItems().map((p) => p.name);
+  const items = listItems(asBusinessName('admin')).map((p) => p.name);
   assert.ok(items.includes('CatTest Château Merlot 2020'), 'the real item shows up');
   assert.ok(!items.includes('CatTest Red Wine'), 'a category is never listed as a item');
   assert.ok(!items.includes('CatTest Merlot'), 'a subcategory is never listed as a item, even though it has a real item underneath it');
@@ -3525,13 +3556,14 @@ test('completePosSale defaults to real, per-product Sales accounts — not one s
 });
 
 test('a item\'s real retail_price_minor is a genuine lookup field, reachable via every real path a POS screen actually uses — not something the operator types in', () => {
-  createItem('RetailPriceTest Wine', 'Items', asUserId(1));
+  adminItemsRoot(); // ensures "admin"'s own, real, business-scoped Items root exists first — never the bare, global one.
+  createItem('RetailPriceTest Wine', 'Items', asUserId(1), asBusinessName('admin'));
   setItem('RetailPriceTest Wine', { description: 'x', unit_of_measure: 'each', upc: '999888777', retail_price_minor: 4250 });
 
   const viaGetItem = getItem('RetailPriceTest Wine');
   assert.equal(viaGetItem?.retail_price_minor, 4250, 'getItem must return the real price, not require a separate lookup');
 
-  const viaListItems = listItems().find((p) => p.name === 'RetailPriceTest Wine');
+  const viaListItems = listItems(asBusinessName('admin')).find((p) => p.name === 'RetailPriceTest Wine');
   assert.equal(viaListItems?.retail_price_minor, 4250, 'listItems (what the POS screen actually loads on open) must include the real price');
 
   const viaUpc = getItemByUpc('999888777');

@@ -1,4 +1,4 @@
-import { setItem, getPart, getEntityTree, listItems } from '../src/db.js';
+import { setItem, getPart, getEntityTree, listItems, asBusinessName } from '../src/db.js';
 
 const BEER = new Set(['Ale', 'Lager', 'Stout']);
 const SPARKLING = new Set(['Cava', 'Champagne', 'Prosecco']);
@@ -14,7 +14,7 @@ function hashFraction(s: string): number {
   return (h % 1000) / 1000;
 }
 
-const items = listItems();
+const items = listItems(asBusinessName('Wine Retail Business'));
 const entities = getEntityTree();
 const categoryOf = (name: string): string | undefined => {
   const e = entities.find((x) => x.name === name);

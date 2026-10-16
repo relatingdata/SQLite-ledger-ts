@@ -66,6 +66,7 @@ import {
   ensureItemInventoryAccount,
   setCurrencyExchangeRate,
   nominateLocationCurrency,
+  asBusinessName,
 } from '../src/db.js';
 import { getItemLocation, createPosTerminal, setTerminalCurrency } from '../src/db-stock.js';
 import { fixtures } from '../../shared-fixtures/wine-retail.js';
@@ -202,7 +203,7 @@ async function main() {
   }
   console.log(`Refrigerated displays set up at all ${refrigeratedOutlets.length} retail outlets, each sized proportionally to its own shop.`);
 
-  const allParts = listItems();
+  const allParts = listItems(asBusinessName('Wine Retail Business'));
   const entities = getEntityTree();
   // Real category classification via the actual entity tree, not a
   // hardcoded list of product names — every product in Ale/Lager/Stout

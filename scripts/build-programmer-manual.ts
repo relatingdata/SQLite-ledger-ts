@@ -61,6 +61,9 @@ const PARTS: [string, string[]][] = [
     'entity-mutation-explicitness-and-transactions.md',
     'structured-data-prototype-instance-design.md',
     'ledger-scoped-accounts-and-rollover.md',
+    'profit-centers-design.md',
+    'access-control-design.md',
+    'user-business-role-matrix-design.md',
   ]],
   ['Part IV --- Planning and Roadmap', [
     'expansion-walker-design.md',
@@ -103,6 +106,7 @@ const PARTS: [string, string[]][] = [
     'testing.md',
     'simulation-prompt.md',
     'tutorial-e2e-debug-log.md',
+    'tutorial-e2e-hardening-2026-10.md',
   ]],
   ['Appendix --- Release Notes', ['RELEASE-NOTES.md']],
   ['Appendix --- Lessons Learned', ['lessons-learned.md']],

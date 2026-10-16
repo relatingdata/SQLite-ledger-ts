@@ -767,6 +767,20 @@ export const setUserActiveApi = (userId: number, active: boolean) =>
 export const changeUserPassword = (userId: number, password: string) =>
   request<void>(`/auth/users/${userId}/password`, { method: 'PUT', body: JSON.stringify({ password }) });
 
+// Per docs/user-business-role-matrix-design.md: the real, per-business
+// User × Role matrix - a genuine Cartesian Product, additive
+// alongside the existing, global getUsers/setUserRolesApi above.
+export interface UserRoleMatrix {
+  users: string[];
+  roles: string[];
+  assignments: { user: string; role: string }[];
+}
+export const getUserRoleMatrix = (business: string) => request<UserRoleMatrix>(`/auth/businesses/${encodeURIComponent(business)}/role-matrix`);
+export const setUserRoleInBusiness = (business: string, username: string, roleName: string) =>
+  request<void>(`/auth/businesses/${encodeURIComponent(business)}/role-matrix/${encodeURIComponent(username)}/${encodeURIComponent(roleName)}`, { method: 'PUT' });
+export const unsetUserRoleInBusiness = (business: string, username: string, roleName: string) =>
+  request<void>(`/auth/businesses/${encodeURIComponent(business)}/role-matrix/${encodeURIComponent(username)}/${encodeURIComponent(roleName)}`, { method: 'DELETE' });
+
 export const reverseJournalEntry = (business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, reversalDate?: string) =>
   request<void>(`/journal/${journalId}/${occurrenceDate}/reverse`, {
     method: 'POST',
@@ -941,8 +955,12 @@ export interface ItemSourceInput {
   preferenceNotes?: string | null;
 }
 
-export const listItems = (limit?: number, offset = 0) =>
-  request<{ rows: ItemSummary[]; totalCount: number }>(`/items${limit != null ? `?limit=${limit}&offset=${offset}` : ''}`);
+// Items are scoped per business (docs/scoped-uniqueness-and-location-
+// accounting.md) - business is a real, required parameter here, the
+// exact, same convention listLocations and every other business-
+// scoped list call already follows, never an optional afterthought.
+export const listItems = (business: string, limit?: number, offset = 0) =>
+  request<{ rows: ItemSummary[]; totalCount: number }>(`/items?business=${encodeURIComponent(business)}${limit != null ? `&limit=${limit}&offset=${offset}` : ''}`);
 export const getItem = (name: string) => request<Item | null>(`/items/${encodeURIComponent(name)}`);
 
 export interface ProductSummary {

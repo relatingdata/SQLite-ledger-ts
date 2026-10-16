@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db, ValidationError, NotFoundError, supersedeEntity } from './db.js';
+import { db, ValidationError, NotFoundError, supersedeEntity, ensureProductInstance, type BusinessName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 import { hashPassword, verifyPassword } from './password.js';
 
@@ -97,6 +97,107 @@ export function setUserRoles(userId: number, roleNames: string[]): void {
     supersedeEntity(created.id, { relation: role.name }, 1 as never);
     Entity.tag(created.id, 'Role', 1 as never);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Per-business user roles — see docs/user-business-role-matrix-design.md.
+// A real, genuine Cartesian Product (User × Role, scoped per Business),
+// built on the exact, same, already-proven `defineProductShape`/
+// `ensureProductInstance` mechanism used for Container × Unit size and
+// Currency Exchange pairs — never a new, bespoke relationship or
+// table. Additive, Phase 1 only: this records the real, per-business
+// role fact and makes it editable; it does not change what any
+// route's own `requireRole` enforces today — that stays the real,
+// existing, global role from `setUserRoles` above, untouched.
+// ---------------------------------------------------------------------------
+
+const USER_ROLE_SHAPE: [string, string][] = [
+  ['User', 'User'],
+  ['Role', 'Role'],
+];
+
+export interface UserRoleMatrix {
+  users: string[];
+  roles: string[];
+  /** Every real, currently-set cell — this user genuinely holds this
+   * role, in this one, specific business. */
+  assignments: { user: string; role: string }[];
+}
+
+/** The real, full User × Role matrix for one real business — every
+ * row (every real system user) × every column (every real system
+ * role), and which cells are currently set. Scoped the same, direct
+ * way every other business-taking function in this codebase already
+ * is — never a bare, unscoped read. */
+export function getUserRoleMatrix(businessName: BusinessName): UserRoleMatrix {
+  const users = listUsers().map((u) => u.username);
+  const roles = listRoles().map((r) => r.name);
+  const business = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined;
+  if (!business) throw new NotFoundError(`No such business "${businessName}".`);
+  const productRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Product' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  if (!productRoot) return { users, roles, assignments: [] };
+  const rows = db.prepare(`SELECT combination_ids FROM current_entities WHERE parent_id = ? AND combination_ids IS NOT NULL`).all(productRoot.id) as { combination_ids: string }[];
+  const idToName = new Map<number, string>();
+  for (const row of db.prepare(`SELECT id, name FROM current_entities`).all() as { id: number; name: string }[]) idToName.set(row.id, row.name);
+  const assignments = rows
+    .map((r) => (JSON.parse(r.combination_ids) as number[]).map((id) => idToName.get(id)!))
+    .filter((pair): pair is [string, string] => pair.length === 2 && pair.every(Boolean))
+    .map(([user, role]) => ({ user, role }));
+  return { users, roles, assignments };
+}
+
+/** Sets one real cell of the matrix: this user genuinely holds this
+ * role, in this one, specific business. Idempotent — setting an
+ * already-set cell is a real, harmless no-op, the same, established
+ * `ensureProductInstance` semantics every other Cartesian Product in
+ * this codebase already has. */
+export function setUserRoleInBusiness(businessName: BusinessName, username: string, roleName: string, userId: UserId): void {
+  if (!listUsers().some((u) => u.username === username)) throw new ValidationError(`No such user "${username}".`);
+  if (!listRoles().some((r) => r.name === roleName)) throw new ValidationError(`No such role "${roleName}".`);
+  ensureProductInstance(businessName, USER_ROLE_SHAPE, [username, roleName], userId);
+}
+
+/** Clears one real cell of the matrix — the real, direct inverse of
+ * setUserRoleInBusiness, via the exact, same `revokeEntity` every
+ * other reversible assignment in this codebase already uses. A cell
+ * that was never set is a real, harmless no-op. */
+export function unsetUserRoleInBusiness(businessName: BusinessName, username: string, roleName: string, userId: UserId): void {
+  const business = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined;
+  if (!business) return;
+  const productRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Product' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  if (!productRoot) return;
+  // combination_ids on a real Product Instance points at this real
+  // business's own real Hierarchy *value* nodes (see
+  // ensureProductInstance/ensureHierarchyValue, db.ts) - never the
+  // global System Users/System Roles entities directly, even though
+  // they share the identical, real display name. Resolved the exact,
+  // same, real path ensureHierarchyValue itself walks.
+  const hierarchyRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  if (!hierarchyRoot) return;
+  const userGrouping = db.prepare(`SELECT id FROM current_entities WHERE name = 'User' AND parent_id = ?`).get(hierarchyRoot.id) as { id: number } | undefined;
+  const roleGrouping = db.prepare(`SELECT id FROM current_entities WHERE name = 'Role' AND parent_id = ?`).get(hierarchyRoot.id) as { id: number } | undefined;
+  if (!userGrouping || !roleGrouping) return;
+  const userValue = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(username, userGrouping.id) as { id: number } | undefined;
+  const roleValue = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(roleName, roleGrouping.id) as { id: number } | undefined;
+  if (!userValue || !roleValue) return;
+  const combinationIdsJson = JSON.stringify([userValue.id, roleValue.id]);
+  const existing = db.prepare(`SELECT id FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(productRoot.id, combinationIdsJson) as { id: number } | undefined;
+  if (!existing) return;
+  // A real, confirmed finding made while building this: `revokeEntity`
+  // (db.ts) does NOT remove an entity from current_entities at all —
+  // per its own real design (`docs/entity-model.md`'s append-only
+  // history), it only ever supersedes relation_id to NULL, which a
+  // Product Instance's own real identity (combination_ids) never
+  // used in the first place, so the cell would have stayed visible
+  // forever. The real, correct way to clear one real cell here is to
+  // supersede combination_ids itself to NULL, via the exact, same
+  // `entity_set_combination_ids` mechanism `ensureProductInstance`
+  // uses to set it - this cell's own entity row still exists,
+  // historically, exactly as this codebase's append-only design
+  // requires, but no longer matches any real combination_ids lookup,
+  // so getUserRoleMatrix (which filters on `combination_ids IS NOT
+  // NULL`) correctly stops listing it.
+  db.prepare(`INSERT INTO entity_set_combination_ids (entity_id, combination_ids) VALUES (?, ?)`).run(existing.id, null);
 }
 
 export function setUserActive(userId: number, active: boolean): void {
