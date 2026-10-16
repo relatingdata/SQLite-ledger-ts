@@ -64,6 +64,7 @@ const PARTS: [string, string[]][] = [
     'profit-centers-design.md',
     'access-control-design.md',
     'user-business-role-matrix-design.md',
+    'business-admin-role-and-enforcement-design.md',
   ]],
   ['Part IV --- Planning and Roadmap', [
     'expansion-walker-design.md',

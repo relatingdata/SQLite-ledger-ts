@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
-import { getSessionUser, getSessionBusiness, getSessionProfitCenter, type AuthenticatedUser } from './auth.js';
+import { getSessionUser, getSessionBusiness, getSessionProfitCenter, userHasBusinessAdminRole, type AuthenticatedUser } from './auth.js';
+import { asBusinessName } from './db.js';
 import { runInSessionContext } from './session-context.js';
 import { requireEntity as fetchEntity, typeBusinessName, typeRootName } from './db.js';
 
@@ -17,6 +18,11 @@ declare global {
       // user who hasn't picked one yet, are the exact same, real
       // case: every route works exactly as it always has.
       profitCenter?: string | null;
+      // The real, currently-selected business for this session, the
+      // exact same name getSessionBusiness/attachUser already resolve
+      // below — set once, here, so requireRole's own fallback (see
+      // below) never has to re-read the session token itself.
+      businessName?: string | null;
     }
   }
 }
@@ -44,6 +50,7 @@ export function attachUser(req: Request, _res: Response, next: NextFunction) {
   if (req.user) {
     req.profitCenter = getSessionProfitCenter(token!);
     const businessName = getSessionBusiness(token!);
+    req.businessName = businessName;
     if (businessName) {
       try {
         const business = fetchEntity(businessName, typeBusinessName, fetchEntity('Businesses', typeRootName));
@@ -63,16 +70,42 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-/** Requires the current user to have at least one of the given roles.
+/** Requires the current user to have at least one of the given roles,
+ * either globally (setUserRoles — unchanged, real, original behavior)
+ * or, per docs/business-admin-role-and-enforcement-design.md, by
+ * holding the real, per-business "Business Admin" role (the matrix;
+ * see auth.ts) in the CURRENT session's business specifically — a
+ * genuine, scoped stand-in for "full access within this one business"
+ * that this check accepts regardless of which specific role was
+ * named, since that is exactly what Business Admin means. A session
+ * with no business selected, or a username not in that business's own
+ * matrix, is "no" — this never widens access beyond one business.
  * Administrator is not implicitly included in every check — a route
  * that means "Bookkeeper or Administrator" says so explicitly, since an
  * Administrator-only route (user management) must NOT be reachable by a
- * Bookkeeper just because Administrator is "higher". */
+ * Bookkeeper just because Administrator is "higher". A route that must
+ * stay out of Business Admin's reach entirely (creating a business,
+ * managing the global user/role list) uses requireGlobalRole instead. */
 export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) return res.status(401).json({ error: 'Not logged in.' });
+    if (req.user.roles.some((r) => roles.includes(r))) return next();
+    if (req.businessName && userHasBusinessAdminRole(asBusinessName(req.businessName), req.user.username)) return next();
+    return res.status(403).json({ error: `Requires one of: ${roles.join(', ')}.` });
+  };
+}
+
+/** The real, narrower check for a route Business Admin must never
+ * satisfy however it's phrased — creating a new business, or managing
+ * the global user/role list itself (docs/business-admin-role-and-enforcement-design.md).
+ * Identical to the pre-existing requireRole behavior before this
+ * session's change: only a user's real, global roles count, never the
+ * per-business matrix. */
+export function requireGlobalRole(...roles: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ error: 'Not logged in.' });
     if (!req.user.roles.some((r) => roles.includes(r))) {
-      return res.status(403).json({ error: `Requires one of: ${roles.join(', ')}.` });
+      return res.status(403).json({ error: `Requires one of: ${roles.join(', ')} (globally).` });
     }
     next();
   };

@@ -26,8 +26,12 @@ const {
   getUserRoleMatrix,
   setUserRoleInBusiness,
   unsetUserRoleInBusiness,
+  provisionBusinessAdminUser,
+  userHasBusinessAdminRole,
+  BUSINESS_ADMIN_ROLE,
   AuthError,
 } = await import('../src/auth.ts');
+const { requireRole, requireGlobalRole } = await import('../src/auth-middleware.ts');
 const { ValidationError, db, asBusinessName, asUserId, createBusiness } = await import('../src/db.ts');
 
 after(() => {
@@ -56,10 +60,14 @@ test('two hashes of the same password are different (salted), but both verify co
 });
 
 test('the bootstrap admin user exists with Administrator role and the documented default password', () => {
+  // Per docs/business-admin-role-and-enforcement-design.md: a real,
+  // fifth global role, granted only through the per-business matrix,
+  // never globally — so the bootstrap admin user's own roles (below)
+  // are unaffected.
   const roles = listRoles();
   assert.deepEqual(
     roles.map((r) => r.name),
-    ['Administrator', 'Bookkeeper', 'Read-Only', 'Developer']
+    ['Administrator', 'Bookkeeper', 'Read-Only', 'Developer', 'Business Admin']
   );
   const users = listUsers();
   const admin = users.find((u) => u.username === 'admin');
@@ -238,4 +246,68 @@ test('the per-business role matrix is a real, genuine Cartesian Product — the 
   // The real, global role from setUserRoles is a genuinely separate fact, untouched by any of the above.
   const globalRoles = listUsers().find((u) => u.username === 'matrixtest1')!.roles;
   assert.deepEqual(globalRoles, ['Bookkeeper'], 'the matrix is additive — it never changes the existing, global role assignment');
+});
+
+test('provisionBusinessAdminUser gives a new business a real, dedicated admin user with Business Admin only in that one business, never any global role', () => {
+  createBusiness(asBusinessName('Provision Test Business'), 'FY2027', asUserId(1));
+  const { username, password } = provisionBusinessAdminUser(asBusinessName('Provision Test Business'), asUserId(1));
+
+  assert.equal(username, 'Provision Test Business Admin');
+  assert.ok(password.length >= 8, 'the generated password must satisfy the same, real minimum length every user password does');
+
+  const created = listUsers().find((u) => u.username === username);
+  assert.ok(created, 'a real user was actually created');
+  assert.deepEqual(created!.roles, [], 'zero global roles — Business Admin is granted only through the matrix, never globally');
+
+  const matrix = getUserRoleMatrix(asBusinessName('Provision Test Business'));
+  assert.ok(matrix.assignments.some((a) => a.user === username && a.role === BUSINESS_ADMIN_ROLE), 'Business Admin is set for this one business');
+
+  // The generated password actually logs in.
+  const { user } = login(username, password);
+  assert.equal(user.username, username);
+  assert.deepEqual(user.roles, [], 'login reflects the real, global roles only — still none');
+
+  assert.equal(userHasBusinessAdminRole(asBusinessName('Provision Test Business'), username), true);
+  assert.equal(userHasBusinessAdminRole(asBusinessName('admin'), username), false, 'Business Admin in one business must never leak into a genuinely different one');
+  assert.equal(userHasBusinessAdminRole(asBusinessName('Provision Test Business'), 'nonexistentuser'), false);
+  assert.equal(userHasBusinessAdminRole(asBusinessName('No Such Business At All'), username), false, 'a business that does not resolve is a real, honest "no", never a thrown error');
+});
+
+test('requireRole accepts a real, global role as before, and ALSO accepts Business Admin held in the session\'s current business — but requireGlobalRole never does', () => {
+  createBusiness(asBusinessName('Enforcement Test Business'), 'FY2027', asUserId(1));
+  const { username } = provisionBusinessAdminUser(asBusinessName('Enforcement Test Business'), asUserId(1));
+
+  function fakeReq(overrides: Record<string, unknown>) {
+    return { user: { id: 1, username, roles: [] as string[] }, businessName: null as string | null, ...overrides };
+  }
+  function run(mw: (req: unknown, res: unknown, next: () => void) => void, req: unknown) {
+    let status: number | undefined;
+    let nextCalled = false;
+    const res = { status: (s: number) => { status = s; return { json: () => {} }; } };
+    mw(req, res, () => { nextCalled = true; });
+    return { nextCalled, status };
+  }
+
+  // No business selected at all — requireRole's Business Admin fallback has nothing to check, so it 403s.
+  assert.equal(run(requireRole('Administrator'), fakeReq({ businessName: null })).nextCalled, false);
+
+  // The right business, held as Business Admin — requireRole passes, for ANY role list, exactly the "full access within this business" promise.
+  assert.equal(run(requireRole('Administrator'), fakeReq({ businessName: 'Enforcement Test Business' })).nextCalled, true);
+  assert.equal(run(requireRole('Bookkeeper'), fakeReq({ businessName: 'Enforcement Test Business' })).nextCalled, true);
+
+  // A genuinely different business — Business Admin in one business must never satisfy a check scoped to another.
+  assert.equal(run(requireRole('Administrator'), fakeReq({ businessName: 'admin' })).nextCalled, false);
+
+  // requireGlobalRole never consults the matrix at all, even for the right business — the one, real, deliberate carve-out (creating a business, managing the global user list).
+  assert.equal(run(requireGlobalRole('Administrator'), fakeReq({ businessName: 'Enforcement Test Business' })).nextCalled, false);
+
+  // A genuinely global Administrator still passes both, regardless of business.
+  const globalAdminReq = fakeReq({ user: { id: 1, username: 'admin', roles: ['Administrator'] }, businessName: null });
+  assert.equal(run(requireRole('Administrator'), globalAdminReq).nextCalled, true);
+  assert.equal(run(requireGlobalRole('Administrator'), globalAdminReq).nextCalled, true);
+
+  // Not logged in at all — both reject with 401, before any role check.
+  const anonResult = run(requireRole('Administrator'), { user: undefined, businessName: null });
+  assert.equal(anonResult.nextCalled, false);
+  assert.equal(anonResult.status, 401);
 });

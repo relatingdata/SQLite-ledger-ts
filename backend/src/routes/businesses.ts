@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireRole } from '../auth-middleware.js';
+import { requireRole, requireGlobalRole } from '../auth-middleware.js';
+import { provisionBusinessAdminUser } from '../auth.js';
 import { getBusinesses, getLedgers, createBusiness, getChartOfAccountsPrototype, getBusinessTypes, saveBusinessTypeAnswers, asBusinessName, ValidationError,
   asUserId, nominateBankAccount, getNominatedBankAccounts, buildBankCurrencyStructure, typeAssetAccountName, typeEquityAccountName, getBusinessConfigurationReport,
   createProfitCenter, getProfitCenters,
@@ -66,12 +67,18 @@ const createBusinessSchema = z.object({
   partnerNames: z.array(z.string().min(1)).optional(),
 });
 
-businessesRouter.post('/', requireRole('Administrator'), (req, res) => {
+// Creating a business is the one, real, deliberately narrow operation
+// Business Admin must never reach, however it holds any role — hence
+// requireGlobalRole, not requireRole (see
+// docs/business-admin-role-and-enforcement-design.md). Only a real,
+// global Administrator may create one.
+businessesRouter.post('/', requireGlobalRole('Administrator'), (req, res) => {
   const parsed = createBusinessSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
+    const businessName = asBusinessName(parsed.data.businessName);
     const result = createBusiness(
-      asBusinessName(parsed.data.businessName),
+      businessName,
       parsed.data.financialYearLabel,
       asUserId(req.user!.id),
       parsed.data.coaPrototype,
@@ -79,7 +86,15 @@ businessesRouter.post('/', requireRole('Administrator'), (req, res) => {
       parsed.data.entityStructure,
       parsed.data.partnerNames
     );
-    res.status(201).json(result);
+    // Per direct instruction: every real, new business gets its own,
+    // real, dedicated admin user — full, real access within this one
+    // business (via the real Business Admin role, granted through the
+    // matrix), never the ability to create another business. The
+    // generated password is returned exactly once, here, in plain
+    // text, the same real, show-once way any generated credential
+    // must be surfaced — it is never otherwise recoverable.
+    const businessAdmin = provisionBusinessAdminUser(businessName, asUserId(req.user!.id));
+    res.status(201).json({ ...result, businessAdmin });
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);

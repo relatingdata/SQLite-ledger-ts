@@ -470,7 +470,12 @@ export const createBusiness = (
   partnerNames?: string[],
   screenName?: string
 ) =>
-  request<{ business: BusinessName; actualLedger: string; budgetLedger: string }>('/businesses', {
+  // businessAdmin: the real, dedicated admin user this new business
+  // gets, with Business Admin granted in this one business only (see
+  // docs/business-admin-role-and-enforcement-design.md). password is
+  // the plain-text, generated password, returned exactly once — the
+  // caller must show it now, since it is never otherwise recoverable.
+  request<{ business: BusinessName; actualLedger: string; budgetLedger: string; businessAdmin: { username: string; password: string } }>('/businesses', {
     method: 'POST',
     body: JSON.stringify({ businessName, financialYearLabel, coaPrototype, secondaryCurrencies, entityStructure, partnerNames }),
   }, screenName);

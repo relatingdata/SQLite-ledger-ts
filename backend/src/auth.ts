@@ -200,6 +200,50 @@ export function unsetUserRoleInBusiness(businessName: BusinessName, username: st
   db.prepare(`INSERT INTO entity_set_combination_ids (entity_id, combination_ids) VALUES (?, ?)`).run(existing.id, null);
 }
 
+// ---------------------------------------------------------------------------
+// Business Admin — a real, fifth global role (00-core.sql), granted
+// per business through the matrix above, never globally. See
+// docs/business-admin-role-and-enforcement-design.md for the full
+// design; this is the real mechanism requireRole (auth-middleware.ts)
+// and the per-business provisioning below (called from
+// routes/businesses.ts, never from createBusiness in db.ts itself —
+// db.ts cannot import this file without a real, genuine circular
+// import, since this file already imports from db.ts) both depend on.
+// ---------------------------------------------------------------------------
+
+export const BUSINESS_ADMIN_ROLE = 'Business Admin';
+
+/** Whether this user genuinely holds the Business Admin role in this
+ * one, specific business — the real check requireRole's fallback
+ * uses. Never throws: a business name that no longer resolves (a
+ * stale session) or has no Product root yet (no business-role has
+ * ever been assigned there) both mean, correctly, "no". */
+export function userHasBusinessAdminRole(businessName: BusinessName, username: string): boolean {
+  try {
+    return getUserRoleMatrix(businessName).assignments.some((a) => a.user === username && a.role === BUSINESS_ADMIN_ROLE);
+  } catch {
+    return false;
+  }
+}
+
+/** Creates the one, real, dedicated admin user a brand-new business
+ * gets, per direct instruction — holding Business Admin in this one
+ * business only (never any global role), so it has full, real access
+ * within this business without being able to create another one, or
+ * touch any other business's own data. Username is business-prefixed
+ * (user names are global, under the one, real "System Users" root,
+ * unlike the per-business Items/Locations/... roots), and the
+ * generated password is returned once, in plain text, the same real,
+ * show-once way the business-creation screen must display it — it is
+ * never otherwise recoverable, since only its hash is ever stored. */
+export function provisionBusinessAdminUser(businessName: BusinessName, createdBy: UserId): { username: string; password: string } {
+  const username = `${businessName} Admin`;
+  const password = crypto.randomBytes(24).toString('base64').replace(/[/+=]/g, '').slice(0, 16);
+  createUser(username, password, []);
+  setUserRoleInBusiness(businessName, username, BUSINESS_ADMIN_ROLE, createdBy);
+  return { username, password };
+}
+
 export function setUserActive(userId: number, active: boolean): void {
   const detail = getUserDetail(userId);
   if (!detail) throw new NotFoundError(`User ${userId} not found.`);

@@ -24,7 +24,7 @@ import { ValidationError, NotFoundError,
   asUserId,
   asBusinessName,
 } from '../db.js';
-import { requireAuth, requireRole } from '../auth-middleware.js';
+import { requireAuth, requireGlobalRole } from '../auth-middleware.js';
 
 export const authRouter = Router();
 
@@ -101,11 +101,11 @@ authRouter.post('/session/profit-center', requireAuth, (req, res) => {
 });
 
 // Everything below is Administrator-only user management.
-authRouter.get('/users', requireAuth, requireRole('Administrator'), (_req, res) => {
+authRouter.get('/users', requireAuth, requireGlobalRole('Administrator'), (_req, res) => {
   res.json(listUsers());
 });
 
-authRouter.get('/roles', requireAuth, requireRole('Administrator'), (_req, res) => {
+authRouter.get('/roles', requireAuth, requireGlobalRole('Administrator'), (_req, res) => {
   res.json(listRoles());
 });
 
@@ -115,7 +115,7 @@ const createUserSchema = z.object({
   roles: z.array(z.string()).min(1),
 });
 
-authRouter.post('/users', requireAuth, requireRole('Administrator'), (req, res) => {
+authRouter.post('/users', requireAuth, requireGlobalRole('Administrator'), (req, res) => {
   const parsed = createUserSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
@@ -129,7 +129,7 @@ authRouter.post('/users', requireAuth, requireRole('Administrator'), (req, res) 
 
 const rolesSchema = z.object({ roles: z.array(z.string()) });
 
-authRouter.put('/users/:id/roles', requireAuth, requireRole('Administrator'), (req, res) => {
+authRouter.put('/users/:id/roles', requireAuth, requireGlobalRole('Administrator'), (req, res) => {
   const parsed = rolesSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
@@ -144,7 +144,7 @@ authRouter.put('/users/:id/roles', requireAuth, requireRole('Administrator'), (r
 
 const activeSchema = z.object({ active: z.boolean() });
 
-authRouter.put('/users/:id/active', requireAuth, requireRole('Administrator'), (req, res) => {
+authRouter.put('/users/:id/active', requireAuth, requireGlobalRole('Administrator'), (req, res) => {
   const parsed = activeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
@@ -159,7 +159,7 @@ authRouter.put('/users/:id/active', requireAuth, requireRole('Administrator'), (
 
 const passwordSchema = z.object({ password: z.string().min(8) });
 
-authRouter.put('/users/:id/password', requireAuth, requireRole('Administrator'), (req, res) => {
+authRouter.put('/users/:id/password', requireAuth, requireGlobalRole('Administrator'), (req, res) => {
   const parsed = passwordSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
@@ -222,7 +222,7 @@ authRouter.put('/me/number-format', requireAuth, (req, res) => {
 // User × Role matrix - a genuine Cartesian Product, scoped per
 // business, additive alongside the existing, global setUserRoles
 // above (which stays exactly as it was).
-authRouter.get('/businesses/:business/role-matrix', requireAuth, requireRole('Administrator'), (req, res) => {
+authRouter.get('/businesses/:business/role-matrix', requireAuth, requireGlobalRole('Administrator'), (req, res) => {
   try {
     res.json(getUserRoleMatrix(asBusinessName(req.params.business)));
   } catch (err) {
@@ -232,7 +232,7 @@ authRouter.get('/businesses/:business/role-matrix', requireAuth, requireRole('Ad
   }
 });
 
-authRouter.put('/businesses/:business/role-matrix/:user/:role', requireAuth, requireRole('Administrator'), (req, res) => {
+authRouter.put('/businesses/:business/role-matrix/:user/:role', requireAuth, requireGlobalRole('Administrator'), (req, res) => {
   try {
     setUserRoleInBusiness(asBusinessName(req.params.business), req.params.user, req.params.role, asUserId(req.user!.id));
     res.status(204).end();
@@ -243,7 +243,7 @@ authRouter.put('/businesses/:business/role-matrix/:user/:role', requireAuth, req
   }
 });
 
-authRouter.delete('/businesses/:business/role-matrix/:user/:role', requireAuth, requireRole('Administrator'), (req, res) => {
+authRouter.delete('/businesses/:business/role-matrix/:user/:role', requireAuth, requireGlobalRole('Administrator'), (req, res) => {
   try {
     unsetUserRoleInBusiness(asBusinessName(req.params.business), req.params.user, req.params.role, asUserId(req.user!.id));
     res.status(204).end();

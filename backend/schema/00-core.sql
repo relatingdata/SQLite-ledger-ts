@@ -330,6 +330,19 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (902, 902, 'Bookkeeper', 900, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (903, 903, 'Read-Only', 900, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (904, 904, 'Developer', 900, '2026-01-01', 1);
+-- A real, fifth global role, per direct instruction — but, unlike the
+-- four above, this one is meant to be granted per business, through
+-- the User x Role matrix (see docs/business-admin-role-and-enforcement-design.md),
+-- never globally: "full access within one business, but not the
+-- ability to create new businesses." requireRole (auth-middleware.ts)
+-- treats a user holding this role, in the current session's business,
+-- as satisfying any requireRole(...) check scoped to that business —
+-- requireGlobalRole is the real, separate, narrower check for routes
+-- (creating a business, managing the global user/role list itself)
+-- this role deliberately does not reach. Placed at the real, next free
+-- id in this same, deliberately-high 900+ range (905-908 already
+-- taken by System Users/admin/admin's Role link/System Sessions).
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (909, 909, 'Business Admin', 900, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (905, 905, 'System Users', 1, '2026-01-01', 1);
 -- One default account so the app is usable immediately after install —
 -- username 'admin', password 'changeme123'. This password is

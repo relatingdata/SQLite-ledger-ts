@@ -24,7 +24,7 @@
   let loadingAccounts = false;
   let saving = false;
   let error = '';
-  let result: { business: string; actualLedger: string; budgetLedger: string } | null = null;
+  let result: { business: string; actualLedger: string; budgetLedger: string; businessAdmin: { username: string; password: string } } | null = null;
 
   // Per direct insight: the vast majority of real businesses transact
   // in one, single, home currency — a second currency is a real need
@@ -225,6 +225,12 @@
       <strong>{result.actualLedger}</strong> and <strong>{result.budgetLedger}</strong>.
     </p>
 
+    <p class="success business-admin-credentials">
+      {translations.current['A dedicated admin user was also created for this business, with full access within it (but not the ability to create another business). Copy this password now — it is shown only once.'] ?? 'A dedicated admin user was also created for this business, with full access within it (but not the ability to create another business). Copy this password now — it is shown only once.'}<br />
+      {translations.current['Username'] ?? 'Username'}: <code>{result.businessAdmin.username}</code><br />
+      {translations.current['Password'] ?? 'Password'}: <code>{result.businessAdmin.password}</code>
+    </p>
+
     {#if !bankCurrencyBuilt}
       <fieldset>
         <legend>Does the business bank at one bank, or more than one?</legend>
@@ -414,6 +420,12 @@
   }
   .success {
     color: var(--credit);
+  }
+  .business-admin-credentials {
+    border: 1px solid var(--credit);
+    border-radius: 4px;
+    padding: 0.6rem 0.9rem;
+    line-height: 1.6;
   }
   .field-note {
     font-size: var(--font-size-small);

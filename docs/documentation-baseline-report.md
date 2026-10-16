@@ -186,7 +186,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `setOwnPageSize` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function setOwnPageSize(userId: number, pageSize: number): void` |
 | `setPosPin` | `backend/src/db.ts` | (none) | `function setPosPin(employeeName: string, pin: string): void` |
 | `setUserActive` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function setUserActive(userId: number, active: boolean): void` |
-| `setUserRoles` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function setUserRoles(userId: number, roleNames: string[]): void` |
+| `setUserRoles` | `backend/src/auth.ts` | `backend/src/auth-middleware.ts`, `backend/src/routes/auth.ts` | `function setUserRoles(userId: number, roleNames: string[]): void` |
 | `setVocabularyPreference` | `backend/src/db.ts` | `backend/src/routes/i18n.ts` | `function setVocabularyPreference(conceptName: string, scope: 'business' \| 'user', scopeId: number, preferredAlternateName: string): void` |
 | `signOff` | `backend/src/db.ts` | (none) | `function signOff(shiftId: number): void` |
 | `signOn` | `backend/src/db.ts` | (none) | `function signOn(employeeName: string, locationName: string): PosShift` |
