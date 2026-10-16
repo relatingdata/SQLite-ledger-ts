@@ -5,25 +5,22 @@ extent to which this application makes use of Svelte in the frontend.
 
 ## 1. The real version, and the real reactivity model actually used
 
-The application runs on Svelte 5 (`5.56.8`), but — confirmed directly
-by searching the entire frontend source, not assumed — it makes zero
-use of Svelte 5's own, newer "runes" API (`$state`, `$derived`,
-`$effect`, `$props`). Every real component in this application still
-uses Svelte's older, "legacy" reactivity model exclusively: a plain
-`let` variable for real, local, mutable state, and a `$:` label for
-any real, derived value or side effect that needs to re-run when its
-own real dependencies change.
-
-```svelte
-let editName = '';
-$: hasUnsavedEdit.set(selectedId != null && editName !== originalName);
-```
-
-This is a real, deliberate consistency, not an oversight — Svelte 5
-genuinely supports both models side by side for backwards
-compatibility, and this application has simply never adopted the
-newer one. A real, future migration to runes is possible, but hasn't
-happened, and nothing in the current codebase requires it.
+**This section is obsolete and was corrected against the current source,
+not merely re-measured.** It originally claimed this application "makes
+zero use of Svelte 5's own, newer 'runes' API" and that every component
+"still uses Svelte's older, 'legacy' reactivity model exclusively." That
+was true at the time this section was written, but an active migration
+has happened since (see `docs/svelte-5-runes-migration-plan.md`, a
+sibling chapter in this same manual, which documents it in detail — the
+two chapters directly contradicted each other until this correction).
+Verified directly: `grep -rl '\$state(\|\$derived(\|\$props(' frontend/src --include="*.svelte"`
+currently returns **53 of 101** `.svelte` files using runes; only **9**
+files remain on the legacy `$:` model exclusively. The application is now
+predominantly rune-based, not legacy-exclusive. For the current, authoritative
+status and the remaining legacy files, read `svelte-5-runes-migration-plan.md`
+instead of trusting a specific count here, since both numbers will keep moving
+as the migration continues — don't let this section's own numbers go stale
+again without updating that sibling chapter too.
 
 ## 2. Real, shared, cross-component state: Svelte's own stores
 

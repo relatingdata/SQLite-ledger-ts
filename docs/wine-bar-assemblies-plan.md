@@ -45,7 +45,7 @@ is Cold," useless as-is for "this Item is made from three different
 components, each in a different amount." And the base `entities` table
 has no numeric column to hang a quantity off of.
 
-The direct, no-new-tables fix: extend the *existing* naming convention
+The direct, no-new-tables fix proposed here: extend the *existing* naming convention
 one step further. Storage Origin links are named
 `"{item} — Storage Origin"`. A BOM component link would be named
 `"{item} — BOM: {component name}"`, with its **quantity encoded in the
@@ -57,6 +57,21 @@ would list every child entity under the item whose name matches the
 `" — BOM: "` pattern, parse out the component name and quantity from
 each, and return a real, typed array — no new table, no new column,
 same mechanism already proven for Storage Origin.
+
+**Correction — this is NOT the mechanism that actually got built,**
+despite `docs/sql-ledger-comparison.md` citing this chapter as the
+description of the real, working implementation. Checked directly
+against the current source: `stageBomComponent`/`postBomComponents`/
+`getBomComponents` (`backend/src/db.ts`) use a dedicated new table,
+`assembly_bom_staging` (one of the schema's 9 staging tables, per
+`scripts/check-schema-table-count.ts`), and store quantity/unit as real
+entity attributes (`Entity.getAttr(row.id, 'Quantity'/'Unit')`), not a
+name-suffix parsed off a link entity. The real implementation chose a
+dedicated staging table and real attributes over the name-suffix
+approach this section proposes — a reasonable, probably better,
+decision, but a different one than what's written here. Don't
+reconstruct the BOM mechanism from this section's naming-convention
+description; read the real functions in `db.ts` directly instead.
 
 ## Real, direct findings on actual bar equipment (not guessed)
 

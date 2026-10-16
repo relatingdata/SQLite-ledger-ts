@@ -10,9 +10,18 @@ for opening and editing directly in a spreadsheet.
 Three, real, substantial pieces of work led directly to this appendix
 being written:
 
-1. **Bun as the real, native runtime, end to end.** `better-sqlite3`
-   replaced entirely with `bun:sqlite` (Bun's own, built-in SQLite
-   driver); `dev`/`test` scripts now run natively under Bun
+1. **Bun as the real, native runtime, end to end — since superseded;
+   checked directly against the current repo.** This was true at the
+   time this appendix was written, but is no longer the current
+   architecture: the Makefile's default is `RUNTIME ?= node` (not
+   `bun`), `better-sqlite3` is still a live dependency in
+   `backend/package.json`, and `backend/src/db.ts` now contains an
+   explicit multi-runtime abstraction supporting `better-sqlite3` and
+   `bun:sqlite` side by side rather than having replaced one with the
+   other — see `docs/multi-runtime-support.md` and
+   `docs/orm-and-commit-path.md` for the current, accurate account.
+   Kept below as the historical record of what this point once
+   described; `dev`/`test` scripts now run natively under Bun
    (`bun --watch`, `bun test`), not via `tsx` under Node. Three real
    compatibility bugs were found and fixed in the process: a
    null-vs-undefined return-value difference (fixed once, centrally,
@@ -22,8 +31,11 @@ being written:
    another when both ran in the same Bun process.
 2. **A single, shared `node_modules` via Bun workspaces**, replacing
    three separate ones (backend/frontend/e2e) — one real
-   `bun.lockb`, `RUNTIME := bun` in the Makefile (no `PATH`
-   modification), 197MB total instead of 235MB across three.
+   `bun.lockb`, `RUNTIME := bun` in the Makefile at the time (no `PATH`
+   modification), 197MB total instead of 235MB across three. (The
+   Makefile's `RUNTIME` default has since moved to `node` — see the
+   correction on point 1 above; the workspace consolidation itself is
+   unaffected.)
 3. **Real, static application data moved to plain-ASCII CSV**,
    replacing hardcoded TypeScript arrays — translations (2,884 rows),
    the product catalog, locations, categories, initial stock levels,

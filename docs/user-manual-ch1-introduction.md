@@ -1,5 +1,9 @@
 # Chapter 1 --- Introduction
 
+## Purpose
+
+This User Manual, together with the Programmer's Manual, documents this application in two complementary halves. The Programmer's Manual, with every real finding referenced directly to its function in the code, serves as the one true source of information as far as implementation and unit testing is concerned. This User Manual serves as the design of the system in regards to the user interface and functionality, displayed by end-to-end (e2e) testing and the Tutorial — following data from the setting up of a demonstration business through to the end of a financial year. Together, these two manuals should be clear enough to serve as the prompts to an LLM similar to Claude, able to recreate the functional application.
+
 ## What this application is
 
 Better Brighter Multi-Ledger is a double-entry accounting and retail operations application, built around one, simple, central idea: everything in it --- every account, every business, every division, every location, every product, every employee, even every menu label --- is genuinely the same kind of thing underneath: an *entity*, sitting in one, single, shared tree. There is no separate "customers table" or "products table" living apart from everything else --- a customer, a product, and a bank account are all real rows in the same, one, underlying structure, each simply positioned differently within it.

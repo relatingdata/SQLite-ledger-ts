@@ -100,7 +100,13 @@ own old translations (German "Geschwister", French "Frère" — the
 *familial* sense of sibling, wrong for the new meaning, replaced with
 real translations for "relation" instead).
 
-A real migration (`migrateForRelationRename`) was tested directly
+A real migration — checked directly against the source: it is an
+inline, unnamed migration block in `backend/src/db.ts` (around line
+225, comment "Migration renaming entities.sibling_id ->
+entities.relation_id"), not a standalone function called
+`migrateForRelationRename` (no such name exists anywhere in the
+codebase; every real `migrateForXxx` function in `db-seed.ts` was
+checked, and none matches) — was tested directly
 against the actual pre-rename schema, not assumed to work, and caught
 two real bugs before shipping:
 

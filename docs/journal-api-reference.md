@@ -27,14 +27,25 @@ the implementation.
 
 ## `StagedLine` / `stageLine`
 
-The shape of one real, staged line: `reference`, `business`, `ledger`, an optional
-`description`/`transdate`, the `account` (and optional `accountId`, when the caller
-already knows it), `amount_minor`, an optional `memo`/`division`/`bankReference`.
+The real shape of one staged line, exactly as declared in `backend/src/db-journal.ts`:
+`reference`, `business`, `ledger`, an optional `description`/`transdate`, the `account`
+(and optional `accountId`, when the caller already knows it — set directly by
+`findLedgerScopedAccount` when a ledger-scoped posting account already exists for this
+`(ledger, account)` pair), `amount_minor`, an optional `memo`/`bankReference`. **There is
+no `division` field on `StagedLine`, and no Cost-Center/Profit-Center distinction
+anywhere in this file** — a previous revision of this chapter claimed `stageLine`
+refuses to stage a Cost-Center division's line against an Income account; that claim
+was checked directly against the current source and found false (`grep -i "Cost Center"
+backend/src/` returns zero matches anywhere in the backend). Division/Profit-Center
+scoping is a real, separate mechanism (`setDimensionParent`, `ensureProfitCenterAccount`
+— see `docs/profit-centers-design.md`), applied to *accounts*, not enforced inside
+`stageLine` against staged lines.
 
-`stageLine` inserts (or, on conflict, updates) one row in `journal_entry_staging`. If
-the line names a real `division`, and that division's own type is a Cost Center, the
-function refuses to stage it against an Income account — a Cost Center applies to
-purchasing only; a Profit Center is the real, correct choice for a sales-side posting.
+`stageLine` itself does exactly one thing: it inserts, or on conflict updates, one row
+in `journal_entry_staging`, keyed on the real SQLite `ON CONFLICT` target —
+`(reference, business, ledger, account, account_id, location)`, not just the first four
+of those — so two lines against the same bare account name in one entry only collide
+if they also share the same resolved `account_id` and `location`.
 
 ## `getStagedLines`
 
@@ -132,9 +143,25 @@ row), with total debit/credit, description, reference, and who posted it.
 
 ## `reverseJournalEntry`
 
-Posts a real, balanced, opposite entry against the original one, then marks the
-original with a `reversal_of` reference — a genuine correction, not a silent edit or
-delete of the original, real, historical record.
+Posts a real, balanced, opposite entry against the original one, then marks it — a
+genuine correction, not a silent edit or delete of the original, real, historical
+record. Precisely, in the order the real function does it:
+
+1. The new reversal's reference is deterministic, never caller-supplied:
+   `` `${original.reference}-REV-${occurrenceDate}` ``.
+2. If a journal with that exact reversal reference already exists for this
+   business/ledger, the function refuses outright — an entry can only be reversed
+   once; reverse the reversal itself to undo it again.
+3. Every original line is staged again with its sign flipped (`-line.amount_minor`)
+   under the new reversal reference, then posted through the ordinary
+   `stageLine`/`postJournalEntry` path — a reversal is not a special internal
+   mechanism, it is an ordinary balanced entry whose lines happen to be computed from
+   another one.
+4. Only after that post succeeds does `reversal_of` get set — and it is set on the
+   **new reversal row**, pointing back at the **original**'s `journal.id`
+   (`UPDATE journal SET reversal_of = <original id> WHERE reference = <new reversal
+   reference> ...`), not the other way around. A row's own `reversal_of` being
+   non-null is what marks *that row* as itself being a reversal of something earlier.
 
 ## `recordInvoiceLine`
 

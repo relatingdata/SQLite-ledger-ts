@@ -26,8 +26,13 @@ posted-to account. Division and category are purely computed
 reporting rollups — walking a location's own real parent (the
 division tree) or a product's own real parent (the category tree) at
 report time — never a separately recorded dimension on the journal
-line itself. `journal_line.division_id` is a legacy tag column, not
-the structural source of truth.
+line itself. Checked directly against the current schema
+(`backend/schema/00-core.sql`): `journal_line` has no `division_id`
+column at all anymore — not even as a vestigial, unused one. It was
+fully retired, not merely demoted to "legacy" (confirmed by the
+retirement comments in `backend/src/db.ts`, around lines 3375 and
+3437). Division is purely the structural, tree-walk fact described
+above, with nothing stored per-line.
 
 Every product, tiered or not, resolves to its own real
 `{Product} — {Location}` Sales/COGS/Inventory leaf when a location is

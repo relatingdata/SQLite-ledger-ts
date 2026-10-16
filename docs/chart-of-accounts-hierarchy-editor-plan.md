@@ -107,8 +107,12 @@ for dimension links elsewhere:
   `Total`, `Descriptive`, `Posting`, each a real, ordinary entity
   under a new `Chart of Accounts Line Types` parent — the same,
   established, user-amendable pattern already used for Address Types
-  and Phone Types). `setLineType`/`getLineType`/`listLineTypes` in
-  `backend/src/db.ts`.
+  and Phone Types). `setLineType`/`listLineTypes` in
+  `backend/src/db.ts`; `getLineType` is **not** live — checked
+  directly against the source, it's commented out at `db.ts:869-873`
+  ("UNUSED (checkpoint 426): no references found anywhere. Commented
+  out, not deleted."). Only two of these three functions are actually
+  callable today.
 - **Display order**: a genuine linked list, per direct instruction —
   a real relationship named `"Display Order"` from one sibling to
   whichever real sibling comes immediately after it in display order.

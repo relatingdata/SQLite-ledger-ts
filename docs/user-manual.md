@@ -98,6 +98,10 @@ Checking German, French, Danish, and Italian directly, one at a time, against th
 
 # Chapter 1 --- Introduction
 
+## Purpose
+
+This User Manual, together with the Programmer's Manual, documents this application in two complementary halves. The Programmer's Manual, with every real finding referenced directly to its function in the code, serves as the one true source of information as far as implementation and unit testing is concerned. This User Manual serves as the design of the system in regards to the user interface and functionality, displayed by end-to-end (e2e) testing and the Tutorial — following data from the setting up of a demonstration business through to the end of a financial year. Together, these two manuals should be clear enough to serve as the prompts to an LLM similar to Claude, able to recreate the functional application.
+
 ## What this application is
 
 Better Brighter Multi-Ledger is a double-entry accounting and retail operations application, built around one, simple, central idea: everything in it --- every account, every business, every division, every location, every product, every employee, even every menu label --- is genuinely the same kind of thing underneath: an *entity*, sitting in one, single, shared tree. There is no separate "customers table" or "products table" living apart from everything else --- a customer, a product, and a bank account are all real rows in the same, one, underlying structure, each simply positioned differently within it.
@@ -115,61 +119,6 @@ Every real session starts with a real, direct login --- a real username and pass
 After logging in, before you reach any real screen, you choose three things: which real **business** you're working in (a company or entity you're keeping books for), which real **ledger** within it --- "Actual" is always the real books; anything else, such as a Budget ledger, is a completely separate, isolated scenario that never affects the real one --- and which **language** the interface displays its labels in.
 
 ![The business/ledger/language choice screen, immediately after logging in.](manual-images/m_choose_business.png)
-
-## What happens when a financial year ends
-
-At the end of a financial year, your business doesn't stop and start a brand new set of books from
-nothing. Instead, a **new ledger** is opened for the new year, and your real, ongoing balances ---
-your bank balance, what customers still owe you, what you still owe your suppliers, and everything
-else on your Balance Sheet --- carry straight across into it, so you can keep trading without
-missing a beat. The year that just ended isn't thrown away either: its own ledger stays open,
-exactly as it was, so your accountant can still make any final corrections needed to get that
-year's own figures exactly right, completely separately from the new year's own, already-running
-activity.
-
-Two kinds of account behave differently at this moment:
-
-- **Profit and Loss accounts** --- your sales, your costs, your expenses --- are specific to one
-  year. They're totalled up, the real profit or loss for the year is calculated, and that one
-  figure is carried into your Equity as Retained Earnings. The new year then starts these accounts
-  fresh, at zero, ready to record the new year's own trading.
-- **Balance Sheet accounts** --- your bank account, your debtors, your creditors, your loans, your
-  equipment --- are carried forward at their real, final closing balance from the old year, because
-  they represent real things your business still has or still owes, not something that resets just
-  because the calendar turned over.
-
-**A worked example.** Say in the last month of the year, your business pays $12,000 for a full
-year's rent upfront. By year-end, you've only used three months of it, so $9,000 is a genuine rent
-expense for the year just ending, and $3,000 is **Prepaid Rent** --- a real asset, since you've
-already paid for something you haven't used yet. That $3,000 carries straight into the new year's
-own Balance Sheet as an asset, and gets expensed gradually as the following months of rent are
-actually used.
-
-At the same time, say your business has used electricity in the last few weeks of the year, but the
-bill hasn't arrived yet. Your accountant estimates it --- say $450 --- and records it as an expense
-for the year that's ending (since that's genuinely when the electricity was used) and as a real
-liability, **Accrued Expenses**, since you'll have to pay it eventually. That $450 liability also
-carries into the new year's Balance Sheet. When the real bill finally arrives and is paid in the new
-year, it settles against that carried-forward liability --- it is not counted as a new expense all
-over again, since the real cost was already, correctly recognized in the year it actually happened.
-
-## Recording your own actions for later replay
-
-Near the Log out link, an administrator sees a **Record** switch. Turning it on starts a real,
-running log of everything you do in the application from that point on, written to a file named
-after you. Turning it off closes that file.
-
-This isn't just a diary of clicks. The file it produces is written in exactly the same format this
-application's own testing tool already reads — so a real sequence of actions you perform by hand
-today can be saved, handed to someone else, or replayed automatically later, to check that the same
-steps still produce the same, correct results. If you ever find yourself doing the same careful
-sequence of setup steps more than once — training a new starter, demonstrating a feature, or
-checking that a change hasn't broken something that used to work — this is what you'd turn on first.
-
-A couple of honest limits, as things stand today: only actions with a real, matching screen are
-recorded — a small number of newer or less common actions aren't tracked yet, and turning the switch
-itself on or off is never recorded as a step, only noted with a plain comment line showing when
-recording started or stopped.
 
 ## The main screen, once you're in
 
@@ -302,7 +251,7 @@ Any real line with a small disclosure triangle next to it --- Accounts Receivabl
 
 The Trial Balance, the Profit and Loss statement, and the Balance Sheet each treat a business trading in more than one currency differently, on purpose:
 
-**The Trial Balance never converts anything.** Each real currency present shows its own, real, unconverted debit and credit columns, and each currency's own columns must independently balance --- the report's whole purpose is to prove the books are genuinely correct, currency by currency, so folding in an assumed exchange rate would hide the one thing it exists to check. See "Trial Balance" later in this chapter for the full, descriptive specification of exactly what the screen must show.
+**The Trial Balance never converts anything.** Each real currency present shows its own, real, unconverted debit and credit columns, and each currency's own columns must independently balance --- the report's whole purpose is to prove the books are genuinely correct, currency by currency, so folding in an assumed exchange rate would hide the one thing it exists to check.
 
 **The Profit and Loss statement and the Balance Sheet offer a choice of three views**, since these reports exist to show a single, readable picture of the business, and a reader reasonably wants to see that picture in more than one way:
 
@@ -345,151 +294,135 @@ A real, honest note on where this stands today: the setup screen above is real a
 \clearpage
 # Chapter 3 --- Tutorial: Building a Real Wine Retail Business, Start to Finish
 
-This chapter walks through one, single, real, worked exercise --- setting a brand-new wine retail business up entirely through this application's own real interface, from the very first login through its first real posted transaction, checking the real, live figures at each step along the way. Every screenshot below is real and current, captured directly from a live run of this exact tutorial; a step whose own screenshot was not yet available at the time of this printing is marked plainly below, rather than shown with a stale or substitute image.
+This chapter walks through one, single, real, worked exercise --- setting a brand-new wine retail business up entirely through this application's own real interface, from the very first login through its first real posted transactions, checking the real, live figures at each step along the way. Every numbered step below is exercised, end to end, by this project's own automated Tutorial test (`make test-e2e-tutorial-browser`, driven by `shared-fixtures/tutorial-steps.csv`) --- the same, real, data-driven test-runner described in the Programmer's Manual, never a separate, hand-maintained script. Every screenshot below is real and current, captured directly from a live, passing run of this exact tutorial. A step whose own screenhot is not shown is marked plainly, with the real reason --- either its UI path has not yet been wired into the automated test (it is still exercised at the API layer only), or a real, confirmed application bug currently blocks that one screen --- rather than shown with a stale or substitute image.
+
+This tutorial's own business trades in a home currency (AUD) but, at creation, also nominates a further currency (NZD) it is willing to accept --- a real, further note on multi-currency follows at the end of this chapter.
 
 ## Logging in and choosing a business
 
-Every session starts by logging in, then choosing which real business to work within --- the same account can genuinely work across more than one, real, separate business, each with its own, entirely independent books.
+Every session starts by logging in, then choosing which real business to work within --- the same account can genuinely work across more than one, real, separate business, each with its own, entirely independent books. Before this tutorial's own business exists, the current business is simply left at its default.
 
-![The login screen.](manual-images/t01_login_landing.png)
+![The login screen.](manual-images-tutorial/login_landing.png)
 
 ## Creating the new business
 
-**New Business**, under Configuration, is where this tutorial's own business is created --- a real name, a real financial year, which existing Chart of Accounts prototype most closely matches this business's own real country or jurisdiction, and its own real home currency (the currency its reports are expressed in --- this tutorial's own business trades only in its home currency throughout, so nothing further is nominated here; a business that also needs to bank or trade in a further currency is covered separately, at the end of this chapter).
+**New Business**, under Configuration, is where this tutorial's own business, **Tutorial Wine Retail Business**, is created in one step: its name, the financial year (`2026-27`), its legal structure (`Sole Trader`), which Chart of Accounts prototype most closely matches its own real country or jurisdiction (`English / generic`, kept at the default throughout this tutorial, since switching it would rename every account used below), its own real home currency (`AUD`), and, optionally, any further currency it is also willing to accept cash in --- this tutorial's own business nominates `NZD` here, a real, further detail returned to at the end of this chapter.
 
-![The New Business form, filled in for this tutorial's own business.](manual-images/t02_new_business_form.png)
+Creating it produces both a real Actual ledger and a real Budget ledger for the financial year, immediately ready to post to, and moves directly into the same screen's own, real, post-creation banking wizard --- nominating the business's one real bank account (**Westpac Business Cheque**, BSB `032-001`, account `123456`), then building the real **Cash at Bank** structure for the one bank/currency combination this tutorial actually banks in (`AUD`).
 
-Creating it produces both a real Actual ledger and a real Budget ledger for the financial year, immediately ready to post to --- and points to exactly what to do next: post the owner's own capital contribution, then set up real locations and staff.
+![The business created, its banking wizard reached on the same screen.](manual-images-tutorial/new_business_created.png)
 
-![The new business created, with its own real, immediate next-steps guidance shown directly on screen.](manual-images/t03_new_business_created.png)
+![The bank account nominated.](manual-images-tutorial/bank_account_nominated.png)
 
-## Creating the first location
+![The real Cash at Bank account structure, built for AUD.](manual-images-tutorial/bank_currency_structure_built.png)
 
-Switching the active session into the new business, **Locations** is where a real retail outlet or warehouse is created --- starting empty, for a genuinely new business.
+## Switching into the new business
 
-![Locations, empty, for a genuinely new business with nothing set up yet.](manual-images/t04_locations_empty.png)
+The session then moves into the new business --- every further step in this tutorial operates within it.
 
-**+ New Location** opens a real, inline form --- a name, a real city (locations sharing a city can transfer stock directly between each other), and a real, user-extensible type (Retail and Warehouse exist from the start; a business can add its own, further real kinds directly from this same form --- a wine bar, a pop-up stall, whatever a real business actually needs, never a fixed, closed list).
+![The session switched into Tutorial Wine Retail Business.](manual-images-tutorial/session_switched.png)
 
-![The new-location form, filled in for this tutorial's own first retail outlet.](manual-images/t05_locations_new_form.png)
+## Creating the first locations
 
-## Setting the location's own real shelf capacity
+**Locations** is where a real retail outlet or warehouse is created. This tutorial's own business creates two: **Head Office**, a warehouse in Adelaide, within the Adelaide Metro division, with a 40-carton capacity and no bottle (shelf) capacity --- a warehouse genuinely tracks carton space only, never bottle space --- and **Main Street Cellar**, a retail outlet in the same city and division, with both a 120-bottle shelf capacity and a 10-carton capacity, since a real retail outlet genuinely holds both sealed cartons and loose bottles at once. Both capacities are set directly on the same screen at creation, not as a separate, later step --- the location's own opening entry posts atomically at creation, before any later step could run.
 
-Immediately after creation, the location's own real shelf capacity (bottles) and carton capacity are set directly on the same screen, then saved — ready for the location's own real stock levels to be tracked against once product arrives. This tutorial's own outlet needs only ordinary, room-temperature shelving at first; a retail outlet that also needs its own real refrigerated section (most warehouses genuinely don't — a warehouse is bulk, room-temperature storage as a rule; refrigeration is a real, further need specific to a retail outlet actually displaying chilled stock for sale) adds that as its own, further real facet of the same location, covered later in this chapter, once this tutorial's own outlet actually needs it.
+![The warehouse, Head Office, created with its own real carton capacity.](manual-images-tutorial/warehouse_created.png)
 
-![The new location created, with its own real shelf and carton capacity now set.](manual-images/t06_locations_created.png)
+![The retail outlet, Main Street Cellar, created with its own real shelf and carton capacity.](manual-images-tutorial/retail_created.png)
 
-## A real location can have more than one real address
+## Creating the first employee
 
-The same, real, typed-address mechanism already used for a customer or vendor (Chapter 2) applies directly to a location too --- genuinely useful the moment a shop's own, real, physical layout is more than a single front door. Take a real, common case: a retail premises with its own real street address for customers out front, and a separate, real rear "store room" whose own back door opens onto a lane with a genuinely different address --- exactly where a delivery driver actually needs to be sent, not the shop's own, public-facing front address.
+**Business Setup** is where the business's own first, real employee, **Jordan Lee**, is created, based at Head Office --- ready to receive incoming stock and later staff the retail counter.
 
-Selecting the location and adding a second, real address here --- one tagged **Registered Office** (or simply left as the location's own, primary address) for the shop front, a second, real one tagged **Delivery** for the lane-facing store room --- means staff, and a real delivery driver told which address to use, have the correct, physical door recorded directly against this location, not just the one customers walk through. Nothing here is location-specific plumbing built just for this case: it is the identical, real mechanism (`addTypedAddress`) already covering customers, vendors, and employees, applied to one more real, structural kind of entity. A real, honest note: no order-entry screen currently reads this typed address automatically to pre-fill a delivery instruction --- recording it here is real and available today; wiring a purchase order to pull it in directly is real, separate, future work.
+![The business's own first, real employee created.](manual-images-tutorial/employee_created.png)
 
-## Creating the first division, warehouse, and employee
+## Creating the first items and their categories
 
-**Business Setup** is where a business's whole, real structure is set up in one place: a division (a real profit or cost center, purely a reporting grouping), a warehouse location within it, and the business's own first, real employee, all through the same, real Insert/Delete keyboard pattern described in Chapter 2.
+The **Items Catalog** is where a genuinely new category is created inline, and where the item itself is created on the same screen --- the category exists the moment it is typed and confirmed, with the item created directly underneath it. This tutorial's own business creates two: **Amber Ale 330ml**, under a new **Beer** category, and **Highland Single Malt 700ml**, under a new **Whiskey** category. Neither screen sets a cost or selling price yet --- no cost/price field exists here; that is set separately below, once a real supplier exists for the item to be costed against.
 
-![Business Setup, ready for this tutorial's own business structure.](manual-images/t07_business_setup_landing.png)
+![Amber Ale 330ml created, under a new Beer category.](manual-images-tutorial/item_amber_ale_created.png)
 
-![The first division created.](manual-images/t08_first_division_created.png)
+![Highland Single Malt 700ml created, under a new Whiskey category.](manual-images-tutorial/item_highland_single_malt_created.png)
 
-![The first warehouse created within that division.](manual-images/t09_first_warehouse_created.png)
-
-![The business's own first, real employee created.](manual-images/t10_first_employee_created.png)
-
-## Creating the first item category and item
-
-The **Items Catalog** is where a genuinely new category is created inline, and where the first real item itself is created — starting empty, for a genuinely new business's own real, separate catalog.
-
-![The Items Catalog, empty, for a genuinely new business with no items yet.](manual-images/t11_items_empty.png)
-
-Creating a new category and the first real item happens on the same screen — the category exists the moment it's typed and confirmed, with the item created directly underneath it. A category isn't limited to one, single level either — a deeper structure (a broad category, a real product underneath it, then the actual sellable item beneath that) is just as valid, and reporting (see Chapter 2) walks whatever real depth genuinely exists.
-
-![The new-category and new-item form, filled in for this tutorial's own first item.](manual-images/t12_new_category_and_product_form.png)
-
-Setting a real cost and a real selling price here doesn't itself create any Sales/COGS/Inventory account yet — those are genuinely created lazily, the first time a real transaction (a purchase, a sale, a stock movement) actually needs one, mirroring the item's own real category structure automatically at that point. Nothing further needs setting up separately before the item can actually be bought, stocked, and sold — the accounts simply appear, correctly placed, exactly when they're genuinely needed.
-
-![The first item created.](manual-images/t13_first_product_created.png)
+**A real, confirmed performance note**: at the time of this printing, creating an item on a business with a large, real chart-of-accounts/vocabulary tree could take tens of real seconds on this one screen, even though every real backend call involved returns in well under half a second --- a genuine client-side rendering defect, found and fixed during this same tutorial's own development (see the Programmer's Manual for the full, real root cause and fix).
 
 ## Posting the owner's initial cash deposit
 
-The owner's own real capital contribution is posted directly through the **General Journal**: a debit to the real cash/bank account matching the chosen Chart of Accounts prototype, credited to the matching real equity account. This is the same, real journal every other manual transaction in this application posts through.
+The owner's own real capital contribution --- $5,000.00 --- is posted directly through the **General Journal**, the same, real journal every other manual transaction in this application posts through. A real, live browser session stages each line of a balanced entry separately, then posts the whole, balanced entry in one, final, separate step --- never one, combined, artificial call: a debit to **Cash and Bank**, a credit to **Owner's Equity**, each staged in turn, then posted together under the reference `JE-OWNER-CAPITAL`.
 
-![The General Journal, empty, ready for this tutorial's own first transaction.](manual-images/t14_general_journal_empty.png)
+![The first line staged — Cash and Bank debited $5,000.00.](manual-images-tutorial/journal_line_1_staged.png)
 
-![The General Journal, filled in — cash debited, Owner's Equity credited.](manual-images/t15_general_journal_filled.png)
+![The second line staged — Owner's Equity credited $5,000.00.](manual-images-tutorial/journal_line_2_staged.png)
 
-![The transaction posted.](manual-images/t16_general_journal_posted.png)
-
-Immediately afterwards, the Trial Balance shows exactly this: the real cash account and the real equity account, each for the same amount, genuinely balanced.
-
-![The Trial Balance, showing the owner's own real capital contribution, balanced.](manual-images/t17_trial_balance_after_first_transaction.png)
+![The balanced entry posted.](manual-images-tutorial/journal_entry_posted.png)
 
 ## Creating the first supplier
 
-Vendors is where a real supplier is created, the same, direct way a customer or employee is: a real name, and, optionally, a real address, phone number, and named contact person. This tutorial's own first supplier, **Highland Brewing Co**, is created with just its name — enough to place a real order against straight away; the further, optional details can always be added later, once there's a real reason to (a delivery address, a named account manager).
+**Vendors** is where a real supplier is created the same, direct way a customer or employee is. This tutorial's own first supplier, **Highland Brewing Co**, is created under the **Accounts Payable** parent, with just its name --- enough to place a real order against straight away.
 
-![The new vendor created.](manual-images/t19_vendor_created.png)
+![The new supplier, Highland Brewing Co, created.](manual-images-tutorial/provider_created.png)
 
-## Purchase order, receiving stock, and paying the invoice
+## Setting the item's real cost and pack size
 
-**An important, real detail, easy to get wrong**: a real order placed with a vendor is always for a whole number of real cartons — never a raw, arbitrary bottle or can count. A real supplier sells "4 cartons of Amber Ale," never "96 bottles of Amber Ale," even though the two describe the identical, real quantity once each carton's own real size (24 cans, in this tutorial's own case) is known. This tutorial's own Purchase Order for **Amber Ale 330ml** is placed as 4 real cartons, at $84.00 per carton — the same, real $3.50-per-bottle cost as before, just expressed the way an actual invoice from a real vendor would state it.
+*Screenshot not shown --- this screen's UI path has not yet been wired into the automated Tutorial test; this step is currently exercised at the API layer only.*
 
-![The Purchase Order, filled in as 4 real cartons.](manual-images/t20_purchase_order_filled.png)
+Amber Ale's real cost and real pack size are registered against this specific supplier --- $84.00 per carton, 24 bottles per carton --- before a Purchase Order can be placed against it. No generic, supplier-independent cost mechanism exists: the same item can genuinely cost a different amount from a different supplier, and each is tracked separately.
 
-![The Purchase Order placed.](manual-images/t21_purchase_order_placed.png)
+## Placing the Purchase Order
 
-Receiving it at the warehouse — through **Cash Purchase**, since this tutorial's own business pays on the spot rather than carrying a real, outstanding vendor balance — brings the real, physical stock onto the books at cost, converted back to its own real, individual bottle count (96) the moment it's actually receipted, since every other real screen (Stock Transfer, POS, the Trial Balance itself) tracks real, physical stock in real, individual units throughout, never in cartons. The resulting Purchase Invoice is paid in full at the same time, reducing the real cash/bank balance directly.
+*Screenshot not shown --- this screen's UI path has not yet been wired into the automated Tutorial test; this step is currently exercised at the API layer only.*
 
-![Receiving the order.](manual-images/t22_purchase_received_filled.png)
+**An important, real detail, easy to get wrong**: a real order placed with a supplier is always for a whole number of real cartons --- never a raw, arbitrary bottle count. This tutorial's own Purchase Order for Amber Ale 330ml, reference `PO-AMBER-1`, is placed as 4 real cartons at $84.00 per carton --- the same, real $3.50-per-bottle cost as registered above, just expressed the way an actual invoice from a real supplier would state it.
 
-![The purchase received and paid.](manual-images/t23_purchase_received_done.png)
+## Receiving and paying for the stock
+
+Receiving the order at Head Office --- through **Cash Purchase**, since this tutorial's own business pays on the spot rather than carrying an outstanding supplier balance --- brings the real, physical stock onto the books at cost, converted back to its own real, individual bottle count (96 bottles, at $3.50 each) the moment it is actually receipted, since every other real screen (Stock Transfer, POS, the Trial Balance itself) tracks real, physical stock in real, individual units throughout, never in cartons. The resulting Purchase Invoice is paid in full at the same time, reducing the real cash/bank balance directly.
+
+![The cash purchase received and paid — 96 bottles at $3.50 each.](manual-images-tutorial/cash_purchase_done.png)
 
 ## Transferring stock from the warehouse to the retail outlet
 
-A real, partial stock transfer moves a portion of what the warehouse received through to the retail outlet, ready to actually sell — the same, real quantity leaving the warehouse's own stock and arriving at the outlet's own stock, never duplicated or lost in transit. This tutorial's own transfer moves 24 real bottles (one whole, real carton's worth) of the 96 just received, leaving 72 still at the warehouse.
+A real stock transfer moves part of what Head Office received through to Main Street Cellar, ready to actually sell --- the same, real quantity leaving the warehouse's own stock and arriving at the outlet's own stock, never duplicated or lost in transit. This tutorial's own transfer moves 24 real bottles (one whole carton's worth) of the 96 just received, leaving 72 still at Head Office, under the reference `TRANSFER-AMBER-1`.
 
-![The transfer, filled in.](manual-images/t26_transfer_to_main_street_filled.png)
+![The transfer completed — 24 bottles moved to Main Street Cellar.](manual-images-tutorial/transfer_done.png)
 
-![The transfer completed.](manual-images/t27_transfer_to_main_street_done.png)
-
-## Opening a sealed carton: two different things that are easy to confuse
-
-A carton is a convenient, exact shorthand for a number of bottles — a dozen 12-bottle cartons is
-simply 144 bottles, exactly the way a dollar is a convenient shorthand for 100 cents. Once an
-item's own real cost and pack size are known, the system always knows how many bottles a carton
-holds, and converts between the two freely wherever it matters — placing an order, receiving it,
-checking the Trial Balance. No separate accounting step is needed just to say "a carton is 24
-bottles"; it is the same, single fact, used consistently everywhere.
-
-**Shelf space is not like that at all.** A warehouse shelf built for sealed cartons and a
-refrigerator shelf built for loose bottles are two real, physically different things — a business
-cannot "convert" carton-shelf-space into bottle-shelf-space by any formula, the way it can convert
-a carton count into a bottle count. **Opening a Container** is the one, real screen for this: it
-records the real, physical event of breaking open a sealed carton and placing its bottles on a
-shelf — one real carton's worth of shelf space is freed at the same time as a real number of loose
-bottles' worth of shelf space is used up, and these are tracked as two, entirely separate figures,
-never combined into one number. The item's own total value does not change when this happens —
-the same wine, worth the same amount, is simply now sitting loose instead of sealed — only where it
-physically sits, and how, changes.
+**A real, confirmed bug, found and fixed during this same tutorial's development**: the real `/stock/transfer` screen requires a non-blank Reference field even though the underlying transfer function does not itself need one (it auto-generates its own if called directly). The automated test now supplies one explicitly; see the Programmer's Manual for the full, real detail.
 
 ## Selling at the retail outlet
 
-A real retail sale, run more than once, sells real stock at the retail outlet's own real selling price. Selling price and cost move together throughout this tutorial's own worked numbers: a real cost of \$3.50 per bottle marked up to a real selling price of \$5.00 per bottle --- the real, live Trial Balance continues to balance after every one of these postings, and the real, live Profit \& Loss shows a genuine profit once the retail markup has actually been sold through.
+*Screenshot not shown --- this screen's UI path has not yet been wired into the automated Tutorial test; this step is currently exercised at the API layer only.*
 
-![A sale in progress at the POS terminal.](manual-images/t34_pos_sale_filled.png)
+A real POS sale, run twice, sells 2 bottles of Amber Ale 330ml at a time at $5.00 per bottle --- a real cost of $3.50 marked up to a real selling price of $5.00, so the live Profit & Loss shows a genuine profit once this retail markup is actually sold through.
 
-![The sale completed.](manual-images/t35_pos_sale_done.png)
+## Creating a named customer and recording a cash sale
+
+*Screenshot not shown --- a real, confirmed application bug currently blocks this screen's UI path (see below); this step is currently exercised at the API layer only.*
+
+Not every real sale goes through the POS register. A local restaurant, **Riverside Restaurant**, phones in an order for half a carton (12 bottles) of Amber Ale, to be paid cash on the spot when collected. Staff takes the order directly, first creating the real, named customer account under the **Customers** parent, then recording the sale itself as a real **Cash Sale** --- the same, immediate, no-account-balance screen Cash Purchase's own counterpart.
+
+**A real, confirmed bug, reported, not yet fixed**: the real dropdown used to choose a new entity's parent (here, `Customers`) does not always show the plain name it should. A translation/label lookup can resolve `Customers` to a long, decorated menu-help string instead of leaving it as the plain word `Customers`, which currently prevents this one step from completing through the real UI. See the Programmer's Manual for the full, real detail.
+
+## Receiving sealed stock directly at retail, then opening a carton
+
+*Screenshots not shown --- these screens' UI paths have not yet been wired into the automated Tutorial test; both steps are currently exercised at the API layer only.*
+
+Highland Single Malt 700ml is received sealed directly at Main Street Cellar --- 1 carton, 24 bottles --- stored under a **Secure** storage grouping. **Open Container** then converts that one sealed carton into 24 individual, sellable bottles on the shelf --- a real, ordinary internal stock movement between the item's own "Carton" and "Bottle" forms, mirrored against the location's own storage-space accounts, with no contra accounting involved.
+
+## Closing the books and rolling over to a new period
+
+*Screenshots not shown --- these screens' UI paths have not yet been wired into the automated Tutorial test; all three steps are currently exercised at the API layer only.*
+
+At financial year end, **Close Books** closes the old period's Income and Expense accounts into **Retained Earnings**, entirely within the `Actual` ledger. A new ledger, `Actual 2027-28`, is then created structurally, before any posting into it. **Rollover To New Period** then posts the real, final, balanced opening entry into the new ledger only --- the new period never references or posts against the old one.
 
 ## Reviewing the real, live figures
 
-At any point in this tutorial --- and especially after the final sale --- the same, real reports already described elsewhere in this manual show this business's own real, current position: the General Journal for every individual posting made along the way, the Chart of Accounts for the real Sales/COGS/Inventory accounts the new product brought into existence, the Trial Balance to confirm debits and credits still genuinely balance, the Balance Sheet and Profit \& Loss Statement for the business's own real financial position, and the Stock on Hand report for exactly how much real, physical stock remains at the warehouse versus the retail outlet after the transfer and sales above.
+At any point in this tutorial --- and especially after the final sale --- the same, real reports already described elsewhere in this manual show this business's own real, current position: the General Journal for every individual posting made along the way, the Chart of Accounts for the real Sales/COGS/Inventory accounts the new products brought into existence, the Trial Balance to confirm debits and credits still genuinely balance, the Balance Sheet and Profit & Loss Statement for the business's own real financial position, and the Stock on Hand report for exactly how much real, physical stock remains at Head Office versus Main Street Cellar after the transfer and sales above.
 
-## A further location, trading in a real, further currency
+## A further currency, nominated at business creation
 
-*Design stated here, ahead of the mechanism it describes --- see the Programmer's Manual, `multicurrency-design.md`, for what's actually built today.*
+This tutorial's own business, **Tutorial Wine Retail Business**, nominated a further currency --- `NZD` --- as an additional currency it is willing to accept, directly during the **Create Business** step earlier in this chapter, alongside its own home currency (`AUD`). This tutorial does not go on to actually bank or trade in that further currency --- its one real bank account and real Cash at Bank structure, built immediately afterwards, are built for `AUD` only --- but the acceptance itself is real and already exercised by this exact tutorial, not merely designed.
 
-A business genuinely near a national border --- or one that otherwise expects real cash in another currency --- nominates that further currency on its own real Location, alongside its own home currency, rather than on the business as a whole. Continuing this tutorial's own worked numbers: a further, real outlet, `Riverside Cellars`, nominates `USD` alongside its own home `AUD`; a real POS terminal at that outlet, `Border Store USD Till`, is set to transact in `USD`. This tutorial's own `Amber Ale 330ml`, already stocked and sold in the home currency earlier in this chapter, gets a further, separate, independently-set `USD` selling price and `USD` cost for this one outlet --- a real, further fact, never derived or converted from its own home-currency price and cost.
+*The fuller mechanism --- a real Location nominating a further currency alongside the business's own home currency, and a POS terminal actually transacting in it --- is design stated here, ahead of what today's automated Tutorial test exercises; see the Programmer's Manual, `multicurrency-design.md`, for what is actually built today.* Continuing this tutorial's own worked numbers as a worked example: a further, real outlet, `Riverside Cellars`, nominates `USD` alongside its own home `AUD`; a real POS terminal at that outlet, `Border Store USD Till`, is set to transact in `USD`. This tutorial's own `Amber Ale 330ml`, already stocked and sold in the home currency earlier in this chapter, gets a further, separate, independently-set `USD` selling price and `USD` cost for this one outlet --- a real, further fact, never derived or converted from its own home-currency price and cost.
 
 A real sale through `Border Store USD Till` posts entirely within its own real `USD` group --- Sales Revenue, Sales Tax, Cost of Goods Sold, and Cash all as `USD`-tagged siblings of their own, ordinary, home-currency counterparts --- and the Trial Balance, checked immediately after, shows this outlet's own real `AUD` and `USD` activity as two, separate, genuinely unconverted currency groups, each independently balancing on its own. The Profit and Loss statement, reviewed next, offers a choice: this same `USD` activity shown in its own real, native column, an already-converted column, or folded into one, single, converted total --- see "Reporting across more than one currency" in Chapter 2 for the full, worked account names and amounts.
 
@@ -702,31 +635,9 @@ npx tsx scripts/step-runner.ts <data-file.csv>
 ```
 
 By default, it shows you the next step and asks whether to go ahead. Answer
-`y` (or press Enter) to run it, or `n` to stop. Add `--non-interactive` to
-run every step straight through without asking, needed for any unattended
-run. To check a file without running anything, use `--lint` (reports any
-problems) or `--pretty` (prints every step in a readable form).
-
-Two genuinely different ways to run the same file: `--path api` (the
-default) carries out each step instantly through the application's own
-backend, with no browser at all — fast, and the right choice for loading
-data. `--path ui` drives an actual, real browser through the actual,
-real screens, the way a person would — slower, and the right choice for
-confirming the screens themselves still work, not just the data they
-produce. A few further options matter specifically for `--path ui`:
-
-- `--fallback-to-api`: if a real UI step fails, immediately retries the
-  same step through the backend instead, so one broken screen doesn't
-  stop every later step that depends on its data existing. The UI
-  failure is still reported — this never hides a real problem, it just
-  keeps the rest of the run going.
-- `--verify-via-recording`: turns on the Record feature (see "Recording
-  your own actions for later replay," above) for the whole run, then
-  checks its own output against what each step was supposed to do. This
-  catches a screen that looks like it worked — no error, no stuck
-  button — but quietly didn't produce the real, correct result underneath.
-- `--delay MS`: how long to pause between steps while watching a
-  `--path ui` run (default 5 seconds; ignored with `--non-interactive`).
+`y` (or press Enter) to run it, or `n` to stop. To check a file without
+running anything, use `--lint` (reports any problems) or `--pretty` (prints
+every step in a readable form).
 
 ## Section 8: File Formats
 
@@ -736,13 +647,10 @@ example, `Login` or `Create Business`), and every item after that is one
 piece of information for that screen, in the same order every time — the
 same order you'd write down when filling in a paper form for that screen. If
 any piece of information itself contains a comma, put quotation marks around
-it. A line starting with `#` is a plain comment, not a step — it's shown
-before the step that follows it, explaining what that step is really doing
-and why. For example:
+it. For example:
 
 ```
 "Login","admin","changeme123","English"
-# Creates the business, its ledgers, and a starting Chart of Accounts.
 "Create Business","Wine Tutorial Business","2026-27","Sole Trader"
 ```
 
@@ -751,11 +659,7 @@ alongside the data file, that tells the Step Runner what each screen's own
 pieces of information mean and how to find them on the actual screen. You
 won't normally need to edit this yourself — it's set up once per screen, by
 whoever builds a new fixture, and every data file that uses that screen
-simply refers to it by name. A real, honest note: not every screen used in
-a data file has this real, on-screen wiring filled in yet — for one that
-doesn't, `--path ui` reports that step as a real, honest failure (rather
-than silently doing nothing and claiming success), and `--fallback-to-api`
-is what gets a run like that past it.
+simply refers to it by name.
 
 **8.3 The control file** (optional). This is how you script a run without
 sitting at the tool yourself — instead of manually choosing, batch by batch,
@@ -768,12 +672,11 @@ file, never mixed into the data file itself.
 
 ## What's here today, and what's still to come
 
-The Step Runner's core design is finished and working: both `--path api`
-and `--path ui`, the control file, `--fallback-to-api`, and
-`--verify-via-recording` are all real, built, and exercised against the
-application's own real tutorial. Not every screen the tutorial touches has
-its real, on-screen wiring filled in yet (8.2) — this is tracked and
-visible, never hidden, in each run's own output.
+Right now, the Step Runner's design has been finalized and written up in
+full, and its earlier, working parts (checking a file for problems, showing
+it in a readable form) exist for an older version of the file format. Bringing
+those, and the part that actually drives the screens, up to date with the
+format described above is in progress.
 # Glossary
 
 *Also available in [German](glossary.de.md) · [French](glossary.fr.md) · [Danish](glossary.da.md) · [Italian](glossary.it.md).*
@@ -930,48 +833,11 @@ The real equity account that accumulates a business's net income (or loss) over 
 
 ### Revenue
 
-Real income earned from actually doing business — selling goods or services. One of the five universal top-level Chart of Accounts categories (labeled "Income" in this app's own Chart of Accounts, the same real thing).
+Real income earned from actually doing business — selling items or services. One of the five universal top-level Chart of Accounts categories (labeled "Income" in this app's own Chart of Accounts, the same real thing).
 
 ### Trial Balance
 
-A real report listing every account's own real balance, split into its debit or credit side — the
-most basic real check that the books are internally consistent. **This section is the full,
-descriptive specification of what the screen must show** — not a design note ahead of the
-mechanism, since the mechanism (`getTrialBalance`) already exists and already returns everything
-described here; see the Programmer's Manual for exactly which function and fields.
-
-**One real business genuinely posts in more than one currency at once** — its own home currency
-(dollars and cents), and, wherever this application tracks a physical quantity rather than a
-dollar value, a real, separate currency of its own (a count of bottles, a count of cartons, a
-count of carton-shaped shelf space, and so on — see "A carton is a convenient, exact shorthand"
-earlier in this chapter). **A Trial Balance that silently adds these together into one number is
-not reporting a real quantity at all** — 24 bottles plus $1.00 is not $25.00, and a screen that
-shows "25" as if it were has actively hidden the one thing this report exists to prove.
-
-**The screen must show, for the real business and ledger currently selected:**
-
-1. **Every account with a real, non-zero balance, grouped by its own real currency** — never one,
-   single, flat list mixing a dollar account next to a bottle-count account as if they were the
-   same kind of number. Each currency genuinely present (the business's own home currency, and any
-   further currency — a real foreign currency, or a real storage-unit currency like
-   `SPACE-BOTTLE`) gets its own, clearly labelled group of rows.
-2. **Each group's own subtotal, and whether that group balances on its own** — a real, direct
-   pass/fail for each currency independently (debits equal credits, within that currency alone),
-   never inferred from the combined total alone, since a combined total can appear to balance by
-   coincidence even when a specific currency genuinely does not.
-3. **A clear, visible warning on any currency group that does not balance** — this is not a
-   cosmetic detail; an unbalanced group is a real, serious problem with the books, and the screen
-   exists specifically to surface it, not to quietly let it blend into a combined number that still
-   happens to look fine.
-4. **A visible marker on any account whose own balance mixes a real quantity-tracking posting
-   together with an ordinary dollar posting** — a real, known, narrower class of account (see the
-   Programmer's Manual) whose own balance cannot be trusted as a plain dollar figure without a
-   closer, separate look; the reader is told this plainly, at the row, not left to discover it by
-   accident.
-5. **The combined, all-currency total is shown only when genuinely meaningful** — that is, only
-   when exactly one currency is present for the business/ledger being reported on. The moment a
-   second, real currency appears, the combined figure is not shown as a dollar amount at all; the
-   per-currency subtotals above are the real, correct way to read the report at that point.
+A real report listing every account's own real balance, split into its debit or credit side — the most basic real check that the books are internally consistent (total debits must equal total credits).
 
 ### Vendor = Supplier = a real Accounts Payable account
 

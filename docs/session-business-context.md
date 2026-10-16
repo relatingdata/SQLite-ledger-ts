@@ -77,9 +77,22 @@ function findSessionByToken(token: string): { id: number; user_id: number; expir
 }
 ```
 
-**`attachUser` (`backend/src/auth-middleware.ts`) gains a real sibling, `req.business`**,
-set from the exact, same, already-resolved session record `req.user` itself comes
-from - no further lookup:
+**Superseded — checked directly against the current source and found false.**
+The `req.business` mechanism below was the original plan for this chapter, but it
+is not what actually got built. `grep -rn "req\.business" backend/src/` returns
+**zero matches** anywhere in the real codebase. The real `attachUser`
+(`backend/src/auth-middleware.ts`) never sets any `req.business` field at all —
+instead it resolves the session's current business and runs the rest of the
+request inside `runInSessionContext` (the `AsyncLocalStorage`-backed primitive
+described in "Honest, current status" below), and routes still read
+`req.query.business`/`d.business` directly (confirmed in `routes/hierarchy.ts`,
+`routes/invoices.ts`, `routes/i18n.ts`, and others) — the request-shape removal
+this section describes never happened. The code below is kept as a record of the
+superseded design; don't treat it as current fact.
+
+*Superseded plan, not current code* — `attachUser` was never given a sibling
+`req.business` field, set from the exact, same, already-resolved session record
+`req.user` itself comes from. That was the plan; it is not what was built:
 
 ```typescript
 declare global {
@@ -111,9 +124,14 @@ sessionRouter.post('/business', requireAuth, (req, res) => {
 });
 ```
 
-**Every real route stops accepting `business` as a real request field at all**,
-reading `req.business` instead - a genuine, real removal from the request shape, not
-merely an added fallback:
+**Also superseded, same correction as above — this did not happen.** Routes still
+read `req.query.business`/`d.business` directly today; there is no `req.business`
+to read instead.
+
+*Superseded plan, not current code* — the claim was that every real route would
+stop accepting `business` as a real request field at all, reading `req.business`
+instead: a genuine, real removal from the request shape, not merely an added
+fallback. That removal never happened:
 
 ```typescript
 // Before

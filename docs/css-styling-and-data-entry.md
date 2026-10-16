@@ -118,11 +118,16 @@ The honest state, matching the same, direct answer already given
 about backend code reuse: **not as much real, shared reuse as there
 should be.** Every `+page.svelte` file carries its own, local `<style>`
 block, scoped by Svelte automatically to that one component. A real,
-direct audit (not an estimate) found 9 real, shared Svelte components
+direct audit found, at the time, 9 real, shared Svelte components
 in `frontend/src/lib/components/` (`AddressList.svelte`,
 `PhoneList.svelte`, `ContactPersonList.svelte`, `WeeklyHoursGrid.svelte`,
-and a few report-specific ones), used by only 6 of 77 real page files
-— and 17 real pages independently re-declaring the exact same
+and a few report-specific ones), used by only 6 of 77 real page files.
+Re-counted directly just now: this has moved to **15** shared components
+and **83** page files — both counts drifted upward as the application
+grew, so treat the 9/77 figures above as a dated snapshot, not current
+fact, and re-run `ls frontend/src/lib/components/*.svelte | wc -l` /
+`find frontend/src/routes -name "+page.svelte" | wc -l` rather than
+trusting either number here going forward — and 17 real pages independently re-declaring the exact same
 `background: var(--paper)` rule locally, rather than relying on the
 global default. This is real, acknowledged, unfinished work, not a
 design choice: a genuine consolidation pass (folding page-local

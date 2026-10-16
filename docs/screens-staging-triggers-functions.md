@@ -265,11 +265,16 @@ balanced entry atomically:
 
 ```typescript
 export function completePosSale(input: PosSaleInput, userId: number): PosSaleResult
+// The real, exact shape, as declared in backend/src/db-journal.ts —
+// there is NO `division` field here and no Cost-Center/Profit-Center
+// check inside stageLine itself (checked directly against the current
+// source; see docs/journal-api-reference.md's StagedLine/stageLine
+// section for the full correction and why an earlier revision of this
+// chapter claimed otherwise).
 export interface StagedLine {
   reference: string; business: BusinessName; ledger: LedgerName;
-  account: AccountName; accountId?: number; amount_minor: number;
-  division?: DivisionName; memo?: string; description?: string;
-  transdate?: string; bankReference?: string;
+  description?: string; transdate?: string; account: AccountName;
+  accountId?: number; amount_minor: number; memo?: string; bankReference?: string;
 }
 export function stageLine(line: StagedLine): void
 export function postJournalEntry(

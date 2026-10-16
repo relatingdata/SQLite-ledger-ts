@@ -120,7 +120,9 @@ compile-clean before the next began:
 
 **Wave 1 — the core posting boundary.** The foundational `StagedLine`
 interface every real transaction ultimately funnels through
-(`business`, `ledger`, `account`, `division` fields), every real AR/AP
+(`business`, `ledger`, `account` fields — not `division`; `StagedLine`
+carries no `division` field at all, checked directly against the
+current `backend/src/db-journal.ts`), every real AR/AP
 interface and function pair (`ARSaleInput`/`postARSale`,
 `ARReceiptInput`/`postARReceipt`, `APPurchaseInput`/`postAPPurchase`,
 `APPaymentInput`/`postAPPayment`), `PosSaleInput`/`completePosSale`,

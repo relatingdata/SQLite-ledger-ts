@@ -57,17 +57,19 @@ one:
   the exact same `account.currency` column and `setAccountCurrency`
   function the base multicurrency design already built for real
   accounts, not a new mechanism invented for terminals specifically.
-- **Currency precedence, extended**: `getEffectiveSaleCurrency`
-  resolves a terminal's own currency first (new, most specific),
-  falling through to the existing Division → Business → Account →
-  Contact chain when no terminal is given or the terminal has none set
-  — a real, direct, minimal extension of the existing precedence list,
-  not a redesign of it. **Built and directly tested** (Slice 2,
-  complete): `createPosTerminal`/`setTerminalCurrency`/
-  `getEffectiveSaleCurrency` all exist and are proven correct via a
-  real, direct backend test - two real terminals at the exact same,
-  real, shared location, each correctly resolving its own, different
-  currency.
+- **Currency precedence, extended — claim corrected against the real
+  source.** `getEffectiveSaleCurrency` does **not** fall through any
+  Division → Business → Account → Contact chain. The real function
+  (`backend/src/db-stock.ts:380-384`) is exactly:
+  `if (!terminalName) return null; ... return row?.currency ?? null;`
+  — it returns the named terminal's own `account.currency`, or `null`
+  if no terminal name is given or the account has none. There is no
+  fallthrough logic inside it at all; any precedence chain a caller
+  wants has to be built around this function, not inside it.
+  `createPosTerminal`/`setTerminalCurrency` **are** real, built, and
+  wired into `routes/pos.ts` — only the "falls through to Division →
+  Business → Account → Contact" description of `getEffectiveSaleCurrency`
+  itself was wrong.
 - **`completePosSale` gains a real, optional `terminalName`
   parameter**, resolving the sale's effective currency from it when
   present — every existing caller that doesn't pass one keeps today's
