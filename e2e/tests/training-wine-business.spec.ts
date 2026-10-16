@@ -16,7 +16,7 @@ test('Create the second, augmented Training Wine Business through the UI', async
 
   // Choose any real, existing business first — the app's own real
   // session requirement, before creating a new one.
-  await page.locator('select').first().selectOption({ label: 'My Business' });
+  await page.locator('select').first().selectOption({ label: 'admin' });
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: /continue/i }).click();
   await page.waitForURL((url) => url.pathname === '/');

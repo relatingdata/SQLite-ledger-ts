@@ -501,10 +501,10 @@ INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM
 INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM current_entities WHERE name = 'Expense'), 33);
 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (34, 34, 'Businesses', 0, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (35, 35, 'My Business', 34, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (35, 35, 'admin', 34, '2026-01-01', 1);
 -- Per the real, new structure createBusiness itself now builds: every
 -- real ledger lives under its own business's own, real Ledgers node,
--- never directly under the business. My Business is hand-seeded, raw
+-- never directly under the business. admin is hand-seeded, raw
 -- data (bypassing createBusiness entirely), so this must be built by
 -- hand here too, to match.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (999000, 999000, 'Ledgers', 35, '2026-01-01', 1);
@@ -1675,7 +1675,7 @@ ORDER BY w.path;
 --
 -- Wrapped in a further COALESCE with the original, bare, unscoped
 -- lookup as a genuine, deliberate fallback - confirmed directly
--- necessary, not just defensive: 'My Business' (the one legacy,
+-- necessary, not just defensive: 'admin' (the one legacy,
 -- pre-multi-tenancy demo business seeded right here in this same
 -- against the GLOBAL Chart of Accounts - it never gets its own real,
 -- separate copy via copyChartOfAccountsInto the way every business
@@ -1725,7 +1725,7 @@ BEGIN
     SELECT 1 FROM (
       SELECT COALESCE(a.currency, '') AS grp, SUM(s.amount_minor) AS grp_sum
       FROM journal_entry_staging s
-      LEFT JOIN account a ON a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
+      LEFT JOIN account a ON a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
       WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
       GROUP BY COALESCE(a.currency, '')
     )
@@ -1733,11 +1733,11 @@ BEGIN
   );
 
   INSERT INTO account (entity_id)
-  SELECT DISTINCT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
+  SELECT DISTINCT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
   FROM journal_entry_staging s
   WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
     AND NOT EXISTS (
-      SELECT 1 FROM account a WHERE a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
+      SELECT 1 FROM account a WHERE a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
     );
 
   INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id)
@@ -1760,7 +1760,7 @@ BEGIN
      WHERE j.reference = NEW.reference
        AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
        AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))))),
-    COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))),
+    COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))),
     COALESCE(
       (SELECT transdate FROM journal_entry_staging
        WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
@@ -1775,11 +1775,11 @@ BEGIN
   UPDATE account
   SET balance_minor = balance_minor + (
     SELECT SUM(s.amount_minor) FROM journal_entry_staging s
-    WHERE COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))) = account.entity_id
+    WHERE COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))) = account.entity_id
       AND s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
   )
   WHERE entity_id IN (
-    SELECT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
+    SELECT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
     FROM journal_entry_staging s
     WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
   );
@@ -1857,11 +1857,11 @@ BEGIN
   -- see the real, direct discussion in docs/testing.md.
 
   INSERT INTO account (entity_id)
-  SELECT DISTINCT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
+  SELECT DISTINCT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
   FROM journal_entry_staging s
   WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
     AND NOT EXISTS (
-      SELECT 1 FROM account a WHERE a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
+      SELECT 1 FROM account a WHERE a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
     );
 
   INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id)
@@ -1884,7 +1884,7 @@ BEGIN
      WHERE j.reference = NEW.reference
        AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
        AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))))),
-    COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))),
+    COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))),
     COALESCE(
       (SELECT transdate FROM journal_entry_staging
        WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
@@ -1899,11 +1899,11 @@ BEGIN
   UPDATE account
   SET balance_minor = balance_minor + (
     SELECT SUM(s.amount_minor) FROM journal_entry_staging s
-    WHERE COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))) = account.entity_id
+    WHERE COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))) = account.entity_id
       AND s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
   )
   WHERE entity_id IN (
-    SELECT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
+    SELECT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
     FROM journal_entry_staging s
     WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
   );
@@ -1961,7 +1961,7 @@ INSERT INTO account_entry (name, accountnumber) VALUES ('Miscellaneous', '6900')
 -- Reports rather than Vocabulary but are translated the same way).
 
 
--- The CS-1001 bootstrap demo posting under "My Business", and the
+-- The CS-1001 bootstrap demo posting under "admin", and the
 -- entire Wine/Beer/Spirits demonstration business data (locations,
 -- categories, products, their prices) that used to follow here, were
 -- removed per direct, standing instruction: no business data of any
@@ -2613,7 +2613,7 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- the Step Runner's own fixtures (see docs/skill-step-runner-design.md),
 -- or a real person using the real screens — never pre-seeded here.
 -- The "Wine Retail Business" demo locations/divisions/categories/
--- items/prices and the "My Business" CS-1001 bootstrap posting that
+-- items/prices and the "admin" CS-1001 bootstrap posting that
 -- used to live in this section were removed for exactly this reason —
 -- confirmed, directly, a real source of name collisions with data the
 -- tutorial and full e2e fixtures build themselves (e.g. a tutorial-

@@ -124,8 +124,8 @@ export function createRecurringJournal(
   }
   assertPeriodOpen(business, ledger, startDate);
 
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(business) as { id: number } | undefined)?.id;
-  const ledgerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(ledger) as { id: number } | undefined)?.id;
+  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(business) as { id: number } | undefined)?.id;
+  const ledgerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = ?)`).get(ledger, businessId) as { id: number } | undefined)?.id;
   if (!businessId) throw new ValidationError(`No business named "${business}".`);
   if (!ledgerId) throw new ValidationError(`No ledger named "${ledger}".`);
 
@@ -698,7 +698,7 @@ export function getLedgerDateRange(businessName: BusinessName, ledgerName: Ledge
     .prepare(
       `SELECT MIN(j.transdate) AS earliest, MAX(j.transdate) AS latest
        FROM journal j
-       WHERE j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))
+       WHERE j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))
          AND j.reference NOT LIKE 'CLOSE-%'`
     )
     .get(ledgerName, businessName) as { earliest: string | null; latest: string | null };
@@ -707,7 +707,7 @@ export function getLedgerDateRange(businessName: BusinessName, ledgerName: Ledge
 
 export function getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus {
   const ledgerEntity = db
-    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`)
+    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`)
     .get(ledger, business) as { id: number } | undefined;
   if (!ledgerEntity) return { locked_through_date: null, changed_by: null, changed_at: null };
   const lockEntityPrefix = `${business} — ${ledger} — Period Lock`;
@@ -722,7 +722,7 @@ export function getPeriodLockStatus(business: BusinessName, ledger: LedgerName):
 
 function ensurePeriodLockEntity(business: BusinessName, ledger: LedgerName, userId: UserId): { id: number; name: string } {
   const ledgerEntity = db
-    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`)
+    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`)
     .get(ledger, business) as { id: number } | undefined;
   if (!ledgerEntity) throw new ValidationError(`No real ledger "${ledger}" under business "${business}".`);
   const lockEntityPrefix = `${business} — ${ledger} — Period Lock`;
@@ -760,7 +760,7 @@ export function reverseJournalEntry(business: BusinessName, ledger: LedgerName, 
 
   const alreadyReversed = db
     .prepare(
-      `SELECT 1 FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`
+      `SELECT 1 FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))`
     )
     .get(reversalReference, original.business, original.ledger, original.business);
   if (alreadyReversed) {
@@ -784,6 +784,6 @@ export function reverseJournalEntry(business: BusinessName, ledger: LedgerName, 
   postJournalEntry(reversalReference, asBusinessName(original.business), asLedgerName(original.ledger), userId);
 
   db.prepare(
-    `UPDATE journal SET reversal_of = ? WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`
+    `UPDATE journal SET reversal_of = ? WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))`
   ).run(journalId, reversalReference, original.business, original.ledger, original.business);
 }

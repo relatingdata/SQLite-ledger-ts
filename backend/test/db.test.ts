@@ -3,14 +3,14 @@ import type { TypeDescriptor, TypedNode } from '../src/db.ts';
 import { runInSessionContext } from '../src/session-context.ts';
 import assert from 'node:assert/strict';
 
-/** A real, minimal "My Business" session context for tests exercising
+/** A real, minimal "admin" session context for tests exercising
  * functions (like setItemLocationLevels) that read Session.Business/
  * Session.UserId/Session.Ledger directly, per the established
  * session-context design, rather than taking them as explicit
  * parameters. */
 function withMyBusinessSession<T>(fn: () => T): T {
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('My Business') as { id: number }).id;
-  return runInSessionContext({ userId: 1, business: { id: businessId, name: 'My Business' }, ledger: 'Actual' }, fn);
+  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get('admin') as { id: number }).id;
+  return runInSessionContext({ userId: 1, business: { id: businessId, name: 'admin' }, ledger: 'Actual' }, fn);
 }
 import fs from 'node:fs';
 import os from 'node:os';
@@ -279,16 +279,16 @@ const { createUser } = await import('../src/auth.ts');
 
 // Per direct instruction, Phase 0 of docs/currency-and-quantity-integrity-fix-plan.md:
 // a real, confirmed gap found while fixing getLocation/setLocation's own
-// bare-name ambiguity - "My Business," the shared test business, was
+// bare-name ambiguity - "admin," the shared test business, was
 // never actually given its own real "Locations" root by the seed data,
 // unlike a business created through createBusiness itself. Every test
 // using the old, bare `requireEntity('Locations', typeRootName)` was
-// therefore never really creating its own location under "My Business"
+// therefore never really creating its own location under "admin"
 // at all - it was silently finding whichever business's Locations
 // happened to exist first. This helper creates it, once, lazily, the
 // first time any test genuinely needs it.
 function myBusinessLocationsRoot() {
-  const myBusiness = requireEntity(asBusinessName('My Business'), typeBusinessName, requireEntity('Businesses', typeRootName));
+  const myBusiness = requireEntity(asBusinessName('admin'), typeBusinessName, requireEntity('Businesses', typeRootName));
   try {
     return requireEntity('Locations', typeRootName, myBusiness);
   } catch {
@@ -378,7 +378,7 @@ test('revokeEntity refuses to delete a business\'s last real Actual or last real
 });
 
 test('business_reports groups categories under their fixed report via relation_id', () => {
-  const rows = getBusinessReports('My Business');
+  const rows = getBusinessReports('admin');
   const balanceSheetCategories = new Set(rows.filter((r) => r.report === 'Balance Sheet').map((r) => r.category));
   const plCategories = new Set(rows.filter((r) => r.report === 'Profit and Loss Statement').map((r) => r.category));
   assert.ok(balanceSheetCategories.has('Asset'));
@@ -439,8 +439,8 @@ test('French works as a genuine, complete third language — no special-casing n
 
 test('businesses and ledgers list correctly', () => {
   const businesses = getBusinesses();
-  assert.ok(businesses.some((b) => b.name === 'My Business'));
-  const ledgers = getLedgers(asBusinessName('My Business'));
+  assert.ok(businesses.some((b) => b.name === 'admin'));
+  const ledgers = getLedgers(asBusinessName('admin'));
   assert.ok(ledgers.some((l) => l.name === 'Actual'));
   assert.ok(ledgers.some((l) => l.name === 'Proposed Growth Budget 2026-27'));
 });
@@ -448,7 +448,7 @@ test('businesses and ledgers list correctly', () => {
 test('staging + posting a balanced entry works end to end and clears staging', () => {
   stageLine({
     reference: 'TEST-001',
-    business: asBusinessName('My Business'),
+    business: asBusinessName('admin'),
     ledger: asLedgerName('Actual'),
     description: 'Test entry',
     transdate: '2026-07-26',
@@ -458,7 +458,7 @@ test('staging + posting a balanced entry works end to end and clears staging', (
   });
   stageLine({
     reference: 'TEST-001',
-    business: asBusinessName('My Business'),
+    business: asBusinessName('admin'),
     ledger: asLedgerName('Actual'),
     description: 'Test entry',
     transdate: '2026-07-26',
@@ -466,12 +466,12 @@ test('staging + posting a balanced entry works end to end and clears staging', (
     amount_minor: -12345,
     memo: 'credit side',
   });
-  assert.equal(getStagedLines('TEST-001', asBusinessName('My Business'), asLedgerName('Actual')).length, 2);
+  assert.equal(getStagedLines('TEST-001', asBusinessName('admin'), asLedgerName('Actual')).length, 2);
 
-  postJournalEntry('TEST-001', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
-  assert.equal(getStagedLines('TEST-001', asBusinessName('My Business'), asLedgerName('Actual')).length, 0, 'staging should be cleared after posting');
+  postJournalEntry('TEST-001', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
+  assert.equal(getStagedLines('TEST-001', asBusinessName('admin'), asLedgerName('Actual')).length, 0, 'staging should be cleared after posting');
 
-  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Actual'), 10000);
+  const entries = listJournalEntries(asBusinessName('admin'), asLedgerName('Actual'), 10000);
   const posted = entries.find((e) => e.reference === 'TEST-001');
   assert.ok(posted);
   assert.equal(posted!.total_debit_minor, 12345);
@@ -481,28 +481,28 @@ test('staging + posting a balanced entry works end to end and clears staging', (
 test('posting an unbalanced entry is rejected and leaves staging untouched', () => {
   stageLine({
     reference: 'TEST-BAD',
-    business: asBusinessName('My Business'),
+    business: asBusinessName('admin'),
     ledger: asLedgerName('Actual'),
     account: asAccountName('Cash and Bank'),
     amount_minor: 500,
   });
-  assert.throws(() => postJournalEntry('TEST-BAD', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), PostingError);
-  assert.equal(getStagedLines('TEST-BAD', asBusinessName('My Business'), asLedgerName('Actual')).length, 1, 'staged line should remain for correction');
+  assert.throws(() => postJournalEntry('TEST-BAD', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1)), PostingError);
+  assert.equal(getStagedLines('TEST-BAD', asBusinessName('admin'), asLedgerName('Actual')).length, 1, 'staged line should remain for correction');
 });
 
 test('removeStagedLine removes exactly one line', () => {
-  stageLine({ reference: 'TEST-REMOVE', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), account: asAccountName('Cash and Bank'), amount_minor: 10 });
-  stageLine({ reference: 'TEST-REMOVE', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), account: asAccountName('Sales Revenue'), amount_minor: -10 });
-  removeStagedLine('TEST-REMOVE', asBusinessName('My Business'), asLedgerName('Actual'), 'Cash and Bank');
-  const remaining = getStagedLines('TEST-REMOVE', asBusinessName('My Business'), asLedgerName('Actual'));
+  stageLine({ reference: 'TEST-REMOVE', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), account: asAccountName('Cash and Bank'), amount_minor: 10 });
+  stageLine({ reference: 'TEST-REMOVE', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), account: asAccountName('Sales Revenue'), amount_minor: -10 });
+  removeStagedLine('TEST-REMOVE', asBusinessName('admin'), asLedgerName('Actual'), 'Cash and Bank');
+  const remaining = getStagedLines('TEST-REMOVE', asBusinessName('admin'), asLedgerName('Actual'));
   assert.equal(remaining.length, 1);
   assert.equal(remaining[0].account, 'Sales Revenue');
 });
 
 test('getJournalEntry returns full line detail with account numbers', () => {
-  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Actual'), 10000);
+  const entries = listJournalEntries(asBusinessName('admin'), asLedgerName('Actual'), 10000);
   const posted = entries.find((e) => e.reference === 'TEST-001')!;
-  const detail = getJournalEntry(asBusinessName('My Business'), asLedgerName('Actual'), posted.journal_id, posted.occurrence_date!);
+  const detail = getJournalEntry(asBusinessName('admin'), asLedgerName('Actual'), posted.journal_id, posted.occurrence_date!);
   assert.ok(detail);
   assert.equal(detail!.lines.length, 2);
   assert.ok(detail!.lines.some((l) => l.account === 'Cash and Bank'));
@@ -522,7 +522,7 @@ test('an account is vivified on first post and gets a real balance', () => {
 });
 
 test('trial balance shows every posted account split into debit/credit, and the two columns match', () => {
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   assert.ok(tb.rows.length > 0);
   const cash = tb.rows.find((r) => r.name === 'Cash and Bank');
   assert.ok(cash);
@@ -532,19 +532,19 @@ test('trial balance shows every posted account split into debit/credit, and the 
 });
 
 test('trial balance omits accounts with a zero balance', () => {
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   assert.ok(!tb.rows.some((r) => r.debit_minor === 0 && r.credit_minor === 0));
 });
 
 test('balance sheet computes real totals and confirms Assets = Liabilities + Equity', () => {
-  const bs = getBalanceSheet(asBusinessName('My Business'), asLedgerName('Actual'));
+  const bs = getBalanceSheet(asBusinessName('admin'), asLedgerName('Actual'));
   assert.ok(bs.assets.some((a) => a.name === 'Cash and Bank'));
   assert.equal(bs.total_assets_minor, bs.total_liabilities_minor + bs.total_equity_minor, 'the fundamental accounting equation must hold');
   assert.equal(bs.balanced, true);
 });
 
 test('profit and loss computes real totals and net income', () => {
-  const pl = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('Actual'));
+  const pl = getProfitAndLoss(asBusinessName('admin'), asLedgerName('Actual'));
   const salesRevenue = pl.income.find((l) => l.name === 'Sales Revenue');
   assert.ok(salesRevenue);
   assert.equal(pl.total_income_minor, pl.income.reduce((s, l) => s + l.credit_minor - l.debit_minor, 0));
@@ -552,23 +552,23 @@ test('profit and loss computes real totals and net income', () => {
 });
 
 test('profit and loss excludes a Year End Close entry from its own totals, even when the close happened within the requested date range — a real, direct bug report: "the consolidated p&l shows zero"', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PLCloseTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'PLCloseTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'PLCloseTest Revenue', asUserId(1));
 
-  stageLine({ reference: 'PLCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('PLCloseTest Ledger'), transdate: '2027-04-01', account: asAccountName('PLCloseTest Revenue'), amount_minor: -50000 });
-  stageLine({ reference: 'PLCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('PLCloseTest Ledger'), transdate: '2027-04-01', account: asAccountName('Cash and Bank'), amount_minor: 50000 });
-  postJournalEntry('PLCT-1', asBusinessName('My Business'), asLedgerName('PLCloseTest Ledger'), asUserId(1));
+  stageLine({ reference: 'PLCT-1', business: asBusinessName('admin'), ledger: asLedgerName('PLCloseTest Ledger'), transdate: '2027-04-01', account: asAccountName('PLCloseTest Revenue'), amount_minor: -50000 });
+  stageLine({ reference: 'PLCT-1', business: asBusinessName('admin'), ledger: asLedgerName('PLCloseTest Ledger'), transdate: '2027-04-01', account: asAccountName('Cash and Bank'), amount_minor: 50000 });
+  postJournalEntry('PLCT-1', asBusinessName('admin'), asLedgerName('PLCloseTest Ledger'), asUserId(1));
 
   // Before closing, the real period total is correct either way.
-  const before = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('PLCloseTest Ledger'), '2027-04-01', '2027-04-30');
+  const before = getProfitAndLoss(asBusinessName('admin'), asLedgerName('PLCloseTest Ledger'), '2027-04-01', '2027-04-30');
   assert.equal(before.total_income_minor, 50000);
 
   // The real bug: closing ON THE LAST DAY OF THE SAME RANGE used to
   // make the close entry's own reversal cancel out the real revenue
   // it's reversing, showing a misleading zero for a period that
   // genuinely had real activity.
-  closeBooks(asBusinessName('My Business'), asLedgerName('PLCloseTest Ledger'), '2027-04-30', "Owner's Equity", asUserId(1));
-  const after = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('PLCloseTest Ledger'), '2027-04-01', '2027-04-30');
+  closeBooks(asBusinessName('admin'), asLedgerName('PLCloseTest Ledger'), '2027-04-30', "Owner's Equity", asUserId(1));
+  const after = getProfitAndLoss(asBusinessName('admin'), asLedgerName('PLCloseTest Ledger'), '2027-04-01', '2027-04-30');
   assert.equal(after.total_income_minor, 50000, "a Year End Close's own reversal must never be counted as item of the period's real P&L, even when the close date falls inside the requested range");
 });
 
@@ -576,7 +576,7 @@ test('profit and loss income_tree groups by the real category hierarchy, with co
   // Self-contained, not dependent on the wine simulation ever having
   // been run — creates its own real, two-level category chain, its
   // own real products under it, and posts real sales directly.
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PL Tree Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'PL Tree Test Ledger', asUserId(1));
   create(requireEntity('Items', typeRootName), typeRootName, 'PL Tree Beverages', asUserId(1));
   create(requireEntity('PL Tree Beverages', typeRootName), typeRootName, 'PL Tree Cider', asUserId(1));
   create(requireEntity('PL Tree Cider', typeRootName), typeRootName, 'PL Tree Dry Cider 500ml', asUserId(1));
@@ -586,9 +586,9 @@ test('profit and loss income_tree groups by the real category hierarchy, with co
 
   function post(reference: string, lines: { account: string; accountId?: number; amount_minor: number }[]) {
     for (const line of lines) {
-      stageLine({ reference, business: asBusinessName('My Business'), ledger: asLedgerName('PL Tree Test Ledger'), transdate: '2027-02-01', account: asAccountName(line.account), accountId: line.accountId, amount_minor: line.amount_minor });
+      stageLine({ reference, business: asBusinessName('admin'), ledger: asLedgerName('PL Tree Test Ledger'), transdate: '2027-02-01', account: asAccountName(line.account), accountId: line.accountId, amount_minor: line.amount_minor });
     }
-    postJournalEntry(reference, asBusinessName('My Business'), asLedgerName('PL Tree Test Ledger'), asUserId(1));
+    postJournalEntry(reference, asBusinessName('admin'), asLedgerName('PL Tree Test Ledger'), asUserId(1));
   }
   post('PLT-1', [
     { account: 'Cash and Bank', amount_minor: 5000 },
@@ -599,7 +599,7 @@ test('profit and loss income_tree groups by the real category hierarchy, with co
     { account: sweet.salesAccount, accountId: sweet.salesAccountId, amount_minor: -3000 },
   ]);
 
-  const pl = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('PL Tree Test Ledger'));
+  const pl = getProfitAndLoss(asBusinessName('admin'), asLedgerName('PL Tree Test Ledger'));
   const treeTotal = pl.income_tree.reduce((s, n) => s + n.credit_minor - n.debit_minor, 0);
   assert.equal(treeTotal, pl.total_income_minor, 'summing every top-level tree node must equal the flat total exactly');
   assert.equal(pl.total_income_minor, 8000);
@@ -630,38 +630,38 @@ test('Actual and a budget ledger are genuinely isolated in every financial state
   // 50000 Budget posting all summed together) instead of 60000.
   stageLine({
     reference: 'ISOLATION-ACTUAL',
-    business: asBusinessName('My Business'),
+    business: asBusinessName('admin'),
     ledger: asLedgerName('Actual'),
     account: asAccountName('Cash and Bank'),
     amount_minor: 10000,
   });
   stageLine({
     reference: 'ISOLATION-ACTUAL',
-    business: asBusinessName('My Business'),
+    business: asBusinessName('admin'),
     ledger: asLedgerName('Actual'),
     account: asAccountName('Sales Revenue'),
     amount_minor: -10000,
   });
-  postJournalEntry('ISOLATION-ACTUAL', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  postJournalEntry('ISOLATION-ACTUAL', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
 
   stageLine({
     reference: 'ISOLATION-BUDGET',
-    business: asBusinessName('My Business'),
+    business: asBusinessName('admin'),
     ledger: asLedgerName('Proposed Growth Budget 2026-27'),
     account: asAccountName('Cash and Bank'),
     amount_minor: 999999,
   });
   stageLine({
     reference: 'ISOLATION-BUDGET',
-    business: asBusinessName('My Business'),
+    business: asBusinessName('admin'),
     ledger: asLedgerName('Proposed Growth Budget 2026-27'),
     account: asAccountName('Sales Revenue'),
     amount_minor: -999999,
   });
-  postJournalEntry('ISOLATION-BUDGET', asBusinessName('My Business'), asLedgerName('Proposed Growth Budget 2026-27'), asUserId(1));
+  postJournalEntry('ISOLATION-BUDGET', asBusinessName('admin'), asLedgerName('Proposed Growth Budget 2026-27'), asUserId(1));
 
-  const actualCash = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual')).rows.find((r) => r.name === 'Cash and Bank');
-  const budgetCash = getTrialBalance(asBusinessName('My Business'), asLedgerName('Proposed Growth Budget 2026-27')).rows.find((r) => r.name === 'Cash and Bank');
+  const actualCash = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual')).rows.find((r) => r.name === 'Cash and Bank');
+  const budgetCash = getTrialBalance(asBusinessName('admin'), asLedgerName('Proposed Growth Budget 2026-27')).rows.find((r) => r.name === 'Cash and Bank');
 
   assert.notEqual(
     actualCash?.debit_minor,
@@ -671,8 +671,8 @@ test('Actual and a budget ledger are genuinely isolated in every financial state
   assert.equal(budgetCash?.debit_minor, 999999, "Budget's trial balance must reflect only its own posting, not Actual's too");
   assert.ok((actualCash?.debit_minor ?? 0) < 999999, "Actual's trial balance must not include Budget's huge posting");
 
-  const actualBS = getBalanceSheet(asBusinessName('My Business'), asLedgerName('Actual'));
-  const budgetBS = getBalanceSheet(asBusinessName('My Business'), asLedgerName('Proposed Growth Budget 2026-27'));
+  const actualBS = getBalanceSheet(asBusinessName('admin'), asLedgerName('Actual'));
+  const budgetBS = getBalanceSheet(asBusinessName('admin'), asLedgerName('Proposed Growth Budget 2026-27'));
   assert.notEqual(actualBS.total_assets_minor, budgetBS.total_assets_minor);
   assert.equal(budgetBS.balanced, true, "Budget's own balance sheet must still balance on its own terms");
 });
@@ -680,7 +680,7 @@ test('Actual and a budget ledger are genuinely isolated in every financial state
 test('trial balance comparison shows Actual and Budget side by side for the same account', () => {
   // Reuses the postings from the isolation test above: Actual has 10000
   // debited to Cash and Bank, Budget has 999999.
-  const cmp = getTrialBalanceComparison(asBusinessName('My Business'), asLedgerName('Actual'), asLedgerName('Proposed Growth Budget 2026-27'));
+  const cmp = getTrialBalanceComparison(asBusinessName('admin'), asLedgerName('Actual'), asLedgerName('Proposed Growth Budget 2026-27'));
   const cash = cmp.rows.find((r) => r.name === 'Cash and Bank');
   assert.ok(cash);
   assert.equal(cash!.b_debit_minor, 999999);
@@ -688,7 +688,7 @@ test('trial balance comparison shows Actual and Budget side by side for the same
 });
 
 test('profit and loss comparison computes variance in the conventional direction (budget minus actual)', () => {
-  const cmp = getProfitAndLossComparison(asBusinessName('My Business'), asLedgerName('Actual'), asLedgerName('Proposed Growth Budget 2026-27'));
+  const cmp = getProfitAndLossComparison(asBusinessName('admin'), asLedgerName('Actual'), asLedgerName('Proposed Growth Budget 2026-27'));
   const revenue = cmp.income.find((l) => l.name === 'Sales Revenue');
   assert.ok(revenue);
   assert.equal(revenue!.variance_minor, revenue!.b_minor - revenue!.a_minor);
@@ -741,7 +741,7 @@ test('revokeEntity closes the entity out but deliberately keeps its contact reco
 test('createRecurringJournal rejects an entry that does not balance at its start date', () => {
   assert.throws(
     () =>
-      createRecurringJournal(asBusinessName('My Business'), asLedgerName('Actual'), 'REC-BAD', '2027-01-01', 'monthly', [
+      createRecurringJournal(asBusinessName('admin'), asLedgerName('Actual'), 'REC-BAD', '2027-01-01', 'monthly', [
         { account: 'Rent', amount_minor: 50000 },
       ], asUserId(1)),
     PostingError
@@ -757,7 +757,7 @@ test('createRecurringJournal vivifies any account with no BALANCE yet, same guar
   const rentBefore = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name='Rent')`).get() as { balance_minor: number };
   assert.equal(rentBefore.balance_minor, 0, 'sanity check: Rent has never been posted to in this test run yet');
 
-  createRecurringJournal(asBusinessName('My Business'), asLedgerName('Actual'), 'REC-RENT', '2027-01-01', 'monthly', [
+  createRecurringJournal(asBusinessName('admin'), asLedgerName('Actual'), 'REC-RENT', '2027-01-01', 'monthly', [
     { account: 'Rent', amount_minor: 50000 },
     { account: 'Cash and Bank', amount_minor: -50000 },
   ], asUserId(1), 'Monthly rent', 6);
@@ -767,7 +767,7 @@ test('createRecurringJournal vivifies any account with no BALANCE yet, same guar
 });
 
 test('a recurring journal expands into the correct number of occurrences, each showing in listJournalEntries', () => {
-  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Actual'), 200);
+  const entries = listJournalEntries(asBusinessName('admin'), asLedgerName('Actual'), 200);
   const rentOccurrences = entries.filter((e) => e.reference === 'REC-RENT');
   assert.equal(rentOccurrences.length, 6, 'a 6-month recurrence should produce exactly 6 occurrences, not 1 journal row');
   assert.ok(rentOccurrences.every((o) => o.recurrence === 'monthly'));
@@ -775,7 +775,7 @@ test('a recurring journal expands into the correct number of occurrences, each s
 });
 
 test('a recurring journal correctly affects Trial Balance for its ledger, across all its occurrences', () => {
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   const rent = tb.rows.find((r) => r.name === 'Rent');
   assert.ok(rent);
   assert.equal(rent!.debit_minor, 50000 * 6, 'Rent should reflect all 6 monthly occurrences, not just one');
@@ -783,7 +783,7 @@ test('a recurring journal correctly affects Trial Balance for its ledger, across
 
 test('the exact wage-increase scenario: a mid-schedule amendment applies only from its effective date onward, via the same journal_line row set — no new table, no new journal', () => {
   createRecurringJournal(
-    asBusinessName('My Business'),
+    asBusinessName('admin'),
     asLedgerName('Actual'),
     'REC-WAGE',
     '2027-01-01',
@@ -816,13 +816,13 @@ test('the exact wage-increase scenario: a mid-schedule amendment applies only fr
 });
 
 test('createRecurringJournal has not touched the Budget ledger — Actual and Budget stay isolated even for recurring entries, same as ordinary ones', () => {
-  createRecurringJournal(asBusinessName('My Business'), asLedgerName('Proposed Growth Budget 2026-27'), 'REC-BUDGET-RENT', '2027-01-01', 'monthly', [
+  createRecurringJournal(asBusinessName('admin'), asLedgerName('Proposed Growth Budget 2026-27'), 'REC-BUDGET-RENT', '2027-01-01', 'monthly', [
     { account: 'Rent', amount_minor: 60000 },
     { account: 'Cash and Bank', amount_minor: -60000 },
   ], asUserId(1), 'Budgeted rent', 12);
 
-  const actualRent = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual')).rows.find((r) => r.name === 'Rent');
-  const budgetRent = getTrialBalance(asBusinessName('My Business'), asLedgerName('Proposed Growth Budget 2026-27')).rows.find((r) => r.name === 'Rent');
+  const actualRent = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual')).rows.find((r) => r.name === 'Rent');
+  const budgetRent = getTrialBalance(asBusinessName('admin'), asLedgerName('Proposed Growth Budget 2026-27')).rows.find((r) => r.name === 'Rent');
   assert.equal(actualRent!.debit_minor, 300000, "Actual's Rent must be unaffected by the Budget ledger's recurring entry");
   assert.equal(budgetRent!.debit_minor, 60000 * 12, "Budget's Rent should reflect its own full 12-month schedule");
 });
@@ -831,13 +831,13 @@ test('a realistic set of transactions — cash purchase, cash sale, AR sale, a r
   // A fresh, dedicated ledger for this test so its numbers are easy to
   // reason about in isolation from everything else already posted
   // elsewhere in this test run.
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Worked Set Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Worked Set Ledger', asUserId(1));
 
   function post(reference: string, lines: { account: string; amount_minor: number; memo?: string }[]) {
     for (const line of lines) {
-      stageLine({ reference, business: asBusinessName('My Business'), ledger: asLedgerName('Worked Set Ledger'), transdate: '2027-02-01', account: asAccountName(line.account), amount_minor: line.amount_minor, memo: line.memo });
+      stageLine({ reference, business: asBusinessName('admin'), ledger: asLedgerName('Worked Set Ledger'), transdate: '2027-02-01', account: asAccountName(line.account), amount_minor: line.amount_minor, memo: line.memo });
     }
-    postJournalEntry(reference, asBusinessName('My Business'), asLedgerName('Worked Set Ledger'), asUserId(1));
+    postJournalEntry(reference, asBusinessName('admin'), asLedgerName('Worked Set Ledger'), asUserId(1));
   }
 
   // Cash purchase — bought office supplies outright, $80.
@@ -877,7 +877,7 @@ test('a realistic set of transactions — cash purchase, cash sale, AR sale, a r
   ]);
 
   // Cash and Bank: -8000 (purchase) +30000 (cash sale) +40000 (receipt) -20000 (payment) = 42000
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Worked Set Ledger'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Worked Set Ledger'));
   const cash = tb.rows.find((r) => r.name === 'Cash and Bank');
   assert.equal(cash!.debit_minor, 42000, 'Cash and Bank should net all four cash-affecting transactions correctly');
 
@@ -893,44 +893,44 @@ test('a realistic set of transactions — cash purchase, cash sale, AR sale, a r
 
   // Balance Sheet: Acme Corp (AR) and Acme Supplies (AP) should show up
   // as real asset/liability balances, not just in the trial balance.
-  const bs = getBalanceSheet(asBusinessName('My Business'), asLedgerName('Worked Set Ledger'));
+  const bs = getBalanceSheet(asBusinessName('admin'), asLedgerName('Worked Set Ledger'));
   assert.ok(bs.assets.some((a) => a.name === 'Acme Corp' && a.debit_minor === 60000));
   assert.ok(bs.liabilities.some((l) => l.name === 'Acme Supplies Pty Ltd' && l.credit_minor === 30000));
   assert.equal(bs.total_assets_minor, bs.total_liabilities_minor + bs.total_equity_minor, 'the accounting equation must hold for this ledger too');
 
   // P&L: 300 (cash sale) + 1000 (AR sale) = 1300 revenue; 80 (office) expense.
-  const pl = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('Worked Set Ledger'));
+  const pl = getProfitAndLoss(asBusinessName('admin'), asLedgerName('Worked Set Ledger'));
   assert.equal(pl.total_income_minor, 30000 + 100000);
   assert.equal(pl.total_expenses_minor, 8000);
   assert.equal(pl.net_income_minor, 30000 + 100000 - 8000);
 });
 
 test('AR Sale form: staging and posting creates the correct Debit AR / Credit Sales Revenue entry', () => {
-  stageARSale({ reference: 'ARF-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), customer: asCustomerName('Beta Pty Ltd'), amount_minor: 80000, transdate: '2027-07-01', description: 'Sale' });
-  postARSale('ARF-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  stageARSale({ reference: 'ARF-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), customer: asCustomerName('Beta Pty Ltd'), amount_minor: 80000, transdate: '2027-07-01', description: 'Sale' });
+  postARSale('ARF-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
 
   const detail = db.prepare(`SELECT count(*) c FROM ar_sale_staging`).get() as { c: number };
   assert.equal(detail.c, 0, 'staging should be cleared after posting');
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   const beta = tb.rows.find((r) => r.name === 'Beta Pty Ltd');
   assert.equal(beta!.debit_minor, 80000);
 });
 
 test('AR Receipt form: staging and posting creates the correct Debit Cash / Credit AR entry, reducing the customer balance', () => {
-  stageARReceipt({ reference: 'ARR-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), customer: asCustomerName('Beta Pty Ltd'), amount_minor: 30000, transdate: '2027-07-10' });
-  postARReceipt('ARR-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  stageARReceipt({ reference: 'ARR-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), customer: asCustomerName('Beta Pty Ltd'), amount_minor: 30000, transdate: '2027-07-10' });
+  postARReceipt('ARR-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   const beta = tb.rows.find((r) => r.name === 'Beta Pty Ltd');
   assert.equal(beta!.debit_minor, 50000, 'Beta should owe 500.00 after the 300.00 receipt against the 800.00 sale');
 });
 
 test('AP Purchase form: staging and posting creates the correct Debit expense/asset / Credit AP entry', () => {
-  stageAPPurchase({ reference: 'APF-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), vendor: asProviderName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 15000, transdate: '2027-07-01' });
-  postAPPurchase('APF-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  stageAPPurchase({ reference: 'APF-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), vendor: asProviderName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 15000, transdate: '2027-07-01' });
+  postAPPurchase('APF-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   const acmeSupplies = tb.rows.find((r) => r.name === 'Acme Supplies Pty Ltd');
   assert.ok(acmeSupplies!.credit_minor >= 15000);
   const office = tb.rows.find((r) => r.name === 'Office');
@@ -938,36 +938,36 @@ test('AP Purchase form: staging and posting creates the correct Debit expense/as
 });
 
 test('AP Payment form: staging and posting creates the correct Debit AP / Credit Cash entry, reducing the vendor balance', () => {
-  const before = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Supplies Pty Ltd')!.credit_minor;
-  stageAPPayment({ reference: 'APP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), vendor: asProviderName('Acme Supplies Pty Ltd'), amount_minor: 5000, transdate: '2027-07-15' });
-  postAPPayment('APP-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  const before = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Supplies Pty Ltd')!.credit_minor;
+  stageAPPayment({ reference: 'APP-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), vendor: asProviderName('Acme Supplies Pty Ltd'), amount_minor: 5000, transdate: '2027-07-15' });
+  postAPPayment('APP-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
 
-  const after = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Supplies Pty Ltd')!.credit_minor;
+  const after = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Supplies Pty Ltd')!.credit_minor;
   assert.equal(after, before - 5000, 'the vendor balance owed should decrease by exactly the payment amount');
 });
 
 test('AR/AP forms reuse the same atomic posting mechanism — an unbalanced-by-construction scenario is not reachable, but a bad reference is rejected clearly, consistent with every other post* function', () => {
-  assert.throws(() => postARSale('NEVER-STAGED', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
+  assert.throws(() => postARSale('NEVER-STAGED', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
 });
 
 test('reversing a posted entry creates a new entry with every line negated, and the net effect on balances is exactly zero', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Reversal Test Ledger', asUserId(1));
-  stageLine({ reference: 'REV-SOURCE', business: asBusinessName('My Business'), ledger: asLedgerName('Reversal Test Ledger'), transdate: '2027-09-01', account: asAccountName('Cash and Bank'), amount_minor: 7500 });
-  stageLine({ reference: 'REV-SOURCE', business: asBusinessName('My Business'), ledger: asLedgerName('Reversal Test Ledger'), transdate: '2027-09-01', account: asAccountName('Sales Revenue'), amount_minor: -7500 });
-  postJournalEntry('REV-SOURCE', asBusinessName('My Business'), asLedgerName('Reversal Test Ledger'), asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Reversal Test Ledger', asUserId(1));
+  stageLine({ reference: 'REV-SOURCE', business: asBusinessName('admin'), ledger: asLedgerName('Reversal Test Ledger'), transdate: '2027-09-01', account: asAccountName('Cash and Bank'), amount_minor: 7500 });
+  stageLine({ reference: 'REV-SOURCE', business: asBusinessName('admin'), ledger: asLedgerName('Reversal Test Ledger'), transdate: '2027-09-01', account: asAccountName('Sales Revenue'), amount_minor: -7500 });
+  postJournalEntry('REV-SOURCE', asBusinessName('admin'), asLedgerName('Reversal Test Ledger'), asUserId(1));
 
-  const before = getTrialBalance(asBusinessName('My Business'), asLedgerName('Reversal Test Ledger')).rows.find((r) => r.name === 'Cash and Bank')!.debit_minor;
+  const before = getTrialBalance(asBusinessName('admin'), asLedgerName('Reversal Test Ledger')).rows.find((r) => r.name === 'Cash and Bank')!.debit_minor;
   assert.equal(before, 7500);
 
-  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Reversal Test Ledger'), 200);
+  const entries = listJournalEntries(asBusinessName('admin'), asLedgerName('Reversal Test Ledger'), 200);
   const source = entries.find((e) => e.reference === 'REV-SOURCE')!;
-  reverseJournalEntry(asBusinessName('My Business'), asLedgerName('Reversal Test Ledger'), source.journal_id, source.occurrence_date!, asUserId(1), '2027-09-15');
+  reverseJournalEntry(asBusinessName('admin'), asLedgerName('Reversal Test Ledger'), source.journal_id, source.occurrence_date!, asUserId(1), '2027-09-15');
 
-  const after = getTrialBalance(asBusinessName('My Business'), asLedgerName('Reversal Test Ledger'));
+  const after = getTrialBalance(asBusinessName('admin'), asLedgerName('Reversal Test Ledger'));
   const cash = after.rows.find((r) => r.name === 'Cash and Bank');
   assert.equal(cash, undefined, 'after reversal, Cash and Bank should have exactly zero net effect and not even appear');
 
-  const reversalEntry = listJournalEntries(asBusinessName('My Business'), asLedgerName('Reversal Test Ledger'), 200).find((e) => e.reference.startsWith('REV-SOURCE-REV-'));
+  const reversalEntry = listJournalEntries(asBusinessName('admin'), asLedgerName('Reversal Test Ledger'), 200).find((e) => e.reference.startsWith('REV-SOURCE-REV-'));
   assert.ok(reversalEntry, 'the reversal should show up as its own real entry in the journal list');
   assert.equal(reversalEntry!.total_debit_minor, 7500);
   assert.equal(reversalEntry!.total_credit_minor, 7500);
@@ -977,17 +977,17 @@ test('reversing a posted entry creates a new entry with every line negated, and 
 });
 
 test('reversing a nonexistent occurrence is rejected clearly', () => {
-  assert.throws(() => reverseJournalEntry(asBusinessName('My Business'), asLedgerName('Actual'), 999999, '2027-01-01', asUserId(1)), NotFoundError);
+  assert.throws(() => reverseJournalEntry(asBusinessName('admin'), asLedgerName('Actual'), 999999, '2027-01-01', asUserId(1)), NotFoundError);
 });
 
 test('complete end-to-end lifecycle: purchase order -> receipt -> sales order -> dispatch/invoice -> cash collected -> vendor paid, every account balance verified at each step', () => {
   // A fresh, dedicated ledger and a fresh batch of Widget accounts, so
   // this test's numbers are easy to verify in isolation from anything
   // else posted elsewhere in this test run.
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Lifecycle Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Lifecycle Test Ledger', asUserId(1));
   create(requireEntity('Stock Quantities', typeRootName), typeRootName, 'LTWidget Batch Qty', asUserId(1));
   create(requireEntity('Inventory', typeRootName), typeRootName, 'LTWidget Batch Value', asUserId(1));
-  const business = 'My Business';
+  const business = 'admin';
   const ledger = 'Lifecycle Test Ledger';
 
   // --- Step 1: place PO-LT01 — 100 units @ $5.00, memo only ---
@@ -1056,10 +1056,10 @@ test('complete end-to-end lifecycle: purchase order -> receipt -> sales order ->
 });
 
 test('a partial receipt against a purchase order leaves a genuine, correctly-sized back order', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Backorder Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Backorder Test Ledger', asUserId(1));
   create(requireEntity('Stock Quantities', typeRootName), typeRootName, 'BOWidget Batch Qty', asUserId(1));
   create(requireEntity('Inventory', typeRootName), typeRootName, 'BOWidget Batch Value', asUserId(1));
-  const business = 'My Business';
+  const business = 'admin';
   const ledger = 'Backorder Test Ledger';
 
   placeOrder('PO-BO01', asBusinessName(business), asLedgerName(ledger), 100, 50000, asUserId(1), '2027-07-01');
@@ -1080,20 +1080,20 @@ test('a partial receipt against a purchase order leaves a genuine, correctly-siz
 });
 
 test('a real Purchase Order still knows its real vendor and item after posting — no extra table, the same real relation every entity already has', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PORelationTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'PORelationTest Ledger', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'PORelationTest Vendor', asUserId(1));
   createItem('PORelationTest Wine', 'Items', asUserId(1));
 
   stagePurchaseOrder({
     reference: 'PORELTEST-1',
-    business: 'My Business',
+    business: 'admin',
     ledger: 'PORelationTest Ledger',
     vendor: 'PORelationTest Vendor',
     item: 'PORelationTest Wine',
     quantity: 24,
     price_minor: 1500,
   });
-  postPurchaseOrder('PORELTEST-1', asBusinessName('My Business'), asLedgerName('PORelationTest Ledger'), asUserId(1));
+  postPurchaseOrder('PORELTEST-1', asBusinessName('admin'), asLedgerName('PORelationTest Ledger'), asUserId(1));
 
   // po_staging (vendor, item) is genuinely deleted after posting —
   // the real, direct proof this doesn't come from staging still being
@@ -1113,7 +1113,7 @@ test('a real Purchase Order still knows its real vendor and item after posting �
 
 test('getLocationCapacityStatus: a real location\'s own, current real stock checked against its own, real configured capacity — found to be purely informational and never enforced anywhere, per docs/TODO.md', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'CapTest Outlet', asUserId(1));
-  setLocation('CapTest Outlet', { city: 'CapTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('CapTest Outlet', { city: 'CapTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10 , timezone: 'UTC'}, asBusinessName('admin'));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'CapTest Vendor', asUserId(1));
   createItem('CapTest Wine', 'Items', asUserId(1));
   addOrUpdateItemSource({ itemName: 'CapTest Wine', vendorName: 'CapTest Vendor', priceMinor: 1500, packageQuantity: 12, isPreferred: true }); // 12 bottles per real carton
@@ -1125,7 +1125,7 @@ test('getLocationCapacityStatus: a real location\'s own, current real stock chec
   assert.equal(before.cartonCapacity, 10);
   assert.equal(before.cartonOverCapacity, false);
 
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'CAPTEST-REC-1', asItemName('CapTest Wine'), asLocationName('CapTest Outlet'), 130, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'CAPTEST-REC-1', asItemName('CapTest Wine'), asLocationName('CapTest Outlet'), 130, asUserId(1), '2027-01-01');
   const after = getLocationCapacityStatus(asLocationName('CapTest Outlet'));
   assert.equal(after.bottleQuantity, 130);
   assert.equal(after.bottleOverCapacity, true, 'a real 130 bottles against a real 100-bottle capacity must correctly show as over');
@@ -1134,20 +1134,20 @@ test('getLocationCapacityStatus: a real location\'s own, current real stock chec
 
   // A real location with no configured capacity at all — never silently treated as "over" just because none was set.
   create(myBusinessLocationsRoot(), typeRootName, 'CapTest No Capacity Outlet', asUserId(1));
-  setLocation('CapTest No Capacity Outlet', { city: 'CapTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('CapTest No Capacity Outlet', { city: 'CapTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'}, asBusinessName('admin'));
   const noCapacity = getLocationCapacityStatus(asLocationName('CapTest No Capacity Outlet'));
   assert.equal(noCapacity.bottleCapacity, null);
   assert.equal(noCapacity.bottleOverCapacity, false);
 });
 
 test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picking list, requires every real line ticked off before it can dispatch, and reduces real, physical stock at the exact location it was actually picked from', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PickTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'PickTest Ledger', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'PickTest Outlet', asUserId(1));
-  setLocation('PickTest Outlet', { city: 'PickTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('PickTest Outlet', { city: 'PickTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('PickTest Front Wine', 'Items', asUserId(1));
   createItem('PickTest Back Wine', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-1', asItemName('PickTest Front Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
-  receiveItems(asBusinessName('My Business'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-2', asItemName('PickTest Back Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-1', asItemName('PickTest Front Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('PickTest Ledger'), 'PICKTEST-REC-2', asItemName('PickTest Back Wine'), asLocationName('PickTest Outlet'), 50, asUserId(1), '2027-06-01');
   withMyBusinessSession(() => setItemLocationLevels(asItemName('PickTest Front Wine'), asLocationName('PickTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 1 }));
   withMyBusinessSession(() => setItemLocationLevels(asItemName('PickTest Back Wine'), asLocationName('PickTest Outlet'), { shelfSide: 'Back', rack: 'B', level: 2 }));
   create(requireEntity('Customers', typeRootName), typeRootName, 'PickTest Customer', asUserId(1));
@@ -1155,7 +1155,7 @@ test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picki
   const invoiceId = createInvoice(
     {
       invoiceType: 'AR',
-      business: 'My Business',
+      business: 'admin',
       ledger: 'PickTest Ledger',
       reference: 'PICKORDER-1',
       counterpartyName: 'PickTest Customer',
@@ -1180,13 +1180,13 @@ test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picki
     'dispatch must be genuinely refused while any real line is still unticked'
   );
 
-  confirmPickedLine(invoiceId, list[0].invoiceLineId, asBusinessName('My Business'), asLedgerName('PickTest Ledger'), asUserId(1));
+  confirmPickedLine(invoiceId, list[0].invoiceLineId, asBusinessName('admin'), asLedgerName('PickTest Ledger'), asUserId(1));
   const partial = getPickingList(invoiceId, asLocationName('PickTest Outlet'));
   assert.equal(partial.find((l) => l.item === 'PickTest Front Wine')?.picked, true);
   assert.equal(partial.find((l) => l.item === 'PickTest Back Wine')?.picked, false);
   assert.throws(() => dispatchOrderFromPickingList(invoiceId, asLocationName('PickTest Outlet'), 'Sales Revenue', 'Sales Tax Payable', asUserId(1)), ValidationError, 'one real line still unticked must still refuse dispatch');
 
-  confirmPickedLine(invoiceId, list[1].invoiceLineId, asBusinessName('My Business'), asLedgerName('PickTest Ledger'), asUserId(1));
+  confirmPickedLine(invoiceId, list[1].invoiceLineId, asBusinessName('admin'), asLedgerName('PickTest Ledger'), asUserId(1));
   dispatchOrderFromPickingList(invoiceId, asLocationName('PickTest Outlet'), 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
   const invoice = getInvoice(invoiceId)!;
@@ -1196,15 +1196,15 @@ test('picking/packing/dispatch: a real order becomes a real, shelf-ordered picki
 });
 
 test('restocking retail outlets from warehouses: the same real, shelf-ordered picking and refuse-until-complete pattern, but a real internal transfer, not an invoice — a real, distinct reference per real line, since a shared reference across different real products in the same run would genuinely collide', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'RestockTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'RestockTest Ledger', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'RestockTest Warehouse', asUserId(1));
-  setLocation('RestockTest Warehouse', { city: 'RestockTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('RestockTest Warehouse', { city: 'RestockTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('admin'));
   create(myBusinessLocationsRoot(), typeRootName, 'RestockTest Outlet', asUserId(1));
-  setLocation('RestockTest Outlet', { city: 'RestockTest City', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('RestockTest Outlet', { city: 'RestockTest City', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('RestockTest Wine A', 'Items', asUserId(1));
   createItem('RestockTest Wine B', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-1', asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
-  receiveItems(asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-2', asItemName('RestockTest Wine B'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-1', asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('RestockTest Ledger'), 'RESTOCKTEST-REC-2', asItemName('RestockTest Wine B'), asLocationName('RestockTest Warehouse'), 100, asUserId(1), '2027-07-01');
   withMyBusinessSession(() => setItemLocationLevels(asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse'), { rack: 'A', level: 1 }));
   withMyBusinessSession(() => setItemLocationLevels(asItemName('RestockTest Wine B'), asLocationName('RestockTest Warehouse'), { rack: 'B', level: 2 }));
 
@@ -1219,13 +1219,13 @@ test('restocking retail outlets from warehouses: the same real, shelf-ordered pi
   assert.equal(list[1].item, 'RestockTest Wine B');
 
   assert.throws(
-    () => dispatchRestockFromPickingList(runRef, asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), asLocationName('RestockTest Warehouse'), asLocationName('RestockTest Outlet'), lines, asUserId(1), '2027-07-05'),
+    () => dispatchRestockFromPickingList(runRef, asBusinessName('admin'), asLedgerName('RestockTest Ledger'), asLocationName('RestockTest Warehouse'), asLocationName('RestockTest Outlet'), lines, asUserId(1), '2027-07-05'),
     ValidationError,
     'a real restocking run must be refused while any real line is still unticked, the same as a customer order'
   );
 
-  for (const l of lines) confirmRestockPickedLine(runRef, l.item, asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), asUserId(1));
-  dispatchRestockFromPickingList(runRef, asBusinessName('My Business'), asLedgerName('RestockTest Ledger'), asLocationName('RestockTest Warehouse'), asLocationName('RestockTest Outlet'), lines, asUserId(1), '2027-07-05');
+  for (const l of lines) confirmRestockPickedLine(runRef, l.item, asBusinessName('admin'), asLedgerName('RestockTest Ledger'), asUserId(1));
+  dispatchRestockFromPickingList(runRef, asBusinessName('admin'), asLedgerName('RestockTest Ledger'), asLocationName('RestockTest Warehouse'), asLocationName('RestockTest Outlet'), lines, asUserId(1), '2027-07-05');
 
   assert.equal(getItemLocation(asItemName('RestockTest Wine A'), asLocationName('RestockTest Warehouse')).quantity_on_hand, 80, 'real stock must actually leave the real warehouse');
   assert.equal(getItemLocation(asItemName('RestockTest Wine A'), asLocationName('RestockTest Outlet')).quantity_on_hand, 20, 'real stock must actually arrive at the real retail outlet');
@@ -1233,10 +1233,10 @@ test('restocking retail outlets from warehouses: the same real, shelf-ordered pi
 });
 
 test('the four real entry screens: PO -> receipt -> SO -> dispatch, using the actual staging/post functions a person would use, not just the underlying primitives', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Screens Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Screens Test Ledger', asUserId(1));
   create(requireEntity('Stock Quantities', typeRootName), typeRootName, 'SCWidget Batch Qty', asUserId(1));
   create(requireEntity('Inventory', typeRootName), typeRootName, 'SCWidget Batch Value', asUserId(1));
-  const business = 'My Business';
+  const business = 'admin';
   const ledger = 'Screens Test Ledger';
 
   // Screen 1: Purchase Order entry — 50 units @ $6.00
@@ -1284,10 +1284,10 @@ test('the four real entry screens: PO -> receipt -> SO -> dispatch, using the ac
 });
 
 test('posting a screen with nothing staged is rejected clearly, not silently a no-op', () => {
-  assert.throws(() => postPurchaseOrder('NEVER-STAGED-PO', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
-  assert.throws(() => postOrderReceipt('NEVER-STAGED-RCPT', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
-  assert.throws(() => postSalesOrder('NEVER-STAGED-SO', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
-  assert.throws(() => postOrderDispatch('NEVER-STAGED-DISP', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
+  assert.throws(() => postPurchaseOrder('NEVER-STAGED-PO', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
+  assert.throws(() => postOrderReceipt('NEVER-STAGED-RCPT', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
+  assert.throws(() => postSalesOrder('NEVER-STAGED-SO', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
+  assert.throws(() => postOrderDispatch('NEVER-STAGED-DISP', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
 });
 
 test('entities are append-only: renaming closes out the old row and appends a replacement under the same id, full history preserved', () => {
@@ -1345,37 +1345,37 @@ test('revokeEntity closes out the entity permanently, with who and when recorded
 test('journal postings record who posted them — the other half of the audit trail, alongside entities own append-only history', () => {
   const user2 = createUser('poster1', 'xxxxxxxx', ['Bookkeeper']).id;
 
-  stageLine({ reference: 'AUDIT-TEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-10-01', account: asAccountName('Cash and Bank'), amount_minor: 1000 });
-  stageLine({ reference: 'AUDIT-TEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-10-01', account: asAccountName('Sales Revenue'), amount_minor: -1000 });
-  postJournalEntry('AUDIT-TEST-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(user2));
+  stageLine({ reference: 'AUDIT-TEST-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-10-01', account: asAccountName('Cash and Bank'), amount_minor: 1000 });
+  stageLine({ reference: 'AUDIT-TEST-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-10-01', account: asAccountName('Sales Revenue'), amount_minor: -1000 });
+  postJournalEntry('AUDIT-TEST-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(user2));
 
-  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Actual'), 200);
+  const entries = listJournalEntries(asBusinessName('admin'), asLedgerName('Actual'), 200);
   const posted = entries.find((e) => e.reference === 'AUDIT-TEST-1')!;
   assert.equal(posted.posted_by, 'poster1', 'listJournalEntries should show the actual username, not just a raw id');
 
-  const detail = getJournalEntry(asBusinessName('My Business'), asLedgerName('Actual'), posted.journal_id, posted.occurrence_date!)!;
+  const detail = getJournalEntry(asBusinessName('admin'), asLedgerName('Actual'), posted.journal_id, posted.occurrence_date!)!;
   assert.equal(detail.posted_by, 'poster1', 'the detail view must show it too');
 });
 
 test('a recurring journal records who created it — every occurrence it generates shows the same poster', () => {
   const user3 = createUser('poster2', 'xxxxxxxx', ['Bookkeeper']).id;
 
-  createRecurringJournal(asBusinessName('My Business'), asLedgerName('Actual'), 'AUDIT-REC-1', '2027-11-01', 'monthly', [
+  createRecurringJournal(asBusinessName('admin'), asLedgerName('Actual'), 'AUDIT-REC-1', '2027-11-01', 'monthly', [
     { account: 'Rent', amount_minor: 20000 },
     { account: 'Cash and Bank', amount_minor: -20000 },
   ], asUserId(user3), 'Test recurring', 3);
 
-  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Actual'), 200).filter((e) => e.reference === 'AUDIT-REC-1');
+  const entries = listJournalEntries(asBusinessName('admin'), asLedgerName('Actual'), 200).filter((e) => e.reference === 'AUDIT-REC-1');
   assert.equal(entries.length, 3);
   assert.ok(entries.every((e) => e.posted_by === 'poster2'), 'every generated occurrence should show the same creator');
 });
 
 test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable, everything balances', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Tax Test Ledger AR', asUserId(1));
-  stageARSale({ reference: 'TAX-AR-1', business: asBusinessName('My Business'), ledger: asLedgerName('Tax Test Ledger AR'), customer: asCustomerName('Acme Corp'), amount_minor: 100000, tax_minor: 10000, transdate: '2027-12-01' });
-  postARSale('TAX-AR-1', asBusinessName('My Business'), asLedgerName('Tax Test Ledger AR'), asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Tax Test Ledger AR', asUserId(1));
+  stageARSale({ reference: 'TAX-AR-1', business: asBusinessName('admin'), ledger: asLedgerName('Tax Test Ledger AR'), customer: asCustomerName('Acme Corp'), amount_minor: 100000, tax_minor: 10000, transdate: '2027-12-01' });
+  postARSale('TAX-AR-1', asBusinessName('admin'), asLedgerName('Tax Test Ledger AR'), asUserId(1));
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Tax Test Ledger AR'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Tax Test Ledger AR'));
   assert.equal(tb.rows.find((r) => r.name === 'Acme Corp')!.debit_minor, 110000, 'customer owes base + tax');
   assert.equal(tb.rows.find((r) => r.name === 'Sales Revenue')!.credit_minor, 100000, 'revenue is the base amount only, not inflated by tax');
   assert.equal(tb.rows.find((r) => r.name === 'Sales Tax Payable')!.credit_minor, 10000);
@@ -1383,11 +1383,11 @@ test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable
 });
 
 test('AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amount+tax, everything balances', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Tax Test Ledger AP', asUserId(1));
-  stageAPPurchase({ reference: 'TAX-AP-1', business: asBusinessName('My Business'), ledger: asLedgerName('Tax Test Ledger AP'), vendor: asProviderName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 50000, tax_minor: 5000, transdate: '2027-12-01' });
-  postAPPurchase('TAX-AP-1', asBusinessName('My Business'), asLedgerName('Tax Test Ledger AP'), asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Tax Test Ledger AP', asUserId(1));
+  stageAPPurchase({ reference: 'TAX-AP-1', business: asBusinessName('admin'), ledger: asLedgerName('Tax Test Ledger AP'), vendor: asProviderName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 50000, tax_minor: 5000, transdate: '2027-12-01' });
+  postAPPurchase('TAX-AP-1', asBusinessName('admin'), asLedgerName('Tax Test Ledger AP'), asUserId(1));
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Tax Test Ledger AP'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Tax Test Ledger AP'));
   assert.equal(tb.rows.find((r) => r.name === 'Office')!.debit_minor, 50000);
   assert.equal(tb.rows.find((r) => r.name === 'Purchases Tax Claimed')!.debit_minor, 5000);
   assert.equal(tb.rows.find((r) => r.name === 'Acme Supplies Pty Ltd')!.credit_minor, 55000, 'vendor is owed base + tax');
@@ -1395,8 +1395,8 @@ test('AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amo
 });
 
 test('a service dispatch (no item, no item_qty, no unit_cost) skips COGS and quantity movement entirely — matches the exact worked example: 10 hours @ 150.00 with 10% tax', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Service Test Ledger', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Service Test Ledger', asUserId(1));
+  const business = 'admin';
   const ledger = 'Service Test Ledger';
 
   placeOrder('SO-SVC01', asBusinessName(business), asLedgerName(ledger), 10, 10 * 15000, asUserId(1), '2027-12-05');
@@ -1416,8 +1416,8 @@ test('a service dispatch (no item, no item_qty, no unit_cost) skips COGS and qua
 });
 
 test('a service receipt (no item_qty) skips the quantity movement, still posts the monetary and tax legs correctly', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Service Receipt Ledger', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Service Receipt Ledger', asUserId(1));
+  const business = 'admin';
   const ledger = 'Service Receipt Ledger';
 
   placeOrder('PO-SVC01', asBusinessName(business), asLedgerName(ledger), 5, 5 * 20000, asUserId(1), '2027-12-10');
@@ -1436,8 +1436,8 @@ test('a service receipt (no item_qty) skips the quantity movement, still posts t
 });
 
 test('invoice_line records genuinely per-line tax, never assumed uniform — one line exempt, another at a different rate entirely', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Invoice Line Test Ledger', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Invoice Line Test Ledger', asUserId(1));
+  const business = 'admin';
   const ledger = 'Invoice Line Test Ledger';
   create(requireEntity('Stock Quantities', typeRootName), typeRootName, 'ILWidget Batch Qty', asUserId(1));
   create(requireEntity('Inventory', typeRootName), typeRootName, 'ILWidget Batch Value', asUserId(1));
@@ -1475,8 +1475,8 @@ test('invoice_line records genuinely per-line tax, never assumed uniform — one
 });
 
 test('AR Sale and AP Purchase also record an invoice_line, with no quantity/unit price concept at all (both null)', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Invoice Line Flat Ledger', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Invoice Line Flat Ledger', asUserId(1));
+  const business = 'admin';
   const ledger = 'Invoice Line Flat Ledger';
   stageARSale({ reference: 'IL-FLAT-AR', business: asBusinessName(business), ledger: asLedgerName(ledger), customer: asCustomerName('Acme Corp'), amount_minor: 10000, tax_minor: 1000, transdate: '2027-05-01', description: 'Flat sale' });
   postARSale('IL-FLAT-AR', asBusinessName(business), asLedgerName(ledger), asUserId(1));
@@ -1488,8 +1488,8 @@ test('AR Sale and AP Purchase also record an invoice_line, with no quantity/unit
 });
 
 test('an ordinary General Journal posting records no invoice_line at all — it has no invoice concept', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'No Invoice Line Ledger', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'No Invoice Line Ledger', asUserId(1));
+  const business = 'admin';
   const ledger = 'No Invoice Line Ledger';
   stageLine({ reference: 'GJ-NO-INV', business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: '2027-05-01', account: asAccountName('Cash and Bank'), amount_minor: 500 });
   stageLine({ reference: 'GJ-NO-INV', business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: '2027-05-01', account: asAccountName('Sales Revenue'), amount_minor: -500 });
@@ -1498,8 +1498,8 @@ test('an ordinary General Journal posting records no invoice_line at all — it 
 });
 
 test('closing a period rejects normal posting into it, and reopening lifts that immediately for a correction', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Period Test Ledger', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Period Test Ledger', asUserId(1));
+  const business = 'admin';
   const ledger = 'Period Test Ledger';
 
   assert.deepEqual(getPeriodLockStatus(asBusinessName(business), asLedgerName(ledger)), { locked_through_date: null, changed_by: null, changed_at: null });
@@ -1531,8 +1531,8 @@ test('closing a period rejects normal posting into it, and reopening lifts that 
 });
 
 test('quantity movements and recurring journal start dates are also protected by a closed period, not just ordinary posting', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Period Test Ledger 2', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Period Test Ledger 2', asUserId(1));
+  const business = 'admin';
   const ledger = 'Period Test Ledger 2';
   create(requireEntity('Stock Quantities', typeRootName), typeRootName, 'PeriodTest Batch Qty', asUserId(1));
 
@@ -1554,8 +1554,8 @@ test('quantity movements and recurring journal start dates are also protected by
 });
 
 test('Trial Balance and Balance Sheet asOfDate correctly excludes postings after the cutoff, without needing a period to be closed at all', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'AsOf Test Ledger', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'AsOf Test Ledger', asUserId(1));
+  const business = 'admin';
   const ledger = 'AsOf Test Ledger';
 
   stageLine({ reference: 'ASOF-JAN', business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: '2027-01-15', account: asAccountName('Cash and Bank'), amount_minor: 500 });
@@ -1580,8 +1580,8 @@ test('Trial Balance and Balance Sheet asOfDate correctly excludes postings after
 });
 
 test('Profit and Loss fromDate/toDate is a genuine range, not just a single cutoff — excludes postings both before AND after the window', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PL Range Test Ledger', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'PL Range Test Ledger', asUserId(1));
+  const business = 'admin';
   const ledger = 'PL Range Test Ledger';
 
   stageLine({ reference: 'PLR-JAN', business: asBusinessName(business), ledger: asLedgerName(ledger), transdate: '2027-01-15', account: asAccountName('Cash and Bank'), amount_minor: 1000 });
@@ -1608,8 +1608,8 @@ test('Profit and Loss fromDate/toDate is a genuine range, not just a single cuto
 });
 
 test('reversing the same occurrence twice is rejected clearly — the real bug this prevents silently corrupted journal_line by attaching a second reversals lines to the first one, since the reversal reference is deterministic', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Double Reversal Test Ledger', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Double Reversal Test Ledger', asUserId(1));
+  const business = 'admin';
   const ledger = 'Double Reversal Test Ledger';
 
   createRecurringJournal(
@@ -1617,12 +1617,12 @@ test('reversing the same occurrence twice is rejected clearly — the real bug t
     [{ account: 'Rent', amount_minor: 80000 }, { account: 'Cash and Bank', amount_minor: -80000 }],
     asUserId(1), 'Monthly rent', 3
   );
-  const entries = listJournalEntries(asBusinessName('My Business'), asLedgerName('Double Reversal Test Ledger'), 200).filter((e) => e.reference === 'REC-DOUBLE-REV');
+  const entries = listJournalEntries(asBusinessName('admin'), asLedgerName('Double Reversal Test Ledger'), 200).filter((e) => e.reference === 'REC-DOUBLE-REV');
   const feb = entries.find((e) => e.occurrence_date === '2027-02-01')!;
 
-  reverseJournalEntry(asBusinessName('My Business'), asLedgerName('Double Reversal Test Ledger'), feb.journal_id, feb.occurrence_date!, asUserId(1), '2027-02-15');
+  reverseJournalEntry(asBusinessName('admin'), asLedgerName('Double Reversal Test Ledger'), feb.journal_id, feb.occurrence_date!, asUserId(1), '2027-02-15');
   assert.throws(
-    () => reverseJournalEntry(asBusinessName('My Business'), asLedgerName('Double Reversal Test Ledger'), feb.journal_id, feb.occurrence_date!, asUserId(1), '2027-02-20'),
+    () => reverseJournalEntry(asBusinessName('admin'), asLedgerName('Double Reversal Test Ledger'), feb.journal_id, feb.occurrence_date!, asUserId(1), '2027-02-20'),
     PostingError,
     'reversing the exact same occurrence again must be rejected clearly, not silently corrupt data'
   );
@@ -1642,8 +1642,8 @@ test('reversing the same occurrence twice is rejected clearly — the real bug t
 });
 
 test('Balance Sheet and P&L split each line into debit/credit columns per accounting convention, and flag a line whose balance sits opposite its normal side', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'Contra Test Ledger', asUserId(1));
-  const business = 'My Business';
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Contra Test Ledger', asUserId(1));
+  const business = 'admin';
   const ledger = 'Contra Test Ledger';
 
   // A normal asset balance: Cash debited 1000 — debit_minor set, not contra.
@@ -1677,13 +1677,13 @@ test('Balance Sheet and P&L split each line into debit/credit columns per accoun
 });
 
 test('getProfitAndLossComparison correctly reconstructs each lines actual amount from debit_minor/credit_minor, not a stale removed field', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PLC Fix Test A', asUserId(1));
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PLC Fix Test B', asUserId(1));
-  stageLine({ reference: 'PLCFIX-A', business: asBusinessName('My Business'), ledger: asLedgerName('PLC Fix Test A'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 2500 });
-  stageLine({ reference: 'PLCFIX-A', business: asBusinessName('My Business'), ledger: asLedgerName('PLC Fix Test A'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -2500 });
-  postJournalEntry('PLCFIX-A', asBusinessName('My Business'), asLedgerName('PLC Fix Test A'), asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'PLC Fix Test A', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'PLC Fix Test B', asUserId(1));
+  stageLine({ reference: 'PLCFIX-A', business: asBusinessName('admin'), ledger: asLedgerName('PLC Fix Test A'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 2500 });
+  stageLine({ reference: 'PLCFIX-A', business: asBusinessName('admin'), ledger: asLedgerName('PLC Fix Test A'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -2500 });
+  postJournalEntry('PLCFIX-A', asBusinessName('admin'), asLedgerName('PLC Fix Test A'), asUserId(1));
 
-  const cmp = getProfitAndLossComparison(asBusinessName('My Business'), asLedgerName('PLC Fix Test A'), asLedgerName('PLC Fix Test B'));
+  const cmp = getProfitAndLossComparison(asBusinessName('admin'), asLedgerName('PLC Fix Test A'), asLedgerName('PLC Fix Test B'));
   const revenueLine = cmp.income.find((l) => l.name === 'Sales Revenue');
   assert.equal(revenueLine?.a_minor, 2500, 'must reflect the real posted amount, not silently fall back to 0');
   assert.ok(!revenueLine?.b_minor, 'must be zero (0 or -0, numerically identical) for a ledger with no activity');
@@ -1729,10 +1729,10 @@ test('getCreditStatus: a real customer/vendor\'s own real balance checked agains
   assert.equal(before.overLimit, false);
   assert.equal(before.remainingMinor, 500000);
 
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'CreditStatusTest Ledger', asUserId(1));
-  stageLine({ reference: 'CST-1', business: asBusinessName('My Business'), ledger: asLedgerName('CreditStatusTest Ledger'), account: asAccountName('Inventory'), amount_minor: 600000 });
-  stageLine({ reference: 'CST-1', business: asBusinessName('My Business'), ledger: asLedgerName('CreditStatusTest Ledger'), account: asAccountName('CreditStatusTest Vendor'), amount_minor: -600000 });
-  postJournalEntry('CST-1', asBusinessName('My Business'), asLedgerName('CreditStatusTest Ledger'), asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'CreditStatusTest Ledger', asUserId(1));
+  stageLine({ reference: 'CST-1', business: asBusinessName('admin'), ledger: asLedgerName('CreditStatusTest Ledger'), account: asAccountName('Inventory'), amount_minor: 600000 });
+  stageLine({ reference: 'CST-1', business: asBusinessName('admin'), ledger: asLedgerName('CreditStatusTest Ledger'), account: asAccountName('CreditStatusTest Vendor'), amount_minor: -600000 });
+  postJournalEntry('CST-1', asBusinessName('admin'), asLedgerName('CreditStatusTest Ledger'), asUserId(1));
 
   const after = getCreditStatus('CreditStatusTest Vendor');
   assert.equal(after.balanceMinor, 600000, 'a real, current outstanding balance, reported as a real positive amount regardless of the account\'s own natural debit/credit sign');
@@ -1820,7 +1820,7 @@ test('real multi-line invoices: header + lines, due date derived from the counte
 
   const invoiceId = createInvoice({
     invoiceType: 'AR',
-    business: 'My Business',
+    business: 'admin',
     ledger: 'Actual',
     reference: 'INVTEST-1',
     counterpartyName: 'Acme Corp',
@@ -1845,7 +1845,7 @@ test('real multi-line invoices: header + lines, due date derived from the counte
   assert.equal(posted.status, 'posted');
   assert.equal(posted.posted_by, 'admin');
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   const acme = tb.rows.find((r) => r.name === 'Acme Corp')!;
   assert.ok(acme.debit_minor >= 10750, 'Acme Corp genuinely debited for the full invoice total including tax');
 
@@ -1856,7 +1856,7 @@ test('real multi-line invoices: header + lines, due date derived from the counte
 test('Credit Note reverses an invoice correctly — the same mechanism run in reverse, not a parallel schema', () => {
   const invoiceId = createInvoice({
     invoiceType: 'AR',
-    business: 'My Business',
+    business: 'admin',
     ledger: 'Actual',
     reference: 'INVCN-1',
     counterpartyName: 'Acme Corp',
@@ -1865,13 +1865,13 @@ test('Credit Note reverses an invoice correctly — the same mechanism run in re
   }, asUserId(1));
   postInvoice(invoiceId, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
-  const beforeCredit = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Corp')!.debit_minor;
+  const beforeCredit = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Corp')!.debit_minor;
 
   const creditNoteId = createInvoice({
     invoiceType: 'AR',
     documentType: 'credit_note',
     referencesInvoiceId: invoiceId,
-    business: 'My Business',
+    business: 'admin',
     ledger: 'Actual',
     reference: 'CN-1',
     counterpartyName: 'Acme Corp',
@@ -1885,7 +1885,7 @@ test('Credit Note reverses an invoice correctly — the same mechanism run in re
 
   postInvoice(creditNoteId, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
-  const afterCredit = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Corp')!.debit_minor;
+  const afterCredit = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Corp')!.debit_minor;
   assert.equal(afterCredit, beforeCredit - 3000, 'the credit note correctly reduces what Acme Corp owes, not increases it');
 
   // Referencing a nonexistent invoice must be rejected.
@@ -1896,7 +1896,7 @@ test('Credit Note reverses an invoice correctly — the same mechanism run in re
           invoiceType: 'AR',
           documentType: 'credit_note',
           referencesInvoiceId: 999999,
-          business: 'My Business',
+          business: 'admin',
           ledger: 'Actual',
           reference: 'CN-BAD',
           counterpartyName: 'Acme Corp',
@@ -1914,14 +1914,14 @@ test('aged invoices: bucketed by each customer\'s own payment terms, and partial
   setContact('Beta Pty Ltd', { payment_terms_days: 7 });
 
   const inv1 = createInvoice({
-    invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'AGETEST-1',
+    invoiceType: 'AR', business: 'admin', ledger: 'Actual', reference: 'AGETEST-1',
     counterpartyName: 'Acme Corp', invoiceDate: '2027-01-01',
     lines: [{ description: 'x', amountMinor: 10000 }],
   }, asUserId(1));
   postInvoice(inv1, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
   const inv2 = createInvoice({
-    invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'AGETEST-2',
+    invoiceType: 'AR', business: 'admin', ledger: 'Actual', reference: 'AGETEST-2',
     counterpartyName: 'Beta Pty Ltd', invoiceDate: '2027-01-01',
     lines: [{ description: 'y', amountMinor: 5000 }],
   }, asUserId(1));
@@ -1931,7 +1931,7 @@ test('aged invoices: bucketed by each customer\'s own payment terms, and partial
   allocatePayment(inv1, 'RCPTTEST-1', 4000, '2027-01-15', 'Cash and Bank', asUserId(1));
   assert.equal(getInvoiceOutstandingMinor(inv1), 6000, 'partial payment genuinely reduces what is outstanding');
 
-  const aged = getAgedInvoices(asBusinessName('My Business'), asLedgerName('Actual'), 'AR', '2027-03-01');
+  const aged = getAgedInvoices(asBusinessName('admin'), asLedgerName('Actual'), 'AR', '2027-03-01');
   const acmeRow = aged.find((r) => r.reference === 'AGETEST-1')!;
   const betaRow = aged.find((r) => r.reference === 'AGETEST-2')!;
 
@@ -1944,7 +1944,7 @@ test('aged invoices: bucketed by each customer\'s own payment terms, and partial
 
   // A fully-paid invoice must not appear in the aged report at all.
   allocatePayment(inv2, 'RCPTTEST-3', 5000, '2027-01-20', 'Cash and Bank', asUserId(1));
-  const agedAfterFullPayment = getAgedInvoices(asBusinessName('My Business'), asLedgerName('Actual'), 'AR', '2027-03-01');
+  const agedAfterFullPayment = getAgedInvoices(asBusinessName('admin'), asLedgerName('Actual'), 'AR', '2027-03-01');
   assert.ok(!agedAfterFullPayment.some((r) => r.reference === 'AGETEST-2'), 'a fully-paid invoice is not outstanding, so it must not show up as aged');
 });
 
@@ -1952,7 +1952,7 @@ test('Credit Invoice (restocks) vs Credit Note (does not) — matching SQL-Ledge
   create(requireEntity('Items', typeRootName), typeRootName, 'RSTest Widget', asUserId(1));
 
   const invId = createInvoice({
-    invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'RSTEST-INV',
+    invoiceType: 'AR', business: 'admin', ledger: 'Actual', reference: 'RSTEST-INV',
     counterpartyName: 'Acme Corp', invoiceDate: '2027-02-01',
     lines: [{ description: 'x10', quantity: 10, unitPriceMinor: 100, amountMinor: 1000, itemName: 'RSTest Widget' }],
   }, asUserId(1));
@@ -1960,7 +1960,7 @@ test('Credit Invoice (restocks) vs Credit Note (does not) — matching SQL-Ledge
 
   const cnId = createInvoice({
     invoiceType: 'AR', documentType: 'credit_note', referencesInvoiceId: invId,
-    business: 'My Business', ledger: 'Actual', reference: 'RSTEST-CN',
+    business: 'admin', ledger: 'Actual', reference: 'RSTEST-CN',
     counterpartyName: 'Acme Corp', invoiceDate: '2027-02-05',
     lines: [{ description: 'x3 returned', quantity: 3, unitPriceMinor: 100, amountMinor: 300, itemName: 'RSTest Widget' }],
   }, asUserId(1));
@@ -1971,7 +1971,7 @@ test('Credit Invoice (restocks) vs Credit Note (does not) — matching SQL-Ledge
 
   const cn2Id = createInvoice({
     invoiceType: 'AR', documentType: 'credit_note', referencesInvoiceId: invId,
-    business: 'My Business', ledger: 'Actual', reference: 'RSTEST-CN2',
+    business: 'admin', ledger: 'Actual', reference: 'RSTEST-CN2',
     counterpartyName: 'Acme Corp', invoiceDate: '2027-02-06',
     lines: [{ description: 'x2 price correction, no return', quantity: 2, unitPriceMinor: 100, amountMinor: 200, itemName: 'RSTest Widget' }],
   }, asUserId(1));
@@ -1985,13 +1985,13 @@ test('Reminders: escalate per customer, cap at level 3, and reset independently 
   setContact('Beta Pty Ltd', { payment_terms_days: 7 });
 
   const invId = createInvoice({
-    invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'REMTEST-1',
+    invoiceType: 'AR', business: 'admin', ledger: 'Actual', reference: 'REMTEST-1',
     counterpartyName: 'Beta Pty Ltd', invoiceDate: '2027-03-01',
     lines: [{ description: 'x', amountMinor: 5000 }],
   }, asUserId(1));
   postInvoice(invId, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
-  const candidates = getReminderCandidates(asBusinessName('My Business'), asLedgerName('Actual'), '2027-04-01');
+  const candidates = getReminderCandidates(asBusinessName('admin'), asLedgerName('Actual'), '2027-04-01');
   const betaCandidate = candidates.find((c) => c.counterparty === 'Beta Pty Ltd')!;
   assert.equal(betaCandidate.current_level, 0);
   assert.equal(betaCandidate.next_level, 1);
@@ -2015,24 +2015,24 @@ test('aged summary rolls up per customer (matching SQL-Ledger\'s Summary aging v
   setContact('HistTest Customer', { payment_terms_days: 30 });
 
   const inv1 = createInvoice({
-    invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'HISTTEST-1',
+    invoiceType: 'AR', business: 'admin', ledger: 'Actual', reference: 'HISTTEST-1',
     counterpartyName: 'HistTest Customer', invoiceDate: '2027-04-01',
     lines: [{ description: 'Widgets x5', quantity: 5, unitPriceMinor: 200, amountMinor: 1000 }],
   }, asUserId(1));
   postInvoice(inv1, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
   const inv2 = createInvoice({
-    invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'HISTTEST-2',
+    invoiceType: 'AR', business: 'admin', ledger: 'Actual', reference: 'HISTTEST-2',
     counterpartyName: 'HistTest Customer', invoiceDate: '2027-04-10',
     lines: [{ description: 'Gadgets x2', quantity: 2, unitPriceMinor: 500, amountMinor: 1000 }],
   }, asUserId(1));
   postInvoice(inv2, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
-  const summary = getAgedSummary(asBusinessName('My Business'), asLedgerName('Actual'), 'AR', '2027-06-01');
+  const summary = getAgedSummary(asBusinessName('admin'), asLedgerName('Actual'), 'AR', '2027-06-01');
   const customerSummary = summary.find((r) => r.counterparty === 'HistTest Customer')!;
   assert.equal(customerSummary.outstanding_minor, 2000, 'summary correctly rolls up both invoices into one total');
 
-  const history = getCounterpartyHistory(asBusinessName('My Business'), asLedgerName('Actual'), 'HistTest Customer');
+  const history = getCounterpartyHistory(asBusinessName('admin'), asLedgerName('Actual'), 'HistTest Customer');
   assert.ok(history.some((h) => h.description === 'Widgets x5' && h.quantity === 5));
   assert.ok(history.some((h) => h.description === 'Gadgets x2' && h.quantity === 2));
   assert.equal(history[0].invoice_date, '2027-04-10', 'most recent activity first');
@@ -2042,19 +2042,19 @@ test('stock write-offs (breakage/spoilage): a real dual-effect transaction, redu
   create(requireEntity('Items', typeRootName), typeRootName, 'WOTest Perishable', asUserId(1));
   create(requireGlobalCoaCategory('Expense'), typeRootName, 'WOTest Write-off Expense', asUserId(1));
 
-  postQuantityMovement(asBusinessName('My Business'), asLedgerName('Actual'), 'WOTEST-RECEIVE-QTY', asAccountName('WOTest Perishable'), 100, asUserId(1), '2027-01-01');
+  postQuantityMovement(asBusinessName('admin'), asLedgerName('Actual'), 'WOTEST-RECEIVE-QTY', asAccountName('WOTest Perishable'), 100, asUserId(1), '2027-01-01');
 
-  writeOffItems(asBusinessName('My Business'), asLedgerName('Actual'), 'WOTEST-1', asItemName('WOTest Perishable'), 15, 200, asAccountName('WOTest Write-off Expense'), 'Inventory', 'Spoiled', asUserId(1), '2027-02-01');
+  writeOffItems(asBusinessName('admin'), asLedgerName('Actual'), 'WOTEST-1', asItemName('WOTest Perishable'), 15, 200, asAccountName('WOTest Write-off Expense'), 'Inventory', 'Spoiled', asUserId(1), '2027-02-01');
 
   const qty = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name='WOTest Perishable' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Items'))`).get() as { balance_minor: number });
   assert.equal(qty.balance_minor, 85, 'quantity genuinely reduced, not just recorded');
 
-  const pl = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('Actual'));
+  const pl = getProfitAndLoss(asBusinessName('admin'), asLedgerName('Actual'));
   const writeOffLine = pl.expenses.find((e) => e.name === 'WOTest Write-off Expense');
   assert.equal(writeOffLine?.debit_minor, 3000, 'the loss is actually recognized as an expense (15 units x 200 minor units), not silently unaccounted for');
 
   assert.throws(
-    () => writeOffItems(asBusinessName('My Business'), asLedgerName('Actual'), 'WOTEST-2', asItemName('WOTest Perishable'), -5, 200, asAccountName('WOTest Write-off Expense'), 'Inventory', 'bad', asUserId(1), '2027-02-02'),
+    () => writeOffItems(asBusinessName('admin'), asLedgerName('Actual'), 'WOTEST-2', asItemName('WOTest Perishable'), -5, 200, asAccountName('WOTest Write-off Expense'), 'Inventory', 'bad', asUserId(1), '2027-02-02'),
     ValidationError,
     'a write-off is always a reduction, never a gain — negative quantity must be rejected'
   );
@@ -2064,9 +2064,9 @@ test('lot/expiration tracking: consumption is genuinely FIFO by expiration date,
   create(requireEntity('Items', typeRootName), typeRootName, 'LotTest Dairy', asUserId(1));
 
   // Received in this order: B, A, C — but A expires soonest.
-  receiveLot(asBusinessName('My Business'), asLedgerName('Actual'), 'LOTTEST-R1', asItemName('LotTest Dairy'), 'LOT-B', '2027-01-05', '2027-03-15', 50, asUserId(1));
-  receiveLot(asBusinessName('My Business'), asLedgerName('Actual'), 'LOTTEST-R2', asItemName('LotTest Dairy'), 'LOT-A', '2027-01-01', '2027-02-01', 30, asUserId(1));
-  receiveLot(asBusinessName('My Business'), asLedgerName('Actual'), 'LOTTEST-R3', asItemName('LotTest Dairy'), 'LOT-C', '2027-01-10', '2027-04-01', 40, asUserId(1));
+  receiveLot(asBusinessName('admin'), asLedgerName('Actual'), 'LOTTEST-R1', asItemName('LotTest Dairy'), 'LOT-B', '2027-01-05', '2027-03-15', 50, asUserId(1));
+  receiveLot(asBusinessName('admin'), asLedgerName('Actual'), 'LOTTEST-R2', asItemName('LotTest Dairy'), 'LOT-A', '2027-01-01', '2027-02-01', 30, asUserId(1));
+  receiveLot(asBusinessName('admin'), asLedgerName('Actual'), 'LOTTEST-R3', asItemName('LotTest Dairy'), 'LOT-C', '2027-01-10', '2027-04-01', 40, asUserId(1));
 
   const overallQty = (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name='LotTest Dairy')`).get() as { balance_minor: number });
   assert.equal(overallQty.balance_minor, 120, 'overall quantity tracks the sum across all lots');
@@ -2091,13 +2091,13 @@ test('lot/expiration tracking: consumption is genuinely FIFO by expiration date,
 
 test('Locations: per-location stock, exactly one billing address, warehouse-direct dispatch for large orders, same-city transfers, and below-reorder reporting', () => withMyBusinessSession(() => {
   create(myBusinessLocationsRoot(), typeRootName, 'LocTest Head Office', asUserId(1));
-  setLocation('LocTest Head Office', { city: 'LocTest City A', location_type: 'Warehouse', is_billing_address: true, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('LocTest Head Office', { city: 'LocTest City A', location_type: 'Warehouse', is_billing_address: true, bottle_capacity: null, carton_capacity: null , timezone: 'UTC'}, asBusinessName('admin'));
 
   create(myBusinessLocationsRoot(), typeRootName, 'LocTest Retail A1', asUserId(1));
-  setLocation('LocTest Retail A1', { city: 'LocTest City A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 2000, carton_capacity: 300 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('LocTest Retail A1', { city: 'LocTest City A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 2000, carton_capacity: 300 , timezone: 'UTC'}, asBusinessName('admin'));
 
   create(myBusinessLocationsRoot(), typeRootName, 'LocTest Retail B1', asUserId(1));
-  setLocation('LocTest Retail B1', { city: 'LocTest City B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1800, carton_capacity: 280 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('LocTest Retail B1', { city: 'LocTest City B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1800, carton_capacity: 280 , timezone: 'UTC'}, asBusinessName('admin'));
 
   const billingCount = (
     db.prepare(`SELECT COUNT(*) AS c FROM current_entities e JOIN current_entities rel_type ON rel_type.id = e.parent_id AND rel_type.name = 'Is Billing Address'`).get() as { c: number }
@@ -2107,7 +2107,7 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
   create(requireEntity('Items', typeRootName), typeRootName, 'LocTest Lager', asUserId(1));
 
   // 48 cartons at 24 bottles each, received at the warehouse.
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-REC-1', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 48 * 24, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'LOCTEST-REC-1', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 48 * 24, asUserId(1), '2027-01-01');
   assert.equal(getItemLocation(asItemName('LocTest Lager'), asLocationName('LocTest Head Office')).quantity_on_hand, 1152);
 
   withMyBusinessSession(() => setItemLocationLevels(asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), { minLevel: 5 * 24, maxLevel: 20 * 24, reorderLevel: 8 * 24 }));
@@ -2118,24 +2118,24 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
 
   // The real correction: sale is through retail, but a large function
   // order is dispatched directly from the warehouse.
-  dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-DISP-1', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 48 * 24, asUserId(1), '2027-01-05');
+  dispatchItems(asBusinessName('admin'), asLedgerName('Actual'), 'LOCTEST-DISP-1', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 48 * 24, asUserId(1), '2027-01-05');
   assert.equal(getItemLocation(asItemName('LocTest Lager'), asLocationName('LocTest Head Office')).quantity_on_hand, 0);
 
   // Ordinary stock transfer, warehouse to retail, same city.
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-REC-2', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 100 * 24, asUserId(1), '2027-01-10');
-  transferItems(asBusinessName('My Business'), asLedgerName('Actual'), asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), asLocationName('LocTest Retail A1'), 10 * 24, 'LOCTEST-XFER-1');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'LOCTEST-REC-2', asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), 100 * 24, asUserId(1), '2027-01-10');
+  transferItems(asBusinessName('admin'), asLedgerName('Actual'), asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), asLocationName('LocTest Retail A1'), 10 * 24, 'LOCTEST-XFER-1');
   assert.equal(getItemLocation(asItemName('LocTest Lager'), asLocationName('LocTest Head Office')).quantity_on_hand, 90 * 24);
   assert.equal(getItemLocation(asItemName('LocTest Lager'), asLocationName('LocTest Retail A1')).quantity_on_hand, 10 * 24);
 
   // A warehouse only serves its own city's outlets — cross-city transfer rejected.
   assert.throws(
-    () => transferItems(asBusinessName('My Business'), asLedgerName('Actual'), asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), asLocationName('LocTest Retail B1'), 24, 'LOCTEST-XFER-BAD'),
+    () => transferItems(asBusinessName('admin'), asLedgerName('Actual'), asItemName('LocTest Lager'), asLocationName('LocTest Head Office'), asLocationName('LocTest Retail B1'), 24, 'LOCTEST-XFER-BAD'),
     ValidationError
   );
 
   // Cannot dispatch/transfer more than what's on hand at that specific location.
   assert.throws(
-    () => dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-DISP-BAD', asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), 999999, asUserId(1), '2027-01-11'),
+    () => dispatchItems(asBusinessName('admin'), asLedgerName('Actual'), 'LOCTEST-DISP-BAD', asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), 999999, asUserId(1), '2027-01-11'),
     ValidationError
   );
 
@@ -2144,19 +2144,19 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
   assert.equal(belowBefore.length, 0);
 
   // Sell most of it down, then it should show up.
-  dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LOCTEST-DISP-2', asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), 8 * 24, asUserId(1), '2027-01-12');
+  dispatchItems(asBusinessName('admin'), asLedgerName('Actual'), 'LOCTEST-DISP-2', asItemName('LocTest Lager'), asLocationName('LocTest Retail A1'), 8 * 24, asUserId(1), '2027-01-12');
   const belowAfter = getBelowReorderStock().filter((r) => r.item === 'LocTest Lager' && r.location === 'LocTest Retail A1');
   assert.equal(belowAfter.length, 1, 'now at or below its own reorder level, correctly surfaced');
 }));
 
 test('quantity movements carry a real, queryable location — receive, dispatch, and transfer (both legs) each record where it actually happened, not just updating the current-state snapshot', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'MoveLocTest Warehouse', asUserId(1));
-  setLocation('MoveLocTest Warehouse', { city: 'MoveLocTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('MoveLocTest Warehouse', { city: 'MoveLocTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('admin'));
   create(myBusinessLocationsRoot(), typeRootName, 'MoveLocTest Outlet', asUserId(1));
-  setLocation('MoveLocTest Outlet', { city: 'MoveLocTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('MoveLocTest Outlet', { city: 'MoveLocTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('MoveLocTest Wine', 'Items', asUserId(1));
 
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'MOVELOCTEST-REC', asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Warehouse'), 100, asUserId(1), '2027-09-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'MOVELOCTEST-REC', asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Warehouse'), 100, asUserId(1), '2027-09-01');
   function locationOf(reference: string, sign?: 'positive' | 'negative'): string | null {
     const signClause = sign === 'positive' ? 'AND jl.amount_minor > 0' : sign === 'negative' ? 'AND jl.amount_minor < 0' : '';
     const row = db
@@ -2169,7 +2169,7 @@ test('quantity movements carry a real, queryable location — receive, dispatch,
   // A real transfer now stages both its real legs under one, shared
   // reference and posts once — a true, balanced two-line entry, not
   // two separate postings under two different references.
-  transferItems(asBusinessName('My Business'), asLedgerName('Actual'), asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Warehouse'), asLocationName('MoveLocTest Outlet'), 30, 'MOVELOCTEST-XFER', 1, '2027-09-02');
+  transferItems(asBusinessName('admin'), asLedgerName('Actual'), asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Warehouse'), asLocationName('MoveLocTest Outlet'), 30, 'MOVELOCTEST-XFER', 1, '2027-09-02');
   assert.equal(locationOf('MOVELOCTEST-XFER', 'negative'), 'MoveLocTest Warehouse', "a transfer's own OUT leg (the negative amount) must record the real source location");
   assert.equal(locationOf('MOVELOCTEST-XFER', 'positive'), 'MoveLocTest Outlet', "a transfer's own IN leg (the positive amount) must record the real destination — previously transferItems recorded no movement history at all, only updating the current-state snapshot");
 
@@ -2183,16 +2183,16 @@ test('quantity movements carry a real, queryable location — receive, dispatch,
   ).total;
   assert.equal(lineSum, 0, "a real transfer's own two, real lines must sum to exactly zero — genuine double-entry balance, not an invented offsetting account");
 
-  dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'MOVELOCTEST-DISP', asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Outlet'), 10, asUserId(1), '2027-09-03');
+  dispatchItems(asBusinessName('admin'), asLedgerName('Actual'), 'MOVELOCTEST-DISP', asItemName('MoveLocTest Wine'), asLocationName('MoveLocTest Outlet'), 10, asUserId(1), '2027-09-03');
   assert.equal(locationOf('MOVELOCTEST-DISP'), 'MoveLocTest Outlet', 'a real dispatch must record the real location it was actually dispatched from');
 });
 
 test('true double-entry quantity tracking: a real "on order" account for receipts and a real "units sold" account for dispatches — the genuine counteritem, not derived arithmetic, per direct confirmation', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'DblEntryQty Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'DblEntryQty Ledger', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'DblEntryQty Warehouse', asUserId(1));
-  setLocation('DblEntryQty Warehouse', { city: 'DblEntryQty City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('DblEntryQty Warehouse', { city: 'DblEntryQty City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('admin'));
   create(myBusinessLocationsRoot(), typeRootName, 'DblEntryQty Outlet', asUserId(1));
-  setLocation('DblEntryQty Outlet', { city: 'DblEntryQty City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('DblEntryQty Outlet', { city: 'DblEntryQty City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('admin'));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'DblEntryQty Vendor', asUserId(1));
   createItem('DblEntryQty Wine', 'Items', asUserId(1));
 
@@ -2211,12 +2211,12 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
 
   // Placing a real PO builds up a real, genuine "on order" balance —
   // an independently meaningful fact, not derived from anything else.
-  stagePurchaseOrder({ reference: 'DEQ-PO-1', business: 'My Business', ledger: 'DblEntryQty Ledger', vendor: 'DblEntryQty Vendor', item: 'DblEntryQty Wine', quantity: 60, price_minor: 1500, transdate: '2027-08-01' });
-  postPurchaseOrder('DEQ-PO-1', asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), asUserId(1));
+  stagePurchaseOrder({ reference: 'DEQ-PO-1', business: 'admin', ledger: 'DblEntryQty Ledger', vendor: 'DblEntryQty Vendor', item: 'DblEntryQty Wine', quantity: 60, price_minor: 1500, transdate: '2027-08-01' });
+  postPurchaseOrder('DEQ-PO-1', asBusinessName('admin'), asLedgerName('DblEntryQty Ledger'), asUserId(1));
   assert.equal(balanceOfUnder('On Order', 'DblEntryQty Wine'), 60, 'placing a real PO must build up a real, genuine on-order balance');
 
   // Receiving stock is now a real, balanced, two-line posting.
-  receiveItems(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), 'DEQ-RECV-1', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), 60, asUserId(1), '2027-08-05');
+  receiveItems(asBusinessName('admin'), asLedgerName('DblEntryQty Ledger'), 'DEQ-RECV-1', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), 60, asUserId(1), '2027-08-05');
   const receiptJournalId = (db.prepare(`SELECT id FROM journal WHERE reference = 'DEQ-RECV-1'`).get() as { id: number }).id;
   const receiptSum = (db.prepare(`SELECT SUM(amount_minor) AS total FROM journal_line WHERE journal_id = ?`).get(receiptJournalId) as { total: number }).total;
   assert.equal(receiptSum, 0, 'a real receipt must be a genuinely balanced, two-line entry — debit on-hand, credit on-order');
@@ -2226,12 +2226,12 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
   // A real receipt with no matching PO ever placed — a real, honest
   // possibility (an emergency, unplanned purchase) — must not be
   // refused; on-order simply, correctly goes negative.
-  receiveItems(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), 'DEQ-RECV-2', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), 10, asUserId(1), '2027-08-06');
+  receiveItems(asBusinessName('admin'), asLedgerName('DblEntryQty Ledger'), 'DEQ-RECV-2', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), 10, asUserId(1), '2027-08-06');
   assert.equal(balanceOfUnder('On Order', 'DblEntryQty Wine'), -10, 'a real, unplanned receipt with no matching PO must correctly drive on-order negative, not be refused');
 
   // Dispatching stock (a real sale) is also now a real, balanced, two-line posting.
-  transferItems(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), asLocationName('DblEntryQty Outlet'), 20, 'DEQ-XFER-1', 1, '2027-08-07');
-  dispatchItems(asBusinessName('My Business'), asLedgerName('DblEntryQty Ledger'), 'DEQ-DISP-1', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Outlet'), 15, asUserId(1), '2027-08-08');
+  transferItems(asBusinessName('admin'), asLedgerName('DblEntryQty Ledger'), asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Warehouse'), asLocationName('DblEntryQty Outlet'), 20, 'DEQ-XFER-1', 1, '2027-08-07');
+  dispatchItems(asBusinessName('admin'), asLedgerName('DblEntryQty Ledger'), 'DEQ-DISP-1', asItemName('DblEntryQty Wine'), asLocationName('DblEntryQty Outlet'), 15, asUserId(1), '2027-08-08');
   const dispatchJournalId = (db.prepare(`SELECT id FROM journal WHERE reference = 'DEQ-DISP-1'`).get() as { id: number }).id;
   const dispatchSum = (db.prepare(`SELECT SUM(amount_minor) AS total FROM journal_line WHERE journal_id = ?`).get(dispatchJournalId) as { total: number }).total;
   assert.equal(dispatchSum, 0, 'a real dispatch must be a genuinely balanced, two-line entry — debit units sold, credit on-hand');
@@ -2240,12 +2240,12 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
 });
 
 test('getStockMovementReport: the real, physical journey of stock — purchases into a warehouse, a real transfer on to a retail outlet, and a real sale, each correctly enriched with its own real category, division, and vendor', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'SMRTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'SMRTest Ledger', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'SMRTest Region', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Warehouse', asUserId(1));
-  setLocation('SMRTest Warehouse', { city: 'SMRTest Region', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('SMRTest Warehouse', { city: 'SMRTest Region', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('admin'));
   create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Outlet', asUserId(1));
-  setLocation('SMRTest Outlet', { city: 'SMRTest Region', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('SMRTest Outlet', { city: 'SMRTest Region', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('admin'));
   create(requireEntity('Items', typeRootName), typeRootName, 'SMRTest Category', asUserId(1));
   createItem('SMRTest Wine', 'SMRTest Category', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'SMRTest Vendor', asUserId(1));
@@ -2254,14 +2254,14 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
   addOrUpdateItemSource({ itemName: 'SMRTest Wine', vendorName: 'SMRTest Vendor', isPreferred: true });
 
   // Real purchase into the warehouse.
-  receiveItems(asBusinessName('My Business'), asLedgerName('SMRTest Ledger'), 'SMRT-1-RECV', asItemName('SMRTest Wine'), asLocationName('SMRTest Warehouse'), 50, asUserId(1), '2027-10-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('SMRTest Ledger'), 'SMRT-1-RECV', asItemName('SMRTest Wine'), asLocationName('SMRTest Warehouse'), 50, asUserId(1), '2027-10-01');
   // Real transfer on to the retail outlet.
-  transferItems(asBusinessName('My Business'), asLedgerName('SMRTest Ledger'), asItemName('SMRTest Wine'), asLocationName('SMRTest Warehouse'), asLocationName('SMRTest Outlet'), 20, 'SMRT-1-XFER', 1, '2027-10-02');
+  transferItems(asBusinessName('admin'), asLedgerName('SMRTest Ledger'), asItemName('SMRTest Wine'), asLocationName('SMRTest Warehouse'), asLocationName('SMRTest Outlet'), 20, 'SMRT-1-XFER', 1, '2027-10-02');
   // Real sale — a real invoice, dispatched, exactly matching how completePosSale itself structures references.
   const invoiceId = createInvoice(
     {
       invoiceType: 'AR',
-      business: 'My Business',
+      business: 'admin',
       ledger: 'SMRTest Ledger',
       reference: 'SMRT-SALE-1',
       counterpartyName: 'SMRTest Wine Customer',
@@ -2271,7 +2271,7 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
     asUserId(1)
   );
   postInvoice(invoiceId, { name: salesAccount, id: salesAccountId }, 'Sales Tax Payable', asUserId(1));
-  dispatchItems(asBusinessName('My Business'), asLedgerName('SMRTest Ledger'), 'SMRT-SALE-1-DISPATCH-SMRTest Wine', asItemName('SMRTest Wine'), asLocationName('SMRTest Outlet'), 3, asUserId(1), '2027-10-03');
+  dispatchItems(asBusinessName('admin'), asLedgerName('SMRTest Ledger'), 'SMRT-SALE-1-DISPATCH-SMRTest Wine', asItemName('SMRTest Wine'), asLocationName('SMRTest Outlet'), 3, asUserId(1), '2027-10-03');
 
   const report = getStockMovementReport('SMRTest Ledger', '2027-10-01', '2027-10-03');
 
@@ -2310,14 +2310,14 @@ test('item categories: nested arbitrarily deep in the existing entity tree, and 
 
 test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free text) then level numerically (top to bottom), and completing posts genuine loss/gain variance while leaving uncounted lines untouched', () => withMyBusinessSession(() => {
   create(myBusinessLocationsRoot(), typeRootName, 'STTest Outlet', asUserId(1));
-  setLocation('STTest Outlet', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('STTest Outlet', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100 , timezone: 'UTC'}, asBusinessName('admin'));
 
   createItem('STTest Merlot', 'Items', asUserId(1));
   createItem('STTest Chardonnay', 'Items', asUserId(1));
 
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-1', asItemName('STTest Merlot'), asLocationName('STTest Outlet'), 50, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STTEST-REC-1', asItemName('STTest Merlot'), asLocationName('STTest Outlet'), 50, asUserId(1), '2027-01-01');
   withMyBusinessSession(() => setItemLocationLevels(asItemName('STTest Merlot'), asLocationName('STTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 3 }));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-2', asItemName('STTest Chardonnay'), asLocationName('STTest Outlet'), 30, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STTEST-REC-2', asItemName('STTest Chardonnay'), asLocationName('STTest Outlet'), 30, asUserId(1), '2027-01-01');
   withMyBusinessSession(() => setItemLocationLevels(asItemName('STTest Chardonnay'), asLocationName('STTest Outlet'), { shelfSide: 'Front', rack: 'A', level: 1 }));
 
   const takeId = createStockTake(asLocationName('STTest Outlet'), '2027-02-01', asUserId(1));
@@ -2328,7 +2328,7 @@ test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free tex
   recordStockTakeCount(takeId, asItemName('STTest Chardonnay'), 28); // shortage of 2
   // STTest Merlot deliberately left uncounted.
 
-  completeStockTake(takeId, asBusinessName('My Business'), asLedgerName('Actual'), asAccountName('Miscellaneous'), 'Inventory', { 'STTest Chardonnay': 1000 }, asUserId(1));
+  completeStockTake(takeId, asBusinessName('admin'), asLedgerName('Actual'), asAccountName('Miscellaneous'), 'Inventory', { 'STTest Chardonnay': 1000 }, asUserId(1));
 
   assert.equal(getItemLocation(asItemName('STTest Chardonnay'), asLocationName('STTest Outlet')).quantity_on_hand, 28, 'corrected to match what was actually counted');
   assert.equal(getItemLocation(asItemName('STTest Merlot'), asLocationName('STTest Outlet')).quantity_on_hand, 50, 'never counted, so left untouched, not silently zeroed or assumed correct');
@@ -2340,7 +2340,7 @@ test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free tex
   // A variance with no unit cost given must be rejected, not silently valued at zero.
   const takeId2 = createStockTake(asLocationName('STTest Outlet'), '2027-03-01', asUserId(1));
   recordStockTakeCount(takeId2, asItemName('STTest Merlot'), 45);
-  assert.throws(() => completeStockTake(takeId2, asBusinessName('My Business'), asLedgerName('Actual'), asAccountName('Miscellaneous'), 'Inventory', {}, asUserId(1)), ValidationError);
+  assert.throws(() => completeStockTake(takeId2, asBusinessName('admin'), asLedgerName('Actual'), asAccountName('Miscellaneous'), 'Inventory', {}, asUserId(1)), ValidationError);
 }));
 
 test('completeStockTake: multiple real, different products sharing the same variance expense account in one real stock take must all post, keeping debit == credit', () => withMyBusinessSession(() => {
@@ -2353,23 +2353,23 @@ test('completeStockTake: multiple real, different products sharing the same vari
   // correct, backend-function level, per the backend-first-testing
   // skill - no browser, no full simulation.
   create(myBusinessLocationsRoot(), typeRootName, 'STTest Outlet 3', asUserId(1));
-  setLocation('STTest Outlet 3', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('STTest Outlet 3', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1000, carton_capacity: 100, timezone: 'UTC' }, asBusinessName('admin'));
 
   createItem('STTest Shiraz', 'Items', asUserId(1));
   createItem('STTest Riesling', 'Items', asUserId(1));
   createItem('STTest Pinot', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-A', asItemName('STTest Shiraz'), asLocationName('STTest Outlet 3'), 50, asUserId(1), '2027-01-01');
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-B', asItemName('STTest Riesling'), asLocationName('STTest Outlet 3'), 30, asUserId(1), '2027-01-01');
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-C', asItemName('STTest Pinot'), asLocationName('STTest Outlet 3'), 20, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STTEST-REC-A', asItemName('STTest Shiraz'), asLocationName('STTest Outlet 3'), 50, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STTEST-REC-B', asItemName('STTest Riesling'), asLocationName('STTest Outlet 3'), 30, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STTEST-REC-C', asItemName('STTest Pinot'), asLocationName('STTest Outlet 3'), 20, asUserId(1), '2027-01-01');
 
   const takeId = createStockTake(asLocationName('STTest Outlet 3'), '2027-02-01', asUserId(1));
   recordStockTakeCount(takeId, asItemName('STTest Shiraz'), 48); // shortage of 2
   recordStockTakeCount(takeId, asItemName('STTest Riesling'), 33); // gain of 3
   recordStockTakeCount(takeId, asItemName('STTest Pinot'), 19); // shortage of 1
 
-  const before = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'), '2027-02-01');
-  completeStockTake(takeId, asBusinessName('My Business'), asLedgerName('Actual'), asAccountName('Miscellaneous'), 'Inventory', { 'STTest Shiraz': 1500, 'STTest Riesling': 2000, 'STTest Pinot': 1800 }, asUserId(1));
-  const after = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'), '2027-02-01');
+  const before = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'), '2027-02-01');
+  completeStockTake(takeId, asBusinessName('admin'), asLedgerName('Actual'), asAccountName('Miscellaneous'), 'Inventory', { 'STTest Shiraz': 1500, 'STTest Riesling': 2000, 'STTest Pinot': 1800 }, asUserId(1));
+  const after = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'), '2027-02-01');
 
   assert.equal(after.total_debit_minor, after.total_credit_minor, 'the fundamental accounting identity must hold after real, multiple, same-account variance postings');
   assert.ok(after.total_debit_minor > before.total_debit_minor, 'the real postings genuinely happened, not silently skipped');
@@ -2387,13 +2387,13 @@ test('completeStockTake and writeOffItems: the real quantity-movement journal en
   // Trial Balance - it never actually queried the real, separate
   // quantity-movement journal entries this test checks directly.
   create(myBusinessLocationsRoot(), typeRootName, 'QTYBalTest Outlet', asUserId(1));
-  setLocation('QTYBalTest Outlet', { city: 'QTYBalTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('QTYBalTest Outlet', { city: 'QTYBalTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('admin'));
   createItem('QTYBalTest Wine', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-REC', asItemName('QTYBalTest Wine'), asLocationName('QTYBalTest Outlet'), 40, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'QTYBALTEST-REC', asItemName('QTYBalTest Wine'), asLocationName('QTYBalTest Outlet'), 40, asUserId(1), '2027-01-01');
 
   const takeId = createStockTake(asLocationName('QTYBalTest Outlet'), '2027-02-01', asUserId(1));
   recordStockTakeCount(takeId, asItemName('QTYBalTest Wine'), 37); // shortage of 3
-  completeStockTake(takeId, asBusinessName('My Business'), asLedgerName('Actual'), asAccountName('Miscellaneous'), 'Inventory', { 'QTYBalTest Wine': 1000 }, asUserId(1));
+  completeStockTake(takeId, asBusinessName('admin'), asLedgerName('Actual'), asAccountName('Miscellaneous'), 'Inventory', { 'QTYBalTest Wine': 1000 }, asUserId(1));
 
   const qtyRef = `STOCKTAKE-${takeId}-QTYBalTest Wine-QTY`;
   const qtyBalance = db
@@ -2404,8 +2404,8 @@ test('completeStockTake and writeOffItems: the real quantity-movement journal en
   // The same, real check for writeOffItems's own quantity movement.
   create(requireGlobalCoaCategory('Expense'), typeRootName, 'QTYBalTest Write-off Expense', asUserId(1));
   createItem('QTYBalTest Beer', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-REC-2', asItemName('QTYBalTest Beer'), asLocationName('QTYBalTest Outlet'), 24, asUserId(1), '2027-01-01');
-  writeOffItems(asBusinessName('My Business'), asLedgerName('Actual'), 'QTYBALTEST-WO', asItemName('QTYBalTest Beer'), 4, 500, asAccountName('QTYBalTest Write-off Expense'), 'Inventory', 'Broken in transit', asUserId(1), '2027-02-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'QTYBALTEST-REC-2', asItemName('QTYBalTest Beer'), asLocationName('QTYBalTest Outlet'), 24, asUserId(1), '2027-01-01');
+  writeOffItems(asBusinessName('admin'), asLedgerName('Actual'), 'QTYBALTEST-WO', asItemName('QTYBalTest Beer'), 4, 500, asAccountName('QTYBalTest Write-off Expense'), 'Inventory', 'Broken in transit', asUserId(1), '2027-02-01');
   const woQtyBalance = db
     .prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ?`)
     .get('QTYBALTEST-WO-QTY') as { total: number };
@@ -2432,47 +2432,47 @@ test('getLocation/setLocation: two real locations sharing the exact same name un
 
 test('ensureLocationCapacityAccount: a real, one-time opening balance from the location\'s own static capacity, retail tracks bottles, warehouse tracks carton-equivalents', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'CapAcctTest Retail', asUserId(1));
-  setLocation('CapAcctTest Retail', { city: 'CapAcctTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('My Business'));
-  const retail = ensureLocationCapacityAccount(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAcctTest Retail'), asUserId(1));
+  setLocation('CapAcctTest Retail', { city: 'CapAcctTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('admin'));
+  const retail = ensureLocationCapacityAccount(asBusinessName('admin'), asLedgerName('Actual'), asLocationName('CapAcctTest Retail'), asUserId(1));
   assert.equal(retail.unit, 'bottle', 'a location with a real bottle_capacity set tracks in bottles');
   const retailBalance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(retail.capacityAccountId) as { total: number };
   assert.equal(retailBalance.total, 200);
 
   create(myBusinessLocationsRoot(), typeRootName, 'CapAcctTest Warehouse', asUserId(1));
-  setLocation('CapAcctTest Warehouse', { city: 'CapAcctTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('My Business'));
-  const warehouse = ensureLocationCapacityAccount(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAcctTest Warehouse'), asUserId(1));
+  setLocation('CapAcctTest Warehouse', { city: 'CapAcctTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('admin'));
+  const warehouse = ensureLocationCapacityAccount(asBusinessName('admin'), asLedgerName('Actual'), asLocationName('CapAcctTest Warehouse'), asUserId(1));
   assert.equal(warehouse.unit, 'carton', 'a location with no bottle_capacity, only carton_capacity, tracks in carton-equivalents');
   const warehouseBalance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(warehouse.capacityAccountId) as { total: number };
   assert.equal(warehouseBalance.total, 50);
 
   // Idempotent - a second call must not re-post a second opening balance.
-  ensureLocationCapacityAccount(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAcctTest Retail'), asUserId(1));
+  ensureLocationCapacityAccount(asBusinessName('admin'), asLedgerName('Actual'), asLocationName('CapAcctTest Retail'), asUserId(1));
   const retailBalanceAfter = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(retail.capacityAccountId) as { total: number };
   assert.equal(retailBalanceAfter.total, 200);
 });
 
 test('adjustLocationCapacity: a real, direct check of the capacity math, retail (1:1 bottles) and warehouse (real, per-item carton conversion)', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'CapAdjTest Retail', asUserId(1));
-  setLocation('CapAdjTest Retail', { city: 'CapAdjTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('CapAdjTest Retail', { city: 'CapAdjTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' }, asBusinessName('admin'));
   createItem('CapAdjTest Wine', 'Items', asUserId(1));
-  const retail = ensureLocationCapacityAccount(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAdjTest Retail'), asUserId(1));
+  const retail = ensureLocationCapacityAccount(asBusinessName('admin'), asLedgerName('Actual'), asLocationName('CapAdjTest Retail'), asUserId(1));
 
-  adjustLocationCapacity(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAdjTest Retail'), asItemName('CapAdjTest Wine'), 30, '2027-01-01', asUserId(1), 'CAPADJTEST-REC-1');
+  adjustLocationCapacity(asBusinessName('admin'), asLedgerName('Actual'), asLocationName('CapAdjTest Retail'), asItemName('CapAdjTest Wine'), 30, '2027-01-01', asUserId(1), 'CAPADJTEST-REC-1');
   let balance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(retail.capacityAccountId) as { total: number };
   assert.equal(balance.total, 70, 'receiving 30 real bottles consumes exactly 30 units of real capacity (100 - 30)');
 
-  adjustLocationCapacity(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAdjTest Retail'), asItemName('CapAdjTest Wine'), -10, '2027-01-02', asUserId(1), 'CAPADJTEST-DISP-1');
+  adjustLocationCapacity(asBusinessName('admin'), asLedgerName('Actual'), asLocationName('CapAdjTest Retail'), asItemName('CapAdjTest Wine'), -10, '2027-01-02', asUserId(1), 'CAPADJTEST-DISP-1');
   balance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(retail.capacityAccountId) as { total: number };
   assert.equal(balance.total, 80, 'dispatching 10 real bottles frees exactly 10 units of real capacity back up (70 + 10)');
 
   // Warehouse: a real, specific item with a real, known package_quantity of 12.
   create(myBusinessLocationsRoot(), typeRootName, 'CapAdjTest Warehouse', asUserId(1));
-  setLocation('CapAdjTest Warehouse', { city: 'CapAdjTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('CapAdjTest Warehouse', { city: 'CapAdjTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('admin'));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'CapAdjTest Vendor', asUserId(1));
   addOrUpdateItemSource({ itemName: 'CapAdjTest Wine', vendorName: 'CapAdjTest Vendor', priceMinor: 1500, packageQuantity: 12, isPreferred: true });
-  const warehouse = ensureLocationCapacityAccount(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAdjTest Warehouse'), asUserId(1));
+  const warehouse = ensureLocationCapacityAccount(asBusinessName('admin'), asLedgerName('Actual'), asLocationName('CapAdjTest Warehouse'), asUserId(1));
 
-  adjustLocationCapacity(asBusinessName('My Business'), asLedgerName('Actual'), asLocationName('CapAdjTest Warehouse'), asItemName('CapAdjTest Wine'), 24, '2027-01-01', asUserId(1), 'CAPADJTEST-REC-2');
+  adjustLocationCapacity(asBusinessName('admin'), asLedgerName('Actual'), asLocationName('CapAdjTest Warehouse'), asItemName('CapAdjTest Wine'), 24, '2027-01-01', asUserId(1), 'CAPADJTEST-REC-2');
   const whBalance = db.prepare(`SELECT COALESCE(SUM(jl.amount_minor), 0) AS total FROM journal_line jl WHERE jl.account_id = ?`).get(warehouse.capacityAccountId) as { total: number };
   assert.equal(whBalance.total, 18, 'receiving 24 real bottles (= 2 real cartons at this item\'s own, real 12-per-carton rate) consumes exactly 2 carton-equivalents of real capacity (20 - 2)');
 });
@@ -2483,7 +2483,7 @@ test('createPosTerminal/setTerminalCurrency/getEffectiveSaleCurrency: a real, di
   // two real, physical terminals, each transacting in a different,
   // real currency.
   create(myBusinessLocationsRoot(), typeRootName, 'BorderTest Outlet', asUserId(1));
-  setLocation('BorderTest Outlet', { city: 'BorderTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('BorderTest Outlet', { city: 'BorderTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('admin'));
 
   createPosTerminal('BorderTest Front Till (USD)', asLocationName('BorderTest Outlet'), asUserId(1));
   createPosTerminal('BorderTest Front Till (CAD)', asLocationName('BorderTest Outlet'), asUserId(1));
@@ -2529,7 +2529,7 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
   // terminals, one real product, each sale automatically priced in
   // the selling terminal's own, real, correct currency.
   create(myBusinessLocationsRoot(), typeRootName, 'BorderE2E Outlet', asUserId(1));
-  setLocation('BorderE2E Outlet', { city: 'BorderE2E City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('BorderE2E Outlet', { city: 'BorderE2E City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 200, carton_capacity: 20, timezone: 'UTC' }, asBusinessName('admin'));
   nominateLocationCurrency('BorderE2E Outlet' as any, 'USD', asUserId(1));
   nominateLocationCurrency('BorderE2E Outlet' as any, 'CAD', asUserId(1));
   createPosTerminal('BorderE2E Till (USD)', asLocationName('BorderE2E Outlet'), asUserId(1));
@@ -2541,13 +2541,13 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
   create(requireEntity('Accounts Payable', typeRootName), typeRootName, 'BorderE2E Vendor', asUserId(1));
   addOrUpdateItemSource({ itemName: 'BorderE2E Water', vendorName: 'BorderE2E Vendor', priceMinor: 150, isPreferred: true, currency: 'USD' });
   addOrUpdateItemSource({ itemName: 'BorderE2E Water', vendorName: 'BorderE2E Vendor', priceMinor: 200, isPreferred: true, currency: 'CAD' });
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'BORDERE2E-REC', asItemName('BorderE2E Water'), asLocationName('BorderE2E Outlet'), 20, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'BORDERE2E-REC', asItemName('BorderE2E Water'), asLocationName('BorderE2E Outlet'), 20, asUserId(1), '2027-01-01');
 
   create(requireGlobalCoaCategory('Expense'), typeRootName, 'BorderE2E Write-off Expense', asUserId(1));
 
   const usdSale = completePosSale(
     {
-      business: 'My Business' as any,
+      business: 'admin' as any,
       ledger: 'Actual' as any,
       locationName: 'BorderE2E Outlet' as any,
       customerName: 'Cash Sale' as any,
@@ -2564,7 +2564,7 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
 
   const cadSale = completePosSale(
     {
-      business: 'My Business' as any,
+      business: 'admin' as any,
       ledger: 'Actual' as any,
       locationName: 'BorderE2E Outlet' as any,
       customerName: 'Cash Sale' as any,
@@ -2592,10 +2592,10 @@ test('createStockTake resolves an item by its real, scoped item identity, never 
   // same class of collision (a real, same-named entity of a
   // genuinely different kind) the reported bug depended on.
   create(myBusinessLocationsRoot(), typeRootName, 'STTest Outlet 2', asUserId(1));
-  setLocation('STTest Outlet 2', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('STTest Outlet 2', { city: 'STTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('admin'));
   createItem('STTest Collide', 'Items', asUserId(1)); // the real item, created first
 
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STTEST-REC-COLLIDE', asItemName('STTest Collide'), asLocationName('STTest Outlet 2'), 40, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STTEST-REC-COLLIDE', asItemName('STTest Collide'), asLocationName('STTest Outlet 2'), 40, asUserId(1), '2027-01-01');
 
   // Created AFTER the real item, deliberately, per direct confirmation
   // this ordering matters: the old, buggy code built its lookup from
@@ -2623,10 +2623,10 @@ test('createStockTake resolves an item by its real, scoped item identity, never 
 
 test('POS terminal: a complete register sale posts the invoice, dispatches stock from the exact location sold at, and allocates payment atomically, with change due calculated correctly', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'POSTest Outlet', asUserId(1));
-  setLocation('POSTest Outlet', { city: 'POSTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('POSTest Outlet', { city: 'POSTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('POSTest Merlot', 'Items', asUserId(1));
   setItem('POSTest Merlot', { upc: '0123456789012' });
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'POSTEST-REC-1', asItemName('POSTest Merlot'), asLocationName('POSTest Outlet'), 20, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'POSTEST-REC-1', asItemName('POSTest Merlot'), asLocationName('POSTest Outlet'), 20, asUserId(1), '2027-01-01');
 
   // Barcode lookup — exact match only.
   const found = getItemByUpc('0123456789012');
@@ -2637,7 +2637,7 @@ test('POS terminal: a complete register sale posts the invoice, dispatches stock
   // Cash sale, walk-in, overpaid with a $50 note — change due must be exact.
   const result = completePosSale(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('POSTest Outlet'),
       customerName: asCustomerName('Cash Sale'),
@@ -2665,7 +2665,7 @@ test('POS terminal: a complete register sale posts the invoice, dispatches stock
   setContact('POSTest Account Customer', { payment_terms_days: 30 });
   const onAccountResult = completePosSale(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('POSTest Outlet'),
       customerName: asCustomerName('POSTest Account Customer'),
@@ -2686,7 +2686,7 @@ test('POS terminal: a complete register sale posts the invoice, dispatches stock
     () =>
       completePosSale(
         {
-          business: asBusinessName('My Business'),
+          business: asBusinessName('admin'),
           ledger: asLedgerName('Actual'),
           locationName: asLocationName('POSTest Outlet'),
           customerName: asCustomerName('Cash Sale'),
@@ -2734,15 +2734,15 @@ test('customer self-registration: a customer is a customer — same contact invo
   // The real gate: still pending, so on-account selling must be
   // rejected outright — even though the customer/contact fully exists.
   create(myBusinessLocationsRoot(), typeRootName, 'RegTest Outlet', asUserId(1));
-  setLocation('RegTest Outlet', { city: 'RegTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('RegTest Outlet', { city: 'RegTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('RegTest Wine', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'REGTEST-REC-1', asItemName('RegTest Wine'), asLocationName('RegTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'REGTEST-REC-1', asItemName('RegTest Wine'), asLocationName('RegTest Outlet'), 10, asUserId(1), '2027-01-01');
 
   assert.throws(
     () =>
       completePosSale(
         {
-          business: asBusinessName('My Business'),
+          business: asBusinessName('admin'),
           ledger: asLedgerName('Actual'),
           locationName: asLocationName('RegTest Outlet'),
           customerName: asCustomerName('RegTest Jane Smith'),
@@ -2764,7 +2764,7 @@ test('customer self-registration: a customer is a customer — same contact invo
   // Now the same on-account sale succeeds.
   const result = completePosSale(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('RegTest Outlet'),
       customerName: asCustomerName('RegTest Jane Smith'),
@@ -2784,7 +2784,7 @@ test('customer self-registration: a customer is a customer — same contact invo
   assert.equal(getContact('RegTest Staff Created Customer')!.verification_status, null);
   const staffResult = completePosSale(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('RegTest Outlet'),
       customerName: asCustomerName('RegTest Staff Created Customer'),
@@ -2804,7 +2804,7 @@ test('customer self-registration: a customer is a customer — same contact invo
     () =>
       completePosSale(
         {
-          business: asBusinessName('My Business'),
+          business: asBusinessName('admin'),
           ledger: asLedgerName('Actual'),
           locationName: asLocationName('RegTest Outlet'),
           customerName: asCustomerName('RegTest Rejected Customer'),
@@ -2823,25 +2823,25 @@ test('customer self-registration: a customer is a customer — same contact invo
 });
 
 test('closeBooks: year-end close zeroes every Income/Expense account into Retained Earnings as one reversible entry, with the correct sign for both profit and loss', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'CloseBooks Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'CloseBooks Test Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'CloseTest Revenue', asUserId(1));
   create(requireGlobalCoaCategory('Expense'), typeRootName, 'CloseTest Expense', asUserId(1));
 
-  stageLine({ reference: 'CLOSETEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('CloseBooks Test Ledger'), transdate: '2027-01-01', account: asAccountName('CloseTest Revenue'), amount_minor: -100000 }); // $1,000 revenue
-  stageLine({ reference: 'CLOSETEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('CloseBooks Test Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 100000 });
-  postJournalEntry('CLOSETEST-1', asBusinessName('My Business'), asLedgerName('CloseBooks Test Ledger'), asUserId(1));
+  stageLine({ reference: 'CLOSETEST-1', business: asBusinessName('admin'), ledger: asLedgerName('CloseBooks Test Ledger'), transdate: '2027-01-01', account: asAccountName('CloseTest Revenue'), amount_minor: -100000 }); // $1,000 revenue
+  stageLine({ reference: 'CLOSETEST-1', business: asBusinessName('admin'), ledger: asLedgerName('CloseBooks Test Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 100000 });
+  postJournalEntry('CLOSETEST-1', asBusinessName('admin'), asLedgerName('CloseBooks Test Ledger'), asUserId(1));
 
-  stageLine({ reference: 'CLOSETEST-2', business: asBusinessName('My Business'), ledger: asLedgerName('CloseBooks Test Ledger'), transdate: '2027-01-02', account: asAccountName('CloseTest Expense'), amount_minor: 40000 }); // $400 expense
-  stageLine({ reference: 'CLOSETEST-2', business: asBusinessName('My Business'), ledger: asLedgerName('CloseBooks Test Ledger'), transdate: '2027-01-02', account: asAccountName('Cash and Bank'), amount_minor: -40000 });
-  postJournalEntry('CLOSETEST-2', asBusinessName('My Business'), asLedgerName('CloseBooks Test Ledger'), asUserId(1));
+  stageLine({ reference: 'CLOSETEST-2', business: asBusinessName('admin'), ledger: asLedgerName('CloseBooks Test Ledger'), transdate: '2027-01-02', account: asAccountName('CloseTest Expense'), amount_minor: 40000 }); // $400 expense
+  stageLine({ reference: 'CLOSETEST-2', business: asBusinessName('admin'), ledger: asLedgerName('CloseBooks Test Ledger'), transdate: '2027-01-02', account: asAccountName('Cash and Bank'), amount_minor: -40000 });
+  postJournalEntry('CLOSETEST-2', asBusinessName('admin'), asLedgerName('CloseBooks Test Ledger'), asUserId(1));
 
-  const retainedBefore = getTrialBalance(asBusinessName('My Business'), asLedgerName('CloseBooks Test Ledger')).rows.find((r) => r.name === "Owner's Equity");
+  const retainedBefore = getTrialBalance(asBusinessName('admin'), asLedgerName('CloseBooks Test Ledger')).rows.find((r) => r.name === "Owner's Equity");
 
-  const result = closeBooks(asBusinessName('My Business'), asLedgerName('CloseBooks Test Ledger'), '2027-01-31', "Owner's Equity", asUserId(1));
+  const result = closeBooks(asBusinessName('admin'), asLedgerName('CloseBooks Test Ledger'), '2027-01-31', "Owner's Equity", asUserId(1));
   assert.equal(result.netIncomeMinor, 60000, '$1,000 revenue - $400 expense = $600 net income');
   assert.ok(result.accountsZeroed >= 2);
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('CloseBooks Test Ledger'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('CloseBooks Test Ledger'));
   assert.equal(tb.rows.find((r) => r.name === 'CloseTest Revenue'), undefined, 'zeroed accounts do not appear in trial balance at all');
   assert.equal(tb.rows.find((r) => r.name === 'CloseTest Expense'), undefined);
 
@@ -2853,31 +2853,31 @@ test('closeBooks: year-end close zeroes every Income/Expense account into Retain
   assert.equal(netAfter - netBefore, 60000, 'a genuine profit must increase Retained Earnings (credit) by exactly the net income');
 
   // Just an ordinary, reversible journal entry — no special mechanism.
-  const closeEntry = listJournalEntries(asBusinessName('My Business'), asLedgerName('CloseBooks Test Ledger'), 50, 0).find((e) => e.reference === result.reference)!;
-  reverseJournalEntry(asBusinessName('My Business'), asLedgerName('CloseBooks Test Ledger'), closeEntry.journal_id, closeEntry.occurrence_date!, asUserId(1), '2027-02-01');
-  const tbAfterReversal = getTrialBalance(asBusinessName('My Business'), asLedgerName('CloseBooks Test Ledger'));
+  const closeEntry = listJournalEntries(asBusinessName('admin'), asLedgerName('CloseBooks Test Ledger'), 50, 0).find((e) => e.reference === result.reference)!;
+  reverseJournalEntry(asBusinessName('admin'), asLedgerName('CloseBooks Test Ledger'), closeEntry.journal_id, closeEntry.occurrence_date!, asUserId(1), '2027-02-01');
+  const tbAfterReversal = getTrialBalance(asBusinessName('admin'), asLedgerName('CloseBooks Test Ledger'));
   assert.ok(tbAfterReversal.rows.some((r) => r.name === 'CloseTest Revenue'), 'reversing the close entry must bring the P&L accounts back');
 
   // A period with nothing to close must be rejected, not silently post an empty/meaningless entry.
-  closeBooks(asBusinessName('My Business'), asLedgerName('CloseBooks Test Ledger'), '2027-02-15', "Owner's Equity", asUserId(1));
-  assert.throws(() => closeBooks(asBusinessName('My Business'), asLedgerName('CloseBooks Test Ledger'), '2027-03-01', "Owner's Equity", asUserId(1)), ValidationError);
+  closeBooks(asBusinessName('admin'), asLedgerName('CloseBooks Test Ledger'), '2027-02-15', "Owner's Equity", asUserId(1));
+  assert.throws(() => closeBooks(asBusinessName('admin'), asLedgerName('CloseBooks Test Ledger'), '2027-03-01', "Owner's Equity", asUserId(1)), ValidationError);
 });
 
 test('getBalanceSheet: a real close must not leave Current Year Earnings still showing the closed period\'s net income — a real, direct regression: the Balance Sheet stopped balancing after excludeCloseEntries was added to getProfitAndLoss for report pages', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'BSCloseTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'BSCloseTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'BSCloseTest Revenue', asUserId(1));
 
-  stageLine({ reference: 'BSCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('BSCloseTest Ledger'), transdate: '2027-08-01', account: asAccountName('BSCloseTest Revenue'), amount_minor: -70000 });
-  stageLine({ reference: 'BSCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('BSCloseTest Ledger'), transdate: '2027-08-01', account: asAccountName('Cash and Bank'), amount_minor: 70000 });
-  postJournalEntry('BSCT-1', asBusinessName('My Business'), asLedgerName('BSCloseTest Ledger'), asUserId(1));
+  stageLine({ reference: 'BSCT-1', business: asBusinessName('admin'), ledger: asLedgerName('BSCloseTest Ledger'), transdate: '2027-08-01', account: asAccountName('BSCloseTest Revenue'), amount_minor: -70000 });
+  stageLine({ reference: 'BSCT-1', business: asBusinessName('admin'), ledger: asLedgerName('BSCloseTest Ledger'), transdate: '2027-08-01', account: asAccountName('Cash and Bank'), amount_minor: 70000 });
+  postJournalEntry('BSCT-1', asBusinessName('admin'), asLedgerName('BSCloseTest Ledger'), asUserId(1));
 
-  const beforeClose = getBalanceSheet(asBusinessName('My Business'), asLedgerName('BSCloseTest Ledger'), '2027-08-31');
+  const beforeClose = getBalanceSheet(asBusinessName('admin'), asLedgerName('BSCloseTest Ledger'), '2027-08-31');
   assert.ok(beforeClose.equity.some((l) => l.name === 'Current Year Earnings'), 'before closing, the real, unclosed period income must show as Current Year Earnings');
   assert.equal(beforeClose.balanced, true);
 
-  closeBooks(asBusinessName('My Business'), asLedgerName('BSCloseTest Ledger'), '2027-08-31', "Owner's Equity", asUserId(1));
+  closeBooks(asBusinessName('admin'), asLedgerName('BSCloseTest Ledger'), '2027-08-31', "Owner's Equity", asUserId(1));
 
-  const afterClose = getBalanceSheet(asBusinessName('My Business'), asLedgerName('BSCloseTest Ledger'), '2027-08-31');
+  const afterClose = getBalanceSheet(asBusinessName('admin'), asLedgerName('BSCloseTest Ledger'), '2027-08-31');
   assert.equal(
     afterClose.equity.some((l) => l.name === 'Current Year Earnings'),
     false,
@@ -2933,15 +2933,15 @@ test("closeBooks: per direct correction, division is only a real, pure sub-total
 });
 
 test('getBalanceSheet includes real AR/AP posted directly to customer/vendor names — without this, any ledger with outstanding AR/AP silently fails to balance', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'BSTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'BSTest Ledger', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'BSTest Vendor', asUserId(1));
   setContact('BSTest Vendor', { payment_terms_days: 30 });
 
-  stageLine({ reference: 'BSTEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('BSTest Ledger'), transdate: '2027-01-01', account: asAccountName('Inventory'), amount_minor: 50000 });
-  stageLine({ reference: 'BSTEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('BSTest Ledger'), transdate: '2027-01-01', account: asAccountName('BSTest Vendor'), amount_minor: -50000 });
-  postJournalEntry('BSTEST-1', asBusinessName('My Business'), asLedgerName('BSTest Ledger'), asUserId(1));
+  stageLine({ reference: 'BSTEST-1', business: asBusinessName('admin'), ledger: asLedgerName('BSTest Ledger'), transdate: '2027-01-01', account: asAccountName('Inventory'), amount_minor: 50000 });
+  stageLine({ reference: 'BSTEST-1', business: asBusinessName('admin'), ledger: asLedgerName('BSTest Ledger'), transdate: '2027-01-01', account: asAccountName('BSTest Vendor'), amount_minor: -50000 });
+  postJournalEntry('BSTEST-1', asBusinessName('admin'), asLedgerName('BSTest Ledger'), asUserId(1));
 
-  const bs = getBalanceSheet(asBusinessName('My Business'), asLedgerName('BSTest Ledger'));
+  const bs = getBalanceSheet(asBusinessName('admin'), asLedgerName('BSTest Ledger'));
   assert.equal(bs.balanced, true, 'a ledger with real, unpaid AP must still balance once AR/AP is correctly included');
   const ap = bs.liabilities.find((l) => l.name === 'Accounts Payable');
   assert.ok(ap, 'Accounts Payable must appear as a real liability line');
@@ -2949,23 +2949,23 @@ test('getBalanceSheet includes real AR/AP posted directly to customer/vendor nam
   assert.equal(bs.total_assets_minor, bs.total_liabilities_minor + bs.total_equity_minor);
 
   // Once paid, Accounts Payable must disappear (net zero), not linger.
-  stageLine({ reference: 'BSTEST-2', business: asBusinessName('My Business'), ledger: asLedgerName('BSTest Ledger'), transdate: '2027-01-15', account: asAccountName('BSTest Vendor'), amount_minor: 50000 });
-  stageLine({ reference: 'BSTEST-2', business: asBusinessName('My Business'), ledger: asLedgerName('BSTest Ledger'), transdate: '2027-01-15', account: asAccountName('Cash and Bank'), amount_minor: -50000 });
-  postJournalEntry('BSTEST-2', asBusinessName('My Business'), asLedgerName('BSTest Ledger'), asUserId(1));
-  const bsAfterPayment = getBalanceSheet(asBusinessName('My Business'), asLedgerName('BSTest Ledger'));
+  stageLine({ reference: 'BSTEST-2', business: asBusinessName('admin'), ledger: asLedgerName('BSTest Ledger'), transdate: '2027-01-15', account: asAccountName('BSTest Vendor'), amount_minor: 50000 });
+  stageLine({ reference: 'BSTEST-2', business: asBusinessName('admin'), ledger: asLedgerName('BSTest Ledger'), transdate: '2027-01-15', account: asAccountName('Cash and Bank'), amount_minor: -50000 });
+  postJournalEntry('BSTEST-2', asBusinessName('admin'), asLedgerName('BSTest Ledger'), asUserId(1));
+  const bsAfterPayment = getBalanceSheet(asBusinessName('admin'), asLedgerName('BSTest Ledger'));
   assert.equal(bsAfterPayment.liabilities.find((l) => l.name === 'Accounts Payable'), undefined, 'once fully paid, AP nets to zero and must not appear at all');
   assert.equal(bsAfterPayment.balanced, true);
 });
 
 test('completePosSale honors an explicit transdate instead of always using the real current date — the actual bug that broke every backdated/simulated sale', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'POSDateTest Outlet', asUserId(1));
-  setLocation('POSDateTest Outlet', { city: 'POSDateTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('POSDateTest Outlet', { city: 'POSDateTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('POSDateTest Wine', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'POSDATETEST-REC-1', asItemName('POSDateTest Wine'), asLocationName('POSDateTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'POSDATETEST-REC-1', asItemName('POSDateTest Wine'), asLocationName('POSDateTest Outlet'), 10, asUserId(1), '2027-01-01');
 
   const result = completePosSale(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('POSDateTest Outlet'),
       customerName: asCustomerName('Cash Sale'),
@@ -2982,7 +2982,7 @@ test('completePosSale honors an explicit transdate instead of always using the r
 
   const withoutDate = completePosSale(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('POSDateTest Outlet'),
       customerName: asCustomerName('Cash Sale'),
@@ -2999,14 +2999,14 @@ test('completePosSale honors an explicit transdate instead of always using the r
 
 test('completePosSale: a real, immediate cash sale never touches the customer\'s own AR balance at all, even momentarily — the exact question directly asked and confirmed: "why are cash sales going through the AR system in any way?"', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'CashARTest Outlet', asUserId(1));
-  setLocation('CashARTest Outlet', { city: 'CashARTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('CashARTest Outlet', { city: 'CashARTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('CashARTest Wine', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'CASHARTEST-REC-1', asItemName('CashARTest Wine'), asLocationName('CashARTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'CASHARTEST-REC-1', asItemName('CashARTest Wine'), asLocationName('CashARTest Outlet'), 10, asUserId(1), '2027-01-01');
   create(requireEntity('Customers', typeRootName), typeRootName, 'CashARTest Customer', asUserId(1));
 
   const result = completePosSale(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('CashARTest Outlet'),
       customerName: asCustomerName('CashARTest Customer'),
@@ -3045,14 +3045,14 @@ test('completePosSale: a real, immediate cash sale never touches the customer\'s
 
 test('completeCashPurchase: a real, immediate cash purchase never touches the vendor\'s own AP balance at all, even momentarily — the direct counteritem to completePosSale, for a real, immediate purchase', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'CashPurTest Warehouse', asUserId(1));
-  setLocation('CashPurTest Warehouse', { city: 'CashPurTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('CashPurTest Warehouse', { city: 'CashPurTest City', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('admin'));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'CashPurTest Vendor', asUserId(1));
   createItem('CashPurTest Wine', 'Items', asUserId(1));
 
   const before = getItemLocation(asItemName('CashPurTest Wine'), asLocationName('CashPurTest Warehouse')).quantity_on_hand;
   const result = completeCashPurchase(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('CashPurTest Warehouse'),
       vendorName: asProviderName('CashPurTest Vendor'),
@@ -3097,7 +3097,7 @@ test('payEmployeeWages: a real employee treated as AP — real Medicare levy wit
   // No real wage or salary configured yet — a real, clear error, not a silent $0.
   create(requireEntity('Employees', typeRootName), typeRootName, 'WageTest No Rate Employee', asUserId(1));
   assert.throws(
-    () => payEmployeeWages({ business: 'My Business', ledger: 'Actual', employeeName: 'WageTest No Rate Employee', hours: 8 }, asUserId(1)),
+    () => payEmployeeWages({ business: 'admin', ledger: 'Actual', employeeName: 'WageTest No Rate Employee', hours: 8 }, asUserId(1)),
     ValidationError,
     'a real employee with no configured wage rate or salary must be refused with a clear, honest error, not silently paid $0'
   );
@@ -3105,7 +3105,7 @@ test('payEmployeeWages: a real employee treated as AP — real Medicare levy wit
   // Hourly, on-account — real Medicare levy withheld, real super as a separate employer cost.
   const before = getCreditStatus('WageTest Employee');
   assert.equal(before.balanceMinor, 0);
-  const result = payEmployeeWages({ business: 'My Business', ledger: 'Actual', employeeName: 'WageTest Employee', hours: 8 }, asUserId(1));
+  const result = payEmployeeWages({ business: 'admin', ledger: 'Actual', employeeName: 'WageTest Employee', hours: 8 }, asUserId(1));
   assert.equal(result.grossMinor, 24000, '8 real hours at $30.00/hour must gross exactly $240.00');
   assert.equal(result.medicareLevyMinor, 360, 'a real 1.5% Medicare levy on $240.00 must be exactly $3.60');
   assert.equal(result.superannuationMinor, 2880, 'a real 12% superannuation contribution on $240.00 must be exactly $28.80');
@@ -3121,7 +3121,7 @@ test('payEmployeeWages: a real employee treated as AP — real Medicare levy wit
   assert.equal(balanceOf('Superannuation Expense'), result.superannuationMinor, 'real superannuation must be a real, genuine, ADDITIONAL cost to the business, on top of gross wages, never touching the employee\'s own balance');
 
   // Immediate cash/EFT payment — pays the real NET amount, not gross, since Medicare was already withheld.
-  const cashResult = payEmployeeWages({ business: 'My Business', ledger: 'Actual', employeeName: 'WageTest Employee', hours: 4, paymentMethod: 'cash' }, asUserId(1));
+  const cashResult = payEmployeeWages({ business: 'admin', ledger: 'Actual', employeeName: 'WageTest Employee', hours: 4, paymentMethod: 'cash' }, asUserId(1));
   assert.equal(cashResult.netMinor, 11820);
   assert.equal(getInvoiceOutstandingMinor(cashResult.invoiceId), cashResult.grossMinor - cashResult.netMinor, 'an immediate cash wage payment pays only the real NET amount — the invoice itself still shows the real Medicare levy portion as its own, separate, already-settled reduction, not literally zero');
 
@@ -3129,11 +3129,11 @@ test('payEmployeeWages: a real employee treated as AP — real Medicare levy wit
   create(requireEntity('Employees', typeRootName), typeRootName, 'WageTest Manager', asUserId(1));
   setContact('WageTest Manager', { salary_minor_per_year: 9600000 }); // $96,000.00/year
   assert.throws(
-    () => payEmployeeWages({ business: 'My Business', ledger: 'Actual', employeeName: 'WageTest Manager', hours: 10 }, asUserId(1)),
+    () => payEmployeeWages({ business: 'admin', ledger: 'Actual', employeeName: 'WageTest Manager', hours: 10 }, asUserId(1)),
     ValidationError,
     'a real, salaried employee must refuse an hours argument as a real, honest mismatch, not silently ignore it'
   );
-  const salaryResult = payEmployeeWages({ business: 'My Business', ledger: 'Actual', employeeName: 'WageTest Manager' }, asUserId(1));
+  const salaryResult = payEmployeeWages({ business: 'admin', ledger: 'Actual', employeeName: 'WageTest Manager' }, asUserId(1));
   assert.equal(salaryResult.grossMinor, 800000, 'one real month of a $96,000.00/year salary must be exactly $8,000.00');
 });
 
@@ -3170,12 +3170,12 @@ test('getOrganizationChart: the real, complete chain — Business belongs-to Div
 
 
 test('e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, and a real, incoming one round-trips back through a genuinely separate ledger as a draft, never auto-posted', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'EInvTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'EInvTest Ledger', asUserId(1));
   create(requireEntity('Customers', typeRootName), typeRootName, 'EInvTest Customer', asUserId(1));
   const invoiceId = createInvoice(
     {
       invoiceType: 'AR',
-      business: 'My Business',
+      business: 'admin',
       ledger: 'EInvTest Ledger',
       reference: 'EINV-TEST-1',
       counterpartyName: 'EInvTest Customer',
@@ -3192,9 +3192,9 @@ test('e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, an
   assert.ok(xml.includes('450.00'), 'the real line amount must appear as a real, formatted currency value');
 
   // A genuinely separate receiving ledger — the real, realistic case, not importing back into the same books it came from.
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'EInvTest Receiving Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'EInvTest Receiving Ledger', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'EInvTest Vendor', asUserId(1));
-  const result = importUblInvoiceAsDraft(xml, asBusinessName('My Business'), asLedgerName('EInvTest Receiving Ledger'), 'EInvTest Vendor', asUserId(1));
+  const result = importUblInvoiceAsDraft(xml, asBusinessName('admin'), asLedgerName('EInvTest Receiving Ledger'), 'EInvTest Vendor', asUserId(1));
 
   const imported = getInvoice(result.invoiceId)!;
   assert.equal(imported.status, 'draft', 'a real, imported e-invoice must never be auto-posted — the existing draft state is the real approval gate');
@@ -3207,12 +3207,12 @@ test('e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, an
 });
 
 test('e-invoicing: a real 3-way match catches a genuine mismatch between a purchase order and an incoming e-invoice', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'EInvDiscTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'EInvDiscTest Ledger', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'EInvDiscTest Vendor', asUserId(1));
   create(requireEntity('Items', typeRootName), typeRootName, 'EInvDiscTest Item', asUserId(1));
 
-  stagePurchaseOrder({ reference: 'EIDT-PO-1', business: 'My Business', ledger: 'EInvDiscTest Ledger', vendor: 'EInvDiscTest Vendor', item: 'EInvDiscTest Item', quantity: 10, price_minor: 5000, transdate: '2027-05-01' });
-  postPurchaseOrder('EIDT-PO-1', asBusinessName('My Business'), asLedgerName('EInvDiscTest Ledger'), asUserId(1));
+  stagePurchaseOrder({ reference: 'EIDT-PO-1', business: 'admin', ledger: 'EInvDiscTest Ledger', vendor: 'EInvDiscTest Vendor', item: 'EInvDiscTest Item', quantity: 10, price_minor: 5000, transdate: '2027-05-01' });
+  postPurchaseOrder('EIDT-PO-1', asBusinessName('admin'), asLedgerName('EInvDiscTest Ledger'), asUserId(1));
 
   // A real, incoming e-invoice for $750 against a real $500 PO — a genuine, deliberate mismatch.
   const mismatchedXml = `<?xml version="1.0"?><Invoice><cbc:ID>SUPP-INV-99</cbc:ID><cbc:IssueDate>2027-05-05</cbc:IssueDate>
@@ -3221,7 +3221,7 @@ test('e-invoicing: a real 3-way match catches a genuine mismatch between a purch
     <cac:InvoiceLine><cbc:InvoicedQuantity>10</cbc:InvoicedQuantity><cbc:LineExtensionAmount>750.00</cbc:LineExtensionAmount><cac:Item><cbc:Name>EInvDiscTest Item</cbc:Name></cac:Item><cac:Price><cbc:PriceAmount>75.00</cbc:PriceAmount></cac:Price></cac:InvoiceLine>
     </Invoice>`;
 
-  const result = importUblInvoiceAsDraft(mismatchedXml, asBusinessName('My Business'), asLedgerName('EInvDiscTest Ledger'), 'EInvDiscTest Vendor', asUserId(1), 'EIDT-PO-1');
+  const result = importUblInvoiceAsDraft(mismatchedXml, asBusinessName('admin'), asLedgerName('EInvDiscTest Ledger'), 'EInvDiscTest Vendor', asUserId(1), 'EIDT-PO-1');
   assert.equal(result.discrepancies.length, 1);
   assert.equal(result.discrepancies[0].field, 'Total amount');
   assert.equal(result.discrepancies[0].poValue, '500.00');
@@ -3234,9 +3234,9 @@ test('e-invoicing: a real 3-way match catches a genuine mismatch between a purch
 
 test('getInventoryListing/countInventoryListing: a real, paginated listing of every item/location combination with stock', () => withMyBusinessSession(() => {
   create(myBusinessLocationsRoot(), typeRootName, 'StockListTest Outlet', asUserId(1));
-  setLocation('StockListTest Outlet', { city: 'StockListTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('StockListTest Outlet', { city: 'StockListTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('StockListTest Wine', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKLISTTEST-REC-1', asItemName('StockListTest Wine'), asLocationName('StockListTest Outlet'), 15, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STOCKLISTTEST-REC-1', asItemName('StockListTest Wine'), asLocationName('StockListTest Outlet'), 15, asUserId(1), '2027-01-01');
 
   const countBefore = countInventoryListing();
   const listing = getInventoryListing(1000, 0);
@@ -3267,11 +3267,11 @@ test('getInventoryListing/countInventoryListing: a real, paginated listing of ev
 test('getInventoryListingByLocation: groups the same real stock data by real location, tagging each with its real division where one exists', () => withMyBusinessSession(() => {
   create(requireEntity('Divisions', typeRootName), typeRootName, 'StockGroupTest City Division', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet', asUserId(1));
-  setLocation('StockGroupTest Outlet', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('StockGroupTest Outlet', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('StockGroupTest Wine A', 'Items', asUserId(1));
   createItem('StockGroupTest Wine B', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-1', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet'), 10, asUserId(1), '2027-01-01');
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-2', asItemName('StockGroupTest Wine B'), asLocationName('StockGroupTest Outlet'), 7, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-1', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-2', asItemName('StockGroupTest Wine B'), asLocationName('StockGroupTest Outlet'), 7, asUserId(1), '2027-01-01');
 
   const groups = getInventoryListingByLocation();
   const group = groups.find((g) => g.location === 'StockGroupTest Outlet');
@@ -3284,8 +3284,8 @@ test('getInventoryListingByLocation: groups the same real stock data by real loc
 
   // A location whose city has no matching real division must still appear as a real group — just with division: null, not silently dropped.
   create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet No Division', asUserId(1));
-  setLocation('StockGroupTest Outlet No Division', { city: 'A City With No Real Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-3', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet No Division'), 3, asUserId(1), '2027-01-01');
+  setLocation('StockGroupTest Outlet No Division', { city: 'A City With No Real Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-3', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet No Division'), 3, asUserId(1), '2027-01-01');
   const groupsAfter = getInventoryListingByLocation();
   const noDivisionGroup = groupsAfter.find((g) => g.location === 'StockGroupTest Outlet No Division');
   assert.ok(noDivisionGroup, 'a real location must still produce a real group even with no matching division');
@@ -3293,16 +3293,16 @@ test('getInventoryListingByLocation: groups the same real stock data by real loc
 }));
 
 test('getLedgerDateRange: reports the real, earliest and latest transdate of what has actually been posted', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'DateRangeTest Ledger', asUserId(1));
-  const empty = getLedgerDateRange(asBusinessName('My Business'), asLedgerName('DateRangeTest Ledger'));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'DateRangeTest Ledger', asUserId(1));
+  const empty = getLedgerDateRange(asBusinessName('admin'), asLedgerName('DateRangeTest Ledger'));
   assert.equal(empty.earliest, null, 'a real ledger with nothing posted yet must report a real null range, not a misleading fallback date');
   assert.equal(empty.latest, null);
 
   function post(reference: string, transdate: string, lines: { account: string; amount_minor: number }[]) {
     for (const line of lines) {
-      stageLine({ reference, business: asBusinessName('My Business'), ledger: asLedgerName('DateRangeTest Ledger'), transdate, account: asAccountName(line.account), amount_minor: line.amount_minor });
+      stageLine({ reference, business: asBusinessName('admin'), ledger: asLedgerName('DateRangeTest Ledger'), transdate, account: asAccountName(line.account), amount_minor: line.amount_minor });
     }
-    postJournalEntry(reference, asBusinessName('My Business'), asLedgerName('DateRangeTest Ledger'), asUserId(1));
+    postJournalEntry(reference, asBusinessName('admin'), asLedgerName('DateRangeTest Ledger'), asUserId(1));
   }
   post('DRT-1', '2027-05-10', [
     { account: 'Cash and Bank', amount_minor: 1000 },
@@ -3317,17 +3317,17 @@ test('getLedgerDateRange: reports the real, earliest and latest transdate of wha
     { account: "Owner's Equity", amount_minor: -200 },
   ]);
 
-  const range = getLedgerDateRange(asBusinessName('My Business'), asLedgerName('DateRangeTest Ledger'));
+  const range = getLedgerDateRange(asBusinessName('admin'), asLedgerName('DateRangeTest Ledger'));
   assert.equal(range.earliest, '2027-05-03', 'must be the real minimum transdate across every real posted entry, not just the first one posted');
   assert.equal(range.latest, '2027-05-20', 'must be the real maximum, regardless of posting order');
 });
 
 test('getAccountsPostedTo: finds the real, actual accounts a given reference posted to — used to correct a return to the exact same account the original sale used, not a different, plain fallback', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'AcctsPostedTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'AcctsPostedTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'AcctsPostedTest Revenue (Tier A)', asUserId(1));
-  stageLine({ reference: 'APT-1', business: asBusinessName('My Business'), ledger: asLedgerName('AcctsPostedTest Ledger'), transdate: '2027-06-01', account: asAccountName('AcctsPostedTest Revenue (Tier A)'), amount_minor: -5000 });
-  stageLine({ reference: 'APT-1', business: asBusinessName('My Business'), ledger: asLedgerName('AcctsPostedTest Ledger'), transdate: '2027-06-01', account: asAccountName('Cash and Bank'), amount_minor: 5000 });
-  postJournalEntry('APT-1', asBusinessName('My Business'), asLedgerName('AcctsPostedTest Ledger'), asUserId(1));
+  stageLine({ reference: 'APT-1', business: asBusinessName('admin'), ledger: asLedgerName('AcctsPostedTest Ledger'), transdate: '2027-06-01', account: asAccountName('AcctsPostedTest Revenue (Tier A)'), amount_minor: -5000 });
+  stageLine({ reference: 'APT-1', business: asBusinessName('admin'), ledger: asLedgerName('AcctsPostedTest Ledger'), transdate: '2027-06-01', account: asAccountName('Cash and Bank'), amount_minor: 5000 });
+  postJournalEntry('APT-1', asBusinessName('admin'), asLedgerName('AcctsPostedTest Ledger'), asUserId(1));
 
   const accounts = getAccountsPostedTo('APT-1');
   assert.ok(accounts.includes('AcctsPostedTest Revenue (Tier A)'), 'must find the real, specific account actually posted to, not a generic or reconstructed one');
@@ -3338,7 +3338,7 @@ test('getAccountsPostedTo: finds the real, actual accounts a given reference pos
 });
 
 test('postJournalEntry: a real multi-currency entry must balance independently per currency — the exact danger this catches: an EUR imbalance masked by an offsetting USD imbalance must never pass', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'CcyTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'CcyTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'CcyTest Cash (EUR)', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'CcyTest Clearing (EUR)', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'CcyTest Cash (USD)', asUserId(1));
@@ -3349,44 +3349,44 @@ test('postJournalEntry: a real multi-currency entry must balance independently p
   setAccountCurrency('CcyTest Clearing (USD)', 'USD');
 
   // A genuinely valid multi-currency entry: one entry, one reference, two independently-balanced currency groups.
-  stageLine({ reference: 'CCY-GOOD-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CcyTest Cash (EUR)'), amount_minor: 100000 });
-  stageLine({ reference: 'CCY-GOOD-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CcyTest Clearing (EUR)'), amount_minor: -100000 });
-  stageLine({ reference: 'CCY-GOOD-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CcyTest Clearing (USD)'), amount_minor: 109000 });
-  stageLine({ reference: 'CCY-GOOD-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CcyTest Cash (USD)'), amount_minor: -109000 });
-  postJournalEntry('CCY-GOOD-1', asBusinessName('My Business'), asLedgerName('CcyTest Ledger'), asUserId(1));
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('CcyTest Ledger'));
+  stageLine({ reference: 'CCY-GOOD-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CcyTest Cash (EUR)'), amount_minor: 100000 });
+  stageLine({ reference: 'CCY-GOOD-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CcyTest Clearing (EUR)'), amount_minor: -100000 });
+  stageLine({ reference: 'CCY-GOOD-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CcyTest Clearing (USD)'), amount_minor: 109000 });
+  stageLine({ reference: 'CCY-GOOD-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CcyTest Cash (USD)'), amount_minor: -109000 });
+  postJournalEntry('CCY-GOOD-1', asBusinessName('admin'), asLedgerName('CcyTest Ledger'), asUserId(1));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('CcyTest Ledger'));
   const eurCash = tb.rows.find((r) => r.name === 'CcyTest Cash (EUR)');
   assert.equal(eurCash?.debit_minor, 100000, 'a genuinely valid multi-currency entry must post successfully');
 
   // The real danger: EUR group off by $1.00, USD group off by exactly the opposite — sums to zero OVERALL, but must still be rejected.
-  stageLine({ reference: 'CCY-BAD-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-02', account: asAccountName('CcyTest Cash (EUR)'), amount_minor: 100000 });
-  stageLine({ reference: 'CCY-BAD-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-02', account: asAccountName('CcyTest Clearing (EUR)'), amount_minor: -99900 }); // short by 100
-  stageLine({ reference: 'CCY-BAD-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-02', account: asAccountName('CcyTest Clearing (USD)'), amount_minor: 109000 });
-  stageLine({ reference: 'CCY-BAD-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-02', account: asAccountName('CcyTest Cash (USD)'), amount_minor: -109100 }); // over by 100 — cancels the EUR error overall
-  assert.throws(() => postJournalEntry('CCY-BAD-1', asBusinessName('My Business'), asLedgerName('CcyTest Ledger'), asUserId(1)), /does not balance/i);
+  stageLine({ reference: 'CCY-BAD-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-02', account: asAccountName('CcyTest Cash (EUR)'), amount_minor: 100000 });
+  stageLine({ reference: 'CCY-BAD-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-02', account: asAccountName('CcyTest Clearing (EUR)'), amount_minor: -99900 }); // short by 100
+  stageLine({ reference: 'CCY-BAD-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-02', account: asAccountName('CcyTest Clearing (USD)'), amount_minor: 109000 });
+  stageLine({ reference: 'CCY-BAD-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-02', account: asAccountName('CcyTest Cash (USD)'), amount_minor: -109100 }); // over by 100 — cancels the EUR error overall
+  assert.throws(() => postJournalEntry('CCY-BAD-1', asBusinessName('admin'), asLedgerName('CcyTest Ledger'), asUserId(1)), /does not balance/i);
 
   // An ordinary, single-currency (home/NULL) entry must be completely unaffected.
-  stageLine({ reference: 'CCY-HOME-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-03', account: asAccountName('Cash and Bank'), amount_minor: 5000 });
-  stageLine({ reference: 'CCY-HOME-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-03', account: asAccountName('Sales Revenue'), amount_minor: -5000 });
-  postJournalEntry('CCY-HOME-1', asBusinessName('My Business'), asLedgerName('CcyTest Ledger'), asUserId(1));
+  stageLine({ reference: 'CCY-HOME-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-03', account: asAccountName('Cash and Bank'), amount_minor: 5000 });
+  stageLine({ reference: 'CCY-HOME-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTest Ledger'), transdate: '2027-01-03', account: asAccountName('Sales Revenue'), amount_minor: -5000 });
+  postJournalEntry('CCY-HOME-1', asBusinessName('admin'), asLedgerName('CcyTest Ledger'), asUserId(1));
 });
 
 test('getTrialBalance: by_currency genuinely separates each real currency\'s own debit/credit totals - a combined, cross-currency sum can look balanced or unbalanced for entirely the wrong reason', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'CcyTBTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'CcyTBTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'CcyTBTest Cash (EUR)', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'CcyTBTest Clearing (EUR)', asUserId(1));
   setAccountCurrency('CcyTBTest Cash (EUR)', 'EUR');
   setAccountCurrency('CcyTBTest Clearing (EUR)', 'EUR');
 
   // A real, genuine, EUR-only entry, plus a real, ordinary home-currency one.
-  stageLine({ reference: 'CCYTB-EUR-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('CcyTBTest Cash (EUR)'), amount_minor: 20000 });
-  stageLine({ reference: 'CCYTB-EUR-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('CcyTBTest Clearing (EUR)'), amount_minor: -20000 });
-  postJournalEntry('CCYTB-EUR-1', asBusinessName('My Business'), asLedgerName('CcyTBTest Ledger'), asUserId(1));
-  stageLine({ reference: 'CCYTB-HOME-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('Cash and Bank'), amount_minor: 7500 });
-  stageLine({ reference: 'CCYTB-HOME-1', business: asBusinessName('My Business'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('Sales Revenue'), amount_minor: -7500 });
-  postJournalEntry('CCYTB-HOME-1', asBusinessName('My Business'), asLedgerName('CcyTBTest Ledger'), asUserId(1));
+  stageLine({ reference: 'CCYTB-EUR-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('CcyTBTest Cash (EUR)'), amount_minor: 20000 });
+  stageLine({ reference: 'CCYTB-EUR-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('CcyTBTest Clearing (EUR)'), amount_minor: -20000 });
+  postJournalEntry('CCYTB-EUR-1', asBusinessName('admin'), asLedgerName('CcyTBTest Ledger'), asUserId(1));
+  stageLine({ reference: 'CCYTB-HOME-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('Cash and Bank'), amount_minor: 7500 });
+  stageLine({ reference: 'CCYTB-HOME-1', business: asBusinessName('admin'), ledger: asLedgerName('CcyTBTest Ledger'), transdate: '2027-02-01', account: asAccountName('Sales Revenue'), amount_minor: -7500 });
+  postJournalEntry('CCYTB-HOME-1', asBusinessName('admin'), asLedgerName('CcyTBTest Ledger'), asUserId(1));
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('CcyTBTest Ledger'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('CcyTBTest Ledger'));
   assert.equal(tb.by_currency.length, 2, 'two real, genuinely distinct currency groups present here - home (null) and EUR - each gets its own, real subtotal row');
   const home = tb.by_currency.find((c) => c.currency === null);
   const eur = tb.by_currency.find((c) => c.currency === 'EUR');
@@ -3407,14 +3407,14 @@ test('getTrialBalance: by_currency genuinely separates each real currency\'s own
 
 test('getTrialBalance: has_quantity_postings correctly flags an account that has genuinely received a real, direct quantity-tracking ("-QTY") posting alongside its own, ordinary value postings', () => {
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'QtyFlagTest Account', asUserId(1));
-  stageLine({ reference: 'QTYFLAG-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('QtyFlagTest Account'), amount_minor: 500 });
-  stageLine({ reference: 'QTYFLAG-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('Sales Revenue'), amount_minor: -500 });
-  postJournalEntry('QTYFLAG-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  stageLine({ reference: 'QTYFLAG-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('QtyFlagTest Account'), amount_minor: 500 });
+  stageLine({ reference: 'QTYFLAG-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('Sales Revenue'), amount_minor: -500 });
+  postJournalEntry('QTYFLAG-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
   // A real, direct, single-sided quantity-tracking posting - genuinely, deliberately not part of a balanced journal entry at all, the exact, real pattern postQuantityMovement itself uses.
-  stageLine({ reference: 'QTYFLAG-1-QTY', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('QtyFlagTest Account'), amount_minor: 12 });
-  db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run('QTYFLAG-1-QTY', 'My Business', 'Actual', 1);
+  stageLine({ reference: 'QTYFLAG-1-QTY', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-02-01', account: asAccountName('QtyFlagTest Account'), amount_minor: 12 });
+  db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run('QTYFLAG-1-QTY', 'admin', 'Actual', 1);
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   const row = tb.rows.find((r) => r.name === 'QtyFlagTest Account');
   assert.equal(row?.has_quantity_postings, true, 'a real account that has genuinely received a "-QTY" posting is correctly flagged, so a reader knows its own balance may be a real, confirmed mix, not purely monetary');
   const salesRow = tb.rows.find((r) => r.name === 'Sales Revenue');
@@ -3422,21 +3422,21 @@ test('getTrialBalance: has_quantity_postings correctly flags an account that has
 });
 
 test('getProfitAndLoss: Gross Profit is a real subtotal (Revenue minus COGS specifically), Net Profit unchanged — via the real, bootstrap-tagged COGS account, not a test-only setup', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'GrossProfit Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'GrossProfit Test Ledger', asUserId(1));
 
-  stageLine({ reference: 'GPTEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -100000 });
-  stageLine({ reference: 'GPTEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 100000 });
-  postJournalEntry('GPTEST-1', asBusinessName('My Business'), asLedgerName('GrossProfit Test Ledger'), asUserId(1));
+  stageLine({ reference: 'GPTEST-1', business: asBusinessName('admin'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -100000 });
+  stageLine({ reference: 'GPTEST-1', business: asBusinessName('admin'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 100000 });
+  postJournalEntry('GPTEST-1', asBusinessName('admin'), asLedgerName('GrossProfit Test Ledger'), asUserId(1));
 
-  stageLine({ reference: 'GPTEST-2', business: asBusinessName('My Business'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-02', account: asAccountName('Cost of Goods Sold'), amount_minor: 40000 });
-  stageLine({ reference: 'GPTEST-2', business: asBusinessName('My Business'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-02', account: asAccountName('Cash and Bank'), amount_minor: -40000 });
-  postJournalEntry('GPTEST-2', asBusinessName('My Business'), asLedgerName('GrossProfit Test Ledger'), asUserId(1));
+  stageLine({ reference: 'GPTEST-2', business: asBusinessName('admin'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-02', account: asAccountName('Cost of Goods Sold'), amount_minor: 40000 });
+  stageLine({ reference: 'GPTEST-2', business: asBusinessName('admin'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-02', account: asAccountName('Cash and Bank'), amount_minor: -40000 });
+  postJournalEntry('GPTEST-2', asBusinessName('admin'), asLedgerName('GrossProfit Test Ledger'), asUserId(1));
 
-  stageLine({ reference: 'GPTEST-3', business: asBusinessName('My Business'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-03', account: asAccountName('Rent'), amount_minor: 20000 });
-  stageLine({ reference: 'GPTEST-3', business: asBusinessName('My Business'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-03', account: asAccountName('Cash and Bank'), amount_minor: -20000 });
-  postJournalEntry('GPTEST-3', asBusinessName('My Business'), asLedgerName('GrossProfit Test Ledger'), asUserId(1));
+  stageLine({ reference: 'GPTEST-3', business: asBusinessName('admin'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-03', account: asAccountName('Rent'), amount_minor: 20000 });
+  stageLine({ reference: 'GPTEST-3', business: asBusinessName('admin'), ledger: asLedgerName('GrossProfit Test Ledger'), transdate: '2027-01-03', account: asAccountName('Cash and Bank'), amount_minor: -20000 });
+  postJournalEntry('GPTEST-3', asBusinessName('admin'), asLedgerName('GrossProfit Test Ledger'), asUserId(1));
 
-  const pl = getProfitAndLoss(asBusinessName('My Business'), asLedgerName('GrossProfit Test Ledger'));
+  const pl = getProfitAndLoss(asBusinessName('admin'), asLedgerName('GrossProfit Test Ledger'));
   assert.equal(pl.cogs_expenses.length, 1);
   assert.equal(pl.cogs_expenses[0].name, 'Cost of Goods Sold');
   assert.equal(pl.operating_expenses.some((e) => e.name === 'Rent'), true);
@@ -3447,17 +3447,17 @@ test('getProfitAndLoss: Gross Profit is a real subtotal (Revenue minus COGS spec
 });
 
 test('getTrialBalance: must always balance, even with real posted AR/AP — Customers/Vendors live outside the Chart of Accounts but their real monetary postings must still be included', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'TBBalance Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'TBBalance Test Ledger', asUserId(1));
   create(requireEntity('Customers', typeRootName), typeRootName, 'TBBalance Test Customer', asUserId(1));
 
   // A real AR-style posting: Accounts Receivable debited, Sales Revenue
   // credited, but the AR side posts to the customer's own name directly
   // (the established pattern), not a generic "Accounts Receivable" GL line.
-  stageLine({ reference: 'TBTEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('TBBalance Test Ledger'), transdate: '2027-01-01', account: asAccountName('TBBalance Test Customer'), amount_minor: 50000 });
-  stageLine({ reference: 'TBTEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('TBBalance Test Ledger'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -50000 });
-  postJournalEntry('TBTEST-1', asBusinessName('My Business'), asLedgerName('TBBalance Test Ledger'), asUserId(1));
+  stageLine({ reference: 'TBTEST-1', business: asBusinessName('admin'), ledger: asLedgerName('TBBalance Test Ledger'), transdate: '2027-01-01', account: asAccountName('TBBalance Test Customer'), amount_minor: 50000 });
+  stageLine({ reference: 'TBTEST-1', business: asBusinessName('admin'), ledger: asLedgerName('TBBalance Test Ledger'), transdate: '2027-01-01', account: asAccountName('Sales Revenue'), amount_minor: -50000 });
+  postJournalEntry('TBTEST-1', asBusinessName('admin'), asLedgerName('TBBalance Test Ledger'), asUserId(1));
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('TBBalance Test Ledger'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('TBBalance Test Ledger'));
   assert.equal(tb.total_debit_minor, tb.total_credit_minor, 'a real Trial Balance must always balance — this is the fundamental accounting identity, not a cosmetic property');
   assert.equal(tb.rows.some((r) => r.name === 'TBBalance Test Customer'), true, 'the customer\'s own real posted balance must appear as a row — it is not a synthetic aggregate, it is a genuine account with a genuine balance');
   const customerRow = tb.rows.find((r) => r.name === 'TBBalance Test Customer');
@@ -3465,37 +3465,37 @@ test('getTrialBalance: must always balance, even with real posted AR/AP — Cust
 });
 
 test('allocatePayment: actually posts the real GL movement, not just a tracking record — confirmed directly, since this exact gap once let $920,626.23 in "paid" sales never reach Cash and Bank', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'AllocGL Test Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'AllocGL Test Ledger', asUserId(1));
   create(requireEntity('Customers', typeRootName), typeRootName, 'AllocGL Test Customer', asUserId(1));
 
   const inv = createInvoice({
-    invoiceType: 'AR', business: 'My Business', ledger: 'AllocGL Test Ledger', reference: 'ALLOCGL-1',
+    invoiceType: 'AR', business: 'admin', ledger: 'AllocGL Test Ledger', reference: 'ALLOCGL-1',
     counterpartyName: 'AllocGL Test Customer', invoiceDate: '2027-01-01',
     lines: [{ description: 'x', amountMinor: 7500 }],
   }, asUserId(1));
   postInvoice(inv, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
-  const cashBefore = getTrialBalance(asBusinessName('My Business'), asLedgerName('AllocGL Test Ledger')).rows.find((r) => r.name === 'Cash and Bank')?.debit_minor ?? 0;
+  const cashBefore = getTrialBalance(asBusinessName('admin'), asLedgerName('AllocGL Test Ledger')).rows.find((r) => r.name === 'Cash and Bank')?.debit_minor ?? 0;
   allocatePayment(inv, 'ALLOCGL-PAY-1', 7500, '2027-01-02', 'Cash and Bank', asUserId(1));
-  const cashAfter = getTrialBalance(asBusinessName('My Business'), asLedgerName('AllocGL Test Ledger')).rows.find((r) => r.name === 'Cash and Bank')?.debit_minor ?? 0;
+  const cashAfter = getTrialBalance(asBusinessName('admin'), asLedgerName('AllocGL Test Ledger')).rows.find((r) => r.name === 'Cash and Bank')?.debit_minor ?? 0;
 
   assert.equal(cashAfter - cashBefore, 7500, 'Cash and Bank must genuinely increase by the allocated amount, not stay unchanged');
-  const customerRow = getTrialBalance(asBusinessName('My Business'), asLedgerName('AllocGL Test Ledger')).rows.find((r) => r.name === 'AllocGL Test Customer');
+  const customerRow = getTrialBalance(asBusinessName('admin'), asLedgerName('AllocGL Test Ledger')).rows.find((r) => r.name === 'AllocGL Test Customer');
   assert.equal(customerRow, undefined, "the customer's own AR balance must be back to zero (and so absent from the Trial Balance) after full payment, not left sitting there");
 });
 
 test('completePosSale defaults to real, per-product Sales accounts — not one shared aggregate that could never distinguish one product\'s margin from another\'s', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'PerProductTest Outlet', asUserId(1));
-  setLocation('PerProductTest Outlet', { city: 'PerProductTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('PerProductTest Outlet', { city: 'PerProductTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('PerProductTest Wine A', 'Items', asUserId(1));
   createItem('PerProductTest Wine B', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PPTEST-REC-1', asItemName('PerProductTest Wine A'), asLocationName('PerProductTest Outlet'), 10, asUserId(1), '2027-01-01');
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PPTEST-REC-2', asItemName('PerProductTest Wine B'), asLocationName('PerProductTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'PPTEST-REC-1', asItemName('PerProductTest Wine A'), asLocationName('PerProductTest Outlet'), 10, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'PPTEST-REC-2', asItemName('PerProductTest Wine B'), asLocationName('PerProductTest Outlet'), 10, asUserId(1), '2027-01-01');
 
   // No revenueAccount at all — this is the actual point being tested.
   completePosSale(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('PerProductTest Outlet'),
       customerName: asCustomerName('Cash Sale'),
@@ -3510,7 +3510,7 @@ test('completePosSale defaults to real, per-product Sales accounts — not one s
     asUserId(1)
   );
 
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('Actual'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   const salesA = tb.rows.find((r) => r.name === 'PerProductTest Wine A — PerProductTest Outlet');
   const salesB = tb.rows.find((r) => r.name === 'PerProductTest Wine B — PerProductTest Outlet');
   assert.equal(salesA?.credit_minor, 3000, "Wine A's own real Sales account must show exactly its own 2x$15.00 — not blended with Wine B's");
@@ -3539,14 +3539,14 @@ test('a item\'s real retail_price_minor is a genuine lookup field, reachable via
 });
 
 test('getSalesReport: detailed lines and a genuine category rollup (via the real entity tree, not a hand-maintained list) that both sum to the same real total', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'SalesReportTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'SalesReportTest Ledger', asUserId(1));
   create(requireEntity('Customers', typeRootName), typeRootName, 'SalesReportTest Customer', asUserId(1));
   createItem('SalesReportTest Merlot', 'Merlot', asUserId(1));
   createItem('SalesReportTest Shiraz', 'Shiraz', asUserId(1));
 
   const inv = createInvoice(
     {
-      invoiceType: 'AR', business: 'My Business', ledger: 'SalesReportTest Ledger', reference: 'SRTEST-1',
+      invoiceType: 'AR', business: 'admin', ledger: 'SalesReportTest Ledger', reference: 'SRTEST-1',
       counterpartyName: 'SalesReportTest Customer', invoiceDate: '2027-02-01',
       lines: [
         { description: 'SalesReportTest Merlot', itemName: 'SalesReportTest Merlot', quantity: 3, unitPriceMinor: 2000, amountMinor: 6000 },
@@ -3557,7 +3557,7 @@ test('getSalesReport: detailed lines and a genuine category rollup (via the real
   );
   postInvoice(inv, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
-  const report = getSalesReport(asBusinessName('My Business'), asLedgerName('SalesReportTest Ledger'), '2027-02-01', '2027-02-01');
+  const report = getSalesReport(asBusinessName('admin'), asLedgerName('SalesReportTest Ledger'), '2027-02-01', '2027-02-01');
   assert.equal(report.detailed.length, 2, 'both real posted lines must appear in the detailed report');
   assert.equal(report.total_amount_minor, 12000);
   assert.equal(report.total_quantity, 5);
@@ -3922,15 +3922,15 @@ test('POS clerk sign-on/sign-off: a real employee needs a real PIN, can only be 
 });
 
 test('previewCloseBooks: the real, proposed lines it returns exactly match what closeBooks itself actually posts, and nothing is staged or posted by the preview itself', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'PreviewCloseTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'PreviewCloseTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'PreviewCloseTest Revenue', asUserId(1));
   create(requireGlobalCoaCategory('Equity'), typeRootName, 'PreviewCloseTest Retained Earnings', asUserId(1));
 
-  stageLine({ reference: 'PCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('PreviewCloseTest Ledger'), transdate: '2027-01-01', account: asAccountName('PreviewCloseTest Revenue'), amount_minor: -50000 });
-  stageLine({ reference: 'PCT-1', business: asBusinessName('My Business'), ledger: asLedgerName('PreviewCloseTest Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 50000 });
-  postJournalEntry('PCT-1', asBusinessName('My Business'), asLedgerName('PreviewCloseTest Ledger'), asUserId(1));
+  stageLine({ reference: 'PCT-1', business: asBusinessName('admin'), ledger: asLedgerName('PreviewCloseTest Ledger'), transdate: '2027-01-01', account: asAccountName('PreviewCloseTest Revenue'), amount_minor: -50000 });
+  stageLine({ reference: 'PCT-1', business: asBusinessName('admin'), ledger: asLedgerName('PreviewCloseTest Ledger'), transdate: '2027-01-01', account: asAccountName('Cash and Bank'), amount_minor: 50000 });
+  postJournalEntry('PCT-1', asBusinessName('admin'), asLedgerName('PreviewCloseTest Ledger'), asUserId(1));
 
-  const preview = previewCloseBooks(asBusinessName('My Business'), asLedgerName('PreviewCloseTest Ledger'), '2027-01-31', 'PreviewCloseTest Retained Earnings');
+  const preview = previewCloseBooks(asBusinessName('admin'), asLedgerName('PreviewCloseTest Ledger'), '2027-01-31', 'PreviewCloseTest Retained Earnings');
   assert.equal(preview.netIncomeMinor, 50000);
   assert.equal(preview.accountsZeroed, 1);
   assert.equal(preview.lines.length, 2, 'one real line reversing the revenue account, one real line crediting Retained Earnings — the real, complete, balanced entry a person would actually see');
@@ -3941,17 +3941,17 @@ test('previewCloseBooks: the real, proposed lines it returns exactly match what 
   assert.equal(preview.lines.reduce((sum, l) => sum + l.amount_minor, 0), 0, "the real, proposed entry must already be genuinely balanced, exactly like any entry closeBooks itself would actually post");
 
   // The preview itself must not have staged or posted anything at all.
-  const tb = getTrialBalance(asBusinessName('My Business'), asLedgerName('PreviewCloseTest Ledger'));
+  const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('PreviewCloseTest Ledger'));
   assert.notEqual(tb.rows.find((r) => r.name === 'PreviewCloseTest Revenue'), undefined, 'a real preview must not actually zero the revenue account — only a real close does that');
 
   // Now actually close, and confirm the real result matches the preview exactly.
-  const result = closeBooks(asBusinessName('My Business'), asLedgerName('PreviewCloseTest Ledger'), '2027-01-31', 'PreviewCloseTest Retained Earnings', asUserId(1));
+  const result = closeBooks(asBusinessName('admin'), asLedgerName('PreviewCloseTest Ledger'), '2027-01-31', 'PreviewCloseTest Retained Earnings', asUserId(1));
   assert.equal(result.netIncomeMinor, preview.netIncomeMinor);
   assert.equal(result.accountsZeroed, preview.accountsZeroed);
 
   // Previewing again on the same, already-closed date must refuse,
   // the same real, honest error closeBooks itself would give.
-  assert.throws(() => previewCloseBooks(asBusinessName('My Business'), asLedgerName('PreviewCloseTest Ledger'), '2027-01-31', 'PreviewCloseTest Retained Earnings'), /Nothing to close/);
+  assert.throws(() => previewCloseBooks(asBusinessName('admin'), asLedgerName('PreviewCloseTest Ledger'), '2027-01-31', 'PreviewCloseTest Retained Earnings'), /Nothing to close/);
 });
 
 test('Location open hours and employee weekly scheduling, built entirely on the real entity tree — no new table, each real record is its own, real, named child entity', () => {
@@ -4039,18 +4039,18 @@ test('Location open hours and employee weekly scheduling, built entirely on the 
 test('getCustomerStatement: shows every real, posted invoice for one customer — paid, partially paid, and outstanding — correctly respecting a real, historical "as of" date, not just the current, real-time balance', () => {
   create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'StatementTest Customer', asUserId(1));
 
-  const inv1 = createInvoice({ invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'STMTTEST-1', counterpartyName: 'StatementTest Customer', invoiceDate: '2027-01-01', description: 'Fully paid', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 10000, amountMinor: 10000, taxMinor: 0 }] }, asUserId(1));
+  const inv1 = createInvoice({ invoiceType: 'AR', business: 'admin', ledger: 'Actual', reference: 'STMTTEST-1', counterpartyName: 'StatementTest Customer', invoiceDate: '2027-01-01', description: 'Fully paid', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 10000, amountMinor: 10000, taxMinor: 0 }] }, asUserId(1));
   postInvoice(inv1, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
   allocatePayment(inv1, 'STMTTEST-PAY-1', 10000, '2027-01-15', 'Cash and Bank', asUserId(1));
 
-  const inv2 = createInvoice({ invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'STMTTEST-2', counterpartyName: 'StatementTest Customer', invoiceDate: '2027-01-10', description: 'Partially paid', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 20000, amountMinor: 20000, taxMinor: 0 }] }, asUserId(1));
+  const inv2 = createInvoice({ invoiceType: 'AR', business: 'admin', ledger: 'Actual', reference: 'STMTTEST-2', counterpartyName: 'StatementTest Customer', invoiceDate: '2027-01-10', description: 'Partially paid', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 20000, amountMinor: 20000, taxMinor: 0 }] }, asUserId(1));
   postInvoice(inv2, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
   allocatePayment(inv2, 'STMTTEST-PAY-2', 5000, '2027-01-20', 'Cash and Bank', asUserId(1));
 
-  const inv3 = createInvoice({ invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'STMTTEST-3', counterpartyName: 'StatementTest Customer', invoiceDate: '2027-01-20', description: 'Fully outstanding', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 15000, amountMinor: 15000, taxMinor: 0 }] }, asUserId(1));
+  const inv3 = createInvoice({ invoiceType: 'AR', business: 'admin', ledger: 'Actual', reference: 'STMTTEST-3', counterpartyName: 'StatementTest Customer', invoiceDate: '2027-01-20', description: 'Fully outstanding', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 15000, amountMinor: 15000, taxMinor: 0 }] }, asUserId(1));
   postInvoice(inv3, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
-  const statement = getCustomerStatement(asBusinessName('My Business'), asLedgerName('Actual'), 'StatementTest Customer', '2027-01-31');
+  const statement = getCustomerStatement(asBusinessName('admin'), asLedgerName('Actual'), 'StatementTest Customer', '2027-01-31');
   assert.equal(statement.lines.length, 3);
   assert.equal(statement.lines[0].status, 'Paid');
   assert.equal(statement.lines[0].outstanding_minor, 0);
@@ -4066,7 +4066,7 @@ test('getCustomerStatement: shows every real, posted invoice for one customer �
   // invoices even existed, and before the first payment was actually
   // allocated — the real point of this feature: an accurate, real
   // snapshot of a real, past moment, not always today's own balance.
-  const earlier = getCustomerStatement(asBusinessName('My Business'), asLedgerName('Actual'), 'StatementTest Customer', '2027-01-05');
+  const earlier = getCustomerStatement(asBusinessName('admin'), asLedgerName('Actual'), 'StatementTest Customer', '2027-01-05');
   assert.equal(earlier.lines.length, 1, 'only the real, first invoice existed yet as of this earlier date');
   assert.equal(earlier.lines[0].status, 'Outstanding', "the real payment on 2027-01-15 hadn't happened yet as of 2027-01-05 — must show as outstanding, not paid");
   assert.equal(earlier.total_outstanding_minor, 10000);
@@ -4112,14 +4112,14 @@ test('stageBomComponent/postBomComponents/getBomComponents: a real Bill of Mater
   create(requireEntity('Items', typeRootName), typeRootName, 'BomTest Gin', asUserId(1));
   create(requireEntity('Items', typeRootName), typeRootName, 'BomTest Tonic Water', asUserId(1));
 
-  stageBomComponent({ assemblyItem: 'BomTest Gin & Tonic', business: 'My Business', componentItem: 'BomTest Gin', quantity: 30, unit: 'ml' });
-  stageBomComponent({ assemblyItem: 'BomTest Gin & Tonic', business: 'My Business', componentItem: 'BomTest Tonic Water', quantity: 150, unit: 'ml' });
+  stageBomComponent({ assemblyItem: 'BomTest Gin & Tonic', business: 'admin', componentItem: 'BomTest Gin', quantity: 30, unit: 'ml' });
+  stageBomComponent({ assemblyItem: 'BomTest Gin & Tonic', business: 'admin', componentItem: 'BomTest Tonic Water', quantity: 150, unit: 'ml' });
 
   // Nothing real posted yet - staging is genuinely separate from the
   // real, live entity tree, matching every other staged screen.
   assert.equal(getBomComponents('BomTest Gin & Tonic').length, 0, "staged rows aren't yet real, posted components");
 
-  postBomComponents('BomTest Gin & Tonic', 'My Business', asUserId(1));
+  postBomComponents('BomTest Gin & Tonic', 'admin', asUserId(1));
 
   const components = getBomComponents('BomTest Gin & Tonic');
   assert.equal(components.length, 2, 'both real, staged components were posted');
@@ -4133,8 +4133,8 @@ test('stageBomComponent/postBomComponents/getBomComponents: a real Bill of Mater
   // A real, second stage+post for the same component must genuinely
   // update the quantity, not create a real, duplicate second link -
   // matching setEntityLink's own, already-proven replace behavior.
-  stageBomComponent({ assemblyItem: 'BomTest Gin & Tonic', business: 'My Business', componentItem: 'BomTest Gin', quantity: 45, unit: 'ml' });
-  postBomComponents('BomTest Gin & Tonic', 'My Business', asUserId(1));
+  stageBomComponent({ assemblyItem: 'BomTest Gin & Tonic', business: 'admin', componentItem: 'BomTest Gin', quantity: 45, unit: 'ml' });
+  postBomComponents('BomTest Gin & Tonic', 'admin', asUserId(1));
   const updated = getBomComponents('BomTest Gin & Tonic');
   assert.equal(updated.length, 2, 'still exactly two real components, not three');
   assert.equal(updated.find((c) => c.component === 'BomTest Gin')?.quantity, 45, 'the real, updated quantity replaced the old one');
@@ -4193,7 +4193,7 @@ test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this ge
   create(requireEntity('Vendors', typeRootName), typeRootName, 'RiskTest Brewery', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'RiskTest Slow Brewery', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'RiskTest Bar', asUserId(1));
-  setLocation('RiskTest Bar', { city: 'RiskTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 0, carton_capacity: 10, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('RiskTest Bar', { city: 'RiskTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 0, carton_capacity: 10, timezone: 'UTC' }, asBusinessName('admin'));
 
   // Two real, known vendors for the same item - the risk calculation
   // must use the SHORTER one, per direct instruction.
@@ -4205,8 +4205,8 @@ test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this ge
   // 100 real units on hand, genuinely consuming 60/day (yesterday) -
   // at that real rate, this runs out in under 2 real days, well
   // inside even the SHORTER 3-day lead time - genuinely at risk.
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'RISKTEST-REC-1', asItemName('RiskTest Keg'), asLocationName('RiskTest Bar'), 100, asUserId(1), today);
-  dispatchItems(asBusinessName('My Business'), asLedgerName('Actual'), 'RISKTEST-DISP-1', asItemName('RiskTest Keg'), asLocationName('RiskTest Bar'), 60, asUserId(1), today);
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'RISKTEST-REC-1', asItemName('RiskTest Keg'), asLocationName('RiskTest Bar'), 100, asUserId(1), today);
+  dispatchItems(asBusinessName('admin'), asLedgerName('Actual'), 'RISKTEST-DISP-1', asItemName('RiskTest Keg'), asLocationName('RiskTest Bar'), 60, asUserId(1), today);
 
   const risk = getStockOutRiskReport(2).find((r) => r.item === 'RiskTest Keg');
   assert.ok(risk, 'genuinely, correctly flagged as at risk');
@@ -4222,22 +4222,22 @@ test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, 
   create(requireEntity('Divisions', typeRootName), typeRootName, 'BankRegTest Division', asUserId(1));
 
   // A real, required scope — no free-floating bank account without one.
-  assert.throws(() => registerBankAccount('BankRegTest AUD Account', 'My Business', 'No Such Scope', null, asUserId(1)), /No real business\/division named/);
-  assert.throws(() => registerBankAccount('BankRegTest AUD Account', 'No Such Business', 'My Business', null, asUserId(1)), /No real business named/);
+  assert.throws(() => registerBankAccount('BankRegTest AUD Account', 'admin', 'No Such Scope', null, asUserId(1)), /No real business\/division named/);
+  assert.throws(() => registerBankAccount('BankRegTest AUD Account', 'No Such Business', 'admin', null, asUserId(1)), /No real business named/);
 
-  registerBankAccount('BankRegTest AUD Account', 'My Business', 'My Business', 100000, asUserId(1));
-  registerBankAccount('BankRegTest AUD Account 2', 'My Business', 'BankRegTest Division', null, asUserId(1)); // no overdraft limit
+  registerBankAccount('BankRegTest AUD Account', 'admin', 'admin', 100000, asUserId(1));
+  registerBankAccount('BankRegTest AUD Account 2', 'admin', 'BankRegTest Division', null, asUserId(1)); // no overdraft limit
   setAccountCurrency('BankRegTest EUR Account', 'EUR');
-  registerBankAccount('BankRegTest EUR Account', 'My Business', 'My Business', 50000, asUserId(1));
+  registerBankAccount('BankRegTest EUR Account', 'admin', 'admin', 50000, asUserId(1));
 
-  const accounts = getBankAccounts(asBusinessName('My Business'), asLedgerName('Actual'));
+  const accounts = getBankAccounts(asBusinessName('admin'), asLedgerName('Actual'));
   const names = accounts.map((a) => a.name);
   assert.ok(names.includes('BankRegTest AUD Account'));
   assert.ok(names.includes('BankRegTest EUR Account'));
   assert.ok(!names.includes('BankRegTest Not A Bank Account'), 'an ordinary Asset account never registered as a bank account must not appear at all');
 
   const audAccount = accounts.find((a) => a.name === 'BankRegTest AUD Account')!;
-  assert.equal(audAccount.scope, 'My Business');
+  assert.equal(audAccount.scope, 'admin');
   const divAccount = accounts.find((a) => a.name === 'BankRegTest AUD Account 2')!;
   assert.equal(divAccount.scope, 'BankRegTest Division', "a real, division-scoped bank account must report its own real division as its scope, not the business");
 
@@ -4248,7 +4248,7 @@ test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, 
   // shared across the whole app.
   const otherBiz = createBusiness(asBusinessName('BankRegTestOther Co'), '2027-28', asUserId(1));
   const otherBizAccounts = getBankAccounts(otherBiz.business, otherBiz.actualLedger);
-  assert.ok(!otherBizAccounts.some((a) => a.name === 'BankRegTest AUD Account'), "a real bank account registered to 'My Business' must never leak into a genuinely different business's own list");
+  assert.ok(!otherBizAccounts.some((a) => a.name === 'BankRegTest AUD Account'), "a real bank account registered to 'admin' must never leak into a genuinely different business's own list");
 
   // The critical, real property: registering never touches the
   // account's own relation_id, confirmed directly by tagging it with
@@ -4256,20 +4256,20 @@ test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, 
   // does this, and confirming it's genuinely untouched afterward.
   const acctId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('BankRegTest AUD Account') as { id: number }).id;
   supersedeEntity(acctId, { relation: 'English CoA' }, asUserId(1));
-  registerBankAccount('BankRegTest AUD Account', 'My Business', 'My Business', 200000, asUserId(1)); // re-register, changing the limit
+  registerBankAccount('BankRegTest AUD Account', 'admin', 'admin', 200000, asUserId(1)); // re-register, changing the limit
   const entities = getEntityTree();
   const acct = entities.find((e) => e.name === 'BankRegTest AUD Account')!;
   const relationTarget = entities.find((e) => e.id === acct.relation_id);
   assert.equal(relationTarget?.name, 'English CoA', "registering (even re-registering) a bank account must never touch its own relation_id — the entire, real point of using setEntityLink instead of setRelationship");
-  assert.equal(getBankAccounts(asBusinessName('My Business'), asLedgerName('Actual')).find((a) => a.name === 'BankRegTest AUD Account')?.overdraft_limit_minor, 200000, 're-registering must genuinely update the real overdraft limit');
+  assert.equal(getBankAccounts(asBusinessName('admin'), asLedgerName('Actual')).find((a) => a.name === 'BankRegTest AUD Account')?.overdraft_limit_minor, 200000, 're-registering must genuinely update the real overdraft limit');
 
   // Post a real balance to confirm the real, shared Chart of Accounts
   // balance is what's reported, not a separately-tracked figure.
-  stageLine({ reference: 'BRTEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName('BankRegTest AUD Account'), amount_minor: 30000 });
-  stageLine({ reference: 'BRTEST-1', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName("Owner's Equity"), amount_minor: -30000 });
-  postJournalEntry('BRTEST-1', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  stageLine({ reference: 'BRTEST-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName('BankRegTest AUD Account'), amount_minor: 30000 });
+  stageLine({ reference: 'BRTEST-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-01-01', account: asAccountName("Owner's Equity"), amount_minor: -30000 });
+  postJournalEntry('BRTEST-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
 
-  const position = getCashPosition(asBusinessName('My Business'), asLedgerName('Actual'));
+  const position = getCashPosition(asBusinessName('admin'), asLedgerName('Actual'));
   const eurGroup = position.find((p) => p.currency === 'EUR');
   assert.ok(eurGroup, 'a real, distinct EUR group must exist, never blended into the home-currency total');
   assert.equal(eurGroup?.total_overdraft_limit_minor, 50000);
@@ -4288,13 +4288,13 @@ test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, 
   // Unregistering must genuinely remove both the real link and the
   // real overdraft limit, not just hide the account from the list.
   unregisterBankAccount('BankRegTest AUD Account', asUserId(1));
-  assert.ok(!getBankAccounts(asBusinessName('My Business'), asLedgerName('Actual')).some((a) => a.name === 'BankRegTest AUD Account'));
+  assert.ok(!getBankAccounts(asBusinessName('admin'), asLedgerName('Actual')).some((a) => a.name === 'BankRegTest AUD Account'));
   assert.equal(getEntityLink('BankRegTest AUD Account', 'Bank Account'), undefined);
 });
 
 test('getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-planning design — anticipated AR receipts, committed AP payments, and genuinely recurring cash movements, never one-off historical postings', () => {
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'ForecastTest Account', asUserId(1));
-  registerBankAccount('ForecastTest Account', 'My Business', 'My Business', 100000, asUserId(1));
+  registerBankAccount('ForecastTest Account', 'admin', 'admin', 100000, asUserId(1));
   create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'ForecastTest Customer', asUserId(1));
   create(requireEntity('Accounts Payable', typeRootName), typeRootName, 'ForecastTest Vendor', asUserId(1));
 
@@ -4303,13 +4303,13 @@ test('getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-plann
   // "recurring" source. This is the exact, real bug found live: an
   // earlier version had no real filter for this at all, and every
   // real, historical posting flooded in.
-  stageLine({ reference: 'FCTEST-ONEOFF', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-01-10', account: asAccountName('ForecastTest Account'), amount_minor: -50000 });
-  stageLine({ reference: 'FCTEST-ONEOFF', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: '2027-01-10', account: asAccountName("Owner's Equity"), amount_minor: 50000 });
-  postJournalEntry('FCTEST-ONEOFF', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
+  stageLine({ reference: 'FCTEST-ONEOFF', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-01-10', account: asAccountName('ForecastTest Account'), amount_minor: -50000 });
+  stageLine({ reference: 'FCTEST-ONEOFF', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-01-10', account: asAccountName("Owner's Equity"), amount_minor: 50000 });
+  postJournalEntry('FCTEST-ONEOFF', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
 
   // A real, genuinely recurring monthly rent payment.
   createRecurringJournal(
-    asBusinessName('My Business'),
+    asBusinessName('admin'),
     asLedgerName('Actual'),
     'FCTEST-RENT',
     '2027-01-15',
@@ -4325,19 +4325,19 @@ test('getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-plann
 
   // A real, outstanding AR invoice, due within the horizon.
   const arInv = createInvoice(
-    { invoiceType: 'AR', business: 'My Business', ledger: 'Actual', reference: 'FCTEST-AR', counterpartyName: 'ForecastTest Customer', invoiceDate: '2027-01-01', description: 'Test', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 30000, amountMinor: 30000, taxMinor: 0 }] },
+    { invoiceType: 'AR', business: 'admin', ledger: 'Actual', reference: 'FCTEST-AR', counterpartyName: 'ForecastTest Customer', invoiceDate: '2027-01-01', description: 'Test', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 30000, amountMinor: 30000, taxMinor: 0 }] },
     asUserId(1)
   );
   postInvoice(arInv, 'Sales Revenue', 'Sales Tax Payable', asUserId(1));
 
   // A real, outstanding AP invoice, due within the horizon.
   const apInv = createInvoice(
-    { invoiceType: 'AP', business: 'My Business', ledger: 'Actual', reference: 'FCTEST-AP', counterpartyName: 'ForecastTest Vendor', invoiceDate: '2027-01-01', description: 'Test', lines: [{ description: 'Supplies', quantity: 1, unitPriceMinor: 15000, amountMinor: 15000, taxMinor: 0 }] },
+    { invoiceType: 'AP', business: 'admin', ledger: 'Actual', reference: 'FCTEST-AP', counterpartyName: 'ForecastTest Vendor', invoiceDate: '2027-01-01', description: 'Test', lines: [{ description: 'Supplies', quantity: 1, unitPriceMinor: 15000, amountMinor: 15000, taxMinor: 0 }] },
     asUserId(1)
   );
   postInvoice(apInv, 'Accounts Payable', 'Purchases Tax Claimed', asUserId(1));
 
-  const forecast = getCashFlowForecast(asBusinessName('My Business'), asLedgerName('Actual'), '2027-01-01', 90);
+  const forecast = getCashFlowForecast(asBusinessName('admin'), asLedgerName('Actual'), '2027-01-01', 90);
 
   // The real, critical property: the one-off posting must never appear.
   assert.ok(!forecast.lines.some((l) => l.description.includes('FCTEST-ONEOFF')), 'a real, ordinary one-off posting must never appear in the real, anticipated recurring source');
@@ -4392,9 +4392,9 @@ test('getCashFlowForecast: Layer 3 — a real, honest first-shortfall date and a
 });
 
 test("setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAncestorChain: the generic, reusable multi-dimension mechanism (docs/multi-dimensional-reporting.md) — a real, reversible up/down index per named dimension, never touching an entity's own relation_id", () => {
-  create(requireEntity('My Business', typeRootName), typeRootName, 'DimTest2 Springfield', asUserId(1));
-  create(requireEntity('My Business', typeRootName), typeRootName, 'DimTest2 Riverside Cellars', asUserId(1));
-  create(requireEntity('My Business', typeRootName), typeRootName, 'DimTest2 Uptown Wine', asUserId(1));
+  create(requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName)), typeRootName, 'DimTest2 Springfield', asUserId(1));
+  create(requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName)), typeRootName, 'DimTest2 Riverside Cellars', asUserId(1));
+  create(requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName)), typeRootName, 'DimTest2 Uptown Wine', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'DimTest2 Amber Ale Sales', asUserId(1));
 
   setDimensionParent('DimTest2 Riverside Cellars', 'Division/Location', 'DimTest2 Springfield', asUserId(1));
@@ -4476,18 +4476,18 @@ test('getProfitAndLossByDivision: "Consolidated per Division" — one real, full
   create(requireEntity('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division A', asUserId(1));
   create(requireEntity('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division B', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'PLDivTest3 Outlet A', asUserId(1));
-  setLocation('PLDivTest3 Outlet A', { city: 'PLDivTest3 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('PLDivTest3 Outlet A', { city: 'PLDivTest3 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   create(myBusinessLocationsRoot(), typeRootName, 'PLDivTest3 Outlet B', asUserId(1));
-  setLocation('PLDivTest3 Outlet B', { city: 'PLDivTest3 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('PLDivTest3 Outlet B', { city: 'PLDivTest3 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('PLDivTest3 Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PLDIVTEST3-REC-A', asItemName('PLDivTest3 Merlot'), asLocationName('PLDivTest3 Outlet A'), 20, asUserId(1), today);
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PLDIVTEST3-REC-B', asItemName('PLDivTest3 Merlot'), asLocationName('PLDivTest3 Outlet B'), 20, asUserId(1), today);
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'PLDIVTEST3-REC-A', asItemName('PLDivTest3 Merlot'), asLocationName('PLDivTest3 Outlet A'), 20, asUserId(1), today);
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'PLDIVTEST3-REC-B', asItemName('PLDivTest3 Merlot'), asLocationName('PLDivTest3 Outlet B'), 20, asUserId(1), today);
 
-  completePosSale({ business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLDivTest3 Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLDivTest3 Merlot', quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000 }, asUserId(1));
-  completePosSale({ business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLDivTest3 Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLDivTest3 Merlot', quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, asUserId(1));
+  completePosSale({ business: asBusinessName('admin'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLDivTest3 Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLDivTest3 Merlot', quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000 }, asUserId(1));
+  completePosSale({ business: asBusinessName('admin'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLDivTest3 Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLDivTest3 Merlot', quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, asUserId(1));
 
-  const result = getProfitAndLossByDivision(asBusinessName('My Business'), asLedgerName('Actual'), today, today);
+  const result = getProfitAndLossByDivision(asBusinessName('admin'), asLedgerName('Actual'), today, today);
   const divA = result.find((r) => r.division === 'PLDivTest3 Division A');
   const divB = result.find((r) => r.division === 'PLDivTest3 Division B');
   assert.ok(divA, 'a real division actually active in this date range must appear, derived structurally from a real, live sale at a real location within it');
@@ -4504,10 +4504,10 @@ test('getProfitAndLossByDivision: "Consolidated per Division" — one real, full
   // already carry other, earlier tests' own real, genuinely untagged
   // activity too.
   const noDivisionBefore = result.find((r) => r.division === null)?.profitAndLoss.total_income_minor ?? 0;
-  stageLine({ reference: 'PLDIVTEST3-3', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: today, account: asAccountName('Sales Revenue'), amount_minor: -7000 });
-  stageLine({ reference: 'PLDIVTEST3-3', business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), transdate: today, account: asAccountName('Cash and Bank'), amount_minor: 7000 });
-  postJournalEntry('PLDIVTEST3-3', asBusinessName('My Business'), asLedgerName('Actual'), asUserId(1));
-  const resultAfter = getProfitAndLossByDivision(asBusinessName('My Business'), asLedgerName('Actual'), today, today);
+  stageLine({ reference: 'PLDIVTEST3-3', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: today, account: asAccountName('Sales Revenue'), amount_minor: -7000 });
+  stageLine({ reference: 'PLDIVTEST3-3', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: today, account: asAccountName('Cash and Bank'), amount_minor: 7000 });
+  postJournalEntry('PLDIVTEST3-3', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
+  const resultAfter = getProfitAndLossByDivision(asBusinessName('admin'), asLedgerName('Actual'), today, today);
   const noDivisionAfter = resultAfter.find((r) => r.division === null)?.profitAndLoss.total_income_minor ?? 0;
   assert.equal(noDivisionAfter - noDivisionBefore, 7000, "(No division) must move by exactly this real, untagged posting's own amount — Division A's and B's own real activity must never leak into it");
   // Division A/B's own real totals must also stay exactly where they
@@ -4519,7 +4519,7 @@ test('getProfitAndLossByDivision: "Consolidated per Division" — one real, full
   // within this real ledger/date range must never appear at all — an
   // empty, meaningless report is worse than no report.
   create(requireEntity('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division Unused', asUserId(1));
-  const result2 = getProfitAndLossByDivision(asBusinessName('My Business'), asLedgerName('Actual'), today, today);
+  const result2 = getProfitAndLossByDivision(asBusinessName('admin'), asLedgerName('Actual'), today, today);
   assert.ok(!result2.some((r) => r.division === 'PLDivTest3 Division Unused'));
 });
 
@@ -4528,20 +4528,20 @@ test('getProfitAndLossByDivisionTree: "Consolidated per Division per Location" �
   create(requireEntity('PLTreeTest City', typeRootName), typeRootName, 'PLTreeTest Store A', asUserId(1));
   create(requireEntity('PLTreeTest City', typeRootName), typeRootName, 'PLTreeTest Store B', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'PLTreeTest Outlet A', asUserId(1));
-  setLocation('PLTreeTest Outlet A', { city: 'PLTreeTest Store A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('PLTreeTest Outlet A', { city: 'PLTreeTest Store A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   create(myBusinessLocationsRoot(), typeRootName, 'PLTreeTest Outlet B', asUserId(1));
-  setLocation('PLTreeTest Outlet B', { city: 'PLTreeTest Store B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('PLTreeTest Outlet B', { city: 'PLTreeTest Store B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('PLTreeTest Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PLTREETEST-REC-A', asItemName('PLTreeTest Merlot'), asLocationName('PLTreeTest Outlet A'), 20, asUserId(1), today);
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'PLTREETEST-REC-B', asItemName('PLTreeTest Merlot'), asLocationName('PLTreeTest Outlet B'), 20, asUserId(1), today);
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'PLTREETEST-REC-A', asItemName('PLTreeTest Merlot'), asLocationName('PLTreeTest Outlet A'), 20, asUserId(1), today);
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'PLTREETEST-REC-B', asItemName('PLTreeTest Merlot'), asLocationName('PLTreeTest Outlet B'), 20, asUserId(1), today);
 
   // The real, top-level "City" division genuinely never gets any
   // direct activity of its own — only its own, real child stores do.
-  completePosSale({ business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLTreeTest Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLTreeTest Merlot', quantity: 1, unitPriceMinor: 20000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 20000 }, asUserId(1));
-  completePosSale({ business: asBusinessName('My Business'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLTreeTest Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLTreeTest Merlot', quantity: 1, unitPriceMinor: 15000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 15000 }, asUserId(1));
+  completePosSale({ business: asBusinessName('admin'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLTreeTest Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLTreeTest Merlot', quantity: 1, unitPriceMinor: 20000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 20000 }, asUserId(1));
+  completePosSale({ business: asBusinessName('admin'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLTreeTest Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLTreeTest Merlot', quantity: 1, unitPriceMinor: 15000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 15000 }, asUserId(1));
 
-  const tree = getProfitAndLossByDivisionTree(asBusinessName('My Business'), asLedgerName('Actual'), today, today);
+  const tree = getProfitAndLossByDivisionTree(asBusinessName('admin'), asLedgerName('Actual'), today, today);
   const city = tree.find((n) => n.division === 'PLTreeTest City');
   assert.ok(city, "a real, top-level division must still appear, even with no real, direct activity of its own, so its own real children have somewhere real to nest");
   assert.equal(city!.profitAndLoss.total_income_minor, 0, "a real, synthesized-empty parent node must genuinely show zero, not some real, incorrect aggregate");
@@ -4608,16 +4608,16 @@ test('closeBooks: division is only a pure reporting dimension — every division
 
 test('completePosSale: the real, live wiring — a real sale with a real tier now genuinely ensures its own, real tier-level item, not just its own Sales/COGS accounts', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'PosWireTest2 Outlet', asUserId(1));
-  setLocation('PosWireTest2 Outlet', { city: 'PosWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('PosWireTest2 Outlet', { city: 'PosWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('PosWireTest2 Merlot', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'POSWIRE2-REC-1', asItemName('PosWireTest2 Merlot'), asLocationName('PosWireTest2 Outlet'), 20, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'POSWIRE2-REC-1', asItemName('PosWireTest2 Merlot'), asLocationName('PosWireTest2 Outlet'), 20, asUserId(1), '2027-01-01');
 
   // No revenueAccount override — this is the real, direct path a real
   // POS sale takes in production, exercising the real, new,
   // tier-resolving fallback logic directly.
   const result = completePosSale(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('PosWireTest2 Outlet'),
       customerName: asCustomerName('Cash Sale'),
@@ -4695,9 +4695,9 @@ test('ensureItemTierLocationLeaf: location becomes structural, the same real pat
   create(requireEntity('LocTest2 Beer', typeRootName), typeRootName, 'LocTest2 Ale', asUserId(1));
   create(requireEntity('LocTest2 Ale', typeRootName), typeRootName, 'LocTest2 Amber Ale 330ml', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'LocTest2 Riverside Cellars', asUserId(1));
-  setLocation('LocTest2 Riverside Cellars', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('LocTest2 Riverside Cellars', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   create(myBusinessLocationsRoot(), typeRootName, 'LocTest2 Uptown Wine', asUserId(1));
-  setLocation('LocTest2 Uptown Wine', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('LocTest2 Uptown Wine', { city: 'LocTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
 
   const bottle = ensureItemTier(asItemName('LocTest2 Amber Ale 330ml'), 'Bottle', asUserId(1));
   const locA = ensureItemTierLocationLeaf(bottle.tierItemName, asLocationName('LocTest2 Riverside Cellars'), asUserId(1), bottle.tierItemId);
@@ -4731,15 +4731,15 @@ test('ensureItemTierLocationLeaf: location becomes structural, the same real pat
 
 test('completePosSale: the real, live wiring — a real sale with both a real tier and a real, known location now genuinely ensures its own, real (tier, location) leaf, the real, actual posting target', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'LiveWireTest2 Outlet', asUserId(1));
-  setLocation('LiveWireTest2 Outlet', { city: 'LiveWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('LiveWireTest2 Outlet', { city: 'LiveWireTest2 City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   createItem('LiveWireTest2 Merlot', 'Items', asUserId(1));
-  receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), 'LWT2-REC-1', asItemName('LiveWireTest2 Merlot'), asLocationName('LiveWireTest2 Outlet'), 20, asUserId(1), '2027-01-01');
+  receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'LWT2-REC-1', asItemName('LiveWireTest2 Merlot'), asLocationName('LiveWireTest2 Outlet'), 20, asUserId(1), '2027-01-01');
 
   // No revenueAccount override — the real, direct, live path a real
   // POS sale takes in production.
   const result = completePosSale(
     {
-      business: asBusinessName('My Business'),
+      business: asBusinessName('admin'),
       ledger: asLedgerName('Actual'),
       locationName: asLocationName('LiveWireTest2 Outlet'),
       customerName: asCustomerName('Cash Sale'),
@@ -4774,7 +4774,7 @@ test('completePosSale: the real, live wiring — a real sale with both a real ti
 test('getLocationForAccount/getDivisionForAccount: the real, structural replacement for journal_line.division_id — walking a real account to its own, real, structural location and division, not reading a separate tag', () => {
   create(requireEntity('Divisions', typeRootName), typeRootName, 'DeriveTest2 Springfield', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'DeriveTest2 Outlet', asUserId(1));
-  setLocation('DeriveTest2 Outlet', { city: 'DeriveTest2 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('My Business'));
+  setLocation('DeriveTest2 Outlet', { city: 'DeriveTest2 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   create(requireEntity('Items', typeRootName), typeRootName, 'DeriveTest2 Beer', asUserId(1));
   create(requireEntity('DeriveTest2 Beer', typeRootName), typeRootName, 'DeriveTest2 Ale', asUserId(1));
   create(requireEntity('DeriveTest2 Ale', typeRootName), typeRootName, 'DeriveTest2 Amber Ale 330ml', asUserId(1));
@@ -5290,7 +5290,7 @@ test('climbInstanceTree/getCombinationByUpc: a real, scanned barcode resolves di
 });
 
 test('Currency exchange is genuinely a cartesian product (From x To), never one rate per currency - per direct instruction: N currencies means N*N ordered pairs, N of them trivial self-pairs always exactly 1, leaving N*(N-1) real, distinct, independently-configurable buy/sell rates', () => {
-  const biz = asBusinessName('My Business');
+  const biz = asBusinessName('admin');
   const currencies = ['CcyFxTest USD', 'CcyFxTest CAD', 'CcyFxTest EUR'];
   const pairs = listCurrencyPairs(currencies);
   assert.equal(pairs.length, 6, 'three real, distinct currencies genuinely produce 6 real, distinct, non-trivial ordered pairs (9 total, 3 of them trivial self-pairs, excluded here)');
@@ -5351,18 +5351,18 @@ test('getQualifiedDisplayName never doubles a real, already-qualified name - a r
 
 test('completePosSale, through a real, foreign-currency terminal at a real, nominated-currency location, correctly resolves the real, foreign price AND correctly posts the real payment into its own, real, currency-tagged "Cash at Bank" sibling - the real gap found and reported earlier this session, now closed per docs/multicurrency-design.md', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'FXPosTest Outlet', asUserId(1));
-  setLocation('FXPosTest Outlet', { city: 'FXPosTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('FXPosTest Outlet', { city: 'FXPosTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('admin'));
   nominateLocationCurrency('FXPosTest Outlet' as any, 'USD', asUserId(1));
   createEntityRaw({ name: 'FXPosTest Vendor', parent: 'Vendors' }, asUserId(1));
   createItem('FXPosTest Water', 'Items', asUserId(1));
   addOrUpdateItemSource({ itemName: 'FXPosTest Water', vendorName: 'FXPosTest Vendor', currency: 'USD', priceMinor: 150, isPreferred: true });
-  receiveItems('My Business' as any, 'Actual' as any, 'FXPOS-REC-1', 'FXPosTest Water' as any, 'FXPosTest Outlet' as any, 10, asUserId(1), '2027-01-02');
+  receiveItems('admin' as any, 'Actual' as any, 'FXPOS-REC-1', 'FXPosTest Water' as any, 'FXPosTest Outlet' as any, 10, asUserId(1), '2027-01-02');
   createPosTerminal('FXPosTest USD Till', 'FXPosTest Outlet' as any, asUserId(1));
   setTerminalCurrency('FXPosTest USD Till', 'USD');
 
   const sale = completePosSale(
     {
-      business: 'My Business' as any,
+      business: 'admin' as any,
       ledger: 'Actual' as any,
       locationName: 'FXPosTest Outlet' as any,
       customerName: 'Cash Sale' as any,
@@ -5397,7 +5397,7 @@ test('completePosSale, through a real, foreign-currency terminal at a real, nomi
 // ===========================================================================
 
 test('a business nominates one real home currency, stored in its own detail_json - per multicurrency-design.md, "Where currency lives, and precedence"', () => {
-  createEntityRaw({ name: 'HomeCcyTest Business', parent: 'Business' }, asUserId(1));
+  createEntityRaw({ name: 'HomeCcyTest Business', parent: 'Businesses' }, asUserId(1));
   assert.equal(getBusinessHomeCurrency('HomeCcyTest Business' as any), null, 'a real, genuinely unset business has no home currency yet - never a guessed default');
   setBusinessHomeCurrency('HomeCcyTest Business' as any, 'AUD', asUserId(1));
   assert.equal(getBusinessHomeCurrency('HomeCcyTest Business' as any), 'AUD');
@@ -5405,7 +5405,7 @@ test('a business nominates one real home currency, stored in its own detail_json
 
 test('a location nominates a real SET of currencies it trades in, not a single value - per multicurrency-design.md, "Where currency lives, and precedence"', () => {
   create(myBusinessLocationsRoot(), typeRootName, 'CcyLocTest Outlet', asUserId(1));
-  setLocation('CcyLocTest Outlet', { city: 'Test', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('CcyLocTest Outlet', { city: 'Test', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 10, timezone: 'UTC' }, asBusinessName('admin'));
   assert.deepEqual(getLocationCurrencies('CcyLocTest Outlet' as any), [], 'a real, genuinely ordinary location nominates nothing extra by default');
   nominateLocationCurrency('CcyLocTest Outlet' as any, 'USD', asUserId(1));
   nominateLocationCurrency('CcyLocTest Outlet' as any, 'EUR', asUserId(1));
@@ -5413,9 +5413,9 @@ test('a location nominates a real SET of currencies it trades in, not a single v
 });
 
 test('the fully worked example from multicurrency-design.md: a real sale through a real, nominated-currency location posts every real leg (Revenue, Tax, COGS, Cash) to its own, real, currency-tagged sibling, never converted, genuinely balancing entirely within its own real currency group', () => {
-  setBusinessHomeCurrency('My Business' as any, 'AUD', asUserId(1));
+  setBusinessHomeCurrency('admin' as any, 'AUD', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'WorkedEx Outlet', asUserId(1));
-  setLocation('WorkedEx Outlet', { city: 'Border Town', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('My Business'));
+  setLocation('WorkedEx Outlet', { city: 'Border Town', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 50, timezone: 'UTC' }, asBusinessName('admin'));
   nominateLocationCurrency('WorkedEx Outlet' as any, 'USD', asUserId(1));
   createPosTerminal('WorkedEx USD Till', 'WorkedEx Outlet' as any, asUserId(1));
   setTerminalCurrency('WorkedEx USD Till', 'USD');
@@ -5426,7 +5426,7 @@ test('the fully worked example from multicurrency-design.md: a real sale through
   // two separate facts, per the manual's own, explicit statement.
   addOrUpdateItemSource({ itemName: 'WorkedEx Ale', vendorName: 'WorkedEx Vendor', currency: 'AUD', priceMinor: 300, isPreferred: true });
   addOrUpdateItemSource({ itemName: 'WorkedEx Ale', vendorName: 'WorkedEx Vendor', currency: 'USD', priceMinor: 200, isPreferred: true });
-  receiveItems('My Business' as any, 'Actual' as any, 'WORKEDEX-REC-1', 'WorkedEx Ale' as any, 'WorkedEx Outlet' as any, 10, asUserId(1), '2027-01-02');
+  receiveItems('admin' as any, 'Actual' as any, 'WORKEDEX-REC-1', 'WorkedEx Ale' as any, 'WorkedEx Outlet' as any, 10, asUserId(1), '2027-01-02');
   addOrUpdateItemSource({ itemName: 'WorkedEx Ale', vendorName: 'WorkedEx Vendor', currency: 'USD', priceMinor: 500, isPreferred: true });
 
   // "Cash at Bank (USD)" is a real, global, shared account other
@@ -5437,7 +5437,7 @@ test('the fully worked example from multicurrency-design.md: a real sale through
 
   const sale = completePosSale(
     {
-      business: 'My Business' as any,
+      business: 'admin' as any,
       ledger: 'Actual' as any,
       locationName: 'WorkedEx Outlet' as any,
       customerName: 'Cash Sale' as any,
@@ -5472,17 +5472,17 @@ test('the fully worked example from multicurrency-design.md: a real sale through
 
 
 test('closeBooks: a real, foreign-currency Income account closes against its own, real, currency-tagged Retained Earnings sibling - never the plain, home-currency one, per docs/multicurrency-design.md. Also a real, confirmed regression fix: closing an already-fully-closed ledger a second time correctly rejects with "nothing to close", never a real, confusing PostingError instead', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('My Business', typeRootName)), typeRootName, 'CloseCcyTest Ledger', asUserId(1));
+  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'CloseCcyTest Ledger', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'CloseCcyTest Revenue', asUserId(1));
   setAccountCurrency('CloseCcyTest Revenue', 'USD');
   createEntityRaw({ name: 'CloseCcyTest Cash (USD)', parent: 'Asset' }, asUserId(1));
   setAccountCurrency('CloseCcyTest Cash (USD)', 'USD');
 
-  stageLine({ reference: 'CLOSECCY-1', business: asBusinessName('My Business'), ledger: asLedgerName('CloseCcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CloseCcyTest Revenue'), amount_minor: -50000 });
-  stageLine({ reference: 'CLOSECCY-1', business: asBusinessName('My Business'), ledger: asLedgerName('CloseCcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CloseCcyTest Cash (USD)'), amount_minor: 50000 });
-  postJournalEntry('CLOSECCY-1', asBusinessName('My Business'), asLedgerName('CloseCcyTest Ledger'), asUserId(1));
+  stageLine({ reference: 'CLOSECCY-1', business: asBusinessName('admin'), ledger: asLedgerName('CloseCcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CloseCcyTest Revenue'), amount_minor: -50000 });
+  stageLine({ reference: 'CLOSECCY-1', business: asBusinessName('admin'), ledger: asLedgerName('CloseCcyTest Ledger'), transdate: '2027-01-01', account: asAccountName('CloseCcyTest Cash (USD)'), amount_minor: 50000 });
+  postJournalEntry('CLOSECCY-1', asBusinessName('admin'), asLedgerName('CloseCcyTest Ledger'), asUserId(1));
 
-  const result = closeBooks(asBusinessName('My Business'), asLedgerName('CloseCcyTest Ledger'), '2027-01-31', "Owner's Equity", asUserId(1));
+  const result = closeBooks(asBusinessName('admin'), asLedgerName('CloseCcyTest Ledger'), '2027-01-31', "Owner's Equity", asUserId(1));
   assert.equal(result.accountsZeroed, 1);
 
   const retainedUsd = db.prepare(`SELECT a.balance_minor, a.currency FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name = ?`).get("Owner's Equity (USD)") as { balance_minor: number; currency: string } | undefined;
@@ -5496,7 +5496,7 @@ test('closeBooks: a real, foreign-currency Income account closes against its own
   // instead (a real bug, found directly, where this exact check had
   // been accidentally dropped while adding the currency-awareness
   // above).
-  assert.throws(() => closeBooks(asBusinessName('My Business'), asLedgerName('CloseCcyTest Ledger'), '2027-02-01', "Owner's Equity", asUserId(1)), ValidationError);
+  assert.throws(() => closeBooks(asBusinessName('admin'), asLedgerName('CloseCcyTest Ledger'), '2027-02-01', "Owner's Equity", asUserId(1)), ValidationError);
 });
 
 // ===========================================================================
@@ -5688,7 +5688,7 @@ test('postInvoice: a real, forced failure (posting to a non-existent account) ge
   setContact('PostRollbackTest Corp', { payment_terms_days: 14 });
   const invoiceId = createInvoice({
     invoiceType: 'AR',
-    business: 'My Business',
+    business: 'admin',
     ledger: 'Actual',
     reference: 'POSTROLLBACK-1',
     counterpartyName: 'PostRollbackTest Corp',

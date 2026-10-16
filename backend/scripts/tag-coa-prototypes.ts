@@ -18,7 +18,7 @@ const prototypeRepresentatives: Record<string, { business: string; ledger: strin
 // way, so a business's own prototype is directly, cheaply knowable
 // without re-deriving it from posting history every time.
 const businessPrototypes: Record<string, string> = {
-  'My Business': 'English CoA',
+  'admin': 'English CoA',
   'Wine Retail Business': 'English CoA',
   'BMW M GmbH': 'German CoA',
   'Peugeot Citroën Sochaux SNC': 'French CoA',

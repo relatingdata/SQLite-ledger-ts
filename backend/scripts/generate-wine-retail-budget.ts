@@ -1,7 +1,7 @@
 /**
  * A real Budget ledger for Wine Retail Business, covering the same
  * period as the real simulation (March 2027) — "Budget is just
- * another ledger," the same proven pattern My Business's own
+ * another ledger," the same proven pattern admin's own
  * "Proposed Growth Budget 2026-27" already uses.
  *
  * Posted at the aggregate level (Sales Revenue, Cost of Goods Sold,

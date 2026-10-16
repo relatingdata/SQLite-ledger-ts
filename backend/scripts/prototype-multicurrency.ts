@@ -57,21 +57,21 @@ async function main() {
   const usdPaid = 109000;
 
   // Entry 1: entirely in EUR, balances alone, no new validator needed.
-  stageLine({ reference: 'FX-BUY-1-EUR', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: 'Cash at Bank (EUR)', amount_minor: 100000 });
-  stageLine({ reference: 'FX-BUY-1-EUR', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: 'FX Conversion Clearing', amount_minor: -100000 });
-  postJournalEntry('FX-BUY-1-EUR', 'My Business', 'Actual', 1);
+  stageLine({ reference: 'FX-BUY-1-EUR', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: 'Cash at Bank (EUR)', amount_minor: 100000 });
+  stageLine({ reference: 'FX-BUY-1-EUR', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: 'FX Conversion Clearing', amount_minor: -100000 });
+  postJournalEntry('FX-BUY-1-EUR', 'admin', 'Actual', 1);
   console.log('EUR entry posted successfully through the REAL, unmodified postJournalEntry.');
 
   // Entry 2: entirely in USD, balances alone.
-  stageLine({ reference: 'FX-BUY-1-USD', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: 'FX Conversion Clearing', amount_minor: usdPaid });
-  stageLine({ reference: 'FX-BUY-1-USD', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: 'Delivery Fees', amount_minor: fee });
-  stageLine({ reference: 'FX-BUY-1-USD', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: 'Cash at Bank (USD)', amount_minor: -(usdPaid + fee) });
-  postJournalEntry('FX-BUY-1-USD', 'My Business', 'Actual', 1);
+  stageLine({ reference: 'FX-BUY-1-USD', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: 'FX Conversion Clearing', amount_minor: usdPaid });
+  stageLine({ reference: 'FX-BUY-1-USD', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: 'Delivery Fees', amount_minor: fee });
+  stageLine({ reference: 'FX-BUY-1-USD', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: 'Cash at Bank (USD)', amount_minor: -(usdPaid + fee) });
+  postJournalEntry('FX-BUY-1-USD', 'admin', 'Actual', 1);
   console.log('USD entry posted successfully through the REAL, unmodified postJournalEntry.');
   console.log('Two ordinary, already-supported entries — no per-currency grouping, no validator change.');
 
   // The EUR lot — cost basis is $1,090 (the exchange amount only, fee excluded).
-  receiveLot('My Business', 'Actual', 'FX-BUY-1-EUR-LOT', 'EUR', 'LOT-2027-01-01', '2027-01-01', null, 100000, 1);
+  receiveLot('admin', 'Actual', 'FX-BUY-1-EUR-LOT', 'EUR', 'LOT-2027-01-01', '2027-01-01', null, 100000, 1);
   console.log('EUR lot received: €1,000.00, cost basis implied by the $1,090 clearing amount (fee excluded).');
 
   console.log('\n=== Scenario 2: later spend €400 of it, when the rate has moved ===');
@@ -91,10 +91,10 @@ async function main() {
   if (realizedGainMinor !== 900) throw new Error('PROTOTYPE FAILURE: realized gain arithmetic wrong');
 
   // Realization — one more ordinary, single-currency (USD) entry.
-  stageLine({ reference: 'FX-SELL-1-USD', business: 'My Business', ledger: 'Actual', transdate: '2027-02-01', account: 'Cash at Bank (USD)', amount_minor: realizedAmountMinor });
-  stageLine({ reference: 'FX-SELL-1-USD', business: 'My Business', ledger: 'Actual', transdate: '2027-02-01', account: 'FX Conversion Clearing', amount_minor: -costBasisOfConsumedMinor });
-  stageLine({ reference: 'FX-SELL-1-USD', business: 'My Business', ledger: 'Actual', transdate: '2027-02-01', account: 'FX Gain/Loss', amount_minor: -realizedGainMinor });
-  postJournalEntry('FX-SELL-1-USD', 'My Business', 'Actual', 1);
+  stageLine({ reference: 'FX-SELL-1-USD', business: 'admin', ledger: 'Actual', transdate: '2027-02-01', account: 'Cash at Bank (USD)', amount_minor: realizedAmountMinor });
+  stageLine({ reference: 'FX-SELL-1-USD', business: 'admin', ledger: 'Actual', transdate: '2027-02-01', account: 'FX Conversion Clearing', amount_minor: -costBasisOfConsumedMinor });
+  stageLine({ reference: 'FX-SELL-1-USD', business: 'admin', ledger: 'Actual', transdate: '2027-02-01', account: 'FX Gain/Loss', amount_minor: -realizedGainMinor });
+  postJournalEntry('FX-SELL-1-USD', 'admin', 'Actual', 1);
   console.log('Realization entry posted successfully — another ordinary, single-currency entry.');
 
   console.log('\n=== ALL PROTOTYPE SCENARIOS PASSED ===');

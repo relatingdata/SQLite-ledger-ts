@@ -1,7 +1,7 @@
 # Logs in. No accounting, no entities beyond the session.
 "Login","admin","changeme123"
 # Chooses the working business before a new one exists.
-"Select Business","My Business"
+"Select Business","admin"
 # Creates the business, its Actual/Budget ledgers, a CoA skeleton, and
 # nominates its real home currency (AUD), per Chapter 3. Also exercises
 # the real CoA-prototype selector (kept at the real, same "English /

@@ -165,9 +165,9 @@ function migrateForWineRetailDemoData() {
   // - confirmed, not merely suspected, by this function's own locations
   // ("Head Office" among them) resolving to an unrelated, pre-existing
   // entity once the stricter ensureLocationCapacityAccount fix stopped
-  // tolerating the ambiguity. Scoped to "My Business", the same real
+  // tolerating the ambiguity. Scoped to "admin", the same real
   // business the stock-level seeding just below already uses.
-  const myBusinessEntity = requireEntity('My Business', typeBusinessName, requireEntity('Businesses', typeRootName));
+  const myBusinessEntity = requireEntity('admin', typeBusinessName, requireEntity('Businesses', typeRootName));
   let myBusinessLocationsRoot;
   try { myBusinessLocationsRoot = requireEntity('Locations', typeRootName, myBusinessEntity); } catch { myBusinessLocationsRoot = create(myBusinessEntity, typeRootName, 'Locations', SEED_USER_ID); }
   for (const loc of loadDemoLocations()) {
@@ -176,7 +176,7 @@ function migrateForWineRetailDemoData() {
     // elsewhere in the database and wrongly skipped creating My
     // Business's own, real location at all.
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(loc.name, myBusinessLocationsRoot.id)) create(myBusinessLocationsRoot, typeLocationEntityName, loc.name, SEED_USER_ID);
-    setLocation(loc.name, { city: loc.city, location_type: loc.locationType, is_billing_address: loc.isBilling, bottle_capacity: loc.bottleCap, carton_capacity: loc.cartonCap, timezone: loc.timezone }, asBusinessName('My Business'));
+    setLocation(loc.name, { city: loc.city, location_type: loc.locationType, is_billing_address: loc.isBilling, bottle_capacity: loc.bottleCap, carton_capacity: loc.cartonCap, timezone: loc.timezone }, asBusinessName('admin'));
   }
 
   for (const { name, subcategory } of loadDemoProducts()) {
@@ -195,10 +195,10 @@ function migrateForWineRetailDemoData() {
     }
   }
 
-  const myBusinessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('My Business') as { id: number }).id;
-  runInSessionContext({ userId: SEED_USER_ID, business: { id: myBusinessId, name: 'My Business' }, ledger: 'Actual' }, () => {
+  const myBusinessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get('admin') as { id: number }).id;
+  runInSessionContext({ userId: SEED_USER_ID, business: { id: myBusinessId, name: 'admin' }, ledger: 'Actual' }, () => {
     for (const { itemName, locationName, qty, minLevel, maxLevel, reorderLevel, shelfSide, rack, level } of loadDemoStockLevels()) {
-      receiveItems(asBusinessName('My Business'), asLedgerName('Actual'), `WINE-SEED-${itemName}-${locationName}`, asItemName(itemName), asLocationName(locationName), qty, SEED_USER_ID, '2026-01-01');
+      receiveItems(asBusinessName('admin'), asLedgerName('Actual'), `WINE-SEED-${itemName}-${locationName}`, asItemName(itemName), asLocationName(locationName), qty, SEED_USER_ID, '2026-01-01');
       setItemLocationLevels(asItemName(itemName), asLocationName(locationName), { minLevel, maxLevel, reorderLevel, shelfSide, rack, level });
     }
   });

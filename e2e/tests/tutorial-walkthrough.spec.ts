@@ -32,7 +32,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   // Business' — the one, real, always-present dummy company for
   // login purposes — never Wine Retail Business, which may not exist
   // at all (SEED_DEMO_BUSINESSES=false).
-  await page.locator('select').first().selectOption({ label: 'My Business' });
+  await page.locator('select').first().selectOption({ label: 'admin' });
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: /continue/i }).click();
   await page.waitForURL((url) => url.pathname === '/');

@@ -78,12 +78,12 @@ async function main() {
   // valid, but not yet doing the real currency-aware check itself
   // (that's the actual implementation work still to come).
   for (const line of validLines) {
-    stageLine({ reference: 'FX-BUY-1', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: line.account, amount_minor: line.amount_minor });
+    stageLine({ reference: 'FX-BUY-1', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: line.account, amount_minor: line.amount_minor });
   }
   const { postJournalEntry } = await import('../src/db.js');
-  postJournalEntry('FX-BUY-1', 'My Business', 'Actual', 1);
+  postJournalEntry('FX-BUY-1', 'admin', 'Actual', 1);
   console.log('Posted successfully as ONE journal entry with one reference — confirmed via journal listing:');
-  const posted = listJournalEntries('My Business', 'Actual', 50, 0).find((e) => e.reference === 'FX-BUY-1');
+  const posted = listJournalEntries('admin', 'Actual', 50, 0).find((e) => e.reference === 'FX-BUY-1');
   console.log('  Entry found:', posted ? `reference=${posted.reference}, one row, not split` : 'NOT FOUND');
   if (!posted) throw new Error('PROTOTYPE FAILURE: expected exactly one journal entry for FX-BUY-1');
 

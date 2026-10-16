@@ -139,24 +139,38 @@ if (!alreadyInitialized) {
   // Per direct, standing instruction: 00-core.sql itself now carries
   // NO business or demo data of any kind, not even unowned/global
   // template furniture — only structural entities, vocabulary/
-  // translations, and the admin user. Every real demo business (BMW
-  // M GmbH, Peugeot Citroën Sochaux SNC, Ditta Italiana Srl, Schweizer
-  // KMU AG) lives entirely in its own, separately-gated file, loaded
-  // as a whole unit below — never as a content-pattern filter over
-  // 00-core.sql's own text (a real, confirmed gap in that old
-  // approach left two businesses' own child ledger entities behind as
-  // dangling parent_id rows, caught directly by a real integrity
-  // check, since a line-pattern filter only ever removes the lines it
-  // was written to recognize — a business's own name — not every
-  // line that depends on it). So a 'My Business' (the one dummy
-  // company for login) should exist, so a person can build a real
-  // business from scratch via the application itself rather than have
-  // one pre-populated.
+  // translations, and the admin user. Every real demo business lives
+  // entirely in its own, separately-gated file, loaded as a whole
+  // unit below — never as a content-pattern filter over 00-core.sql's
+  // own text (a real, confirmed gap in that old approach left two
+  // businesses' own child ledger entities behind as dangling
+  // parent_id rows, caught directly by a real integrity check, since
+  // a line-pattern filter only ever removes the lines it was written
+  // to recognize — a business's own name — not every line that
+  // depends on it). So a 'admin' (the one dummy company for
+  // login) should exist, so a person can build a real business from
+  // scratch via the application itself rather than have one
+  // pre-populated.
   const seedDemoBusinesses = process.env.SEED_DEMO_BUSINESSES !== 'false';
+  // A real, separate flag, per direct request: BMW M GmbH, Peugeot
+  // Citroën Sochaux SNC, Ditta Italiana Srl, and Schweizer KMU AG are
+  // genuinely foreign demo businesses (German/French/Italian/Swiss),
+  // not the application's own primary demo business — they don't
+  // belong in the application's normal initial data, so they default
+  // to OFF, unlike Wine Retail Business (SEED_DEMO_BUSINESSES,
+  // default ON, unaffected by this flag — see 20-demo-wine-retail.sql).
+  // Set SEED_FOREIGN_BUSINESSES=true to load them when genuinely
+  // wanted (demonstrating multi-currency/multi-language CoA data,
+  // say). Implicitly OFF whenever seedDemoBusinesses itself is OFF,
+  // same as every other piece of demo data.
+  const seedForeignBusinesses = seedDemoBusinesses && process.env.SEED_FOREIGN_BUSINESSES === 'true';
   const readSchema = (f: string) => fs.readFileSync(path.join(schemaDir, f), 'utf8');
 
   db.exec(readSchema('00-core.sql'));
   if (seedDemoBusinesses) {
+    db.exec(readSchema('20-demo-wine-retail.sql'));
+  }
+  if (seedForeignBusinesses) {
     db.exec(readSchema('20-demo-bmw-peugeot.sql'));
     db.exec(readSchema('20-demo-italian-swiss.sql'));
   }
@@ -395,7 +409,7 @@ export interface EntityNode {
  * alone can't distinguish an account (Rent, at depth 4 under Chart of
  * Accounts > Expense) from something that happens to sit at the same
  * depth for an unrelated reason (Actual, a LEDGER, at depth 3 under
- * Businesses > My Business) — a real, reproduced bug where several
+ * Businesses > admin) — a real, reproduced bug where several
  * screens' account pickers used exactly that heuristic and picked up
  * ledgers, vocabulary words, and other non-account entities purely by
  * depth coincidence.
@@ -1214,7 +1228,7 @@ export function getOrganizationChart(businessName: BusinessName): OrganizationCh
       db
         .prepare(
           `SELECT e.name FROM current_entities e
-           WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`
+           WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`
         )
         .all(businessName) as { name: string }[]
     ).map((r) => r.name)
@@ -1397,9 +1411,9 @@ function ensureSystemInvoicesRoot(userId: UserId): { id: number } {
 }
 
 export function createInvoice(input: InvoiceInput, userId: UserId): number {
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.business) as { id: number } | undefined)?.id;
+  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(input.business) as { id: number } | undefined)?.id;
   if (!businessId) throw new ValidationError(`No business named "${input.business}".`);
-  const ledgerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.ledger) as { id: number } | undefined)?.id;
+  const ledgerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = ?)`).get(input.ledger, businessId) as { id: number } | undefined)?.id;
   if (!ledgerId) throw new ValidationError(`No ledger named "${input.ledger}".`);
   const counterpartyId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.counterpartyName) as { id: number } | undefined)
     ?.id;
@@ -1792,9 +1806,10 @@ export function confirmPickedLine(invoiceId: number, invoiceLineId: number, busi
   const ref = `${invoice.reference}-PICK-${invoiceLineId}`;
   const already = db.prepare(`SELECT 1 FROM journal WHERE reference = ?`).get(ref);
   if (already) return; // idempotent — ticking an already-ticked line does nothing, not a duplicate real record
-  db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES ((SELECT id FROM current_entities WHERE name = ?), (SELECT id FROM current_entities WHERE name = ?), ?, ?, date('now'), ?)`).run(
+  db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES ((SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')), (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))), ?, ?, date('now'), ?)`).run(
     business,
     ledger,
+    business,
     ref,
     'Picking list line confirmed picked',
     userId
@@ -1880,9 +1895,10 @@ export function confirmRestockPickedLine(runReference: string, itemName: string,
   const ref = `${runReference}-PICK-${itemName}`;
   const already = db.prepare(`SELECT 1 FROM journal WHERE reference = ?`).get(ref);
   if (already) return;
-  db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES ((SELECT id FROM current_entities WHERE name = ?), (SELECT id FROM current_entities WHERE name = ?), ?, ?, date('now'), ?)`).run(
+  db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES ((SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')), (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))), ?, ?, date('now'), ?)`).run(
     business,
     ledger,
+    business,
     ref,
     'Restocking run line confirmed picked',
     userId
@@ -2075,7 +2091,7 @@ export function postInvoice(
   }
 
   const journalId = (
-    db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`)
+    db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))`)
       .get(invoice.reference, invoice.business, invoice.ledger, invoice.business) as { id: number }
   ).id;
   Entity.mergeDetailJson(id, JSON.stringify({ status: 'posted', posted_journal_id: journalId }));
@@ -2916,7 +2932,7 @@ export function getCombinationByUpc(upc: string): { itemName: string; combinatio
  * leaf created under this header always lands on this business's own
  * copy, never the shared, global template. Falls back to the old,
  * bare, global lookup only when this specific business genuinely has
- * no own CoA copy at all (the legacy "My Business" case, which never
+ * no own CoA copy at all (the legacy "admin" case, which never
  * gets a real Chart of Accounts of its own) — never silently, always
  * as a last resort, mirroring the trigger's own COALESCE fallback. */
 export function resolveBusinessCoaAccountId(businessName: BusinessName, accountName: string): number {
@@ -3269,7 +3285,7 @@ export interface HierarchyGroupingWithValues {
 
 export function getBusinessHierarchy(businessName: BusinessName): HierarchyGroupingWithValues[] {
   const hierarchyId = (
-    db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(businessName) as
+    db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`).get(businessName) as
       | { id: number }
       | undefined
   )?.id;
@@ -3286,12 +3302,12 @@ export function getBusinessHierarchy(businessName: BusinessName): HierarchyGroup
  * Hierarchy grouping it points at. */
 export function getBusinessProductShapes(businessName: BusinessName): [string, string][][] {
   const productId = (
-    db.prepare(`SELECT id FROM current_entities WHERE name = 'Product' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(businessName) as
+    db.prepare(`SELECT id FROM current_entities WHERE name = 'Product' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`).get(businessName) as
       | { id: number }
       | undefined
   )?.id;
   const hierarchyId = (
-    db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(businessName) as
+    db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`).get(businessName) as
       | { id: number }
       | undefined
   )?.id;
@@ -5511,7 +5527,7 @@ export function registerBankAccount(accountName: string, business: string, scope
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(accountName)) {
     throw new ValidationError(`No account named "${accountName}".`);
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(business)) {
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(business)) {
     throw new ValidationError(`No real business named "${business}".`);
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(scopeName)) {
@@ -6265,7 +6281,7 @@ export function getItemPriceForCurrency(itemName: string, currency: string | nul
  * extension mechanism `contact`/`item_source` already use. NULL is a
  * real, valid, unset state - never a guessed default. */
 export function setBusinessHomeCurrency(businessName: string, currencyCode: string, userId: UserId): void {
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(businessName) as { id: number } | undefined)?.id;
+  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined)?.id;
   if (!businessId) throw new ValidationError(`No business named "${businessName}".`);
   const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(businessId) as { detail_json: string | null } | undefined;
   const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
@@ -6273,7 +6289,7 @@ export function setBusinessHomeCurrency(businessName: string, currencyCode: stri
 }
 
 export function getBusinessHomeCurrency(businessName: string): string | null {
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE name = ?`).get(businessName) as { detail_json: string | null } | undefined;
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { detail_json: string | null } | undefined;
   if (!row?.detail_json) return null;
   return JSON.parse(row.detail_json).home_currency ?? null;
 }
@@ -6535,7 +6551,7 @@ export interface MenuSectionRow {
  * entirely, this returns the exact, same, unmodified, real, global
  * default menu step 1/2 already provide. */
 export function getMenuTree(opts?: { businessName?: string; userId?: number }): MenuSectionRow[] {
-  const businessId = opts?.businessName ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(opts.businessName) as { id: number } | undefined)?.id : undefined;
+  const businessId = opts?.businessName ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(opts.businessName) as { id: number } | undefined)?.id : undefined;
 
   // A real menu override lives as a real, direct child entity of the
   // menu item itself — the exact, same, established setEntityLink
@@ -6831,7 +6847,7 @@ export function getLocalizedText(language: string, opts?: { businessName?: strin
   for (const r of rows) map[r.entity] = r.text;
 
   if (!opts?.businessName && !opts?.userId) return map;
-  const businessId = opts.businessName ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(opts.businessName) as { id: number } | undefined)?.id : undefined;
+  const businessId = opts.businessName ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(opts.businessName) as { id: number } | undefined)?.id : undefined;
   const preferences = db
     .prepare(
       `SELECT pref.parent_id AS concept_id, alt.name AS alternate_name, tag.name AS scope
@@ -6999,7 +7015,7 @@ export function getBusinesses(): { id: number; name: BusinessName }[] {
  * select and then find no real accounts postable to it. */
 export function getLedgers(businessName: BusinessName): { id: number; name: LedgerName }[] {
   return db
-    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`)
+    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
     .all(businessName) as { id: number; name: LedgerName }[];
 }
 
@@ -7014,7 +7030,7 @@ export function getLedgers(businessName: BusinessName): { id: number; name: Ledg
  * business_reports correctly reuses them for every business. But the
  * real, named LEAF accounts underneath are genuinely country-specific
  * prototypes that already exist as real, distinct entities: "Cash and
- * Bank"/"Sales Revenue" (English/generic, used by My Business and
+ * Bank"/"Sales Revenue" (English/generic, used by admin and
  * Wine Retail Business), "Bankkontokorrent"/"Umsatzerlöse" (German,
  * BMW M GmbH), "Autres créances"/"Achats de marchandises" (French,
  * Peugeot), "Cassa e valori"/"Ricavi cessione beni" (Italian, Ditta
@@ -7054,7 +7070,7 @@ export function getLedgers(businessName: BusinessName): { id: number; name: Ledg
  * See docs/entity-model.md and docs/TODO.md.
  *
  * Creates two real ledgers, not one — "Budget is just another
- * ledger," the same proven pattern My Business's own real "Proposed
+ * ledger," the same proven pattern admin's own real "Proposed
  * Growth Budget 2026-27" ledger already uses, and the same one this
  * project already built a real, working Budget-vs-Actual comparison
  * against for Wine Retail Business (see
@@ -7677,7 +7693,7 @@ export function createBusiness(
   // real relation mechanism the demo businesses already use.
   if (coaPrototype) {
     supersedeEntity(
-      (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(businessName) as { id: number }).id,
+      (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number }).id,
       { relation: coaPrototype },
       userId
     );

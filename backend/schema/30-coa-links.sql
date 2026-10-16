@@ -90,7 +90,7 @@ INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Merci destinate alla rivendita'), 'Merci destinate alla rivendita', 'Expense', 'Italian CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Miscellaneous'), 'Miscellaneous', 'Expense', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Mosel Riesling 2022'), 'Mosel Riesling 2022', 'Riesling', 'English CoA', 1);
-INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'My Business'), 'My Business', 'Businesses', 'English CoA', 1);
+INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'admin'), 'admin', 'Businesses', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Napa Ridge Cabernet Sauvignon 2020'), 'Napa Ridge Cabernet Sauvignon 2020', 'Cabernet Sauvignon', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Office'), 'Office', 'Expense', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Other Income'), 'Other Income', 'Income', 'English CoA', 1);

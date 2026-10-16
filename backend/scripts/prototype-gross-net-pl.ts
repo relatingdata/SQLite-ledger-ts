@@ -18,19 +18,19 @@ async function main() {
   supersedeEntity(cogsAccount.id, { relation: 'COGS' }, 1);
 
   console.log('\n=== Post real revenue, COGS, and an ordinary operating expense ===');
-  create(requireEntity('My Business', typeRootName), typeRootName, 'GNTest Ledger', 1);
+  create(requireEntity('admin', typeRootName), typeRootName, 'GNTest Ledger', 1);
 
-  stageLine({ reference: 'GNTEST-1', business: 'My Business', ledger: 'GNTest Ledger', transdate: '2027-01-01', account: 'Sales Revenue', amount_minor: -100000 }); // $1,000 revenue
-  stageLine({ reference: 'GNTEST-1', business: 'My Business', ledger: 'GNTest Ledger', transdate: '2027-01-01', account: 'Cash and Bank', amount_minor: 100000 });
-  postJournalEntry('GNTEST-1', 'My Business', 'GNTest Ledger', 1);
+  stageLine({ reference: 'GNTEST-1', business: 'admin', ledger: 'GNTest Ledger', transdate: '2027-01-01', account: 'Sales Revenue', amount_minor: -100000 }); // $1,000 revenue
+  stageLine({ reference: 'GNTEST-1', business: 'admin', ledger: 'GNTest Ledger', transdate: '2027-01-01', account: 'Cash and Bank', amount_minor: 100000 });
+  postJournalEntry('GNTEST-1', 'admin', 'GNTest Ledger', 1);
 
-  stageLine({ reference: 'GNTEST-2', business: 'My Business', ledger: 'GNTest Ledger', transdate: '2027-01-02', account: 'Cost of Goods Sold', amount_minor: 40000 }); // $400 COGS
-  stageLine({ reference: 'GNTEST-2', business: 'My Business', ledger: 'GNTest Ledger', transdate: '2027-01-02', account: 'Cash and Bank', amount_minor: -40000 });
-  postJournalEntry('GNTEST-2', 'My Business', 'GNTest Ledger', 1);
+  stageLine({ reference: 'GNTEST-2', business: 'admin', ledger: 'GNTest Ledger', transdate: '2027-01-02', account: 'Cost of Goods Sold', amount_minor: 40000 }); // $400 COGS
+  stageLine({ reference: 'GNTEST-2', business: 'admin', ledger: 'GNTest Ledger', transdate: '2027-01-02', account: 'Cash and Bank', amount_minor: -40000 });
+  postJournalEntry('GNTEST-2', 'admin', 'GNTest Ledger', 1);
 
-  stageLine({ reference: 'GNTEST-3', business: 'My Business', ledger: 'GNTest Ledger', transdate: '2027-01-03', account: 'Rent', amount_minor: 20000 }); // $200 rent (ordinary operating expense)
-  stageLine({ reference: 'GNTEST-3', business: 'My Business', ledger: 'GNTest Ledger', transdate: '2027-01-03', account: 'Cash and Bank', amount_minor: -20000 });
-  postJournalEntry('GNTEST-3', 'My Business', 'GNTest Ledger', 1);
+  stageLine({ reference: 'GNTEST-3', business: 'admin', ledger: 'GNTest Ledger', transdate: '2027-01-03', account: 'Rent', amount_minor: 20000 }); // $200 rent (ordinary operating expense)
+  stageLine({ reference: 'GNTEST-3', business: 'admin', ledger: 'GNTest Ledger', transdate: '2027-01-03', account: 'Cash and Bank', amount_minor: -20000 });
+  postJournalEntry('GNTEST-3', 'admin', 'GNTest Ledger', 1);
 
   console.log('\n=== Compute Gross Profit / Net Profit directly from the tag ===');
   const pl = getProfitAndLoss('GNTest Ledger');

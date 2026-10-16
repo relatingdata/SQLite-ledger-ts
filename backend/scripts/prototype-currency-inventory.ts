@@ -55,16 +55,16 @@ async function main() {
   const usd = setupCurrency('USD');
 
   console.log('\n=== Buy €1,000 for $1,090 + $15 fee — one journal, two currency groups ===');
-  stageLine({ reference: 'FX-BUY-1', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: eur.bank, amount_minor: 100000 });
-  stageLine({ reference: 'FX-BUY-1', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: eur.clearing, amount_minor: -100000 });
-  stageLine({ reference: 'FX-BUY-1', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: usd.clearing, amount_minor: 109000 });
-  stageLine({ reference: 'FX-BUY-1', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: usd.fees, amount_minor: 1500 });
-  stageLine({ reference: 'FX-BUY-1', business: 'My Business', ledger: 'Actual', transdate: '2027-01-01', account: usd.bank, amount_minor: -110500 });
-  postJournalEntry('FX-BUY-1', 'My Business', 'Actual', 1);
+  stageLine({ reference: 'FX-BUY-1', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: eur.bank, amount_minor: 100000 });
+  stageLine({ reference: 'FX-BUY-1', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: eur.clearing, amount_minor: -100000 });
+  stageLine({ reference: 'FX-BUY-1', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: usd.clearing, amount_minor: 109000 });
+  stageLine({ reference: 'FX-BUY-1', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: usd.fees, amount_minor: 1500 });
+  stageLine({ reference: 'FX-BUY-1', business: 'admin', ledger: 'Actual', transdate: '2027-01-01', account: usd.bank, amount_minor: -110500 });
+  postJournalEntry('FX-BUY-1', 'admin', 'Actual', 1);
   console.log('Posted successfully as ONE journal entry with real, currency-specific Inventory/Clearing/Fee accounts.');
 
   // The EUR lot — cost basis is $1,090 (the exchange amount only, fee excluded), tracked against the EUR item itself.
-  receiveLot('My Business', 'Actual', 'FX-BUY-1-EUR-LOT', 'EUR', 'LOT-2027-01-01', '2027-01-01', null, 100000, 1);
+  receiveLot('admin', 'Actual', 'FX-BUY-1-EUR-LOT', 'EUR', 'LOT-2027-01-01', '2027-01-01', null, 100000, 1);
   console.log("EUR lot received against the EUR item — the SAME entity whose 'Cash at Bank (EUR)' is the real GL Inventory account.");
 
   console.log('\n=== Spend €400 later, rate has moved, realize gain/loss ===');
@@ -79,12 +79,12 @@ async function main() {
   console.log('Realized gain (expect 900):', realizedGainMinor);
   if (costBasisOfConsumedMinor !== 43600 || realizedGainMinor !== 900) throw new Error('PROTOTYPE FAILURE: arithmetic wrong');
 
-  stageLine({ reference: 'FX-SELL-1', business: 'My Business', ledger: 'Actual', transdate: '2027-02-01', account: eur.bank, amount_minor: -40000 });
-  stageLine({ reference: 'FX-SELL-1', business: 'My Business', ledger: 'Actual', transdate: '2027-02-01', account: eur.clearing, amount_minor: 40000 });
-  stageLine({ reference: 'FX-SELL-1', business: 'My Business', ledger: 'Actual', transdate: '2027-02-01', account: usd.clearing, amount_minor: -costBasisOfConsumedMinor });
-  stageLine({ reference: 'FX-SELL-1', business: 'My Business', ledger: 'Actual', transdate: '2027-02-01', account: usd.gainLoss, amount_minor: -realizedGainMinor });
-  stageLine({ reference: 'FX-SELL-1', business: 'My Business', ledger: 'Actual', transdate: '2027-02-01', account: usd.bank, amount_minor: realizedAmountMinor });
-  postJournalEntry('FX-SELL-1', 'My Business', 'Actual', 1);
+  stageLine({ reference: 'FX-SELL-1', business: 'admin', ledger: 'Actual', transdate: '2027-02-01', account: eur.bank, amount_minor: -40000 });
+  stageLine({ reference: 'FX-SELL-1', business: 'admin', ledger: 'Actual', transdate: '2027-02-01', account: eur.clearing, amount_minor: 40000 });
+  stageLine({ reference: 'FX-SELL-1', business: 'admin', ledger: 'Actual', transdate: '2027-02-01', account: usd.clearing, amount_minor: -costBasisOfConsumedMinor });
+  stageLine({ reference: 'FX-SELL-1', business: 'admin', ledger: 'Actual', transdate: '2027-02-01', account: usd.gainLoss, amount_minor: -realizedGainMinor });
+  stageLine({ reference: 'FX-SELL-1', business: 'admin', ledger: 'Actual', transdate: '2027-02-01', account: usd.bank, amount_minor: realizedAmountMinor });
+  postJournalEntry('FX-SELL-1', 'admin', 'Actual', 1);
   console.log('Realization posted successfully — one journal, two currency groups, each balanced independently.');
 
   console.log('\n=== Confirm: real bank account balance reflects real holdings ===');

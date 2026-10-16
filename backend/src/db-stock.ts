@@ -129,8 +129,19 @@ export function createLocationType(name: string, userId: UserId): void {
 // pre-existing entity of the same name under a different business,
 // leaving the real, new location with no contact row at all.
 export function setLocation(name: string, location: Location, business?: BusinessName): void {
+  // The business name itself must be scoped to a real child of
+  // "Businesses" too, not just the location under it - confirmed,
+  // directly, a real, second instance of this same bare-name bug:
+  // renaming the one dummy bootstrap business to "admin" (the same
+  // literal name as the System Users login) tripped this exact,
+  // unscoped lookup, which silently resolved to the login user
+  // (which has no "Locations" child at all) instead of the business,
+  // breaking this call outright. Part of a full, direct sweep of
+  // every bare business-name lookup in the backend once this one was
+  // found - the business is now genuinely nameable as anything,
+  // "admin" included, without depending on being the only match.
   const id = (business
-    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`).get(name, business) as { id: number } | undefined)
+    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`).get(name, business) as { id: number } | undefined)
     : (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name) as { id: number } | undefined)
   )?.id;
   if (!id) throw new ValidationError(`No location named "${name}".`);
@@ -192,7 +203,7 @@ export function getLocation(name: string, business?: BusinessName): Location | u
         `SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone, e.id as entity_id
          FROM contact c
          JOIN current_entities e ON e.id = c.entity_id
-         WHERE e.name = ? AND e.parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`
+         WHERE e.name = ? AND e.parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`
       ).get(name, business)
     : db.prepare(
         `SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone, e.id as entity_id
@@ -406,9 +417,9 @@ export function ensureLocationCapacityAccount(business: BusinessName, ledger: Le
   const locationId = (
     db.prepare(
       `SELECT id FROM current_entities WHERE name = ? AND parent_id IN (
-         SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)
+         SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))
          UNION
-         SELECT id FROM current_entities WHERE name = ? || ' Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)
+         SELECT id FROM current_entities WHERE name = ? || ' Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))
        )`
     ).get(locationName, business, business, business) as { id: number } | undefined
   )?.id;
@@ -672,7 +683,7 @@ function allPreferredProviders(): Map<string, string> {
 
 export function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport {
   const ledgerId = (
-    db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`)
+    db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
       .get(ledgerName, business) as { id: number } | undefined
   )?.id;
   if (!ledgerId) throw new ValidationError(`No real ledger named "${ledgerName}" under "${business}".`);

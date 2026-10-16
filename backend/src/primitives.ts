@@ -47,8 +47,16 @@ export const Entity = {
     if (typeof idOrName === 'number') return _getEntity(idOrName) ?? undefined;
     if (parent === undefined) {
       // A real, bare by-name lookup — only safe when the real name is
-      // already known to be globally unique (Vocabulary, a business
-      // name, a language) — every other real caller must pass parent.
+      // already known to be globally unique (Vocabulary, a language) —
+      // every other real caller must pass parent. A business name is
+      // NOT safe here, despite an earlier version of this comment
+      // claiming otherwise: confirmed directly, a business can share
+      // a bare name with something else entirely (the admin login
+      // user, tried as a real business name) and this lookup has no
+      // way to tell them apart. Every real business lookup elsewhere
+      // in this codebase is scoped to parent 'Businesses' for exactly
+      // this reason - do the same here if ever calling Entity.get
+      // with a business name.
       return db.prepare(`SELECT id, name, parent_id, relation_id FROM current_entities WHERE name = ?`).get(idOrName) as any;
     }
     return db

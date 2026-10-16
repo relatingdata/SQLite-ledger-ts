@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-with-foreign dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -81,9 +81,27 @@ dev:
 # seedRemainingData runs every time the backend loads, so a plain
 # `make dev` afterwards would silently re-seed the demo businesses.
 dev-no-demo:
-	@echo "Starting backend (:3001, only 'My Business' — no demo businesses) and frontend (:5173) — Ctrl+C stops both."
+	@echo "Starting backend (:3001, only 'admin' — no demo businesses) and frontend (:5173) — Ctrl+C stops both."
 	@( \
 	  cd backend && SEED_DEMO_BUSINESSES=false $(RUN_NPM_SCRIPT) dev & \
+	  BACKEND_PID=$$!; \
+	  cd frontend && $(RUN_NPM_SCRIPT) dev & \
+	  FRONTEND_PID=$$!; \
+	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
+	  wait \
+	)
+
+# Same as `dev` above, plus the genuinely foreign demo businesses
+# (BMW M GmbH, Peugeot Citroën Sochaux SNC, Ditta Italiana Srl,
+# Schweizer KMU AG) — off by default (see 20-demo-bmw-peugeot.sql /
+# 20-demo-italian-swiss.sql / db.ts's SEED_FOREIGN_BUSINESSES flag)
+# since they don't belong in the application's own normal initial
+# data; this target is the explicit, opt-in way to get them back,
+# e.g. to demonstrate multi-currency/multi-language CoA data.
+dev-with-foreign:
+	@echo "Starting backend (:3001, every demo business including BMW/Peugeot/Ditta Italiana/Schweizer KMU) and frontend (:5173) — Ctrl+C stops both."
+	@( \
+	  cd backend && SEED_FOREIGN_BUSINESSES=true $(RUN_NPM_SCRIPT) dev & \
 	  BACKEND_PID=$$!; \
 	  cd frontend && $(RUN_NPM_SCRIPT) dev & \
 	  FRONTEND_PID=$$!; \
@@ -257,7 +275,7 @@ ensure-servers:
 # The exact, same, real, detached-server pattern as ensure-servers
 # above, but for the one, real, recurring case that one had no answer
 # for at all: driving the real UI path (a driven browser) against a
-# database with only the one, real, dummy "My Business" - no Wine
+# database with only the one, real, dummy "admin" - no Wine
 # Retail Business, no BMW/Peugeot/Ditta/Schweizer - the exact, same
 # real data `make dev-no-demo` gives a person at a real keyboard, but
 # detached, so a real, unattended script (step-runner's own `--path

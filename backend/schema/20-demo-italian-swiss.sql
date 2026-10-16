@@ -10,6 +10,14 @@
 -- was filtered out by its name appearing literally in that line;
 -- its child ledgers, referencing it only by bare numeric parent_id,
 -- were not), caught directly by a real integrity check.
+--
+-- Both are genuinely foreign demo businesses (Italian/Swiss), not
+-- the application's own primary demo business — per direct request,
+-- this file is now gated specifically behind SEED_FOREIGN_BUSINESSES
+-- (default false, see db.ts), alongside 20-demo-bmw-peugeot.sql,
+-- separately from SEED_DEMO_BUSINESSES (default true), which alone
+-- controls the real, primary Wine Retail Business data in its own
+-- 20-demo-wine-retail.sql.
 
 -- Italian and Swiss (German/French/Italian) chart of accounts —
 -- adapted from Tekki's real SQL-Ledger fork (GPLv3, see NOTICE.md
@@ -22,7 +30,7 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- 20-demo-bmw-peugeot.sql (see its own, fuller comment): every real
 -- business's own ledgers must live under a real, dedicated "Ledgers"
 -- container entity (confirmed against both `createBusiness`, db.ts,
--- and `My Business`'s own correct seed data in 00-core.sql), never
+-- and `admin`'s own correct seed data in 00-core.sql), never
 -- directly under the business itself - this file's own two
 -- businesses skipped it, which the real `post_journal_entry_insert`
 -- trigger's own `ledger_id` lookup could never resolve, leaving it

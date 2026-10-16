@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 
-// A minimal, direct e2e test against 'My Business' - the one, real,
+// A minimal, direct e2e test against 'admin' - the one, real,
 // always-present dummy company - not the larger Wine Retail Business
 // dataset. Backend math for capacity tracking is already thoroughly,
 // directly verified via 4 real backend tests (no browser needed for
 // that); this test's real job is narrower: confirm the Location Type
 // extensibility fix genuinely works through the real UI.
-test('Location Type extensibility, against the minimal My Business dataset', async ({ page }) => {
+test('Location Type extensibility, against the minimal admin dataset', async ({ page }) => {
   test.setTimeout(60000);
   await page.goto('/login');
   await page.waitForTimeout(1000);
@@ -15,7 +15,7 @@ test('Location Type extensibility, against the minimal My Business dataset', asy
   await page.getByRole('button', { name: /log in/i }).click();
   await page.waitForURL((url) => !url.pathname.includes('/login'));
   await page.waitForTimeout(500);
-  await page.locator('select').first().selectOption({ label: 'My Business' });
+  await page.locator('select').first().selectOption({ label: 'admin' });
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: /continue/i }).click();
   await page.waitForURL((url) => url.pathname === '/');

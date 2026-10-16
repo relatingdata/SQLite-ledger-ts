@@ -16,13 +16,13 @@ make dev
 Open http://localhost:5173. The very first thing you'll see is the
 **choice screen** — pick a business, a ledger, and a language before
 anything else. Every other screen redirects here if you haven't chosen
-yet. To start, pick "My Business", "Actual", and "English" — we'll set
+yet. To start, pick "admin", "Actual", and "English" — we'll set
 up a second, brand-new business further down.
 
 ## 2. The three things you choose up front
 
 - **Business** — a company or entity you're keeping books for. The app
-  ships with one seeded example, "My Business".
+  ships with one seeded example, "admin".
 - **Ledger** — a named *scenario* within that business. "Actual" is
   always the real books. Anything else — a budget, a growth projection —
   is a completely separate, isolated set of entries. You can post the
@@ -57,7 +57,7 @@ Click **Create**.
 globally unique across the *entire* application — the same design that
 lets "Save" exist as one single translatable word everywhere also means
 you can't create a second entity literally named "Actual" once one
-already exists (My Business already has one). So new businesses need a
+already exists (admin already has one). So new businesses need a
 distinguishing name for theirs. Still in the Structured Editor:
 
 - Name: `Acme Retail Co Actual`
