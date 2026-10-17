@@ -5565,10 +5565,21 @@ export function getHierarchyGroups(hierarchyName: string): { name: string; paren
        WHERE link.name LIKE '% — ' || ?`
     )
     .all(`Hierarchy: ${hierarchyName}`) as { group_name: string }[];
-  return rows.map((r) => ({
-    name: r.group_name,
-    parentName: getHierarchyParent(r.group_name, hierarchyName) ?? null,
-  }));
+  return rows.map((r) => {
+    const explicitParent = getHierarchyParent(r.group_name, hierarchyName);
+    if (explicitParent !== undefined) return { name: r.group_name, parentName: explicitParent };
+    // No explicit hierarchy-link parent was ever set for this group
+    // entity itself — fall back to its own real, structural parent_id,
+    // so a group simply nested under another entity in the ordinary
+    // entity tree (rather than given its own explicit hierarchy link)
+    // still reports that real, structural nesting. This matches this
+    // function's own documented contract elsewhere ("every real group
+    // and its own real structural parent").
+    const structuralParent = db
+      .prepare(`SELECT parent.name AS parent_name FROM current_entities child JOIN current_entities parent ON parent.id = child.parent_id WHERE child.name = ?`)
+      .get(r.group_name) as { parent_name: string } | undefined;
+    return { name: r.group_name, parentName: structuralParent?.parent_name ?? null };
+  });
 }
 
 /** Walks entityName's own hierarchy-parent chain, within one, real,
