@@ -53,7 +53,7 @@
       // real, receiving side a person actually cares about grouping by.
       return key === 'location' ? row.to_location : '(Not applicable to transfers)';
     }
-    if (key === 'division') return row.division ?? '(No division)';
+    if (key === 'division') return row.group ?? '(No division)';
     if (key === 'location') return row.location;
     return row.vendor ?? '(No vendor on file)';
   }

@@ -172,8 +172,8 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     // Per docs/skill-step-runner-design.md §20: division is now set
     // by createAndConfigureLocation itself, atomically, both as the
-    // Hierarchy dimension tag (division-breakdown reports) and as the
-    // real "Belongs To Division" relationship the org chart/Business
+    // Hierarchy group tag (division-breakdown reports) and as the
+    // real "Belongs To Group" relationship the org chart/Business
     // Setup's employee tree actually reads - a real, confirmed gap,
     // found and fixed at its one, real, single source, not patched
     // here a second time.
@@ -184,7 +184,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       bottle_capacity: a.bottleCapacity ? Number(a.bottleCapacity) : null,
       carton_capacity: a.cartonCapacity ? Number(a.cartonCapacity) : null,
       timezone: 'Australia/Adelaide',
-    } as any, userId, a.division || undefined);
+    } as any, userId, a.division || undefined, a.division ? 'Division' : undefined);
   },
   // Phase B: Chapter 3's Business Setup employee creation, at a named
   // location - createEmployee already exists and takes exactly this

@@ -8,9 +8,10 @@ import {
   getTrialBalance,
   getBalanceSheet,
   getProfitAndLoss,
-  getProfitAndLossByDivision,
-  getProfitAndLossByDivisionTree,
-  getProfitAndLossForDivision,
+  getProfitAndLossByHierarchy,
+  getProfitAndLossByHierarchyTree,
+  getProfitAndLossForHierarchyGroup,
+  getHierarchyGroups,
   getTrialBalanceComparison,
   getProfitAndLossComparison,
   getSalesReport,
@@ -143,13 +144,26 @@ reportsRouter.get('/ledger-date-range', (req, res) => {
   res.json(getLedgerDateRange(scope.business, scope.ledger));
 });
 
+/** group/hierarchyPath/hierarchyName are optional, caller-supplied
+ * query parameters — no hierarchy name is ever hardcoded or defaulted
+ * here. hierarchyPath is a comma-separated, ordered chain of real
+ * hierarchy-link hops (e.g. "Location,Division"); hierarchyName names
+ * which real hierarchy's own group tree to walk for roll-up (defaults
+ * to the last segment of hierarchyPath when omitted). Plain
+ * /profit-and-loss (no group) is unaffected. */
 reportsRouter.get('/profit-and-loss', (req, res) => {
   const scope = requireLedger(req, res);
   if (scope === null) return;
   const fromDate = typeof req.query.fromDate === 'string' ? req.query.fromDate : undefined;
   const toDate = typeof req.query.toDate === 'string' ? req.query.toDate : undefined;
-  const division = typeof req.query.division === 'string' ? req.query.division : undefined;
-  res.json(division ? getProfitAndLossForDivision(scope.business, scope.ledger, division, fromDate, toDate) : getProfitAndLoss(scope.business, scope.ledger, fromDate, toDate));
+  const group = typeof req.query.group === 'string' ? req.query.group : undefined;
+  const hierarchyPath = typeof req.query.hierarchyPath === 'string' && req.query.hierarchyPath ? req.query.hierarchyPath.split(',').filter(Boolean) : undefined;
+  if (group && hierarchyPath && hierarchyPath.length > 0) {
+    const hierarchyName = typeof req.query.hierarchyName === 'string' && req.query.hierarchyName ? req.query.hierarchyName : hierarchyPath[hierarchyPath.length - 1];
+    res.json(getProfitAndLossForHierarchyGroup(scope.business, scope.ledger, hierarchyPath, getHierarchyGroups(hierarchyName), group, fromDate, toDate));
+  } else {
+    res.json(getProfitAndLoss(scope.business, scope.ledger, fromDate, toDate));
+  }
 });
 
 /** A real, full drill-down tree for any real hierarchy root — every
@@ -173,20 +187,36 @@ reportsRouter.get('/drill-down', (req, res) => {
   res.json(Hierarchy.buildTree(root, (name, id) => ({ balance: id != null ? Balance.get(id) : 0 })));
 });
 
-reportsRouter.get('/profit-and-loss-by-division', (req, res) => {
+/** hierarchyPath is required, comma-separated (e.g. "Location,Division")
+ * — the generic replacement for the former, privileged
+ * /profit-and-loss-by-division. No hierarchy name is ever hardcoded
+ * here; the caller (frontend) chooses which real, business-named
+ * hierarchy path to break the P&L down by. */
+reportsRouter.get('/profit-and-loss-by-hierarchy', (req, res) => {
   const scope = requireLedger(req, res);
   if (scope === null) return;
   const fromDate = typeof req.query.fromDate === 'string' ? req.query.fromDate : undefined;
   const toDate = typeof req.query.toDate === 'string' ? req.query.toDate : undefined;
-  res.json(getProfitAndLossByDivision(scope.business, scope.ledger, fromDate, toDate));
+  const hierarchyPath = typeof req.query.hierarchyPath === 'string' ? req.query.hierarchyPath.split(',').filter(Boolean) : [];
+  if (hierarchyPath.length === 0) return res.status(400).json({ error: 'hierarchyPath is required (comma-separated, e.g. Location,Division).' });
+  res.json(getProfitAndLossByHierarchy(scope.business, scope.ledger, hierarchyPath, fromDate, toDate));
 });
 
-reportsRouter.get('/profit-and-loss-by-division-tree', (req, res) => {
+/** The generic replacement for the former, privileged
+ * /profit-and-loss-by-division-tree. hierarchyName names which real
+ * hierarchy's own group tree (getHierarchyGroups) to nest the flat
+ * breakdown by — defaults to the last segment of hierarchyPath when
+ * omitted, since that's almost always the real, finest-grain grouping
+ * being nested. */
+reportsRouter.get('/profit-and-loss-by-hierarchy-tree', (req, res) => {
   const scope = requireLedger(req, res);
   if (scope === null) return;
   const fromDate = typeof req.query.fromDate === 'string' ? req.query.fromDate : undefined;
   const toDate = typeof req.query.toDate === 'string' ? req.query.toDate : undefined;
-  res.json(getProfitAndLossByDivisionTree(scope.business, scope.ledger, fromDate, toDate));
+  const hierarchyPath = typeof req.query.hierarchyPath === 'string' ? req.query.hierarchyPath.split(',').filter(Boolean) : [];
+  if (hierarchyPath.length === 0) return res.status(400).json({ error: 'hierarchyPath is required (comma-separated, e.g. Location,Division).' });
+  const hierarchyName = typeof req.query.hierarchyName === 'string' && req.query.hierarchyName ? req.query.hierarchyName : hierarchyPath[hierarchyPath.length - 1];
+  res.json(getProfitAndLossByHierarchyTree(scope.business, scope.ledger, hierarchyPath, hierarchyName, fromDate, toDate));
 });
 
 function requireTwoLedgers(

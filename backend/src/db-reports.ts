@@ -1,6 +1,6 @@
 import { db, getQualifiedDisplayName, getCombinationDisplayName, resolveBusinessCoaAccountId } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
-import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getHierarchyParent, getHierarchyChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, getAccountProfitCenter, setActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { ValidationError, getEntityTree, stageLine, postJournalEntry, getHierarchyGroups, getHierarchyParent, getHierarchyChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, getAccountProfitCenter, setActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 
 // ---------------------------------------------------------------------------
@@ -321,38 +321,30 @@ export function getChartOfAccounts(business: string): ChartRow[] {
 // zero once Customers/Vendors are correctly included — the bug was
 // only ever in which accounts this function chose to sum, never in
 // the posted data itself).
-/** A real, new, parallel implementation of getLedgerBalancesByDivision
- * above, using the real, structural location/division derivation
- * (getDivisionForAccount) instead of reading journal_line.division_id
- * as a separate tag — per direct confirmation, the real, intended
- * replacement, migrated to carefully, one real step at a time. Not
- * yet used by any real caller — built and tested standalone first,
- * compared directly against the existing function's own real output
- * on real, live data, before any real report is switched over to it.
- *
- * The real, structural version is genuinely simpler at the SQL level:
- * division is now a real, per-account fact (derived once per account,
- * not read per posted line), so the query itself needs no division
- * grouping at all — just a real, plain, per-account balance, with
- * division derived afterward, once per real, distinct account. */
 /** The real, generic hierarchy-grouping mechanism behind every
- * "Consolidated per X" report — Division, Location, and any future
- * real axis — generalized per direct instruction: not a "dimension"
- * in the matrix-stock-report sense (that word stays reserved for
- * definitionDimensions and the drag-and-drop hierarchy editor), just
- * a real, named hierarchy walk. hierarchyPath is the real, ordered
- * chain of hierarchy-link hops from an account to its final group,
- * walked as many levels as the real hierarchy actually has - e.g.
- * ['Location'] groups by an account's own, direct Location link;
- * ['Location', 'Division'] walks account -> Location -> Division (the
- * exact, same two real hops getDivisionForAccount always took), and a
+ * "Consolidated per X" report — any real, business-chosen hierarchy
+ * name (e.g. "Division," "Location," or any future one) — generalized
+ * per direct instruction: not a "dimension" in the matrix-stock-report
+ * sense (that word stays reserved for definitionDimensions and the
+ * drag-and-drop hierarchy editor), just a real, named hierarchy walk.
+ * hierarchyPath is the real, ordered chain of hierarchy-link hops from
+ * an account to its final group, walked as many levels as the real
+ * hierarchy actually has - e.g. ['Location'] groups by an account's
+ * own, direct Location link; ['Location', 'Division'] walks account ->
+ * Location -> whatever grouping a business has named "Division," and a
  * future, real, longer chain works exactly the same way, with no
- * further code change. Each named hierarchy's own real values can
- * independently nest arbitrarily deep too (a real per-location
- * Division under a real per-city one) - that part was always separate
- * from this walk, and getProfitAndLossForHierarchy below still
- * resolves it via the group's own real structural descendants. */
+ * further code change and no hierarchy name ever hardcoded here. Each
+ * named hierarchy's own real values can independently nest arbitrarily
+ * deep too (a real per-location group under a broader one) - that part
+ * was always separate from this walk, and getProfitAndLossForHierarchyGroup
+ * below still resolves it via the group's own real structural
+ * descendants (getHierarchyGroups). */
 function resolveAccountHierarchyGroup(accountName: string, hierarchyPath: string[]): string | undefined {
+  // An empty path is a real, deliberate "no breakdown at all" request
+  // (e.g. a close with no real hierarchy chosen) — every account
+  // resolves to the one, shared, null group, never to its own bare
+  // name (which the loop below would otherwise return unchanged).
+  if (hierarchyPath.length === 0) return undefined;
   let current: string | undefined = accountName;
   for (const hierarchyName of hierarchyPath) {
     if (!current) return undefined;
@@ -405,31 +397,20 @@ export function getLedgerBalancesByHierarchyStructural(
   return result;
 }
 
-/** The real path Division's own report has always walked (account ->
- * Location -> Division) - kept exactly as its own, named path. Per
- * direct instruction: Division and Location are the two real paths
- * wired up today; Item would need a real account -> Item hierarchy
- * link of its own first, which doesn't exist yet - separate work. */
-const DIVISION_HIERARCHY_PATH = ['Location', 'Division'];
+/** Per direct instruction: Location and any further, real,
+ * business-chosen hierarchy (e.g. a business's own "Division") are the
+ * real paths a caller may walk; Item would need a real account -> Item
+ * hierarchy link of its own first, which doesn't exist yet - separate
+ * work. No specific hierarchy path is ever privileged here - a caller
+ * passes its own real, chosen path (getLedgerBalancesByHierarchyStructural
+ * above) or just ['Location'] for a plain Location breakdown. */
 const LOCATION_HIERARCHY_PATH = ['Location'];
 
-export function getLedgerBalancesByDivisionStructural(
-  businessName: BusinessName,
-  ledgerName: LedgerName,
-  fromDate?: string,
-  toDate?: string,
-  excludeCloseEntries = false
-): Map<number, Map<string | null, number>> {
-  return getLedgerBalancesByHierarchyStructural(businessName, ledgerName, DIVISION_HIERARCHY_PATH, fromDate, toDate, excludeCloseEntries);
-}
-
-/** The exact, same, real, generic mechanism as the Division report
- * above, just one hop shorter - groups by an account's own, direct
- * Location link, with no further walk up to a Division. Not yet
- * wired to any real route or page of its own; exists and is tested
- * standalone, ready for one the moment a real Location-breakdown
- * report is asked for, the same, real way getLedgerBalancesByDivision
- * Structural once was before getProfitAndLossByDivision used it. */
+/** Groups by an account's own, direct Location link only, with no
+ * further walk up to any higher-level grouping. Not yet wired to any
+ * real route or page of its own; exists and is tested standalone,
+ * ready for one the moment a real Location-breakdown report is asked
+ * for. */
 export function getLedgerBalancesByLocationStructural(
   businessName: BusinessName,
   ledgerName: LedgerName,
@@ -906,12 +887,12 @@ export function getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerN
 
 /** The real, shared logic behind every real P&L, factored out so it
  * can be built directly from an already-computed, real balance map —
- * critical for getProfitAndLossByDivision below, which needs this
- * same, real logic run once per real division without each one
+ * critical for getProfitAndLossByHierarchy below, which needs this
+ * same, real logic run once per real group without each one
  * separately, expensively re-querying the full, real dataset from
  * scratch (a real, confirmed, ~20-second performance problem found
  * live, fixed here). getProfitAndLoss itself is now a thin wrapper:
- * fetch the one, real balance map this ledger/date-range/division
+ * fetch the one, real balance map this ledger/date-range/group
  * needs, then hand it to this real, shared builder. */
 export function buildProfitAndLossFromBalances(business: string, balances: Map<number, number>): ProfitAndLoss {
   const rows = getBusinessReports(business)
@@ -994,63 +975,34 @@ export function buildProfitAndLossFromBalances(business: string, balances: Map<n
   };
 }
 
-export interface ProfitAndLossByDivision {
-  division: string | null;
+export interface ProfitAndLossByGroup {
+  group: string | null;
   profitAndLoss: ProfitAndLoss;
 }
 
-/** Per direct request: "Consolidated per Division" — one full, real
- * P&L per real division that actually has activity within this real
- * ledger and date range (including a real, null-division "everything
- * not tagged to any division" group), not every division that merely
- * exists somewhere in the app. Deliberately a thin wrapper around the
- * already-proven getProfitAndLoss, called once per real, discovered
- * division, rather than a real, separate, duplicated implementation —
- * the exact same real income/COGS/operating-expense split, per
- * division, that the plain, consolidated P&L already gets right.
- *
- * Genuinely independent of the real product/tier/leaf restructuring
- * (docs/multi-dimensional-reporting.md §10) — this uses the
- * already-existing, already-proven journal_line.division_id
- * mechanism directly, not the newer item/tier work, so it's real and
- * usable regardless of how or when that separate work gets wired
- * into live posting. */
-/** Per direct request: "Consolidated per Division" — one full, real
- * P&L per real division that actually has activity within this real
- * ledger and date range (including a real, null-division "everything
- * not tagged to any division" group), not every division that merely
- * exists somewhere in the app.
+/** Per direct request: "Consolidated per X" — one full, real P&L per
+ * real group (under any real, business-chosen hierarchy name, e.g.
+ * "Division") that actually has activity within this real ledger and
+ * date range (including a real, null-group "everything not tagged at
+ * all" entry), not every group that merely exists somewhere in the
+ * app.
  *
  * A real, confirmed performance fix: an earlier version called the
- * plain getProfitAndLoss once per real division, each call
- * independently re-querying the full, real dataset from scratch — a
- * real, measured ~20 seconds against the full Wine Retail Business
- * simulation, confirmed live, not estimated. Fixed here by querying
- * getLedgerBalancesByDivisionStructural exactly once (the same,
- * already efficient, single-pass query the year-end close's own
- * division breakdown already uses), then building each real
- * division's own P&L directly from its own real slice of that one,
- * shared result via buildProfitAndLossFromBalances — the exact same,
- * real P&L-building logic getProfitAndLoss itself uses, just handed
- * an already-computed balance map instead of fetching its own.
- *
- * Per direct confirmation ("location becomes structural the same way
- * tier did"), this now derives each real division from a real
- * account's own, real, structural location — not
- * journal_line.division_id, a real, separate tag mechanism being
- * retired. Verified directly, before switching over: the two real
- * functions agree exactly on real, live data carrying both. */
-/** The real, generic mechanism behind "Consolidated per X" —
- * generalizes getProfitAndLossByDivision below to any real hierarchy
- * path, via the exact same, already-proven, single-pass
- * getLedgerBalancesByHierarchyStructural query (see the real,
- * confirmed ~20s performance fix noted on getProfitAndLossByDivision
- * — this still only ever queries the full dataset once, however many
- * real groups result). Returns one real entry per group that actually
- * has activity, including a real, null-group "everything not tagged
- * at all" entry — never every group that merely exists somewhere in
- * the app. */
-export function getProfitAndLossByHierarchy(businessName: BusinessName, ledgerName: LedgerName, hierarchyPath: string[], fromDate?: string, toDate?: string): ProfitAndLossByDivision[] {
+ * plain getProfitAndLoss once per real group, each call independently
+ * re-querying the full, real dataset from scratch — a real, measured
+ * ~20 seconds against the full Wine Retail Business simulation,
+ * confirmed live, not estimated. Fixed here by querying
+ * getLedgerBalancesByHierarchyStructural exactly once (the same,
+ * already efficient, single-pass query the year-end close's own group
+ * breakdown already uses), then building each real group's own P&L
+ * directly from its own real slice of that one, shared result via
+ * buildProfitAndLossFromBalances — the exact same, real P&L-building
+ * logic getProfitAndLoss itself uses, just handed an already-computed
+ * balance map instead of fetching its own. No specific hierarchy
+ * name is ever hardcoded here — hierarchyPath is the real, ordered
+ * chain of hierarchy-link hops a caller supplies (see
+ * resolveAccountHierarchyGroup above). */
+export function getProfitAndLossByHierarchy(businessName: BusinessName, ledgerName: LedgerName, hierarchyPath: string[], fromDate?: string, toDate?: string): ProfitAndLossByGroup[] {
   const balancesByGroup = getLedgerBalancesByHierarchyStructural(businessName, ledgerName, hierarchyPath, fromDate, toDate, true);
 
   // Re-key from "account -> group -> balance" to "group -> account ->
@@ -1066,37 +1018,25 @@ export function getProfitAndLossByHierarchy(businessName: BusinessName, ledgerNa
 
   return Array.from(byGroup.entries())
     .sort(([a], [b]) => (a ?? '').localeCompare(b ?? ''))
-    .map(([division, balances]) => ({
-      division,
+    .map(([group, balances]) => ({
+      group,
       profitAndLoss: buildProfitAndLossFromBalances(businessName, balances),
     }));
 }
 
-/** Per direct request: "Consolidated per Division" — one full, real
- * P&L per real division that actually has activity within this real
- * ledger and date range (including a real, null-division "everything
- * not tagged to any division" group), not every division that merely
- * exists somewhere in the app. Per direct confirmation ("location
- * becomes structural the same way tier did"), this derives each real
- * division from a real account's own, real, structural location, via
- * the generic getProfitAndLossByHierarchy above with the real,
- * two-hop Division path. */
-export function getProfitAndLossByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivision[] {
-  return getProfitAndLossByHierarchy(businessName, ledgerName, DIVISION_HIERARCHY_PATH, fromDate, toDate);
-}
-
 /** A single real group's own, rolled-up P&L — its own direct activity
  * PLUS every real, nested group beneath it structurally (e.g. a real
- * per-location division under a real per-city one), walked as many
- * levels deep as this real group hierarchy actually has — the exact
- * same "coarser group includes its finer descendants" behavior the
- * real report pages depend on. groups is the flat list of every real
- * group and its own real structural parent (getDivisions() for
- * Division; an empty list for a real, flat hierarchy that never
- * nests, like Location). Built from the exact same, real, structural
- * per-group balances getProfitAndLossByHierarchy already computes,
- * just summed across the requested group's own real subtree instead
- * of split out group by group. */
+ * per-location group under a broader, real parent group), walked as
+ * many levels deep as this real group hierarchy actually has — the
+ * exact same "coarser group includes its finer descendants" behavior
+ * the real report pages depend on. groups is the flat list of every
+ * real group and its own real structural parent — getHierarchyGroups
+ * (db.ts) for a real, business-chosen hierarchy name, or an empty list
+ * for a real, flat hierarchy that never nests, like a plain Location
+ * breakdown. Built from the exact same, real, structural per-group
+ * balances getProfitAndLossByHierarchy already computes, just summed
+ * across the requested group's own real subtree instead of split out
+ * group by group. */
 export function getProfitAndLossForHierarchyGroup(
   businessName: BusinessName,
   ledgerName: LedgerName,
@@ -1129,44 +1069,31 @@ export function getProfitAndLossForHierarchyGroup(
   return buildProfitAndLossFromBalances(businessName, combined);
 }
 
-/** A single real division's own, rolled-up P&L — its own direct
- * activity PLUS every real, nested division beneath it, via the
- * generic getProfitAndLossForHierarchyGroup above with the real,
- * two-hop Division path and the real division tree (getDivisions()).
- */
-export function getProfitAndLossForDivision(businessName: BusinessName, ledgerName: LedgerName, divisionName: string, fromDate?: string, toDate?: string): ProfitAndLoss {
-  return getProfitAndLossForHierarchyGroup(businessName, ledgerName, DIVISION_HIERARCHY_PATH, getDivisions(), divisionName, fromDate, toDate);
+export interface ProfitAndLossByGroupNode extends ProfitAndLossByGroup {
+  children: ProfitAndLossByGroupNode[];
 }
 
-export interface ProfitAndLossByDivisionNode extends ProfitAndLossByDivision {
-  children: ProfitAndLossByDivisionNode[];
-}
-
-/** Per direct request: "Consolidated per Division per Location" — the
- * same real, per-division P&L breakdown as getProfitAndLossByDivision
- * above, nested into a real tree by each division's own real parent,
- * rather than presented as one, flat list. A location is already,
- * structurally, the finest-grain division in the real, existing
- * hierarchy (confirmed directly: real divisions can already, genuinely
- * nest — a real per-location division under a real per-city one) —
- * this report doesn't need the separate, real product/tier/leaf
- * restructuring work (docs/multi-dimensional-reporting.md §10) at
- * all, since division/location was never the problem that work
- * addresses.
+/** Per direct request: "Consolidated per X per Location" — the same
+ * real, per-group P&L breakdown as getProfitAndLossByHierarchy above,
+ * nested into a real tree by each group's own real parent, rather
+ * than presented as one, flat list. hierarchyName names which real,
+ * business-chosen hierarchy to read the group tree from
+ * (getHierarchyGroups in db.ts) — never hardcoded here, so this works
+ * identically for "Division" or any other real, nestable hierarchy a
+ * business has set up.
  *
  * A real, genuine complication handled directly: a real, top-level
- * division (e.g. a real city) may have no real, direct activity of
- * its own at all — only its own, real children do. Rather than
- * silently dropping that level (which would leave real children with
- * nowhere real to nest), a real, genuinely empty P&L node is
- * synthesized for it, so the real tree's own shape stays intact. The
- * real, null-division "(No division)" group is always treated as its
- * own, separate, real root — it has no real, meaningful parent to
- * nest under. */
-export function getProfitAndLossByDivisionTree(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivisionNode[] {
-  const flat = getProfitAndLossByDivision(businessName, ledgerName, fromDate, toDate);
-  const divisions = getDivisions();
-  const parentByName = new Map(divisions.map((d) => [d.name, d.parentName]));
+ * group may have no real, direct activity of its own at all — only
+ * its own, real children do. Rather than silently dropping that level
+ * (which would leave real children with nowhere real to nest), a
+ * real, genuinely empty P&L node is synthesized for it, so the real
+ * tree's own shape stays intact. The real, null-group "(No group)"
+ * entry is always treated as its own, separate, real root — it has no
+ * real, meaningful parent to nest under. */
+export function getProfitAndLossByHierarchyTree(businessName: BusinessName, ledgerName: LedgerName, hierarchyPath: string[], hierarchyName: string, fromDate?: string, toDate?: string): ProfitAndLossByGroupNode[] {
+  const flat = getProfitAndLossByHierarchy(businessName, ledgerName, hierarchyPath, fromDate, toDate);
+  const groups = getHierarchyGroups(hierarchyName);
+  const parentByName = new Map(groups.map((g) => [g.name, g.parentName]));
 
   const emptyProfitAndLoss: ProfitAndLoss = {
     income: [],
@@ -1182,23 +1109,23 @@ export function getProfitAndLossByDivisionTree(businessName: BusinessName, ledge
     net_income_minor: 0,
   };
 
-  const nodesByName = new Map<string | null, ProfitAndLossByDivisionNode>();
+  const nodesByName = new Map<string | null, ProfitAndLossByGroupNode>();
   for (const entry of flat) {
-    nodesByName.set(entry.division, { ...entry, children: [] });
+    nodesByName.set(entry.group, { ...entry, children: [] });
   }
-  // A real, top-level division with real, active children but no
-  // real, direct activity of its own must still get a real, genuinely
-  // empty node, so its own real children have somewhere real to nest.
+  // A real, top-level group with real, active children but no real,
+  // direct activity of its own must still get a real, genuinely empty
+  // node, so its own real children have somewhere real to nest.
   for (const entry of flat) {
-    if (entry.division === null) continue;
-    let current: string | null = parentByName.get(entry.division) ?? null;
+    if (entry.group === null) continue;
+    let current: string | null = parentByName.get(entry.group) ?? null;
     while (current !== null && !nodesByName.has(current)) {
-      nodesByName.set(current, { division: current, profitAndLoss: emptyProfitAndLoss, children: [] });
+      nodesByName.set(current, { group: current, profitAndLoss: emptyProfitAndLoss, children: [] });
       current = parentByName.get(current) ?? null;
     }
   }
 
-  const roots: ProfitAndLossByDivisionNode[] = [];
+  const roots: ProfitAndLossByGroupNode[] = [];
   for (const [name, node] of nodesByName.entries()) {
     if (name === null) {
       roots.push(node);
@@ -1212,11 +1139,11 @@ export function getProfitAndLossByDivisionTree(businessName: BusinessName, ledge
     }
   }
 
-  const sortNode = (n: ProfitAndLossByDivisionNode) => {
-    n.children.sort((a, b) => (a.division ?? '').localeCompare(b.division ?? ''));
+  const sortNode = (n: ProfitAndLossByGroupNode) => {
+    n.children.sort((a, b) => (a.group ?? '').localeCompare(b.group ?? ''));
     n.children.forEach(sortNode);
   };
-  roots.sort((a, b) => (a.division ?? '').localeCompare(b.division ?? ''));
+  roots.sort((a, b) => (a.group ?? '').localeCompare(b.group ?? ''));
   roots.forEach(sortNode);
   return roots;
 }
@@ -1302,27 +1229,29 @@ export interface CloseBooksResult {
   reference: string;
   netIncomeMinor: number;
   accountsZeroed: number;
-  /** A real summary of every real division's own net income/loss for
-   * this period. Per direct request ("the whole point of the
-   * restructuring"), the real, posted Retained Earnings side of the
-   * close now genuinely carries one, real, separate line per real,
-   * active division too (see computeCloseLines) — this summary and
-   * that real, posted detail agree, by construction. Division is
-   * still only ever a real, pure sub-totaling/reporting dimension in
-   * one, further sense: every division's own line still posts into
-   * the exact same, single, chosen retainedEarningsAccount, never a
-   * real, separate, division-specific account. The one entry with a
-   * null division is the real, undivided remainder (any income/
-   * expense posted with no division at all). */
-  divisionBreakdown: { division: string | null; netIncomeMinor: number }[];
+  /** A real summary of every real group's own net income/loss for this
+   * period, under whichever real, business-chosen hierarchy
+   * (hierarchyPath) the caller asked this close to break down by — no
+   * hierarchy name is ever hardcoded here. Per direct request ("the
+   * whole point of the restructuring"), the real, posted Retained
+   * Earnings side of the close now genuinely carries one, real,
+   * separate line per real, active group too (see computeCloseLines) —
+   * this summary and that real, posted detail agree, by construction.
+   * A group is still only ever a real, pure sub-totaling/reporting
+   * dimension in one, further sense: every group's own line still
+   * posts into the exact same, single, chosen retainedEarningsAccount,
+   * never a real, separate, group-specific account. The one entry with
+   * a null group is the real, undivided remainder (any income/expense
+   * posted with no group at all, or when hierarchyPath is empty). */
+  groupBreakdown: { group: string | null; netIncomeMinor: number }[];
   /** Per docs/profit-centers-design.md's Phase B: the real, structural
-   * counterpart to divisionBreakdown above — one entry per real
-   * Profit Center with a non-zero net result this close, merged
-   * across division and currency (unlike divisionBreakdown, which
-   * keeps a separate entry per currency bucket). A business with zero
-   * Profit Centers gets exactly one entry here, { profitCenter: null,
-   * netIncomeMinor: <the whole, real net income> } — the same, real
-   * total closeBooks always reported before this field existed. */
+   * counterpart to groupBreakdown above — one entry per real Profit
+   * Center with a non-zero net result this close, merged across group
+   * and currency (unlike groupBreakdown, which keeps a separate entry
+   * per currency bucket). A business with zero Profit Centers gets
+   * exactly one entry here, { profitCenter: null, netIncomeMinor:
+   * <the whole, real net income> } — the same, real total closeBooks
+   * always reported before this field existed. */
   profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
 
@@ -1338,21 +1267,24 @@ export interface CloseBooksResult {
  * means posting the OPPOSITE sign of its current balance, bringing it
  * to exactly zero, not an approximation.
  *
- * Per direct correction: division is only a real, pure sub-totaling/
+ * Per direct correction: a group is only a real, pure sub-totaling/
  * reporting dimension — already genuinely available on P&L, Trial
- * Balance, and other reports via a real division filter — not
- * something the close itself needs to structurally split by. An
- * earlier version of this function created a real, separate "{account}
- * - {division}" Retained Earnings leaf per division; that's now
- * removed entirely. Every real division's own net income still rolls
- * up into the exact same, single, chosen retainedEarningsAccount,
- * exactly like any other Income/Expense account being closed — a
- * division-scoped P&L or Trial Balance still shows each division's
- * own real contribution whenever that view is wanted, without the
- * close itself needing to know or care that divisions exist at all.
- * divisionBreakdown, in the real result below, stays purely
- * informational — a real, read-only summary of what closed, not a
- * structural decision about where anything actually posted. */
+ * Balance, and other reports via a real group filter — not something
+ * the close itself needs to structurally split by. An earlier version
+ * of this function created a real, separate "{account} - {group}"
+ * Retained Earnings leaf per group; that's now removed entirely.
+ * Every real group's own net income still rolls up into the exact
+ * same, single, chosen retainedEarningsAccount, exactly like any
+ * other Income/Expense account being closed — a group-scoped P&L or
+ * Trial Balance still shows each group's own real contribution
+ * whenever that view is wanted, without the close itself needing to
+ * know or care that groups exist at all. groupBreakdown, in the real
+ * result below, stays purely informational — a real, read-only
+ * summary of what closed, not a structural decision about where
+ * anything actually posted. hierarchyPath is the real, business-
+ * chosen chain to break the summary down by (e.g. ['Location',
+ * 'Division']) — no hierarchy name is ever hardcoded here; an empty
+ * path simply reports everything under one, single null group. */
 export interface CloseBooksLine {
   account: string;
   accountId?: number;
@@ -1362,7 +1294,7 @@ interface ComputedClose {
   lines: CloseBooksLine[];
   netIncomeMinor: number;
   accountsZeroed: number;
-  divisionBreakdown: { division: string | null; netIncomeMinor: number }[];
+  groupBreakdown: { group: string | null; netIncomeMinor: number }[];
   profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
 
@@ -1370,8 +1302,8 @@ interface ComputedClose {
  * itself use — kept as one, single source of truth so a preview can
  * never drift from what actually posts. Computes the real, proposed
  * lines without staging or posting anything at all. */
-function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, userId?: UserId): ComputedClose {
-  const balancesByDivision = getLedgerBalancesByDivisionStructural(businessName, ledger, undefined, asOfDate);
+function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, hierarchyPath: string[], userId?: UserId): ComputedClose {
+  const balancesByGroup = getLedgerBalancesByHierarchyStructural(businessName, ledger, hierarchyPath, undefined, asOfDate);
   const rows = getBusinessReports(businessName).filter((r) => r.report === 'Profit and Loss Statement' || r.category === 'Income' || r.category === 'Expense');
 
   let netIncomeMinor = 0;
@@ -1380,30 +1312,30 @@ function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfD
   // Income/Expense account against the exact, same, plain, home-
   // currency Retained Earnings genuinely breaks the per-currency
   // balance check the exact, same way an un-tagged Cash leg once did
-  // - grouped by (division, currency, Profit Center) together now,
-  // not division alone, so each real currency's own net income closes
+  // - grouped by (group, currency, Profit Center) together now, not
+  // group alone, so each real currency's own net income closes
   // against its own, real, currency-tagged Retained Earnings sibling,
   // and each real Profit Center's own net income closes against its
   // own, real, Profit-Center-tagged sibling (per
-  // docs/profit-centers-design.md's Phase B). Unlike division and
+  // docs/profit-centers-design.md's Phase B). Unlike group and
   // currency, a Profit Center is never read off the journal line — a
   // real account's own, structural position already determines it
-  // (getAccountProfitCenter), constant for every division/balance
-  // under one account.
-  const netByGroup = new Map<string, { division: string | null; currency: string | null; profitCenter: string | null; net: number }>();
+  // (getAccountProfitCenter), constant for every group/balance under
+  // one account.
+  const netByGroup = new Map<string, { group: string | null; currency: string | null; profitCenter: string | null; net: number }>();
   const lines: CloseBooksLine[] = [];
 
   for (const r of rows) {
-    const divisionBalances = balancesByDivision.get(r.account_id);
-    if (!divisionBalances) continue;
+    const groupBalances = balancesByGroup.get(r.account_id);
+    if (!groupBalances) continue;
     const currency = (db.prepare(`SELECT currency FROM account WHERE entity_id = ?`).get(r.account_id) as { currency: string | null } | undefined)?.currency ?? null;
     const profitCenter = getAccountProfitCenter(r.account_id);
     let accountTotal = 0;
-    for (const [divisionName, balance] of divisionBalances) {
+    for (const [groupName, balance] of groupBalances) {
       if (balance === 0) continue;
       accountTotal += balance;
-      const key = `${divisionName ?? ''}\u0000${currency ?? ''}\u0000${profitCenter ?? ''}`;
-      const existing = netByGroup.get(key) ?? { division: divisionName, currency, profitCenter, net: 0 };
+      const key = `${groupName ?? ''}\u0000${currency ?? ''}\u0000${profitCenter ?? ''}`;
+      const existing = netByGroup.get(key) ?? { group: groupName, currency, profitCenter, net: 0 };
       existing.net -= balance;
       netByGroup.set(key, existing);
     }
@@ -1415,11 +1347,11 @@ function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfD
 
   if (accountsZeroed > 0) {
     // One, single, combined Retained Earnings line per real
-    // (currency, Profit Center) combination — division stays purely a
-    // reporting dimension (divisionBreakdown, below, is the
+    // (currency, Profit Center) combination — group stays purely a
+    // reporting dimension (groupBreakdown, below, is the
     // informational summary of it), never a structural split in what
-    // actually posts here; Profit Center, unlike division, genuinely
-    // IS a structural split, per docs/profit-centers-design.md.
+    // actually posts here; Profit Center, unlike group, genuinely IS
+    // a structural split, per docs/profit-centers-design.md.
     const netByCurrencyProfitCenter = new Map<string, { currency: string | null; profitCenter: string | null; net: number }>();
     for (const { currency, profitCenter, net } of netByGroup.values()) {
       const key = `${currency ?? ''}\u0000${profitCenter ?? ''}`;
@@ -1440,18 +1372,18 @@ function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfD
     }
   }
 
-  const divisionBreakdown = (() => {
-    const netByDivisionCurrency = new Map<string, { division: string | null; currency: string | null; net: number }>();
-    for (const { division, currency, net } of netByGroup.values()) {
-      const key = `${division ?? ''}\u0000${currency ?? ''}`;
-      const existing = netByDivisionCurrency.get(key) ?? { division, currency, net: 0 };
+  const groupBreakdown = (() => {
+    const netByGroupCurrency = new Map<string, { group: string | null; currency: string | null; net: number }>();
+    for (const { group, currency, net } of netByGroup.values()) {
+      const key = `${group ?? ''}\u0000${currency ?? ''}`;
+      const existing = netByGroupCurrency.get(key) ?? { group, currency, net: 0 };
       existing.net += net;
-      netByDivisionCurrency.set(key, existing);
+      netByGroupCurrency.set(key, existing);
     }
-    return Array.from(netByDivisionCurrency.values())
+    return Array.from(netByGroupCurrency.values())
       .filter(({ net }) => net !== 0)
-      .map(({ division, net }) => ({ division, netIncomeMinor: net }))
-      .sort((a, b) => (a.division ?? '').localeCompare(b.division ?? ''));
+      .map(({ group, net }) => ({ group, netIncomeMinor: net }))
+      .sort((a, b) => (a.group ?? '').localeCompare(b.group ?? ''));
   })();
 
   const profitCenterBreakdown = (() => {
@@ -1465,14 +1397,14 @@ function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfD
       .sort((a, b) => (a.profitCenter ?? '').localeCompare(b.profitCenter ?? ''));
   })();
 
-  return { lines, netIncomeMinor, accountsZeroed, divisionBreakdown, profitCenterBreakdown };
+  return { lines, netIncomeMinor, accountsZeroed, groupBreakdown, profitCenterBreakdown };
 }
 
 export interface CloseBooksPreview {
   lines: CloseBooksLine[];
   netIncomeMinor: number;
   accountsZeroed: number;
-  divisionBreakdown: { division: string | null; netIncomeMinor: number }[];
+  groupBreakdown: { group: string | null; netIncomeMinor: number }[];
   profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
 
@@ -1484,17 +1416,17 @@ export interface CloseBooksPreview {
  * not just click one button that immediately posts. Throws the exact
  * same real "nothing to close" error closeBooks itself would, so a
  * person never previews something that couldn't actually be posted. */
-export function previewCloseBooks(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string): CloseBooksPreview {
-  const computed = computeCloseLines(businessName, ledger, asOfDate, retainedEarningsAccount);
+export function previewCloseBooks(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, hierarchyPath: string[] = []): CloseBooksPreview {
+  const computed = computeCloseLines(businessName, ledger, asOfDate, retainedEarningsAccount, hierarchyPath);
   if (computed.accountsZeroed === 0) {
     throw new ValidationError(`Nothing to close for "${ledger}" as of ${asOfDate} — every Income/Expense account is already zero.`);
   }
   return computed;
 }
 
-export function closeBooks(business: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, userId: UserId): CloseBooksResult {
+export function closeBooks(business: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, userId: UserId, hierarchyPath: string[] = []): CloseBooksResult {
   const reference = `CLOSE-${ledger}-${asOfDate}`;
-  const computed = computeCloseLines(business, ledger, asOfDate, retainedEarningsAccount, userId);
+  const computed = computeCloseLines(business, ledger, asOfDate, retainedEarningsAccount, hierarchyPath, userId);
 
   if (computed.accountsZeroed === 0) {
     throw new ValidationError(`Nothing to close for "${ledger}" as of ${asOfDate} — every Income/Expense account is already zero.`);
@@ -1515,7 +1447,7 @@ export function closeBooks(business: BusinessName, ledger: LedgerName, asOfDate:
 
   postJournalEntry(reference, business, ledger, userId);
 
-  return { reference, netIncomeMinor: computed.netIncomeMinor, accountsZeroed: computed.accountsZeroed, divisionBreakdown: computed.divisionBreakdown, profitCenterBreakdown: computed.profitCenterBreakdown };
+  return { reference, netIncomeMinor: computed.netIncomeMinor, accountsZeroed: computed.accountsZeroed, groupBreakdown: computed.groupBreakdown, profitCenterBreakdown: computed.profitCenterBreakdown };
 }
 
 

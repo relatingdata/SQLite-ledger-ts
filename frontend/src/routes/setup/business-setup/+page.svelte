@@ -8,7 +8,7 @@
   import WeeklyHoursGrid from '$lib/components/WeeklyHoursGrid.svelte';
   import {
     getOrganizationChart,
-    createDivision,
+    createHierarchyValue,
     createEntity,
     setEntityRelationship,
     createEmployeeContact,
@@ -68,7 +68,7 @@
     creatingDivision = true;
     divisionError = '';
     try {
-      await createDivision(newDivisionName.trim(), null);
+      await createHierarchyValue(session.current.businessName, 'Division', newDivisionName.trim());
       await setEntityRelationship(newDivisionName.trim(), 'Belongs To Business', session.current.businessName);
       newDivisionName = '';
       showAddDivision = false;
@@ -101,7 +101,7 @@
         { city: newLocationCity.trim(), location_type: newLocationType, is_billing_address: false, timezone: newLocationTimezone },
         session.current.businessName
       );
-      await setEntityRelationship(newLocationName.trim(), 'Belongs To Division', divisionName);
+      await setEntityRelationship(newLocationName.trim(), 'Belongs To Group', divisionName);
       newLocationName = '';
       newLocationCity = '';
       creatingLocationFor = null;
@@ -237,7 +237,7 @@
   let additionalLocationSaving = $state(false);
   let additionalLocationError = $state('');
 
-  let allLocationNames = $derived.by(() => chart ? chart.divisions.flatMap((d) => d.locations.map((l) => l.location)) : []);
+  let allLocationNames = $derived.by(() => chart ? chart.groups.flatMap((g) => g.locations.map((l) => l.location)) : []);
   let additionalLocations = $derived.by(() => selection?.type === 'employee' ? [...new Set(fullEmployeeSchedule.map((s) => s.location).filter((l) => l && l !== selection!.location))] : []);
 
   async function selectEmployee(name: string, division: string | undefined, location: string | undefined) {
@@ -364,20 +364,20 @@
         </div>
       {/if}
 
-      {#each chart.divisions as division}
+      {#each chart.groups as group}
         <div class="tree-section">
-          <button type="button" class="tree-item division" class:active={selection?.type === 'division' && selection.name === division.division} onclick={() => selectDivision(division.division)}>
-            {division.division}
+          <button type="button" class="tree-item division" class:active={selection?.type === 'division' && selection.name === group.group} onclick={() => selectDivision(group.group)}>
+            {group.group}
           </button>
-          {#each division.locations as loc}
+          {#each group.locations as loc}
             <div class="tree-location">
-              <button type="button" class="tree-item location" class:active={selection?.type === 'location' && selection.name === loc.location} onclick={() => selectLocation(loc.location, division.division)}>
+              <button type="button" class="tree-item location" class:active={selection?.type === 'location' && selection.name === loc.location} onclick={() => selectLocation(loc.location, group.group)}>
                 {loc.location}
               </button>
               <ul class="tree-list">
                 {#each loc.employees as emp}
                   <li>
-                    <button type="button" class="tree-item" class:active={selection?.type === 'employee' && selection.name === emp} onclick={() => selectEmployee(emp, division.division, loc.location)}>{emp}</button>
+                    <button type="button" class="tree-item" class:active={selection?.type === 'employee' && selection.name === emp} onclick={() => selectEmployee(emp, group.group, loc.location)}>{emp}</button>
                   </li>
                 {/each}
                 <li>
@@ -394,7 +394,7 @@
           {/each}
           {#if employeeError}<p class="error small">{employeeError}</p>{/if}
 
-          {#if creatingLocationFor === division.division}
+          {#if creatingLocationFor === group.group}
             <div class="inline-add-block">
               <input bind:value={newLocationName} placeholder={translations.current['Location name'] ?? 'Location name'} />
               <input bind:value={newLocationCity} placeholder={translations.current['City'] ?? 'City'} />
@@ -405,7 +405,7 @@
               <select bind:value={newLocationTimezone}>
                 {#each ALL_TIMEZONES as tz}<option value={tz}>{tz}</option>{/each}
               </select>
-              <button class="btn small" onclick={() => addLocation(division.division)}>{translations.current['Add'] ?? 'Add'}</button>
+              <button class="btn small" onclick={() => addLocation(group.group)}>{translations.current['Add'] ?? 'Add'}</button>
               <button class="btn small secondary" onclick={() => (creatingLocationFor = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
             </div>
           {/if}

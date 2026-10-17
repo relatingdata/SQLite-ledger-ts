@@ -102,8 +102,9 @@ const {
   ensureItemTier,
   ensureItemTierLocationLeaf,
   getHierarchyParent,
+  getHierarchyGroups,
   getLocationForAccount,
-  getDivisionForAccount,
+  getHierarchyGroupForAccount,
   deleteHierarchyParent,
   getHierarchyChildren,
   getHierarchyAncestorChain,
@@ -120,9 +121,9 @@ const {
   getTrialBalance,
   getBalanceSheet,
   getProfitAndLoss,
-  getProfitAndLossForDivision,
-  getProfitAndLossByDivision,
-  getProfitAndLossByDivisionTree,
+  getProfitAndLossForHierarchyGroup,
+  getProfitAndLossByHierarchy,
+  getProfitAndLossByHierarchyTree,
   getTrialBalanceComparison,
   getProfitAndLossComparison,
   getSalesReport,
@@ -240,8 +241,7 @@ const {
   confirmRestockPickedLine,
   dispatchRestockFromPickingList,
   receiveItems,
-  getLedgerBalancesByDivision,
-  getLedgerBalancesByDivisionStructural,
+  getLedgerBalancesByHierarchyStructural,
   dispatchItems,
   transferItems,
   getBelowReorderStock,
@@ -2272,7 +2272,7 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
 
 test('getStockMovementReport: the real, physical journey of stock — purchases into a warehouse, a real transfer on to a retail outlet, and a real sale, each correctly enriched with its own real category, division, and vendor', () => {
   create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'SMRTest Ledger', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'SMRTest Region', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'SMRTest Region', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Warehouse', asUserId(1));
   setLocation('SMRTest Warehouse', { city: 'SMRTest Region', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('admin'));
   create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Outlet', asUserId(1));
@@ -2920,8 +2920,8 @@ test('getBalanceSheet: a real close must not leave Current Year Earnings still s
 
 test("closeBooks: per direct correction, division is only a real, pure sub-totaling/reporting dimension - every division's net income rolls into the exact same, single, chosen Retained Earnings account, never a separate, division-specific one", () => {
   const biz = createBusiness(asBusinessName('MultiDivCloseTest Co'), '2027-28', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'MultiDivCloseTest Retail Division', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'MultiDivCloseTest Wholesale Division', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'MultiDivCloseTest Retail Division', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'MultiDivCloseTest Wholesale Division', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'MultiDivCloseTest Retail Outlet', asUserId(1));
   setLocation('MultiDivCloseTest Retail Outlet', { city: 'MultiDivCloseTest Retail Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
   setHierarchyParent('MultiDivCloseTest Retail Outlet', 'Division', 'MultiDivCloseTest Retail Division', asUserId(1));
@@ -2942,7 +2942,7 @@ test("closeBooks: per direct correction, division is only a real, pure sub-total
   stageLine({ reference: 'MDCT-3', business: biz.business, ledger: biz.actualLedger, transdate: '2027-01-03', account: asAccountName('Cash and Bank'), amount_minor: 20000 });
   postJournalEntry('MDCT-3', biz.business, biz.actualLedger, asUserId(1));
 
-  const result = closeBooks(biz.business, biz.actualLedger, '2027-12-31', "Owner's Equity", asUserId(1));
+  const result = closeBooks(biz.business, biz.actualLedger, '2027-12-31', "Owner's Equity", asUserId(1), ['Location', 'Division']);
   assert.equal(result.netIncomeMinor, 180000, '$1,000 + $600 + $200 = $1,800 total net income, across every division combined');
 
   const tb = getTrialBalance(biz.business, biz.actualLedger);
@@ -2954,15 +2954,15 @@ test("closeBooks: per direct correction, division is only a real, pure sub-total
   assert.equal(tb.rows.find((r) => r.name === "Owner's Equity - MultiDivCloseTest Retail Division"), undefined, 'no separate, division-specific Retained Earnings account is ever created — division is a real, pure reporting dimension, not a structural posting decision');
   assert.equal(tb.rows.find((r) => r.name === "Owner's Equity - MultiDivCloseTest Wholesale Division"), undefined, 'same for Wholesale — nothing division-specific is ever created on the GL side');
 
-  // divisionBreakdown remains a real, purely informational summary —
+  // groupBreakdown remains a real, purely informational summary —
   // still correctly split for display, just never driving where
   // anything actually posts.
-  const retail = result.divisionBreakdown.find((d) => d.division === 'MultiDivCloseTest Retail Division');
-  const wholesale = result.divisionBreakdown.find((d) => d.division === 'MultiDivCloseTest Wholesale Division');
-  const undivided = result.divisionBreakdown.find((d) => d.division === null);
-  assert.equal(retail?.netIncomeMinor, 100000, "divisionBreakdown still reports Retail Division's own real $1,000 net income, for display only, now derived structurally");
-  assert.equal(wholesale?.netIncomeMinor, 60000, "divisionBreakdown still reports Wholesale Division's own real $600 net income, for display only");
-  assert.equal(undivided?.netIncomeMinor, 20000, 'divisionBreakdown still reports the real, undivided $200 remainder under a null division, for display only');
+  const retail = result.groupBreakdown.find((d) => d.group === 'MultiDivCloseTest Retail Division');
+  const wholesale = result.groupBreakdown.find((d) => d.group === 'MultiDivCloseTest Wholesale Division');
+  const undivided = result.groupBreakdown.find((d) => d.group === null);
+  assert.equal(retail?.netIncomeMinor, 100000, "groupBreakdown still reports Retail Division's own real $1,000 net income, for display only, now derived structurally");
+  assert.equal(wholesale?.netIncomeMinor, 60000, "groupBreakdown still reports Wholesale Division's own real $600 net income, for display only");
+  assert.equal(undivided?.netIncomeMinor, 20000, 'groupBreakdown still reports the real, undivided $200 remainder under a null group, for display only');
 });
 
 test('getBalanceSheet includes real AR/AP posted directly to customer/vendor names — without this, any ledger with outstanding AR/AP silently fails to balance', () => {
@@ -3170,26 +3170,26 @@ test('payEmployeeWages: a real employee treated as AP — real Medicare levy wit
   assert.equal(salaryResult.grossMinor, 800000, 'one real month of a $96,000.00/year salary must be exactly $8,000.00');
 });
 
-test('getOrganizationChart: the real, complete chain — Business belongs-to Division belongs-to Location, employees placed at either a real location or the business itself', () => {
+test('getOrganizationChart: the real, complete chain — Business belongs-to Group belongs-to Location, employees placed at either a real location or the business itself', () => {
   create(requireEntity('Businesses', typeRootName), typeRootName, 'OrgChartTest Co', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'OrgChartTest Region', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'OrgChartTest Region', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'OrgChartTest Store', asUserId(1));
   create(requireEntity('Employees', typeRootName), typeRootName, 'OrgChartTest Retail Staff', asUserId(1));
   create(requireEntity('Employees', typeRootName), typeRootName, 'OrgChartTest CEO', asUserId(1));
 
   setRelationship('OrgChartTest Region', 'Belongs To Business', 'OrgChartTest Co', asUserId(1));
-  setRelationship('OrgChartTest Store', 'Belongs To Division', 'OrgChartTest Region', asUserId(1));
+  setRelationship('OrgChartTest Store', 'Belongs To Group', 'OrgChartTest Region', asUserId(1));
   setRelationship('OrgChartTest Retail Staff', 'Place of Employment', 'OrgChartTest Store', asUserId(1));
   setRelationship('OrgChartTest CEO', 'Place of Employment', 'OrgChartTest Co', asUserId(1));
 
   const chart = getOrganizationChart(asBusinessName('OrgChartTest Co'));
   assert.equal(chart.business, 'OrgChartTest Co');
   assert.deepEqual(chart.companyWideEmployees, ['OrgChartTest CEO'], "an employee whose place of employment is the business itself must appear as real, genuine company-wide staff, not nested under any single location");
-  assert.equal(chart.divisions.length, 1);
-  assert.equal(chart.divisions[0].division, 'OrgChartTest Region');
-  assert.equal(chart.divisions[0].locations.length, 1);
-  assert.equal(chart.divisions[0].locations[0].location, 'OrgChartTest Store');
-  assert.deepEqual(chart.divisions[0].locations[0].employees, ['OrgChartTest Retail Staff']);
+  assert.equal(chart.groups.length, 1);
+  assert.equal(chart.groups[0].group, 'OrgChartTest Region');
+  assert.equal(chart.groups[0].locations.length, 1);
+  assert.equal(chart.groups[0].locations[0].location, 'OrgChartTest Store');
+  assert.deepEqual(chart.groups[0].locations[0].employees, ['OrgChartTest Retail Staff']);
 
   // A real, direct confirmation of the underlying design: none of
   // this real relationship structure ever touched anyone's own real
@@ -3297,8 +3297,8 @@ test('getInventoryListing/countInventoryListing: a real, paginated listing of ev
   assert.notDeepEqual(page1[0], page2[0], 'different offsets must return different rows, not the same page twice');
 }));
 
-test('getInventoryListingByLocation: groups the same real stock data by real location, tagging each with its real division where one exists', () => withMyBusinessSession(() => {
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'StockGroupTest City Division', asUserId(1));
+test('getInventoryListingByLocation: groups the same real stock data by real location, tagging each with its real group where one exists', () => withMyBusinessSession(() => {
+  create(requireEntity('Application', typeRootName), typeRootName, 'StockGroupTest City Division', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet', asUserId(1));
   setLocation('StockGroupTest Outlet', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
   setHierarchyParent('StockGroupTest Outlet', 'Division', 'StockGroupTest City Division', asUserId(1));
@@ -3311,8 +3311,8 @@ test('getInventoryListingByLocation: groups the same real stock data by real loc
   const group = groups.find((g) => g.location === 'StockGroupTest Outlet');
   assert.ok(group, 'the real, new location must appear as its own real group');
   assert.equal(group!.city, 'StockGroupTest City Division');
-  // Real division tagging: via the location's own, real, explicit "Division" hierarchy link — never its address city, which is incidental here.
-  assert.equal(group!.division, 'StockGroupTest City Division', "a location's own, explicit Division hierarchy link must tag the group with it, via the same getDivisionForLocation logic a real sale uses");
+  // Real group tagging: via the location's own, real, explicit "Division" hierarchy link — never its address city, which is incidental here.
+  assert.equal(group!.group, 'StockGroupTest City Division', "a location's own, explicit Division hierarchy link must tag the group with it, via the same getHierarchyGroupForLocation logic a real sale uses");
   assert.equal(group!.rows.length, 2, 'both real items received at this location must appear as real rows within the group');
   assert.equal(group!.total_on_hand, 17, "a group's own total must be the real sum of its real rows' on-hand quantities");
 
@@ -3329,8 +3329,8 @@ test('getInventoryListingByLocation: groups the same real stock data by real loc
   receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-3', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet No Division'), 3, asUserId(1), '2027-01-01');
   const groupsAfter = getInventoryListingByLocation();
   const noDivisionGroup = groupsAfter.find((g) => g.location === 'StockGroupTest Outlet No Division');
-  assert.ok(noDivisionGroup, 'a real location must still produce a real group even with no matching division');
-  assert.equal(noDivisionGroup!.division, null, "a location's own address city must never auto-tag a division, even when it happens to exactly match a real division's own name — only a real, explicit hierarchy link does");
+  assert.ok(noDivisionGroup, 'a real location must still produce a real group even with no matching group');
+  assert.equal(noDivisionGroup!.group, null, "a location's own address city must never auto-tag a group, even when it happens to exactly match a real group's own name — only a real, explicit hierarchy link does");
 }));
 
 test('getLedgerDateRange: reports the real, earliest and latest transdate of what has actually been posted', () => {
@@ -4116,8 +4116,8 @@ test('getCustomerStatement: shows every real, posted invoice for one customer �
 
 test("setEntityLink/getEntityLink/deleteEntityLink: a real, pure link between two entities that never touches the source entity's own relation_id, unlike setRelationship", () => {
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'EntityLinkTest Account', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'EntityLinkTest Division', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'EntityLinkTest Other Division', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'EntityLinkTest Division', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'EntityLinkTest Other Division', asUserId(1));
 
   // Confirm the real, critical property directly: tag the account's
   // own relation_id first (the same real way createBusiness tags a
@@ -4261,7 +4261,7 @@ test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, 
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'BankRegTest AUD Account 2', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'BankRegTest EUR Account', asUserId(1));
   create(requireGlobalCoaCategory('Asset'), typeRootName, 'BankRegTest Not A Bank Account', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'BankRegTest Division', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'BankRegTest Division', asUserId(1));
 
   // A real, required scope — no free-floating bank account without one.
   assert.throws(() => registerBankAccount('BankRegTest AUD Account', 'admin', 'No Such Scope', null, asUserId(1)), /No real business\/division named/);
@@ -4514,9 +4514,9 @@ test('ensureItemTier: the confirmed product/tier/leaf design (docs/multi-dimensi
   assert.deepEqual(bottleAgain, bottle);
 });
 
-test('getProfitAndLossByDivision: "Consolidated per Division" — one real, full P&L per real division actually active in this ledger/date range, income/COGS/operating split intact per division, derived structurally from real, live sales at real locations', () => {
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division A', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division B', asUserId(1));
+test('getProfitAndLossByHierarchy: "Consolidated per Division" — one real, full P&L per real group actually active in this ledger/date range, income/COGS/operating split intact per group, derived structurally from real, live sales at real locations', () => {
+  create(requireEntity('Application', typeRootName), typeRootName, 'PLDivTest3 Division A', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'PLDivTest3 Division B', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'PLDivTest3 Outlet A', asUserId(1));
   setLocation('PLDivTest3 Outlet A', { city: 'PLDivTest3 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   setHierarchyParent('PLDivTest3 Outlet A', 'Division', 'PLDivTest3 Division A', asUserId(1));
@@ -4531,44 +4531,44 @@ test('getProfitAndLossByDivision: "Consolidated per Division" — one real, full
   completePosSale({ business: asBusinessName('admin'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLDivTest3 Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLDivTest3 Merlot', quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000 }, asUserId(1));
   completePosSale({ business: asBusinessName('admin'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLDivTest3 Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLDivTest3 Merlot', quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, asUserId(1));
 
-  const result = getProfitAndLossByDivision(asBusinessName('admin'), asLedgerName('Actual'), today, today);
-  const divA = result.find((r) => r.division === 'PLDivTest3 Division A');
-  const divB = result.find((r) => r.division === 'PLDivTest3 Division B');
+  const result = getProfitAndLossByHierarchy(asBusinessName('admin'), asLedgerName('Actual'), ['Location', 'Division'], today, today);
+  const divA = result.find((r) => r.group === 'PLDivTest3 Division A');
+  const divB = result.find((r) => r.group === 'PLDivTest3 Division B');
   assert.ok(divA, 'a real division actually active in this date range must appear, derived structurally from a real, live sale at a real location within it');
   assert.ok(divB);
-  assert.equal(divA!.profitAndLoss.total_income_minor, 50000, "each real division's own P&L must be genuinely isolated from every other division's own activity");
+  assert.equal(divA!.profitAndLoss.total_income_minor, 50000, "each real group's own P&L must be genuinely isolated from every other group's own activity");
   assert.equal(divB!.profitAndLoss.total_income_minor, 30000);
   assert.equal(divA!.profitAndLoss.net_income_minor, 50000);
 
   // A real, genuinely untagged posting — a plain account with no
   // real, structural location link at all — must still, correctly
-  // resolve to "(No division)" under the new, structural derivation,
+  // resolve to "(No group)" under the new, structural derivation,
   // exactly as it did under the old, tag-based one. Checked as a real
   // delta, not an absolute value, since the shared test database may
   // already carry other, earlier tests' own real, genuinely untagged
   // activity too.
-  const noDivisionBefore = result.find((r) => r.division === null)?.profitAndLoss.total_income_minor ?? 0;
+  const noGroupBefore = result.find((r) => r.group === null)?.profitAndLoss.total_income_minor ?? 0;
   stageLine({ reference: 'PLDIVTEST3-3', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: today, account: asAccountName('Sales Revenue'), amount_minor: -7000 });
   stageLine({ reference: 'PLDIVTEST3-3', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: today, account: asAccountName('Cash and Bank'), amount_minor: 7000 });
   postJournalEntry('PLDIVTEST3-3', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
-  const resultAfter = getProfitAndLossByDivision(asBusinessName('admin'), asLedgerName('Actual'), today, today);
-  const noDivisionAfter = resultAfter.find((r) => r.division === null)?.profitAndLoss.total_income_minor ?? 0;
-  assert.equal(noDivisionAfter - noDivisionBefore, 7000, "(No division) must move by exactly this real, untagged posting's own amount — Division A's and B's own real activity must never leak into it");
+  const resultAfter = getProfitAndLossByHierarchy(asBusinessName('admin'), asLedgerName('Actual'), ['Location', 'Division'], today, today);
+  const noGroupAfter = resultAfter.find((r) => r.group === null)?.profitAndLoss.total_income_minor ?? 0;
+  assert.equal(noGroupAfter - noGroupBefore, 7000, "(No group) must move by exactly this real, untagged posting's own amount — Division A's and B's own real activity must never leak into it");
   // Division A/B's own real totals must also stay exactly where they
   // were — the real, untagged posting above must never bleed into them.
-  assert.equal(resultAfter.find((r) => r.division === 'PLDivTest3 Division A')!.profitAndLoss.total_income_minor, 50000);
-  assert.equal(resultAfter.find((r) => r.division === 'PLDivTest3 Division B')!.profitAndLoss.total_income_minor, 30000);
+  assert.equal(resultAfter.find((r) => r.group === 'PLDivTest3 Division A')!.profitAndLoss.total_income_minor, 50000);
+  assert.equal(resultAfter.find((r) => r.group === 'PLDivTest3 Division B')!.profitAndLoss.total_income_minor, 30000);
 
-  // A real division that exists in the app but has no real activity
+  // A real group that exists in the app but has no real activity
   // within this real ledger/date range must never appear at all — an
   // empty, meaningless report is worse than no report.
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division Unused', asUserId(1));
-  const result2 = getProfitAndLossByDivision(asBusinessName('admin'), asLedgerName('Actual'), today, today);
-  assert.ok(!result2.some((r) => r.division === 'PLDivTest3 Division Unused'));
+  create(requireEntity('Application', typeRootName), typeRootName, 'PLDivTest3 Division Unused', asUserId(1));
+  const result2 = getProfitAndLossByHierarchy(asBusinessName('admin'), asLedgerName('Actual'), ['Location', 'Division'], today, today);
+  assert.ok(!result2.some((r) => r.group === 'PLDivTest3 Division Unused'));
 });
 
-test('getProfitAndLossByDivisionTree: "Consolidated per Division per Location" — real divisions nested under their own real parent, a genuinely empty node synthesized for a real, top-level division with no direct activity of its own', () => {
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'PLTreeTest City', asUserId(1));
+test('getProfitAndLossByHierarchyTree: "Consolidated per Division per Location" — real groups nested under their own real parent, a genuinely empty node synthesized for a real, top-level group with no direct activity of its own', () => {
+  create(requireEntity('Application', typeRootName), typeRootName, 'PLTreeTest City', asUserId(1));
   create(requireEntity('PLTreeTest City', typeRootName), typeRootName, 'PLTreeTest Store A', asUserId(1));
   create(requireEntity('PLTreeTest City', typeRootName), typeRootName, 'PLTreeTest Store B', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'PLTreeTest Outlet A', asUserId(1));
@@ -4587,29 +4587,29 @@ test('getProfitAndLossByDivisionTree: "Consolidated per Division per Location" �
   completePosSale({ business: asBusinessName('admin'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLTreeTest Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLTreeTest Merlot', quantity: 1, unitPriceMinor: 20000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 20000 }, asUserId(1));
   completePosSale({ business: asBusinessName('admin'), ledger: asLedgerName('Actual'), locationName: asLocationName('PLTreeTest Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'PLTreeTest Merlot', quantity: 1, unitPriceMinor: 15000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 15000 }, asUserId(1));
 
-  const tree = getProfitAndLossByDivisionTree(asBusinessName('admin'), asLedgerName('Actual'), today, today);
-  const city = tree.find((n) => n.division === 'PLTreeTest City');
-  assert.ok(city, "a real, top-level division must still appear, even with no real, direct activity of its own, so its own real children have somewhere real to nest");
+  const tree = getProfitAndLossByHierarchyTree(asBusinessName('admin'), asLedgerName('Actual'), ['Location', 'Division'], 'Division', today, today);
+  const city = tree.find((n) => n.group === 'PLTreeTest City');
+  assert.ok(city, "a real, top-level group must still appear, even with no real, direct activity of its own, so its own real children have somewhere real to nest");
   assert.equal(city!.profitAndLoss.total_income_minor, 0, "a real, synthesized-empty parent node must genuinely show zero, not some real, incorrect aggregate");
   assert.equal(city!.children.length, 2, 'both real, child stores must be correctly nested under their own real parent');
 
-  const storeA = city!.children.find((c) => c.division === 'PLTreeTest Store A');
-  const storeB = city!.children.find((c) => c.division === 'PLTreeTest Store B');
+  const storeA = city!.children.find((c) => c.group === 'PLTreeTest Store A');
+  const storeB = city!.children.find((c) => c.group === 'PLTreeTest Store B');
   assert.ok(storeA);
   assert.ok(storeB);
   assert.equal(storeA!.profitAndLoss.total_income_minor, 20000, "each real, nested child's own P&L must be genuinely correct, not just its own existence");
   assert.equal(storeB!.profitAndLoss.total_income_minor, 15000);
-  assert.equal(storeA!.children.length, 0, 'a real leaf division must have no real children of its own');
+  assert.equal(storeA!.children.length, 0, 'a real leaf group must have no real children of its own');
 
-  // "(No division)" must always be its own, separate, real root — it
+  // "(No group)" must always be its own, separate, real root — it
   // has no real, meaningful parent to nest under at all.
-  assert.ok(tree.some((n) => n.division === null), '(No division) must remain a real, top-level root, never nested under anything');
+  assert.ok(tree.some((n) => n.group === null), '(No group) must remain a real, top-level root, never nested under anything');
 });
 
 test('closeBooks: division is only a pure reporting dimension — every division\'s net income rolls into one, single, combined Retained Earnings line, never a separate line per division', () => {
   const biz = createBusiness(asBusinessName('DetailedCloseTest Co'), '2027-28', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'DetailedCloseTest Division A', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'DetailedCloseTest Division B', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'DetailedCloseTest Division A', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'DetailedCloseTest Division B', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'DetailedCloseTest Outlet A', asUserId(1));
   setLocation('DetailedCloseTest Outlet A', { city: 'DetailedCloseTest Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
   setHierarchyParent('DetailedCloseTest Outlet A', 'Division', 'DetailedCloseTest Division A', asUserId(1));
@@ -4699,8 +4699,8 @@ test('completePosSale: the real, live wiring — a real sale with a real tier no
 
 test('reverseJournalEntry: a real year-end close, with activity spread across multiple real divisions rolling into one, single, combined Retained Earnings line, must reverse cleanly and balance to zero', () => {
   const biz = createBusiness(asBusinessName('ReverseCloseTest2 Co'), '2027-28', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'ReverseCloseTest2 Division A', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'ReverseCloseTest2 Division B', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'ReverseCloseTest2 Division A', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'ReverseCloseTest2 Division B', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'ReverseCloseTest2 Outlet A', asUserId(1));
   setLocation('ReverseCloseTest2 Outlet A', { city: 'ReverseCloseTest2 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
   setHierarchyParent('ReverseCloseTest2 Outlet A', 'Division', 'ReverseCloseTest2 Division A', asUserId(1));
@@ -4821,8 +4821,8 @@ test('completePosSale: the real, live wiring — a real sale with both a real ti
   assert.equal(tierItem!.parent_id, tierSalesLeaf!.id, "the shared, tier-level item's own real parent must never move");
 });
 
-test('getLocationForAccount/getDivisionForAccount: the real, structural replacement for journal_line.division_id — walking a real account to its own, real, structural location and division, not reading a separate tag', () => {
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'DeriveTest2 Springfield', asUserId(1));
+test('getLocationForAccount/getHierarchyGroupForAccount: the real, structural replacement for journal_line.division_id — walking a real account to its own, real, structural location and hierarchy group, not reading a separate tag', () => {
+  create(requireEntity('Application', typeRootName), typeRootName, 'DeriveTest2 Springfield', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'DeriveTest2 Outlet', asUserId(1));
   setLocation('DeriveTest2 Outlet', { city: 'DeriveTest2 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
   setHierarchyParent('DeriveTest2 Outlet', 'Division', 'DeriveTest2 Springfield', asUserId(1));
@@ -4835,20 +4835,20 @@ test('getLocationForAccount/getDivisionForAccount: the real, structural replacem
 
   assert.equal(getLocationForAccount(asAccountName(leaf.salesAccount)), 'DeriveTest2 Outlet', "a real Sales leaf's own real location must be walkable directly, structurally");
   assert.equal(getLocationForAccount(asAccountName(leaf.cogsAccount)), 'DeriveTest2 Outlet', "its own real COGS counteritem must resolve to the exact same, real location");
-  assert.equal(getDivisionForAccount(asAccountName(leaf.salesAccount)), 'DeriveTest2 Springfield', "the real division must be correctly derived by walking location, then location-to-division — the exact same, real resolution getDivisionForLocation already provides");
-  assert.equal(getDivisionForAccount(asAccountName(leaf.cogsAccount)), 'DeriveTest2 Springfield');
+  assert.equal(getHierarchyGroupForAccount(asAccountName(leaf.salesAccount), 'Division'), 'DeriveTest2 Springfield', "the real group must be correctly derived by walking location, then location-to-group — the exact same, real resolution getHierarchyGroupForLocation already provides");
+  assert.equal(getHierarchyGroupForAccount(asAccountName(leaf.cogsAccount), 'Division'), 'DeriveTest2 Springfield');
 
   // An ordinary, non-product account has no real, structural location
   // at all — must correctly, honestly return undefined, never a
   // fabricated guess.
   assert.equal(getLocationForAccount(asAccountName('Cash and Bank')), undefined);
-  assert.equal(getDivisionForAccount(asAccountName('Cash and Bank')), undefined);
+  assert.equal(getHierarchyGroupForAccount(asAccountName('Cash and Bank'), 'Division'), undefined);
 });
 
-test('getLedgerBalancesByDivisionStructural: correctly derives division by walking location, per real, live sale, at multiple real outlets', () => {
+test('getLedgerBalancesByHierarchyStructural: correctly derives division by walking location, per real, live sale, at multiple real outlets', () => {
   const biz = createBusiness(asBusinessName('StructTest6 Co'), '2027-28', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'StructTest6 Springfield', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'StructTest6 Rivertown', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'StructTest6 Springfield', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'StructTest6 Rivertown', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'StructTest6 Outlet A', asUserId(1));
   setLocation('StructTest6 Outlet A', { city: 'StructTest6 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
   setHierarchyParent('StructTest6 Outlet A', 'Division', 'StructTest6 Springfield', asUserId(1));
@@ -4863,7 +4863,7 @@ test('getLedgerBalancesByDivisionStructural: correctly derives division by walki
   completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('StructTest6 Outlet A'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'StructTest6 Merlot', quantity: 2, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 5000 }, asUserId(1));
   completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('StructTest6 Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'StructTest6 Merlot', quantity: 3, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 5000 }, asUserId(1));
 
-  const newResult = getLedgerBalancesByDivisionStructural(biz.business, biz.actualLedger);
+  const newResult = getLedgerBalancesByHierarchyStructural(biz.business, biz.actualLedger, ['Location', 'Division']);
 
   const tree = getEntityTree();
   function salesByDivision(map: Map<number, Map<string | null, number>>) {
@@ -4886,7 +4886,7 @@ test('getLedgerBalancesByDivisionStructural: correctly derives division by walki
 test('getProfitAndLossByAxis: real, direct reproducibility — every real division and every real location must exactly reproduce the original, division-filtered P&L (Sales AND COGS both), per direct, reported concern', async () => {
   const { getProfitAndLossByAxis } = await import('../src/db-matrix-reports.ts');
   const biz = createBusiness(asBusinessName('ReproTest Co'), '2027-28', asUserId(1));
-  create(requireEntity('Divisions', typeRootName), typeRootName, 'ReproTest Division', asUserId(1));
+  create(requireEntity('Application', typeRootName), typeRootName, 'ReproTest Division', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'ReproTest Outlet', asUserId(1));
   setLocation('ReproTest Outlet', { city: 'ReproTest Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
   setHierarchyParent('ReproTest Outlet', 'Division', 'ReproTest Division', asUserId(1));
@@ -4914,7 +4914,7 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
   stageLine({ reference: 'REPRO-COGS', business: biz.business, ledger: biz.actualLedger, transdate: today, account: asAccountName('Inventory'), amount_minor: -2000 });
   postJournalEntry('REPRO-COGS', biz.business, biz.actualLedger, asUserId(1));
 
-  const originalPL = getProfitAndLossForDivision(biz.business, biz.actualLedger, 'ReproTest Division');
+  const originalPL = getProfitAndLossForHierarchyGroup(biz.business, biz.actualLedger, ['Location', 'Division'], getHierarchyGroups('Division'), 'ReproTest Division');
   const newNewPLByDivision = getProfitAndLossByAxis(biz.business, biz.actualLedger, undefined, undefined, 'Division', 'Consolidated', 'ReproTest Division');
   const newNewPLByLocation = getProfitAndLossByAxis(biz.business, biz.actualLedger, undefined, undefined, 'Location', 'Consolidated', 'ReproTest Outlet');
 
@@ -4999,7 +4999,7 @@ test('create<T>: the real, generic, typed-descriptor creation primitive - genuin
   // bare string kind arguments. Real, named type descriptors, passed
   // as values.
   const typeSpringfieldBusinessName: TypeDescriptor<'SpringfieldBusinessName'> = { brand: 'SpringfieldBusinessName' };
-  const typeSpringfieldDivisionName: TypeDescriptor<'SpringfieldDivisionName'> = { brand: 'SpringfieldDivisionName' };
+  const typeSpringfieldGroupName: TypeDescriptor<'SpringfieldGroupName'> = { brand: 'SpringfieldGroupName' };
   const typeSpringfieldLocationName: TypeDescriptor<'SpringfieldLocationName'> = { brand: 'SpringfieldLocationName' };
   const typeSpringfieldEmployeeName: TypeDescriptor<'SpringfieldEmployeeName'> = { brand: 'SpringfieldEmployeeName' };
 
@@ -5008,18 +5008,18 @@ test('create<T>: the real, generic, typed-descriptor creation primitive - genuin
 
   // Per direct instruction, quoting the real, existing, established
   // principle directly (backend/src/db.ts, createEntityRaw's own
-  // comment): "a company, a division, a location, and an employee can
+  // comment): "a company, a group, a location, and an employee can
   // all genuinely, correctly be called 'Springfield' at once."
   const business = create(businessesRoot, typeSpringfieldBusinessName, 'CreateTTest Springfield', asUserId(1));
-  const division = create(business, typeSpringfieldDivisionName, 'CreateTTest Springfield', asUserId(1));
-  const location = create(division, typeSpringfieldLocationName, 'CreateTTest Springfield Loc', asUserId(1));
+  const group = create(business, typeSpringfieldGroupName, 'CreateTTest Springfield', asUserId(1));
+  const location = create(group, typeSpringfieldLocationName, 'CreateTTest Springfield Loc', asUserId(1));
   const employee = create(employeesRoot, typeSpringfieldEmployeeName, 'CreateTTest Springfield Employee', asUserId(1));
 
   assert.ok(business.id > 0);
-  assert.ok(division.id > 0);
+  assert.ok(group.id > 0);
   assert.ok(location.id > 0, 'the same real name under a further, different real parent must also genuinely create, not collide');
   assert.ok(employee.id > 0, 'and likewise under a real, entirely separate parent');
-  assert.notEqual(business.id, division.id, 'the exact, same real name under two real, different parents genuinely produces two, real, distinct entities, not a collision');
+  assert.notEqual(business.id, group.id, 'the exact, same real name under two real, different parents genuinely produces two, real, distinct entities, not a collision');
 
   // The real, direct rejection: a genuine, real sibling collision
   // under the exact, same real parent must still fail.

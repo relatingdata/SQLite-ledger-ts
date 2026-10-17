@@ -311,7 +311,6 @@ export const typeMenuLinkFlagName: TypeDescriptor<'MenuLinkFlagName'> = { brand:
 export const typeBusinessTypeName: TypeDescriptor<'BusinessTypeName'> = { brand: 'BusinessTypeName' };
 export const typeBusinessTypeQuestionsRootName: TypeDescriptor<'BusinessTypeQuestionsRootName'> = { brand: 'BusinessTypeQuestionsRootName' };
 export const typeBusinessTypeQuestionName: TypeDescriptor<'BusinessTypeQuestionName'> = { brand: 'BusinessTypeQuestionName' };
-export const typeDivisionName: TypeDescriptor<'DivisionName'> = { brand: 'DivisionName' };
 
 import { seedRemainingData } from './db-seed.js';
 seedRemainingData();
@@ -338,7 +337,6 @@ seedRemainingData();
 export type BusinessName = string & { readonly __brand: 'BusinessName' };
 export type LedgerName = string & { readonly __brand: 'LedgerName' };
 export type AccountName = string & { readonly __brand: 'AccountName' };
-export type DivisionName = string & { readonly __brand: 'DivisionName' };
 export type LocationName = string & { readonly __brand: 'LocationName' };
 export type EmployeeName = string & { readonly __brand: 'EmployeeName' };
 export type CustomerName = string & { readonly __brand: 'CustomerName' };
@@ -1125,23 +1123,26 @@ export function getEntitiesWithRelationship(relationshipType: string): { source:
     .all(relationshipType) as { source: string; target: string }[];
 }
 
-export interface OrgChartDivision {
-  division: string;
+export interface OrgChartGroup {
+  group: string;
   locations: { location: string; employees: string[] }[];
 }
 export interface OrganizationChart {
   business: string;
   companyWideEmployees: string[]; // "Place of Employment" points straight at the business itself
-  divisions: OrgChartDivision[];
+  groups: OrgChartGroup[];
 }
 
 /** Builds the real, complete organizational chart for a real
  * business, walking the full, real chain — Business <-(belongs to)-
- * Division <-(belongs to)- Location <-(place of employment)- Employee
+ * Group <-(belongs to)- Location <-(place of employment)- Employee
  * — through the three real relationship layers, not through
  * parent_id at all (each of those stays exactly where it already
  * was; only the relationship layer is new). Per direct confirmation:
- * "yes definitely for organizational charts and employee directory". */
+ * "yes definitely for organizational charts and employee directory".
+ * "Group" here is a genuinely generic, business-chosen grouping of
+ * locations (a business may call its own groups "Division," "Region,"
+ * or anything else) — never a hardcoded, privileged concept. */
 export interface HierarchyNode {
   id: number;
   name: string;
@@ -1203,24 +1204,24 @@ export function getHierarchy(rootName: string, relationshipType?: string): Hiera
 
 export function getOrganizationChart(businessName: BusinessName): OrganizationChart {
   const businessRows = getEntitiesWithRelationship('Belongs To Business').filter((r) => r.target === businessName);
-  const locationRows = getEntitiesWithRelationship('Belongs To Division');
+  const locationRows = getEntitiesWithRelationship('Belongs To Group');
   const employmentRows = getEntitiesWithRelationship('Place of Employment');
 
   const companyWideEmployees = employmentRows.filter((r) => r.target === businessName).map((r) => r.source).sort();
 
-  // A real division is genuinely either (1) a real entity with its
-  // own "Belongs To Business" relationship pointing at this business,
-  // or (2) any real target of a "Belongs To Division" relationship
-  // whose own locations trace back to this business — covering a
-  // single-location "division" that is genuinely its own group, with
-  // no separate, dedicated division entity or business relationship
-  // of its own (its own location's relationship simply targets
-  // itself), never silently dropped from the real org chart.
-  const businessDivisionNames = new Set(businessRows.map((r) => r.source));
+  // A real group is genuinely either (1) a real entity with its own
+  // "Belongs To Business" relationship pointing at this business, or
+  // (2) any real target of a "Belongs To Group" relationship whose
+  // own locations trace back to this business — covering a
+  // single-location group that is genuinely its own group, with no
+  // separate, dedicated group entity or business relationship of its
+  // own (its own location's relationship simply targets itself),
+  // never silently dropped from the real org chart.
+  const businessGroupNames = new Set(businessRows.map((r) => r.source));
   for (const { target } of locationRows) {
-    businessDivisionNames.add(target);
+    businessGroupNames.add(target);
   }
-  // Filter division-only-by-location-relationship names to genuinely
+  // Filter group-only-by-location-relationship names to genuinely
   // real ones belonging to this business — a location's own city or
   // structural home under this exact business's own Locations.
   const businessLocationNames = new Set(
@@ -1234,12 +1235,12 @@ export function getOrganizationChart(businessName: BusinessName): OrganizationCh
     ).map((r) => r.name)
   );
 
-  const divisions: OrgChartDivision[] = [...businessDivisionNames]
-    .filter((divisionName) => businessRows.some((r) => r.source === divisionName) || businessLocationNames.has(divisionName))
+  const groups: OrgChartGroup[] = [...businessGroupNames]
+    .filter((groupName) => businessRows.some((r) => r.source === groupName) || businessLocationNames.has(groupName))
     .sort()
-    .map((divisionName) => {
+    .map((groupName) => {
       const locations = locationRows
-        .filter((l) => l.target === divisionName)
+        .filter((l) => l.target === groupName)
         .map((l) => l.source)
         .sort()
         .map((locationName) => ({
@@ -1249,10 +1250,10 @@ export function getOrganizationChart(businessName: BusinessName): OrganizationCh
             .map((e) => e.source)
             .sort(),
         }));
-      return { division: divisionName, locations };
+      return { group: groupName, locations };
     });
 
-  return { business: businessName, companyWideEmployees, divisions };
+  return { business: businessName, companyWideEmployees, groups };
 }
 
 export function revokeEntity(id: number, userId: UserId): void {
@@ -3505,16 +3506,19 @@ export function getLocationForAccount(accountName: AccountName): string | undefi
   return getHierarchyParent(accountName, 'Location');
 }
 
-/** The real, structural replacement for cityDivisionFor(division_id)
- * — walks a real account to its own, real, structural location first
+/** The real, structural, fully generic account-to-group resolver —
+ * walks a real account to its own, real, structural location first
  * (getLocationForAccount above), then reuses the exact, same, already-
- * proven location-to-division resolution getDivisionForLocation
- * already provides. undefined under the same, real conditions
- * getLocationForAccount itself is. */
-export function getDivisionForAccount(accountName: AccountName): string | undefined {
+ * proven location-to-group resolution getHierarchyGroupForLocation
+ * already provides. hierarchyName is a real, caller-supplied name
+ * (e.g. "Division") — never hardcoded here, so this works identically
+ * for any real, business-chosen location-grouping hierarchy.
+ * undefined under the same, real conditions getLocationForAccount
+ * itself is. */
+export function getHierarchyGroupForAccount(accountName: AccountName, hierarchyName: string): string | undefined {
   const location = getLocationForAccount(accountName);
   if (!location) return undefined;
-  return getDivisionForLocation(location);
+  return getHierarchyGroupForLocation(location, hierarchyName);
 }
 
 /** Lazily creates a real product's own two, real quantity-domain
@@ -3604,32 +3608,20 @@ export function ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): 
   };
 }
 
-/** A location's own real city, if a real division with that exact
- * name happens to exist — used to automatically tag a POS sale with
- * its real, per-city division, with zero setup required beyond
- * creating the division itself. Returns undefined (no tagging at all)
- * for any business that hasn't set up city-named divisions — this is
- * opportunistic, not a requirement every business must satisfy. */
-/** A real division to automatically tag a sale/stock movement at this
- * location with — genuinely arbitrary, not hardcoded to "city"
- * specifically: reads the real "Division" hierarchy link
+/** A real group to automatically tag a sale/stock movement at this
+ * location with — genuinely generic, under any real, named hierarchy
+ * a business has chosen (e.g. "Division," or anything else), never
+ * hardcoded to one specific name here: reads the real hierarchy link
  * (setHierarchyParent/getHierarchyParent), set explicitly whenever a
  * location is created with one (createAndConfigureLocation) — never
- * derived from the location's own address city.
- *
- * Per direct correction: a location's division has nothing to do with
- * its own address city, and genuinely is "just another hierarchy" —
- * so this function previously named cityDivisionFor (now
- * getDivisionForLocation) has had both its old city-name-matching
- * fallback AND its read of the separate, legacy "Belongs To Division"
- * entity relationship removed. That relationship stays exactly where
- * it was, reserved for the real org chart (getOrganizationChart) — a
- * genuinely separate, HR concern this change does not touch. Only
- * ever matches a real division that was actually, explicitly
- * assigned; never invents one. A business that wants no division
- * breakdown at all simply never assigns one. */
-export function getDivisionForLocation(locationName: string): string | undefined {
-  return getHierarchyParent(locationName, 'Division');
+ * derived from the location's own address city, and never read
+ * through the separate, legacy "Belongs To Group" entity relationship
+ * (see getOrganizationChart) — a genuinely separate, HR concern this
+ * function does not touch. Only ever matches a group that was
+ * actually, explicitly assigned; never invents one. A business that
+ * wants no such breakdown at all simply never assigns one. */
+export function getHierarchyGroupForLocation(locationName: string, hierarchyName: string): string | undefined {
+  return getHierarchyParent(locationName, hierarchyName);
 }
 
 /** The real, physical location a specific product should actually be
@@ -5476,6 +5468,31 @@ export function getHierarchyLinksPointingAt(targetName: string): { entityName: s
   }));
 }
 
+/** Every real, distinct group that exists under one named hierarchy
+ * (e.g. "Division," or any other real, business-chosen hierarchy
+ * name) — a group here is genuinely any entity ever targeted by a
+ * real hierarchy-parent link under that name (a location pointing at
+ * its own group, or a group itself pointing at a further, real parent
+ * group, nested to any real depth), resolved purely from the
+ * existing, generic hierarchy-link mechanism above — no separate,
+ * privileged "Divisions" root or entity type. Replaces the former
+ * getDivisions(), which read a second, hardcoded, structural tree
+ * instead of this one, real, already-generic mechanism. */
+export function getHierarchyGroups(hierarchyName: string): { name: string; parentName: string | null }[] {
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT target.name AS group_name
+       FROM current_entities link
+       JOIN current_entities target ON target.id = link.relation_id
+       WHERE link.name LIKE '% — ' || ?`
+    )
+    .all(`Hierarchy: ${hierarchyName}`) as { group_name: string }[];
+  return rows.map((r) => ({
+    name: r.group_name,
+    parentName: getHierarchyParent(r.group_name, hierarchyName) ?? null,
+  }));
+}
+
 /** Walks entityName's own hierarchy-parent chain, within one, real,
  * named dimension, all the way to a real root (the first real entity
  * with no further hierarchy-parent set in this same dimension) —
@@ -6515,33 +6532,6 @@ export function setDefaultLanguage(languageName: string, userId: UserId): void {
   supersedeEntity(application.id, { relation: languageName }, userId);
 }
 
-/** Every real division that exists — a division is just an ordinary
- * entity under "Divisions" (at any depth, since a division can itself
- * be nested, e.g. "Retail" -> "Retail North", the same real hierarchy
- * a product category can have). */
-export function getDivisions(): { id: number; name: string; parentName: string | null }[] {
-  const rows = db
-    .prepare(
-      `WITH RECURSIVE divisions_tree(id) AS (
-         SELECT id FROM current_entities WHERE name = 'Divisions'
-         UNION ALL
-         SELECT e.id FROM current_entities e JOIN divisions_tree t ON e.parent_id = t.id
-       )
-       SELECT e.id, e.name, p.name AS parent_name
-       FROM current_entities e
-       JOIN divisions_tree dt ON dt.id = e.id
-       LEFT JOIN current_entities p ON p.id = e.parent_id
-       WHERE e.name != 'Divisions'
-       ORDER BY e.name`
-    )
-    .all() as { id: number; name: string; parent_name: string }[];
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    parentName: r.parent_name === 'Divisions' ? null : r.parent_name,
-  }));
-}
-
 export interface MenuLinkRow {
   key: string;
   href: string;
@@ -7227,31 +7217,34 @@ export function createLocation(businessName: BusinessName, locationName: string,
  *
  * A real, confirmed gap, found directly (not assumed) while wiring
  * the tutorial e2e test through the real UI: a location's optional
- * `division` was previously only ever recorded as a Hierarchy
- * dimension tag (ensureHierarchyValue/setHierarchyParent) - the real
- * mechanism division-breakdown reports (e.g. Close Books' preview)
- * actually read. That is a genuinely separate, non-overlapping
- * mechanism from the real "Belongs To Division" entity relationship
- * getOrganizationChart() actually reads (see business-setup's own
- * real location-creation flow) - so a location created this way
- * never appeared in the real org chart at all, and Business Setup's
- * own "+ Insert employee" could never be reached for it, however it
- * was created.
+ * group was previously only ever recorded as a Hierarchy tag
+ * (ensureHierarchyValue/setHierarchyParent) - the real mechanism
+ * group-breakdown reports (e.g. Close Books' preview) actually read.
+ * That is a genuinely separate, non-overlapping mechanism from the
+ * real "Belongs To Group" entity relationship getOrganizationChart()
+ * actually reads (see business-setup's own real location-creation
+ * flow) - so a location created this way never appeared in the real
+ * org chart at all, and Business Setup's own "+ Insert employee"
+ * could never be reached for it, however it was created.
  *
  * Per direct correction: a real business genuinely does not have to
- * have any divisions at all - `division` here stays optional, never
- * required. getOrganizationChart() already, directly supports this
- * exact case: a location with no real, separate division of its own
- * is a genuine, single-location "division" that simply targets
- * itself. So every real location gets a real "Belongs To Division"
- * relationship unconditionally, the one, real, single place this is
- * ever recorded - targeting the given, real, shared division name
- * when one is provided, or targeting the location's own name when
- * none is, never left unset either way. The separate Hierarchy
- * dimension tag (division-breakdown reports) stays conditional on a
- * real division name actually being given - a location with no
- * division has nothing real for that dimension to tag. */
-export function createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId, division?: string): TypedNode<'LocationEntityName'> {
+ * have any groups at all - `group` here stays optional, never
+ * required, and no hierarchy name is ever hardcoded: the caller
+ * supplies which real, business-chosen hierarchy (`groupingName` —
+ * e.g. "Division") the group belongs to, right alongside the group's
+ * own name, so this function itself never special-cases any one
+ * hierarchy by name. getOrganizationChart() already, directly
+ * supports a location with no real, separate group of its own - a
+ * genuine, single-location group that simply targets itself. So
+ * every real location gets a real "Belongs To Group" relationship
+ * unconditionally, the one, real, single place this is ever recorded
+ * - targeting the given, real, shared group name when one is
+ * provided, or targeting the location's own name when none is, never
+ * left unset either way. The separate Hierarchy tag (group-breakdown
+ * reports) stays conditional on both a real group name and a real
+ * groupingName actually being given - a location with no group has
+ * nothing real for that hierarchy to tag. */
+export function createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId, group?: string, groupingName?: string): TypedNode<'LocationEntityName'> {
   return db.transaction(() => {
     const entity = createLocation(businessName, locationName, userId);
     setLocation(locationName, location, businessName);
@@ -7261,20 +7254,19 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
     // location's own creation - never lazily, the first time some
     // later, real stock movement happens to touch this location.
     ensureLocationCapacityAccount(businessName, asLedgerName('Actual'), asLocationName(locationName), userId);
-    if (division) {
-      ensureHierarchyGrouping(businessName, 'Division', userId);
-      ensureHierarchyValue(businessName, 'Division', division, userId);
-      setHierarchyParent(locationName, 'Division', division, userId);
+    if (group && groupingName) {
+      ensureHierarchyGrouping(businessName, groupingName, userId);
+      ensureHierarchyValue(businessName, groupingName, group, userId);
+      setHierarchyParent(locationName, groupingName, group, userId);
       // getOrganizationChart() only ever recognizes a shared,
-      // multi-location division name as real once the division
-      // entity itself also carries a real "Belongs To Business"
-      // relationship back to this business. setRelationship is
-      // already idempotent (keyed on the real record name), so
-      // calling it again for a division shared by a later location
-      // is always safe.
-      setRelationship(division, 'Belongs To Business', businessName, userId);
+      // multi-location group name as real once the group entity
+      // itself also carries a real "Belongs To Business" relationship
+      // back to this business. setRelationship is already idempotent
+      // (keyed on the real record name), so calling it again for a
+      // group shared by a later location is always safe.
+      setRelationship(group, 'Belongs To Business', businessName, userId);
     }
-    setRelationship(locationName, 'Belongs To Division', division || locationName, userId);
+    setRelationship(locationName, 'Belongs To Group', group || locationName, userId);
     return entity;
   })();
 }
@@ -7317,7 +7309,7 @@ export interface BusinessConfigurationReport {
   bankAccounts: { name: string; routingDetail: string; accountNumber: string }[];
   homeCurrency: string | null;
   secondaryCurrencies: string[];
-  divisions: string[];
+  hierarchies: HierarchyGroupingWithValues[];
   locations: { name: string; city: string; locationType: string }[];
   categories: string[];
   chartOfAccountsPrototype: string | null;
@@ -7326,13 +7318,17 @@ export interface BusinessConfigurationReport {
 
 /** Everything a real business's own setup actually captured - real
  * Name, Addresses, Phones, Owner(s)/Partner(s), real Banking Details,
- * real Currencies, real Divisions, real Locations, real Categories,
- * and which real Chart of Accounts prototype it was built from - per
- * direct instruction, deliberately never Item Details (a genuinely
- * separate, further, much larger real report of its own). One, real,
- * direct aggregation across every real setup area, not a fragile
- * stitching-together of many, separately-shaped calls the caller has
- * to know about individually. */
+ * real Currencies, every real Hierarchy grouping and its own real
+ * values, real Locations, real Categories, and which real Chart of
+ * Accounts prototype it was built from - per direct instruction,
+ * deliberately never Item Details (a genuinely separate, further,
+ * much larger real report of its own). One, real, direct aggregation
+ * across every real setup area, not a fragile stitching-together of
+ * many, separately-shaped calls the caller has to know about
+ * individually. hierarchies is read from the one, real, generic,
+ * per-business hierarchy store (getBusinessHierarchy) - never a
+ * single, hardcoded grouping name - so a business's own "Division,"
+ * "Region," or any other real, chosen grouping all show here equally. */
 export function getBusinessConfigurationReport(businessName: BusinessName): BusinessConfigurationReport {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const entities = getEntityTree();
@@ -7345,9 +7341,7 @@ export function getBusinessConfigurationReport(businessName: BusinessName): Busi
     ...Detail.list(businessName, 'Names of directors'),
   ];
 
-  const hierarchiesId = entities.find((e) => e.name === 'Hierarchies' && e.parent_id === business.id)?.id;
-  const divisionsRootId = hierarchiesId ? entities.find((e) => e.name === 'Division' && e.parent_id === hierarchiesId)?.id : undefined;
-  const divisions = divisionsRootId ? entities.filter((e) => e.parent_id === divisionsRootId).map((e) => e.name) : [];
+  const hierarchies = getBusinessHierarchy(businessName);
 
   const locationsRootId = entities.find((e) => e.name === 'Locations' && e.parent_id === business.id)?.id;
   const locationEntities = locationsRootId ? entities.filter((e) => e.parent_id === locationsRootId) : [];
@@ -7381,7 +7375,7 @@ export function getBusinessConfigurationReport(businessName: BusinessName): Busi
     bankAccounts: getNominatedBankAccounts(businessName),
     homeCurrency: getBusinessHomeCurrency(businessName),
     secondaryCurrencies,
-    divisions,
+    hierarchies,
     locations,
     categories,
     chartOfAccountsPrototype: null,

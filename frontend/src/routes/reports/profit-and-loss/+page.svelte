@@ -8,29 +8,6 @@
   import { getProfitAndLossByAxis, getAxisValues, MatrixApiError, type ProfitAndLossByAxisNode, type MatrixAxis, type AxisValues } from '$lib/matrix-api';
   import AxisPLNode from '$lib/components/AxisPLNode.svelte';
 
-  const GROUPABLE_AXES: Exclude<MatrixAxis, 'Consolidated'>[] = ['Product', 'Category', 'Location', 'Division'];
-
-  // Division and Location are genuinely the same, one real hierarchy —
-  // Location Categorization — at two different levels of grain (a
-  // division is a real, coarser grouping of locations; a location is
-  // that same hierarchy's own finest, individual leaf). The exact,
-  // same is true of Category and Product — Product Categorization.
-  // Crossing a hierarchy against its own other level ("Division v
-  // Location", "Category v Product") is genuinely redundant, not a
-  // real, second, independent dimension — it's the same grouping
-  // crossed against itself. A real, meaningful two-axis breakdown
-  // crosses one, real, whole hierarchy against the other: Division or
-  // Location (how a real sale is grouped by where it happened) against
-  // Category or Product (what was actually sold) — always makes real
-  // sense, in any combination, including any drill-down within each.
-  const LOCATION_HIERARCHY: Exclude<MatrixAxis, 'Consolidated'>[] = ['Division', 'Location'];
-  const PRODUCT_HIERARCHY: Exclude<MatrixAxis, 'Consolidated'>[] = ['Category', 'Product'];
-  function opposingHierarchyAxes(axis: Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated'): (Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated')[] {
-    if (LOCATION_HIERARCHY.includes(axis as never)) return ['Consolidated', ...PRODUCT_HIERARCHY];
-    if (PRODUCT_HIERARCHY.includes(axis as never)) return ['Consolidated', ...LOCATION_HIERARCHY];
-    return ['Consolidated', ...GROUPABLE_AXES];
-  }
-
   // A real, single, unified dropdown per vector — per direct request,
   // "Consolidated" at the top, then each real axis type as its own,
   // real, selectable group-by heading, with every real, specific value
@@ -44,7 +21,7 @@
   // specific value" — still genuinely grouped by Location underneath
   // (so its own real drill-down still shows correctly), just showing
   // only the one, real, chosen branch.
-  let outerSelection = $state('Division');
+  let outerSelection = $state('Location');
   let innerSelection = $state('Product');
 
   let axisValues: AxisValues | null = $state(null);
@@ -53,6 +30,32 @@
   let nodes: ProfitAndLossByAxisNode[] = $state([]);
   let loading = $state(true);
   let error = $state('');
+
+  // A business's own further, chosen hierarchies (e.g. "Division") are
+  // never hardcoded here — they're read live from axisValues above,
+  // whatever real names this business actually configured. Location
+  // and any such further hierarchy are genuinely the same, one real
+  // hierarchy — Location Categorization — at two different levels of
+  // grain (a division is a real, coarser grouping of locations; a
+  // location is that same hierarchy's own finest, individual leaf).
+  // The exact, same is true of Category and Product — Product
+  // Categorization. Crossing a hierarchy against its own other level
+  // ("Division v Location", "Category v Product") is genuinely
+  // redundant, not a real, second, independent dimension — it's the
+  // same grouping crossed against itself. A real, meaningful two-axis
+  // breakdown crosses one, real, whole hierarchy against the other:
+  // Location-side (how a real sale is grouped by where it happened)
+  // against Product-side (what was actually sold) — always makes real
+  // sense, in any combination, including any drill-down within each.
+  const PRODUCT_HIERARCHY: Exclude<MatrixAxis, 'Consolidated'>[] = ['Category', 'Product'];
+  let furtherHierarchies = $derived((axisValues ? Object.keys(axisValues).filter((k) => !['Product', 'Category', 'Location'].includes(k)) : []) as Exclude<MatrixAxis, 'Consolidated'>[]);
+  let locationHierarchy = $derived(['Location', ...furtherHierarchies] as Exclude<MatrixAxis, 'Consolidated'>[]);
+  let groupableAxes = $derived(['Product', 'Category', ...locationHierarchy] as Exclude<MatrixAxis, 'Consolidated'>[]);
+  function opposingHierarchyAxes(axis: Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated'): (Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated')[] {
+    if (locationHierarchy.includes(axis as never)) return ['Consolidated', ...PRODUCT_HIERARCHY];
+    if (PRODUCT_HIERARCHY.includes(axis as never)) return ['Consolidated', ...locationHierarchy];
+    return ['Consolidated', ...groupableAxes];
+  }
 
   function parseSelection(selection: string): { axis: MatrixAxis; filter?: string } {
     const sepIdx = selection.indexOf('::');

@@ -1,41 +1,45 @@
 <script lang="ts">
-  import DivisionTreeNode from './DivisionTreeNode.svelte';
+  import HierarchyGroupTreeNode from './HierarchyGroupTreeNode.svelte';
   import { translations } from '$lib/state.svelte';
-  import type { DivisionRecord } from '$lib/api';
+  import type { HierarchyGroupRecord } from '$lib/api';
 
-  export let divisions: DivisionRecord[] = [];
+  export let hierarchyName: string;
+  export let groups: HierarchyGroupRecord[] = [];
   export let selected = '';
   export let onSelect: (name: string) => void;
 
   let open = false;
 
-  // Real divisions can be genuinely nested (a real, per-location
-  // division under a real, per-city one) — built into an actual tree
-  // here, not left as the flat, alphabetical list a plain <select>
-  // forced everything into, since the whole point of this picker is
-  // to make that real structure visible: Consolidated (the company)
-  // -> Division -> Location, any level directly choosable, not just
-  // the leaves.
+  // A real group can be genuinely nested (a real, per-location group
+  // under a real, per-city one) — built into an actual tree here, not
+  // left as the flat, alphabetical list a plain <select> forced
+  // everything into, since the whole point of this picker is to make
+  // that real structure visible: Consolidated (the company) -> group
+  // -> Location, any level directly choosable, not just the leaves.
+  // hierarchyName is never hardcoded — a caller passes its own, real,
+  // chosen hierarchy name (e.g. "Division").
   $: tree = (() => {
-    const byParent = new Map<string | null, DivisionRecord[]>();
-    for (const d of divisions) {
-      const key = d.parentName;
+    const byParent = new Map<string | null, HierarchyGroupRecord[]>();
+    for (const g of groups) {
+      const key = g.parentName;
       if (!byParent.has(key)) byParent.set(key, []);
-      byParent.get(key)!.push(d);
+      byParent.get(key)!.push(g);
     }
     function build(parentName: string | null): { name: string; children: any[] }[] {
       return (byParent.get(parentName) ?? [])
-        .map((d) => ({ name: d.name, children: build(d.name) }))
+        .map((g) => ({ name: g.name, children: build(g.name) }))
         .sort((a, b) => a.name.localeCompare(b.name));
     }
-    // Divisions whose own real parent isn't itself a division (e.g. a
-    // city division parented directly under "Divisions") are the real
+    // Groups whose own real parent isn't itself a group (e.g. a city
+    // group parented directly under an application root) are the real
     // top level here — found by checking which parent names never
-    // appear as a division's own name.
-    const divisionNames = new Set(divisions.map((d) => d.name));
-    const topLevelParents = new Set(divisions.filter((d) => !divisionNames.has(d.parentName ?? '')).map((d) => d.parentName));
+    // appear as a group's own name.
+    const groupNames = new Set(groups.map((g) => g.name));
+    const topLevelParents = new Set(groups.filter((g) => !groupNames.has(g.parentName ?? '')).map((g) => g.parentName));
     return [...topLevelParents].flatMap((p) => build(p));
   })();
+
+  $: suffixPattern = new RegExp(` ${hierarchyName}$`);
 
   function pick(name: string) {
     onSelect(name);
@@ -45,7 +49,7 @@
 
 <div class="picker">
   <button type="button" class="current" onclick={() => (open = !open)}>
-    {(selected || '').replace(/ Division$/, '') || (translations.current['Consolidated'] ?? 'Consolidated')}
+    {(selected || '').replace(suffixPattern, '') || (translations.current['Consolidated'] ?? 'Consolidated')}
     <span class="caret">{open ? '▴' : '▾'}</span>
   </button>
   {#if open}
@@ -54,7 +58,7 @@
         {translations.current['Consolidated'] ?? 'Consolidated'}
       </button>
       {#each tree as node (node.name)}
-        <DivisionTreeNode name={translations.current[node.name] ?? node.name} {selected} children={node.children} onSelect={pick} depth={1} />
+        <HierarchyGroupTreeNode name={translations.current[node.name] ?? node.name} {hierarchyName} {selected} children={node.children} onSelect={pick} depth={1} />
       {/each}
     </div>
   {/if}

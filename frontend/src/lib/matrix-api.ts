@@ -42,7 +42,7 @@ async function matrixRequest<T>(path: string): Promise<T> {
   return res.json();
 }
 
-export type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Division' | 'Consolidated';
+export type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Consolidated' | (string & {});
 
 export interface MatrixCell {
   rowKey: string;
@@ -109,7 +109,7 @@ export interface AxisValues {
   Product: string[];
   Category: string[];
   Location: string[];
-  Division: string[];
+  [hierarchyName: string]: string[];
 }
 
 export const getAxisValues = (business: string, ledger: string) =>

@@ -9,7 +9,7 @@
     getCashPosition,
     registerBankAccount,
     unregisterBankAccount,
-    getDivisions,
+    getHierarchyGroups,
     ApiError,
     type EntityNode,
     type BankAccountRow,
@@ -34,7 +34,7 @@
         getEntityTree(),
         getBankAccounts(session.current.businessName, session.current.ledgerName),
         getCashPosition(session.current.businessName, session.current.ledgerName),
-        getDivisions(),
+        getHierarchyGroups('Division'),
       ]);
       if (requestId !== latestRequestId) return;
       entities = ents;

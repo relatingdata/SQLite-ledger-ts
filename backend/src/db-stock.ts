@@ -11,7 +11,7 @@ import {
   PostingError,
   mergeContactDetail,
   assertPeriodOpen,
-  getDivisionForLocation,
+  getHierarchyGroupForLocation,
   ensureItemQuantityAccounts,
   setAccountCurrency,
   ensureItemInventoryAccount,
@@ -473,7 +473,7 @@ export interface InventoryListingRow {
 export interface InventoryListingLocationGroup {
   location: string;
   city: string | null;
-  division: string | null;
+  group: string | null;
   rows: InventoryListingRow[];
   total_on_hand: number;
   capacity: LocationCapacityStatus;
@@ -610,16 +610,17 @@ export function getInventoryListingByLocation(business?: BusinessName): Inventor
     };
   });
 
-  // getLocationCapacityStatus and getDivisionForLocation still have no business
-  // parameter of their own - the same, narrower, not-yet-closed risk
-  // noted above applies to them too, not fixed in this pass.
+  // getLocationCapacityStatus and getHierarchyGroupForLocation still
+  // have no business parameter of their own - the same, narrower,
+  // not-yet-closed risk noted above applies to them too, not fixed in
+  // this pass.
   const groups = new Map<string, InventoryListingLocationGroup>();
   for (const row of rows) {
     let group = groups.get(row.location);
     if (!group) {
       const location = getLocation(row.location, resolvedBusiness);
-      const division = getDivisionForLocation(row.location) ?? null;
-      group = { location: row.location, city: location?.city ?? null, division, rows: [], total_on_hand: 0, capacity: getLocationCapacityStatus(asLocationName(row.location)) };
+      const groupName = getHierarchyGroupForLocation(row.location, 'Division') ?? null;
+      group = { location: row.location, city: location?.city ?? null, group: groupName, rows: [], total_on_hand: 0, capacity: getLocationCapacityStatus(asLocationName(row.location)) };
       groups.set(row.location, group);
     }
     group.rows.push(row);
@@ -636,7 +637,7 @@ export interface StockMovementRow {
 }
 export interface OrderReceiptRow extends StockMovementRow {
   location: string;
-  division: string | null;
+  group: string | null;
   vendor: string | null;
 }
 export interface StockTransferRow extends StockMovementRow {
@@ -645,7 +646,7 @@ export interface StockTransferRow extends StockMovementRow {
 }
 export interface StockSaleRow extends StockMovementRow {
   location: string;
-  division: string | null;
+  group: string | null;
   vendor: string | null;
   amount_minor: number;
 }
@@ -743,7 +744,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
             quantity: r.quantity,
             date: r.date,
             location: r.location,
-            division: getDivisionForLocation(r.location) ?? null,
+            group: getHierarchyGroupForLocation(r.location, 'Division') ?? null,
             vendor: vendors.get(r.item) ?? null,
           });
         } else if (r.quantity < 0) {
@@ -789,7 +790,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
     quantity: -r.quantity,
     date: r.date,
     location: r.location,
-    division: getDivisionForLocation(r.location) ?? null,
+    group: getHierarchyGroupForLocation(r.location, 'Division') ?? null,
     vendor: vendors.get(r.item) ?? null,
     amount_minor: saleAmountFor(r.reference.replace(/-DISPATCH-.+$/, ''), r.item),
   }));

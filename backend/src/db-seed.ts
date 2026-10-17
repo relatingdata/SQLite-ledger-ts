@@ -628,26 +628,26 @@ function seedWineRetailEmployees() {
     setRelationship(s.name, 'Place of Employment', s.employedAt, SEED_USER_ID);
   }
 
-  // A real division "belongs to" its own real business — the same
-  // real mechanism, one layer up. Springfield and Rivertown both stay
-  // real, direct children of the global Divisions root (unchanged —
-  // getDivisions/getAncestorChain/closeBooks all depend on that
+  // A real group "belongs to" its own real business — the same real
+  // mechanism, one layer up. Springfield and Rivertown (this demo
+  // business's own, real, chosen example group names) both stay real,
+  // direct children of their own real Hierarchy grouping (unchanged —
+  // getHierarchyGroups/getAncestorChain/closeBooks all depend on that
   // exact shape and would break if reparented), but now also carry a
   // real, queryable link to which business they actually belong to.
-  for (const divisionName of ['Springfield', 'Rivertown']) {
-    if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(divisionName)) {
-      setRelationship(divisionName, 'Belongs To Business', 'Wine Retail Business', SEED_USER_ID);
+  for (const groupName of ['Springfield', 'Rivertown']) {
+    if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(groupName)) {
+      setRelationship(groupName, 'Belongs To Business', 'Wine Retail Business', SEED_USER_ID);
     }
   }
 
-  // A real location "belongs to" its own real division — same
-  // mechanism again. Every real Wine Retail Business location keeps
-  // its existing parent_id (under "Wine Retail Business Locations",
+  // A real location "belongs to" its own real group — same mechanism
+  // again. Every real Wine Retail Business location keeps its
+  // existing parent_id (under "Wine Retail Business Locations",
   // unchanged), but now also carries a real, queryable link to its
-  // own real city division, closing the real chain: Business ->
-  // (belongs to) Division -> (belongs to) Location -> (place of
-  // employment) Employee.
-  const locationDivisions: Record<string, string> = {
+  // own real group, closing the real chain: Business -> (belongs to)
+  // Group -> (belongs to) Location -> (place of employment) Employee.
+  const locationGroups: Record<string, string> = {
     'Head Office': 'Head Office',
     'Lakeside Cellars': 'Lakeside Cellars',
     'Uptown Wine & Spirits': 'Uptown Wine & Spirits',
@@ -656,9 +656,9 @@ function seedWineRetailEmployees() {
     'Market Square Liquor': 'Market Square Liquor',
     'Eastside Cellar Door': 'Eastside Cellar Door',
   };
-  for (const [locationName, divisionName] of Object.entries(locationDivisions)) {
-    if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(locationName) && db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(divisionName)) {
-      setRelationship(locationName, 'Belongs To Division', divisionName, SEED_USER_ID);
+  for (const [locationName, groupName] of Object.entries(locationGroups)) {
+    if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(locationName) && db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(groupName)) {
+      setRelationship(locationName, 'Belongs To Group', groupName, SEED_USER_ID);
     }
   }
 }

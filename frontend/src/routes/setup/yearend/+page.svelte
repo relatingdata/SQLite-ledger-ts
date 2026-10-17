@@ -78,7 +78,7 @@
     preview = null;
     result = null;
     try {
-      preview = await previewCloseBooks({ business: session.current.businessName, ledger: session.current.ledgerName, asOfDate, retainedEarningsAccount });
+      preview = await previewCloseBooks({ business: session.current.businessName, ledger: session.current.ledgerName, asOfDate, retainedEarningsAccount, hierarchyPath: ['Location', 'Division'] });
     } catch (e) {
       previewError = e instanceof ApiError ? e.message : 'Could not preview the close.';
     } finally {
@@ -113,7 +113,7 @@
         });
       }
       await postJournalEntry(reference, session.current.businessName, session.current.ledgerName);
-      result = { reference, netIncomeMinor: preview.netIncomeMinor, accountsZeroed: preview.accountsZeroed, divisionBreakdown: preview.divisionBreakdown, profitCenterBreakdown: preview.profitCenterBreakdown };
+      result = { reference, netIncomeMinor: preview.netIncomeMinor, accountsZeroed: preview.accountsZeroed, groupBreakdown: preview.groupBreakdown, profitCenterBreakdown: preview.profitCenterBreakdown };
       preview = null;
     } catch (e) {
       closeError = e instanceof ApiError ? e.message : 'Could not close the books.';
@@ -294,11 +294,11 @@
         </table>
         <p class="preview-net">{translations.current['Net Income'] ?? 'Net Income'}: <strong>{fmt(preview.netIncomeMinor)}</strong></p>
 
-        {#if preview.divisionBreakdown.length > 0}
+        {#if preview.groupBreakdown.length > 0}
           <p class="division-heading">{translations.current['Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)'] ?? 'Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)'}:</p>
           <ul class="division-list">
-            {#each preview.divisionBreakdown as d}
-              <li>{d.division ?? (translations.current['(No division)'] ?? '(No division)')}: {fmt(d.netIncomeMinor)}</li>
+            {#each preview.groupBreakdown as d}
+              <li>{d.group ?? (translations.current['(No division)'] ?? '(No division)')}: {fmt(d.netIncomeMinor)}</li>
             {/each}
           </ul>
         {/if}
@@ -318,11 +318,11 @@
         <p><strong>{translations.current['Closed'] ?? 'Closed'}: {result.reference}</strong></p>
         <p>{translations.current['Net Income'] ?? 'Net Income'}: {fmt(result.netIncomeMinor)}</p>
         <p>{translations.current['Accounts zeroed'] ?? 'Accounts zeroed'}: {result.accountsZeroed}</p>
-        {#if result.divisionBreakdown.length > 0}
+        {#if result.groupBreakdown.length > 0}
           <p class="division-heading">{translations.current['By division/location profit center'] ?? 'By division/location profit center'}:</p>
           <ul class="division-list">
-            {#each result.divisionBreakdown as d}
-              <li>{d.division ?? (translations.current['(No division)'] ?? '(No division)')}: {fmt(d.netIncomeMinor)}</li>
+            {#each result.groupBreakdown as d}
+              <li>{d.group ?? (translations.current['(No division)'] ?? '(No division)')}: {fmt(d.netIncomeMinor)}</li>
             {/each}
           </ul>
         {/if}

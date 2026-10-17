@@ -457,13 +457,14 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- is what item_source exists for, below.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (102, 102, 'Items', 1, '2026-01-01', 1);
 
--- Divisions — the real, multi-level org-chart division hierarchy
--- (Belongs To Division relationships below; used for division-
--- breakdown reports via the location->division lookup, never as a
--- field on journal entries themselves). A memo branch like
--- Employees/Manufacturers/Items above: directory entries, not GL
--- accounts.
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (120, 120, 'Divisions', 1, '2026-01-01', 1);
+-- Per direct instruction: no privileged "Divisions" root — a real
+-- business's own location-grouping hierarchy (e.g. one it chooses to
+-- call "Division") now lives entirely under its own, generic,
+-- per-business Hierarchy store (ensureHierarchyGrouping/
+-- ensureHierarchyValue, db.ts), set via the exact same, real hierarchy
+-- link (setHierarchyParent/getHierarchyParent) used for Location and
+-- any other named hierarchy. The former, global "Divisions" root
+-- entity (row_id 120) and its row_id are retired along with it.
 
 -- Locations — retail outlets and warehouses, as real entities. A
 -- memo branch like Employees/Manufacturers/Divisions above: a
@@ -2338,7 +2339,7 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- reparenting anything's own parent_id.
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (528, 528, 'Place of Employment', (SELECT id FROM current_entities WHERE name = 'Relationship Types'), '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (529, 529, 'Belongs To Business', (SELECT id FROM current_entities WHERE name = 'Relationship Types'), '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (530, 530, 'Belongs To Division', (SELECT id FROM current_entities WHERE name = 'Relationship Types'), '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (530, 530, 'Belongs To Group', (SELECT id FROM current_entities WHERE name = 'Relationship Types'), '2026-01-01', 1);
 
 -- Address Types and Phone Types — the categories the typed-address/
 -- phone pattern hangs off (addTypedAddress/getTypedAddresses/

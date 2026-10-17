@@ -1,19 +1,24 @@
 <script lang="ts">
   import { translations } from '$lib/state.svelte';
   export let name: string;
+  export let hierarchyName: string;
   export let selected: string;
   export let children: { name: string; children: any[] }[];
   export let onSelect: (name: string) => void;
   export let depth = 0;
 
-  // A real, per-location division can never literally share its own
+  // A real, per-location group can never literally share its own
   // location's name (entity names are globally unique — "Head
   // Office" the location already exists), so it's genuinely named
-  // "Head Office Division" underneath. That's a real, necessary
-  // implementation detail, not something a person picking a division
-  // from a dropdown needs to see — stripped here for display only;
-  // `name` itself (used for the real selection) is untouched.
-  $: displayName = name.replace(/ Division$/, '');
+  // "Head Office <hierarchyName>" underneath (e.g. "Head Office
+  // Division"). That's a real, necessary implementation detail, not
+  // something a person picking a group from a dropdown needs to see —
+  // stripped here for display only, using whichever real, business-
+  // chosen hierarchy name was actually passed in, never a hardcoded
+  // "Division"; `name` itself (used for the real selection) is
+  // untouched.
+  $: suffixPattern = new RegExp(` ${hierarchyName}$`);
+  $: displayName = name.replace(suffixPattern, '');
 </script>
 
 <div class="node" style="padding-left: {depth * 1.1}rem">
@@ -22,7 +27,7 @@
   </button>
 </div>
 {#each children as child (child.name)}
-  <svelte:self name={translations.current[child.name] ?? child.name} {selected} children={child.children} {onSelect} depth={depth + 1} />
+  <svelte:self name={translations.current[child.name] ?? child.name} {hierarchyName} {selected} children={child.children} {onSelect} depth={depth + 1} />
 {/each}
 
 <style>

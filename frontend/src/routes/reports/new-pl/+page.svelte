@@ -6,21 +6,26 @@
   import { translations } from '$lib/state.svelte';
   import FromToDateFields from '$lib/components/FromToDateFields.svelte';
   import { getSalesCogsMatrix, MatrixApiError, type SalesCogsMatrix, type MatrixAxis } from '$lib/matrix-api';
+  import { getHierarchy } from '$lib/api';
 
-  const AXES: MatrixAxis[] = ['Product', 'Category', 'Location', 'Division', 'Consolidated'];
-
-  // Division and Location are genuinely the same, one real hierarchy
-  // (Location Categorization) at two different levels of grain; the
-  // exact, same is true of Category and Product (Product
-  // Categorization). Crossing a hierarchy against its own other level
-  // ("Division x Location", "Category x Product") is genuinely
-  // redundant — see the identical, fuller comment in New New P&L.
-  const LOCATION_HIERARCHY: MatrixAxis[] = ['Division', 'Location'];
+  // A business's own further, chosen hierarchies (e.g. "Division") are
+  // never hardcoded here — they're read live from the business's own
+  // Hierarchy configuration below, whatever real names it actually
+  // chose. Location and any such further hierarchy are genuinely the
+  // same, one real hierarchy (Location Categorization) at two
+  // different levels of grain; the exact, same is true of Category and
+  // Product (Product Categorization). Crossing a hierarchy against its
+  // own other level ("Division x Location", "Category x Product") is
+  // genuinely redundant — see the identical, fuller comment in New New
+  // P&L.
+  let furtherHierarchies: MatrixAxis[] = [];
+  $: locationHierarchy = ['Location', ...furtherHierarchies] as MatrixAxis[];
   const PRODUCT_HIERARCHY: MatrixAxis[] = ['Category', 'Product'];
+  $: axes = ['Product', 'Category', ...locationHierarchy, 'Consolidated'] as MatrixAxis[];
   function opposingHierarchyAxes(axis: MatrixAxis): MatrixAxis[] {
-    if (LOCATION_HIERARCHY.includes(axis)) return ['Consolidated', ...PRODUCT_HIERARCHY];
-    if (PRODUCT_HIERARCHY.includes(axis)) return ['Consolidated', ...LOCATION_HIERARCHY];
-    return AXES;
+    if (locationHierarchy.includes(axis)) return ['Consolidated', ...PRODUCT_HIERARCHY];
+    if (PRODUCT_HIERARCHY.includes(axis)) return ['Consolidated', ...locationHierarchy];
+    return axes;
   }
   $: allowedColAxes = opposingHierarchyAxes(rowAxis);
   $: allowedRowAxes = opposingHierarchyAxes(colAxis);
@@ -59,7 +64,17 @@
     }
   }
 
-  onMount(load);
+  onMount(async () => {
+    if (session.current) {
+      try {
+        const hierarchy = await getHierarchy(session.current.businessName);
+        furtherHierarchies = hierarchy.map((h) => h.grouping) as MatrixAxis[];
+      } catch {
+        /* the axis dropdowns still work with just Product/Category/Location if this fails — further, business-chosen hierarchies are an addition, not a requirement */
+      }
+    }
+    await load();
+  });
 
   const fmt = (c: number) => formatAmount(c, auth.current?.user.number_format ?? '1 000.00');
 
@@ -93,8 +108,8 @@
 <fieldset class="page-title">
   <legend>{translations.current['New P&L (Matrix)'] ?? 'New P&L (Matrix)'}</legend>
   <p class="intro">
-    {translations.current['A real, two-axis Sales vs. COGS report. Pick what each axis breaks down by — Product, Category, Location, Division, or Consolidated (no breakdown at all) — for any real combination, from the single, most-granular Product-by-Location matrix down to one, single, Consolidated number.'] ??
-      'A real, two-axis Sales vs. COGS report. Pick what each axis breaks down by — Product, Category, Location, Division, or Consolidated (no breakdown at all) — for any real combination, from the single, most-granular Product-by-Location matrix down to one, single, Consolidated number.'}
+    {translations.current['A real, two-axis Sales vs. COGS report. Pick what each axis breaks down by — Product, Category, Location, any further hierarchy this business has set up, or Consolidated (no breakdown at all) — for any real combination, from the single, most-granular Product-by-Location matrix down to one, single, Consolidated number.'] ??
+      'A real, two-axis Sales vs. COGS report. Pick what each axis breaks down by — Product, Category, Location, any further hierarchy this business has set up, or Consolidated (no breakdown at all) — for any real combination, from the single, most-granular Product-by-Location matrix down to one, single, Consolidated number.'}
   </p>
 <div class="controls">
   <fieldset>

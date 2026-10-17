@@ -1,11 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { auth } from '$lib/state.svelte';
+  import { session } from '$lib/state.svelte';
   import { formatAmount } from '$lib/format';
   import { translations } from '$lib/state.svelte';
   import { getStockOnHandMatrix, MatrixApiError, type StockOnHandMatrix, type MatrixAxis } from '$lib/matrix-api';
+  import { getHierarchy } from '$lib/api';
 
-  const AXES: MatrixAxis[] = ['Product', 'Category', 'Location', 'Division', 'Consolidated'];
+  // A business's own further, chosen hierarchies (e.g. "Division") are
+  // never hardcoded here — they're appended live, below, once read
+  // from the business's own Hierarchy configuration.
+  let AXES: MatrixAxis[] = $state(['Product', 'Category', 'Location', 'Consolidated']);
 
   let rowAxis: MatrixAxis = $state('Product');
   let colAxis: MatrixAxis = $state('Location');
@@ -30,7 +35,18 @@
     }
   }
 
-  onMount(load);
+  onMount(async () => {
+    if (session.current) {
+      try {
+        const hierarchy = await getHierarchy(session.current.businessName);
+        const furtherHierarchies = hierarchy.map((h) => h.grouping) as MatrixAxis[];
+        if (furtherHierarchies.length > 0) AXES = ['Product', 'Category', 'Location', ...furtherHierarchies, 'Consolidated'];
+      } catch {
+        /* the axis dropdowns still work with just Product/Category/Location/Consolidated if this fails — further, business-chosen hierarchies are an addition, not a requirement */
+      }
+    }
+    await load();
+  });
 
   const fmt = (c: number) => formatAmount(c, auth.current?.user.number_format ?? '1 000.00');
 

@@ -6,34 +6,42 @@
   import FromToDateFields from '$lib/components/FromToDateFields.svelte';
   import {
     getProfitAndLoss,
-    getProfitAndLossByDivisionTree,
-    getDivisions,
+    getProfitAndLossByHierarchyTree,
+    getHierarchyGroups,
     getLedgerDateRange,
     ApiError,
     type ProfitAndLoss,
-    type ProfitAndLossByDivisionNode,
-    type DivisionRecord,
+    type ProfitAndLossByGroupNode,
+    type HierarchyGroupRecord,
   } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { screenTitle } from '$lib/state.svelte';
-  import DivisionTreePicker from '$lib/components/DivisionTreePicker.svelte';
+  import HierarchyGroupTreePicker from '$lib/components/HierarchyGroupTreePicker.svelte';
   import ProfitAndLossTable from '$lib/components/ProfitAndLossTable.svelte';
-  import DivisionPLNode from '$lib/components/DivisionPLNode.svelte';
+  import HierarchyGroupPLNode from '$lib/components/HierarchyGroupPLNode.svelte';
+
+  // "Division" here is only ever a real, business-chosen hierarchy
+  // name — the one this particular demo business happens to use — not
+  // a hardcoded, privileged concept. A real business could configure
+  // any other real hierarchy name instead; this page would work
+  // identically against it.
+  const hierarchyName = 'Division';
+  const hierarchyPath = ['Location', hierarchyName];
 
   let pl: ProfitAndLoss | null = $state(null);
-  let byDivision: ProfitAndLossByDivisionNode[] = $state([]);
+  let byGroup: ProfitAndLossByGroupNode[] = $state([]);
   let loading = $state(true);
   let error = $state('');
   let fromDate = $state('');
   let toDate = $state('');
-  let divisions: DivisionRecord[] = $state([]);
-  let selectedDivision = $state('');
+  let groups: HierarchyGroupRecord[] = $state([]);
+  let selectedGroup = $state('');
   // Per direct request: "Consolidated per Division" belongs inside
   // this same, one, beautiful P&L report, not as a real, separate
   // report page — with the same, real drill-down capability. "Per
-  // Division" and picking one specific division via the tree picker
-  // are mutually exclusive real views of the same underlying report.
-  let viewMode: 'consolidated' | 'per-division' = $state('consolidated');
+  // Division" and picking one specific group via the tree picker are
+  // mutually exclusive real views of the same underlying report.
+  let viewMode: 'consolidated' | 'per-group' = $state('consolidated');
 
   let latestRequestId = 0;
   async function load() {
@@ -41,12 +49,12 @@
     loading = true;
     try {
       if (!session.current) throw new Error('No ledger selected.');
-      if (viewMode === 'per-division') {
-        const result = await getProfitAndLossByDivisionTree(session.current.businessName, session.current.ledgerName, fromDate || undefined, toDate || undefined);
+      if (viewMode === 'per-group') {
+        const result = await getProfitAndLossByHierarchyTree(session.current.businessName, session.current.ledgerName, hierarchyPath, hierarchyName, fromDate || undefined, toDate || undefined);
         if (requestId !== latestRequestId) return;
-        byDivision = result;
+        byGroup = result;
       } else {
-        const result = await getProfitAndLoss(session.current.businessName, session.current.ledgerName, fromDate || undefined, toDate || undefined, selectedDivision || undefined);
+        const result = await getProfitAndLoss(session.current.businessName, session.current.ledgerName, fromDate || undefined, toDate || undefined, selectedGroup || undefined, selectedGroup ? hierarchyPath : undefined, selectedGroup ? hierarchyName : undefined);
         if (requestId !== latestRequestId) return;
         pl = result;
       }
@@ -58,7 +66,7 @@
     }
   }
 
-  function setViewMode(mode: 'consolidated' | 'per-division') {
+  function setViewMode(mode: 'consolidated' | 'per-group') {
     if (viewMode === mode) return;
     viewMode = mode;
     load();
@@ -66,9 +74,9 @@
 
   onMount(async () => {
     try {
-      divisions = await getDivisions();
+      groups = await getHierarchyGroups(hierarchyName);
     } catch {
-      /* division filter is optional; leave the list empty if it fails to load */
+      /* the group filter is optional; leave the list empty if it fails to load */
     }
     // A real, genuine bug otherwise: once a Year End Close has run
     // (zeroing every real Income/Expense account, exactly as
@@ -112,13 +120,13 @@
     <legend>{translations.current['View'] ?? 'View'}</legend>
     <div class="view-toggle">
       <button type="button" class:active={viewMode === 'consolidated'} onclick={() => setViewMode('consolidated')}>{translations.current['Consolidated'] ?? 'Consolidated'}</button>
-      <button type="button" class:active={viewMode === 'per-division'} onclick={() => setViewMode('per-division')}>{translations.current['Per Division'] ?? 'Per Division'}</button>
+      <button type="button" class:active={viewMode === 'per-group'} onclick={() => setViewMode('per-group')}>{translations.current['Per Division'] ?? 'Per Division'}</button>
     </div>
   </fieldset>
   {#if viewMode === 'consolidated'}
     <fieldset>
       <legend>{translations.current['Division'] ?? 'Division'}</legend>
-      <DivisionTreePicker {divisions} selected={selectedDivision} onSelect={(name) => { selectedDivision = name; load(); }} />
+      <HierarchyGroupTreePicker {hierarchyName} {groups} selected={selectedGroup} onSelect={(name) => { selectedGroup = name; load(); }} />
     </fieldset>
   {/if}
   <FromToDateFields bind:fromDate bind:toDate onchange={load} />
@@ -134,14 +142,14 @@
     <div class="report card">
       <div class="title-block">
         <p class="title-line">{pageTitle ?? (translations.current['Profit and Loss for:'] ?? 'Profit and Loss for:')}</p>
-        <p class="title-line division">{selectedDivision.replace(/ Division$/, '') || (translations.current['Consolidated'] ?? 'Consolidated')}</p>
+        <p class="title-line division">{selectedGroup.replace(new RegExp(` ${hierarchyName}$`), '') || (translations.current['Consolidated'] ?? 'Consolidated')}</p>
         <p class="title-line company">{session.current?.businessName ?? ''}</p>
         <p class="title-line period">{formatDateRange(fromDate, toDate)}</p>
       </div>
       <ProfitAndLossTable {pl} />
     </div>
   </div>
-{:else if viewMode === 'per-division'}
+{:else if viewMode === 'per-group'}
   <div class="report-wrap">
     <div class="report card">
       <div class="title-block">
@@ -149,11 +157,11 @@
         <p class="title-line company">{session.current?.businessName ?? ''}</p>
         <p class="title-line period">{formatDateRange(fromDate, toDate)}</p>
       </div>
-      {#if byDivision.length === 0}
+      {#if byGroup.length === 0}
         <p class="empty">{translations.current['No real division has any activity within this date range.'] ?? 'No real division has any activity within this date range.'}</p>
       {:else}
-        {#each byDivision as node}
-          <DivisionPLNode {node} />
+        {#each byGroup as node}
+          <HierarchyGroupPLNode {node} {hierarchyName} />
         {/each}
       {/if}
     </div>

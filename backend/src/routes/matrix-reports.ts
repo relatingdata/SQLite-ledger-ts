@@ -4,10 +4,16 @@ import { asBusinessName, asLedgerName } from '../db.js';
 
 export const matrixReportsRouter = Router();
 
-const VALID_AXES: MatrixAxis[] = ['Product', 'Category', 'Location', 'Division', 'Consolidated'];
+// The three, real, structural axes plus "Consolidated" are the only
+// ones resolved specially (see resolveKey in db-matrix-reports.ts) -
+// any other, real, non-empty string is a genuine, user-defined
+// hierarchy name (e.g. "Division," or anything else a real business
+// has set up), accepted here exactly the same way, never a closed,
+// hardcoded set.
+const STRUCTURAL_AXES: MatrixAxis[] = ['Product', 'Category', 'Location', 'Consolidated'];
 
 function parseAxis(value: unknown): MatrixAxis | null {
-  return typeof value === 'string' && (VALID_AXES as string[]).includes(value) ? (value as MatrixAxis) : null;
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 matrixReportsRouter.get('/sales-cogs-matrix', (req, res) => {
@@ -16,7 +22,7 @@ matrixReportsRouter.get('/sales-cogs-matrix', (req, res) => {
   if (!business || !ledger) return res.status(400).json({ error: 'business and ledger are both required' });
   const rowAxis = parseAxis(req.query.rowAxis);
   const colAxis = parseAxis(req.query.colAxis);
-  if (!rowAxis || !colAxis) return res.status(400).json({ error: 'rowAxis and colAxis must each be one of Product, Category, Location, Division, Consolidated' });
+  if (!rowAxis || !colAxis) return res.status(400).json({ error: `rowAxis and colAxis are both required — one of ${STRUCTURAL_AXES.join(', ')}, or any real, business-defined hierarchy name` });
   const fromDate = typeof req.query.fromDate === 'string' ? req.query.fromDate : undefined;
   const toDate = typeof req.query.toDate === 'string' ? req.query.toDate : undefined;
   res.json(getSalesCogsMatrix(asBusinessName(business), asLedgerName(ledger), fromDate, toDate, rowAxis, colAxis));
@@ -25,7 +31,7 @@ matrixReportsRouter.get('/sales-cogs-matrix', (req, res) => {
 matrixReportsRouter.get('/stock-on-hand-matrix', (req, res) => {
   const rowAxis = parseAxis(req.query.rowAxis);
   const colAxis = parseAxis(req.query.colAxis);
-  if (!rowAxis || !colAxis) return res.status(400).json({ error: 'rowAxis and colAxis must each be one of Product, Category, Location, Division, Consolidated' });
+  if (!rowAxis || !colAxis) return res.status(400).json({ error: `rowAxis and colAxis are both required — one of ${STRUCTURAL_AXES.join(', ')}, or any real, business-defined hierarchy name` });
   res.json(getStockOnHandMatrix(rowAxis, colAxis));
 });
 
@@ -35,7 +41,7 @@ matrixReportsRouter.get('/profit-and-loss-by-axis', (req, res) => {
   if (!business || !ledger) return res.status(400).json({ error: 'business and ledger are both required' });
   const outerAxis = parseAxis(req.query.outerAxis);
   const innerAxis = parseAxis(req.query.innerAxis);
-  if (!outerAxis || !innerAxis) return res.status(400).json({ error: 'outerAxis and innerAxis must each be one of Product, Category, Location, Division, Consolidated' });
+  if (!outerAxis || !innerAxis) return res.status(400).json({ error: `outerAxis and innerAxis are both required — one of ${STRUCTURAL_AXES.join(', ')}, or any real, business-defined hierarchy name` });
   const fromDate = typeof req.query.fromDate === 'string' ? req.query.fromDate : undefined;
   const toDate = typeof req.query.toDate === 'string' ? req.query.toDate : undefined;
   const outerFilter = typeof req.query.outerFilter === 'string' && req.query.outerFilter ? req.query.outerFilter : undefined;

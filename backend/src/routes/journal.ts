@@ -198,18 +198,24 @@ const closeBooksSchema = z.object({
   ledger: z.string().min(1),
   asOfDate: z.string().min(1),
   retainedEarningsAccount: z.string().min(1),
+  // The real, business-chosen hierarchy chain to break the close's own
+  // net-income summary down by (e.g. ["Location", "Division"]) — never
+  // hardcoded here; an omitted/empty path simply reports one, single,
+  // undivided total.
+  hierarchyPath: z.array(z.string().min(1)).optional(),
 });
 const previewCloseBooksSchema = z.object({
   business: z.string().min(1),
   ledger: z.string().min(1),
   asOfDate: z.string().min(1),
   retainedEarningsAccount: z.string().min(1),
+  hierarchyPath: z.array(z.string().min(1)).optional(),
 });
 journalRouter.post('/preview-close-books', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
   const parsed = previewCloseBooksSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const preview = previewCloseBooks(asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger), parsed.data.asOfDate, parsed.data.retainedEarningsAccount);
+    const preview = previewCloseBooks(asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger), parsed.data.asOfDate, parsed.data.retainedEarningsAccount, parsed.data.hierarchyPath ?? []);
     res.json(preview);
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
@@ -221,7 +227,7 @@ journalRouter.post('/close-books', requireRole('Administrator', 'Bookkeeper'), (
   const parsed = closeBooksSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const result = closeBooks(asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger), parsed.data.asOfDate, parsed.data.retainedEarningsAccount, asUserId(req.user!.id));
+    const result = closeBooks(asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger), parsed.data.asOfDate, parsed.data.retainedEarningsAccount, asUserId(req.user!.id), parsed.data.hierarchyPath ?? []);
     res.status(201).json(result);
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });

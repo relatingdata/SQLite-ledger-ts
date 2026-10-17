@@ -442,16 +442,16 @@ export function postLocation(reference: string, business: BusinessName, userId: 
     } as StockLocation, business);
     ensureLocationCapacityAccount(business, asLedgerName('Actual'), asLocationName(staged.location_name), userId);
     // A real, confirmed gap, found directly: this real screen has no
-    // division concept at all, but getOrganizationChart() (Business
+    // group concept at all, but getOrganizationChart() (Business
     // Setup's own "+ Insert employee" tree) only ever recognizes a
-    // real location once it carries a real "Belongs To Division"
-    // relationship - a single-location "division" that simply
-    // targets itself is the genuine, real, already-supported case for
-    // exactly this (a real business genuinely does not have to have
-    // any divisions at all). Set unconditionally here too, so a real
-    // location created through this real screen is just as reachable
-    // from Business Setup as one created through it directly.
-    setRelationship(staged.location_name, 'Belongs To Division', staged.location_name, userId);
+    // real location once it carries a real "Belongs To Group"
+    // relationship - a single-location group that simply targets
+    // itself is the genuine, real, already-supported case for exactly
+    // this (a real business genuinely does not have to have any
+    // groups at all). Set unconditionally here too, so a real location
+    // created through this real screen is just as reachable from
+    // Business Setup as one created through it directly.
+    setRelationship(staged.location_name, 'Belongs To Group', staged.location_name, userId);
     db.prepare(`DELETE FROM location_staging WHERE reference = ? AND business = ?`).run(reference, business);
     return entity;
   })();

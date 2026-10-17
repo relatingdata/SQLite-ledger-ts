@@ -1,5 +1,5 @@
 import { db } from './db.js';
-import { getHierarchyParent } from './db.js';
+import { getHierarchyParent, getBusinessHierarchy } from './db.js';
 import { buildProfitAndLossFromBalances, getLedgerBalances, type ProfitAndLoss } from './db-reports.js';
 import type { BusinessName, LedgerName } from './db.js';
 
@@ -18,19 +18,21 @@ import type { BusinessName, LedgerName } from './db.js';
  *
  * This only works because location and tier are now genuinely
  * structural in the Chart of Accounts (this session's own, earlier
- * restructuring) — walking "up to Category" or "up to Division" is a
- * real, direct, structural operation, not a tag lookup.
+ * restructuring) — walking "up to Category" or up to any further,
+ * real hierarchy group is a real, direct, structural operation, not a
+ * tag lookup.
  */
 
-/** The four, real, pre-seeded, recommended axes remain directly
- * named for IDE autocomplete - but per direct request, proving out a
- * genuinely arbitrary, user-defined hierarchy, this is not a closed
- * set: any real, other string is treated as a genuine, user-defined
- * dimension name, resolved the exact, same, already-generic way
- * getHierarchyParent/setHierarchyParent already support (see
- * resolveKey below) - "Bottle Size," or anything else a real business
- * defines, works identically to the four recommended defaults. */
-export type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Division' | 'Consolidated' | (string & {});
+/** The three, real, structural axes (plus Consolidated) remain
+ * directly named for IDE autocomplete - but per direct request,
+ * proving out a genuinely arbitrary, user-defined hierarchy, this is
+ * not a closed set: any real, other string is treated as a genuine,
+ * user-defined hierarchy name, resolved the exact, same, already-
+ * generic way getHierarchyParent/setHierarchyParent already support
+ * (see resolveKey below) - "Division," "Bottle Size," or anything
+ * else a real business defines, works identically, with no axis name
+ * ever hardcoded or privileged over another. */
+export type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Consolidated' | (string & {});
 
 export interface MatrixCell {
   rowKey: string;
@@ -49,7 +51,6 @@ export interface SalesCogsMatrix {
 
 const CONSOLIDATED_KEY = 'Consolidated';
 const NO_LOCATION_KEY = '(No location)';
-const NO_DIVISION_KEY = '(No division)';
 
 interface AccountRow {
   id: number;
@@ -160,31 +161,6 @@ function locationForAccount(accountName: string): string | undefined {
   return row?.location_name;
 }
 
-/** Walks a real location's own real division — the exact, same
- * "Hierarchy: Division" link setHierarchyParent/getHierarchyParent
- * read in db.ts (getDivisionForAccount), re-implemented here directly
- * for the same, real reason: this file's own dependencies are
- * intentionally, entirely self-contained. Per direct correction: a
- * location's division is a real, explicit hierarchy link, set when
- * the location is created/configured — never derived from the
- * location's own address city, and never read through the separate,
- * legacy "Belongs To Division" entity relationship (that one stays
- * reserved for the real org chart, a genuinely separate, HR concern).
- * Both the old city-matching fallback and the "Belongs To Division"
- * read this function used to carry are gone — if no division was ever
- * explicitly assigned to this location, it genuinely has none. */
-function divisionForLocation(locationName: string): string | undefined {
-  const row = db
-    .prepare(
-      `SELECT target.name AS division_name
-       FROM current_entities child
-       JOIN current_entities target ON target.id = child.relation_id
-       WHERE child.name = ?`
-    )
-    .get(`${locationName} — Hierarchy: Division`) as { division_name: string } | undefined;
-  return row?.division_name;
-}
-
 function resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
   if (axis === 'Consolidated') return CONSOLIDATED_KEY;
   if (axis === 'Product') return stripLocationSuffix(entityIndex.get(accountId)?.name ?? '');
@@ -192,16 +168,44 @@ function resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number
   const accountName = entityIndex.get(accountId)?.name ?? '';
   const location = locationForAccount(accountName);
   if (axis === 'Location') return location ?? NO_LOCATION_KEY;
-  if (axis === 'Division') {
-    if (!location) return NO_DIVISION_KEY;
-    return divisionForLocation(location) ?? NO_DIVISION_KEY;
-  }
-  // A real, genuinely user-defined axis - not one of the four,
-  // recommended defaults above. Resolved the exact, same, already-
-  // generic way any dimension already works - no new mechanism, no
-  // special case for a "recognized" axis name.
+  // A real, genuinely user-defined axis - not one of the three,
+  // structural ones above. Resolved the exact, same, already-generic
+  // way any hierarchy already works - no new mechanism, no special
+  // case for any "recognized" axis name (e.g. "Division" is just data
+  // here, resolved identically to any other real, business-chosen
+  // hierarchy name): tried first directly on the product itself (a
+  // hierarchy tag like "Bottle Size" lives there), falling back to the
+  // product's own location (a hierarchy tag like "Division" lives
+  // there instead, the exact, same real link setHierarchyParent/
+  // getHierarchyParent already provides).
   const baseProductName = stripLocationSuffix(entityIndex.get(accountId)?.name ?? '');
-  return getHierarchyParent(baseProductName, axis) ?? `No ${axis}`;
+  const direct = getHierarchyParent(baseProductName, axis);
+  if (direct) return direct;
+  if (location) {
+    const viaLocation = getHierarchyParent(location, axis);
+    if (viaLocation) return viaLocation;
+  }
+  return `No ${axis}`;
+}
+
+/** The exact, same, real axis-key resolution as resolveKey above, for
+ * Stock on Hand's own real (item, location) rows rather than a
+ * Sales/COGS account — items and accounts already share the exact,
+ * same "Product (Tier)" naming convention, so the real, generic
+ * fallback (tried directly on the item, then via its own real
+ * location) works identically for any real, business-chosen hierarchy
+ * name here too. */
+function resolveItemKey(axis: MatrixAxis, itemId: number, itemName: string, locationName: string, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
+  if (axis === 'Consolidated') return CONSOLIDATED_KEY;
+  if (axis === 'Product') return stripLocationSuffix(itemName);
+  if (axis === 'Category') return categoryForItem(itemId, entityIndex);
+  if (axis === 'Location') return locationName;
+  const baseProductName = stripLocationSuffix(itemName);
+  const direct = getHierarchyParent(baseProductName, axis);
+  if (direct) return direct;
+  const viaLocation = getHierarchyParent(locationName, axis);
+  if (viaLocation) return viaLocation;
+  return `No ${axis}`;
 }
 
 /** The real, core matrix computation both getSalesCogsMatrix and
@@ -343,26 +347,8 @@ export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): 
     // logic above, since a real item's own name already follows the
     // exact, same "Product (Tier)" or "Product (Tier) — Location"
     // convention as a real Sales/COGS leaf.
-    const rowKey =
-      rowAxis === 'Consolidated'
-        ? CONSOLIDATED_KEY
-        : rowAxis === 'Product'
-          ? stripLocationSuffix(r.item_name)
-          : rowAxis === 'Category'
-            ? categoryForItem(r.item_id, entityIndex)
-            : rowAxis === 'Location'
-              ? r.location_name
-              : (divisionForLocation(r.location_name) ?? NO_DIVISION_KEY);
-    const colKey =
-      colAxis === 'Consolidated'
-        ? CONSOLIDATED_KEY
-        : colAxis === 'Product'
-          ? stripLocationSuffix(r.item_name)
-          : colAxis === 'Category'
-            ? categoryForItem(r.item_id, entityIndex)
-            : colAxis === 'Location'
-              ? r.location_name
-              : (divisionForLocation(r.location_name) ?? NO_DIVISION_KEY);
+    const rowKey = resolveItemKey(rowAxis, r.item_id, r.item_name, r.location_name, entityIndex);
+    const colKey = resolveItemKey(colAxis, r.item_id, r.item_name, r.location_name, entityIndex);
 
     const key = `${rowKey}\u0000${colKey}`;
     if (!cellMap.has(key)) {
@@ -503,16 +489,19 @@ export interface AxisValues {
   Product: string[];
   Category: string[];
   Location: string[];
-  Division: string[];
+  [hierarchyName: string]: string[];
 }
 
 /** Every real, distinct value that exists for each real axis type —
  * per direct request, the real, single, unified dropdown per vector
- * (outer/inner) needs to list every real location/division/category/
- * product name up front, not only whichever axis happens to be
- * currently selected. One, single, direct, efficient pass over every
- * real P&L account's own real axis keys — no real, full P&L computed
- * at all, just the real, distinct key sets themselves. */
+ * (outer/inner) needs to list every real location/category/product
+ * name up front, not only whichever axis happens to be currently
+ * selected, plus one further real entry per real, business-chosen
+ * hierarchy this business has actually set up (getBusinessHierarchy)
+ * — e.g. "Division," or any other real, named hierarchy — never a
+ * hardcoded, privileged axis name. One, single, direct, efficient pass
+ * over every real P&L account's own real axis keys — no real, full
+ * P&L computed at all, just the real, distinct key sets themselves. */
 export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues {
   const entityIndex = loadEntityIndex();
   const validIds = plAccountIds(entityIndex);
@@ -521,7 +510,8 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
   const products = new Set<string>();
   const categories = new Set<string>();
   const locations = new Set<string>();
-  const divisions = new Set<string>();
+  const hierarchyNames = getBusinessHierarchy(businessName).map((g) => g.grouping);
+  const hierarchyValues = new Map<string, Set<string>>(hierarchyNames.map((n) => [n, new Set<string>()]));
 
   for (const [id, balance] of balances.entries()) {
     if (!validIds.has(id) || balance === 0) continue;
@@ -531,14 +521,17 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
     if (category !== CONSOLIDATED_KEY) categories.add(category);
     const location = resolveKey('Location', id, entityIndex);
     if (location !== NO_LOCATION_KEY) locations.add(location);
-    const division = resolveKey('Division', id, entityIndex);
-    if (division !== NO_DIVISION_KEY) divisions.add(division);
+    for (const name of hierarchyNames) {
+      const value = resolveKey(name, id, entityIndex);
+      if (!value.startsWith('No ')) hierarchyValues.get(name)!.add(value);
+    }
   }
 
-  return {
+  const result: AxisValues = {
     Product: [...products].sort(),
     Category: [...categories].sort(),
     Location: [...locations].sort(),
-    Division: [...divisions].sort(),
   };
+  for (const [name, values] of hierarchyValues) result[name] = [...values].sort();
+  return result;
 }

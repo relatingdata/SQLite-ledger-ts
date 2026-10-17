@@ -30,7 +30,7 @@
   let divisionGroups = $derived.by(() => {
     const byDivision = new Map<string, InventoryListingLocationGroup[]>();
     for (const g of groups) {
-      const key = g.division ?? NO_DIVISION;
+      const key = g.group ?? NO_DIVISION;
       if (!byDivision.has(key)) byDivision.set(key, []);
       byDivision.get(key)!.push(g);
     }

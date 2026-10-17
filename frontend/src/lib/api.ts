@@ -24,7 +24,7 @@ export class ApiError extends Error {
 export type BusinessName = string & { readonly __brand: 'BusinessName' };
 export type LedgerName = string & { readonly __brand: 'LedgerName' };
 export type AccountName = string & { readonly __brand: 'AccountName' };
-export type DivisionName = string & { readonly __brand: 'DivisionName' };
+export type HierarchyGroupName = string & { readonly __brand: 'HierarchyGroupName' };
 export type LocationName = string & { readonly __brand: 'LocationName' };
 export type EmployeeName = string & { readonly __brand: 'EmployeeName' };
 export type CustomerName = string & { readonly __brand: 'CustomerName' };
@@ -40,8 +40,8 @@ export function asAccountName(name: string): AccountName {
   return name as AccountName;
 }
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export function asDivisionName(name: string): DivisionName {
-//   return name as DivisionName;
+// export function asHierarchyGroupName(name: string): HierarchyGroupName {
+//   return name as HierarchyGroupName;
 // }
 export function asLocationName(name: string): LocationName {
   return name as LocationName;
@@ -356,27 +356,26 @@ export interface ProfitAndLoss {
   gross_profit_minor: number;
   net_income_minor: number;
 }
-export const getProfitAndLoss = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, divisionName?: string) =>
+export const getProfitAndLoss = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, group?: string, hierarchyPath?: string[], hierarchyName?: string) =>
   request<ProfitAndLoss>(
-    `/reports/profit-and-loss?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}${divisionName ? `&division=${encodeURIComponent(divisionName)}` : ''}`
+    `/reports/profit-and-loss?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}${group ? `&group=${encodeURIComponent(group)}` : ''}${hierarchyPath && hierarchyPath.length > 0 ? `&hierarchyPath=${encodeURIComponent(hierarchyPath.join(','))}` : ''}${hierarchyName ? `&hierarchyName=${encodeURIComponent(hierarchyName)}` : ''}`
   );
 
-export interface ProfitAndLossByDivision {
-  division: DivisionName | null;
+export interface ProfitAndLossByGroup {
+  group: HierarchyGroupName | null;
   profitAndLoss: ProfitAndLoss;
 }
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const getProfitAndLossByDivision = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string) =>
-//   request<ProfitAndLossByDivision[]>(
-//     `/reports/profit-and-loss-by-division?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
-//   );
+export const getProfitAndLossByHierarchy = (business: BusinessName, ledger: LedgerName, hierarchyPath: string[], fromDate?: string, toDate?: string) =>
+  request<ProfitAndLossByGroup[]>(
+    `/reports/profit-and-loss-by-hierarchy?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}&hierarchyPath=${encodeURIComponent(hierarchyPath.join(','))}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
+  );
 
-export interface ProfitAndLossByDivisionNode extends ProfitAndLossByDivision {
-  children: ProfitAndLossByDivisionNode[];
+export interface ProfitAndLossByGroupNode extends ProfitAndLossByGroup {
+  children: ProfitAndLossByGroupNode[];
 }
-export const getProfitAndLossByDivisionTree = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string) =>
-  request<ProfitAndLossByDivisionNode[]>(
-    `/reports/profit-and-loss-by-division-tree?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
+export const getProfitAndLossByHierarchyTree = (business: BusinessName, ledger: LedgerName, hierarchyPath: string[], hierarchyName?: string, fromDate?: string, toDate?: string) =>
+  request<ProfitAndLossByGroupNode[]>(
+    `/reports/profit-and-loss-by-hierarchy-tree?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}&hierarchyPath=${encodeURIComponent(hierarchyPath.join(','))}${hierarchyName ? `&hierarchyName=${encodeURIComponent(hierarchyName)}` : ''}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
   );
 
 export interface LedgerDateRange {
@@ -419,14 +418,15 @@ export const deleteVocabularyPreference = (conceptName: string, scope: 'business
 export const setTranslation = (entity: string, language: string, text: string) =>
   request<void>('/i18n/translations', { method: 'POST', body: JSON.stringify({ entity, language, text }) });
 
-export interface DivisionRecord {
-  id: number;
+export interface HierarchyGroupRecord {
   name: string;
   parentName: string | null;
 }
-export const getDivisions = () => request<DivisionRecord[]>('/divisions');
-export const createDivision = (name: string, parent: string | null) =>
-  request<{ name: string }>('/divisions', { method: 'POST', body: JSON.stringify({ name, parent }) });
+/** Every real group under one named hierarchy (e.g. "Division", or any
+ * other real, business-chosen hierarchy name) — the generic replacement
+ * for the former, privileged getDivisions(). hierarchyName is never
+ * defaulted here; a caller passes its own, real, chosen name. */
+export const getHierarchyGroups = (hierarchyName: string) => request<HierarchyGroupRecord[]>(`/hierarchy/groups?name=${encodeURIComponent(hierarchyName)}`);
 
 export interface HierarchyGroupingWithValues {
   grouping: string;
@@ -436,8 +436,8 @@ export const getHierarchy = (business: string) => request<HierarchyGroupingWithV
 export const getProductShapes = (business: string) => request<[string, string][][]>(`/hierarchy/shapes?business=${encodeURIComponent(business)}`);
 export const createHierarchyGrouping = (business: string, groupingName: string) =>
   request<{ name: string }>('/hierarchy/groupings', { method: 'POST', body: JSON.stringify({ business, groupingName }) });
-export const createHierarchyValue = (business: string, groupingName: string, valueName: string) =>
-  request<{ name: string }>('/hierarchy/values', { method: 'POST', body: JSON.stringify({ business, groupingName, valueName }) });
+export const createHierarchyValue = (business: string, groupingName: string, valueName: string, parentValueName?: string | null) =>
+  request<{ name: string }>('/hierarchy/values', { method: 'POST', body: JSON.stringify({ business, groupingName, valueName, parentValueName }) });
 export const defineProductShape = (business: string, dimensions: [string, string][]) =>
   request<{ dimensions: [string, string][] }>('/hierarchy/shapes', { method: 'POST', body: JSON.stringify({ business, dimensions }) });
 
@@ -502,7 +502,7 @@ export interface BusinessConfigurationReport {
   bankAccounts: { name: string; routingDetail: string; accountNumber: string }[];
   homeCurrency: string | null;
   secondaryCurrencies: string[];
-  divisions: string[];
+  hierarchies: HierarchyGroupingWithValues[];
   locations: { name: string; city: string; locationType: string }[];
   categories: string[];
   chartOfAccountsPrototype: string | null;
@@ -1664,7 +1664,7 @@ export const payEmployeeWages = (input: {
 export interface OrganizationChart {
   business: BusinessName;
   companyWideEmployees: string[];
-  divisions: { division: DivisionName; locations: { location: string; employees: string[] }[] }[];
+  groups: { group: HierarchyGroupName; locations: { location: string; employees: string[] }[] }[];
 }
 export const getOrganizationChart = (businessName: string) => request<OrganizationChart>(`/pos/org-chart/${encodeURIComponent(businessName)}`);
 
@@ -1672,13 +1672,13 @@ export interface CloseBooksResult {
   reference: string;
   netIncomeMinor: number;
   accountsZeroed: number;
-  divisionBreakdown: { division: DivisionName | null; netIncomeMinor: number }[];
+  groupBreakdown: { group: HierarchyGroupName | null; netIncomeMinor: number }[];
   // Per docs/profit-centers-design.md's Phase B: the real, structural
-  // counterpart to divisionBreakdown — one entry per real Profit
+  // counterpart to groupBreakdown — one entry per real Profit
   // Center with a non-zero net result this close.
   profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
-export const closeBooks = (input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string }) =>
+export const closeBooks = (input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string; hierarchyPath?: string[] }) =>
   request<CloseBooksResult>('/journal/close-books', { method: 'POST', body: JSON.stringify(input) });
 
 export interface CloseBooksPreview {
@@ -1697,7 +1697,7 @@ export interface CloseBooksPreview {
   }[];
   netIncomeMinor: number;
   accountsZeroed: number;
-  divisionBreakdown: { division: DivisionName | null; netIncomeMinor: number }[];
+  groupBreakdown: { group: HierarchyGroupName | null; netIncomeMinor: number }[];
   profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
 // Per a real, confirmed bug found directly while porting Close Books
@@ -1706,7 +1706,7 @@ export interface CloseBooksPreview {
 // has always required it — every real call before now was relying on
 // the backend accepting an already-malformed request, which it never
 // actually does (it 400s). Fixed here rather than left in place.
-export const previewCloseBooks = (input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string }) =>
+export const previewCloseBooks = (input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string; hierarchyPath?: string[] }) =>
   request<CloseBooksPreview>('/journal/preview-close-books', { method: 'POST', body: JSON.stringify(input) });
 
 // Per docs/canned-journal-to-frontend-design.md's Phase 2: the real,
@@ -1788,7 +1788,7 @@ export interface LocationCapacityStatus {
 export interface InventoryListingLocationGroup {
   location: string;
   city: string | null;
-  division: DivisionName | null;
+  group: HierarchyGroupName | null;
   rows: InventoryListingRow[];
   total_on_hand: number;
   capacity: LocationCapacityStatus;
@@ -1822,7 +1822,7 @@ export interface StockMovementRow {
 }
 export interface OrderReceiptRow extends StockMovementRow {
   location: string;
-  division: DivisionName | null;
+  group: HierarchyGroupName | null;
   vendor: string | null;
 }
 export interface StockTransferRow extends StockMovementRow {
@@ -1831,7 +1831,7 @@ export interface StockTransferRow extends StockMovementRow {
 }
 export interface StockSaleRow extends StockMovementRow {
   location: string;
-  division: DivisionName | null;
+  group: HierarchyGroupName | null;
   vendor: string | null;
   amount_minor: number;
 }

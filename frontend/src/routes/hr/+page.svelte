@@ -200,10 +200,10 @@
           </ul>
         </div>
       {/if}
-      {#each chart.divisions as division}
+      {#each chart.groups as group}
         <div class="org-section">
-          <h3>{division.division}</h3>
-          {#each division.locations as loc}
+          <h3>{group.group}</h3>
+          {#each group.locations as loc}
             <div class="org-location">
               <p class="org-location-name">{loc.location}</p>
               <ul>

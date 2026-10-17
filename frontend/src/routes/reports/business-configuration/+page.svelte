@@ -29,7 +29,7 @@
 <fieldset class="page-title">
   <legend>{translations.current['Business Configuration Report'] ?? 'Business Configuration Report'}</legend>
   <p class="intro">
-    {translations.current['Everything this business\'s own setup actually captured - name, addresses, phones, owner(s)/partner(s), banking details, currencies, divisions, locations, and categories. Never item details - see Inventory Catalog for those.'] ?? 'Everything this business\'s own setup actually captured - name, addresses, phones, owner(s)/partner(s), banking details, currencies, divisions, locations, and categories. Never item details - see Inventory Catalog for those.'}
+    {translations.current['Everything this business\'s own setup actually captured - name, addresses, phones, owner(s)/partner(s), banking details, currencies, hierarchies (such as Division), locations, and categories. Never item details - see Inventory Catalog for those.'] ?? 'Everything this business\'s own setup actually captured - name, addresses, phones, owner(s)/partner(s), banking details, currencies, hierarchies (such as Division), locations, and categories. Never item details - see Inventory Catalog for those.'}
   </p>
 
   {#if loading}
@@ -98,11 +98,13 @@
     </fieldset>
 
     <fieldset>
-      <legend>{translations.current['Divisions'] ?? 'Divisions'}</legend>
-      {#if report.divisions.length === 0}
+      <legend>{translations.current['Hierarchies'] ?? 'Hierarchies'}</legend>
+      {#if report.hierarchies.length === 0}
         <p class="field-note">{translations.current['None recorded.'] ?? 'None recorded.'}</p>
       {:else}
-        {#each report.divisions as d}<p>{d}</p>{/each}
+        {#each report.hierarchies as h}
+          <p><strong>{translations.current[h.grouping] ?? h.grouping}</strong>: {h.values.length > 0 ? h.values.join(', ') : (translations.current['None recorded.'] ?? 'None recorded.')}</p>
+        {/each}
       {/if}
     </fieldset>
 

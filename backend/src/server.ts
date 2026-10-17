@@ -17,7 +17,6 @@ import { productsRouter } from './routes/products.js';
 import { invoicesRouter, agedRouter, historyRouter, remindersRouter, statementRouter } from './routes/invoices.js';
 import { stockLotsRouter } from './routes/stock-lots.js';
 import { locationsRouter, belowReorderRouter, stockOutRiskRouter, stockListingRouter, stockTakesRouter } from './routes/locations.js';
-import { divisionsRouter } from './routes/divisions.js';
 import { hierarchyRouter } from './routes/hierarchy.js';
 import { posRouter } from './routes/pos.js';
 import { arAPRouter } from './routes/arap.js';
@@ -77,7 +76,6 @@ app.use('/api/projects', requireAuth, projectsRouter);
 app.use('/api/stock', requireAuth, requireRole('Administrator', 'Bookkeeper'), stockRouter);
 app.use('/api/invoice', requireAuth, requireRole('Administrator', 'Bookkeeper'), invoiceRouter);
 app.use('/api/period', requireAuth, periodRouter);
-app.use('/api/divisions', requireAuth, divisionsRouter);
 app.use('/api/hierarchy', requireAuth, hierarchyRouter);
 
 const PORT = 3001;

@@ -12,12 +12,16 @@
 
   // Per docs/pl-pivot-builder-dnd-plan.md: the exact, same, real,
   // existing opposingHierarchyAxes constraint new-new-pl already
-  // enforces via its own two dropdowns - Division/Location are the
-  // exact, same, real hierarchy at two different grains, and so are
+  // enforces via its own two dropdowns - a business's own further,
+  // chosen hierarchy (e.g. "Division") and Location are the exact,
+  // same, real hierarchy at two different grains, and so are
   // Category/Product, so crossing either against its own other level
-  // is genuinely redundant, never a real, second, independent axis.
+  // is genuinely redundant, never a real, second, independent axis. No
+  // further hierarchy name is ever hardcoded here — LOCATION_HIERARCHY
+  // is filled in once axisValues loads, below, with whatever real
+  // hierarchies this business actually configured.
   type GroupableAxis = Exclude<MatrixAxis, 'Consolidated'>;
-  const LOCATION_HIERARCHY: GroupableAxis[] = ['Division', 'Location'];
+  let LOCATION_HIERARCHY: GroupableAxis[] = ['Location'];
   const PRODUCT_HIERARCHY: GroupableAxis[] = ['Category', 'Product'];
   function opposingHierarchyAxes(axis: GroupableAxis): GroupableAxis[] {
     if (LOCATION_HIERARCHY.includes(axis)) return PRODUCT_HIERARCHY;
@@ -26,9 +30,11 @@
   }
 
   interface Chip { id: GroupableAxis; axis: GroupableAxis; }
-  const ALL_CHIPS: Chip[] = (['Division', 'Location', 'Category', 'Product'] as GroupableAxis[]).map((axis) => ({ id: axis, axis }));
+  function chipsFor(axes: GroupableAxis[]): Chip[] {
+    return axes.map((axis) => ({ id: axis, axis }));
+  }
 
-  let trayChips: Chip[] = [...ALL_CHIPS];
+  let trayChips: Chip[] = chipsFor(['Location', 'Category', 'Product']);
   let rowChips: Chip[] = [];
   let colChips: Chip[] = [];
   // A real, direct, per-zone narrowing value ("this whole axis" vs
@@ -120,8 +126,17 @@
     if (session.current) {
       try {
         axisValues = await getAxisValues(session.current.businessName, session.current.ledgerName);
+        // Every further, real, business-chosen hierarchy configured
+        // (e.g. "Division") joins Location's own real hierarchy here —
+        // never hardcoded, read live from whatever this business
+        // actually set up.
+        const furtherHierarchies = Object.keys(axisValues).filter((k) => !['Product', 'Category', 'Location'].includes(k)) as GroupableAxis[];
+        if (furtherHierarchies.length > 0) {
+          LOCATION_HIERARCHY = ['Location', ...furtherHierarchies];
+          trayChips = [...trayChips, ...chipsFor(furtherHierarchies)];
+        }
       } catch {
-        /* the zones still work with just the four, real, groupable axes if this fails — the specific-value narrowing is a convenience, not a requirement */
+        /* the zones still work with just Location/Category/Product if this fails — further, business-chosen hierarchies and the specific-value narrowing are both a convenience, not a requirement */
       }
     }
     await load();
