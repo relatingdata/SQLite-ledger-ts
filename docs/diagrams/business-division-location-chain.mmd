@@ -1,9 +1,9 @@
 graph LR
     A["typeRootName<br/>'Businesses'"] -->|create| B["TypedNode BusinessName<br/>'Wine Retail Business'"]
-    B -->|create + typeDivisionName| C["TypedNode DivisionName<br/>'Sydney Division'"]
-    C -->|create + typeLocationEntityName| D["TypedNode LocationName<br/>'Riverside Cellars'"]
+    B -->|ensureHierarchyValue| C["Hierarchy group value<br/>'Sydney Division' (plain data,<br/>any hierarchy name a business chooses)"]
+    B -->|create + typeLocationEntityName| D["TypedNode LocationName<br/>'Riverside Cellars'"]
+    C -.->|setHierarchyParent| D
     B -->|create + typeEmployeeName| E["TypedNode EmployeeName<br/>direct business employee"]
-    C -->|create + typeEmployeeName| F["TypedNode EmployeeName<br/>division employee"]
     D -->|create + typeEmployeeName| G["TypedNode EmployeeName<br/>location employee"]
 
     style A fill:#eee
