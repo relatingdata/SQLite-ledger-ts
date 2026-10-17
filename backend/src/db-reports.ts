@@ -251,7 +251,20 @@ export function resolveCashAtBankAccount(business: BusinessName, currency: strin
   const existing = Entity.getUnder('Cash at Bank', assetId);
   if (!existing) {
     const created = Entity.create('Cash at Bank', assetId, userId);
-    return { name: created.name, id: created.id };
+    // A real, confirmed bug found directly: the very first-ever
+    // resolution for a business (no "Cash at Bank" node of its own
+    // yet at all) returned this brand-new, plain base leaf
+    // unconditionally - ignoring any requested currency entirely,
+    // unlike the "already exists" branch just below, which already,
+    // correctly lazily tags it. A business's first-ever sale, in a
+    // genuine foreign/nominated currency, landed Cash in the home
+    // group while Revenue/Tax/COGS correctly landed in the real,
+    // requested currency's own group - "entry does not balance (per
+    // currency)" on literally the first sale, every time.
+    const homeCurrency = getBusinessHomeCurrency(business) ?? undefined;
+    const effectiveCurrency = currency ?? homeCurrency;
+    if (!effectiveCurrency || effectiveCurrency === homeCurrency) return { name: created.name, id: created.id };
+    return ensureCurrencyAccount(created.id, effectiveCurrency, userId);
   }
   // A real, confirmed, live bug found directly via the tutorial e2e's
   // own post-rollover sale (a real, further e2e extension, per direct
