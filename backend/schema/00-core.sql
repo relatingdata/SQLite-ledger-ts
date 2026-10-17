@@ -2078,6 +2078,21 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (827, (SELECT id FROM current_entities WHERE name = 'RTL'));
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (828, 828, 'Arabic — Text Direction', (SELECT id FROM current_entities WHERE name = 'Arabic'), '2026-01-01', 1);
 INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (828, (SELECT id FROM current_entities WHERE name = 'RTL'));
+-- A real, confirmed bug found directly: setEntityLink's own, real
+-- design (db.ts) doesn't just set a link record's relation_id - it
+-- also tags that record with its own linkType name ("Text Direction"
+-- here) as a real, presence-only child entity, which getEntityLink
+-- requires to recognize a link as genuinely live (see Problem 18 -
+-- deleteEntityLink only ever removes that same tag, deliberately
+-- leaving relation_id as permanent history). These two hand-seeded
+-- link rows were inserted directly, bypassing setEntityLink entirely,
+-- and never got that same tag - so getLanguageDirection('Hebrew')/
+-- ('Arabic') genuinely found no live link at all, despite relation_id
+-- already, correctly pointing at 'RTL'.
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (829, 829, 'Text Direction', (SELECT id FROM current_entities WHERE name = 'Hebrew — Text Direction'), '2026-01-01', 1);
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (829, (SELECT id FROM current_entities WHERE name = 'Active'));
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (830, 830, 'Text Direction', (SELECT id FROM current_entities WHERE name = 'Arabic — Text Direction'), '2026-01-01', 1);
+INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (830, (SELECT id FROM current_entities WHERE name = 'Active'));
 
 
 -- Filling the Italian vocabulary gap — the core ~40-word set added
