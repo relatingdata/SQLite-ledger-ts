@@ -6,7 +6,7 @@
 // to drive that screen. An optional .control.csv supplies verify/
 // screenshot per row, kept out of the data file entirely.
 
-import { readFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, mkdirSync, existsSync, writeFileSync, appendFileSync } from 'fs';
 import { createInterface } from 'readline';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -846,7 +846,7 @@ async function main() {
   const args = process.argv.slice(2);
   const dataPath = args[0];
   if (!dataPath) {
-    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api] [--verify-via-recording]');
+    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api] [--verify-via-recording] [--timing-file FILE]');
     process.exit(1);
   }
   const screensPath = args.includes('--screens') ? args[args.indexOf('--screens') + 1] : dataPath.replace(/[^/]+$/, 'screens.csv');
@@ -886,6 +886,21 @@ async function main() {
   // UI first, which isn't true of every possible run (--only N on a
   // later step, for instance).
   const verifyViaRecording = args.includes('--verify-via-recording');
+  // Per direct request: this runner is the one, real, single way any
+  // front-end or back-end step in a fixture is ever exercised -
+  // nobody writes a raw, one-off Playwright script instead. Every
+  // real run can therefore record its own, real, per-step execution
+  // time to one, nominated file, a real, structured place to look for
+  // a slow step instead of scrolling console output - rather than
+  // leaving timing as something only ever read by eye, once, as the
+  // run scrolls past.
+  const timingFile = args.includes('--timing-file') ? args[args.indexOf('--timing-file') + 1] : undefined;
+  if (timingFile) writeFileSync(timingFile, 'index,screen_name,path,ms,ok,error\n');
+  function recordTiming(stepIndex: number, screenName: string, stepPath: string, ms: number, ok: boolean, error?: string) {
+    if (!timingFile) return;
+    const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    appendFileSync(timingFile, `${stepIndex},${escape(screenName)},${stepPath},${ms},${ok},${escape(error ?? '')}\n`);
+  }
 
   const screens = loadScreens(screensPath);
   let allSteps = loadSteps(dataPath);
@@ -962,6 +977,7 @@ async function main() {
       const stepStart = Date.now();
       let result = stepPath === 'ui' ? await runStepViaUi(await ensureUiPage(), step, screens, screenshotDir) : runStepViaApi(step, screens);
       const stepMs = Date.now() - stepStart;
+      recordTiming(step.index, step.screen_name, stepPath, stepMs, result.ok, result.ok ? undefined : result.error);
       const uiSucceededDirectly = stepPath === 'ui' && result.ok;
       console.log(result.ok ? `✅ ${step.index}: ${step.screen_name} (${stepPath}) [${stepMs}ms]` : `❌ ${step.index}: ${step.screen_name} (${stepPath}): ${result.error} [${stepMs}ms]`);
       if (verifyViaRecording && uiSucceededDirectly) {
@@ -1002,10 +1018,13 @@ async function main() {
       // original UI result - so a reader can tell "the UI genuinely
       // works" from "the UI is broken here, the API covered for it."
       if (!result.ok && stepPath === 'ui' && fallbackToApi) {
+        const fallbackStart = Date.now();
         const apiResult = runStepViaApi(step, screens);
+        const fallbackMs = Date.now() - fallbackStart;
+        recordTiming(step.index, step.screen_name, 'api-fallback', fallbackMs, apiResult.ok, apiResult.ok ? undefined : apiResult.error);
         console.log(apiResult.ok
-          ? `   ↳ ✅ ${step.index}: ${step.screen_name} (api fallback, after ui failure)`
-          : `   ↳ ❌ ${step.index}: ${step.screen_name} (api fallback also failed): ${apiResult.error}`);
+          ? `   ↳ ✅ ${step.index}: ${step.screen_name} (api fallback, after ui failure) [${fallbackMs}ms]`
+          : `   ↳ ❌ ${step.index}: ${step.screen_name} (api fallback also failed): ${apiResult.error} [${fallbackMs}ms]`);
         result = apiResult;
       }
       if (!result.ok && !nonInteractive) {
@@ -1062,6 +1081,26 @@ async function main() {
     }
   }
   if (browser) await browser.close();
+  if (timingFile) {
+    // A real, direct "what was slow" summary, read back from the same
+    // file just written - so a reader sees it without opening a
+    // second file, but the file itself stays the one, real source of
+    // truth for anything that needs the full, per-step detail.
+    const rows = readFileSync(timingFile, 'utf-8').trim().split('\n').slice(1)
+      .map((line) => {
+        const m = line.match(/^(\d+),"((?:[^"]|"")*)",([a-z-]+),(\d+),(true|false),"((?:[^"]|"")*)"$/);
+        if (!m) return null;
+        return { index: Number(m[1]), screen_name: m[2].replace(/""/g, '"'), path: m[3], ms: Number(m[4]), ok: m[5] === 'true' };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .sort((a, b) => b.ms - a.ms);
+    const slowest = rows.slice(0, 10);
+    if (slowest.length > 0) {
+      console.log(`\nSlowest step(s) (full detail in ${timingFile}):`);
+      for (const r of slowest) console.log(`  ${r.ms}ms  #${r.index} ${r.screen_name} (${r.path})${r.ok ? '' : ' [FAILED]'}`);
+    }
+    console.log(`Per-step timing written to ${timingFile} (${rows.length} row(s)).`);
+  }
   console.log(`\nDone - ${allSteps.length} step(s) processed.`);
 }
 
