@@ -90,6 +90,27 @@ and rolling over as of 2027-07-01. The full, real tutorial (22 steps) passes end
 verified afterward (not merely "didn't throw"): both ledgers' own real Balance Sheets read back
 correct, matching, balanced figures.
 
+**A real, confirmed, live bug found and fixed, via a further, direct extension of this same e2e
+tutorial** (pre/post year-end reports, from both the old and the new ledger, plus a real sale
+genuinely posted into the new ledger after rollover — `shared-fixtures/tutorial-steps.csv`/
+`tutorial-steps.control.csv`, `backend/scripts/step-runner.ts`'s `posSaleInLedgerSimple`/
+`trial_balance_balanced`/`profit_and_loss_zero`/etc.): `resolveCashAtBankAccount` (`db-reports.ts`)
+— used by `completePosSale`/`completeCashPurchase`/payment allocation to find a business's own
+"Cash at Bank" account by currency — walked `Entity.children('Cash at Bank')` to tell its three
+real cases apart (no children: this leaf is itself the account; one real currency leaf per real
+bank/currency combination otherwise). It never accounted for the real, *further* kind of child this
+exact same node can carry once this account has ever carried forward through a real rollover: the
+real, ledger-scoped node `resolveRolloverLines` creates directly under it, named after the ledger
+itself (e.g. `"Actual 2027-28"`), never a currency-suffixed name. A business with only ONE real bank
+currency (the common case) broke completely for every sale/purchase/payment after its first real
+rollover — `children.length` was no longer 0, so the function went looking for a real currency-
+suffixed child and found none, throwing. Fixed by narrowing the children considered to real,
+currency-suffixed names only (`/\([A-Za-z]{3}\)$/`) before deciding which of the three real cases
+applies — the ledger-scoped child is simply never a candidate. The real fix needed no change to
+`stageLine`/`findLedgerScopedAccount` itself: `resolveCashAtBankAccount` only ever returns a plain
+account *name*, and the real, ledger-aware resolution already happens downstream, exactly as
+designed.
+
 **Not yet done**: a Web UI page for `createLedger`/`rolloverToNewPeriod` (these three screens have no
 real `ui_path` yet, API-path only, same as several other tutorial steps); Playwright/UI verification;
 the `account_entry_insert`/`post_journal_entry_insert` schema triggers themselves were deliberately

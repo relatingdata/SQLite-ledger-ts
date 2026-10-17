@@ -104,6 +104,17 @@
 "Receive Into Storage","Tutorial Wine Retail Business","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure"
 "Open Container","Tutorial Wine Retail Business","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24"
 
+# Pre year-end reports, read from the still-open "Actual" ledger
+# before Close Books runs - a real, structural check (balanced), and
+# a recorded figure (net income) to prove, right after Close Books
+# below, that closing the books never changes the P&L already
+# reported for this same, real period (closeBooks' own closing entry
+# is deliberately excluded from this read - excludeCloseEntries,
+# db-reports.ts).
+"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual",""
+"Record Profit And Loss Net Income","Tutorial Wine Retail Business","Actual","",""
+"Check Profit And Loss Positive","Tutorial Wine Retail Business","Actual","",""
+
 # The real year/period rollover procedure (docs/ledger-scoped-accounts-and-
 # rollover.md), exercised end to end. Nothing ever posts across ledgers:
 # closing the old period's Income/Expense into Retained Earnings happens
@@ -111,5 +122,29 @@
 # structurally, before any posting; the real, final, balanced opening entry
 # posts only within the new ledger, never referencing the old one.
 "Close Books","Tutorial Wine Retail Business","Actual","2027-06-30","Retained Earnings"
+
+# Post year-end reports, OLD ledger: still balanced, and the real
+# P&L figure for the same, real period is exactly unchanged by
+# closing the books.
+"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual",""
+"Check Profit And Loss Net Income Matches Recorded","Tutorial Wine Retail Business","Actual","",""
+
 "Create Ledger","Tutorial Wine Retail Business","Actual 2027-28"
 "Rollover To New Period","Tutorial Wine Retail Business","Actual","Actual 2027-28","2027-07-01"
+
+# Post year-end reports, NEW ledger: the opening Balance Sheet is
+# genuinely balanced, and its own P&L is genuinely zero - Income/
+# Expense are never carried forward across a rollover, only the real,
+# "used" Balance Sheet accounts are.
+"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual 2027-28",""
+"Check Profit And Loss Zero","Tutorial Wine Retail Business","Actual 2027-28","",""
+
+# Some sales, genuinely in the new trading period - the business
+# keeps trading in the new ledger immediately (step 6 of the real
+# rollover procedure). Records the OLD ledger's own trial balance
+# total first, so the checks below can prove this real sale, posted
+# into the NEW ledger, never touches the OLD one.
+"Record Trial Balance Total","Tutorial Wine Retail Business","Actual",""
+"POS Sale In Ledger","Tutorial Wine Retail Business","Main Street Cellar","Actual 2027-28","Amber Ale 330ml","2","500"
+"Check Profit And Loss Positive","Tutorial Wine Retail Business","Actual 2027-28","",""
+"Check Trial Balance Total Matches Recorded","Tutorial Wine Retail Business","Actual",""

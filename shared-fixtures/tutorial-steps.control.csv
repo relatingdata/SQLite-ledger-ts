@@ -24,6 +24,17 @@ path,verify,screenshot,skip
 ,,,false
 ,,,false
 ,,,false
+,trial_balance_balanced,,false
+,record_profit_and_loss_net_income,,false
+,profit_and_loss_positive,,false
+,,,false
+,trial_balance_balanced,,false
+,profit_and_loss_net_income_matches_recorded,,false
 ,,,false
 ,,,false
+,trial_balance_balanced,,false
+,profit_and_loss_zero,,false
+,record_trial_balance_total,,false
 ,,,false
+,profit_and_loss_positive,,false
+,trial_balance_total_matches_recorded,,false

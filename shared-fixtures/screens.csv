@@ -114,3 +114,34 @@ Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),
 Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),1,businessName,,text
 Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),2,customerName,input[placeholder='e.g. Gamma LLC'],text
 Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),3,parent,select >> nth=0,select
+POS Sale In Ledger,data,,,posSaleInLedgerSimple,,1,businessName,,text
+POS Sale In Ledger,data,,,posSaleInLedgerSimple,,2,locationName,,text
+POS Sale In Ledger,data,,,posSaleInLedgerSimple,,3,ledger,,text
+POS Sale In Ledger,data,,,posSaleInLedgerSimple,,4,itemName,,text
+POS Sale In Ledger,data,,,posSaleInLedgerSimple,,5,quantity,,text
+POS Sale In Ledger,data,,,posSaleInLedgerSimple,,6,unitPriceMinor,,text
+Check Trial Balance Balanced,data,,,,,1,businessName,,text
+Check Trial Balance Balanced,data,,,,,2,ledger,,text
+Check Trial Balance Balanced,data,,,,,3,asOfDate,,text
+Record Trial Balance Total,data,,,,,1,businessName,,text
+Record Trial Balance Total,data,,,,,2,ledger,,text
+Record Trial Balance Total,data,,,,,3,asOfDate,,text
+Check Trial Balance Total Matches Recorded,data,,,,,1,businessName,,text
+Check Trial Balance Total Matches Recorded,data,,,,,2,ledger,,text
+Check Trial Balance Total Matches Recorded,data,,,,,3,asOfDate,,text
+Check Profit And Loss Positive,data,,,,,1,businessName,,text
+Check Profit And Loss Positive,data,,,,,2,ledger,,text
+Check Profit And Loss Positive,data,,,,,3,fromDate,,text
+Check Profit And Loss Positive,data,,,,,4,toDate,,text
+Check Profit And Loss Zero,data,,,,,1,businessName,,text
+Check Profit And Loss Zero,data,,,,,2,ledger,,text
+Check Profit And Loss Zero,data,,,,,3,fromDate,,text
+Check Profit And Loss Zero,data,,,,,4,toDate,,text
+Record Profit And Loss Net Income,data,,,,,1,businessName,,text
+Record Profit And Loss Net Income,data,,,,,2,ledger,,text
+Record Profit And Loss Net Income,data,,,,,3,fromDate,,text
+Record Profit And Loss Net Income,data,,,,,4,toDate,,text
+Check Profit And Loss Net Income Matches Recorded,data,,,,,1,businessName,,text
+Check Profit And Loss Net Income Matches Recorded,data,,,,,2,ledger,,text
+Check Profit And Loss Net Income Matches Recorded,data,,,,,3,fromDate,,text
+Check Profit And Loss Net Income Matches Recorded,data,,,,,4,toDate,,text

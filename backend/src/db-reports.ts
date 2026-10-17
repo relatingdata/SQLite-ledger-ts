@@ -202,10 +202,26 @@ export function resolveCashAtBankAccount(business: BusinessName, currency: strin
     const created = Entity.create('Cash at Bank', assetRow.id, userId);
     return { name: created.name, id: created.id };
   }
-  const children = Entity.children(existing.id);
-  if (children.length === 0) return { name: existing.name, id: existing.id };
+  // A real, confirmed, live bug found directly via the tutorial e2e's
+  // own post-rollover sale (a real, further e2e extension, per direct
+  // instruction): Entity.children(existing.id) also picks up a real,
+  // further kind of child this same, real CoA leaf can carry -
+  // resolveRolloverLines' own, real, ledger-scoped node, named after
+  // the ledger itself (e.g. "Actual 2027-28", relation_id pointing at
+  // that real ledger - see docs/ledger-scoped-accounts-and-
+  // rollover.md), created directly here once this account has ever
+  // carried a real, non-zero balance through a real rollover. That
+  // node is never a real currency leaf (buildBankCurrencyStructure's
+  // own, separate, multi-combination case) - only a name ending in
+  // "(CUR)" genuinely is. Without this, the real single-currency case
+  // ("Cash at Bank" is itself the real, plain leaf, children.length
+  // === 0) broke the moment this business's first real rollover ran,
+  // since the ledger-scoped child made children.length > 0 while
+  // matching no real currency at all.
+  const currencyLeaves = Entity.children(existing.id).filter((c) => /\([A-Za-z]{3}\)$/.test(c.name));
+  if (currencyLeaves.length === 0) return { name: existing.name, id: existing.id };
   const effectiveCurrency = currency ?? getBusinessHomeCurrency(business) ?? undefined;
-  const leaf = children.find((c) => effectiveCurrency && c.name.endsWith(`(${effectiveCurrency})`));
+  const leaf = currencyLeaves.find((c) => effectiveCurrency && c.name.endsWith(`(${effectiveCurrency})`));
   if (!leaf) throw new ValidationError(`"${business}" has no real "Cash at Bank" account for ${effectiveCurrency ?? 'its own home currency'} - see buildBankCurrencyStructure.`);
   return leaf;
 }

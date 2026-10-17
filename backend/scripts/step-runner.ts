@@ -400,7 +400,59 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     return db.rolloverToNewPeriod(a.businessName as any, a.oldLedger as any, a.newLedger as any, a.asOfDate, userId);
   },
+  // A real, separate, explicitly-named entry rather than a retrofit of
+  // posSaleSimple above (which hardcodes 'Actual', exactly as
+  // cashPurchaseSimple/cashSaleSimple/transferItemsSimple all still do
+  // - a real, confirmed, pre-existing simplification in this test
+  // harness, never in the real backend routes themselves, which
+  // already take an explicit ledger field - see routes/pos.ts).
+  // Needed to post a real sale into the NEW ledger after a real
+  // rollover, exercising the real ledger-isolation checks below
+  // without touching any existing row's own field count.
+  posSaleInLedgerSimple: (a) => {
+    const userId = db.asUserId(1);
+    return db.completePosSale({
+      business: a.businessName as any,
+      ledger: db.asLedgerName(a.ledger),
+      locationName: a.locationName as any,
+      customerName: 'Cash Sale' as any,
+      lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitPriceMinor), taxMinor: 0 }],
+      taxAccount: 'Sales Tax Payable' as any,
+      paymentMethod: 'cash',
+    }, userId);
+  },
 };
+
+// ---------------------------------------------------------------------------
+// Per direct instruction: extends the tutorial fixture with real
+// pre/post year-end reports, read from both the old and the new
+// ledger, plus a real sale posted into the new ledger after rollover
+// - proving real ledger isolation ("nothing ever posts across
+// ledgers", docs/ledger-scoped-accounts-and-rollover.md) with real,
+// structurally-true checks rather than a hand-computed, fragile
+// "golden" figure: a trial balance must always balance; closing the
+// books must never change the P&L already reported for that same
+// period; a brand-new ledger's own P&L is genuinely zero until
+// something is actually posted into it (Income/Expense are never
+// carried forward); and the OLD ledger's own trial balance must stay
+// byte-identical after a sale posts into the NEW ledger, never
+// shared.
+//
+// The small, in-memory maps below are the one, real, deliberately
+// simple way two separate steps ("record this" / "does it still
+// match") compare a real figure across time, within one real run of
+// this fixture - never persisted, never meant to be.
+// ---------------------------------------------------------------------------
+
+const recordedTrialBalanceTotals = new Map<string, number>();
+const recordedNetIncome = new Map<string, number>();
+
+function tbKey(a: Record<string, string>): string {
+  return `${a.businessName}::${a.ledger}::${a.asOfDate ?? ''}`;
+}
+function plKey(a: Record<string, string>): string {
+  return `${a.businessName}::${a.ledger}::${a.fromDate ?? ''}::${a.toDate ?? ''}`;
+}
 
 /** The one, real registry of named, shared verifications - the same,
  * real check, callable from either the API path or the UI path. */
@@ -440,6 +492,57 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // confirmed `-PLACE` suffix convention instead.
   purchase_order_posted: (a) => db.listJournalEntries(a.businessName as any, db.asLedgerName('Actual'), 500, 0).some((j) => j.reference === `${a.reference}-PLACE`),
   item_source_registered: (a) => db.listItemSources(a.itemName).some((s) => s.vendor_name === a.providerName),
+  // Real, structural checks on a real, live Trial Balance/Profit and
+  // Loss report - never a hand-computed "golden" figure that would go
+  // stale the moment an earlier step's own numbers change. See the
+  // real comment above the two record/compare maps for why this is
+  // the right shape for a pre/post year-end, old-ledger/new-ledger
+  // comparison.
+  trial_balance_balanced: (a) => {
+    const tb = db.getTrialBalance(a.businessName as any, db.asLedgerName(a.ledger), a.asOfDate || undefined);
+    return tb.total_debit_minor === tb.total_credit_minor && tb.total_debit_minor > 0;
+  },
+  record_trial_balance_total: (a) => {
+    const tb = db.getTrialBalance(a.businessName as any, db.asLedgerName(a.ledger), a.asOfDate || undefined);
+    recordedTrialBalanceTotals.set(tbKey(a), tb.total_debit_minor);
+    return true;
+  },
+  // The real, direct ledger-isolation proof: this exact figure, for
+  // the OLD ledger, must be identical before and after a real sale
+  // posts into the brand-new ledger - "nothing ever posts across
+  // ledgers" is meaningless unless something checks it stays true.
+  trial_balance_total_matches_recorded: (a) => {
+    const tb = db.getTrialBalance(a.businessName as any, db.asLedgerName(a.ledger), a.asOfDate || undefined);
+    const recorded = recordedTrialBalanceTotals.get(tbKey(a));
+    return recorded !== undefined && recorded === tb.total_debit_minor;
+  },
+  profit_and_loss_positive: (a) => {
+    const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
+    return pl.net_income_minor > 0;
+  },
+  // A brand-new ledger's own P&L is genuinely zero until something is
+  // actually posted into it - Income/Expense are never carried
+  // forward across a rollover (docs/ledger-scoped-accounts-and-
+  // rollover.md), only the real, "used" Balance Sheet accounts are.
+  profit_and_loss_zero: (a) => {
+    const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
+    return pl.net_income_minor === 0 && pl.total_income_minor === 0;
+  },
+  record_profit_and_loss_net_income: (a) => {
+    const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
+    recordedNetIncome.set(plKey(a), pl.net_income_minor);
+    return true;
+  },
+  // The real, direct proof that closing the books never changes the
+  // P&L already reported for that same, real period - closeBooks'
+  // own closing entry is deliberately excluded from this read
+  // (excludeCloseEntries, default true, db-reports.ts), specifically
+  // so this stays true.
+  profit_and_loss_net_income_matches_recorded: (a) => {
+    const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
+    const recorded = recordedNetIncome.get(plKey(a));
+    return recorded !== undefined && recorded === pl.net_income_minor;
+  },
 };
 
 /** A minimal, real CSV field parser handling real, quoted fields with
