@@ -529,24 +529,28 @@ test('getJournalEntry returns full line detail with account numbers', () => {
 });
 
 test('an account is vivified on first post and gets a real balance', () => {
-  // The schema's own bootstrap already posts a real 50000-cent worked
-  // transaction to Cash and Bank (see schema.sql's CS-1001 demo) before
-  // any of these tests run — so after this suite's own +12345 posting to
-  // the same account, the correct total is 50000 + 12345, not 12345 in
-  // isolation. (An earlier version of this test assumed the latter and
-  // failed — a test-authoring mistake, not a product bug, but exactly
-  // the kind of thing worth getting right rather than silently loosening
-  // the assertion.)
+  // A real, confirmed, now-stale assumption: this test used to expect
+  // 50000 + 12345, on the belief that schema.sql's own bootstrap posts
+  // a real 50000-cent worked transaction to Cash and Bank (its old
+  // "CS-1001" demo). That demo posting was itself deliberately removed
+  // from core data per direct, standing instruction - confirmed
+  // directly in schema/00-core.sql's own comment: "no business data of
+  // any kind belongs in core data" - so Cash and Bank starts this suite
+  // at a real, genuine zero, and this suite's own +12345 posting
+  // (above) is the only real fact affecting it.
   const cashAndBank = getEntity(getEntityTree().find((e) => e.name === 'Cash and Bank')!.id);
-  assert.equal(cashAndBank!.balance_minor, 50000 + 12345);
+  assert.equal(cashAndBank!.balance_minor, 12345);
 });
 
 test('trial balance shows every posted account split into debit/credit, and the two columns match', () => {
+  // Same real, confirmed, now-stale 50000 assumption as the test above -
+  // the schema's old "CS-1001" bootstrap demo posting was deliberately
+  // removed from core data (schema/00-core.sql's own comment).
   const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   assert.ok(tb.rows.length > 0);
   const cash = tb.rows.find((r) => r.name === 'Cash and Bank');
   assert.ok(cash);
-  assert.equal(cash!.debit_minor, 50000 + 12345);
+  assert.equal(cash!.debit_minor, 12345);
   assert.equal(cash!.credit_minor, 0);
   assert.equal(tb.total_debit_minor, tb.total_credit_minor, 'a real ledger must always balance');
 });
