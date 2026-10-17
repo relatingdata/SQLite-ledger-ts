@@ -754,10 +754,23 @@ test('setContact is a full replace, not a partial merge — calling it again wit
 });
 
 test('revokeEntity closes the entity out but deliberately keeps its contact record — a historical fact about a now-closed entity, not something that disappears', () => {
+  // A real, confirmed, now-stale assumption: this test used to expect
+  // getEntity(e.id) to return undefined after revoke. entity_revoke's
+  // own, real, documented design (schema/00-core.sql) is "the real,
+  // settled replacement for 'delete' ... only relation_id changes, to
+  // NULL" - it is never a true removal from current_entities, the same
+  // append-only, nothing-ever-truly-gone discipline this whole design
+  // uses everywhere else. revokeEntity (db.ts) additionally, genuinely
+  // reparents it into a dedicated 'Revoked' holding root, but it still
+  // stays a real, current entity throughout - confirmed directly.
   const e = create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'Delta Contact Test', asUserId(1));
   setContact('Delta Contact Test', { phone: '555-1111' });
   revokeEntity(e.id, asUserId(1));
-  assert.equal(getEntity(e.id), undefined, 'the entity itself is closed out — no longer current');
+  const after = getEntity(e.id);
+  assert.ok(after, 'the entity stays current, moved into Revoked, never truly deleted');
+  assert.equal(after!.relation_id, null, 'revoking clears relation_id — the real, documented effect of entity_revoke');
+  const revokedParent = getEntity(after!.parent_id!);
+  assert.equal(revokedParent?.name, 'Revoked', 'it is reparented out of its old structural position, into the dedicated holding root');
   const row = db.prepare(`SELECT phone FROM contact WHERE entity_id = ?`).get(e.id) as { phone: string } | undefined;
   assert.equal(row?.phone, '555-1111', 'the contact row is deliberately NOT removed — it stays as history');
 });
@@ -1398,14 +1411,26 @@ test('renaming a parent never orphans its children — a childs parent_id keeps 
   assert.equal(parentNode.name, 'Eta Parent Corporation');
 });
 
-test('revokeEntity closes out the entity permanently, with who and when recorded — it never reappears, even in history queries as "current"', () => {
+test('revokeEntity records who revoked it, and moves it permanently out of its old structural position', () => {
+  // A real, confirmed, now-stale assumption, same root cause as "closes
+  // the entity out but deliberately keeps its contact record" above:
+  // entities carries no deleted_at/deleted_by columns at all (schema/
+  // 00-core.sql's CREATE TABLE entities) - that was this design's own,
+  // early, aspirational header comment, superseded by the real,
+  // final, append-only "supersede, never truly delete" model
+  // entity_revoke actually implements. "Who and when" is recorded the
+  // same, real way every other entity fact is: a genuine history row,
+  // with its own real created_by/created_at.
   const e = create(requireEntity('Accounts Receivable', typeRootName), typeRootName, 'Theta Test Co', asUserId(1));
   revokeEntity(e.id, asUserId(1));
-  assert.equal(getEntity(e.id), undefined);
+  const after = getEntity(e.id);
+  assert.ok(after, 'never truly deleted — stays current, moved into Revoked');
+  assert.equal(after!.relation_id, null);
+  const revokedParent = getEntity(after!.parent_id!);
+  assert.equal(revokedParent?.name, 'Revoked');
   const history = getEntityHistory(e.id);
-  assert.equal(history.length, 1, 'a straight delete with no prior rename is just one closed-out row');
-  assert.ok(history[0].deleted_at);
-  assert.equal(history[0].deleted_by, 1);
+  assert.ok(history.length >= 2, 'at minimum, the original creation row plus the real revoke row');
+  assert.equal(history[history.length - 1].created_by, 1, 'who revoked it is the real, recorded creator of this final history row');
 });
 
 test('journal postings record who posted them — the other half of the audit trail, alongside entities own append-only history', () => {
