@@ -5022,51 +5022,19 @@ function deleteTyped(entityName: string, thingSuffix: string, type: string, user
  * child entity for the link itself (the exact same real shape
  * addTyped<T> already uses), so the source entity's own relation_id
  * is never touched at all, whatever it's already being used for. */
-/** Per docs/general-typed-hierarchy-resolution-plan.md - the real,
- * settled design: a hierarchy's kind is identified by what a real
- * entity's own relation_id directly points at (an abstract prototype
- * node), never by parent_id depth or a compile-time type parameter.
- * Works identically for a real, top-level Division and a real,
- * user-created Sub-Division - both point at the exact, same real
- * "Division" prototype. */
-export function getPrototypeOf(entityName: string): string | undefined {
-  const row = db
-    .prepare(
-      `SELECT proto.name FROM current_entities e
-       JOIN current_entities proto ON proto.id = e.relation_id
-       WHERE e.name = ?`
-    )
-    .get(entityName) as { name: string } | undefined;
-  return row?.name;
-}
-
-/** Tags a real, actual node with the real prototype it represents -
- * directly on the entity's own relation_id, per the settled design,
- * not via setEntityLink's separate, intermediate record (that pattern
- * is for a named *relationship* between two otherwise-independent
- * entities; this is a direct, structural "what kind is this" fact
- * about the entity itself). */
-export function setPrototype(entityName: string, prototypeName: string, userId: UserId): void {
-  supersedeEntity(resolveIdOrThrow(entityName), { relation: prototypeName }, userId);
-}
-
-/** Seeds the real, default, recommended hierarchy prototypes for a
- * new business - per direct instruction, nothing here is special or
- * privileged: a business is free to rename, delete, or add further
- * real prototypes immediately, and no other real code may ever
- * special-case these four names specifically. Fetches the business's
- * own, real, already-scoped "{business} Hierarchies" root (created
- * once, in the one, single PER_BUSINESS_ROOTS list) rather than
- * creating its own, second, unscoped one - the real, confirmed bug
- * this had before, now fixed. */
-export function seedDefaultHierarchyPrototypes(business: TypedNode<'BusinessName'>, userId: UserId): void {
-  const hierarchies = requireEntity('Hierarchies', typeRootName, business);
-  const division = create(hierarchies, typeRootName, 'Division', userId);
-  create(division, typeRootName, 'Location', userId);
-  const category = create(hierarchies, typeRootName, 'Category', userId);
-  create(category, typeRootName, 'Item', userId);
-}
-
+/** Retired, per direct instruction: docs/general-typed-hierarchy-
+ * resolution-plan.md's relation_id-pointer "prototype" design
+ * (getPrototypeOf/setPrototype/seedDefaultHierarchyPrototypes, and
+ * the bare "Hierarchies" root PER_BUSINESS_ROOTS once seeded for it)
+ * was superseded in practice by the simpler, link-based mechanism
+ * below (setHierarchyParent/getHierarchyParent, backed by
+ * setEntityLink) plus ensureHierarchyGrouping/ensureHierarchyValue's
+ * own, separate, per-business "Hierarchy" root — the one real
+ * mechanism every report, the Create/Edit Hierarchy screen
+ * (routes/hierarchy.ts), and getBusinessHierarchy actually read and
+ * write. The prototype functions had zero real callers anywhere in
+ * this codebase by the time this was found and confirmed directly;
+ * see that doc's own correction note for the full account. */
 export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number, targetId?: number): string {
   const recordName = `${entityName} — ${linkType}`;
   const parentNode = entityId != null ? requireEntityById(entityId, typeRootName) : requireEntity(entityName, typeRootName);
@@ -7697,7 +7665,6 @@ export const PER_BUSINESS_ROOTS: { name: string; type: TypeDescriptor<string> }[
   { name: 'Locations', type: typeBusinessLocationsRootName },
   { name: 'Items', type: typeBusinessItemsRootName },
   { name: 'Contacts', type: typeBusinessContactsRootName },
-  { name: 'Hierarchies', type: typeRootName },
   { name: 'Vocabulary', type: typeRootName },
   { name: 'Ledgers', type: typeRootName },
   // Per docs/profit-centers-design.md's Phase A: a real, empty root
@@ -7723,8 +7690,8 @@ export function createBusiness(
   const business = create(businessesRoot, typeBusinessName, businessName, userId);
   // Every real, structural root a new business gets, per the one,
   // single, real, consolidated list above (PER_BUSINESS_ROOTS) -
-  // Locations, Items, Contacts, Hierarchies, Vocabulary, and Ledgers
-  // today; adding a further one is a genuine, real, one-line addition
+  // Locations, Items, Contacts, Vocabulary, and Ledgers today;
+  // adding a further one is a genuine, real, one-line addition
   // to that list alone, never a further edit here. Per a real,
   // confirmed, fundamental correction: each one is a real, plain name
   // (never business-prefixed) - create()'s own uniqueness check is
@@ -7817,10 +7784,6 @@ export function createBusiness(
   // (stageLine has no lazy-vivification path of its own) fails with
   // "NOT NULL constraint failed: journal_line.account_id".
   resolveCashAtBankAccount(businessName, undefined, userId);
-  // Per docs/general-typed-hierarchy-resolution-plan.md - a real,
-  // recommended, non-privileged starting point every new business
-  // gets, immediately renameable/deletable/extensible.
-  seedDefaultHierarchyPrototypes(business, userId);
   return { business: businessName, actualLedger, budgetLedger };
   })();
 }

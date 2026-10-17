@@ -20,7 +20,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 460 functions (407 exported); 424 are called from production code; 25 only from tests or tooling; 11 from nowhere the compiler could find.
+- **Backend:** 457 functions (404 exported); 423 are called from production code; 23 only from tests or tooling; 11 from nowhere the compiler could find.
 - **Frontend library:** 261 functions (246 exported); 245 are called from production code; 2 only from tests or tooling; 14 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
@@ -1319,7 +1319,7 @@ Called from: nowhere the compiler could find.
 asUserId(id: number): UserId
 ```
 
-Called from: production: db-journal.ts (clockOutOfProject ×1); db-seed.ts ((module level) ×1); db-stock.ts (createSystemEntity ×1, recordStockTakeCount ×1, setItemLocationLevelDetails ×1, setLocation ×7, transferItems ×17); db.ts (addOrUpdateItemSource ×3, allocatePayment ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, recordInvoiceLine ×2, and 7 more); routes/arap.ts ((module level) ×2); routes/auth.ts ((module level) ×6); routes/businesses.ts ((module level) ×6); routes/contacts.ts ((module level) ×6); and 15 more file(s) · tests: 922 call(s) in 2 file(s) · tooling: 31 call(s) in 5 file(s)
+Called from: production: db-journal.ts (clockOutOfProject ×1); db-seed.ts ((module level) ×1); db-stock.ts (createSystemEntity ×1, recordStockTakeCount ×1, setItemLocationLevelDetails ×1, setLocation ×7, transferItems ×17); db.ts (addOrUpdateItemSource ×3, allocatePayment ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, recordInvoiceLine ×2, and 7 more); routes/arap.ts ((module level) ×2); routes/auth.ts ((module level) ×6); routes/businesses.ts ((module level) ×6); routes/contacts.ts ((module level) ×6); and 15 more file(s) · tests: 918 call(s) in 2 file(s) · tooling: 31 call(s) in 5 file(s)
 
 **`asEntityId`** *(exported)*
 
@@ -1335,7 +1335,7 @@ Called from: production: db-seed.ts (migrateForWineRetailDemoData ×2); db.ts (c
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: auth-middleware.ts (requireRole ×1); db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-seed.ts (migrateForPerBusinessChartOfAccounts ×1, migrateForWineRetailDemoData ×2); db-stock.ts (completeStockTake ×3, getInventoryListingByLocation ×1, writeOffItems ×3); db.ts (allocatePayment ×3, completePosSale ×2, dispatchOrderFromPickingList ×1, payEmployeeWages ×7, postInvoice ×6); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4); and 14 more file(s) · tests: 591 call(s) in 2 file(s) · tooling: 9 call(s) in 4 file(s)
+Called from: production: auth-middleware.ts (requireRole ×1); db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-seed.ts (migrateForPerBusinessChartOfAccounts ×1, migrateForWineRetailDemoData ×2); db-stock.ts (completeStockTake ×3, getInventoryListingByLocation ×1, writeOffItems ×3); db.ts (allocatePayment ×3, completePosSale ×2, dispatchOrderFromPickingList ×1, payEmployeeWages ×7, postInvoice ×6); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4); and 14 more file(s) · tests: 590 call(s) in 2 file(s) · tooling: 9 call(s) in 4 file(s)
 
 **`asLedgerName`** *(exported)*
 
@@ -1447,7 +1447,7 @@ Called from: production: db-stock.ts (consumeFromLots ×1, createStockTake ×1, 
 requireEntity<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand>
 ```
 
-Called from: production: db-reports.ts (resolveCashAtBankAccount ×4); db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForBusinessTypes ×6, migrateForCashSaleCustomer ×1, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 9 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, getInventoryListingByLocation ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×4, convertStorageSpace ×2, copyChartOfAccountsInto ×1, createBusiness ×4, and 30 more) · tests: 358 call(s) in 1 file(s) · tooling: 62 call(s) in 20 file(s)
+Called from: production: db-reports.ts (resolveCashAtBankAccount ×4); db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForBusinessTypes ×6, migrateForCashSaleCustomer ×1, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 9 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, getInventoryListingByLocation ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×4, convertStorageSpace ×2, copyChartOfAccountsInto ×1, createBusiness ×4, and 29 more) · tests: 358 call(s) in 1 file(s) · tooling: 62 call(s) in 20 file(s)
 
 **`requireGlobalCoaCategory`** *(exported)*
 
@@ -1471,7 +1471,7 @@ Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenu
 create<TParentBrand extends string, TChildBrand extends string>(parent: TypedNode<TParentBrand>, type: TypeDescriptor<TChildBrand>, name: string, userId: UserId): TypedNode<TChildBrand>
 ```
 
-Called from: production: db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForBusinessTypes ×7, migrateForCashSaleCustomer ×1, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 9 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, copyChildren ×3, createBusiness ×5, createContact ×1, createItem ×2, and 22 more) · tests: 301 call(s) in 1 file(s) · tooling: 59 call(s) in 20 file(s)
+Called from: production: db-seed.ts (loadTranslationsFromSharedCsv ×1, migrateForBusinessTypes ×7, migrateForCashSaleCustomer ×1, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 9 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, copyChildren ×3, createBusiness ×5, createContact ×1, createItem ×2, and 21 more) · tests: 301 call(s) in 1 file(s) · tooling: 59 call(s) in 20 file(s)
 
 **`isGenuineCategoryOrItemsRoot`** *(exported)*
 
@@ -1487,7 +1487,7 @@ Called from: production: db.ts (typeCategoryOrItemsRootName.validate ×1)
 createEntityRaw(input: NewEntity, userId: UserId): EntityNode
 ```
 
-Called from: production: routes/entities.ts ((module level) ×1) · tests: 17 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: routes/entities.ts ((module level) ×1) · tests: 16 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`supersedeEntity`** *(exported)*
 
@@ -1495,7 +1495,7 @@ Called from: production: routes/entities.ts ((module level) ×1) · tests: 17 ca
 supersedeEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode
 ```
 
-Called from: production: auth.ts (login ×1, setUserRoles ×1); db-journal.ts (closePeriod ×1, reopenPeriod ×1); db-seed.ts (migrateForCogsTag ×1, migrateForMenuEntities ×2); db-stock.ts (completeStockTake ×1, createStockTake ×1, placeOrder ×2, recordStockTakeCount ×1, setLocation ×2); db.ts (addOrUpdateItemSource ×1, addTyped ×1, copyChildren ×1, createBusiness ×2, createInvoice ×2, setActiveLedger ×1, and 10 more); routes/entities.ts ((module level) ×1) · tests: 13 call(s) in 1 file(s) · tooling: 12 call(s) in 7 file(s)
+Called from: production: auth.ts (login ×1, setUserRoles ×1); db-journal.ts (closePeriod ×1, reopenPeriod ×1); db-seed.ts (migrateForCogsTag ×1, migrateForMenuEntities ×2); db-stock.ts (completeStockTake ×1, createStockTake ×1, placeOrder ×2, recordStockTakeCount ×1, setLocation ×2); db.ts (addOrUpdateItemSource ×1, addTyped ×1, copyChildren ×1, createBusiness ×2, createInvoice ×2, setActiveLedger ×1, and 9 more); routes/entities.ts ((module level) ×1) · tests: 13 call(s) in 1 file(s) · tooling: 12 call(s) in 7 file(s)
 
 **`listLineTypes`** *(exported)*
 
@@ -2505,30 +2505,6 @@ deleteTyped(entityName: string, thingSuffix: string, type: string, userId: UserI
 
 Called from: production: db.ts (deleteTypedAddress ×1, deleteTypedContactPerson ×1, deleteTypedPhone ×1)
 
-**`getPrototypeOf`** *(exported)*
-
-```
-getPrototypeOf(entityName: string): string | undefined
-```
-
-Called from: tests: 3 call(s) in 1 file(s)
-
-**`setPrototype`** *(exported)*
-
-```
-setPrototype(entityName: string, prototypeName: string, userId: UserId): void
-```
-
-Called from: tests: 2 call(s) in 1 file(s)
-
-**`seedDefaultHierarchyPrototypes`** *(exported)*
-
-```
-seedDefaultHierarchyPrototypes(business: TypedNode<"BusinessName">, userId: UserId): void
-```
-
-Called from: production: db.ts (createBusiness ×1)
-
 **`setEntityLink`** *(exported)*
 
 ```
@@ -2839,7 +2815,7 @@ Called from: production: routes/products.ts ((module level) ×1)
 resolveIdOrThrow(name: string): number
 ```
 
-Called from: production: db.ts (ensureItemQuantityAccounts ×1, setItemProduct ×1, setPrototype ×1)
+Called from: production: db.ts (ensureItemQuantityAccounts ×1, setItemProduct ×1)
 
 **`getItem`** *(exported)*
 
@@ -3263,7 +3239,7 @@ Called from: production: db-seed.ts (migrateForPerBusinessChartOfAccounts ×1); 
 createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaPrototype?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[]): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName; }
 ```
 
-Called from: production: routes/businesses.ts ((module level) ×1) · tests: 40 call(s) in 2 file(s) · tooling: 3 call(s) in 3 file(s)
+Called from: production: routes/businesses.ts ((module level) ×1) · tests: 39 call(s) in 2 file(s) · tooling: 3 call(s) in 3 file(s)
 
 **`createLedger`** *(exported)*
 

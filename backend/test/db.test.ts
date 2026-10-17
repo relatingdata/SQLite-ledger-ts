@@ -37,8 +37,6 @@ process.env.DB_PATH = tmpDbPath;
 const {
   getEntityTree,
   getHierarchyChain,
-  getPrototypeOf,
-  setPrototype,
   ensureHierarchyGrouping,
   ensureHierarchyValue,
   defineProductShape,
@@ -5057,35 +5055,6 @@ test('createItem: the original, confirmed gap is now genuinely closed - a non-Ca
   const created = db.prepare(`SELECT 1 FROM current_entities WHERE name = 'GapClosedTest Wine'`).get();
   assert.ok(created, 'a real, genuine, existing Category is still genuinely accepted as a valid parent');
 });
-
-test('getPrototypeOf/setPrototype/seedDefaultHierarchyPrototypes: the real, settled design - identity by what a node points at, not by depth or a compile-time type', () => {
-  // A real, top-level division and a real, deliberately-nested
-  // sub-division both point at the exact, same real "Division"
-  // prototype - genuinely uniform regardless of real depth.
-  setPrototype('Springfield', 'Division', asUserId(1));
-  createEntityRaw({ name: 'PrototypeTest SubDivision', parent: 'Springfield' }, asUserId(1));
-  setPrototype('PrototypeTest SubDivision', 'Division', asUserId(1));
-
-  assert.equal(getPrototypeOf('Springfield'), 'Division', 'a real, top-level division correctly points at the real Division prototype');
-  assert.equal(getPrototypeOf('PrototypeTest SubDivision'), 'Division', 'a real, deliberately nested sub-division, at a genuinely different real depth, points at the exact, same real prototype - no walk needed, no separate compile-time type needed');
-  assert.equal(getPrototypeOf('Vocabulary'), undefined, 'an entity with no real prototype link at all correctly returns undefined, not a false match');
-
-  // A real, new business gets the four, real, default, non-privileged
-  // prototypes seeded automatically, under its own real "Hierarchies"
-  // root - a real, plain name, never business-prefixed, per the
-  // corrected, fundamental principle: create()'s own uniqueness check
-  // is already scoped by real, direct parent, never global, so every
-  // business's own "Hierarchies" coexists correctly, each found via
-  // its own real parent (fetch's own, further, optional parent
-  // argument), never a mangled name.
-  const biz = createBusiness(asBusinessName('PrototypeTest Business'), '2027-28', asUserId(1));
-  const thisBusinessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(biz.business) as { id: number }).id;
-  const hierarchies = db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchies' AND parent_id = ?`).get(thisBusinessId) as { id: number } | undefined;
-  assert.ok(hierarchies, 'a real, new business gets its own, real, plain "Hierarchies" root seeded automatically');
-  const divisionUnderHierarchies = db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(hierarchies!.id);
-  assert.ok((divisionUnderHierarchies as { name: string }[]).some((r) => r.name === 'Division'), 'a real, new business gets a real "Division" prototype seeded under its own, real "Hierarchies" root');
-});
-
 
 test('getHierarchyChain: a real, uniform, non-generic walk up parent_id - genuinely reaches Business for an Item, and confirms the real, separate, already-documented Division/Business gap for a Location', () => {
   // A real, deliberately deep item chain: Items -> Red Wine ->

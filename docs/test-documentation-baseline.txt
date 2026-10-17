@@ -145,7 +145,6 @@ getProfitAndLossByAxis: real, direct reproducibility — every real division and
 getProfitAndLossByHierarchy: "Consolidated per Division" — one real, full P&L per real group actually active in this ledger/date range, income/COGS/operating split intact per group, derived structurally from real, live sales at real locations
 getProfitAndLossByHierarchyTree: "Consolidated per Division per Location" — real groups nested under their own real parent, a genuinely empty node synthesized for a real, top-level group with no direct activity of its own
 getProfitAndLossComparison correctly reconstructs each lines actual amount from debit_minor/credit_minor, not a stale removed field
-getPrototypeOf/setPrototype/seedDefaultHierarchyPrototypes: the real, settled design - identity by what a node points at, not by depth or a compile-time type
 getQualifiedDisplayName never doubles a real, already-qualified name - a real, confirmed bug found directly in the trial balance, where a combination-leaf account's own, real, already-descriptive name (e.g. "Amber Ale 330ml (Bottle) — Eastside Cellar Door") got its own, real parent's name prepended a second time, producing a real, visibly doubled name
 getSalesReport: detailed lines and a genuine category rollup (via the real entity tree, not a hand-maintained list) that both sum to the same real total
 getStockMovementReport: the real, physical journey of stock — purchases into a warehouse, a real transfer on to a retail outlet, and a real sale, each correctly enriched with its own real category, division, and vendor

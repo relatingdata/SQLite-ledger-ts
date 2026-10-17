@@ -12,6 +12,16 @@ caller happened to write.
 
 ## The real, already-established pattern this must follow
 
+**Correction, added later**: `getPrototypeOf`/`setPrototype` (quoted below as this proposal
+originally found them) were removed from `backend/src/db.ts` — they had zero real callers anywhere
+in the codebase, and the Hierarchy mechanism they were meant to serve shipped on a different,
+link-based design instead (`setHierarchyParent`/`getHierarchyParent`, built on `setEntityLink`; see
+`docs/general-typed-hierarchy-resolution-plan.md`'s own correction note for the full account). This
+proposal was never built, so nothing here depends on the removal — but if it's revisited, it needs
+a different real primitive for "what prototype does this node represent," most directly a plain
+`relation_id` write via `supersedeEntity`/`updateEntity` (the same mechanism `setPrototype` itself
+was a thin wrapper over), not a call to either removed function.
+
 `getPrototypeOf`/`setPrototype` (`backend/src/db.ts`, documented in
 `docs/general-typed-hierarchy-resolution-plan.md`) already solve exactly this class of problem for
 Hierarchies: *"identity by what a node points at, not by depth or a compile-time type."* A real
