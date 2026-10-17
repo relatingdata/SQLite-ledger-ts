@@ -6,6 +6,7 @@
   import PhoneList from '$lib/components/PhoneList.svelte';
   import ContactList from '$lib/components/ContactList.svelte';
   import WeeklyHoursGrid from '$lib/components/WeeklyHoursGrid.svelte';
+  import TreeEditor from '$lib/components/TreeEditor.svelte';
   import {
     getOrganizationChart,
     getHierarchy,
@@ -42,10 +43,6 @@
 
   type Selection = { type: 'group' | 'location' | 'employee'; name: string; group?: string; location?: string } | null;
   let selection: Selection = $state(null);
-  // A real, unique id for this page's own keyboard-hint text, so the
-  // tree panel below can genuinely announce its real keyboard
-  // shortcuts to a screen reader.
-  const treeHintId = `business-setup-tree-hint-${crypto.randomUUID()}`;
 
   // The one, real, business-chosen hierarchy that groups Locations in
   // this tree — never hardcoded to "Division." Detected by real
@@ -206,23 +203,39 @@
     }
   }
 
-  function handleTreeKeydown(e: KeyboardEvent) {
-    const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
-    if (e.key === 'Insert') {
-      e.preventDefault();
-      if (selection?.type === 'group') {
-        creatingLocationFor = selection.name;
-      } else if (selection?.type === 'location') {
-        creatingEmployeeFor = selection.name;
-      } else {
-        showAddGroup = true;
-      }
-    } else if (e.key === 'Delete' && selection) {
-      e.preventDefault();
-      deleteSelected();
+  // The two, real, generic callbacks TreeEditor.svelte dispatches a
+  // real Insert/Delete keypress to — this page's own, specific
+  // decision of what either one means for its own, current selection
+  // (a group/location/employee tree), kept here rather than pushed
+  // into the shared shell, since a different real tree (items'
+  // category/item one) would need a genuinely different decision.
+  function handleInsert() {
+    if (selection?.type === 'group') {
+      creatingLocationFor = selection.name;
+    } else if (selection?.type === 'location') {
+      creatingEmployeeFor = selection.name;
+    } else {
+      showAddGroup = true;
     }
   }
+
+  function handleDelete() {
+    if (selection) deleteSelected();
+  }
+
+  // The real, dynamic keyboard-hint text shown below the tree -
+  // TreeEditor only renders it; this page alone knows what
+  // Insert/Delete actually do for its own, current selection.
+  let hintText = $derived.by(() => {
+    if (selection?.type === 'group') {
+      return `Press Insert to add a location in "${translations.current[selection.name] ?? selection.name}", or Delete to remove it.`;
+    } else if (selection?.type === 'location') {
+      return `Press Insert to add an employee at "${translations.current[selection.name] ?? selection.name}", or Delete to remove it.`;
+    } else if (selection?.type === 'employee') {
+      return `Press Delete to remove "${translations.current[selection.name] ?? selection.name}". Select a location or ${locationHierarchyName.toLowerCase()} to add something new.`;
+    }
+    return `Select a ${locationHierarchyName.toLowerCase()} or location, then press Insert to add within it — or press Insert here to add a new ${locationHierarchyName.toLowerCase()}.`;
+  });
 
   // --- Location detail -----------------------------------------------
   let locationRecord: LocationRecord | null = $state(null);
@@ -420,18 +433,12 @@
   <p class="error">{error}</p>
 {:else if chart}
   <div class="layout">
-    <!--
-      fieldset can never legally take an interactive ARIA role (a
-      fixed, real, implicit "group" semantic the spec won't let any
-      role override) - so the real, deliberate keyboard-navigable
-      toolbar semantics live on the inner div below instead, wrapping
-      just the real tree content, the same, real pattern as
-      TypedList.svelte.
-    -->
-    <fieldset class="card-legend tree-panel">
-      <legend>{chart.business} — {translations.current[locationHierarchyName] ?? locationHierarchyName} {translations.current['for Locations'] ?? 'for Locations'}</legend>
-
-      <div role="toolbar" tabindex="0" aria-describedby={treeHintId} aria-keyshortcuts="Insert Delete" onkeydown={handleTreeKeydown}>
+    <TreeEditor
+      legend={`${chart.business} — ${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['for Locations'] ?? 'for Locations'}`}
+      {hintText}
+      onInsert={handleInsert}
+      onDelete={handleDelete}
+    >
       {#if chart.companyWideEmployees.length > 0}
         <div class="tree-section">
           <p class="tree-heading">{translations.current['Company-wide staff'] ?? 'Company-wide staff'}</p>
@@ -510,15 +517,7 @@
         {/if}
         {#if groupError}<p class="error small">{groupError}</p>{/if}
       </div>
-      </div>
-
-      <p class="keyboard-hint" id={treeHintId}>
-        {#if selection?.type === 'group'}Press Insert to add a location in "{translations.current[selection.name] ?? selection.name}", or Delete to remove it.
-        {:else if selection?.type === 'location'}Press Insert to add an employee at "{translations.current[selection.name] ?? selection.name}", or Delete to remove it.
-        {:else if selection?.type === 'employee'}Press Delete to remove "{translations.current[selection.name] ?? selection.name}". Select a location or {locationHierarchyName.toLowerCase()} to add something new.
-        {:else}Select a {locationHierarchyName.toLowerCase()} or location, then press Insert to add within it — or press Insert here to add a new {locationHierarchyName.toLowerCase()}.{/if}
-      </p>
-    </fieldset>
+    </TreeEditor>
 
     <fieldset class="card-legend detail-panel">
       <legend>{selection?.name ?? (translations.current['Details'] ?? 'Details')}</legend>
@@ -689,9 +688,6 @@
     margin: 0 auto;
     align-items: flex-start;
   }
-  .tree-panel {
-    flex: 0 0 320px;
-  }
   .detail-panel {
     flex: 1;
     min-height: 300px;
@@ -734,12 +730,6 @@
     list-style: none;
     margin: 0.1rem 0 0.1rem 0.8rem;
     padding: 0;
-  }
-  .keyboard-hint {
-    font-size: var(--font-size-small);
-    color: var(--ink-soft);
-    text-align: center;
-    margin: 0.6rem 0 0;
   }
   .inline-add,
   .inline-add-block {
