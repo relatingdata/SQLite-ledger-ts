@@ -50,7 +50,34 @@ export function getBusinessReports(business: string): ReportRow[] {
       `WITH RECURSIVE coa_walk(id, name, depth, category_id, combination_ids, parent_id, relation_id) AS (
         SELECT e.id, e.name, 0, e.id, e.combination_ids, e.parent_id, e.relation_id
         FROM current_entities e
-        WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))
+        WHERE e.parent_id = CASE
+          -- 'admin' (schema/00-core.sql's own "the one legacy,
+          -- pre-multi-tenancy demo business" comment) never got its
+          -- own real, separate Chart of Accounts copy via
+          -- copyChartOfAccountsInto - it posts directly against the
+          -- GLOBAL Chart of Accounts instead (confirmed directly:
+          -- "Cash and Bank" for 'admin' is entity id 11, parented
+          -- under the GLOBAL "Asset," id 6, not under any
+          -- business-scoped copy). It still has its OWN, real
+          -- business-scoped "Chart of Accounts" entity (used for
+          -- unrelated structural children like "Storage"), so a plain
+          -- COALESCE on the root id alone can't detect this case - the
+          -- root exists, it just has no real category children (every
+          -- real category has relation_id pointing at its own global
+          -- counterpart; "Storage" does not). Detected here instead by
+          -- checking for at least one such real category child -
+          -- falling back to the GLOBAL root, the exact, same,
+          -- already-established fallback 00-core.sql's own
+          -- post_journal_entry_insert trigger documents and uses for
+          -- this identical, confirmed reason, only when none exist.
+          WHEN EXISTS (
+            SELECT 1 FROM current_entities cc
+            WHERE cc.parent_id = (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))
+            AND cc.relation_id IS NOT NULL
+          )
+          THEN (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))
+          ELSE (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application'))
+        END
         UNION ALL
         SELECT e.id, e.name, w.depth + 1, w.category_id, e.combination_ids, e.parent_id, e.relation_id
         FROM current_entities e JOIN coa_walk w ON e.parent_id = w.id
@@ -66,8 +93,23 @@ export function getBusinessReports(business: string): ReportRow[] {
         a.balance_minor
       FROM coa_walk w
       JOIN current_entities cat ON cat.id = w.category_id
-      JOIN current_entities global_cat ON global_cat.id = cat.relation_id
-      JOIN current_entities rpt ON rpt.id = global_cat.relation_id
+      -- The normal, real, two-hop case (a business-scoped category's
+      -- relation_id points at its GLOBAL counterpart, whose own
+      -- relation_id finally points at the report) breaks down for the
+      -- one legacy business falling back to the GLOBAL Chart of
+      -- Accounts directly above: there, cat IS already the global
+      -- category, so cat.relation_id points straight at the report,
+      -- one hop, not two. Disambiguated here by checking whether
+      -- cat.relation_id's own target is itself a real report (a
+      -- direct child of "Business Reports") - if so, that target IS
+      -- the report (one hop); otherwise it's the intermediate global
+      -- category, and ITS relation_id is the report (two hops), the
+      -- original, real shape this query already handled.
+      JOIN current_entities cat_relation ON cat_relation.id = cat.relation_id
+      JOIN current_entities rpt ON rpt.id = CASE
+        WHEN cat_relation.parent_id = (SELECT id FROM current_entities WHERE name = 'Business Reports') THEN cat_relation.id
+        ELSE cat_relation.relation_id
+      END
       LEFT JOIN account a ON a.entity_id = w.id
       LEFT JOIN current_entities rel ON rel.id = w.relation_id
       LEFT JOIN current_entities rel_parent ON rel_parent.id = rel.parent_id AND rel_parent.name = 'Ledgers'
@@ -75,7 +117,7 @@ export function getBusinessReports(business: string): ReportRow[] {
       WHERE w.depth >= 1
       ORDER BY report, category, COALESCE(parent_e.name, w.name)`
     )
-    .all(business) as ReportRow[];
+    .all(business, business) as ReportRow[];
 }
 
 export interface ChartRow {
