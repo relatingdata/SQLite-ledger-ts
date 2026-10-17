@@ -184,10 +184,10 @@ file name, and not a business concept worth prose on its own.
 - `addTypedContactPerson`
 - `deleteTypedContactPerson`
 - `deleteBomComponent`
-- `deleteDimensionParent`
+- `deleteHierarchyParent`
 - `removeContactType`
-- `getDimensionLinksPointingAt`
-- `getDimensionAncestorChain`
+- `getHierarchyLinksPointingAt`
+- `getHierarchyAncestorChain`
 - `registerBankAccount`
 - `unregisterBankAccount`
 - `getBankAccounts`

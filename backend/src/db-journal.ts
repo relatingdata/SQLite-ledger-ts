@@ -15,7 +15,7 @@ import {
   asLocationName,
   supersedeEntity,
   getContact,
-  setDimensionParent,
+  setHierarchyParent,
   setRelationship,
   recordInvoiceLine,
   createLocation,
@@ -159,7 +159,7 @@ export function ensureLocationScopedAccount(baseAccountName: string, locationNam
     const base = Entity.get(baseAccountName);
     if (!base) throw new ValidationError(`"${baseAccountName}" does not exist.`);
     Entity.create(locationAccount, baseAccountName, userId);
-    setDimensionParent(locationAccount, 'Location', locationName, userId);
+    setHierarchyParent(locationAccount, 'Location', locationName, userId);
   }
   return locationAccount;
 }

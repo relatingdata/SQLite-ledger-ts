@@ -144,11 +144,11 @@ export interface EntityNode {
 
 export const getEntityTree = () => request<EntityNode[]>('/entities');
 
-export interface DimensionLinkPointingAt {
+export interface HierarchyLinkPointingAt {
   entityName: string;
-  dimensionName: string;
+  hierarchyName: string;
 }
-export const getDimensionLinksPointingAt = (entityId: number) => request<DimensionLinkPointingAt[]>(`/entities/${entityId}/dimension-links`);
+export const getHierarchyLinksPointingAt = (entityId: number) => request<HierarchyLinkPointingAt[]>(`/entities/${entityId}/hierarchy-links`);
 
 export const createEntity = (data: { name: string; parent?: string | null; parentId?: number | null; relation?: string | null; accountnumber?: string | null }, screenName?: string) =>
   request<EntityNode>('/entities', { method: 'POST', body: JSON.stringify(data) }, screenName);

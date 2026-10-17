@@ -11,7 +11,7 @@ import {
   PostingError,
   mergeContactDetail,
   assertPeriodOpen,
-  cityDivisionFor,
+  getDivisionForLocation,
   ensureItemQuantityAccounts,
   setAccountCurrency,
   ensureItemInventoryAccount,
@@ -22,7 +22,7 @@ import {
   ensureCombinationAccountLeaf,
   resolveBusinessCoaAccountId,
   resolveItemId,
-  setDimensionParent,
+  setHierarchyParent,
   setEntityLink,
   stageLine,
   supersedeEntity,
@@ -610,7 +610,7 @@ export function getInventoryListingByLocation(business?: BusinessName): Inventor
     };
   });
 
-  // getLocationCapacityStatus and cityDivisionFor still have no business
+  // getLocationCapacityStatus and getDivisionForLocation still have no business
   // parameter of their own - the same, narrower, not-yet-closed risk
   // noted above applies to them too, not fixed in this pass.
   const groups = new Map<string, InventoryListingLocationGroup>();
@@ -618,7 +618,7 @@ export function getInventoryListingByLocation(business?: BusinessName): Inventor
     let group = groups.get(row.location);
     if (!group) {
       const location = getLocation(row.location, resolvedBusiness);
-      const division = cityDivisionFor(row.location) ?? null;
+      const division = getDivisionForLocation(row.location) ?? null;
       group = { location: row.location, city: location?.city ?? null, division, rows: [], total_on_hand: 0, capacity: getLocationCapacityStatus(asLocationName(row.location)) };
       groups.set(row.location, group);
     }
@@ -743,7 +743,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
             quantity: r.quantity,
             date: r.date,
             location: r.location,
-            division: cityDivisionFor(r.location) ?? null,
+            division: getDivisionForLocation(r.location) ?? null,
             vendor: vendors.get(r.item) ?? null,
           });
         } else if (r.quantity < 0) {
@@ -789,7 +789,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
     quantity: -r.quantity,
     date: r.date,
     location: r.location,
-    division: cityDivisionFor(r.location) ?? null,
+    division: getDivisionForLocation(r.location) ?? null,
     vendor: vendors.get(r.item) ?? null,
     amount_minor: saleAmountFor(r.reference.replace(/-DISPATCH-.+$/, ''), r.item),
   }));
@@ -1642,7 +1642,7 @@ export function placeOrder(
   }
   if (vendor) supersedeEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(qtyName) as { id: number }).id, { relation: vendor }, userId);
   if (item) supersedeEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(valueName) as { id: number }).id, { relation: item }, userId);
-  if (location) setDimensionParent(qtyName, 'Location', location, userId);
+  if (location) setHierarchyParent(qtyName, 'Location', location, userId);
   postQuantityMovement(business, ledger, `${orderReference}-PLACE`, asAccountName(qtyName), quantity, userId, transdate);
   postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueName), priceMinor, userId, transdate);
   if (item) {

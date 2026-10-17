@@ -152,7 +152,7 @@ export const Entity = {
 
 // ===========================================================================
 // Link — a named relationship between two entities. Replaces
-// setDimensionParent/setContactType/setMenuOverride/Route/Label/
+// setHierarchyParent/setContactType/setMenuOverride/Route/Label/
 // Hidden-marker/setRelationship-style one-off functions — all of them
 // were this one, real operation under a different name.
 // ===========================================================================

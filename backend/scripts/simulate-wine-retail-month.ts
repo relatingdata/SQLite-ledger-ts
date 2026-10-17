@@ -47,7 +47,7 @@ import {
   getInvoice,
   createInvoice,
   postInvoice,
-  cityDivisionFor,
+  getDivisionForLocation,
   getAccountsPostedTo,
   stagePurchaseOrder,
   postPurchaseOrder,
@@ -187,10 +187,10 @@ async function main() {
     // outlet look like it never sold any — the exact, confirmed root
     // cause of a real, reported "missing Beer and Sparkling Wine"
     // finding. Fixed here by deriving the real, correct, fine-grained
-    // division directly from the real, already-proven cityDivisionFor,
+    // division directly from the real, already-proven getDivisionForLocation,
     // falling back to the coarse city only if the real parent outlet
     // genuinely has no division link at all yet.
-    const fineGrainedDivision = cityDivisionFor(outlet.name) ?? outlet.city;
+    const fineGrainedDivision = getDivisionForLocation(outlet.name) ?? outlet.city;
     setLocation(name, { city: fineGrainedDivision, location_type: 'Retail', is_billing_address: false, bottle_capacity: fridgeBottleCapacity, carton_capacity: fridgeCartonCapacity, timezone: getLocation(outlet.name)?.timezone ?? 'UTC' });
     // A real, explicit relation to its own real parent outlet — per
     // direct report, a store clerk shouldn't need to know or care
@@ -808,7 +808,7 @@ async function main() {
       const salesAccount = originalSalesAccounts[0] ?? ensureItemSalesCogsAccounts(line.itemName!, 1).salesAccount;
       const originalLocationMatch = original.description?.match(/^POS sale at (.+)$/);
       const returnLocation = originalLocationMatch?.[1];
-      const returnDivision = returnLocation ? cityDivisionFor(returnLocation) : undefined;
+      const returnDivision = returnLocation ? getDivisionForLocation(returnLocation) : undefined;
       // A real, direct fix per direct question: "it definitely cannot
       // go back on the shelves" — confirmed exactly right. The
       // financial reversal (crediting the customer) is real and

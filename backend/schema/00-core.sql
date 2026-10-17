@@ -617,13 +617,13 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- convention directly (name = "{entity} — {linkType}", a real,
 -- structural child of the entity itself, with its own real
 -- relation_id pointing at the real target) — the equivalent of a real
--- setDimensionParent('Customers', 'Header Account', 'Accounts
+-- setHierarchyParent('Customers', 'Header Account', 'Accounts
 -- Receivable', ...) call, handcrafted here in SQL to match this
 -- file's own, established, direct-SQL seeding convention.
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (539, 539, 'Customers — Dimension: Header Account', 115, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (539, 539, 'Customers — Hierarchy: Header Account', 115, '2026-01-01', 1);
 INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (539, (SELECT id FROM current_entities WHERE name = 'Accounts Receivable'));
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (116, 116, 'Vendors', 38, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (540, 540, 'Vendors — Dimension: Header Account', 116, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (540, 540, 'Vendors — Hierarchy: Header Account', 116, '2026-01-01', 1);
 INSERT INTO entity_set_relation (entity_id, relation_id) VALUES (540, (SELECT id FROM current_entities WHERE name = 'Accounts Payable'));
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (117, 117, 'Phone', 38, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (118, 118, 'Email', 38, '2026-01-01', 1);

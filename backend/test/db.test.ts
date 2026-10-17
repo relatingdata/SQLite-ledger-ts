@@ -98,15 +98,15 @@ const {
   setItemSourceLeadTime,
   getItemLeadTimes,
   getStockOutRiskReport,
-  setDimensionParent,
+  setHierarchyParent,
   ensureItemTier,
   ensureItemTierLocationLeaf,
-  getDimensionParent,
+  getHierarchyParent,
   getLocationForAccount,
   getDivisionForAccount,
-  deleteDimensionParent,
-  getDimensionChildren,
-  getDimensionAncestorChain,
+  deleteHierarchyParent,
+  getHierarchyChildren,
+  getHierarchyAncestorChain,
   registerBankAccount,
   unregisterBankAccount,
   getBankAccounts,
@@ -2924,8 +2924,10 @@ test("closeBooks: per direct correction, division is only a real, pure sub-total
   create(requireEntity('Divisions', typeRootName), typeRootName, 'MultiDivCloseTest Wholesale Division', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'MultiDivCloseTest Retail Outlet', asUserId(1));
   setLocation('MultiDivCloseTest Retail Outlet', { city: 'MultiDivCloseTest Retail Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
+  setHierarchyParent('MultiDivCloseTest Retail Outlet', 'Division', 'MultiDivCloseTest Retail Division', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'MultiDivCloseTest Wholesale Outlet', asUserId(1));
   setLocation('MultiDivCloseTest Wholesale Outlet', { city: 'MultiDivCloseTest Wholesale Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
+  setHierarchyParent('MultiDivCloseTest Wholesale Outlet', 'Division', 'MultiDivCloseTest Wholesale Division', asUserId(1));
   createItem('MultiDivCloseTest Merlot', 'Items', asUserId(1));
   receiveItems(biz.business, biz.actualLedger, 'MDCT-REC-A', asItemName('MultiDivCloseTest Merlot'), asLocationName('MultiDivCloseTest Retail Outlet'), 20, asUserId(1), '2027-01-01');
   receiveItems(biz.business, biz.actualLedger, 'MDCT-REC-B', asItemName('MultiDivCloseTest Merlot'), asLocationName('MultiDivCloseTest Wholesale Outlet'), 20, asUserId(1), '2027-01-01');
@@ -3299,6 +3301,7 @@ test('getInventoryListingByLocation: groups the same real stock data by real loc
   create(requireEntity('Divisions', typeRootName), typeRootName, 'StockGroupTest City Division', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet', asUserId(1));
   setLocation('StockGroupTest Outlet', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
+  setHierarchyParent('StockGroupTest Outlet', 'Division', 'StockGroupTest City Division', asUserId(1));
   createItem('StockGroupTest Wine A', 'Items', asUserId(1));
   createItem('StockGroupTest Wine B', 'Items', asUserId(1));
   receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-1', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet'), 10, asUserId(1), '2027-01-01');
@@ -3308,19 +3311,26 @@ test('getInventoryListingByLocation: groups the same real stock data by real loc
   const group = groups.find((g) => g.location === 'StockGroupTest Outlet');
   assert.ok(group, 'the real, new location must appear as its own real group');
   assert.equal(group!.city, 'StockGroupTest City Division');
-  // Real division tagging: the location's city exactly matches a real division's own name, so it must be tagged with it — not left null just because no code path explicitly wired the two together.
-  assert.equal(group!.division, 'StockGroupTest City Division', "a location's real city matching a real division's name must tag the group with it, via the same cityDivisionFor logic a real sale uses");
+  // Real division tagging: via the location's own, real, explicit "Division" hierarchy link — never its address city, which is incidental here.
+  assert.equal(group!.division, 'StockGroupTest City Division', "a location's own, explicit Division hierarchy link must tag the group with it, via the same getDivisionForLocation logic a real sale uses");
   assert.equal(group!.rows.length, 2, 'both real items received at this location must appear as real rows within the group');
   assert.equal(group!.total_on_hand, 17, "a group's own total must be the real sum of its real rows' on-hand quantities");
 
-  // A location whose city has no matching real division must still appear as a real group — just with division: null, not silently dropped.
+  // A location with no real, explicit Division hierarchy link assigned
+  // must still appear as a real group — just with division: null, not
+  // silently dropped. Per direct correction: its city happening to
+  // exactly equal a real division's own name must NOT auto-tag it
+  // either — "StockGroupTest City Division" is deliberately reused
+  // here as this location's own city, with no real hierarchy link ever
+  // set, to directly guard against the old city-matching fallback
+  // ever silently coming back.
   create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet No Division', asUserId(1));
-  setLocation('StockGroupTest Outlet No Division', { city: 'A City With No Real Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
+  setLocation('StockGroupTest Outlet No Division', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
   receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-3', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet No Division'), 3, asUserId(1), '2027-01-01');
   const groupsAfter = getInventoryListingByLocation();
   const noDivisionGroup = groupsAfter.find((g) => g.location === 'StockGroupTest Outlet No Division');
   assert.ok(noDivisionGroup, 'a real location must still produce a real group even with no matching division');
-  assert.equal(noDivisionGroup!.division, null);
+  assert.equal(noDivisionGroup!.division, null, "a location's own address city must never auto-tag a division, even when it happens to exactly match a real division's own name — only a real, explicit hierarchy link does");
 }));
 
 test('getLedgerDateRange: reports the real, earliest and latest transdate of what has actually been posted', () => {
@@ -4423,44 +4433,44 @@ test('getCashFlowForecast: Layer 3 — a real, honest first-shortfall date and a
   assert.equal(forecast.first_shortfall_amount_minor, 3000, 'the real, exact shortfall amount — how far below the real, arranged limit, not the raw negative balance');
 });
 
-test("setDimensionParent/getDimensionParent/getDimensionChildren/getDimensionAncestorChain: the generic, reusable multi-dimension mechanism (docs/multi-dimensional-reporting.md) — a real, reversible up/down index per named dimension, never touching an entity's own relation_id", () => {
+test("setHierarchyParent/getHierarchyParent/getHierarchyChildren/getHierarchyAncestorChain: the generic, reusable hierarchy-link mechanism (docs/multi-dimensional-reporting.md) — a real, reversible up/down index per named hierarchy, never touching an entity's own relation_id, and never a \"dimension\" in the matrix-stock-report/drag-and-drop sense", () => {
   create(requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName)), typeRootName, 'DimTest2 Springfield', asUserId(1));
   create(requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName)), typeRootName, 'DimTest2 Riverside Cellars', asUserId(1));
   create(requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName)), typeRootName, 'DimTest2 Uptown Wine', asUserId(1));
   create(requireGlobalCoaCategory('Income'), typeRootName, 'DimTest2 Amber Ale Sales', asUserId(1));
 
-  setDimensionParent('DimTest2 Riverside Cellars', 'Division/Location', 'DimTest2 Springfield', asUserId(1));
-  setDimensionParent('DimTest2 Uptown Wine', 'Division/Location', 'DimTest2 Springfield', asUserId(1));
-  setDimensionParent('DimTest2 Amber Ale Sales', 'Division/Location', 'DimTest2 Riverside Cellars', asUserId(1));
+  setHierarchyParent('DimTest2 Riverside Cellars', 'Division/Location', 'DimTest2 Springfield', asUserId(1));
+  setHierarchyParent('DimTest2 Uptown Wine', 'Division/Location', 'DimTest2 Springfield', asUserId(1));
+  setHierarchyParent('DimTest2 Amber Ale Sales', 'Division/Location', 'DimTest2 Riverside Cellars', asUserId(1));
 
-  assert.equal(getDimensionParent('DimTest2 Riverside Cellars', 'Division/Location'), 'DimTest2 Springfield');
-  assert.deepEqual(getDimensionChildren('DimTest2 Springfield', 'Division/Location').sort(), ['DimTest2 Riverside Cellars', 'DimTest2 Uptown Wine'], "the real, reverse query parent_id alone can never answer — every real entity whose own dimension-parent is exactly this one");
-  assert.deepEqual(getDimensionChildren('DimTest2 Riverside Cellars', 'Division/Location'), ['DimTest2 Amber Ale Sales']);
-  assert.deepEqual(getDimensionAncestorChain('DimTest2 Amber Ale Sales', 'Division/Location'), ['DimTest2 Riverside Cellars', 'DimTest2 Springfield'], "the real, full chain from the leaf up to (not including) the real root");
+  assert.equal(getHierarchyParent('DimTest2 Riverside Cellars', 'Division/Location'), 'DimTest2 Springfield');
+  assert.deepEqual(getHierarchyChildren('DimTest2 Springfield', 'Division/Location').sort(), ['DimTest2 Riverside Cellars', 'DimTest2 Uptown Wine'], "the real, reverse query parent_id alone can never answer — every real entity whose own dimension-parent is exactly this one");
+  assert.deepEqual(getHierarchyChildren('DimTest2 Riverside Cellars', 'Division/Location'), ['DimTest2 Amber Ale Sales']);
+  assert.deepEqual(getHierarchyAncestorChain('DimTest2 Amber Ale Sales', 'Division/Location'), ['DimTest2 Riverside Cellars', 'DimTest2 Springfield'], "the real, full chain from the leaf up to (not including) the real root");
 
   // The entire, real point of this mechanism existing: a leaf account's
   // own relation_id (e.g. a real CoA-prototype tag) must stay genuinely
   // untouched by setting or re-setting its own dimension parent.
   const acctId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get('DimTest2 Amber Ale Sales') as { id: number }).id;
   supersedeEntity(acctId, { relation: 'English CoA' }, asUserId(1));
-  setDimensionParent('DimTest2 Amber Ale Sales', 'Division/Location', 'DimTest2 Uptown Wine', asUserId(1)); // re-set to a different location
+  setHierarchyParent('DimTest2 Amber Ale Sales', 'Division/Location', 'DimTest2 Uptown Wine', asUserId(1)); // re-set to a different location
   const tree = getEntityTree();
   const acct = tree.find((e) => e.name === 'DimTest2 Amber Ale Sales')!;
   const relTarget = tree.find((e) => e.id === acct.relation_id);
   assert.equal(relTarget?.name, 'English CoA', "re-setting a real dimension parent must never touch the account's own relation_id");
-  assert.equal(getDimensionParent('DimTest2 Amber Ale Sales', 'Division/Location'), 'DimTest2 Uptown Wine');
+  assert.equal(getHierarchyParent('DimTest2 Amber Ale Sales', 'Division/Location'), 'DimTest2 Uptown Wine');
 
   // A second, genuinely independent, real dimension on the exact same
   // entity must not interfere with the first at all — the entire,
   // real point of "multiple, equal accumulation paths".
   create(requireGlobalCoaCategory('Income'), typeRootName, 'DimTest2 Beer', asUserId(1));
-  setDimensionParent('DimTest2 Amber Ale Sales', 'Product Category', 'DimTest2 Beer', asUserId(1));
-  assert.equal(getDimensionParent('DimTest2 Amber Ale Sales', 'Division/Location'), 'DimTest2 Uptown Wine', 'a second, independent dimension must never disturb the first');
-  assert.equal(getDimensionParent('DimTest2 Amber Ale Sales', 'Product Category'), 'DimTest2 Beer');
+  setHierarchyParent('DimTest2 Amber Ale Sales', 'Product Category', 'DimTest2 Beer', asUserId(1));
+  assert.equal(getHierarchyParent('DimTest2 Amber Ale Sales', 'Division/Location'), 'DimTest2 Uptown Wine', 'a second, independent dimension must never disturb the first');
+  assert.equal(getHierarchyParent('DimTest2 Amber Ale Sales', 'Product Category'), 'DimTest2 Beer');
 
-  deleteDimensionParent('DimTest2 Amber Ale Sales', 'Division/Location', asUserId(1));
-  assert.equal(getDimensionParent('DimTest2 Amber Ale Sales', 'Division/Location'), undefined);
-  assert.equal(getDimensionParent('DimTest2 Amber Ale Sales', 'Product Category'), 'DimTest2 Beer', 'deleting one dimension must never disturb a genuinely separate one');
+  deleteHierarchyParent('DimTest2 Amber Ale Sales', 'Division/Location', asUserId(1));
+  assert.equal(getHierarchyParent('DimTest2 Amber Ale Sales', 'Division/Location'), undefined);
+  assert.equal(getHierarchyParent('DimTest2 Amber Ale Sales', 'Product Category'), 'DimTest2 Beer', 'deleting one dimension must never disturb a genuinely separate one');
 });
 
 test('ensureItemTier: the confirmed product/tier/leaf design (docs/multi-dimensional-reporting.md §10) — each real tier its own, distinct, sellable item, the base product name genuinely untouched, no shared-parent corruption across multiple tiers', () => {
@@ -4495,8 +4505,8 @@ test('ensureItemTier: the confirmed product/tier/leaf design (docs/multi-dimensi
 
   // COGS reaches the same real item via the dimension mechanism, not
   // as a second, real structural parent.
-  assert.equal(getDimensionParent(bottle.tierItemName, 'COGS Product'), bottle.cogsAccount);
-  assert.equal(getDimensionParent(carton.tierItemName, 'COGS Product'), carton.cogsAccount);
+  assert.equal(getHierarchyParent(bottle.tierItemName, 'COGS Product'), bottle.cogsAccount);
+  assert.equal(getHierarchyParent(carton.tierItemName, 'COGS Product'), carton.cogsAccount);
 
   // A genuinely idempotent, real, repeated call must never throw or
   // duplicate anything.
@@ -4509,8 +4519,10 @@ test('getProfitAndLossByDivision: "Consolidated per Division" — one real, full
   create(requireEntity('Divisions', typeRootName), typeRootName, 'PLDivTest3 Division B', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'PLDivTest3 Outlet A', asUserId(1));
   setLocation('PLDivTest3 Outlet A', { city: 'PLDivTest3 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
+  setHierarchyParent('PLDivTest3 Outlet A', 'Division', 'PLDivTest3 Division A', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'PLDivTest3 Outlet B', asUserId(1));
   setLocation('PLDivTest3 Outlet B', { city: 'PLDivTest3 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
+  setHierarchyParent('PLDivTest3 Outlet B', 'Division', 'PLDivTest3 Division B', asUserId(1));
   createItem('PLDivTest3 Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
   receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'PLDIVTEST3-REC-A', asItemName('PLDivTest3 Merlot'), asLocationName('PLDivTest3 Outlet A'), 20, asUserId(1), today);
@@ -4561,8 +4573,10 @@ test('getProfitAndLossByDivisionTree: "Consolidated per Division per Location" �
   create(requireEntity('PLTreeTest City', typeRootName), typeRootName, 'PLTreeTest Store B', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'PLTreeTest Outlet A', asUserId(1));
   setLocation('PLTreeTest Outlet A', { city: 'PLTreeTest Store A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
+  setHierarchyParent('PLTreeTest Outlet A', 'Division', 'PLTreeTest Store A', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'PLTreeTest Outlet B', asUserId(1));
   setLocation('PLTreeTest Outlet B', { city: 'PLTreeTest Store B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
+  setHierarchyParent('PLTreeTest Outlet B', 'Division', 'PLTreeTest Store B', asUserId(1));
   createItem('PLTreeTest Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
   receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'PLTREETEST-REC-A', asItemName('PLTreeTest Merlot'), asLocationName('PLTreeTest Outlet A'), 20, asUserId(1), today);
@@ -4598,8 +4612,10 @@ test('closeBooks: division is only a pure reporting dimension — every division
   create(requireEntity('Divisions', typeRootName), typeRootName, 'DetailedCloseTest Division B', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'DetailedCloseTest Outlet A', asUserId(1));
   setLocation('DetailedCloseTest Outlet A', { city: 'DetailedCloseTest Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
+  setHierarchyParent('DetailedCloseTest Outlet A', 'Division', 'DetailedCloseTest Division A', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'DetailedCloseTest Outlet B', asUserId(1));
   setLocation('DetailedCloseTest Outlet B', { city: 'DetailedCloseTest Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
+  setHierarchyParent('DetailedCloseTest Outlet B', 'Division', 'DetailedCloseTest Division B', asUserId(1));
   createItem('DetailedCloseTest Merlot', 'Items', asUserId(1));
   receiveItems(biz.business, biz.actualLedger, 'DCT-REC-A', asItemName('DetailedCloseTest Merlot'), asLocationName('DetailedCloseTest Outlet A'), 20, asUserId(1), '2027-01-01');
   receiveItems(biz.business, biz.actualLedger, 'DCT-REC-B', asItemName('DetailedCloseTest Merlot'), asLocationName('DetailedCloseTest Outlet B'), 20, asUserId(1), '2027-01-01');
@@ -4687,8 +4703,10 @@ test('reverseJournalEntry: a real year-end close, with activity spread across mu
   create(requireEntity('Divisions', typeRootName), typeRootName, 'ReverseCloseTest2 Division B', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'ReverseCloseTest2 Outlet A', asUserId(1));
   setLocation('ReverseCloseTest2 Outlet A', { city: 'ReverseCloseTest2 Division A', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
+  setHierarchyParent('ReverseCloseTest2 Outlet A', 'Division', 'ReverseCloseTest2 Division A', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'ReverseCloseTest2 Outlet B', asUserId(1));
   setLocation('ReverseCloseTest2 Outlet B', { city: 'ReverseCloseTest2 Division B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
+  setHierarchyParent('ReverseCloseTest2 Outlet B', 'Division', 'ReverseCloseTest2 Division B', asUserId(1));
   createItem('ReverseCloseTest2 Merlot', 'Items', asUserId(1));
   receiveItems(biz.business, biz.actualLedger, 'RCT2-REC-A', asItemName('ReverseCloseTest2 Merlot'), asLocationName('ReverseCloseTest2 Outlet A'), 20, asUserId(1), '2027-06-01');
   receiveItems(biz.business, biz.actualLedger, 'RCT2-REC-B', asItemName('ReverseCloseTest2 Merlot'), asLocationName('ReverseCloseTest2 Outlet B'), 20, asUserId(1), '2027-06-01');
@@ -4749,7 +4767,7 @@ test('ensureItemTierLocationLeaf: location becomes structural, the same real pat
     const leafParent = tree.find((e) => e.id === leaf.parent_id);
     assert.equal(leafParent?.name, result.salesAccount, "each real location's own leaf must be a genuine, structural child of its own, real, new, location-specific Sales leaf");
     assert.equal(leaf.is_postable_account, false, 'a real item is never itself a real, postable GL account');
-    assert.equal(getDimensionParent(result.leafItemName, 'COGS Product'), result.cogsAccount, "COGS must reach the same, real leaf via the real dimension mechanism, not a second, real structural parent");
+    assert.equal(getHierarchyParent(result.leafItemName, 'COGS Product'), result.cogsAccount, "COGS must reach the same, real leaf via the real dimension mechanism, not a second, real structural parent");
   }
 
   assert.notEqual(locA.leafItemName, locB.leafItemName, 'two, real, different locations must produce two, real, genuinely distinct leaves');
@@ -4807,6 +4825,7 @@ test('getLocationForAccount/getDivisionForAccount: the real, structural replacem
   create(requireEntity('Divisions', typeRootName), typeRootName, 'DeriveTest2 Springfield', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'DeriveTest2 Outlet', asUserId(1));
   setLocation('DeriveTest2 Outlet', { city: 'DeriveTest2 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, asBusinessName('admin'));
+  setHierarchyParent('DeriveTest2 Outlet', 'Division', 'DeriveTest2 Springfield', asUserId(1));
   create(requireEntity('Items', typeRootName), typeRootName, 'DeriveTest2 Beer', asUserId(1));
   create(requireEntity('DeriveTest2 Beer', typeRootName), typeRootName, 'DeriveTest2 Ale', asUserId(1));
   create(requireEntity('DeriveTest2 Ale', typeRootName), typeRootName, 'DeriveTest2 Amber Ale 330ml', asUserId(1));
@@ -4816,7 +4835,7 @@ test('getLocationForAccount/getDivisionForAccount: the real, structural replacem
 
   assert.equal(getLocationForAccount(asAccountName(leaf.salesAccount)), 'DeriveTest2 Outlet', "a real Sales leaf's own real location must be walkable directly, structurally");
   assert.equal(getLocationForAccount(asAccountName(leaf.cogsAccount)), 'DeriveTest2 Outlet', "its own real COGS counteritem must resolve to the exact same, real location");
-  assert.equal(getDivisionForAccount(asAccountName(leaf.salesAccount)), 'DeriveTest2 Springfield', "the real division must be correctly derived by walking location, then location-to-division — the exact same, real resolution cityDivisionFor already provides");
+  assert.equal(getDivisionForAccount(asAccountName(leaf.salesAccount)), 'DeriveTest2 Springfield', "the real division must be correctly derived by walking location, then location-to-division — the exact same, real resolution getDivisionForLocation already provides");
   assert.equal(getDivisionForAccount(asAccountName(leaf.cogsAccount)), 'DeriveTest2 Springfield');
 
   // An ordinary, non-product account has no real, structural location
@@ -4832,8 +4851,10 @@ test('getLedgerBalancesByDivisionStructural: correctly derives division by walki
   create(requireEntity('Divisions', typeRootName), typeRootName, 'StructTest6 Rivertown', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'StructTest6 Outlet A', asUserId(1));
   setLocation('StructTest6 Outlet A', { city: 'StructTest6 Springfield', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
+  setHierarchyParent('StructTest6 Outlet A', 'Division', 'StructTest6 Springfield', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'StructTest6 Outlet B', asUserId(1));
   setLocation('StructTest6 Outlet B', { city: 'StructTest6 Rivertown', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
+  setHierarchyParent('StructTest6 Outlet B', 'Division', 'StructTest6 Rivertown', asUserId(1));
   createItem('StructTest6 Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
   receiveItems(biz.business, biz.actualLedger, 'ST6-REC-1', asItemName('StructTest6 Merlot'), asLocationName('StructTest6 Outlet A'), 20, asUserId(1), today);
@@ -4868,6 +4889,7 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
   create(requireEntity('Divisions', typeRootName), typeRootName, 'ReproTest Division', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'ReproTest Outlet', asUserId(1));
   setLocation('ReproTest Outlet', { city: 'ReproTest Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
+  setHierarchyParent('ReproTest Outlet', 'Division', 'ReproTest Division', asUserId(1));
   createItem('ReproTest Merlot', 'Items', asUserId(1));
   const today = new Date().toISOString().slice(0, 10);
   receiveItems(biz.business, biz.actualLedger, 'REPRO-REC-1', asItemName('ReproTest Merlot'), asLocationName('ReproTest Outlet'), 20, asUserId(1), today);
@@ -4914,14 +4936,14 @@ test('getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy -
   // A real, genuinely user-defined hierarchy - "Bottle Size" was never
   // one of the four, recommended default prototypes, and no code
   // anywhere was written specifically to know about it. The real
-  // values themselves are real, live entities (setDimensionParent's
+  // values themselves are real, live entities (setHierarchyParent's
   // own real relation_id target must genuinely exist), created
   // directly under the real Vocabulary, the same, established, real
   // home for a user-defined classification word.
   create(requireEntity('Vocabulary', typeRootName), typeRootName, 'BottleSizeTest 330ml', asUserId(1));
   create(requireEntity('Vocabulary', typeRootName), typeRootName, 'BottleSizeTest 750ml', asUserId(1));
-  setDimensionParent('BottleSizeTest Amber Ale', 'Bottle Size', 'BottleSizeTest 330ml', asUserId(1));
-  setDimensionParent('BottleSizeTest Merlot', 'Bottle Size', 'BottleSizeTest 750ml', asUserId(1));
+  setHierarchyParent('BottleSizeTest Amber Ale', 'Bottle Size', 'BottleSizeTest 330ml', asUserId(1));
+  setHierarchyParent('BottleSizeTest Merlot', 'Bottle Size', 'BottleSizeTest 750ml', asUserId(1));
 
   const today = new Date().toISOString().slice(0, 10);
   receiveItems(biz.business, biz.actualLedger, 'BOTTLESIZE-REC-1', asItemName('BottleSizeTest Amber Ale'), asLocationName('BottleSizeTest Outlet'), 24, asUserId(1), today);

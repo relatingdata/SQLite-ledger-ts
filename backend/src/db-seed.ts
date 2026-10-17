@@ -1,7 +1,7 @@
 import { db } from './db.js';
 import { runInSessionContext } from './session-context.js';
 import {
-  supersedeEntity, asEntityId, setItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setDimensionParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeItemName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId, type TypedNode } from './db.js';
+  supersedeEntity, asEntityId, setItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeItemName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId, type TypedNode } from './db.js';
 import { Entity } from './primitives.js';
 import { loadAllTranslations } from '../../shared-fixtures/translations.js';
 import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels, loadDemoUpcs } from '../../shared-fixtures/wine-retail-demo-data.js';
@@ -1525,7 +1525,7 @@ migrateForMenuEntities();
  * real, competing second term. "Suppliers" is created here as its
  * own, real, distinct Vocabulary entity (matching "Vendors" own,
  * established, plural convention), reaching "Accounts Payable" via
- * the exact, same, real "Header Account" dimension link "Vendors"
+ * the exact, same, real "Header Account" hierarchy link "Vendors"
  * itself already uses — a second, real, equal, alternate path to the
  * same, real concept, not a replacement for "Vendors" at all. Its own
  * real, cross-language translations are deliberately identical to
@@ -1535,7 +1535,7 @@ migrateForMenuEntities();
 function migrateForVocabularyAlternates() {
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Suppliers'`).get()) return;
   create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Suppliers', SEED_USER_ID);
-  setDimensionParent('Suppliers', 'Header Account', 'Accounts Payable', SEED_USER_ID);
+  setHierarchyParent('Suppliers', 'Header Account', 'Accounts Payable', SEED_USER_ID);
   for (const lang of getLanguages()) {
     const text = getTranslation('Vendors', lang.name);
     if (text) setTranslation('Suppliers', lang.name, text, SEED_USER_ID);
@@ -1553,15 +1553,15 @@ migrateForVocabularyAlternates();
 function migrateForContactTypesAndPerBusinessContacts() {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Customer Contact Type'`).get()) {
     create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Customer Contact Type', SEED_USER_ID);
-    setDimensionParent('Customer Contact Type', 'Header Account', 'Accounts Receivable', SEED_USER_ID);
+    setHierarchyParent('Customer Contact Type', 'Header Account', 'Accounts Receivable', SEED_USER_ID);
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Vendor Contact Type'`).get()) {
     create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Vendor Contact Type', SEED_USER_ID);
-    setDimensionParent('Vendor Contact Type', 'Header Account', 'Accounts Payable', SEED_USER_ID);
+    setHierarchyParent('Vendor Contact Type', 'Header Account', 'Accounts Payable', SEED_USER_ID);
   }
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Employee Contact Type'`).get()) {
     create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Employee Contact Type', SEED_USER_ID);
-    setDimensionParent('Employee Contact Type', 'Header Account', 'Accounts Payable', SEED_USER_ID);
+    setHierarchyParent('Employee Contact Type', 'Header Account', 'Accounts Payable', SEED_USER_ID);
   }
 
   const businesses = db.prepare(`SELECT name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).all() as { name: string }[];

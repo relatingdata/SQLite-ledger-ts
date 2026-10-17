@@ -9,11 +9,11 @@
     revokeEntity,
     getContact,
     setContact,
-    getDimensionLinksPointingAt,
+    getHierarchyLinksPointingAt,
     ApiError,
     type EntityNode,
     type Contact,
-    type DimensionLinkPointingAt,
+    type HierarchyLinkPointingAt,
   } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { hasUnsavedEdit } from '$lib/state.svelte';
@@ -138,10 +138,10 @@
 
   // Guard rail (docs/translator-form-and-guard-rails-plan.md, §5): "a
   // real, visible 'why is this here' trail" — every real entity that
-  // reaches the currently-selected one via a real dimension link, so
+  // reaches the currently-selected one via a real hierarchy link, so
   // a real, live editor never again has to discover a real,
   // structural link by accident.
-  let dimensionLinksIn: DimensionLinkPointingAt[] = $state([]);
+  let hierarchyLinksIn: HierarchyLinkPointingAt[] = $state([]);
 
   let newName = $state('');
   let newParent = $state('');
@@ -190,9 +190,9 @@
     editAccountnumber = e.accountnumber ?? '';
     originalAccountnumber = editAccountnumber;
     error = '';
-    dimensionLinksIn = [];
+    hierarchyLinksIn = [];
     try {
-      dimensionLinksIn = await getDimensionLinksPointingAt(e.id);
+      hierarchyLinksIn = await getHierarchyLinksPointingAt(e.id);
     } catch {
       /* the trail is a real, helpful extra, not a blocking requirement — leave it empty if it fails to load */
     }
@@ -387,11 +387,11 @@
             <button class="btn" onclick={saveEdit} disabled={saving}>{saving ? 'Saving…' : (translations.current['Save'] ?? 'Save')}</button>
             <button class="btn secondary" onclick={removeSelected}>{translations.current['Delete'] ?? 'Delete'}</button>
           </div>
-          {#if dimensionLinksIn.length > 0}
-            <p class="hint dimension-trail">
-              <strong>{translations.current['Reached via a dimension link by:'] ?? 'Reached via a dimension link by:'}</strong>
-              {#each dimensionLinksIn as link}
-                <br />"{link.entityName}" ({link.dimensionName})
+          {#if hierarchyLinksIn.length > 0}
+            <p class="hint hierarchy-trail">
+              <strong>{translations.current['Reached via a hierarchy link by:'] ?? 'Reached via a hierarchy link by:'}</strong>
+              {#each hierarchyLinksIn as link}
+                <br />"{link.entityName}" ({link.hierarchyName})
               {/each}
             </p>
           {/if}
@@ -435,7 +435,7 @@
           <input bind:value={newName} placeholder="e.g. Gamma LLC" />
         </fieldset>
         {#if possibleDuplicate}
-          <p class="hint dimension-trail">
+          <p class="hint hierarchy-trail">
             <strong>{translations.current['Already exists:'] ?? 'Already exists:'}</strong>
             "{translations.current[possibleDuplicate.name] ?? possibleDuplicate.name}"{possibleDuplicate.parent_id != null ? ` (${translations.current['under'] ?? 'under'} "${nameFor(possibleDuplicate.parent_id)}")` : ''} —
             {translations.current['did you mean to link to it via Relation instead?'] ?? 'did you mean to link to it via Relation instead?'}
@@ -538,14 +538,14 @@
     margin: -0.4rem 0 0.2rem;
   }
 
-  .dimension-trail {
+  .hierarchy-trail {
     background: var(--paper-dim, #f2ede1);
     border-radius: 4px;
     padding: 0.5rem 0.7rem;
     margin-top: 0.2rem;
   }
 
-  .dimension-trail strong {
+  .hierarchy-trail strong {
     color: var(--brass-dark);
   }
 </style>

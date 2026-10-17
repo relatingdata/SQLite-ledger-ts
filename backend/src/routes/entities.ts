@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getEntityTree, getEntity, getEntityHistory, createEntityRaw, supersedeEntity, revokeEntity, setRelationship, getDimensionLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
+import { getEntityTree, getEntity, getEntityHistory, createEntityRaw, supersedeEntity, revokeEntity, setRelationship, getHierarchyLinksPointingAt, setLineType, listLineTypes, reorderSiblings, reorderSiblingsBulk, asEntityId, ValidationError, NotFoundError,
   asUserId,
   createProvider,
   createCustomer,
@@ -62,10 +62,10 @@ entitiesRouter.get('/:id/history', (req, res) => {
   res.json(getEntityHistory(Number(req.params.id)));
 });
 
-entitiesRouter.get('/:id/dimension-links', (req, res) => {
+entitiesRouter.get('/:id/hierarchy-links', (req, res) => {
   const entity = getEntity(Number(req.params.id));
   if (!entity) return res.status(404).json({ error: 'Not found.' });
-  res.json(getDimensionLinksPointingAt(entity.name));
+  res.json(getHierarchyLinksPointingAt(entity.name));
 });
 
 const newEntitySchema = z.object({

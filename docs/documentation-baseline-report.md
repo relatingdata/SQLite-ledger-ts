@@ -101,7 +101,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `createProduct` | `backend/src/db.ts` | `backend/src/routes/products.ts` | `function createProduct(name: string, parent: string, userId: UserId): void` |
 | `createSystemEntity` | `backend/src/db-stock.ts` | (none) | `function createSystemEntity(name: string, parentId: number \| null): number` |
 | `deleteBomComponent` | `backend/src/db.ts` | `backend/src/routes/items.ts` | `function deleteBomComponent(assemblyItem: string, componentItem: string, userId: UserId): void` |
-| `deleteDimensionParent` | `backend/src/db.ts` | (none) | `function deleteDimensionParent(entityName: string, dimensionName: string, userId: UserId): void` |
+| `deleteHierarchyParent` | `backend/src/db.ts` | (none) | `function deleteHierarchyParent(entityName: string, hierarchyName: string, userId: UserId): void` |
 | `deleteItemSource` | `backend/src/db.ts` | `backend/src/routes/items.ts` | `function deleteItemSource(id: number): void` |
 | `deleteMenuOverride` | `backend/src/db.ts` | `backend/src/routes/menu.ts` | `function deleteMenuOverride(menuItemKey: string, scope: 'business' \| 'user', scopeId: number, userId: UserId = asUserId(1)): void` |
 | `deleteTypedAddress` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function deleteTypedAddress(entityName: string, addressType: string, userId: UserId): void` |
@@ -125,11 +125,11 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getChartOfAccounts` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getChartOfAccounts(business: string): ChartRow[]` |
 | `getConceptsWithAlternates` | `backend/src/db.ts` | `backend/src/routes/i18n.ts` | `function getConceptsWithAlternates(): ConceptWithAlternates[]` |
 | `getCreditStatus` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function getCreditStatus(entityName: string): CreditStatus` |
-| `getDimensionAncestorChain` | `backend/src/db.ts` | (none) | `function getDimensionAncestorChain(entityName: string, dimensionName: string): string[]` |
-| `getDimensionLinksPointingAt` | `backend/src/db.ts` | `backend/src/routes/entities.ts` | `function getDimensionLinksPointingAt(targetName: string): ` |
 | `getDivisions` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/routes/divisions.ts` | `function getDivisions(): ` |
 | `getEmployeeSchedule` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function getEmployeeSchedule(employeeName: string): EmployeeScheduleLine[]` |
 | `getExpiringStock` | `backend/src/db-stock.ts` | `backend/src/routes/stock-lots.ts` | `function getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[]` |
+| `getHierarchyAncestorChain` | `backend/src/db.ts` | (none) | `function getHierarchyAncestorChain(entityName: string, hierarchyName: string): string[]` |
+| `getHierarchyLinksPointingAt` | `backend/src/db.ts` | `backend/src/routes/entities.ts` | `function getHierarchyLinksPointingAt(targetName: string): ` |
 | `getInvoiceOutstandingMinor` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function getInvoiceOutstandingMinor(invoiceId: number): number` |
 | `getItemByUpc` | `backend/src/db.ts` | `backend/src/routes/pos.ts` | `function getItemByUpc(upc: string): ItemSummary \| undefined` |
 | `getItemLeadTimes` | `backend/src/db-stock.ts` | (none) | `function getItemLeadTimes(itemName: ItemName): ` |

@@ -1,5 +1,5 @@
 import { db } from './db.js';
-import { getDimensionParent } from './db.js';
+import { getHierarchyParent } from './db.js';
 import { buildProfitAndLossFromBalances, getLedgerBalances, type ProfitAndLoss } from './db-reports.js';
 import type { BusinessName, LedgerName } from './db.js';
 
@@ -27,7 +27,7 @@ import type { BusinessName, LedgerName } from './db.js';
  * genuinely arbitrary, user-defined hierarchy, this is not a closed
  * set: any real, other string is treated as a genuine, user-defined
  * dimension name, resolved the exact, same, already-generic way
- * getDimensionParent/setDimensionParent already support (see
+ * getHierarchyParent/setHierarchyParent already support (see
  * resolveKey below) - "Bottle Size," or anything else a real business
  * defines, works identically to the four recommended defaults. */
 export type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Division' | 'Consolidated' | (string & {});
@@ -128,9 +128,9 @@ function categoryForAccount(accountId: number, entityIndex: Map<number, { name: 
 
 /** Walks a real account's own, real, structural "Location" —
  * confirmed directly, live: ensureItemTierLocationLeaf sets a real
- * "Location" dimension link on the Sales/COGS leaf itself via
- * setDimensionParent/setEntityLink, which creates a real, separate,
- * named child entity ("{account} — Dimension: Location") whose own
+ * "Location" hierarchy link on the Sales/COGS leaf itself via
+ * setHierarchyParent/setEntityLink, which creates a real, separate,
+ * named child entity ("{account} — Hierarchy: Location") whose own
  * real relation_id points at the real target location. Deliberately
  * re-implemented here as a real, direct query, rather than importing
  * getLocationForAccount from db.ts, per direct instruction to touch
@@ -156,44 +156,33 @@ function locationForAccount(accountName: string): string | undefined {
        JOIN current_entities target ON target.id = child.relation_id
        WHERE child.name = ?`
     )
-    .get(`${accountName} — Dimension: Location`) as { location_name: string } | undefined;
+    .get(`${accountName} — Hierarchy: Location`) as { location_name: string } | undefined;
   return row?.location_name;
 }
 
-/** Walks a real location's own real division — the real, same
- * "location's own city matches a real division name directly"
- * resolution cityDivisionFor in db.ts already, separately provides,
- * re-implemented here directly for the same, real reason: this file's
- * own dependencies are intentionally, entirely self-contained. */
-function divisionForLocation(locationName: string, entityIndex: Map<number, { name: string; parent_id: number | null }>): string | undefined {
-  // A real division explicitly tied to this exact location via the
-  // established "Belongs To Division" relationship (a location's own
-  // relation_id pointing at a real record naming its own division) —
-  // not a name match, and not location.city's own coarse fallback,
-  // which only ever resolves to the coarse, city-level division no
-  // matter how many real, fine-grained ones actually exist.
-  const rel = db
+/** Walks a real location's own real division — the exact, same
+ * "Hierarchy: Division" link setHierarchyParent/getHierarchyParent
+ * read in db.ts (getDivisionForAccount), re-implemented here directly
+ * for the same, real reason: this file's own dependencies are
+ * intentionally, entirely self-contained. Per direct correction: a
+ * location's division is a real, explicit hierarchy link, set when
+ * the location is created/configured — never derived from the
+ * location's own address city, and never read through the separate,
+ * legacy "Belongs To Division" entity relationship (that one stays
+ * reserved for the real org chart, a genuinely separate, HR concern).
+ * Both the old city-matching fallback and the "Belongs To Division"
+ * read this function used to carry are gone — if no division was ever
+ * explicitly assigned to this location, it genuinely has none. */
+function divisionForLocation(locationName: string): string | undefined {
+  const row = db
     .prepare(
-      `SELECT rel_type.name AS type, target.name AS target
-       FROM current_entities e
-       JOIN current_entities rel ON rel.id = e.relation_id
-       JOIN current_entities rel_type ON rel_type.id = rel.parent_id
-       JOIN current_entities target ON target.id = rel.relation_id
-       WHERE e.name = ?`
+      `SELECT target.name AS division_name
+       FROM current_entities child
+       JOIN current_entities target ON target.id = child.relation_id
+       WHERE child.name = ?`
     )
-    .get(locationName) as { type: string; target: string } | undefined;
-  if (rel && rel.type === 'Belongs To Division') return rel.target;
-
-  const row = db.prepare(`SELECT city FROM contact c JOIN current_entities e ON e.id = c.entity_id WHERE e.name = ?`).get(locationName) as { city: string } | undefined;
-  if (!row?.city) return undefined;
-  // A real division either IS the city name directly, or the city is
-  // itself a real, existing entity whose own name matches a real
-  // division — checked directly against the real, live entity index
-  // rather than assuming.
-  for (const e of entityIndex.values()) {
-    if (e.name === row.city) return row.city;
-  }
-  return undefined;
+    .get(`${locationName} — Hierarchy: Division`) as { division_name: string } | undefined;
+  return row?.division_name;
 }
 
 function resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
@@ -205,14 +194,14 @@ function resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number
   if (axis === 'Location') return location ?? NO_LOCATION_KEY;
   if (axis === 'Division') {
     if (!location) return NO_DIVISION_KEY;
-    return divisionForLocation(location, entityIndex) ?? NO_DIVISION_KEY;
+    return divisionForLocation(location) ?? NO_DIVISION_KEY;
   }
   // A real, genuinely user-defined axis - not one of the four,
   // recommended defaults above. Resolved the exact, same, already-
   // generic way any dimension already works - no new mechanism, no
   // special case for a "recognized" axis name.
   const baseProductName = stripLocationSuffix(entityIndex.get(accountId)?.name ?? '');
-  return getDimensionParent(baseProductName, axis) ?? `No ${axis}`;
+  return getHierarchyParent(baseProductName, axis) ?? `No ${axis}`;
 }
 
 /** The real, core matrix computation both getSalesCogsMatrix and
@@ -363,7 +352,7 @@ export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): 
             ? categoryForItem(r.item_id, entityIndex)
             : rowAxis === 'Location'
               ? r.location_name
-              : (divisionForLocation(r.location_name, entityIndex) ?? NO_DIVISION_KEY);
+              : (divisionForLocation(r.location_name) ?? NO_DIVISION_KEY);
     const colKey =
       colAxis === 'Consolidated'
         ? CONSOLIDATED_KEY
@@ -373,7 +362,7 @@ export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): 
             ? categoryForItem(r.item_id, entityIndex)
             : colAxis === 'Location'
               ? r.location_name
-              : (divisionForLocation(r.location_name, entityIndex) ?? NO_DIVISION_KEY);
+              : (divisionForLocation(r.location_name) ?? NO_DIVISION_KEY);
 
     const key = `${rowKey}\u0000${colKey}`;
     if (!cellMap.has(key)) {

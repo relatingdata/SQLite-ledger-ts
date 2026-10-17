@@ -864,7 +864,7 @@ export function listLineTypes(): string[] {
  * / Descriptive / Posting, or any real, further, user-added type) —
  * a real, direct use of the existing setEntityLink mechanism, per
  * direct instruction (no new tables): the same, real relationship
- * primitive already proven for dimension links elsewhere in this
+ * primitive already proven for hierarchy links elsewhere in this
  * codebase, not a new concept. Passing null removes the link
  * entirely, restoring today's real, existing is_postable_account-
  * derived behavior for that entity. */
@@ -2433,7 +2433,7 @@ export interface PosSaleResult {
  * whatever partial chain it collected whether or not it actually
  * reached the real root, so it can't itself distinguish "genuinely a
  * descendant" from "ran out of real ancestors first." Walks up to
- * 100 real levels (matching getDimensionAncestorChain's own, existing
+ * 100 real levels (matching getHierarchyAncestorChain's own, existing
  * real safety bound) before giving up. */
 export function isDescendantOf(entityName: string, rootName: string): boolean {
   const entities = getEntityTree();
@@ -2628,7 +2628,7 @@ export function ensureItemLocationInventoryAccount(itemName: ItemName, locationN
   const locationAccount = `${itemName}${tier ? ` (${tier})` : ''} — ${locationName}`;
   const existing = Entity.getUnder(locationAccount, baseId);
   const row = existing ?? Entity.create(locationAccount, baseId, userId);
-  if (!existing) setDimensionParent(locationAccount, 'Location', locationName, userId);
+  if (!existing) setHierarchyParent(locationAccount, 'Location', locationName, userId);
   return { inventoryAccount: locationAccount, inventoryAccountId: row.id };
 }
 
@@ -2733,7 +2733,7 @@ export function getProfitCenters(businessName: BusinessName): { id: number; name
  * business-scoped), ensures a real grouping node named after the
  * Profit Center directly under it, tagged back to the real Profit
  * Center entity via the exact, same generic dimension-link mechanism
- * (setDimensionParent) ensureItemLocationInventoryAccount already uses
+ * (setHierarchyParent) ensureItemLocationInventoryAccount already uses
  * for Location — disambiguated by this grouping node's own, real id,
  * since the exact, same Profit Center name genuinely recurs three
  * times (once each under Sales Revenue, Cost of Goods Sold, and
@@ -2748,7 +2748,7 @@ function resolveProfitCenterGroupNode(business: BusinessName, headerId: number, 
   const pc = getProfitCenters(business).find((p) => p.name === profitCenterName);
   if (!pc) throw new ValidationError(`No real Profit Center named "${profitCenterName}" for "${business}" — create it first.`);
   const row = Entity.ensureUnder(profitCenterName, headerId, userId);
-  setDimensionParent(profitCenterName, 'Profit Center', profitCenterName, userId, row.id, pc.id);
+  setHierarchyParent(profitCenterName, 'Profit Center', profitCenterName, userId, row.id, pc.id);
   return row;
 }
 
@@ -2757,11 +2757,11 @@ function resolveProfitCenterGroupNode(business: BusinessName, headerId: number, 
  * belongs under — walking straight up its parent chain, since a
  * Profit Center is a real, structural grouping node an account nests
  * under, not a per-line tag the way Division is. Stops at the first
- * ancestor carrying a real "Dimension: Profit Center" link — the
+ * ancestor carrying a real "Hierarchy: Profit Center" link — the
  * exact, same tagged grouping node resolveProfitCenterGroupNode
  * creates.
  *
- * Deliberately does NOT reuse getDimensionParent/getEntityLink here:
+ * Deliberately does NOT reuse getHierarchyParent/getEntityLink here:
  * those resolve a link record by a bare `${entityName} — ${linkType}`
  * name, with no parent disambiguation at all — genuinely ambiguous
  * for a Profit Center, whose own grouping-node name recurs once each
@@ -2777,7 +2777,7 @@ export function getAccountProfitCenter(accountId: number): string | null {
         `SELECT target.name AS name
          FROM current_entities rec
          JOIN current_entities target ON target.id = rec.relation_id
-         JOIN current_entities tag ON tag.parent_id = rec.id AND tag.name = 'Dimension: Profit Center' AND tag.relation_id IS NOT NULL
+         JOIN current_entities tag ON tag.parent_id = rec.id AND tag.name = 'Hierarchy: Profit Center' AND tag.relation_id IS NOT NULL
          WHERE rec.parent_id = ?`
       )
       .get(currentId) as { name: string } | undefined;
@@ -3358,7 +3358,7 @@ export function getItemUnitCostMinor(itemName: ItemName): number | null {
  * (docs/multi-dimensional-reporting.md §10): a real, single, distinct
  * tier-level item — e.g. "Amber Ale 330ml (Bottle)" — as a genuine,
  * structural child of its own real Sales leaf, with COGS reaching the
- * same item via the dimension mechanism (the same, confirmed shape as
+ * same item via the hierarchy mechanism (the same, confirmed shape as
  * §4, now correctly applied at the tier level rather than the
  * ambiguous, shared base-product level that caused real, confirmed
  * corruption in an earlier attempt — see §10's own, full account).
@@ -3382,7 +3382,7 @@ export function ensureItemTier(baseProductName: ItemName, tier: string, userId: 
   const tierItemRow = existing ?? Entity.create(tierItemName, salesAccountId, userId);
   if (!existing) {
     mergeContactDetail(tierItemRow.id, {});
-    setDimensionParent(tierItemName, 'COGS Product', cogsAccount, userId);
+    setHierarchyParent(tierItemName, 'COGS Product', cogsAccount, userId);
   }
   return { tierItemName, tierItemId: tierItemRow.id, salesAccount, salesAccountId, cogsAccount, cogsAccountId };
 }
@@ -3426,7 +3426,7 @@ export function ensureItemTierLocationLeaf(tierItemName: string, locationName: L
   if (!tierItem) throw new ValidationError(`No real item named "${tierItemName}".`);
   const tierSalesLeaf = db.prepare(`SELECT id, name FROM current_entities WHERE id = ?`).get(tierItem.parent_id) as { id: number; name: string } | undefined;
   if (!tierSalesLeaf) throw new ValidationError(`"${tierItemName}" has no real, structural parent.`);
-  const tierCogsAccount = getDimensionParent(tierItemName, 'COGS Product');
+  const tierCogsAccount = getHierarchyParent(tierItemName, 'COGS Product');
   if (!tierCogsAccount) throw new ValidationError(`"${tierItemName}" has no real COGS account.`);
   const tierCogsEntity = db.prepare(`SELECT id, name FROM current_entities WHERE name = ? AND relation_id IS NOT NULL`).get(tierCogsAccount) as { id: number; name: string } | undefined;
   if (!tierCogsEntity) throw new ValidationError(`"${tierCogsAccount}" is not a real, existing entity.`);
@@ -3446,7 +3446,7 @@ export function ensureItemTierLocationLeaf(tierItemName: string, locationName: L
     }
     const createdLeaf = Entity.create(leafItemName, salesRow.id, userId);
     mergeContactDetail(createdLeaf.id, {});
-    setDimensionParent(leafItemName, 'COGS Product', cogsAccount, userId);
+    setHierarchyParent(leafItemName, 'COGS Product', cogsAccount, userId);
     // The real, structural fact a real journal_line.account_id can now
     // be walked from directly — which real location this real Sales
     // leaf (and its own real COGS counteritem) actually belongs to —
@@ -3455,8 +3455,8 @@ export function ensureItemTierLocationLeaf(tierItemName: string, locationName: L
     // themselves (the Sales/COGS leaves), not the item, since a real
     // journal_line's own account_id always points at one of those two,
     // never at the item.
-    setDimensionParent(salesAccount, 'Location', locationName, userId);
-    setDimensionParent(cogsAccount, 'Location', locationName, userId);
+    setHierarchyParent(salesAccount, 'Location', locationName, userId);
+    setHierarchyParent(cogsAccount, 'Location', locationName, userId);
     leafRow = { id: createdLeaf.id, name: leafItemName };
   }
   return { leafItemName, leafItemId: leafRow.id, salesAccount, salesAccountId: salesRow!.id, cogsAccount, cogsAccountId: cogsRow!.id };
@@ -3480,13 +3480,13 @@ export function ensureItemLocationLeaf(itemName: ItemName, locationName: Locatio
   let salesRow = Entity.getUnder(salesAccount, baseSalesId);
   if (!salesRow) {
     salesRow = Entity.create(salesAccount, baseSalesId, userId);
-    setDimensionParent(salesAccount, 'Location', locationName, userId);
+    setHierarchyParent(salesAccount, 'Location', locationName, userId);
   }
   let cogsRow = Entity.getUnder(cogsAccount, baseCogsId);
   if (!cogsRow) {
     cogsRow = Entity.create(cogsAccount, baseCogsId, userId);
     Entity.relate(cogsRow.id, 'COGS', userId);
-    setDimensionParent(cogsAccount, 'Location', locationName, userId);
+    setHierarchyParent(cogsAccount, 'Location', locationName, userId);
   }
   return { salesAccount, salesAccountId: salesRow.id, cogsAccount, cogsAccountId: cogsRow.id };
 }
@@ -3494,7 +3494,7 @@ export function ensureItemLocationLeaf(itemName: ItemName, locationName: Locatio
 
 /** The real, structural replacement for journal_line.division_id —
  * given a real account name a real journal_line actually posted to,
- * walks its own, real "Location" dimension-parent directly (set by
+ * walks its own, real "Location" hierarchy-parent directly (set by
  * ensureItemTierLocationLeaf above), rather than reading a
  * separate tag that could drift out of sync with where the account
  * actually, structurally sits. undefined for any real account with no
@@ -3502,19 +3502,19 @@ export function ensureItemLocationLeaf(itemName: ItemName, locationName: Locatio
  * Bank, Owner's Equity), or a real Sales/COGS leaf that predates this
  * design and has no real per-location leaf of its own yet. */
 export function getLocationForAccount(accountName: AccountName): string | undefined {
-  return getDimensionParent(accountName, 'Location');
+  return getHierarchyParent(accountName, 'Location');
 }
 
 /** The real, structural replacement for cityDivisionFor(division_id)
  * — walks a real account to its own, real, structural location first
  * (getLocationForAccount above), then reuses the exact, same, already-
- * proven location-to-division resolution cityDivisionFor already
- * provides. undefined under the same, real conditions
+ * proven location-to-division resolution getDivisionForLocation
+ * already provides. undefined under the same, real conditions
  * getLocationForAccount itself is. */
 export function getDivisionForAccount(accountName: AccountName): string | undefined {
   const location = getLocationForAccount(accountName);
   if (!location) return undefined;
-  return cityDivisionFor(location);
+  return getDivisionForLocation(location);
 }
 
 /** Lazily creates a real product's own two, real quantity-domain
@@ -3612,29 +3612,24 @@ export function ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): 
  * opportunistic, not a requirement every business must satisfy. */
 /** A real division to automatically tag a sale/stock movement at this
  * location with — genuinely arbitrary, not hardcoded to "city"
- * specifically: checks first for a real division matching the
- * location's own exact name (the most specific real grouping a
- * business could set up — one division per outlet), then falls back
- * to a real division matching the location's city (a coarser,
- * optional grouping — several outlets in the same city sharing one
- * division). Either, both, or neither may exist; this only ever
- * matches a real division that's actually been created, never invents
- * one. A business that wants no automatic division tagging at all
- * simply doesn't create either. */
-export function cityDivisionFor(locationName: string): string | undefined {
-  const location = getLocation(locationName);
-  if (!location) return undefined;
-  // A real division explicitly tied to this exact location via the
-  // established "Belongs To Division" relationship (a location's own
-  // relation_id pointing at a real record naming its own division) —
-  // not a name match. A division and its own location can genuinely
-  // share an exact name (scoped uniqueness allows this, since they're
-  // never real siblings).
-  const rel = getRelationship(locationName);
-  if (rel && rel.type === 'Belongs To Division') return rel.target;
-  const divisionNames = new Set(getDivisions().map((d) => d.name));
-  if (location.city && divisionNames.has(location.city)) return location.city;
-  return undefined;
+ * specifically: reads the real "Division" hierarchy link
+ * (setHierarchyParent/getHierarchyParent), set explicitly whenever a
+ * location is created with one (createAndConfigureLocation) — never
+ * derived from the location's own address city.
+ *
+ * Per direct correction: a location's division has nothing to do with
+ * its own address city, and genuinely is "just another hierarchy" —
+ * so this function previously named cityDivisionFor (now
+ * getDivisionForLocation) has had both its old city-name-matching
+ * fallback AND its read of the separate, legacy "Belongs To Division"
+ * entity relationship removed. That relationship stays exactly where
+ * it was, reserved for the real org chart (getOrganizationChart) — a
+ * genuinely separate, HR concern this change does not touch. Only
+ * ever matches a real division that was actually, explicitly
+ * assigned; never invents one. A business that wants no division
+ * breakdown at all simply never assigns one. */
+export function getDivisionForLocation(locationName: string): string | undefined {
+  return getHierarchyParent(locationName, 'Division');
 }
 
 /** The real, physical location a specific product should actually be
@@ -5274,33 +5269,39 @@ export function getTaskDependencies(dependentTask: string): { predecessor: strin
   return rows.map((row) => ({ predecessor: row.predecessor, dependencyType: Entity.getAttr(row.id, 'Dependency Type') ?? '' }));
 }
 
-/** The real, generic "dimension" mechanism from
+/** The real, generic "hierarchy link" mechanism from
  * docs/multi-dimensional-reporting.md — a real, reusable capability
  * for any entity to be placed into any number of equal, independent
  * accumulation paths, none structurally privileged as the real
  * parent (parent_id stays whatever it already is — e.g. a GL
  * account's own product-category placement — untouched by any of
  * this). Deliberately NOT hardcoded to divisions or product
- * categories specifically: dimensionName is a real, free-form string
- * ("Division/Location", "Reporting Manager", any future dimension),
- * so the same, single mechanism serves every real case in the design
- * document, not a bespoke one built per dimension.
+ * categories specifically: hierarchyName is a real, free-form string
+ * ("Division", "Location", "Reporting Manager", any future
+ * hierarchy), so the same, single mechanism serves every real case in
+ * the design document, not a bespoke one built per hierarchy. Per
+ * direct correction: this is a real, general hierarchy-link
+ * mechanism, not a "dimension" in the matrix-stock-report/drag-and-
+ * drop sense — that term is reserved for definitionDimensions (a real
+ * product's own variant axes, e.g. Size/Pack/Color) and the
+ * drag-and-drop hierarchy editor, the two real, separate places that
+ * word genuinely belongs.
  *
  * Built entirely on setEntityLink/getEntityLink, already proven this
  * session to leave an entity's own relation_id genuinely untouched —
  * the same real property this needs, since a GL account's own
  * relation_id may already be spoken for by its real CoA-prototype tag,
  * exactly the conflict setEntityLink itself was built to avoid. */
-export function setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void {
-  setEntityLink(entityName, `Dimension: ${dimensionName}`, parentName, userId, entityId, targetId);
+export function setHierarchyParent(entityName: string, hierarchyName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void {
+  setEntityLink(entityName, `Hierarchy: ${hierarchyName}`, parentName, userId, entityId, targetId);
 }
 
-export function getDimensionParent(entityName: string, dimensionName: string): string | undefined {
-  return getEntityLink(entityName, `Dimension: ${dimensionName}`);
+export function getHierarchyParent(entityName: string, hierarchyName: string): string | undefined {
+  return getEntityLink(entityName, `Hierarchy: ${hierarchyName}`);
 }
 
-export function deleteDimensionParent(entityName: string, dimensionName: string, userId: UserId): void {
-  deleteEntityLink(entityName, `Dimension: ${dimensionName}`, userId);
+export function deleteHierarchyParent(entityName: string, hierarchyName: string, userId: UserId): void {
+  deleteEntityLink(entityName, `Hierarchy: ${hierarchyName}`, userId);
 }
 
 /** A real contact can genuinely play any combination of real contact
@@ -5313,7 +5314,7 @@ export function deleteDimensionParent(entityName: string, dimensionName: string,
  * contact's own relation_id, and never limited to just one type at a
  * time the way a single relation_id alone could never support. */
 /** A real, confirmed gap, found directly: the "Header Account"
- * dimension links this whole mechanism depends on (Vendor → Accounts
+ * hierarchy links this whole mechanism depends on (Vendor → Accounts
  * Payable, Customer → Accounts Receivable, Employee → Accounts
  * Payable too, since real payroll owed is genuinely a payable) were
  * never actually created, despite being documented as "already
@@ -5328,7 +5329,7 @@ function ensureContactTypeHeaderAccounts(userId: UserId): void {
     ['Employee', 'Accounts Payable'],
   ];
   for (const [type, account] of pairs) {
-    if (!getDimensionParent(type, 'Header Account')) setDimensionParent(type, 'Header Account', account, userId);
+    if (!getHierarchyParent(type, 'Header Account')) setHierarchyParent(type, 'Header Account', account, userId);
   }
 }
 
@@ -5363,7 +5364,7 @@ export function getContactTypes(contactName: string): string[] {
  * genuinely have more than one real base account. */
 export function getContactBaseAccounts(contactName: string): string[] {
   const types = getContactTypes(contactName);
-  const accounts = types.map((t) => getDimensionParent(t, 'Header Account')).filter((a): a is string => !!a);
+  const accounts = types.map((t) => getHierarchyParent(t, 'Header Account')).filter((a): a is string => !!a);
   return [...new Set(accounts)];
 }
 
@@ -5428,13 +5429,13 @@ export function createEmployee(name: string, placeOfEmployment: string, userId: 
 }
 
 /** The real "reverse" query a plain parent_id can never answer on its
- * own — every real entity whose own dimension-parent, within this
+ * own — every real entity whose own hierarchy-parent, within this
  * specific dimension, is exactly parentName. Queries the real link
  * child's own, real parent_id directly (set by setEntityLink/
  * createEntity to be the real, original entity, not parsed back out
  * of a name string), so this stays correct regardless of what
  * characters a real entity name happens to contain. */
-export function getDimensionChildren(parentName: string, dimensionName: string): string[] {
+export function getHierarchyChildren(parentName: string, hierarchyName: string): string[] {
   const rows = db
     .prepare(
       `SELECT orig.name AS entity_name
@@ -5443,50 +5444,50 @@ export function getDimensionChildren(parentName: string, dimensionName: string):
        JOIN current_entities orig ON orig.id = link.parent_id
        WHERE target.name = ? AND link.name = orig.name || ' — ' || ?`
     )
-    .all(parentName, `Dimension: ${dimensionName}`) as { entity_name: string }[];
+    .all(parentName, `Hierarchy: ${hierarchyName}`) as { entity_name: string }[];
   return rows.map((r) => r.entity_name);
 }
 
 /** Guard rail (docs/translator-form-and-guard-rails-plan.md, §5): "a
  * real, visible 'why is this here' trail" — every real entity that
- * reaches targetName via any real dimension link at all, regardless
- * of which specific dimension name, plus which real dimension each
+ * reaches targetName via any real hierarchy link at all, regardless
+ * of which specific hierarchy name, plus which real hierarchy each
  * one uses. Confirmed directly, live: this is exactly the real,
  * missing visibility that let this session's own real mistake
  * (Customers almost directly re-parented under Accounts Receivable)
  * go unnoticed until caught by hand — a real person looking at
  * "Accounts Receivable" today has no real, direct way to see that
  * "Customers" reaches it via a real, structural link at all. */
-export function getDimensionLinksPointingAt(targetName: string): { entityName: string; dimensionName: string }[] {
+export function getHierarchyLinksPointingAt(targetName: string): { entityName: string; hierarchyName: string }[] {
   const rows = db
     .prepare(
       `SELECT orig.name AS entity_name, link.name AS link_name
        FROM current_entities link
        JOIN current_entities target ON target.id = link.relation_id
        JOIN current_entities orig ON orig.id = link.parent_id
-       WHERE target.name = ? AND link.name LIKE orig.name || ' — Dimension: %'`
+       WHERE target.name = ? AND link.name LIKE orig.name || ' — Hierarchy: %'`
     )
     .all(targetName) as { entity_name: string; link_name: string }[];
   return rows.map((r) => ({
     entityName: r.entity_name,
-    // link_name is always "{entity_name} — Dimension: {dimensionName}" —
-    // strip the real, known prefix to recover the real dimension name itself.
-    dimensionName: r.link_name.slice(`${r.entity_name} — Dimension: `.length),
+    // link_name is always "{entity_name} — Hierarchy: {hierarchyName}" —
+    // strip the real, known prefix to recover the real hierarchy name itself.
+    hierarchyName: r.link_name.slice(`${r.entity_name} — Hierarchy: `.length),
   }));
 }
 
-/** Walks entityName's own dimension-parent chain, within one, real,
+/** Walks entityName's own hierarchy-parent chain, within one, real,
  * named dimension, all the way to a real root (the first real entity
- * with no further dimension-parent set in this same dimension) —
+ * with no further hierarchy-parent set in this same dimension) —
  * the real chain from entityName's own, immediate parent up to (but
  * not including) that root, in that order. A hard, safety cap on
  * depth guards against a real, accidental cycle rather than looping
  * forever. */
-export function getDimensionAncestorChain(entityName: string, dimensionName: string): string[] {
+export function getHierarchyAncestorChain(entityName: string, hierarchyName: string): string[] {
   const chain: string[] = [];
   let current = entityName;
   for (let i = 0; i < 100; i++) {
-    const parent = getDimensionParent(current, dimensionName);
+    const parent = getHierarchyParent(current, hierarchyName);
     if (!parent) break;
     chain.push(parent);
     current = parent;
@@ -6700,7 +6701,7 @@ export function deleteMenuOverride(menuItemKey: string, scope: 'business' | 'use
  * whichever real "Header Account" target wordName's own dimension
  * link points at (the same, established mechanism confirmed working
  * for Vendor/Supplier). Returns just [wordName] if it has no real
- * dimension link at all (an ordinary word with no known alternates
+ * hierarchy link at all (an ordinary word with no known alternates
  * yet), rather than an empty list — a real word is always, at
  * minimum, its own real alternate. */
 export interface VocabularyWord {
@@ -6744,9 +6745,9 @@ export function getVocabularyWords(): VocabularyWord[] {
 }
 
 export function getVocabularyAlternates(wordName: string): string[] {
-  const target = getDimensionParent(wordName, 'Header Account');
+  const target = getHierarchyParent(wordName, 'Header Account');
   if (!target) return [wordName];
-  const links = getDimensionLinksPointingAt(target).filter((l) => l.dimensionName === 'Header Account');
+  const links = getHierarchyLinksPointingAt(target).filter((l) => l.hierarchyName === 'Header Account');
   return links.map((l) => l.entityName);
 }
 
@@ -6773,7 +6774,7 @@ export function getConceptsWithAlternates(): ConceptWithAlternates[] {
        FROM current_entities link
        JOIN current_entities target ON target.id = link.relation_id
        JOIN current_entities orig ON orig.id = link.parent_id
-       WHERE link.name = orig.name || ' — Dimension: Header Account'`
+       WHERE link.name = orig.name || ' — Hierarchy: Header Account'`
     )
     .all() as { target_name: string; entity_name: string; entity_id: number }[];
   const byTarget = new Map<string, { name: string; id: number }[]>();
@@ -6799,7 +6800,7 @@ export function getConceptsWithAlternates(): ConceptWithAlternates[] {
  * only after first checking whether that exact text already exists as
  * a real, global synonym for some other concept, reusing that same,
  * real entity rather than creating a redundant, duplicate one. The
- * concept's own "Header Account" Dimension link (the same, real,
+ * concept's own "Header Account" Hierarchy link (the same, real,
  * established synonym mechanism getConceptsWithAlternates already
  * reads) is created pointing at this one, real alternate either way -
  * setVocabularyPreference and getLocalizedText that follow never care
@@ -6811,8 +6812,8 @@ export function ensureVocabularyAlternate(conceptName: string, desiredText: stri
     const businessVocabulary = requireEntity('Vocabulary', typeRootName, requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName)));
     create(businessVocabulary, typeRootName, desiredText, userId);
   }
-  const alreadyLinked = db.prepare(`SELECT 1 FROM current_entities link JOIN current_entities target ON target.id = link.relation_id WHERE link.name = ? AND target.name = ?`).get(`${desiredText} — Dimension: Header Account`, conceptName);
-  if (!alreadyLinked) setEntityLink(desiredText, 'Dimension: Header Account', conceptName, userId);
+  const alreadyLinked = db.prepare(`SELECT 1 FROM current_entities link JOIN current_entities target ON target.id = link.relation_id WHERE link.name = ? AND target.name = ?`).get(`${desiredText} — Hierarchy: Header Account`, conceptName);
+  if (!alreadyLinked) setEntityLink(desiredText, 'Hierarchy: Header Account', conceptName, userId);
   return desiredText;
 }
 
@@ -7227,7 +7228,7 @@ export function createLocation(businessName: BusinessName, locationName: string,
  * A real, confirmed gap, found directly (not assumed) while wiring
  * the tutorial e2e test through the real UI: a location's optional
  * `division` was previously only ever recorded as a Hierarchy
- * dimension tag (ensureHierarchyValue/setDimensionParent) - the real
+ * dimension tag (ensureHierarchyValue/setHierarchyParent) - the real
  * mechanism division-breakdown reports (e.g. Close Books' preview)
  * actually read. That is a genuinely separate, non-overlapping
  * mechanism from the real "Belongs To Division" entity relationship
@@ -7263,7 +7264,7 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
     if (division) {
       ensureHierarchyGrouping(businessName, 'Division', userId);
       ensureHierarchyValue(businessName, 'Division', division, userId);
-      setDimensionParent(locationName, 'Division', division, userId);
+      setHierarchyParent(locationName, 'Division', division, userId);
       // getOrganizationChart() only ever recognizes a shared,
       // multi-location division name as real once the division
       // entity itself also carries a real "Belongs To Business"

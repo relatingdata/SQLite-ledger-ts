@@ -204,10 +204,10 @@ exact, same real entity that already, genuinely exists in this
 schema's own, real, pre-existing Chart of Accounts (confirmed
 directly: real example customers, e.g. "Acme Corp", were already,
 correctly nested directly beneath it). `getBalanceSheet` now
-generically discovers this via `getDimensionChildren('Accounts
+generically discovers this via `getHierarchyChildren('Accounts
 Receivable', 'Header Account')` — not a hardcoded "Customers" name
 check at all. A real, future entity setting up this same, real
-dimension link against any other real heading is picked up
+hierarchy link against any other real heading is picked up
 automatically, with no further code change required.
 
 ### The real, general principle, worth restating plainly
@@ -222,8 +222,8 @@ always reflect its own, genuine, structural identity — never be
 distorted or duplicated merely to make a real report's own
 computation simpler. Wherever a real report needs a real entity to
 "also" belong somewhere it doesn't structurally, genuinely live, the
-real, correct tool is the dimension mechanism, not a second,
-competing `parent_id`.
+real, correct tool is the hierarchy-link mechanism below, not a
+second, competing `parent_id`.
 
 ## Named relationships and generic hierarchies — one entity, many real roles
 
@@ -288,7 +288,19 @@ called a second time on the same `entityName` overwrites the first
 relationship — this mechanism, on its own, gives an entity exactly
 one real relationship of this kind at a time.
 
-### The dimension mechanism — real, independent, coexisting links
+### The hierarchy-link mechanism — real, independent, coexisting links
+
+Per direct correction: this is a real, general hierarchy-link
+mechanism, not a "dimension" in the matrix-stock-report or
+drag-and-drop sense. That word stays reserved for two real, separate
+things: `definitionDimensions` (a real product's own variant axes —
+Size, Pack, Color) and the drag-and-drop hierarchy editor. Everything
+below — Division, Location, Header Account, Profit Center, any future
+named hierarchy — is this mechanism instead, named accordingly
+(`setHierarchyParent`/`getHierarchyParent`/`getHierarchyChildren`/
+`getHierarchyAncestorChain`/`deleteHierarchyParent`/
+`getHierarchyLinksPointingAt`), with the stored link itself named
+`"{entityName} — Hierarchy: {hierarchyName}"`.
 
 For a genuine "many real, coexisting facts about one entity"
 need — a GL account's own real product-category placement, a
@@ -312,15 +324,15 @@ Since `recordName` includes `linkType`, a single `entityName` can hold
 any number of real, independent, coexisting links, each its own,
 separate child entity — none of them ever touching `entityName`'s own
 `relation_id`, which stays free for whatever it already means to that
-entity (a GL account's own real dimension links never interfere with,
+entity (a GL account's own real hierarchy links never interfere with,
 say, a translation's own `relation_id` pointing back at its concept).
-`setDimensionParent`/`getDimensionParent` are the direct, established
+`setHierarchyParent`/`getHierarchyParent` are the direct, established
 specialization of this for the "which real header account does this
 belong under" question:
 
 ```typescript
-export function setDimensionParent(entityName: string, dimensionName: string, parentName: string, userId: UserId): void {
-  setEntityLink(entityName, `Dimension: ${dimensionName}`, parentName, userId);
+export function setHierarchyParent(entityName: string, hierarchyName: string, parentName: string, userId: UserId): void {
+  setEntityLink(entityName, `Hierarchy: ${hierarchyName}`, parentName, userId);
 }
 ```
 
@@ -374,3 +386,18 @@ division is genuinely either a real `Belongs To Business` target, *or*
 any real target of a `Belongs To Division` relationship whose own
 locations trace back to this business — never assuming the two are
 the same real set.
+
+## 13. Generalizing the P&L-by-group report to any real hierarchy path, and dropping Division's old city-matching guesswork
+
+Per direct correction, two real things changed together here:
+
+1. **`getProfitAndLossByDivision`/`getProfitAndLossForDivision`/`getLedgerBalancesByDivisionStructural`** (the real "Consolidated per Division" mechanism above) were Division-specific in name only — the real work underneath was always "resolve each account to a group via a real hierarchy-link path, then sum balances per group." That's now a real, standalone, reusable layer:
+   - `getLedgerBalancesByHierarchyStructural(business, ledger, hierarchyPath, fromDate?, toDate?, excludeCloseEntries?)` resolves each account to its own group by walking `hierarchyPath` — an ordered list of real hierarchy names — one real `getHierarchyParent` hop at a time (`['Location']` for a one-hop Location breakdown; `['Location', 'Division']` for the real, two-hop Division breakdown, the exact same path `getDivisionForAccount` always walked).
+   - `getProfitAndLossByHierarchy(business, ledger, hierarchyPath, fromDate?, toDate?)` is the generic sibling of `getProfitAndLossByDivision`, and `getProfitAndLossForHierarchyGroup(business, ledger, hierarchyPath, groups, groupName, fromDate?, toDate?)` the generic sibling of `getProfitAndLossForDivision` — `groups` is the flat `{name, parentName}` list a group can nest arbitrarily deep within (`getDivisions()` for Division; an empty list for a real, flat hierarchy like Location, which never nests).
+   - `getProfitAndLossByDivision`/`getProfitAndLossForDivision`/`getLedgerBalancesByDivisionStructural` are now thin wrappers passing the real `['Location', 'Division']` path (and, for the latter, `getDivisions()`) into the generic functions above — their own real behavior is completely unchanged, verified directly against the full backend test suite and the 39-step tutorial e2e fixture.
+   - `getLedgerBalancesByLocationStructural` is the real, new, directly-usable Location sibling (`['Location']`, no second hop) — not yet wired to any route or page of its own, exactly as `getLedgerBalancesByDivisionStructural` once wasn't before `getProfitAndLossByDivision` used it.
+   - A third real axis (Item, say) needs a real account → Item hierarchy link of its own first — one doesn't exist today, so it isn't wired up here. Adding one later needs no further change to any function above: just a new, real hierarchy path.
+
+2. **Division resolution dropped its old city-matching fallback entirely.** `cityDivisionFor` (renamed `getDivisionForLocation`, `db.ts`) used to check a legacy, name-unscoped "Belongs To Division" entity relationship, then fall back to matching a location's own address city against a real division's name — a location's division had nothing to do with its own city, and the fallback was a trap: a location's address could coincidentally match an unrelated division's name. `getDivisionForLocation(locationName)` is now a single, real read of the `"Division"` hierarchy link (`getHierarchyParent(locationName, 'Division')`) — nothing else. A location with no division explicitly assigned genuinely has none; that stays true even when its address city happens to equal a real division's own name (`backend/test/db.test.ts`'s `getInventoryListingByLocation` test directly guards against this). The separate, legacy "Belongs To Division" relationship stays exactly where it was, read only by the real org chart (`getOrganizationChart`, §12 above) — a genuinely different, HR concern this change does not touch.
+
+Per direct correction, elsewhere in this document and throughout the codebase: the generic link mechanism this section (and §10–§12) describes is a real **hierarchy link**, not a "dimension" — that word is reserved for two real, separate things: `definitionDimensions` (a real product's own variant axes, e.g. Size/Pack/Color) and the drag-and-drop hierarchy editor. `setDimensionParent`/`getDimensionParent`/`getDimensionChildren`/`getDimensionAncestorChain`/`deleteDimensionParent`/`getDimensionLinksPointingAt` are each renamed accordingly (`setHierarchyParent` and so on), and the stored link itself is now named `"{entityName} — Hierarchy: {hierarchyName}"`, not `"... — Dimension: ..."`.

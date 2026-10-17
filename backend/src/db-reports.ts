@@ -1,6 +1,6 @@
 import { db, getQualifiedDisplayName, getCombinationDisplayName, resolveBusinessCoaAccountId } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
-import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, getAccountProfitCenter, setActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getHierarchyParent, getHierarchyChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, getAccountProfitCenter, setActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 
 // ---------------------------------------------------------------------------
@@ -335,9 +335,36 @@ export function getChartOfAccounts(business: string): ChartRow[] {
  * not read per posted line), so the query itself needs no division
  * grouping at all — just a real, plain, per-account balance, with
  * division derived afterward, once per real, distinct account. */
-export function getLedgerBalancesByDivisionStructural(
+/** The real, generic hierarchy-grouping mechanism behind every
+ * "Consolidated per X" report — Division, Location, and any future
+ * real axis — generalized per direct instruction: not a "dimension"
+ * in the matrix-stock-report sense (that word stays reserved for
+ * definitionDimensions and the drag-and-drop hierarchy editor), just
+ * a real, named hierarchy walk. hierarchyPath is the real, ordered
+ * chain of hierarchy-link hops from an account to its final group,
+ * walked as many levels as the real hierarchy actually has - e.g.
+ * ['Location'] groups by an account's own, direct Location link;
+ * ['Location', 'Division'] walks account -> Location -> Division (the
+ * exact, same two real hops getDivisionForAccount always took), and a
+ * future, real, longer chain works exactly the same way, with no
+ * further code change. Each named hierarchy's own real values can
+ * independently nest arbitrarily deep too (a real per-location
+ * Division under a real per-city one) - that part was always separate
+ * from this walk, and getProfitAndLossForHierarchy below still
+ * resolves it via the group's own real structural descendants. */
+function resolveAccountHierarchyGroup(accountName: string, hierarchyPath: string[]): string | undefined {
+  let current: string | undefined = accountName;
+  for (const hierarchyName of hierarchyPath) {
+    if (!current) return undefined;
+    current = getHierarchyParent(current, hierarchyName);
+  }
+  return current;
+}
+
+export function getLedgerBalancesByHierarchyStructural(
   businessName: BusinessName,
   ledgerName: LedgerName,
+  hierarchyPath: string[],
   fromDate?: string,
   toDate?: string,
   excludeCloseEntries = false
@@ -371,11 +398,46 @@ export function getLedgerBalancesByDivisionStructural(
   }[];
   const result = new Map<number, Map<string | null, number>>();
   for (const r of rows) {
-    const division = getDivisionForAccount(asAccountName(r.account_name)) ?? null;
+    const group = resolveAccountHierarchyGroup(r.account_name, hierarchyPath) ?? null;
     if (!result.has(r.id)) result.set(r.id, new Map());
-    result.get(r.id)!.set(division, r.balance_minor);
+    result.get(r.id)!.set(group, r.balance_minor);
   }
   return result;
+}
+
+/** The real path Division's own report has always walked (account ->
+ * Location -> Division) - kept exactly as its own, named path. Per
+ * direct instruction: Division and Location are the two real paths
+ * wired up today; Item would need a real account -> Item hierarchy
+ * link of its own first, which doesn't exist yet - separate work. */
+const DIVISION_HIERARCHY_PATH = ['Location', 'Division'];
+const LOCATION_HIERARCHY_PATH = ['Location'];
+
+export function getLedgerBalancesByDivisionStructural(
+  businessName: BusinessName,
+  ledgerName: LedgerName,
+  fromDate?: string,
+  toDate?: string,
+  excludeCloseEntries = false
+): Map<number, Map<string | null, number>> {
+  return getLedgerBalancesByHierarchyStructural(businessName, ledgerName, DIVISION_HIERARCHY_PATH, fromDate, toDate, excludeCloseEntries);
+}
+
+/** The exact, same, real, generic mechanism as the Division report
+ * above, just one hop shorter - groups by an account's own, direct
+ * Location link, with no further walk up to a Division. Not yet
+ * wired to any real route or page of its own; exists and is tested
+ * standalone, ready for one the moment a real Location-breakdown
+ * report is asked for, the same, real way getLedgerBalancesByDivision
+ * Structural once was before getProfitAndLossByDivision used it. */
+export function getLedgerBalancesByLocationStructural(
+  businessName: BusinessName,
+  ledgerName: LedgerName,
+  fromDate?: string,
+  toDate?: string,
+  excludeCloseEntries = false
+): Map<number, Map<string | null, number>> {
+  return getLedgerBalancesByHierarchyStructural(businessName, ledgerName, LOCATION_HIERARCHY_PATH, fromDate, toDate, excludeCloseEntries);
 }
 
 export function getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, number> {
@@ -650,23 +712,23 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
   // Accounts entirely (Customers/Vendors are real Vocabulary words —
   // their own, real "source of truth" home) while still, genuinely,
   // additionally reaching a real CoA heading for reporting purposes,
-  // via the established "Header Account" dimension — the same, real,
+  // via the established "Header Account" hierarchy link — the same, real,
   // "multiple equal paths" mechanism already proven this session for
   // division/location/tier. This is not hardcoded to "Customers"/
   // "Vendors" by name at all — it generically discovers ANY real
   // entity that has set a given real Asset/Liability account as its
-  // own "Header Account" dimension-parent, then sums that entity's
+  // own "Header Account" hierarchy-parent, then sums that entity's
   // own, real, structural descendants (every real customer/vendor
   // beneath it). A real, future entity setting up this same, real
-  // dimension link against any other real heading is picked up
+  // hierarchy link against any other real heading is picked up
   // automatically, with no further code change required at all.
-  const sumDimensionDescendants = (headerAccountName: string): number => {
-    const dimensionChildren = getDimensionChildren(headerAccountName, 'Header Account');
-    if (dimensionChildren.length === 0) return 0;
+  const sumHierarchyDescendants = (headerAccountName: string): number => {
+    const hierarchyChildren = getHierarchyChildren(headerAccountName, 'Header Account');
+    if (hierarchyChildren.length === 0) return 0;
     const row = db
       .prepare(
         `WITH RECURSIVE walk(id) AS (
-           SELECT id FROM current_entities WHERE name IN (${dimensionChildren.map(() => '?').join(',')})
+           SELECT id FROM current_entities WHERE name IN (${hierarchyChildren.map(() => '?').join(',')})
            UNION ALL
            SELECT e.id FROM current_entities e JOIN walk w ON e.parent_id = w.id
          )
@@ -676,11 +738,11 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
            AND jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))
            AND (? IS NULL OR jo.transdate <= ?)`
       )
-      .get(...dimensionChildren, ledgerName, businessName, asOfDate ?? null, asOfDate ?? null) as { total: number };
+      .get(...hierarchyChildren, ledgerName, businessName, asOfDate ?? null, asOfDate ?? null) as { total: number };
     return row.total;
   };
 
-  const receivableTotal = sumDimensionDescendants('Accounts Receivable');
+  const receivableTotal = sumHierarchyDescendants('Accounts Receivable');
   if (receivableTotal !== 0) {
     const line: StatementLine = {
       name: 'Accounts Receivable',
@@ -692,7 +754,7 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
     assets.push(line);
     assets_tree.push({ ...line, is_leaf: true, children: [] });
   }
-  const payableTotal = sumDimensionDescendants('Accounts Payable');
+  const payableTotal = sumHierarchyDescendants('Accounts Payable');
   if (payableTotal !== 0) {
     const line: StatementLine = {
       name: 'Accounts Payable',
@@ -978,21 +1040,31 @@ export interface ProfitAndLossByDivision {
  * journal_line.division_id, a real, separate tag mechanism being
  * retired. Verified directly, before switching over: the two real
  * functions agree exactly on real, live data carrying both. */
-export function getProfitAndLossByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivision[] {
-  const balancesByDivision = getLedgerBalancesByDivisionStructural(businessName, ledgerName, fromDate, toDate, true);
+/** The real, generic mechanism behind "Consolidated per X" —
+ * generalizes getProfitAndLossByDivision below to any real hierarchy
+ * path, via the exact same, already-proven, single-pass
+ * getLedgerBalancesByHierarchyStructural query (see the real,
+ * confirmed ~20s performance fix noted on getProfitAndLossByDivision
+ * — this still only ever queries the full dataset once, however many
+ * real groups result). Returns one real entry per group that actually
+ * has activity, including a real, null-group "everything not tagged
+ * at all" entry — never every group that merely exists somewhere in
+ * the app. */
+export function getProfitAndLossByHierarchy(businessName: BusinessName, ledgerName: LedgerName, hierarchyPath: string[], fromDate?: string, toDate?: string): ProfitAndLossByDivision[] {
+  const balancesByGroup = getLedgerBalancesByHierarchyStructural(businessName, ledgerName, hierarchyPath, fromDate, toDate, true);
 
-  // Re-key from "account -> division -> balance" to "division ->
-  // account -> balance", the real shape buildProfitAndLossFromBalances
-  // itself needs, one real division at a time.
-  const byDivision = new Map<string | null, Map<number, number>>();
-  for (const [accountId, divisionMap] of balancesByDivision.entries()) {
-    for (const [divisionName, balance] of divisionMap.entries()) {
-      if (!byDivision.has(divisionName)) byDivision.set(divisionName, new Map());
-      byDivision.get(divisionName)!.set(accountId, balance);
+  // Re-key from "account -> group -> balance" to "group -> account ->
+  // balance", the real shape buildProfitAndLossFromBalances itself
+  // needs, one real group at a time.
+  const byGroup = new Map<string | null, Map<number, number>>();
+  for (const [accountId, groupMap] of balancesByGroup.entries()) {
+    for (const [groupName, balance] of groupMap.entries()) {
+      if (!byGroup.has(groupName)) byGroup.set(groupName, new Map());
+      byGroup.get(groupName)!.set(accountId, balance);
     }
   }
 
-  return Array.from(byDivision.entries())
+  return Array.from(byGroup.entries())
     .sort(([a], [b]) => (a ?? '').localeCompare(b ?? ''))
     .map(([division, balances]) => ({
       division,
@@ -1000,37 +1072,70 @@ export function getProfitAndLossByDivision(businessName: BusinessName, ledgerNam
     }));
 }
 
-/** A single real division's own, rolled-up P&L — its own direct
- * activity PLUS every real, nested division beneath it (e.g. a real
- * per-location division under a real per-city one), the exact same
- * "coarser division includes its finer descendants" behavior the
- * real report pages depend on. Built from the exact same, real,
- * structural per-division balances getProfitAndLossByDivision already
- * computes, just summed across the requested division's own real
- * subtree instead of split out division by division. */
-export function getProfitAndLossForDivision(businessName: BusinessName, ledgerName: LedgerName, divisionName: string, fromDate?: string, toDate?: string): ProfitAndLoss {
-  const divisions = getDivisions();
-  const descendants = new Set<string>([divisionName]);
+/** Per direct request: "Consolidated per Division" — one full, real
+ * P&L per real division that actually has activity within this real
+ * ledger and date range (including a real, null-division "everything
+ * not tagged to any division" group), not every division that merely
+ * exists somewhere in the app. Per direct confirmation ("location
+ * becomes structural the same way tier did"), this derives each real
+ * division from a real account's own, real, structural location, via
+ * the generic getProfitAndLossByHierarchy above with the real,
+ * two-hop Division path. */
+export function getProfitAndLossByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivision[] {
+  return getProfitAndLossByHierarchy(businessName, ledgerName, DIVISION_HIERARCHY_PATH, fromDate, toDate);
+}
+
+/** A single real group's own, rolled-up P&L — its own direct activity
+ * PLUS every real, nested group beneath it structurally (e.g. a real
+ * per-location division under a real per-city one), walked as many
+ * levels deep as this real group hierarchy actually has — the exact
+ * same "coarser group includes its finer descendants" behavior the
+ * real report pages depend on. groups is the flat list of every real
+ * group and its own real structural parent (getDivisions() for
+ * Division; an empty list for a real, flat hierarchy that never
+ * nests, like Location). Built from the exact same, real, structural
+ * per-group balances getProfitAndLossByHierarchy already computes,
+ * just summed across the requested group's own real subtree instead
+ * of split out group by group. */
+export function getProfitAndLossForHierarchyGroup(
+  businessName: BusinessName,
+  ledgerName: LedgerName,
+  hierarchyPath: string[],
+  groups: { name: string; parentName: string | null }[],
+  groupName: string,
+  fromDate?: string,
+  toDate?: string
+): ProfitAndLoss {
+  const descendants = new Set<string>([groupName]);
   let grew = true;
   while (grew) {
     grew = false;
-    for (const d of divisions) {
-      if (d.parentName && descendants.has(d.parentName) && !descendants.has(d.name)) {
-        descendants.add(d.name);
+    for (const g of groups) {
+      if (g.parentName && descendants.has(g.parentName) && !descendants.has(g.name)) {
+        descendants.add(g.name);
         grew = true;
       }
     }
   }
-  const balancesByDivision = getLedgerBalancesByDivisionStructural(businessName, ledgerName, fromDate, toDate, true);
+  const balancesByGroup = getLedgerBalancesByHierarchyStructural(businessName, ledgerName, hierarchyPath, fromDate, toDate, true);
   const combined = new Map<number, number>();
-  for (const [accountId, divisionMap] of balancesByDivision.entries()) {
+  for (const [accountId, groupMap] of balancesByGroup.entries()) {
     let total = 0;
-    for (const [division, balance] of divisionMap.entries()) {
-      if (division !== null && descendants.has(division)) total += balance;
+    for (const [group, balance] of groupMap.entries()) {
+      if (group !== null && descendants.has(group)) total += balance;
     }
     if (total !== 0) combined.set(accountId, total);
   }
   return buildProfitAndLossFromBalances(businessName, combined);
+}
+
+/** A single real division's own, rolled-up P&L — its own direct
+ * activity PLUS every real, nested division beneath it, via the
+ * generic getProfitAndLossForHierarchyGroup above with the real,
+ * two-hop Division path and the real division tree (getDivisions()).
+ */
+export function getProfitAndLossForDivision(businessName: BusinessName, ledgerName: LedgerName, divisionName: string, fromDate?: string, toDate?: string): ProfitAndLoss {
+  return getProfitAndLossForHierarchyGroup(businessName, ledgerName, DIVISION_HIERARCHY_PATH, getDivisions(), divisionName, fromDate, toDate);
 }
 
 export interface ProfitAndLossByDivisionNode extends ProfitAndLossByDivision {
