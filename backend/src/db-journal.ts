@@ -706,8 +706,15 @@ export function getLedgerDateRange(businessName: BusinessName, ledgerName: Ledge
 }
 
 export function getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus {
+  // A real, confirmed bug found directly: this lookup was missing the
+  // 'Ledgers' intermediate level every other ledger-scoped query in
+  // this file already uses (see getBusinessDateRange just above, or
+  // getJournalEntry/reverseJournalEntry below) - a ledger is a real,
+  // structural child of 'Ledgers', never of the business entity
+  // itself directly, so this always failed to find any real ledger at
+  // all.
   const ledgerEntity = db
-    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`)
+    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
     .get(ledger, business) as { id: number } | undefined;
   if (!ledgerEntity) return { locked_through_date: null, changed_by: null, changed_at: null };
   const lockEntityPrefix = `${business} — ${ledger} — Period Lock`;
@@ -721,8 +728,10 @@ export function getPeriodLockStatus(business: BusinessName, ledger: LedgerName):
 }
 
 function ensurePeriodLockEntity(business: BusinessName, ledger: LedgerName, userId: UserId): { id: number; name: string } {
+  // Same real, confirmed "missing 'Ledgers' level" bug as
+  // getPeriodLockStatus just above, fixed the same way.
   const ledgerEntity = db
-    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`)
+    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
     .get(ledger, business) as { id: number } | undefined;
   if (!ledgerEntity) throw new ValidationError(`No real ledger "${ledger}" under business "${business}".`);
   const lockEntityPrefix = `${business} — ${ledger} — Period Lock`;
