@@ -5117,14 +5117,23 @@ export function setEntityLink(entityName: string, linkType: string, targetName: 
  * if no such link exists at all. */
 export function getEntityLink(entityName: string, linkType: string): string | undefined {
   const recordName = `${entityName} — ${linkType}`;
+  // A real, confirmed bug found directly: deleteEntityLink's own
+  // documented design only ever untags this link's own linkType fact,
+  // deliberately leaving relation_id (which target) permanently
+  // intact as real history, same as any other entity's own history -
+  // so a deleted link must be recognized by the ABSENCE of that same,
+  // real, presence-only linkType tag, not by relation_id being null
+  // (it never is). Without this, a deleted link's old target kept
+  // being reported as still live.
   const row = db
     .prepare(
       `SELECT target.name AS target
        FROM current_entities child
        JOIN current_entities target ON target.id = child.relation_id
+       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = ? AND tag.relation_id IS NOT NULL
        WHERE child.name = ?`
     )
-    .get(recordName) as { target: string } | undefined;
+    .get(linkType, recordName) as { target: string } | undefined;
   return row?.target;
 }
 
