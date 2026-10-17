@@ -175,6 +175,7 @@ Ordinary inventory assumes stock is held to be sold, cost flowing through COGS o
 
 - ✅ **`LICENSE` (GPLv3) and `NOTICE.md` added** — adopted because the Italian and Swiss (German/French/Italian) demo charts of accounts are adapted from Tekki's real SQL-Ledger fork (GPLv3). `NOTICE.md` is honest about provenance: the application itself is original work; specific chart-of-accounts *content* for demo businesses draws on real published national structures.
 - Not every list in the app is paginated with the new `Pager`/user-page-size infrastructure yet — Invoices, Contacts, and Parts were flagged early on and never circled back to.
+- **`business-setup` and `items` are two separate, hand-rolled tree-editor implementations with no shared component** — confirmed duplication (same selectable-tree/detail-panel/Insert-Delete idiom, implemented twice, already drifted once in vocabulary). Scoped, staged plan in `docs/shared-tree-editor-component-plan.md`; not started.
 
 ## A real 90-day trading simulation, run purely through the web UI via Playwright — in progress
 
