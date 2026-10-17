@@ -5370,7 +5370,13 @@ test('completePosSale: a real, genuine combination sale correctly resolves its o
   const invoice = getInvoice(result.invoiceId);
   assert.equal(invoice?.total_amount_minor, 1600, 'the real, combination-specific price (800/unit, not the base 500) was genuinely, correctly resolved and used, per direct instruction');
 
-  const salesLeaf = ensureCombinationAccountLeaf('Sales Revenue', coldInstance, asUserId(1));
+  // Per the same, established, real, business-scoped resolution
+  // completePosSale's own, real internal posting already uses
+  // (resolveBusinessCoaAccountId) — "Wine Retail Business" genuinely
+  // has its own, real, business-scoped "Sales Revenue" category, a
+  // real, different entity from the bare, global one a plain,
+  // unscoped lookup would otherwise, incorrectly resolve to.
+  const salesLeaf = ensureCombinationAccountLeaf('Sales Revenue', coldInstance, asUserId(1), resolveBusinessCoaAccountId(biz, 'Sales Revenue'));
   const salesLeafBalance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(salesLeaf.id) as { balance_minor: number } | undefined;
   assert.equal(salesLeafBalance?.balance_minor, -1600, 'the real sale posted through the new, real leaf under Sales, pointing at the shared Product Instance - not the old, per-item-only Sales account');
 });
@@ -5389,7 +5395,11 @@ test('receiveItems: a real, combination-tagged receipt builds up a real, distinc
   receiveItems(biz, 'Actual' as any, 'RECEIVECOMBO-REC-1', asItemName('ReceiveComboTest Lager'), asLocationName('Riverside Cellars'), 24, asUserId(1), undefined, ['Riverside Cellars', 'ReceiveComboTest Lager', 'Cold'], shape);
 
   const instanceTop = ensureProductInstance(biz, shape, ['Riverside Cellars', 'ReceiveComboTest Lager', 'Cold'], asUserId(1));
-  const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, asUserId(1));
+  // Per the same, established, real, business-scoped resolution
+  // receiveItems' own, real internal posting already uses
+  // (resolveBusinessCoaAccountId) — see the equivalent, real fix on
+  // the combination-sale test above.
+  const invLeaf = ensureCombinationAccountLeaf('Inventory', instanceTop, asUserId(1), resolveBusinessCoaAccountId(biz, 'Inventory'));
   const balance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(invLeaf.id) as { balance_minor: number } | undefined;
   assert.equal(balance?.balance_minor, 24 * 600, 'the real, combination-specific Inventory leaf correctly built up 24 units x 600/unit, at the real, correct account - not the base, per-item Inventory account');
 });
@@ -5419,8 +5429,13 @@ test('transferItems: a real, combination-tagged transfer correctly moves the rea
 
   const fromInstance = ensureProductInstance(biz, shape, ['TransferComboTest Head Office', 'TransferComboTest Lager', 'Cold'], asUserId(1));
   const toInstance = ensureProductInstance(biz, shape, ['TransferComboTest Riverside Cellars', 'TransferComboTest Lager', 'Cold'], asUserId(1));
-  const fromLeaf = ensureCombinationAccountLeaf('Inventory', fromInstance, asUserId(1));
-  const toLeaf = ensureCombinationAccountLeaf('Inventory', toInstance, asUserId(1));
+  // Per the same, established, real, business-scoped resolution
+  // transferItems' own, real internal posting already uses
+  // (resolveBusinessCoaAccountId) — see the equivalent, real fix on
+  // the combination-sale test above.
+  const inventoryAccountId = resolveBusinessCoaAccountId(biz, 'Inventory');
+  const fromLeaf = ensureCombinationAccountLeaf('Inventory', fromInstance, asUserId(1), inventoryAccountId);
+  const toLeaf = ensureCombinationAccountLeaf('Inventory', toInstance, asUserId(1), inventoryAccountId);
   const fromBalance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(fromLeaf.id) as { balance_minor: number } | undefined;
   const toBalance = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(toLeaf.id) as { balance_minor: number } | undefined;
   assert.equal(fromBalance?.balance_minor, 14 * 600, 'the real, source location instance correctly reduced by the real, transferred value (24 - 10 = 14 units remaining)');
