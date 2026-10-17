@@ -249,27 +249,53 @@ export function resolveCashAtBankAccount(business: BusinessName, currency: strin
   // Inventory resolution, just below in this same file).
   const assetId = resolveBusinessCoaAccountId(business, 'Asset');
   const existing = Entity.getUnder('Cash at Bank', assetId);
-  if (!existing) {
+  const homeCurrency = getBusinessHomeCurrency(business) ?? undefined;
+  const effectiveCurrency = currency ?? homeCurrency;
+
+  if (!effectiveCurrency || effectiveCurrency === homeCurrency) {
+    // Plain/home-currency case: 'admin' - the one, real, legacy,
+    // pre-multi-tenancy demo business (schema/00-core.sql) - never
+    // got "Cash at Bank"; it has always, genuinely used "Cash and
+    // Bank" (entity id 11, seeded directly, also the real, hand-
+    // written name every trigger/vocabulary entry already,
+    // consistently uses). Since 'admin' has no own CoA copy, assetId
+    // above resolves to the GLOBAL "Asset" category - the exact same
+    // one "Cash and Bank" already, really lives under - so this
+    // prefers it directly, regardless of whether a bare "Cash at
+    // Bank" header ALSO happens to already exist there (the foreign-
+    // currency branch below lazily creates exactly that header,
+    // purely as a currency-tagging root, the first time any foreign-
+    // currency sale runs - it is never itself a real, posted-to plain
+    // account, so an earlier foreign sale must never shadow 'admin's
+    // own, real, legacy "Cash and Bank" leaf for this, unrelated,
+    // plain case). Only when NEITHER already exists (a genuinely
+    // brand-new business) does this create a fresh "Cash at Bank"
+    // leaf.
+    const legacyCashAndBank = Entity.getUnder('Cash and Bank', assetId);
+    if (legacyCashAndBank) return { name: legacyCashAndBank.name, id: legacyCashAndBank.id };
+    if (existing) return { name: existing.name, id: existing.id };
     const created = Entity.create('Cash at Bank', assetId, userId);
-    // A real, confirmed bug found directly: the very first-ever
-    // resolution for a business (no "Cash at Bank" node of its own
-    // yet at all) returned this brand-new, plain base leaf
-    // unconditionally - ignoring any requested currency entirely,
-    // unlike the "already exists" branch just below, which already,
-    // correctly lazily tags it. A business's first-ever sale, in a
-    // genuine foreign/nominated currency, landed Cash in the home
-    // group while Revenue/Tax/COGS correctly landed in the real,
-    // requested currency's own group - "entry does not balance (per
-    // currency)" on literally the first sale, every time.
-    const homeCurrency = getBusinessHomeCurrency(business) ?? undefined;
-    const effectiveCurrency = currency ?? homeCurrency;
-    if (!effectiveCurrency || effectiveCurrency === homeCurrency) return { name: created.name, id: created.id };
-    return ensureCurrencyAccount(created.id, effectiveCurrency, userId);
+    return { name: created.name, id: created.id };
   }
+
+  // Foreign/nominated-currency case: always built on "Cash at Bank"
+  // specifically - buildBankCurrencyStructure's own, established,
+  // dedicated currency-structure root (docs/multicurrency-design.md)
+  // - get-or-created fresh here if it doesn't exist yet, entirely
+  // independent of whatever plain/home-currency leaf this business's
+  // ordinary, undifferentiated postings actually use ("Cash and Bank"
+  // for 'admin', "Cash at Bank" for everyone else). A real, confirmed
+  // bug found directly: once 'admin' started falling back to its own,
+  // legacy "Cash and Bank" leaf above, a later, genuinely different
+  // foreign-currency sale's own currency-tagged sibling must still be
+  // named "Cash at Bank (USD)" per docs/multicurrency-design.md's own,
+  // already-established worked example and naming convention - never
+  // "Cash and Bank (USD)", which nothing else expects.
+  const currencyBase = existing ?? Entity.create('Cash at Bank', assetId, userId);
   // A real, confirmed, live bug found directly via the tutorial e2e's
   // own post-rollover sale (a real, further e2e extension, per direct
-  // instruction): Entity.children(existing.id) also picks up a real,
-  // further kind of child this same, real CoA leaf can carry -
+  // instruction): Entity.children(currencyBase.id) also picks up a
+  // real, further kind of child this same, real CoA leaf can carry -
   // resolveRolloverLines' own, real, ledger-scoped node, named after
   // the ledger itself (e.g. "Actual 2027-28", relation_id pointing at
   // that real ledger - see docs/ledger-scoped-accounts-and-
@@ -282,10 +308,7 @@ export function resolveCashAtBankAccount(business: BusinessName, currency: strin
   // === 0) broke the moment this business's first real rollover ran,
   // since the ledger-scoped child made children.length > 0 while
   // matching no real currency at all.
-  const currencyLeaves = Entity.children(existing.id).filter((c) => /\([A-Za-z]{3}\)$/.test(c.name));
-  const homeCurrency = getBusinessHomeCurrency(business) ?? undefined;
-  const effectiveCurrency = currency ?? homeCurrency;
-  if (!effectiveCurrency || effectiveCurrency === homeCurrency) return { name: existing.name, id: existing.id };
+  const currencyLeaves = Entity.children(currencyBase.id).filter((c) => /\([A-Za-z]{3}\)$/.test(c.name));
   const existingLeaf = currencyLeaves.find((c) => c.name.endsWith(`(${effectiveCurrency})`));
   if (existingLeaf) return existingLeaf;
   // A real, confirmed bug found directly, posting a real foreign-
@@ -301,7 +324,7 @@ export function resolveCashAtBankAccount(business: BusinessName, currency: strin
   // always failed with "entry does not balance (per currency)" (every
   // other leg correctly tagged, Cash alone landing in the home group).
   // Cash deserves the exact, same, already-proven treatment.
-  return ensureCurrencyAccount(existing.id, effectiveCurrency, userId);
+  return ensureCurrencyAccount(currencyBase.id, effectiveCurrency, userId);
 }
 
 /** Replaces a direct read of the chart_of_accounts view - confirmed,
