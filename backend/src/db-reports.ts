@@ -270,11 +270,25 @@ export function resolveCashAtBankAccount(business: BusinessName, currency: strin
   // since the ledger-scoped child made children.length > 0 while
   // matching no real currency at all.
   const currencyLeaves = Entity.children(existing.id).filter((c) => /\([A-Za-z]{3}\)$/.test(c.name));
-  if (currencyLeaves.length === 0) return { name: existing.name, id: existing.id };
-  const effectiveCurrency = currency ?? getBusinessHomeCurrency(business) ?? undefined;
-  const leaf = currencyLeaves.find((c) => effectiveCurrency && c.name.endsWith(`(${effectiveCurrency})`));
-  if (!leaf) throw new ValidationError(`"${business}" has no real "Cash at Bank" account for ${effectiveCurrency ?? 'its own home currency'} - see buildBankCurrencyStructure.`);
-  return leaf;
+  const homeCurrency = getBusinessHomeCurrency(business) ?? undefined;
+  const effectiveCurrency = currency ?? homeCurrency;
+  if (!effectiveCurrency || effectiveCurrency === homeCurrency) return { name: existing.name, id: existing.id };
+  const existingLeaf = currencyLeaves.find((c) => c.name.endsWith(`(${effectiveCurrency})`));
+  if (existingLeaf) return existingLeaf;
+  // A real, confirmed bug found directly, posting a real foreign-
+  // currency POS sale for the first time: completePosSale's own
+  // documented design (docs/multicurrency-design.md) redirects every
+  // real leg of such a sale - Revenue, Tax, COGS, AND Cash - to its
+  // own, real, currency-tagged sibling via ensureCurrencyAccount,
+  // created lazily the first time it's needed. Cash alone was the one
+  // leg this function left out of that lazy-create pattern, throwing
+  // or silently falling back to the plain, home-currency leaf instead
+  // whenever buildBankCurrencyStructure hadn't already, separately,
+  // pre-built a matching one - so the very first foreign-currency sale
+  // always failed with "entry does not balance (per currency)" (every
+  // other leg correctly tagged, Cash alone landing in the home group).
+  // Cash deserves the exact, same, already-proven treatment.
+  return ensureCurrencyAccount(existing.id, effectiveCurrency, userId);
 }
 
 /** Replaces a direct read of the chart_of_accounts view - confirmed,
