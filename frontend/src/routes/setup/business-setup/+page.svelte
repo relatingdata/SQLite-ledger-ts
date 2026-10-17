@@ -128,7 +128,18 @@
     try {
       const treeEntities = await getEntityTree();
       const biz = treeEntities.find((e) => e.name === session.current!.businessName);
-      const locationsId = biz ? treeEntities.find((e) => e.name === 'Locations' && e.parent_id === biz.id)?.id : undefined;
+      // The modern shape every business created through the
+      // application itself actually has (a plain "Locations" child),
+      // with a real, read-only fallback to the legacy, combined
+      // "${businessName} Locations" root name one specific,
+      // pre-existing demo business ("Wine Retail Business") still
+      // uses — the same, real compatibility resolveBusinessLocationsRootId
+      // (backend/src/db.ts) applies server-side, mirrored here since
+      // this lookup runs against the already-fetched tree client-side.
+      const locationsId = biz
+        ? (treeEntities.find((e) => e.name === 'Locations' && e.parent_id === biz.id) ??
+          treeEntities.find((e) => e.name === `${session.current!.businessName} Locations` && e.parent_id === biz.id))?.id
+        : undefined;
       await createEntity({ name: newLocationName.trim(), parentId: locationsId });
       await saveLocation(
         newLocationName.trim(),

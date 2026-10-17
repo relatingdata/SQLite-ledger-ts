@@ -1,7 +1,7 @@
 import { db } from './db.js';
 import { runInSessionContext } from './session-context.js';
 import {
-  supersedeEntity, asEntityId, setItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeItemName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId, type TypedNode } from './db.js';
+  supersedeEntity, asEntityId, setItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, requireEntity, requireEntityById, resolveBusinessLocationsRootId, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeItemName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId, type TypedNode } from './db.js';
 import { Entity } from './primitives.js';
 import { loadAllTranslations } from '../../shared-fixtures/translations.js';
 import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels, loadDemoUpcs } from '../../shared-fixtures/wine-retail-demo-data.js';
@@ -575,9 +575,22 @@ function seedWineRetailEmployees() {
   }
 
   const staff: StaffDef[] = [
-    // Lakeside Cellars (Springfield) — retail, at least two
-    { name: 'Chloe Ferraro', role: 'Retail Assistant', location: 'Lakeside Cellars', city: 'Springfield', address: '14 Willow Court', phone: '0412 558 213', wageMinorPerHour: 2850, employedAt: 'Lakeside Cellars' },
-    { name: 'Jack Whitfield', role: 'Retail Assistant', location: 'Lakeside Cellars', city: 'Springfield', address: '27 Alderney Street', phone: '0433 902 447', wageMinorPerHour: 2850, employedAt: 'Lakeside Cellars' },
+    // Riverside Cellars (Springfield) — retail, at least two
+    // employees. Per a real, confirmed, cross-business data-integrity
+    // bug found directly: this used to say "Lakeside Cellars", which
+    // is NOT one of Wine Retail Business's own, real, raw-SQL-seeded
+    // locations (backend/schema/20-demo-wine-retail.sql) — it is the
+    // 'admin' business's own, separately-seeded demo location of that
+    // same name (shared-fixtures/locations.csv, via
+    // migrateForWineRetailDemoData/loadDemoLocations). The bare,
+    // unscoped setRelationship(...) calls below silently resolved
+    // "Lakeside Cellars" to that unrelated entity instead of failing,
+    // cross-wiring these two employees' "Belongs To Group" onto the
+    // wrong business's location entirely. "Riverside Cellars" is this
+    // business's actual, real location at the same, equivalent
+    // narrative position.
+    { name: 'Chloe Ferraro', role: 'Retail Assistant', location: 'Riverside Cellars', city: 'Springfield', address: '14 Willow Court', phone: '0412 558 213', wageMinorPerHour: 2850, employedAt: 'Riverside Cellars' },
+    { name: 'Jack Whitfield', role: 'Retail Assistant', location: 'Riverside Cellars', city: 'Springfield', address: '27 Alderney Street', phone: '0433 902 447', wageMinorPerHour: 2850, employedAt: 'Riverside Cellars' },
     // Uptown Wine & Spirits (Springfield) — retail, at least two
     { name: 'Priya Nandakumar', role: 'Retail Assistant', location: 'Uptown Wine & Spirits', city: 'Springfield', address: '9 Blackwood Lane', phone: '0421 774 038', wageMinorPerHour: 2850, employedAt: 'Uptown Wine & Spirits' },
     { name: 'Ryan Delacroix', role: 'Retail Assistant', location: 'Uptown Wine & Spirits', city: 'Springfield', address: '52 Fenwick Road', phone: '0455 129 806', wageMinorPerHour: 2850, employedAt: 'Uptown Wine & Spirits' },
@@ -649,15 +662,28 @@ function seedWineRetailEmployees() {
   // Group -> (belongs to) Location -> (place of employment) Employee.
   const locationGroups: Record<string, string> = {
     'Head Office': 'Head Office',
-    'Lakeside Cellars': 'Lakeside Cellars',
+    'Riverside Cellars': 'Riverside Cellars',
     'Uptown Wine & Spirits': 'Uptown Wine & Spirits',
     'Warehouse B': 'Warehouse B',
     'Harbourside Bottle Shop': 'Harbourside Bottle Shop',
     'Market Square Liquor': 'Market Square Liquor',
     'Eastside Cellar Door': 'Eastside Cellar Door',
   };
+  // Scoped to this business's own, real Locations root (legacy-root
+  // aware — see resolveBusinessLocationsRootId), not a bare name
+  // lookup — per the exact, same bare-name bug class this file has
+  // already been fixed for elsewhere (db-stock.ts's setLocation/
+  // getLocation), caught directly here: "Head Office" exists under
+  // both this business and 'admin' (coincidentally resolving right,
+  // by low-id ordering luck, under the old bare lookup), but a bare
+  // lookup is one unlucky id ordering away from silently cross-wiring
+  // any of these onto an unrelated business's same-named location.
+  const wineRetailLocationsRootId = resolveBusinessLocationsRootId('Wine Retail Business');
+  const locationBelongsToWineRetail = (locationName: string) =>
+    !!wineRetailLocationsRootId &&
+    !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, wineRetailLocationsRootId);
   for (const [locationName, groupName] of Object.entries(locationGroups)) {
-    if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(locationName) && db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(groupName)) {
+    if (locationBelongsToWineRetail(locationName) && db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(groupName)) {
       setRelationship(locationName, 'Belongs To Group', groupName, SEED_USER_ID);
     }
   }

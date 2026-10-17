@@ -1202,6 +1202,34 @@ export function getHierarchy(rootName: string, relationshipType?: string): Hiera
   return buildNode(rootId, rootName, 0);
 }
 
+/** Resolves the real, single root entity a business's own real
+ * locations live directly under - the modern "Locations" child every
+ * business created through the application itself gets
+ * (PER_BUSINESS_ROOTS), or, as a real, confirmed, read-only fallback,
+ * the legacy, combined "${businessName} Locations" root name one
+ * specific, pre-existing demo business ("Wine Retail Business",
+ * backend/schema/20-demo-wine-retail.sql) still uses, predating that
+ * convention. Found directly: getOrganizationChart, setLocation, and
+ * getLocation each duplicated the exact, same modern-shape-only
+ * lookup, so this one business's own real locations were invisible to
+ * all three - its Business Setup tree showed no groups at all, and
+ * creating or saving a location against it failed outright. Fixed
+ * here, once, rather than three times, and deliberately NOT by
+ * migrating this large, pre-existing demo dataset onto the modern
+ * shape (a real, separate, riskier undertaking) - every business
+ * created going forward always gets the modern shape directly, so
+ * this fallback is read-only and never needed for new data. */
+export function resolveBusinessLocationsRootId(businessName: string): number | undefined {
+  const businessId = (
+    db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined
+  )?.id;
+  if (!businessId) return undefined;
+  const modern = db.prepare(`SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = ?`).get(businessId) as { id: number } | undefined;
+  if (modern) return modern.id;
+  const legacy = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(`${businessName} Locations`, businessId) as { id: number } | undefined;
+  return legacy?.id;
+}
+
 export function getOrganizationChart(businessName: BusinessName): OrganizationChart {
   const businessRows = getEntitiesWithRelationship('Belongs To Business').filter((r) => r.target === businessName);
   const locationRows = getEntitiesWithRelationship('Belongs To Group');
@@ -1224,15 +1252,11 @@ export function getOrganizationChart(businessName: BusinessName): OrganizationCh
   // Filter group-only-by-location-relationship names to genuinely
   // real ones belonging to this business — a location's own city or
   // structural home under this exact business's own Locations.
+  const businessLocationsRootId = resolveBusinessLocationsRootId(businessName);
   const businessLocationNames = new Set(
-    (
-      db
-        .prepare(
-          `SELECT e.name FROM current_entities e
-           WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`
-        )
-        .all(businessName) as { name: string }[]
-    ).map((r) => r.name)
+    businessLocationsRootId
+      ? ((db.prepare(`SELECT e.name FROM current_entities e WHERE e.parent_id = ?`).all(businessLocationsRootId) as { name: string }[]).map((r) => r.name))
+      : []
   );
 
   const groups: OrgChartGroup[] = [...businessGroupNames]
@@ -3092,15 +3116,13 @@ export function openStorageContainer(
     throw new ValidationError(`"${locationName}" has no real bottle shelving (bottle capacity is not set) - a sealed carton cannot be opened into loose bottles here, since there is nowhere for them to go.`);
   }
   if (!resolveItemId(itemName)) throw new ValidationError(`No item named "${itemName}".`);
-  const locationId = (
-    db.prepare(
-      `SELECT id FROM current_entities WHERE name = ? AND parent_id IN (
-         SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)
-         UNION
-         SELECT id FROM current_entities WHERE name = ? || ' Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)
-       )`
-    ).get(locationName, business, business, business) as { id: number } | undefined
-  )?.id;
+  // Legacy-root aware (see resolveBusinessLocationsRootId above) -
+  // the same, shared helper every other call site with this exact
+  // gap now uses, not a locally duplicated fallback query.
+  const locationsRootId = resolveBusinessLocationsRootId(business);
+  const locationId = locationsRootId
+    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, locationsRootId) as { id: number } | undefined)?.id
+    : undefined;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   const storageRoot = ensureLocationStorageRoot(business, locationName, userId);
   const { remainingId, occupiedId } = ensureStorageCapacityStructure(storageRoot, userId);
@@ -7170,9 +7192,14 @@ export function getFinancialStatementNotes(businessName: BusinessName): { name: 
  * this business's own, real, scoped "Locations" root directly - never
  * a bare, ambiguous name. */
 export function createLocation(businessName: BusinessName, locationName: string, userId: UserId): TypedNode<'LocationEntityName'> {
-  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
-  const locationsRoot = requireEntity('Locations', typeRootName, business);
-  return create(locationsRoot, typeLocationEntityName, locationName, userId);
+  // Legacy-root aware (see resolveBusinessLocationsRootId above) - a
+  // bare requireEntity('Locations', ...) throws outright for one,
+  // specific, pre-existing demo business ("Wine Retail Business")
+  // that still uses the legacy, combined-name root, confirmed
+  // directly: creating a new location against it failed every time.
+  const locationsRootId = resolveBusinessLocationsRootId(businessName);
+  if (!locationsRootId) throw new ValidationError(`"${businessName}" has no Locations root to create a location under.`);
+  return create({ id: asEntityId(locationsRootId), name: 'Locations' as string & { __brand: 'RootName' } }, typeLocationEntityName, locationName, userId);
 }
 
 /** The one, real, atomic way a new location is genuinely created,
@@ -7311,7 +7338,12 @@ export function getBusinessConfigurationReport(businessName: BusinessName): Busi
 
   const hierarchies = getBusinessHierarchy(businessName);
 
-  const locationsRootId = entities.find((e) => e.name === 'Locations' && e.parent_id === business.id)?.id;
+  // Legacy-root aware (see resolveBusinessLocationsRootId above) -
+  // the real "Locations" child, or, for one, specific, pre-existing
+  // demo business ("Wine Retail Business"), its legacy, combined-name
+  // root. Without this, this report silently showed zero locations
+  // for that one business, exactly like getOrganizationChart used to.
+  const locationsRootId = resolveBusinessLocationsRootId(businessName);
   const locationEntities = locationsRootId ? entities.filter((e) => e.parent_id === locationsRootId) : [];
   const locations = locationEntities.map((e) => {
     const loc = getLocation(e.name);

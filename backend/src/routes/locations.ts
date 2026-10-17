@@ -52,6 +52,7 @@ import {
   createLocationType,
   nominateLocationCurrency,
   getLocationCurrencies,
+  resolveBusinessLocationsRootId,
 } from '../db.js';
 
 export const locationsRouter = Router();
@@ -60,9 +61,13 @@ locationsRouter.get('/', (req, res) => {
   const business = req.query.business as string;
   if (!business) return res.status(400).json({ error: 'business query parameter is required — locations are scoped per business.' });
   const entities = getEntityTree();
-  const bizEntity = entities.find((e) => e.name === business);
-  const locationsParent = bizEntity ? entities.find((e) => e.name === 'Locations' && e.parent_id === bizEntity.id) : undefined;
-  const locationEntities = locationsParent ? entities.filter((e) => e.parent_id === locationsParent.id) : [];
+  // Legacy-root aware (see resolveBusinessLocationsRootId, backend/
+  // src/db.ts) — the same, exact "Locations" child requirement this
+  // route used to apply directly, plus a real, read-only fallback for
+  // the one, specific, pre-existing demo business ("Wine Retail
+  // Business") that still uses the legacy, combined-name root.
+  const locationsParentId = resolveBusinessLocationsRootId(business);
+  const locationEntities = locationsParentId ? entities.filter((e) => e.parent_id === locationsParentId) : [];
   const result = locationEntities.map((e) => ({ name: e.name, ...getLocation(e.name) }));
   res.json(result);
 });

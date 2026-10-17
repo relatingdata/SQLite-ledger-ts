@@ -2,7 +2,7 @@
 
 import { DateTime } from 'luxon';
 import { db } from './db.js';
-import { ensureStorageCapacityStructure, ensureLocationStorageRoot } from './db.js';
+import { ensureStorageCapacityStructure, ensureLocationStorageRoot, resolveBusinessLocationsRootId } from './db.js';
 import { Entity, Link, Balance } from './primitives.js';
 import { Session } from './session-context.js';
 import {
@@ -141,7 +141,10 @@ export function setLocation(name: string, location: Location, business?: Busines
   // found - the business is now genuinely nameable as anything,
   // "admin" included, without depending on being the only match.
   const id = (business
-    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`).get(name, business) as { id: number } | undefined)
+    ? (() => {
+        const rootId = resolveBusinessLocationsRootId(business);
+        return rootId ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, rootId) as { id: number } | undefined) : undefined;
+      })()
     : (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name) as { id: number } | undefined)
   )?.id;
   if (!id) throw new ValidationError(`No location named "${name}".`);
@@ -199,12 +202,18 @@ export function setLocation(name: string, location: Location, business?: Busines
 // fix, caught directly by testing it, not merely by reasoning about it.
 export function getLocation(name: string, business?: BusinessName): Location | undefined {
   const row = (business
-    ? db.prepare(
-        `SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone, e.id as entity_id
-         FROM contact c
-         JOIN current_entities e ON e.id = c.entity_id
-         WHERE e.name = ? AND e.parent_id = (SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`
-      ).get(name, business)
+    ? (() => {
+        const rootId = resolveBusinessLocationsRootId(business);
+        if (!rootId) return undefined;
+        return db
+          .prepare(
+            `SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone, e.id as entity_id
+             FROM contact c
+             JOIN current_entities e ON e.id = c.entity_id
+             WHERE e.name = ? AND e.parent_id = ?`
+          )
+          .get(name, rootId);
+      })()
     : db.prepare(
         `SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone, e.id as entity_id
          FROM contact c JOIN current_entities e ON e.id = c.entity_id WHERE e.name = ?`
@@ -411,18 +420,14 @@ export function ensureLocationCapacityAccount(business: BusinessName, ledger: Le
   // real, already-documented gap (docs/multi-dimensional-reporting.md
   // §2, confirmed directly in test's own getHierarchyChain assertion):
   // its own Locations root is named "{business} Locations", not the
-  // standard "Locations" every other business uses. Tolerated here with
-  // an explicit fallback, not silently masked - the standard name is
-  // always tried first.
-  const locationId = (
-    db.prepare(
-      `SELECT id FROM current_entities WHERE name = ? AND parent_id IN (
-         SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))
-         UNION
-         SELECT id FROM current_entities WHERE name = ? || ' Locations' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))
-       )`
-    ).get(locationName, business, business, business) as { id: number } | undefined
-  )?.id;
+  // standard "Locations" every other business uses. Tolerated here via
+  // the same, shared resolveBusinessLocationsRootId helper every other
+  // call site with this exact gap now uses too, not a locally
+  // duplicated fallback query.
+  const locationsRootId = resolveBusinessLocationsRootId(business);
+  const locationId = locationsRootId
+    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, locationsRootId) as { id: number } | undefined)?.id
+    : undefined;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   const loc = getLocation(locationName, business);
   const unit: 'bottle' | 'carton' = loc?.bottle_capacity != null ? 'bottle' : 'carton';
