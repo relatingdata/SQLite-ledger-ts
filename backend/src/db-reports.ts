@@ -1,6 +1,6 @@
 import { db, getQualifiedDisplayName, getCombinationDisplayName, resolveBusinessCoaAccountId } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
-import { ValidationError, getEntityTree, stageLine, postJournalEntry, getHierarchyGroups, getHierarchyParent, getHierarchyChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, getAccountProfitCenter, setActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { ValidationError, getEntityTree, stageLine, postJournalEntry, getHierarchyGroups, getHierarchyParent, getHierarchyChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, getBusinessHomeCurrency, getAccountProfitCenter, setActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 
 // ---------------------------------------------------------------------------
@@ -237,11 +237,20 @@ export function ensureProfitCenterRetainedEarningsAccount(baseAccountId: number,
  *     resolved by the requested currency, falling back to this
  *     business's own home currency. */
 export function resolveCashAtBankAccount(business: BusinessName, currency: string | undefined, userId: UserId): { name: string; id: number } {
-  const businessRow = requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
-  const assetRow = requireEntity('Asset', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, businessRow));
-  const existing = Entity.getUnder('Cash at Bank', assetRow.id);
+  requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
+  // A real, confirmed bug found directly: a bare requireEntity('Asset',
+  // typeRootName, <this business's own Chart of Accounts>) always
+  // failed for 'admin' - schema/00-core.sql's own "the one legacy,
+  // pre-multi-tenancy demo business" - since its own CoA copy has no
+  // real category children at all (it posts directly against the
+  // GLOBAL Chart of Accounts instead). resolveBusinessCoaAccountId is
+  // the same, real, established, already-proven fallback this exact
+  // class of bug was already fixed with elsewhere (Sales Revenue/COGS/
+  // Inventory resolution, just below in this same file).
+  const assetId = resolveBusinessCoaAccountId(business, 'Asset');
+  const existing = Entity.getUnder('Cash at Bank', assetId);
   if (!existing) {
-    const created = Entity.create('Cash at Bank', assetRow.id, userId);
+    const created = Entity.create('Cash at Bank', assetId, userId);
     return { name: created.name, id: created.id };
   }
   // A real, confirmed, live bug found directly via the tutorial e2e's
