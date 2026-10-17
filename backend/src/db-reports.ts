@@ -662,11 +662,21 @@ export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerNa
   // (the overwhelming majority) keeps its own, plain, real name
   // unchanged, never over-qualified. Scoped to only the real accounts
   // that actually, genuinely have a balance in this specific
-  // business/ledger (balances' own keys) - a real, confirmed bug,
-  // found directly: counting across every account in the entire,
-  // global database (every other business, every other test) created
-  // coincidental collisions with completely unrelated accounts.
-  const relevantAccounts = accounts.filter((a) => balances.has(a.id));
+  // business/ledger - a real, confirmed bug, found directly:
+  // getLedgerBalances' own Map already carries a (possibly zero)
+  // entry for every reportable account system-wide (every other
+  // business, every other test), since its own SQL walks every
+  // business's "Chart of Accounts" node, not just this one's — so
+  // `balances.has(a.id)` was true for virtually every account in the
+  // whole database regardless of business, defeating the scoping this
+  // comment already describes. Checking the actual balance VALUE is
+  // nonzero (not just key presence) is what genuinely, correctly
+  // excludes every other business's own, unrelated, same-named
+  // account — confirmed directly: a second business vivifying its own
+  // "Sales Revenue" account elsewhere in the same suite run was
+  // wrongly qualifying a completely unrelated business's own, genuine
+  // "Sales Revenue" row here into "Income — Sales Revenue".
+  const relevantAccounts = accounts.filter((a) => (balances.get(a.id) ?? 0) !== 0);
   const nameCounts = new Map<string, number>();
   for (const a of relevantAccounts) nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1);
 

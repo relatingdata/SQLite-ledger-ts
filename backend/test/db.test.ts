@@ -3044,6 +3044,17 @@ test('getBalanceSheet: a real close must not leave Current Year Earnings still s
 
 test("closeBooks: per direct correction, division is only a real, pure sub-totaling/reporting dimension - every division's net income rolls into the exact same, single, chosen Retained Earnings account, never a separate, division-specific one", () => {
   const biz = createBusiness(asBusinessName('MultiDivCloseTest Co'), '2027-28', asUserId(1));
+  // A real, confirmed finding: "Sales Revenue" (unlike "Cost of Goods
+  // Sold") genuinely carries a real "% CoA" prototype tag
+  // (copyChartOfAccountsInto), deliberately gated behind a real
+  // coaPrototype choice the same way every other structural category
+  // is - this business, created with none (matching this test's own,
+  // deliberate "using the already-shared Chart of Accounts" intent
+  // elsewhere in this file), genuinely has no "Sales Revenue" category
+  // of its own yet. Created explicitly here instead of switching to a
+  // coaPrototype, which would pull in a wider set of prototype-tagged
+  // categories this test was never written to expect.
+  create(requireEntity('Income', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName)))), typeRootName, 'Sales Revenue', asUserId(1));
   create(requireEntity('Application', typeRootName), typeRootName, 'MultiDivCloseTest Retail Division', asUserId(1));
   create(requireEntity('Application', typeRootName), typeRootName, 'MultiDivCloseTest Wholesale Division', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'MultiDivCloseTest Retail Outlet', asUserId(1));
