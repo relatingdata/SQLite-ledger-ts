@@ -285,12 +285,32 @@ export function getChartOfAccounts(business: string): ChartRow[] {
   // "Chart of Accounts > ") - only the base case's root lookup is
   // scoped to this one, specific business, in place of the view's
   // bare, unscoped `WHERE e.name = 'Chart of Accounts'`.
-  return db
+  const rows = db
     .prepare(
       `WITH RECURSIVE walk(id, name, depth, path) AS (
         SELECT e.id, e.name, 0, e.name
         FROM current_entities e
-        WHERE e.id = (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ?))
+        -- Same two, real, stacked bugs already found and fixed in
+        -- getBusinessReports, just above: (1) the business-name lookup
+        -- must be scoped to 'Businesses', since a bare lookup collides
+        -- with the admin login user (same name, different entity) and
+        -- (2) 'admin' (schema/00-core.sql's own "the one legacy,
+        -- pre-multi-tenancy demo business" comment) never got its own,
+        -- separate Chart of Accounts copy - it posts directly against
+        -- the GLOBAL one, so falls back to that root, the same,
+        -- already-established COALESCE-fallback pattern
+        -- post_journal_entry_insert documents, when this business's
+        -- own Chart of Accounts has no real category child at all
+        -- (relation_id IS NOT NULL) to find.
+        WHERE e.id = CASE
+          WHEN EXISTS (
+            SELECT 1 FROM current_entities cc
+            WHERE cc.parent_id = (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))
+            AND cc.relation_id IS NOT NULL
+          )
+          THEN (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))
+          ELSE (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application'))
+        END
         UNION ALL
         SELECT e.id, e.name, w.depth + 1, w.path || ' > ' || e.name
         FROM current_entities e JOIN walk w ON e.parent_id = w.id
@@ -301,7 +321,56 @@ export function getChartOfAccounts(business: string): ChartRow[] {
       WHERE w.depth >= 1
       ORDER BY w.path`
     )
-    .all(business) as ChartRow[];
+    .all(business, business) as ChartRow[];
+
+  // Per the same, established "Header Account" hierarchy mechanism
+  // getBusinessReports' own balance-sheet totals already use (see
+  // sumHierarchyDescendants above): a real Customer/Vendor/any other
+  // contact genuinely, structurally lives outside the Chart of
+  // Accounts entirely (Customers/Vendors are real Vocabulary words —
+  // their own, real "source of truth" home), while still reaching a
+  // real CoA heading for reporting purposes via that hierarchy link.
+  // Without this, a real, vivified customer account (one that has
+  // actually posted) was simply missing from this report altogether,
+  // even though it has a real, genuine balance. Generic, not
+  // hardcoded to "Customers"/"Vendors" by name — any real leaf this
+  // walk already found that some entity has set as its own "Header
+  // Account" is merged in here, nested under that leaf's own path.
+  const linkedRows: ChartRow[] = [];
+  for (const row of rows) {
+    for (const childRootName of getHierarchyChildren(row.name, 'Header Account')) {
+      const childRoot = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(childRootName) as { id: number } | undefined;
+      if (!childRoot) continue;
+      const descendants = db
+        .prepare(
+          `WITH RECURSIVE walk(id, name, depth, path) AS (
+            SELECT e.id, e.name, 0, e.name
+            FROM current_entities e WHERE e.id = ?
+            UNION ALL
+            SELECT e.id, e.name, w.depth + 1, w.path || ' > ' || e.name
+            FROM current_entities e JOIN walk w ON e.parent_id = w.id
+            -- Structural plumbing the hierarchy/contact-type link
+            -- mechanisms create as real, named child entities of their
+            -- own (e.g. "Acme Corp — Contact Type: Customer") — never
+            -- real accounts, so excluded here the same way this report
+            -- already only shows real CoA leaves, not its own internal
+            -- wiring.
+            WHERE e.name NOT LIKE '% — Hierarchy: %' AND e.name NOT LIKE '% — Contact Type: %'
+          )
+          SELECT w.id, w.name, w.depth, w.path, a.accountnumber, a.balance_minor
+          FROM walk w
+          LEFT JOIN account a ON a.entity_id = w.id
+          WHERE w.depth >= 1
+          ORDER BY w.path`
+        )
+        .all(childRoot.id) as ChartRow[];
+      for (const d of descendants) {
+        linkedRows.push({ ...d, depth: row.depth + d.depth, path: `${row.path} > ${d.path}` });
+      }
+    }
+  }
+
+  return [...rows, ...linkedRows].sort((a, b) => a.path.localeCompare(b.path));
 }
 
 // ---------------------------------------------------------------------------

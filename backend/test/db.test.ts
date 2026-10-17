@@ -162,12 +162,8 @@ const {
   postSalesOrder,
   stageOrderDispatch,
   postOrderDispatch,
-  stageARSale,
-  postARSale,
   stageARReceipt,
   postARReceipt,
-  stageAPPurchase,
-  postAPPurchase,
   stageAPPayment,
   postAPPayment,
   getContact,
@@ -259,6 +255,7 @@ const {
   getContactTypes,
   getContactBaseAccounts,
   createProvider,
+  createCustomer,
   createEmployee,
   listPendingCustomers,
   verifyCustomer,
@@ -402,7 +399,17 @@ test('business_reports groups categories under their fixed report via relation_i
 });
 
 test('chart_of_accounts shows the real hierarchy including sub-accounts', () => {
-  const rows = getChartOfAccounts();
+  // A real, confirmed test-authoring bug: called with no business at
+  // all, so `business` arrived as `undefined` at runtime (tsx doesn't
+  // type-check test files, only transpiles them) - getChartOfAccounts'
+  // only other real call site (routes/reports.ts) always passes one.
+  // 'Acme Corp' is vivified under 'admin' (the business every other
+  // AR/AP test in this file already uses) right here, since this test
+  // runs before "a realistic set of transactions" (below) creates its
+  // own copy — posting to a name alone never vivifies it (confirmed
+  // directly in createInvoice, the real, live app flow).
+  createCustomer('Acme Corp', asUserId(1));
+  const rows = getChartOfAccounts('admin');
   assert.ok(rows.some((r) => r.name === 'Acme Corp' && r.path.includes('Accounts Receivable')));
 });
 
@@ -845,6 +852,23 @@ test('a realistic set of transactions — cash purchase, cash sale, AR sale, a r
   // reason about in isolation from everything else already posted
   // elsewhere in this test run.
   create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Worked Set Ledger', asUserId(1));
+  // A real, confirmed finding made fixing this test: posting to a
+  // brand-new counterparty name by itself never creates that
+  // counterparty as a real entity - confirmed directly in
+  // createInvoice, the real, live app flow, which throws
+  // "No customer/vendor named..." rather than vivifying one. This
+  // test used to get away with skipping this step only because the
+  // old, now-deleted stageARSale/postARSale trigger mechanism
+  // (docs/canned-journal-to-frontend-design.md) happened to vivify
+  // the counterparty as a side effect of its own; the live
+  // replacement (a plain General Journal post) correctly does not.
+  // Acme Supplies Pty Ltd needs to be a real, created entity before
+  // anything below can post against it by name. Acme Corp is already
+  // real by this point — created earlier, by "chart_of_accounts shows
+  // the real hierarchy including sub-accounts" above, which needs its
+  // own copy to exist; names here are global (entities_name_unique),
+  // so creating it a second time would collide.
+  createProvider('Acme Supplies Pty Ltd', asUserId(1));
 
   function post(reference: string, lines: { account: string; amount_minor: number; memo?: string }[]) {
     for (const line of lines) {
@@ -905,9 +929,23 @@ test('a realistic set of transactions — cash purchase, cash sale, AR sale, a r
   assert.equal(tb.total_debit_minor, tb.total_credit_minor, 'the whole set together must still balance');
 
   // Balance Sheet: Acme Corp (AR) and Acme Supplies (AP) should show up
-  // as real asset/liability balances, not just in the trial balance.
+  // in the real asset/liability totals, not just in the trial balance.
+  // A real, confirmed, structural difference between the two sides,
+  // found directly: createProvider places a real vendor as a direct,
+  // genuine child of the real CoA 'Accounts Payable' leaf itself (db.ts:
+  // createContact('Accounts Payable', ...)), so Acme Supplies Pty Ltd is
+  // already a real, ordinary descendant the standard category walk
+  // picks up on its own, real, distinct line - same as always.
+  // createCustomer, by contrast, places a real customer under
+  // 'Customers' (a Vocabulary word, its own real, separate, structural
+  // home, per schema/00-core.sql's own, direct, emphatic comment),
+  // reaching 'Accounts Receivable' only via the "Header Account"
+  // hierarchy link - so Acme Corp is combined there into one real,
+  // single 'Accounts Receivable' total, not its own distinct line
+  // (getChartOfAccounts, not the Balance Sheet, is the real place a
+  // per-customer breakdown lives, via that same hierarchy mechanism).
   const bs = getBalanceSheet(asBusinessName('admin'), asLedgerName('Worked Set Ledger'));
-  assert.ok(bs.assets.some((a) => a.name === 'Acme Corp' && a.debit_minor === 60000));
+  assert.ok(bs.assets.some((a) => a.name === 'Accounts Receivable' && a.debit_minor === 60000));
   assert.ok(bs.liabilities.some((l) => l.name === 'Acme Supplies Pty Ltd' && l.credit_minor === 30000));
   assert.equal(bs.total_assets_minor, bs.total_liabilities_minor + bs.total_equity_minor, 'the accounting equation must hold for this ledger too');
 
@@ -919,11 +957,23 @@ test('a realistic set of transactions — cash purchase, cash sale, AR sale, a r
 });
 
 test('AR Sale form: staging and posting creates the correct Debit AR / Credit Sales Revenue entry', () => {
-  stageARSale({ reference: 'ARF-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), customer: asCustomerName('Beta Pty Ltd'), amount_minor: 80000, transdate: '2027-07-01', description: 'Sale' });
-  postARSale('ARF-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
-
-  const detail = db.prepare(`SELECT count(*) c FROM ar_sale_staging`).get() as { c: number };
-  assert.equal(detail.c, 0, 'staging should be cleared after posting');
+  // stageARSale/postARSale (and the ar_sale_staging table/trigger
+  // behind them) were removed entirely, confirmed directly: nothing
+  // live ever called them (docs/canned-journal-to-frontend-design.md
+  // — "pure removal, not a rewrite," both the schema and the function
+  // are gone). The real, live way to record this exact fact (a
+  // customer owes money after a credit sale) is a plain General
+  // Journal entry — the one, real API every financial transaction
+  // goes through, per that same design doc's own opening line. Kept,
+  // not deleted, because "AR Receipt form" right below genuinely
+  // depends on Beta Pty Ltd owing this real $800.00 balance first.
+  // Beta Pty Ltd must be a real, created customer first — posting to a
+  // name alone never vivifies it (see the "a realistic set of
+  // transactions" test above for the full, real explanation).
+  createCustomer('Beta Pty Ltd', asUserId(1));
+  stageLine({ reference: 'ARF-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-07-01', account: asAccountName('Beta Pty Ltd'), amount_minor: 80000, memo: 'Sale' });
+  stageLine({ reference: 'ARF-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-07-01', account: asAccountName('Sales Revenue'), amount_minor: -80000 });
+  postJournalEntry('ARF-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   const beta = tb.rows.find((r) => r.name === 'Beta Pty Ltd');
@@ -940,8 +990,11 @@ test('AR Receipt form: staging and posting creates the correct Debit Cash / Cred
 });
 
 test('AP Purchase form: staging and posting creates the correct Debit expense/asset / Credit AP entry', () => {
-  stageAPPurchase({ reference: 'APF-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), vendor: asProviderName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 15000, transdate: '2027-07-01' });
-  postAPPurchase('APF-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
+  // stageAPPurchase/postAPPurchase removed entirely, same confirmed
+  // reason and same real, live replacement as "AR Sale form" above.
+  stageLine({ reference: 'APF-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-07-01', account: asAccountName('Office'), amount_minor: 15000 });
+  stageLine({ reference: 'APF-1', business: asBusinessName('admin'), ledger: asLedgerName('Actual'), transdate: '2027-07-01', account: asAccountName('Acme Supplies Pty Ltd'), amount_minor: -15000 });
+  postJournalEntry('APF-1', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual'));
   const acmeSupplies = tb.rows.find((r) => r.name === 'Acme Supplies Pty Ltd');
@@ -957,10 +1010,6 @@ test('AP Payment form: staging and posting creates the correct Debit AP / Credit
 
   const after = getTrialBalance(asBusinessName('admin'), asLedgerName('Actual')).rows.find((r) => r.name === 'Acme Supplies Pty Ltd')!.credit_minor;
   assert.equal(after, before - 5000, 'the vendor balance owed should decrease by exactly the payment amount');
-});
-
-test('AR/AP forms reuse the same atomic posting mechanism — an unbalanced-by-construction scenario is not reachable, but a bad reference is rejected clearly, consistent with every other post* function', () => {
-  assert.throws(() => postARSale('NEVER-STAGED', asBusinessName('admin'), asLedgerName('Actual'), asUserId(1)), NotFoundError);
 });
 
 test('reversing a posted entry creates a new entry with every line negated, and the net effect on balances is exactly zero', () => {
@@ -1384,9 +1433,17 @@ test('a recurring journal records who created it — every occurrence it generat
 });
 
 test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable, everything balances', () => {
+  // stageARSale/postARSale removed entirely, same confirmed reason as
+  // "AR Sale form" above — the old trigger's own tax split (customer
+  // debited amount+tax, revenue credited the base amount only, tax
+  // credited separately to Sales Tax Payable) is reproduced here as a
+  // plain, three-line General Journal entry, the real, live mechanism
+  // every financial transaction goes through.
   create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Tax Test Ledger AR', asUserId(1));
-  stageARSale({ reference: 'TAX-AR-1', business: asBusinessName('admin'), ledger: asLedgerName('Tax Test Ledger AR'), customer: asCustomerName('Acme Corp'), amount_minor: 100000, tax_minor: 10000, transdate: '2027-12-01' });
-  postARSale('TAX-AR-1', asBusinessName('admin'), asLedgerName('Tax Test Ledger AR'), asUserId(1));
+  stageLine({ reference: 'TAX-AR-1', business: asBusinessName('admin'), ledger: asLedgerName('Tax Test Ledger AR'), transdate: '2027-12-01', account: asAccountName('Acme Corp'), amount_minor: 110000 });
+  stageLine({ reference: 'TAX-AR-1', business: asBusinessName('admin'), ledger: asLedgerName('Tax Test Ledger AR'), transdate: '2027-12-01', account: asAccountName('Sales Revenue'), amount_minor: -100000 });
+  stageLine({ reference: 'TAX-AR-1', business: asBusinessName('admin'), ledger: asLedgerName('Tax Test Ledger AR'), transdate: '2027-12-01', account: asAccountName('Sales Tax Payable'), amount_minor: -10000 });
+  postJournalEntry('TAX-AR-1', asBusinessName('admin'), asLedgerName('Tax Test Ledger AR'), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Tax Test Ledger AR'));
   assert.equal(tb.rows.find((r) => r.name === 'Acme Corp')!.debit_minor, 110000, 'customer owes base + tax');
@@ -1396,9 +1453,13 @@ test('AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable
 });
 
 test('AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amount+tax, everything balances', () => {
+  // stageAPPurchase/postAPPurchase removed entirely, same confirmed
+  // reason and same real, live replacement as "AR Sale with tax" above.
   create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Tax Test Ledger AP', asUserId(1));
-  stageAPPurchase({ reference: 'TAX-AP-1', business: asBusinessName('admin'), ledger: asLedgerName('Tax Test Ledger AP'), vendor: asProviderName('Acme Supplies Pty Ltd'), expense_account: asAccountName('Office'), amount_minor: 50000, tax_minor: 5000, transdate: '2027-12-01' });
-  postAPPurchase('TAX-AP-1', asBusinessName('admin'), asLedgerName('Tax Test Ledger AP'), asUserId(1));
+  stageLine({ reference: 'TAX-AP-1', business: asBusinessName('admin'), ledger: asLedgerName('Tax Test Ledger AP'), transdate: '2027-12-01', account: asAccountName('Office'), amount_minor: 50000 });
+  stageLine({ reference: 'TAX-AP-1', business: asBusinessName('admin'), ledger: asLedgerName('Tax Test Ledger AP'), transdate: '2027-12-01', account: asAccountName('Purchases Tax Claimed'), amount_minor: 5000 });
+  stageLine({ reference: 'TAX-AP-1', business: asBusinessName('admin'), ledger: asLedgerName('Tax Test Ledger AP'), transdate: '2027-12-01', account: asAccountName('Acme Supplies Pty Ltd'), amount_minor: -55000 });
+  postJournalEntry('TAX-AP-1', asBusinessName('admin'), asLedgerName('Tax Test Ledger AP'), asUserId(1));
 
   const tb = getTrialBalance(asBusinessName('admin'), asLedgerName('Tax Test Ledger AP'));
   assert.equal(tb.rows.find((r) => r.name === 'Office')!.debit_minor, 50000);
@@ -1487,18 +1548,17 @@ test('invoice_line records genuinely per-line tax, never assumed uniform — one
   assert.equal(actualCorrectTotal, 3375);
 });
 
-test('AR Sale and AP Purchase also record an invoice_line, with no quantity/unit price concept at all (both null)', () => {
-  create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'Invoice Line Flat Ledger', asUserId(1));
-  const business = 'admin';
-  const ledger = 'Invoice Line Flat Ledger';
-  stageARSale({ reference: 'IL-FLAT-AR', business: asBusinessName(business), ledger: asLedgerName(ledger), customer: asCustomerName('Acme Corp'), amount_minor: 10000, tax_minor: 1000, transdate: '2027-05-01', description: 'Flat sale' });
-  postARSale('IL-FLAT-AR', asBusinessName(business), asLedgerName(ledger), asUserId(1));
-  const line = getInvoiceLine('IL-FLAT-AR', asBusinessName(business), asLedgerName(ledger))!;
-  assert.equal(line.quantity, null);
-  assert.equal(line.unit_price_minor, null);
-  assert.equal(line.amount_minor, 10000);
-  assert.equal(line.tax_minor, 1000);
-});
+// The old "AR Sale and AP Purchase also record an invoice_line, with
+// no quantity/unit price concept at all (both null)" test is removed
+// entirely, not rewritten: it tested a flat, quantity-less invoice_line
+// produced by stageARSale/postARSale's own dead trigger, and that
+// specific scenario (a plain customer-name sale, with no multi-line
+// invoice entity at all) has no live equivalent to reproduce it with —
+// the real, live mechanism (createInvoice/postInvoice,
+// docs/canned-journal-to-frontend-design.md) always builds a genuine,
+// multi-line invoice entity, never a flat, invoice-less fact. Nothing
+// to port; this is pure removal, matching that design doc's own
+// decision for the dead mechanism this test exercised.
 
 test('an ordinary General Journal posting records no invoice_line at all — it has no invoice concept', () => {
   create(requireEntity('Ledgers', typeRootName, requireEntity('admin', typeRootName, requireEntity('Businesses', typeRootName))), typeRootName, 'No Invoice Line Ledger', asUserId(1));
