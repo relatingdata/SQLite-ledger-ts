@@ -1310,6 +1310,25 @@ export function revokeEntity(id: number, userId: UserId): void {
   // was its phone number, its account number, when it was revoked),
   // consistent with everything else here never disappearing outright.
   db.prepare(`INSERT INTO entity_revoke (entity_id, revoked_by) VALUES (?, ?)`).run(id, userId);
+  // The revoke above only clears relation_id — by design (see
+  // entity_revoke's own schema comment), since that alone is enough
+  // for every relation_id-based consumer (getEntitiesWithRelationship,
+  // getOrganizationChart, getHierarchy: each already requires a live
+  // entity's relation_id to match, so one gone NULL already, correctly,
+  // drops out). It does nothing for a parent_id-based structural
+  // consumer (getEntityTree's own raw walk, getBusinessHierarchy, or
+  // any other plain `WHERE parent_id = ?`) — confirmed directly, a
+  // revoked entity stays visible under its old parent indefinitely
+  // there, since parent_id is carried forward unchanged. The two
+  // guards above (no children, no postings) mean a revoked entity is
+  // always a true, dependency-free leaf by the time we get here, so
+  // nothing is lost by also moving it out of its old structural
+  // position entirely, into a dedicated, out-of-the-way holding root —
+  // closing that one, real, remaining gap for every current and
+  // future parent_id-based consumer at once, not just this one.
+  const revokedRoot = requireEntity('Application', typeRootName);
+  Entity.ensureUnder('Revoked', revokedRoot.id, userId);
+  Entity.reparent(id, 'Revoked', userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -7350,10 +7369,16 @@ export function getBusinessConfigurationReport(businessName: BusinessName): Busi
     return { name: e.name, city: loc?.city ?? '', locationType: loc?.location_type ?? '' };
   });
 
-  const itemsRootId = entities.find((e) => e.name === 'Items' && e.parent_id === business.id)?.id;
+  // Legacy-root aware, the same, exact bare-name gap already found
+  // and fixed above for Locations: one, specific, pre-existing demo
+  // business ("Wine Retail Business") still seeds its own real Items
+  // root under the legacy, combined name ("${business} Items"), not
+  // the modern, plain "Items" child every business created through
+  // the application itself actually gets.
+  const itemsRootId = (entities.find((e) => e.name === 'Items' && e.parent_id === business.id) ?? entities.find((e) => e.name === `${businessName} Items` && e.parent_id === business.id))?.id;
   // A real category is any real, direct child of Items that itself
   // has at least one real child - the exact, same, established rule
-  // already used for the Items page's own category dropdown.
+  // already used for the Items page's own category tree.
   const categories = itemsRootId
     ? entities.filter((e) => e.parent_id === itemsRootId && entities.some((c) => c.parent_id === e.id)).map((e) => e.name)
     : [];

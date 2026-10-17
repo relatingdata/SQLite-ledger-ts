@@ -145,3 +145,8 @@ Check Profit And Loss Net Income Matches Recorded,data,,,,,1,businessName,,text
 Check Profit And Loss Net Income Matches Recorded,data,,,,,2,ledger,,text
 Check Profit And Loss Net Income Matches Recorded,data,,,,,3,fromDate,,text
 Check Profit And Loss Net Income Matches Recorded,data,,,,,4,toDate,,text
+Create User,data,,,createUserSimple,,1,username,,text
+Create User,data,,,createUserSimple,,2,password,,text
+Create User,data,,,createUserSimple,,3,roles,,text
+Set User Roles,data,,,setUserRolesSimple,,1,username,,text
+Set User Roles,data,,,setUserRolesSimple,,2,roles,,text

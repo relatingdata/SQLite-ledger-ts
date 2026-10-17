@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db, ValidationError, NotFoundError, supersedeEntity, ensureProductInstance, getActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { db, ValidationError, NotFoundError, supersedeEntity, revokeEntity, ensureProductInstance, getActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 import { hashPassword, verifyPassword } from './password.js';
 
@@ -90,7 +90,24 @@ export function setUserRoles(userId: number, roleNames: string[]): void {
     return { id: row.id, name };
   });
   const existingLinks = db.prepare(`SELECT link.id FROM current_entities link JOIN current_entities tag ON tag.parent_id = link.id AND tag.name = 'Role' AND tag.relation_id IS NOT NULL WHERE link.parent_id = ?`).all(userId) as { id: number }[];
-  for (const link of existingLinks) Entity.untag(link.id, 'Role', 1 as never);
+  // Untagging alone (the old behavior) only cleared the 'Role' tag's
+  // own relation_id — the link entity itself (e.g. "multirole1 — Role
+  // — Bookkeeper") stayed alive under the user, so re-granting the
+  // same role name later collided with it under entities_name_unique
+  // (confirmed directly: "setUserRoles changes what a session created
+  // afterward reflects", backend/test/auth.test.ts, and reproduced via
+  // the Tutorial e2e API path in shared-fixtures/tutorial-steps.csv).
+  // The real fix: revoke the whole link, not just its tag — the tag
+  // child must be revoked first (revokeEntity refuses to revoke an
+  // entity that still has children), which also moves it out from
+  // under the link via revokeEntity's own "Revoked" reparent (db.ts),
+  // so the link itself is then a true, childless leaf and can be
+  // revoked too, freeing the (userId, name) slot for a fresh grant.
+  for (const link of existingLinks) {
+    const tagNode = Entity.getUnder('Role', link.id);
+    if (tagNode) revokeEntity(tagNode.id, 1 as never);
+    revokeEntity(link.id, 1 as never);
+  }
   const userRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(userId) as { name: string };
   for (const role of roleIds) {
     const created = Entity.create(`${userRow.name} — Role — ${role.name}`, userId, 1 as never);

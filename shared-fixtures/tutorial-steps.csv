@@ -148,3 +148,17 @@
 "POS Sale In Ledger","Tutorial Wine Retail Business","Main Street Cellar","Actual 2027-28","Amber Ale 330ml","2","500"
 "Check Profit And Loss Positive","Tutorial Wine Retail Business","Actual 2027-28","",""
 "Check Trial Balance Total Matches Recorded","Tutorial Wine Retail Business","Actual",""
+
+# A real, separate, administrative scenario - reproducing, via this
+# same real API path (not a unit test), the exact, real two-call
+# sequence backend/test/auth.test.ts's own "setUserRoles changes what
+# a session created afterward reflects" already exercises: create a
+# user with one real role (Bookkeeper), then call setUserRoles again
+# naming an overlapping role set (Bookkeeper + Administrator). The
+# real role-link entity setUserRoles creates under the user
+# ("multirole1 — Role — Bookkeeper") is untagged, never revoked, by
+# the first call's own role removal - so the second call's attempt to
+# recreate the exact, same-named link collides with the still-live,
+# merely-untagged original under entities_name_unique.
+"Create User","multirole1","a-good-password","Bookkeeper"
+"Set User Roles","multirole1","Bookkeeper,Administrator"

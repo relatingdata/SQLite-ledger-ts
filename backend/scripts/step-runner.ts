@@ -12,6 +12,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { chromium, type Browser, type Page } from 'playwright';
 import * as db from '../src/db.js';
+import * as auth from '../src/auth.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -421,6 +422,30 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       paymentMethod: 'cash',
     }, userId);
   },
+  // Reproduces, via the real API path (auth.ts's own real
+  // createUser/setUserRoles, not a parallel test-only mechanism), the
+  // exact, real two-call sequence backend/test/auth.test.ts's
+  // "setUserRoles changes what a session created afterward reflects"
+  // already exercises as a unit test: create a user with one real
+  // role, then call setUserRoles a second time naming an overlapping
+  // role set. No real screen exists for driving this from the UI path
+  // (frontend/src/routes/setup/users/+page.svelte's own role grid is
+  // a dynamic, per-role checkbox column, not a stable, positional set
+  // of fields this registry's generic field_selector/field_type
+  // contract can drive honestly) - api_function only, the exact, same,
+  // honest shape already used above for Create Entity.
+  createUserSimple: (a) => {
+    auth.createUser(a.username, a.password, (a.roles || '').split(',').map((r) => r.trim()).filter(Boolean));
+  },
+  // The real, second call of the exact, same failing sequence - looks
+  // the just-created user up by username (the one, real, stable key
+  // this fixture's own data file carries), since setUserRoles itself
+  // takes a numeric userId, never a username.
+  setUserRolesSimple: (a) => {
+    const user = auth.listUsers().find((u) => u.username === a.username);
+    if (!user) throw new Error(`No such user "${a.username}" - Create User must run first.`);
+    auth.setUserRoles(user.id, (a.roles || '').split(',').map((r) => r.trim()).filter(Boolean));
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -542,6 +567,19 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
     const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
     const recorded = recordedNetIncome.get(plKey(a));
     return recorded !== undefined && recorded === pl.net_income_minor;
+  },
+  // Confirms a real Set User Roles step genuinely left the user with
+  // exactly the role set asked for - the real, direct assertion the
+  // failing unit test itself makes (via a fresh login's own
+  // user.roles), read here the exact, same, real way listUsers()
+  // itself already reports every other real user's role set, never a
+  // separate, parallel mechanism.
+  user_has_exact_roles: (a) => {
+    const user = auth.listUsers().find((u) => u.username === a.username);
+    if (!user) return false;
+    const expected = [...(a.roles || '').split(',').map((r) => r.trim()).filter(Boolean)].sort();
+    const actual = [...user.roles].sort();
+    return expected.length === actual.length && expected.every((r, i) => r === actual[i]);
   },
 };
 
