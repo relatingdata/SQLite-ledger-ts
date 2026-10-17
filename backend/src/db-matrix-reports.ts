@@ -413,14 +413,27 @@ export interface ProfitAndLossByAxisNode {
  * already uses, rather than importing further surface from
  * db-reports.ts. */
 function plAccountIds(entityIndex: Map<number, { name: string; parent_id: number | null }>): Set<number> {
-  const incomeId = [...entityIndex.entries()].find(([, e]) => e.name === 'Income')?.[0];
-  const expenseId = [...entityIndex.entries()].find(([, e]) => e.name === 'Expense')?.[0];
+  // A real, confirmed bug, found and fixed directly: "Income" and
+  // "Expense" are only genuinely global as REPORT CATEGORIES (per
+  // createBusiness's own doc comment) - every real business gets its
+  // own, real, separate "Income"/"Expense" entity (copyChartOfAccountsInto),
+  // a genuinely distinct id from the one, global template and from
+  // every other real business's own copy, all sharing the exact same,
+  // plain name. A bare .find() picked only the FIRST such entity
+  // (whichever happened to be iterated first), so every other real
+  // business's own P&L accounts silently failed this walk and were
+  // excluded from every axis-based report entirely. Collects every
+  // real entity named "Income"/"Expense", not just one.
+  const rootIds = new Set<number>();
+  for (const [id, e] of entityIndex.entries()) {
+    if (e.name === 'Income' || e.name === 'Expense') rootIds.add(id);
+  }
   const result = new Set<number>();
   for (const [id] of entityIndex.entries()) {
     let cur: number | undefined = id;
     let hops = 0;
     while (cur !== undefined && hops < 30) {
-      if (cur === incomeId || cur === expenseId) {
+      if (rootIds.has(cur)) {
         result.add(id);
         break;
       }
