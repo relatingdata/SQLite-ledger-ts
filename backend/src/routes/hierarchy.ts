@@ -5,6 +5,8 @@ import {
   ensureHierarchyGrouping,
   ensureHierarchyValue,
   setHierarchyParent,
+  getHierarchyParent,
+  deleteHierarchyParent,
   defineProductShape,
   getBusinessHierarchy,
   getBusinessProductShapes,
@@ -80,6 +82,57 @@ hierarchyRouter.post('/values', requireRole('Administrator', 'Bookkeeper'), (req
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not create hierarchy value.' });
+  }
+});
+
+const setParentSchema = z.object({ entityName: z.string().min(1), hierarchyName: z.string().min(1), parentName: z.string().min(1) });
+
+/** Generically tags any already-existing real entity (a Location, an
+ * Item, or any further hierarchy value) with the value it belongs to,
+ * for a named hierarchy — the same, real setHierarchyParent mechanism
+ * every hierarchy value's own optional nesting already uses (POST
+ * /values' parentValueName), now exposed directly so a real entity
+ * that already exists (most commonly a Location, tagged for a
+ * *further* hierarchy dimension beyond its primary grouping) can be
+ * tagged or re-tagged at any time, not only at creation. Never
+ * hardcodes a hierarchy or entity kind. */
+hierarchyRouter.post('/parent', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const parsed = setParentSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  try {
+    setHierarchyParent(parsed.data.entityName, parsed.data.hierarchyName, parsed.data.parentName, asUserId(req.user!.id));
+    res.status(200).json({ entityName: parsed.data.entityName, hierarchyName: parsed.data.hierarchyName, parentName: parsed.data.parentName });
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not set hierarchy tag.' });
+  }
+});
+
+/** Real, direct lookup: what value (if any) a real entity is currently
+ * tagged with, for one named hierarchy. Both query parameters are
+ * required — never defaulted to any particular hierarchy name. */
+hierarchyRouter.get('/parent', (req, res) => {
+  const entityName = req.query.entityName as string;
+  const hierarchyName = req.query.hierarchyName as string;
+  if (!entityName || !hierarchyName) return res.status(400).json({ error: 'entityName and hierarchyName query parameters are both required.' });
+  res.json({ parentName: getHierarchyParent(entityName, hierarchyName) ?? null });
+});
+
+/** Removes a real entity's own tag for one named hierarchy, leaving
+ * the entity itself, and every other hierarchy it may be tagged
+ * under, untouched. */
+hierarchyRouter.delete('/parent', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const entityName = req.query.entityName as string;
+  const hierarchyName = req.query.hierarchyName as string;
+  if (!entityName || !hierarchyName) return res.status(400).json({ error: 'entityName and hierarchyName query parameters are both required.' });
+  try {
+    deleteHierarchyParent(entityName, hierarchyName, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not remove hierarchy tag.' });
   }
 });
 

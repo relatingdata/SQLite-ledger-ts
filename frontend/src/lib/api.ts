@@ -441,6 +441,18 @@ export const createHierarchyValue = (business: string, groupingName: string, val
 export const defineProductShape = (business: string, dimensions: [string, string][]) =>
   request<{ dimensions: [string, string][] }>('/hierarchy/shapes', { method: 'POST', body: JSON.stringify({ business, dimensions }) });
 
+/** Generically tags any already-existing real entity (most commonly a
+ * Location, for a further hierarchy dimension beyond its primary
+ * grouping) with the value it belongs to, for one named hierarchy.
+ * Re-tagging (calling again with a different parentName) simply moves
+ * the tag — never hardcodes which hierarchy or which kind of entity. */
+export const setHierarchyTag = (entityName: string, hierarchyName: string, parentName: string) =>
+  request<{ entityName: string; hierarchyName: string; parentName: string }>('/hierarchy/parent', { method: 'POST', body: JSON.stringify({ entityName, hierarchyName, parentName }) });
+export const getHierarchyTag = (entityName: string, hierarchyName: string) =>
+  request<{ parentName: string | null }>(`/hierarchy/parent?entityName=${encodeURIComponent(entityName)}&hierarchyName=${encodeURIComponent(hierarchyName)}`);
+export const deleteHierarchyTag = (entityName: string, hierarchyName: string) =>
+  request<void>(`/hierarchy/parent?entityName=${encodeURIComponent(entityName)}&hierarchyName=${encodeURIComponent(hierarchyName)}`, { method: 'DELETE' });
+
 export const getBusinesses = () => request<{ id: number; name: string }[]>('/businesses');
 export const getBusinessTypes = () => request<{ name: string; questions: string[] }[]>('/businesses/types');
 export const saveBusinessTypeAnswers = (businessName: string, answers: Record<string, string>) =>

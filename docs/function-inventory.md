@@ -20,8 +20,8 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 457 functions (404 exported); 423 are called from production code; 23 only from tests or tooling; 11 from nowhere the compiler could find.
-- **Frontend library:** 261 functions (246 exported); 245 are called from production code; 2 only from tests or tooling; 14 from nowhere the compiler could find.
+- **Backend:** 457 functions (404 exported); 424 are called from production code; 22 only from tests or tooling; 11 from nowhere the compiler could find.
+- **Frontend library:** 264 functions (249 exported); 248 are called from production code; 2 only from tests or tooling; 14 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -73,7 +73,7 @@ Called from: production: routes/auth.ts ((module level) (as a value)); routes/i1
 requireRole(...roles: string[]): (req: Request, res: Response, next: NextFunction) => void | Response<any, Record<string, any>>
 ```
 
-Called from: production: routes/businesses.ts ((module level) ×6); routes/contacts.ts ((module level) ×7); routes/customer-registration.ts ((module level) ×2); routes/entities.ts ((module level) ×7); routes/hierarchy.ts ((module level) ×3); routes/i18n.ts ((module level) ×2); routes/invoices.ts ((module level) ×8); routes/items.ts ((module level) ×6); and 9 more file(s) · tests: 6 call(s) in 1 file(s)
+Called from: production: routes/businesses.ts ((module level) ×6); routes/contacts.ts ((module level) ×7); routes/customer-registration.ts ((module level) ×2); routes/entities.ts ((module level) ×7); routes/hierarchy.ts ((module level) ×5); routes/i18n.ts ((module level) ×2); routes/invoices.ts ((module level) ×8); routes/items.ts ((module level) ×6); and 9 more file(s) · tests: 6 call(s) in 1 file(s)
 
 **`requireGlobalRole`** *(exported)*
 
@@ -2599,7 +2599,7 @@ Called from: tests: 1 call(s) in 1 file(s)
 setHierarchyParent(entityName: string, hierarchyName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void
 ```
 
-Called from: production: db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db-stock.ts (placeOrder ×1); db.ts (createAndConfigureLocation ×1, ensureContactTypeHeaderAccounts ×1, ensureItemLocationInventoryAccount ×1, ensureItemLocationLeaf ×2, ensureItemTier ×1, ensureItemTierLocationLeaf ×3, and 1 more); routes/hierarchy.ts ((module level) ×1) · tests: 22 call(s) in 1 file(s)
+Called from: production: db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db-stock.ts (placeOrder ×1); db.ts (createAndConfigureLocation ×1, ensureContactTypeHeaderAccounts ×1, ensureItemLocationInventoryAccount ×1, ensureItemLocationLeaf ×2, ensureItemTier ×1, ensureItemTierLocationLeaf ×3, and 1 more); routes/hierarchy.ts ((module level) ×2) · tests: 22 call(s) in 1 file(s)
 
 **`getHierarchyParent`** *(exported)*
 
@@ -2607,7 +2607,7 @@ Called from: production: db-journal.ts (ensureLocationScopedAccount ×1); db-see
 getHierarchyParent(entityName: string, hierarchyName: string): string | undefined
 ```
 
-Called from: production: db-matrix-reports.ts (resolveItemKey ×2, resolveKey ×2); db-reports.ts (resolveAccountHierarchyGroup ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureItemTierLocationLeaf ×1, getContactBaseAccounts ×1, getHierarchyAncestorChain ×1, getHierarchyGroupForLocation ×1, getHierarchyGroups ×1, and 2 more) · tests: 9 call(s) in 1 file(s)
+Called from: production: db-matrix-reports.ts (resolveItemKey ×2, resolveKey ×2); db-reports.ts (resolveAccountHierarchyGroup ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureItemTierLocationLeaf ×1, getContactBaseAccounts ×1, getHierarchyAncestorChain ×1, getHierarchyGroupForLocation ×1, getHierarchyGroups ×1, and 2 more); routes/hierarchy.ts ((module level) ×1) · tests: 9 call(s) in 1 file(s)
 
 **`deleteHierarchyParent`** *(exported)*
 
@@ -2615,7 +2615,7 @@ Called from: production: db-matrix-reports.ts (resolveItemKey ×2, resolveKey ×
 deleteHierarchyParent(entityName: string, hierarchyName: string, userId: UserId): void
 ```
 
-Called from: tests: 1 call(s) in 1 file(s)
+Called from: production: routes/hierarchy.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
 
 **`ensureContactTypeHeaderAccounts`**
 
@@ -3823,7 +3823,7 @@ Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte
 request<T>(path: string, init?: RequestInit, screenName?: string): Promise<T>
 ```
 
-Called from: production: api.ts (addOrUpdateItemSource ×1, allocatePaymentToInvoice ×1, apiLogin ×1, apiLogout ×1, buildBankCurrencyStructure ×1, changeOwnPassword ×1, and 186 more)
+Called from: production: api.ts (addOrUpdateItemSource ×1, allocatePaymentToInvoice ×1, apiLogin ×1, apiLogout ×1, buildBankCurrencyStructure ×1, changeOwnPassword ×1, and 189 more)
 
 **`getEntityTree`** *(exported)*
 
@@ -4103,7 +4103,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl
 getHierarchy(business: string): Promise<HierarchyGroupingWithValues[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/items ×1, routes/locations ×1, routes/reports/new-pl ×1, routes/reports/new-stock-on-hand ×1, routes/reports/stock-movement ×1, routes/setup/bank-accounts ×1, routes/setup/hierarchy ×1, routes/setup/yearend ×1, and 1 more
+Called from: Svelte pages (by name in the file's imports): routes/items ×1, routes/locations ×1, routes/reports/new-pl ×1, routes/reports/new-stock-on-hand ×1, routes/reports/stock-movement ×1, routes/setup/bank-accounts ×1, routes/setup/business-setup ×1, routes/setup/hierarchy ×1, and 2 more
 
 **`getProductShapes`** *(exported)*
 
@@ -4136,6 +4136,30 @@ defineProductShape(business: string, dimensions: [string, string][]): Promise<{ 
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/setup/hierarchy ×0
+
+**`setHierarchyTag`** *(exported)*
+
+```
+setHierarchyTag(entityName: string, hierarchyName: string, parentName: string): Promise<{ entityName: string; hierarchyName: string; parentName: string; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×3
+
+**`getHierarchyTag`** *(exported)*
+
+```
+getHierarchyTag(entityName: string, hierarchyName: string): Promise<{ parentName: string | null; }>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×1
+
+**`deleteHierarchyTag`** *(exported)*
+
+```
+deleteHierarchyTag(entityName: string, hierarchyName: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/setup/business-setup ×1
 
 **`getBusinesses`** *(exported)*
 

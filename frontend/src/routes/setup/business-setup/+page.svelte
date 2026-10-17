@@ -8,7 +8,11 @@
   import WeeklyHoursGrid from '$lib/components/WeeklyHoursGrid.svelte';
   import {
     getOrganizationChart,
+    getHierarchy,
     createHierarchyValue,
+    setHierarchyTag,
+    getHierarchyTag,
+    deleteHierarchyTag,
     createEntity,
     setEntityRelationship,
     createEmployeeContact,
@@ -24,6 +28,7 @@
     revokeEntity,
     ApiError,
     type OrganizationChart,
+    type HierarchyGroupingWithValues,
     type LocationRecord,
     type Contact,
     asLocationName,
@@ -31,25 +36,53 @@
   } from '$lib/api';
 
   let chart: OrganizationChart | null = $state(null);
+  let hierarchy: HierarchyGroupingWithValues[] = $state([]);
   let loading = $state(true);
   let error = $state('');
 
-  type Selection = { type: 'division' | 'location' | 'employee'; name: string; division?: string; location?: string } | null;
+  type Selection = { type: 'group' | 'location' | 'employee'; name: string; group?: string; location?: string } | null;
   let selection: Selection = $state(null);
   // A real, unique id for this page's own keyboard-hint text, so the
   // tree panel below can genuinely announce its real keyboard
   // shortcuts to a screen reader.
   const treeHintId = `business-setup-tree-hint-${crypto.randomUUID()}`;
 
-  function selectDivision(name: string) {
-    selection = { type: 'division', name };
+  // The one, real, business-chosen hierarchy that groups Locations in
+  // this tree — never hardcoded to "Division." Detected by real
+  // overlap with the business's own, already-real org-chart group
+  // names, when any already exist; otherwise falls back to the
+  // first real hierarchy this business has configured at all
+  // (getHierarchy), or the plain word "Division" only when nothing
+  // has been configured yet at all (a brand-new business — the
+  // business is free to use any other name simply by typing it into
+  // "Add a <name>" below, the first time).
+  let locationHierarchyName = $derived.by(() => {
+    const groupNames = new Set<string>(chart ? chart.groups.map((g): string => g.group) : []);
+    if (groupNames.size > 0) {
+      const match = hierarchy.find((h) => h.values.some((v) => groupNames.has(v)));
+      if (match) return match.grouping;
+    }
+    return hierarchy[0]?.grouping ?? 'Division';
+  });
+
+  // Every further, real hierarchy dimension this business has
+  // configured beyond the one above used to group Locations (e.g.
+  // "Storage," "Packaging," "Size") — one further, real entry field
+  // per dimension on a Location's own add/edit form below, never
+  // hardcoded to any particular name or count.
+  let otherHierarchies = $derived.by(() => hierarchy.filter((h) => h.grouping !== locationHierarchyName));
+
+  function selectGroup(name: string) {
+    selection = { type: 'group', name };
   }
 
   async function loadChart() {
     if (!session.current) return;
     loading = true;
     try {
-      chart = await getOrganizationChart(session.current.businessName);
+      const [c, h] = await Promise.all([getOrganizationChart(session.current.businessName), getHierarchy(session.current.businessName)]);
+      chart = c;
+      hierarchy = h;
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -58,25 +91,25 @@
   }
   onMount(loadChart);
 
-  // --- Division creation -----------------------------------------
-  let newDivisionName = $state('');
-  let creatingDivision = $state(false);
-  let showAddDivision = $state(false);
-  let divisionError = $state('');
-  async function addDivision() {
-    if (!session.current || !newDivisionName.trim()) return;
-    creatingDivision = true;
-    divisionError = '';
+  // --- Group creation (the hierarchy that groups Locations) --------
+  let newGroupName = $state('');
+  let creatingGroup = $state(false);
+  let showAddGroup = $state(false);
+  let groupError = $state('');
+  async function addGroup() {
+    if (!session.current || !newGroupName.trim()) return;
+    creatingGroup = true;
+    groupError = '';
     try {
-      await createHierarchyValue(session.current.businessName, 'Division', newDivisionName.trim());
-      await setEntityRelationship(newDivisionName.trim(), 'Belongs To Business', session.current.businessName);
-      newDivisionName = '';
-      showAddDivision = false;
+      await createHierarchyValue(session.current.businessName, locationHierarchyName, newGroupName.trim());
+      await setEntityRelationship(newGroupName.trim(), 'Belongs To Business', session.current.businessName);
+      newGroupName = '';
+      showAddGroup = false;
       await loadChart();
     } catch (e) {
-      divisionError = e instanceof ApiError ? e.message : 'Could not create division.';
+      groupError = e instanceof ApiError ? e.message : `Could not create this ${locationHierarchyName.toLowerCase()}.`;
     } finally {
-      creatingDivision = false;
+      creatingGroup = false;
     }
   }
 
@@ -86,9 +119,13 @@
   let newLocationType: string = $state('Retail');
   let newLocationTimezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const ALL_TIMEZONES = Intl.supportedValuesOf('timeZone');
+  // One further entry per further, real, configured hierarchy
+  // dimension (otherHierarchies) — keyed by that hierarchy's own,
+  // real grouping name, never a fixed set of fields.
+  let newLocationDimensionValues: Record<string, string> = $state({});
   let creatingLocationFor: string | null = $state(null);
   let locationError = $state('');
-  async function addLocation(divisionName: string) {
+  async function addLocation(groupName: string) {
     if (!session.current || !newLocationName.trim() || !newLocationCity.trim()) return;
     locationError = '';
     try {
@@ -101,9 +138,25 @@
         { city: newLocationCity.trim(), location_type: newLocationType, is_billing_address: false, timezone: newLocationTimezone },
         session.current.businessName
       );
-      await setEntityRelationship(newLocationName.trim(), 'Belongs To Group', divisionName);
+      await setEntityRelationship(newLocationName.trim(), 'Belongs To Group', groupName);
+      // Per direct instruction: also tagged via the real Hierarchy
+      // mechanism (setHierarchyTag -> setHierarchyParent), not only
+      // the separate, bare org-chart relationship above — the one,
+      // real thing every hierarchy-driven report (old-pl,
+      // stock-listing, stock-movement, bank-accounts, year-end)
+      // actually reads. Never hardcoded to "Division" —
+      // locationHierarchyName is this business's own, real, chosen
+      // name. A real, previously-latent gap: a location added through
+      // this page never carried this real tag before, so these
+      // reports silently showed it as ungrouped.
+      await setHierarchyTag(newLocationName.trim(), locationHierarchyName, groupName);
+      for (const h of otherHierarchies) {
+        const value = newLocationDimensionValues[h.grouping];
+        if (value) await setHierarchyTag(newLocationName.trim(), h.grouping, value);
+      }
       newLocationName = '';
       newLocationCity = '';
+      newLocationDimensionValues = {};
       creatingLocationFor = null;
       await loadChart();
     } catch (e) {
@@ -133,13 +186,13 @@
   // addresses and phone numbers, extended here to replace the real,
   // scattered "+ Add..." link-buttons a direct report called
   // confusing. What Insert does depends on which real, currently
-  // selected/focused item it's pressed from — a division selected
-  // adds a location within it; a location selected adds an employee
-  // at it; nothing (or an employee) selected adds a new division,
-  // the real, top-level default.
+  // selected/focused item it's pressed from — a group selected adds
+  // a location within it; a location selected adds an employee at
+  // it; nothing (or an employee) selected adds a new group, the
+  // real, top-level default.
   async function deleteSelected() {
     if (!selection) return;
-    const label = selection.type === 'division' ? 'division' : selection.type === 'location' ? 'location' : 'employee';
+    const label = selection.type === 'group' ? locationHierarchyName.toLowerCase() : selection.type === 'location' ? 'location' : 'employee';
     if (!confirm(`Delete ${label} "${translations.current[selection.name] ?? selection.name}"? This cannot be undone.`)) return;
     try {
       const entities = await getEntityTree();
@@ -158,12 +211,12 @@
     if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
     if (e.key === 'Insert') {
       e.preventDefault();
-      if (selection?.type === 'division') {
+      if (selection?.type === 'group') {
         creatingLocationFor = selection.name;
       } else if (selection?.type === 'location') {
         creatingEmployeeFor = selection.name;
       } else {
-        showAddDivision = true;
+        showAddGroup = true;
       }
     } else if (e.key === 'Delete' && selection) {
       e.preventDefault();
@@ -174,17 +227,31 @@
   // --- Location detail -----------------------------------------------
   let locationRecord: LocationRecord | null = $state(null);
   let openHours: { day: string; from_time: string; to_time: string }[] = $state([]);
+  // This location's own, real, currently-tagged value for each
+  // further hierarchy dimension (otherHierarchies), keyed by that
+  // hierarchy's own grouping name — loaded fresh via getHierarchyTag
+  // whenever a location is selected, saved back via
+  // setHierarchyTag/deleteHierarchyTag on Save.
+  let locationDimensionValues: Record<string, string> = $state({});
   let locationSaving = $state(false);
   let locationSaveError = $state('');
   let locationSaveMessage = $state('');
 
-  async function selectLocation(name: string, division: string) {
-    selection = { type: 'location', name, division };
+  async function selectLocation(name: string, group: string) {
+    selection = { type: 'location', name, group };
     locationSaveMessage = '';
     locationSaveError = '';
-    const [loc, hours] = await Promise.all([getLocationByName(asLocationName(name)), getLocationOpenHours(asLocationName(name))]);
+    const dimensions = otherHierarchies;
+    const [loc, hours, tags] = await Promise.all([
+      getLocationByName(asLocationName(name)),
+      getLocationOpenHours(asLocationName(name)),
+      Promise.all(dimensions.map((h) => getHierarchyTag(name, h.grouping))),
+    ]);
     locationRecord = loc;
     openHours = hours.map((h) => ({ day: h.day, from_time: h.opens_at, to_time: h.closes_at }));
+    const values: Record<string, string> = {};
+    dimensions.forEach((h, i) => { values[h.grouping] = tags[i].parentName ?? ''; });
+    locationDimensionValues = values;
   }
 
   async function saveLocationDetail() {
@@ -209,6 +276,11 @@
         asLocationName(selection.name),
         openHours.map((h) => ({ day: h.day, opens_at: h.from_time, closes_at: h.to_time }))
       );
+      for (const h of otherHierarchies) {
+        const value = locationDimensionValues[h.grouping];
+        if (value) await setHierarchyTag(selection.name, h.grouping, value);
+        else await deleteHierarchyTag(selection.name, h.grouping);
+      }
       locationSaveMessage = 'Saved.';
     } catch (e) {
       locationSaveError = e instanceof ApiError ? e.message : 'Could not save.';
@@ -240,8 +312,8 @@
   let allLocationNames = $derived.by(() => chart ? chart.groups.flatMap((g) => g.locations.map((l) => l.location)) : []);
   let additionalLocations = $derived.by(() => selection?.type === 'employee' ? [...new Set(fullEmployeeSchedule.map((s) => s.location).filter((l) => l && l !== selection!.location))] : []);
 
-  async function selectEmployee(name: string, division: string | undefined, location: string | undefined) {
-    selection = { type: 'employee', name, division, location };
+  async function selectEmployee(name: string, group: string | undefined, location: string | undefined) {
+    selection = { type: 'employee', name, group, location };
     employeeSaveMessage = '';
     employeeSaveError = '';
     additionalLocationSelection = null;
@@ -291,6 +363,13 @@
       .map((s) => ({ day: s.day, from_time: s.starts_at, to_time: s.ends_at }));
   }
 
+  // Per direct consideration and decision: this remains a real, plain
+  // link-button, not converted to the tree's own Insert/Delete
+  // pattern — it is a secondary form action inside the employee
+  // detail panel's own "Additional locations" sub-section (choosing
+  // which of this employee's several, real work locations to add a
+  // further schedule for), never competing with the main tree
+  // navigation Insert/Delete already covers. Kept deliberately.
   function startAddingAdditionalLocation() {
     addingAdditionalLocation = true;
     additionalLocationSelection = null;
@@ -315,7 +394,7 @@
       // Reload this same employee fresh, so fullEmployeeSchedule and
       // the additional-locations list both genuinely reflect the
       // real, just-saved change, not stale, local state.
-      await selectEmployee(selection.name, selection.division, selection.location);
+      await selectEmployee(selection.name, selection.group, selection.location);
       selectAdditionalLocation(locationName);
     } catch (e) {
       additionalLocationError = e instanceof ApiError ? e.message : 'Could not save this location\'s schedule.';
@@ -330,7 +409,9 @@
 <fieldset class="page-title">
   <legend>{translations.current['Business Setup'] ?? 'Business Setup'}</legend>
   <p class="intro">
-    {translations.current['One place to set up and amend the real, whole structure of a business — its divisions, each division\'s own real locations (with address, phone, and real weekly open hours), and each location\'s own real staff (with address, phone, wage/salary, and a real weekly schedule validated against that location\'s own open hours).'] ?? 'One place to set up and amend the real, whole structure of a business — its divisions, each division\'s own real locations (with address, phone, and real weekly open hours), and each location\'s own real staff (with address, phone, wage/salary, and a real weekly schedule validated against that location\'s own open hours).'}
+    {translations.current['One place to set up and amend the real, whole structure of a business'] ?? 'One place to set up and amend the real, whole structure of a business'} —
+    {translations.current[locationHierarchyName] ?? locationHierarchyName.toLowerCase()}
+    {translations.current['groups of real Locations (with address, phone, and real weekly open hours), and each location\'s own real staff (with address, phone, wage/salary, and a real weekly schedule validated against that location\'s own open hours).'] ?? 'groups of real Locations (with address, phone, and real weekly open hours), and each location\'s own real staff (with address, phone, wage/salary, and a real weekly schedule validated against that location\'s own open hours).'}
   </p>
 
 {#if loading}
@@ -348,7 +429,7 @@
       TypedList.svelte.
     -->
     <fieldset class="card-legend tree-panel">
-      <legend>{chart.business}</legend>
+      <legend>{chart.business} — {translations.current[locationHierarchyName] ?? locationHierarchyName} {translations.current['for Locations'] ?? 'for Locations'}</legend>
 
       <div role="toolbar" tabindex="0" aria-describedby={treeHintId} aria-keyshortcuts="Insert Delete" onkeydown={handleTreeKeydown}>
       {#if chart.companyWideEmployees.length > 0}
@@ -366,7 +447,7 @@
 
       {#each chart.groups as group}
         <div class="tree-section">
-          <button type="button" class="tree-item division" class:active={selection?.type === 'division' && selection.name === group.group} onclick={() => selectDivision(group.group)}>
+          <button type="button" class="tree-item group" class:active={selection?.type === 'group' && selection.name === group.group} onclick={() => selectGroup(group.group)}>
             {group.group}
           </button>
           {#each group.locations as loc}
@@ -405,6 +486,12 @@
               <select bind:value={newLocationTimezone}>
                 {#each ALL_TIMEZONES as tz}<option value={tz}>{tz}</option>{/each}
               </select>
+              {#each otherHierarchies as h}
+                <select bind:value={newLocationDimensionValues[h.grouping]}>
+                  <option value="">{translations.current[h.grouping] ?? h.grouping}…</option>
+                  {#each h.values as v}<option value={v}>{translations.current[v] ?? v}</option>{/each}
+                </select>
+              {/each}
               <button class="btn small" onclick={() => addLocation(group.group)}>{translations.current['Add'] ?? 'Add'}</button>
               <button class="btn small secondary" onclick={() => (creatingLocationFor = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
             </div>
@@ -414,31 +501,31 @@
       {/each}
 
       <div class="tree-section">
-        {#if showAddDivision}
+        {#if showAddGroup}
           <div class="inline-add">
-            <input bind:value={newDivisionName} placeholder={translations.current['Division name'] ?? 'Division name'} />
-            <button class="btn small" disabled={creatingDivision} onclick={addDivision}>{translations.current['Add'] ?? 'Add'}</button>
-            <button class="btn small secondary" onclick={() => (showAddDivision = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+            <input bind:value={newGroupName} placeholder={`${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['name'] ?? 'name'}`} />
+            <button class="btn small" disabled={creatingGroup} onclick={addGroup}>{translations.current['Add'] ?? 'Add'}</button>
+            <button class="btn small secondary" onclick={() => (showAddGroup = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
           </div>
         {/if}
-        {#if divisionError}<p class="error small">{divisionError}</p>{/if}
+        {#if groupError}<p class="error small">{groupError}</p>{/if}
       </div>
       </div>
 
       <p class="keyboard-hint" id={treeHintId}>
-        {#if selection?.type === 'division'}Press Insert to add a location in "{translations.current[selection.name] ?? selection.name}", or Delete to remove it.
+        {#if selection?.type === 'group'}Press Insert to add a location in "{translations.current[selection.name] ?? selection.name}", or Delete to remove it.
         {:else if selection?.type === 'location'}Press Insert to add an employee at "{translations.current[selection.name] ?? selection.name}", or Delete to remove it.
-        {:else if selection?.type === 'employee'}Press Delete to remove "{translations.current[selection.name] ?? selection.name}". Select a location or division to add something new.
-        {:else}Select a division or location, then press Insert to add within it — or press Insert here to add a new division.{/if}
+        {:else if selection?.type === 'employee'}Press Delete to remove "{translations.current[selection.name] ?? selection.name}". Select a location or {locationHierarchyName.toLowerCase()} to add something new.
+        {:else}Select a {locationHierarchyName.toLowerCase()} or location, then press Insert to add within it — or press Insert here to add a new {locationHierarchyName.toLowerCase()}.{/if}
       </p>
     </fieldset>
 
     <fieldset class="card-legend detail-panel">
       <legend>{selection?.name ?? (translations.current['Details'] ?? 'Details')}</legend>
       {#if !selection}
-        <p class="hint">{translations.current['Select a division, location, or employee on the left — Insert adds within whatever\'s selected, Delete removes it.'] ?? 'Select a division, location, or employee on the left — Insert adds within whatever\'s selected, Delete removes it.'}</p>
-      {:else if selection.type === 'division'}
-        <p class="hint">{translations.current['A division is purely a reporting grouping — press Insert to add a real location within it, or Delete to remove this division.'] ?? 'A division is purely a reporting grouping — press Insert to add a real location within it, or Delete to remove this division.'}</p>
+        <p class="hint">{translations.current['Select a group, location, or employee on the left — Insert adds within whatever\'s selected, Delete removes it.'] ?? `Select a ${locationHierarchyName.toLowerCase()}, location, or employee on the left — Insert adds within whatever's selected, Delete removes it.`}</p>
+      {:else if selection.type === 'group'}
+        <p class="hint">{`A ${locationHierarchyName.toLowerCase()} is purely a reporting grouping — press Insert to add a real location within it, or Delete to remove this ${locationHierarchyName.toLowerCase()}.`}</p>
       {:else if selection.type === 'location' && locationRecord}
         <fieldset>
           <legend>{translations.current['City'] ?? 'City'}</legend>
@@ -453,6 +540,20 @@
             </select>
           </fieldset>
         </div>
+
+        {#if otherHierarchies.length > 0}
+          <div class="row-2">
+            {#each otherHierarchies as h}
+              <fieldset>
+                <legend>{translations.current[h.grouping] ?? h.grouping}</legend>
+                <select bind:value={locationDimensionValues[h.grouping]}>
+                  <option value="">{translations.current['(none)'] ?? '(none)'}</option>
+                  {#each h.values as v}<option value={v}>{translations.current[v] ?? v}</option>{/each}
+                </select>
+              </fieldset>
+            {/each}
+          </div>
+        {/if}
 
         <h4>{translations.current['Open hours'] ?? 'Open hours'}</h4>
         <WeeklyHoursGrid bind:lines={openHours} fromLabel="Opens" toLabel="Closes" />
@@ -617,7 +718,7 @@
     cursor: pointer;
     border-radius: 4px;
   }
-  .tree-item.division {
+  .tree-item.group {
     font-weight: 600;
     font-size: var(--font-size-medium);
     margin: 0 0 0.3rem;
