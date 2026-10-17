@@ -2383,8 +2383,14 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
   create(requireEntity('Application', typeRootName), typeRootName, 'SMRTest Region', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Warehouse', asUserId(1));
   setLocation('SMRTest Warehouse', { city: 'SMRTest Region', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: 0, carton_capacity: 5000 , timezone: 'UTC'}, asBusinessName('admin'));
+  // A location's own `city` is just free-text, never a real, structural
+  // link to anything (see "Locations:..." above) - a real division
+  // grouping is reached the same, real, established way every other
+  // "Division" test in this file already uses: setHierarchyParent.
+  setHierarchyParent('SMRTest Warehouse', 'Division', 'SMRTest Region', asUserId(1));
   create(myBusinessLocationsRoot(), typeRootName, 'SMRTest Outlet', asUserId(1));
   setLocation('SMRTest Outlet', { city: 'SMRTest Region', location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 , timezone: 'UTC'}, asBusinessName('admin'));
+  setHierarchyParent('SMRTest Outlet', 'Division', 'SMRTest Region', asUserId(1));
   create(requireEntity('Items', typeRootName), typeRootName, 'SMRTest Category', asUserId(1));
   createItem('SMRTest Wine', 'SMRTest Category', asUserId(1));
   create(requireEntity('Vendors', typeRootName), typeRootName, 'SMRTest Vendor', asUserId(1));
@@ -2412,11 +2418,21 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
   postInvoice(invoiceId, { name: salesAccount, id: salesAccountId }, 'Sales Tax Payable', asUserId(1));
   dispatchItems(asBusinessName('admin'), asLedgerName('SMRTest Ledger'), 'SMRT-SALE-1-DISPATCH-SMRTest Wine', asItemName('SMRTest Wine'), asLocationName('SMRTest Outlet'), 3, asUserId(1), '2027-10-03');
 
-  const report = getStockMovementReport('SMRTest Ledger', '2027-10-01', '2027-10-03');
+  // A real, confirmed test-authoring bug: called with no business at
+  // all (tsx doesn't type-check test files), so every argument after it
+  // shifted one position left - 'SMRTest Ledger' arrived as the real
+  // business argument, '2027-10-01' as the real ledger name.
+  // getStockMovementReport's only other real call site (routes) always
+  // passes a real business first. Also missing the real, final
+  // hierarchyName argument - OrderReceiptRow's own, real field is
+  // "group" (any named hierarchy), not "division"; passing 'Division'
+  // here is what actually populates it, matching the real
+  // setHierarchyParent calls just added above.
+  const report = getStockMovementReport('admin', 'SMRTest Ledger', '2027-10-01', '2027-10-03', 'Division');
 
   assert.equal(report.receipts.length, 1);
   assert.equal(report.receipts[0].location, 'SMRTest Warehouse');
-  assert.equal(report.receipts[0].division, 'SMRTest Region', "a receipt's real location must correctly resolve to its real division");
+  assert.equal(report.receipts[0].group, 'SMRTest Region', "a receipt's real location must correctly resolve to its real division");
   assert.equal(report.receipts[0].category, 'SMRTest Category');
   assert.equal(report.receipts[0].vendor, 'SMRTest Vendor', "a receipt's real item must resolve to its real, preferred vendor");
   assert.equal(report.receipts[0].quantity, 50);
