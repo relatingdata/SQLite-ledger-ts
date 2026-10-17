@@ -4563,9 +4563,15 @@ export function signOn(employeeName: string, locationName: string): PosShift {
   if (!contact?.pos_pin) throw new ValidationError(`"${employeeName}" has no real PIN set yet — cannot sign on.`);
   // No JSON, no wildcard: a real, presence-only "Open" tag-child
   // entity, matched exactly - never a name suffix and never a JSON
-  // field.
+  // field. A real, confirmed bug found directly: this looked for the
+  // "Open" tag as a direct child of the EMPLOYEE, but Entity.tag below
+  // actually tags the real SHIFT entity (itself a child of the
+  // employee) - one level deeper, exactly the same shape
+  // getOpenShiftForEmployee/getActiveShiftsAtLocation already,
+  // correctly walk. This query never matched anything, so a second
+  // sign-on while already signed on elsewhere was silently allowed.
   const alreadyOpen = db
-    .prepare(`SELECT 1 FROM current_entities parent JOIN current_entities tag ON tag.parent_id = parent.id AND tag.name = 'Open' AND tag.relation_id IS NOT NULL WHERE parent.id = ?`)
+    .prepare(`SELECT 1 FROM current_entities shift JOIN current_entities tag ON tag.parent_id = shift.id AND tag.name = 'Open' AND tag.relation_id IS NOT NULL WHERE shift.parent_id = ?`)
     .get(employee.id);
   if (alreadyOpen) throw new ValidationError(`"${employeeName}" is already signed on somewhere — sign off first.`);
   const signedOnAt = new Date().toISOString();
