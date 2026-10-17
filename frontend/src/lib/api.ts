@@ -447,6 +447,12 @@ export const saveBusinessTypeAnswers = (businessName: string, answers: Record<st
   request<void>(`/businesses/${encodeURIComponent(businessName)}/business-type-answers`, { method: 'POST', body: JSON.stringify({ answers }) });
 export const getLedgers = (businessName: string) =>
   request<{ id: number; name: string }[]>(`/businesses/${encodeURIComponent(businessName)}/ledgers`);
+// Per docs/active-ledger-design.md: the real, current "active" ledger
+// for this business (null for one created before this existed) - the
+// Session screen defaults its own ledger pick onto this, a real,
+// soft switch after a rollover, with no forced logout.
+export const getActiveLedger = (businessName: string) =>
+  request<{ activeLedger: string | null }>(`/businesses/${encodeURIComponent(businessName)}/active-ledger`);
 // Per docs/profit-centers-design.md's Phase A (structural CoA
 // support) and Phase C (session integration, now wired into the
 // /session page's own picker, the exact same, real way Business/

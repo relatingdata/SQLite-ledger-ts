@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole, requireGlobalRole } from '../auth-middleware.js';
 import { provisionBusinessAdminUser } from '../auth.js';
-import { getBusinesses, getLedgers, createBusiness, getChartOfAccountsPrototype, getBusinessTypes, saveBusinessTypeAnswers, asBusinessName, ValidationError,
+import { getBusinesses, getLedgers, getActiveLedger, createBusiness, getChartOfAccountsPrototype, getBusinessTypes, saveBusinessTypeAnswers, asBusinessName, ValidationError,
   asUserId, nominateBankAccount, getNominatedBankAccounts, buildBankCurrencyStructure, typeAssetAccountName, typeEquityAccountName, getBusinessConfigurationReport,
   createProfitCenter, getProfitCenters,
 } from '../db.js';
@@ -23,6 +23,15 @@ businessesRouter.get('/types', (_req, res) => {
 
 businessesRouter.get('/:name/ledgers', (req, res) => {
   res.json(getLedgers(asBusinessName(req.params.name)));
+});
+
+// Per docs/active-ledger-design.md: the real, current "active"
+// ledger for this business - null for a business created before
+// this concept existed. The Session screen reads this to default a
+// person's own ledger pick onto wherever a real rollover just moved
+// ordinary trading to (a real, soft switch, no forced logout).
+businessesRouter.get('/:name/active-ledger', (req, res) => {
+  res.json({ activeLedger: getActiveLedger(asBusinessName(req.params.name)) });
 });
 
 // Per docs/profit-centers-design.md's Phase A: every real Profit

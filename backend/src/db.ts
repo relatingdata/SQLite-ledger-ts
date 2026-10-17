@@ -7033,6 +7033,60 @@ export function getLedgers(businessName: BusinessName): { id: number; name: Ledg
     .all(businessName) as { id: number; name: LedgerName }[];
 }
 
+// ---------------------------------------------------------------------------
+// The "active" ledger — per direct instruction: a real, per-business
+// pointer at "the one ledger ordinary trading posts into right now",
+// flipped by rolloverToNewPeriod itself. Deliberately NOT a hard lock
+// on the old ledger (per direct instruction, the old ledger stays
+// genuinely postable forever, for real adjustments/corrections — see
+// docs/ledger-scoped-accounts-and-rollover.md) — only a real default/
+// guidance pointer the frontend's own Session screen reads to pick
+// the ledger a plain Bookkeeper lands on, and the one real fact
+// routes/journal.ts's POST /post checks before allowing a posting
+// into any OTHER ledger (see docs/active-ledger-design.md).
+//
+// Stored as a real, dedicated marker entity, a direct child of the
+// business itself — never reusing the business entity's own
+// relation_id, which createBusiness already uses for the CoA
+// prototype tag. Points at the real ledger entity by id (never by
+// bare name): a ledger's own name ("Actual") is deliberately NOT
+// globally unique — every business has one — so the general-purpose
+// setRelationship/getRelationship helpers (which resolve a target by
+// bare name) would silently resolve to the wrong business's own
+// "Actual" the moment more than one real business exists. Resolving
+// this one, real, specific ledger entity directly by id, via
+// supersedeEntity's own relationId field, sidesteps that collision
+// entirely.
+// ---------------------------------------------------------------------------
+
+function ensureActiveLedgerMarker(businessId: number, userId: UserId): { id: number; name: string } {
+  return Entity.getUnder('Active Ledger', businessId) ?? Entity.create('Active Ledger', businessId, userId);
+}
+
+/** Sets the real, current "active" ledger for this business — called
+ * once at business creation (its first, real "Actual" ledger) and
+ * once more by rolloverToNewPeriod (the brand-new ledger it just
+ * opened), never directly by an ordinary posting route. */
+export function setActiveLedger(businessName: BusinessName, ledgerName: LedgerName, userId: UserId): void {
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
+  const ledgersRoot = requireEntity('Ledgers', typeRootName, business);
+  const ledger = requireEntity(ledgerName, typeLedgerName, ledgersRoot);
+  const marker = ensureActiveLedgerMarker(business.id, userId);
+  supersedeEntity(marker.id, { relationId: ledger.id }, userId);
+}
+
+/** The real, current "active" ledger for this business — null for a
+ * business created before this concept existed (never assumed; every
+ * real caller treats null as "no real guidance, fall back to
+ * whatever the caller already does today"). */
+export function getActiveLedger(businessName: BusinessName): LedgerName | null {
+  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
+  const marker = db.prepare(`SELECT relation_id FROM current_entities WHERE name = 'Active Ledger' AND parent_id = ?`).get(business.id) as { relation_id: number | null } | undefined;
+  if (!marker?.relation_id) return null;
+  const ledger = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(marker.relation_id) as { name: string } | undefined;
+  return ledger ? asLedgerName(ledger.name) : null;
+}
+
 /** Creates a brand-new business, real and ready to actually transact
  * in — a business entity plus its first real ledger.
  *
@@ -7694,6 +7748,11 @@ export function createBusiness(
   const budgetLedger = asLedgerName(`Budget ${financialYearLabel}`);
   create(ledgersRoot, typeLedgerName, actualLedger, userId);
   create(ledgersRoot, typeLedgerName, budgetLedger, userId);
+  // Per docs/active-ledger-design.md: the real "Actual" ledger just
+  // created is this business's own, real, starting "active" ledger —
+  // ordinary trading posts here by default until a real rollover
+  // flips it.
+  setActiveLedger(businessName, actualLedger, userId);
   // A real, second fix, found via the real, full-lifecycle Playwright
   // test: a new business was never actually tagged with its own real
   // CoA prototype relation at all — only the original, hand-tagged demo

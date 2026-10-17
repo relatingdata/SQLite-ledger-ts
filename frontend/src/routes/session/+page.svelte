@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-  import { getBusinesses, getLedgers, getProfitCenters, getLanguages, getLocalizedText, getLanguageDirection, asBusinessName, asLedgerName, ApiError } from '$lib/api';
+  import { getBusinesses, getLedgers, getActiveLedger, getProfitCenters, getLanguages, getLocalizedText, getLanguageDirection, asBusinessName, asLedgerName, ApiError } from '$lib/api';
   import { session } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
 
@@ -52,7 +52,20 @@
     if (!businessName) return;
     ledgers = await getLedgers(businessName);
     const current = session.current;
+    // Per docs/active-ledger-design.md: the real, current "active"
+    // ledger (set at business creation, flipped by a real rollover)
+    // is the strongest, most current signal - a real, soft switch
+    // onto wherever ordinary trading actually moved to, with no
+    // forced logout. Falls back to whatever this screen already did
+    // for a business created before this concept existed (null).
+    let activeLedgerName: string | null = null;
+    try {
+      activeLedgerName = (await getActiveLedger(businessName)).activeLedger;
+    } catch {
+      // Fine - falls through to the real, existing defaults below.
+    }
     const preferred =
+      (activeLedgerName && ledgers.find((l) => l.name === activeLedgerName)) ||
       (current && current.businessName === businessName && ledgers.find((l) => l.name === current.ledgerName)) ||
       ledgers.find((l) => l.name === 'Actual');
     selectedLedgerId = preferred?.id ?? ledgers[0]?.id ?? '';

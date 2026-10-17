@@ -343,6 +343,14 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- id in this same, deliberately-high 900+ range (905-908 already
 -- taken by System Users/admin/admin's Role link/System Sessions).
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (909, 909, 'Business Admin', 900, '2026-01-01', 1);
+-- A real, sixth global role, per direct instruction: the one role
+-- (alongside global Administrator/per-business Business Admin) that
+-- may post into a business's own, real, NON-active ledger — a real,
+-- genuine correction/adjustment to an already-closed period, never
+-- ordinary trading (see docs/active-ledger-design.md). Grantable
+-- globally (setUserRoles) or per business (the matrix), the exact
+-- same way every other role already is.
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (910, 910, 'Accountant', 900, '2026-01-01', 1);
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (905, 905, 'System Users', 1, '2026-01-01', 1);
 -- One default account so the app is usable immediately after install —
 -- username 'admin', password 'changeme123'. This password is

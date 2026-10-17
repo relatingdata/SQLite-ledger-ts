@@ -67,7 +67,7 @@ test('the bootstrap admin user exists with Administrator role and the documented
   const roles = listRoles();
   assert.deepEqual(
     roles.map((r) => r.name),
-    ['Administrator', 'Bookkeeper', 'Read-Only', 'Developer', 'Business Admin']
+    ['Administrator', 'Bookkeeper', 'Read-Only', 'Developer', 'Business Admin', 'Accountant']
   );
   const users = listUsers();
   const admin = users.find((u) => u.username === 'admin');

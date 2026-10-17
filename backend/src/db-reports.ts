@@ -1,6 +1,6 @@
 import { db, getQualifiedDisplayName, getCombinationDisplayName, resolveBusinessCoaAccountId } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
-import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, getAccountProfitCenter, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { ValidationError, getEntityTree, stageLine, postJournalEntry, getDivisions, getDivisionForAccount, getDimensionChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, typeChartOfAccountsRootName, getBusinessHomeCurrency, getAccountProfitCenter, setActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 
 // ---------------------------------------------------------------------------
@@ -1532,6 +1532,11 @@ export function rolloverToNewPeriod(business: BusinessName, oldLedger: LedgerNam
     });
   }
   postJournalEntry(resolved.reference, business, newLedger, userId);
+  // Per docs/active-ledger-design.md and direct instruction: the real
+  // moment ordinary trading moves to the new ledger — a real, soft
+  // switch (no forced logout), never a hard lock on the old ledger,
+  // which stays genuinely postable for real corrections.
+  setActiveLedger(business, newLedger, userId);
 
   return { newLedger, accountsCarriedForward: resolved.accountsCarriedForward, openingBalanceReference: resolved.reference };
 }

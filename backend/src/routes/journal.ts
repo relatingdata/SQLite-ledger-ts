@@ -1,5 +1,6 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { requireRole } from '../auth-middleware.js';
+import { canUserPostToLedger } from '../auth.js';
 import { z } from 'zod';
 import {
   stageLine,
@@ -26,6 +27,17 @@ import {
 } from '../db.js';
 
 export const journalRouter = Router();
+
+// Per docs/active-ledger-design.md and direct instruction: the one,
+// real enforcement point for "one active ledger per business, but
+// the old one stays postable for real corrections".
+function canPostToLedger(req: Request, business: string, ledger: string): boolean {
+  if (!req.user) return false;
+  return canUserPostToLedger(asBusinessName(business), asLedgerName(ledger), req.user);
+}
+
+const NOT_ACTIVE_LEDGER_ERROR = (ledger: string) =>
+  `"${ledger}" is not this business's current active ledger — posting there requires Administrator, Accountant, or this business's own Business Admin.`;
 
 journalRouter.get('/', (req, res) => {
   const business = req.query.business as string;
@@ -69,6 +81,9 @@ const stageLineSchema = z.object({
 journalRouter.post('/staging', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
   const parsed = stageLineSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!canPostToLedger(req, parsed.data.business, parsed.data.ledger)) {
+    return res.status(403).json({ error: NOT_ACTIVE_LEDGER_ERROR(parsed.data.ledger) });
+  }
   try {
     stageLine({
       ...parsed.data,
@@ -102,6 +117,9 @@ const postSchema = z.object({
 journalRouter.post('/post', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
   const parsed = postSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!canPostToLedger(req, parsed.data.business, parsed.data.ledger)) {
+    return res.status(403).json({ error: NOT_ACTIVE_LEDGER_ERROR(parsed.data.ledger) });
+  }
   try {
     postJournalEntry(parsed.data.reference, asBusinessName(parsed.data.business), asLedgerName(parsed.data.ledger), asUserId(req.user!.id));
     res.status(204).end();

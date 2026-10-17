@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db, ValidationError, NotFoundError, supersedeEntity, ensureProductInstance, type BusinessName, type UserId } from './db.js';
+import { db, ValidationError, NotFoundError, supersedeEntity, ensureProductInstance, getActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 import { hashPassword, verifyPassword } from './password.js';
 
@@ -242,6 +242,33 @@ export function provisionBusinessAdminUser(businessName: BusinessName, createdBy
   createUser(username, password, []);
   setUserRoleInBusiness(businessName, username, BUSINESS_ADMIN_ROLE, createdBy);
   return { username, password };
+}
+
+// ---------------------------------------------------------------------------
+// The active ledger, and who may post past it — see
+// docs/active-ledger-design.md. Deliberately NOT a hard lock: the
+// old ledger stays genuinely postable forever, for real corrections/
+// adjustments (docs/ledger-scoped-accounts-and-rollover.md), only
+// restricted to a smaller, real set of roles once it is no longer
+// the business's own, current, active one.
+// ---------------------------------------------------------------------------
+
+/** Whether this user may post into this specific ledger, for this
+ * specific business — true unconditionally when it IS the business's
+ * own, real, current active ledger (ordinary trading, untouched by
+ * any of this), or when this business has no real active-ledger
+ * pointer yet (a business created before this concept existed).
+ * Otherwise (a real posting into an already-rolled-over, non-active
+ * ledger — a genuine correction/adjustment), requires the user to
+ * hold Administrator or Accountant globally, or Business Admin in
+ * this one, specific business (the matrix) — exactly the same three,
+ * real roles `requireRole`'s own fallback already treats as "full
+ * access within this business" elsewhere. */
+export function canUserPostToLedger(business: BusinessName, ledger: LedgerName, user: { username: string; roles: string[] }): boolean {
+  const active = getActiveLedger(business);
+  if (!active || active === ledger) return true;
+  if (user.roles.includes('Administrator') || user.roles.includes('Accountant')) return true;
+  return userHasBusinessAdminRole(business, user.username);
 }
 
 export function setUserActive(userId: number, active: boolean): void {

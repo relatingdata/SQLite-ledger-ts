@@ -166,7 +166,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `listPhoneTypes` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function listPhoneTypes(): string[]` |
 | `listRoles` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function listRoles(): ` |
 | `listUsers` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function listUsers(): UserSummary[]` |
-| `logout` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function logout(token: string): void` |
+| `logout` | `backend/src/auth.ts` | `backend/src/db-reports.ts`, `backend/src/routes/auth.ts`, `backend/src/routes/businesses.ts` | `function logout(token: string): void` |
 | `parseUblInvoice` | `backend/src/db.ts` | (none) | `function parseUblInvoice(xml: string): UblImportResult` |
 | `previewCloseBooks` | `backend/src/db-reports.ts` | `backend/src/routes/journal.ts` | `function previewCloseBooks(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string): CloseBooksPreview` |
 | `recordReminderSent` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function recordReminderSent(customerName: string): number` |
