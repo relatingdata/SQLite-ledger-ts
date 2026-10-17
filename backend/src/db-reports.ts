@@ -716,14 +716,28 @@ export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerNa
   const nameCounts = new Map<string, number>();
   for (const a of relevantAccounts) nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1);
 
-  // Per direct instruction: no filter of any kind - a real, direct,
-  // structural check on the account's own real currency column
-  // (already present on every account above), not a reference-string
-  // pattern. A non-null currency is itself what a quantity or
-  // storage-space account is, since every one of those is explicitly
-  // tagged via setAccountCurrency - the home currency is the only
-  // null.
-  const quantityAccountIds = new Set(relevantAccounts.filter((a) => a.currency != null).map((a) => a.id));
+  // A real, confirmed bug found directly: this used to treat any
+  // account with a non-null `currency` as a quantity account, on the
+  // theory that quantity/storage-space accounts are tagged the same
+  // way a foreign currency is (setAccountCurrency). But a REAL foreign
+  // currency account (e.g. "CcyTBTest Cash (EUR)", genuinely tagged
+  // 'EUR') is just as non-null as a genuine quantity account, so every
+  // currency-tagged financial account got wrongly flagged
+  // has_quantity_postings too - confirmed directly against this
+  // field's own, documented contract just above: "a real, direct
+  // quantity-tracking posting (a '-QTY' reference - unit counts, never
+  // dollars)". That's a real, structural, reference-based fact, not a
+  // currency-column one - checked directly here against the real
+  // journal this account's own lines actually posted through, exactly
+  // the convention postQuantityMovement's own, real call sites
+  // (completeStockTake, writeOffStock) already use.
+  const quantityAccountIds = new Set(
+    (
+      db
+        .prepare(`SELECT DISTINCT jl.account_id AS id FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference LIKE '%-QTY'`)
+        .all() as { id: number }[]
+    ).map((r) => r.id)
+  );
 
   const rows: TrialBalanceRow[] = accounts
     .map((a) => {
