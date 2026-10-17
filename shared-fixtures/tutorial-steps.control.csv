@@ -24,6 +24,11 @@ path,verify,screenshot,skip
 ,,,false
 ,,,false
 ,,,false
+,,,false
+,,,false
+,,,false
+,,,false
+,,,false
 ,trial_balance_balanced,,false
 ,record_profit_and_loss_net_income,,false
 ,profit_and_loss_positive,,false
@@ -38,5 +43,5 @@ path,verify,screenshot,skip
 ,,,false
 ,profit_and_loss_positive,,false
 ,trial_balance_total_matches_recorded,,false
-api,,,false
+,,,false
 api,user_has_exact_roles,,false

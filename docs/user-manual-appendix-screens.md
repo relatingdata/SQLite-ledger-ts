@@ -2,6 +2,8 @@
 
 A real, complete reference of every real screen this application has a route for, grouped by the same, real top-level section the menu itself uses --- whether that screen is genuinely working today, or still a real, honestly-labeled gap. A screen marked "Not yet implemented" shows a real, direct placeholder in the running application (with its own description of what it would do), rather than being hidden from the menu entirely --- so the full, real shape of the application is always visible, not just the parts already built.
 
+**On "screens v roles" and "roles v users," directly**: "roles v users" already exists, fully built, as a genuine Cartesian Product --- a real, per-business User x Role matrix (`docs/user-business-role-matrix-design.md`), edited through a real checkbox grid on the Users screen (Configuration section, below). "Screens v roles" does not exist anywhere in this project today --- no table here, no column in `screens.csv`, no code --- and is not a small, honest thing to fabricate: a real screen often calls several, independently role-gated backend routes, and most report screens call none at all, so there is no one real role that a whole screen can honestly be said to require. What *is* real, and already fully enforced today, is `docs/role-routes-matrix.md` --- a Role x Route matrix, read directly from every real `requireRole(...)`/`requireGlobalRole(...)` call (`make role-routes-matrix`).
+
 ## POS Terminal
 
 | Screen | Status |

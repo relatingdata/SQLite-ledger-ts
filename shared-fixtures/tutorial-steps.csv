@@ -101,7 +101,21 @@
 # quantity between its "Carton" and "Bottle" forms, alongside the
 # location's own storage-space accounts - no contra accounting, an
 # ordinary internal stock movement.
+#
+# A real, UI-driven Receive Into Storage/Open Container can only ever
+# pick a real grouping/value that already, visibly exists in its own
+# dropdown - never create one implicitly, the way the api-path-only
+# registry functions still lazily do for their own, direct, backend-
+# to-backend callers. These two pairs of setup steps are that real,
+# honest precondition, done through the real Hierarchies screen
+# itself, exactly as a real person would before ever reaching for
+# either screen below.
+"Create Hierarchy Grouping","Tutorial Wine Retail Business","Storage"
+"Create Hierarchy Value","Tutorial Wine Retail Business","Storage","Secure"
 "Receive Into Storage","Tutorial Wine Retail Business","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure"
+"Create Hierarchy Grouping","Tutorial Wine Retail Business","Container"
+"Create Hierarchy Value","Tutorial Wine Retail Business","Container","Carton"
+"Create Hierarchy Value","Tutorial Wine Retail Business","Container","Bottle"
 "Open Container","Tutorial Wine Retail Business","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24"
 
 # Pre year-end reports, read from the still-open "Actual" ledger

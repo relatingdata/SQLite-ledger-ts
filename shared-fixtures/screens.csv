@@ -54,40 +54,45 @@ Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Comp
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),4,itemName,input[placeholder='e.g. Golden Lager 330ml'],text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),5,quantity,input[type=number] >> nth=0,text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),6,unitCostMinor,input[type=number] >> nth=1,money
-Receive Into Storage,data,,,receiveStockWithCombination,,1,businessName,,text
-Receive Into Storage,data,,,receiveStockWithCombination,,2,itemName,,text
-Receive Into Storage,data,,,receiveStockWithCombination,,3,locationName,,text
-Receive Into Storage,data,,,receiveStockWithCombination,,4,quantity,,text
-Receive Into Storage,data,,,receiveStockWithCombination,,5,groupingName,,text
-Receive Into Storage,data,,,receiveStockWithCombination,,6,storageValue,,text
-Open Container,data,,,openContainer,,1,businessName,,text
-Open Container,data,,,openContainer,,2,locationName,,text
-Open Container,data,,,openContainer,,3,itemName,,text
-Open Container,data,,,openContainer,,4,containerValue,,text
-Open Container,data,,,openContainer,,5,cartonsOpened,,text
-Open Container,data,,,openContainer,,6,unitValue,,text
-Open Container,data,,,openContainer,,7,unitsProduced,,text
+Create Hierarchy Grouping,data,/setup/hierarchy,,createHierarchyGroupingSimple,button:has-text('Add grouping'),1,businessName,,text
+Create Hierarchy Grouping,data,/setup/hierarchy,,createHierarchyGroupingSimple,button:has-text('Add grouping'),2,groupingName,"input[placeholder='New grouping name (e.g. Storage, Glass Size)']",text
+Create Hierarchy Value,data,/setup/hierarchy,,createHierarchyValueSimple,.grouping-card:last-of-type button:has-text('Add'),1,businessName,,text
+Create Hierarchy Value,data,/setup/hierarchy,,createHierarchyValueSimple,.grouping-card:last-of-type button:has-text('Add'),2,groupingName,,text
+Create Hierarchy Value,data,/setup/hierarchy,,createHierarchyValueSimple,.grouping-card:last-of-type button:has-text('Add'),3,valueName,.grouping-card:last-of-type input[placeholder='New value'],text
+Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),1,businessName,,text
+Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),2,itemName,,text
+Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),3,locationName,select >> nth=2,select
+Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),4,quantity,input[placeholder='e.g. 24'],text
+Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),5,groupingName,select >> nth=3,select
+Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),6,storageValue,select >> nth=4,select
+Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),1,businessName,,text
+Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),2,locationName,,text
+Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),3,itemName,input[placeholder='Item name…'],text
+Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),4,containerValue,select >> nth=3,select
+Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),5,cartonsOpened,input[placeholder='1'],text
+Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),6,unitValue,select >> nth=4,select
+Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),7,unitsProduced,input[placeholder='e.g. 24'],text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),1,businessName,,text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),3,fromLocationName,select >> nth=1,select
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),2,itemName,select >> nth=0,select
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),4,toLocationName,select >> nth=2,select
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),5,quantity,input[type=number],text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),6,reference,input[type=text],text
-POS Sale,data,,,posSaleSimple,,1,businessName,,text
-POS Sale,data,,,posSaleSimple,,2,locationName,,text
-POS Sale,data,,,posSaleSimple,,3,itemName,,text
-POS Sale,data,,,posSaleSimple,,4,quantity,,text
-POS Sale,data,,,posSaleSimple,,5,unitPriceMinor,,text
-Close Books,data,,,closeBooksSimple,,1,businessName,,text
-Close Books,data,,,closeBooksSimple,,2,ledger,,text
-Close Books,data,,,closeBooksSimple,,3,asOfDate,,text
-Close Books,data,,,closeBooksSimple,,4,retainedEarningsAccount,,text
+POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),1,businessName,,text
+POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),2,locationName,select >> nth=0,select_value
+POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),3,itemName,"input[placeholder='Scan barcode or type a name…']",text_enter
+POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),4,quantity,.qty-input,text
+POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),5,unitPriceMinor,.price-input >> nth=0,money
+Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),1,businessName,,text
+Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),2,ledger,,text
+Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),3,asOfDate,input[type=date],text
+Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),4,retainedEarningsAccount,select >> nth=0,select
 Create Ledger,data,,,createLedgerSimple,,1,businessName,,text
 Create Ledger,data,,,createLedgerSimple,,2,ledger,,text
-Rollover To New Period,data,,,rolloverToNewPeriodSimple,,1,businessName,,text
-Rollover To New Period,data,,,rolloverToNewPeriodSimple,,2,oldLedger,,text
-Rollover To New Period,data,,,rolloverToNewPeriodSimple,,3,newLedger,,text
-Rollover To New Period,data,,,rolloverToNewPeriodSimple,,4,asOfDate,,text
+Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),1,businessName,,text
+Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),2,oldLedger,,text
+Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),3,newLedger,input[placeholder='New ledger name'],text
+Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),4,asOfDate,input[type=date],text
 Stage Journal Line,data,/post,,stageJournalLine,,1,reference,"input[placeholder='e.g. GJ-1001']",text
 Stage Journal Line,data,/post,,stageJournalLine,,2,businessName,,text
 Stage Journal Line,data,/post,,stageJournalLine,,3,ledger,,text
@@ -120,33 +125,33 @@ POS Sale In Ledger,data,,,posSaleInLedgerSimple,,3,ledger,,text
 POS Sale In Ledger,data,,,posSaleInLedgerSimple,,4,itemName,,text
 POS Sale In Ledger,data,,,posSaleInLedgerSimple,,5,quantity,,text
 POS Sale In Ledger,data,,,posSaleInLedgerSimple,,6,unitPriceMinor,,text
-Check Trial Balance Balanced,data,,,,,1,businessName,,text
-Check Trial Balance Balanced,data,,,,,2,ledger,,text
-Check Trial Balance Balanced,data,,,,,3,asOfDate,,text
-Record Trial Balance Total,data,,,,,1,businessName,,text
-Record Trial Balance Total,data,,,,,2,ledger,,text
-Record Trial Balance Total,data,,,,,3,asOfDate,,text
-Check Trial Balance Total Matches Recorded,data,,,,,1,businessName,,text
-Check Trial Balance Total Matches Recorded,data,,,,,2,ledger,,text
-Check Trial Balance Total Matches Recorded,data,,,,,3,asOfDate,,text
-Check Profit And Loss Positive,data,,,,,1,businessName,,text
-Check Profit And Loss Positive,data,,,,,2,ledger,,text
-Check Profit And Loss Positive,data,,,,,3,fromDate,,text
-Check Profit And Loss Positive,data,,,,,4,toDate,,text
-Check Profit And Loss Zero,data,,,,,1,businessName,,text
-Check Profit And Loss Zero,data,,,,,2,ledger,,text
-Check Profit And Loss Zero,data,,,,,3,fromDate,,text
-Check Profit And Loss Zero,data,,,,,4,toDate,,text
-Record Profit And Loss Net Income,data,,,,,1,businessName,,text
-Record Profit And Loss Net Income,data,,,,,2,ledger,,text
-Record Profit And Loss Net Income,data,,,,,3,fromDate,,text
-Record Profit And Loss Net Income,data,,,,,4,toDate,,text
-Check Profit And Loss Net Income Matches Recorded,data,,,,,1,businessName,,text
-Check Profit And Loss Net Income Matches Recorded,data,,,,,2,ledger,,text
-Check Profit And Loss Net Income Matches Recorded,data,,,,,3,fromDate,,text
-Check Profit And Loss Net Income Matches Recorded,data,,,,,4,toDate,,text
-Create User,data,,,createUserSimple,,1,username,,text
-Create User,data,,,createUserSimple,,2,password,,text
-Create User,data,,,createUserSimple,,3,roles,,text
+Check Trial Balance Balanced,data,/reports/trial-balance,,,,1,businessName,,text
+Check Trial Balance Balanced,data,/reports/trial-balance,,,,2,ledger,select,select
+Check Trial Balance Balanced,data,/reports/trial-balance,,,,3,asOfDate,input[type=date],text
+Record Trial Balance Total,data,/reports/trial-balance,,,,1,businessName,,text
+Record Trial Balance Total,data,/reports/trial-balance,,,,2,ledger,select,select
+Record Trial Balance Total,data,/reports/trial-balance,,,,3,asOfDate,input[type=date],text
+Check Trial Balance Total Matches Recorded,data,/reports/trial-balance,,,,1,businessName,,text
+Check Trial Balance Total Matches Recorded,data,/reports/trial-balance,,,,2,ledger,select,select
+Check Trial Balance Total Matches Recorded,data,/reports/trial-balance,,,,3,asOfDate,input[type=date],text
+Check Profit And Loss Positive,data,/reports/profit-and-loss,,,,1,businessName,,text
+Check Profit And Loss Positive,data,/reports/profit-and-loss,,,,2,ledger,,text
+Check Profit And Loss Positive,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text
+Check Profit And Loss Positive,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> nth=1,text
+Check Profit And Loss Zero,data,/reports/profit-and-loss,,,,1,businessName,,text
+Check Profit And Loss Zero,data,/reports/profit-and-loss,,,,2,ledger,,text
+Check Profit And Loss Zero,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text
+Check Profit And Loss Zero,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> nth=1,text
+Record Profit And Loss Net Income,data,/reports/profit-and-loss,,,,1,businessName,,text
+Record Profit And Loss Net Income,data,/reports/profit-and-loss,,,,2,ledger,,text
+Record Profit And Loss Net Income,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text
+Record Profit And Loss Net Income,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> nth=1,text
+Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,,,,1,businessName,,text
+Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,,,,2,ledger,,text
+Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text
+Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> nth=1,text
+Create User,data,/setup/users,,createUserSimple,button:has-text('Create user'),1,username,.form-card fieldset:has(legend:has-text('Username')) input,text
+Create User,data,/setup/users,,createUserSimple,button:has-text('Create user'),2,password,.form-card fieldset:has(legend:has-text('Password')) input,text
+Create User,data,/setup/users,,createUserSimple,button:has-text('Create user'),3,roles,.form-card .multiselect,check_by_text
 Set User Roles,data,,,setUserRolesSimple,,1,username,,text
 Set User Roles,data,,,setUserRolesSimple,,2,roles,,text

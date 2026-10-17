@@ -341,6 +341,19 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     }
     db.create(categoryEntity, db.typeItemName, a.itemName, userId);
   },
+  // The real, direct, UI-wireable precondition receiveStockWithCombination
+  // and openContainer below otherwise only ever create lazily, as a
+  // side effect, with nothing for a real browser-driven run to select
+  // from beforehand. Idempotent (ensureHierarchyGrouping/Value), so
+  // running it again here does no harm.
+  createHierarchyGroupingSimple: (a) => {
+    const userId = db.asUserId(1);
+    db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);
+  },
+  createHierarchyValueSimple: (a) => {
+    const userId = db.asUserId(1);
+    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
+  },
   // Per direct instruction: exercises the real, existing combination
   // support already wired into receiveItems - receiving an
   // item directly into a real, named storage combination (e.g.
@@ -763,6 +776,35 @@ async function authHeader(page: Page): Promise<Record<string, string>> {
   }
 }
 
+// Shared by open_selector and submit_selector: both are a real,
+// ";;"-separated sequence of actions needed to reach or commit a real
+// screen's own form, never anything specific to one particular screen.
+// Three real kinds of action: a plain Playwright selector (clicked), a
+// real key press ("key:Name"), or - the one case a real, bare click
+// can never cover - choosing a real, fixed <option> that is itself a
+// genuine, required precondition for the rest of the form to even
+// render (e.g. Open Container's own Grouping dropdown must already be
+// "Container" before its Container-value/Unit-value selects exist at
+// all), named directly here rather than through a real data-file
+// column, since this one, specific value is never something a given
+// screen's own data varies by ("select:<selector>::<value>").
+async function runActionSequence(page: Page, actionsRaw: string): Promise<void> {
+  for (const action of actionsRaw.split(';;').map((a) => a.trim()).filter(Boolean)) {
+    if (action.startsWith('key:')) {
+      await page.keyboard.press(action.slice(4));
+    } else if (action.startsWith('select:')) {
+      const rest = action.slice('select:'.length);
+      const sepIdx = rest.indexOf('::');
+      const selector = rest.slice(0, sepIdx);
+      const optionValue = rest.slice(sepIdx + 2);
+      await page.locator(selector).selectOption({ value: optionValue });
+    } else {
+      await page.locator(action).click();
+    }
+    await page.waitForTimeout(300);
+  }
+}
+
 export async function runStepViaUi(page: Page, step: Step, screens: Map<string, Screen>, screenshotDir: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const screen = screens.get(step.screen_name);
@@ -796,17 +838,12 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
     // screen can genuinely need more than one real action to reach
     // its own form (e.g. Business Setup's real Insert-key tree:
     // select a real row, then press a real key - never a click on
-    // its own). ";;"-separated steps, each either a real Playwright
-    // selector (clicked) or "key:Name" (a real key press), cover
-    // this without the runner ever needing to know anything about
-    // what screen it's driving - still purely generic.
+    // its own; or Open Container, which must pick its own, fixed
+    // Grouping option before its real Container/Unit-value selects
+    // even exist). See runActionSequence - still purely generic.
     if (screen?.open_selector) {
       const openStart = Date.now();
-      for (const action of screen.open_selector.split(';;').map((a) => a.trim()).filter(Boolean)) {
-        if (action.startsWith('key:')) await page.keyboard.press(action.slice(4));
-        else await page.locator(action).click();
-        await page.waitForTimeout(300);
-      }
+      await runActionSequence(page, screen.open_selector);
       console.log(`  [load] open_selector ${screen.open_selector}: ${Date.now() - openStart}ms`);
     }
     if (screen) {
@@ -832,8 +869,36 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
           await page.waitForTimeout(200);
           continue;
         }
+        // "check_by_text" is the last of these narrow, generic
+        // extensions: a real, generic multiselect-by-checkbox widget
+        // (e.g. Create User's own Roles field) renders one checkbox per
+        // real, named option, each wrapped in its own <label>, with no
+        // other stable, per-option selector at all - the only real way
+        // to tell them apart is the real, visible text already carried
+        // by the data file's own value. field_selector names the real,
+        // containing element (e.g. ".multiselect"); one or more
+        // comma-separated real names are each checked within it - still
+        // the same, generic "tell the runner how to apply this value"
+        // contract, never a per-screen special case.
+        if (field.field_type === 'check_by_text') {
+          const container = page.locator(field.field_selector);
+          for (const name of value.split(',').map((n) => n.trim()).filter(Boolean)) {
+            await container.locator('label', { hasText: name }).locator('input[type=checkbox]').check();
+            await page.waitForTimeout(200);
+          }
+          continue;
+        }
         const locator = page.locator(field.field_selector);
         if (field.field_type === 'select') await locator.selectOption({ label: value });
+        // "select_value" is the other narrow, generic extension a real
+        // screen can need: some real <option>s show a longer, decorated
+        // label (e.g. "Main Street Cellar (Springfield)") than the real,
+        // plain name their own value attribute carries - the same plain
+        // name every real data-file value already uses. Matching on the
+        // real value attribute instead of the label is the same, generic
+        // "tell the runner how to apply this value" contract "select"
+        // already uses, never a per-screen special case.
+        else if (field.field_type === 'select_value') await locator.selectOption({ value });
         else if (field.field_type === 'check') await (value === 'true' ? locator.check() : locator.uncheck());
         // A real, generic, screen-agnostic unit conversion, not a
         // per-screen special case: several real data-file values are
@@ -845,19 +910,39 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         // tell it how to apply a value - never anything specific to
         // which real screen this is.
         else if (field.field_type === 'money') await locator.fill((Number(value) / 100).toFixed(2));
-        else await locator.fill(value);
+        // "text_enter" is the other narrow, generic extension a real
+        // screen can need: some real fields (e.g. a live item-search box
+        // that adds its top match on Enter, never on a separate submit
+        // click) only commit their value on a real Enter keypress, not
+        // merely by being filled. Same contract as "money"/"select"/
+        // "check" - tells the runner how to apply the value, never
+        // anything specific to which real screen this is.
+        else if (field.field_type === 'text_enter') {
+          await locator.fill(value);
+          await locator.press('Enter');
+        } else await locator.fill(value);
         await page.waitForTimeout(200);
       }
       if (screen.submit_selector) {
-        await page.locator(screen.submit_selector).click();
-        // A real, confirmed timing gap, not a guess: repeated, real runs
-        // in this same session showed "Verify ... returned false"
-        // immediately after a real, successful-looking submit click -
-        // the real POST was still in flight when the very next line read
-        // the database. 800ms was not enough real margin under genuine,
-        // ordinary load; widened once, directly in response to that
-        // repeated, observed failure, not spent speculatively.
-        await page.waitForTimeout(2000);
+        // submit_selector is almost always one, real click - but a real
+        // screen can genuinely need more than one real action to commit
+        // its own form (e.g. a two-step confirm flow: "Preview" then
+        // "Accept"). ";;"-separated steps, each either a real Playwright
+        // selector (clicked) or "key:Name" (a real key press), mirror
+        // open_selector's own existing support for this - still purely
+        // generic.
+        for (const action of screen.submit_selector.split(';;').map((a) => a.trim()).filter(Boolean)) {
+          if (action.startsWith('key:')) await page.keyboard.press(action.slice(4));
+          else await page.locator(action).click();
+          // A real, confirmed timing gap, not a guess: repeated, real runs
+          // in this same session showed "Verify ... returned false"
+          // immediately after a real, successful-looking submit click -
+          // the real POST was still in flight when the very next line read
+          // the database. 800ms was not enough real margin under genuine,
+          // ordinary load; widened once, directly in response to that
+          // repeated, observed failure, not spent speculatively.
+          await page.waitForTimeout(2000);
+        }
       }
     }
     if (step.screenshot) {

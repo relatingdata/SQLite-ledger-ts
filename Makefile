@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-with-foreign dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-with-foreign dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -487,6 +487,15 @@ check-unused:
 # Regenerates docs/screens-inventory.md from the frontend routes.
 screens-inventory:
 	$(RUN_SCRIPT) scripts/generate-screens-inventory.ts
+
+# Regenerates docs/role-routes-matrix.md directly from every real
+# requireRole(...)/requireGlobalRole(...) call in backend/src/routes -
+# the real, enforced "screens v roles" question's own, honest answer
+# (see the generator's own header comment for why a true per-screen
+# matrix is not built here). Run after adding or changing a route's
+# own role guard.
+role-routes-matrix:
+	$(RUN_SCRIPT) scripts/generate-role-routes-matrix.ts
 
 # Fails if the project contains any .py file or any build file invoking
 # python. This project ships no Python - see scripts/check-no-python.ts.
@@ -1047,7 +1056,8 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 	docs/access-control-design.md \
 	docs/user-business-role-matrix-design.md \
 	docs/business-admin-role-and-enforcement-design.md \
-	docs/active-ledger-design.md
+	docs/active-ledger-design.md \
+	docs/role-routes-matrix.md
 
 # docs/screens-staging-triggers-functions.md references 17 specific
 # screenshots directly - a real, explicit Make dependency, so this
