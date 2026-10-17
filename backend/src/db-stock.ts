@@ -566,7 +566,12 @@ export function getStorageSpaceReport(): StorageSpaceLocationGroup[] {
  * explicit parameter, falling back to the exact, same ambient
  * Session.Business.id only when genuinely omitted — the HTTP route
  * below now passes it explicitly. */
-export function getInventoryListingByLocation(business?: BusinessName): InventoryListingLocationGroup[] {
+/** hierarchyName names which real, business-chosen Hierarchy grouping
+ * (e.g. "Division," or any other real, nameable hierarchy) each
+ * location's own group tag is resolved against - never hardcoded
+ * here, so a group is only ever tagged when a caller explicitly asks
+ * for one; omitted entirely, every location's own group is null. */
+export function getInventoryListingByLocation(business?: BusinessName, hierarchyName?: string): InventoryListingLocationGroup[] {
   // A further, real, confirmed continuation of the same bug class
   // documented just above: this function has a SECOND, independent
   // ambient Session.Business read further down (building each real
@@ -619,7 +624,7 @@ export function getInventoryListingByLocation(business?: BusinessName): Inventor
     let group = groups.get(row.location);
     if (!group) {
       const location = getLocation(row.location, resolvedBusiness);
-      const groupName = getHierarchyGroupForLocation(row.location, 'Division') ?? null;
+      const groupName = hierarchyName ? (getHierarchyGroupForLocation(row.location, hierarchyName) ?? null) : null;
       group = { location: row.location, city: location?.city ?? null, group: groupName, rows: [], total_on_hand: 0, capacity: getLocationCapacityStatus(asLocationName(row.location)) };
       groups.set(row.location, group);
     }
@@ -682,7 +687,11 @@ function allPreferredProviders(): Map<string, string> {
   return map;
 }
 
-export function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport {
+/** hierarchyName names which real, business-chosen Hierarchy grouping
+ * (e.g. "Division," or any other real, nameable hierarchy) tags each
+ * row's own location-based group - never hardcoded here; omitted
+ * entirely, every row's own group is null. */
+export function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string, hierarchyName?: string): StockMovementReport {
   const ledgerId = (
     db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
       .get(ledgerName, business) as { id: number } | undefined
@@ -744,7 +753,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
             quantity: r.quantity,
             date: r.date,
             location: r.location,
-            group: getHierarchyGroupForLocation(r.location, 'Division') ?? null,
+            group: hierarchyName ? (getHierarchyGroupForLocation(r.location, hierarchyName) ?? null) : null,
             vendor: vendors.get(r.item) ?? null,
           });
         } else if (r.quantity < 0) {
@@ -790,7 +799,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
     quantity: -r.quantity,
     date: r.date,
     location: r.location,
-    group: getHierarchyGroupForLocation(r.location, 'Division') ?? null,
+    group: hierarchyName ? (getHierarchyGroupForLocation(r.location, hierarchyName) ?? null) : null,
     vendor: vendors.get(r.item) ?? null,
     amount_minor: saleAmountFor(r.reference.replace(/-DISPATCH-.+$/, ''), r.item),
   }));

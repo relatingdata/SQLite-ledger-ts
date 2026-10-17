@@ -12,6 +12,7 @@
     getLedgers,
     createLedger,
     resolveRolloverLines,
+    getHierarchy,
     asLedgerName,
     asAccountName,
     ApiError,
@@ -20,6 +21,12 @@
     type CloseBooksPreview,
     type ResolvedRollover,
   } from '$lib/api';
+
+  // The close-books breakdown walks Location, then whatever further
+  // hierarchy a business has actually configured (e.g. "Division") —
+  // never a single, privileged name hardcoded here; read live, below,
+  // from the business's own Hierarchy configuration.
+  let hierarchyPath: string[] = ['Location'];
 
   let entities: EntityNode[] = [];
   let loading = true;
@@ -54,6 +61,12 @@
       equityAccountOptions = equityAccounts;
       if (session.current) {
         ledgers = await getLedgers(session.current.businessName);
+        try {
+          const hierarchy = await getHierarchy(session.current.businessName);
+          if (hierarchy.length > 0) hierarchyPath = ['Location', ...hierarchy.map((h) => h.grouping)];
+        } catch {
+          /* the close still works with just a Location breakdown if this fails */
+        }
       }
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
@@ -78,7 +91,7 @@
     preview = null;
     result = null;
     try {
-      preview = await previewCloseBooks({ business: session.current.businessName, ledger: session.current.ledgerName, asOfDate, retainedEarningsAccount, hierarchyPath: ['Location', 'Division'] });
+      preview = await previewCloseBooks({ business: session.current.businessName, ledger: session.current.ledgerName, asOfDate, retainedEarningsAccount, hierarchyPath });
     } catch (e) {
       previewError = e instanceof ApiError ? e.message : 'Could not preview the close.';
     } finally {
@@ -295,8 +308,8 @@
         <p class="preview-net">{translations.current['Net Income'] ?? 'Net Income'}: <strong>{fmt(preview.netIncomeMinor)}</strong></p>
 
         {#if preview.groupBreakdown.length > 0}
-          <p class="division-heading">{translations.current['Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)'] ?? 'Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)'}:</p>
-          <ul class="division-list">
+          <p class="group-heading">{translations.current['Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)'] ?? 'Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)'}:</p>
+          <ul class="group-list">
             {#each preview.groupBreakdown as d}
               <li>{d.group ?? (translations.current['(No division)'] ?? '(No division)')}: {fmt(d.netIncomeMinor)}</li>
             {/each}
@@ -319,8 +332,8 @@
         <p>{translations.current['Net Income'] ?? 'Net Income'}: {fmt(result.netIncomeMinor)}</p>
         <p>{translations.current['Accounts zeroed'] ?? 'Accounts zeroed'}: {result.accountsZeroed}</p>
         {#if result.groupBreakdown.length > 0}
-          <p class="division-heading">{translations.current['By division/location profit center'] ?? 'By division/location profit center'}:</p>
-          <ul class="division-list">
+          <p class="group-heading">{translations.current['By division/location profit center'] ?? 'By division/location profit center'}:</p>
+          <ul class="group-list">
             {#each result.groupBreakdown as d}
               <li>{d.group ?? (translations.current['(No division)'] ?? '(No division)')}: {fmt(d.netIncomeMinor)}</li>
             {/each}
@@ -489,16 +502,16 @@
     margin-top: 0.6rem !important;
     font-style: italic;
   }
-  .division-heading {
+  .group-heading {
     margin-top: 0.6rem !important;
     font-weight: 600;
   }
-  .division-list {
+  .group-list {
     margin: 0.2rem 0 0;
     padding-left: 1.2rem;
     font-size: var(--font-size-medium);
   }
-  .division-list li {
+  .group-list li {
     margin: 0.1rem 0;
   }
 </style>

@@ -1,17 +1,24 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getInventoryListingByLocation, setItemLocationLevels, asItemName, asLocationName, ApiError, type InventoryListingLocationGroup, type InventoryListingRow } from '$lib/api';
+  import { getInventoryListingByLocation, getHierarchy, setItemLocationLevels, asItemName, asLocationName, ApiError, type InventoryListingLocationGroup, type InventoryListingRow } from '$lib/api';
   import { translations, session } from '$lib/state.svelte';
 
   let groups: InventoryListingLocationGroup[] = $state([]);
   let loading = $state(true);
   let error = $state('');
 
+  // The real hierarchy a business's own locations are grouped by (e.g.
+  // "Division," or any other real, business-chosen name) is never
+  // hardcoded here — it's read live from the business's own Hierarchy
+  // configuration, first grouping found. With none configured, every
+  // location simply has no group.
+  let hierarchyName: string | undefined = $state(undefined);
+
   async function load() {
     if (!session.current) return;
     loading = true;
     try {
-      groups = await getInventoryListingByLocation(session.current.businessName);
+      groups = await getInventoryListingByLocation(session.current.businessName, hierarchyName);
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -19,35 +26,45 @@
     }
   }
 
-  onMount(load);
-
-  // Real division groups, each holding its own real location groups —
-  // built directly from the same real division tag
-  // getInventoryListingByLocation already computed, not re-derived here.
-  // Locations with no real division fall under a real, explicit
-  // "(No division)" group rather than being silently dropped.
-  const NO_DIVISION = '__none__';
-  let divisionGroups = $derived.by(() => {
-    const byDivision = new Map<string, InventoryListingLocationGroup[]>();
-    for (const g of groups) {
-      const key = g.group ?? NO_DIVISION;
-      if (!byDivision.has(key)) byDivision.set(key, []);
-      byDivision.get(key)!.push(g);
+  onMount(async () => {
+    if (session.current) {
+      try {
+        const hierarchy = await getHierarchy(session.current.businessName);
+        if (hierarchy.length > 0) hierarchyName = hierarchy[0].grouping;
+      } catch {
+        /* the report still works with no group tagging at all if this fails */
+      }
     }
-    return [...byDivision.entries()]
-      .map(([name, locs]) => ({ name, locations: locs, total: locs.reduce((s, l) => s + l.total_on_hand, 0) }))
-      .sort((a, b) => (a.name === NO_DIVISION ? 1 : b.name === NO_DIVISION ? -1 : a.name.localeCompare(b.name)));
+    await load();
   });
 
-  // Every division and every location starts collapsed — read as
-  // totals first, real detail on demand, the same pattern already
-  // proven on the P&L report.
-  let expandedDivisions = $state(new Set<string>());
+  // Real groups, each holding its own real location groups — built
+  // directly from the same real group tag getInventoryListingByLocation
+  // already computed, not re-derived here. Locations with no real
+  // group fall under a real, explicit "(No group)" group rather than
+  // being silently dropped.
+  const NO_GROUP = '__none__';
+  let hierarchyGroups = $derived.by(() => {
+    const byGroup = new Map<string, InventoryListingLocationGroup[]>();
+    for (const g of groups) {
+      const key = g.group ?? NO_GROUP;
+      if (!byGroup.has(key)) byGroup.set(key, []);
+      byGroup.get(key)!.push(g);
+    }
+    return [...byGroup.entries()]
+      .map(([name, locs]) => ({ name, locations: locs, total: locs.reduce((s, l) => s + l.total_on_hand, 0) }))
+      .sort((a, b) => (a.name === NO_GROUP ? 1 : b.name === NO_GROUP ? -1 : a.name.localeCompare(b.name)));
+  });
+
+  // Every group and every location starts collapsed — read as totals
+  // first, real detail on demand, the same pattern already proven on
+  // the P&L report.
+  let expandedGroups = $state(new Set<string>());
   let expandedLocations = $state(new Set<string>());
-  function toggleDivision(name: string) {
-    expandedDivisions = new Set(expandedDivisions);
-    if (expandedDivisions.has(name)) expandedDivisions.delete(name);
-    else expandedDivisions.add(name);
+  function toggleGroup(name: string) {
+    expandedGroups = new Set(expandedGroups);
+    if (expandedGroups.has(name)) expandedGroups.delete(name);
+    else expandedGroups.add(name);
   }
   function toggleLocation(name: string) {
     expandedLocations = new Set(expandedLocations);
@@ -101,15 +118,15 @@
 {:else}
   <div class="report-wrap">
     <div class="grid-box">
-      {#each divisionGroups as dg}
-        <div class="division-block">
-          <button type="button" class="division-head" onclick={() => toggleDivision(dg.name)}>
-            <span class="disclosure">{expandedDivisions.has(dg.name) ? '▾' : '▸'}</span>
-            <span class="division-name">{dg.name === NO_DIVISION ? (translations.current['No division'] ?? '(No division)') : dg.name}</span>
-            <span class="division-total num mono">{dg.total.toLocaleString()}</span>
+      {#each hierarchyGroups as dg}
+        <div class="group-block">
+          <button type="button" class="group-head" onclick={() => toggleGroup(dg.name)}>
+            <span class="disclosure">{expandedGroups.has(dg.name) ? '▾' : '▸'}</span>
+            <span class="group-name">{dg.name === NO_GROUP ? (translations.current['No group'] ?? '(No group)') : dg.name}</span>
+            <span class="group-total num mono">{dg.total.toLocaleString()}</span>
           </button>
 
-          {#if expandedDivisions.has(dg.name)}
+          {#if expandedGroups.has(dg.name)}
             {#each dg.locations as loc}
               <div class="location-block">
                 <button type="button" class="location-head" onclick={() => toggleLocation(loc.location)}>
@@ -187,11 +204,11 @@
     background: var(--paper);
   }
 
-  .division-block + .division-block {
+  .group-block + .group-block {
     border-top: 2px solid var(--ink);
   }
 
-  .division-head,
+  .group-head,
   .location-head {
     display: flex;
     align-items: center;
@@ -203,13 +220,13 @@
     font: inherit;
   }
 
-  .division-head {
+  .group-head {
     padding: 0.6rem 0.9rem;
     font-weight: 700;
     background: var(--paper-dim, #f2ede1);
   }
 
-  .division-head:hover,
+  .group-head:hover,
   .location-head:hover {
     background: var(--paper-dim, #f2ede1);
   }
@@ -229,7 +246,7 @@
     color: var(--ink-soft);
   }
 
-  .division-name,
+  .group-name,
   .location-name {
     flex: 1;
   }
@@ -240,7 +257,7 @@
     margin-right: 1rem;
   }
 
-  .division-total,
+  .group-total,
   .location-total {
     min-width: 4rem;
     text-align: right;

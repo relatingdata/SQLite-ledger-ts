@@ -1793,8 +1793,8 @@ export interface InventoryListingLocationGroup {
   total_on_hand: number;
   capacity: LocationCapacityStatus;
 }
-export const getInventoryListingByLocation = (businessName: string) =>
-  request<InventoryListingLocationGroup[]>(`/stock-listing/by-location?business=${encodeURIComponent(businessName)}`);
+export const getInventoryListingByLocation = (businessName: string, hierarchyName?: string) =>
+  request<InventoryListingLocationGroup[]>(`/stock-listing/by-location?business=${encodeURIComponent(businessName)}${hierarchyName ? `&hierarchyName=${encodeURIComponent(hierarchyName)}` : ''}`);
 
 // Per direct instruction: a real, new report - Storage Capacity
 // accounts live under each real Location, structurally outside Chart
@@ -1840,7 +1840,7 @@ export interface StockMovementReport {
   transfers: StockTransferRow[];
   sales: StockSaleRow[];
 }
-export const getStockMovementReport = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string) =>
+export const getStockMovementReport = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, hierarchyName?: string) =>
   request<StockMovementReport>(
-    `/stock-listing/movement?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
+    `/stock-listing/movement?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}${hierarchyName ? `&hierarchyName=${encodeURIComponent(hierarchyName)}` : ''}`
   );

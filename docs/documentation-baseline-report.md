@@ -33,13 +33,13 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `typeProjectTaskName` | `backend/src/db.ts` | (none) | `const typeProjectTaskName = { brand: 'ProjectTaskName' };` |
 | `typeProviderName` | `backend/src/db.ts` | (none) | `const typeProviderName = { brand: 'ProviderName' };` |
 | `typeRelationshipRecordName` | `backend/src/db.ts` | (none) | `const typeRelationshipRecordName = { brand: 'RelationshipRecordName' };` |
-| `typeRootName` | `backend/src/db.ts` | `backend/src/auth-middleware.ts`, `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/divisions.ts` | `const typeRootName = { brand: 'RootName' };` |
+| `typeRootName` | `backend/src/db.ts` | `backend/src/auth-middleware.ts`, `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts` | `const typeRootName = { brand: 'RootName' };` |
 | `typeScheduleRecordName` | `backend/src/db.ts` | (none) | `const typeScheduleRecordName = { brand: 'ScheduleRecordName' };` |
 | `typeStorageOriginMarkerName` | `backend/src/db.ts` | (none) | `const typeStorageOriginMarkerName = { brand: 'StorageOriginMarkerName' };` |
 | `typeTextDirectionMarkerName` | `backend/src/db.ts` | (none) | `const typeTextDirectionMarkerName = { brand: 'TextDirectionMarkerName' };` |
 | `typeTranslationConceptName` | `backend/src/db.ts` | (none) | `const typeTranslationConceptName = { brand: 'TranslationConceptName' };` |
 
-## Router Constants (31, alphabetical)
+## Router Constants (30, alphabetical)
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
@@ -51,7 +51,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `contactsRouter` | `backend/src/routes/contacts.ts` | `backend/src/server.ts` | `const contactsRouter = Router();` |
 | `customerRegistrationRouter` | `backend/src/routes/customer-registration.ts` | `backend/src/server.ts` | `const customerRegistrationRouter = Router();` |
 | `customerVerificationRouter` | `backend/src/routes/customer-registration.ts` | `backend/src/server.ts` | `const customerVerificationRouter = Router();` |
-| `divisionsRouter` | `backend/src/routes/divisions.ts` | `backend/src/server.ts` | `const divisionsRouter = Router();` |
 | `entitiesRouter` | `backend/src/routes/entities.ts` | `backend/src/server.ts` | `const entitiesRouter = Router();` |
 | `historyRouter` | `backend/src/routes/invoices.ts` | `backend/src/server.ts` | `const historyRouter = Router();` |
 | `i18nRouter` | `backend/src/routes/i18n.ts` | `backend/src/server.ts` | `const i18nRouter = Router();` |
@@ -75,7 +74,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `stockRouter` | `backend/src/routes/stock.ts` | `backend/src/server.ts` | `const stockRouter = Router();` |
 | `stockTakesRouter` | `backend/src/routes/locations.ts` | `backend/src/server.ts` | `const stockTakesRouter = Router();` |
 
-## Functions (116, alphabetical)
+## Functions (112, alphabetical)
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
@@ -90,7 +89,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `asItemName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/items.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/stock-lots.ts` | `function asItemName(name: string): ItemName` |
 | `asLocationName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asLocationName(name: string): LocationName` |
 | `asProviderName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asProviderName(name: string): ProviderName` |
-| `asUserId` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/auth.ts`, `backend/src/routes/businesses.ts`, `backend/src/routes/contacts.ts`, `backend/src/routes/customer-registration.ts`, `backend/src/routes/divisions.ts`, `backend/src/routes/entities.ts`, `backend/src/routes/hierarchy.ts`, `backend/src/routes/i18n.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/items.ts`, `backend/src/routes/journal.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/period.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/products.ts`, `backend/src/routes/projects.ts`, `backend/src/routes/reports.ts`, `backend/src/routes/stock-lots.ts`, `backend/src/routes/stock.ts` | `function asUserId(id: number): UserId` |
+| `asUserId` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/auth.ts`, `backend/src/routes/businesses.ts`, `backend/src/routes/contacts.ts`, `backend/src/routes/customer-registration.ts`, `backend/src/routes/entities.ts`, `backend/src/routes/hierarchy.ts`, `backend/src/routes/i18n.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/items.ts`, `backend/src/routes/journal.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/period.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/products.ts`, `backend/src/routes/projects.ts`, `backend/src/routes/reports.ts`, `backend/src/routes/stock-lots.ts`, `backend/src/routes/stock.ts` | `function asUserId(id: number): UserId` |
 | `attachUser` | `backend/src/auth-middleware.ts` | `backend/src/recording.ts`, `backend/src/server.ts` | `function attachUser(req: Request, _res: Response, next: NextFunction): void` |
 | `authenticateCustomer` | `backend/src/db.ts` | `backend/src/routes/customer-registration.ts` | `function authenticateCustomer(name: string, password: string): boolean` |
 | `buildProfitAndLossFromBalances` | `backend/src/db-reports.ts` | `backend/src/db-matrix-reports.ts` | `function buildProfitAndLossFromBalances(business: string, balances: Map<number, number>): ProfitAndLoss` |
@@ -125,7 +124,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getChartOfAccounts` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getChartOfAccounts(business: string): ChartRow[]` |
 | `getConceptsWithAlternates` | `backend/src/db.ts` | `backend/src/routes/i18n.ts` | `function getConceptsWithAlternates(): ConceptWithAlternates[]` |
 | `getCreditStatus` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function getCreditStatus(entityName: string): CreditStatus` |
-| `getDivisions` | `backend/src/db.ts` | `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/routes/divisions.ts` | `function getDivisions(): ` |
 | `getEmployeeSchedule` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function getEmployeeSchedule(employeeName: string): EmployeeScheduleLine[]` |
 | `getExpiringStock` | `backend/src/db-stock.ts` | `backend/src/routes/stock-lots.ts` | `function getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[]` |
 | `getHierarchyAncestorChain` | `backend/src/db.ts` | (none) | `function getHierarchyAncestorChain(entityName: string, hierarchyName: string): string[]` |
@@ -136,7 +134,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getItemLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts`, `backend/src/routes/locations.ts` | `function getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels` |
 | `getItemUnitCostMinor` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function getItemUnitCostMinor(itemName: ItemName): number \| null` |
 | `getLanguages` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/routes/i18n.ts` | `function getLanguages(): ` |
-| `getLedgerBalancesByDivisionStructural` | `backend/src/db-reports.ts` | (none) | `function getLedgerBalancesByDivisionStructural(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, Map<string \| null, number>>` |
 | `getLedgerDateRange` | `backend/src/db-journal.ts` | `backend/src/routes/reports.ts` | `function getLedgerDateRange(businessName: BusinessName, ledgerName: LedgerName): LedgerDateRange` |
 | `getLedgers` | `backend/src/db.ts` | `backend/src/routes/businesses.ts` | `function getLedgers(businessName: BusinessName): ` |
 | `getLocalizedText` | `backend/src/db.ts` | `backend/src/invoice.ts`, `backend/src/routes/i18n.ts` | `function getLocalizedText(language: string, opts?: { businessName?: string; userId?: number }): Record<string, string>` |
@@ -147,13 +144,11 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getOpenShiftForEmployee` | `backend/src/db.ts` | (none) | `function getOpenShiftForEmployee(employeeName: string): PosShift \| undefined` |
 | `getPickingList` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function getPickingList(invoiceId: number, locationName: LocationName): PickingListLine[]` |
 | `getProfitAndLossByAxis` | `backend/src/db-matrix-reports.ts` | `backend/src/routes/matrix-reports.ts` | `function getProfitAndLossByAxis(businessName: BusinessName, ledgerName: LedgerName, fromDate: string \| undefined, toDate: string \| undefined, outerAxis: MatrixAxis, innerAxis: MatrixAxis, outerFilter?: string, innerFilter?: string): ProfitAndLossByAxisNode[]` |
-| `getProfitAndLossByDivision` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getProfitAndLossByDivision(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivision[]` |
-| `getProfitAndLossByDivisionTree` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getProfitAndLossByDivisionTree(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string): ProfitAndLossByDivisionNode[]` |
 | `getSalesCogsMatrix` | `backend/src/db-matrix-reports.ts` | `backend/src/routes/matrix-reports.ts` | `function getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string \| undefined, toDate: string \| undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix` |
 | `getSalesReport` | `backend/src/db-reports.ts` | `backend/src/routes/reports.ts` | `function getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): SalesReport` |
 | `getScheduleAtLocation` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function getScheduleAtLocation(locationName: string): LocationScheduleLine[]` |
 | `getSessionUser` | `backend/src/auth.ts` | `backend/src/auth-middleware.ts` | `function getSessionUser(token: string \| undefined): AuthenticatedUser \| null` |
-| `getStockMovementReport` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport` |
+| `getStockMovementReport` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string, hierarchyName?: string): StockMovementReport` |
 | `getStockOnHandMatrix` | `backend/src/db-matrix-reports.ts` | `backend/src/routes/matrix-reports.ts` | `function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): StockOnHandMatrix` |
 | `getStockOutRiskReport` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockOutRiskReport(windowDays: number = 2): StockOutRiskRow[]` |
 | `getStockTake` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getStockTake(id: number): StockTake \| undefined` |
@@ -168,7 +163,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `listUsers` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function listUsers(): UserSummary[]` |
 | `logout` | `backend/src/auth.ts` | `backend/src/db-reports.ts`, `backend/src/routes/auth.ts`, `backend/src/routes/businesses.ts` | `function logout(token: string): void` |
 | `parseUblInvoice` | `backend/src/db.ts` | (none) | `function parseUblInvoice(xml: string): UblImportResult` |
-| `previewCloseBooks` | `backend/src/db-reports.ts` | `backend/src/routes/journal.ts` | `function previewCloseBooks(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string): CloseBooksPreview` |
+| `previewCloseBooks` | `backend/src/db-reports.ts` | `backend/src/routes/journal.ts` | `function previewCloseBooks(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, hierarchyPath: string[] = []): CloseBooksPreview` |
 | `recordReminderSent` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function recordReminderSent(customerName: string): number` |
 | `registerBankAccount` | `backend/src/db.ts` | `backend/src/routes/reports.ts` | `function registerBankAccount(accountName: string, business: string, scopeName: string, overdraftLimitMinor: number \| null, userId: UserId): void` |
 | `registerCustomer` | `backend/src/db.ts` | `backend/src/routes/customer-registration.ts` | `function registerCustomer(input: CustomerRegistrationInput, userId: UserId): void` |
@@ -196,4 +191,4 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `verifyPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/db.ts` | `function verifyPassword(password: string, stored: string): boolean` |
 | `verifyPosPin` | `backend/src/db.ts` | (none) | `function verifyPosPin(employeeName: string, pin: string): boolean` |
 
-179 real, tracked baseline names reported (32 TypeDescriptor constants, 31 router constants, 116 functions, 0 other constants) out of 207 total names in the baseline file.
+174 real, tracked baseline names reported (32 TypeDescriptor constants, 30 router constants, 112 functions, 0 other constants) out of 207 total names in the baseline file.

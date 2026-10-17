@@ -3307,7 +3307,7 @@ test('getInventoryListingByLocation: groups the same real stock data by real loc
   receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-1', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet'), 10, asUserId(1), '2027-01-01');
   receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-2', asItemName('StockGroupTest Wine B'), asLocationName('StockGroupTest Outlet'), 7, asUserId(1), '2027-01-01');
 
-  const groups = getInventoryListingByLocation();
+  const groups = getInventoryListingByLocation(undefined, 'Division');
   const group = groups.find((g) => g.location === 'StockGroupTest Outlet');
   assert.ok(group, 'the real, new location must appear as its own real group');
   assert.equal(group!.city, 'StockGroupTest City Division');
@@ -3327,7 +3327,7 @@ test('getInventoryListingByLocation: groups the same real stock data by real loc
   create(myBusinessLocationsRoot(), typeRootName, 'StockGroupTest Outlet No Division', asUserId(1));
   setLocation('StockGroupTest Outlet No Division', { city: 'StockGroupTest City Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: 20 , timezone: 'UTC'}, asBusinessName('admin'));
   receiveItems(asBusinessName('admin'), asLedgerName('Actual'), 'STOCKGROUPTEST-REC-3', asItemName('StockGroupTest Wine A'), asLocationName('StockGroupTest Outlet No Division'), 3, asUserId(1), '2027-01-01');
-  const groupsAfter = getInventoryListingByLocation();
+  const groupsAfter = getInventoryListingByLocation(undefined, 'Division');
   const noDivisionGroup = groupsAfter.find((g) => g.location === 'StockGroupTest Outlet No Division');
   assert.ok(noDivisionGroup, 'a real location must still produce a real group even with no matching group');
   assert.equal(noDivisionGroup!.group, null, "a location's own address city must never auto-tag a group, even when it happens to exactly match a real group's own name — only a real, explicit hierarchy link does");

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
-  import { getStockMovementReport, ApiError, type StockMovementReport, type OrderReceiptRow, type StockTransferRow, type StockSaleRow } from '$lib/api';
+  import { getStockMovementReport, getHierarchy, ApiError, type StockMovementReport, type OrderReceiptRow, type StockTransferRow, type StockSaleRow } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import FromToDateFields from '$lib/components/FromToDateFields.svelte';
 
@@ -14,15 +14,21 @@
   type Tab = 'receipts' | 'transfers' | 'sales';
   let tab: Tab = $state('receipts');
 
-  type GroupKey = 'division' | 'location' | 'vendor' | 'category';
-  let groupBy: GroupKey = $state('division');
+  // The real grouping names offered here are never hardcoded to one,
+  // privileged hierarchy ("group" stands for whichever one a business
+  // has actually configured, e.g. "Division" - read live, below)
+  // alongside the three real, structural groupings every stock
+  // movement row always has: location, vendor, category.
+  type GroupKey = 'group' | 'location' | 'vendor' | 'category';
+  let groupBy: GroupKey = $state('group');
+  let hierarchyName: string | undefined = $state(undefined);
 
   let latestRequestId = 0;
   async function load() {
     const requestId = ++latestRequestId;
     loading = true;
     try {
-      const result = await (session.current ? getStockMovementReport(session.current.businessName, session.current.ledgerName, fromDate || undefined, toDate || undefined) : Promise.reject(new Error('No ledger selected.')));
+      const result = await (session.current ? getStockMovementReport(session.current.businessName, session.current.ledgerName, fromDate || undefined, toDate || undefined, hierarchyName) : Promise.reject(new Error('No ledger selected.')));
       if (requestId !== latestRequestId) return;
       report = result;
     } catch (e) {
@@ -33,7 +39,17 @@
     }
   }
 
-  onMount(load);
+  onMount(async () => {
+    if (session.current) {
+      try {
+        const hierarchy = await getHierarchy(session.current.businessName);
+        if (hierarchy.length > 0) hierarchyName = hierarchy[0].grouping;
+      } catch {
+        /* the report still works with no group tagging at all if this fails */
+      }
+    }
+    await load();
+  });
 
   // Every group starts collapsed — the same real pattern already
   // proven on the P&L and Inventory Listing reports: subtotals first, real
@@ -48,12 +64,12 @@
   function keyFor(row: OrderReceiptRow | StockTransferRow | StockSaleRow, key: GroupKey): string {
     if (key === 'category') return row.category ?? '(No category)';
     if ('from_location' in row) {
-      // Transfers have no division/vendor of their own — group by
+      // Transfers have no group/vendor of their own — group by
       // location falls back to the real destination, since that's the
       // real, receiving side a person actually cares about grouping by.
       return key === 'location' ? row.to_location : '(Not applicable to transfers)';
     }
-    if (key === 'division') return row.group ?? '(No division)';
+    if (key === 'group') return row.group ?? '(No group)';
     if (key === 'location') return row.location;
     return row.vendor ?? '(No vendor on file)';
   }
@@ -87,7 +103,7 @@
 
 <fieldset class="page-title">
   <legend>{translations.current['Stock Movement Report'] ?? 'Stock Movement Report'}</legend>
-  <p class="intro">{translations.current['The real, physical journey of stock — purchases received into each real warehouse, transfers on to retail outlets, and real sales — groupable by division, location, vendor, or category.'] ?? 'The real, physical journey of stock — purchases received into each real warehouse, transfers on to retail outlets, and real sales — groupable by division, location, vendor, or category.'}</p>
+  <p class="intro">{translations.current['The real, physical journey of stock — purchases received into each real warehouse, transfers on to retail outlets, and real sales — groupable by a business\'s own configured hierarchy (such as Division), location, vendor, or category.'] ?? "The real, physical journey of stock — purchases received into each real warehouse, transfers on to retail outlets, and real sales — groupable by a business's own configured hierarchy (such as Division), location, vendor, or category."}</p>
 <div class="controls">
   <div class="tabs">
     <button type="button" class:active={tab === 'receipts'} onclick={() => (tab = 'receipts')}>{translations.current['Purchases'] ?? 'Purchases'}</button>
@@ -98,7 +114,7 @@
   <fieldset>
     <legend>{translations.current['Group by'] ?? 'Group by'}</legend>
     <select bind:value={groupBy}>
-      <option value="division">{translations.current['Division'] ?? 'Division'}</option>
+      <option value="group">{translations.current[hierarchyName ?? 'Group'] ?? (hierarchyName ?? 'Group')}</option>
       <option value="location">{translations.current['Location'] ?? 'Location'}</option>
       <option value="vendor">{translations.current['Vendor'] ?? 'Vendor'}</option>
       <option value="category">{translations.current['Category'] ?? 'Category'}</option>

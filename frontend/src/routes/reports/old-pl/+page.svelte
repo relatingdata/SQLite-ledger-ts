@@ -142,7 +142,7 @@
     <div class="report card">
       <div class="title-block">
         <p class="title-line">{pageTitle ?? (translations.current['Profit and Loss for:'] ?? 'Profit and Loss for:')}</p>
-        <p class="title-line division">{selectedGroup.replace(new RegExp(` ${hierarchyName}$`), '') || (translations.current['Consolidated'] ?? 'Consolidated')}</p>
+        <p class="title-line group">{selectedGroup.replace(new RegExp(` ${hierarchyName}$`), '') || (translations.current['Consolidated'] ?? 'Consolidated')}</p>
         <p class="title-line company">{session.current?.businessName ?? ''}</p>
         <p class="title-line period">{formatDateRange(fromDate, toDate)}</p>
       </div>
@@ -230,7 +230,7 @@
     font-size: var(--font-size-large);
   }
 
-  .title-line.division {
+  .title-line.group {
     color: var(--ink-soft);
     font-size: var(--font-size-base);
     text-transform: uppercase;

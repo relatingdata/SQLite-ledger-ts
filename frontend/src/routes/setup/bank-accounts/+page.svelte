@@ -10,6 +10,7 @@
     registerBankAccount,
     unregisterBankAccount,
     getHierarchyGroups,
+    getHierarchy,
     ApiError,
     type EntityNode,
     type BankAccountRow,
@@ -19,7 +20,10 @@
   let entities: EntityNode[] = $state([]);
   let bankAccounts: BankAccountRow[] = $state([]);
   let cashPosition: CashPositionByCurrency[] = $state([]);
-  let divisionNames: string[] = $state([]);
+  // Every real group under every hierarchy a business has actually
+  // configured (e.g. "Division," or any other real, chosen name) —
+  // never a single, privileged hierarchy name hardcoded here.
+  let groupNames: string[] = $state([]);
   let loading = $state(true);
   let error = $state('');
 
@@ -30,17 +34,18 @@
     loading = true;
     error = '';
     try {
-      const [ents, accounts, position, divisions] = await Promise.all([
+      const [ents, accounts, position, hierarchy] = await Promise.all([
         getEntityTree(),
         getBankAccounts(session.current.businessName, session.current.ledgerName),
         getCashPosition(session.current.businessName, session.current.ledgerName),
-        getHierarchyGroups('Division'),
+        getHierarchy(session.current.businessName),
       ]);
+      const groupsPerHierarchy = await Promise.all(hierarchy.map((h) => getHierarchyGroups(h.grouping)));
       if (requestId !== latestRequestId) return;
       entities = ents;
       bankAccounts = accounts;
       cashPosition = position;
-      divisionNames = divisions.map((d) => d.name);
+      groupNames = groupsPerHierarchy.flat().map((d) => d.name);
     } catch (e) {
       if (requestId !== latestRequestId) return;
       error = e instanceof ApiError ? e.message : 'Failed to load.';
@@ -174,9 +179,9 @@
         { name: 'account', label: 'Account', type: 'select', options: candidateAccounts.map((acc) => acc.name) },
         {
           name: 'scope',
-          label: 'Scope (business or division)',
+          label: 'Scope (business or group)',
           type: 'select',
-          options: [...(session.current ? [session.current.businessName] : []), ...divisionNames],
+          options: [...(session.current ? [session.current.businessName] : []), ...groupNames],
         },
         { name: 'overdraftLimit', label: 'Overdraft limit (optional)', type: 'number', step: 0.01 },
       ]}

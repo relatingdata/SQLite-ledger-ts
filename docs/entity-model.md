@@ -633,8 +633,7 @@ Per direct instruction: every real `xxxRouter` constant (`backend/src/routes/*.t
 | `stockRouter` | `stock.ts` | `/api/stock` | Real stock receipts, write-offs, and expiration tracking. |
 | `invoiceRouter` | `invoice.ts` | `/api/invoice` | A real, single invoice's own real outstanding balance. |
 | `periodRouter` | `period.ts` | `/api/period` | Real financial-period/year-end configuration. |
-| `divisionsRouter` | `divisions.ts` | `/api/divisions` | Real divisions and their own real division types. |
-| `hierarchyRouter` | `hierarchy.ts` | `/api/hierarchy` | This business's own real Hierarchies (Division/Category prototypes) and Vocabulary. |
+| `hierarchyRouter` | `hierarchy.ts` | `/api/hierarchy` | This business's own real, named Hierarchies (e.g. Division/Category) and their groups — the generic replacement for the former, privileged `/api/divisions` router (retired; see §14 of `docs/multi-dimensional-reporting.md`) — plus Vocabulary. |
 
 ## Location/stock capacity functions, documented directly
 
