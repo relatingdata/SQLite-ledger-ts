@@ -476,9 +476,12 @@ export const createProfitCenter = (businessName: string, profitCenterName: strin
 // Per docs/profit-centers-design.md's Phase C: the exact, same real
 // mechanism as setSessionBusiness above, for the real, current
 // Profit Center instead — trust model only, honestly, the same real,
-// temporary gap Business itself already has today.
+// temporary gap Business itself already has today. Not yet actually
+// called from the /session page (Business/Ledger/Profit Center are
+// all still set purely client-side there, via session.set()) — this
+// is the backend-facing half, ready for that page to call once wired.
 export const setSessionProfitCenter = (profitCenterName: string | null) =>
-  request<void>('/session/profit-center', { method: 'POST', body: JSON.stringify({ profitCenterName }) });
+  request<void>('/auth/session/profit-center', { method: 'POST', body: JSON.stringify({ profitCenterName }) });
 export const createBusiness = (
   businessName: string,
   financialYearLabel: string,
