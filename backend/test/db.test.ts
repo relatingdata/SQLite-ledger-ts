@@ -4743,6 +4743,14 @@ test('getProfitAndLossByHierarchyTree: "Consolidated per Division per Location" 
 
 test('closeBooks: division is only a pure reporting dimension — every division\'s net income rolls into one, single, combined Retained Earnings line, never a separate line per division', () => {
   const biz = createBusiness(asBusinessName('DetailedCloseTest Co'), '2027-28', asUserId(1));
+  // Per the same, established, real finding already documented on the
+  // "MultiDivCloseTest" closeBooks test above: "Sales Revenue" is a
+  // real, prototype-tagged category (copyChartOfAccountsInto), gated
+  // behind a real coaPrototype choice this business (created with
+  // none) never made — so its own, real Income category is still
+  // genuinely empty until created directly here, the same, established
+  // workaround.
+  create(requireEntity('Income', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName)))), typeRootName, 'Sales Revenue', asUserId(1));
   create(requireEntity('Application', typeRootName), typeRootName, 'DetailedCloseTest Division A', asUserId(1));
   create(requireEntity('Application', typeRootName), typeRootName, 'DetailedCloseTest Division B', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'DetailedCloseTest Outlet A', asUserId(1));
@@ -4774,7 +4782,7 @@ test('closeBooks: division is only a pure reporting dimension — every division
        JOIN current_entities e ON e.id = jl.account_id
        WHERE j.reference LIKE 'CLOSE-%' AND e.name = ?
          AND j.business_id = (SELECT id FROM current_entities WHERE name = ?)
-         AND j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`
+         AND j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`
     )
     .all("Owner's Equity", biz.business, biz.actualLedger, biz.business) as { amount_minor: number }[];
 
@@ -4783,7 +4791,7 @@ test('closeBooks: division is only a pure reporting dimension — every division
 
   // The real, whole entry must still, genuinely balance overall.
   const allLines = db
-    .prepare(`SELECT jl.amount_minor FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference LIKE 'CLOSE-%' AND j.business_id = (SELECT id FROM current_entities WHERE name = ?) AND j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`)
+    .prepare(`SELECT jl.amount_minor FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference LIKE 'CLOSE-%' AND j.business_id = (SELECT id FROM current_entities WHERE name = ?) AND j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`)
     .all(biz.business, biz.actualLedger, biz.business) as { amount_minor: number }[];
   const total = allLines.reduce((s, l) => s + l.amount_minor, 0);
   assert.equal(total, 0, 'the real, whole close entry must still sum to exactly zero');
@@ -4834,6 +4842,14 @@ test('completePosSale: the real, live wiring — a real sale with a real tier no
 
 test('reverseJournalEntry: a real year-end close, with activity spread across multiple real divisions rolling into one, single, combined Retained Earnings line, must reverse cleanly and balance to zero', () => {
   const biz = createBusiness(asBusinessName('ReverseCloseTest2 Co'), '2027-28', asUserId(1));
+  // Per the same, established, real finding already documented on the
+  // "MultiDivCloseTest" closeBooks test above: "Sales Revenue" is a
+  // real, prototype-tagged category (copyChartOfAccountsInto), gated
+  // behind a real coaPrototype choice this business (created with
+  // none) never made — so its own, real Income category is still
+  // genuinely empty until created directly here, the same, established
+  // workaround.
+  create(requireEntity('Income', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName)))), typeRootName, 'Sales Revenue', asUserId(1));
   create(requireEntity('Application', typeRootName), typeRootName, 'ReverseCloseTest2 Division A', asUserId(1));
   create(requireEntity('Application', typeRootName), typeRootName, 'ReverseCloseTest2 Division B', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'ReverseCloseTest2 Outlet A', asUserId(1));
@@ -4850,7 +4866,7 @@ test('reverseJournalEntry: a real year-end close, with activity spread across mu
   completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: asLocationName('ReverseCloseTest2 Outlet B'), customerName: asCustomerName('Cash Sale'), lines: [{ itemName: 'ReverseCloseTest2 Merlot', quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, asUserId(1));
 
   const closeResult = closeBooks(biz.business, biz.actualLedger, '2027-12-31', "Owner's Equity", asUserId(1));
-  const closeJournal = db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?))`).get(closeResult.reference, biz.business, biz.actualLedger, biz.business) as { id: number };
+  const closeJournal = db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`).get(closeResult.reference, biz.business, biz.actualLedger, biz.business) as { id: number };
 
   // This must not throw — the real, exact bug report: "entry does not
   // balance (per currency)".
@@ -5021,6 +5037,14 @@ test('getLedgerBalancesByHierarchyStructural: correctly derives division by walk
 test('getProfitAndLossByAxis: real, direct reproducibility — every real division and every real location must exactly reproduce the original, division-filtered P&L (Sales AND COGS both), per direct, reported concern', async () => {
   const { getProfitAndLossByAxis } = await import('../src/db-matrix-reports.ts');
   const biz = createBusiness(asBusinessName('ReproTest Co'), '2027-28', asUserId(1));
+  // Per the same, established, real finding already documented on the
+  // "MultiDivCloseTest" closeBooks test above: "Sales Revenue" is a
+  // real, prototype-tagged category (copyChartOfAccountsInto), gated
+  // behind a real coaPrototype choice this business (created with
+  // none) never made — so its own, real Income category is still
+  // genuinely empty until created directly here, the same, established
+  // workaround.
+  create(requireEntity('Income', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName)))), typeRootName, 'Sales Revenue', asUserId(1));
   create(requireEntity('Application', typeRootName), typeRootName, 'ReproTest Division', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'ReproTest Outlet', asUserId(1));
   setLocation('ReproTest Outlet', { city: 'ReproTest Division', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80 , timezone: 'UTC'}, biz.business);
@@ -5063,6 +5087,14 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
 test('getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy - not one of the four, recommended default axes - works identically, through the same, real, generic mechanism', async () => {
   const { getProfitAndLossByAxis } = await import('../src/db-matrix-reports.ts');
   const biz = createBusiness(asBusinessName('BottleSizeTest Co'), '2027-28', asUserId(1));
+  // Per the same, established, real finding already documented on the
+  // "MultiDivCloseTest" closeBooks test above: "Sales Revenue" is a
+  // real, prototype-tagged category (copyChartOfAccountsInto), gated
+  // behind a real coaPrototype choice this business (created with
+  // none) never made — so its own, real Income category is still
+  // genuinely empty until created directly here, the same, established
+  // workaround.
+  create(requireEntity('Income', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName)))), typeRootName, 'Sales Revenue', asUserId(1));
   create(requireEntity('Locations', typeRootName, requireEntity(biz.business, typeBusinessName, requireEntity('Businesses', typeRootName))), typeRootName, 'BottleSizeTest Outlet', asUserId(1));
   setLocation('BottleSizeTest Outlet', { city: 'BottleSizeTest City', location_type: 'Retail', is_billing_address: false, bottle_capacity: 500, carton_capacity: 80, timezone: 'UTC' }, biz.business);
   createItem('BottleSizeTest Amber Ale', 'Items', asUserId(1));
