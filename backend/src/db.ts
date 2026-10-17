@@ -5103,12 +5103,21 @@ export function setEntityLink(entityName: string, linkType: string, targetName: 
   if (!record) {
     const created = create(parentNode, typeEntityLinkRecordName, recordName, userId);
     record = { id: created.id, name: created.name };
-    // No JSON, no wildcard: the real link type is a real, named
-    // tag-child entity of this link record, found later by an exact
-    // (parent, name) match (Link.withTarget), never by inspecting
-    // this record's own name for a pattern and never a JSON field.
-    Entity.tag(record.id, linkType, userId);
   }
+  // No JSON, no wildcard: the real link type is a real, named
+  // tag-child entity of this link record, found later by an exact
+  // (parent, name) match (Link.withTarget), never by inspecting this
+  // record's own name for a pattern and never a JSON field. A real,
+  // confirmed bug found directly: this used to only tag a brand-new
+  // record, never one setEntityLink itself finds already existing -
+  // so a link previously removed via deleteEntityLink (which only
+  // ever untags, per its own documented design, deliberately leaving
+  // relation_id as permanent history) and then set again later never
+  // got its own, real presence tag back, leaving getEntityLink/
+  // getBankAccounts correctly, permanently unable to see it as live
+  // again. Entity.tag is already idempotent (ensureUnder + relate),
+  // so applying it on every call, not just the first, is always safe.
+  Entity.tag(record.id, linkType, userId);
   supersedeEntity(record.id, targetId != null ? { relationId: targetId } : { relation: targetName }, userId);
   return recordName;
 }
@@ -5654,13 +5663,24 @@ export interface BankAccountRow {
  * never account.balance_minor directly, which is a real, global,
  * cross-business figure, not a per-ledger one. */
 export function getBankAccounts(business: BusinessName, ledger: LedgerName): BankAccountRow[] {
+  // A real, confirmed bug found directly, same bug class as
+  // getEntityLink (Problem 18): deleteEntityLink/unregisterBankAccount
+  // only ever untag a link's own real presence tag, deliberately
+  // leaving relation_id as permanent history - but this query joined
+  // on the link/bizlink entities by bare name alone, with no check on
+  // whether either tag is still live, so an unregistered bank account
+  // kept showing up here forever. Both joins now also require the
+  // same, real, presence-only tag (relation_id IS NOT NULL) setEntityLink
+  // itself creates and deleteEntityLink removes.
   const rows = db
     .prepare(
       `SELECT e.name, a.accountnumber, a.currency, a.overdraft_limit_minor
        FROM account a
        JOIN current_entities e ON e.id = a.entity_id
        JOIN current_entities link ON link.name = e.name || ' — Bank Account'
+       JOIN current_entities linktag ON linktag.parent_id = link.id AND linktag.name = 'Bank Account' AND linktag.relation_id IS NOT NULL
        JOIN current_entities bizlink ON bizlink.name = e.name || ' — Bank Account Business'
+       JOIN current_entities bizlinktag ON bizlinktag.parent_id = bizlink.id AND bizlinktag.name = 'Bank Account Business' AND bizlinktag.relation_id IS NOT NULL
        WHERE bizlink.relation_id = (SELECT id FROM current_entities WHERE name = ?)
        ORDER BY e.name`
     )
