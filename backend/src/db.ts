@@ -3743,11 +3743,14 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
         invoiceDate: today,
         description: `POS sale at ${input.locationName}`,
         source: 'pos',
+        // unitPriceMinor is genuinely resolved for every line by the
+        // loop above, before this point is ever reached - optional
+        // only on the way in, from a caller that left it unspecified.
         lines: input.lines.map((l) => ({
           description: l.itemName,
           quantity: l.quantity,
           unitPriceMinor: l.unitPriceMinor,
-          amountMinor: l.quantity * l.unitPriceMinor,
+          amountMinor: l.quantity * l.unitPriceMinor!,
           taxMinor: l.taxMinor,
           itemName: l.itemName,
         })),
@@ -4914,7 +4917,7 @@ export function addTypedAddress(entityName: string, addressType: string, value: 
  * address, even though both use the exact same parent/relation
  * shape). */
 export function getTypedAddresses(entityName: string): TypedAddress[] {
-  return getTyped(entityName, 'Address Types', 'address_type', (recordName) => getContact(recordName) ?? {}) as TypedAddress[];
+  return getTyped<TypedAddress>(entityName, 'Address Types', 'address_type', (recordName) => getContact(recordName) ?? {});
 }
 
 export function deleteTypedAddress(entityName: string, addressType: string, userId: UserId): void {
@@ -4952,7 +4955,7 @@ export function addTypedPhone(entityName: string, phoneType: string, number: str
 }
 
 export function getTypedPhones(entityName: string): TypedPhone[] {
-  return getTyped(entityName, 'Phone Types', 'phone_type', (recordName) => ({ phone: getContact(recordName)?.phone ?? null })) as TypedPhone[];
+  return getTyped<TypedPhone>(entityName, 'Phone Types', 'phone_type', (recordName) => ({ phone: getContact(recordName)?.phone ?? null }));
 }
 
 export function deleteTypedPhone(entityName: string, phoneType: string, userId: UserId): void {
@@ -5003,10 +5006,10 @@ export function addTypedContactPerson(entityName: string, contactType: string, v
 }
 
 export function getTypedContactPersons(entityName: string): ContactPerson[] {
-  return getTyped(entityName, 'Contact Person Types', 'contact_type', (recordName) => {
+  return getTyped<ContactPerson>(entityName, 'Contact Person Types', 'contact_type', (recordName) => {
     const c = getContact(recordName);
     return { name: c?.person_name ?? null, phone: c?.phone ?? null, email: c?.email ?? null };
-  }) as ContactPerson[];
+  });
 }
 
 export function deleteTypedContactPerson(entityName: string, contactType: string, userId: UserId): void {
@@ -5041,7 +5044,7 @@ function addTyped<T>(entityName: string, thingSuffix: string, type: string, valu
  * typeKey lets each real caller keep its own, existing field name
  * (address_type vs phone_type) rather than a generic "type" every
  * caller would need to rename around. */
-function getTyped<T>(entityName: string, typeCategory: string, typeKey: string, load: (recordName: string) => Partial<T>): Record<string, unknown>[] {
+function getTyped<T>(entityName: string, typeCategory: string, typeKey: string, load: (recordName: string) => Partial<T>): T[] {
   const rows = db
     .prepare(
       `SELECT type_marker.name AS type_name, child.name AS record_name
@@ -5052,7 +5055,11 @@ function getTyped<T>(entityName: string, typeCategory: string, typeKey: string, 
        ORDER BY type_marker.name`
     )
     .all(entityName, typeCategory) as { type_name: string; record_name: string }[];
-  return rows.map((r) => ({ [typeKey]: r.type_name, record_name: r.record_name, ...load(r.record_name) }));
+  // typeKey is a runtime field name (e.g. "address_type"), not one T
+  // itself names, so the shape below is only knowable to this
+  // function's own callers - each of whom already states its real T
+  // via getTyped<T>(...) at the call site.
+  return rows.map((r) => ({ [typeKey]: r.type_name, record_name: r.record_name, ...load(r.record_name) })) as T[];
 }
 
 /** The real, shared, generic implementation behind deleteTypedAddress/

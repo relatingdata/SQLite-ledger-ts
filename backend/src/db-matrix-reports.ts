@@ -52,14 +52,6 @@ export interface SalesCogsMatrix {
 const CONSOLIDATED_KEY = 'Consolidated';
 const NO_LOCATION_KEY = '(No location)';
 
-interface AccountRow {
-  id: number;
-  name: string;
-  parent_id: number | null;
-  is_sales: boolean;
-  is_cogs: boolean;
-}
-
 /** A real, direct, one-time snapshot of every entity's own real id,
  * name, and parent_id — used to walk each real account's own,
  * structural chain locally, in memory, rather than one real query per

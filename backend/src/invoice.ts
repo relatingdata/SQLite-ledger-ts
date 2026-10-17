@@ -1,4 +1,5 @@
 import pdfmake from 'pdfmake';
+import type { TableCell, TDocumentDefinitions } from 'pdfmake/interfaces.js';
 import { getInvoiceLine, getContact, getDefaultLanguage, getLocalizedText, asBusinessName, asLedgerName, type InvoiceLine } from './db.js';
 
 pdfmake.setFonts({
@@ -48,7 +49,7 @@ export async function generateInvoicePdf(options: InvoiceOptions): Promise<Buffe
   const taxMinor = lines.reduce((s, l) => s + l.tax_minor, 0);
   const grandTotalMinor = subtotalMinor + taxMinor;
 
-  const tableRows: unknown[][] = [
+  const tableRows: TableCell[][] = [
     [
       { text: tr('Description'), bold: true },
       { text: tr('Qty'), bold: true, alignment: 'right' },
@@ -76,7 +77,7 @@ export async function generateInvoicePdf(options: InvoiceOptions): Promise<Buffe
       ].filter((l): l is string => Boolean(l && l.trim()))
     : [];
 
-  const docDefinition = {
+  const docDefinition: TDocumentDefinitions = {
     defaultStyle: { font: 'Helvetica', fontSize: 10 },
     pageMargins: [40, 60, 40, 50] as [number, number, number, number], // extra top/bottom room for header/footer
     header: (currentPage: number, pageCount: number) => ({
