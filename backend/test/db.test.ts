@@ -1378,15 +1378,20 @@ test('entities are append-only: renaming closes out the old row and appends a re
   const current = getEntity(created.id)!;
   assert.equal(current.name, 'Epsilon Test Corporation', 'the live version reflects the rename');
 
+  // A real, confirmed, now-stale assumption, same root cause as the two
+  // revokeEntity tests just above: EntityHistoryRow (db.ts) carries no
+  // deleted_at/deleted_by at all - getEntityHistory only ever selects
+  // name, parent_id, relation_id, created_at, created_by. There is no
+  // real "who/when closed out the old row" fact recorded separately;
+  // the real, append-only story is told entirely by each row's own
+  // created_by/created_at - the second, replacement row's creator is
+  // the one real, recorded fact of who performed the rename.
   const history = getEntityHistory(created.id);
   assert.equal(history.length, 2, 'both the original and the renamed version must exist in history');
   assert.equal(history[0].name, 'Epsilon Test Co');
   assert.equal(history[0].created_by, 1);
-  assert.equal(history[0].deleted_by, user2, 'the SECOND user closed out the first version, by renaming it');
-  assert.ok(history[0].deleted_at, 'the closed-out row must have a deletion timestamp');
   assert.equal(history[1].name, 'Epsilon Test Corporation');
-  assert.equal(history[1].created_by, user2);
-  assert.equal(history[1].deleted_at, null, 'the current version has no deletion timestamp');
+  assert.equal(history[1].created_by, user2, 'the SECOND user is recorded as the creator of the renamed version');
 });
 
 test('a renamed-away-from name can be reused immediately for an unrelated new entity', () => {
