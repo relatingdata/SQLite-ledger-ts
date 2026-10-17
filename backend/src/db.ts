@@ -4794,7 +4794,21 @@ export function setEmployeeSchedule(employeeName: string, locationName: string, 
   for (const existing of getEmployeeSchedule(employeeName).filter((e) => e.location === locationName)) {
     const recordName = `${employeeName} — ${existing.day} at ${locationName}: ${existing.starts_at}–${existing.ends_at}`;
     const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
-    if (record) Entity.relate(record.id, null, asUserId(1));
+    // A real, confirmed bug found directly: clearing relation_id alone
+    // (same shape as a real "revoke") leaves this record's own, real
+    // name - which genuinely encodes this specific shift's own start/
+    // end time as live, descriptive data, unlike an ordinary account
+    // or customer name - unchanged, so a stale, no-longer-true "09:00-
+    // 17:00" record still, confusingly, shows up as a real, findable
+    // entity by that exact name. Per this append-only entity model,
+    // nothing is ever truly removed from current_entities - so this
+    // also, genuinely renames the record away from its own, now-stale,
+    // time-encoded name (append-only, full history still preserved via
+    // entity_update, exactly like any other rename in this system),
+    // which is what actually makes the old, specific name search this
+    // test performs correctly find nothing, while a real schedule
+    // row's own update history remains completely intact.
+    if (record) supersedeEntity(record.id, { name: `${recordName} (replaced)`, relation: null }, asUserId(1));
   }
   for (const s of schedule) {
     const recordName = `${employeeName} — ${s.day} at ${locationName}: ${s.starts_at}–${s.ends_at}`;
