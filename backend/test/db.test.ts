@@ -2222,10 +2222,26 @@ test('Locations: per-location stock, exactly one billing address, warehouse-dire
   create(myBusinessLocationsRoot(), typeRootName, 'LocTest Retail B1', asUserId(1));
   setLocation('LocTest Retail B1', { city: 'LocTest City B', location_type: 'Retail', is_billing_address: false, bottle_capacity: 1800, carton_capacity: 280 , timezone: 'UTC'}, asBusinessName('admin'));
 
+  // A real, confirmed, now-stale assumption: this query counted every
+  // marker entity ever created under the real 'Is Billing Address' root,
+  // including ones a later setLocation call has since demoted (per
+  // setLocation's own, documented append-only design, a demoted
+  // marker's relation_id is cleared to null, not deleted - it stays
+  // there as history, like everything else in this schema). Across a
+  // whole suite run, that total only grows - it was never genuinely "1"
+  // except in perfect isolation. The real, live invariant is "exactly
+  // one CURRENT billing address," found by filtering to markers whose
+  // relation still actually points at 'Billing Address', not demoted.
   const billingCount = (
-    db.prepare(`SELECT COUNT(*) AS c FROM current_entities e JOIN current_entities rel_type ON rel_type.id = e.parent_id AND rel_type.name = 'Is Billing Address'`).get() as { c: number }
+    db
+      .prepare(
+        `SELECT COUNT(*) AS c FROM current_entities e
+         JOIN current_entities rel_type ON rel_type.id = e.parent_id AND rel_type.name = 'Is Billing Address'
+         JOIN current_entities target ON target.id = e.relation_id AND target.name = 'Billing Address'`
+      )
+      .get() as { c: number }
   ).c;
-  assert.equal(billingCount, 1, 'exactly one billing address, even with multiple locations defined');
+  assert.equal(billingCount, 1, 'exactly one CURRENT billing address, even with multiple locations defined');
 
   create(requireEntity('Items', typeRootName), typeRootName, 'LocTest Lager', asUserId(1));
 
