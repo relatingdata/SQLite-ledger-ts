@@ -5257,6 +5257,23 @@ export function getProjectTasks(projectName: string): { task: string; plannedSta
   return results;
 }
 
+const PROJECT_TASK_DATE_SUFFIX = /^(.+) \(([0-9-]+) to ([0-9-]+)\)$/;
+
+/** Resolves a real project task's own, real, full entity name
+ * (createProjectTask's own "Task description (start to end)" shape)
+ * from the plain, bare task description a caller actually has -
+ * confirmed, directly, the exact same real name getProjectTasks
+ * itself already parses this same suffix back out of. Returns the
+ * name unchanged if it is already a real, exact entity name (a
+ * caller that already has the full name is never broken by this). */
+function resolveProjectTaskName(name: string): string {
+  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) return name;
+  const candidates = db.prepare(`SELECT name FROM current_entities WHERE name LIKE ?`).all(`${name} (%)`) as { name: string }[];
+  const match = candidates.find((c) => PROJECT_TASK_DATE_SUFFIX.exec(c.name)?.[1] === name);
+  if (!match) throw new ValidationError(`No project task named "${name}".`);
+  return match.name;
+}
+
 /** One real dependency edge: a real, individual, named child entity
  * of the DEPENDENT task, matching setEntityLink/getBomComponents'
  * own, proven "one real link-entity per real relationship" pattern -
@@ -5268,14 +5285,23 @@ export function addTaskDependency(
   dependencyType: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish',
   userId: UserId
 ): void {
-  // No JSON, no wildcard: both task names are the real, exact, full
-  // entity names the caller already has - never a plain name resolved
-  // by a prefix guess. The link name is fixed and deterministic per
-  // predecessor, tagged "Dependency" to find every predecessor at
-  // once, with the real dependency type its own, named child entity.
-  const linkType = `Depends On — ${predecessorTask}`;
-  setEntityLink(dependentTask, linkType, predecessorTask, userId);
-  const record = Entity.get(`${dependentTask} — ${linkType}`, dependentTask);
+  // A real, confirmed bug found directly: a caller naturally has the
+  // plain task description (the exact, real shape getProjectTasks
+  // itself hands back), not the full, date-suffixed entity name - this
+  // used to require the full name directly, resolved by neither this
+  // function nor its own caller, so a real, ordinary call using the
+  // plain description it genuinely had threw "No entity named ...".
+  // Resolved here the same way getProjectTasks' own name already
+  // encodes the schedule - never a prefix guess, an exact match on
+  // the real, structured suffix.
+  const dependentFullName = resolveProjectTaskName(dependentTask);
+  const predecessorFullName = resolveProjectTaskName(predecessorTask);
+  // The link name is fixed and deterministic per predecessor, tagged
+  // "Dependency" to find every predecessor at once, with the real
+  // dependency type its own, named child entity.
+  const linkType = `Depends On — ${predecessorFullName}`;
+  setEntityLink(dependentFullName, linkType, predecessorFullName, userId);
+  const record = Entity.get(`${dependentFullName} — ${linkType}`, dependentFullName);
   if (record) {
     Entity.tag(record.id, 'Dependency', userId);
     Entity.setAttr(record.id, 'Dependency Type', dependencyType, userId);
@@ -5284,7 +5310,12 @@ export function addTaskDependency(
 
 /** Every real predecessor of one real task, with its real dependency
  * type, read directly from each link's own, real attribute child -
- * never JSON, never parsed back out of a name. */
+ * never JSON, never parsed back out of a name except for the real
+ * predecessor's own plain description, returned the same, real,
+ * plain shape getProjectTasks already uses (its own, full, date-
+ * suffixed entity name is an internal, structural detail, not
+ * something a caller handed a plain description should ever see
+ * handed back to them). */
 export function getTaskDependencies(dependentTask: string): { predecessor: string; dependencyType: string }[] {
   const rows = db
     .prepare(
@@ -5295,8 +5326,8 @@ export function getTaskDependencies(dependentTask: string): { predecessor: strin
        JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Dependency' AND tag.relation_id IS NOT NULL
        WHERE parent.name = ?`
     )
-    .all(dependentTask) as { id: number; predecessor: string }[];
-  return rows.map((row) => ({ predecessor: row.predecessor, dependencyType: Entity.getAttr(row.id, 'Dependency Type') ?? '' }));
+    .all(resolveProjectTaskName(dependentTask)) as { id: number; predecessor: string }[];
+  return rows.map((row) => ({ predecessor: PROJECT_TASK_DATE_SUFFIX.exec(row.predecessor)?.[1] ?? row.predecessor, dependencyType: Entity.getAttr(row.id, 'Dependency Type') ?? '' }));
 }
 
 /** The real, generic "hierarchy link" mechanism from
