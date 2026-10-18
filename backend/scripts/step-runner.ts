@@ -950,7 +950,19 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
           const [searchSelector, itemSelector] = resolvedSelector.split('|');
           await page.locator(searchSelector).fill(value);
           await page.waitForTimeout(300);
-          await page.locator(itemSelector, { hasText: value }).first().click();
+          // A real, confirmed bug, found directly: Playwright's own
+          // `hasText` option is a real, SUBSTRING match, not an exact
+          // one - "Account" genuinely matched "Bank Account" (whichever
+          // real row happened to come first in the real, live list),
+          // silently editing the wrong, real word entirely, rather
+          // than genuinely selecting "Account" itself (or honestly
+          // failing, if no word by that exact name exists at all - a
+          // real, narrow, already-documented case this exact UI
+          // genuinely can't reach, e.g. a real CoA account name that
+          // is never a standalone Vocabulary word). Anchored regex
+          // forces an exact, whole-text match instead.
+          const exact = new RegExp(`^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+          await page.locator(itemSelector).filter({ hasText: exact }).first().click();
           await page.waitForTimeout(200);
           continue;
         }
