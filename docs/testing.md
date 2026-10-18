@@ -83,7 +83,9 @@ e.g. "a genuine multi-currency entry must balance independently per
 currency," or "allocatePayment must actually move Cash and Bank, not
 just record that a payment happened."
 
-**Current count**: 115 backend tests, 24 frontend tests, all passing.
+**Current count**: 231 backend tests (`test/db.test.ts`: 200,
+`test/auth.test.ts`: 17, `scripts/step-runner.test.ts`: 14), 24
+frontend tests, all passing.
 
 Unit tests are the right tool for proving a specific mechanism is
 correct in isolation. They are the *wrong* tool for catching a bug
@@ -94,6 +96,149 @@ reaching Cash and Bank; a sale's line items silently unable to mix
 cold and warm stock) were only found by running the real simulation
 and checking whether the numbers it produced were actually true, not
 by any unit test.
+
+## 1a. The fixture framework — `backend/test/fixtures.ts`
+
+`test/db.test.ts` is the application's real, single backend unit-test
+file, and until this project's own test-migration work it had a real,
+hidden problem: every one of its 200-odd tests shared one, single,
+globally-seeded business — `'admin'` — reading and writing its
+accounts, locations, and items directly. Two tests could silently
+interfere with each other through that shared state, and a test's own
+"success" sometimes depended on exactly which other tests had already
+run and left the `admin` business in a particular shape. Removing the
+old file (once every test had been ported off it) dropped the
+backend's own, full-suite failure count from 27 to 2 — real, direct
+proof that most of those 27 "pre-existing" failures were never
+independent bugs at all, only cross-test contamination from one file's
+own shared, mutable state.
+
+The fix is `backend/test/fixtures.ts`: a small, deliberately minimal
+library (`makeFixtures(db)`) built around one, absolute rule — **no
+test anywhere in this suite reads or writes the shared `'admin'`
+business, or any other globally-seeded business or account.** Every
+test creates its own, uniquely-named, genuinely real business, then
+layers onto it only the small, specific set of further fixtures that
+one test actually needs.
+
+### Why real fixtures, not fakes
+
+Every helper in `fixtures.ts` is a thin, named wrapper around a real
+`db.ts` production function — never a cut-down, test-only substitute
+of it:
+
+- **`freshBusiness(hint, opts?)`** calls the real `createBusiness` —
+  the exact same function the setup wizard itself calls — and returns
+  the real `{ business, actualLedger, budgetLedger }` it creates.
+  `hint` becomes a readable name prefix (`'Equity'`,
+  `'Tier/Leaf Test'`); the real, final name also carries a
+  collision-free suffix (a counter plus a few random characters), so
+  two tests — run in any order, or genuinely concurrently — can never
+  collide on the same business name even when they start from the
+  same hint.
+- **`freshLocation`**, **`freshItem`**, **`freshHierarchyValue`** are
+  the same pattern one level down: each calls the real
+  `createAndConfigureLocation`, `createItemCategory`/`create`, or
+  `ensureHierarchyGrouping`/`ensureHierarchyValue`, pre-filled with
+  sensible, overridable defaults (a location defaults to an ordinary
+  retail outlet in Adelaide; an item is always created under a fresh
+  category of its own, never directly under the bare `Items` root,
+  since that shape is deliberately rejected elsewhere — see
+  `isGenuineCategoryOrItemsRoot`).
+- **`getAccountBalance`**, **`findChild`**, **`findByName`**,
+  **`coaCategoryRoot`** are read-side helpers — thin wrappers around
+  one repeated query shape (walk `Businesses → <business> →
+  Chart of Accounts → <category>`, or find one named child in a
+  `getEntityTree()` result) that nearly every test needed and had
+  previously hand-written itself, now named once.
+- **`withBusinessSession(biz, fn)`** runs `fn` with `biz` as the real,
+  current session context, for the small number of functions
+  (`setItemLocationLevels` and similar) that read
+  `Session.Business`/`Session.UserId`/`Session.Ledger` directly rather
+  than taking them as explicit parameters — it replaces the old
+  file-wide `withMyBusinessSession(admin)` helper the previous test
+  file shared across every test; each test now opens its own session
+  against its own, fresh business instead.
+
+### The one, real isolation hazard: the Chart-of-Accounts prototype fallback
+
+A business created **without** a `coaPrototype` gets a genuinely empty
+Chart of Accounts of its own. A prototype-tagged account name like
+`'Cash and Bank'` or `'Sales Revenue'` then falls back, by a real,
+documented `COALESCE` in `post_journal_entry`'s own trigger (see
+`schema/00-core.sql` and `copyChartOfAccountsInto`'s own comments in
+`db.ts`), to the **one, single, global template copy** — genuinely
+shared across every other business that also omitted a prototype. A
+fixture business that will stage or post to any such named account
+must pass `coaPrototype: 'English CoA'` (the real, built-in prototype
+every demo business already uses) so it gets its own, separate, real
+copy — true per-test isolation, not an assumption. `freshBusiness`
+defaults to `'English CoA'` for exactly this reason; a test passes
+`coaPrototype: undefined` explicitly only when it genuinely exercises
+nothing but bare entity-tree/structural mechanics, with no named
+financial account anywhere in it.
+
+### The database-connection ordering hazard
+
+`fixtures.ts` never imports `db.ts` at its own top level. `db.test.ts`
+sets `process.env.DB_PATH` to a fresh, per-run temp file *before*
+dynamically `import()`-ing `db.ts`, so that module's own
+module-level SQLite connection opens against the right, isolated
+file:
+
+```ts
+const tmpDbPath = path.join(os.tmpdir(), `sql-ledger-ts-test-${process.pid}-${Date.now()}.sqlite`);
+process.env.DB_PATH = tmpDbPath;
+process.env.SEED_DEMO_BUSINESSES = 'false';
+
+const db = await import('../src/db.ts');
+const fx = makeFixtures(db);
+```
+
+A static, eager `import { ... } from '../src/db.ts'` at the top of
+`fixtures.ts` itself would race that assignment and silently reconnect
+to the wrong database (or none) depending on module-resolution timing
+— so `fixtures.ts` instead takes the already-imported module in as a
+plain argument (`DbModule = typeof import('../src/db.ts')`), and every
+test file that uses it repeats the same `DB_PATH`-then-dynamic-import
+sequence for its own, independent temp database. `after(() => ...)`
+deletes the temp `.sqlite`/`-wal`/`-shm` files once the whole file's
+tests finish.
+
+### A worked example
+
+```ts
+test('a real business can genuinely be named "Equity" ... ', () => {
+  const biz = fx.freshBusiness('Equity');
+  const loc = fx.freshLocation(biz.business, 'Main Store');
+  const { itemName } = fx.freshItem(biz.business, 'Widget');
+  // ... exercise real receiving/posting against biz/loc/itemName ...
+  const entities = db.getEntityTree();
+  const coaRoot = fx.coaCategoryRoot(biz.business, 'Asset');
+  const cash = fx.findChild(entities, coaRoot.id, 'Cash and Bank');
+  assert.equal(cash?.balance_minor, /* expected */ 0);
+});
+```
+
+Nothing here is shared with any other test in the file: the business
+name, the location name, and the item name are all freshly suffixed,
+so this test can run first, last, or concurrently with every other
+test in the suite and never observe — or cause — a collision.
+
+### What this bought, concretely
+
+Porting all 200 tests off the shared `admin` business surfaced real
+bugs that the old, shared-state file had been quietly masking or
+never exercising cleanly in the first place — the same
+unscoped/ambiguous-entity-name bug class documented throughout this
+manual, found again in `ensureCurrencyAccount` (`db-reports.ts`) and
+`buildBankCurrencyStructure` (`db.ts`), both of which discarded a
+freshly-created entity's own id and re-resolved it by bare name
+instead, and both of which only broke once a test created an account
+name that collided with one belonging to a different, real business —
+exactly the scenario per-test fixtures are designed to make routine,
+not rare. See `docs/lessons-learned.md` for the full account of these
+and the other bugs this migration found.
 
 ## 2. End-to-end verification — `make test-e2e`
 
