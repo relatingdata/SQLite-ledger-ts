@@ -663,6 +663,16 @@ export function create<TParentBrand extends string, TChildBrand extends string>(
   if (existing) throw new ValidationError(`"${name}" already exists under this real, same parent.`);
   db.prepare(`INSERT INTO entity_entry (name, parent_id, created_by) VALUES (?, ?, ?)`).run(name, parent.id, userId);
   const row = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, parent.id) as { id: number };
+  // Per direct instruction: English is no longer merely implied by a
+  // concept's own name — any real word created directly under the one,
+  // true, global Vocabulary, from ANY real code path (this is the
+  // shared, generic, low-level primitive every one of them goes
+  // through, not just "Add a new word"'s own createEntityRaw), gets
+  // its own, real, editable English translation row too, the exact,
+  // same way as German or French.
+  if (parent.id === globalVocabularyId()) {
+    setTranslation(name, 'English', name, userId);
+  }
   return { id: asEntityId(row.id), name: name as string & { __brand: TChildBrand } };
 }
 
@@ -684,7 +694,14 @@ export function isGenuineCategoryOrItemsRoot(name: string): boolean {
 
 
 export function createEntityRaw(input: NewEntity, userId: UserId): EntityNode {
-  const parentId = input.parentId ?? (input.parent ? resolveId(input.parent) : null);
+  // "Vocabulary" specifically, unscoped, is the exact, same, real
+  // ambiguity already found and fixed several times this session —
+  // every business gets its own, separate "Vocabulary" entity too, so
+  // the generic, bare resolveId(input.parent) below cannot be trusted
+  // for this one, specific, real name. The real, global Vocabulary is
+  // always what "Add a new word" means by it.
+  const isGlobalVocabularyWord = input.parentId == null && input.parent === 'Vocabulary';
+  const parentId = input.parentId ?? (isGlobalVocabularyWord ? globalVocabularyId() : input.parent ? resolveId(input.parent) : null);
   // Scoped, not global: two real, direct siblings under the same real
   // parent can't share a name, but the exact, same name is genuinely
   // fine at a different level, or under a different parent — a
@@ -725,6 +742,16 @@ export function createEntityRaw(input: NewEntity, userId: UserId): EntityNode {
   const id = idRow.id;
   if (input.accountnumber) {
     db.prepare(`INSERT INTO account (entity_id, accountnumber) VALUES (?, ?)`).run(id, input.accountnumber);
+  }
+  // Per direct instruction: English is no longer merely implied by a
+  // concept's own name — every real word genuinely gets its own, real,
+  // editable English translation row too, the exact, same, real way
+  // as German or French, created here exactly once, via setTranslation
+  // itself (never duplicated by hand). Every concept already seeded in
+  // 00-core.sql gets the same, real row via a one-time, generic
+  // backfill in the schema itself — see the note there.
+  if (isGlobalVocabularyWord) {
+    setTranslation(input.name, 'English', input.name, userId);
   }
   return getEntity(id)!;
 }
@@ -6837,6 +6864,23 @@ export interface VocabularyWord {
   translations: Record<string, string>;
 }
 
+/** The one, true, global Vocabulary's own id — scoped through the
+ * one, true, global "Application" root to avoid colliding with every
+ * business's own, separate "Vocabulary" entity (instantiateChartOfAccounts
+ * gives every business its own). A bare, unscoped `name = 'Vocabulary'`
+ * lookup is the exact, same, real ambiguity class already found and
+ * fixed several times this session (getVocabularyWords, below, was the
+ * first) — every other real call site touching the global Vocabulary
+ * specifically should go through this one, shared helper instead of
+ * repeating the same, real, scoped subquery by hand. */
+function globalVocabularyId(): number {
+  const row = db
+    .prepare(`SELECT id FROM current_entities WHERE name = 'Vocabulary' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')`)
+    .get() as { id: number } | undefined;
+  if (!row) throw new Error('The one, true, global Vocabulary entity is missing from the entity tree.');
+  return row.id;
+}
+
 /** Every real, direct word/phrase under Vocabulary, with its own,
  * real, current translation into each real, existing language — the
  * real, direct source for the new Translations/Vocabulary page. Only
@@ -6865,17 +6909,8 @@ export function getVocabularyWords(): VocabularyWord[] {
   // same, real kind of ambiguous, wrong-scoped bug already found and
   // fixed several times this session).
   const words = db
-    .prepare(
-      `SELECT c.name
-       FROM current_entities c
-       WHERE c.parent_id = (
-         SELECT id FROM current_entities
-         WHERE name = 'Vocabulary'
-           AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')
-       )
-       ORDER BY c.name`
-    )
-    .all() as { name: string }[];
+    .prepare(`SELECT c.name FROM current_entities c WHERE c.parent_id = ? ORDER BY c.name`)
+    .all(globalVocabularyId()) as { name: string }[];
   const languages = getLanguages();
   return words.map((c) => {
     const translations: Record<string, string> = {};
@@ -7049,7 +7084,7 @@ export function setTranslation(conceptName: string, languageName: string, text: 
   // wrong, unrelated entity, while still falling back to any match
   // for any other, legitimate, non-Vocabulary use of this function.
   const conceptId = (
-    db.prepare(`SELECT e.id FROM current_entities e WHERE e.name = ? AND e.parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary')`).get(conceptName) as { id: number } | undefined
+    db.prepare(`SELECT e.id FROM current_entities e WHERE e.name = ? AND e.parent_id = ?`).get(conceptName, globalVocabularyId()) as { id: number } | undefined
     ?? db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined
   )?.id;
   if (!conceptId) throw new ValidationError(`No real entity named "${conceptName}".`);
@@ -7142,10 +7177,10 @@ export function getTranslation(conceptName: string, languageName: string): strin
        JOIN current_entities c ON c.id = e.relation_id
        WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = ?)
          AND c.name = ?
-       ORDER BY (c.parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary')) DESC
+       ORDER BY (c.parent_id = ?) DESC
        LIMIT 1`
     )
-    .get(languageName, conceptName) as { name: string } | undefined;
+    .get(languageName, conceptName, globalVocabularyId()) as { name: string } | undefined;
   return row?.name ?? null;
 }
 
@@ -7747,7 +7782,7 @@ export function saveBusinessTypeAnswers(businessName: BusinessName, answers: Rec
 export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: TypedNode<string>, coaPrototype: string | undefined, userId: UserId): void {
   const prototypeId = coaPrototype ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(coaPrototype) as { id: number } | undefined)?.id : undefined;
   const coaPrototypeMarkerIds = new Set(
-    (db.prepare(`SELECT id FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary') AND name LIKE '% CoA'`).all() as { id: number }[]).map((r) => r.id)
+    (db.prepare(`SELECT id FROM current_entities WHERE parent_id = ? AND name LIKE '% CoA'`).all(globalVocabularyId()) as { id: number }[]).map((r) => r.id)
   );
   const sourceRootId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Chart of Accounts'`).get() as { id: number }).id;
   const businessVocabulary = requireEntity('Vocabulary', typeRootName, business);
@@ -8065,7 +8100,7 @@ export function createLedger(businessName: BusinessName, ledgerName: LedgerName,
  * business, ever, since it reads the one, real, shared template
  * directly. */
 export function getChartOfAccountsPrototype(language: string): string[] {
-  const prototypeMarker = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary')`).get(`${language} CoA`) as { id: number } | undefined;
+  const prototypeMarker = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(`${language} CoA`, globalVocabularyId()) as { id: number } | undefined;
   const globalCoaId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')`).get() as { id: number }).id;
   const names: string[] = [];
   function walk(parentId: number): void {

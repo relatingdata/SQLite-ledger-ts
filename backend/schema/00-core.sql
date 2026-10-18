@@ -1584,7 +1584,21 @@ FROM (
   -- as a real UNION of two, real, independently indexed lookups,
   -- before any cross join happens at all - the exact, same, real
   -- logic, restructured to run once, not once per cross-joined row.
-  SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Vocabulary')
+  --
+  -- A real, confirmed, FIFTH fix: the bare, unscoped
+  -- `name = 'Vocabulary'` below is the exact, same ambiguous-name
+  -- bug class already found and fixed several times this session —
+  -- every business gets its own, separate "Vocabulary" entity too
+  -- (instantiateChartOfAccounts), so an unscoped lookup here risked
+  -- resolving to some business's own copy instead of the one, real,
+  -- global Vocabulary every freshly-added, not-yet-translated word
+  -- actually lives under. Scoped through the one, true, global
+  -- "Application" root, the same, real fix already applied to
+  -- getVocabularyWords/setTranslation/getTranslation in db.ts.
+  SELECT id, name FROM current_entities WHERE parent_id = (
+    SELECT id FROM current_entities WHERE name = 'Vocabulary'
+      AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')
+  )
   UNION
   SELECT e2.id, e2.name FROM current_entities e2 WHERE EXISTS (SELECT 1 FROM current_entities t WHERE t.relation_id = e2.id)
 ) e
@@ -2662,3 +2676,36 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 
 
 
+
+-- English, made real: per direct instruction, English stops being
+-- merely implied by a concept's own entities.name — every real,
+-- existing Vocabulary concept above also gets its own, real, genuine
+-- English translation row, the exact, same shape as a German or
+-- French one (a direct child of the "English" Language entity, its
+-- own relation_id pointing back at the concept), so English wording
+-- itself becomes something that can be read back and edited through
+-- the ordinary setTranslation/getTranslation path, not a special
+-- case. Generated here once, generically, for every real concept
+-- that doesn't already have one — never by hand-listing 600+ words —
+-- so a word added later in this same file needs no extra line here;
+-- a word added at runtime (via "Add a new word") gets the same, real
+-- row automatically, see createEntityRaw in db.ts. The text is
+-- identical to the concept's own name by construction, so this is
+-- genuinely a no-op for every real reader of localized_text (which
+-- already fell back to entities.name when no row existed) — the only
+-- real change is that the row now, genuinely, exists to be read back
+-- or overwritten.
+INSERT INTO entities (row_id, entity_id, name, parent_id, relation_id, created_at, created_by)
+SELECT
+  (SELECT MAX(row_id) FROM entities) + ROW_NUMBER() OVER (ORDER BY c.id),
+  (SELECT MAX(row_id) FROM entities) + ROW_NUMBER() OVER (ORDER BY c.id),
+  c.name,
+  (SELECT id FROM current_entities WHERE name = 'English' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Languages')),
+  c.id,
+  '2026-01-01',
+  1
+FROM current_entities c
+WHERE c.parent_id = (
+  SELECT id FROM current_entities WHERE name = 'Vocabulary'
+    AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')
+);

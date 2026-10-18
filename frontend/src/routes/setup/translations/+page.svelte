@@ -7,6 +7,7 @@
     setTranslation,
     createEntity,
     setLanguageDirection,
+    getLanguageDirection,
     ApiError,
     type VocabularyWord,
   } from '$lib/api';
@@ -33,6 +34,72 @@
   let newWordName = $state('');
   let addingWord = $state(false);
 
+  // Per direct instruction: real, direct RTL support for every real
+  // language, Hebrew/Arabic included — one text-direction lookup per
+  // real language, loaded once alongside the language list itself and
+  // reused everywhere a translation input or a reference column is
+  // shown, never a hardcoded special case for any one language.
+  let languageDirections: Record<string, 'ltr' | 'rtl'> = $state({});
+  async function loadLanguageDirections(langs: { id: number; name: string }[]) {
+    const entries = await Promise.all(
+      langs.map(async (l) => {
+        try {
+          const { direction } = await getLanguageDirection(l.name);
+          return [l.name, direction === 'RTL' ? 'rtl' : 'ltr'] as const;
+        } catch {
+          return [l.name, 'ltr'] as const;
+        }
+      })
+    );
+    languageDirections = { ...languageDirections, ...Object.fromEntries(entries) };
+  }
+
+  // Per direct instruction: a real translator, working into a target
+  // language they're producing, may be more fluent in some third,
+  // already-translated language than in English — "reference" is
+  // whichever real language they choose to read while they work,
+  // falling back to the real, native English wording (now a genuine,
+  // real translation row of its own, not merely implied) whenever the
+  // chosen reference language doesn't have this particular word yet.
+  let mode: 'single' | 'translate' = $state('single');
+  let targetLanguage = $state('');
+  let referenceLanguage = $state('English');
+
+  function referenceTextFor(word: VocabularyWord): string {
+    return word.translations[referenceLanguage] ?? word.translations['English'] ?? word.name;
+  }
+
+  // Keyed by concept name — only words the translator has actually,
+  // genuinely touched this session get an entry; everything else
+  // reads its own, real, current target text (or a real, fresh copy
+  // of the reference text, per direct instruction, as a real,
+  // editable starting point rather than a blank field) directly.
+  let translateEdits: Record<string, string> = $state({});
+  let translateSaving = $state('');
+
+  function targetValueFor(word: VocabularyWord): string {
+    return translateEdits[word.name] ?? word.translations[targetLanguage] ?? referenceTextFor(word);
+  }
+
+  async function saveTranslateRow(word: VocabularyWord) {
+    if (!targetLanguage) return;
+    const text = targetValueFor(word).trim();
+    if (!text) return;
+    translateSaving = word.name;
+    error = '';
+    try {
+      await setTranslation(word.name, targetLanguage, text);
+      word.translations[targetLanguage] = text;
+      words = words;
+      delete translateEdits[word.name];
+      translateEdits = { ...translateEdits };
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Could not save.';
+    } finally {
+      translateSaving = '';
+    }
+  }
+
   async function addWord() {
     if (!newWordName.trim()) return;
     addingWord = true;
@@ -53,6 +120,8 @@
     error = '';
     try {
       [words, languages] = await Promise.all([getVocabularyWords(), getLanguages()]);
+      await loadLanguageDirections(languages);
+      if (!targetLanguage) targetLanguage = languages.find((l) => l.name !== 'English')?.name ?? '';
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -63,10 +132,12 @@
   onMount(load);
 
   let filteredWords = $derived(search.trim() ? words.filter((w) => w.name.toLowerCase().includes(search.trim().toLowerCase())) : words);
-  // "English" itself is never, genuinely a real, separate translation
-  // target — a real word's own name already IS its own English text —
-  // showing it here as an editable row would just be confusing.
-  let editableLanguages = $derived(languages.filter((l) => l.name !== 'English'));
+  // English is now a real, genuine translation target too, per direct
+  // instruction — its own wording lives in a real translation row
+  // under the real "English" Language, exactly like German or French,
+  // not merely implied by a concept's own name any more. No special
+  // case needed here any more either.
+  let editableLanguages = $derived(languages);
 
   function select(word: VocabularyWord) {
     selectedWord = word;
@@ -105,6 +176,7 @@
       newLanguageName = '';
       newLanguageDirection = 'LTR';
       languages = await getLanguages();
+      await loadLanguageDirections(languages);
       if (selectedWord) select(selectedWord);
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not add language.';
@@ -124,8 +196,109 @@
   </p>
 {#if error}<p class="error">{error}</p>{/if}
 
+<fieldset class="mode-toggle">
+  <legend>{translations.current['Mode'] ?? 'Mode'}</legend>
+  <div class="mode-buttons">
+    <button class="btn" class:selected={mode === 'single'} onclick={() => (mode = 'single')}>
+      {translations.current['Edit one word'] ?? 'Edit one word'}
+    </button>
+    <button class="btn" class:selected={mode === 'translate'} onclick={() => (mode = 'translate')}>
+      {translations.current['Translate between languages'] ?? 'Translate between languages'}
+    </button>
+  </div>
+  {#if mode === 'translate'}
+    <div class="translate-pickers">
+      <fieldset>
+        <legend>{translations.current['Reference language'] ?? 'Reference language'}</legend>
+        <select bind:value={referenceLanguage}>
+          {#each languages as lang}
+            <option value={lang.name}>{translations.current[lang.name] ?? lang.name}</option>
+          {/each}
+        </select>
+      </fieldset>
+      <fieldset>
+        <legend>{translations.current['Target language'] ?? 'Target language'}</legend>
+        <select bind:value={targetLanguage}>
+          {#each languages.filter((l) => l.name !== referenceLanguage) as lang}
+            <option value={lang.name}>{translations.current[lang.name] ?? lang.name}</option>
+          {/each}
+        </select>
+      </fieldset>
+    </div>
+  {/if}
+</fieldset>
+
 {#if loading}
   <p class="center-text">Loading…</p>
+{:else if mode === 'translate'}
+  <div class="layout">
+    <div class="card word-list-card">
+      <fieldset>
+        <legend>{translations.current['Search'] ?? 'Search'}</legend>
+        <input bind:value={search} placeholder="e.g. Vendor" />
+      </fieldset>
+      <p class="hint">{filteredWords.length} of {words.length} real words</p>
+    </div>
+
+    <div class="card translate-card">
+      {#if !targetLanguage}
+        <p class="hint">Choose a target language above to start translating into it.</p>
+      {:else}
+        <div class="translate-header">
+          <span>{translations.current[referenceLanguage] ?? referenceLanguage}</span>
+          <span>{translations.current[targetLanguage] ?? targetLanguage}</span>
+        </div>
+        <div class="translate-list">
+          {#each filteredWords.slice(0, 200) as word}
+            <div class="translate-row">
+              <div class="reference-text" dir={languageDirections[referenceLanguage] ?? 'ltr'}>{referenceTextFor(word)}</div>
+              <input
+                class="target-text"
+                dir={languageDirections[targetLanguage] ?? 'ltr'}
+                value={targetValueFor(word)}
+                oninput={(e) => (translateEdits = { ...translateEdits, [word.name]: (e.currentTarget as HTMLInputElement).value })}
+              />
+              <button class="btn" onclick={() => saveTranslateRow(word)} disabled={translateSaving === word.name}>
+                {translateSaving === word.name ? 'Saving…' : (translations.current['Save'] ?? 'Save')}
+              </button>
+            </div>
+          {/each}
+          {#if filteredWords.length > 200}
+            <p class="hint">…and {filteredWords.length - 200} more — narrow the search to see them.</p>
+          {/if}
+        </div>
+      {/if}
+    </div>
+
+    <div class="card new-word-card">
+      <h3>{translations.current['Add a new word'] ?? 'Add a new word'}</h3>
+      <fieldset>
+        <legend>{translations.current['Name'] ?? 'Name'}</legend>
+        <input bind:value={newWordName} placeholder="e.g. Balance Sheet" />
+      </fieldset>
+      <button class="btn" onclick={addWord} disabled={addingWord}>
+        {addingWord ? 'Adding…' : (translations.current['Add word'] ?? 'Add word')}
+      </button>
+    </div>
+
+    <div class="card new-language-card">
+      <h3>{translations.current['Add a new language'] ?? 'Add a new language'}</h3>
+      <fieldset>
+        <legend>{translations.current['Name'] ?? 'Name'}</legend>
+        <input bind:value={newLanguageName} placeholder="e.g. Spanish" />
+      </fieldset>
+      <fieldset>
+        <legend>{translations.current['Text Direction'] ?? 'Text Direction'}</legend>
+        <select bind:value={newLanguageDirection}>
+          <option value="LTR">{translations.current['Left to right (LTR)'] ?? 'Left to right (LTR)'}</option>
+          <option value="RTL">{translations.current['Right to left (RTL)'] ?? 'Right to left (RTL)'}</option>
+        </select>
+      </fieldset>
+      <button class="btn" onclick={addLanguage} disabled={addingLanguage}>
+        {addingLanguage ? 'Adding…' : (translations.current['Add language'] ?? 'Add language')}
+      </button>
+    </div>
+  </div>
 {:else}
   <div class="layout">
     <div class="card word-list-card">
@@ -155,7 +328,7 @@
           <fieldset>
             <legend>{translations.current[lang.name] ?? lang.name}</legend>
             <div class="translation-row">
-              <input bind:value={editValues[lang.name]} />
+              <input bind:value={editValues[lang.name]} dir={languageDirections[lang.name] ?? 'ltr'} />
               <button class="btn" onclick={() => saveTranslation(lang.name)} disabled={saving === lang.name}>
                 {saving === lang.name ? 'Saving…' : (translations.current['Save'] ?? 'Save')}
               </button>
@@ -213,6 +386,60 @@
     gap: 1rem;
     justify-content: center;
     align-items: flex-start;
+  }
+  .mode-toggle {
+    max-width: 70ch;
+    margin: 0 auto 1.2rem;
+    padding: 0.8rem 1rem;
+  }
+  .mode-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .mode-buttons .btn.selected {
+    background: var(--brass, #c9a24b);
+    color: white;
+  }
+  .translate-pickers {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.8rem;
+    flex-wrap: wrap;
+  }
+  .translate-card {
+    width: 100%;
+    max-width: 900px;
+    padding: 1rem 1.2rem;
+  }
+  .translate-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.6rem;
+    font-weight: bold;
+    padding: 0 0 0.4rem 0;
+    color: var(--ink-soft);
+  }
+  .translate-list {
+    max-height: 600px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .translate-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.6rem;
+    align-items: center;
+  }
+  .reference-text {
+    padding: 0.4rem 0.5rem;
+    background: var(--paper-dim, #f2ede1);
+    border-radius: 4px;
+    line-height: 1.3;
+  }
+  .target-text {
+    width: 100%;
   }
   .word-list-card {
     width: 320px;
