@@ -11,10 +11,13 @@ __pycache__/
 *.pyc
 
 # Real, generated build artifacts — regenerate via `make manual` /
-# `make programmer-manual` rather than committing the output itself.
+# `make programmer-manual` / `make historical-manual` rather than
+# committing the output itself.
 docs/programmer-manual.md
+docs/historical-manual.md
 sql-ledger-ts_User_Manual.pdf
 sql-ledger-ts_Programmer_Manual.pdf
+sql-ledger-ts_Historical_Design_Log.pdf
 
 # Per direct, absolute instruction: never commit manuals or
 # screenshots of any kind, ever - regenerate locally via `make

@@ -4,7 +4,7 @@
 \vspace*{2cm}
 {\Huge\bfseries Better Brighter Multi-Ledger\par}
 \vspace{0.5cm}
-{\Large Architecture, Design, Implementation, Testing, and Programmer's Manual\par}
+{\Large Programmer's Manual --- Current System Reference\par}
 \vspace{0.3cm}
 {\large Version 0.0.0\par}
 \vspace{2cm}
@@ -18,16 +18,41 @@ not written separately from them.\par}
 \section*{Purpose}
 \addcontentsline{toc}{section}{Purpose}
 
-This Programmer's Manual, with every real finding referenced directly
-to its function in the code, serves as the one true source of
-information as far as implementation and unit testing is concerned.
-The User Manual serves as the design of the system in regards to the
-user interface and functionality, displayed by end-to-end (e2e)
-testing and the Tutorial --- following data from the setting up of a
-demonstration business through to the end of a financial year.
-Together, these two manuals should be clear enough to serve as the
-prompts to an LLM similar to Claude, able to recreate the functional
-application.
+This is the lean, current-system-only Programmer's Manual: what a
+programmer would need open to reimplement any API or UI functionality
+in this application today, with the minimum necessary background to
+do it correctly. It covers the entity model, the two backend API
+surfaces, the frontend conventions, and the testing discipline, as the
+system is actually built right now --- not how it got there, and not
+what was once planned but never built or was later rejected.
+
+\textbf{The User Manual is this system's own operational and
+functional specification.} It is the authoritative description of
+what the application does from a user's point of view --- every
+screen, every workflow, the full setup-through-year-end Tutorial --- and
+is the first place to check any question about intended behavior. Where
+this Programmer's Manual and the User Manual appear to disagree on what
+the system should do, the User Manual is correct about intended
+behavior; this manual is correct about how that behavior is
+implemented. (The User Manual's own accuracy against the current, live
+application has not yet had a dedicated verification pass of its own --
+treat it as the authoritative specification, but verify a specific claim
+against the live code before depending on it for something load-bearing.)
+
+For the full, un-trimmed design and planning history this manual used
+to carry --- every rejected design, every superseded plan, every
+chapter's own investigation narrative --- see the separate
+\textbf{Historical Design \& Decision Log}
+(\texttt{sql-ledger-ts\_Historical\_Design\_Log.pdf}, built from
+\texttt{docs/historical-manual.md}). Where the two disagree, this
+Programmer's Manual is correct about the system as it stands today;
+the Historical log is correct about how it got there. Release notes
+are a separate publication of their own (\texttt{docs/RELEASE-NOTES.md}),
+folded into neither manual.
+
+Together, this manual and the User Manual should be clear enough to
+serve as the prompts to an LLM similar to Claude, able to recreate the
+functional application.
 
 \section*{Preamble --- Intended Audience and Prerequisite Knowledge}
 \addcontentsline{toc}{section}{Preamble --- Intended Audience and Prerequisite Knowledge}

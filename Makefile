@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -44,9 +44,11 @@ else
 endif
 
 # Builds everything the project produces: a fresh install, the full
-# test suite, and both real manuals (User + Programmer) - a genuine,
-# single command matching the common Makefile 'all' convention.
-all: install test manual programmer-manual
+# test suite, and all three real manuals (User, Programmer, and the
+# full Historical Design & Decision Log the Programmer's Manual was
+# trimmed from) - a genuine, single command matching the common
+# Makefile 'all' convention.
+all: install test manual programmer-manual historical-manual
 
 # One real, single, root-level install, per direct instruction: this
 # project is a genuine bun workspace (backend/frontend/e2e all listed
@@ -58,8 +60,8 @@ install:
 clean:
 	rm -rf node_modules package-lock.json bun.lockb
 	rm -rf frontend/.svelte-kit
-	rm -f sql-ledger-ts_User_Manual.pdf sql-ledger-ts_Programmer_Manual.pdf
-	rm -f docs/programmer-manual.md
+	rm -f sql-ledger-ts_User_Manual.pdf sql-ledger-ts_Programmer_Manual.pdf sql-ledger-ts_Historical_Design_Log.pdf
+	rm -f docs/programmer-manual.md docs/historical-manual.md
 	rm -rf docs/manual-images docs/manual-images-german docs/manual-images-french docs/manual-images-danish docs/manual-images-italian
 
 dev:
@@ -966,7 +968,7 @@ docs/manual-images/m_choose_business.png: e2e/tests/capture-manual-screenshots.s
 # build-programmer-manual.py actually gathers, so touching any one
 # chapter genuinely makes this target stale - not just the assembler
 # script itself.
-PROGRAMMER_MANUAL_CHAPTERS := \
+HISTORICAL_MANUAL_CHAPTERS := \
 	docs/business-evolution-plan.md \
 	docs/cash-flow-and-growth-planning.md \
 	docs/chart-of-accounts-hierarchy-editor-plan.md \
@@ -1047,6 +1049,8 @@ PROGRAMMER_MANUAL_CHAPTERS := \
 # docs/screens-staging-triggers-functions.md references 17 specific
 # screenshots directly - a real, explicit Make dependency, so this
 # chapter is genuinely stale if any of them are missing or updated.
+# (Only the Historical Design & Decision Log still compiles this
+# chapter - the lean Programmer's Manual no longer includes it.)
 docs/screens-staging-triggers-functions.md: \
 	docs/manual-images/ar_sale.png \
 	docs/manual-images/ar_receipt.png \
@@ -1128,6 +1132,13 @@ docs/user-manual-appendix-screens.md: \
 docs/scoped-uniqueness-and-location-accounting.md: \
 	docs/manual-images/pm_new_new_pl_location_axis.png \
 	docs/manual-images/pm_translations_add_word.png
+
+historical-manual: scripts/build-historical-manual.ts scripts/manual-builder.ts docs/historical-manual-frontmatter.md $(HISTORICAL_MANUAL_CHAPTERS)
+	$(RUN_SCRIPT) scripts/build-historical-manual.ts
+	cd docs && pandoc historical-manual.md -o ../sql-ledger-ts_Historical_Design_Log.pdf \
+	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
+	  -H historical-manual-header-includes.tex -f markdown+raw_tex --resource-path=.
+	@echo "Built sql-ledger-ts_Historical_Design_Log.pdf"
 
 programmer-manual: scripts/build-programmer-manual.ts docs/programmer-manual-frontmatter.md $(PROGRAMMER_MANUAL_CHAPTERS)
 	$(RUN_SCRIPT) scripts/build-programmer-manual.ts
