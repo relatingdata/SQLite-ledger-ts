@@ -6845,24 +6845,39 @@ export interface VocabularyWord {
  * list (confirmed directly: no real word currently has its own,
  * further, nested children). */
 export function getVocabularyWords(): VocabularyWord[] {
-  // A real concept is genuinely any entity that has at least one
-  // real, direct child translation under any real language — per
-  // direct, non-negotiable instruction: every real language,
-  // including English, is a peer, on equal footing, its own real
-  // vocabulary living under it, each real word a direct child
-  // entity whose own relation_id points back at the concept.
-  const concepts = db
+  // A real, confirmed bug, found directly (not assumed) while driving
+  // the real /setup/translations page through the real test-runner:
+  // this used to list only concepts that ALREADY had at least one
+  // real translation in some language — a brand-new word, the moment
+  // after it's genuinely created via this very page's own "Add a new
+  // word" form, was invisible to this page's own search box, since it
+  // has zero translations yet. A real person hitting this in the real
+  // app would be stuck: the one, real reason to add a new word is to
+  // then translate it, and the page they'd use to do that couldn't
+  // find the word they'd just added. Fixed to genuinely match this
+  // function's own, original, documented intent above (every real,
+  // direct word under Vocabulary) - scoped to the one, real, global
+  // Vocabulary specifically (parented directly under the one, true,
+  // global "Application" root), never a business's own, separate copy
+  // (confirmed directly: ensureVocabularyAlternate gives every real
+  // business its own, distinct "Vocabulary" entity too, so a bare,
+  // unscoped `name = 'Vocabulary'` lookup here would be the exact,
+  // same, real kind of ambiguous, wrong-scoped bug already found and
+  // fixed several times this session).
+  const words = db
     .prepare(
-      `SELECT DISTINCT c.name
-       FROM current_entities e
-       JOIN current_entities c ON c.id = e.relation_id
-       JOIN current_entities lang ON lang.id = e.parent_id
-       WHERE lang.parent_id = (SELECT id FROM current_entities WHERE name = 'Languages')
+      `SELECT c.name
+       FROM current_entities c
+       WHERE c.parent_id = (
+         SELECT id FROM current_entities
+         WHERE name = 'Vocabulary'
+           AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')
+       )
        ORDER BY c.name`
     )
     .all() as { name: string }[];
   const languages = getLanguages();
-  return concepts.map((c) => {
+  return words.map((c) => {
     const translations: Record<string, string> = {};
     for (const lang of languages) {
       const text = getTranslation(c.name, lang.name);
