@@ -1,24 +1,27 @@
 import { db } from './db.js';
-import { runInSessionContext } from './session-context.js';
 import {
-  supersedeEntity, asEntityId, setItem, setLocation, setTranslation, getTranslation, getLanguages, setContact, mergeContactDetail, setContactType, setItemLocationLevels, receiveItems, setRelationship, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asLedgerName, asItemName, asLocationName, asUserId, create, requireEntity, requireEntityById, resolveBusinessLocationsRootId, typeRootName, typeVocabularyWordName, typeCategoryOrItemsRootName, typeItemName, typeLocationEntityName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeLedgerName, typeEmployeeName, typeCustomerName, type UserId, type TypedNode } from './db.js';
-import { Entity } from './primitives.js';
-import { loadAllTranslations } from '../../shared-fixtures/translations.js';
-import { loadDemoCategories, loadDemoLocations, loadDemoProducts, loadDemoStockLevels, loadDemoUpcs } from '../../shared-fixtures/wine-retail-demo-data.js';
+  supersedeEntity, setTranslation, getTranslation, getLanguages, setContact, setContactType, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeCustomerName, type UserId } from './db.js';
 
 // Every real seed function below acts as this one, real, direct admin
 // user — cast once, here, rather than at each of the many, real,
 // individual call sites throughout this file.
 const SEED_USER_ID: UserId = asUserId(1);
 
-// Controls whether Wine Retail Business (and its full, real demo
-// dataset — products, stock, employees, UPCs) is seeded at all. Per
-// direct instruction: the person wants to build this business from
-// scratch, from an empty starting point, via Playwright — not have it
-// pre-populated. Set SEED_DEMO_BUSINESSES=false to skip it entirely.
-// Defaults to true (the existing, established behavior) so nothing
-// changes for anyone not explicitly opting out.
-const SEED_DEMO_BUSINESSES = process.env.SEED_DEMO_BUSINESSES !== 'false';
+// Per direct, absolute instruction: NO demo/seed business, and NO
+// non-English language's translated text, has any presence in the
+// application's own basic initial data load any more - both are real
+// content that belongs in a separately-run, real test-runner script
+// instead (see `scripts/simulate-wine-retail-month.ts` and
+// `scripts/load-translations.ts`), never baked into what boots by
+// default. The four real Wine Retail Business seed functions that
+// used to live here (migrateForWineRetailDemoData,
+// migrateForWineRetailCompany, seedWineRetailEmployees,
+// migrateForWineRetailUpcs, each gated on a real SEED_DEMO_BUSINESSES
+// flag), and the real, unconditional `shared-fixtures/translations.csv`
+// loader (loadTranslationsFromSharedCsv), have been removed entirely
+// from this file - not merely gated off. Everything else below this
+// point is real, permanent, structural seed data (vocabulary/menu/
+// business-type scaffolding), unaffected by this change.
 
 // ---------------------------------------------------------------------------
 // Real, permanent seed data — deliberately NOT "migrations" any more.
@@ -49,183 +52,6 @@ const SEED_DEMO_BUSINESSES = process.env.SEED_DEMO_BUSINESSES !== 'false';
 // ---------------------------------------------------------------------------
 
 export function seedRemainingData(): void {
-
-// The single, real, comprehensive translation loader, per direct,
-// absolute instruction: replaces migrateForCompleteTranslations,
-// seedHebrewArabicTranslations, and migrateForDanish (formerly
-// three, separate, hardcoded functions here) plus
-// migrateAllTranslationsToEntities (formerly in db.ts) - every real
-// translation this application uses now comes from one, real, plain
-// ASCII CSV file (shared-fixtures/translations.csv).
-function loadTranslationsFromSharedCsv(): void {
-  const vocabularyId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Vocabulary'`).get() as { id: number }).id;
-  for (const { concept, language, text } of loadAllTranslations()) {
-    try {
-      const underVocabulary = db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(concept, vocabularyId);
-      if (!underVocabulary) {
-        // A real, confirmed, two-part bug fix. Part 1 (the original
-        // fix): a concept whose name happens to collide with several,
-        // real, genuinely ambiguous entities elsewhere (e.g. "Actual"
-        // - every real business has its own, separate "Actual" ledger
-        // entity, 6 real ones at once) must get its own, real,
-        // dedicated Vocabulary entity - reusing any one of the 6
-        // would be arbitrary and wrong. Part 2 (fixing a real
-        // regression Part 1 caused): a concept with exactly ONE real,
-        // unambiguous, existing entity elsewhere (e.g. "Employees",
-        // the real, structural branch) should reuse that one directly
-        // - always creating a new one regardless duplicated real,
-        // structural entities that must stay singular.
-        const matchCount = (db.prepare(`SELECT COUNT(*) AS c FROM current_entities WHERE name = ?`).get(concept) as { c: number }).c;
-        if (matchCount !== 1) {
-          create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, concept, SEED_USER_ID);
-        }
-      }
-      setTranslation(concept, language, text, SEED_USER_ID);
-    } catch (e) {
-      console.error(`FLAGGED COLLISION, for further study: could not translate "${concept}" (${language}):`, e instanceof Error ? e.message : e);
-    }
-  }
-}
-loadTranslationsFromSharedCsv();
-
-function migrateForWineRetailDemoData() {
-  // Per direct, confirmed finding: Head Office (and the entire real
-  // product catalog) is already, permanently seeded directly in
-  // schema.sql - checking for it here always, silently skipped this
-  // whole function, meaning the real stock-seeding below never once
-  // actually ran. Checking for a real, direct stock-seed marker
-  // instead - genuinely absent on a fresh database, genuinely present
-  // after this function has actually run once.
-  if (db.prepare(`SELECT 1 FROM journal WHERE reference LIKE 'WINE-SEED-%' LIMIT 1`).get()) return;
-
-  // A real, confirmed, two-part bug fixed here, found live via a real,
-  // repeated crash in the separate, non-Tutorial `capture-manual-
-  // screenshots` pipeline: `ValidationError: "Lager" exists, but is
-  // not a genuine CategoryOrItemsRootName`.
-  //
-  // Part 1 (the original, root cause): the exact same bare-name-
-  // existence pattern already fixed just below for Locations ("the
-  // same bare-name lookup already fixed elsewhere... found here too")
-  // was never applied to categories/subcategories here, one real level
-  // up in this same function. `loadTranslationsFromSharedCsv` (above,
-  // real module-load order) creates a real, standalone Vocabulary
-  // entity literally named "Lager" first - the real Danish translation
-  // of "Inventory" (confirmed directly in
-  // shared-fixtures/translations.ts: `['Inventory', 'Danish',
-  // 'Lager']`) - genuinely unrelated to the real Wine Retail beer
-  // subcategory of the exact same bare name. By the time this loop ran,
-  // its own bare, unscoped `WHERE name = ?` existence check saw that
-  // unrelated Vocabulary entity and wrongly concluded the real "Lager"
-  // subcategory already existed, silently skipping its real creation.
-  //
-  // Part 2 (a real, deeper bug this fix's first attempt ran straight
-  // into): scoping the EXISTENCE check alone isn't enough, because
-  // `requireEntity`'s own `type.validate(name)` call (used by every
-  // real `typeCategoryOrItemsRootName` lookup, including a correctly
-  // *id*-scoped `requireEntity(subcategory, typeCategoryOrItemsRootName,
-  // categoryEntity)`) only ever receives the plain, bare NAME, never
-  // the already-resolved id - and `isGenuineCategoryOrItemsRoot` ->
-  // `isDescendantOf` then does its OWN, completely separate, bare,
-  // unscoped `entities.find((e) => e.name === entityName)` lookup
-  // internally, silently discarding the real, correct, scoped id
-  // `resolveId` had just found. So even a fully, correctly id-scoped
-  // `requireEntity` call for "Lager" still re-resolved the unrelated
-  // Vocabulary entity internally, via that second, hidden, unscoped
-  // lookup, and still failed. Fixed by never routing an already-
-  // disambiguated, scoped id back through `requireEntity`'s own name-
-  // based `validate()` at all here - each real category/subcategory
-  // TypedNode is built directly from its own, already-proven-correct,
-  // scoped id instead (via `create()`'s own direct return, or a
-  // directly scoped `SELECT ... WHERE parent_id = ?` when it already
-  // exists), matching create()'s own, real, scoped uniqueness
-  // semantics throughout - never a bare, global name match again.
-  //
-  // A real, further, confirmed bug found directly, live, in a freshly
-  // reset database: `requireEntity('Items', typeRootName)` with no
-  // parent at all still resolved to the one, single, real, GLOBAL
-  // Items root (direct child of Application) - not this business's
-  // own real Items root at all. Every category below (Red Wine, White
-  // Wine, Beer, Spirits, Soft Drink, Cocktails, Snacks, Sparkling
-  // Wine) was being created a second time, as a real, genuine
-  // duplicate, directly under the global Items root, alongside the
-  // already-correct ones the static seed SQL creates under this
-  // business's own, real "Wine Retail Business Items" root - a real,
-  // live violation of exactly the scoping this whole chapter is
-  // about. Fixed by resolving this business's own, real, scoped Items
-  // root first, the same, direct pattern `createBusiness` itself uses
-  // for a genuinely new business (PER_BUSINESS_ROOTS) - never the
-  // bare, global name again. (This business's own Items root still
-  // carries its own, real, pre-existing, not-yet-migrated "Wine
-  // Retail Business Items" name rather than the newer, plain "Items"
-  // convention - a real, separate, already-documented gap, left
-  // alone here; this fix only stops the real, further duplication
-  // onto the wrong, global root.)
-  const wineRetailBusiness = requireEntity('Wine Retail Business', typeBusinessName, requireEntity('Businesses', typeRootName));
-  const itemsRoot = requireEntity('Wine Retail Business Items', typeRootName, wineRetailBusiness);
-  const categories = loadDemoCategories();
-  const catNames = Array.from(new Set(categories.map((c) => c.category)));
-  const categoryEntities = new Map<string, TypedNode<'CategoryOrItemsRootName'>>();
-  for (const cat of catNames) {
-    const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(cat, itemsRoot.id) as { id: number } | undefined;
-    categoryEntities.set(cat, existing ? { id: asEntityId(existing.id), name: cat as string & { __brand: 'CategoryOrItemsRootName' } } : create(itemsRoot, typeCategoryOrItemsRootName, cat, SEED_USER_ID));
-  }
-  // Each real subcategory's own, already-disambiguated TypedNode is
-  // recorded directly here, as it's created/found — never re-looked-up
-  // by its own bare name later (the product loop below needs it too,
-  // and `createItem`'s own unscoped 3-arg path, which this fix
-  // deliberately no longer calls for products below, has this exact
-  // same two-part bug).
-  const subcategoryEntities = new Map<string, TypedNode<'CategoryOrItemsRootName'>>();
-  for (const { category, subcategory } of categories) {
-    const categoryEntity = categoryEntities.get(category)!;
-    const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(subcategory, categoryEntity.id) as { id: number } | undefined;
-    subcategoryEntities.set(subcategory, existing ? { id: asEntityId(existing.id), name: subcategory as string & { __brand: 'CategoryOrItemsRootName' } } : create(categoryEntity, typeCategoryOrItemsRootName, subcategory, SEED_USER_ID));
-  }
-
-  // Per direct instruction: the same bare-name lookup already fixed
-  // elsewhere (getLocation/setLocation, checkpoint 432), found here too
-  // - confirmed, not merely suspected, by this function's own locations
-  // ("Head Office" among them) resolving to an unrelated, pre-existing
-  // entity once the stricter ensureLocationCapacityAccount fix stopped
-  // tolerating the ambiguity. Scoped to "admin", the same real
-  // business the stock-level seeding just below already uses.
-  const myBusinessEntity = requireEntity('admin', typeBusinessName, requireEntity('Businesses', typeRootName));
-  let myBusinessLocationsRoot;
-  try { myBusinessLocationsRoot = requireEntity('Locations', typeRootName, myBusinessEntity); } catch { myBusinessLocationsRoot = create(myBusinessEntity, typeRootName, 'Locations', SEED_USER_ID); }
-  for (const loc of loadDemoLocations()) {
-    // The same bare-name pattern, a second time within this one fix: an
-    // unscoped existence check saw this name already existing
-    // elsewhere in the database and wrongly skipped creating My
-    // Business's own, real location at all.
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(loc.name, myBusinessLocationsRoot.id)) create(myBusinessLocationsRoot, typeLocationEntityName, loc.name, SEED_USER_ID);
-    setLocation(loc.name, { city: loc.city, location_type: loc.locationType, is_billing_address: loc.isBilling, bottle_capacity: loc.bottleCap, carton_capacity: loc.cartonCap, timezone: loc.timezone }, asBusinessName('admin'));
-  }
-
-  for (const { name, subcategory } of loadDemoProducts()) {
-    const subcategoryEntity = subcategoryEntities.get(subcategory);
-    if (!subcategoryEntity) throw new Error(`Real demo product "${name}" names a subcategory ("${subcategory}") that was never seeded above - a genuine data-file mismatch, not a lookup bug.`);
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, subcategoryEntity.id)) {
-      // Deliberately not `createItem(name, subcategory, SEED_USER_ID)`:
-      // that call's own unscoped, bare-name re-resolution of
-      // `subcategory` is exactly the real mechanism that let an
-      // unrelated, same-named Vocabulary entity win in the first place
-      // (see the real, confirmed "Lager" crash this whole fix
-      // addresses). `subcategoryEntity` above is already the real,
-      // disambiguated, correct parent — used directly here instead.
-      create(subcategoryEntity, typeItemName, name, SEED_USER_ID);
-      setItem(name, { description: null, unit_of_measure: null, upc: null });
-    }
-  }
-
-  const myBusinessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get('admin') as { id: number }).id;
-  runInSessionContext({ userId: SEED_USER_ID, business: { id: myBusinessId, name: 'admin' }, ledger: 'Actual' }, () => {
-    for (const { itemName, locationName, qty, minLevel, maxLevel, reorderLevel, shelfSide, rack, level } of loadDemoStockLevels()) {
-      receiveItems(asBusinessName('admin'), asLedgerName('Actual'), `WINE-SEED-${itemName}-${locationName}`, asItemName(itemName), asLocationName(locationName), qty, SEED_USER_ID, '2026-01-01');
-      setItemLocationLevels(asItemName(itemName), asLocationName(locationName), { minLevel, maxLevel, reorderLevel, shelfSide, rack, level });
-    }
-  });
-}
-if (SEED_DEMO_BUSINESSES) migrateForWineRetailDemoData();
 
 function migrateForCoaTranslations() {
 const coaTranslations: [string, string, string][] = [
@@ -532,163 +358,6 @@ function migrateForUtilitiesRestructure() {
   }
 }
 migrateForUtilitiesRestructure();
-
-function migrateForWineRetailCompany() {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Wine Retail Business'`).get()) {
-    create(requireEntity('Businesses', typeRootName), typeBusinessName, 'Wine Retail Business', SEED_USER_ID);
-  }
-  const business = requireEntity('Wine Retail Business', typeBusinessName);
-  const ledgersRoot = (Entity.getUnder('Ledgers', business.id) ?? create(business, typeRootName, 'Ledgers', SEED_USER_ID)) as { id: number; name: string };
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Actual' AND parent_id = ?`).get(ledgersRoot.id)) {
-    create(requireEntityById(ledgersRoot.id, typeRootName), typeLedgerName, 'Actual', SEED_USER_ID);
-  }
-}
-if (SEED_DEMO_BUSINESSES) migrateForWineRetailCompany();
-
-// Real employee roster for Wine Retail Business — per direct request:
-// "we need employees in all retail locations at least two plus office
-// staff and warehouse staff on hourly wages and 38.5 hours per week
-// with 1.5% Medicare levy and 12% superannuation employer
-// contribution, management on a salary rather than wage." Real, made-
-// up names, addresses (in the same real cities their own workplace is
-// in), and phone numbers, since none of this is sensitive, real
-// personal data — it's entirely fictional, generated for a demo.
-function seedWineRetailEmployees() {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Wine Retail Business'`).get()) return; // not this business's database
-
-  interface StaffDef {
-    name: string;
-    role: string; // used only in the address_line2 "position" field, not a real column
-    location: string;
-    city: string;
-    address: string;
-    phone: string;
-    wageMinorPerHour?: number;
-    salaryMinorPerYear?: number;
-    /** Real "Place of Employment" relationship target — the location
-     * they actually work at for real, on-site staff, or the business
-     * itself for a genuinely company-wide role (per direct request:
-     * office staff and both managers oversee more than one real
-     * location, so tying them to any single one would misrepresent
-     * their real role). */
-    employedAt: string;
-  }
-
-  const staff: StaffDef[] = [
-    // Riverside Cellars (Springfield) — retail, at least two
-    // employees. Per a real, confirmed, cross-business data-integrity
-    // bug found directly: this used to say "Lakeside Cellars", which
-    // is NOT one of Wine Retail Business's own, real, raw-SQL-seeded
-    // locations (backend/schema/20-demo-wine-retail.sql) — it is the
-    // 'admin' business's own, separately-seeded demo location of that
-    // same name (shared-fixtures/locations.csv, via
-    // migrateForWineRetailDemoData/loadDemoLocations). The bare,
-    // unscoped setRelationship(...) calls below silently resolved
-    // "Lakeside Cellars" to that unrelated entity instead of failing,
-    // cross-wiring these two employees' "Belongs To Group" onto the
-    // wrong business's location entirely. "Riverside Cellars" is this
-    // business's actual, real location at the same, equivalent
-    // narrative position.
-    { name: 'Chloe Ferraro', role: 'Retail Assistant', location: 'Riverside Cellars', city: 'Springfield', address: '14 Willow Court', phone: '0412 558 213', wageMinorPerHour: 2850, employedAt: 'Riverside Cellars' },
-    { name: 'Jack Whitfield', role: 'Retail Assistant', location: 'Riverside Cellars', city: 'Springfield', address: '27 Alderney Street', phone: '0433 902 447', wageMinorPerHour: 2850, employedAt: 'Riverside Cellars' },
-    // Uptown Wine & Spirits (Springfield) — retail, at least two
-    { name: 'Priya Nandakumar', role: 'Retail Assistant', location: 'Uptown Wine & Spirits', city: 'Springfield', address: '9 Blackwood Lane', phone: '0421 774 038', wageMinorPerHour: 2850, employedAt: 'Uptown Wine & Spirits' },
-    { name: 'Ryan Delacroix', role: 'Retail Assistant', location: 'Uptown Wine & Spirits', city: 'Springfield', address: '52 Fenwick Road', phone: '0455 129 806', wageMinorPerHour: 2850, employedAt: 'Uptown Wine & Spirits' },
-    // Harbourside Bottle Shop (Rivertown) — retail, at least two
-    { name: 'Meredith Okafor', role: 'Retail Assistant', location: 'Harbourside Bottle Shop', city: 'Rivertown', address: '3 Quayside Terrace', phone: '0407 361 592', wageMinorPerHour: 2850, employedAt: 'Harbourside Bottle Shop' },
-    { name: 'Tomas Vukovic', role: 'Retail Assistant', location: 'Harbourside Bottle Shop', city: 'Rivertown', address: '61 Harbour View Drive', phone: '0448 620 175', wageMinorPerHour: 2850, employedAt: 'Harbourside Bottle Shop' },
-    // Market Square Liquor (Rivertown) — retail, at least two
-    { name: 'Amelia Standish', role: 'Retail Assistant', location: 'Market Square Liquor', city: 'Rivertown', address: '18 Cobblestone Way', phone: '0419 253 764', wageMinorPerHour: 2850, employedAt: 'Market Square Liquor' },
-    { name: 'Diego Fontaine', role: 'Retail Assistant', location: 'Market Square Liquor', city: 'Rivertown', address: '44 Market Street', phone: '0466 837 291', wageMinorPerHour: 2850, employedAt: 'Market Square Liquor' },
-    // Eastside Cellar Door (Rivertown) — retail, at least two
-    { name: 'Nadia Petrovska', role: 'Retail Assistant', location: 'Eastside Cellar Door', city: 'Rivertown', address: '7 Sunrise Boulevard', phone: '0431 508 926', wageMinorPerHour: 2850, employedAt: 'Eastside Cellar Door' },
-    { name: 'Oliver Bramwell', role: 'Retail Assistant', location: 'Eastside Cellar Door', city: 'Rivertown', address: '30 Eastview Crescent', phone: '0402 719 653', wageMinorPerHour: 2850, employedAt: 'Eastside Cellar Door' },
-    // Head Office (Springfield) — warehouse staff
-    { name: 'Callum Restrepo', role: 'Warehouse Hand', location: 'Head Office', city: 'Springfield', address: '85 Industrial Drive', phone: '0413 946 271', wageMinorPerHour: 2950, employedAt: 'Head Office' },
-    { name: 'Georgia Lindqvist', role: 'Warehouse Hand', location: 'Head Office', city: 'Springfield', address: '12 Depot Street', phone: '0447 385 610', wageMinorPerHour: 2950, employedAt: 'Head Office' },
-    // Warehouse B (Rivertown) — warehouse staff
-    { name: 'Marcus Ihejirika', role: 'Warehouse Hand', location: 'Warehouse B', city: 'Rivertown', address: '6 Wharf Road', phone: '0458 172 934', wageMinorPerHour: 2950, employedAt: 'Warehouse B' },
-    { name: 'Freya Sandvik', role: 'Warehouse Hand', location: 'Warehouse B', city: 'Rivertown', address: '23 Container Court', phone: '0424 693 517', wageMinorPerHour: 2950, employedAt: 'Warehouse B' },
-    // Office staff — a real, company-wide role, not tied to one location
-    { name: 'Beatrix Solano', role: 'Accounts Clerk', location: 'Head Office', city: 'Springfield', address: '41 Fernhill Avenue', phone: '0439 815 062', wageMinorPerHour: 3200, employedAt: 'Wine Retail Business' },
-    { name: 'Harun Demir', role: 'Administration Assistant', location: 'Head Office', city: 'Springfield', address: '5 Redgum Place', phone: '0461 274 908', wageMinorPerHour: 3000, employedAt: 'Wine Retail Business' },
-    // Management, on a real, fixed salary rather than an hourly wage — real, company-wide roles
-    { name: 'Isla Fairweather', role: 'Retail Operations Manager', location: 'Head Office', city: 'Springfield', address: '2 Hillcrest Avenue', phone: '0410 526 837', salaryMinorPerYear: 8800000, employedAt: 'Wine Retail Business' },
-    { name: 'Victor Casagrande', role: 'Warehouse & Logistics Manager', location: 'Warehouse B', city: 'Rivertown', address: '17 Riverbank Way', phone: '0473 148 259', salaryMinorPerYear: 9200000, employedAt: 'Wine Retail Business' },
-  ];
-
-  for (const s of staff) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(s.name)) {
-      create(requireEntity('Employees', typeRootName), typeEmployeeName, s.name, SEED_USER_ID);
-    }
-    setContact(s.name, {
-      phone: s.phone,
-      address_line1: s.address,
-      address_line2: s.role,
-      city: s.city,
-      country: 'Australia',
-      wage_minor_per_hour: s.wageMinorPerHour ?? null,
-      salary_minor_per_year: s.salaryMinorPerYear ?? null,
-    });
-    // A real "Place of Employment" relationship — per direct request,
-    // the real, correct shape is arrows pointing FROM the employee TO
-    // wherever they actually work (a location, or the business
-    // itself for a genuinely company-wide role), through the same,
-    // real relationship-type mechanism already proven for "Trustee
-    // Of" — not reparenting the employee's own parent_id, which stays
-    // under Employees, unchanged, exactly as every existing lookup
-    // already assumes.
-    setRelationship(s.name, 'Place of Employment', s.employedAt, SEED_USER_ID);
-  }
-
-  // A real group "belongs to" its own real business — the same real
-  // mechanism, one layer up. Springfield and Rivertown (this demo
-  // business's own, real, chosen example group names) both stay real,
-  // direct children of their own real Hierarchy grouping (unchanged —
-  // getHierarchyGroups/getAncestorChain/closeBooks all depend on that
-  // exact shape and would break if reparented), but now also carry a
-  // real, queryable link to which business they actually belong to.
-  for (const groupName of ['Springfield', 'Rivertown']) {
-    if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(groupName)) {
-      setRelationship(groupName, 'Belongs To Business', 'Wine Retail Business', SEED_USER_ID);
-    }
-  }
-
-  // A real location "belongs to" its own real group — same mechanism
-  // again. Every real Wine Retail Business location keeps its
-  // existing parent_id (under "Wine Retail Business Locations",
-  // unchanged), but now also carries a real, queryable link to its
-  // own real group, closing the real chain: Business -> (belongs to)
-  // Group -> (belongs to) Location -> (place of employment) Employee.
-  const locationGroups: Record<string, string> = {
-    'Head Office': 'Head Office',
-    'Riverside Cellars': 'Riverside Cellars',
-    'Uptown Wine & Spirits': 'Uptown Wine & Spirits',
-    'Warehouse B': 'Warehouse B',
-    'Harbourside Bottle Shop': 'Harbourside Bottle Shop',
-    'Market Square Liquor': 'Market Square Liquor',
-    'Eastside Cellar Door': 'Eastside Cellar Door',
-  };
-  // Scoped to this business's own, real Locations root (legacy-root
-  // aware — see resolveBusinessLocationsRootId), not a bare name
-  // lookup — per the exact, same bare-name bug class this file has
-  // already been fixed for elsewhere (db-stock.ts's setLocation/
-  // getLocation), caught directly here: "Head Office" exists under
-  // both this business and 'admin' (coincidentally resolving right,
-  // by low-id ordering luck, under the old bare lookup), but a bare
-  // lookup is one unlucky id ordering away from silently cross-wiring
-  // any of these onto an unrelated business's same-named location.
-  const wineRetailLocationsRootId = resolveBusinessLocationsRootId('Wine Retail Business');
-  const locationBelongsToWineRetail = (locationName: string) =>
-    !!wineRetailLocationsRootId &&
-    !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, wineRetailLocationsRootId);
-  for (const [locationName, groupName] of Object.entries(locationGroups)) {
-    if (locationBelongsToWineRetail(locationName) && db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(groupName)) {
-      setRelationship(locationName, 'Belongs To Group', groupName, SEED_USER_ID);
-    }
-  }
-}
-if (SEED_DEMO_BUSINESSES) seedWineRetailEmployees();
 
 function migrateForPagerVocabulary() {
   const hasEntity = (name: string) => !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name);
@@ -1297,28 +966,6 @@ function migrateForCashSaleCustomer() {
   }
 }
 migrateForCashSaleCustomer();
-
-function migrateForWineRetailUpcs() {
-  const upcs = loadDemoUpcs();
-  const upcByName = new Map(upcs.map((u) => [u.name, u.upc]));
-  const items = db
-    .prepare(
-      `SELECT p.entity_id, e.name FROM contact p
-       JOIN current_entities e ON e.id = p.entity_id
-       WHERE p.item_upc IS NULL
-       AND e.parent_id IN (
-         SELECT id FROM current_entities WHERE parent_id IN (
-           SELECT id FROM current_entities WHERE name IN ('Red Wine', 'White Wine', 'Sparkling Wine', 'Beer', 'Spirits')
-         )
-       )`
-    )
-    .all() as { entity_id: number; name: string }[];
-  for (const { entity_id, name } of items) {
-    const upc = upcByName.get(name);
-    if (upc) mergeContactDetail(entity_id, { item_upc: upc });
-  }
-}
-if (SEED_DEMO_BUSINESSES) migrateForWineRetailUpcs();
 
 /** The real, structural mirror of the app's own current, live menu —
  * step 1 of the menu-as-entity-tree plan (docs/menu-as-entity-tree-plan.md).

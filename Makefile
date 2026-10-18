@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-with-foreign dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -73,41 +73,32 @@ dev:
 	  wait \
 	)
 
-# Same as `dev` above, but with only the one, real, dummy "My
-# Business" for login — no Wine Retail Business, no BMW/Peugeot/Ditta/
-# Schweizer. Use this to build a real business entirely from scratch
-# via the UI or a driven browser test, with nothing pre-populated. This flag must
-# genuinely be set on every real backend start (not just the first) —
-# seedRemainingData runs every time the backend loads, so a plain
-# `make dev` afterwards would silently re-seed the demo businesses.
-dev-no-demo:
-	@echo "Starting backend (:3001, only 'admin' — no demo businesses) and frontend (:5173) — Ctrl+C stops both."
-	@( \
-	  cd backend && SEED_DEMO_BUSINESSES=false $(RUN_NPM_SCRIPT) dev & \
-	  BACKEND_PID=$$!; \
-	  cd frontend && $(RUN_NPM_SCRIPT) dev & \
-	  FRONTEND_PID=$$!; \
-	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
-	  wait \
-	)
+# Historically started a backend with SEED_DEMO_BUSINESSES=false to
+# get only the one, real, dummy "admin" business, no Wine Retail
+# Business pre-populated. That flag, and all demo-business seeding at
+# boot, has since been removed entirely (per
+# docs/api-e2e-readiness-and-seed-separation-plan.md) — the
+# application's own basic initial data load (schema/00-core.sql) now
+# NEVER contains a demo business, so plain `make dev` already gives
+# you exactly this. Kept as a documented alias so old muscle memory
+# still works. To build a real demo business on top of this, use the
+# real, in-process scripts/simulate-wine-retail-month.ts (or drive it
+# through the UI/API yourself) — never schema seeding.
+dev-no-demo: dev
 
-# Same as `dev` above, plus the genuinely foreign demo businesses
-# (BMW M GmbH, Peugeot Citroën Sochaux SNC, Ditta Italiana Srl,
-# Schweizer KMU AG) — off by default (see 20-demo-bmw-peugeot.sql /
-# 20-demo-italian-swiss.sql / db.ts's SEED_FOREIGN_BUSINESSES flag)
-# since they don't belong in the application's own normal initial
-# data; this target is the explicit, opt-in way to get them back,
-# e.g. to demonstrate multi-currency/multi-language CoA data.
-dev-with-foreign:
-	@echo "Starting backend (:3001, every demo business including BMW/Peugeot/Ditta Italiana/Schweizer KMU) and frontend (:5173) — Ctrl+C stops both."
-	@( \
-	  cd backend && SEED_FOREIGN_BUSINESSES=true $(RUN_NPM_SCRIPT) dev & \
-	  BACKEND_PID=$$!; \
-	  cd frontend && $(RUN_NPM_SCRIPT) dev & \
-	  FRONTEND_PID=$$!; \
-	  trap "kill $$BACKEND_PID $$FRONTEND_PID 2>/dev/null" EXIT INT TERM; \
-	  wait \
-	)
+# The two, genuinely foreign demo businesses this project once seeded
+# at boot (BMW M GmbH / Peugeot Citroën Sochaux SNC via the deleted
+# 20-demo-bmw-peugeot.sql, and Ditta Italiana Srl / Schweizer KMU AG
+# via the deleted 20-demo-italian-swiss.sql) have no builder at all
+# any more — their schema files and db.ts's SEED_FOREIGN_BUSINESSES
+# flag were deleted outright per direct instruction, and no
+# simulate-*-style TypeScript script was written to replace them (the
+# pattern scripts/simulate-wine-retail-month.ts already proves for
+# Wine Retail Business). This is a known, intentionally undecided
+# gap — see docs/api-e2e-readiness-and-seed-separation-plan.md §2.6 —
+# not something `make dev-with-foreign` can paper over any more, so
+# that target has been removed rather than left pointing at a flag
+# that no longer does anything.
 
 dev-verbose:
 	@echo "Starting backend (:3001, every SQL statement printed) and frontend (:5173) — Ctrl+C stops both."
@@ -151,26 +142,23 @@ test-e2e: reset-db
 # The real, augmented tutorial fixture (shared-fixtures/tutorial-steps.csv),
 # run via the fast, direct API path - no browser, no running servers
 # needed, since runStepViaApi calls the real backend functions directly.
-# A real, confirmed, pre-existing bug, found and fixed directly here:
-# this fixture creates its own, real "Tutorial Wine Retail Business"
-# from scratch and genuinely never wants the demo businesses (Wine
-# Retail Business, BMW/Peugeot/Ditta/Schweizer) pre-seeded alongside
-# it - SEED_DEMO_BUSINESSES=false was missing here, so a plain run
-# tripped the real, pre-existing demo-seed bug in
-# migrateForWineRetailDemoData, unrelated to this fixture itself.
+# This fixture creates its own, real "Tutorial Wine Retail Business"
+# from scratch and genuinely never wants any other demo business
+# pre-seeded alongside it. Historically needed SEED_DEMO_BUSINESSES=
+# false to avoid a real demo-seed bug in migrateForWineRetailDemoData;
+# that whole code path (and flag) is gone now — boot never seeds a
+# demo business at all — so there is nothing left to guard against
+# here.
 test-e2e-tutorial: reset-db
 	@echo "Running the real, augmented tutorial fixture via the API path..."
-	cd backend && SEED_DEMO_BUSINESSES=false $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path api --non-interactive
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path api --non-interactive
 
 # The exact, same, real tutorial fixture, driven through an actual,
 # real, live browser instead - genuinely proving the real UI screens
-# themselves, not just the backend functions behind them. Depends on
-# ensure-servers-no-demo (not plain ensure-servers), for the exact,
-# same, real reason as test-e2e-tutorial above - this fixture must
-# never run against a server already seeded with demo businesses.
-test-e2e-tutorial-browser: reset-db ensure-servers-no-demo
+# themselves, not just the backend functions behind them.
+test-e2e-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real, augmented tutorial fixture via the real, driven UI path..."
-	cd backend && SEED_DEMO_BUSINESSES=false $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive
 
 # A real, minimal, fast, backend-only proof of a complete business
 # lifecycle: locations of each real type, staff, an assembly, a full
@@ -199,13 +187,11 @@ test-e2e-browser-languages: reset-db
 # running — no need to `make dev` first. Always resets the database
 # first, since the tutorial genuinely creates a new business (Wine
 # Retail Company itself) from scratch and expects a clean starting
-# point — SEED_DEMO_BUSINESSES=false so it doesn't already exist
-# (the runner's own webServer spawns $(RUN_NPM_SCRIPT) dev as a child process,
-# inheriting this shell's own environment, so the flag reaches the
-# backend it auto-starts too).
+# point — boot itself never seeds any demo business any more, so
+# there's nothing left to additionally suppress here.
 e2e-spec-tutorial: reset-db
 	@echo "Running the real Wine Retail Business tutorial walkthrough in a real browser, built entirely from scratch (login through the first General Journal transaction)..."
-	cd e2e && SEED_DEMO_BUSINESSES=false $(RUN_NPM_SCRIPT) browser-run -- test tutorial-walkthrough --reporter=list
+	cd e2e && $(RUN_NPM_SCRIPT) browser-run -- test tutorial-walkthrough --reporter=list
 
 # The full, real driven browser-test suite — every real .spec.ts file
 # in e2e/tests. Takes several minutes. Use e2e-spec-tutorial above
@@ -272,43 +258,16 @@ ensure-servers:
 	  for i in $$(seq 1 30); do curl -sf http://localhost:5173 > /dev/null 2>&1 && break; sleep 1; done; \
 	fi
 
-# The exact, same, real, detached-server pattern as ensure-servers
-# above, but for the one, real, recurring case that one had no answer
-# for at all: driving the real UI path (a driven browser) against a
-# database with only the one, real, dummy "admin" - no Wine
-# Retail Business, no BMW/Peugeot/Ditta/Schweizer - the exact, same
-# real data `make dev-no-demo` gives a person at a real keyboard, but
-# detached, so a real, unattended script (step-runner's own `--path
-# ui`, among others) can depend on it the same way every other
-# screenshot/browser-test target already depends on `ensure-servers`.
-# Reuses the real, same pid files - `stop-servers` below works on a
-# server started either way, and `servers-status` reports it the same
-# way too. Never silently reuses an already-running backend that was
-# started WITHOUT this flag (demo businesses already loaded) - a
-# stale, wrongly-seeded server is worse than a slow, correct restart,
-# so this target always stops the existing backend first when it
-# can't tell which flag it was started with.
-ensure-servers-no-demo:
-	@mkdir -p $(PID_DIR)
-	@if [ -f $(BACKEND_PID) ] && kill -0 $$(cat $(BACKEND_PID)) 2>/dev/null && ! grep -q 'SEED_DEMO_BUSINESSES=false' /proc/$$(cat $(BACKEND_PID))/environ 2>/dev/null; then \
-	  echo "backend is running without SEED_DEMO_BUSINESSES=false - stopping it first (this target never reuses a wrongly-seeded server)"; \
-	  PID=$$(cat $(BACKEND_PID)); kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; rm -f $(BACKEND_PID); \
-	  sh scripts/safe-pkill.sh "tsx watch src/server.ts"; \
-	fi
-	@if $(BACKEND_HEALTHY); then \
-	  echo "backend already healthy (SEED_DEMO_BUSINESSES=false), reusing (pid $$(cat $(BACKEND_PID)))"; \
-	else \
-	  echo "starting backend with SEED_DEMO_BUSINESSES=false..."; \
-	  ( cd backend && setsid nohup env SEED_DEMO_BUSINESSES=false $(RUN_NPM_SCRIPT) dev > /tmp/sql-ledger-ts-backend.log 2>&1 < /dev/null & echo $$! > $(BACKEND_PID) ); \
-	  for i in $$(seq 1 30); do curl -sf http://localhost:3001/api/health > /dev/null 2>&1 && break; sleep 1; done; \
-	fi
-	@if $(FRONTEND_HEALTHY); then \
-	  echo "frontend already healthy, reusing (pid $$(cat $(FRONTEND_PID)))"; \
-	else \
-	  echo "starting frontend..."; \
-	  ( cd frontend && setsid nohup $(RUN_NPM_SCRIPT) dev > /tmp/sql-ledger-ts-frontend.log 2>&1 < /dev/null & echo $$! > $(FRONTEND_PID) ); \
-	  for i in $$(seq 1 30); do curl -sf http://localhost:5173 > /dev/null 2>&1 && break; sleep 1; done; \
-	fi
+# Historically a distinct, SEED_DEMO_BUSINESSES=false detached-server
+# variant of ensure-servers, for driving the real UI path against a
+# database with only the one, real, dummy "admin" business. Now that
+# boot itself never seeds any demo business at all (that whole flag
+# and code path were removed per direct instruction), there is no
+# longer any real difference between the two — kept as a documented
+# alias so existing targets (test-e2e-tutorial-browser, step-runner's
+# own `--path ui`, etc.) that depend on it by name keep working.
+ensure-servers-no-demo: ensure-servers
+	@true
 
 stop-servers:
 	@if [ -f $(BACKEND_PID) ]; then \

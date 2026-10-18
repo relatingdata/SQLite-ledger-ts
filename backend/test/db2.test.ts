@@ -3982,3 +3982,328 @@ test('Location open hours and employee weekly scheduling, built entirely on the 
   const staleRecord = db.getEntityTree().find((e) => e.name === `${employeeName} — Monday at ${location.name}: 09:00–17:00`);
   assert.equal(staleRecord, undefined, "the real, original 09:00-17:00 record must genuinely be deleted, not merely superseded");
 });
+
+test('getCustomerStatement: shows every real, posted invoice for one customer — paid, partially paid, and outstanding — correctly respecting a real, historical "as of" date, not just the current, real-time balance', () => {
+  const biz = fx.freshBusiness('StatementTest Co', { coaPrototype: 'English CoA' });
+  const customer = fx.uniqueName('StatementTest Customer');
+  db.create(db.requireEntity('Accounts Receivable', db.typeRootName), db.typeRootName, customer, fx.userId);
+
+  const ref1 = fx.uniqueName('STMTTEST-1');
+  const inv1 = db.createInvoice({ invoiceType: 'AR', business: biz.business, ledger: biz.actualLedger, reference: ref1, counterpartyName: customer, invoiceDate: '2027-01-01', description: 'Fully paid', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 10000, amountMinor: 10000, taxMinor: 0 }] }, fx.userId);
+  db.postInvoice(inv1, 'Sales Revenue', 'Sales Tax Payable', fx.userId);
+  db.allocatePayment(inv1, fx.uniqueName('STMTTEST-PAY-1'), 10000, '2027-01-15', 'Cash and Bank', fx.userId);
+
+  const ref2 = fx.uniqueName('STMTTEST-2');
+  const inv2 = db.createInvoice({ invoiceType: 'AR', business: biz.business, ledger: biz.actualLedger, reference: ref2, counterpartyName: customer, invoiceDate: '2027-01-10', description: 'Partially paid', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 20000, amountMinor: 20000, taxMinor: 0 }] }, fx.userId);
+  db.postInvoice(inv2, 'Sales Revenue', 'Sales Tax Payable', fx.userId);
+  db.allocatePayment(inv2, fx.uniqueName('STMTTEST-PAY-2'), 5000, '2027-01-20', 'Cash and Bank', fx.userId);
+
+  const ref3 = fx.uniqueName('STMTTEST-3');
+  const inv3 = db.createInvoice({ invoiceType: 'AR', business: biz.business, ledger: biz.actualLedger, reference: ref3, counterpartyName: customer, invoiceDate: '2027-01-20', description: 'Fully outstanding', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 15000, amountMinor: 15000, taxMinor: 0 }] }, fx.userId);
+  db.postInvoice(inv3, 'Sales Revenue', 'Sales Tax Payable', fx.userId);
+
+  const statement = db.getCustomerStatement(biz.business, biz.actualLedger, customer, '2027-01-31');
+  assert.equal(statement.lines.length, 3);
+  assert.equal(statement.lines[0].status, 'Paid');
+  assert.equal(statement.lines[0].outstanding_minor, 0);
+  assert.equal(statement.lines[1].status, 'Partially paid');
+  assert.equal(statement.lines[1].paid_minor, 5000);
+  assert.equal(statement.lines[1].outstanding_minor, 15000);
+  assert.equal(statement.lines[2].status, 'Outstanding');
+  assert.equal(statement.lines[2].paid_minor, 0);
+  assert.equal(statement.lines[2].outstanding_minor, 15000);
+  assert.equal(statement.total_outstanding_minor, 30000, "the real, total outstanding must be the sum of every real, still-owed invoice, not just one");
+
+  const earlier = db.getCustomerStatement(biz.business, biz.actualLedger, customer, '2027-01-05');
+  assert.equal(earlier.lines.length, 1, 'only the real, first invoice existed yet as of this earlier date');
+  assert.equal(earlier.lines[0].status, 'Outstanding', "the real payment on 2027-01-15 hadn't happened yet as of 2027-01-05 — must show as outstanding, not paid");
+  assert.equal(earlier.total_outstanding_minor, 10000);
+});
+
+test("setEntityLink/getEntityLink/deleteEntityLink: a real, pure link between two entities that never touches the source entity's own relation_id, unlike setRelationship", () => {
+  const biz = fx.freshBusiness('EntityLinkTest Co', { coaPrototype: 'English CoA' });
+  const accountName = fx.uniqueName('EntityLinkTest Account');
+  db.create(fx.coaCategoryRoot(biz.business, 'Asset'), db.typeRootName, accountName, fx.userId);
+  const divisionName = fx.uniqueName('EntityLinkTest Division');
+  const otherDivisionName = fx.uniqueName('EntityLinkTest Other Division');
+  db.create(db.requireEntity('Application', db.typeRootName), db.typeRootName, divisionName, fx.userId);
+  db.create(db.requireEntity('Application', db.typeRootName), db.typeRootName, otherDivisionName, fx.userId);
+
+  const acctId = (db.db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(accountName) as { id: number }).id;
+  db.supersedeEntity(acctId, { relation: 'English CoA' }, fx.userId);
+
+  db.setEntityLink(accountName, 'Division', divisionName, fx.userId);
+
+  const entities = db.getEntityTree();
+  const account = entities.find((e) => e.name === accountName)!;
+  const accountRelationTarget = entities.find((e) => e.id === account.relation_id);
+  assert.equal(accountRelationTarget?.name, 'English CoA', "the account's own relation_id must be genuinely untouched by setEntityLink — this is the entire, real point of this generic existing at all");
+
+  assert.equal(db.getEntityLink(accountName, 'Division'), divisionName);
+
+  db.setEntityLink(accountName, 'Division', otherDivisionName, fx.userId);
+  assert.equal(db.getEntityLink(accountName, 'Division'), otherDivisionName);
+
+  const liveEntities = db.getEntityTree();
+  const liveLinkRecords = liveEntities.filter((e) => e.name === `${accountName} — Division`);
+  assert.equal(liveLinkRecords.length, 1, 'a real, second setEntityLink call must replace the existing link record, not create a real, duplicate second one');
+
+  db.deleteEntityLink(accountName, 'Division', fx.userId);
+  assert.equal(db.getEntityLink(accountName, 'Division'), undefined, 'after deletion, no real link must remain at all');
+});
+
+test('stageBomComponent/postBomComponents/getBomComponents: a real Bill of Materials, built on setEntityLink, per the wine-bar-assemblies-plan design', () => {
+  const biz = fx.freshBusiness('BomTest Co');
+  const assembly = fx.uniqueName('BomTest Gin & Tonic');
+  const gin = fx.uniqueName('BomTest Gin');
+  const tonic = fx.uniqueName('BomTest Tonic Water');
+  db.createItem(assembly, 'Items', fx.userId, biz.business);
+  db.createItem(gin, 'Items', fx.userId, biz.business);
+  db.createItem(tonic, 'Items', fx.userId, biz.business);
+
+  db.stageBomComponent({ assemblyItem: assembly, business: biz.business, componentItem: gin, quantity: 30, unit: 'ml' });
+  db.stageBomComponent({ assemblyItem: assembly, business: biz.business, componentItem: tonic, quantity: 150, unit: 'ml' });
+
+  assert.equal(db.getBomComponents(assembly).length, 0, "staged rows aren't yet real, posted components");
+
+  db.postBomComponents(assembly, biz.business, fx.userId);
+
+  const components = db.getBomComponents(assembly);
+  assert.equal(components.length, 2, 'both real, staged components were posted');
+  const ginComponent = components.find((c) => c.component === gin);
+  assert.equal(ginComponent?.quantity, 30);
+  assert.equal(ginComponent?.unit, 'ml');
+  const tonicComponent = components.find((c) => c.component === tonic);
+  assert.equal(tonicComponent?.quantity, 150);
+  assert.equal(tonicComponent?.unit, 'ml');
+
+  db.stageBomComponent({ assemblyItem: assembly, business: biz.business, componentItem: gin, quantity: 45, unit: 'ml' });
+  db.postBomComponents(assembly, biz.business, fx.userId);
+  const updated = db.getBomComponents(assembly);
+  assert.equal(updated.length, 2, 'still exactly two real components, not three');
+  assert.equal(updated.find((c) => c.component === gin)?.quantity, 45, 'the real, updated quantity replaced the old one');
+});
+
+test('createProjectTask/getProjectTasks/addTaskDependency/getTaskDependencies: real project scheduling with zero new tables, per direct, absolute instruction', () => {
+  const projectName = fx.uniqueName('PmTest Riverside Build');
+  db.create(db.requireEntity('Projects', db.typeRootName), db.typeRootName, projectName, fx.userId);
+  db.create(db.requireEntity(projectName, db.typeRootName), db.typeRootName, `${projectName} Tasks`, fx.userId);
+
+  const foundationTask = db.createProjectTask(projectName, 'Pour the foundation', '2026-09-01', '2026-09-05', fx.userId);
+  const framingTask = db.createProjectTask(projectName, 'Frame the walls', '2026-09-06', '2026-09-12', fx.userId);
+
+  const tasks = db.getProjectTasks(projectName);
+  assert.equal(tasks.length, 2, 'both real tasks were created and parsed back out correctly');
+  const foundation = tasks.find((t) => t.task === 'Pour the foundation');
+  assert.equal(foundation?.plannedStart, '2026-09-01');
+  assert.equal(foundation?.plannedEnd, '2026-09-05');
+
+  db.addTaskDependency('Frame the walls', 'Pour the foundation', 'finish_to_start', fx.userId);
+  const deps = db.getTaskDependencies('Frame the walls');
+  assert.equal(deps.length, 1, 'one real dependency edge was created');
+  assert.equal(deps[0].predecessor, 'Pour the foundation');
+  assert.equal(deps[0].dependencyType, 'finish_to_start');
+
+  const rawEntity = db.db.prepare(`SELECT name FROM current_entities WHERE name LIKE 'Frame the walls%'`).get() as { name: string };
+  assert.match(rawEntity.name, /^Frame the walls \(2026-09-06 to 2026-09-12\)$/);
+});
+
+test('setLanguageDirection/getLanguageDirection: a real, generic RTL property any language can have, per direct instruction (Hebrew/Arabic on par with every other language, not a hardcoded special case)', () => {
+  const langName = fx.uniqueName('LangDirTest Klingon');
+  db.create(db.requireEntity('Languages', db.typeRootName), db.typeRootName, langName, fx.userId);
+  assert.equal(db.getLanguageDirection(langName), undefined, 'no real direction set yet');
+
+  db.setLanguageDirection(langName, 'RTL', fx.userId);
+  assert.equal(db.getLanguageDirection(langName), 'RTL');
+
+  assert.equal(db.getLanguageDirection('Hebrew'), 'RTL');
+  assert.equal(db.getLanguageDirection('Arabic'), 'RTL');
+  assert.equal(db.getLanguageDirection('English'), undefined, 'English genuinely has no RTL link at all - LTR is the real, honest default');
+
+  db.setLanguageDirection(langName, null, fx.userId);
+  assert.equal(db.getLanguageDirection(langName), undefined, 'a real, direct clear genuinely removes the link entirely');
+});
+
+test('setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this genuinely run out before a fresh order could arrive?', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const biz = fx.freshBusiness('RiskTest Co');
+  const kegName = fx.uniqueName('RiskTest Keg');
+  db.createItem(kegName, 'Items', fx.userId, biz.business);
+  const brewery = fx.uniqueName('RiskTest Brewery');
+  const slowBrewery = fx.uniqueName('RiskTest Slow Brewery');
+  db.create(db.requireEntity('Vendors', db.typeRootName), db.typeRootName, brewery, fx.userId);
+  db.create(db.requireEntity('Vendors', db.typeRootName), db.typeRootName, slowBrewery, fx.userId);
+  const bar = fx.freshLocation(biz.business, 'RiskTest Bar', { bottle_capacity: 0, carton_capacity: 10 });
+
+  db.setItemSourceLeadTime(db.asItemName(kegName), db.asProviderName(brewery), 3, fx.userId);
+  db.setItemSourceLeadTime(db.asItemName(kegName), db.asProviderName(slowBrewery), 14, fx.userId);
+  const leadTimes = db.getItemLeadTimes(db.asItemName(kegName));
+  assert.equal(leadTimes.length, 2, 'both real, known vendor lead times were recorded');
+
+  db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('RISKTEST-REC-1'), db.asItemName(kegName), bar.name, 100, fx.userId, today);
+  db.dispatchItems(biz.business, biz.actualLedger, fx.uniqueName('RISKTEST-DISP-1'), db.asItemName(kegName), bar.name, 60, fx.userId, today);
+
+  const risk = fx.withBusinessSession(biz, () => db.getStockOutRiskReport(2)).find((r) => r.item === kegName);
+  assert.ok(risk, 'genuinely, correctly flagged as at risk');
+  assert.equal(risk?.shortest_lead_time_days, 3, 'the shorter of the two real vendor lead times was used, not the longer one');
+  assert.ok(risk!.days_until_stockout! < 3, 'days until stockout is genuinely less than the shortest real lead time');
+});
+
+test('registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, dedicated cash-flow/growth-planning design — real, registered bank accounts scoped correctly to one real business, grouped by real currency, with honest overdraft headroom', () => {
+  const biz = fx.freshBusiness('BankRegTest Co');
+  const audAccount = fx.uniqueName('BankRegTest AUD Account');
+  const audAccount2 = fx.uniqueName('BankRegTest AUD Account 2');
+  const eurAccount = fx.uniqueName('BankRegTest EUR Account');
+  const notABankAccount = fx.uniqueName('BankRegTest Not A Bank Account');
+  db.create(db.requireGlobalCoaCategory('Asset'), db.typeRootName, audAccount, fx.userId);
+  db.create(db.requireGlobalCoaCategory('Asset'), db.typeRootName, audAccount2, fx.userId);
+  db.create(db.requireGlobalCoaCategory('Asset'), db.typeRootName, eurAccount, fx.userId);
+  db.create(db.requireGlobalCoaCategory('Asset'), db.typeRootName, notABankAccount, fx.userId);
+  const divisionName = fx.uniqueName('BankRegTest Division');
+  db.create(db.requireEntity('Application', db.typeRootName), db.typeRootName, divisionName, fx.userId);
+
+  assert.throws(() => db.registerBankAccount(audAccount, biz.business, 'No Such Scope', null, fx.userId), /No real business\/division named/);
+  assert.throws(() => db.registerBankAccount(audAccount, 'No Such Business', biz.business, null, fx.userId), /No real business named/);
+
+  db.registerBankAccount(audAccount, biz.business, biz.business, 100000, fx.userId);
+  db.registerBankAccount(audAccount2, biz.business, divisionName, null, fx.userId); // no overdraft limit
+  db.setAccountCurrency(eurAccount, 'EUR');
+  db.registerBankAccount(eurAccount, biz.business, biz.business, 50000, fx.userId);
+
+  const accounts = db.getBankAccounts(biz.business, biz.actualLedger);
+  const names = accounts.map((a) => a.name);
+  assert.ok(names.includes(audAccount));
+  assert.ok(names.includes(eurAccount));
+  assert.ok(!names.includes(notABankAccount), 'an ordinary Asset account never registered as a bank account must not appear at all');
+
+  const audAcct = accounts.find((a) => a.name === audAccount)!;
+  assert.equal(audAcct.scope, biz.business);
+  const divAccount = accounts.find((a) => a.name === audAccount2)!;
+  assert.equal(divAccount.scope, divisionName, "a real, division-scoped bank account must report its own real division as its scope, not the business");
+
+  const otherBiz = fx.freshBusiness('BankRegTestOther Co');
+  const otherBizAccounts = db.getBankAccounts(otherBiz.business, otherBiz.actualLedger);
+  assert.ok(!otherBizAccounts.some((a) => a.name === audAccount), "a real bank account registered to one business must never leak into a genuinely different business's own list");
+
+  const acctId = (db.db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(audAccount) as { id: number }).id;
+  db.supersedeEntity(acctId, { relation: 'English CoA' }, fx.userId);
+  db.registerBankAccount(audAccount, biz.business, biz.business, 200000, fx.userId); // re-register, changing the limit
+  const entities = db.getEntityTree();
+  const acct = entities.find((e) => e.name === audAccount)!;
+  const relationTarget = entities.find((e) => e.id === acct.relation_id);
+  assert.equal(relationTarget?.name, 'English CoA', "registering (even re-registering) a bank account must never touch its own relation_id — the entire, real point of using setEntityLink instead of setRelationship");
+  assert.equal(db.getBankAccounts(biz.business, biz.actualLedger).find((a) => a.name === audAccount)?.overdraft_limit_minor, 200000, 're-registering must genuinely update the real overdraft limit');
+
+  const ref = fx.uniqueName('BRTEST-1');
+  db.stageLine({ reference: ref, business: biz.business, ledger: biz.actualLedger, transdate: '2027-01-01', account: db.asAccountName(audAccount), amount_minor: 30000 });
+  db.stageLine({ reference: ref, business: biz.business, ledger: biz.actualLedger, transdate: '2027-01-01', account: db.asAccountName("Owner's Equity"), amount_minor: -30000 });
+  db.postJournalEntry(ref, biz.business, biz.actualLedger, fx.userId);
+
+  const position = db.getCashPosition(biz.business, biz.actualLedger);
+  const eurGroup = position.find((p) => p.currency === 'EUR');
+  assert.ok(eurGroup, 'a real, distinct EUR group must exist, never blended into the home-currency total');
+  assert.equal(eurGroup?.total_overdraft_limit_minor, 50000);
+  assert.equal(eurGroup?.headroom_minor, 50000);
+
+  const homeGroup = position.find((p) => p.currency === null);
+  assert.ok(homeGroup);
+  assert.equal(homeGroup!.total_overdraft_limit_minor, null, 'one real account in this group (BankRegTest AUD Account 2) has no known limit, so the real, combined limit must be honestly unknown');
+  assert.equal(homeGroup!.headroom_minor, null);
+
+  db.unregisterBankAccount(audAccount, fx.userId);
+  assert.ok(!db.getBankAccounts(biz.business, biz.actualLedger).some((a) => a.name === audAccount));
+  assert.equal(db.getEntityLink(audAccount, 'Bank Account'), undefined);
+});
+
+test('getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-planning design — anticipated AR receipts, committed AP payments, and genuinely recurring cash movements, never one-off historical postings', () => {
+  const biz = fx.freshBusiness('ForecastTest Co', { coaPrototype: 'English CoA' });
+  const accountName = fx.uniqueName('ForecastTest Account');
+  db.create(db.requireGlobalCoaCategory('Asset'), db.typeRootName, accountName, fx.userId);
+  db.registerBankAccount(accountName, biz.business, biz.business, 100000, fx.userId);
+  const customer = fx.uniqueName('ForecastTest Customer');
+  const vendor = fx.uniqueName('ForecastTest Vendor');
+  db.create(db.requireEntity('Accounts Receivable', db.typeRootName), db.typeRootName, customer, fx.userId);
+  db.create(db.requireEntity('Accounts Payable', db.typeRootName), db.typeRootName, vendor, fx.userId);
+
+  const oneOffRef = fx.uniqueName('FCTEST-ONEOFF');
+  db.stageLine({ reference: oneOffRef, business: biz.business, ledger: biz.actualLedger, transdate: '2027-01-10', account: db.asAccountName(accountName), amount_minor: -50000 });
+  db.stageLine({ reference: oneOffRef, business: biz.business, ledger: biz.actualLedger, transdate: '2027-01-10', account: db.asAccountName("Owner's Equity"), amount_minor: 50000 });
+  db.postJournalEntry(oneOffRef, biz.business, biz.actualLedger, fx.userId);
+
+  const rentRef = fx.uniqueName('FCTEST-RENT');
+  db.createRecurringJournal(
+    biz.business,
+    biz.actualLedger,
+    rentRef,
+    '2027-01-15',
+    'monthly',
+    [
+      { account: 'Rent', amount_minor: 20000 },
+      { account: accountName, amount_minor: -20000 },
+    ],
+    fx.userId,
+    'Monthly rent',
+    3
+  );
+
+  const arInv = db.createInvoice(
+    { invoiceType: 'AR', business: biz.business, ledger: biz.actualLedger, reference: fx.uniqueName('FCTEST-AR'), counterpartyName: customer, invoiceDate: '2027-01-01', description: 'Test', lines: [{ description: 'Widget', quantity: 1, unitPriceMinor: 30000, amountMinor: 30000, taxMinor: 0 }] },
+    fx.userId
+  );
+  db.postInvoice(arInv, 'Sales Revenue', 'Sales Tax Payable', fx.userId);
+
+  const apInv = db.createInvoice(
+    { invoiceType: 'AP', business: biz.business, ledger: biz.actualLedger, reference: fx.uniqueName('FCTEST-AP'), counterpartyName: vendor, invoiceDate: '2027-01-01', description: 'Test', lines: [{ description: 'Supplies', quantity: 1, unitPriceMinor: 15000, amountMinor: 15000, taxMinor: 0 }] },
+    fx.userId
+  );
+  db.postInvoice(apInv, 'Accounts Payable', 'Purchases Tax Claimed', fx.userId);
+
+  const forecast = db.getCashFlowForecast(biz.business, biz.actualLedger, '2027-01-01', 90);
+
+  assert.ok(!forecast.lines.some((l) => l.description.includes(oneOffRef)), 'a real, ordinary one-off posting must never appear in the real, anticipated recurring source');
+
+  const recurringLines = forecast.lines.filter((l) => l.source === 'recurring' && l.description === 'Monthly rent');
+  assert.equal(recurringLines.length, 3, 'exactly three real, monthly rent occurrences within a 90-day horizon from a real, three-month schedule');
+  assert.ok(recurringLines.every((l) => l.amount_minor === -20000), 'every real, recurring rent line must correctly show as a real, anticipated cash outflow');
+
+  const arLines = forecast.lines.filter((l) => l.source === 'AR' && l.description.includes(customer));
+  assert.equal(arLines.length, 1);
+  assert.equal(arLines[0].amount_minor, 30000, 'a real, anticipated AR receipt must be positive — real, anticipated cash in');
+
+  const apLines = forecast.lines.filter((l) => l.source === 'AP' && l.description.includes(vendor));
+  assert.equal(apLines.length, 1);
+  assert.equal(apLines[0].amount_minor, -15000, 'a real, committed AP payment must be negative — real, anticipated cash out');
+});
+
+test('getCashFlowForecast: Layer 3 — a real, honest first-shortfall date and amount, evaluated against the real, arranged overdraft limit, never a bare "goes negative" check', () => {
+  const biz = fx.freshBusiness('ShortfallTest2 Co', { coaPrototype: 'English CoA' });
+  const accountName = fx.uniqueName('ShortfallTest2 Account');
+  db.create(db.requireGlobalCoaCategory('Asset'), db.typeRootName, accountName, fx.userId);
+  const vendor = fx.uniqueName('ShortfallTest2 Vendor');
+  db.create(db.requireEntity('Accounts Payable', db.typeRootName), db.typeRootName, vendor, fx.userId);
+
+  db.registerBankAccount(accountName, biz.business, biz.business, null, fx.userId);
+  const ref1 = fx.uniqueName('ST2TEST-1');
+  db.stageLine({ reference: ref1, business: biz.business, ledger: biz.actualLedger, transdate: '2027-02-01', account: db.asAccountName(accountName), amount_minor: 5000 });
+  db.stageLine({ reference: ref1, business: biz.business, ledger: biz.actualLedger, transdate: '2027-02-01', account: db.asAccountName("Owner's Equity"), amount_minor: -5000 });
+  db.postJournalEntry(ref1, biz.business, biz.actualLedger, fx.userId);
+
+  const noLimitForecast = db.getCashFlowForecast(biz.business, biz.actualLedger, '2027-02-01', 90);
+  assert.equal(noLimitForecast.overdraft_limit_minor, null);
+  assert.equal(noLimitForecast.first_shortfall_date, null, 'no real shortfall must ever be reported against a genuinely unknown limit');
+  assert.equal(noLimitForecast.first_shortfall_amount_minor, null);
+
+  db.unregisterBankAccount(accountName, fx.userId);
+  db.registerBankAccount(accountName, biz.business, biz.business, 2000, fx.userId);
+  const apInv = db.createInvoice(
+    { invoiceType: 'AP', business: biz.business, ledger: biz.actualLedger, reference: fx.uniqueName('ST2TEST-AP'), counterpartyName: vendor, invoiceDate: '2027-02-01', description: 'Test', lines: [{ description: 'Supplies', quantity: 1, unitPriceMinor: 10000, amountMinor: 10000, taxMinor: 0 }] },
+    fx.userId
+  );
+  db.postInvoice(apInv, 'Accounts Payable', 'Purchases Tax Claimed', fx.userId);
+  const dueDateRow = db.db.prepare(`SELECT due_date FROM invoice WHERE id = ?`).get(apInv) as { due_date: string };
+
+  const forecast = db.getCashFlowForecast(biz.business, biz.actualLedger, '2027-02-01', 90);
+  assert.equal(forecast.overdraft_limit_minor, 2000);
+  assert.equal(forecast.first_shortfall_date, dueDateRow.due_date, "the real, first shortfall date must be exactly the real AP invoice's own due date, not before or after it");
+  assert.equal(forecast.first_shortfall_amount_minor, 3000, 'the real, exact shortfall amount — how far below the real, arranged limit, not the raw negative balance');
+});

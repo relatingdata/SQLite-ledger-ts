@@ -117,7 +117,27 @@ const alreadyInitialized = db
   .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='entities'`)
   .get();
 if (!alreadyInitialized) {
-  // schema.sql was split into real, separate files, per direct
+  // Per direct, absolute instruction: the application's own basic,
+  // initial data load must carry ZERO presence of any demo/seed
+  // business, and zero presence of any non-English language's
+  // translated text - both are real, genuine content that belongs in
+  // a separately-run, real test-runner script (building a business
+  // live through the real API/UI, or loading translations live
+  // through the real API/UI), never baked into what boots by
+  // default. `00-core.sql` alone is now the one, real, clean, minimal
+  // file: table/view/trigger definitions, structural entities,
+  // English vocabulary words (which need no separate "translation" at
+  // all - the word IS the canonical English name), and the one, real,
+  // permanent 'admin' bootstrap business. See
+  // `scripts/simulate-wine-retail-month.ts` (builds a real demo
+  // business entirely through real app functions) and
+  // `scripts/load-translations.ts` (loads
+  // `shared-fixtures/translations.csv` into a running instance via
+  // the real API or the real /setup/translations UI) for how to add
+  // either kind of real, additional data back in, deliberately,
+  // on demand - never automatically at boot.
+  //
+  // Formerly: schema.sql was split into real, separate files, per direct
   // request: the basic, structural schema; each real language's own
   // vocabulary separately; and the German BMW / French Peugeot demo
   // ledger data separately. Loaded here, concatenated, in the real,
@@ -134,75 +154,18 @@ if (!alreadyInitialized) {
   // vocabulary file (each only depends on its own real, target
   // entity already existing, all of which live in core).
   const schemaDir = path.join(__dirname, '..', 'schema');
-  // Controls whether any demo/business data at all is seeded — the
-  // exact, same, real flag db-seed.ts uses for Wine Retail Business.
-  // Per direct, standing instruction: 00-core.sql itself now carries
-  // NO business or demo data of any kind, not even unowned/global
-  // template furniture — only structural entities, vocabulary/
-  // translations, and the admin user. Every real demo business lives
-  // entirely in its own, separately-gated file, loaded as a whole
-  // unit below — never as a content-pattern filter over 00-core.sql's
-  // own text (a real, confirmed gap in that old approach left two
-  // businesses' own child ledger entities behind as dangling
-  // parent_id rows, caught directly by a real integrity check, since
-  // a line-pattern filter only ever removes the lines it was written
-  // to recognize — a business's own name — not every line that
-  // depends on it). So a 'admin' (the one dummy company for
-  // login) should exist, so a person can build a real business from
-  // scratch via the application itself rather than have one
-  // pre-populated.
-  const seedDemoBusinesses = process.env.SEED_DEMO_BUSINESSES !== 'false';
-  // A real, separate flag, per direct request: BMW M GmbH, Peugeot
-  // Citroën Sochaux SNC, Ditta Italiana Srl, and Schweizer KMU AG are
-  // genuinely foreign demo businesses (German/French/Italian/Swiss),
-  // not the application's own primary demo business — they don't
-  // belong in the application's normal initial data, so they default
-  // to OFF, unlike Wine Retail Business (SEED_DEMO_BUSINESSES,
-  // default ON, unaffected by this flag — see 20-demo-wine-retail.sql).
-  // Set SEED_FOREIGN_BUSINESSES=true to load them when genuinely
-  // wanted (demonstrating multi-currency/multi-language CoA data,
-  // say). Implicitly OFF whenever seedDemoBusinesses itself is OFF,
-  // same as every other piece of demo data.
-  const seedForeignBusinesses = seedDemoBusinesses && process.env.SEED_FOREIGN_BUSINESSES === 'true';
   const readSchema = (f: string) => fs.readFileSync(path.join(schemaDir, f), 'utf8');
 
   db.exec(readSchema('00-core.sql'));
-  if (seedDemoBusinesses) {
-    db.exec(readSchema('20-demo-wine-retail.sql'));
-  }
-  if (seedForeignBusinesses) {
-    db.exec(readSchema('20-demo-bmw-peugeot.sql'));
-    db.exec(readSchema('20-demo-italian-swiss.sql'));
-  }
 
-  // 30-coa-links.sql links every real, existing account (both core's
-  // own real accounts and, when present, the foreign demo businesses'
-  // own) to its own real CoA prototype — genuinely depends on entities
-  // from both, so it must run after both, real, above. When the
-  // foreign demo businesses are skipped, many of its own real lines
-  // reference an account that only exists in that skipped file — not
-  // just the 4 real lines naming a foreign business directly, but
-  // every real, foreign-specific account each one's own real CoA
-  // prototype also tags. Filtered here, directly, against what actually,
-  // really exists in the database at this point — never guessed at
-  // or hand-enumerated — so this stays correct even if the foreign
-  // file's own real account set changes later.
-  //
-  // A real, confirmed, second, separate reason this same filter is now
-  // applied unconditionally (not just when `seedDemoBusinesses` is
-  // false), found live via a real, repeated crash starting the backend
-  // with demo businesses seeded (`SqliteError: no such current
-  // entity`): this file's own "Amber Ale 330ml" line (a real Wine
-  // Retail product's own CoA-prototype link) genuinely depends on an
-  // entity that is NEVER created by any schema SQL file at all —
-  // Wine Retail's own real product catalog is seeded later, in
-  // TypeScript, by `migrateForWineRetailDemoData` (db-seed.ts), which
-  // only runs once `db.ts`'s own module load reaches it, well after
-  // this file already ran. The real `seedDemoBusinesses` flag was
-  // never actually the right condition for this filter — real
-  // forward-references like this one exist either way, and the exact,
-  // same, already-proven "does this entity genuinely exist yet"
-  // filter already handles them correctly, so it now runs every time.
+  // 30-coa-links.sql links every real, existing account to its own
+  // real CoA prototype. Filtered here, directly, against what
+  // actually, really exists in the database at this point — never
+  // guessed at or hand-enumerated — so this stays correct now that
+  // nothing but 00-core.sql's own structural/admin accounts ever
+  // exist at this point in a fresh boot (every line naming an
+  // account that only a demo business would have ever created is
+  // simply, safely skipped).
   const coaLinksSql = readSchema('30-coa-links.sql');
   const filteredCoaLinksSql = coaLinksSql
     .split('\n')
@@ -214,19 +177,6 @@ if (!alreadyInitialized) {
     })
     .join('\n');
   db.exec(filteredCoaLinksSql);
-
-  for (const f of ['10-vocab-english.sql', '10-vocab-german.sql', '10-vocab-french.sql', '10-vocab-danish.sql', '10-vocab-italian.sql']) {
-    const sql = readSchema(f);
-    // These are genuinely dead, comment-only stub files (leftover from
-    // the historical migration to the entity-tree translation
-    // mechanism) - real, actual SQL statements only, or bun:sqlite's
-    // own, stricter exec() throws on an effectively-empty script.
-    const hasRealStatement = sql.split('\n').some((line) => {
-      const trimmed = line.trim();
-      return trimmed.length > 0 && !trimmed.startsWith('--');
-    });
-    if (hasRealStatement) db.exec(sql);
-  }
 }
 
 // Migration for a database created before accounting periods existed —
