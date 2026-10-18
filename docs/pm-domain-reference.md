@@ -12,16 +12,33 @@ the current, connected session's own business (and user) context —
 read implicitly by the HTTP layer, not re-sent by the frontend on
 every call.
 
-**Built and working**: `backend/src/session-context.ts`
-(`SessionContext`, `runInSessionContext`, `setCurrentBusiness`,
-`getCurrentBusiness`, `getCurrentUserId`) — an `AsyncLocalStorage`-
-backed context primitive. `attachUser` (`auth-middleware.ts`) runs
-every request inside it. `setSessionBusiness`/`getSessionBusiness`
-(`auth.ts`) persist the current business onto the session entity's own
-`detail_json` (alongside `expires_at`), the same real, database-backed
-session record `req.user` already comes from — no WebSocket or
-persistent connection needed. `POST /api/session/business` is the one
-route a person's business selection reaches this session through.
+**Built and working**: `backend/src/session-context.ts` is an
+`AsyncLocalStorage`-backed context primitive, genuinely isolated per
+concurrent request — a plain, reassignable module-level variable would
+leak one request's business into another, concurrent one.
+`runInSessionContext(context, fn)` is the one entry point every real
+caller uses to run inside an established context (the HTTP middleware
+for a request, a test or script for its own run) — `Session.Business`/
+`Session.UserId`/`Session.Ledger` must never be read outside of it.
+
+Exposed to callers as plain-looking properties — `Session.Business`,
+`Session.UserId`, `Session.Ledger` — never a function call: a
+JavaScript getter accessor makes both things true at once (reads like
+a plain variable; the value underneath is still safely, separately
+resolved per concurrent request). `Session.Business` is the actual
+business node (`{ id, name }`), not a bare string, so it points
+directly at the entity, ready to `fetch`/`create` straight under it
+with no further lookup. Each getter throws ("read outside a real
+session context") if called when no context is running, rather than
+returning `undefined` silently.
+
+`attachUser` (`auth-middleware.ts`) runs every request inside it.
+`setSessionBusiness`/`getSessionBusiness` (`auth.ts`) persist the
+current business onto the session entity's own `detail_json`
+(alongside `expires_at`), the same database-backed session record
+`req.user` already comes from — no WebSocket or persistent connection
+needed. `POST /api/session/business` is the one route a person's
+business selection reaches this session through.
 
 **Deliberate boundary**: this is an HTTP-layer concern only.
 `db.ts`/`db-stock.ts`'s own 100+ business-taking functions keep

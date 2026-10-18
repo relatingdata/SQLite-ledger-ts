@@ -1,5 +1,5 @@
-// The full, real documentation for every function in this file lives in
-// docs/journal-api-reference.md — this file carries no further comments.
+// The full documentation for every function in this file lives in
+// docs/pm-journal-api.md — this file carries no further multiline comments.
 
 import { db } from './db.js';
 import { Entity } from './primitives.js';
@@ -47,20 +47,6 @@ export interface StagedLine {
   bankReference?: string;
 }
 
-/** Resolves a real, already-existing, ledger-scoped posting-account
- * node for (accountName, ledger) - never creates one. Only the
- * explicit, structural rollover phase creates these nodes
- * (docs/ledger-scoped-accounts-and-rollover.md); an ordinary posting
- * must never create one lazily, the same way it must never silently
- * acquire its own, separate Balance Sheet carried forward. The node
- * is a real child of the real CoA leaf itself (parent_id) - a genuine
- * descendant of Chart of Accounts, so every existing report's own
- * tree walk already finds it, with no changes anywhere else - named
- * after, and pointing via relation_id at, the real ledger it belongs
- * to. Returns undefined when no such node exists yet, so the caller
- * falls back to today's existing, bare CoA-leaf resolution unchanged -
- * the normal, correct behavior for a business with only ever one real
- * ledger in use, exactly like the tutorial. */
 function findLedgerScopedAccount(ledger: LedgerName, accountName: string): number | undefined {
   const coaLeaf = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(accountName) as { id: number } | undefined;
   if (!coaLeaf) return undefined;
@@ -143,19 +129,6 @@ export function createRecurringJournal(
     const info = insertJournal.run(businessId, ledgerId, reference, description ?? '', startDate, userId, recurrence, recurrenceCount ?? null);
     const jid = Number(info.lastInsertRowid);
     for (const line of lines) {
-      // A real, confirmed, latent bug, found directly by a test suite
-      // that finally exercises more than one real business at once:
-      // the bare, unscoped name lookup this used to use is only ever
-      // safe while 'line.account' names exactly one real entity
-      // anywhere - true only for the very first business that ever
-      // used a given account name (e.g. "Rent"). Every other business
-      // gets its own real mirror of the same name, so vivify() could
-      // silently create an `account` row for some OTHER business's
-      // own account, never this one's. resolveBusinessCoaAccountId is
-      // the same, already-proven, business-scoped resolution used
-      // throughout db.ts for exactly this reason, with its own
-      // documented global fallback for an account genuinely outside
-      // this business's own CoA mirror (AR/AP, a counterparty name).
       const acctId = resolveBusinessCoaAccountId(business, line.account);
       vivify.run(acctId);
       insertLine.run(jid, acctId, line.effective_date ?? startDate, line.amount_minor, line.memo ?? '');
@@ -176,17 +149,6 @@ export function ensureLocationScopedAccount(baseAccountName: string, locationNam
   }
   return locationAccount;
 }
-
-// stageARSale/postARSale and stageAPPurchase/postAPPurchase removed
-// entirely (docs/canned-journal-to-frontend-design.md) — confirmed
-// directly that nothing live called either one (frontend/src/lib/api.ts's
-// own calls into their routes were commented out). stageARReceipt/
-// postARReceipt and stageAPPayment/postAPPayment, immediately below, stay
-// exactly as they were — PaymentReceipt.svelte genuinely calls them. See
-// that design doc for the real, live canned-journal logic this project is
-// actually moving to the frontend (Cash Purchase, Cash Sale/POS Sale,
-// etc. — completeCashPurchase and friends in db.ts), which none of this
-// ever was.
 
 export interface ARReceiptInput {
   reference: string;
@@ -454,16 +416,6 @@ export function postLocation(reference: string, business: BusinessName, userId: 
       timezone: staged.timezone,
     } as StockLocation, business);
     ensureLocationCapacityAccount(business, asLedgerName('Actual'), asLocationName(staged.location_name), userId);
-    // A real, confirmed gap, found directly: this real screen has no
-    // group concept at all, but getOrganizationChart() (Business
-    // Setup's own "+ Insert employee" tree) only ever recognizes a
-    // real location once it carries a real "Belongs To Group"
-    // relationship - a single-location group that simply targets
-    // itself is the genuine, real, already-supported case for exactly
-    // this (a real business genuinely does not have to have any
-    // groups at all). Set unconditionally here too, so a real location
-    // created through this real screen is just as reachable from
-    // Business Setup as one created through it directly.
     setRelationship(staged.location_name, 'Belongs To Group', staged.location_name, userId);
     db.prepare(`DELETE FROM location_staging WHERE reference = ? AND business = ?`).run(reference, business);
     return entity;
@@ -599,13 +551,6 @@ export interface JournalSummary {
   posted_by: string;
   total_debit_minor: number;
   total_credit_minor: number;
-  // Per direct correction, matching the Trial Balance's own, already-
-  // fixed approach: a real quantity or storage-space posting is a
-  // plain, whole count, never a dollar figure divided by 100 - this
-  // entry's own real currency (null means the business's home
-  // currency) tells the real caller which formatting applies. One
-  // real journal entry spanning more than one real currency produces
-  // one real row per currency here, never a single, blended total.
   currency: string | null;
 }
 
@@ -719,13 +664,6 @@ export function getLedgerDateRange(businessName: BusinessName, ledgerName: Ledge
 }
 
 export function getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus {
-  // A real, confirmed bug found directly: this lookup was missing the
-  // 'Ledgers' intermediate level every other ledger-scoped query in
-  // this file already uses (see getBusinessDateRange just above, or
-  // getJournalEntry/reverseJournalEntry below) - a ledger is a real,
-  // structural child of 'Ledgers', never of the business entity
-  // itself directly, so this always failed to find any real ledger at
-  // all.
   const ledgerEntity = db
     .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
     .get(ledger, business) as { id: number } | undefined;

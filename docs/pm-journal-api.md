@@ -37,6 +37,22 @@ account, account_id, location)` — two lines against the same bare
 account name in one entry only collide if they also share the same
 resolved `account_id` and `location`.
 
+### `findLedgerScopedAccount`
+
+Resolves an already-existing, ledger-scoped posting-account node for
+`(accountName, ledger)` — never creates one. Only the explicit,
+structural rollover phase creates these nodes (see the ledger-scoped
+accounts and rollover design); an ordinary posting must never create
+one lazily, the same way it must never silently acquire its own,
+separate Balance Sheet carried forward. The node is a child of the CoA
+leaf itself (`parent_id`) — a genuine descendant of Chart of Accounts,
+so every existing report's tree walk already finds it with no changes
+elsewhere — named after, and pointing via `relation_id` at, the ledger
+it belongs to. Returns `undefined` when no such node exists yet, so
+the caller falls back to the ordinary, bare CoA-leaf resolution
+unchanged — the normal, correct behavior for a business with only ever
+one ledger in use, exactly like the tutorial.
+
 ## `getStagedLines`
 
 Every currently-staged line for one `reference`/`business`/`ledger` —
@@ -68,7 +84,17 @@ once this lands.
 The current function does vivify every referenced account that
 doesn't exist yet, the same guarantee `post_journal_entry`'s own
 trigger gives ordinary entries — performed in TypeScript here, since
-this path doesn't go through that trigger.
+this path doesn't go through that trigger. Vivifying uses
+`resolveBusinessCoaAccountId`, not a bare, unscoped name lookup — a
+bare lookup is only safe while `line.account` names exactly one entity
+anywhere, true only for the very first business that ever used a given
+account name (e.g. "Rent"). Every other business gets its own mirror
+of the same name, so an unscoped lookup could silently vivify an
+`account` row for some *other* business's own account, never this
+one's. `resolveBusinessCoaAccountId` is the same business-scoped
+resolution used throughout `db.ts`, with its own documented global
+fallback for an account genuinely outside this business's own CoA
+mirror (AR/AP, a counterparty name).
 
 ## AR/AP entry screens — the shared shape
 
@@ -78,6 +104,16 @@ amount, date), posting through the same, atomic `post_journal_entry`
 mechanism. Two functions per form: `stage...` (plain insert) and
 `post...` (fires the form's `INSTEAD OF INSERT` trigger, which builds
 the two-line entry and posts it).
+
+**`stageARSale`/`postARSale` and `stageAPPurchase`/`postAPPurchase` no
+longer exist** (see the canned-journal-to-frontend design) — confirmed
+directly that nothing live called either one (the frontend's own calls
+into their routes were already commented out). `stageARReceipt`/
+`postARReceipt` and `stageAPPayment`/`postAPPayment` stay exactly as
+they were — the Payment Receipt screen genuinely calls them. The real,
+live canned-journal logic for Cash Purchase/Cash Sale/POS Sale lives in
+`db.ts` (`completeCashPurchase` and similar), on the frontend side, not
+here.
 
 ## `ensureLocationScopedAccount`
 
@@ -110,6 +146,13 @@ expense account as time passes.
 to ordinary posting after a given date (month-end/year-end lock);
 `assertPeriodOpen` is the shared guard every posting path calls first.
 
+A ledger is a structural child of `Ledgers`, never of the business
+entity directly — `getPeriodLockStatus` and `ensurePeriodLockEntity`
+both resolve the ledger entity through that intermediate `Ledgers`
+level, the same way every other ledger-scoped query in this file does
+(`getLedgerDateRange`, `getJournalEntry`, `reverseJournalEntry`); a
+lookup that skips it will never find the ledger at all.
+
 ## `removeStagedLine`
 
 Removes one staged line by reference/business/ledger/account — used
@@ -122,6 +165,13 @@ Listing and detail views over posted journal entries — one row per
 occurrence (a recurring journal's own multiple, computed dates each
 get their own row), with total debit/credit, description, reference,
 and who posted it.
+
+`JournalSummary.currency` matches the Trial Balance's own approach: a
+quantity or storage-space posting is a plain, whole count, never a
+dollar figure divided by 100 — this field (`null` meaning the
+business's home currency) tells the caller which formatting applies.
+One journal entry spanning more than one currency produces one row
+per currency here, never a single, blended total.
 
 ## `reverseJournalEntry`
 
@@ -168,6 +218,16 @@ posting into the location's built-in `Storage Capacity` structure
 `docs/storage-space-as-currency-design.md`) happens atomically, inside
 the same transaction as the location's own creation, then the staged
 row is cleared.
+
+`postLocation` also sets a `Belongs To Group` relationship on the new
+location, unconditionally, pointing at itself. This screen has no
+group concept of its own, but `getOrganizationChart` (Business Setup's
+"+ Insert employee" tree) only recognizes a location once it carries a
+`Belongs To Group` relationship — a single-location group that simply
+targets itself is the already-supported case for exactly this (a
+business genuinely does not have to have any groups at all). Setting
+it here too keeps a location created through this screen just as
+reachable from Business Setup as one created directly through it.
 
 ## Express routers — the full current mount table
 

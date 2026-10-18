@@ -79,6 +79,17 @@ location's own `relation_id` slot, already used by its "Belongs To
 Division" link. **Exactly one billing address at a time**: setting a
 new one removes every other "Is Billing Address" record first.
 
+**`setLocation`/`getLocation` are both scoped by `business` directly
+in the SQL that selects the row** (via `resolveBusinessLocationsRootId`
+and a `parent_id = <that root>` filter), never a bare, unscoped
+name lookup followed by a check applied afterward — a location name is
+only unique *within* a business, not globally, so an unscoped lookup
+can silently resolve to an unrelated, same-named location (or even a
+same-named business, e.g. one literally called `"admin"`) belonging to
+someone else entirely. When `business` is omitted, both fall back to
+the first globally-matching row by bare name — callers that know which
+business they mean should always pass it.
+
 **`todayAtLocation`** returns the correct calendar day right now at a
 specific location, using that location's own IANA timezone, never the
 server's — SQLite has no working timezone support (no ICU extension;
@@ -103,6 +114,26 @@ one-directional (a carton broken open becomes bottles; bottles are
 never reassembled). A retail outlet (with `bottle_capacity` set) tracks
 in bottles; a warehouse (only `carton_capacity`) tracks in
 carton-equivalents using the item's own factor.
+
+**`setItemLocationLevelDetails`** (min/max/reorder/shelf-side/rack/
+shelf-level) takes `business`/`ledger`/`userId` as optional, explicit
+parameters — set them when calling from an HTTP route, since nothing
+in this application's own request handling establishes the ambient
+session context `Session.*` these fall back to when omitted.
+`setItemLocationLevels` is the narrower, UI-facing wrapper that accepts
+the same levels by their camelCase field names.
+
+**`ensureLocationCapacityAccount`/`adjustLocationCapacity`/
+`ensureUnitsTrackingBaseAccounts`/`receiveItems`/`dispatchItems`/
+`transferItems`/`writeOffItems`** are documented, with their tests, in
+`docs/storage-space-as-currency-design.md` § 24, "Code and tests: where
+to look" — not repeated here. One naming quirk worth knowing:
+`ensureLocationCapacityAccount` resolves a business's own `Locations`
+root via the shared `resolveBusinessLocationsRootId` helper rather than
+assuming the root is always named plain `"Locations"` — the bundled
+Wine Retail Business's own seed data names its root `"Wine Retail
+Business Locations"` instead, a pre-existing, tolerated irregularity
+in that one business's seed data, not a bug in this function.
 
 ## POS terminals
 
