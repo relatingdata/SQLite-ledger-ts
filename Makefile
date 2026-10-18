@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -1186,4 +1186,18 @@ checkpoint:
 	     "*/e2e/test-results/*" "*/test-results/*" \
 	     "*/docs/manual-images*" "*.pdf"
 	@echo "Checkpoint $(CHECKPOINT): committed, bundled, and zipped."
+
+# A light, real "push and zip" - distinct from `checkpoint` above,
+# which commits-and-numbers a full checkpoint. This one assumes the
+# work is already committed and just needs to go to origin, plus a
+# clean, real zip that matches exactly what's now on GitHub - via
+# `git archive`, which only ever includes tracked, committed content,
+# so there's no need to hand-maintain an exclude list the way the
+# raw-directory zip above does.
+release:
+	@if [ -n "$$(git status --porcelain)" ]; then echo "Uncommitted changes present - commit first, then run make release."; exit 1; fi
+	git push origin main
+	mkdir -p dist
+	git archive --format=zip -o dist/sql-ledger-ts-$$(git rev-parse --short HEAD).zip HEAD
+	@echo "Pushed and archived to dist/sql-ledger-ts-$$(git rev-parse --short HEAD).zip"
 
