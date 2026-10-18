@@ -270,3 +270,117 @@ rather than trusting this copy once the application has grown further.
 
 **82 screens total** — 60 implemented, 4 thin wrapper (shared
 component), 18 not yet implemented.
+
+## `frontend/src/lib/api.ts` — the request wrapper and its design notes
+
+Every backend call goes through one private `request<T>(path, init,
+screenName?)` helper: attaches the bearer token from `auth.current` as
+`Authorization: Bearer <token>`, attaches an optional `X-Screen-Name`
+header (consumed by the backend's Admin recording feature — see the
+Testing: E2E chapter), throws a typed `ApiError` on a non-2xx response
+(reading `body.error?.message` when present) or on a network failure
+(backend unreachable), clears the stored session on a `401`, and
+returns `undefined` for a `204`. No other file constructs a raw
+`fetch` against the backend except `exportInvoiceAsEInvoice` (needs
+the raw XML text, not JSON).
+
+**Branded types are re-declared here, not imported.** The frontend and
+backend are separate TypeScript projects with no shared types package,
+so `BusinessName`/`LedgerName`/`AccountName`/etc. (mirroring the
+backend's own system — see "Branded (nominal) types" in the Entity
+Model chapter) are declared independently on each side, with their own
+`asXxxName()` functions as the one explicit boundary where an ordinary
+string becomes branded.
+
+**`checkVersion()`** compares the frontend's own build-time
+`__APP_VERSION__` against the backend's live-reported version
+(`compareVersions`, a proper numeric dot-separated comparison, never a
+lexical string compare — `"0.0.0.99" > "0.0.0.100"` lexically but not
+numerically). Whichever side is older is out of date: the frontend
+reloads itself fully; the backend can't be restarted from here, so a
+console warning is the most this call can do.
+
+**The "pass the resolved account id, not just the bare name" rule.**
+Two different accounts can share the exact same literal name (e.g.
+Open Container's own "Remaining"/"Occupied" leaves, repeated once per
+combination) — staging by bare name alone is then ambiguous. Wherever
+the backend has already resolved a specific account id (`StagedLine`'s
+own optional `accountId`, `CloseBooksPreview`'s per-line `accountId`,
+Storage Capacity's "Remaining"/"Occupied" accounts), the frontend
+carries that id through rather than re-staging by name — the same
+convention `findLedgerScopedAccount` enforces on the backend side (see
+the Journal API chapter).
+
+**The "frontend-driven canned journal" pattern.** A number of screens
+(Open Container, Receive Into Storage, Stock Transfer, Cash Purchase,
+POS Sale, Close Books, Rollover) post their own journal entries
+directly from the frontend via the ordinary `stageLine`/
+`postJournalEntry` calls, rather than one backend endpoint doing the
+whole thing server-side. In this pattern the backend exposes two
+narrower kinds of endpoint instead of one wide one:
+
+- **A `resolve*Accounts` endpoint** (`resolveOpenContainerAccounts`,
+  `resolveReceiveAccounts`, `resolveTransferAccounts`,
+  `resolveCashTransactionAccounts`, `resolveSaleAccounts`,
+  `resolveRolloverLines`) — a read-only, stateless call that resolves
+  or creates whichever accounts the frontend will need to stage lines
+  against (including each item's own known per-unit cost), but posts
+  nothing itself.
+- **A narrow, physical-only endpoint** (`receiveIntoStorageStock`,
+  `transferStock`, `receiveStock`, `dispatchStock`) — does only the
+  real, physical side effect (a quantity movement, a location-capacity
+  change), with no journal entry of its own; the frontend posts the
+  dollar-value entry itself, separately, using the resolved accounts.
+
+The frontend is responsible for sequencing these two calls correctly
+and for actually posting the resulting lines; the backend never
+assembles the combined entry on the caller's behalf in this pattern.
+Contrast with `completePosSale`, `completeCashPurchase`,
+`createLocation`, and most other calls, which remain single, atomic,
+server-side operations the frontend simply awaits in full.
+
+**Other load-bearing, function-specific notes**, kept brief since
+their rationale lives in the cited chapter:
+
+- `createProvider`/`createCustomer`/`createEmployeeContact` tag the new
+  entity with a real Contact Type immediately, never leaving it to
+  structural parent alone.
+- `saveLocation` (unlike `createLocation`) didn't originally pass a
+  `business` query parameter, so the backend's bare-name lookup could
+  land on the wrong, same-named entity once a location's own "Storage"
+  account root shares its literal name — fixed to always scope by
+  business, matching `createLocation`.
+- `getActiveLedger`/`getProfitCenters`/`createProfitCenter`/
+  `setSessionProfitCenter` back the Session screen's ledger/Profit
+  Center pickers (Profit Center not yet wired to that screen — still
+  client-side-only there, like Business/Ledger).
+- `getUserRoleMatrix`/`setUserRoleInBusiness` is a genuine per-business
+  User × Role Cartesian Product, additive alongside the older, global
+  `getUsers`/`setUserRolesApi`.
+- `ItemSourceInput.currency`: `null` means the business's own home
+  currency; a non-null value is a separate, independently-priced row
+  for the same item/vendor pair, never a currency conversion.
+- `listItems` requires `business` explicitly (items are scoped per
+  business, the same convention `listLocations` follows) — never an
+  optional afterthought.
+- `convertStorageSpace`/`openStorageContainer` reuse the same
+  Hierarchy/Product Cartesian mechanism already built for wine
+  combinations and currency pairs — no separate setup screen; both
+  draw on `/setup/hierarchy` directly.
+- `LocationInput.timezone` is a real IANA identifier, required, since
+  a location's transactions record against that location's own local
+  calendar day (see `todayAtLocation` in the Stock API chapter).
+- `getLocationCurrencies`/`nominateLocationCurrency`: a location's own
+  nominated set of further trading currencies — nearly every location
+  returns an empty array.
+- `getStorageSpaceReport`: Storage Capacity accounts live under each
+  Location, structurally outside Chart of Accounts, so the Trial
+  Balance never shows them — this report reads them directly, grouped
+  by location and storage-unit currency (`SPACE-CARTON`,
+  `SPACE-BOTTLE`).
+
+A handful of `// UNUSED (checkpoint N)` commented-out exports remain
+in the file (not deleted, per this project's own "recoverable, not
+silently discarded" convention) — see `docs/unused-functions.md` for
+the full, current list; they are not reproduced here since that file
+is itself the live-maintained record of this specific fact.

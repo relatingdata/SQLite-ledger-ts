@@ -56,15 +56,117 @@ context today.
 
 ### Auth/user functions (`backend/src/auth.ts` unless noted)
 
+Users and roles are plain entities under `System Users`/`System
+Roles` — no permanent table beyond the four
+(`check-schema-table-count`, Build & Tooling chapter). A user's own
+detail (`password_hash`, `active`, `page_size`, `number_format`,
+`date_format`) lives in that entity's own `detail_json`. Each granted
+(global) role is a direct child entity under the user, `relation_id`
+pointing at the role — the same pattern already used for
+`vocabulary_preference`.
+
 - `listUsers()` / `listRoles()` — every active user, every available role.
-- `setUserRoles(userId, roleNames)` / `setUserActive(userId, active)` — admin control over roles/login ability.
+- `setUserRoles(userId, roleNames)` / `setUserActive(userId, active)` — admin control over roles/login ability. Re-granting a role previously revoked from the same user used to collide under the global name-uniqueness constraint, because untagging alone left the old link entity alive; fixed by revoking the whole link (tag child first, since `revokeEntity` refuses to revoke an entity that still has children), freeing the `(userId, roleName)` slot for a fresh grant.
 - `changePassword(userId, newPassword)` — admin reset, no current password required.
 - `changeOwnPassword(userId, currentPassword, newPassword)` — self-service, requires the current password.
 - `logout(token)` — closes one session record.
 - `getSessionUser(token)` — resolves a live token to its user, `null` if missing/expired/unknown.
 - `setOwnPageSize` / `setOwnNumberFormat` / `setOwnDateFormat` — personal display preferences.
-- `attachUser` / `requireAuth` (`auth-middleware.ts`) — `attachUser` resolves `req.user` (and the session context) without rejecting; `requireAuth` actually rejects an unauthenticated request.
-- `hashPassword` / `verifyPassword` (`password.ts`) — every stored password goes through this; never stored or compared as plain text.
+- `hashPassword` / `verifyPassword` (`password.ts`, shared with self-registered customer accounts in `db.ts` to avoid a circular import) — every stored password goes through this; never stored or compared as plain text.
+
+### Sessions
+
+A session is a plain entity under `System Sessions`, named
+`Session — {token}`, `relation_id` pointing at the user, `detail_json`
+holding `expires_at` plus the session's own current `business_name`/
+`profit_center_name`. `login(username, password)` creates one and
+returns the token; `logout(token)` clears its relation (`Entity.relate
+(id, null, ...)`), not a delete. `getSessionUser(token)` also
+transparently expires a session whose `expires_at` has passed.
+
+`setSessionBusiness(token, businessName)` / `getSessionBusiness` set
+and read the session's current business — and, on set, also update
+the currently-running request's own live `session-context.ts` state,
+so a person switching business mid-session sees it take effect
+immediately, not just on their next request.
+`setSessionProfitCenter`/`getSessionProfitCenter` are the identical
+mechanism for a third, independent field on the same session record.
+Both are trust-model only, honestly: there is no per-user restriction
+on which business or Profit Center a person may pick — setting either
+to one a person shouldn't actually use goes entirely unchecked today.
+
+### Access control: roles, Business Admin, and the per-business matrix
+
+**Global roles** (`Administrator`, `Accountant`, `Bookkeeper`, and
+similar) are set via `setUserRoles` above and checked by
+`requireRole(...roles)` (`auth-middleware.ts`) — unchanged, original
+behavior. Administrator is never implicitly included in every check —
+a route meaning "Bookkeeper or Administrator" names both explicitly,
+since an Administrator-only route (user management) must not become
+reachable by a Bookkeeper just because Administrator ranks "higher."
+
+**Business Admin** is a fifth global role, granted *per business*
+through a matrix, never globally — a genuine Cartesian Product (User ×
+Role, scoped per Business), built on the same `defineProductShape`/
+`ensureProductInstance` mechanism already used for Container × Unit
+size and Currency Exchange pairs, never a bespoke relationship or
+table:
+
+- `getUserRoleMatrix(businessName)` — every user × every role for one
+  business, and which cells are currently set.
+- `setUserRoleInBusiness` / `unsetUserRoleInBusiness` — set/clear one
+  cell; both idempotent. Clearing a cell supersedes the Product
+  Instance's own `combination_ids` to `NULL` (via
+  `entity_set_combination_ids`) rather than removing the row —
+  `revokeEntity` only ever supersedes `relation_id`, which a Product
+  Instance's identity never used, so clearing a cell this way is what
+  actually makes `getUserRoleMatrix` (which filters on
+  `combination_ids IS NOT NULL`) stop listing it; the row itself still
+  exists historically, as this codebase's append-only design requires.
+- `userHasBusinessAdminRole(businessName, username)` — never throws: a
+  business name that no longer resolves, or one with no Product root
+  yet (no business-role ever assigned), both mean "no."
+- `provisionBusinessAdminUser(businessName, createdBy)` — creates a
+  business-prefixed admin user (`"{businessName} Admin"`) holding
+  Business Admin in that one business only, generates its password,
+  and returns it once, in plain text, the same show-once way the
+  business-creation screen displays it — never otherwise recoverable,
+  since only its hash is stored.
+
+`requireRole`'s own fallback accepts holding Business Admin *in the
+current session's business specifically* as equivalent to holding any
+of the named roles — a scoped stand-in for "full access within this
+one business," regardless of which specific role was named. A session
+with no business selected, or a username not in that business's own
+matrix, is "no" — this never widens access beyond one business. A
+route that must stay out of Business Admin's reach entirely (creating
+a business, managing the global user/role list) uses
+`requireGlobalRole` instead, which only ever checks a user's real,
+global roles.
+
+**Posting into a non-active ledger** (`canUserPostToLedger`, `auth.ts`)
+is a related, narrower check: posting into a business's own current
+active ledger is always allowed; posting into an already-rolled-over,
+non-active ledger (a genuine correction/adjustment) requires
+Administrator or Accountant globally, or Business Admin in that one
+business — the same three roles `requireRole`'s own fallback already
+treats as "full access within this business" elsewhere. Deliberately
+not a hard lock: an old ledger stays postable forever for real
+corrections, only restricted to a smaller role set once it's no longer
+current (see the ledger rollover design in the Historical log).
+
+### The HTTP middleware layer (`backend/src/auth-middleware.ts`)
+
+`attachUser` resolves `req.user` from the bearer token but does not
+itself reject the request — the login route skips it entirely; every
+other route uses `requireAuth` (below), which does reject. On a
+resolved user, it also resolves the session's current business/Profit
+Center onto `req.businessName`/`req.profitCenter`, and runs every
+downstream handler inside the session context (`runInSessionContext`)
+with that user and business — a stored business name that no longer
+resolves (deleted since) falls through to running with no session
+context, rather than throwing. `requireAuth` simply checks `req.user`
+is set and rejects with 401 if not.
 
 ## Scoped uniqueness, and the physical (product × location) recording grid
 

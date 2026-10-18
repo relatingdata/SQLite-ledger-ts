@@ -1,4 +1,4 @@
-// The full documentation for every function in this file lives in docs/stock-api-reference.md — this file carries no further comments.
+// The full documentation for every function in this file lives in docs/pm-stock-api.md — this file carries no further multiline comments.
 
 import { DateTime } from 'luxon';
 import { db } from './db.js';
@@ -121,25 +121,8 @@ export function createLocationType(name: string, userId: UserId): void {
   Entity.create(name, 'Location Types', userId);
 }
 
-// Per direct instruction (Phase 0 of docs/currency-and-quantity-integrity-fix-plan.md):
-// the exact, same bare-name bug as getLocation, found one function
-// away from it - this one is worse, since it WRITES: a confirmed,
-// real bug where a brand-new location's own contact details (city,
-// capacity, timezone) were silently written onto an unrelated,
-// pre-existing entity of the same name under a different business,
-// leaving the real, new location with no contact row at all.
+// See docs/pm-stock-api.md — "setLocation/getLocation are both scoped by business directly in the SQL"
 export function setLocation(name: string, location: Location, business?: BusinessName): void {
-  // The business name itself must be scoped to a real child of
-  // "Businesses" too, not just the location under it - confirmed,
-  // directly, a real, second instance of this same bare-name bug:
-  // renaming the one dummy bootstrap business to "admin" (the same
-  // literal name as the System Users login) tripped this exact,
-  // unscoped lookup, which silently resolved to the login user
-  // (which has no "Locations" child at all) instead of the business,
-  // breaking this call outright. Part of a full, direct sweep of
-  // every bare business-name lookup in the backend once this one was
-  // found - the business is now genuinely nameable as anything,
-  // "admin" included, without depending on being the only match.
   const id = (business
     ? (() => {
         const rootId = resolveBusinessLocationsRootId(business);
@@ -189,17 +172,7 @@ export function setLocation(name: string, location: Location, business?: Busines
   }
 }
 
-// Per direct instruction (Phase 0 of docs/currency-and-quantity-integrity-fix-plan.md):
-// a bare name lookup cannot tell two, real locations of the same name
-// apart when they belong to two different businesses (scoped
-// uniqueness correctly allows this). A confirmed, real bug: a location
-// created fresh under one business silently resolved, at every later
-// operation, to an unrelated, pre-existing location of the same name
-// under a different business entirely. When `business` is known, it
-// must be part of the SQL that SELECTS the row, never a check applied
-// afterwards to whichever row an unscoped query happened to return
-// first - a confirmed, real bug in an earlier version of this same
-// fix, caught directly by testing it, not merely by reasoning about it.
+// See docs/pm-stock-api.md — "setLocation/getLocation are both scoped by business directly in the SQL"
 export function getLocation(name: string, business?: BusinessName): Location | undefined {
   const row = (business
     ? (() => {
@@ -269,21 +242,7 @@ export function getItemLocation(itemName: ItemName, locationName: LocationName):
   };
 }
 
-/** A real, confirmed bug, found directly alongside
- * getInventoryListingByLocation's own (see its own doc comment
- * below): this read Session.UserId/Session.Business/Session.Ledger
- * ambiently — fine for a caller that has genuinely established that
- * context first (db-seed.ts; every db.test.ts call wrapped in
- * withMyBusinessSession), but every real HTTP route reaching this
- * never has, since nothing in this application's own, actual,
- * current usage ever establishes it per-request (see
- * docs/session-business-context.md's own, honest status). Fixed
- * without breaking either real, existing caller: business/ledger/
- * userId are now real, optional, explicit parameters, falling back
- * to the exact, same ambient Session.* read only when genuinely
- * omitted — the new real HTTP route below passes them explicitly;
- * every already-working, session-context-wrapped caller is
- * completely unaffected. */
+// See docs/pm-stock-api.md — "setItemLocationLevelDetails ... takes business/ledger/userId as optional, explicit parameters"
 export function setItemLocationLevelDetails(itemName: ItemName, locationName: LocationName, levels: Omit<ItemLocationLevels, 'quantity_on_hand'>, business?: BusinessName, ledger?: LedgerName, userId?: UserId): void {
   const resolvedUserId = userId ?? asUserId(Session.UserId);
   const resolvedBusiness = business ?? Session.Business.name;
@@ -348,7 +307,7 @@ export function getLocationCapacityStatus(locationName: LocationName): LocationC
 
   const bottleQuantity = rows.reduce((s, r) => s + r.qty, 0);
   const cartonQuantity = rows.reduce((s, r) => {
-    const packageQty = preferredProviderPackageQuantity(asItemName(r.item)) ?? 12; // a real, reasonable default when no real vendor relationship exists at all
+    const packageQty = preferredProviderPackageQuantity(asItemName(r.item)) ?? 12; // default when no vendor relationship exists
     return s + r.qty / packageQty;
   }, 0);
 

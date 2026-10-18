@@ -1,3 +1,8 @@
+// The full documentation for this file's own design (the request
+// wrapper, auth, branded types, version check, and the "frontend-
+// driven canned journal" pattern) lives in docs/pm-frontend-
+// reference.md — this file carries only short, function-specific
+// pointers below, not full explanations.
 import { auth } from './state.svelte';
 
 const BASE = 'http://localhost:3001/api';
@@ -8,19 +13,8 @@ export class ApiError extends Error {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Branded types: mirrors the backend's own BusinessName/LedgerName/etc.
-// system exactly (see the Programmer's Manual, "Entity identity
-// resolution") — plain `string` parameters cannot distinguish a
-// business's own name from a ledger's own name to the compiler, so a
-// silently swapped argument order was never actually caught. The
-// frontend and backend are separate TypeScript projects with no shared
-// types package, so these are genuinely re-declared here, not
-// imported — the same real reasoning applies on both sides
-// independently. asBusinessName/asLedgerName/etc. are the one,
-// explicit, real boundary where an ordinary string (typed by a person,
-// or read back from an API response) genuinely becomes branded.
-// ---------------------------------------------------------------------------
+// Branded types, re-declared independently of the backend's own —
+// see docs/pm-frontend-reference.md.
 export type BusinessName = string & { readonly __brand: 'BusinessName' };
 export type LedgerName = string & { readonly __brand: 'LedgerName' };
 export type AccountName = string & { readonly __brand: 'AccountName' };
@@ -59,10 +53,7 @@ export function asItemName(name: string): ItemName {
   return name as ItemName;
 }
 
-/** Compares two real, dot-separated version strings part by part (never
- * as plain strings, since "0.0.0.99" > "0.0.0.100" lexically but not
- * numerically) - returns -1/0/1, matching Array.prototype.sort's own
- * convention. */
+// Numeric, part-by-part comparison, not lexical — see docs/pm-frontend-reference.md.
 export function compareVersions(a: string, b: string): number {
   const partsA = a.split('.').map(Number);
   const partsB = b.split('.').map(Number);
@@ -73,15 +64,8 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** Per direct instruction: the frontend's own real, build-time version
- * (__APP_VERSION__, injected from the exact, same, single VERSION file
- * the backend reads) must agree with the real, running backend's own,
- * live-reported version. When they genuinely disagree, whichever side
- * carries the real, lower version is the one out of date, and restarts
- * - for the frontend, a real, full page reload; the backend cannot be
- * restarted from here at all, so a real, clear, honest console warning
- * is the most this call can do on that side, stated plainly rather
- * than pretending otherwise. */
+// Reloads the frontend if it's older than the live backend; otherwise
+// just warns — see docs/pm-frontend-reference.md.
 export async function checkVersion(): Promise<void> {
   try {
     const health = await request<{ ok: boolean; appVersion: string; dbVersion: string }>('/health');

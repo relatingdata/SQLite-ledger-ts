@@ -1,10 +1,5 @@
-// The one, real, unified testing and data-loading tool for this
-// application. Full design: docs/skill-step-runner-design.md.
-// The data file itself is purely positional data - zero commands,
-// zero selectors, zero field names. The screen registry (screens.csv)
-// is the one, real place that says what each position means and how
-// to drive that screen. An optional .control.csv supplies verify/
-// screenshot per row, kept out of the data file entirely.
+// The one, unified testing and data-loading tool for this application.
+// Full documentation: docs/pm-testing-e2e.md.
 
 import { readFileSync, mkdirSync, existsSync, writeFileSync, appendFileSync } from 'fs';
 import { createInterface } from 'readline';
@@ -13,11 +8,6 @@ import { fileURLToPath } from 'url';
 import { chromium, type Browser, type Page } from 'playwright';
 import * as db from '../src/db.js';
 import * as auth from '../src/auth.js';
-// Per direct, absolute instruction (shared-fixtures/csv.ts's own
-// header comment): every real data file in this project is plain
-// ASCII, with any non-ASCII character escaped as "\u{hex}" - one,
-// real, shared escape convention, one, real, shared implementation,
-// reused here exactly as-is rather than a second, parallel decoder.
 import { unescapeAscii } from '../../shared-fixtures/csv.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -48,13 +38,7 @@ export interface Step {
   verify: string;
   screenshot: string;
   skip: boolean; // true if this real step's own control row marks it to be skipped
-  // Per direct instruction: a real, free-text explanation of what this
-  // step does and why - the real accounting or entity-creation
-  // reasoning, not restated step mechanics - read from the control
-  // file's own 5th column, shown before the step runs, both pretty-
-  // printed and during an actual run (api or ui), so a person reading
-  // the real output sees the real intent alongside the real result.
-  comment: string;
+  comment: string; // free-text explanation of this step, from a '#' line preceding it in the data file
 }
 
 /** The one, real registry mapping a screen's own api_function name to

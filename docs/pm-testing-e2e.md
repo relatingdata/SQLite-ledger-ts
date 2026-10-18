@@ -99,7 +99,48 @@ step-runner <data.csv> [--screens screens.csv] [options]
   --screenshot-dir DIR        where screenshots are saved
   --verify NAME               (single-step mode) the check to run after this step
   --screenshot NAME           (single-step mode) the screenshot name for this step
+  --verify-via-recording      start the Admin recording feature right after a UI-path Login
+                               step, compare every later UI-path, data-kind step's values
+                               against what the backend actually recorded, report mismatches
+  --timing-file FILE          write one CSV row per step (index, screen, path, ms, ok, error)
+                               so a slow step can be found from a file, not by eye in scrolling
+                               console output
 ```
+
+### Field types and action sequences
+
+`field_type` (in `screens.csv`) tells `runStepViaUi` *how* to apply a
+value to its `field_selector`, the same generic "tell the runner how
+to apply this value" contract for every type below — never a
+per-screen special case:
+
+| `field_type` | Meaning |
+|---|---|
+| `text` (default) | `fill(value)` |
+| `select` | `selectOption({ label: value })` — matches the visible option text |
+| `select_value` | `selectOption({ value })` — matches the option's `value` attribute, for screens whose visible label is more decorated than the data file's plain name (e.g. "Main Street Cellar (Springfield)") |
+| `check` | checks or unchecks a checkbox, from `value === 'true'` |
+| `check_by_text` | for a generic multiselect-by-checkbox widget with no stable per-option selector: checks each comma-separated name within the container by its own visible `<label>` text |
+| `money` | converts a minor-units value (matching the API exactly, e.g. `350`) to the UI's whole-currency decimal display (`"3.50"`) before filling |
+| `signed_money` | for a debit/credit grid: `field_selector` carries both locators as `"<debit>|<credit>"`; a positive value fills the debit input, negative fills credit, zero is skipped |
+| `search_and_select` | fills a search input, then clicks the one visible list item whose text is an exact (anchored-regex) match — not Playwright's own substring `hasText`, which was found to silently select the wrong row (e.g. "Account" matching "Bank Account") |
+| `text_enter` | fills the field, then presses Enter — for a field that only commits on Enter, not on a separate submit click |
+
+`field_selector` and `submit_selector` can reference a sibling
+field's own value by name, `"{{fieldName}}"`, resolved from the
+step's own already-built args before being handed to Playwright — for
+a screen whose selector genuinely depends on another field's value
+(e.g. `/setup/translations`: which per-language Save button to use
+depends on that row's own `language` value).
+
+`open_selector` and `submit_selector` are each a `;;`-separated
+sequence of actions, run in order: a plain Playwright selector
+(clicked), `key:Name` (a key press), or — the one case a plain click
+can't cover — `select:<selector>::<value>` (choosing a fixed
+`<option>` that is itself a precondition for the rest of the form to
+render, e.g. Open Container's own Grouping dropdown must already read
+"Container" before its Container-value/Unit-value selects exist at
+all).
 
 ### `API_REGISTRY` and the real HTTP layer
 

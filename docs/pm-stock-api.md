@@ -154,16 +154,34 @@ all of them.
 
 ## Stock listing and the movement report
 
-**`getStockListing`/`countStockListing`** list every item/location
-combination with stock tracked, ordered item then location, paginated
-(`limit`, `offset`). Each row carries the division matching the
-location's own city (`cityDivisionFor`) and the location's capacity
-status.
+**`getInventoryListing`/`countInventoryListing`** list every
+item/location combination with stock tracked, ordered item then
+location, paginated (`limit`, `offset`); `countInventoryListing` is
+scoped to the current session's own business, never a bare, global
+count across every business.
 
-**`getStockListingByLocation`** is the same data grouped by
-location/division — deliberately not paginated (read a location at a
-time; the number of locations stays small even as the catalogue
-grows).
+**`getInventoryListingByLocation`** is the same data grouped by
+location, optionally tagged with a named-Hierarchy group
+(`hierarchyName` — e.g. `"Division"`, or any other real, business-
+chosen hierarchy; never hardcoded, so a location's `group` is `null`
+unless a caller explicitly asks for one). Deliberately not paginated —
+read a location at a time; the number of locations stays small even as
+the catalogue grows. Takes `business` as an optional, explicit
+parameter — falls back to the ambient session context only when
+omitted, the same pattern as `setItemLocationLevelDetails` above, and
+for the same reason (no live HTTP route in this application
+establishes that ambient context itself). `getBelowReorderStock` and
+`getStockOutRiskReport` are both built directly on top of this
+function's own output.
+
+**Business-scoping is not yet complete end to end**: `getItemLocation`
+(min/max/reorder levels, shelf position) and `getLocationCapacityStatus`
+still have no `business` parameter of their own, so if two different
+businesses genuinely share both an item name and a location name,
+either one's figures could still come from the wrong business — a
+narrower, real, currently open gap, distinct from (and already fixed
+ahead of) the broader unscoped-lookup bug class documented throughout
+this chapter.
 
 **`allItemCategories`/`allPreferredProviders`** (private) fetch every
 item's category or preferred vendor in one query each, to avoid a
@@ -171,14 +189,63 @@ query per row on a report that can have thousands (measured: the
 naive per-row version took ~4 seconds for one month of data).
 
 **`getStockMovementReport`** reports stock's physical journey
-(received, transferred, sold), groupable by division/location/vendor/
-category — built from the same `journal_line.location_id` the
+(received, transferred, sold), groupable by vendor/category and,
+optionally, by a named-Hierarchy group for each row's location (the
+same `hierarchyName` convention as `getInventoryListingByLocation`
+above) — built from the same `journal_line.location_id` the
 receive/dispatch/transfer functions already populate, never a
-separate, parallel log. Both legs of a transfer are matched by
-`journal_id` directly. Sales postings for the date range are fetched
-once and keyed by (invoice reference, Sales account name) to avoid a
-per-row query — a Sales account named `Sales - X (Bottle)` is reduced
-to `X`, the plain item name a dispatch's quantity row already carries.
+separate, parallel log. Two distinct locations sharing one journal
+entry is structurally what a transfer's two legs are (one location's
+count decreasing, the other's increasing) — matched by `journal_id`
+directly. A single location's own line is a receipt when its quantity
+is positive and a dispatch when negative — the sign itself is the
+structural distinction, never a reference-string pattern. Sales
+postings for the date range are fetched once and keyed by (invoice
+reference, Sales account name) to avoid a per-row query — a Sales
+account named `Sales - X (Bottle)` is reduced to `X`, the plain item
+name a dispatch's quantity row already carries.
+
+## The Storage Space Report
+
+**`getStorageSpaceReport`** is a dedicated report for the physical
+storage-space accounts under each Location's own `Storage Capacity`
+structure (Installed/Occupied/Remaining, per currency —
+`SPACE-BOTTLE`/`SPACE-CARTON`) — these are never financial accounts
+under Chart of Accounts, so the Trial Balance's own tree walk
+structurally excludes them; this is the one place to see them.
+Installed balances against Remaining at opening (Occupied starts at
+zero); a currency's own `balanced` flag checks that however much space
+is occupied or remaining still sums to exactly the installed total.
+Scoped to the current session's own business.
+
+## Receive/transfer: physical-only variants that post value from the frontend
+
+**`receiveStockPhysical`** and **`transferStock`** are narrower
+siblings of `receiveItems`/`transferItems`: each does only the
+physical half of the operation — the quantity movement and the
+location-capacity adjustment — and posts **no dollar value journal
+entry of any kind**, even for a combination-tracked item. The dollar
+Inventory/Accounts-Payable (or Accounts-Payable-equivalent) VALUE
+entry that `receiveItems`/`transferItems` post internally for a
+combination-tracked item is instead posted **separately, from the
+frontend**, through the same generic `/journal/staging` +
+`/journal/post` calls the General Journal screen's own "Save" button
+uses (`resolveReceiveAccounts` resolves the account names/ids and known
+unit cost a frontend caller needs to build that entry itself, returning
+`null` when the receipt isn't combination-tracked, since a plain
+receipt posts no dollar entry either way).
+
+`receiveItems` and `transferItems` themselves are deliberately left
+completely unchanged — every other real caller (Cash Purchase's own
+`/pos/receive-stock` endpoint, the restocking flow, the tutorial's own
+proof scripts, every existing test) is a backend-to-backend call with
+no browser-side step of its own to post that VALUE entry instead, so
+those two functions still need to do the whole job themselves, VALUE
+entry included. `transferItems`'s own non-combination path does now
+also move the plain per-location Inventory dollar value with the
+stock (via `ensureItemLocationInventoryAccount`), mirroring what its
+combination-tagged path already did — a transfer genuinely moves value
+with the stock, not just its count and its space, on either path.
 
 ## Reorder, lead times, and stock-out risk
 
@@ -204,7 +271,9 @@ item currently on record there, snapshotting expected quantity and
 `shelf_side`/`rack`/`level`, ordered the way someone walks the floor
 (not alphabetically). A stock take is a "Stock Take" entity under the
 location, one per event; each line is a child entity, `relation_id`
-pointing at the item. `counted` starts empty.
+pointing at the item. `counted` starts empty. Takes `business` as an
+optional, explicit parameter for the same reason noted above for
+`getInventoryListingByLocation`, which it calls internally.
 
 **`completeStockTake`** treats every counted line's variance as a
 genuine loss or gain, never a silent correction — posts the variance

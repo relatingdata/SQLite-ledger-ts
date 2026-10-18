@@ -4,24 +4,16 @@ import { asBusinessName } from './db.js';
 import { runInSessionContext } from './session-context.js';
 import { requireEntity as fetchEntity, typeBusinessName, typeRootName } from './db.js';
 
+// Documented in docs/pm-domain-reference.md, "The HTTP middleware
+// layer" and "Access control: roles, Business Admin, and the
+// per-business matrix" - this file carries no further multiline
+// comments.
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: AuthenticatedUser;
-      // Per docs/profit-centers-design.md's Phase C: the real,
-      // currently-selected Profit Center for this one, real,
-      // connected session - the exact, same real shape as
-      // getSessionBusiness/businessName above, set by attachUser
-      // whenever a session has one chosen. null/undefined both mean
-      // "none chosen" - a business with zero Profit Centers, or a
-      // user who hasn't picked one yet, are the exact same, real
-      // case: every route works exactly as it always has.
       profitCenter?: string | null;
-      // The real, currently-selected business for this session, the
-      // exact same name getSessionBusiness/attachUser already resolve
-      // below — set once, here, so requireRole's own fallback (see
-      // below) never has to re-read the session token itself.
       businessName?: string | null;
     }
   }
