@@ -13,6 +13,12 @@ import { fileURLToPath } from 'url';
 import { chromium, type Browser, type Page } from 'playwright';
 import * as db from '../src/db.js';
 import * as auth from '../src/auth.js';
+// Per direct, absolute instruction (shared-fixtures/csv.ts's own
+// header comment): every real data file in this project is plain
+// ASCII, with any non-ASCII character escaped as "\u{hex}" - one,
+// real, shared escape convention, one, real, shared implementation,
+// reused here exactly as-is rather than a second, parallel decoder.
+import { unescapeAscii } from '../../shared-fixtures/csv.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -459,6 +465,17 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     if (!user) throw new Error(`No such user "${a.username}" - Create User must run first.`);
     auth.setUserRoles(user.id, (a.roles || '').split(',').map((r) => r.trim()).filter(Boolean));
   },
+  // The one, real, test-runner-driven way translations are ever loaded
+  // into a running instance - matching POST /api/i18n/translations
+  // exactly (src/routes/i18n.ts calls this exact, same, real
+  // setTranslation function). Assumes the real concept entity already
+  // exists - either a real, structural entity 00-core.sql already
+  // creates, or a real Vocabulary word a preceding "Create Entity" row
+  // in the same data file creates first, the exact, same, real way a
+  // person using /setup/translations' own "Add a new word" form would.
+  setTranslationSimple: (a) => {
+    db.setTranslation(a.concept, a.language, a.translationText, db.asUserId(1));
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -594,6 +611,16 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
     const actual = [...user.roles].sort();
     return expected.length === actual.length && expected.every((r, i) => r === actual[i]);
   },
+  // Confirms a real Set Translation step genuinely saved the exact,
+  // real text asked for - read back the exact, same, real way
+  // GET /api/i18n/text/:language itself already reports every other
+  // real saved translation, never a separate, parallel mechanism.
+  translation_matches: (a) => db.getTranslation(a.concept, a.language) === a.translationText,
+  // A real, generic, screen-agnostic existence check, reusable by any
+  // real screen whose own fields include a plain "name" - confirms a
+  // real Add Vocabulary Word (or Create Entity) step genuinely left a
+  // real entity by that exact name somewhere in the real tree.
+  entity_named_exists: (a) => db.getEntityTree().some((e) => e.name === a.name),
 };
 
 /** A minimal, real CSV field parser handling real, quoted fields with
@@ -609,10 +636,10 @@ export function parseCsvLine(line: string): string[] {
       else if (ch === '"') inQuotes = false;
       else cur += ch;
     } else if (ch === '"') inQuotes = true;
-    else if (ch === ',') { fields.push(cur); cur = ''; }
+    else if (ch === ',') { fields.push(unescapeAscii(cur)); cur = ''; }
     else cur += ch;
   }
-  fields.push(cur);
+  fields.push(unescapeAscii(cur));
   return fields;
 }
 
@@ -679,6 +706,21 @@ export function loadSteps(dataPath: string): Step[] {
     const control = controlRows[i] ?? [];
     return { index: i + 1, file_line: entry.fileLine, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '', skip: (control[3] ?? '').toLowerCase() === 'true', comment: entry.comment };
   });
+}
+
+// A real, generic, screen-agnostic templating extension, same contract
+// as "money"/"select"/"check_by_text" above: a field_selector or
+// submit_selector can reference ANOTHER field of the exact same step by
+// name - "{{fieldName}}" - resolved from this step's own, already-built
+// args before the selector is ever handed to Playwright. Needed by any
+// real screen whose own, real selector genuinely depends on which
+// value a sibling field carries (e.g. /setup/translations: which
+// fieldset's own input/button to use depends entirely on that row's
+// own "language" value) - never a per-screen special case, the exact,
+// same, real "tell the runner how to apply this value" contract this
+// file already uses throughout.
+function resolveSelectorTemplate(selector: string, args: Record<string, string>): string {
+  return selector.replace(/\{\{(\w+)\}\}/g, (_match, name: string) => args[name] ?? '');
 }
 
 /** Builds a real, named-argument object for a step's own real,
@@ -851,6 +893,13 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         if (!field.field_selector) continue;
         const value = step.values[field.position - 1] ?? '';
         if (value === '') continue;
+        // Every field_selector is resolved against this step's own
+        // args first ({{fieldName}} -> that sibling field's own value)
+        // - see resolveSelectorTemplate above - before it is ever
+        // handed to Playwright, so the narrow field_types below never
+        // need to know or care whether their own selector was literal
+        // or templated.
+        const resolvedSelector = resolveSelectorTemplate(field.field_selector, args);
         // "signed_money" is the one, narrow, generic extension a real
         // debit/credit grid needs (docs/skill-step-runner-design.md
         // §11b-ii): a single minor-units value is genuinely routed to
@@ -861,7 +910,7 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         // locators, "<debit>|<credit>", because this is the only
         // field_type that ever needs two.
         if (field.field_type === 'signed_money') {
-          const [debitSelector, creditSelector] = field.field_selector.split('|');
+          const [debitSelector, creditSelector] = resolvedSelector.split('|');
           const minorUnits = Number(value);
           if (minorUnits === 0) continue;
           const targetSelector = minorUnits > 0 ? debitSelector : creditSelector;
@@ -881,14 +930,31 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         // the same, generic "tell the runner how to apply this value"
         // contract, never a per-screen special case.
         if (field.field_type === 'check_by_text') {
-          const container = page.locator(field.field_selector);
+          const container = page.locator(resolvedSelector);
           for (const name of value.split(',').map((n) => n.trim()).filter(Boolean)) {
             await container.locator('label', { hasText: name }).locator('input[type=checkbox]').check();
             await page.waitForTimeout(200);
           }
           continue;
         }
-        const locator = page.locator(field.field_selector);
+        // "search_and_select" is the real, generic, screen-agnostic
+        // shape a dynamic search-then-select list needs (e.g.
+        // /setup/translations' own real word list): fills a real
+        // search input with this field's own value, then clicks the
+        // real list item whose own, visible text matches it exactly -
+        // the same, real "tell the runner how to apply this value"
+        // contract every other field_type here already uses, never
+        // anything specific to one particular screen. field_selector
+        // carries both real locators, "<search input>|<list item>".
+        if (field.field_type === 'search_and_select') {
+          const [searchSelector, itemSelector] = resolvedSelector.split('|');
+          await page.locator(searchSelector).fill(value);
+          await page.waitForTimeout(300);
+          await page.locator(itemSelector, { hasText: value }).first().click();
+          await page.waitForTimeout(200);
+          continue;
+        }
+        const locator = page.locator(resolvedSelector);
         if (field.field_type === 'select') await locator.selectOption({ label: value });
         // "select_value" is the other narrow, generic extension a real
         // screen can need: some real <option>s show a longer, decorated
@@ -930,8 +996,14 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         // "Accept"). ";;"-separated steps, each either a real Playwright
         // selector (clicked) or "key:Name" (a real key press), mirror
         // open_selector's own existing support for this - still purely
-        // generic.
-        for (const action of screen.submit_selector.split(';;').map((a) => a.trim()).filter(Boolean)) {
+        // generic. Also resolved against this step's own args first, the
+        // exact, same, real reason field_selector is resolved above -
+        // a real submit button can genuinely live inside the exact,
+        // same, templated container a sibling field's own input does
+        // (e.g. /setup/translations' own, real, per-language Save
+        // button).
+        const resolvedSubmitSelector = resolveSelectorTemplate(screen.submit_selector, args);
+        for (const action of resolvedSubmitSelector.split(';;').map((a) => a.trim()).filter(Boolean)) {
           if (action.startsWith('key:')) await page.keyboard.press(action.slice(4));
           else await page.locator(action).click();
           // A real, confirmed timing gap, not a guess: repeated, real runs

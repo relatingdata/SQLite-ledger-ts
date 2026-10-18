@@ -155,3 +155,8 @@ Create User,data,/setup/users,,createUserSimple,button:has-text('Create user'),2
 Create User,data,/setup/users,,createUserSimple,button:has-text('Create user'),3,roles,.form-card .multiselect,check_by_text
 Set User Roles,data,,,setUserRolesSimple,,1,username,,text
 Set User Roles,data,,,setUserRolesSimple,,2,roles,,text
+Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),1,concept,.word-list-card input|.word-row,search_and_select
+Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),2,language,,text
+Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),3,translationText,.edit-card fieldset:has(legend:has-text('{{language}}')) input,text
+Add Vocabulary Word,data,/setup/translations,,createEntitySimple,.new-word-card button:has-text('Add word'),1,name,.new-word-card input,text
+Add Vocabulary Word,data,/setup/translations,,createEntitySimple,.new-word-card button:has-text('Add word'),2,parent,,text

@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -159,6 +159,32 @@ test-e2e-tutorial: reset-db
 test-e2e-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real, augmented tutorial fixture via the real, driven UI path..."
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive
+
+# The one, real, test-runner-driven way every non-English translation
+# in shared-fixtures/translations.csv is ever loaded into a running
+# instance - per direct instruction, no separate script of any kind
+# does this; shared-fixtures/translations-steps.csv (+ its own
+# .control.csv) is this fixture's own, real, positional data file,
+# read by the exact, same step-runner.ts every other real fixture
+# already uses. Fast (no browser) - calls db.ts's own setTranslation/
+# createEntityRaw directly, in-process. A handful of real, pre-
+# existing, genuine translation ambiguities (two different English
+# concepts that really do share one translated word, e.g. "Continue"
+# and "Next" both meaning "Weiter" in German) are expected to fail
+# their own translation_matches verify - logged, not silently
+# resolved, see docs/flagged-translation-collisions.log.
+load-translations-api: reset-db
+	@echo "Loading every real translation via the API path..."
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/translations-steps.csv --path api --non-interactive
+
+# The exact, same, real fixture, driven through an actual, real, live
+# browser instead - proving the real /setup/translations screen
+# itself (search, select, per-language Save), not just the backend
+# function behind it. Slower - one real page interaction per real
+# translation.
+load-translations-ui: reset-db ensure-servers
+	@echo "Loading every real translation via the real, driven UI path..."
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/translations-steps.csv --path ui --non-interactive
 
 # A real, minimal, fast, backend-only proof of a complete business
 # lifecycle: locations of each real type, staff, an assembly, a full
