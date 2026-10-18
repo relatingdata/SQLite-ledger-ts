@@ -187,7 +187,19 @@ export function ensureCurrencyAccount(baseAccountId: number, currency: string, u
   if (!base) throw new ValidationError(`No such account id: ${baseAccountId}.`);
   const currencyAccountName = `${base.name} (${currency})`;
   const existing = Entity.getUnder(currencyAccountName, base.parent_id) ?? Entity.create(currencyAccountName, base.parent_id, userId);
-  setAccountCurrency(currencyAccountName, currency);
+  // A real, confirmed bug, found directly via fixture work porting
+  // tests off the one, shared 'admin' business: two different
+  // businesses' own currency-tagged siblings routinely share this
+  // exact, same display name (e.g. two businesses each have their
+  // own "Cash at Bank (USD)") — passing only the name here let
+  // setAccountCurrency's own, separate, bare `WHERE name = ?` lookup
+  // resolve to whichever one of them happened to have the lower id,
+  // silently tagging some OTHER business's account instead of the
+  // one `existing` just, correctly, scoped-ly resolved — leaving
+  // THIS one's own currency unset and breaking the per-currency
+  // balance check on its very next real posting. Passing the real,
+  // already-resolved id directly closes that gap.
+  setAccountCurrency(currencyAccountName, currency, existing.id);
   return { name: currencyAccountName, id: existing.id };
 }
 

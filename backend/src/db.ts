@@ -7659,8 +7659,14 @@ export function buildBankCurrencyStructure<TBrand extends string>(
   const header = Entity.ensureUnder(headerName, parentCategory.id, userId);
   for (const selection of selections) {
     const leafName = `${headerName} — ${selection.bankAccountName} (${selection.currency})`;
-    Entity.ensureUnder(leafName, header.id, userId);
-    if (selection.currency !== homeCurrency) setAccountCurrency(leafName, selection.currency);
+    const leaf = Entity.ensureUnder(leafName, header.id, userId);
+    // Same, real bug class as ensureCurrencyAccount (db-reports.ts):
+    // two different businesses' own bank-currency leaves can
+    // genuinely share this exact, same display name - passing the
+    // real, already-resolved leaf.id here, instead of the bare name,
+    // avoids setAccountCurrency's own, separate, unscoped fallback
+    // lookup ever tagging some OTHER business's account instead.
+    if (selection.currency !== homeCurrency) setAccountCurrency(leafName, selection.currency, leaf.id);
   }
 }
 

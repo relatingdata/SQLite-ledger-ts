@@ -694,17 +694,6 @@ A single, long session that began with a request to fix the tutorial e2e produce
 
 **A separate, real, architectural correction on `Session.Business`**, made twice in direct succession: first, that reading the current business must never be a function call (`getCurrentBusiness()`) but a plain-reading property; second, that a genuinely plain, freely-reassignable module variable is unsafe on the backend specifically (it would leak between concurrent requests) but the *identical* concern does not apply on the frontend, where a single browser tab has exactly one user/business/language at a time — so the backend keeps its `AsyncLocalStorage`-backed getter (`Session.Business`, reading like a property, safely isolated underneath), while the frontend's own `Business.current` (extending the already-established `session.current` getter pattern) was deferred, by direct instruction, until after the tutorial e2e passes.
 
-
-
-
-
-
-
-
-
-
-
-
 ### Bug #10: `getVocabularyWords()` hid every brand-new word from its own search box, and what "English" actually is in this data model
 
 **The real, confirmed bug**: `getVocabularyWords()` only returned concepts that already had at least one translation — directly contradicting its own documented intent (surfacing every vocabulary word for the `/setup/translations` screen's own search box). A word added via "Add a new word" was genuinely invisible to a real user the instant after they created it, until some other translation existed for it — a real, confirmed UX/backend bug found by driving the real, live UI through the step-runner, not by inspection or guesswork: creating a word via the UI and confirming the live word count didn't move, then giving it a translation via `--path api` and confirming the count incremented and the word appeared.
@@ -734,3 +723,16 @@ Spot-verified end-to-end through the real, driven UI (not just `tsc`): a fresh-b
 A single, shared `globalVocabularyId()` helper now backs every one of these real call sites, replacing five, separately-written, separately-riskable copies of the exact, same scoped subquery.
 
 **RTL verified directly, not assumed**: Hebrew and Arabic were already seeded (schema) as genuine `Language` entities with `Text Direction: RTL`, and the whole app shell (login, session picker, main layout) already applied `dir="rtl"` from `getLanguageDirection` — all pre-existing, unaffected by this work. The new translator UI wires the same, real mechanism into its own inputs and reference columns. Confirmed live, through the real, driven UI (`step-runner.ts --path ui`), not just `tsc`: setting a real Hebrew translation for "Continue" (`המשך`) rendered genuinely right-to-left in the per-word edit card, screenshotted mid-run for direct visual confirmation, and the API's own `/i18n/vocabulary-words` response confirmed both the new English row and the Hebrew translation together in one real word's own translation map.
+
+### db.test.ts fully retired: all 200 tests now run against real, per-test fixtures, never the shared 'admin' business — and two more, real instances of the unscoped-entity-lookup bug
+
+The long-running migration away from the shared, globally-seeded `admin` business as this suite's implicit shared fixture is now complete: all 200 tests live in one file (the former `db2.test.ts`, now simply `db.test.ts` — the old file removed outright, not kept alongside it), every one of them creating its own, uniquely-named business via `fixtures.ts`'s `freshBusiness` rather than reading or writing `admin`'s own, real, accumulated state. The final 53 tests (hierarchy/multi-dimensional reporting, product combinations, multicurrency, bank-account/currency structure, contacts, storage-space conversion) were the most structurally demanding of the whole migration — see docs/test-fixtures-design.md's own rationale and the file's own header comment for the full convention.
+
+**Two more, real, confirmed instances of the unscoped-entity-lookup bug** (the same class behind bug #10's `getVocabularyWords()` and the three fixed alongside the English-as-real-language work) surfaced directly from porting tests off the shared business onto fresh, per-test ones — exactly the kind of bug this migration was expected to surface, since two different businesses sharing a display name is common (every business gets the same default Chart of Accounts) but only ever happened to "work" against the single, shared `admin` business this suite used to depend on:
+
+- `ensureCurrencyAccount` (`db-reports.ts`) called `setAccountCurrency(currencyAccountName, currency)` by bare name only, after already, correctly resolving the real entity id one line above (`existing`). Two businesses' own currency-tagged siblings sharing a display name (e.g. both have "Cash at Bank (USD)") meant `setAccountCurrency`'s own, separate, unscoped fallback lookup could silently tag the WRONG business's account, leaving the right one's currency unset and breaking its very next real posting's per-currency balance check. Fixed by passing `existing.id` through.
+- `buildBankCurrencyStructure` (`db.ts`) had the exact same gap one call further down — `Entity.ensureUnder(leafName, header.id, userId)`'s own return value (already carrying the real, resolved id) was discarded, and `setAccountCurrency` was called with the bare name again. Fixed by capturing the return value and passing its `.id`.
+
+**A third, related, residual risk was found but deliberately left unfixed**: `setTerminalCurrency`/`createPosTerminal` (`db-stock.ts`) has the same shape of gap, but fixing it properly isn't a one-line change — `createPosTerminal`'s own `"${locationName} Terminals"` parent lookup is itself unscoped one level up (two businesses can share a location name, confirmed directly by an already-ported test), so a real fix needs a small design decision about how to disambiguate a location-scoped sub-tree generally, not just thread one more id through. Not exercised by any failing test. Flagged here rather than patched speculatively.
+
+Final verification: `npx tsc --noEmit` clean; the full, renamed `db.test.ts` passes 198/200, the same 2 failures (`languages list and localized_text fallback/override...`, `French works as a genuine, complete third language...`) present on the untouched baseline before any of this session's work — a pre-existing gap (German "Speichern" was never seeded) confirmed unrelated via direct comparison, not assumed.
