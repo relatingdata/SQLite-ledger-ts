@@ -1079,9 +1079,13 @@ export function setRelationship(entityName: string, relationshipType: string, ta
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
     create(requireEntity(relationshipType, typeRootName), typeRelationshipRecordName, recordName, userId);
   }
-  const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
+  // Both of these bare, unscoped-by-parent lookups are now ordered
+  // deterministically (oldest match wins) for the exact, same reason
+  // resolveId() itself was fixed to - see that function's own
+  // comment for the confirmed, real collision this matters for.
+  const record = db.prepare(`SELECT id FROM current_entities WHERE name = ? ORDER BY id ASC LIMIT 1`).get(recordName) as { id: number };
   supersedeEntity(record.id, { relation: targetName }, userId);
-  const entity = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(entityName) as { id: number } | undefined;
+  const entity = db.prepare(`SELECT id FROM current_entities WHERE name = ? ORDER BY id ASC LIMIT 1`).get(entityName) as { id: number } | undefined;
   if (!entity) throw new NotFoundError(`No entity named "${entityName}".`);
   supersedeEntity(entity.id, { relation: recordName }, userId);
 }
@@ -1164,8 +1168,22 @@ export interface HierarchyNode {
  * dedicated division entity of its own — its own relationship simply
  * targets itself), never silently dropped for lacking a second,
  * redundant relationship record. */
-export function getHierarchy(rootName: string, relationshipType?: string): HierarchyNode {
-  const rootId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(rootName) as { id: number } | undefined)?.id;
+export function getHierarchy(rootName: string, relationshipType?: string, knownRootId?: number): HierarchyNode {
+  // A real, confirmed, latent bug, found directly by a test suite
+  // that finally exercises more than one real business at once: the
+  // bare lookup below is only ever safe while 'rootName' (e.g.
+  // "Income", "Asset") names exactly one real entity anywhere - true
+  // only for the very first business ever created. Every business
+  // after that gets its own real "Income"/"Asset"/... mirror of its
+  // own, so the bare lookup becomes genuinely ambiguous and can
+  // silently walk some OTHER business's own category tree instead of
+  // this caller's intended one. knownRootId lets a caller that
+  // already knows the exact, correct, business-scoped entity id (via
+  // resolveBusinessCoaAccountId, same as copyChartOfAccountsInto's
+  // own relationId fix) bypass the ambiguous name resolution
+  // entirely - the same, already-proven pattern used elsewhere in
+  // this file for exactly this reason.
+  const rootId = knownRootId ?? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(rootName) as { id: number } | undefined)?.id;
   if (!rootId) throw new NotFoundError(`No real entity named "${rootName}".`);
 
   const relPairs = relationshipType ? getEntitiesWithRelationship(relationshipType) : [];
@@ -3054,6 +3072,16 @@ export function ensureLocationStorageRoot(business: BusinessName, locationName: 
   let coa: { id: number; name: string };
   try { coa = requireEntity('Chart of Accounts', typeRootName, businessEntity); } catch { coa = create(businessEntity, typeRootName, 'Chart of Accounts', userId); }
   const storage = (Entity.getUnder('Storage', coa.id) ?? create(coa as TypedNode<string>, typeRootName, 'Storage', userId)) as { id: number; name: string };
+  // Deliberate, documented design (see the real location's own test
+  // coverage): this leaf is intentionally created with the exact
+  // same literal name as the real location itself, as a real,
+  // distinct GL node under Chart of Accounts > Storage - never
+  // renamed to disambiguate it, since every caller that actually
+  // needs this exact node reaches it through this same function,
+  // scoped by business and parented under Storage. Any OTHER, bare,
+  // unscoped-by-business lookup of a location's own name is what's
+  // unsafe here, not this leaf's name - see nominateLocationCurrency
+  // and setRelationship's own fixes for that.
   return (Entity.getUnder(locationName, storage.id) ?? create(storage as TypedNode<string>, typeRootName, locationName, userId)) as { id: number; name: string };
 }
 
@@ -3696,7 +3724,7 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
   // is the real, governing fact - a sale resolving to a currency that
   // location never nominated is rejected directly, not silently
   // allowed through.
-  if (effectiveCurrency && !getLocationCurrencies(input.locationName).includes(effectiveCurrency)) {
+  if (effectiveCurrency && !getLocationCurrencies(input.locationName, input.business).includes(effectiveCurrency)) {
     throw new ValidationError(`"${input.locationName}" has not nominated ${effectiveCurrency} as a real, trading currency - see nominateLocationCurrency.`);
   }
   for (const line of input.lines) {
@@ -6245,9 +6273,39 @@ export function createItem(name: string, parentCategoryOrItemsRoot: string, user
     return;
   }
   const itemsRoot = requireEntity('Items', typeRootName, requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName)));
-  const parent = parentCategoryOrItemsRoot === 'Items' ? itemsRoot : requireEntity(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName, itemsRoot);
+  // A genuine category may be nested arbitrarily deep under this
+  // business's own Items root (e.g. Items > Red Wine > Merlot), not
+  // merely a direct child of it - a real, confirmed fix: the old
+  // direct-child-only lookup (requireEntity(..., itemsRoot)) silently
+  // rejected any such deeper category once createItem was called with
+  // a real, scoped businessName, even though the bare, unscoped form
+  // below has always, explicitly, supported arbitrary depth.
+  const parent =
+    parentCategoryOrItemsRoot === 'Items'
+      ? itemsRoot
+      : requireEntityById(requireDescendantIdByName(itemsRoot.id, parentCategoryOrItemsRoot), typeCategoryOrItemsRootName);
   create(parent, typeItemName, name, userId);
   setItem(name, { description: null, unit_of_measure: null, upc: null });
+}
+
+/** Finds a real, uniquely-named entity nested anywhere beneath
+ * `ancestorId` (at any depth, not just as a direct child) - used to
+ * resolve a category genuinely scoped to one business's own Items
+ * tree, however deeply nested, without falling back to a bare,
+ * cross-business-ambiguous lookup by name alone. */
+function requireDescendantIdByName(ancestorId: number, name: string): number {
+  const row = db
+    .prepare(
+      `WITH RECURSIVE descendants(id) AS (
+         SELECT id FROM current_entities WHERE parent_id = ?
+         UNION ALL
+         SELECT e.id FROM current_entities e JOIN descendants d ON e.parent_id = d.id
+       )
+       SELECT id FROM current_entities WHERE name = ? AND id IN (SELECT id FROM descendants)`
+    )
+    .get(ancestorId, name) as { id: number } | undefined;
+  if (!row) throw new ValidationError(`No entity named "${name}" nested anywhere under this business's own Items.`);
+  return row.id;
 }
 
 export interface ItemSource {
@@ -6432,8 +6490,22 @@ export function getBusinessHomeCurrency(businessName: string): string | null {
  * same way, in the location entity's own detail_json. An ordinary
  * location nominates nothing extra and returns an empty, real array,
  * never a guessed single value. */
-export function nominateLocationCurrency(locationName: string, currencyCode: string, userId: UserId): void {
-  const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
+// Per the exact, same, already-documented bare-name hazard the PUT
+// /:name location route's own comment describes (see
+// routes/locations.ts): once any real storage-combination action has
+// touched a location, that location's own Chart-of-Accounts "Storage"
+// root grows a child node with the exact, same literal name as the
+// location itself (see ensureLocationStorageRoot) - so a bare,
+// unscoped-by-business lookup here is ambiguous for every single
+// location, not a rare corner case, and can silently resolve to that
+// GL storage node instead of the real location. Confirmed directly:
+// nominating a location's second currency intermittently vanished
+// because of exactly this collision. An optional, trailing
+// `business` param, resolved through the same
+// resolveBusinessLocationsRootId helper setLocation/getLocation
+// already use, is the same, established, minimal fix.
+export function nominateLocationCurrency(locationName: string, currencyCode: string, userId: UserId, business?: BusinessName): void {
+  const locationId = resolveScopedLocationId(locationName, business);
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(locationId) as { detail_json: string | null } | undefined;
   const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
@@ -6442,10 +6514,25 @@ export function nominateLocationCurrency(locationName: string, currencyCode: str
   Entity.setDetailJson(locationId, JSON.stringify({ ...current, currencies }));
 }
 
-export function getLocationCurrencies(locationName: string): string[] {
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE name = ?`).get(locationName) as { detail_json: string | null } | undefined;
+export function getLocationCurrencies(locationName: string, business?: BusinessName): string[] {
+  const locationId = resolveScopedLocationId(locationName, business);
+  if (!locationId) return [];
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(locationId) as { detail_json: string | null } | undefined;
   if (!row?.detail_json) return [];
   return JSON.parse(row.detail_json).currencies ?? [];
+}
+
+/** Resolves a location's own, real entity id - scoped to one
+ * business's own Locations tree when `business` is given (the safe,
+ * unambiguous path), falling back to a bare, unscoped name match only
+ * when no business is known at all (same, existing bare-lookup
+ * behavior other legacy call sites still depend on). */
+function resolveScopedLocationId(locationName: string, business?: BusinessName): number | undefined {
+  if (business) {
+    const rootId = resolveBusinessLocationsRootId(business);
+    return rootId ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, rootId) as { id: number } | undefined)?.id : undefined;
+  }
+  return (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
 }
 
 // ---------------------------------------------------------------------------
@@ -7772,7 +7859,46 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
         let mirror = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
         if (!mirror) {
           mirror = create(requireEntityById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
-          supersedeEntity(mirror.id, { relation: child.name }, userId);
+          // A real, confirmed, latent bug, found directly by a test
+          // suite that finally exercises more than one real business:
+          // { relation: child.name } resolves by a bare, unscoped
+          // name lookup, which is only ever safe while 'child.name'
+          // (e.g. "Equity") names exactly one real entity anywhere -
+          // true only for the very first business ever created. Every
+          // business after that gets its own real "Equity" mirror
+          // (plus its own real Vocabulary word copy of the same
+          // name), so the bare lookup becomes genuinely ambiguous and
+          // can silently point this business's own mirror at some
+          // OTHER business's own "Equity", not the real, global
+          // category this code means. `child` is already that exact,
+          // correct, known entity - relationId bypasses the ambiguous
+          // name resolution entirely, the same, already-proven pattern
+          // used elsewhere in this file for exactly this reason.
+          //
+          // "Cost of Goods Sold" specifically is not a genuine
+          // structural category the way Asset/Liability/Expense are -
+          // it is the one, real, special-cased LEAF this function
+          // always copies regardless of coaPrototype (see
+          // alwaysCopyRegardlessOfDemoData above). Its own, real
+          // relation_id slot is spoken for by the Gross Profit
+          // report's own "COGS" tag (see getBusinessReports'
+          // cogsAccountIds / buildProfitAndLossFromBalances), the
+          // exact, same tag the GLOBAL "Cost of Goods Sold" leaf
+          // itself already carries (schema/00-core.sql row 514) and
+          // every per-product COGS leaf gets via
+          // ensureItemSalesCogsAccounts. Pointing this business's own
+          // mirror at `child.id` (the global leaf) instead would
+          // leave it permanently untagged as COGS - a real, confirmed
+          // bug found directly: a non-'admin' business's own COGS
+          // postings silently landed in operating_expenses instead of
+          // cogs_expenses on every real P&L, since 'admin' alone
+          // posts straight to the real, correctly-tagged global leaf
+          // and so never exposed this.
+          if (child.name === 'Cost of Goods Sold') {
+            Entity.relate(mirror.id, 'COGS', userId);
+          } else {
+            supersedeEntity(mirror.id, { relationId: child.id }, userId);
+          }
         }
         copyChildren(child.id, mirror.id);
       }
@@ -7904,23 +8030,33 @@ export function createBusiness(
   // from a filtering standpoint.
   for (const currency of secondaryCurrencies ?? []) {
     const accountName = `Cash at Bank (${currency})`;
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(accountName)) {
-      const businessCoa = requireEntity('Chart of Accounts', typeChartOfAccountsRootName, business);
-      const businessAsset = requireEntity('Asset', typeRootName, businessCoa);
-      create(businessAsset, typeAssetAccountName, accountName, userId);
-    }
+    // A real, confirmed bug, found directly: every lookup below was
+    // bare and unscoped-by-business (`WHERE name = ?`, no parent at
+    // all) - genuinely ambiguous the moment ANY second business
+    // anywhere in the whole system also ever gets (directly, or via
+    // ensureCurrencyAccount's own, already-correctly-scoped POS/sale
+    // path) a same-named "Cash at Bank (CUR)" leaf. The second such
+    // business to arrive here silently skipped creating its OWN real
+    // leaf and instead mutated the FIRST business's own leaf in
+    // place - sharing one GL account across two, genuinely distinct
+    // businesses. Fixed by scoping every step through this business's
+    // own, already-resolved Asset category (businessAsset below),
+    // the exact same real scoping resolveCashAtBankAccount/
+    // ensureCurrencyAccount (db-reports.ts) already use for the
+    // lazily-created case.
+    const businessCoa = requireEntity('Chart of Accounts', typeChartOfAccountsRootName, business);
+    const businessAsset = requireEntity('Asset', typeRootName, businessCoa);
+    const account = Entity.getUnder(accountName, businessAsset.id) ?? create(businessAsset, typeAssetAccountName, accountName, userId);
     // The same real logic as setAccountCurrency (backend/src/db-reports.ts)
     // — inlined here rather than imported, since db-reports.ts already
     // imports from this module, and importing back would create a
-    // real, genuine circular dependency between the two.
-    db.prepare(`INSERT INTO account (entity_id) VALUES ((SELECT id FROM current_entities WHERE name = ?)) ON CONFLICT (entity_id) DO NOTHING`).run(accountName);
-    db.prepare(`UPDATE account SET currency = ? WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).run(currency, accountName);
+    // real, genuine circular dependency between the two. Scoped by
+    // the real, known entity id resolved just above, never by a bare
+    // re-lookup of the name.
+    db.prepare(`INSERT INTO account (entity_id) VALUES (?) ON CONFLICT (entity_id) DO NOTHING`).run(account.id);
+    db.prepare(`UPDATE account SET currency = ? WHERE entity_id = ?`).run(currency, account.id);
     if (coaPrototype) {
-      supersedeEntity(
-        (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(accountName) as { id: number }).id,
-        { relation: coaPrototype },
-        userId
-      );
+      supersedeEntity(account.id, { relation: coaPrototype }, userId);
     }
   }
   if (entityStructure) {

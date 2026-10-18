@@ -417,8 +417,18 @@ locationsRouter.put('/:name', requireRole('Administrator', 'Bookkeeper'), (req, 
 // Per docs/multicurrency-design.md: a location's own, real, nominated
 // SET of further currencies it trades in, alongside its own implicit
 // home currency. Nearly every real location's set stays empty.
+//
+// Per the exact, same, already-documented bare-name hazard the PUT
+// /:name route's own comment describes just above - once any real
+// storage-combination action has touched a location, its own GL
+// "Storage" root grows a child node with the exact, same literal name
+// as the location, making a bare, business-less lookup ambiguous for
+// every location, not a rare corner case. A real, confirmed instance
+// of the exact, same bug class, found directly: these two routes
+// never took the same `business` query parameter the PUT route
+// above was already fixed to require.
 locationsRouter.get('/:name/currencies', (req, res) => {
-  res.json(getLocationCurrencies(req.params.name));
+  res.json(getLocationCurrencies(req.params.name, req.query.business ? asBusinessName(req.query.business as string) : undefined));
 });
 
 const currencySchema = z.object({ currencyCode: z.string().min(1).max(6) });
@@ -427,7 +437,7 @@ locationsRouter.post('/:name/currencies', requireRole('Administrator', 'Bookkeep
   const parsed = currencySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    nominateLocationCurrency(req.params.name, parsed.data.currencyCode, asUserId(req.user!.id));
+    nominateLocationCurrency(req.params.name, parsed.data.currencyCode, asUserId(req.user!.id), req.query.business ? asBusinessName(req.query.business as string) : undefined);
     res.status(204).end();
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });

@@ -21,6 +21,7 @@ import {
   createLocation,
   setLocation,
   ensureLocationCapacityAccount,
+  resolveBusinessCoaAccountId,
   type Location as StockLocation,
   type BusinessName,
   type LedgerName,
@@ -142,8 +143,20 @@ export function createRecurringJournal(
     const info = insertJournal.run(businessId, ledgerId, reference, description ?? '', startDate, userId, recurrence, recurrenceCount ?? null);
     const jid = Number(info.lastInsertRowid);
     for (const line of lines) {
-      const acctId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(line.account) as { id: number } | undefined)?.id;
-      if (!acctId) throw new ValidationError(`No entity named "${line.account}".`);
+      // A real, confirmed, latent bug, found directly by a test suite
+      // that finally exercises more than one real business at once:
+      // the bare, unscoped name lookup this used to use is only ever
+      // safe while 'line.account' names exactly one real entity
+      // anywhere - true only for the very first business that ever
+      // used a given account name (e.g. "Rent"). Every other business
+      // gets its own real mirror of the same name, so vivify() could
+      // silently create an `account` row for some OTHER business's
+      // own account, never this one's. resolveBusinessCoaAccountId is
+      // the same, already-proven, business-scoped resolution used
+      // throughout db.ts for exactly this reason, with its own
+      // documented global fallback for an account genuinely outside
+      // this business's own CoA mirror (AR/AP, a counterparty name).
+      const acctId = resolveBusinessCoaAccountId(business, line.account);
       vivify.run(acctId);
       insertLine.run(jid, acctId, line.effective_date ?? startDate, line.amount_minor, line.memo ?? '');
     }

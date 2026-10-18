@@ -277,8 +277,8 @@ export const Hierarchy = {
    * that a later, real cartesian-product walk across more than one
    * hierarchy at once (e.g. product x location) can reuse it exactly
    * as-is, one real leaf-name pair at a time. */
-  buildTree(rootName: string, getProperties: (entityName: string, entityId: number | null) => Record<string, number>, relationshipType?: string): HierarchyTreeNode {
-    const root = getHierarchy(rootName, relationshipType);
+  buildTree(rootName: string, getProperties: (entityName: string, entityId: number | null) => Record<string, number>, relationshipType?: string, knownRootId?: number): HierarchyTreeNode {
+    const root = getHierarchy(rootName, relationshipType, knownRootId);
     function build(n: { id: number; name: string; children: unknown[] }): HierarchyTreeNode {
       const own = getProperties(n.name, n.id);
       const children = (n.children as { id: number; name: string; children: unknown[] }[]).map((c) => build(c));

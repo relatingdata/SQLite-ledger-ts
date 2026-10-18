@@ -873,8 +873,11 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
   // outside the Chart of Accounts entirely and have no real account_id
   // of their own to walk at all).
   const accountIdByName = new Map(rows.map((r) => [r.account, r.account_id]));
-  const assets_tree = buildCategoryTree(assets, accountIdByName, 'Asset');
-  const liabilities_tree = buildCategoryTree(liabilities, accountIdByName, 'Liability', 'credit');
+  // Business-scoped root ids - see getHierarchy's own comment on why
+  // the bare category name alone ('Asset', 'Liability', ...) is
+  // ambiguous once more than one business exists.
+  const assets_tree = buildCategoryTree(assets, accountIdByName, 'Asset', 'debit', resolveBusinessCoaAccountId(businessName, 'Asset'));
+  const liabilities_tree = buildCategoryTree(liabilities, accountIdByName, 'Liability', 'credit', resolveBusinessCoaAccountId(businessName, 'Liability'));
   // Equity genuinely has no real Current/Non-Current distinction at
   // all — always presented flat, one real node per real equity line,
   // matching the real, existing equity[] array exactly rather than
@@ -898,22 +901,42 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
   // hierarchy link against any other real heading is picked up
   // automatically, with no further code change required at all.
   const sumHierarchyDescendants = (headerAccountName: string): number => {
+    // A real, confirmed asymmetry, found directly by a test suite
+    // that finally exercises a genuinely isolated, non-'admin'
+    // business: a real customer always lives under an indirect
+    // hierarchy child ("Customers"), reaching "Accounts Receivable"
+    // only via the Header Account link below - but a real vendor
+    // (createProvider) lives DIRECTLY under the header account itself
+    // ("Accounts Payable"), per the real, deliberate design confirmed
+    // in db-seed.ts's own migrateForContactTypesAndPerBusinessContacts
+    // comment. headerAccountName's own id must therefore also be a
+    // real, valid starting point for this walk, not just its
+    // hierarchy children - otherwise such a direct child is entirely
+    // invisible to any business whose own real CoA mirror never
+    // reaches the GLOBAL header account at all (every business except
+    // the one, legacy 'admin' business, which reaches it directly
+    // through its own, documented, unconditional global-fallback walk
+    // in getBusinessReports, and so already has it in `rows` above -
+    // excluded from the sum below specifically to avoid counting it
+    // twice for that one, real, legacy case).
     const hierarchyChildren = getHierarchyChildren(headerAccountName, 'Header Account');
-    if (hierarchyChildren.length === 0) return 0;
+    const startNames = [headerAccountName, ...hierarchyChildren];
+    const alreadyCapturedIds = [...new Set(rows.map((r) => r.account_id))];
     const row = db
       .prepare(
         `WITH RECURSIVE walk(id) AS (
-           SELECT id FROM current_entities WHERE name IN (${hierarchyChildren.map(() => '?').join(',')})
+           SELECT id FROM current_entities WHERE name IN (${startNames.map(() => '?').join(',')})
            UNION ALL
            SELECT e.id FROM current_entities e JOIN walk w ON e.parent_id = w.id
          )
          SELECT COALESCE(SUM(jo.amount_minor), 0) AS total
          FROM journal_occurrences jo
          WHERE jo.account_id IN (SELECT id FROM walk)
+           AND jo.account_id NOT IN (${alreadyCapturedIds.length ? alreadyCapturedIds.map(() => '?').join(',') : 'NULL'})
            AND jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))
            AND (? IS NULL OR jo.transdate <= ?)`
       )
-      .get(...hierarchyChildren, ledgerName, businessName, asOfDate ?? null, asOfDate ?? null) as { total: number };
+      .get(...startNames, ...alreadyCapturedIds, ledgerName, businessName, asOfDate ?? null, asOfDate ?? null) as { total: number };
     return row.total;
   };
 
@@ -1030,7 +1053,7 @@ export interface CategoryTreeNode {
  * under the given root) appears as a top-level line, same as before —
  * this only groups accounts that genuinely have real category
  * ancestors between them and the root. */
-export function buildCategoryTree(lines: StatementLine[], accountIdByName: Map<string, number>, rootName: string, normalSide: 'debit' | 'credit' = 'debit'): CategoryTreeNode[] {
+export function buildCategoryTree(lines: StatementLine[], accountIdByName: Map<string, number>, rootName: string, normalSide: 'debit' | 'credit' = 'debit', knownRootId?: number): CategoryTreeNode[] {
   const lineByAccountId = new Map(lines.map((l) => [accountIdByName.get(l.name), l]));
 
   // Hierarchy.buildTree walks every real node under rootName,
@@ -1045,10 +1068,15 @@ export function buildCategoryTree(lines: StatementLine[], accountIdByName: Map<s
   // removes any real node whose own recursive total is genuinely zero
   // and has no real, surviving children, restoring the exact, same,
   // established sparse behavior.
-  const tree = Hierarchy.buildTree(rootName, (name, id) => {
-    const line = id != null ? lineByAccountId.get(id) : undefined;
-    return { amount_minor: line ? Currency.fromDebitCredit(line.debit_minor, line.credit_minor) : 0 };
-  });
+  const tree = Hierarchy.buildTree(
+    rootName,
+    (name, id) => {
+      const line = id != null ? lineByAccountId.get(id) : undefined;
+      return { amount_minor: line ? Currency.fromDebitCredit(line.debit_minor, line.credit_minor) : 0 };
+    },
+    undefined,
+    knownRootId
+  );
 
   function toCategoryNode(n: HierarchyTreeNode): CategoryTreeNode | null {
     const line = n.accountId != null ? lineByAccountId.get(n.accountId) : undefined;
@@ -1143,9 +1171,14 @@ export function buildProfitAndLossFromBalances(business: string, balances: Map<n
   // leaf's own real parent chain — the same rows already carry it,
   // just re-keyed by the display name each StatementLine uses.
   const accountIdByName = new Map(rows.map((r) => [r.account, r.account_id]));
-  const income_tree = buildCategoryTree(income, accountIdByName, 'Income', 'credit');
-  const cogs_tree = buildCategoryTree(cogs_expenses, accountIdByName, 'Expense');
-  const operating_expenses_tree = buildCategoryTree(operating_expenses, accountIdByName, 'Expense');
+  // Business-scoped root ids - see getHierarchy's own comment on why
+  // the bare category name alone ('Income', 'Expense') is ambiguous
+  // once more than one business exists.
+  const incomeRootId = resolveBusinessCoaAccountId(business as BusinessName, 'Income');
+  const expenseRootId = resolveBusinessCoaAccountId(business as BusinessName, 'Expense');
+  const income_tree = buildCategoryTree(income, accountIdByName, 'Income', 'credit', incomeRootId);
+  const cogs_tree = buildCategoryTree(cogs_expenses, accountIdByName, 'Expense', 'debit', expenseRootId);
+  const operating_expenses_tree = buildCategoryTree(operating_expenses, accountIdByName, 'Expense', 'debit', expenseRootId);
 
   // Income is credit-normal, Expense is debit-normal — both summed to
   // their conventional positive totals from the same split columns the
