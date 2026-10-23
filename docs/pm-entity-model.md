@@ -232,6 +232,60 @@ tool should stay generic: the Entity Tree Editor's own endpoint
 (`routes/entities.ts`, an administrator may create any kind) and
 `primitives.ts`'s own `Entity.create`.
 
+### Primitive implementation notes
+
+`primitives.ts` is additive, not a completed migration (see "Status,"
+above) — 260 separately-named functions existed historically because
+each new screen got its own name for what is structurally the same
+operation on a different entity; the five primitives above are the
+real generalization. A few implementation details worth knowing:
+
+- **`Entity.get(name)` with no `parent` is only safe for a name
+  already known to be globally unique** (Vocabulary, a language) — a
+  business name is *not* safe here, confirmed directly: a business can
+  share a bare name with something else entirely (an admin login
+  username, tried as a business name), and an unscoped lookup has no
+  way to tell them apart. Every business lookup elsewhere in this
+  codebase scopes to parent `'Businesses'` for exactly this reason.
+- **No JSON for a structured fact.** `Entity.tag`/`untag`/`hasTag` and
+  `Entity.setAttr`/`getAttr` exist so a fact about an entity (a lead
+  time in days, a BOM quantity, which of several kinds a child is) is
+  itself a named child entity, found by an exact `(parent, name)`
+  lookup — never a name pattern, never a JSON field. `setAttr` is a
+  single-valued fact (a quantity, a date, a status), replaced in place
+  under its own named type-grouping whenever it changes, rather than
+  accumulated.
+- **`entities` permits only `INSERT` and `SELECT`.**
+  `Entity.setDetailJson`/`mergeDetailJson`/`setRelationId`/
+  `setCombinationIds` wrap the insert-only mechanisms
+  (`entity_set_detail`/`entity_merge_detail`/`entity_set_relation`/
+  `entity_set_combination_ids`, `backend/schema/00-core.sql`) that
+  replace every direct `UPDATE entities SET ...` call site — no
+  function in this codebase ever runs a raw `UPDATE` against
+  `entities` itself.
+- **`Currency.toDebitCredit(amountMinor, normalSide)`** is the one
+  output method every report uses, never a separate, hand-rolled
+  `x > 0 ? x : 0` split. `normalSide` says which column an amount is
+  expected to land in for its own section (Asset/Expense are
+  normal-debit; Liability/Equity/Income are normal-credit);
+  `is_contra` flags an amount that landed in the opposite column from
+  what's normal for that section — worth showing distinctly rather
+  than as an ordinary positive number the way a raw signed amount
+  would read. `Currency.fromDebitCredit` is the same class, the other
+  direction — every lines-entry screen (AR sale, AP purchase, POS,
+  stock receipt/dispatch) produces a signed `amount_minor` this way
+  before it ever reaches `post_journal_entry`.
+- **`Balance.post`** is genuinely not always a balanced, double-entry
+  transaction — a quantity movement or a capacity figure has no
+  meaningful counter-item; a caller needing real double-entry posts
+  two of these, to two accounts, under the same reference.
+- **`Hierarchy.buildTree`** is deliberately one general function, never
+  one named per specific category (no `buildCategoryTree`, no
+  `buildDivisionTree`) — the same function serves a P&L drill-down, an
+  Inventory drill-down, or, passing more than one property at once, a
+  combined view showing several figures side by side per row, all from
+  the same walk.
+
 `asUserId`, `asEntityId`, `asDivisionName`, `asLocationName`,
 `asEmployeeName`, `asCustomerName`, `asProviderName`, `asItemName`
 (`backend/src/db.ts`) are the paired, compile-time-only branding

@@ -139,9 +139,7 @@ export const createEntity = (data: { name: string; parent?: string | null; paren
 export const setEntityRelationship = (entityName: string, relationshipType: string, targetName: string) =>
   request<void>('/entities/relationship', { method: 'POST', body: JSON.stringify({ entityName, relationshipType, targetName }) });
 
-// Per docs/contact-types-and-translations.md: the one, real, correct
-// way a new vendor or employee is created - genuinely tagged with its
-// own real Contact Type, never left to structural parent alone.
+// See docs/pm-frontend-reference.md.
 export const createProvider = (name: string, screenName?: string) => request<EntityNode>('/entities/contact', { method: 'POST', body: JSON.stringify({ type: 'vendor', name }) }, screenName);
 export const createCustomer = (name: string, screenName?: string) => request<EntityNode>('/entities/contact', { method: 'POST', body: JSON.stringify({ type: 'customer', name }) }, screenName);
 export const createEmployeeContact = (name: string, placeOfEmployment: string, screenName?: string) =>
@@ -406,10 +404,7 @@ export interface HierarchyGroupRecord {
   name: string;
   parentName: string | null;
 }
-/** Every real group under one named hierarchy (e.g. "Division", or any
- * other real, business-chosen hierarchy name) — the generic replacement
- * for the former, privileged getDivisions(). hierarchyName is never
- * defaulted here; a caller passes its own, real, chosen name. */
+// Generic replacement for the former, privileged getDivisions() — see docs/pm-frontend-reference.md.
 export const getHierarchyGroups = (hierarchyName: string) => request<HierarchyGroupRecord[]>(`/hierarchy/groups?name=${encodeURIComponent(hierarchyName)}`);
 
 export interface HierarchyGroupingWithValues {
@@ -425,11 +420,7 @@ export const createHierarchyValue = (business: string, groupingName: string, val
 export const defineProductShape = (business: string, dimensions: [string, string][]) =>
   request<{ dimensions: [string, string][] }>('/hierarchy/shapes', { method: 'POST', body: JSON.stringify({ business, dimensions }) });
 
-/** Generically tags any already-existing real entity (most commonly a
- * Location, for a further hierarchy dimension beyond its primary
- * grouping) with the value it belongs to, for one named hierarchy.
- * Re-tagging (calling again with a different parentName) simply moves
- * the tag — never hardcodes which hierarchy or which kind of entity. */
+// Generic entity-to-hierarchy-value tagging — see docs/pm-frontend-reference.md.
 export const setHierarchyTag = (entityName: string, hierarchyName: string, parentName: string) =>
   request<{ entityName: string; hierarchyName: string; parentName: string }>('/hierarchy/parent', { method: 'POST', body: JSON.stringify({ entityName, hierarchyName, parentName }) });
 export const getHierarchyTag = (entityName: string, hierarchyName: string) =>
@@ -443,27 +434,13 @@ export const saveBusinessTypeAnswers = (businessName: string, answers: Record<st
   request<void>(`/businesses/${encodeURIComponent(businessName)}/business-type-answers`, { method: 'POST', body: JSON.stringify({ answers }) });
 export const getLedgers = (businessName: string) =>
   request<{ id: number; name: string }[]>(`/businesses/${encodeURIComponent(businessName)}/ledgers`);
-// Per docs/active-ledger-design.md: the real, current "active" ledger
-// for this business (null for one created before this existed) - the
-// Session screen defaults its own ledger pick onto this, a real,
-// soft switch after a rollover, with no forced logout.
+// Session/ledger/Profit Center pickers — see docs/pm-frontend-reference.md.
 export const getActiveLedger = (businessName: string) =>
   request<{ activeLedger: string | null }>(`/businesses/${encodeURIComponent(businessName)}/active-ledger`);
-// Per docs/profit-centers-design.md's Phase A (structural CoA
-// support) and Phase C (session integration, now wired into the
-// /session page's own picker, the exact same, real way Business/
-// Ledger already are there).
 export const getProfitCenters = (businessName: string) =>
   request<{ id: number; name: string }[]>(`/businesses/${encodeURIComponent(businessName)}/profit-centers`);
 export const createProfitCenter = (businessName: string, profitCenterName: string) =>
   request<{ id: number; name: string }>(`/businesses/${encodeURIComponent(businessName)}/profit-centers`, { method: 'POST', body: JSON.stringify({ profitCenterName }) });
-// Per docs/profit-centers-design.md's Phase C: the exact, same real
-// mechanism as setSessionBusiness above, for the real, current
-// Profit Center instead — trust model only, honestly, the same real,
-// temporary gap Business itself already has today. Not yet actually
-// called from the /session page (Business/Ledger/Profit Center are
-// all still set purely client-side there, via session.set()) — this
-// is the backend-facing half, ready for that page to call once wired.
 export const setSessionProfitCenter = (profitCenterName: string | null) =>
   request<void>('/auth/session/profit-center', { method: 'POST', body: JSON.stringify({ profitCenterName }) });
 export const createBusiness = (
@@ -475,11 +452,7 @@ export const createBusiness = (
   partnerNames?: string[],
   screenName?: string
 ) =>
-  // businessAdmin: the real, dedicated admin user this new business
-  // gets, with Business Admin granted in this one business only (see
-  // docs/business-admin-role-and-enforcement-design.md). password is
-  // the plain-text, generated password, returned exactly once — the
-  // caller must show it now, since it is never otherwise recoverable.
+  // businessAdmin.password is shown exactly once, never recoverable later — see docs/pm-frontend-reference.md.
   request<{ business: BusinessName; actualLedger: string; budgetLedger: string; businessAdmin: { username: string; password: string } }>('/businesses', {
     method: 'POST',
     body: JSON.stringify({ businessName, financialYearLabel, coaPrototype, secondaryCurrencies, entityStructure, partnerNames }),
@@ -530,16 +503,7 @@ export interface StagedLine {
   description?: string;
   transdate?: string;
   account: AccountName;
-  // Per a real, confirmed bug found and fixed directly while verifying
-  // Phase 1 against a real, live browser: two genuinely different,
-  // real accounts (different parent, different id) can share the
-  // exact, same literal name - Open Container's own "Remaining"/
-  // "Occupied" leaves do, for instance. Staging by bare name alone is
-  // then ambiguous; passing the account's own, already-resolved,
-  // real id (when the caller has one) removes the ambiguity, the
-  // exact, same way the backend's own, original, equivalent, direct
-  // stageLine calls already always did.
-  accountId?: number;
+  accountId?: number; // resolves name collisions — see docs/pm-frontend-reference.md
   amount_minor: number;
   memo?: string;
 }
@@ -777,9 +741,7 @@ export const setUserActiveApi = (userId: number, active: boolean) =>
 export const changeUserPassword = (userId: number, password: string) =>
   request<void>(`/auth/users/${userId}/password`, { method: 'PUT', body: JSON.stringify({ password }) });
 
-// Per docs/user-business-role-matrix-design.md: the real, per-business
-// User × Role matrix - a genuine Cartesian Product, additive
-// alongside the existing, global getUsers/setUserRolesApi above.
+// See docs/pm-frontend-reference.md.
 export interface UserRoleMatrix {
   users: string[];
   roles: string[];
@@ -911,11 +873,7 @@ export interface ItemSummary {
   source_count: number;
   storage_origin: 'Hot' | 'Cold' | null;
   product: string | null;
-  /** Present only when the scanned barcode is registered against a
-   * real, specific combination (see climbInstanceTree/getCombinationByUpc) -
-   * the register uses these directly, rather than asking a cashier to
-   * manually pick each real dimension one at a time. */
-  combinationValues?: string[];
+  combinationValues?: string[]; // set when a scanned barcode matches a specific combination — see docs/pm-frontend-reference.md
   combinationShape?: [string, string][];
 }
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
@@ -955,20 +913,13 @@ export interface ItemSourceInput {
   vendorSku?: string | null;
   vendorUpc?: string | null;
   priceMinor?: number | null;
-  // Per docs/multicurrency-design.md: NULL means the business's own
-  // home currency - a real, different, non-NULL currency here is a
-  // real, separate, independently-priced row for the same item/vendor
-  // pair, never a converted number.
-  currency?: string | null;
+  currency?: string | null; // null = home currency; non-null = a separate priced row, never a conversion — see docs/pm-frontend-reference.md
   packageQuantity?: number | null;
   isPreferred?: boolean;
   preferenceNotes?: string | null;
 }
 
-// Items are scoped per business (docs/scoped-uniqueness-and-location-
-// accounting.md) - business is a real, required parameter here, the
-// exact, same convention listLocations and every other business-
-// scoped list call already follows, never an optional afterthought.
+// business is required — items are scoped per business, see docs/pm-frontend-reference.md.
 export const listItems = (business: string, limit?: number, offset = 0) =>
   request<{ rows: ItemSummary[]; totalCount: number }>(`/items?business=${encodeURIComponent(business)}${limit != null ? `&limit=${limit}&offset=${offset}` : ''}`);
 export const getItem = (name: string) => request<Item | null>(`/items/${encodeURIComponent(name)}`);
@@ -1210,10 +1161,7 @@ export interface LocationInput {
   is_billing_address: boolean;
   bottle_capacity?: number | null;
   carton_capacity?: number | null;
-  // A real, direct IANA timezone identifier (e.g. "Australia/Sydney")
-  // — required, since a real, physical location's own transactions
-  // must record against that location's own real, local calendar day.
-  timezone: string;
+  timezone: string; // IANA identifier, required — see docs/pm-frontend-reference.md
 }
 export interface LocationRecord extends LocationInput {
   name: string;
@@ -1234,37 +1182,15 @@ export const clockOutOfProject = (employeeName: EmployeeName, business: Business
 export const getOpenProjectClock = (employeeName: EmployeeName) =>
   request<EmployeeClock | null>(`/projects/open-clock?employeeName=${encodeURIComponent(employeeName)}`);
 export const getLocationByName = (name: string) => request<LocationRecord>(`/locations/${encodeURIComponent(name)}`);
-// Per a real, confirmed bug found and fixed directly while verifying
-// Phase 1 against a real, live browser: this call used to PUT with no
-// business query parameter at all, so the backend's own setLocation
-// had no way to scope its lookup by business and fell back to a bare
-// name match - silently landing on WHICHEVER entity named, say, "Main
-// Street Cellar" the database happened to return first. Once that
-// location has its own GL "Storage" account root (created the first
-// time any real storage-combination action touches it - Receive Into
-// Storage, Open Container, Convert Storage), that root's own child
-// node shares the exact, same literal name as the location itself,
-// and a bare, unscoped lookup can land there instead of on the real
-// location contact - confirmed directly against the database, not
-// merely suspected. createLocation already passed business for this
-// same reason; saveLocation simply never did.
+// Scoped by business, like createLocation — see docs/pm-frontend-reference.md.
 export const saveLocation = (name: string, input: LocationInput, business: string) =>
   request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'PUT', body: JSON.stringify(input) });
 
-// Per direct, absolute instruction: the frontend must await this real,
-// single, atomic request in full - the real staging and posting (and
-// the real, balanced Storage Capacity Remaining/Installed accounts)
-// all happen server-side before this call resolves; the backend never
-// responds until its own real transaction has genuinely committed.
+// A single atomic server-side request — see docs/pm-frontend-reference.md.
 export const createLocation = (name: string, business: string, input: LocationInput, screenName?: string) =>
   request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'POST', body: JSON.stringify(input) }, screenName);
 
-// Per direct instruction: real storage space, exactly like real
-// currency, follows the exact, same Hierarchy/Product cartesian
-// mechanism already built for wine combinations and currency pairs -
-// no separate setup screen of its own, reusing /setup/hierarchy
-// directly for defining the real groupings/values/shapes these two
-// real actions draw on.
+// Reuses the Hierarchy/Product mechanism — see docs/pm-frontend-reference.md.
 export const convertStorageSpace = (input: {
   business: string;
   ledger: string;
@@ -1289,12 +1215,7 @@ export const openStorageContainer = (input: {
   reference?: string;
 }, screenName?: string) => request<void>('/locations/open-container', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
-// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
-// account-resolution counterpart to openStorageContainer above — the
-// Open Container screen's own, frontend-driven canned journal flow
-// uses this to resolve/create every real account it needs, then posts
-// both of its own real journal entries itself via stageLine/
-// postJournalEntry.
+// The frontend-driven canned journal pattern — see docs/pm-frontend-reference.md.
 export interface ResolvedOpenContainerAccounts {
   containerSpaceAccount: string;
   containerOccupiedAccount: string;
@@ -1320,9 +1241,7 @@ export const resolveOpenContainerAccounts = (input: {
 }, screenName?: string) =>
   request<ResolvedOpenContainerAccounts>('/locations/resolve-open-container-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
-// Per docs/multicurrency-design.md: a location's own, real, nominated
-// SET of further currencies it trades in. Nearly every real location
-// returns an empty array here.
+// See docs/pm-frontend-reference.md.
 export const getLocationCurrencies = (locationName: string) => request<string[]>(`/locations/${encodeURIComponent(locationName)}/currencies`);
 export const nominateLocationCurrency = (locationName: string, currencyCode: string) =>
   request<void>(`/locations/${encodeURIComponent(locationName)}/currencies`, { method: 'POST', body: JSON.stringify({ currencyCode }) });
@@ -1386,12 +1305,7 @@ export const receiveItems = (
   screenName?: string
 ) => request<void>(`/locations/${encodeURIComponent(locationName)}/receive`, { method: 'POST', body: JSON.stringify(input) }, screenName);
 
-// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
-// physical-and-unit-tracking-only counterpart to receiveItems above —
-// the Receive Into Storage screen's own, frontend-driven canned
-// journal flow posts its own real dollar VALUE entry itself (a real,
-// combination-tracked receipt only), then calls this endpoint only for
-// the real, physical side effect.
+// The narrow, physical-only half of the canned journal pattern — see docs/pm-frontend-reference.md.
 export const receiveIntoStorageStock = (
   locationName: LocationName,
   input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] },
@@ -1417,12 +1331,7 @@ export const resolveReceiveAccounts = (
 export const transferItems = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string }, screenName?: string) =>
   request<void>('/locations/transfer', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
-// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
-// narrow, physical-only counterpart to transferItems above — the Stock
-// Transfer screen's own, frontend-driven canned journal flow posts its
-// own real dollar VALUE entry itself (see transferLines in
-// canned-journal.ts), then calls this endpoint only for the real,
-// physical quantity-movement/location-capacity side effect.
+// The narrow, physical-only half of the canned journal pattern — see docs/pm-frontend-reference.md.
 export const transferStock = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string; transdate?: string }, screenName?: string) =>
   request<void>('/locations/transfer-stock', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
@@ -1538,10 +1447,7 @@ export interface PosSaleLineInput {
   unitPriceMinor?: number;
   taxMinor: number;
   tier?: string;
-  /** Present only when this line represents a real, specific
-   * combination (see climbInstanceTree/getCombinationByUpc) — set
-   * automatically when a barcode registered against one is scanned. */
-  combinationValues?: string[];
+  combinationValues?: string[]; // set when a scanned barcode matches a specific combination — see docs/pm-frontend-reference.md
   combinationShape?: [string, string][];
 }
 export interface PosSaleResult {
@@ -1586,11 +1492,7 @@ export const completeCashPurchase = (input: {
   transdate?: string;
 }, screenName?: string) => request<CashPurchaseResult>('/pos/complete-cash-purchase', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
-// Per docs/canned-journal-to-frontend-design.md Phase 0: the two, real,
-// narrow server-side steps Cash Purchase's new, frontend-driven canned
-// journal flow still needs — resolving/creating the real accounts
-// (a real, stateful side effect), and the real, physical stock-receipt
-// side effect. Neither of these is a journal entry.
+// The account-resolution half of the canned journal pattern — see docs/pm-frontend-reference.md.
 export interface ResolvedCashTransactionAccounts {
   inventoryAccounts: Record<string, string>;
   cashAccount?: string;
@@ -1612,10 +1514,7 @@ export const receiveStock = (input: {
   transdate?: string;
 }, screenName?: string) => request<void>('/pos/receive-stock', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
-// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
-// sale-side counterpart to the two above — resolving/creating the real
-// Sales/COGS/Inventory accounts (plus each item's own, real, known
-// per-unit cost) and the real, physical stock-dispatch side effect.
+// The account-resolution half of the sale-side canned journal pattern — see docs/pm-frontend-reference.md.
 export interface ResolvedSaleAccounts {
   salesAccounts: Record<string, string>;
   cogsAccounts: Record<string, string>;
@@ -1652,9 +1551,7 @@ export const payEmployeeWages = (input: {
   business: BusinessName;
   ledger: LedgerName;
   employeeName: EmployeeName;
-  /** Required for an hourly employee. Omit entirely for a salaried
-   * one — providing it is refused as a real, honest mismatch. */
-  hours?: number;
+  hours?: number; // hourly employees only — a salaried mismatch is refused
   wagesExpenseAccount?: string;
   paymentMethod?: string;
   transdate?: string;
@@ -1672,10 +1569,7 @@ export interface CloseBooksResult {
   netIncomeMinor: number;
   accountsZeroed: number;
   groupBreakdown: { group: HierarchyGroupName | null; netIncomeMinor: number }[];
-  // Per docs/profit-centers-design.md's Phase B: the real, structural
-  // counterpart to groupBreakdown — one entry per real Profit
-  // Center with a non-zero net result this close.
-  profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
+  profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[]; // per Profit Center, mirroring groupBreakdown
 }
 export const closeBooks = (input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string; hierarchyPath?: string[] }) =>
   request<CloseBooksResult>('/journal/close-books', { method: 'POST', body: JSON.stringify(input) });
@@ -1683,15 +1577,7 @@ export const closeBooks = (input: { business: BusinessName; ledger: LedgerName; 
 export interface CloseBooksPreview {
   lines: {
     account: AccountName;
-    // Per the exact, same real "Remaining"/"Occupied" naming-collision
-    // fix already applied throughout this migration (see StagedLine
-    // above): the backend's own CloseBooksLine already resolves and
-    // returns this whenever it has one (the currency-tagged Retained
-    // Earnings leaf in particular is created fresh and has no other,
-    // safer way to be addressed than by its own, real id), so the
-    // frontend now carries it through too rather than staging by bare
-    // name alone.
-    accountId?: number;
+    accountId?: number; // resolves name collisions, same as StagedLine.accountId — see docs/pm-frontend-reference.md
     amount_minor: number;
   }[];
   netIncomeMinor: number;
@@ -1699,25 +1585,10 @@ export interface CloseBooksPreview {
   groupBreakdown: { group: HierarchyGroupName | null; netIncomeMinor: number }[];
   profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
-// Per a real, confirmed bug found directly while porting Close Books
-// onto the frontend-driven canned-journal pattern: this always omitted
-// `business`, even though the backend's own previewCloseBooksSchema
-// has always required it — every real call before now was relying on
-// the backend accepting an already-malformed request, which it never
-// actually does (it 400s). Fixed here rather than left in place.
 export const previewCloseBooks = (input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string; hierarchyPath?: string[] }) =>
   request<CloseBooksPreview>('/journal/preview-close-books', { method: 'POST', body: JSON.stringify(input) });
 
-// Per docs/canned-journal-to-frontend-design.md's Phase 2: the real,
-// shared split (computeCloseLines/previewCloseBooks/closeBooks) is
-// mirrored here for Rollover (resolveRolloverLines/rolloverToNewPeriod,
-// both backend/src/db-reports.ts) — resolveRolloverLines does the
-// genuinely stateful half (creating each carried-forward account's
-// own node under the new ledger) and returns the real, already-
-// computed opening-balance lines for the frontend to post itself via
-// the exact, same generic stageLine/postJournalEntry every other
-// canned screen already uses, rather than re-deriving the trial-
-// balance arithmetic a second time on the frontend.
+// Mirrors the Close Books canned journal split, for Rollover — see docs/pm-frontend-reference.md.
 export interface ResolvedRollover {
   reference: string;
   lines: { account: AccountName; amount_minor: number }[];
@@ -1795,11 +1666,7 @@ export interface InventoryListingLocationGroup {
 export const getInventoryListingByLocation = (businessName: string, hierarchyName?: string) =>
   request<InventoryListingLocationGroup[]>(`/stock-listing/by-location?business=${encodeURIComponent(businessName)}${hierarchyName ? `&hierarchyName=${encodeURIComponent(hierarchyName)}` : ''}`);
 
-// Per direct instruction: a real, new report - Storage Capacity
-// accounts live under each real Location, structurally outside Chart
-// of Accounts, so the Trial Balance can never show them. This report
-// reads them directly, grouped by location and real storage-unit
-// currency (e.g. SPACE-CARTON, SPACE-BOTTLE).
+// Storage Capacity accounts sit outside Chart of Accounts — see docs/pm-frontend-reference.md.
 export interface StorageSpaceCurrencyRow {
   currency: string;
   installed_minor: number;

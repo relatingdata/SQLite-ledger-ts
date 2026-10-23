@@ -44,29 +44,8 @@ export interface Step {
 /** The one, real registry mapping a screen's own api_function name to
  * the real, actual backend function it calls - extend this as
  * further, real screens are added to screens.csv. */
+// See docs/pm-testing-e2e.md — "API_REGISTRY — notable, non-obvious mappings"
 export const API_REGISTRY: Record<string, (args: Record<string, string>) => unknown> = {
-  // Per docs/realistic-tutorial-e2e-plan.md, Phase A: Chapter 3 nominates a
-  // home currency at business creation. setBusinessHomeCurrency is a
-  // real, separate, existing function - called immediately after, not
-  // folded into createBusiness itself, which has no currency parameter.
-  //
-  // A real, confirmed bug found and fixed directly: this entry never
-  // read screens.csv's own "businessType" position (the real new-business
-  // page's second select, "Sole Trader"/"Partnership"/...) at all, so
-  // neither coaPrototype nor entityStructure ever reached db.createBusiness
-  // on the API path - unlike the real frontend (frontend/src/routes/setup/
-  // new-business/+page.svelte), which always submits both: a coaPrototype
-  // (its own, separate, first select, defaulting to COA_PROTOTYPES[0] =
-  // "English CoA") and an entityStructure (mapped from the business-type
-  // select via BUSINESS_TYPE_TO_ENTITY_STRUCTURE). Without a coaPrototype,
-  // copyChartOfAccountsInto never copies any of the universal, English-
-  // CoA-tagged leaves (Sales Revenue, Cost of Goods Sold, Inventory,
-  // Owner's Equity) into the new business's own Chart of Accounts at all,
-  // so every later, lazy, per-combination leaf (ensureCombinationAccountLeaf
-  // et al.) fell back to the bare, global lookup and posted onto the
-  // shared, global template entities instead - invisible to
-  // getBusinessReports' own, correct, business-scoped walk. Mirrors the
-  // frontend's own defaults/mapping exactly, not a new, separate design.
   createBusiness: (a) => {
     const BUSINESS_TYPE_TO_ENTITY_STRUCTURE: Record<string, string> = {
       'Sole Trader': 'sole_trader',
@@ -74,20 +53,6 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       'Pty Ltd Company': 'llc',
       'Incorporated Company': 'publicly_traded',
     };
-    // A further, real, confirmed gap, found and fixed in the same
-    // pass as the one above: coaPrototype was hardcoded to 'English
-    // CoA' here, and secondaryCurrencies was always undefined - the
-    // real new-business page's own CoA-prototype select (its first,
-    // real <select>, "English / generic"/"German"/"French") and its
-    // own, real, optional "Accept additional currencies" section were
-    // never actually reachable from the API path at all, exercising
-    // neither coaPrototype nor secondaryCurrencies genuinely. Mapped
-    // here the exact, same way the real frontend does (COA_PROTOTYPES'
-    // own label -> prototypeName mapping, frontend/src/routes/setup/
-    // new-business/+page.svelte), so a data row naming "German" (the
-    // real, visible select-option label) resolves to the real, same
-    // "German CoA" prototype name db.createBusiness itself expects -
-    // never a new, separate, parallel mapping.
     const COA_PROTOTYPE_LABEL_TO_NAME: Record<string, string> = {
       'English / generic': 'English CoA',
       German: 'German CoA',
@@ -109,25 +74,9 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     if (a.homeCurrency) db.setBusinessHomeCurrency(a.businessName, a.homeCurrency, db.asUserId(1));
     return result;
   },
-  // A real, further, confirmed gap: the real post-creation banking
-  // wizard on /setup/new-business (nominate a bank account, then
-  // confirm the real bank x currency combination to build "Cash at
-  // Bank" from) was never exercised by this tool at all - neither
-  // path. nominateBankAccountSimple matches POST
-  // /businesses/:name/bank-accounts exactly (see
-  // frontend/src/routes/setup/new-business/+page.svelte's own
-  // nominateBank function).
+  // Matches POST /businesses/:name/bank-accounts (the new-business banking wizard's first step).
   nominateBankAccountSimple: (a) => db.nominateBankAccount(a.businessName as any, a.bankAccountName, a.routingDetail, a.accountNumber, db.asUserId(1)),
-  // The real, same-shaped counterpart for the wizard's own final,
-  // real "Confirm and build Cash at Bank" step - matches
-  // buildBankCurrencyStructure's own, real, current signature exactly
-  // (see its own doc comment in backend/src/db.ts for why
-  // homeCurrency is a real, required, separate argument, not folded
-  // into a selection's own currency field). This tutorial fixture's
-  // own real business trades in exactly one bank, one currency - the
-  // real, single-selection branch - so one, real selection is enough
-  // to genuinely exercise it; a further, real, multi-bank/multi-
-  // currency case is a separate, further fixture, not this one.
+  // The wizard's final "Confirm and build Cash at Bank" step; single bank/currency only.
   buildBankCurrencyStructureSimple: (a) => {
     const userId = db.asUserId(1);
     db.buildBankCurrencyStructure(
@@ -139,35 +88,9 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       a.currency
     );
   },
-  // Per docs/realistic-tutorial-e2e-plan.md, Phase A: Chapter 3's
-  // "Division" is a Hierarchy (per docs/naming-vocabulary.md, Division is
-  // an example classification, never a built-in concept) - the division
-  // field, when given, is ensured as a Hierarchy value the exact, same
-  // way "Storage" and "Container" already are below, never a new,
-  // separate mechanism.
-  // Per docs/currency-and-quantity-integrity-fix-plan.md, "a third,
-  // confirmed finding": capacity is folded into creation itself, not a
-  // later, separate step - createAndConfigureLocation's own, existing
-  // design calls ensureLocationCapacityAccount immediately, atomically,
-  // specifically so the real opening balance is known and posted at
-  // creation time, never lazily. A real, confirmed bug was found and
-  // fixed here: an earlier version of this registry entry passed null
-  // capacity at creation and set the real number via a separate
-  // setLocationCapacity step afterward - this created the Storage
-  // Capacity structure with opening = 0 (silently correct for a
-  // capacity of zero), and by the time the real capacity was later
-  // known, the structure already existed, so the real opening balance
-  // was never posted at all. Matches Chapter 3's own narrative too:
-  // capacity is set "directly on the same screen" as creation.
+  // Division is a Hierarchy value (see Naming Glossary), ensured the same way "Storage"/"Container" are.
   createAndConfigureLocation: (a) => {
     const userId = db.asUserId(1);
-    // Per docs/skill-step-runner-design.md §20: division is now set
-    // by createAndConfigureLocation itself, atomically, both as the
-    // Hierarchy group tag (division-breakdown reports) and as the
-    // real "Belongs To Group" relationship the org chart/Business
-    // Setup's employee tree actually reads - a real, confirmed gap,
-    // found and fixed at its one, real, single source, not patched
-    // here a second time.
     return db.createAndConfigureLocation(a.businessName as any, a.locationName, {
       city: a.city,
       location_type: a.locationType,
@@ -177,22 +100,10 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       timezone: 'Australia/Adelaide',
     } as any, userId, a.division || undefined, a.division ? 'Division' : undefined);
   },
-  // Phase B: Chapter 3's Business Setup employee creation, at a named
-  // location - createEmployee already exists and takes exactly this
-  // shape.
   createEmployeeAt: (a) => db.createEmployee(a.employeeName, a.locationName, db.asUserId(1)),
-  // Phase B: Chapter 3's first supplier, name only - createProvider
-  // already exists and takes exactly this shape (per
-  // docs/naming-vocabulary.md, Provider is the code-level name; the
-  // business owner's own displayed label stays separately
-  // translatable).
   createProviderSimple: (a) => db.createProvider(a.providerName, db.asUserId(1)),
   createCustomerSimple: (a) => db.createCustomer(a.customerName, db.asUserId(1)),
-  // Per docs/skill-step-runner-design.md §11b: the real, granular,
-  // complete-in-itself General Journal screens - one real row per
-  // real HTTP call, matching /journal/staging and /journal/post
-  // exactly, never one, combined, artificial row standing in for
-  // a whole, multi-line entry.
+  // One row per HTTP call (/journal/staging, /journal/post) — never one combined row for a multi-line entry.
   stageJournalLine: (a) => {
     db.stageLine({ reference: a.reference, business: a.businessName as any, ledger: a.ledger as any, account: a.account as any, amount_minor: Number(a.amountMinor) });
   },
@@ -200,16 +111,10 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.postJournalEntry(a.reference, a.businessName as any, a.ledger as any, userId);
   },
-  // Per docs/skill-step-runner-design.md §11b: the real, generic
-  // createEntity shape (name, parent) - matching POST /entities
-  // exactly, the same, real, shared endpoint several, genuinely
-  // different real screens (Create Item's own category and item
-  // steps, among others) actually call.
+  // The generic (name, parent) shape, matching POST /entities — shared by several screens (Create Item among them).
   createEntitySimple: (a) => {
     db.createEntityRaw({ name: a.name, parent: a.parent || undefined }, db.asUserId(1));
   },
-  // Per docs/skill-step-runner-design.md §11b: matching
-  // POST /stock/po/stage exactly.
   stagePurchaseOrderSimple: (a) => {
     db.stagePurchaseOrder({
       reference: a.reference, business: a.businessName as any, ledger: a.ledger as any,
@@ -220,14 +125,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.postPurchaseOrder(a.reference, a.businessName as any, a.ledger as any, userId);
   },
-  // Phase B: sets an item's real cost and real pack size (units per
-  // carton) against a specific, named provider - the real, existing
-  // addOrUpdateItemSource mechanism, which is genuinely
-  // provider-specific (a provider's own offer for an item), unlike
-  // Chapter 3's own narrative, which sets this before any provider
-  // exists. No generic, provider-independent item cost/price mechanism
-  // exists in the backend today (confirmed directly, not assumed) - the
-  // provider is created first in this data file for exactly that reason.
+  // Sets cost/pack size against a specific provider — there is no provider-independent item cost mechanism.
   setItemCostAndPackSize: (a) =>
     db.addOrUpdateItemSource({
       itemName: a.itemName,
@@ -236,12 +134,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       packageQuantity: Number(a.packageQuantity),
       isPreferred: true,
     }),
-  // Phase B: Chapter 3's Purchase Order, placed in whole cartons - "an
-  // important, real detail, easy to get wrong" per the manual itself.
-  // Converts cartons to the item's own real, registered pack size
-  // (read directly from item_source, the one, real place it is kept),
-  // then stages and immediately posts the order - a single, real
-  // step, since this data file has no separate "place the order" row.
+  // Converts cartons to the item's registered pack size (item_source), then stages and posts the order in one step.
   createPurchaseOrderInCartons: (a) => {
     const userId = db.asUserId(1);
     const business = a.businessName as any;
@@ -265,9 +158,6 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     });
     db.postPurchaseOrder(a.reference, business, ledger, userId);
   },
-  // Phase B: Chapter 3's Cash Purchase - receives stock at a location,
-  // at cost, paid in full immediately. completeCashPurchase already
-  // exists and takes exactly this shape.
   cashPurchaseSimple: (a) => {
     const userId = db.asUserId(1);
     return db.completeCashPurchase({
@@ -292,15 +182,10 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       paymentMethod: 'cash',
     }, userId);
   },
-  // Phase B: a plain (non-combination) transfer between two named
-  // locations - transferItems already exists and takes exactly this
-  // shape.
   transferItemsSimple: (a) => {
     const userId = db.asUserId(1);
     db.transferItems(a.businessName as any, db.asLedgerName('Actual'), a.itemName as any, a.fromLocationName as any, a.toLocationName as any, Number(a.quantity), `TRANSFER-${a.itemName}-${Date.now()}`, userId);
   },
-  // Phase B: Chapter 3's retail sale - completePosSale already exists
-  // and takes exactly this shape.
   posSaleSimple: (a) => {
     const userId = db.asUserId(1);
     return db.completePosSale({
@@ -313,11 +198,6 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       paymentMethod: 'cash',
     }, userId);
   },
-  // Matches the real, actual UI's own real behaviour exactly: a real
-  // "+ New category…" value means create the real, new category
-  // first (under this business's own real Items root), then create
-  // the real item under it; any other real value names a real,
-  // already-existing category directly.
   createItemAndCategory: (a) => {
     const userId = db.asUserId(1);
     const categoryName = a.category === '+ New category…' ? a.newCategoryName : a.category;
@@ -331,11 +211,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     }
     db.create(categoryEntity, db.typeItemName, a.itemName, userId);
   },
-  // The real, direct, UI-wireable precondition receiveStockWithCombination
-  // and openContainer below otherwise only ever create lazily, as a
-  // side effect, with nothing for a real browser-driven run to select
-  // from beforehand. Idempotent (ensureHierarchyGrouping/Value), so
-  // running it again here does no harm.
+  // Idempotent precondition for receiveStockWithCombination/openContainer below, which otherwise create these lazily.
   createHierarchyGroupingSimple: (a) => {
     const userId = db.asUserId(1);
     db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);
@@ -344,12 +220,6 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
   },
-  // Per direct instruction: exercises the real, existing combination
-  // support already wired into receiveItems - receiving an
-  // item directly into a real, named storage combination (e.g.
-  // whiskey into Secure storage), never received plain and moved
-  // later. Lazily ensures the real Hierarchy grouping/value exist,
-  // matching what a real setup screen would do.
   receiveStockWithCombination: (a) => {
     const userId = db.asUserId(1);
     db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);
@@ -361,13 +231,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       [a.storageValue], [[a.groupingName, a.groupingName]]
     );
   },
-  // Per direct instruction: exercises the independent, non-rate-linked
-  // carton/bottle space case - opening a carton is never a real
-  // "conversion," it is two, real, independent space movements.
-  // Per direct instruction, the already-documented Phase 3 gap is now
-  // closed: openStorageContainer takes a real locationName and scopes
-  // its posting to that specific location, and refuses the operation
-  // if that location has no real bottle shelving at all.
+  // Opening a carton is two independent space movements, not a "conversion"; scoped to one location.
   openContainer: (a) => {
     const userId = db.asUserId(1);
     db.ensureHierarchyGrouping(a.businessName as any, 'Container', userId);
@@ -380,39 +244,19 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       `STORAGE-OPEN-${a.locationName}`
     );
   },
-  // Per docs/ledger-scoped-accounts-and-rollover.md: the standard
-  // closing entry - net profit or loss for the period is posted into
-  // Retained Earnings, entirely within the one, named ledger.
   closeBooksSimple: (a) => {
     const userId = db.asUserId(1);
     return db.closeBooks(a.businessName as any, a.ledger as any, a.asOfDate, a.retainedEarningsAccount as any, userId);
   },
-  // Per docs/ledger-scoped-accounts-and-rollover.md: creates a further
-  // real ledger under the business's own, real Ledgers node - the
-  // real, direct prerequisite rolloverToNewPeriod needs before it can
-  // do anything at all.
   createLedgerSimple: (a) => {
     const userId = db.asUserId(1);
     db.createLedger(a.businessName as any, a.ledger as any, userId);
   },
-  // Per docs/ledger-scoped-accounts-and-rollover.md: the real,
-  // three-phase rollover itself - structural (new ledger's own
-  // account nodes), read (old ledger's own real closing balances),
-  // post (one, ordinary, balanced journal entry, entirely within the
-  // new ledger). Never posts across ledgers.
   rolloverToNewPeriodSimple: (a) => {
     const userId = db.asUserId(1);
     return db.rolloverToNewPeriod(a.businessName as any, a.oldLedger as any, a.newLedger as any, a.asOfDate, userId);
   },
-  // A real, separate, explicitly-named entry rather than a retrofit of
-  // posSaleSimple above (which hardcodes 'Actual', exactly as
-  // cashPurchaseSimple/cashSaleSimple/transferItemsSimple all still do
-  // - a real, confirmed, pre-existing simplification in this test
-  // harness, never in the real backend routes themselves, which
-  // already take an explicit ledger field - see routes/pos.ts).
-  // Needed to post a real sale into the NEW ledger after a real
-  // rollover, exercising the real ledger-isolation checks below
-  // without touching any existing row's own field count.
+  // Separate from posSaleSimple (which hardcodes ledger 'Actual'): needed to post into the NEW ledger after rollover.
   posSaleInLedgerSimple: (a) => {
     const userId = db.asUserId(1);
     return db.completePosSale({
@@ -425,64 +269,22 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       paymentMethod: 'cash',
     }, userId);
   },
-  // Reproduces, via the real API path (auth.ts's own real
-  // createUser/setUserRoles, not a parallel test-only mechanism), the
-  // exact, real two-call sequence backend/test/auth.test.ts's
-  // "setUserRoles changes what a session created afterward reflects"
-  // already exercises as a unit test: create a user with one real
-  // role, then call setUserRoles a second time naming an overlapping
-  // role set. No real screen exists for driving this from the UI path
-  // (frontend/src/routes/setup/users/+page.svelte's own role grid is
-  // a dynamic, per-role checkbox column, not a stable, positional set
-  // of fields this registry's generic field_selector/field_type
-  // contract can drive honestly) - api_function only, the exact, same,
-  // honest shape already used above for Create Entity.
+  // api_function only — the role grid (/setup/users) is a dynamic checkbox column, not stable positional fields.
   createUserSimple: (a) => {
     auth.createUser(a.username, a.password, (a.roles || '').split(',').map((r) => r.trim()).filter(Boolean));
   },
-  // The real, second call of the exact, same failing sequence - looks
-  // the just-created user up by username (the one, real, stable key
-  // this fixture's own data file carries), since setUserRoles itself
-  // takes a numeric userId, never a username.
   setUserRolesSimple: (a) => {
     const user = auth.listUsers().find((u) => u.username === a.username);
     if (!user) throw new Error(`No such user "${a.username}" - Create User must run first.`);
     auth.setUserRoles(user.id, (a.roles || '').split(',').map((r) => r.trim()).filter(Boolean));
   },
-  // The one, real, test-runner-driven way translations are ever loaded
-  // into a running instance - matching POST /api/i18n/translations
-  // exactly (src/routes/i18n.ts calls this exact, same, real
-  // setTranslation function). Assumes the real concept entity already
-  // exists - either a real, structural entity 00-core.sql already
-  // creates, or a real Vocabulary word a preceding "Create Entity" row
-  // in the same data file creates first, the exact, same, real way a
-  // person using /setup/translations' own "Add a new word" form would.
+  // Assumes the concept entity already exists — a structural entity, or a Vocabulary word created first.
   setTranslationSimple: (a) => {
     db.setTranslation(a.concept, a.language, a.translationText, db.asUserId(1));
   },
 };
 
-// ---------------------------------------------------------------------------
-// Per direct instruction: extends the tutorial fixture with real
-// pre/post year-end reports, read from both the old and the new
-// ledger, plus a real sale posted into the new ledger after rollover
-// - proving real ledger isolation ("nothing ever posts across
-// ledgers", docs/ledger-scoped-accounts-and-rollover.md) with real,
-// structurally-true checks rather than a hand-computed, fragile
-// "golden" figure: a trial balance must always balance; closing the
-// books must never change the P&L already reported for that same
-// period; a brand-new ledger's own P&L is genuinely zero until
-// something is actually posted into it (Income/Expense are never
-// carried forward); and the OLD ledger's own trial balance must stay
-// byte-identical after a sale posts into the NEW ledger, never
-// shared.
-//
-// The small, in-memory maps below are the one, real, deliberately
-// simple way two separate steps ("record this" / "does it still
-// match") compare a real figure across time, within one real run of
-// this fixture - never persisted, never meant to be.
-// ---------------------------------------------------------------------------
-
+// See docs/pm-testing-e2e.md — "Structural verification, not golden figures"
 const recordedTrialBalanceTotals = new Map<string, number>();
 const recordedNetIncome = new Map<string, number>();
 
@@ -546,10 +348,6 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
     recordedTrialBalanceTotals.set(tbKey(a), tb.total_debit_minor);
     return true;
   },
-  // The real, direct ledger-isolation proof: this exact figure, for
-  // the OLD ledger, must be identical before and after a real sale
-  // posts into the brand-new ledger - "nothing ever posts across
-  // ledgers" is meaningless unless something checks it stays true.
   trial_balance_total_matches_recorded: (a) => {
     const tb = db.getTrialBalance(a.businessName as any, db.asLedgerName(a.ledger), a.asOfDate || undefined);
     const recorded = recordedTrialBalanceTotals.get(tbKey(a));

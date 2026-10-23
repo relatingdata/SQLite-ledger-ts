@@ -362,27 +362,8 @@ export function getEffectiveSaleCurrency(terminalName: string | undefined): stri
   return row?.currency ?? null;
 }
 
-// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
-// Per direct instruction: a second, separate bare-name lookup in this
-// same function, found by direct investigation of the tutorial's own
-// Head Office postings landing on an unrelated, pre-existing "Head
-// Office" entity under a different division entirely - confirmed by
-// tracing the real journal lines directly. getLocation below was
-// already scoped (checkpoint 432), but it was only ever used to
-// determine bottle vs. carton; the real entity id the Storage Capacity
-// structure is actually built under came from this separate, unscoped
-// query, untouched by that earlier fix. Scoped the same way getLocation
-// itself is: filtered within the SQL by the real business, never a
-// check on whichever row an unscoped query happened to return first.
+// Docs: docs/storage-space-as-currency-design.md § 24. See docs/pm-stock-api.md § "Item-location levels and capacity status" for the {business} Locations root-naming note.
 export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; occupiedAccountId: number; unit: 'bottle' | 'carton' } {
-  // The pre-existing "Wine Retail Business" seed data has its own,
-  // real, already-documented gap (docs/multi-dimensional-reporting.md
-  // §2, confirmed directly in test's own getHierarchyChain assertion):
-  // its own Locations root is named "{business} Locations", not the
-  // standard "Locations" every other business uses. Tolerated here via
-  // the same, shared resolveBusinessLocationsRootId helper every other
-  // call site with this exact gap now uses too, not a locally
-  // duplicated fallback query.
   const locationsRootId = resolveBusinessLocationsRootId(business);
   const locationId = locationsRootId
     ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, locationsRootId) as { id: number } | undefined)?.id
@@ -443,17 +424,6 @@ export interface InventoryListingLocationGroup {
   capacity: LocationCapacityStatus;
 }
 
-// Per direct instruction: "Inventory" is the real, correct word for this
-// collection - "Stock" is retired from the code (it stays as a real,
-// translatable Vocabulary word a person reads, and "Stock Take" is UI
-// naming only, never a code term). A real, confirmed, serious bug fixed
-// in the same pass: this query had no business scoping at all, so it
-// aggregated every item and location sharing a name across every real
-// business in the database together - confirmed directly, not assumed,
-// by a genuine item named "Amber Ale 330ml" existing under several,
-// different, unrelated businesses at once. journal already carries its
-// own real business_id; joining through it, rather than matching item
-// and location by bare name alone, is the real, direct fix.
 export interface StorageSpaceRow {
   location: string;
   currency: string;
@@ -466,13 +436,7 @@ export interface StorageSpaceLocationGroup {
   currencies: { currency: string; installed_minor: number; occupied_minor: number; remaining_minor: number; balanced: boolean }[];
 }
 
-// Per direct instruction: a real, new report, since the Trial Balance
-// cannot and should not show these accounts - they are physical
-// storage-space accounts under each real Location, never financial
-// accounts under Chart of Accounts, so getLedgerBalances' own
-// real_accounts CTE (which only walks Chart of Accounts) structurally
-// excludes them. Scoped to Session.Business, the same, standing
-// agreement already applied elsewhere.
+// See docs/pm-stock-api.md § "The Storage Space Report"
 export function getStorageSpaceReport(): StorageSpaceLocationGroup[] {
   const rows = db
     .prepare(
@@ -502,50 +466,14 @@ export function getStorageSpaceReport(): StorageSpaceLocationGroup[] {
   }
   for (const group of groups.values()) {
     for (const cur of group.currencies) {
-      // Per direct instruction: Installed balances against Remaining at
-      // opening (Occupied starts at zero) - a real, direct check that
-      // the two still genuinely reconcile: however much space is
-      // occupied or remaining must sum to exactly the real, installed
-      // total, never a fraction, never a mismatch.
       cur.balanced = cur.occupied_minor + cur.remaining_minor === -cur.installed_minor;
     }
   }
   return [...groups.values()].sort((a, b) => a.location.localeCompare(b.location));
 }
 
-/** A real, confirmed bug, found directly while exercising the real
- * /stock/listing screen end-to-end through the UI for the first
- * time: this read `Session.Business.id` — the real, ambient session-
- * context primitive — but nothing in this application's own, actual,
- * current usage ever establishes that context (per
- * docs/session-business-context.md's own, honest status: the real,
- * working business selection is the frontend's own client-side
- * session store, never the backend session record this primitive
- * reads). Every real call through the live /stock/listing HTTP route
- * threw "No real, current business - this was read outside a real
- * session context," without exception. Fixed without breaking any
- * of this same function's own several other, already-working,
- * internal callers in this file (which never had a real business to
- * hand it in the first place): business is now a real, optional,
- * explicit parameter, falling back to the exact, same ambient
- * Session.Business.id only when genuinely omitted — the HTTP route
- * below now passes it explicitly. */
-/** hierarchyName names which real, business-chosen Hierarchy grouping
- * (e.g. "Division," or any other real, nameable hierarchy) each
- * location's own group tag is resolved against - never hardcoded
- * here, so a group is only ever tagged when a caller explicitly asks
- * for one; omitted entirely, every location's own group is null. */
+// See docs/pm-stock-api.md § "Stock listing and the movement report"
 export function getInventoryListingByLocation(business?: BusinessName, hierarchyName?: string): InventoryListingLocationGroup[] {
-  // A further, real, confirmed continuation of the same bug class
-  // documented just above: this function has a SECOND, independent
-  // ambient Session.Business read further down (building each real
-  // location group's own `location`/`city` fields), missed in the
-  // first pass since it only throws once a real business actually has
-  // stock recorded at more than one location - the single-location
-  // "Barossa Shiraz" scenario this was first found against never
-  // reached it. The real, resolved business name is now carried
-  // through from the same, single, optional parameter above, not
-  // re-read ambiently a second time.
   const resolvedBusiness = business ?? asBusinessName(Session.Business.name);
   const businessId = business ? requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName)).id : Session.Business.id;
   const qtyRows = db
@@ -560,13 +488,7 @@ export function getInventoryListingByLocation(business?: BusinessName, hierarchy
        ORDER BY l.name, p.name`
     )
     .all(businessId) as { item: string; location: string; quantity_on_hand: number }[];
-  // Not fully closed: getItemLocation itself still has no business
-  // parameter, so if two different businesses genuinely share both an
-  // item name and a location name, its own min/max/reorder levels could
-  // still come from the wrong one. Narrower than the bug just fixed
-  // above (which mixed quantities across every business unconditionally)
-  // - this one needs both names to collide at once - but real, not
-  // closed, and not fixed in this pass.
+  // getItemLocation has no business parameter — see docs/pm-stock-api.md § "Stock listing and the movement report" ("Business-scoping is not yet complete end to end")
   const rows: InventoryListingRow[] = qtyRows.map((r) => {
     const levels = getItemLocation(asItemName(r.item), asLocationName(r.location));
     return {
@@ -579,10 +501,7 @@ export function getInventoryListingByLocation(business?: BusinessName, hierarchy
     };
   });
 
-  // getLocationCapacityStatus and getHierarchyGroupForLocation still
-  // have no business parameter of their own - the same, narrower,
-  // not-yet-closed risk noted above applies to them too, not fixed in
-  // this pass.
+  // getLocationCapacityStatus/getHierarchyGroupForLocation: same open gap, see note above.
   const groups = new Map<string, InventoryListingLocationGroup>();
   for (const row of rows) {
     let group = groups.get(row.location);
@@ -651,10 +570,7 @@ function allPreferredProviders(): Map<string, string> {
   return map;
 }
 
-/** hierarchyName names which real, business-chosen Hierarchy grouping
- * (e.g. "Division," or any other real, nameable hierarchy) tags each
- * row's own location-based group - never hardcoded here; omitted
- * entirely, every row's own group is null. */
+// See docs/pm-stock-api.md § "Stock listing and the movement report"
 export function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string, hierarchyName?: string): StockMovementReport {
   const ledgerId = (
     db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
@@ -690,9 +606,6 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
   for (const lines of movementsByJournalId.values()) {
     const distinctLocations = new Set(lines.map((l) => l.location));
     if (distinctLocations.size === 2) {
-      // Two real, distinct locations sharing this one, real journal
-      // entry is structurally what a transfer's own two legs are -
-      // one location's own count decreasing, the other's increasing.
       const outLeg = lines.find((l) => l.quantity < 0);
       const inLeg = lines.find((l) => l.quantity > 0);
       if (!outLeg || !inLeg) continue;
@@ -705,10 +618,6 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
         to_location: inLeg.location,
       });
     } else {
-      // One real location: a positive quantity is stock arriving (a
-      // receipt), a negative quantity is stock leaving (a dispatch) -
-      // the sign itself is the real, structural distinction, never a
-      // reference-string pattern.
       for (const r of lines) {
         if (r.quantity > 0) {
           receipts.push({
@@ -778,8 +687,6 @@ export function getInventoryListing(limit = 100, offset = 0): InventoryListingRo
   return all.slice(offset, offset + limit);
 }
 
-// Per the same, real fix as getInventoryListingByLocation above: scoped
-// to Session.Business, never a bare, global count across every business.
 export function countInventoryListing(): number {
   const row = db
     .prepare(
@@ -906,25 +813,7 @@ export interface ReceiveStockPhysicalInput {
   combinationShape?: [string, string][];
 }
 
-/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
- * physical-and-unit-tracking half of receiveItems only — the real
- * quantity movement, the real location-capacity adjustment, and (for
- * a real, combination-tracked receipt) the real, parallel "units on
- * hand" count tracking (its own, separate, non-dollar real currency —
- * UNITS-<combination>, not a journal entry in any ordinary, dollar
- * sense) — with no real dollar VALUE journal entry of any kind. The
- * real dollar Inventory/Accounts-Payable VALUE entry a combination
- * receipt also used to post (see receiveIntoStorageLines in
- * frontend/src/lib/canned-journal.ts) is posted separately, from the
- * frontend, through the exact, same generic
- * /journal/staging+/journal/post calls the General Journal screen's
- * own "Save" button uses.
- *
- * receiveItems itself is deliberately left completely unchanged —
- * every other real caller (Cash Purchase's own /pos/receive-stock
- * endpoint, the tutorial's own proof scripts, every existing test) is
- * a genuine backend-to-backend call with no browser-side canned-
- * journal step of its own to post that VALUE entry instead. */
+// See docs/pm-stock-api.md § "Receive/transfer: physical-only variants that post value from the frontend"
 export function receiveStockPhysical(input: ReceiveStockPhysicalInput, userId: UserId): void {
   const { business, ledger, reference, itemName, locationName, quantity, transdate, combinationValues, combinationShape } = input;
   if (quantity <= 0) throw new ValidationError('Received quantity must be positive.');
@@ -959,30 +848,12 @@ export function receiveStockPhysical(input: ReceiveStockPhysicalInput, userId: U
 }
 
 export interface ResolvedReceiveAccounts {
-  /** The real, combination-tier Inventory account the item's dollar
-   * value is received into — the exact, same real, stateful account
-   * creation (ensureProductInstance/ensureCombinationAccountLeaf)
-   * receiveItems's own combination-receipt VALUE block already does. */
   inventoryAccount: string;
-  /** The real, control Accounts Payable account — the exact, same,
-   * real name receiveItems's own combination-receipt VALUE block
-   * already posts to. */
   payableAccount: string;
-  /** This item's known, real per-unit cost, or null when no real cost
-   * is known yet — the frontend then posts no real VALUE journal
-   * entry at all, never a fabricated cost, the exact, same real
-   * behavior receiveItems's own combination-receipt VALUE block
-   * already used. */
   unitCostMinor: number | null;
 }
 
-/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
- * account-resolution counterpart to receiveStock/resolveSaleAccounts/
- * etc. for Receive Into Storage — only ever relevant for a real,
- * combination-tracked receipt (an ordinary, plain receipt posts no
- * real dollar journal entry at all, before or after this migration,
- * so this returns null for one). No division/category of any kind is
- * ever resolved or returned here. */
+// See docs/pm-stock-api.md § "Receive/transfer: physical-only variants that post value from the frontend"
 export function resolveReceiveAccounts(
   business: BusinessName,
   itemName: ItemName,
@@ -1094,14 +965,7 @@ export function transferItems(
   adjustLocationCapacity(business, ledger, fromLocationName, itemName, -quantity, date, asUserId(userId), reference);
   adjustLocationCapacity(business, ledger, toLocationName, itemName, quantity, date, asUserId(userId), reference);
 
-  // Per direct instruction: a real, confirmed bug - this plain
-  // (non-combination) path moved quantity and location capacity, but
-  // never any Inventory dollar value at all, unlike the
-  // combination-tagged path just below it, which already does exactly
-  // this. Mirrors that same, existing logic here, using the plain
-  // per-location Inventory account completeCashPurchase already posts
-  // to (ensureItemLocationInventoryAccount), so a transfer genuinely
-  // moves value with the stock, not just its count and its space.
+  // Non-combination path also moves the plain per-location Inventory value — see docs/pm-stock-api.md § "Receive/transfer: physical-only variants..."
   if (!(combinationShape && combinationValuesAfterLocation)) {
     const unitCostMinor = getItemUnitCostMinor(itemName);
     if (unitCostMinor != null) {
@@ -1156,24 +1020,7 @@ export interface TransferStockInput {
   transdate?: string;
 }
 
-/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
- * physical half of an ordinary (non-combination) stock transfer only —
- * the real quantity movement and real location-capacity adjustment,
- * with no real dollar VALUE journal entry of any kind, and the exact,
- * same real validation transferItems already does (same city, enough
- * real stock on hand). The real Stock Transfer screen's own canned,
- * dollar-value VALUE entry (see transferLines in
- * frontend/src/lib/canned-journal.ts) is posted separately, from the
- * frontend, through the exact, same generic
- * /journal/staging+/journal/post calls the General Journal screen's
- * own "Save" button uses.
- *
- * transferItems itself is deliberately left completely unchanged —
- * every other real caller (restocking, the tutorial's own proof
- * scripts, every existing test) is a genuine backend-to-backend call
- * with no browser-side canned-journal step of its own to post that
- * VALUE entry instead, so it still needs transferItems to do the
- * whole, real job itself, VALUE entry included. */
+// See docs/pm-stock-api.md § "Receive/transfer: physical-only variants that post value from the frontend"
 export function transferStock(input: TransferStockInput, userId: UserId): void {
   const { business, ledger, itemName, fromLocationName, toLocationName, quantity, reference, transdate } = input;
   if (quantity <= 0) throw new ValidationError('Transfer quantity must be positive.');
@@ -1309,14 +1156,6 @@ export function createStockTake(locationName: LocationName, takeDate: string, us
   const takeId = takeEntity.id;
 
   const resolvedLocationName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(locationId) as { name: string }).name;
-  // The same, real, ambient-Session.Business read bug class, found
-  // directly again, right here: getInventoryListingByLocation() with
-  // no real business supplied falls back to the real, ambient
-  // Session.Business, which this app's real, live HTTP requests never
-  // establish (see that function's own doc comment above). business
-  // is now a real, optional, explicit parameter here too, threaded
-  // through from the real, live /stock-takes route, the exact, same
-  // fix already applied to every other real call site of this kind.
   const itemsHere = (getInventoryListingByLocation(business).find((g) => g.location === resolvedLocationName)?.rows ?? [])
     .map((r) => {
       const detail = getItemLocation(asItemName(r.item), asLocationName(resolvedLocationName));

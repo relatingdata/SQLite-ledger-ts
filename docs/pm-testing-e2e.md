@@ -210,6 +210,51 @@ step's own original values, position for position. A mismatch, or a
 UI step with no matching recorded row, is an independently-confirmed
 failure — stronger than "the click didn't throw."
 
+### Structural verification, not golden figures — the ledger-isolation checks
+
+The Tutorial fixture's own `VERIFY_REGISTRY` (`backend/scripts/step-runner.ts`)
+includes a set of checks against pre/post year-end reports, read from
+both the old and a brand-new ledger after a rollover, that assert
+*structural* truths rather than a hand-computed expected figure that
+would go stale the moment an earlier step's own numbers change: a
+trial balance must always balance; closing the books must never
+change the P&L already reported for that same period
+(`closeBooks`'s own closing entry is deliberately excluded from this
+read, via `excludeCloseEntries`); a brand-new ledger's own P&L is
+genuinely zero until something is posted into it (Income/Expense are
+never carried forward across a rollover — see the Domain Reference
+chapter's ledger-scoping section); and the OLD ledger's own trial
+balance total must stay identical after a sale posts into the NEW
+ledger — "nothing ever posts across ledgers" is meaningless unless
+something checks it stays true. Two small in-memory maps
+(`recordedTrialBalanceTotals`, `recordedNetIncome`) hold the
+"before" figure within one run, for the "after" step to compare
+against — never persisted, never meant to be.
+
+### `API_REGISTRY` — notable, non-obvious mappings
+
+A handful of `API_REGISTRY` entries (`backend/scripts/step-runner.ts`)
+mirror frontend mapping logic that would otherwise go unexercised by
+the API path, rather than calling a backend function 1:1:
+
+- **`createBusiness`** maps the data file's plain-text
+  `coaPrototype`/`businessType` labels (`"German"`, `"Sole Trader"`)
+  to the backend's own prototype names and `entityStructure` values,
+  the same mapping the real new-business page applies
+  (`frontend/src/routes/setup/new-business/+page.svelte`). Without a
+  `coaPrototype`, `copyChartOfAccountsInto` copies no universal
+  CoA-tagged leaves at all, so this step must mirror the frontend's
+  default exactly, not take an API shortcut.
+- **`createAndConfigureLocation`** passes capacity at creation time,
+  atomically, rather than as a later, separate step — the real
+  `createAndConfigureLocation` design calls
+  `ensureLocationCapacityAccount` immediately so the opening balance
+  is known and posted at creation, never lazily.
+- **`createItemAndCategory`** matches the real UI's own behavior: a
+  `"+ New category…"` value creates the category first, under the
+  business's own `Items` root, before creating the item under it; any
+  other value names an already-existing category directly.
+
 ### Honest, current status
 
 - Positional, command-free design (data/screen-registry/control
