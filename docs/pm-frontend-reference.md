@@ -520,6 +520,51 @@ form state — it's a full replace, not a partial merge (see
 `schema.sql`'s note on `contact_entry`) — so a partial send would
 silently wipe whatever field isn't included.
 
+## `frontend/src/routes/locations/+page.svelte` — Locations setup and storage actions
+
+A refrigerated section's location entity is named with a suffix,
+using the same mechanism as every other location (its own entity, its
+own capacity) rather than a special field — a retail shop's cold
+storage (sparkling wine, some beer) is genuinely separate real estate
+from ordinary shelf space, not a subdivision of the same number.
+Resolving this business's Locations parent walks the live entity tree
+by id, not a constructed `"{business} Locations"` string, since
+Locations is a plain, per-business-scoped name, never that mangled
+form (a real regression this page previously had).
+
+**Timezones** are the complete list of IANA identifiers from `Intl`'s
+built-in database — the same data Luxon uses on the backend — not a
+hand-maintained, potentially-stale subset. **Location types** are
+extensible via the backend's `getLocationTypes`/`createLocationType`
+mechanism (the same pattern already used for address/phone types),
+fixing a previous version of this form that hardcoded only
+Retail/Warehouse.
+
+**Storage combinations** (Open Container, Convert Storage Space)
+reuse the Hierarchy/Product mechanism already set up under Setup →
+Hierarchies — no separate concept of their own, just two actions that
+read whichever groupings a business already defined there. Opening a
+container, per `docs/canned-journal-to-frontend-design.md` Phase 1,
+computes its canned account selection client-side via
+`openContainerLines` (see the canned-journal chapter); the backend is
+only asked to resolve/create the storage-space and Inventory accounts,
+with posting through the same generic staging+post calls. Opening a
+container has no physical stock-quantity side effect of its own (it
+only reclassifies which tier the same stock sits in), unlike
+Transfer/Dispatch, so there's no separate "do the physical side
+effect" call here.
+
+**`getLocationCurrencies`**/nominated currencies (per
+`docs/multicurrency-design.md`) are a location's own nominated set of
+further trading currencies, alongside its implicit home currency —
+nearly every location's list stays empty.
+
+Creating a new location awaits the full create request — including
+the backend's own transaction staging and posting the location's
+balanced Storage Capacity accounts — before resolving, so the Form
+component's submit button stays disabled for the full duration, never
+resolving early.
+
 ## `frontend/src/lib/components/CashTransaction.svelte` — the shared Cash Purchase/Sale screen
 
 This is the one real screen behind both "Cash Purchase" and "Cash

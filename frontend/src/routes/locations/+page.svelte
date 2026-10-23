@@ -8,21 +8,12 @@
   import PhoneList from '$lib/components/PhoneList.svelte';
   import ContactList from '$lib/components/ContactList.svelte';
 
-  // The suffix a real refrigerated section's own location entity is
-  // named with — the same mechanism as every other location (its own
-  // real entity, its own real capacity), not a special field. A
-  // retail shop's cold storage (sparkling wine, some beer) is
-  // genuinely smaller, separate real estate from its ordinary shelf
-  // space, not a subdivision of the same number.
+  // Refrigerated-section suffix — see docs/pm-frontend-reference.md.
   const COLD_SUFFIX = ' — Refrigerated';
 
   let entities: EntityNode[] = $state([]);
 
-  // The real, confirmed fix for a real, found regression: Locations
-  // is now a real, plain, per-business-scoped name (never
-  // "{business} Locations") - resolving this business's own real
-  // Locations parent must walk the real, live entity tree by id, not
-  // construct a bare, mangled name string that no longer exists.
+  // Walks the live tree by id, not a constructed name string — see docs/pm-frontend-reference.md.
   function thisBusinessLocationsId(): number | undefined {
     const biz = entities.find((e) => e.name === session.current?.businessName);
     if (!biz) return undefined;
@@ -38,10 +29,7 @@
   let selectedName = $state('');
   let creatingNew = $state(false);
 
-  // A real, direct, complete list of every genuine, currently-known
-  // IANA timezone identifier — Intl's own, built-in, real timezone
-  // database, the exact same real data Luxon uses on the backend, not
-  // a hand-maintained, potentially-stale subset.
+  // Intl's own IANA timezone database — see docs/pm-frontend-reference.md.
   const ALL_TIMEZONES = Intl.supportedValuesOf('timeZone');
 
   let newLocationValues: Record<string, string | number | string[]> = $state({
@@ -58,21 +46,12 @@
   let cartonCapacity = $state('');
   let saving = $state(false);
 
-  // Real, extensible location types - per direct, confirmed finding,
-  // this form previously hardcoded only Retail/Warehouse, completely
-  // bypassing the backend's own, already-real, extensible mechanism
-  // (getLocationTypes/createLocationType) - the exact same, real
-  // pattern already correctly used for address/phone types.
+  // Extensible location types — see docs/pm-frontend-reference.md.
   let locationTypes: string[] = $state([]);
   let newLocationType = $state('');
   let addingLocationType = $state(false);
 
-  // Per direct instruction: storage combinations reuse the exact,
-  // same, real Hierarchy/Product mechanism already set up under
-  // Setup → Hierarchies — no separate concept of its own, just two,
-  // real actions (opening a container, converting between storage
-  // combinations) that read whichever real groupings a business
-  // already defined there.
+  // Storage combinations reuse the Hierarchy/Product mechanism — see docs/pm-frontend-reference.md.
   let hierarchyGroupings: HierarchyGroupingWithValues[] = $state([]);
   let openContainerItem = $state('');
   let openContainerGrouping = $state('');
@@ -95,18 +74,7 @@
     storageActionError = '';
     storageActionMessage = '';
     try {
-      // Per docs/canned-journal-to-frontend-design.md Phase 1: the
-      // canned account selection (which account, how much) is now
-      // computed here, client-side, by the one, shared
-      // openContainerLines function — the backend is only asked to
-      // resolve/create the real storage-space and Inventory accounts
-      // (a real, stateful side effect); the actual posting goes
-      // through the exact, same, generic journal staging+post calls
-      // the General Journal screen's own "Save" button uses. Opening a
-      // container has no real physical stock-quantity side effect of
-      // its own (it only reclassifies which real tier the same real
-      // stock already sits in), so there is no separate "do the real
-      // side effect" call needed here, unlike Transfer/Dispatch.
+      // Canned account selection via openContainerLines — see docs/pm-frontend-reference.md.
       const business = asBusinessName(session.current.businessName);
       const ledger = asLedgerName(session.current.ledgerName);
       const definitionDimensions: [string, string][] = [[openContainerGrouping, openContainerGrouping]];
@@ -188,10 +156,7 @@
   let coldSaving = $state(false);
   let addingCold = $state(false);
 
-  // Per docs/multicurrency-design.md: a location's own, real,
-  // nominated SET of further currencies it trades in, alongside its
-  // own implicit home currency. Nearly every real location's own list
-  // stays empty.
+  // Nominated further trading currencies — see docs/pm-frontend-reference.md.
   let locationCurrencies: string[] = $state([]);
   let newCurrencyCode = $state('');
   let addingCurrency = $state(false);
@@ -234,13 +199,7 @@
     if (!name || !city) throw new Error('Location name and city are both required.');
     if (!session.current) throw new Error('No real, current business selected.');
     try {
-      // Per direct, absolute instruction: this one, real, single,
-      // properly-awaited request only resolves once the backend's own
-      // real transaction (staging, then posting the location and its
-      // own, real, balanced Storage Capacity accounts) has genuinely
-      // committed - never before. The Form component's own real
-      // submit button stays disabled for the real, full duration of
-      // this await.
+      // Awaits the full backend transaction before resolving — see docs/pm-frontend-reference.md.
       await createLocation(name, session.current.businessName, {
         city,
         location_type: String(v.locationType ?? 'Retail'),

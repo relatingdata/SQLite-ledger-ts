@@ -5348,12 +5348,7 @@ test('completePosSale, through a real, foreign-currency terminal at a real, nomi
   assert.equal(homeCashAccount?.currency ?? null, null, "the plain, home-currency account itself stays genuinely untouched by a real, foreign-currency sale's own payment");
 });
 
-// ===========================================================================
-// Derived directly from docs/multicurrency-design.md's own, real,
-// newly-written statements - per specification-driven-design, these
-// are confirmed genuinely failing (the functions don't exist yet)
-// before any implementation is written.
-// ===========================================================================
+// --- multicurrency (docs/multicurrency-design.md) -------------------------
 
 test('a business nominates one real home currency, stored in its own detail_json - per multicurrency-design.md, "Where currency lives, and precedence"', () => {
   const biz = fx.freshBusiness('HomeCcyTest Co', { coaPrototype: undefined });
