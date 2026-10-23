@@ -29,6 +29,7 @@ const PARTS: Parts = [
   ['Part 4 --- Backend API Reference', [
     'pm-journal-api.md',
     'pm-stock-api.md',
+    'pm-reports-reference.md',
     'function-inventory.md',
   ]],
   ['Part 5 --- Frontend Reference', [

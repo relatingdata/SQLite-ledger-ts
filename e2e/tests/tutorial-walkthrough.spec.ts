@@ -27,11 +27,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(500);
   await shot('login_landing');
 
-  // Choose any real, existing business first — the app's own real
-  // session requirement, before creating a new one. Always 'My
-  // Business' — the one, real, always-present dummy company for
-  // login purposes — never Wine Retail Business, which may not exist
-  // at all (SEED_DEMO_BUSINESSES=false).
+  // Login requires an existing business first; 'admin' is always present.
   await page.locator('select').first().selectOption({ label: 'admin' });
   await page.waitForTimeout(300);
   await page.getByRole('button', { name: /continue/i }).click();
@@ -44,10 +40,6 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.locator('input[placeholder="e.g. Corner Store Pty Ltd"]').fill(BIZ);
   await page.locator('input[placeholder="e.g. 2026-27"]').fill('2026-27');
 
-  // Explicitly select and verify the real, database-driven "Sole
-  // Trader" business type — proving the selector itself works,
-  // rather than passing by coincidence via whatever the default
-  // happens to be.
   await page.waitForTimeout(500);
   const businessTypeSelect = page.locator('select').nth(1);
   await businessTypeSelect.selectOption({ label: 'Sole Trader' });
@@ -55,8 +47,6 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   const selectedLabel = await businessTypeSelect.locator(`option[value="${selectedValue}"]`).textContent();
   expect(selectedLabel?.trim()).toBe('Sole Trader');
 
-  // Sole Trader's own real question ("Owner name") should now be
-  // shown — answer it, exercising the real Detail.set write path.
   await page.getByLabel('Owner name').fill('Jamie Chen');
 
   await page.waitForTimeout(300);
@@ -65,7 +55,6 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1500);
   await shot('new_business_created');
 
-  // Switch the real, active session to the newly-created business.
   await page.goto('/session');
   await page.waitForTimeout(500);
   await page.locator('select').first().selectOption({ label: BIZ });
@@ -103,9 +92,6 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(800);
   await shot('first_division_created');
 
-  // Add a warehouse location within the division (Main Street Cellar,
-  // created earlier, is the real retail outlet; a warehouse is also
-  // needed for the real receiving/transfer steps below).
   await page.getByRole('button', { name: 'Main Division' }).click();
   await page.waitForTimeout(300);
   await page.locator('.tree-panel [role="toolbar"]').focus();

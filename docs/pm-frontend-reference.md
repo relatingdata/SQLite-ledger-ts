@@ -384,3 +384,478 @@ in the file (not deleted, per this project's own "recoverable, not
 silently discarded" convention) — see `docs/unused-functions.md` for
 the full, current list; they are not reproduced here since that file
 is itself the live-maintained record of this specific fact.
+
+## `frontend/src/lib/canned-journal.ts` — the canned-journal computation module
+
+This is the one, shared, non-duplicated module every "canned"
+financial screen's submit handler calls to build its own complete,
+already-balanced set of journal lines, then posts them through the
+same `stageLine`/`postJournalEntry` calls the General Journal screen's
+own "Save" button uses — the frontend half of the "frontend-driven
+canned journal" pattern described under the `api.ts` section above.
+Each function here is a pure, deterministic computation over the
+screen's own form values plus whatever account names the backend has
+already resolved for it (via a `resolve*Accounts` call) — it never
+creates an account, never touches stock quantities, and never calls
+the network itself.
+
+**No division/category field, ever.** A journal entry never carries a
+division or category of any kind — every real dimension (which
+location, which item, which storage tier/pack size) is baked directly
+into the account's own name, the Location × Item Cartesian product
+(× storage tier/pack size where that distinction genuinely changes
+cost or selling price), the same way `ensureItemLocationInventoryAccount`
+names its own accounts (`<item> (<tier>) — <location>`). There is no
+separate tag field anywhere in this module, and there must never be
+one.
+
+`CannedLine.accountId` carries the same resolved-id-over-bare-name
+rationale as `StagedLine.accountId` (see the "pass the resolved
+account id" rule under `api.ts`, above) — repeated here only as a
+reminder at the point of use, not re-explained.
+
+The five per-screen canned shapes:
+
+- **`cashPurchaseLines`** (Cash Purchase) — debits each item's
+  location-scoped Inventory account (resolved by
+  `resolveCashTransactionAccounts`) for that line's amount, debits the
+  tax account for the total tax if any, and credits Cash-and-Bank for
+  the grand total. Mirrors what `completeCashPurchase`/`postInvoice`
+  compute server-side.
+- **`posSaleLines`** (Cash Sale) — mirrors `completePosSale`'s own
+  revenue-account resolver and COGS loop, but split into two separate
+  results since the backend always posted these as two separate
+  journal entries: the main sale entry (credit Sales Revenue per item,
+  credit tax, debit Cash-and-Bank) and a COGS-only entry, posted only
+  for lines whose per-unit cost is actually known (debit COGS, credit
+  Inventory). A new product with no known cost yet simply posts no
+  COGS/Inventory line — never a fabricated cost.
+- **`transferLines`** (Stock Transfer) — credits the source location's
+  Inventory account and debits the destination's, for the real cost
+  of the quantity moved. Returns an empty line list when the item's
+  per-unit cost isn't known yet (no fabricated cost, no entry at all —
+  only the physical movement via `transferStock` happens).
+- **`openContainerLines`** (Open Container) — returns two independent
+  results, since they're posted as two separate journal entries: the
+  storage-space movement (container's "Remaining" up / "Occupied" down
+  by `cartonsOpened`; unit's "Remaining" down / "Occupied" up by
+  `unitsProduced`; no contra accounting) always posts, while the
+  dollar Inventory-value movement (container tier's Inventory account
+  to the unit tier's) posts only when the per-unit cost is known.
+- **`receiveIntoStorageLines`** (Receive Into Storage) — relevant only
+  for a combination-tracked receipt (an ordinary receipt posts no
+  dollar journal entry at all): debits the item's combination-tier
+  Inventory account, credits Accounts Payable, for the real cost of
+  the quantity received. Returns an empty line list when no
+  combination was given, or cost isn't known yet.
+
+**`freshReference`** generates a client-side reference in the same
+`<PREFIX>-<timestamp>-<random>` shape the backend's own canned
+functions used to generate server-side.
+
+## `frontend/src/routes/editor/+page.svelte` — the generic entity editor
+
+**`entitiesById`** is a memoized `id → entity` Map, built once per
+entities load. This fixes a real performance bug found live by timing
+the UI: the "Create Provider"/"Create Customer" step consistently took
+~18s even though every network call finished in well under 300ms — the
+entities table renders every entity in the whole business (4,623 of
+them in the real seed data) as a row, and each row calls `nameFor`
+twice (parent name, relation name); `nameFor` previously did a linear
+`entities.find(...)` scan on every one of those ~9,246 calls. The same
+class of bug (and the same O(1)-map fix) recurred twice elsewhere this
+project — see `/items`'s `categories` block and `entityTree.ts`.
+
+**`parentableEntities`** filters Vocabulary and its descendants
+(translated UI labels, help text) out of the parent/relation picker,
+since once help-text vocabulary entities became sentence-length the
+dropdown became cluttered with hundreds of unreadable options. This
+filters the dropdown only, not the underlying entity list used by the
+table view above. Critically, it excludes only Vocabulary's own
+*childless* direct children, not the whole subtree: "Customers" lives
+structurally under Vocabulary (`Customers < Vocabulary < Application <
+Root`), the same place every leaf UI-label word and help-text sentence
+lives — excluding the whole subtree unconditionally (an earlier
+version) silently removed "Customers" as a legitimate, selectable
+Parent target along with the leaf words. The distinguishing signal,
+confirmed against real seed data: of Vocabulary's 742 direct children,
+only 14 — exactly the structural category roots real business
+entities get created under (`Customers`, `Vendors`, `Relationship
+Types`, `Address Types`, `Contact Person Types`, and similar) — have
+any children of their own anywhere in the tree; every pure leaf
+UI-label word and help-text sentence has none.
+
+**The re-parent guard rail** (`originalParent`/`originalName`/
+`originalRelation`/`originalAccountnumber`, §5 of
+`docs/translator-form-and-guard-rails-plan.md`) records the entity's
+state at selection time, compared against the edit fields at save
+time, so a structural re-parent — as opposed to an ordinary rename or
+relation change — always gets its own explicit confirmation showing
+both the current and proposed parent together. This is the exact
+guard rail that would have caught an accidental attempt elsewhere in
+this project to re-parent Customers under Accounts Receivable before
+it was ever written to `schema.sql`.
+
+This page also opts into the shared Esc-with-warning mechanism
+(`$lib/dirty-state` / `hasUnsavedEdit` — see the State chapter above).
+**`contact`** holds only the fields that still live directly on the
+contact record; address/phone are handled entirely by the shared
+`AddressList`/`PhoneList` components. **`hierarchyLinksIn`** is a
+second guard rail (§5): every entity that reaches the currently
+selected one via a hierarchy link, so the editor shows a visible
+"why is this here" trail rather than requiring a structural link to
+be discovered by accident.
+
+**`normalizeForDuplicateCheck`** backs a live, pre-creation
+duplicate-intent check (§5) — case-insensitive, and also flagging a
+close, likely-typo match (same name differing only in
+whitespace/punctuation), not only an exact one, since this app's
+global-uniqueness rule makes near-misses just as real a trap as exact
+duplicates. The create-vendor path specifically (per
+`docs/contact-types-and-translations.md`) routes through
+`createProvider` rather than a generic structural parent, so a new
+vendor is genuinely tagged with its own Contact Type, not just
+structurally parented. `setContact` always sends the complete current
+form state — it's a full replace, not a partial merge (see
+`schema.sql`'s note on `contact_entry`) — so a partial send would
+silently wipe whatever field isn't included.
+
+## `frontend/src/routes/+layout.svelte` — the app shell: menu, sections, keyboard nav, clock
+
+**Menu structure** comes from `getMenuTree` (a structural, entity-tree
+source — step 2 of `docs/menu-as-entity-tree-plan.md`), not a
+hardcoded array; this layout still applies role filtering and
+per-language translation on top, since those are separate, ordinary
+concerns the structural fetch doesn't need to know about. If
+`getMenuTree` fails, the menu silently falls back to empty rather than
+blocking the app.
+
+**Which top-bar section is "active"** is tracked by three different
+effects, each fixing a specific regression found live:
+- A default-to-"General Ledger" effect, since the real section key is
+  a dynamic entity id that can't be hardcoded (the original app
+  defaulted to General Ledger's own key being hardcoded) — only
+  applied when nothing more specific (a direct URL match, or the
+  person's own prior choice) has already set the active section.
+- A URL-to-section matching effect: `activeSectionKey` must be
+  recalculated from the current URL on every navigation, not only
+  set by a direct top-bar click (previously, a bookmark, a refresh, or
+  browser back/forward left the sidebar showing the wrong section).
+  `/setup` itself (the Configuration landing page) has no direct menu
+  link of its own, so it needs an explicit case rather than a prefix
+  match — a plain "starts with /setup" prefix would wrongly claim
+  `/setup/periods`/`/setup/yearend`, which belong to General Ledger.
+- `setActiveSectionHighlight` only updates the highlight, never
+  navigates — the reactive URL-watcher that calls it runs on every
+  navigation including a direct click on a specific, non-first link
+  (e.g. Vendors), and re-navigating there would wrongly bounce that
+  link back to its own section's first link.
+
+`onTopBarSectionClick` is the one place that DOES auto-navigate — to
+the clicked section's first real link — since a top-bar click
+previously left the main panel showing whatever page was already
+open, never changing the URL at all.
+
+**Keyboard navigation** (`moveFocusWithinContainer`,
+`onTopBarKeydown`, `onSidebarKeydown`, `onMainKeydown`): a generic
+helper moves focus to the next/previous matching sibling within a
+container, given a CSS selector, stopping at the first/last item
+rather than wrapping (simpler and more predictable for a hierarchical
+menu). Moving focus with arrow keys must also immediately activate the
+newly-focused item — the same "click" behavior each item already has
+— since focus alone doesn't drive either the top-bar's active
+underline or the sidebar's active link highlight. After `goto()`
+resolves (from either an arrow-key move or a direct mouse click),
+SvelteKit automatically refocuses `<body>` for accessibility reasons,
+undoing the focus just set — both code paths re-focus the
+just-navigated element again once that navigation genuinely completes,
+not before. **`onMainKeydown`** (Esc) returns focus to the sidebar
+from a main-content panel, but warns first via `confirm()` if that
+panel has an unsaved edit pending (`hasUnsavedEdit.current`, opted
+into per page — see the State chapter above).
+
+**Login/session redirect gates** (`$effect` pair near the top): two
+gates in order — logged in at all, then which business/ledger/
+language — since login must come first. The `browser` guard matters:
+SvelteKit renders this layout server-side first, and calling `goto()`
+during that server render throws; the redirect must wait until this
+is genuinely running client-side.
+
+**RTL support** (`textDirection`, `loadTextDirection`) mirrors the
+sidebar and reverses the main menu's order for a right-to-left
+language, using the same generic `getLanguageDirection`/
+`setLanguageDirection` mechanism already proven on Login and Choose
+Business — never a hardcoded language-name check. The CSS mirroring
+for RTL (`.shell[dir="rtl"] .sidebar`, near the bottom of the file)
+only overrides margin/padding/border, which don't auto-flip with
+`dir`: `flex-direction: row` already respects `dir="rtl"` natively,
+so adding `row-reverse` on top double-reverses it (confirmed live —
+the submenu moved back to the wrong side when that was tried).
+
+**The live clock** (`now`, `liveClockText`) shows the browser's own
+current locale/timezone (via `Intl`, the same mechanism the backend's
+location-timezone work relies on — see the Stock API chapter), not a
+static load-time snapshot, so a person can confirm what date/time/
+locale the app currently believes it is. Updates every 30 seconds, not
+every second — confirming the approximate time doesn't need
+second-level ticking, and a slower update means far fewer re-renders
+of this header on every page. Hidden entirely under automated test
+conditions (`navigator.webdriver`, the standard signal every
+WebDriver-based tool sets), since a constantly-changing timestamp in
+the page text is incompatible with a stable, deterministic test
+snapshot — this was briefly disabled further during a shelf-capacity/
+general-journal e2e hang investigation, now resolved (see
+`docs/lessons-learned.md`); the clock itself was never the cause.
+
+## `frontend/src/lib/format.ts` — number and date display
+
+**`todayIsoDate`** returns today's date in `YYYY-MM-DD`, the shared
+default several report pages use as a sensible starting point rather
+than an empty date — an empty date silently means "show all of
+history including transactions after any close," not a meaningful
+snapshot.
+
+**`UNIT_SCALE`/`scaleFor`/`decimalPlacesFor`** — how many
+smallest-units make up "one" of a given unit code, a general concept
+(not currency-specific, even though currency is the immediate need).
+Verified against ISO 4217's real minor-unit data, not assumed: most
+currencies use 2 decimal places, but JPY, KRW, ISK, VND and others
+have no minor unit at all (whole-number amounts only), while BHD,
+KWD, OMR, JOD and others use three decimal places. Anything not listed
+defaults to 100 (2 decimal places), unchanged from this app's
+pre-existing behavior. `decimalPlacesFor` is exported separately from
+`formatAmount` for anything that needs the precision directly, such as
+constraining an amount input's own step for a specific currency.
+
+**`formatAmount`** applies the user's own explicit `number_format`
+pattern directly — never `Intl` locale inference, which is exactly
+what produced a wrong result before (`Intl.NumberFormat('en-AU')`
+actually produces commas, not the space this business's convention
+uses). It takes `numberFormat` as a required parameter rather than
+reaching into the auth store itself, keeping it a pure, testable
+function; callers pass `auth.current?.user.number_format ?? '1
+000.00'` themselves. `smallestUnits` is always the input, since this
+app's amounts are always stored as an integer count of the smallest
+real subdivision (not every currency has cents — JPY has none at all,
+BHD a smaller one still); `unitCode` is optional, defaulting to the
+standard 2-decimal case. A negative amount is shown in parentheses
+(`"(1,234.56)"`), never a leading minus sign — standard accounting
+convention, and purely a display choice: a negative total itself (a
+net loss, a deficit) is still a legitimate figure, this only changes
+how it reads.
+
+**`formatDate`** applies the user's own explicit `date_format` pattern
+directly to an ISO date string (`YYYY-MM-DD`, this app's storage
+format) — again never `Intl.DateTimeFormat` locale inference, for the
+same reasoning as `formatAmount`, and again takes `dateFormat` as a
+required parameter for the same testability reason.
+
+## `frontend/src/lib/state.svelte.ts` — consolidated shared application state
+
+The one consolidated home for every shared piece of application
+state, using Svelte 5 runes throughout. Replaces five separate files
+(`auth.ts`, `dirty-state.ts`, `menu.ts`, `session.ts`,
+`translations.ts`) as part of this app's "one library of common code"
+consolidation, alongside the runes migration itself.
+
+- **Auth** (`auth`, `hasRole`) — the currently logged-in user, if any.
+  Deliberately stored in `sessionStorage`, not `localStorage`: a
+  financial application shouldn't stay logged in indefinitely just
+  because the token is sitting in storage — closing the browser should
+  mean logging in again next time. `sessionStorage` still survives an
+  ordinary page reload within the same tab, but clears when the
+  tab/window closes, unlike `localStorage`, which persists across
+  browser restarts entirely.
+- **Dirty state** (`hasUnsavedEdit`) — pressing Esc while in a
+  main-content panel should return focus to the left sidebar, but if
+  that panel has a genuine unsaved edit pending, Esc should warn first
+  rather than silently discard it. Any individual page opts in by
+  setting this true while it has an unsaved edit, and false again once
+  saved or discarded — the shared layout only ever reads it, never
+  assumes a page's own internal state.
+- **Menu** (`menuTree`, `screenTitle`) — the live, resolved menu tree,
+  populated once by `+layout.svelte` (the same pattern as
+  `$session`/`$auth`/`$translations`), so any page can resolve its own
+  screen title through the exact same source its own menu label uses,
+  without a separate, duplicate fetch. `screenTitle` is step 3 of
+  `docs/menu-as-entity-tree-plan.md` §5 ("screen titles reading from
+  the same source"): renaming a menu item in the editor then
+  automatically also renames the report's own heading — one edit, not
+  two separate places to keep in sync.
+- **Session** (`session`, `SessionContext`) — the currently active
+  business/ledger/language. `profitCenterId`/`profitCenterName` were
+  added per `docs/profit-centers-design.md`'s Phase C: chosen the same
+  way Business already is — automatically, with no visible choice,
+  for a user restricted to one; a picker, like Business/Ledger, for
+  staff with access to several. Both are `undefined` for every
+  business with zero Profit Centers, the same case as before this
+  feature existed. Trust model only: nothing here is enforced yet (the
+  design doc makes the same finding about Business itself) — any user
+  can still pick any Profit Center shown, same as Business today. The
+  value read back from `localStorage` is cast to `BusinessName`/
+  `LedgerName` once at this one boundary, the same reasoning as a
+  database read or an API response.
+- **Translations** (`translations`) — maps a vocabulary entity's
+  canonical (English) name to its text in the currently selected
+  language (e.g. `translations.current['Save']` might be `'Speichern'`).
+  Falls back to the English name itself for anything not translated,
+  the same as the backend's `localized_text` view does; populated by
+  the layout whenever the session's chosen language changes.
+
+## `frontend/src/lib/pagination.ts` — the shared paginator
+
+**`createPaginator`** is the one implementation of "load a page, go to
+first/previous/next/last page" every paginated list in this app
+should use — created once per page component (each call gets its own
+independent state), not shared globally. `fetchPage(limit, offset)` is
+the only thing that varies between callers; everything else (page
+tracking, hiding Newer/Older, hiding the whole pager, computing "page
+n of nn" when a total count is available) is handled once, here.
+`pageSize` defaults to the logged-in user's own `page_size` preference
+when omitted, rather than a fixed constant every page independently
+hardcodes.
+
+```ts
+const journal = createPaginator((limit, offset) =>
+  listJournalEntries(business, ledger, limit, offset)
+);
+onMount(journal.load);
+// in the template: {#each $journal.items as item}...
+// pager: <Pager paginator={journal} />
+```
+
+`PaginatedState.showPager` is false when everything already fits on
+one page. `totalCount`/`totalPages` are only known when the backend
+reports a total count (not every list does yet) — `null` means
+"unknown," not zero; when known, it enables "page n of nn" and jumping
+straight to the last page. `FetchPageResult.totalCount` is optional
+for the same reason: a list backed by a count endpoint provides it, a
+list that doesn't yet simply omits it and falls back to the plain
+Newer/Older behavior this already had.
+
+## `frontend/src/lib/entityTree.ts` — filtering the entity tree down to real products
+
+**`isDescendantOf`** walks an entity's `parent_id` chain to determine
+whether it descends from a named ancestor (e.g. "Items"). This exists
+because "is this a postable leaf?" is true for every leaf GL account
+(Cash and Bank, Sales Revenue, everything) just as much as for an
+actual product — postable-ness says nothing about which branch of the
+tree something lives in. A dropdown meant to offer "which product"
+must filter by ancestry, not by postable-leaf-ness alone.
+
+**`isInternalItemRecord`** is the structural check for whether an
+entity is — or lives beneath — one of a real product's own internal,
+per-item records (quantity sub-accounts, source/cost records, and
+anything nested under those), as opposed to being a real, user-named
+catalog item or category. It checks a fixed set of known bare names
+(`INTERNAL_ITEM_RECORD_NAMES`: `On Order`, `Units Sold`, `Count
+Adjustment`, `Write-off`, `Item Source`) together with the generated,
+structural `" — Source — "` naming pattern that `addOrUpdateItemSource`
+(see the Entity Model chapter) uses for item-source records — and,
+critically, it walks UP from the entity through every ancestor
+(stopping at "Items", the real catalog root), not just the entity's
+own immediate parent. This generality matters: once a product has any
+stock movement it gains bare-named quantity sub-accounts as direct
+children, and once an item source is registered it additionally gains
+a generated `"<name> — Source — ..."` child which itself has its own
+child literally named `'Item Source'` — two levels below the real
+product, not one. A one-level check misses the second case entirely,
+which is exactly the bug `filterToItems` hit before this walked the
+full ancestor chain: the source record's own child ("Item Source")
+would wrongly appear in an Item dropdown in the real product's place.
+
+**`filterToItems`** is the actual dropdown filter: leaf entities that
+are descendants of "Items". It deliberately does NOT require
+`is_postable_account` — a real product never has that flag set (it
+posts via direct quantity movement against the item's own entity,
+never the `account` table), so requiring it would exclude every real
+product. Ancestry and leaf-ness are what define "this is a sellable
+product," not postable-account-ness. It also treats a product with
+only internal quantity sub-accounts as its own direct leaf (via
+`isInternalItemRecord` filtering those children out before the
+leaf-ness check) — without this, a product with real stock movement
+against it has real children, so a naive leaf check excludes the
+product itself and returns only its own internal sub-accounts instead,
+which is the bug that was found live in the Purchase Order page's own
+Item dropdown.
+
+## `frontend/src/lib/journalGrid.ts` — the General Journal entry grid
+
+Pure logic for a classic General Journal entry grid — no staging
+concept here, no network calls: a row is just `{account, debit,
+credit, memo}`, the way a bookkeeper actually thinks about a journal
+entry, not "a line I've staged."
+
+**Rows are only ever added or removed by an explicit action**
+(Insert/Delete, or the person's own click) — never automatically as a
+side effect of typing. An earlier version auto-added a new blank row
+the moment the last row became "filled" (had both an account and an
+amount); this produced a real bug: filling row 0 auto-suggests row 1's
+amount before row 1 has an account yet, so row 1 doesn't count toward
+the totals (`isRowFilled` correctly requires both) — but the moment
+you then pick row 1's account, it *becomes* "filled" by that same
+definition, silently spawning an unwanted third row. Removing the
+auto-expansion removes that whole class of surprise.
+
+- An amount typed into a cell is always a magnitude — direction comes
+  from which column (debit vs. credit) it was typed into, never from a
+  minus sign. Typing `"-500"` into Debit must not silently behave like
+  a credit of the same size; the user should never be able to type or
+  see a negative number at all.
+- **`isRowFilled`** — a row only counts toward the entry once it has
+  an account AND an amount; a still-being-filled-in row sits
+  harmlessly in the grid without being submitted or affecting the
+  balance.
+- **`rowsWithAmount`** — deliberately looser than `isRowFilled`: the
+  footer totals and the auto-balance suggestion should reflect an
+  amount the instant it's entered, not wait for an account to also be
+  picked (a real, found gap: an auto-suggested amount could visibly
+  sit in a row while the running totals silently excluded it, since it
+  had no account yet). Only `isBalanced` still needs the stricter,
+  complete-row requirement, since an amount with no account genuinely
+  can't be saved.
+- **`hasIncompleteRow`** — a row with a real amount but no account yet
+  is genuinely incomplete, not ready to save even if every amount
+  otherwise balances to zero.
+- **`ensureAtLeastOneRow`** — used only after removing a row leaves the
+  grid empty, never to auto-add a row as a side effect of typing into
+  an existing one.
+- **`addRow`** — the explicit action behind the Insert key (or a
+  person's own "add line" gesture), never automatic. Immediately
+  re-suggests the new trailing row's balancing amount, since the entry
+  may already be visibly unbalanced the moment this row appears, and
+  that's exactly when the suggestion is most needed. Passing `-1` as
+  the "changed index" guarantees the recompute path always runs, since
+  no real row index is ever negative.
+- **`removeRowAt`** — the explicit action behind the Delete key. Never
+  lets the grid go completely empty; if removing the last remaining
+  row, replaces it with a fresh blank one instead. Also re-suggests
+  the (possibly new) trailing row's balance, since deleting a row
+  changes which rows count as "the others" for balancing purposes.
+- **`computeSuggestedFill`** — what the trailing row's amount *would*
+  need to be to balance the entry, given every other filled row: a
+  suggestion only, not something applied without the person's
+  awareness (`autoBalanceTrailingRow` is what actually applies it).
+  Returns `null` if there's no real imbalance worth suggesting
+  (nothing else filled in yet, or already balanced).
+- **`autoBalanceTrailingRow`** — auto-fills the last row's debit or
+  credit (whichever side balances the entry) whenever some OTHER row
+  changes, never when the edit was to the last row itself, which is
+  what `changedIndex` tells this function. Checking "is the trailing
+  row currently empty" is NOT enough (an earlier version tried exactly
+  that and failed a real test): once the trailing row has been
+  auto-filled once, it's no longer empty, so a later edit to some other
+  row would be wrongly treated as "the person is typing into the
+  trailing row" and left stale. Deliberately does NOT add or remove
+  any rows — that's `addRow`/`removeRowAt`'s job, never a side effect
+  of this.
+- **`autoExpandIfTrailingRowFilled`** — appends a new blank row only
+  when BOTH the current last row has genuinely become complete AND the
+  entry is still unbalanced afterward; if the rows already balance to
+  zero the moment that row fills in, nothing more is needed. A new row
+  reappears later on its own via `autoBalanceTrailingRow` if editing an
+  amount throws the entry out of balance again. Deliberately narrow —
+  checking only the trailing row (never some other row that happens to
+  become filled) means this can only ever add one row at a time, and
+  only right when it's actually needed; this is the exact historical
+  bug class this project hit before.

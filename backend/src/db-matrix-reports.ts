@@ -1,37 +1,11 @@
+// Documented in docs/pm-reports-reference.md, "The Sales/COGS and
+// Stock-on-Hand matrix reports" - this file carries no further
+// multiline comments.
 import { db } from './db.js';
 import { getHierarchyParent, getBusinessHierarchy } from './db.js';
 import { buildProfitAndLossFromBalances, getLedgerBalances, type ProfitAndLoss } from './db-reports.js';
 import type { BusinessName, LedgerName } from './db.js';
 
-/**
- * A real, new, entirely standalone reporting engine — per direct
- * request, deliberately kept in its own file, touching no existing
- * code, no existing report, no existing drill-down mechanism at all.
- *
- * The real, core idea: Sales vs. COGS (and, in the second report,
- * Stock on Hand) broken down along two, real, independent axes at
- * once — one for "what was sold" (Product / Category / Consolidated),
- * one for "where" (Location / Division / Consolidated) — so any real
- * combination of the two is a real, valid report, from the single,
- * most-granular Product-by-Location matrix down to one, single,
- * Consolidated-by-Consolidated number.
- *
- * This only works because location and tier are now genuinely
- * structural in the Chart of Accounts (this session's own, earlier
- * restructuring) — walking "up to Category" or up to any further,
- * real hierarchy group is a real, direct, structural operation, not a
- * tag lookup.
- */
-
-/** The three, real, structural axes (plus Consolidated) remain
- * directly named for IDE autocomplete - but per direct request,
- * proving out a genuinely arbitrary, user-defined hierarchy, this is
- * not a closed set: any real, other string is treated as a genuine,
- * user-defined hierarchy name, resolved the exact, same, already-
- * generic way getHierarchyParent/setHierarchyParent already support
- * (see resolveKey below) - "Division," "Bottle Size," or anything
- * else a real business defines, works identically, with no axis name
- * ever hardcoded or privileged over another. */
 export type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Consolidated' | (string & {});
 
 export interface MatrixCell {
@@ -52,13 +26,6 @@ export interface SalesCogsMatrix {
 const CONSOLIDATED_KEY = 'Consolidated';
 const NO_LOCATION_KEY = '(No location)';
 
-/** A real, direct, one-time snapshot of every entity's own real id,
- * name, and parent_id — used to walk each real account's own,
- * structural chain locally, in memory, rather than one real query per
- * account. Deliberately not reusing getEntityTree() from db.ts (per
- * direct instruction to touch no existing code) — this is a real,
- * minimal, standalone equivalent, scoped to only what this file
- * itself needs. */
 function loadEntityIndex(): Map<number, { name: string; parent_id: number | null }> {
   const rows = db.prepare(`SELECT id, name, parent_id FROM current_entities`).all() as { id: number; name: string; parent_id: number | null }[];
   const index = new Map<number, { name: string; parent_id: number | null }>();
@@ -66,16 +33,6 @@ function loadEntityIndex(): Map<number, { name: string; parent_id: number | null
   return index;
 }
 
-/** Strips a real, structural " — LocationName" suffix off a real
- * account's own name, if present — the real, exact, established
- * naming convention ensureItemTierLocationLeaf already uses. This
- * is how a real, location-specific leaf's own name reduces to its
- * real, tier-level "Product" name. Also strips a real "Sales - " or
- * "COGS - " prefix, so a real product's own Sales and COGS sides
- * combine under the exact same Product/Category key — the whole
- * point of a Sales-vs-COGS matrix is comparing both sides for the
- * same, real product, not listing them as two, separate, unmatched
- * rows. */
 function stripLocationSuffix(name: string): string {
   let n = name;
   if (n.startsWith('Sales - ')) n = n.slice('Sales - '.length);
@@ -84,18 +41,7 @@ function stripLocationSuffix(name: string): string {
   return idx === -1 ? n : n.slice(0, idx);
 }
 
-/** Walks a real account's own, real, structural parent chain
- * (already loaded into entityIndex) up to find its own real "Category"
- * — one real, structural level above its own real, tier-level
- * "Product" name. Falls back to the product name itself if no real,
- * further category level exists above it (a real account that was
- * never split into a deeper category). */
 function categoryForAccount(accountId: number, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
-  // The real, structural walk itself must use the real, live entity
-  // name as it actually, structurally exists (still carrying its own
-  // real "Sales - "/"COGS - " prefix) — only strip the location
-  // suffix here, since the tree itself still has that real prefix on
-  // every real node up to Income.
   const rawName = entityIndex.get(accountId)?.name ?? '';
   const locIdx = rawName.indexOf(' — ');
   const productName = locIdx === -1 ? rawName : rawName.slice(0, locIdx);
@@ -109,32 +55,12 @@ function categoryForAccount(accountId: number, entityIndex: Map<number, { name: 
   if (productEntityId === undefined) return stripLocationSuffix(productName);
   const parentId = entityIndex.get(productEntityId)?.parent_id;
   const parent = parentId !== null && parentId !== undefined ? entityIndex.get(parentId) : undefined;
-  // The real category name itself never carries a real "Sales - "/
-  // "COGS - " prefix in display — strip it here, at the final,
-  // returned value, the same real way stripLocationSuffix already
-  // does for the Product level.
   const categoryRaw = parent?.name ?? productName;
   if (categoryRaw.startsWith('Sales - ')) return categoryRaw.slice('Sales - '.length);
   if (categoryRaw.startsWith('COGS - ')) return categoryRaw.slice('COGS - '.length);
   return categoryRaw;
 }
 
-/** Walks a real account's own, real, structural "Location" —
- * confirmed directly, live: ensureItemTierLocationLeaf sets a real
- * "Location" hierarchy link on the Sales/COGS leaf itself via
- * setHierarchyParent/setEntityLink, which creates a real, separate,
- * named child entity ("{account} — Hierarchy: Location") whose own
- * real relation_id points at the real target location. Deliberately
- * re-implemented here as a real, direct query, rather than importing
- * getLocationForAccount from db.ts, per direct instruction to touch
- * no existing code at all — this file's own dependencies are
- * intentionally, entirely self-contained. */
-/** categoryForAccount above expects a real Sales/COGS leaf (the
- * tier-level account); a real item sits one, real level BELOW that
- * (item -> its own real Sales leaf -> its own real category). This
- * walks that one, real extra level first, so Stock on Hand's own
- * Category axis lands on the exact same, real category a Sales/COGS
- * account of the same real product would. */
 function categoryForItem(itemId: number, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
   const parentId = entityIndex.get(itemId)?.parent_id;
   if (parentId === null || parentId === undefined) return stripLocationSuffix(entityIndex.get(itemId)?.name ?? '');
@@ -160,16 +86,6 @@ function resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number
   const accountName = entityIndex.get(accountId)?.name ?? '';
   const location = locationForAccount(accountName);
   if (axis === 'Location') return location ?? NO_LOCATION_KEY;
-  // A real, genuinely user-defined axis - not one of the three,
-  // structural ones above. Resolved the exact, same, already-generic
-  // way any hierarchy already works - no new mechanism, no special
-  // case for any "recognized" axis name (e.g. "Division" is just data
-  // here, resolved identically to any other real, business-chosen
-  // hierarchy name): tried first directly on the product itself (a
-  // hierarchy tag like "Bottle Size" lives there), falling back to the
-  // product's own location (a hierarchy tag like "Division" lives
-  // there instead, the exact, same real link setHierarchyParent/
-  // getHierarchyParent already provides).
   const baseProductName = stripLocationSuffix(entityIndex.get(accountId)?.name ?? '');
   const direct = getHierarchyParent(baseProductName, axis);
   if (direct) return direct;
@@ -180,13 +96,6 @@ function resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number
   return `No ${axis}`;
 }
 
-/** The exact, same, real axis-key resolution as resolveKey above, for
- * Stock on Hand's own real (item, location) rows rather than a
- * Sales/COGS account — items and accounts already share the exact,
- * same "Product (Tier)" naming convention, so the real, generic
- * fallback (tried directly on the item, then via its own real
- * location) works identically for any real, business-chosen hierarchy
- * name here too. */
 function resolveItemKey(axis: MatrixAxis, itemId: number, itemName: string, locationName: string, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
   if (axis === 'Consolidated') return CONSOLIDATED_KEY;
   if (axis === 'Product') return stripLocationSuffix(itemName);
@@ -200,11 +109,6 @@ function resolveItemKey(axis: MatrixAxis, itemId: number, itemName: string, loca
   return `No ${axis}`;
 }
 
-/** The real, core matrix computation both getSalesCogsMatrix and
- * getStockOnHandMatrix... no — Stock on Hand has its own, separate
- * real metric (quantity/value/cost, not Sales/COGS), so it gets its
- * own, real function below, but shares this exact, same axis-key
- * resolution logic. */
 export function getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix {
   const entityIndex = loadEntityIndex();
 
@@ -248,8 +152,6 @@ export function getSalesCogsMatrix(businessName: BusinessName, ledgerName: Ledge
     if (!cellMap.has(key)) cellMap.set(key, { rowKey, colKey, salesMinor: 0, cogsMinor: 0 });
     const cell = cellMap.get(key)!;
     if (isSales) {
-      // Sales is credit-normal — a real, positive amount for display
-      // is the negated, raw balance.
       cell.salesMinor += -r.balance_minor;
       totalSalesMinor += -r.balance_minor;
     } else {
@@ -279,32 +181,9 @@ export interface StockOnHandMatrix {
   totalRealizableValueMinor: number;
 }
 
-/** The real, second report on the same, real, two-axis mechanism —
- * per real, physical (item, location) stock position, rather than
- * Sales/COGS activity over a real date range. Genuinely simpler than
- * getSalesCogsMatrix above: no real date filtering (stock on hand is
- * always "right now"), and the real, structural Location/Division
- * walk is identical, reused directly.
- *
- * Honest, direct simplification, given the time constraints of this
- * build: item_location itself tracks no real cost at all (confirmed
- * directly against schema.sql — quantity only), and Inventory value is
- * tracked at one, single, shared GL account, not per-item, so there is
- * no real, existing per-item "average cost accumulated over time" to
- * read. Cost here is the real, preferred vendor's own current
- * item_source.price_minor, divided by its own real package_quantity to
- * get a real, correct per-unit figure (confirmed directly, live: this
- * price is the real, whole package's own cost, not per-unit — a real,
- * genuine bug caught and fixed before trusting the result) — falling
- * back to any real, known source if none is marked preferred. Used for
- * both "last" and "average" cost, since no real, separate,
- * historical-average figure exists to distinguish them by. */
 export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): StockOnHandMatrix {
   const entityIndex = loadEntityIndex();
 
-  // Every real, current, on-hand stock position, joined to its own
-  // real item and its own real, preferred (or first available) vendor
-  // cost, and its own real, retail price for realizable value.
   const rows = db
     .prepare(
       `SELECT jl.account_id AS item_id, pe.name AS item_name, jl.location_id, le.name AS location_name,
@@ -334,11 +213,6 @@ export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): 
   let totalRealizableValueMinor = 0;
 
   for (const r of rows) {
-    // Product/Category keys resolve from the real item's own name —
-    // the exact same, real stripLocationSuffix/categoryForAccount
-    // logic above, since a real item's own name already follows the
-    // exact, same "Product (Tier)" or "Product (Tier) — Location"
-    // convention as a real Sales/COGS leaf.
     const rowKey = resolveItemKey(rowAxis, r.item_id, r.item_name, r.location_name, entityIndex);
     const colKey = resolveItemKey(colAxis, r.item_id, r.item_name, r.location_name, entityIndex);
 
@@ -347,24 +221,12 @@ export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): 
       cellMap.set(key, { rowKey, colKey, quantityBottles: 0, valueAtCostMinor: 0, lastCostMinor: null, averageCostMinor: null, realizableValueMinor: 0 });
     }
     const cell = cellMap.get(key)!;
-    // The real, per-unit cost — confirmed directly against real, live
-    // data: item_source.price_minor is the real, whole package's own
-    // price (a real carton of 24, say), not a per-unit price, while
-    // quantity_on_hand is tracked in real, individual units. Dividing
-    // by the real package_quantity first is required, not optional —
-    // multiplying the raw, whole-package price directly would overstate
-    // real inventory value by a real, whole package_quantity's worth.
     const costMinor = r.package_cost_minor && r.package_quantity ? Math.round(r.package_cost_minor / r.package_quantity) : 0;
     const valueAtCost = r.quantity_on_hand * costMinor;
     const realizable = r.quantity_on_hand * (r.retail_price_minor ?? 0);
     cell.quantityBottles += r.quantity_on_hand;
     cell.valueAtCostMinor += valueAtCost;
     cell.realizableValueMinor += realizable;
-    // The most recent, real, single item's own real, per-unit cost
-    // seen for this cell — a real, meaningful figure only when the
-    // cell represents a single, real item; once several, real,
-    // different items share a cell (e.g. Consolidated), this is
-    // understood as indicative, not precise.
     cell.lastCostMinor = costMinor || null;
     cell.averageCostMinor = costMinor || null;
     totalValueAtCostMinor += valueAtCost;
@@ -374,48 +236,13 @@ export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): 
   return { rowAxis, colAxis, cells: [...cellMap.values()], totalValueAtCostMinor, totalRealizableValueMinor };
 }
 
-/**
- * The real, second attempt at this whole idea, per direct correction:
- * not a spreadsheet-style pivot table at all (that's
- * getSalesCogsMatrix above, kept, untouched, as its own, real,
- * separate report) — a real P&L statement, in the exact, same,
- * vertical, drillable layout as the original report (real
- * Income/COGS/Operating sections, each with its own, real, expandable
- * category tree, via the same, already-proven
- * buildProfitAndLossFromBalances/buildCategoryTree this whole app's
- * own P&L already uses) — but grouped by two, real, independent axes
- * at once, nested "vertically" (an outer axis's own value, containing
- * a real, further-nested inner axis's own value within it), each
- * axis optionally narrowed to one, particular, specific value — the
- * exact same real ability the original report's own division picker
- * already had, just generalized to any real axis, not only division.
- */
-
 export interface ProfitAndLossByAxisNode {
   key: string;
   profitAndLoss: ProfitAndLoss;
   children: ProfitAndLossByAxisNode[];
 }
 
-/** Every real account whose own real, structural ancestor chain
- * reaches "Income" or "Expense" — the real, same restriction
- * buildProfitAndLossFromBalances itself always applies internally,
- * walked directly here via the same, already-proven, real,
- * in-memory entityIndex mechanism every other function in this file
- * already uses, rather than importing further surface from
- * db-reports.ts. */
 function plAccountIds(entityIndex: Map<number, { name: string; parent_id: number | null }>): Set<number> {
-  // A real, confirmed bug, found and fixed directly: "Income" and
-  // "Expense" are only genuinely global as REPORT CATEGORIES (per
-  // createBusiness's own doc comment) - every real business gets its
-  // own, real, separate "Income"/"Expense" entity (copyChartOfAccountsInto),
-  // a genuinely distinct id from the one, global template and from
-  // every other real business's own copy, all sharing the exact same,
-  // plain name. A bare .find() picked only the FIRST such entity
-  // (whichever happened to be iterated first), so every other real
-  // business's own P&L accounts silently failed this walk and were
-  // excluded from every axis-based report entirely. Collects every
-  // real entity named "Income"/"Expense", not just one.
   const rootIds = new Set<number>();
   for (const [id, e] of entityIndex.entries()) {
     if (e.name === 'Income' || e.name === 'Expense') rootIds.add(id);
@@ -450,8 +277,6 @@ export function getProfitAndLossByAxis(
   const validIds = plAccountIds(entityIndex);
   const balances = getLedgerBalances(businessName, ledgerName, fromDate, toDate, true);
 
-  // Every real, non-zero, real P&L account's own real outer/inner
-  // axis keys, resolved once, up front.
   const resolved: { id: number; balance: number; outerKey: string; innerKey: string }[] = [];
   for (const [id, balance] of balances.entries()) {
     if (!validIds.has(id) || balance === 0) continue;
@@ -471,11 +296,6 @@ export function getProfitAndLossByAxis(
 
     const innerKeys = [...new Set(outerRows.map((r) => r.innerKey))].sort();
     const children: ProfitAndLossByAxisNode[] = [];
-    // Only nest real, further, inner detail when the inner axis is
-    // genuinely different from a flat, single Consolidated grouping,
-    // and there's real, more than one, distinct inner value to show —
-    // otherwise the inner level would just, uselessly repeat the
-    // exact, same, single outer total directly beneath itself.
     if (innerAxis !== 'Consolidated' && innerKeys.length > 0 && !(innerKeys.length === 1 && innerKeys[0] === outerKey)) {
       for (const innerKey of innerKeys) {
         const innerRows = outerRows.filter((r) => r.innerKey === innerKey);
@@ -497,16 +317,6 @@ export interface AxisValues {
   [hierarchyName: string]: string[];
 }
 
-/** Every real, distinct value that exists for each real axis type —
- * per direct request, the real, single, unified dropdown per vector
- * (outer/inner) needs to list every real location/category/product
- * name up front, not only whichever axis happens to be currently
- * selected, plus one further real entry per real, business-chosen
- * hierarchy this business has actually set up (getBusinessHierarchy)
- * — e.g. "Division," or any other real, named hierarchy — never a
- * hardcoded, privileged axis name. One, single, direct, efficient pass
- * over every real P&L account's own real axis keys — no real, full
- * P&L computed at all, just the real, distinct key sets themselves. */
 export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues {
   const entityIndex = loadEntityIndex();
   const validIds = plAccountIds(entityIndex);

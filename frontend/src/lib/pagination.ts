@@ -1,3 +1,6 @@
+// The shared paginator — see docs/pm-frontend-reference.md for the
+// full design.
+
 import { writable, type Readable } from 'svelte/store';
 import { auth } from './state.svelte';
 
@@ -6,15 +9,10 @@ export interface PaginatedState<T> {
   page: number;
   loading: boolean;
   error: string;
-  /** Whether there's any real reason to show pagination controls at
-   * all — false when everything already fits on one page. */
-  showPager: boolean;
+  showPager: boolean; // see docs/pm-frontend-reference.md
   isFirstPage: boolean;
   isLastPage: boolean;
-  /** Only known when the backend reports a total count (not every
-   * list does yet) — null means "unknown," not zero. When known,
-   * enables "page n of nn" and jumping straight to the last page. */
-  totalCount: number | null;
+  totalCount: number | null; // null = unknown, not zero — see docs/pm-frontend-reference.md
   totalPages: number | null;
 }
 
@@ -37,36 +35,13 @@ function deriveFlags(page: number, itemCount: number, pageSize: number, totalCou
   };
 }
 
-/** The result shape fetchPage returns. totalCount is optional — a
- * list backed by a real count endpoint provides it (enabling "page n
- * of nn" and jump-to-last); a list that doesn't yet just omits it,
- * falling back to the plain Newer/Older behavior this already had. */
+// See docs/pm-frontend-reference.md.
 export interface FetchPageResult<T> {
   items: T[];
   totalCount?: number;
 }
 
-/** The one implementation of "load a page, go to first/previous/next/
- * last page" every paginated list in this app should use — created
- * once per page component (each call gets its own independent
- * state), not shared globally. `fetchPage(limit, offset)` is the only
- * thing that varies between callers; everything else (page tracking,
- * knowing when to hide Newer/Older, knowing when to hide the whole
- * pager, computing "page n of nn" when a total count is available) is
- * handled once, here.
- *
- * pageSize defaults to the logged-in user's own preference
- * (auth.current.user.page_size) when omitted — a real per-user setting, not
- * a fixed constant every page independently hardcodes.
- *
- * Usage:
- *   const journal = createPaginator((limit, offset) =>
- *     listJournalEntries(business, ledger, limit, offset)
- *   );
- *   onMount(journal.load);
- *   // in the template: {#each $journal.items as item}...
- *   // pager: <Pager paginator={journal} />
- */
+// See docs/pm-frontend-reference.md for usage and design.
 export function createPaginator<T>(fetchPage: (limit: number, offset: number) => Promise<FetchPageResult<T>>, pageSize?: number): Paginator<T> {
   const effectivePageSize = pageSize ?? auth.current?.user.page_size ?? 20;
 

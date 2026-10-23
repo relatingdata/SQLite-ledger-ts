@@ -610,16 +610,358 @@ screen. A small handful underneath all of them are foundational:
 - **`getContact(entityName)`** — reads the shared address/phone/
   payment-terms/language fields any entity can carry, regardless of
   whether it's a customer, vendor, employee, or location.
-- **The "typed child entity" prototype** — `getTypedAddresses`,
-  `getTypedPhones`, `getTypedContactPersons`, and their own
-  `addTyped*`/`deleteTyped*` siblings. Each is its own separate
-  implementation, independently following the same pattern (a direct
-  child entity, named `{parent} — {type} {Kind}`, carrying its own
-  `relation_id` pointing at a "type" entity) rather than sharing code
-  through one common helper — a real, acknowledged reuse gap, not yet
-  factored into a shared implementation.
+- **The "typed child entity" prototype** — `getTypedAddresses`/
+  `addTypedAddress`/`deleteTypedAddress` and `getTypedPhones`/
+  `addTypedPhone`/`deleteTypedPhone` were, until a refactor, two
+  near-identical copies of the same structure, differing only in the
+  record-name suffix ("Address" vs "Phone"), the type-category name,
+  and how the value itself is saved/loaded. Both now share one real,
+  generic implementation — `addTyped<T>`/`getTyped<T>`/`deleteTyped`
+  (private, in `db.ts`) — with each public function a thin wrapper
+  preserving its own existing external signature. `addTyped<T>`
+  creates (or reuses) a direct child entity named `{entityName} —
+  {type} {thingSuffix}`, tags it via `relation_id` to the type marker
+  entity, then saves its value through a caller-supplied `save`
+  callback (always `setContact` today, kept as a callback rather than
+  hardcoded so a future typed-thing whose value isn't contact-shaped
+  can still reuse this without a further refactor). `getTyped<T>`
+  walks the entity's children filtered to the given type category (so
+  an address child is never mistaken for a phone child despite
+  sharing the same parent/relation shape) and loads each through a
+  caller-supplied `load` callback; `typeKey` lets each caller keep its
+  own existing field name (`address_type` vs `phone_type`). Contact
+  persons (`ensureContactPersonType`/`listContactPersonTypes`) follow
+  the identical pattern, genuinely user-definable — a new type is
+  created the moment someone types one that doesn't already exist,
+  rather than requiring it pre-seeded.
 
 Nearly every other `get*` function is built by composing these —
 reading an entity's tree position, its relation, and its contact
 fields, then joining against whatever additional tables
 (`journal_line`, `part`, `account`) a particular report needs.
+
+## `backend/src/db.ts` — the data model, write primitives, and the Hierarchy/Product cartesian mechanism
+
+### The data model in one place
+
+Permanent data lives in two categories: (1) the core double-entry
+ledger (`entities`, `journal`, `journal_line`, `account`) — the only
+permanent record of what financially happened; and (2) permanent side
+data that cannot live in (1) because a journal line has no field for
+it — who a user is and what they're allowed to do, an entity's own
+contact/location/item details, a document's lifecycle distinct from
+its underlying posting, physical count records, templates,
+translations, period-close history. Transient staging data
+(`journal_entry_staging` and the screen-specific `*_staging` tables)
+exists only between a form being filled in and being posted, and is
+deleted the moment posting succeeds.
+
+There are exactly three write paths into `journal`/`journal_line`/
+`account`, each for a distinct reason:
+1. **Ordinary financial postings** (the vast majority): a staging
+   table's `INSTEAD OF INSERT` trigger copies rows into
+   `journal_entry_staging`; inserting into `post_journal_entry` fires
+   `post_journal_entry_insert`, which validates the entry balances
+   (per currency), the period is open, then writes
+   `journal`/`journal_line`, updates `account.balance_minor`, and
+   clears staging.
+2. **Quantity movements** (stock received/dispatched/transferred): the
+   same staging table, but `post_quantity_movement` instead of
+   `post_journal_entry` — a quantity movement is a single line against
+   one product's tracking account, not a balanced two-sided
+   transaction, so forcing it through the balance check would require
+   inventing a fake offsetting account.
+3. **Recurring journals**: written directly by `createRecurringJournal`,
+   never staged — recurrence is a property of the journal itself, with
+   no single moment to balance-check against; each future occurrence
+   gets its own check at read time, via the `journal_occurrences` view.
+
+A fourth, much narrower case — `confirmPickedLine`/
+`confirmRestockPickedLine` (see "Picking, packing, and dispatch"
+below) — writes a bare `journal` row with deliberately no
+`journal_line` and no account at all, since a picking-list tick-off
+has no financial or quantity meaning; it exists purely as an auditable
+"who ticked this, and when" record.
+
+### Entities: append-only, branded types, and the generic creation/lookup primitives
+
+Every entity write goes through `entity_entry`/`entity_update`/
+`entity_revoke`, never a raw `UPDATE`/`DELETE` — `supersedeEntity`
+closes out the current row and appends its replacement; fields not
+given are carried forward from the current row.
+
+`BusinessName`, `LedgerName`, `AccountName`, `UserId`, `EntityId`, etc.
+are all branded types (`string & { __brand }` / `number & { __brand }`)
+— plain structural typing can't catch a caller silently swapping which
+string/number goes where, so branding makes that a compile error. The
+`as*` functions are the one explicit boundary where a plain value
+becomes branded.
+
+`TypeDescriptor<TBrand>` pairs a compile-time brand with an optional
+runtime check (`validate`, for a structural kind like "is this a live
+descendant of Items") and an optional `validNames()` (for a
+Vocabulary-backed kind like Location Type, checked against before
+insertion). `create`/`createEntityRaw` are the generic creation
+primitives: both enforce scoped-not-global uniqueness (two siblings
+under the same parent can't share a name; the same name is fine under
+a different parent — a business, a division, a location, and an
+employee can all genuinely be "Springfield" at once). `createEntityRaw`
+additionally enforces case-insensitive uniqueness specifically under
+the global Vocabulary (so "Tax" and "tax" can never silently fragment
+into two words), and gives every real word created under the global
+Vocabulary — from *any* code path, not just "Add a new word" — its own
+editable English translation row, via `setTranslation`.
+
+`requireEntity`/`requireEntityById` resolve an existing entity against
+a `TypeDescriptor`, by default globally (matching genuinely singleton
+concepts — Application, Businesses, Vocabulary, Vendors). An optional
+`parent` argument narrows this to a scoped lookup — the fix for a
+fundamental gap found directly: `create()`'s own uniqueness check was
+already scoped, but `fetch()` had no way to honor that on the read
+side, so a name repeated per parent (a business's own "Hierarchies")
+could only be found via a mangled, business-prefixed name or resolved
+ambiguously to whichever row a global lookup happened to return first.
+
+### The business-scoping problem, and `knownRootId`/scoped-lookup fixes throughout
+
+A recurring bug class, found and fixed repeatedly through this file: a
+bare, unscoped name lookup (`WHERE name = 'Income'`, `WHERE name =
+'Equity'`, `WHERE name = 'Chart of Accounts'`) is only ever safe while
+exactly one business exists. The moment a second business exists, it
+gets its own separate mirror entity with the same plain name (every
+business's Chart of Accounts copies the five top-level report
+categories — Asset/Liability/Equity/Income/Expense — as its own
+distinct entities; see `copyChartOfAccountsInto`/`instantiateChartOfAccounts`
+below), and a bare lookup silently resolves to whichever one a query
+happens to return first — frequently the wrong business's.
+
+The fix, applied throughout (`getHierarchy`, `resolveCashAtBankAccount`,
+`getChartOfAccounts`, `ensureCategoryChain`, `ensureItemInventoryAccount`,
+year-end close, rollover, and more): a `knownRootId`/explicit-id
+parameter lets a caller that already knows the correct, business-scoped
+entity id bypass the ambiguous name resolution entirely.
+`resolveBusinessCoaAccountId(businessName, accountName)` is the shared
+helper for this — it walks one specific business's own Chart of
+Accounts subtree for a known header name ("Sales Revenue", "Cost of
+Goods Sold", "Inventory"), the same business-scoped recursive walk
+`post_journal_entry_insert`'s own trigger uses, falling back to the
+old bare global lookup only for `admin` (the one legacy,
+pre-multi-tenancy business, which never got its own Chart of Accounts
+copy at all — `schema/00-core.sql`'s seeded bootstrap business).
+`requireGlobalCoaCategory` is the equivalent for resolving a category
+under the one true *global* template specifically (never a business's
+own copy), via `Application` → the global `Chart of Accounts`.
+
+`getHierarchy`'s own cycle guard (`MAX_DEPTH = 100`) exists because
+better-sqlite3 is synchronous and blocking: an unguarded cycle in a
+relationship chain (A → B → A) would hang the entire event loop, not
+just one request.
+
+### `getEntityTree` and `is_postable_account`
+
+`getEntityTree()` flat-walks the whole entity tree with each row's
+depth and a computed `is_postable_account` flag — the correct way to
+identify a postable account, never a depth heuristic (several screens'
+account pickers once used raw depth and picked up ledgers and
+vocabulary words purely by depth coincidence, since e.g. a ledger entity
+can sit at the same depth as a real account for unrelated structural
+reasons). It deliberately does **not** also require "has no children"
+— the proven Product/Tier/Item design has a genuine case where a
+postable "Sales" leaf also has its own further child (the tier-level
+item entity): an account can be both directly postable *and* a
+structural parent for an unrelated purpose at once. "Has children" is
+therefore not a safe general signal for "is a header, never postable"
+in this codebase.
+
+Sibling ordering is a real, explicit linked list, not a stored
+integer: `"{entity} — Display Order"` (via `setEntityLink`) points at
+whichever sibling comes immediately after it. An entity with no such
+link, and that no sibling points at, is first; one with no link that
+something points at is last. Siblings with no explicit link at all
+keep today's alphabetical order, appended after every explicitly-ordered
+one — a "lazily migrate only once actually touched" design.
+`reorderSiblings`/`reorderSiblingsBulk` convert a level from
+alphabetical to an explicit chain the first time anything in it is
+moved; `getEntityTree`'s own query joins the Display Order link
+directly (`display_order_next`) rather than calling `getEntityLink`
+once per sibling, which was previously this function's dominant cost
+(a confirmed N+1 query problem).
+
+### Relationships, hierarchy links, and entity links — three distinct, similar-looking mechanisms
+
+These three mechanisms look superficially alike (a tagged child
+entity, a `relation_id` pointer) but serve genuinely different needs,
+and the file is explicit about not blurring them:
+
+- **`setRelationship`/`getRelationship`/`getEntitiesWithRelationship`**
+  — for a two-fact relationship ("X is Trustee Of Y"): `entityName`'s
+  own `relation_id` points at a lazily-created intermediate record,
+  whose `parent_id` gives the type and `relation_id` gives the target.
+  A plain report/category tag (COGS, Balance Sheet) is the degenerate
+  case of this same shape, where the type entity alone is the complete
+  answer. **Writes directly to the source entity's own `relation_id`**
+  — safe only when that slot isn't already spoken for by something
+  else.
+- **`setEntityLink`/`getEntityLink`/`deleteEntityLink`** — for exactly
+  that case where the source's `relation_id` slot is already taken
+  (a GL account's `relation_id` already carries its CoA-prototype tag;
+  a bank account's own currency pairing already depends on it).
+  Creates its own separate child entity for the link, so the source's
+  `relation_id` is never touched. `setEntityLink` tags the link record
+  via `Entity.tag` on *every* call, not just creation — a link
+  previously removed by `deleteEntityLink` (which only ever untags,
+  deliberately leaving `relation_id` as permanent history) and set
+  again later needs that presence tag re-applied, or it stays
+  invisible forever; `Entity.tag` is idempotent, so this is always
+  safe. `deleteEntityLink` recognizes "deleted" by the *absence* of
+  that presence-only tag, never by `relation_id` being null (it never
+  is).
+- **`setHierarchyParent`/`getHierarchyParent`/`getHierarchyGroups`/
+  `getHierarchyAncestorChain`/`getHierarchyChildren`/
+  `getHierarchyLinksPointingAt`** — the general, reusable "place this
+  entity into any number of equal, independent accumulation paths"
+  mechanism from `docs/multi-dimensional-reporting.md`. Built entirely
+  on `setEntityLink`/`getEntityLink`. `hierarchyName` is always a
+  free-form, caller-supplied string ("Division", "Location", "Reporting
+  Manager") — never hardcoded, so one mechanism serves every case. This
+  is explicitly **not** the same word as "dimension" in the
+  matrix-stock-report/drag-and-drop sense (`definitionDimensions`,
+  below) — that's a separate, reserved usage. `getHierarchyAncestorChain`
+  walks up to a hard depth cap as a cycle guard, same reasoning as
+  `getHierarchy`. `getHierarchyLinksPointingAt` is a guard-rail query
+  ("why is this entity reachable from there at all") added after a
+  near-miss where a mistaken re-parent went unnoticed because nothing
+  made the hierarchy-link path to a target visibly inspectable.
+
+`revokeEntity` only clears `relation_id` (sufficient for every
+`relation_id`-based consumer, which already requires a live entity's
+`relation_id` to match) — it does nothing for a `parent_id`-based
+structural consumer, so a revoked entity additionally gets reparented
+to a dedicated `Revoked` holding root under `Application`, closing that
+gap for every `parent_id`-based walk at once. Revoking refuses if the
+entity has children or journal postings, and specifically refuses to
+revoke a business's last-remaining Actual or Budget ledger (every
+business must always have both, even a brand-new, empty one with
+no postings yet to otherwise block the revoke).
+
+### The Hierarchy / Product cartesian mechanism
+
+Per `docs/cartesian-account-linking-plan.md`, two layers:
+
+- **Hierarchy**: named groupings and values (`Beer` → `Lager`/`Ale`,
+  `Storage` → `Hot`/`Cold`), living under one business's own
+  `Hierarchy` root — a user-extensible vocabulary of facts, never
+  hardcoded (`ensureHierarchyGrouping`/`ensureHierarchyValue`).
+- **Product**: one node under a business's `Product` root, holding
+  both **Definitions** (`defineProductShape` — an ordered chain of
+  dimension names, each paired with the Hierarchy grouping it
+  represents, e.g. `[["Item","Beer"],["Storage","Storage"]]`) and
+  **Instances** (`ensureProductInstance` — one specific, real
+  combination, e.g. Riverside Cellars / Lager / 330ml / can / single /
+  Cold). A Product Instance is one single entity directly under
+  `Product`, not a chain of intermediate nodes — its identity is a
+  flat, ordered JSON array of the Hierarchy values' own stable entity
+  ids (`combination_ids`), genuinely rename-safe since `entity_id`
+  never changes across a rename (the `entity_update` trigger carries
+  `combination_ids` forward on every rename).
+
+New Inventory/Sales/COGS leaves point directly, via `relation_id`, at
+a Product Instance's own node — the one shared, canonical identity all
+three financial accounts for the same real combination refer back to
+(`ensureCombinationAccountLeaf`), rather than each independently
+re-deriving the combination. `getCombinationDisplayName` always
+recomputes a combination's display name live from `combination_ids`,
+never trusting a stored name column — genuinely rename-safe even if
+every Hierarchy value in the chain has since been renamed.
+`ensureCombinationAccountLeaf` looks up an existing leaf by its
+`combination_ids` array matching exactly (never a bare name, since a
+combination's own terminal value, e.g. "Cold", can genuinely be shared
+by different, unrelated items) and falls back to a bare-name check
+too, since a leaf of the same name under the same parent can
+genuinely have been created by a completely different mechanism that
+never set `combination_ids` at all (e.g. a location's own plain
+capacity-tracking account).
+
+Barcode scanning (`climbInstanceTree`, `getCombinationByUpc`) resolves
+a scanned UPC directly to its exact combination's `combination_ids`
+array, in one lookup — never requiring a cashier to manually pick each
+dimension.
+
+### Tier and location as structural leaves, not tags
+
+Per the confirmed design in `docs/multi-dimensional-reporting.md` §10:
+a tier (e.g. "Amber Ale 330ml (Bottle)" vs "(Carton)") and a location
+are each their own **structural, distinct entity and Sales/COGS leaf**
+— never a tag on an otherwise-shared posting, and critically, never by
+re-parenting the shared base item. `ensureItemTier` creates a brand-new,
+additional tier-level entity alongside the base product, which is left
+completely untouched — the direct fix for an earlier, corrupting
+attempt where re-parenting the one shared item broke every other
+tier's own ability to walk back to `Items` to re-derive its category
+chain. `ensureItemTierLocationLeaf` mirrors this one level deeper:
+`setHierarchyParent(salesAccount, 'Location', locationName, userId)`
+is set on the actual posting targets (the Sales/COGS leaves
+themselves, since that's what `journal_line.account_id` ever points
+at), replacing the retired `journal_line.division_id` tag entirely.
+`getLocationForAccount`/`getHierarchyGroupForAccount` are the read-side
+structural replacements for that same retired tag.
+
+### Profit Centers
+
+Per `docs/profit-centers-design.md` Phase A/B: a Profit Center is a
+**structural subtree nested inside** one business's own CoA — its own
+Sales Revenue/COGS/Inventory grouping nodes, one level deeper than
+product-category grouping, under the exact same shared headers every
+business already has — deliberately *not* a second root alongside
+Chart of Accounts, so `getBalanceSheet`/`getProfitAndLoss`/
+`getBusinessReports`'s existing structural tree walk picks up every
+Profit Center's leaves automatically, with no separate reporting path
+to keep in sync. The one exception: a Profit Center has no Balance
+Sheet of its own except its own Retained Earnings sibling (nested
+under the business's one shared Equity — see `computeCloseLines` in
+`pm-reports-reference.md`). `resolveProfitCenterGroupNode` is the one
+shared mechanism every per-item resolver uses to scope itself to a
+Profit Center — disambiguated by the grouping node's own id, since the
+same Profit Center name genuinely recurs three times (once each under
+Sales Revenue, COGS, and Inventory). `getAccountProfitCenter` walks an
+account's parent chain to the nearest ancestor carrying a "Hierarchy:
+Profit Center" link — deliberately *not* via the generic
+`getHierarchyParent`/`getEntityLink`, since those resolve by a bare
+link-record name with no parent disambiguation, which is ambiguous
+here for exactly the same three-times-recurring-name reason.
+
+### Chart of Accounts: template vs. per-business instance
+
+Only the five top-level report categories (Asset/Liability/Equity/
+Income/Expense) are genuinely global; the real, named leaf accounts
+underneath are country-specific prototypes that already exist as
+distinct entities (English/generic "Cash and Bank"; German
+"Bankkontokorrent"; French "Autres créances"; and so on — confirmed by
+distinct `entity_id`, not just display name). `copyChartOfAccountsInto`
+is the one shared copy mechanism (used both by `instantiateChartOfAccounts`,
+a per-business copy, and the business-type template mechanism): a
+prototype-tagged leaf is copied only if it matches the business's
+chosen `coaPrototype`; a universal (untagged) leaf is shared as-is,
+never copied (copying it too would create a dangerous global
+name-duplicate); a non-leaf structural category (Asset, Liability...)
+is always copied, and gets its own Vocabulary word copy (never a
+`relation_id` link back to the shared word), so a business is free to
+rename its own "Equity" without touching the global template or any
+other business's copy. "Cost of Goods Sold" is special-cased to always
+copy regardless of `coaPrototype` and regardless of demo data, since
+its own `relation_id` slot is permanently spoken for by the Gross
+Profit report's "COGS" tag rather than a prototype tag — omitting this
+case was a confirmed, found bug (a non-`admin` business's COGS
+postings silently landed in `operating_expenses` instead of
+`cogs_expenses` on every P&L).
+
+`PER_BUSINESS_ROOTS` is the single, consolidated list of every
+structural root a new business gets (Locations, Items, Contacts,
+Vocabulary, Ledgers, Profit Centers, Hierarchies...) — adding a new
+one is a one-line addition there, never a scattered search. Chart of
+Accounts is deliberately *not* in that list, since its creation does
+real further work (prototype copying) beyond a bare root.
+`createBusiness` always creates **two** ledgers (Actual and Budget) —
+"Budget is just another ledger" — since every business genuinely
+needs both from day one, and sets the fresh Actual ledger as the
+business's starting active ledger (`setActiveLedger`).

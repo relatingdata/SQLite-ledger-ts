@@ -1,3 +1,8 @@
+// Documented in docs/pm-entity-model.md ("backend/src/db.ts — the data
+// model, write primitives, and the Hierarchy/Product cartesian
+// mechanism") and docs/pm-domain-reference.md (the domain-level
+// sections below "A live, generated snapshot") - this file carries no
+// further multiline comments.
 import { Database } from './sqlite-runtime.js';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -6,88 +11,11 @@ import { hashPassword, verifyPassword } from './password.js';
 import { Entity, Detail } from './primitives.js';
 import { getLedgerBalances, ensureCurrencyAccount, resolveCashAtBankAccount, setAccountCurrency } from './db-reports.js';
 
-// ---------------------------------------------------------------------------
-// The real data model, stated plainly here since it spans many real
-// tables and functions no single file boundary can capture on its own.
-//
-// PERMANENT DATA lives in two real categories, not one:
-//
-// 1. The core double-entry ledger: entities, journal,
-//    journal_line, account. This is the only real, permanent record of
-//    what happened financially — every dollar and every unit of
-//    quantity, real and auditable, forever.
-//
-// 2. Real, permanent SIDE DATA that genuinely cannot live in #1: who a
-//    user is and what they're allowed to do (users, roles,
-//    user_roles, sessions), an entity's own real contact/location/item
-//    details (contact, location, item, item_source, item_location,
-//    division), a document's own real lifecycle distinct from its
-//    underlying posting (invoice, invoice_line, invoice_detail_line,
-//    invoice_payment_allocation), physical count records (stock_take,
-//    stock_take_line, stock_lot), document templates, translations,
-//    and period-close history. None of this is derivable from a
-//    journal_line's own, narrow shape (a signed amount against an
-//    account on a date) — a journal line has no field for "this
-//    customer's phone number," and it shouldn't grow one.
-//
-// TRANSIENT STAGING data is journal_entry_staging and the four
-// screen-specific *_staging tables (ar_sale, ar_receipt, ap_purchase,
-// ap_payment) plus po/so/stock_receipt/stock_dispatch_staging — each
-// exists only between a person filling in a form and that form being
-// posted, and is deleted the moment posting succeeds.
-//
-// THE REAL WRITE PATHS to journal/journal_line/account — there are
-// exactly THREE, each with a real, distinct reason, not one flow with
-// accidental exceptions:
-//
-// 1. Ordinary financial postings (the vast majority): a screen-specific
-//    staging table's own INSTEAD OF INSERT trigger copies rows into
-//    journal_entry_staging, then INSERT INTO post_journal_entry fires
-//    post_journal_entry_insert, which validates the entry balances
-//    (per currency) and the period is open, then writes journal +
-//    journal_line + updates account.balance_minor, then clears
-//    staging. See postJournalEntry() and its trigger in schema.sql.
-//
-// 2. Quantity movements (stock received/dispatched/transferred): a
-//    real, parallel staging + trigger pair — journal_entry_staging
-//    again, but post_quantity_movement instead of post_journal_entry —
-//    because a quantity movement is a single, real line against one
-//    product's own tracking account, not a two-sided, balanced
-//    transaction; forcing it through the balance check would require
-//    inventing a fake offsetting account. See postQuantityMovement()
-//    and its trigger in schema.sql.
-//
-// 3. Recurring journals: written directly by createRecurringJournal(),
-//    never staged at all, because recurrence is a property of the
-//    journal itself — there's no single moment to balance-check
-//    against; each future occurrence gets its own, separate balance
-//    check at read time, via the journal_occurrences view.
-//
-// A fourth, much narrower case — confirmPickedLine/
-// confirmRestockPickedLine — writes a bare journal row with
-// deliberately no journal_line and no account at all, since a
-// picking-list tick-off has no financial or quantity meaning
-// whatsoever; it exists purely as a real, auditable "who ticked this,
-// and when" record.
-//
-// Every one of these four is documented at its own definition, not
-// just here — this block is a map, not the only copy of the reasoning.
-// ---------------------------------------------------------------------------
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const dbPath = process.env.DB_PATH ?? path.join(dataDir, 'entities.sqlite');
-// DB_VERBOSE=1 npm run dev prints every SQL statement as it executes —
-// a real-time view of what the app is actually doing to the database,
-// useful for watching workflows unfold without a separate tool. A real,
-// confirmed gap found directly: this comment documented the feature but
-// nothing ever implemented it. Fixed here by wrapping prepare() itself
-// (not the Database constructor's own options, which the real, cross-
-// runtime RuntimeDatabase abstraction above — bun:sqlite vs.
-// better-sqlite3 — does not uniformly support) so this works identically
-// under every real runtime this project targets.
 export const db = new Database(dbPath);
 if (process.env.DB_VERBOSE) {
   const realPrepare = db.prepare.bind(db);
@@ -99,12 +27,6 @@ if (process.env.DB_VERBOSE) {
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
 
-// A real, direct compatibility shim: bun:sqlite's own .get() returns
-// null for "no row found"; better-sqlite3 (which every existing call
-// site and test assertion in this codebase was written against)
-// returns undefined for the exact same case. Normalizing once, here,
-// at the source, rather than touching every one of the hundreds of
-// real call sites throughout this codebase.
 const realPrepare = db.prepare.bind(db);
 db.prepare = ((sql: string) => {
   const stmt = realPrepare(sql);
@@ -117,55 +39,11 @@ const alreadyInitialized = db
   .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='entities'`)
   .get();
 if (!alreadyInitialized) {
-  // Per direct, absolute instruction: the application's own basic,
-  // initial data load must carry ZERO presence of any demo/seed
-  // business, and zero presence of any non-English language's
-  // translated text - both are real, genuine content that belongs in
-  // a separately-run, real test-runner script (building a business
-  // live through the real API/UI, or loading translations live
-  // through the real API/UI), never baked into what boots by
-  // default. `00-core.sql` alone is now the one, real, clean, minimal
-  // file: table/view/trigger definitions, structural entities,
-  // English vocabulary words (which need no separate "translation" at
-  // all - the word IS the canonical English name), and the one, real,
-  // permanent 'admin' bootstrap business. See
-  // `scripts/simulate-wine-retail-month.ts` (builds a real demo
-  // business entirely through real app functions) and
-  // `scripts/load-translations.ts` (loads
-  // `shared-fixtures/translations.csv` into a running instance via
-  // the real API or the real /setup/translations UI) for how to add
-  // either kind of real, additional data back in, deliberately,
-  // on demand - never automatically at boot.
-  //
-  // Formerly: schema.sql was split into real, separate files, per direct
-  // request: the basic, structural schema; each real language's own
-  // vocabulary separately; and the German BMW / French Peugeot demo
-  // ledger data separately. Loaded here, concatenated, in the real,
-  // safe dependency order — confirmed directly by a real, live
-  // database-load test before this split was trusted, not assumed:
-  // core first (every real entity a vocabulary translation or demo
-  // posting could reference), then the demo ledger data (depends on
-  // core entities already existing — Businesses, German CoA, French
-  // CoA), then a real, separate "link every real, existing business
-  // to its own real CoA prototype" block (a real, second, genuine
-  // dependency found only by a live load failure, not anticipated in
-  // advance — it references entities from both core AND the demo
-  // block, so it must load after both), then each real, per-language
-  // vocabulary file (each only depends on its own real, target
-  // entity already existing, all of which live in core).
   const schemaDir = path.join(__dirname, '..', 'schema');
   const readSchema = (f: string) => fs.readFileSync(path.join(schemaDir, f), 'utf8');
 
   db.exec(readSchema('00-core.sql'));
 
-  // 30-coa-links.sql links every real, existing account to its own
-  // real CoA prototype. Filtered here, directly, against what
-  // actually, really exists in the database at this point — never
-  // guessed at or hand-enumerated — so this stays correct now that
-  // nothing but 00-core.sql's own structural/admin accounts ever
-  // exist at this point in a fresh boot (every line naming an
-  // account that only a demo business would have ever created is
-  // simply, safely skipped).
   const coaLinksSql = readSchema('30-coa-links.sql');
   const filteredCoaLinksSql = coaLinksSql
     .split('\n')
@@ -179,37 +57,9 @@ if (!alreadyInitialized) {
   db.exec(filteredCoaLinksSql);
 }
 
-// Migration for a database created before accounting periods existed —
-// must run FIRST, before migrateForRecurringJournals below: that
-// migration may recreate post_journal_entry_insert, whose body now
-// references period_lock_history, so the table has to already exist
-// by the time that trigger is (re)created, not just by the time
-// anything actually queries it.
-
-// Migration renaming entities.sibling_id -> entities.relation_id — the
-// original name implied a tree-peer relationship this column never
-// actually had; "relation" matches the real, now-proven pattern
-// (setRelationship/getRelationship/getEntitiesWithRelationship, see
-// docs/entity-model.md). Confirmed directly before relying on it:
-// SQLite's own ALTER TABLE RENAME COLUMN automatically updates the SQL
-// text of every dependent view (current_entities, business_reports),
-// so those need no separate migration step. entity_entry/entity_update
-// are different — their own OUTPUT column is named "sibling" as a view
-// alias, not a table column, so the automatic rename can't reach it;
-// those two views (and their INSTEAD OF triggers) are explicitly
-// recreated here to match.
-
 export class ValidationError extends Error {}
 export class NotFoundError extends Error {}
 
-// Placed here specifically, before seedRemainingData() runs below -
-// a real, confirmed JS temporal-dead-zone fix: these are real `const`
-// declarations, not hoisted the way the functions that reference them
-// (create, fetch, isGenuineCategoryOrItemsRoot) are, and
-// seedRemainingData() calls createItem, which needs
-// typeCategoryOrItemsRootName already initialized, at real module-
-// load time. Found directly, via a real, failing test run, not
-// assumed correct.
 export const typeBusinessName: TypeDescriptor<'BusinessName'> = { brand: 'BusinessName' };
 export const typeEmployeeName: TypeDescriptor<'EmployeeName'> = { brand: 'EmployeeName' };
 export const typeProviderName: TypeDescriptor<'ProviderName'> = { brand: 'ProviderName' };
@@ -219,16 +69,8 @@ export const typeCategoryOrItemsRootName: TypeDescriptor<'CategoryOrItemsRootNam
   validate: (name) => isGenuineCategoryOrItemsRoot(name),
 };
 export const typeItemName: TypeDescriptor<'ItemName'> = { brand: 'ItemName' };
-// A real, generic descriptor for a fixed, well-known, always-existing
-// root container (Businesses, Employees, Vendors, Customers) - no
-// real validate needed, since these are schema-seeded, never
-// user-supplied. Used purely to fetch() a real, typed starting point
-// for create<T> chains, per no-generic-functions.
 export const typeRootName: TypeDescriptor<'RootName'> = { brand: 'RootName' };
 export const typeLedgerName: TypeDescriptor<'LedgerName'> = { brand: 'LedgerName' };
-// The three, real, per-business container kinds createBusiness itself
-// allocates - auto-generated by the system, never user-supplied
-// directly, so no real validate function is needed here either.
 export const typeBusinessLocationsRootName: TypeDescriptor<'BusinessLocationsRootName'> = { brand: 'BusinessLocationsRootName' };
 export const typeBusinessItemsRootName: TypeDescriptor<'BusinessItemsRootName'> = { brand: 'BusinessItemsRootName' };
 export const typeBusinessContactsRootName: TypeDescriptor<'BusinessContactsRootName'> = { brand: 'BusinessContactsRootName' };
@@ -250,9 +92,6 @@ export const typeChartOfAccountsNodeName: TypeDescriptor<'ChartOfAccountsNodeNam
 export const typeChartOfAccountsRootName: TypeDescriptor<'ChartOfAccountsRootName'> = { brand: 'ChartOfAccountsRootName' };
 export const typeLocationTypeMarkerName: TypeDescriptor<'LocationTypeMarkerName'> = { brand: 'LocationTypeMarkerName' };
 export const typeIsBillingAddressMarkerName: TypeDescriptor<'IsBillingAddressMarkerName'> = { brand: 'IsBillingAddressMarkerName' };
-// Raw, unvalidated creation step - a location isn't genuinely "real"
-// (has a real location_type) until setLocation runs afterward; this
-// covers the bare allocation moment only.
 export const typeLocationEntityName: TypeDescriptor<'LocationEntityName'> = { brand: 'LocationEntityName' };
 export const typeExpenseCategoryName: TypeDescriptor<'ExpenseCategoryName'> = { brand: 'ExpenseCategoryName' };
 export const typeMenuSectionName: TypeDescriptor<'MenuSectionName'> = { brand: 'MenuSectionName' };
@@ -265,25 +104,6 @@ export const typeBusinessTypeQuestionName: TypeDescriptor<'BusinessTypeQuestionN
 import { seedRemainingData } from './db-seed.js';
 seedRemainingData();
 
-
-// ---------------------------------------------------------------------------
-// Entities — append-only (see schema.sql): every write goes through
-// entity_entry/entity_update/entity_delete, by name, never a raw
-// UPDATE/DELETE on the table itself. Every write requires a userId —
-// there's no anonymous entity creation, rename, or delete anymore.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Branded types: BusinessName and LedgerName are both, structurally, just
-// strings — TypeScript's own structural typing would never catch a caller
-// silently swapping which one goes where, since two `string` parameters are
-// indistinguishable to the compiler. Branding makes this a real, genuine,
-// caught-at-compile-time type error instead of a naming convention that
-// could be silently violated. `asBusinessName`/`asLedgerName` are the one,
-// explicit, real boundary where an ordinary string becomes one or the
-// other — every real call site downstream carries that distinction through
-// automatically, with no further casts needed.
-// ---------------------------------------------------------------------------
 export type BusinessName = string & { readonly __brand: 'BusinessName' };
 export type LedgerName = string & { readonly __brand: 'LedgerName' };
 export type AccountName = string & { readonly __brand: 'AccountName' };
@@ -292,18 +112,6 @@ export type EmployeeName = string & { readonly __brand: 'EmployeeName' };
 export type CustomerName = string & { readonly __brand: 'CustomerName' };
 export type ProviderName = string & { readonly __brand: 'ProviderName' };
 export type ItemName = string & { readonly __brand: 'ItemName' };
-// Numeric IDs get the exact, same treatment, for the exact, same real
-// reason — a plain `number` can't distinguish "who performed this
-// action" (userId, a real, direct primary key into the separate,
-// real `users` table) from "which entity" (accountId/itemId/
-// employeeId/locationId/etc., all genuinely the same underlying
-// concept — a real, direct primary key into the one, shared
-// entities table every real entity in this system uses, just
-// referenced under a semantically-named parameter per call site).
-// EntityId deliberately covers all of those together, rather than a
-// separate branded type per semantic name — they're structurally
-// identical, unlike userId, which is a real, genuinely separate
-// numeric space.
 export type UserId = number & { readonly __brand: 'UserId' };
 export type EntityId = number & { readonly __brand: 'EntityId' };
 export function asUserId(id: number): UserId {
@@ -347,34 +155,6 @@ export interface EntityNode {
   currency: string | null;
 }
 
-/** The whole tree, flat, each row carrying its own depth from the single
- * root — easiest shape for a frontend to turn into a nested tree view.
- * Walks current_entities — a closed-out (renamed-away-from or deleted)
- * version never appears here, only history queries see those. */
-/** The whole entity tree, flat, each row carrying its own depth AND
- * whether it's a genuine descendant of Chart of Accounts — the correct
- * way to identify a postable account, not a depth heuristic. depth
- * alone can't distinguish an account (Rent, at depth 4 under Chart of
- * Accounts > Expense) from something that happens to sit at the same
- * depth for an unrelated reason (Actual, a LEDGER, at depth 3 under
- * Businesses > admin) — a real, reproduced bug where several
- * screens' account pickers used exactly that heuristic and picked up
- * ledgers, vocabulary words, and other non-account entities purely by
- * depth coincidence.
- *
- * Deliberately does NOT also require "no real children" (tried
- * directly, while building the bank-accounts-by-currencies mechanism,
- * and reverted): the established, confirmed, working Product/Tier/Item
- * design (docs/multi-dimensional-reporting.md §10) has a real, genuine
- * case where a real, postable "Sales" leaf also has its own, further,
- * real child (the tier-level item entity) — a real account here can
- * genuinely be both directly postable AND a real, structural parent
- * for an unrelated, further purpose at once. "Has real children" is
- * not, therefore, a safe, general signal for "is a header, never
- * postable" in this codebase — real, further enforcement that a
- * bank-accounts-by-currencies header specifically cannot itself be
- * posted to needs its own, real, more specific mechanism, not a
- * change to this shared, general-purpose flag's own meaning. */
 export function getEntityTree(): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null })[] {
   const rows = db
     .prepare(
@@ -406,19 +186,7 @@ export function getEntityTree(): (EntityNode & { depth: number; is_postable_acco
        ORDER BY w.depth, e.name`
     )
     .all() as (EntityNode & { depth: number; is_postable_account: number; line_type: string | null; display_order_next: string | null })[];
-  // Per direct question, confirmed a real, second, even larger N+1
-  // query problem, the genuine, dominant cost of this whole function:
-  // orderSiblingsByDisplayOrder called getEntityLink(s.name, 'Display
-  // Order') - a real, separate SQL query - once per real entity,
-  // across the entire tree, even though the overwhelming majority
-  // never have one set. Display Order is now joined directly into the
-  // one, single query above instead, and passed through rather than
-  // looked up again per sibling.
   const withFlags = rows.map((r) => ({ ...r, is_postable_account: !!r.is_postable_account }));
-  // Re-order every real, individual level of siblings via the real
-  // Display Order chain, only for levels that actually have one set —
-  // everything else keeps today's exact, existing alphabetical order
-  // the SQL query above already produced.
   const byParent = new Map<number | null, typeof withFlags>();
   for (const r of withFlags) {
     const list = byParent.get(r.parent_id) ?? [];
@@ -436,12 +204,6 @@ export function getEntityTree(): (EntityNode & { depth: number; is_postable_acco
   return result;
 }
 
-/** The exact, same, real ordering logic as orderSiblingsByDisplayOrder
- * below, but using the display_order_next field getEntityTree's own
- * query already joined in directly - never a real, separate,
- * per-sibling getEntityLink query, which was this whole function's
- * genuine, dominant cost (confirmed directly, via a real, isolated
- * timing comparison). */
 function orderSiblingsByDisplayOrderPreJoined<T extends { id: number; name: string; display_order_next: string | null }>(siblings: T[]): T[] {
   const nextByName = new Map<string, string>();
   const pointedAt = new Set<string>();
@@ -488,12 +250,6 @@ export interface EntityHistoryRow {
   created_by: number;
 }
 
-/** Every version an entity has ever had, oldest first — the point of
- * the whole append-only design: nothing about this is reconstructed or
- * inferred, it's simply every row that was ever written, in order. A
- * real delete is itself one more row in this same history - a
- * reparent under the real "Deleted" root - not a separate, flagged
- * event; look at a row's own parent_id to see this. */
 export function getEntityHistory(id: number): EntityHistoryRow[] {
   return db
     .prepare(
@@ -513,13 +269,6 @@ function resolveId(name: string | null | undefined, parentId?: number): number |
   return row.id;
 }
 
-/** Resolves a real product's own, correct entity id — reliably
- * disambiguated from any real, same-named Sales/COGS/Inventory
- * account it may now genuinely share a name with (per the direct,
- * confirmed decision to remove the redundant "Sales - "/"COGS - "
- * text prefix, since the real, structural parent already conveys
- * this). A real product always, genuinely, structurally descends
- * from Items; its own financial accounts never do. */
 export function resolveItemId(itemName: ItemName): number | undefined {
   return (
     db
@@ -545,30 +294,10 @@ export interface NewEntity {
   accountnumber?: string | null;
 }
 
-/** A real type descriptor - a value, never a bare string kind
- * argument, per no-generic-functions and direct instruction. Carries
- * both the compile-time brand and the real, runtime check together,
- * as one thing, since TypeScript has no reflection on generic type
- * parameters at runtime. */
 export interface TypeDescriptor<TBrand extends string> {
   readonly brand: TBrand;
-  /** For a real, Vocabulary-backed kind marker (a Location Type, an
-   * Address Type), the exact set of valid names - checked against
-   * before insertion, never after. Omit entirely for a genuinely
-   * freely-named entity (a business's own chosen name, "Riverside
-   * Cellars") - per direct instruction, there is no barrier to
-   * naming a business, a division, a location, and an employee all
-   * "Springfield" at once; free names are never constrained to a
-   * fixed vocabulary. */
-  readonly validNames?: () => string[];
-  /** For a real, structural kind (a Category, genuinely any live
-   * descendant of Items; a Location, genuinely has a real
-   * location_type set) - a real, direct, runtime check against the
-   * live entity tree, since TypeScript cannot statically know this.
-   * Omit for a kind with no real, existing structural fact to check
-   * (a bare Business/Employee name is valid the moment it's a real,
-   * live entity at all). */
-  readonly validate?: (name: string) => boolean;
+    readonly validNames?: () => string[];
+    readonly validate?: (name: string) => boolean;
 }
 
 export interface TypedNode<TBrand extends string> {
@@ -576,28 +305,6 @@ export interface TypedNode<TBrand extends string> {
   readonly name: string & { readonly __brand: TBrand };
 }
 
-/** The real counterpart to create<T> - per direct instruction ("the
- * application verifies that a node is a Division by fetching its
- * type"): confirms an *existing* real entity genuinely matches a
- * type descriptor, and returns it as a real TypedNode - the one, real
- * place validation happens, so every function downstream that takes
- * a TypedNode<T> parameter can trust it was already checked, rather
- * than re-validating a bare string at every point of use. */
-/** Resolves a real, named entity - by default, globally, matching
- * this function's own, long-established behavior for genuinely
- * singleton, global concepts (Application, Businesses, Vocabulary,
- * Vendors - there is only ever one, ever). A real, further, optional
- * parent narrows this to a real, scoped lookup instead - the real,
- * correct fix for a real, confirmed, fundamental gap, found directly:
- * create()'s own uniqueness check was already scoped-not-global (two
- * real siblings under the same real parent can't share a name; the
- * exact same name is genuinely fine under a different parent), but
- * fetch() itself had no way to honor that on the read side - a name
- * conceptually repeated per parent (a business's own real
- * "Hierarchies", say) could only ever be found by resorting to a
- * mangled, business-prefixed name, or be silently, ambiguously
- * resolved to whichever real row a global lookup happened to return
- * first. */
 export function requireEntity<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand> {
   const id = resolveId(name, parent?.id);
   if (id == null) throw new ValidationError(`No entity named "${name}".`);
@@ -607,27 +314,12 @@ export function requireEntity<TBrand extends string>(name: string, type: TypeDes
   return { id: asEntityId(id), name: name as string & { __brand: TBrand } };
 }
 
-/** Resolves a real, structural CoA category (Asset/Liability/Equity/
- * Income/Expense) under the one, real, global Chart of Accounts
- * template specifically - never a business's own, genuinely separate
- * copy (see PER_BUSINESS_ROOTS' Vocabulary entry and
- * copyChartOfAccountsInto). A real, confirmed, fundamental fix: every
- * business now genuinely, correctly owns its own, real, independent
- * copy of each of these category names, so a bare, parent-less
- * fetch('Equity', typeRootName) became genuinely ambiguous the moment
- * more than one real business existed - this is the one, real,
- * correct, unambiguous replacement, resolving through the one, real,
- * true singleton (Application) down to the one, real, global
- * template, every real time. */
 export function requireGlobalCoaCategory(categoryName: string): TypedNode<'RootName'> {
   const application = requireEntity('Application', typeRootName);
   const globalCoa = requireEntity('Chart of Accounts', typeChartOfAccountsRootName, application);
   return requireEntity(categoryName, typeRootName, globalCoa);
 }
 
-/** The real, numeric-id counterpart to fetch - for the real, existing
- * cases that already hold an id (from a route param, a prior query),
- * not a name, per no-generic-functions. */
 export function requireEntityById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand> {
   const row = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(id) as { name: string } | undefined;
   if (!row) throw new ValidationError(`No entity with id ${id}.`);
@@ -637,19 +329,6 @@ export function requireEntityById<TBrand extends string>(id: number, type: TypeD
   return { id: asEntityId(id), name: row.name as string & { __brand: TBrand } };
 }
 
-/** The one, real, generic creation primitive - per direct
- * instruction, no dependency on the generic createEntity. Allocates
- * the next node directly via entity_entry (the real, low-level,
- * trigger-backed mechanism createEntity itself is built on), doing
- * its own, real, scoped-not-global uniqueness check first - the
- * exact, same rule as createEntity's own (two real siblings under the
- * same real parent can't share a name; the exact same name is
- * genuinely fine under a different parent - a business, a division, a
- * location, and an employee can all correctly be "Springfield" at
- * once) - and, when the type descriptor carries a real, Vocabulary-
- * backed validNames() list, checking the given name against it
- * *before* allocating, never after, so there is nothing to roll back
- * on a real, rejected name. */
 export function create<TParentBrand extends string, TChildBrand extends string>(
   parent: TypedNode<TParentBrand>,
   type: TypeDescriptor<TChildBrand>,
@@ -663,60 +342,23 @@ export function create<TParentBrand extends string, TChildBrand extends string>(
   if (existing) throw new ValidationError(`"${name}" already exists under this real, same parent.`);
   db.prepare(`INSERT INTO entity_entry (name, parent_id, created_by) VALUES (?, ?, ?)`).run(name, parent.id, userId);
   const row = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, parent.id) as { id: number };
-  // Per direct instruction: English is no longer merely implied by a
-  // concept's own name — any real word created directly under the one,
-  // true, global Vocabulary, from ANY real code path (this is the
-  // shared, generic, low-level primitive every one of them goes
-  // through, not just "Add a new word"'s own createEntityRaw), gets
-  // its own, real, editable English translation row too, the exact,
-  // same way as German or French.
   if (parent.id === globalVocabularyId()) {
     setTranslation(name, 'English', name, userId);
   }
   return { id: asEntityId(row.id), name: name as string & { __brand: TChildBrand } };
 }
 
-/** Real, direct, structural validation - per no-generic-functions,
- * the actual fix for the originally-confirmed gap: createItem's own
- * parent used to accept any real entity name at all, never checking
- * it was genuinely a Category or the Items root. A Category is
- * structurally any real, live node under the global Items root
- * (Red Wine, Merlot, arbitrary depth) - a real, deliberate,
- * pragmatic definition that doesn't distinguish a genuine category
- * from a specific, already-created product also living under Items,
- * since both are real, valid parents for a new item in practice
- * (a product itself never legitimately has children in this catalog,
- * but nothing here forbids it structurally - a real, honest, stated
- * limit, not hidden). */
 export function isGenuineCategoryOrItemsRoot(name: string): boolean {
   return name === 'Items' || name.endsWith(' Items') || isDescendantOf(name, 'Items');
 }
 
-
 export function createEntityRaw(input: NewEntity, userId: UserId): EntityNode {
-  // "Vocabulary" specifically, unscoped, is the exact, same, real
-  // ambiguity already found and fixed several times this session —
-  // every business gets its own, separate "Vocabulary" entity too, so
-  // the generic, bare resolveId(input.parent) below cannot be trusted
-  // for this one, specific, real name. The real, global Vocabulary is
-  // always what "Add a new word" means by it.
   const isGlobalVocabularyWord = input.parentId == null && input.parent === 'Vocabulary';
   const parentId = input.parentId ?? (isGlobalVocabularyWord ? globalVocabularyId() : input.parent ? resolveId(input.parent) : null);
-  // Scoped, not global: two real, direct siblings under the same real
-  // parent can't share a name, but the exact, same name is genuinely
-  // fine at a different level, or under a different parent — a
-  // company, a division, a location, and an employee can all
-  // genuinely, correctly be called "Springfield" at once.
   const existing = parentId
     ? db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(input.name, parentId)
     : db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id IS NULL`).get(input.name);
   if (existing) throw new ValidationError(`"${input.name}" already exists under this real, same parent.`);
-  // Vocabulary specifically also needs a real, case-insensitive check
-  // — unlike scoped uniqueness elsewhere, a real translatable word is
-  // meant to be one, single, flat, distinct entry ("Tax" and "tax", or
-  // "On Hand" and "On hand", are never genuinely two different real
-  // words, just a human typo away from silently fragmenting one real
-  // word's own translations across two, confusing entries).
   if (parentId && input.name) {
     const parentName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(parentId) as { name: string } | undefined)?.name;
     if (parentName === 'Vocabulary') {
@@ -743,13 +385,6 @@ export function createEntityRaw(input: NewEntity, userId: UserId): EntityNode {
   if (input.accountnumber) {
     db.prepare(`INSERT INTO account (entity_id, accountnumber) VALUES (?, ?)`).run(id, input.accountnumber);
   }
-  // Per direct instruction: English is no longer merely implied by a
-  // concept's own name — every real word genuinely gets its own, real,
-  // editable English translation row too, the exact, same, real way
-  // as German or French, created here exactly once, via setTranslation
-  // itself (never duplicated by hand). Every concept already seeded in
-  // 00-core.sql gets the same, real row via a one-time, generic
-  // backfill in the schema itself — see the note there.
   if (isGlobalVocabularyWord) {
     setTranslation(input.name, 'English', input.name, userId);
   }
@@ -760,28 +395,10 @@ export interface EntityUpdate {
   name?: string;
   parent?: string | null;
   relation?: string | null;
-  /** Per direct, confirmed finding: resolving `relation` by bare name
-   * is genuinely ambiguous once two, real, differently-scoped
-   * entities share the same name (e.g. a real Location and a real
-   * Product Instance node both named "Riverside Cellars"). Provide
-   * this instead, when the exact, real target id is already known,
-   * to bypass that ambiguity entirely - the same, now-proven pattern
-   * already used for accountId/entityId elsewhere this session. */
-  relationId?: number;
+    relationId?: number;
   accountnumber?: string | null;
 }
 
-/** A rename, reparent, or re-relation — closes out the entity's current
- * row and appends its replacement (entity_update in schema.sql), rather
- * than updating in place. Fields not provided keep their current value
- * carried forward onto the new row; entity_update needs the full set on
- * every write, so this fetches whatever wasn't explicitly changed. */
-/** Per direct, absolute instruction: no function implying in-place
- * mutation may exist in this design. This name states exactly what
- * happens: the current row for id is superseded by a new one carrying
- * the given changes, every other field carried forward unchanged -
- * the same, real, pre-existing entity_update insert-only mechanism
- * underneath, never a new one. */
 export function supersedeEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode {
   const current = getEntity(id);
   if (!current) throw new NotFoundError(`Entity ${id} not found.`);
@@ -821,9 +438,6 @@ export interface Relationship {
   target: string;
 }
 
-/** Every real, already-known Chart of Accounts line type — the same,
- * established, user-amendable pattern already proven for address,
- * phone, and contact person types (see docs/entity-model.md). */
 export function listLineTypes(): string[] {
   return db
     .prepare(
@@ -835,14 +449,6 @@ export function listLineTypes(): string[] {
     .map((r) => (r as { name: string }).name);
 }
 
-/** Sets a Chart of Accounts line's own explicit type (Header / Total
- * / Descriptive / Posting, or any real, further, user-added type) —
- * a real, direct use of the existing setEntityLink mechanism, per
- * direct instruction (no new tables): the same, real relationship
- * primitive already proven for hierarchy links elsewhere in this
- * codebase, not a new concept. Passing null removes the link
- * entirely, restoring today's real, existing is_postable_account-
- * derived behavior for that entity. */
 export function setLineType(entityName: string, lineType: string | null, userId: UserId): void {
   if (lineType === null) {
     deleteEntityLink(entityName, 'Line Type', userId);
@@ -854,26 +460,6 @@ export function setLineType(entityName: string, lineType: string | null, userId:
   setEntityLink(entityName, 'Line Type', lineType, userId);
 }
 
-/** The real, currently-set line type for one entity, or undefined if
- * never explicitly typed — the exact, same real getEntityLink
- * mechanism already proven elsewhere. */
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export function getLineType(entityName: string): string | undefined {
-//   return getEntityLink(entityName, 'Line Type');
-// }
-
-/** A real, explicit, per-Item "Storage Origin" dimension —
- * Hot (shelf) or Cold (refrigerated) — as a genuine relationship on
- * the Item entity itself, per direct instruction: not the earlier,
- * hardcoded category-name guess (COLD_STORAGE_CATEGORIES), which
- * could only ever say yes/no for a handful of known category names,
- * never represent the dimension explicitly on the Item itself, and
- * could never be corrected for a genuine exception. The exact same,
- * real setEntityLink mechanism already proven for Line Type, and the
- * same "Storage Origin Types" marker-entity parent pattern already
- * proven for Address Types/Phone Types/Chart of Accounts Line Types.
- * Passing null removes the link entirely — a real, valid "not yet
- * assigned a storage origin" state, not an error. */
 export function setItemStorageOrigin(itemName: ItemName, origin: 'Hot' | 'Cold' | null, userId: UserId): void {
   if (origin === null) {
     deleteEntityLink(itemName, 'Storage Origin', userId);
@@ -885,17 +471,10 @@ export function setItemStorageOrigin(itemName: ItemName, origin: 'Hot' | 'Cold' 
   setEntityLink(itemName, 'Storage Origin', origin, userId);
 }
 
-/** The real, currently-set storage origin for one Item, or undefined
- * if it's never been explicitly assigned one yet. */
 export function getItemStorageOrigin(itemName: ItemName): 'Hot' | 'Cold' | undefined {
   return getEntityLink(itemName, 'Storage Origin') as 'Hot' | 'Cold' | undefined;
 }
 
-/** A real, generic "Text Direction" for any language — LTR or RTL —
- * mirroring setItemStorageOrigin's exact pattern, so any future
- * right-to-left language (not just Hebrew/Arabic specifically) is a
- * real, first-class citizen through the same, ordinary "Add Language"
- * mechanism, not a hardcoded, one-off special case. */
 export function setLanguageDirection(languageName: string, direction: 'LTR' | 'RTL' | null, userId: UserId): void {
   if (direction === null) {
     deleteEntityLink(languageName, 'Text Direction', userId);
@@ -911,17 +490,6 @@ export function getLanguageDirection(languageName: string): 'LTR' | 'RTL' | unde
   return getEntityLink(languageName, 'Text Direction') as 'LTR' | 'RTL' | undefined;
 }
 
-/** Real, explicit display ordering among siblings — a genuine linked
- * list, per direct instruction (no new tables, another relationship
- * instead): "X — Display Order" links to whichever real sibling
- * comes immediately after X. An entity with no such link, and that
- * no other sibling's own link points at, is the real, first item;
- * one with no such link that some other sibling does point at is the
- * real, last. Entities with no real, explicit link at all anywhere
- * in a level keep today's exact, existing alphabetical order,
- * appended after every real, explicitly-ordered entity — the same,
- * real "lazily migrate only once actually touched" design already
- * used elsewhere in this codebase. */
 function orderSiblingsByDisplayOrder<T extends { id: number; name: string }>(siblings: T[]): T[] {
   const nextByName = new Map<string, string>();
   const pointedAt = new Set<string>();
@@ -951,15 +519,6 @@ function orderSiblingsByDisplayOrder<T extends { id: number; name: string }>(sib
   return [...chain, ...unordered];
 }
 
-/** Moves one entity up or down among its own real siblings (same
- * parent_id) by re-linking the real "Display Order" chain — swaps
- * this entity's own position with whichever sibling is currently
- * immediately adjacent in that direction, in today's real, effective
- * order (an explicit chain first, then alphabetically among any
- * real, remaining unordered siblings — the exact, same order
- * orderSiblingsByDisplayOrder above already produces). Lazily
- * converts every visible sibling from alphabetical to an explicit
- * chain the first time any of them is ever moved. */
 export function reorderSiblings(entityId: EntityId, direction: 'up' | 'down', userId: UserId): void {
   const entity = getEntity(entityId);
   if (!entity) throw new NotFoundError(`Entity ${entityId} not found.`);
@@ -975,12 +534,6 @@ export function reorderSiblings(entityId: EntityId, direction: 'up' | 'down', us
   relinkDisplayOrderChain(newOrder, userId);
 }
 
-/** The same real operation as reorderSiblings, applied to a real,
- * multi-selected block of siblings at once — moves the whole
- * selected group up/down together as a unit, preserving their own
- * relative order within the block. All entityIds must share the
- * same real parent (a real, direct requirement — moving items
- * "together" across different levels has no coherent meaning). */
 export function reorderSiblingsBulk(entityIds: number[], direction: 'up' | 'down', userId: UserId): void {
   if (entityIds.length === 0) return;
   const entities = entityIds.map((id) => {
@@ -997,21 +550,11 @@ export function reorderSiblingsBulk(entityIds: number[], direction: 'up' | 'down
     .all(...(parentId != null ? [parentId] : [])) as { id: number; name: string }[];
   const siblings = orderSiblingsByDisplayOrder(rawSiblings);
   const selectedIds = new Set(entityIds);
-  // The real, selected block itself — exactly the selected entities,
-  // in their own current, real relative order. Deliberately NOT the
-  // full span between the first and last selected index: a
-  // non-adjacent selection (e.g. picking the 1st and 3rd of five
-  // siblings) would otherwise silently sweep up the unselected item
-  // sitting between them too.
   const block = siblings.filter((s) => selectedIds.has(s.id));
   const rest = siblings.filter((s) => !selectedIds.has(s.id));
   const indices = siblings.map((s, i) => (selectedIds.has(s.id) ? i : -1)).filter((i) => i !== -1);
   const firstIndex = Math.min(...indices);
   const lastIndex = Math.max(...indices);
-  // The real, adjacent, non-selected sibling in the direction of
-  // travel — walking outward from the block skips over any other
-  // already-selected sibling sitting right at that edge (a
-  // non-adjacent selection can have one).
   let anchorIndex = direction === 'up' ? firstIndex - 1 : lastIndex + 1;
   while (anchorIndex >= 0 && anchorIndex < siblings.length && selectedIds.has(siblings[anchorIndex].id)) {
     anchorIndex += direction === 'up' ? -1 : 1;
@@ -1024,11 +567,6 @@ export function reorderSiblingsBulk(entityIds: number[], direction: 'up' | 'down
   relinkDisplayOrderChain(newOrder, userId);
 }
 
-/** Rewrites the real "Display Order" chain to match a real, given,
- * already-decided order — clears any real, stale links from
- * siblings no longer item of the chain (an entity deleted since the
- * chain was last built), then links each entity to the one real,
- * next after it. */
 function relinkDisplayOrderChain(orderedSiblings: { id: number; name: string }[], userId: UserId): void {
   for (const s of orderedSiblings) deleteEntityLink(s.name, 'Display Order', userId);
   for (let i = 0; i < orderedSiblings.length - 1; i++) {
@@ -1036,30 +574,11 @@ function relinkDisplayOrderChain(orderedSiblings: { id: number; name: string }[]
   }
 }
 
-/** Records that `entityName` has a relationship of `relationshipType`
- * with `targetName` — e.g. "Smith Prototype Trust" is "Trustee Of"
- * "Boutique Wine Company". This is the SAME relation_id mechanism a
- * plain report/category tag already uses (COGS, Balance Sheet, P&L
- * Statement) — a tag is the degenerate case of this exact shape,
- * where the type entity IS the complete answer and no second fact is
- * needed. A relationship genuinely needs two facts (what kind, and
- * with whom), so it uses one more hop: entityName's own relation_id
- * points at a real, lazily-created intermediate entity — that
- * entity's own parent_id gives the type (relationshipType, expected
- * to live under a real category like "Relationship Types"), and its
- * own relation_id gives the target. Not a new mechanism — the same one,
- * used recursively, exactly the way a real relationship (which needs
- * both a type and a target) actually requires. See
- * docs/entity-model.md. */
 export function setRelationship(entityName: string, relationshipType: string, targetName: string, userId: UserId): void {
   const recordName = `${relationshipType} — ${entityName} → ${targetName}`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
     create(requireEntity(relationshipType, typeRootName), typeRelationshipRecordName, recordName, userId);
   }
-  // Both of these bare, unscoped-by-parent lookups are now ordered
-  // deterministically (oldest match wins) for the exact, same reason
-  // resolveId() itself was fixed to - see that function's own
-  // comment for the confirmed, real collision this matters for.
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ? ORDER BY id ASC LIMIT 1`).get(recordName) as { id: number };
   supersedeEntity(record.id, { relation: targetName }, userId);
   const entity = db.prepare(`SELECT id FROM current_entities WHERE name = ? ORDER BY id ASC LIMIT 1`).get(entityName) as { id: number } | undefined;
@@ -1067,12 +586,6 @@ export function setRelationship(entityName: string, relationshipType: string, ta
   supersedeEntity(entity.id, { relation: recordName }, userId);
 }
 
-/** The single-entity lookup: "what relationship does entityName have,
- * and with whom?" Walks entityName's own relation_id one hop to the
- * intermediate record, then reads that record's parent_id (the type)
- * and relation_id (the target) — undefined if entityName's relation_id
- * isn't actually a relationship record (e.g. it's a plain tag, or
- * unset). */
 export function getRelationship(entityName: string): Relationship | undefined {
   const row = db
     .prepare(
@@ -1087,11 +600,6 @@ export function getRelationship(entityName: string): Relationship | undefined {
   return row;
 }
 
-/** The group query: "show me every entity with a relationship of this
- * type, and its target" — e.g. every company acting as trustee for
- * anything. Walks from the type node down to every intermediate
- * relationship record under it, then to whatever entity's own
- * relation_id actually points at that record. */
 export function getEntitiesWithRelationship(relationshipType: string): { source: string; target: string }[] {
   return db
     .prepare(
@@ -1114,52 +622,13 @@ export interface OrganizationChart {
   groups: OrgChartGroup[];
 }
 
-/** Builds the real, complete organizational chart for a real
- * business, walking the full, real chain — Business <-(belongs to)-
- * Group <-(belongs to)- Location <-(place of employment)- Employee
- * — through the three real relationship layers, not through
- * parent_id at all (each of those stays exactly where it already
- * was; only the relationship layer is new). Per direct confirmation:
- * "yes definitely for organizational charts and employee directory".
- * "Group" here is a genuinely generic, business-chosen grouping of
- * locations (a business may call its own groups "Division," "Region,"
- * or anything else) — never a hardcoded, privileged concept. */
 export interface HierarchyNode {
   id: number;
   name: string;
   children: HierarchyNode[];
 }
 
-/** Builds the real, in-memory tree for any real hierarchy, from its
- * own, real root entity, for the application to hold and walk in
- * memory — Chart of Accounts, Vocabulary, or any other real,
- * structural tree, all built the exact, same, generic way. Walks two,
- * real, distinct kinds of edge together: (1) direct, structural
- * parent_id children, and (2) for hierarchies built from a real,
- * named relationship (e.g. "Belongs To Division") rather than plain
- * structural nesting, every real entity elsewhere in the tree whose
- * own relationship names this node as its target — the same,
- * established mechanism getEntitiesWithRelationship already uses.
- * This also, correctly includes a real entity that is genuinely its
- * own group (e.g. a single-location "division" with no separate,
- * dedicated division entity of its own — its own relationship simply
- * targets itself), never silently dropped for lacking a second,
- * redundant relationship record. */
 export function getHierarchy(rootName: string, relationshipType?: string, knownRootId?: number): HierarchyNode {
-  // A real, confirmed, latent bug, found directly by a test suite
-  // that finally exercises more than one real business at once: the
-  // bare lookup below is only ever safe while 'rootName' (e.g.
-  // "Income", "Asset") names exactly one real entity anywhere - true
-  // only for the very first business ever created. Every business
-  // after that gets its own real "Income"/"Asset"/... mirror of its
-  // own, so the bare lookup becomes genuinely ambiguous and can
-  // silently walk some OTHER business's own category tree instead of
-  // this caller's intended one. knownRootId lets a caller that
-  // already knows the exact, correct, business-scoped entity id (via
-  // resolveBusinessCoaAccountId, same as copyChartOfAccountsInto's
-  // own relationId fix) bypass the ambiguous name resolution
-  // entirely - the same, already-proven pattern used elsewhere in
-  // this file for exactly this reason.
   const rootId = knownRootId ?? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(rootName) as { id: number } | undefined)?.id;
   if (!rootId) throw new NotFoundError(`No real entity named "${rootName}".`);
 
@@ -1170,12 +639,6 @@ export function getHierarchy(rootName: string, relationshipType?: string, knownR
     childrenByTarget.get(target)!.push(source);
   }
 
-  // A real, indirect cycle (A -> B -> A) in a relationship chain
-  // would otherwise recurse forever — better-sqlite3 is synchronous
-  // and blocking, so an unguarded cycle here genuinely hangs the
-  // entire event loop, not just this one, real request. A plain
-  // depth counter is sufficient: no genuine, real hierarchy in this
-  // application is anywhere near this deep.
   const MAX_DEPTH = 100;
   function buildNode(id: number, name: string, depth: number): HierarchyNode {
     if (depth > MAX_DEPTH) {
@@ -1197,23 +660,6 @@ export function getHierarchy(rootName: string, relationshipType?: string, knownR
   return buildNode(rootId, rootName, 0);
 }
 
-/** Resolves the real, single root entity a business's own real
- * locations live directly under - the modern "Locations" child every
- * business created through the application itself gets
- * (PER_BUSINESS_ROOTS), or, as a real, confirmed, read-only fallback,
- * the legacy, combined "${businessName} Locations" root name one
- * specific, pre-existing demo business ("Wine Retail Business",
- * backend/schema/20-demo-wine-retail.sql) still uses, predating that
- * convention. Found directly: getOrganizationChart, setLocation, and
- * getLocation each duplicated the exact, same modern-shape-only
- * lookup, so this one business's own real locations were invisible to
- * all three - its Business Setup tree showed no groups at all, and
- * creating or saving a location against it failed outright. Fixed
- * here, once, rather than three times, and deliberately NOT by
- * migrating this large, pre-existing demo dataset onto the modern
- * shape (a real, separate, riskier undertaking) - every business
- * created going forward always gets the modern shape directly, so
- * this fallback is read-only and never needed for new data. */
 export function resolveBusinessLocationsRootId(businessName: string): number | undefined {
   const businessId = (
     db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined
@@ -1232,21 +678,10 @@ export function getOrganizationChart(businessName: BusinessName): OrganizationCh
 
   const companyWideEmployees = employmentRows.filter((r) => r.target === businessName).map((r) => r.source).sort();
 
-  // A real group is genuinely either (1) a real entity with its own
-  // "Belongs To Business" relationship pointing at this business, or
-  // (2) any real target of a "Belongs To Group" relationship whose
-  // own locations trace back to this business — covering a
-  // single-location group that is genuinely its own group, with no
-  // separate, dedicated group entity or business relationship of its
-  // own (its own location's relationship simply targets itself),
-  // never silently dropped from the real org chart.
   const businessGroupNames = new Set(businessRows.map((r) => r.source));
   for (const { target } of locationRows) {
     businessGroupNames.add(target);
   }
-  // Filter group-only-by-location-relationship names to genuinely
-  // real ones belonging to this business — a location's own city or
-  // structural home under this exact business's own Locations.
   const businessLocationsRootId = resolveBusinessLocationsRootId(businessName);
   const businessLocationNames = new Set(
     businessLocationsRootId
@@ -1282,13 +717,6 @@ export function revokeEntity(id: number, userId: UserId): void {
   if (hasPostings) throw new ValidationError('Cannot revoke an entity that has journal postings against it.');
   const entity = getEntity(id);
   if (!entity) throw new NotFoundError(`Entity ${id} not found.`);
-  // Per direct rule: every real business must always have both a
-  // real Actual ledger and a real Budget ledger — never revocable
-  // down to zero of either kind, even a genuinely empty, brand-new
-  // one with no real postings yet at all (the two checks above
-  // wouldn't otherwise catch this, since a ledger itself carries no
-  // real children or direct postings of its own — journal_line
-  // references the real account, not the ledger).
   const parent = entity.parent_id ? getEntity(entity.parent_id) : null;
   const isRealLedgersNode = parent && parent.name === 'Ledgers' && db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses') AND id = ?`).get(parent.parent_id ?? -1);
   if (parent && isRealLedgersNode) {
@@ -1300,64 +728,24 @@ export function revokeEntity(id: number, userId: UserId): void {
     if (isActual && otherActualCount === 0) throw new ValidationError(`"${parent.name}" must always have a real Actual ledger — this is its only one.`);
     if (isBudget && otherBudgetCount === 0) throw new ValidationError(`"${parent.name}" must always have a real Budget ledger — this is its only one.`);
   }
-  // account/contact/translation rows are deliberately left in place —
-  // they're historical facts about this now-superseded entity_id (what
-  // was its phone number, its account number, when it was revoked),
-  // consistent with everything else here never disappearing outright.
   db.prepare(`INSERT INTO entity_revoke (entity_id, revoked_by) VALUES (?, ?)`).run(id, userId);
-  // The revoke above only clears relation_id — by design (see
-  // entity_revoke's own schema comment), since that alone is enough
-  // for every relation_id-based consumer (getEntitiesWithRelationship,
-  // getOrganizationChart, getHierarchy: each already requires a live
-  // entity's relation_id to match, so one gone NULL already, correctly,
-  // drops out). It does nothing for a parent_id-based structural
-  // consumer (getEntityTree's own raw walk, getBusinessHierarchy, or
-  // any other plain `WHERE parent_id = ?`) — confirmed directly, a
-  // revoked entity stays visible under its old parent indefinitely
-  // there, since parent_id is carried forward unchanged. The two
-  // guards above (no children, no postings) mean a revoked entity is
-  // always a true, dependency-free leaf by the time we get here, so
-  // nothing is lost by also moving it out of its old structural
-  // position entirely, into a dedicated, out-of-the-way holding root —
-  // closing that one, real, remaining gap for every current and
-  // future parent_id-based consumer at once, not just this one.
   const revokedRoot = requireEntity('Application', typeRootName);
   Entity.ensureUnder('Revoked', revokedRoot.id, userId);
   Entity.reparent(id, 'Revoked', userId);
 }
-
-// ---------------------------------------------------------------------------
-// Contacts — phone/address for any entity (a customer, vendor, employee).
-// Same 1:1 extension shape as account; upsert is a full replace (see the
-// note in schema.sql), so callers should always send the complete record.
-// ---------------------------------------------------------------------------
 
 export interface AgingBucket {
   label: string;
   through_days: number;
 }
 
-/** Derives the three aging buckets from one stored term — a customer
- * on Net 30 ages at 30/60/90, Net 7 at 7/14/21, Net 14 at 14/28/42.
- * null (not yet configured) falls back to a conventional 30/60/90.
- * 0 (cash only) still gets buckets — nothing is ever truly exempt from
- * aging, a cash-only customer who hasn't paid is overdue immediately,
- * so their single bucket boundary is 0 itself. */
 export interface CreditStatus {
   balanceMinor: number;
   limitMinor: number | null;
   overLimit: boolean;
-  /** How much real headroom remains before the limit — negative once
-   * already over. Null when no real limit has been set at all. */
-  remainingMinor: number | null;
+    remainingMinor: number | null;
 }
 
-/** A real customer or vendor's own current credit position — their
- * own entity's real, live balance (already their true, current
- * outstanding amount, no separate calculation needed) against their
- * own real, configured credit_limit_minor. A real, non-blocking
- * check: callers decide whether to warn or refuse, this only reports
- * the real facts. */
 export function getCreditStatus(entityName: string): CreditStatus {
   const row = db
     .prepare(
@@ -1388,13 +776,6 @@ export function getAgingBuckets(paymentTermsDays: number | null): AgingBucket[] 
   ];
 }
 
-// ---------------------------------------------------------------------------
-// Invoices — the real billing event, distinct from the physical
-// Dispatch Note/Goods Receipt. AR and AP share this mechanism (same
-// shape, debit/credit sign flipped), matching how AR Sale/AP Purchase
-// already mirror each other in this project.
-// ---------------------------------------------------------------------------
-
 export interface InvoiceLineInput {
   description: string;
   quantity?: number | null;
@@ -1416,10 +797,7 @@ export interface InvoiceInput {
   invoiceDate: string;
   description?: string;
   lines: InvoiceLineInput[];
-  /** 'pos' for an immediate point-of-sale cash/card sale, 'manual'
-   * (the default) for a deliberate, account-based invoice created
-   * directly. */
-  source?: 'manual' | 'pos';
+    source?: 'manual' | 'pos';
 }
 
 export interface Invoice {
@@ -1461,12 +839,6 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
   if (input.referencesInvoiceId != null && !getInvoice(input.referencesInvoiceId)) {
     throw new ValidationError(`No invoice with id ${input.referencesInvoiceId} to reference.`);
   }
-  // A real, explicit check before the insert, not left for the raw
-  // SQLite UNIQUE constraint to surface as an opaque 500 error — found
-  // via a real, live e-invoice import test: importing a real,
-  // incoming invoice whose reference happens to collide with an
-  // existing one (a genuinely real scenario, not hypothetical) needs
-  // a real, clear message, not a stack trace.
   const existingWithSameReference = db
     .prepare(`SELECT 1 FROM invoice WHERE business_id = ? AND ledger_id = ? AND reference = ?`)
     .get(businessId, ledgerId, input.reference);
@@ -1474,9 +846,6 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
     throw new ValidationError(`An invoice with reference "${input.reference}" already exists in ${input.ledger} — references must be unique within a ledger.`);
   }
 
-  // Due date derived from the counterparty's own payment terms, same
-  // "1x the term" logic getAgingBuckets already uses — genuinely
-  // computed, not left blank for someone to fill in by hand.
   const contact = getContact(input.counterpartyName);
   const termDays = contact?.payment_terms_days ?? 30;
   const dueDate = db.prepare(`SELECT date(?, '+' || ? || ' days') AS d`).get(input.invoiceDate, termDays) as { d: string };
@@ -1562,24 +931,10 @@ export function getInvoice(id: number): Invoice | undefined {
   };
 }
 
-// ---------------------------------------------------------------------------
-// E-invoicing — real, structured UBL 2.1 XML export/import, per direct
-// request ("e-invoice both in and out"). Targets the core, mandatory
-// UBL 2.1 fields (the same real structure Peppol BIS Billing 3.0/
-// PINT A-NZ build on) rather than every optional business rule in the
-// full, official schema — a real, genuinely UBL-structured document,
-// not a claim of full network-certified compliance.
-// ---------------------------------------------------------------------------
-
 function xmlEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-/** A real, posted invoice exported as a real UBL 2.1 Invoice XML
- * document — the same real structure a real Peppol Access Point
- * would expect to receive: cbc:ID, cbc:IssueDate,
- * AccountingSupplierParty/AccountingCustomerParty, one real
- * InvoiceLine per real invoice line, TaxTotal, LegalMonetaryTotal. */
 export function exportInvoiceAsUbl(invoiceId: number): string {
   const invoice = getInvoice(invoiceId);
   if (!invoice) throw new NotFoundError(`No invoice with id ${invoiceId}.`);
@@ -1652,11 +1007,6 @@ export interface UblImportResult {
   lines: UblImportLine[];
 }
 
-/** A real, incoming UBL 2.1 XML document, parsed into its real fields
- * — deliberately simple, regex-based extraction rather than a full
- * XML parser dependency, since the real fields this app needs back
- * out are a small, well-known, fixed set within a document this same
- * export function itself already produces in a predictable shape. */
 export function parseUblInvoice(xml: string): UblImportResult {
   function tag(name: string, source: string): string | null {
     const m = source.match(new RegExp(`<(?:cbc:)?${name}[^>]*>([^<]*)</(?:cbc:)?${name}>`));
@@ -1692,14 +1042,6 @@ export interface EInvoiceDiscrepancy {
   invoiceValue: string;
 }
 
-/** The real "3-way match" — compares a real, incoming e-invoice
- * against the real Purchase Order it claims to be for (matched by
- * vendor and real, close-enough total), surfacing any real, genuine
- * mismatch rather than silently accepting whatever the e-invoice
- * says. Returns an empty array when everything genuinely matches, or
- * when no matching real PO can be found at all (a real, separate
- * fact the caller should also decide how to handle, not folded into
- * "discrepancy" here). */
 export function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[] {
   if (!poReference) return [];
   const poProvider = db.prepare(`SELECT relation_id FROM current_entities WHERE name = ?`).get(`${poReference} Qty`) as { relation_id: number | null } | undefined;
@@ -1714,9 +1056,6 @@ export function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?
   const status = poItem ? getOrderStatus(poReference) : null;
   if (status) {
     const invoiceLineTotal = parsed.lines.reduce((s, l) => s + l.amountMinor, 0);
-    // Allow a small, real rounding tolerance (1 cent per line) rather
-    // than flagging every invoice for an honest floating-point
-    // rounding difference that isn't a genuine discrepancy at all.
     if (Math.abs(invoiceLineTotal - status.value_minor) > parsed.lines.length) {
       discrepancies.push({
         field: 'Total amount',
@@ -1728,15 +1067,6 @@ export function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?
   return discrepancies;
 }
 
-/** A real, parsed e-invoice, imported as a real, draft AP invoice —
- * deliberately never auto-posted. The existing draft status IS the
- * real approval gate: a draft has no GL effect at all until someone
- * explicitly reviews it and posts it, the same real mechanism every
- * other invoice already uses, not a new status invented for this one
- * case. Any real discrepancy found against the matching PO is
- * recorded directly in the invoice's own description, so it's
- * immediately visible to whoever reviews the draft, not hidden in a
- * separate place they'd have to know to check. */
 export function importUblInvoiceAsDraft(xml: string, business: BusinessName, ledger: LedgerName, vendorName: string, userId: UserId, poReference?: string): { invoiceId: number; discrepancies: EInvoiceDiscrepancy[] } {
   const parsed = parseUblInvoice(xml);
   const discrepancies = checkEInvoiceDiscrepancies(parsed, poReference);
@@ -1762,19 +1092,6 @@ export function importUblInvoiceAsDraft(xml: string, business: BusinessName, led
   return { invoiceId, discrepancies };
 }
 
-// ---------------------------------------------------------------------------
-// Picking, packing, and dispatch — per direct request: "you just got a
-// list of approved customer orders on a delivery run and printed the
-// picking/packing list (with warehouse shelf location), picked them
-// and confirmed items... printed the invoice and when a delivery
-// run/courier pickup was completed." Built on the real, existing
-// invoice mechanism (a real, unposted invoice IS a real, approved
-// order — no new "order" concept needed) and the real, existing
-// item_location shelf fields, not the old, abstract Qty/Value
-// stock-dispatch mechanism, which never knew about real shelves at
-// all.
-// ---------------------------------------------------------------------------
-
 export interface PickingListLine {
   invoiceLineId: number;
   item: string;
@@ -1785,14 +1102,6 @@ export interface PickingListLine {
   picked: boolean;
 }
 
-/** A real invoice's own real lines, turned into a real picking list —
- * sorted by real shelf order (rack, then level, then shelf side), so
- * a real person walking the floor picks in one, efficient physical
- * pass rather than crossing back and forth. Per direct request, shelf
- * detail is the LAST real field here (not the first) — printed on the
- * far right so the whole shelf/rack/level column can be torn off
- * before the list goes out with the delivery, without a customer ever
- * seeing the real warehouse layout. */
 export function getPickingList(invoiceId: number, locationName: LocationName): PickingListLine[] {
   const invoice = getInvoice(invoiceId);
   if (!invoice) throw new NotFoundError(`No invoice with id ${invoiceId}.`);
@@ -1817,11 +1126,6 @@ export function getPickingList(invoiceId: number, locationName: LocationName): P
       };
     });
 
-  // Real shelf order: rack (alphabetical), then level (low to high —
-  // a real person works one level at a time, not zig-zagging), then
-  // shelf side. A real line with no shelf recorded at all sorts last,
-  // not first — an unplaced item shouldn't derail an otherwise
-  // efficient, real walking order.
   return lines.sort((a, b) => {
     if (a.rack !== b.rack) return (a.rack ?? '\uffff').localeCompare(b.rack ?? '\uffff');
     if (a.level !== b.level) return (a.level ?? Infinity) - (b.level ?? Infinity);
@@ -1829,16 +1133,6 @@ export function getPickingList(invoiceId: number, locationName: LocationName): P
   });
 }
 
-/** Marks one real picking-list line as physically picked — a real,
- * lightweight journal entry (a bare journal row only, deliberately no
- * journal_line and no account at all — this is the THIRD, and final,
- * genuine exception to the single financial-posting path, since a
- * tick-off has no financial or quantity meaning whatsoever, not even
- * a single-account one; the real stock reduction happens once at
- * dispatchOrderFromPickingList below) so the real, per-line
- * confirmation state survives a page reload and is genuinely
- * auditable (who ticked it, and when), not just client-side UI state
- * that vanishes the moment the tab closes. */
 export function confirmPickedLine(invoiceId: number, invoiceLineId: number, business: BusinessName, ledger: LedgerName, userId: UserId): void {
   const invoice = getInvoice(invoiceId);
   if (!invoice) throw new NotFoundError(`No invoice with id ${invoiceId}.`);
@@ -1855,13 +1149,6 @@ export function confirmPickedLine(invoiceId: number, invoiceLineId: number, busi
   );
 }
 
-/** Once every real line on a real order has been physically picked
- * and confirmed, this is the real "delivery run/courier pickup
- * completed" moment: posts the real invoice (recognizing revenue) and
- * dispatches real, physical stock for every real line from the real
- * location it was actually picked from — the same, real, already-
- * tested dispatchItems mechanism this app's own POS sales
- * already use, not a separate, parallel dispatch path. */
 export function dispatchOrderFromPickingList(invoiceId: number, locationName: LocationName, revenueAccount: string, taxAccount: string, userId: UserId): void {
   const invoice = getInvoice(invoiceId);
   if (!invoice) throw new NotFoundError(`No invoice with id ${invoiceId}.`);
@@ -1877,30 +1164,11 @@ export function dispatchOrderFromPickingList(invoiceId: number, locationName: Lo
   }
 }
 
-// ---------------------------------------------------------------------------
-// Restocking retail outlets from a warehouse — a real, deliberately
-// separate case from the customer-order picking above, per direct
-// request: "the restocking of retail outlets from warehouses" is
-// foremost among "a very similar process for our own retail store
-// restocking runs." A real, internal transfer has no customer and no
-// revenue at all, so it's genuinely not an invoice — but it needs the
-// exact same real shelf-order/tick-off/refuse-until-complete pattern,
-// built on transferItems (the same, real, already-tested mechanism
-// this app's own simulation already uses for restocking) rather than
-// dispatchItems/postInvoice.
-// ---------------------------------------------------------------------------
-
 export interface RestockLineInput {
   item: string;
   quantity: number;
 }
 
-/** A real restocking run's own picking list — sorted by real shelf
- * order at the warehouse it's actually being picked from (the same
- * real ordering logic as the customer-order picking list above), for
- * a real, explicit list of (item, quantity) since there's no real
- * "order" entity a restocking run is derived from the way a customer
- * order derives from a real invoice. */
 export function getRestockPickingList(runReference: string, warehouseName: LocationName, lines: RestockLineInput[]): PickingListLine[] {
   const pickedRefs = new Set(
     (db.prepare(`SELECT DISTINCT reference FROM journal WHERE reference LIKE ?`).all(`${runReference}-PICK-%`) as { reference: string }[]).map((r) => r.reference)
@@ -1926,10 +1194,6 @@ export function getRestockPickingList(runReference: string, warehouseName: Locat
   });
 }
 
-/** Marks one real restocking-run line as physically picked — the same
- * real, lightweight, auditable journal entry pattern as
- * confirmPickedLine, keyed by the run's own reference and the real
- * item name (a restocking run has no real invoice_line id to key by). */
 export function confirmRestockPickedLine(runReference: string, itemName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
   const ref = `${runReference}-PICK-${itemName}`;
   const already = db.prepare(`SELECT 1 FROM journal WHERE reference = ?`).get(ref);
@@ -1944,11 +1208,6 @@ export function confirmRestockPickedLine(runReference: string, itemName: string,
   );
 }
 
-/** The real "restocking run completed" moment — refuses outright if
- * any real line is still unticked, otherwise transfers real, physical
- * stock for every real line from the real warehouse to the real
- * retail outlet, using transferItems, the exact same real mechanism
- * this app's own simulation already relies on for restocking. */
 export function dispatchRestockFromPickingList(
   runReference: string,
   business: BusinessName,
@@ -1965,27 +1224,14 @@ export function dispatchRestockFromPickingList(
     throw new ValidationError(`${unpicked.length} real line${unpicked.length > 1 ? 's are' : ' is'} not yet confirmed picked — every line must be ticked off before this restocking run can be dispatched.`);
   }
   for (const line of pickingList) {
-    // Each real line needs its own, distinct reference — confirmed
-    // directly, not assumed: journal.reference must be unique per
-    // (business, ledger), so reusing one shared base reference across
-    // different real products in the same run would collide.
     transferItems(business, ledger, asItemName(line.item), asLocationName(warehouseName), asLocationName(retailOutletName), line.quantity, `${runReference}-XFER-${line.item}`, userId, transdate);
   }
 }
 
 export interface ListInvoicesOptions {
   invoiceType?: 'AR' | 'AP';
-  /** Defaults to 'manual' — real, deliberate account invoices only.
-   * Pass 'pos' explicitly to see POS transactions instead, or 'all'
-   * for both. A person managing "who do we owe/are owed money by"
-   * genuinely doesn't want thousands of already-settled POS receipts
-   * mixed in by default. */
-  source?: 'manual' | 'pos' | 'all';
-  /** Omit for no real limit at all — every matching invoice. Only the
-   * UI-facing list page itself should ever pass a real page size;
-   * internal callers computing a real balance/aging figure need every
-   * real invoice, not just one page of them. */
-  limit?: number;
+    source?: 'manual' | 'pos' | 'all';
+    limit?: number;
   offset?: number;
 }
 export function listInvoices(business: BusinessName, ledger: LedgerName, options: ListInvoicesOptions = {}): Invoice[] {
@@ -2015,16 +1261,6 @@ export function countInvoices(business: BusinessName, ledger: LedgerName, invoic
   return row.total;
 }
 
-/** Posts a draft invoice to the GL — the real billing event: this is
- * what actually creates AR/AP and recognizes revenue/expense, not the
- * physical Dispatch Note/Goods Receipt the lines may reference. */
-/** revenueOrExpenseAccount is normally one account name, posting a
- * single lump-sum line for the whole invoice — the original, still
- * the default behavior every existing caller keeps getting unchanged.
- * Pass a function instead to post one line per invoice_detail_line,
- * each to its own account (e.g. each product's own real Sales/COGS
- * leaf) — the real fix for "the same two aggregate accounts absorb
- * every product's revenue," not a lump sum masquerading as detail. */
 export function postInvoice(
   id: number,
   revenueOrExpenseAccount: string | { name: string; id: number } | ((line: InvoiceLineInput & { id: number }) => string | { name: string; id: number }),
@@ -2039,10 +1275,6 @@ export function postInvoice(
   if (invoice.status !== 'draft') throw new ValidationError(`Invoice ${invoice.reference} is already ${invoice.status}, not a draft.`);
 
   const total = invoice.total_amount_minor + invoice.total_tax_minor;
-  // AR invoice: debit the customer. AP invoice: credit the vendor.
-  // A Credit Note/Debit Memo is the same mechanism run in reverse —
-  // it corrects an invoice, so its effect on the counterparty and on
-  // revenue/expense is the opposite of an ordinary invoice's.
   const isCorrection = invoice.document_type === 'credit_note' || invoice.document_type === 'debit_memo';
   const baseSign = invoice.invoice_type === 'AR' ? 1 : -1;
   const sign = isCorrection ? -baseSign : baseSign;
@@ -2053,15 +1285,6 @@ export function postInvoice(
     ledger: asLedgerName(invoice.ledger),
     description: invoice.description || `${invoice.invoice_type} Invoice ${invoice.reference}`,
     transdate: invoice.invoice_date,
-    // A real, genuine question answered directly, not assumed correct
-    // because it worked: "why are cash sales going through the AR
-    // system in any way?" They shouldn't need to — a real, immediate
-    // cash sale has no genuine receivable at all, even momentarily.
-    // counterpartyAccountOverride, when given, posts straight to the
-    // real payment account instead of the customer's own AR balance,
-    // skipping the round trip through Accounts Receivable entirely.
-    // The invoice record's own counterparty (for real history/receipt
-    // purposes) is completely untouched either way.
     account: asAccountName(counterpartyAccountOverride ?? invoice.counterparty),
     amount_minor: sign * total,
   });
@@ -2105,13 +1328,6 @@ export function postInvoice(
   }
   postJournalEntry(invoice.reference, asBusinessName(invoice.business), asLedgerName(invoice.ledger), userId);
 
-  // Restocking — the real distinction SQL-Ledger's Credit Invoice
-  // (restocks) vs Credit Note (doesn't) draws. Only meaningful for
-  // lines with an actual quantity and item — nothing to restock for a
-  // service line. Direction matters and is genuinely opposite for the
-  // two sides: a customer returning goods to us (AR credit_note)
-  // increases what we have on hand; us returning goods to a vendor
-  // (AP debit_memo) decreases it.
   if (restockInventory && isCorrection) {
     const restockSign = invoice.invoice_type === 'AR' ? 1 : -1;
     for (const line of invoice.lines) {
@@ -2137,21 +1353,6 @@ export function postInvoice(
   })();
 }
 
-/** Records that a specific AR Receipt/AP Payment posting was applied
- * against a specific invoice — the real fact aged reports need, since
- * a receipt can span several invoices and an invoice's own total tells
- * you nothing about what's actually still outstanding.
- *
- * Also posts the real GL movement this represents — previously this
- * function only recorded the allocation as a tracking fact and never
- * touched the ledger at all, so a "paid" sale's cash never actually
- * reached Cash and Bank, and the customer's own AR balance never
- * actually went down. Confirmed directly against the real wine
- * business data before fixing: $920,626.23 in sales marked paid via
- * this function, only $500 of which had ever actually reached Cash
- * and Bank — the rest sat invisibly on the "Cash Sale" customer's own
- * balance forever. AR posts to the customer's own name directly (the
- * established pattern); AP mirrors it in the opposite direction. */
 export function allocatePayment(
   invoiceId: number,
   paymentReference: string,
@@ -2169,31 +1370,14 @@ export function allocatePayment(
     throw new ValidationError(`Cannot allocate ${(allocatedMinor / 100).toFixed(2)} — only ${(outstanding / 100).toFixed(2)} is outstanding on ${invoice.reference}.`);
   }
 
-  // skipJournalPosting: true is for a real, immediate cash sale whose
-  // own initial posting already went straight to the real payment
-  // account (postInvoice's counterpartyAccountOverride) — the real
-  // cash-side GL effect already happened once; posting it again here
-  // would incorrectly touch the customer's own AR balance a second
-  // time for money that never genuinely sat there. Only the real
-  // allocation record below (for real outstanding-balance tracking)
-  // is needed in that case, not a second journal entry.
   db.transaction(() => {
   if (!skipJournalPosting) {
-    // AR: debit the payment account (cash increases), credit the
-    // customer's own AR-style balance (it decreases). AP: the mirror —
-    // debit the vendor's own balance (the liability decreases), credit
-    // the payment account (cash decreases).
     const sign = invoice.invoice_type === 'AR' ? 1 : -1;
     stageLine({ reference: paymentReference, business: asBusinessName(invoice.business), ledger: asLedgerName(invoice.ledger), transdate: allocationDate, account: asAccountName(paymentAccount), amount_minor: sign * allocatedMinor });
     stageLine({ reference: paymentReference, business: asBusinessName(invoice.business), ledger: asLedgerName(invoice.ledger), transdate: allocationDate, account: asAccountName(invoice.counterparty), amount_minor: -sign * allocatedMinor });
     postJournalEntry(paymentReference, asBusinessName(invoice.business), asLedgerName(invoice.ledger), userId);
   }
 
-  // Only recorded once the real, underlying journal posting above has
-  // genuinely succeeded (or was correctly skipped) — a real, direct
-  // fix, not the original order, which recorded this fact first and
-  // could silently leave a real, "successful" allocation on record
-  // even when the actual, real cash movement never posted at all.
   const allocEntity = Entity.create(`Payment — ${paymentReference}`, invoiceId, asUserId(1));
   Entity.setDetailJson(
     allocEntity.id,
@@ -2225,10 +1409,6 @@ export interface AgedInvoiceRow {
   bucket: string;
 }
 
-/** Every posted, not-fully-paid invoice of the given type, bucketed by
- * how overdue it is against EACH customer/vendor's own payment terms —
- * not a fixed 30/60/90 for everyone, since account management practice
- * genuinely varies per account (see getAgingBuckets). */
 export function getAgedInvoices(business: BusinessName, ledger: LedgerName, invoiceType: 'AR' | 'AP', asOfDate: string): AgedInvoiceRow[] {
   const invoices = listInvoices(business, ledger, { invoiceType, source: 'all' }).filter((i) => i.status === 'posted' && i.document_type === 'invoice');
   const rows: AgedInvoiceRow[] = [];
@@ -2262,9 +1442,6 @@ export interface AgedSummaryRow {
   oldest_days_overdue: number;
 }
 
-/** The Summary view SQL-Ledger's own aging report has alongside its
- * Detail view — one row per customer/vendor with their total
- * outstanding, not per invoice. */
 export function getAgedSummary(business: BusinessName, ledger: LedgerName, invoiceType: 'AR' | 'AP', asOfDate: string): AgedSummaryRow[] {
   const detail = getAgedInvoices(business, ledger, invoiceType, asOfDate);
   const byCounterparty = new Map<string, { outstanding: number; oldestDays: number }>();
@@ -2297,21 +1474,6 @@ export interface CustomerStatement {
   total_outstanding_minor: number;
 }
 
-/** A real, single customer's own statement — every real, posted
- * invoice as of a given date, whether fully paid, partially paid, or
- * still outstanding, not just the aged-and-unpaid subset
- * getAgedInvoices already covers. Per direct request: "can we print
- * or send a customer statement of paid and currently outstanding
- * invoices?" — this is the real, underlying data both a screen and a
- * PDF/print view need.
- *
- * Deliberately NOT reusing getInvoiceOutstandingMinor as-is: that
- * function sums every real allocation ever made, regardless of date —
- * correct for "right now", wrong for a real, historical "as of"
- * statement, which must only count payments actually allocated by
- * that date, not ones made afterward. Recomputed here directly,
- * filtered by allocation_date, so a statement genuinely reflects what
- * was true as of the date requested. */
 export function getCustomerStatement(business: BusinessName, ledger: LedgerName, customerName: string, asOfDate: string): CustomerStatement {
   const invoices = listInvoices(business, ledger, { invoiceType: 'AR', source: 'all' }).filter(
     (i) => i.counterparty === customerName && i.status === 'posted' && i.document_type === 'invoice' && i.invoice_date <= asOfDate
@@ -2341,10 +1503,6 @@ export interface HistoryLine {
   amount_minor: number;
 }
 
-/** What a specific customer/vendor has actually bought or sold, by
- * item — SQL-Ledger's own Customer/Vendor history reports, grouped by
- * invoice line rather than just invoice totals, since "what have they
- * been buying" is genuinely a line-item-level question. */
 export function getCounterpartyHistory(business: BusinessName, ledger: LedgerName, counterpartyName: string): HistoryLine[] {
   const invoices = listInvoices(business, ledger, { source: 'all' }).filter((i) => i.counterparty === counterpartyName && i.status === 'posted');
   const lines: HistoryLine[] = [];
@@ -2364,10 +1522,6 @@ export function getCounterpartyHistory(business: BusinessName, ledger: LedgerNam
   return lines.sort((a, b) => (a.invoice_date < b.invoice_date ? 1 : -1));
 }
 
-/** Exact UPC lookup for barcode scanning at the register — a scanner
- * types the UPC and hits Enter, so this needs to be an exact match,
- * not a fuzzy search. Returns undefined for no match or an empty UPC,
- * rather than matching every item with a NULL upc. */
 export function getItemByUpc(upc: string): ItemSummary | undefined {
   if (!upc) return undefined;
   return db
@@ -2382,66 +1536,25 @@ export function getItemByUpc(upc: string): ItemSummary | undefined {
 export interface PosSaleLineInput {
   itemName: string;
   quantity: number;
-  /** Omit when a real terminalName is given below and this item has a
-   * real, matching item_source row for that terminal's own currency
-   * (getItemPriceForCurrency) - the price is then resolved
-   * automatically, not hand-entered per sale. Required otherwise. */
-  unitPriceMinor?: number;
+    unitPriceMinor?: number;
   taxMinor: number;
-  /** Optional — which real selling unit this line represents (e.g.
-   * "Bottle", "Six-Pack", "Carton"), when the same product genuinely
-   * sells more than one way. Omit for a product with only one. */
-  tier?: string;
-  /** Optional — per the real Hierarchy/Product cartesian mechanism: a
-   * real, specific combination (e.g. ["Riverside Cellars", "Lager",
-   * "330ml", "can", "single", "Cold"]) this line represents. When
-   * provided (together with combinationShape), Sales/COGS/Inventory
-   * each get a real, new leaf pointing at this combination's own,
-   * shared identity — taking priority over tier/location resolution,
-   * since the combination already, structurally includes the
-   * location. */
-  combinationValues?: string[];
-  /** Required alongside combinationValues — the exact, same, real,
-   * ordered [dimensionName, groupingName] pairs the values line up
-   * against (see defineProductShape). */
-  combinationShape?: [string, string][];
+    tier?: string;
+    combinationValues?: string[];
+    combinationShape?: [string, string][];
 }
 
 export interface PosSaleInput {
   business: BusinessName;
   ledger: LedgerName;
   locationName: LocationName;
-  /** An existing customer to sell on account to, or the generic
-   * walk-in "Cash Sale" contact for a no-account sale. */
-  customerName: CustomerName;
+    customerName: CustomerName;
   lines: PosSaleLineInput[];
-  /** Omit to post each line to its own real, per-product Sales/COGS
-   * account (lazily created via ensureItemSalesCogsAccounts) —
-   * the correct default, since "several dozen products all sharing
-   * one aggregate account" was never actually right. Pass an explicit
-   * account name only when a single, shared revenue account is
-   * genuinely what's wanted. */
-  revenueAccount?: AccountName;
+    revenueAccount?: AccountName;
   taxAccount: AccountName;
-  /** Omit entirely for an on-account sale (no immediate payment —
-   * becomes a normal outstanding AR invoice). Present for cash/card,
-   * where the sale is paid in full at the register immediately. */
-  paymentMethod?: string;
+    paymentMethod?: string;
   cashTenderedMinor?: number;
-  /** Defaults to today's real date if omitted — a POS sale normally
-   * happens right now. Only needed explicitly for backdated data
-   * (simulations, corrections), never for an ordinary live sale. */
-  transdate?: string;
-  /** A real, specific, physical POS terminal this sale happened at -
-   * per docs/border-multicurrency-pos-plan.md, Slice 4. When given,
-   * resolves its own real currency (getEffectiveSaleCurrency) and
-   * auto-fills any line's unitPriceMinor left unspecified from that
-   * item's own real, matching item_source row for that currency
-   * (getItemPriceForCurrency). Two real terminals at the exact same,
-   * real location can each transact in a genuinely different
-   * currency this way. Omit for the ordinary, single-currency case -
-   * completely unaffected, real, existing behavior. */
-  terminalName?: string;
+    transdate?: string;
+    terminalName?: string;
 }
 
 export interface PosSaleResult {
@@ -2451,29 +1564,6 @@ export interface PosSaleResult {
   changeDueMinor: number;
 }
 
-/** Completes a full register sale as one atomic operation — posts the
- * invoice, dispatches stock from the specific location the sale
- * happened at, and (for cash/card) allocates full payment immediately
- * — rather than three separate calls that could leave the sale
- * half-completed (invoice posted but stock not dispatched, etc.) if
- * something failed partway through. Stock availability at this exact
- * location is checked for every line before anything is written. */
-/** Walks any real entity up to (but excluding) a given root — used
- * for both product categories (Beer -> Ale/Lager/Stout under 'Items')
- * and division hierarchies (a division can itself be nested under a
- * broader one, e.g. 'Retail' -> 'Retail North', under 'Divisions') —
- * the same real, ordinary entity tree mechanism either way, already
- * genuinely user-configurable through the Entity Tree Editor with
- * zero code changes needed to reorganize it. Returns the chain from
- * the top level down to the entity's immediate parent. */
-/** A real, direct, reliable answer to "is this entity genuinely a
- * descendant of that root" - per no-generic-functions, the missing
- * piece getAncestorChain doesn't provide: that function returns
- * whatever partial chain it collected whether or not it actually
- * reached the real root, so it can't itself distinguish "genuinely a
- * descendant" from "ran out of real ancestors first." Walks up to
- * 100 real levels (matching getHierarchyAncestorChain's own, existing
- * real safety bound) before giving up. */
 export function isDescendantOf(entityName: string, rootName: string): boolean {
   const entities = getEntityTree();
   const start = entities.find((e) => e.name === entityName);
@@ -2488,15 +1578,6 @@ export function isDescendantOf(entityName: string, rootName: string): boolean {
   return false;
 }
 
-/** Per direct correction: not a generic, per-kind TypeDescriptor walk
- * - a Division and a real, user-created Sub-Division are structurally
- * the exact, same kind of thing, just at different real depths, and
- * forcing a separate, branded TypeScript type onto each level would
- * be artificial, not a genuine distinction. The real, right model:
- * one, uniform, non-generic node shape, and a single walk from a real
- * leaf (an Item or a Location) up an arbitrary, real, user-defined
- * chain of named entities, however many real levels exist, until it
- * reaches the real Business node itself. */
 export interface HierarchyChainNode {
   readonly id: EntityId;
   readonly name: string;
@@ -2516,15 +1597,6 @@ export function getHierarchyChain(leafName: ItemName | LocationName): HierarchyC
 }
 
 export function getAncestorChain(entityName: string, rootName: string): string[] {
-  // Per direct question, confirmed a real, genuine, measured
-  // performance issue (~14,000x, confirmed directly): getEntityTree()
-  // fetches and parses the entire, real entities table - two real,
-  // recursive CTEs plus several joins - just to walk a real, direct
-  // parent_id chain one step at a time. This function is called
-  // throughout the real sales hot-path (ensureItemSalesCogsAccounts,
-  // called on every real sale), so replaced with a direct, indexed
-  // walk instead - one small, targeted query per real level, using
-  // this table's own, existing, real entities_entity_id_current index.
   const start = db.prepare(`SELECT id, parent_id FROM current_entities WHERE name = ?`).get(entityName) as { id: number; parent_id: number | null } | undefined;
   if (!start) return [];
   const chain: string[] = [];
@@ -2539,36 +1611,11 @@ export function getAncestorChain(entityName: string, rootName: string): string[]
   return chain;
 }
 
-/** Mirrors a category chain onto the GL side, lazily creating any
- * missing level — "Sales - Beer" under Income, then "Sales - Ale"
- * under "Sales - Beer", and so on — returning the real, deepest
- * category name to parent the final per-product leaf under. The same
- * mechanism for a differently-configured catalog automatically
- * produces a differently-shaped P&L: a category left flat (no
- * sub-categories) gets one real grouping level, one broken down
- * further gets more — without a single line of code changing between
- * the two. */
 export function ensureCategoryChain(rootName: string, prefix: string, chain: string[], userId: UserId, business?: BusinessName, profitCenter?: string): { name: string; id: number } {
   let currentParent = rootName;
-  // A real, confirmed bug, found and fixed directly: the bare, global
-  // lookup below put every lazily-created Sales Revenue/COGS category
-  // onto the one, shared, global Chart of Accounts template, invisible
-  // to getBusinessReports' own, correct, business-scoped walk - the
-  // direct, confirmed root cause of the Close Books/Rollover failures.
-  // business is optional, appended last, purely for backward
-  // compatibility with every existing caller (unit tests, scripts)
-  // that never had a business to pass - every real, live call from
-  // the application's own transaction flows now passes it.
   let currentParentId = business
     ? resolveBusinessCoaAccountId(business, rootName)
     : ((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(rootName) as { id: number } | undefined)?.id ?? null);
-  // Per docs/profit-centers-design.md's Phase A: a real Profit Center,
-  // when given, is one further, real grouping level inserted directly
-  // under the shared header, before this item's own real category
-  // chain — so a Profit Center's own P&L shows every one of its own
-  // categories, same as the business's overall P&L does today, just
-  // scoped underneath its own, real, named node. Omitted entirely
-  // (today's exact behavior) when no profitCenter is passed.
   if (profitCenter && business && currentParentId) {
     const pcNode = resolveProfitCenterGroupNode(business, currentParentId, profitCenter, userId);
     currentParent = profitCenter;
@@ -2583,31 +1630,6 @@ export function ensureCategoryChain(rootName: string, prefix: string, chain: str
   return { name: currentParent, id: currentParentId! };
 }
 
-/** Each product's own real Sales/COGS leaves — lazily created on
- * first use, the same "fail loudly if the ancestor path is missing"
- * discipline as every other lazily-vivified entity here (Income/
- * Expense must already exist, which they always do). COGS side is
- * tagged via relation_id -> "COGS", the same mechanism the Gross
- * Profit calculation already reads — a new product's COGS leaf is
- * correctly included in Gross Profit the moment it's created, not a
- * separate step someone could forget.
- *
- * Both leaves parent under a real, mirrored copy of the product's own
- * real category chain (see getProductCategoryChain/
- * ensureCategoryChain above) — not flat under Income/Expense
- * directly. Confirmed directly, not assumed: before this, Income had
- * 97 flat direct children (81 of them real per-product Sales
- * accounts), with zero grouping at all — genuinely unusable as a real
- * P&L read. Since the product category tree is already real and
- * user-configurable, this needed no new, separate "category system" —
- * just mirroring what already exists.
- *
- * tier is optional — omit it for a product with only one real selling
- * unit. Pass it (e.g. "Bottle", "Six-Pack", "Carton") when the same
- * product genuinely sells multiple ways, since a bottle's margin and
- * a carton's margin are real, different facts, not the same number
- * shown twice — blending them back into one account would silently
- * undo the whole point of splitting by product in the first place. */
 export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
   const suffix = tier ? ` (${tier})` : '';
   const salesAccount = `${itemName}${suffix}`;
@@ -2624,44 +1646,14 @@ export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, 
   return { salesAccount, salesAccountId: salesRow.id, cogsAccount, cogsAccountId: cogsRow.id };
 }
 
-/** Per direct request: "anything that contains a dollar or quantity
- * via currency/bottle/carton value must have a CoA entry" — the exact
- * same, real, established Sales/COGS-per-product pattern above,
- * applied to Inventory's own dollar value. A real, direct, structural
- * child of Inventory itself (not a flat, single account any real
- * product's own purchase/sale shares) — so the existing, real Balance
- * Sheet category-tree walk (already proven for Accounts Receivable)
- * picks this up automatically and shows it as genuinely expandable,
- * with no further, separate reporting code needed at all. */
 export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { inventoryAccount: string; inventoryAccountId: number } {
-  // A real, confirmed bug, found and fixed directly: this bare, global
-  // lookup put every lazily-created, per-product Inventory leaf onto
-  // the one, shared, global Chart of Accounts template, invisible to
-  // getBusinessReports'/getBalanceSheet's own, correct, business-scoped
-  // walk - a real, confirmed cause of the year/period rollover's own
-  // entry failing to balance (the Inventory side of the Balance Sheet
-  // silently missing). business is optional, appended last, purely for
-  // backward compatibility with every existing caller that never had a
-  // business to pass.
   let inventoryParentId = business ? resolveBusinessCoaAccountId(business, 'Inventory') : (db.prepare(`SELECT id FROM current_entities WHERE name = 'Inventory'`).get() as { id: number }).id;
-  // Per docs/profit-centers-design.md's Phase A: a real Profit
-  // Center's own Inventory grouping node, nested directly under the
-  // one, real, shared Inventory header — never a separate Inventory
-  // section of its own, so getBalanceSheet's existing, structural
-  // category-tree walk still finds and totals every Profit Center's
-  // own leaves automatically, with no separate reporting path.
   if (profitCenter && business) inventoryParentId = resolveProfitCenterGroupNode(business, inventoryParentId, profitCenter, userId).id;
   const accountName = tier ? `${itemName} (${tier})` : itemName;
   const row = Entity.ensureUnder(accountName, inventoryParentId, userId);
   return { inventoryAccount: accountName, inventoryAccountId: row.id };
 }
 
-/** The exact, same, real (product, location) leaf pattern as
- * ensureItemLocationLeaf — extended to Inventory too. Per direct,
- * explicit confirmation: "the sale, COGS, and inventory are recorded
- * in accounts that are determined by the cartesian product of
- * products and locations" — Inventory is not a special case exempt
- * from this. */
 export function ensureItemLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { inventoryAccount: string; inventoryAccountId: number } {
   const { inventoryAccountId: baseId } = ensureItemInventoryAccount(itemName, userId, tier, business, profitCenter);
   const locationAccount = `${itemName}${tier ? ` (${tier})` : ''} — ${locationName}`;
@@ -2671,82 +1663,21 @@ export function ensureItemLocationInventoryAccount(itemName: ItemName, locationN
   return { inventoryAccount: locationAccount, inventoryAccountId: row.id };
 }
 
-// ---------------------------------------------------------------------------
-// The Hierarchy / Product cartesian mechanism, per the settled design in
-// docs/cartesian-account-linking-plan.md:
-//
-// - Hierarchy: real, named groupings and values (Beer -> Lager/Ale,
-//   Storage -> Hot/Cold), living under a real business's own
-//   "Hierarchy" root - a real, user-extensible vocabulary of facts,
-//   never hardcoded, never privileged.
-// - Product: one real node, holding both real Product Definitions
-//   (a chain of dimension nodes - Location, Item, Size, Container,
-//   Quantity, Storage - each pointing, via relation_id, at the real
-//   Hierarchy *grouping* it represents) and real Product Instances
-//   (one real, specific combination - e.g. Riverside Cellars, Lager,
-//   330ml, can, single, Cold - each node pointing, via relation_id,
-//   at the real Hierarchy *value* it represents; the instance's own
-//   first node additionally points at the Definition's own first
-//   node, recording which shape this instance follows).
-// - A definition node and an instance node need no separate flag to
-//   tell them apart: a definition's relation_id always lands on a
-//   real Hierarchy grouping; an instance's always lands on one of
-//   that grouping's own, real children.
-// - New, real leaves under Inventory/Sales/COGS point directly (via
-//   relation_id) at a real Product Instance's own first node - the
-//   one, real, shared, canonical identity all three financial
-//   accounts refer back to, per direct instruction, rather than each
-//   independently re-deriving the same combination.
-// ---------------------------------------------------------------------------
-
 function ensureBusinessRoot(businessName: BusinessName, rootName: string, userId: UserId): { id: number; name: string } {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   return Entity.getUnder(rootName, business.id) ?? Entity.create(rootName, business.id, userId);
 }
 
-/** Ensures a real Hierarchy grouping exists (e.g. "Beer," "Storage")
- * directly under a business's own real "Hierarchy" root. */
 export function ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): { id: number; name: string } {
   const hierarchyRoot = ensureBusinessRoot(businessName, 'Hierarchy', userId);
   return Entity.getUnder(groupingName, hierarchyRoot.id) ?? Entity.create(groupingName, hierarchyRoot.id, userId);
 }
 
-/** Ensures a real, named value (e.g. "Lager," "Cold") exists under a
- * real Hierarchy grouping - the grouping itself must already exist
- * (created via ensureHierarchyGrouping first). */
 export function ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): { id: number; name: string } {
   const grouping = ensureHierarchyGrouping(businessName, groupingName, userId);
   return Entity.getUnder(valueName, grouping.id) ?? Entity.create(valueName, grouping.id, userId);
 }
 
-// ---------------------------------------------------------------------------
-// Profit Centers, per docs/profit-centers-design.md's Phase A: a real,
-// structural subtree inside one business's own CoA — its own Sales
-// Revenue/Cost of Goods Sold/Inventory grouping nodes, nested one
-// level deeper than today's product-category grouping, under the
-// exact, same, real, shared Sales Revenue/Cost of Goods Sold/
-// Inventory headers every business already has. Deliberately NOT a
-// second, separate root alongside Chart of Accounts (an earlier, since-
-// corrected version of this design considered that) — nesting inside
-// the one, real, shared CoA means getBalanceSheet/getProfitAndLoss/
-// business_reports' own, existing, structural tree walk picks up
-// every Profit Center's own leaves automatically, with no separate
-// reporting path to keep in sync. A Profit Center has no Balance
-// Sheet of its own: the one, real exception is its own Retained
-// Earnings sibling (see computeCloseLines's own profit-center
-// grouping), nested under the business's one, single, shared Equity,
-// never a second Equity section.
-// ---------------------------------------------------------------------------
-
-/** Creates a real, new Profit Center directly under this business's
- * own "Profit Centers" root (lazily ensured here too, for a business
- * created before this feature existed — the same, established,
- * backward-compatible "ensure the root, then the real node under it"
- * pattern as ensureHierarchyGrouping above). Per direct instruction,
- * this is a real, named thing a business chooses to create — not
- * automatic, not required, and ordinary posting is entirely
- * unaffected until a real item/account resolver is explicitly told to
- * scope itself to one (see resolveProfitCenterGroupNode below). */
 export function createProfitCenter(businessName: BusinessName, profitCenterName: string, userId: UserId): { id: number; name: string } {
   const root = ensureBusinessRoot(businessName, 'Profit Centers', userId);
   if (Entity.getUnder(profitCenterName, root.id)) {
@@ -2755,9 +1686,6 @@ export function createProfitCenter(businessName: BusinessName, profitCenterName:
   return Entity.create(profitCenterName, root.id, userId);
 }
 
-/** Every real, existing Profit Center for one business — empty for a
- * business that has never created one, including every business that
- * existed before this feature did. */
 export function getProfitCenters(businessName: BusinessName): { id: number; name: string }[] {
   const root = db
     .prepare(`SELECT id FROM current_entities WHERE name = 'Profit Centers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`)
@@ -2766,23 +1694,6 @@ export function getProfitCenters(businessName: BusinessName): { id: number; name
   return db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? ORDER BY name`).all(root.id) as { id: number; name: string }[];
 }
 
-/** The one, real, shared mechanism every per-item resolver below uses
- * to scope itself to a Profit Center: given a real CoA header's own id
- * (Sales Revenue, Cost of Goods Sold, or Inventory — already resolved,
- * business-scoped), ensures a real grouping node named after the
- * Profit Center directly under it, tagged back to the real Profit
- * Center entity via the exact, same generic dimension-link mechanism
- * (setHierarchyParent) ensureItemLocationInventoryAccount already uses
- * for Location — disambiguated by this grouping node's own, real id,
- * since the exact, same Profit Center name genuinely recurs three
- * times (once each under Sales Revenue, Cost of Goods Sold, and
- * Inventory), the same, real, confirmed "same literal name, different
- * real account" shape Open Container's own leaves already proved
- * needs an explicit id, not a bare name lookup.
- *
- * Validates the Profit Center is real for this business first — a
- * typo here must fail loudly, never silently create an unrelated,
- * orphaned grouping node under a real GL header. */
 function resolveProfitCenterGroupNode(business: BusinessName, headerId: number, profitCenterName: string, userId: UserId): { id: number; name: string } {
   const pc = getProfitCenters(business).find((p) => p.name === profitCenterName);
   if (!pc) throw new ValidationError(`No real Profit Center named "${profitCenterName}" for "${business}" — create it first.`);
@@ -2791,23 +1702,6 @@ function resolveProfitCenterGroupNode(business: BusinessName, headerId: number, 
   return row;
 }
 
-/** Per docs/profit-centers-design.md's Phase B: which real Profit
- * Center (if any) a real GL account's own, structural position
- * belongs under — walking straight up its parent chain, since a
- * Profit Center is a real, structural grouping node an account nests
- * under, not a per-line tag the way Division is. Stops at the first
- * ancestor carrying a real "Hierarchy: Profit Center" link — the
- * exact, same tagged grouping node resolveProfitCenterGroupNode
- * creates.
- *
- * Deliberately does NOT reuse getHierarchyParent/getEntityLink here:
- * those resolve a link record by a bare `${entityName} — ${linkType}`
- * name, with no parent disambiguation at all — genuinely ambiguous
- * for a Profit Center, whose own grouping-node name recurs once each
- * under Sales Revenue, Cost of Goods Sold, and Inventory, each a real,
- * separate grouping node with its own, separate link. This query is
- * scoped by the real, specific ancestor id at each step instead, the
- * same disambiguation-by-id already proven throughout this file. */
 export function getAccountProfitCenter(accountId: number): string | null {
   let currentId: number | null = accountId;
   while (currentId != null) {
@@ -2827,14 +1721,6 @@ export function getAccountProfitCenter(accountId: number): string | null {
   return null;
 }
 
-/** Defines the real, ordered shape of a Product combination for a
- * business - a real chain of dimension nodes, each one's own
- * relation_id pointing at the real Hierarchy grouping it represents.
- * `dimensions` is an ordered array of [dimensionName, groupingName]
- * pairs (dimensionName is this chain link's own, real, generic name -
- * "Item," "Storage" - groupingName is the real Hierarchy grouping it
- * points at - "Beer," "Storage"). Idempotent: calling this again with
- * the exact, same shape returns the exact, same, existing chain. */
 export function defineProductShape(businessName: BusinessName, dimensions: [string, string][], userId: UserId): { id: number; name: string }[] {
   const product = ensureBusinessRoot(businessName, 'Product', userId);
   const chain: { id: number; name: string }[] = [];
@@ -2852,25 +1738,6 @@ export function defineProductShape(businessName: BusinessName, dimensions: [stri
   return chain;
 }
 
-/** Ensures one real, specific Product Instance exists - a real chain
- * of value nodes (e.g. "Riverside Cellars," "Lager," "330ml," "can,"
- * "single," "Cold"), each one's own relation_id pointing at the real
- * Hierarchy value it represents, with the instance's own first node
- * additionally pointing (via relation_id) at the real Definition's
- * own first node - recording which real shape this instance follows.
- * Returns the instance's own, real, first (top) node - the one,
- * shared, canonical identity every real, related financial account
- * leaf should point back to. */
-/** Per direct design decision: a real Product Instance is now one,
- * single, real entity directly under Product - no chain of
- * intermediate nodes at all. Its own identity is a real, flat,
- * ordered JSON array of the real Hierarchy values' own, stable ids
- * (combination_ids) - genuinely rename-safe by construction, since
- * entity_id never changes across a rename (see the entity_update
- * trigger, which now explicitly carries this array forward). Looked
- * up by exact array match - genuinely unambiguous, since two,
- * different, real combinations can never produce the identical,
- * ordered id array. */
 export function ensureProductInstance(businessName: BusinessName, definitionDimensions: [string, string][], values: string[], userId: UserId): { id: number; name: string } {
   if (values.length !== definitionDimensions.length) throw new ValidationError('A real Product Instance needs exactly one, real value per real dimension in its Definition.');
   defineProductShape(businessName, definitionDimensions, userId);
@@ -2890,11 +1757,6 @@ export function ensureProductInstance(businessName: BusinessName, definitionDime
   return created;
 }
 
-/** The one, real, live place a combination's own display name is ever
- * computed - always from its own, real, stable combination_ids array,
- * never trusted from a stored name column. Genuinely rename-safe:
- * even if every real Hierarchy value in the chain has since been
- * renamed, this always reflects their current, real names. */
 export function getCombinationDisplayName(entityId: number): string {
   const row = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(entityId) as { combination_ids: string | null } | undefined;
   if (!row?.combination_ids) throw new ValidationError(`Entity ${entityId} has no real combination_ids set.`);
@@ -2904,24 +1766,6 @@ export function getCombinationDisplayName(entityId: number): string {
   return ids.map((id) => byId.get(id) ?? '?').join(' — ');
 }
 
-/** Per direct instruction: "the POS terminal uses the barcode and
- * then looks up the product name climbing the Instance tree" - a real
- * scanner identifies one, exact, terminal combination node directly
- * (via a real barcode registered against it, see getCombinationByUpc
- * below); this walks back up its own, real parent_id chain to the
- * real Product root, reconstructing the full, ordered combinationValues
- * array a real sale actually needs - never requiring a cashier to
- * manually pick each real dimension one at a time. */
-/** Per direct instruction: "the POS terminal uses the barcode and
- * then looks up the product name climbing the Instance tree" - now a
- * real, single, direct lookup rather than a real, multi-step walk:
- * a real scanner identifies one, exact Product Instance directly (via
- * a real barcode registered against it, see getCombinationByUpc
- * below), whose own, real, flat combination_ids array already holds
- * everything needed - the full, ordered combinationValues array a
- * real sale actually needs, and each real value's own grouping, for
- * combinationShape - never requiring a cashier to manually pick each
- * real dimension one at a time. */
 export function climbInstanceTree(instanceId: number): { combinationValues: string[]; combinationShape: [string, string][] } {
   const row = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(instanceId) as { combination_ids: string | null } | undefined;
   if (!row?.combination_ids) return { combinationValues: [], combinationShape: [] };
@@ -2938,15 +1782,6 @@ export function climbInstanceTree(instanceId: number): { combinationValues: stri
   return { combinationValues, combinationShape };
 }
 
-/** Per the same, real, direct instruction - resolves a real,
- * scanned barcode directly to its own, real, exact combination (the
- * real item_source row this barcode was registered against, together
- * with the real, full combinationValues/combinationShape a real sale
- * needs), by climbing from its own, real, tagged Product Instance
- * terminal node. Returns undefined for a barcode with no real,
- * registered combination - the exact, same, existing, base-item-only
- * barcode lookup (getItemByUpc) still covers every real item that
- * has no combination-specific variant at all. */
 export function getCombinationByUpc(upc: string): { itemName: string; combinationValues: string[]; combinationShape: [string, string][] } | undefined {
   if (!upc) return undefined;
   const row = db
@@ -2963,17 +1798,6 @@ export function getCombinationByUpc(upc: string): { itemName: string; combinatio
   return { itemName: row.item_name, combinationValues, combinationShape };
 }
 
-/** Resolves a known Chart-of-Accounts header name (e.g. "Sales
- * Revenue", "Cost of Goods Sold", "Inventory") within one specific
- * business's own Chart of Accounts subtree — the exact, same,
- * business-scoped recursive walk post_journal_entry_insert's own
- * trigger already uses (00-core.sql), so a real Cartesian Product
- * leaf created under this header always lands on this business's own
- * copy, never the shared, global template. Falls back to the old,
- * bare, global lookup only when this specific business genuinely has
- * no own CoA copy at all (the legacy "admin" case, which never
- * gets a real Chart of Accounts of its own) — never silently, always
- * as a last resort, mirroring the trigger's own COALESCE fallback. */
 export function resolveBusinessCoaAccountId(businessName: BusinessName, accountName: string): number {
   const row = db
     .prepare(
@@ -2991,74 +1815,28 @@ export function resolveBusinessCoaAccountId(businessName: BusinessName, accountN
   return fallback.id;
 }
 
-/** Creates one real, new leaf directly under a real, existing,
- * top-level account (Inventory, Sales, or COGS) — never an
- * intermediate per-item grouping node, per direct correction — whose
- * own relation_id points at a real Product Instance's own top node.
- * This is the one, real, shared, canonical link all three financial
- * accounts for the same, real combination refer back to. */
 export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId, baseAccountId?: number): { id: number; name: string } {
   const baseId = baseAccountId ?? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(baseAccountName) as { id: number } | undefined)?.id;
   if (!baseId) throw new ValidationError(`No real account named "${baseAccountName}".`);
   const instanceRow = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(instanceTopNode.id) as { combination_ids: string | null } | undefined;
   const combinationIds = instanceRow?.combination_ids ?? null;
-  // A real, confirmed bug, found directly, before this fix: even a
-  // genuinely unique combination's own terminal value (e.g. "Cold")
-  // can still, correctly, be shared by real, different, unrelated
-  // items whose own combinations happen to end in the same, real
-  // value. Looks up by the leaf's own, real combination_ids array
-  // matching exactly - genuinely unambiguous, since it's the same,
-  // stable array copied directly from the real Product Instance this
-  // leaf represents, never a bare name.
   const existingByCombination = combinationIds != null
     ? (db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(baseId, combinationIds) as { id: number; name: string } | undefined)
     : undefined;
-  // A real, newly-exposed gap, found directly: combination_ids alone is
-  // not enough, since this instance can genuinely have a real,
-  // non-null combination_ids (e.g. a single-dimension "Bottle" under
-  // "Container") while an already-existing leaf of the same bare name
-  // under this same parent was created by a completely different
-  // mechanism that never set combination_ids at all (a location's own,
-  // plain capacity-tracking account) - tried whenever the first lookup
-  // finds nothing, not only when combinationIds is null, or creating
-  // it again throws a genuine, real uniqueness error.
   const existing = existingByCombination
     ?? (db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND name = ?`).get(baseId, instanceTopNode.name) as { id: number; name: string } | undefined);
   if (existing) return existing;
-  // A real, second, genuine issue found directly, per direct
-  // question: the bare terminal value alone ("Cold") is a real,
-  // meaningless name in a report once two, real, different items'
-  // own combinations happen to share it - and the earlier, numeric-id
-  // fallback ("Cold (7350)") is no more meaningful to a real, human
-  // reader. Uses the instance's own, real, full combination
-  // (getCombinationDisplayName) instead (e.g. "Riverside Cellars —
-  // DupCheck Lager — Cold") - genuinely unique on its own, and
-  // genuinely readable, since it names every real value that makes
-  // this one, specific combination what it is. Computed once here for
-  // the leaf's own, real, initial name; never trusted as authoritative
-  // afterward - a report re-derives it live from combination_ids.
   const leafName = combinationIds != null ? getCombinationDisplayName(instanceTopNode.id) : instanceTopNode.name;
   const leaf = Entity.create(leafName, baseId, userId);
   if (combinationIds != null) Entity.setCombinationIds(leaf.id, combinationIds);
   return leaf;
 }
 
-// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function ensureLocationStorageRoot(business: BusinessName, locationName: string, userId: UserId): { id: number; name: string } {
   const businessEntity = requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
   let coa: { id: number; name: string };
   try { coa = requireEntity('Chart of Accounts', typeRootName, businessEntity); } catch { coa = create(businessEntity, typeRootName, 'Chart of Accounts', userId); }
   const storage = (Entity.getUnder('Storage', coa.id) ?? create(coa as TypedNode<string>, typeRootName, 'Storage', userId)) as { id: number; name: string };
-  // Deliberate, documented design (see the real location's own test
-  // coverage): this leaf is intentionally created with the exact
-  // same literal name as the real location itself, as a real,
-  // distinct GL node under Chart of Accounts > Storage - never
-  // renamed to disambiguate it, since every caller that actually
-  // needs this exact node reaches it through this same function,
-  // scoped by business and parented under Storage. Any OTHER, bare,
-  // unscoped-by-business lookup of a location's own name is what's
-  // unsafe here, not this leaf's name - see nominateLocationCurrency
-  // and setRelationship's own fixes for that.
   return (Entity.getUnder(locationName, storage.id) ?? create(storage as TypedNode<string>, typeRootName, locationName, userId)) as { id: number; name: string };
 }
 
@@ -3070,7 +1848,6 @@ export function ensureStorageCapacityStructure(parentEntity: { id: number; name:
   return { remainingId: remaining.id, installedId: installed.id, occupiedId: occupied.id };
 }
 
-// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
 export function convertStorageSpace(
   business: BusinessName,
   ledger: LedgerName,
@@ -3112,15 +1889,6 @@ export function convertStorageSpace(
   postJournalEntry(ref, business, ledger, userId);
 }
 
-// Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
-// Per direct instruction: opening a sealed carton into loose bottles is
-// constrained to a real, specific location - fixing the already-
-// documented gap (docs/currency-and-quantity-integrity-fix-plan.md,
-// Phase 3) where this posted to the business root, disconnected from
-// wherever the carton was actually, physically opened. A second, real
-// business rule enforced here too: a location with no real bottle
-// shelving (bottle_capacity null or zero) cannot open a carton at all
-// - there is nowhere for the resulting loose bottles to physically go.
 export function openStorageContainer(
   business: BusinessName,
   ledger: LedgerName,
@@ -3140,9 +1908,6 @@ export function openStorageContainer(
     throw new ValidationError(`"${locationName}" has no real bottle shelving (bottle capacity is not set) - a sealed carton cannot be opened into loose bottles here, since there is nowhere for them to go.`);
   }
   if (!resolveItemId(itemName)) throw new ValidationError(`No item named "${itemName}".`);
-  // Legacy-root aware (see resolveBusinessLocationsRootId above) -
-  // the same, shared helper every other call site with this exact
-  // gap now uses, not a locally duplicated fallback query.
   const locationsRootId = resolveBusinessLocationsRootId(business);
   const locationId = locationsRootId
     ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, locationsRootId) as { id: number } | undefined)?.id
@@ -3165,36 +1930,12 @@ export function openStorageContainer(
   setAccountCurrency(unitOccupied.name, unitCurrency, unitOccupied.id);
 
   const ref = reference ?? `STORAGE-OPEN-${Date.now()}`;
-  // Per direct instruction: there is no contra accounting here. Opening
-  // a carton is an ordinary internal stock movement at this one
-  // location - mirrored, like any other movement, in both the real
-  // storage-space accounts (this side) and the real item accounts
-  // (below), never touching Installed, which is set once and never
-  // moved by any later movement.
-  //
-  // The container side: cartonsOpened worth of carton-space is freed -
-  // Remaining increases, Occupied decreases, exactly as
-  // adjustLocationCapacity's own pattern does for any item leaving.
   stageLine({ reference: ref, business, ledger, account: asAccountName(containerSpace.name), accountId: containerSpace.id, amount_minor: cartonsOpened });
   stageLine({ reference: ref, business, ledger, account: asAccountName(containerOccupied.name), accountId: containerOccupied.id, amount_minor: -cartonsOpened });
-  // The unit side: unitsProduced worth of bottle-space is now occupied -
-  // Remaining decreases, Occupied increases, the same sign convention
-  // reversed, since this side is stock arriving, not leaving.
   stageLine({ reference: ref, business, ledger, account: asAccountName(unitSpace.name), accountId: unitSpace.id, amount_minor: -unitsProduced });
   stageLine({ reference: ref, business, ledger, account: asAccountName(unitOccupied.name), accountId: unitOccupied.id, amount_minor: unitsProduced });
   postJournalEntry(ref, business, ledger, userId);
 
-  // Per direct instruction: a dozen 12-bottle cartons and single
-  // bottles are genuinely stored in two, separate sets of (Inventory,
-  // Sales, COGS) accounts - the same, real, already-established
-  // tier-naming pattern ensureItemSalesCogsAccounts already uses
-  // ("Item (Carton)", "Item (Bottle)"), now extended to Inventory too.
-  // No contra accounting: a carton is an exact, convertible shorthand
-  // for its real units - like a dollar for 100 cents - so the same,
-  // real dollar value simply moves directly from the carton-tier
-  // account to the bottle-tier account, both the same real currency,
-  // balancing on its own - exactly how transferItems already moves
-  // value directly between two locations' own Inventory accounts.
   const unitCostMinor = getItemUnitCostMinor(itemName);
   if (unitCostMinor != null) {
     const valueMinor = unitsProduced * unitCostMinor;
@@ -3210,61 +1951,21 @@ export function openStorageContainer(
 }
 
 export interface ResolvedOpenContainerAccounts {
-  /** The real, currency-tagged Storage-Capacity "Remaining"/"Occupied"
-   * account names for the container's own tier (e.g. "Carton") and the
-   * unit tier it's opened into (e.g. "Bottle") — the real, stateful
-   * combination-account creation (ensureProductInstance/
-   * ensureCombinationAccountLeaf/setAccountCurrency) openStorageContainer
-   * itself already does, done here instead so the frontend can build
-   * the deterministic space-movement lines against already-real,
-   * already-existing accounts. */
-  containerSpaceAccount: string;
+    containerSpaceAccount: string;
   containerOccupiedAccount: string;
   unitSpaceAccount: string;
   unitOccupiedAccount: string;
-  /** Per a real, confirmed bug found and fixed directly while
-   * verifying Phase 1 against a real, live browser: these leaf
-   * accounts are named purely after their own combination value (e.g.
-   * "Carton"), with no prefix distinguishing "Remaining" from
-   * "Occupied" - two genuinely different real accounts (different
-   * parent_id, different id) can and do share the exact, same literal
-   * name. openStorageContainer's own, original posting already
-   * carried this correctly by staging with each account's own, real,
-   * explicit accountId; the frontend has no other way to tell these
-   * apart, since it only ever sees the name string otherwise - so
-   * every one of these four ids must travel alongside its own name. */
-  containerSpaceAccountId: number;
+    containerSpaceAccountId: number;
   containerOccupiedAccountId: number;
   unitSpaceAccountId: number;
   unitOccupiedAccountId: number;
-  /** The real, tier-scoped Inventory accounts the item's own dollar
-   * value moves between — the exact, same resolution
-   * openStorageContainer's own item-value block already does. */
-  inventoryFromAccount: string;
+    inventoryFromAccount: string;
   inventoryToAccount: string;
   inventoryFromAccountId: number;
   inventoryToAccountId: number;
-  /** This item's known, real per-unit cost, or null when no real cost
-   * is known yet — the frontend then posts no real Inventory-value
-   * entry at all, never a fabricated cost, the exact, same real
-   * behavior openStorageContainer's own item-value block already
-   * used. */
-  unitCostMinor: number | null;
+    unitCostMinor: number | null;
 }
 
-/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
- * account-resolution counterpart to resolveCashTransactionAccounts/
- * resolveSaleAccounts/resolveTransferAccounts for Open Container —
- * unlike those, opening a container has no real physical
- * quantity-on-hand side effect at all (it only reclassifies which
- * real storage-space/Inventory tier the same real stock already sits
- * in), so there is no separate "do the real side effect" endpoint
- * needed here: once every real account below genuinely exists, both
- * of Open Container's own real journal entries (the space movement,
- * and the dollar Inventory-value movement) are a deterministic,
- * given-the-form's-own-inputs computation — frontend/src/lib/
- * canned-journal.ts's openContainerLines. No division/category of any
- * kind is ever resolved or returned here. */
 export function resolveOpenContainerAccounts(
   business: BusinessName,
   locationName: LocationName,
@@ -3319,12 +2020,6 @@ export function resolveOpenContainerAccounts(
   };
 }
 
-/** Per direct instruction: real, business-scoped listing functions
- * for the frontend to actually use this mechanism through -
- * "Hierarchy" and "Product" are real, bare, non-globally-unique names
- * (one real root per business), so both resolve their own real
- * business's own root directly, never via a global, ambiguous
- * bare-name lookup. */
 export interface HierarchyGroupingWithValues {
   grouping: string;
   values: string[];
@@ -3344,9 +2039,6 @@ export function getBusinessHierarchy(businessName: BusinessName): HierarchyGroup
   }));
 }
 
-/** A real, direct, single Product shape - one real dimension chain,
- * each entry the dimension's own real name paired with the real
- * Hierarchy grouping it points at. */
 export function getBusinessProductShapes(businessName: BusinessName): [string, string][][] {
   const productId = (
     db.prepare(`SELECT id FROM current_entities WHERE name = 'Product' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`).get(businessName) as
@@ -3359,12 +2051,6 @@ export function getBusinessProductShapes(businessName: BusinessName): [string, s
       | undefined
   )?.id;
   if (!productId || !hierarchyId) return [];
-  // A real Definition's own first node is a direct child of Product
-  // whose own relation_id lands on a real Hierarchy grouping itself
-  // (Hierarchy's own direct id) - a real Instance's own first node is
-  // also a direct child of Product, but its own relation_id lands one
-  // level deeper (a real value under a grouping, never the grouping
-  // itself) - the one, sufficient, already-established distinction.
   const definitionRoots = db
     .prepare(`SELECT e.id, e.name FROM current_entities e JOIN current_entities rel ON rel.id = e.relation_id WHERE e.parent_id = ? AND rel.parent_id = ?`)
     .all(productId, hierarchyId) as { id: number; name: string }[];
@@ -3384,15 +2070,6 @@ export function getBusinessProductShapes(businessName: BusinessName): [string, s
   });
 }
 
-/** A real product's own, genuine unit cost — the preferred, known
- * item_source's own price_minor, divided by its own package_quantity
- * (a source is priced per real, physical package/carton, not per
- * individual unit). Falls back to the first, real, known source at
- * all if none is marked preferred, and to null (no real, known cost
- * at all yet) rather than a fabricated, invented number — a real,
- * genuinely new product with no supplier registered yet has no real
- * cost to post, and COGS/Inventory simply won't move for it until one
- * is. */
 export function getItemUnitCostMinor(itemName: ItemName): number | null {
   const sources = listItemSources(itemName);
   if (sources.length === 0) return null;
@@ -3401,26 +2078,6 @@ export function getItemUnitCostMinor(itemName: ItemName): number | null {
   return Math.round(source.price_minor / source.package_quantity);
 }
 
-/** Per the confirmed product/tier/leaf design
- * (docs/multi-dimensional-reporting.md §10): a real, single, distinct
- * tier-level item — e.g. "Amber Ale 330ml (Bottle)" — as a genuine,
- * structural child of its own real Sales leaf, with COGS reaching the
- * same item via the hierarchy mechanism (the same, confirmed shape as
- * §4, now correctly applied at the tier level rather than the
- * ambiguous, shared base-product level that caused real, confirmed
- * corruption in an earlier attempt — see §10's own, full account).
- *
- * Deliberately does NOT touch baseProductName's own, existing entity
- * at all — no re-parenting of it happens here. baseProductName stays
- * exactly where it already is; this creates a real, new, additional,
- * distinct tier-level entity alongside it. This is the direct fix for
- * the real, confirmed bug found in an earlier attempt: re-parenting a
- * single, shared item meant every other tier's own, later call could
- * no longer walk back to Items to re-derive its own category chain,
- * since the shared item's own parent had already moved. With each
- * tier as its own, separate, brand-new entity instead, there is
- * nothing shared to break — every tier's own real leaf has exactly
- * one real Sales leaf of its own, from the moment it's first created. */
 export function ensureItemTier(baseProductName: ItemName, tier: string, userId: UserId, business?: BusinessName): { tierItemName: string; tierItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
   const { salesAccount, salesAccountId, cogsAccount, cogsAccountId } = ensureItemSalesCogsAccounts(baseProductName, userId, tier, business);
   const tierItemName = `${baseProductName} (${tier})`;
@@ -3434,39 +2091,7 @@ export function ensureItemTier(baseProductName: ItemName, tier: string, userId: 
   return { tierItemName, tierItemId: tierItemRow.id, salesAccount, salesAccountId, cogsAccount, cogsAccountId };
 }
 
-/** Per direct confirmation — "location must become structural the
- * same way tier did", retiring journal_line.division_id as a tag
- * entirely once this exists — the exact, same, proven pattern
- * ensureItemTier already uses, mirrored one real level deeper.
- *
- * A real (tier, location) combination is what a real sale actually,
- * physically is — "Amber Ale 330ml (Bottle) sold at Riverside
- * Cellars" is a real, genuinely distinct fact from the same product
- * sold at Uptown Wine & Spirits, not a tag on an otherwise-identical
- * posting. The existing, real tier-level Sales/COGS leaves
- * (ensureItemTier's own output) become real, pure summary
- * categories the moment a real location-level leaf is created beneath
- * them — mirroring exactly how the real, base product itself became a
- * pure category the moment real tier-level leaves were created beneath
- * it. A real, new, distinct Sales/COGS leaf pair is created per real
- * location, each a genuine child of the existing, real tier-level
- * leaf — never re-parented, never shared — with a real, new, distinct
- * item beneath the new Sales leaf, the real, actual, postable,
- * sellable endpoint. Deliberately mirrors the same, real, confirmed
- * fix for tier-restructuring attempt #3's own real bug: the real,
- * existing, shared tierItemName entity is never touched here at all,
- * only ever read from, so there is no shared, ambiguous parent for a
- * second, real, different location to corrupt. */
 export function ensureItemTierLocationLeaf(tierItemName: string, locationName: LocationName, userId: UserId, tierItemId?: number): { leafItemName: string; leafItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
-  // Per direct question, confirmed a real, genuine performance issue:
-  // getEntityTree() fetches and parses the entire, real entities
-  // table just to find a handful of specific, individual rows via a
-  // JS .find() - real, wasted work on every real call, when this
-  // table's own, real, existing indexes (entities_entity_id_current,
-  // entities_name_lookup) already make each of these a direct,
-  // indexed seek instead. Replaced with targeted, real, direct
-  // queries - genuinely faster, not just theoretically so, confirmed
-  // via EXPLAIN QUERY PLAN elsewhere in this schema.
   const tierItem = tierItemId != null
     ? (db.prepare(`SELECT id, name, parent_id FROM current_entities WHERE id = ?`).get(tierItemId) as { id: number; name: string; parent_id: number | null } | undefined)
     : (db.prepare(`SELECT id, name, parent_id FROM current_entities WHERE name = ?`).get(tierItemName) as { id: number; name: string; parent_id: number | null } | undefined);
@@ -3494,14 +2119,6 @@ export function ensureItemTierLocationLeaf(tierItemName: string, locationName: L
     const createdLeaf = Entity.create(leafItemName, salesRow.id, userId);
     mergeContactDetail(createdLeaf.id, {});
     setHierarchyParent(leafItemName, 'COGS Product', cogsAccount, userId);
-    // The real, structural fact a real journal_line.account_id can now
-    // be walked from directly — which real location this real Sales
-    // leaf (and its own real COGS counteritem) actually belongs to —
-    // replacing the real, separate division_id tag this whole design
-    // exists to retire. Set on the real, actual posting targets
-    // themselves (the Sales/COGS leaves), not the item, since a real
-    // journal_line's own account_id always points at one of those two,
-    // never at the item.
     setHierarchyParent(salesAccount, 'Location', locationName, userId);
     setHierarchyParent(cogsAccount, 'Location', locationName, userId);
     leafRow = { id: createdLeaf.id, name: leafItemName };
@@ -3509,16 +2126,6 @@ export function ensureItemTierLocationLeaf(tierItemName: string, locationName: L
   return { leafItemName, leafItemId: leafRow.id, salesAccount, salesAccountId: salesRow!.id, cogsAccount, cogsAccountId: cogsRow!.id };
 }
 
-/** The exact, same, real, proven (product, location) leaf pattern
- * above — extended to an ordinary, non-tiered product too. Per
- * direct, explicit confirmation: "only location and product map to
- * an account — the [division/category] hierarchies are for reporting
- * only, not recording." A real product with no real tier at all still
- * genuinely needs its own, real, location-scoped Sales/COGS leaf the
- * exact, same way a tiered one does — the tier dimension and the
- * location dimension are independent of each other; a product having
- * only one real selling unit doesn't mean it's only ever sold from
- * one real place. */
 export function ensureItemLocationLeaf(itemName: ItemName, locationName: LocationName, userId: UserId, business?: BusinessName): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
   const { salesAccount: baseSales, salesAccountId: baseSalesId, cogsAccount: baseCogs, cogsAccountId: baseCogsId } = ensureItemSalesCogsAccounts(itemName, userId, undefined, business);
   const salesAccount = `${baseSales} — ${locationName}`;
@@ -3538,75 +2145,19 @@ export function ensureItemLocationLeaf(itemName: ItemName, locationName: Locatio
   return { salesAccount, salesAccountId: salesRow.id, cogsAccount, cogsAccountId: cogsRow.id };
 }
 
-
-/** The real, structural replacement for journal_line.division_id —
- * given a real account name a real journal_line actually posted to,
- * walks its own, real "Location" hierarchy-parent directly (set by
- * ensureItemTierLocationLeaf above), rather than reading a
- * separate tag that could drift out of sync with where the account
- * actually, structurally sits. undefined for any real account with no
- * real, known location — an ordinary, non-product account (Cash and
- * Bank, Owner's Equity), or a real Sales/COGS leaf that predates this
- * design and has no real per-location leaf of its own yet. */
 export function getLocationForAccount(accountName: AccountName): string | undefined {
   return getHierarchyParent(accountName, 'Location');
 }
 
-/** The real, structural, fully generic account-to-group resolver —
- * walks a real account to its own, real, structural location first
- * (getLocationForAccount above), then reuses the exact, same, already-
- * proven location-to-group resolution getHierarchyGroupForLocation
- * already provides. hierarchyName is a real, caller-supplied name
- * (e.g. "Division") — never hardcoded here, so this works identically
- * for any real, business-chosen location-grouping hierarchy.
- * undefined under the same, real conditions getLocationForAccount
- * itself is. */
 export function getHierarchyGroupForAccount(accountName: AccountName, hierarchyName: string): string | undefined {
   const location = getLocationForAccount(accountName);
   if (!location) return undefined;
   return getHierarchyGroupForLocation(location, hierarchyName);
 }
 
-/** Lazily creates a real product's own two, real quantity-domain
- * accounts — the genuine double-entry counteritem for receipts and
- * sales, per direct confirmation: "on order" is a real, independently
- * meaningful fact (units committed via a real PO but not yet
- * received), not derived arithmetic, so receiving stock can now be a
- * real, balanced posting (debit on-hand, credit on-order) instead of
- * a single, unbalanced line. Likewise, "units sold" mirrors COGS on
- * the quantity side — a sale now debits units-sold and credits
- * on-hand, a real, balanced pair. Parented directly under the
- * product itself, the same real pattern Sales-/COGS- accounts
- * already use to stay obviously, nameably tied to their own product. */
-/** Per direct correction: an entity's own stored name should never
- * bake in its parent's name too - the parent relationship (parent_id)
- * already supplies that, structurally. This reconstructs the
- * familiar, human-readable "Parent — Child" display form at
- * lookup/display time instead, from the real, live entity tree -
- * never stored as the entity's own, literal name. Real, direct
- * account resolution stays entirely safe doing this, since
- * post_journal_entry_insert's own trigger already prefers a real,
- * explicit accountId over a name lookup everywhere it posts. */
 export function getQualifiedDisplayName(entityId: number): string {
   const entity = getEntity(entityId);
   if (!entity) return '';
-  // A real, confirmed bug, found and fixed directly: this used to walk
-  // the complete, real path up to "Chart of Accounts" - but plenty of
-  // real entities this is genuinely called on (a combination-leaf
-  // account's own, already-descriptive name, or any other, real entity
-  // entirely outside the Chart of Accounts tree) never reach "Chart of
-  // Accounts" as an ancestor at all, so the walk kept climbing all the
-  // way to the true, structural root, prepending every real ancestor
-  // along the way (confirmed directly: "Root — Application — Items —
-  // ...", "Root — Application — Vocabulary — Vendors — ..."), the
-  // exact opposite of a clean, qualified name. One real, immediate
-  // parent is already enough to disambiguate two, real, identically-
-  // named siblings - the one, real, genuine exception is a child whose
-  // own name already, fully includes that immediate parent's name as
-  // its own real prefix (ensureCombinationAccountLeaf's "Item —
-  // Location" naming convention), which is already a real, complete,
-  // self-disambiguating qualified name on its own; prepending the
-  // parent's name again there would only double it.
   if (entity.parent_id == null) return entity.name;
   const parent = getEntity(entity.parent_id);
   if (!parent || entity.name.startsWith(`${parent.name} — `)) return entity.name;
@@ -3615,14 +2166,6 @@ export function getQualifiedDisplayName(entityId: number): string {
 
 export function ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number } {
   const itemId = resolveIdOrThrow(itemName);
-  // Per direct, absolute instruction: a real quantity-tracking
-  // account must never share its own real "currency" bucket with
-  // real, genuine dollar accounts - each is tagged with its own,
-  // real, distinct pseudo-currency (this item's own real unit of
-  // measure, or 'UNITS' when none has been recorded yet), so
-  // getTrialBalance's own real by_currency breakdown genuinely, never
-  // silently blends a real bottle/carton count into a real dollar
-  // total.
   const unit = (getItem(itemName)?.unit_of_measure || 'UNITS').toUpperCase();
   function ensureChild(childName: string): { name: string; id: number } {
     let entity = Entity.getUnder(childName, itemId);
@@ -3648,30 +2191,10 @@ export function ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): 
   };
 }
 
-/** A real group to automatically tag a sale/stock movement at this
- * location with — genuinely generic, under any real, named hierarchy
- * a business has chosen (e.g. "Division," or anything else), never
- * hardcoded to one specific name here: reads the real hierarchy link
- * (setHierarchyParent/getHierarchyParent), set explicitly whenever a
- * location is created with one (createAndConfigureLocation) — never
- * derived from the location's own address city, and never read
- * through the separate, legacy "Belongs To Group" entity relationship
- * (see getOrganizationChart) — a genuinely separate, HR concern this
- * function does not touch. Only ever matches a group that was
- * actually, explicitly assigned; never invents one. A business that
- * wants no such breakdown at all simply never assigns one. */
 export function getHierarchyGroupForLocation(locationName: string, hierarchyName: string): string | undefined {
   return getHierarchyParent(locationName, hierarchyName);
 }
 
-/** The real, physical location a specific product should actually be
- * picked from/dispatched to, given the one, real, logical outlet a
- * person selected — automatically resolves to a real, cold-storage
- * sub-location (via its own real relation link to that outlet) when
- * the product genuinely needs one and that link actually exists;
- * otherwise, the logical outlet itself. Never assumes a cold sub-
- * location exists just because the product is cold — falls back
- * honestly to the real, given location if it doesn't. */
 export function resolveDispatchLocation(itemName: ItemName, logicalLocationName: LocationName): LocationName {
   if (getItemStorageOrigin(itemName) !== 'Cold') return logicalLocationName;
   const coldSubLocation = db
@@ -3688,19 +2211,7 @@ export function resolveDispatchLocation(itemName: ItemName, logicalLocationName:
 export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleResult {
   if (input.lines.length === 0) throw new ValidationError('A sale needs at least one line.');
 
-  // Per docs/border-multicurrency-pos-plan.md, Slice 4: a real,
-  // specific terminal resolves its own real currency; any line that
-  // didn't hand-enter a price gets one resolved from that item's own,
-  // real, matching item_source row for that currency. Two real
-  // terminals at the exact same, real location can each transact in a
-  // genuinely different currency this way — completely unaffected,
-  // real, existing behavior when terminalName is omitted.
   const effectiveCurrency = getEffectiveSaleCurrency(input.terminalName);
-  // Per docs/multicurrency-design.md, "Where currency lives, and
-  // precedence": a location's own, real, nominated set of currencies
-  // is the real, governing fact - a sale resolving to a currency that
-  // location never nominated is rejected directly, not silently
-  // allowed through.
   if (effectiveCurrency && !getLocationCurrencies(input.locationName, input.business).includes(effectiveCurrency)) {
     throw new ValidationError(`"${input.locationName}" has not nominated ${effectiveCurrency} as a real, trading currency - see nominateLocationCurrency.`);
   }
@@ -3714,10 +2225,6 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
   }
 
   if (input.paymentMethod === undefined) {
-    // On-account sale — the customer must actually be verified if
-    // they self-registered at all (a staff-created account customer
-    // has no verification_status and is simply usable, since staff
-    // already verified who they are by doing the setup).
     const contact = getContact(input.customerName);
     if (contact?.verification_status && contact.verification_status !== 'active') {
       throw new ValidationError(
@@ -3748,9 +2255,6 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
         invoiceDate: today,
         description: `POS sale at ${input.locationName}`,
         source: 'pos',
-        // unitPriceMinor is genuinely resolved for every line by the
-        // loop above, before this point is ever reached - optional
-        // only on the way in, from a caller that left it unspecified.
         lines: input.lines.map((l) => ({
           description: l.itemName,
           quantity: l.quantity,
@@ -3763,21 +2267,6 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       userId
     );
 
-    // Per docs/multicurrency-design.md: every real leg of a
-    // foreign-currency-nominated sale (Revenue, Tax, COGS, Cash) stays
-    // consistently denominated in that real currency - each resolved
-    // account redirected to its own, real, currency-tagged sibling
-    // (ensureCurrencyAccount), whatever the underlying, real, tier/
-    // location/combination-specific account resolution already,
-    // correctly produced.
-    //
-    // Resolved by id, never by name alone - a real, confirmed bug,
-    // found directly: this system's own, established scoped-
-    // uniqueness design deliberately allows the exact same name at
-    // two, real, different parent levels (a COGS leaf and an
-    // Inventory leaf for the same product/location can genuinely
-    // share one name) - a name-only lookup is genuinely ambiguous in
-    // that real case.
     const tagCurrency = (result: string | { name: string; id: number }): string | { name: string; id: number } => {
       if (!effectiveCurrency) return result;
       const baseId = typeof result === 'string' ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(result) as { id: number }).id : result.id;
@@ -3819,18 +2308,6 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       })(),
       userId,
       false,
-      // A real, immediate cash sale has no genuine receivable at all,
-      // even momentarily — post straight to the real payment account
-      // instead of the customer's own AR balance. A genuine
-      // "sell on account" sale (paymentMethod left undefined)
-      // correctly still uses the customer's real AR balance, since
-      // that IS a genuine, real receivable.
-      //
-      // Per docs/multicurrency-design.md: this real payment account
-      // itself is also tagged with the sale's own, real, nominated
-      // currency when one applies, using "Cash at Bank" as the real
-      // base - the exact, same, real base name createBusiness's own
-      // secondary-currency setup already uses.
       input.paymentMethod ? resolveCashAtBankAccount(input.business, effectiveCurrency ?? undefined, userId).name : undefined
     );
 
@@ -3838,18 +2315,6 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       dispatchItems(input.business, input.ledger, `${reference}-DISPATCH-${line.itemName}`, asItemName(line.itemName), asLocationName(resolveDispatchLocation(asItemName(line.itemName), input.locationName)), line.quantity, userId, today);
     }
 
-    // Real COGS + Inventory-value reduction — per direct, confirmed
-    // finding: this function previously only ever posted revenue/tax,
-    // leaving every real sale, in real, live use (not just the
-    // simulation), with no real COGS effect and no real Inventory
-    // reduction at all. The exact, same, tier/location-aware resolver
-    // already proven for the Sales side above, reused here for COGS;
-    // the credit side lands in that same, real product's own,
-    // structural Inventory sub-account (ensureItemInventoryAccount),
-    // not the old, flat, single "Inventory" account every product used
-    // to share. A genuinely new product with no known supplier/cost
-    // registered yet simply posts no COGS/Inventory line at all for
-    // itself, rather than a fabricated, invented cost.
     const cogsRef = `${reference}-COGS`;
     let cogsTotal = 0;
     for (const line of input.lines) {
@@ -3891,10 +2356,6 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
           : ensureItemInventoryAccount(asItemName(line.itemName), userId, line.tier, input.business);
         inv = resolved;
       }
-      // Per docs/multicurrency-design.md: COGS and Inventory, the
-      // exact, same, real way as Revenue/Tax/Cash above, also stay
-      // consistently denominated in the sale's own, real, nominated
-      // currency when one applies.
       if (effectiveCurrency) {
         const taggedCogs = ensureCurrencyAccount(cogsAccountId, effectiveCurrency, userId);
         cogsAccount = taggedCogs.name;
@@ -3913,11 +2374,6 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
 
     let changeDueMinor = 0;
     if (input.paymentMethod) {
-      // skipJournalPosting: true — the real cash-side GL effect
-      // already happened once, directly, at postInvoice above; this
-      // only records the real allocation fact so
-      // getInvoiceOutstandingMinor correctly shows zero, not a
-      // second, redundant journal entry.
       allocatePayment(invoiceId, `${reference}-PAYMENT`, totalMinor, today, resolveCashAtBankAccount(input.business, effectiveCurrency ?? undefined, userId).name, userId, true);
       if (input.cashTenderedMinor != null) {
         changeDueMinor = Math.max(0, input.cashTenderedMinor - totalMinor);
@@ -3943,12 +2399,7 @@ export interface CashPurchaseInput {
   vendorName: ProviderName;
   lines: CashPurchaseLineInput[];
   taxAccount: AccountName;
-  /** Present for cash/EFT, where the purchase is paid in full
-   * immediately. Omit entirely for an on-account purchase (becomes a
-   * normal outstanding AP invoice, the ordinary AP Purchase form's own
-   * behavior) — this function exists specifically for the immediate-
-   * payment case. */
-  paymentMethod?: string;
+    paymentMethod?: string;
   transdate?: string;
 }
 
@@ -3959,29 +2410,10 @@ export interface CashPurchaseResult {
 }
 
 export interface ResolvedCashTransactionAccounts {
-  /** itemName (+ " (" + tier + ")" when a tier was given) -> the real,
-   * location-scoped Inventory account name, creating that account the
-   * first time this exact (item, location, tier) combination is used —
-   * a real, stateful side effect that must stay server-side (two
-   * concurrent users' browsers cannot both safely decide whether this
-   * account already exists). */
-  inventoryAccounts: Record<string, string>;
-  /** The real Cash-and-Bank account to post the full, immediate payment
-   * against — only resolved when paymentMethod was actually given. */
-  cashAccount?: string;
+    inventoryAccounts: Record<string, string>;
+    cashAccount?: string;
 }
 
-/** Per docs/canned-journal-to-frontend-design.md: the one, real,
- * narrow piece of "which account" that cannot move to the frontend —
- * everything else about which account a canned Cash Purchase/Cash Sale
- * debits or credits is a deterministic given-the-form's-own-inputs
- * computation (frontend/src/lib/canned-journal.ts); only "does this
- * specific item's own, real, location-qualified Inventory account
- * (the real cartesian-product account name) already exist, and if not,
- * create it" is a real, stateful fact only the server can safely own.
- * No division/category of any kind is ever resolved or returned here —
- * per direct, explicit correction, a journal entry never carries one;
- * every real dimension is already baked into the account's own name. */
 export function resolveCashTransactionAccounts(
   business: BusinessName,
   locationName: LocationName,
@@ -4002,42 +2434,13 @@ export function resolveCashTransactionAccounts(
 }
 
 export interface ResolvedSaleAccounts {
-  /** itemName (+ " (" + tier + ")" when a tier was given) -> that
-   * line's real, tier/location-aware Sales Revenue account — the
-   * exact, same account resolution completePosSale's own revenueAccount
-   * resolver closure used to compute server-side. */
-  salesAccounts: Record<string, string>;
-  /** Same keying -> that line's real COGS account. */
-  cogsAccounts: Record<string, string>;
-  /** Same keying -> that line's real, location-scoped Inventory
-   * account — the real credit side of the COGS entry, the exact, same
-   * account resolveCashTransactionAccounts already resolves for the
-   * purchase side. */
-  inventoryAccounts: Record<string, string>;
-  /** Same keying -> that item's known, real per-unit cost, or null
-   * when no real cost is known yet — the frontend then posts no real
-   * COGS/Inventory line for that line at all, never a fabricated cost,
-   * the exact, same real behavior completePosSale's own COGS loop
-   * already used. */
-  unitCostMinor: Record<string, number | null>;
-  /** The real Cash-and-Bank account to post the full, immediate
-   * payment against — only resolved when paymentMethod was actually
-   * given. */
-  cashAccount?: string;
+    salesAccounts: Record<string, string>;
+    cogsAccounts: Record<string, string>;
+    inventoryAccounts: Record<string, string>;
+    unitCostMinor: Record<string, number | null>;
+    cashAccount?: string;
 }
 
-/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
- * sale-side counterpart to resolveCashTransactionAccounts — the one,
- * real, narrow piece of "which account" that cannot move to the
- * frontend (does this real, tier/location-qualified Sales/COGS/
- * Inventory leaf already exist, and if not, create it) plus the one,
- * real, stateful fact the frontend has no other way to learn (this
- * item's known, real per-unit cost). Everything else about a canned
- * Cash Sale's own journal entry is a deterministic, given-the-form's-
- * own-inputs computation (frontend/src/lib/canned-journal.ts). No
- * division/category of any kind is ever resolved or returned here —
- * a journal entry never carries one; every real dimension is already
- * baked into the account's own name. */
 export function resolveSaleAccounts(
   business: BusinessName,
   locationName: LocationName,
@@ -4075,35 +2478,11 @@ export function resolveSaleAccounts(
 }
 
 export interface ResolvedTransferAccounts {
-  /** The real, location-scoped Inventory account the item's value is
-   * currently sitting in — the exact, same account
-   * resolveCashTransactionAccounts already resolves for the purchase
-   * side. */
-  fromInventoryAccount: string;
-  /** The real, location-scoped Inventory account that value moves
-   * into. */
-  toInventoryAccount: string;
-  /** This item's known, real per-unit cost, or null when no real cost
-   * is known yet — the frontend then posts no real VALUE journal
-   * entry for this transfer at all (only the real, physical
-   * quantity-movement side effect, done separately via transferStock),
-   * never a fabricated cost, the exact, same real behavior
-   * transferItems's own plain, non-combination VALUE-posting branch
-   * already used. */
-  unitCostMinor: number | null;
+    fromInventoryAccount: string;
+    toInventoryAccount: string;
+    unitCostMinor: number | null;
 }
 
-/** Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
- * transfer-side counterpart to resolveCashTransactionAccounts/
- * resolveSaleAccounts — the one, real, narrow piece of "which account"
- * that cannot move to the frontend (does this real, location-
- * qualified Inventory leaf already exist at either real location, and
- * if not, create it) plus the one, real, stateful fact the frontend
- * has no other way to learn (this item's known, real per-unit cost).
- * The real, physical quantity movement and location-capacity
- * adjustment stay entirely server-side (see transferStock) — neither
- * of those is a journal entry at all. No division/category of any
- * kind is ever resolved or returned here. */
 export function resolveTransferAccounts(
   business: BusinessName,
   itemName: ItemName,
@@ -4120,16 +2499,6 @@ export function resolveTransferAccounts(
   };
 }
 
-/** Completes a full, immediate-payment purchase as one atomic
- * operation — the real, direct counteritem to completePosSale, mirroring
- * its exact structure for the purchase side: posts the invoice
- * straight to Cash and Bank (no genuine AP round-trip, the same real
- * reasoning completePosSale already uses for cash sales), receives
- * real, physical stock at the real, chosen location, and allocates
- * full payment immediately. A real, explicit location choice — any
- * real location, not just a warehouse — since a real, wholesale
- * purchase might receive directly into a retail outlet just as
- * easily. */
 export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): CashPurchaseResult {
   if (input.lines.length === 0) throw new ValidationError('A purchase needs at least one line.');
 
@@ -4164,10 +2533,6 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
       input.taxAccount,
       userId,
       false,
-      // The same, real reasoning completePosSale already uses for a
-      // cash sale — a real, immediate cash purchase has no genuine
-      // payable at all, even momentarily; post straight to the real
-      // payment account instead of the vendor's own AP balance.
       input.paymentMethod ? resolveCashAtBankAccount(input.business, undefined, userId).name : undefined
     );
 
@@ -4190,18 +2555,9 @@ export interface PayEmployeeWagesInput {
   business: string;
   ledger: string;
   employeeName: string;
-  /** Required for an hourly employee (one with wage_minor_per_hour
-   * set). Omit entirely for a salaried employee — their own real,
-   * fixed monthly salary (salary_minor_per_year / 12) is used
-   * instead, and providing hours for a salaried employee is refused
-   * as a real, honest mismatch rather than silently ignored. */
-  hours?: number;
+    hours?: number;
   wagesExpenseAccount?: string;
-  /** Present for cash/EFT, where the employee's own real, NET pay
-   * (after Medicare withholding) is paid in full immediately. Omit to
-   * leave the net amount owing as a real, ordinary outstanding AP
-   * balance, paid later through the normal AP Payment screen. */
-  paymentMethod?: string;
+    paymentMethod?: string;
   transdate?: string;
 }
 
@@ -4214,24 +2570,9 @@ export interface PayEmployeeWagesResult {
   netMinor: number;
 }
 
-// Real, current Australian rates, per direct request — a real,
-// simple flat percentage each, not a bracketed/progressive scale
-// (which would need real, additional inputs like an annual income
-// threshold this app doesn't collect).
 const MEDICARE_LEVY_RATE = 0.015;
 const SUPERANNUATION_RATE = 0.12;
 
-/** Pays a real employee — hourly or salaried — treating them as a
- * real AP counterparty, the same real mechanism a vendor invoice
- * already uses, per direct request. A real, genuine multi-line
- * posting, not a simple two-sided one, since three real, separate
- * facts are true at once: the employee's own real gross pay (an
- * expense to the business), a real Medicare levy withheld from THEIR
- * pay (a real liability owed to the ATO, not a business cost), and a
- * real superannuation employer contribution ON TOP of gross pay (a
- * genuine, additional business cost, and a genuine, separate
- * liability owed to a real super fund) — three real, independent
- * amounts, not one derived from another. */
 export function payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): PayEmployeeWagesResult {
   const contact = getContact(input.employeeName);
   if (!contact) throw new ValidationError(`No real contact named "${input.employeeName}".`);
@@ -4255,9 +2596,6 @@ export function payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): 
     const superannuationMinor = Math.round(grossMinor * SUPERANNUATION_RATE);
     const netMinor = grossMinor - medicareLevyMinor;
 
-    // The employee's own real gross pay — the exact same real AP
-    // mechanism a vendor invoice already uses (debit Wages, credit
-    // the employee's own real balance), before any real withholding.
     const invoiceId = createInvoice(
       {
         invoiceType: 'AP',
@@ -4283,15 +2621,10 @@ export function payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): 
     );
     postInvoice(invoiceId, wagesAccount, 'Sales Tax Payable', userId, false, undefined);
 
-    // Withholds the real Medicare levy from the employee's own real
-    // balance — reduces what they're owed, and records a real,
-    // separate liability owed to the ATO, not a cost to the business.
     stageLine({ reference: `${reference}-MEDICARE`, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName(input.employeeName), amount_minor: medicareLevyMinor, memo: 'Medicare levy withheld' });
     stageLine({ reference: `${reference}-MEDICARE`, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName('Medicare Levy Payable'), amount_minor: -medicareLevyMinor, memo: 'Medicare levy withheld' });
     postJournalEntry(`${reference}-MEDICARE`, asBusinessName(input.business), asLedgerName(input.ledger), userId);
 
-    // A real, genuine, additional employer cost on top of gross pay —
-    // never touches the employee's own balance at all.
     stageLine({ reference: `${reference}-SUPER`, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName('Superannuation Expense'), amount_minor: superannuationMinor, memo: 'Superannuation employer contribution' });
     stageLine({ reference: `${reference}-SUPER`, business: asBusinessName(input.business), ledger: asLedgerName(input.ledger), transdate: today, account: asAccountName('Superannuation Payable'), amount_minor: -superannuationMinor, memo: 'Superannuation employer contribution' });
     postJournalEntry(`${reference}-SUPER`, asBusinessName(input.business), asLedgerName(input.ledger), userId);
@@ -4304,13 +2637,6 @@ export function payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): 
   })();
 }
 
-
-/** Records that a reminder was sent to this customer, advancing their
- * level by one (capped at 3, the harshest) — so the next reminder for
- * the same customer is pre-set to the following level, matching
- * SQL-Ledger's own behavior. A targeted update, deliberately separate
- * from setContact's full-replace semantics, so an unrelated contact
- * edit never resets this. */
 export function recordReminderSent(customerName: string): number {
   const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(customerName) as { id: number } | undefined)?.id;
   if (!id) throw new ValidationError(`No customer/vendor named "${customerName}".`);
@@ -4320,10 +2646,6 @@ export function recordReminderSent(customerName: string): number {
   return next;
 }
 
-/** Resets a customer's reminder level back to 0 — once they've paid,
- * the next time they go overdue should start from the polite level 1
- * again, not pick up where a previous, unrelated overdue balance left
- * off. */
 export function resetReminderLevel(customerName: string): void {
   const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(customerName) as { id: number } | undefined)?.id;
   if (!id) throw new ValidationError(`No customer/vendor named "${customerName}".`);
@@ -4338,9 +2660,6 @@ export interface ReminderCandidate {
   oldest_days_overdue: number;
 }
 
-/** Which customers actually have an overdue balance right now, and
- * what reminder level they'd be sent at next — grouped per customer,
- * not per invoice, matching how reminders are actually addressed. */
 export function getReminderCandidates(business: BusinessName, ledger: LedgerName, asOfDate: string): ReminderCandidate[] {
   const aged = getAgedInvoices(business, ledger, 'AR', asOfDate).filter((r) => r.days_overdue > 0);
   const byCustomer = new Map<string, { outstanding: number; oldestDays: number }>();
@@ -4363,10 +2682,7 @@ export function getReminderCandidates(business: BusinessName, ledger: LedgerName
 }
 
 export interface Contact {
-  /** A real, human contact-person's own real name — only ever set on
-   * a real ContactPerson record (see addTypedContactPerson below);
-   * null for every other, real use of this same interface. */
-  person_name: string | null;
+    person_name: string | null;
   phone: string | null;
   email: string | null;
   address_line1: string | null;
@@ -4375,44 +2691,15 @@ export interface Contact {
   region: string | null;
   postal_code: string | null;
   country: string | null;
-  /** Base credit term in days — null means not yet configured, 0
-   * means cash only. Aging buckets are derived from this (term,
-   * 2x term, 3x term), never stored as three separate numbers. */
-  payment_terms_days: number | null;
-  /** The real, maximum outstanding balance this customer/vendor is
-   * allowed to carry — null means no real limit has been set. A real,
-   * separate dimension from payment_terms_days (see contact.credit_limit_minor). */
-  credit_limit_minor: number | null;
-  /** A real employee's own real wage rate, per hour — null for any
-   * real contact that isn't an employee, or one whose wage hasn't
-   * been set up yet. Deliberately gross only, no tax withholding
-   * modeled — a real, stated simplification, not an oversight. */
-  wage_minor_per_hour: number | null;
-  /** A real, fixed annual salary — for management, distinct from
-   * wage_minor_per_hour. An employee has exactly one of the two set,
-   * never both. */
-  salary_minor_per_year: number | null;
+    payment_terms_days: number | null;
+    credit_limit_minor: number | null;
+    wage_minor_per_hour: number | null;
+    salary_minor_per_year: number | null;
   reminder_level: number;
-  /** This specific customer/vendor's own preferred language for
-   * printed documents — takes priority over the business's own default
-   * language when set. Genuinely necessary in multilingual markets
-   * (Canada, Switzerland), where the business's own default language
-   * says nothing about what a specific customer wants. */
-  preferred_language: string | null;
-  /** 'pending' immediately after self-registration until staff
-   * verifies; 'active' once approved — the only status that may be
-   * sold to on account; 'rejected' if declined. Null for contacts
-   * that were never a self-registration (an ordinary staff-created
-   * account customer needs none of this). */
-  verification_status: 'pending' | 'active' | 'rejected' | null;
-  /** Card type + last 4 only, e.g. "Visa ending 4242" — never a full
-   * card number. */
-  card_label: string | null;
-  /** A real, short PIN an employee types to sign on at a POS terminal
-   * — null means no PIN set yet, so this employee cannot sign on to
-   * sell. Read-only here; set via the dedicated setPosPin, not an
-   * ordinary contact edit. */
-  pos_pin: string | null;
+    preferred_language: string | null;
+    verification_status: 'pending' | 'active' | 'rejected' | null;
+    card_label: string | null;
+    pos_pin: string | null;
 }
 
 export function getContact(entityName: string): Contact | undefined {
@@ -4433,15 +2720,6 @@ export interface InvoiceLine {
   tax_minor: number;
 }
 
-/** The document-level facts for a single posted reference — quantity,
- * unit price, and this specific line's own tax, exactly as they were
- * when it was posted. Returns undefined if this reference never
- * recorded one (e.g. an ordinary General Journal entry, which has no
- * invoice concept at all). */
-/** A real, direct child entity under "Invoice Lines", one per real
- * (reference, business, ledger) - per direct, absolute instruction
- * (invoice_line eliminated as its own table). Every real field lives
- * in that entity's own, real detail_json. */
 function ensureInvoiceLinesRoot(userId: UserId): { id: number } {
   const existing = db.prepare(`SELECT id FROM current_entities WHERE name = 'Invoice Lines'`).get() as { id: number } | undefined;
   if (existing) return existing;
@@ -4471,12 +2749,6 @@ export function getInvoiceLine(reference: string, business: BusinessName, ledger
   return { reference, description: detail.description, quantity: detail.quantity, unit_price_minor: detail.unit_price_minor, amount_minor: detail.amount_minor, tax_minor: detail.tax_minor };
 }
 
-/** The real, distinct account names a given journal reference
- * actually posted to — used, for example, to make a reversal or
- * return land on the exact same real account the original
- * transaction used (a specific package-tier's own Sales account, not
- * a plain, product-level fallback that was never the real account
- * the sale itself used). */
 export function getAccountsPostedTo(reference: string): string[] {
   const rows = db
     .prepare(
@@ -4490,13 +2762,6 @@ export function getAccountsPostedTo(reference: string): string[] {
   return rows.map((r) => r.name);
 }
 
-/** A real, direct read-merge-write into the entity's own detail_json -
- * per direct, absolute instruction (contact eliminated as its own
- * table). Merges only the real, given fields, leaving every other
- * real, already-set field untouched - the exact, same, real "partial
- * upsert" shape the removed table's own ON CONFLICT DO UPDATE clause
- * always had. __is_contact: true marks this entity as a real contact
- * record for the compatibility view to find. */
 export function mergeContactDetail(entityId: number, fields: Record<string, unknown>): void {
   const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(entityId) as { detail_json: string | null } | undefined;
   const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
@@ -4526,13 +2791,6 @@ export function setContact(entityName: string, contact: Partial<Contact>): void 
   });
 }
 
-/** Sets a real employee's own real PIN for signing on at a POS
- * terminal — its own, dedicated update path, deliberately not item
- * of the ordinary setContact upsert, the same real pattern already
- * used for reminder_level/password_hash/verification_status. A real,
- * short PIN (a handful of digits is typical), not hashed — this is a
- * real, low-stakes, physical-terminal identification mechanism, not
- * an authentication credential for the app itself. */
 export function setPosPin(employeeName: string, pin: string): void {
   const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number } | undefined)?.id;
   if (!id) throw new ValidationError(`No employee named "${employeeName}".`);
@@ -4547,15 +2805,6 @@ export interface PosShift {
   signed_off_at: string | null;
 }
 
-/** Signs a real employee on at a real location — validates their real
- * PIN (set via setPosPin) directly, not through the app's own
- * users/roles login at all. Per direct requirement: this genuinely
- * IS the real timecard (payEmployeeWages's hours-worked mode sums
- * these shifts directly), not just an "who's active" indicator, so
- * the real, resulting row records exactly when this happened, not
- * just that it did. Refuses if this same employee already has a
- * real, open shift anywhere — a real employee can only be signed on
- * at one real location at a time. */
 export function signOn(employeeName: string, locationName: string): PosShift {
   const employee = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number } | undefined;
   if (!employee) throw new ValidationError(`No employee named "${employeeName}".`);
@@ -4563,37 +2812,17 @@ export function signOn(employeeName: string, locationName: string): PosShift {
   if (!location) throw new ValidationError(`No location named "${locationName}".`);
   const contact = db.prepare(`SELECT pos_pin FROM contact WHERE entity_id = ?`).get(employee.id) as { pos_pin: string | null } | undefined;
   if (!contact?.pos_pin) throw new ValidationError(`"${employeeName}" has no real PIN set yet — cannot sign on.`);
-  // No JSON, no wildcard: a real, presence-only "Open" tag-child
-  // entity, matched exactly - never a name suffix and never a JSON
-  // field. A real, confirmed bug found directly: this looked for the
-  // "Open" tag as a direct child of the EMPLOYEE, but Entity.tag below
-  // actually tags the real SHIFT entity (itself a child of the
-  // employee) - one level deeper, exactly the same shape
-  // getOpenShiftForEmployee/getActiveShiftsAtLocation already,
-  // correctly walk. This query never matched anything, so a second
-  // sign-on while already signed on elsewhere was silently allowed.
   const alreadyOpen = db
     .prepare(`SELECT 1 FROM current_entities shift JOIN current_entities tag ON tag.parent_id = shift.id AND tag.name = 'Open' AND tag.relation_id IS NOT NULL WHERE shift.parent_id = ?`)
     .get(employee.id);
   if (alreadyOpen) throw new ValidationError(`"${employeeName}" is already signed on somewhere — sign off first.`);
   const signedOnAt = new Date().toISOString();
-  // A real Shift entity, one per real sign-on event - never reused
-  // across shifts, unlike the Period Lock entity, since this
-  // application's own, real timecard needs every real, past shift
-  // kept as its own, distinct, queryable record, not just the latest
-  // state. relation_id points directly at the real location. The
-  // shift's own, real created_at column is its real signed_on_at -
-  // no separate attribute needed for a fact this entity's own
-  // creation already records.
   const shiftEntity = Entity.create(`${employeeName} — Shift — ${signedOnAt}`, employee.id, asUserId(1));
   supersedeEntity(shiftEntity.id, { relation: locationName }, asUserId(1));
   Entity.tag(shiftEntity.id, 'Open', asUserId(1));
   return { id: shiftEntity.id, employee: employeeName, location: locationName, signed_on_at: signedOnAt, signed_off_at: null };
 }
 
-/** Verifies a real PIN against a real employee's own, stored PIN —
- * used by the real sign-on screen before calling signOn itself, so a
- * wrong PIN never even attempts to open a real shift. */
 export function verifyPosPin(employeeName: string, pin: string): boolean {
   const employee = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number } | undefined;
   if (!employee) return false;
@@ -4601,9 +2830,6 @@ export function verifyPosPin(employeeName: string, pin: string): boolean {
   return !!contact?.pos_pin && contact.pos_pin === pin;
 }
 
-/** Signs a real, currently-open shift off — records the real,
- * genuine end timestamp against that same shift, closing the real
- * timecard record it started. */
 export function signOff(shiftId: number): void {
   if (!Entity.hasTag(shiftId, 'Open')) throw new ValidationError(`No real shift with id ${shiftId}, or it is already signed off.`);
   const signedOffAt = new Date().toISOString();
@@ -4615,13 +2841,6 @@ function parseShiftEntity(row: { id: number; employee: string; location: string;
   return { id: row.id, employee: row.employee, location: row.location, signed_on_at: row.created_at, signed_off_at: Entity.getAttr(row.id, 'Signed Off At') ?? null };
 }
 
-/** Every real, currently-open shift at a given location — the real,
- * shared, server-side state every terminal at that same location
- * queries, per direct requirement: signing on at any one terminal
- * must activate that clerk's "sales clerk" button on every terminal
- * at that same location, not just the one they signed on at. No
- * JSON, no wildcard: a real, presence-only "Open" tag, matched
- * exactly. */
 export function getActiveShiftsAtLocation(locationName: string): PosShift[] {
   const rows = db
     .prepare(
@@ -4637,10 +2856,6 @@ export function getActiveShiftsAtLocation(locationName: string): PosShift[] {
   return rows.map(parseShiftEntity);
 }
 
-/** A real employee's own, real, currently-open shift, if any —
- * regardless of location. Used to confirm a specific employee is
- * genuinely signed on before letting them act as the active clerk on
- * a real sale. No JSON, no wildcard, same as above. */
 export function getOpenShiftForEmployee(employeeName: string): PosShift | undefined {
   const row = db
     .prepare(
@@ -4663,14 +2878,6 @@ export interface OpenHoursLine {
   closes_at: string;
 }
 
-/** Sets a real location's own, real, weekly-recurring open hours —
- * built entirely on the entity-tree mechanism already proven for
- * typed addresses/phones, no new table at all: each real open day
- * becomes its own, real, named child entity of the location
- * ("{location} — {Day}: {opens}–{closes}"), tagged via relation_id to
- * the real day entity under Days of Week. A real, full replace: every
- * existing open-hours child is deleted first, so a day genuinely
- * omitted from `hours` means closed that day, not left stale. */
 export function setLocationOpenHours(locationName: string, hours: OpenHoursLine[]): void {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(locationName)) throw new ValidationError(`No location named "${locationName}".`);
   for (const h of hours) {
@@ -4690,11 +2897,6 @@ export function setLocationOpenHours(locationName: string, hours: OpenHoursLine[
   }
 }
 
-/** A real location's own, real, current weekly open hours — walks the
- * location's own real children for whichever are tagged under "Days
- * of Week" specifically (the same real filtering getTypedAddresses
- * already uses for Address Types), then parses the real, encoded time
- * range straight back out of each record's own name. */
 export function getLocationOpenHours(locationName: string): OpenHoursLine[] {
   const rows = db
     .prepare(
@@ -4725,29 +2927,10 @@ export interface LocationScheduleLine extends ScheduleLine {
   employee: string;
 }
 
-/** Sets a real employee's own, real, weekly-recurring schedule at a
- * real location — the same, real entity-tree mechanism as
- * setLocationOpenHours, one real, named child entity of the employee
- * per real, scheduled shift ("{employee} — {Day} at {location}:
- * {starts}–{ends}"), tagged via relation_id to the real day. Per
- * direct requirement, every real, proposed shift is validated against
- * that same location's own real open hours first — refuses a day the
- * location is genuinely closed, or a shift starting before/ending
- * after the real, open window that day. A real, full replace, scoped
- * to this one employee/location pair — a real, different location's
- * own schedule for the same employee is left untouched. */
 export function setEmployeeSchedule(employeeName: string, locationName: string, schedule: ScheduleLine[]): void {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(employeeName)) throw new ValidationError(`No employee named "${employeeName}".`);
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(locationName)) throw new ValidationError(`No location named "${locationName}".`);
 
-  // A real employee can genuinely work a real shift outside a
-  // location's own open hours at all — cleaning, stocking, receiving
-  // a delivery before the doors open, and so on — so shifts are no
-  // longer confined to open hours. What's genuinely, physically
-  // limited instead is how much a real, single person can work at
-  // all: a real, direct cap on hours per day and per week, checked
-  // across every real location this employee works at combined, not
-  // just this one.
   const MAX_HOURS_PER_DAY = 12;
   const MAX_HOURS_PER_WEEK = 48;
   const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -4760,13 +2943,6 @@ export function setEmployeeSchedule(employeeName: string, locationName: string, 
     }
   }
 
-  // A real, physical impossibility, per direct report: the same,
-  // real employee genuinely cannot work two real, different
-  // locations at the same real time, even though "which locations,
-  // which days" is genuinely M:N overall. Checked against every
-  // other real location's own, already-saved shifts for this same
-  // employee — not this same location's own shifts, which are the
-  // very ones about to be replaced below.
   const shiftsElsewhere = getEmployeeSchedule(employeeName).filter((e) => e.location !== locationName);
   for (const s of schedule) {
     for (const other of shiftsElsewhere) {
@@ -4780,10 +2956,6 @@ export function setEmployeeSchedule(employeeName: string, locationName: string, 
     }
   }
 
-  // A real, direct weekly cap too — computed across the same,
-  // real, full, combined picture (every other location's own,
-  // already-saved shifts, plus this location's own, new ones), not
-  // just this one location's own hours in isolation.
   const totalWeeklyMinutes = [...shiftsElsewhere, ...schedule]
     .reduce((sum, s) => sum + (toMinutes(s.ends_at) - toMinutes(s.starts_at)), 0);
   const totalWeeklyHours = totalWeeklyMinutes / 60;
@@ -4796,20 +2968,6 @@ export function setEmployeeSchedule(employeeName: string, locationName: string, 
   for (const existing of getEmployeeSchedule(employeeName).filter((e) => e.location === locationName)) {
     const recordName = `${employeeName} — ${existing.day} at ${locationName}: ${existing.starts_at}–${existing.ends_at}`;
     const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
-    // A real, confirmed bug found directly: clearing relation_id alone
-    // (same shape as a real "revoke") leaves this record's own, real
-    // name - which genuinely encodes this specific shift's own start/
-    // end time as live, descriptive data, unlike an ordinary account
-    // or customer name - unchanged, so a stale, no-longer-true "09:00-
-    // 17:00" record still, confusingly, shows up as a real, findable
-    // entity by that exact name. Per this append-only entity model,
-    // nothing is ever truly removed from current_entities - so this
-    // also, genuinely renames the record away from its own, now-stale,
-    // time-encoded name (append-only, full history still preserved via
-    // entity_update, exactly like any other rename in this system),
-    // which is what actually makes the old, specific name search this
-    // test performs correctly find nothing, while a real schedule
-    // row's own update history remains completely intact.
     if (record) supersedeEntity(record.id, { name: `${recordName} (replaced)`, relation: null }, asUserId(1));
   }
   for (const s of schedule) {
@@ -4821,8 +2979,6 @@ export function setEmployeeSchedule(employeeName: string, locationName: string, 
   }
 }
 
-/** A real employee's own, real, complete weekly schedule — across
- * every real location they're scheduled at, not just one. */
 export function getEmployeeSchedule(employeeName: string): EmployeeScheduleLine[] {
   const rows = db
     .prepare(
@@ -4841,11 +2997,6 @@ export function getEmployeeSchedule(employeeName: string): EmployeeScheduleLine[
     .sort((a, b) => DAY_NAMES.indexOf(a.day) - DAY_NAMES.indexOf(b.day));
 }
 
-/** Every real employee's own, real, scheduled shift at a given
- * location — the real, weekly roster view for that one location,
- * built by walking every real employee's own schedule and filtering
- * to this location, since a schedule record is parented under the
- * employee, not the location. */
 export function getScheduleAtLocation(locationName: string): LocationScheduleLine[] {
   const employeesRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Employees'`).get() as { id: number } | undefined;
   if (!employeesRoot) return [];
@@ -4864,41 +3015,10 @@ export interface TypedAddress extends Contact {
   record_name: string;
 }
 
-/** An entity often needs more than one address (a Head Office AND a
- * Billing address AND a Delivery address, all genuinely different) —
- * more than one relation_id's worth of tagging, which a single entity
- * can't carry. So each address becomes its own real child entity —
- * parent_id already handles one-to-many naturally, the same mechanism
- * every other hierarchy in this app already uses — and that child's
- * own relation_id points at a real type marker under "Address Types"
- * (Head Office, Billing, Delivery...), exactly the relationship-type
- * pattern this project already proved, one level deeper. The actual
- * address values live in that child's own real contact_entry row —
- * the same mechanism already used for a location's own single
- * address, applied recursively rather than duplicated as new schema.
- * See docs/entity-model.md.
- *
- * addTypedAddress/getTypedAddresses/deleteTypedAddress and their
- * addTypedPhone/getTypedPhones/deleteTypedPhone counteritems below
- * were, until this refactor, two real, near-identical copies of the
- * exact same structure — differing only in the record-name suffix
- * ("Address" vs "Phone"), the type-category name, and how the real
- * value itself is saved/loaded. Per direct request, both now share
- * one, real, generic implementation (addTyped/getTyped/deleteTyped,
- * further below); each real, public function here is a thin,
- * real wrapper preserving the exact, external API every existing
- * caller already depends on — nothing about how AddressList.svelte or
- * any other real caller uses these needed to change at all. */
 export function ensureAddressType(typeName: string, userId: UserId): void {
   if (!Entity.get(typeName)) Entity.create(typeName, 'Address Types', userId);
 }
 
-/** Every real, already-known address type — the preferred,
- * always-current source for a real "type" dropdown/combo, rather than
- * a fixed list baked into the frontend. Per direct request: a real,
- * new type ("Head Office", "Warehouse", ...) someone actually types
- * is immediately offered again on the next entity, the same,
- * established design already proven for contact person types. */
 export function listAddressTypes(): string[] {
   return db
     .prepare(
@@ -4915,12 +3035,6 @@ export function addTypedAddress(entityName: string, addressType: string, value: 
   return addTyped(entityName, 'Address', addressType, value, (recordName, v) => setContact(recordName, v), userId);
 }
 
-/** Every typed address on an entity, each with its real type and
- * value — walks from the entity's own real children to whichever of
- * them are tagged under "Address Types" specifically (so a phone
- * child, tagged under "Phone Types" instead, is never mistaken for an
- * address, even though both use the exact same parent/relation
- * shape). */
 export function getTypedAddresses(entityName: string): TypedAddress[] {
   return getTyped<TypedAddress>(entityName, 'Address Types', 'address_type', (recordName) => getContact(recordName) ?? {});
 }
@@ -4935,14 +3049,10 @@ export interface TypedPhone {
   phone: string | null;
 }
 
-/** Same pattern as addTypedAddress, for phone numbers — a store
- * genuinely has a landline AND a mobile, not just one phone field. */
 export function ensurePhoneType(typeName: string, userId: UserId): void {
   if (!Entity.get(typeName)) Entity.create(typeName, 'Phone Types', userId);
 }
 
-/** Every real, already-known phone type — same, established,
- * user-amendable design as address and contact person types. */
 export function listPhoneTypes(): string[] {
   return db
     .prepare(
@@ -4975,25 +3085,10 @@ export interface ContactPerson {
   email: string | null;
 }
 
-/** A real, named person attached to any entity at all — a creditor,
- * debtor, employee, location, whatever — under a real, direct role
- * ("Credit Manager", "Sales Clerk", "Dispatch", "Store Man",
- * "Emergency Contact", ...). The exact, same, established
- * addTyped/getTyped/deleteTyped mechanism already proven for
- * addresses and phones — but genuinely user-definable, per direct
- * request, rather than a fixed, hardcoded list: ensureContactPersonType
- * below creates a real, new type the moment someone actually types
- * one that doesn't exist yet, rather than requiring it to be
- * pre-seeded first. */
 export function ensureContactPersonType(typeName: string, userId: UserId): void {
   if (!Entity.get(typeName)) Entity.create(typeName, 'Contact Person Types', userId);
 }
 
-/** Every real, already-known contact person type — the preferred,
- * always-current source for a real "type" dropdown/combo, rather than
- * a fixed list baked into the frontend, so a genuinely new type
- * someone adds on one entity is immediately offered again on the
- * next. */
 export function listContactPersonTypes(): string[] {
   return db
     .prepare(
@@ -5021,14 +3116,6 @@ export function deleteTypedContactPerson(entityName: string, contactType: string
   deleteTyped(entityName, 'Contact', contactType, userId);
 }
 
-/** The real, shared, generic implementation behind addTypedAddress/
- * addTypedPhone above — creates (or reuses) a real, named child
- * entity ("{entityName} — {type} {thingSuffix}"), tags it via
- * relation_id to the real type marker, then saves its real value
- * through the caller's own save function (setContact, in both real,
- * current uses — kept as a real callback rather than hardcoded, so a
- * future typed-thing whose value isn't contact-shaped can still reuse
- * this without a further refactor). */
 function addTyped<T>(entityName: string, thingSuffix: string, type: string, value: T, save: (recordName: string, value: T) => void, userId: UserId): string {
   const recordName = `${entityName} — ${type} ${thingSuffix}`;
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
@@ -5040,15 +3127,6 @@ function addTyped<T>(entityName: string, thingSuffix: string, type: string, valu
   return recordName;
 }
 
-/** The real, shared, generic implementation behind getTypedAddresses/
- * getTypedPhones above — walks the entity's own real children,
- * filtered to whichever are tagged under the given real type-category
- * (so an address child is never mistaken for a phone child, despite
- * sharing the exact same parent/relation shape), then loads each
- * real record's own value through the caller's own load function.
- * typeKey lets each real caller keep its own, existing field name
- * (address_type vs phone_type) rather than a generic "type" every
- * caller would need to rename around. */
 function getTyped<T>(entityName: string, typeCategory: string, typeKey: string, load: (recordName: string) => Partial<T>): T[] {
   const rows = db
     .prepare(
@@ -5060,48 +3138,15 @@ function getTyped<T>(entityName: string, typeCategory: string, typeKey: string, 
        ORDER BY type_marker.name`
     )
     .all(entityName, typeCategory) as { type_name: string; record_name: string }[];
-  // typeKey is a runtime field name (e.g. "address_type"), not one T
-  // itself names, so the shape below is only knowable to this
-  // function's own callers - each of whom already states its real T
-  // via getTyped<T>(...) at the call site.
   return rows.map((r) => ({ [typeKey]: r.type_name, record_name: r.record_name, ...load(r.record_name) })) as T[];
 }
 
-/** The real, shared, generic implementation behind deleteTypedAddress/
- * deleteTypedPhone above. */
 function deleteTyped(entityName: string, thingSuffix: string, type: string, userId: UserId): void {
   const recordName = `${entityName} — ${type} ${thingSuffix}`;
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
   if (record) Entity.relate(record.id, null, userId);
 }
 
-/** A real, small, third generic alongside addTyped<T>/getTyped<T>
- * above — for a real, pure link between two entities, with no
- * separate value of its own the way an address/phone has (setContact
- * on the typed record). Deliberately NOT setRelationship: that
- * function writes directly to the SOURCE entity's own relation_id,
- * which is genuinely wrong whenever that slot is already spoken for
- * — confirmed directly, not hypothetically: a GL account's own
- * relation_id already carries its real CoA-prototype tag (see
- * createBusiness), and a real, secondary-currency bank account
- * already depends on it for the General Journal's own account
- * filter. setEntityLink instead creates its own, real, separate
- * child entity for the link itself (the exact same real shape
- * addTyped<T> already uses), so the source entity's own relation_id
- * is never touched at all, whatever it's already being used for. */
-/** Retired, per direct instruction: docs/general-typed-hierarchy-
- * resolution-plan.md's relation_id-pointer "prototype" design
- * (getPrototypeOf/setPrototype/seedDefaultHierarchyPrototypes, and
- * the bare "Hierarchies" root PER_BUSINESS_ROOTS once seeded for it)
- * was superseded in practice by the simpler, link-based mechanism
- * below (setHierarchyParent/getHierarchyParent, backed by
- * setEntityLink) plus ensureHierarchyGrouping/ensureHierarchyValue's
- * own, separate, per-business "Hierarchy" root — the one real
- * mechanism every report, the Create/Edit Hierarchy screen
- * (routes/hierarchy.ts), and getBusinessHierarchy actually read and
- * write. The prototype functions had zero real callers anywhere in
- * this codebase by the time this was found and confirmed directly;
- * see that doc's own correction note for the full account. */
 export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number, targetId?: number): string {
   const recordName = `${entityName} — ${linkType}`;
   const parentNode = entityId != null ? requireEntityById(entityId, typeRootName) : requireEntity(entityName, typeRootName);
@@ -5110,36 +3155,13 @@ export function setEntityLink(entityName: string, linkType: string, targetName: 
     const created = create(parentNode, typeEntityLinkRecordName, recordName, userId);
     record = { id: created.id, name: created.name };
   }
-  // No JSON, no wildcard: the real link type is a real, named
-  // tag-child entity of this link record, found later by an exact
-  // (parent, name) match (Link.withTarget), never by inspecting this
-  // record's own name for a pattern and never a JSON field. A real,
-  // confirmed bug found directly: this used to only tag a brand-new
-  // record, never one setEntityLink itself finds already existing -
-  // so a link previously removed via deleteEntityLink (which only
-  // ever untags, per its own documented design, deliberately leaving
-  // relation_id as permanent history) and then set again later never
-  // got its own, real presence tag back, leaving getEntityLink/
-  // getBankAccounts correctly, permanently unable to see it as live
-  // again. Entity.tag is already idempotent (ensureUnder + relate),
-  // so applying it on every call, not just the first, is always safe.
   Entity.tag(record.id, linkType, userId);
   supersedeEntity(record.id, targetId != null ? { relationId: targetId } : { relation: targetName }, userId);
   return recordName;
 }
 
-/** The real target of a real link set via setEntityLink — undefined
- * if no such link exists at all. */
 export function getEntityLink(entityName: string, linkType: string): string | undefined {
   const recordName = `${entityName} — ${linkType}`;
-  // A real, confirmed bug found directly: deleteEntityLink's own
-  // documented design only ever untags this link's own linkType fact,
-  // deliberately leaving relation_id (which target) permanently
-  // intact as real history, same as any other entity's own history -
-  // so a deleted link must be recognized by the ABSENCE of that same,
-  // real, presence-only linkType tag, not by relation_id being null
-  // (it never is). Without this, a deleted link's old target kept
-  // being reported as still live.
   const row = db
     .prepare(
       `SELECT target.name AS target
@@ -5156,16 +3178,10 @@ export function deleteEntityLink(entityName: string, linkType: string, userId: U
   const recordName = `${entityName} — ${linkType}`;
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
   if (record) {
-    // Untags this link's own linkType fact - the same, exact tag
-    // setEntityLink applied when this link was created. The link's
-    // own relation_id (which component, which vendor, which
-    // predecessor) is left entirely unchanged - a true, permanent,
-    // historical fact, same as any other entity's own history.
     Entity.untag(record.id, linkType, userId);
   }
 }
 
-/** One real, staged Bill-of-Materials component line, not yet posted. */
 export function stageBomComponent(input: {
   assemblyItem: string; business: string; componentItem: string; quantity: number; unit: string;
 }): void {
@@ -5176,25 +3192,11 @@ export function stageBomComponent(input: {
   ).run(input.assemblyItem, input.business, input.componentItem, input.quantity, input.unit, input.quantity, input.unit);
 }
 
-/** Materializes every staged component for one assembly Item into a
- * real entity-link (setEntityLink), matching the naming convention
- * already established for Storage Origin - per direct, documented
- * decision, a real TypeScript function here, not a SQL trigger,
- * since setEntityLink -> createEntity's own real uniqueness/vocabulary
- * validation logic is genuinely too involved to safely reimplement a
- * second time in raw SQL. */
 export function postBomComponents(assemblyItem: string, business: string, userId: UserId): void {
   const rows = db
     .prepare(`SELECT component_item, quantity, unit FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`)
     .all(assemblyItem, business) as { component_item: string; quantity: number; unit: string }[];
   for (const row of rows) {
-    // No JSON, no wildcard: the link name is fixed and deterministic
-    // per component (setEntityLink's own exact-match find-or-create
-    // handles "update this component's own existing link" on its
-    // own), tagged "BOM" to find every component at once, with the
-    // real quantity and unit each their own real, named child entity,
-    // replaced in place - never a changed value producing a
-    // genuinely different name and a real, duplicate second link.
     const linkType = `BOM — ${row.component_item}`;
     setEntityLink(assemblyItem, linkType, row.component_item, userId);
     const record = Entity.get(`${assemblyItem} — ${linkType}`, assemblyItem);
@@ -5207,9 +3209,6 @@ export function postBomComponents(assemblyItem: string, business: string, userId
   db.prepare(`DELETE FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`).run(assemblyItem, business);
 }
 
-/** Removes one real, posted BOM component by component name (ignoring
- * its current quantity) - a direct, exact delete, no filter needed
- * since the link name is fixed and deterministic per component. */
 export function deleteBomComponent(assemblyItem: string, componentItem: string, userId: UserId): void {
   const linkType = `BOM — ${componentItem}`;
   const record = Entity.get(`${assemblyItem} — ${linkType}`, assemblyItem);
@@ -5217,9 +3216,6 @@ export function deleteBomComponent(assemblyItem: string, componentItem: string, 
   deleteEntityLink(assemblyItem, linkType, userId);
 }
 
-/** Every real, posted BOM component for one assembly Item, read
- * directly from each link's own, real attribute children - never
- * JSON, never parsed back out of a name. */
 export function getBomComponents(assemblyItem: string): { component: string; quantity: number; unit: string }[] {
   const rows = db
     .prepare(
@@ -5238,10 +3234,6 @@ export function getBomComponents(assemblyItem: string): { component: string; qua
   }));
 }
 
-/** A real Task, per direct instruction with NO new tables of any
- * kind - matching BOM's own proven pattern exactly: the schedule
- * itself is encoded directly into the task's own entity name, parsed
- * back out by a real, direct regex, not stored in any new column. */
 export function createProjectTask(
   projectName: string,
   taskName: string,
@@ -5253,8 +3245,6 @@ export function createProjectTask(
   create(requireEntity(`${projectName} Tasks`, typeRootName), typeProjectTaskName, name, userId);
 }
 
-/** Every real task under one real project, with its own schedule
- * parsed back out of its own name - mirroring getBomComponents. */
 export function getProjectTasks(projectName: string): { task: string; plannedStart: string; plannedEnd: string }[] {
   const rows = db
     .prepare(
@@ -5274,13 +3264,6 @@ export function getProjectTasks(projectName: string): { task: string; plannedSta
 
 const PROJECT_TASK_DATE_SUFFIX = /^(.+) \(([0-9-]+) to ([0-9-]+)\)$/;
 
-/** Resolves a real project task's own, real, full entity name
- * (createProjectTask's own "Task description (start to end)" shape)
- * from the plain, bare task description a caller actually has -
- * confirmed, directly, the exact same real name getProjectTasks
- * itself already parses this same suffix back out of. Returns the
- * name unchanged if it is already a real, exact entity name (a
- * caller that already has the full name is never broken by this). */
 function resolveProjectTaskName(name: string): string {
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) return name;
   const candidates = db.prepare(`SELECT name FROM current_entities WHERE name LIKE ?`).all(`${name} (%)`) as { name: string }[];
@@ -5289,31 +3272,14 @@ function resolveProjectTaskName(name: string): string {
   return match.name;
 }
 
-/** One real dependency edge: a real, individual, named child entity
- * of the DEPENDENT task, matching setEntityLink/getBomComponents'
- * own, proven "one real link-entity per real relationship" pattern -
- * genuinely modeling a many-to-many graph with zero new tables, since
- * a task can have several of these, one per real predecessor. */
 export function addTaskDependency(
   dependentTask: string,
   predecessorTask: string,
   dependencyType: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish',
   userId: UserId
 ): void {
-  // A real, confirmed bug found directly: a caller naturally has the
-  // plain task description (the exact, real shape getProjectTasks
-  // itself hands back), not the full, date-suffixed entity name - this
-  // used to require the full name directly, resolved by neither this
-  // function nor its own caller, so a real, ordinary call using the
-  // plain description it genuinely had threw "No entity named ...".
-  // Resolved here the same way getProjectTasks' own name already
-  // encodes the schedule - never a prefix guess, an exact match on
-  // the real, structured suffix.
   const dependentFullName = resolveProjectTaskName(dependentTask);
   const predecessorFullName = resolveProjectTaskName(predecessorTask);
-  // The link name is fixed and deterministic per predecessor, tagged
-  // "Dependency" to find every predecessor at once, with the real
-  // dependency type its own, named child entity.
   const linkType = `Depends On — ${predecessorFullName}`;
   setEntityLink(dependentFullName, linkType, predecessorFullName, userId);
   const record = Entity.get(`${dependentFullName} — ${linkType}`, dependentFullName);
@@ -5323,14 +3289,6 @@ export function addTaskDependency(
   }
 }
 
-/** Every real predecessor of one real task, with its real dependency
- * type, read directly from each link's own, real attribute child -
- * never JSON, never parsed back out of a name except for the real
- * predecessor's own plain description, returned the same, real,
- * plain shape getProjectTasks already uses (its own, full, date-
- * suffixed entity name is an internal, structural detail, not
- * something a caller handed a plain description should ever see
- * handed back to them). */
 export function getTaskDependencies(dependentTask: string): { predecessor: string; dependencyType: string }[] {
   const rows = db
     .prepare(
@@ -5345,29 +3303,6 @@ export function getTaskDependencies(dependentTask: string): { predecessor: strin
   return rows.map((row) => ({ predecessor: PROJECT_TASK_DATE_SUFFIX.exec(row.predecessor)?.[1] ?? row.predecessor, dependencyType: Entity.getAttr(row.id, 'Dependency Type') ?? '' }));
 }
 
-/** The real, generic "hierarchy link" mechanism from
- * docs/multi-dimensional-reporting.md — a real, reusable capability
- * for any entity to be placed into any number of equal, independent
- * accumulation paths, none structurally privileged as the real
- * parent (parent_id stays whatever it already is — e.g. a GL
- * account's own product-category placement — untouched by any of
- * this). Deliberately NOT hardcoded to divisions or product
- * categories specifically: hierarchyName is a real, free-form string
- * ("Division", "Location", "Reporting Manager", any future
- * hierarchy), so the same, single mechanism serves every real case in
- * the design document, not a bespoke one built per hierarchy. Per
- * direct correction: this is a real, general hierarchy-link
- * mechanism, not a "dimension" in the matrix-stock-report/drag-and-
- * drop sense — that term is reserved for definitionDimensions (a real
- * product's own variant axes, e.g. Size/Pack/Color) and the
- * drag-and-drop hierarchy editor, the two real, separate places that
- * word genuinely belongs.
- *
- * Built entirely on setEntityLink/getEntityLink, already proven this
- * session to leave an entity's own relation_id genuinely untouched —
- * the same real property this needs, since a GL account's own
- * relation_id may already be spoken for by its real CoA-prototype tag,
- * exactly the conflict setEntityLink itself was built to avoid. */
 export function setHierarchyParent(entityName: string, hierarchyName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void {
   setEntityLink(entityName, `Hierarchy: ${hierarchyName}`, parentName, userId, entityId, targetId);
 }
@@ -5380,24 +3315,6 @@ export function deleteHierarchyParent(entityName: string, hierarchyName: string,
   deleteEntityLink(entityName, `Hierarchy: ${hierarchyName}`, userId);
 }
 
-/** A real contact can genuinely play any combination of real contact
- * types at once (a customer who is also an employee, a vendor who is
- * also a customer) — Contacts itself is the one, real, structural
- * home every contact's own parent_id points to, regardless of how
- * many types it carries. Built on setEntityLink/getEntityLink with a
- * dynamic linkType per real type, so each type gets its own, real,
- * independent, coexisting child entity — never touching the
- * contact's own relation_id, and never limited to just one type at a
- * time the way a single relation_id alone could never support. */
-/** A real, confirmed gap, found directly: the "Header Account"
- * hierarchy links this whole mechanism depends on (Vendor → Accounts
- * Payable, Customer → Accounts Receivable, Employee → Accounts
- * Payable too, since real payroll owed is genuinely a payable) were
- * never actually created, despite being documented as "already
- * proven." Ensured lazily, idempotently, here - the one, real, shared
- * choke point every real contact-type assignment already goes
- * through - rather than relying on a real, separate, easy-to-miss
- * bootstrap step. */
 function ensureContactTypeHeaderAccounts(userId: UserId): void {
   const pairs: [string, string][] = [
     ['Provider', 'Accounts Payable'],
@@ -5414,11 +3331,6 @@ export function setContactType(contactName: string, typeName: string, userId: Us
   setEntityLink(contactName, `Contact Type: ${typeName}`, typeName, userId);
 }
 
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export function removeContactType(contactName: string, typeName: string, userId: UserId): void {
-//   deleteEntityLink(contactName, `Contact Type: ${typeName}`, userId);
-// }
-
 export function getContactTypes(contactName: string): string[] {
   const rows = db
     .prepare(
@@ -5431,46 +3343,12 @@ export function getContactTypes(contactName: string): string[] {
   return rows.map((r) => r.target);
 }
 
-/** Every real base account this contact's own real types point at —
- * a customer's own type points at Accounts Receivable, a vendor's at
- * Accounts Payable, an employee's also at Accounts Payable (real
- * payroll — salary, tax, and other deductions owed — is genuinely a
- * payable obligation, not a receivable one). Derived, not stored
- * directly: a real contact with more than one real type can
- * genuinely have more than one real base account. */
 export function getContactBaseAccounts(contactName: string): string[] {
   const types = getContactTypes(contactName);
   const accounts = types.map((t) => getHierarchyParent(t, 'Header Account')).filter((a): a is string => !!a);
   return [...new Set(accounts)];
 }
 
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export function getContactsWithType(typeName: string): string[] {
-//   return Link.withTarget(`Contact Type: ${typeName}`, typeName);
-// }
-
-/** The one, real, correct way a new vendor is created. Per direct,
- * confirmed finding: this codebase's own, real, live /contacts page
- * already filters vendors by a real, direct parent_id of "Accounts
- * Payable" (not "Vendors" - that entity exists but is genuinely
- * unused by the real, live listing) - the "Contacts + setContactType"
- * redesign described in contact-types-and-translations.md was
- * designed but never actually migrated into the real, live code, not
- * even partially. This function respects the real, live, working
- * convention (parent: Accounts Payable, so it appears on the real,
- * existing page immediately) while additively tagging the real
- * Contact Type too, so the documented, intended multi-type capability
- * is genuinely available the moment the rest of the app catches up to
- * reading it. */
-/** The real, generic, shared implementation behind createProvider/
- * createCustomer/createEmployee (below) - a real entity under its own,
- * real root, tagged with its own, real contact type. The exact, same
- * kind of duplication addTyped already solved for address/phone
- * types, confirmed directly: typeProviderName/typeCustomerName/
- * typeEmployeeName carry no real, runtime difference at all, purely
- * TypeScript branding - so nothing real is lost sharing one, real
- * implementation, while each caller still gets its own, real, branded
- * return type via the generic parameter below. */
 export function createContact<TBrand extends string>(rootName: string, type: TypeDescriptor<TBrand>, contactType: string, name: string, userId: UserId): TypedNode<TBrand> {
   const entity = create(requireEntity(rootName, typeRootName), type, name, userId);
   setContactType(name, contactType, userId);
@@ -5481,36 +3359,16 @@ export function createProvider(name: string, userId: UserId): { id: number } {
   return createContact('Accounts Payable', typeProviderName, 'Provider', name, userId);
 }
 
-/** The real, missing, staff-side way to create a customer directly.
- * registerCustomer (above this file, in the self-service section) is
- * a genuinely different, real flow - the customer typing their own
- * details, landing in 'pending' status until staff verifies them.
- * This one is for staff creating a real, already-usable account
- * directly - a phone order taken on someone's behalf, say - the same,
- * direct way a vendor or employee is created. */
 export function createCustomer(name: string, userId: UserId): { id: number } {
   return createContact('Customers', typeCustomerName, 'Customer', name, userId);
 }
 
-/** The one, real, correct way a new employee is created, per direct
- * instruction and docs/contact-types-and-translations.md - the exact,
- * same, real logic Business Setup's own, existing employee-creation
- * flow already used (a real "Place of Employment" relationship,
- * genuinely unrelated to contact typing), plus the real, missing
- * setContactType call this session found and fixed. */
 export function createEmployee(name: string, placeOfEmployment: string, userId: UserId): { id: number } {
   const entity = createContact('Employees', typeEmployeeName, 'Employee', name, userId);
   setRelationship(name, 'Place of Employment', placeOfEmployment, userId);
   return entity;
 }
 
-/** The real "reverse" query a plain parent_id can never answer on its
- * own — every real entity whose own hierarchy-parent, within this
- * specific dimension, is exactly parentName. Queries the real link
- * child's own, real parent_id directly (set by setEntityLink/
- * createEntity to be the real, original entity, not parsed back out
- * of a name string), so this stays correct regardless of what
- * characters a real entity name happens to contain. */
 export function getHierarchyChildren(parentName: string, hierarchyName: string): string[] {
   const rows = db
     .prepare(
@@ -5524,16 +3382,6 @@ export function getHierarchyChildren(parentName: string, hierarchyName: string):
   return rows.map((r) => r.entity_name);
 }
 
-/** Guard rail (docs/translator-form-and-guard-rails-plan.md, §5): "a
- * real, visible 'why is this here' trail" — every real entity that
- * reaches targetName via any real hierarchy link at all, regardless
- * of which specific hierarchy name, plus which real hierarchy each
- * one uses. Confirmed directly, live: this is exactly the real,
- * missing visibility that let this session's own real mistake
- * (Customers almost directly re-parented under Accounts Receivable)
- * go unnoticed until caught by hand — a real person looking at
- * "Accounts Receivable" today has no real, direct way to see that
- * "Customers" reaches it via a real, structural link at all. */
 export function getHierarchyLinksPointingAt(targetName: string): { entityName: string; hierarchyName: string }[] {
   const rows = db
     .prepare(
@@ -5546,22 +3394,10 @@ export function getHierarchyLinksPointingAt(targetName: string): { entityName: s
     .all(targetName) as { entity_name: string; link_name: string }[];
   return rows.map((r) => ({
     entityName: r.entity_name,
-    // link_name is always "{entity_name} — Hierarchy: {hierarchyName}" —
-    // strip the real, known prefix to recover the real hierarchy name itself.
     hierarchyName: r.link_name.slice(`${r.entity_name} — Hierarchy: `.length),
   }));
 }
 
-/** Every real, distinct group that exists under one named hierarchy
- * (e.g. "Division," or any other real, business-chosen hierarchy
- * name) — a group here is genuinely any entity ever targeted by a
- * real hierarchy-parent link under that name (a location pointing at
- * its own group, or a group itself pointing at a further, real parent
- * group, nested to any real depth), resolved purely from the
- * existing, generic hierarchy-link mechanism above — no separate,
- * privileged "Divisions" root or entity type. Replaces the former
- * getDivisions(), which read a second, hardcoded, structural tree
- * instead of this one, real, already-generic mechanism. */
 export function getHierarchyGroups(hierarchyName: string): { name: string; parentName: string | null }[] {
   const rows = db
     .prepare(
@@ -5574,13 +3410,6 @@ export function getHierarchyGroups(hierarchyName: string): { name: string; paren
   return rows.map((r) => {
     const explicitParent = getHierarchyParent(r.group_name, hierarchyName);
     if (explicitParent !== undefined) return { name: r.group_name, parentName: explicitParent };
-    // No explicit hierarchy-link parent was ever set for this group
-    // entity itself — fall back to its own real, structural parent_id,
-    // so a group simply nested under another entity in the ordinary
-    // entity tree (rather than given its own explicit hierarchy link)
-    // still reports that real, structural nesting. This matches this
-    // function's own documented contract elsewhere ("every real group
-    // and its own real structural parent").
     const structuralParent = db
       .prepare(`SELECT parent.name AS parent_name FROM current_entities child JOIN current_entities parent ON parent.id = child.parent_id WHERE child.name = ?`)
       .get(r.group_name) as { parent_name: string } | undefined;
@@ -5588,13 +3417,6 @@ export function getHierarchyGroups(hierarchyName: string): { name: string; paren
   });
 }
 
-/** Walks entityName's own hierarchy-parent chain, within one, real,
- * named dimension, all the way to a real root (the first real entity
- * with no further hierarchy-parent set in this same dimension) —
- * the real chain from entityName's own, immediate parent up to (but
- * not including) that root, in that order. A hard, safety cap on
- * depth guards against a real, accidental cycle rather than looping
- * forever. */
 export function getHierarchyAncestorChain(entityName: string, hierarchyName: string): string[] {
   const chain: string[] = [];
   let current = entityName;
@@ -5607,35 +3429,6 @@ export function getHierarchyAncestorChain(entityName: string, hierarchyName: str
   return chain;
 }
 
-/** Layer 1 of the real, dedicated cash-flow/growth-planning design
- * (docs/cash-flow-and-growth-planning.md) — registers a real,
- * existing GL account as genuinely representing actual cash/a bank
- * account, distinct from the broader Chart of Accounts (Inventory and
- * Accounts Receivable also sit under Asset, but are genuinely not
- * cash). scopeName is a real business or division name — per direct
- * requirement, "one division may bank with a different bank from
- * another division", so a bank account's own real scope is a genuine,
- * required fact, not an afterthought. Uses setEntityLink, not
- * setRelationship, specifically because a GL account's own relation_id
- * is already spoken for (its real CoA-prototype tag) — see
- * docs/cash-flow-and-growth-planning.md for the real, concrete
- * conflict this avoids, confirmed live before this function was
- * written. overdraftLimitMinor is real and optional: null means no
- * real, arranged facility at all, not zero headroom.
- *
- * business is a real, separate, required fact from scopeName,
- * confirmed necessary by a real, serious bug found live: the shared
- * Chart of Accounts means a GL account like "Cash and Bank" is one,
- * single, global entity used by every real business — confirmed
- * directly (only one such entity exists in the whole app). Without a
- * real, explicit business link, there would be no honest way to know
- * which business a registered bank account actually belongs to
- * whenever its own scopeName is a division, since divisions
- * themselves aren't structurally scoped to one business either. Kept
- * as its own, separate setEntityLink call (not reused from scopeName)
- * so scopeName can stay the real, human-meaningful business-or-
- * division distinction while business stays an unambiguous, always-
- * real business name to filter by. */
 export function registerBankAccount(accountName: string, business: string, scopeName: string, overdraftLimitMinor: number | null, userId: UserId): void {
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(accountName)) {
     throw new ValidationError(`No account named "${accountName}".`);
@@ -5652,9 +3445,6 @@ export function registerBankAccount(accountName: string, business: string, scope
   db.prepare(`UPDATE account SET overdraft_limit_minor = ? WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).run(overdraftLimitMinor, accountName);
 }
 
-/** Removes a real account's own bank-account registration entirely —
- * both real links (scope and business) and its own real overdraft
- * limit all genuinely gone, not just hidden. */
 export function unregisterBankAccount(accountName: string, userId: UserId): void {
   deleteEntityLink(accountName, 'Bank Account', userId);
   deleteEntityLink(accountName, 'Bank Account Business', userId);
@@ -5670,25 +3460,7 @@ export interface BankAccountRow {
   scope: string;
 }
 
-/** Every real bank account registered to one, specific real business
- * — never another business's own, since the shared Chart of Accounts
- * means the same GL account could otherwise leak across businesses
- * entirely (the real bug this function was rewritten to fix). Each
- * account's own real, current balance is computed fresh, scoped to
- * this real ledger, the exact same real, established way
- * getLedgerBalances computes every other real balance in this app —
- * never account.balance_minor directly, which is a real, global,
- * cross-business figure, not a per-ledger one. */
 export function getBankAccounts(business: BusinessName, ledger: LedgerName): BankAccountRow[] {
-  // A real, confirmed bug found directly, same bug class as
-  // getEntityLink (Problem 18): deleteEntityLink/unregisterBankAccount
-  // only ever untag a link's own real presence tag, deliberately
-  // leaving relation_id as permanent history - but this query joined
-  // on the link/bizlink entities by bare name alone, with no check on
-  // whether either tag is still live, so an unregistered bank account
-  // kept showing up here forever. Both joins now also require the
-  // same, real, presence-only tag (relation_id IS NOT NULL) setEntityLink
-  // itself creates and deleteEntityLink removes.
   const rows = db
     .prepare(
       `SELECT e.name, a.accountnumber, a.currency, a.overdraft_limit_minor
@@ -5723,16 +3495,6 @@ export interface CashPositionByCurrency {
   headroom_minor: number | null;
 }
 
-/** The real, current cash position for one, specific real business's
- * own ledger — every real, registered bank account belonging to it,
- * grouped by real currency rather than blended into one, single,
- * meaningless total (a real €500 and a real $500 are not the same
- * real €1000 without a real, genuine exchange rate). Each real
- * currency group's own real headroom is its combined real balance
- * plus its combined real overdraft limit — null if any real account
- * in that currency group has no real, arranged facility at all, since
- * a real, unlimited headroom can't honestly be computed from a
- * genuinely unknown limit. */
 export function getCashPosition(business: BusinessName, ledger: LedgerName): CashPositionByCurrency[] {
   const accounts = getBankAccounts(business, ledger);
   const byCurrency = new Map<string | null, { balance: number; limitKnownForAll: boolean; limitSum: number }>();
@@ -5772,50 +3534,10 @@ export interface CashFlowForecast {
   ending_cash_minor: number;
   lowest_projected_balance_minor: number;
   lowest_balance_date: string;
-  /** Layer 3's own, real, meaningful moment — not "cash goes
-   * negative", but "cash goes below the real, arranged overdraft
-   * limit". Null when no real shortfall is projected within the
-   * horizon at all — including when overdraft_limit_minor is itself
-   * null (no real, known facility), in which case a shortfall can't
-   * be honestly evaluated against an unknown limit, so none is ever
-   * reported rather than silently treating the unknown limit as zero. */
-  first_shortfall_date: string | null;
-  /** How far below the real, arranged limit, at first_shortfall_date
-   * — a real, positive number (the real, projected shortfall size),
-   * not a signed headroom figure. Null under the same real conditions
-   * as first_shortfall_date. */
-  first_shortfall_amount_minor: number | null;
+    first_shortfall_date: string | null;
+    first_shortfall_amount_minor: number | null;
 }
 
-/** Layer 2 of the real, dedicated cash-flow/growth-planning design
- * (docs/cash-flow-and-growth-planning.md) — a real, forward-looking
- * projection, not the historical Cashflow Statement. A real, honest
- * first version, per the design document's own, stated default:
- * every real, outstanding invoice is assumed to land on its own real
- * due date, with no attempt yet to model a customer's real,
- * historical payment behavior beyond that.
- *
- * Three real sources, in date order: anticipated AR receipts (every
- * real, outstanding AR invoice's own due date, within the horizon),
- * committed AP payments (the same, for AP), and anticipated recurring
- * cash movements (journal_occurrences, filtered to lines actually
- * touching a real, registered bank account — the real, cash-side
- * impact of a recurring entry, e.g. the real "credit Cash" line of a
- * monthly rent journal, not its own expense-side line). Explicitly
- * excludes journal.recurrence = 'once' — confirmed necessary live,
- * against real data, not assumed: journal_occurrences expands EVERY
- * real journal into its own occurrences, ordinary one-off postings
- * included ("for 'once', just itself" — its own real schema comment),
- * so without this filter every real, historical POS sale and AP
- * payment ever posted would flood into this real, "recurring" source
- * too, which is genuinely wrong — those already happened once, real
- * recurring cash movements are the only real thing this section is
- * meant to anticipate.
- *
- * starting_cash_minor is Layer 1's own, real, home-currency cash
- * position (getCashPosition's null-currency group) — a real,
- * deliberate, first-version scope: a genuinely multi-currency
- * forecast is real, future work, not attempted here. */
 export function getCashFlowForecast(business: BusinessName, ledger: LedgerName, asOfDate: string, horizonDays: number): CashFlowForecast {
   const horizonEndDate = db.prepare(`SELECT date(?, '+' || ? || ' days') AS d`).get(asOfDate, horizonDays) as { d: string };
   const horizonEnd = horizonEndDate.d;
@@ -5863,16 +3585,6 @@ export function getCashFlowForecast(business: BusinessName, ledger: LedgerName, 
       )
       .all(business, ledger, ...Array.from(bankAccountIds), asOfDate, horizonEnd) as { date: string; reference: string; description: string; memo: string; amount_minor: number }[];
     for (const row of recurringRows) {
-      // A journal_line's own amount_minor is positive = debit,
-      // negative = credit. A debit to a real, debit-normal bank
-      // account is real, anticipated cash IN; a credit is real,
-      // anticipated cash OUT — the sign is already correct as-is,
-      // no flip needed, unlike the AR/AP lines above (which start
-      // from a real, always-positive "amount owed" figure). The
-      // real, journal-level description (e.g. "Monthly rent") is far
-      // more meaningful than the line-level memo, which real callers
-      // rarely set — fall back to memo, then reference, only if the
-      // journal itself was never given a real description at all.
       lines.push({ date: row.date, description: row.description || row.memo || row.reference, amount_minor: row.amount_minor, source: 'recurring' });
     }
   }
@@ -5889,10 +3601,6 @@ export function getCashFlowForecast(business: BusinessName, ledger: LedgerName, 
   let lowestDate = asOfDate;
   let firstShortfallDate: string | null = null;
   let firstShortfallAmount: number | null = null;
-  // A real shortfall is only ever evaluated against a real, known
-  // limit — an unknown limit can't honestly be compared against at
-  // all, so none is ever reported when overdraftLimit is null, rather
-  // than silently treating "unknown" as "zero headroom".
   const startingHeadroom = overdraftLimit === null ? null : startingCash + overdraftLimit;
   if (startingHeadroom !== null && startingHeadroom < 0) {
     firstShortfallDate = asOfDate;
@@ -5939,15 +3647,9 @@ export interface CustomerRegistrationInput {
   country?: string | null;
   preferred_language?: string | null;
   password: string;
-  /** Card type + last 4 only, e.g. "Visa ending 4242" — never a full
-   * card number. */
-  card_label?: string | null;
+    card_label?: string | null;
 }
 
-/** A customer types their own details at a self-service terminal (or,
- * later, online) — creates the contact immediately, but in 'pending'
- * status: not yet usable for an on-account sale until staff actually
- * checks the card/ID against what was entered and approves. */
 export function registerCustomer(input: CustomerRegistrationInput, userId: UserId): void {
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(input.name)) {
     throw new ValidationError(`"${input.name}" already exists — choose a different name, or ask staff to look up the existing account.`);
@@ -5977,8 +3679,6 @@ export interface PendingCustomer {
   card_label: string | null;
 }
 
-/** The queue staff work through — everyone who self-registered but
- * hasn't yet been checked against their actual card/ID. */
 export function listPendingCustomers(): PendingCustomer[] {
   return db
     .prepare(
@@ -5990,10 +3690,6 @@ export function listPendingCustomers(): PendingCustomer[] {
     .all() as PendingCustomer[];
 }
 
-/** Staff approves or rejects a pending self-registration after
- * actually checking the card/ID against what was entered. Only
- * 'active' may be sold to on account — this is the real gate the
- * verification step exists to enforce. */
 export function verifyCustomer(customerName: string, approve: boolean): void {
   const entityId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(customerName) as { id: number } | undefined)?.id;
   if (!entityId) throw new ValidationError(`No customer named "${customerName}".`);
@@ -6003,10 +3699,6 @@ export function verifyCustomer(customerName: string, approve: boolean): void {
   mergeContactDetail(entityId, { verification_status: approve ? 'active' : 'rejected' });
 }
 
-/** For the customer terminal's own login — verifies a self-registered
- * customer's password. Deliberately separate from staff auth
- * (auth.ts's login()), since these are two different kinds of people
- * with entirely different permissions. */
 export function authenticateCustomer(name: string, password: string): boolean {
   const row = db.prepare(`SELECT password_hash FROM contact WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(name) as
     | { password_hash: string | null }
@@ -6015,49 +3707,11 @@ export function authenticateCustomer(name: string, password: string): boolean {
   return verifyPassword(password, row.password_hash);
 }
 
-// ---------------------------------------------------------------------------
-// Items — a item's canonical details are manufacturer/vendor-agnostic;
-// which manufacturer(s) and vendor(s) actually supply it, at what price
-// and package size, is a genuine many-to-many tracked separately by
-// item_source. Preference between sources is never derived from price
-// alone — local stock, package size, reliability all matter in
-// practice, so is_preferred is an explicit choice, not a computation.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Products — a real, genuine hierarchy level sitting above today's
-// existing Item/Item entities, per direct instruction: a Product
-// (e.g. "Golden Lager") is the real, conceptual/brand thing, never
-// itself directly sellable or stockable; an Item (today's existing
-// Item entity, e.g. "Golden Lager 330ml" or "Golden Lager 6-Pack") is
-// the real, concrete, sellable/stockable packaging variant. Modeled
-// purely as entity-tree structure, per direct instruction (no new
-// tables) — a Product is a real, ordinary entity, a direct child of
-// "Items", with every one of its own Items as real, direct children
-// of it in turn (Items → Product → Item, one extra real level,
-// genuinely optional: an Item with no real Product parent — a direct
-// child of "Items" itself — remains exactly as valid as it always
-// was, for a business that hasn't organized its own catalogue into
-// products yet).
-// ---------------------------------------------------------------------------
-
 export interface ProductSummary {
   name: string;
   itemCount: number;
 }
 
-/** Every real, existing Product — confirmed directly against this
- * codebase's own existing data before writing this: "Product" is not
- * simply "any direct child of Items that isn't itself an Item" (a
- * category like "Beer" or a sub-category like "Lager" both fit that
- * description too, and neither is a Product in the brand-level sense
- * this hierarchy level means — "Golden Lager 330ml"'s own real
- * parent is "Lager", a taxonomic sub-category, several real levels
- * deep under Items, not "Beer" and not "Items" itself). A Product is
- * instead any real entity anywhere under Items that is the *direct*
- * parent of at least one real Item — the one level immediately above
- * where Items themselves sit, regardless of how many broader
- * category/sub-category levels sit above that. */
 export function listProducts(): ProductSummary[] {
   return db
     .prepare(
@@ -6078,36 +3732,10 @@ export function listProducts(): ProductSummary[] {
     .all() as ProductSummary[];
 }
 
-/** Creates a real, new Product — a thin, direct wrapper over
- * createEntity, under whichever real category/sub-category (or
- * "Items" itself) it belongs — a Product doesn't have to sit
- * directly under "Items"; it just has to be the real, direct parent
- * of the Items eventually created under it. */
 export function createProduct(name: string, parent: string, userId: UserId): void {
   create(requireEntity(parent, typeCategoryOrItemsRootName), typeItemName, name, userId);
 }
 
-/** The real, current Product an Item belongs to, or null if this
- * Item is still a direct child of "Items" itself (no Product
- * assigned yet — a real, genuinely valid, ungrouped state, not an
- * error). */
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export function getItemProduct(itemName: string): string | null {
-//   const row = db
-//     .prepare(
-//       `SELECT parent.name FROM current_entities item
-//        JOIN current_entities parent ON parent.id = item.parent_id
-//        WHERE item.name = ? AND parent.name != 'Items'`
-//     )
-//     .get(itemName) as { name: string } | undefined;
-//   return row?.name ?? null;
-// }
-
-/** Moves a real, existing Item under a real, existing Product (or
- * back to being a direct child of "Items" itself, when productName
- * is null) — the real, direct mechanism for organizing today's flat
- * Items list into Product groupings after the fact, not just at
- * creation time. */
 export function setItemProduct(itemName: string, productName: string | null, userId: UserId): void {
   supersedeEntity(resolveIdOrThrow(itemName), { parent: productName ?? 'Items' }, userId);
 }
@@ -6122,10 +3750,7 @@ export interface Item {
   description: string | null;
   unit_of_measure: string | null;
   upc: string | null;
-  /** This item's current real retail/selling price — what a POS
-   * screen must look up, never ask the operator to type in. NULL
-   * until explicitly set. */
-  retail_price_minor: number | null;
+    retail_price_minor: number | null;
 }
 
 export function getItem(entityName: string): Item | undefined {
@@ -6156,30 +3781,10 @@ export interface ItemSummary {
   upc: string | null;
   retail_price_minor: number | null;
   source_count: number;
-  /** A real, explicit, per-Item dimension ('Hot' or 'Cold'), or null
-   * if this Item has never had one explicitly assigned yet — see
-   * setItemStorageOrigin/getItemStorageOrigin. Replaces an earlier,
-   * hardcoded category-name guess (a fixed list of "known cold"
-   * categories) with a genuine, correctable, per-Item relationship. */
-  storage_origin: 'Hot' | 'Cold' | null;
-  /** The real Product this Item belongs to, or null if it's still a
-   * direct child of "Items" itself — genuinely valid, ungrouped. */
-  product: string | null;
+    storage_origin: 'Hot' | 'Cold' | null;
+    product: string | null;
 }
 
-/** A real, confirmed, live scoping bug fixed here: this function used
- * to seed its own recursive tree from `name = 'Items' OR name LIKE '%
- * Items'` with no business qualifier at all - matching every
- * business's own Items root (and the single, real, global Application
- * root literally named 'Items') at once, so every caller saw every
- * business's Items mixed together, plus whatever had leaked onto the
- * global root. Items are scoped per business - see
- * `docs/scoped-uniqueness-and-location-accounting.md` - so this now
- * takes the real, required `businessName` the same, direct way
- * `locations.ts`'s own route already requires it. A business with no
- * Items root of its own yet (the bootstrap "admin" business, for
- * instance) correctly gets an empty list, not every other business's
- * catalogue. */
 export function listItems(businessName: BusinessName, limit?: number, offset = 0): ItemSummary[] {
   const rows = db
     .prepare(
@@ -6203,10 +3808,6 @@ export function listItems(businessName: BusinessName, limit?: number, offset = 0
   return rows.map((r) => ({ ...r, storage_origin: getItemStorageOrigin(asItemName(r.name)) ?? null, product: r.parentName === 'Items' || r.parentName.endsWith(' Items') ? null : r.parentName }));
 }
 
-/** The real, total count of every real item within one real business
- * — used by the frontend pagination mechanism (Pager/createPaginator)
- * to show "page n of nn", not just Newer/Older. Scoped the same,
- * direct way listItems above now is, for the exact same reason. */
 export function countItems(businessName: BusinessName): number {
   const row = db
     .prepare(
@@ -6225,38 +3826,14 @@ export function countItems(businessName: BusinessName): number {
   return row.total;
 }
 
-/** Creates a new item, complete with its item row from the start (even
- * if description/UOM/UPC aren't filled in yet) — the real distinction
- * between a item and a category/subcategory (Red Wine, Merlot) isn't
- * tree position (an empty subcategory and a fresh item both look like
- * leaves), it's that a item explicitly IS one, from the moment it's
- * created, not once someone gets around to filling in its details. */
-/** Per no-generic-functions - the real, original, confirmed gap this
- * closes: this parent used to be checked only by createEntity's own,
- * generic "does some real entity exist with this name," never "is
- * this genuinely a real Category or the Items root." fetch()+create()
- * closes that gap directly, with zero dependency on generic
- * createEntity at all. */
 export function createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId, businessName?: BusinessName): void {
   if (!businessName) {
-    // The real, original, bare, unscoped lookup - preserved exactly,
-    // since a real caller with no real business context may be
-    // naming a real, deeply-nested category (not necessarily a
-    // direct child of Items), which a real, scoped lookup cannot
-    // find without knowing its own, real, further parent chain.
     const parent = requireEntity(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName);
     create(parent, typeItemName, name, userId);
     setItem(name, { description: null, unit_of_measure: null, upc: null });
     return;
   }
   const itemsRoot = requireEntity('Items', typeRootName, requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName)));
-  // A genuine category may be nested arbitrarily deep under this
-  // business's own Items root (e.g. Items > Red Wine > Merlot), not
-  // merely a direct child of it - a real, confirmed fix: the old
-  // direct-child-only lookup (requireEntity(..., itemsRoot)) silently
-  // rejected any such deeper category once createItem was called with
-  // a real, scoped businessName, even though the bare, unscoped form
-  // below has always, explicitly, supported arbitrary depth.
   const parent =
     parentCategoryOrItemsRoot === 'Items'
       ? itemsRoot
@@ -6265,11 +3842,6 @@ export function createItem(name: string, parentCategoryOrItemsRoot: string, user
   setItem(name, { description: null, unit_of_measure: null, upc: null });
 }
 
-/** Finds a real, uniquely-named entity nested anywhere beneath
- * `ancestorId` (at any depth, not just as a direct child) - used to
- * resolve a category genuinely scoped to one business's own Items
- * tree, however deeply nested, without falling back to a bare,
- * cross-business-ambiguous lookup by name alone. */
 function requireDescendantIdByName(ancestorId: number, name: string): number {
   const row = db
     .prepare(
@@ -6330,17 +3902,8 @@ export interface ItemSourceInput {
   packageQuantity?: number | null;
   isPreferred?: boolean;
   preferenceNotes?: string | null;
-  /** NULL means this business's own home/reporting currency, matching
-   * account.currency's own, identical convention. A real, different,
-   * non-NULL currency here is a real, separate, independently-priced
-   * row for the same item/vendor pair - not a converted number. See
-   * docs/border-multicurrency-pos-plan.md, Slice 3. */
-  currency?: string | null;
-  /** Omit for a real, ordinary price that applies to the base item
-   * generally. Provide a real Product Instance's own top node id
-   * (see ensureProductInstance) for a price specific to one, exact
-   * combination — a cold beer genuinely costs more than a warm one. */
-  productInstanceId?: number;
+    currency?: string | null;
+    productInstanceId?: number;
 }
 
 export function addOrUpdateItemSource(input: ItemSourceInput): void {
@@ -6353,12 +3916,6 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
     : null;
   if (input.manufacturerName && !manufacturerId) throw new ValidationError(`No manufacturer named "${input.manufacturerName}".`);
 
-  // A real, direct child entity under the item itself - one per real
-  // (manufacturer, vendor, currency, productInstance) combination,
-  // matching the exact, same, real uniqueness the removed table's own
-  // constraint enforced. relation_id points at the real vendor (the
-  // most commonly joined-on field); every other real field lives in
-  // this entity's own, real detail_json.
   const currency = input.currency ?? '';
   const productInstanceId = input.productInstanceId ?? 0;
   const uniqueSuffix = `mfr:${manufacturerId ?? ''} — vendor:${vendorId} — ccy:${currency} — pi:${productInstanceId}`;
@@ -6385,20 +3942,7 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
   }
 }
 
-/** Resolves a real, independently-set price for the given currency -
- * per docs/border-multicurrency-pos-plan.md, Slice 3, a real, fixed
- * price per currency, not a live exchange-rate conversion. Falls back
- * to the business's own home-currency row (the real, empty-string
- * convention `addOrUpdateItemSource` itself uses) when no row exists
- * for the specific currency asked for. */
 export function getItemPriceForCurrency(itemName: string, currency: string | null, productInstanceId?: number): number | null {
-  // Per direct instruction: the most specific, real fact wins - a
-  // real, combination-specific price (a cold beer costs more than a
-  // warm one) is checked first, exactly the same, established
-  // principle already used for currency-specific pricing here,
-  // generalized to any real, applicable combination, not currency
-  // alone. Falls through cleanly to the exact, same, existing
-  // behavior when no productInstanceId is given at all.
   if (productInstanceId != null) {
     const comboRow = db
       .prepare(
@@ -6436,18 +3980,6 @@ export function getItemPriceForCurrency(itemName: string, currency: string | nul
   return fallback?.price_minor ?? null;
 }
 
-// ---------------------------------------------------------------------------
-// Where currency lives, and precedence - per docs/multicurrency-design.md.
-// Real, operational currency facts exist at exactly two levels: Location
-// (a real SET of currencies actually traded in) and Business (one real
-// home currency, the default/fallback). Division and Category are
-// deliberately absent - both are pure reporting rollups, never
-// operational units, and never nominate a currency of their own.
-
-/** A business's own, real, nominated home/reporting currency - stored in
- * the business entity's own detail_json, the same, established 1:1
- * extension mechanism `contact`/`item_source` already use. NULL is a
- * real, valid, unset state - never a guessed default. */
 export function setBusinessHomeCurrency(businessName: string, currencyCode: string, userId: UserId): void {
   const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined)?.id;
   if (!businessId) throw new ValidationError(`No business named "${businessName}".`);
@@ -6462,25 +3994,6 @@ export function getBusinessHomeCurrency(businessName: string): string | null {
   return JSON.parse(row.detail_json).home_currency ?? null;
 }
 
-/** A location's own, real, nominated SET of further currencies it
- * trades in, alongside its own implicit home currency - stored the
- * same way, in the location entity's own detail_json. An ordinary
- * location nominates nothing extra and returns an empty, real array,
- * never a guessed single value. */
-// Per the exact, same, already-documented bare-name hazard the PUT
-// /:name location route's own comment describes (see
-// routes/locations.ts): once any real storage-combination action has
-// touched a location, that location's own Chart-of-Accounts "Storage"
-// root grows a child node with the exact, same literal name as the
-// location itself (see ensureLocationStorageRoot) - so a bare,
-// unscoped-by-business lookup here is ambiguous for every single
-// location, not a rare corner case, and can silently resolve to that
-// GL storage node instead of the real location. Confirmed directly:
-// nominating a location's second currency intermittently vanished
-// because of exactly this collision. An optional, trailing
-// `business` param, resolved through the same
-// resolveBusinessLocationsRootId helper setLocation/getLocation
-// already use, is the same, established, minimal fix.
 export function nominateLocationCurrency(locationName: string, currencyCode: string, userId: UserId, business?: BusinessName): void {
   const locationId = resolveScopedLocationId(locationName, business);
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
@@ -6499,11 +4012,6 @@ export function getLocationCurrencies(locationName: string, business?: BusinessN
   return JSON.parse(row.detail_json).currencies ?? [];
 }
 
-/** Resolves a location's own, real entity id - scoped to one
- * business's own Locations tree when `business` is given (the safe,
- * unambiguous path), falling back to a bare, unscoped name match only
- * when no business is known at all (same, existing bare-lookup
- * behavior other legacy call sites still depend on). */
 function resolveScopedLocationId(locationName: string, business?: BusinessName): number | undefined {
   if (business) {
     const rootId = resolveBusinessLocationsRootId(business);
@@ -6511,30 +4019,6 @@ function resolveScopedLocationId(locationName: string, business?: BusinessName):
   }
   return (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
 }
-
-// ---------------------------------------------------------------------------
-// Currency exchange - genuinely a cartesian product, not one rate per
-// currency. Per direct instruction: with N real, distinct currencies
-// in active use, there are N*N real, ordered pairs (From x To), of
-// which exactly N are trivial self-pairs (always exactly 1 - USD to
-// USD is not a real exchange), leaving N*(N-1) real, distinct,
-// independently-configurable rates. Three currencies (e.g. a business
-// genuinely spanning the US/Canada border, with USD, CAD, and EUR
-// both held and traded) means 9 total pairs, 3 trivial, 6 real ones -
-// confirmed directly, per direct instruction, as the exact, correct
-// count. Reuses the exact, same Hierarchy/Product cartesian mechanism
-// already built and proven for wine combinations - a currency pair is
-// a real Product Instance whose own two dimensions ("From Currency,"
-// "To Currency") both point at the exact, same real "Currency"
-// Hierarchy grouping, exactly as defineProductShape already supports
-// today, with no change needed to it at all. Buy and sell prices per
-// pair reuse item_source directly (two real, standing vendor rows -
-// "FX Market (Buy)" and "FX Market (Sell)" - keyed by the pair's own
-// real productInstanceId), the exact, same mechanism as any other
-// item's own, independently-priced sources - per direct instruction,
-// buying or selling a currency is no different from buying or selling
-// any other item.
-// ---------------------------------------------------------------------------
 
 const CURRENCY_EXCHANGE_ITEM_NAME = 'Currency Exchange';
 const CURRENCY_EXCHANGE_SHAPE: [string, string][] = [
@@ -6549,29 +4033,11 @@ function ensureCurrencyExchangeItem(userId: UserId): void {
   }
 }
 
-/** Ensures the real, specific (From, To) currency pair exists as its
- * own, real Product Instance - the one, real place this pair's own
- * identity lives, whether or not a rate has been configured for it
- * yet. A genuine self-pair (fromCurrency === toCurrency) is real and
- * valid to ensure too (its own combination_ids will simply hold the
- * same, real Hierarchy value id twice), even though its own rate is
- * always, trivially 1 and never needs configuring - see
- * getCurrencyExchangeRate below. */
 export function ensureCurrencyPair(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId): { id: number; name: string } {
   ensureCurrencyExchangeItem(userId);
   return ensureProductInstance(businessName, CURRENCY_EXCHANGE_SHAPE, [fromCurrency, toCurrency], userId);
 }
 
-/** Sets a real (From, To) currency pair's own, real, configured buy
- * and/or sell rate - each expressed as "how many minor units of the
- * home/reporting currency equal one minor unit of fromCurrency," per
- * direct instruction that every currency, as configured, needs its
- * own real buy AND real sell rate (a real, genuine bid/ask spread,
- * never a single, shared number). Either side may be set
- * independently; omitting one leaves that side's own, existing,
- * configured rate (if any) untouched. A genuine self-pair is
- * rejected outright - its own rate is always, definitionally 1, never
- * a real, separate, configurable fact. */
 export function setCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId, buyRateMinor?: number, sellRateMinor?: number): void {
   if (fromCurrency === toCurrency) throw new ValidationError(`A currency's own exchange rate against itself ("${fromCurrency}" to "${fromCurrency}") is always, definitionally 1 - never a real, separate, configurable rate.`);
   const pair = ensureCurrencyPair(businessName, fromCurrency, toCurrency, userId);
@@ -6579,23 +4045,8 @@ export function setCurrencyExchangeRate(businessName: BusinessName, fromCurrency
   if (sellRateMinor != null) addOrUpdateItemSource({ itemName: CURRENCY_EXCHANGE_ITEM_NAME, vendorName: 'FX Market (Sell)', priceMinor: sellRateMinor, isPreferred: true, productInstanceId: pair.id });
 }
 
-/** Resolves a real, specific (From, To) currency pair's own,
- * currently-configured rate, on whichever real side was asked for.
- * A genuine self-pair short-circuits to exactly 1 always - the one,
- * real, trivial case direct instruction confirmed needs no
- * configuration and no lookup at all. Returns null when the real,
- * distinct pair has never been configured on the requested side -
- * never a synthetic, reconstructed, or averaged rate. */
 export function getCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, side: 'buy' | 'sell'): number | null {
   if (fromCurrency === toCurrency) return 1;
-  // A real, direct, read-only lookup - never creates the pair, its
-  // Hierarchy grouping, or its Hierarchy values just to check them,
-  // unlike ensureCurrencyPair (which a real configuration step,
-  // setCurrencyExchangeRate, genuinely needs to call). Walks the
-  // exact, same, real structure ensureProductInstance itself builds -
-  // business -> Hierarchy -> "Currency" -> value, and business ->
-  // Product -> the pair's own instance, found by its own, real,
-  // exact combination_ids match - never a guessed, composed name.
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const hierarchyRoot = Entity.getUnder('Hierarchy', business.id);
   if (!hierarchyRoot) return null;
@@ -6610,12 +4061,6 @@ export function getCurrencyExchangeRate(businessName: BusinessName, fromCurrency
   const combinationIdsJson = JSON.stringify([fromValue.id, toValue.id]);
   const pair = db.prepare(`SELECT id FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(product.id, combinationIdsJson) as { id: number } | undefined;
   if (!pair) return null;
-  // A real, direct, vendor-specific lookup - getItemPriceForCurrency
-  // itself has no concept of "which vendor," and picking whichever
-  // row merely happens to be marked preferred would silently return
-  // either side at random once both a real buy and a real sell row
-  // exist for the exact, same pair. Queries item_source directly,
-  // filtered to the exact, real vendor this side actually means.
   const vendorName = side === 'buy' ? 'FX Market (Buy)' : 'FX Market (Sell)';
   const row = db
     .prepare(
@@ -6629,14 +4074,6 @@ export function getCurrencyExchangeRate(businessName: BusinessName, fromCurrency
   return row?.price_minor ?? null;
 }
 
-/** Lists every real, distinct, non-trivial (From, To) pair among the
- * given currencies, in the real, exact count direct instruction
- * confirmed: N*(N-1) pairs for N real, distinct currencies (9 total
- * ordered pairs for 3 currencies, 3 of them the trivial self-pairs
- * excluded here, leaving 6 real, distinct ones) - a real, direct,
- * enumerable checklist for confirming every real pair this business
- * actually needs has been genuinely configured, rather than assuming
- * or guessing which ones matter. */
 export function listCurrencyPairs(currencies: string[]): { from: string; to: string }[] {
   const pairs: { from: string; to: string }[] = [];
   for (const from of currencies) {
@@ -6654,29 +4091,12 @@ export function deleteItemSource(id: number): void {
 
 export * from './db-reports.js';
 
-// ---------------------------------------------------------------------------
-// Languages / translation
-// ---------------------------------------------------------------------------
-
 export function getLanguages(): { id: number; name: string }[] {
   return db
     .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Languages')`)
     .all() as { id: number; name: string }[];
 }
 
-/** The system-wide default display language — genuinely needs to live
- * somewhere reachable before anyone has logged in (the login screen
- * itself needs to know what to default to), so it can't be a
- * per-business setting; nothing business-specific is even chosen yet
- * at that point. Stored on Application's own relation_id — the root
- * entity has no other established use for that column, unlike
- * category/report entities (report links, see business_reports) or
- * Cost of Goods Sold-tagged expense accounts (see
- * ensureItemSalesCogsAccounts). See docs/entity-model.md for the
- * complete catalog of every distinct relation_id use in this codebase
- * — it is a genuinely overloaded field, one relationship per entity,
- * and that catalog exists specifically to keep two different features
- * from ever colliding on the same entity's single relation_id slot. */
 export function getDefaultLanguage(): string | null {
   const row = db
     .prepare(
@@ -6692,8 +4112,6 @@ export function setDefaultLanguage(languageName: string, userId: UserId): void {
   const languageId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(languageName) as { id: number } | undefined)?.id;
   if (!languageId) throw new ValidationError(`No language named "${languageName}".`);
   const application = db.prepare(`SELECT id FROM current_entities WHERE name = 'Application'`).get() as { id: number };
-  // Uses the same entity_update mechanism as every other entity change
-  // — entities is append-only, a raw UPDATE would violate that.
   supersedeEntity(application.id, { relation: languageName }, userId);
 }
 
@@ -6713,20 +4131,9 @@ export interface MenuSectionRow {
   links: MenuLinkRow[];
 }
 
-/** The real, 3-tier fallback chain, per step 3 of
- * docs/menu-as-entity-tree-plan.md — the same, real, established
- * shape already proven for translations: a real, user-scoped
- * override first, then a real, business-scoped one, then the real,
- * global default. userId/businessName are both optional — omitted
- * entirely, this returns the exact, same, unmodified, real, global
- * default menu step 1/2 already provide. */
 export function getMenuTree(opts?: { businessName?: string; userId?: number }): MenuSectionRow[] {
   const businessId = opts?.businessName ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(opts.businessName) as { id: number } | undefined)?.id : undefined;
 
-  // A real menu override lives as a real, direct child entity of the
-  // menu item itself — the exact, same, established setEntityLink
-  // shape used everywhere else in this codebase — never a dedicated
-  // menu_override table, never JSON.
   function resolveOverride(entityName: string): { label: string | null; hidden: boolean } | null {
     if (opts?.userId != null) {
       const scope = `user ${opts.userId}`;
@@ -6795,26 +4202,6 @@ export function getMenuTree(opts?: { businessName?: string; userId?: number }): 
     .filter((s) => !s.hidden);
 }
 
-/** Resolves a single, real screen's own display label the exact,
- * same, real way its menu entry does — step 3's own real answer to
- * "screen titles reading from the same source" (§5 of the plan). Not
- * hardcoded per page at all: a real page passes its own real href,
- * this finds the real, matching menu_link entity and resolves it
- * through the exact, same, real override chain getMenuTree already
- * uses, so renaming a menu item and its own page title is always
- * exactly one, real edit, never two, separate places to keep in
- * sync. */
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export function getScreenTitle(href: string, opts?: { businessName?: string; userId?: number }): string | undefined {
-//   const tree = getMenuTree(opts);
-//   for (const section of tree) {
-//     for (const link of section.links) {
-//       if (link.href.split('?')[0] === href) return link.label;
-//     }
-//   }
-//   return undefined;
-// }
-
 export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user', scopeId: number, overrideLabel: string | null, hidden: boolean, userId: UserId = asUserId(1)): void {
   const entityId = Number(menuItemKey);
   const menuItemName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(entityId) as { name: string } | undefined)?.name;
@@ -6824,10 +4211,6 @@ export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user',
     create(requireEntityById(entityId, typeRootName), typeMenuOverrideName, overrideName, userId);
   }
   if (overrideLabel) {
-    // A real override label is a real Vocabulary word first — the
-    // exact, same, established shape any other display label
-    // already uses — ensured to exist before linking to it, never a
-    // bare string on the override record itself.
     if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(overrideLabel)) {
       create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, overrideLabel, userId);
     }
@@ -6851,28 +4234,11 @@ export function deleteMenuOverride(menuItemKey: string, scope: 'business' | 'use
   deleteEntityLink(overrideName, 'Label', userId);
 }
 
-/** Every real, known alternate name for the same, real concept
- * wordName itself belongs to — including wordName itself — found via
- * whichever real "Header Account" target wordName's own dimension
- * link points at (the same, established mechanism confirmed working
- * for Vendor/Supplier). Returns just [wordName] if it has no real
- * hierarchy link at all (an ordinary word with no known alternates
- * yet), rather than an empty list — a real word is always, at
- * minimum, its own real alternate. */
 export interface VocabularyWord {
   name: string;
   translations: Record<string, string>;
 }
 
-/** The one, true, global Vocabulary's own id — scoped through the
- * one, true, global "Application" root to avoid colliding with every
- * business's own, separate "Vocabulary" entity (instantiateChartOfAccounts
- * gives every business its own). A bare, unscoped `name = 'Vocabulary'`
- * lookup is the exact, same, real ambiguity class already found and
- * fixed several times this session (getVocabularyWords, below, was the
- * first) — every other real call site touching the global Vocabulary
- * specifically should go through this one, shared helper instead of
- * repeating the same, real, scoped subquery by hand. */
 function globalVocabularyId(): number {
   const row = db
     .prepare(`SELECT id FROM current_entities WHERE name = 'Vocabulary' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')`)
@@ -6881,33 +4247,7 @@ function globalVocabularyId(): number {
   return row.id;
 }
 
-/** Every real, direct word/phrase under Vocabulary, with its own,
- * real, current translation into each real, existing language — the
- * real, direct source for the new Translations/Vocabulary page. Only
- * direct children, not the full, recursive subtree — Vocabulary's
- * own, real words are already, deliberately, a flat, single-level
- * list (confirmed directly: no real word currently has its own,
- * further, nested children). */
 export function getVocabularyWords(): VocabularyWord[] {
-  // A real, confirmed bug, found directly (not assumed) while driving
-  // the real /setup/translations page through the real test-runner:
-  // this used to list only concepts that ALREADY had at least one
-  // real translation in some language — a brand-new word, the moment
-  // after it's genuinely created via this very page's own "Add a new
-  // word" form, was invisible to this page's own search box, since it
-  // has zero translations yet. A real person hitting this in the real
-  // app would be stuck: the one, real reason to add a new word is to
-  // then translate it, and the page they'd use to do that couldn't
-  // find the word they'd just added. Fixed to genuinely match this
-  // function's own, original, documented intent above (every real,
-  // direct word under Vocabulary) - scoped to the one, real, global
-  // Vocabulary specifically (parented directly under the one, true,
-  // global "Application" root), never a business's own, separate copy
-  // (confirmed directly: ensureVocabularyAlternate gives every real
-  // business its own, distinct "Vocabulary" entity too, so a bare,
-  // unscoped `name = 'Vocabulary'` lookup here would be the exact,
-  // same, real kind of ambiguous, wrong-scoped bug already found and
-  // fixed several times this session).
   const words = db
     .prepare(`SELECT c.name FROM current_entities c WHERE c.parent_id = ? ORDER BY c.name`)
     .all(globalVocabularyId()) as { name: string }[];
@@ -6932,19 +4272,9 @@ export function getVocabularyAlternates(wordName: string): string[] {
 export interface ConceptWithAlternates {
   headerAccountName: string;
   alternates: string[];
-  /** The real, original, already-established word for this concept —
-   * the one with the lowest, real entity_id among the alternates,
-   * since the real, original word was always, genuinely created
-   * first, before any real, later alternate was added alongside it.
-   * Choosing this one back is a real, direct "reset to default". */
-  defaultAlternate: string;
+    defaultAlternate: string;
 }
 
-/** Every real concept (a real "Header Account" target) that has more
- * than one, real, known word pointing at it — the real, discoverable
- * list the translator form itself lists. A concept with only one,
- * real, known word (no real alternate yet) isn't shown at all — there
- * would be nothing real to choose between. */
 export function getConceptsWithAlternates(): ConceptWithAlternates[] {
   const rows = db
     .prepare(
@@ -6969,21 +4299,6 @@ export function getConceptsWithAlternates(): ConceptWithAlternates[] {
     }));
 }
 
-/** Per direct instruction: a word and its translations stay owned by
- * the one, real, global Vocabulary by default and are never copied
- * into a business's own Vocabulary just because that business adopted
- * them. Only the moment a business (or user) actually chooses a
- * genuinely new name not already known anywhere does a real, local,
- * business-owned Vocabulary word get created for it - and even then,
- * only after first checking whether that exact text already exists as
- * a real, global synonym for some other concept, reusing that same,
- * real entity rather than creating a redundant, duplicate one. The
- * concept's own "Header Account" Hierarchy link (the same, real,
- * established synonym mechanism getConceptsWithAlternates already
- * reads) is created pointing at this one, real alternate either way -
- * setVocabularyPreference and getLocalizedText that follow never care
- * which case applied, since relation_id just points at whichever
- * real entity now carries the name. */
 export function ensureVocabularyAlternate(conceptName: string, desiredText: string, businessName: string, userId: UserId): string {
   const existingAnywhere = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(desiredText) as { id: number } | undefined;
   if (!existingAnywhere) {
@@ -7000,13 +4315,6 @@ export function setVocabularyPreference(conceptName: string, scope: 'business' |
   if (!conceptId) throw new ValidationError(`No real entity named "${conceptName}".`);
   const alternate = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(preferredAlternateName) as { id: number } | undefined;
   if (!alternate) throw new ValidationError(`No real entity named "${preferredAlternateName}".`);
-  // A real, direct child entity under the concept itself, one per
-  // (scope, scopeId) - never a separate table. scopeId genuinely isn't
-  // always a real entity id (a 'user' scope is a plain users.id, not
-  // part of the entity tree at all), so it's encoded directly in the
-  // preference entity's own name rather than as a structural parent/
-  // relation link. relation_id points directly at the real, preferred
-  // alternate - the one, real fact this preference actually records.
   const prefName = `${conceptName} — Preference — ${scope}:${scopeId}`;
   const existing = Entity.getUnder(prefName, conceptId);
   const record = existing ?? Entity.create(prefName, conceptId, asUserId(1));
@@ -7023,15 +4331,6 @@ export function deleteVocabularyPreference(conceptName: string, scope: 'business
   if (existing) Entity.untag(existing.id, scope, asUserId(1));
 }
 
-/** getLocalizedText, extended with the real, 3-tier vocabulary-
- * preference resolution chain (§4 of the plan, the exact, same,
- * established shape already proven for the menu): a real, user-scoped
- * preference first, then a real, business-scoped one, then the
- * unmodified, real, default word. Every real place throughout this
- * app that already reads $translations[name] — not just the menu —
- * automatically, correctly picks up a real, chosen alternate (e.g.
- * "Suppliers" instead of "Vendors") from this one, single, real
- * change, since they all share this one, same, real, loaded map. */
 export function getLocalizedText(language: string, opts?: { businessName?: string; userId?: number }): Record<string, string> {
   const rows = db
     .prepare(`SELECT entity, text FROM localized_text WHERE language = ?`)
@@ -7060,11 +4359,6 @@ export function getLocalizedText(language: string, opts?: { businessName?: strin
     .all(...preferences.map((p) => p.concept_id)) as { id: number; name: string }[];
   const nameById = new Map(conceptNames.map((c) => [c.id, c.name]));
 
-  // A real, user-scoped preference always wins over a real, business-
-  // scoped one for the exact, same concept — tracked here, in a real,
-  // separate, local map, rather than the real, returned translations
-  // map itself, since business rows can't be guaranteed to sort after
-  // user rows in SQL.
   const sourceByConcept = new Map<string, 'business' | 'user'>();
   for (const p of preferences) {
     const conceptName = nameById.get(p.concept_id);
@@ -7077,12 +4371,6 @@ export function getLocalizedText(language: string, opts?: { businessName?: strin
 }
 
 export function setTranslation(conceptName: string, languageName: string, text: string, userId: UserId = asUserId(1)): void {
-  // A real, confirmed bug fix: multiple, real, unrelated entities can
-  // share a name (e.g. "Actual" - every real business has its own,
-  // separate "Actual" ledger entity) - preferring the real Vocabulary
-  // concept when one exists avoids attaching a translation to the
-  // wrong, unrelated entity, while still falling back to any match
-  // for any other, legitimate, non-Vocabulary use of this function.
   const conceptId = (
     db.prepare(`SELECT e.id FROM current_entities e WHERE e.name = ? AND e.parent_id = ?`).get(conceptName, globalVocabularyId()) as { id: number } | undefined
     ?? db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined
@@ -7091,23 +4379,11 @@ export function setTranslation(conceptName: string, languageName: string, text: 
   const languageId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(languageName) as { id: number } | undefined)?.id;
   if (!languageId) throw new ValidationError(`No real language named "${languageName}".`);
 
-  // Remove any real, existing, stale translation for this exact
-  // concept under this language first (different text) — never
-  // leaving a stale, contradictory child entity behind alongside a
-  // new one for the exact, same, real concept.
   const stale = db
     .prepare(`SELECT e.id, e.name FROM current_entities e WHERE e.parent_id = ? AND e.relation_id = ?`)
     .get(languageId, conceptId) as { id: number; name: string } | undefined;
   if (stale && stale.name === text) return; // already correct, nothing to do
 
-  // createEntity's/Entity.rename's own, established, scoped uniqueness
-  // (parent_id, name) already, correctly rejects a genuine collision —
-  // two different concepts sharing the exact same word under the
-  // exact same language. Per direct instruction: this is a genuine bug
-  // in how this application's own words are used (or a genuine
-  // ambiguity in human language itself), to be flagged and studied,
-  // never silently worked around with a suffix or similar — but also
-  // never allowed to halt every other, real, unrelated translation.
   let created;
   try {
     if (stale) {
@@ -7118,28 +4394,12 @@ export function setTranslation(conceptName: string, languageName: string, text: 
     }
   } catch (e) {
     const existing = db.prepare(`SELECT c.name AS concept FROM current_entities e JOIN current_entities c ON c.id = e.relation_id WHERE e.parent_id = ? AND e.name = ?`).get(languageId, text) as { concept: string } | undefined;
-    // Per direct instruction: temporarily suppressed from stderr (100+
-    // genuine ambiguities cluttered every command's output) - still
-    // recorded, just to a real log file instead, not silently
-    // discarded. See docs/flagged-translation-collisions.log.
     fs.appendFileSync(
       path.join(dataDir, '..', '..', 'docs', 'flagged-translation-collisions.log'),
       `"${conceptName}" and "${existing?.concept ?? '(unknown)'}" both genuinely translate to "${text}" in ${languageName} — a real, human-language ambiguity, not silently resolved. Keeping the existing translation.\n`
     );
     return;
   }
-  // A real, confirmed bug fix: supersedeEntity(created.id, { relation:
-  // conceptName }, userId) would re-resolve conceptName as a plain
-  // string, all over again, through supersedeEntity's own, separate,
-  // genuinely shared, general-purpose relation-resolution helper -
-  // which is NOT Vocabulary-scoped, and so silently threw away the
-  // correct, already-resolved conceptId computed above, replacing it
-  // with whichever real, unrelated, ambiguously-named entity that
-  // helper happened to find first (confirmed directly: "Actual" -
-  // one of six, real, separate ledger entities sharing that name).
-  // Setting relation_id directly from the already-correct conceptId,
-  // via the same, real entity_update audit-trail mechanism
-  // supersedeEntity itself uses, avoids this re-resolution entirely.
   db.prepare(`INSERT INTO entity_update (entity_id, name, parent, parent_id, relation, relation_id, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
     created.id,
     created.name,
@@ -7150,24 +4410,6 @@ export function setTranslation(conceptName: string, languageName: string, text: 
     userId
   );
 }
-
-/** Every real translation this application has, for one real
- * language — a real, direct child entity of {languageName}, per
- * concept, its own relation_id pointing back at that concept. */
-// UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export function getAllTranslations(languageName: string): Record<string, string> {
-//   const rows = db
-//     .prepare(
-//       `SELECT c.name AS concept, e.name AS text
-//        FROM current_entities e
-//        JOIN current_entities c ON c.id = e.relation_id
-//        WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = ?)`
-//     )
-//     .all(languageName) as { concept: string; text: string }[];
-//   const result: Record<string, string> = {};
-//   for (const r of rows) result[r.concept] = r.text;
-//   return result;
-// }
 
 export function getTranslation(conceptName: string, languageName: string): string | null {
   const row = db
@@ -7184,68 +4426,22 @@ export function getTranslation(conceptName: string, languageName: string): strin
   return row?.name ?? null;
 }
 
-// ---------------------------------------------------------------------------
-// Businesses / Ledgers (just entities, but with convenience helpers)
-// ---------------------------------------------------------------------------
-
 export function getBusinesses(): { id: number; name: BusinessName }[] {
   return db
     .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`)
     .all() as { id: number; name: BusinessName }[];
 }
 
-/** Every real ledger under a business — deliberately excludes every
- * other real, direct child a business now has (see
- * PER_BUSINESS_ROOTS and createBusiness), derived from that one,
- * single, real list rather than its own, separately hand-maintained
- * set of literal strings - the exact, real gap that let
- * "{businessName} Hierarchies" go unscoped, unnoticed, for a real
- * while. Confirmed as a real, live bug, not assumed: before this fix,
- * "Wine Retail Business Locations" showed up as a selectable option
- * in the Trial Balance/General Journal/every other ledger dropdown
- * throughout the app, right next to "Actual" — a genuinely different
- * real entity, not a ledger at all, that a person could accidentally
- * select and then find no real accounts postable to it. */
 export function getLedgers(businessName: BusinessName): { id: number; name: LedgerName }[] {
   return db
     .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
     .all(businessName) as { id: number; name: LedgerName }[];
 }
 
-// ---------------------------------------------------------------------------
-// The "active" ledger — per direct instruction: a real, per-business
-// pointer at "the one ledger ordinary trading posts into right now",
-// flipped by rolloverToNewPeriod itself. Deliberately NOT a hard lock
-// on the old ledger (per direct instruction, the old ledger stays
-// genuinely postable forever, for real adjustments/corrections — see
-// docs/ledger-scoped-accounts-and-rollover.md) — only a real default/
-// guidance pointer the frontend's own Session screen reads to pick
-// the ledger a plain Bookkeeper lands on, and the one real fact
-// routes/journal.ts's POST /post checks before allowing a posting
-// into any OTHER ledger (see docs/active-ledger-design.md).
-//
-// Stored as a real, dedicated marker entity, a direct child of the
-// business itself — never reusing the business entity's own
-// relation_id, which createBusiness already uses for the CoA
-// prototype tag. Points at the real ledger entity by id (never by
-// bare name): a ledger's own name ("Actual") is deliberately NOT
-// globally unique — every business has one — so the general-purpose
-// setRelationship/getRelationship helpers (which resolve a target by
-// bare name) would silently resolve to the wrong business's own
-// "Actual" the moment more than one real business exists. Resolving
-// this one, real, specific ledger entity directly by id, via
-// supersedeEntity's own relationId field, sidesteps that collision
-// entirely.
-// ---------------------------------------------------------------------------
-
 function ensureActiveLedgerMarker(businessId: number, userId: UserId): { id: number; name: string } {
   return Entity.getUnder('Active Ledger', businessId) ?? Entity.create('Active Ledger', businessId, userId);
 }
 
-/** Sets the real, current "active" ledger for this business — called
- * once at business creation (its first, real "Actual" ledger) and
- * once more by rolloverToNewPeriod (the brand-new ledger it just
- * opened), never directly by an ordinary posting route. */
 export function setActiveLedger(businessName: BusinessName, ledgerName: LedgerName, userId: UserId): void {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const ledgersRoot = requireEntity('Ledgers', typeRootName, business);
@@ -7254,10 +4450,6 @@ export function setActiveLedger(businessName: BusinessName, ledgerName: LedgerNa
   supersedeEntity(marker.id, { relationId: ledger.id }, userId);
 }
 
-/** The real, current "active" ledger for this business — null for a
- * business created before this concept existed (never assumed; every
- * real caller treats null as "no real guidance, fall back to
- * whatever the caller already does today"). */
 export function getActiveLedger(businessName: BusinessName): LedgerName | null {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const marker = db.prepare(`SELECT relation_id FROM current_entities WHERE name = 'Active Ledger' AND parent_id = ?`).get(business.id) as { relation_id: number | null } | undefined;
@@ -7266,98 +4458,8 @@ export function getActiveLedger(businessName: BusinessName): LedgerName | null {
   return ledger ? asLedgerName(ledger.name) : null;
 }
 
-/** Creates a brand-new business, real and ready to actually transact
- * in — a business entity plus its first real ledger.
- *
- * Correction to an earlier, incomplete claim here: the Chart of
- * Accounts is NOT uniformly shared across every business. Confirmed
- * directly, not assumed: only the five top-level report categories
- * (Asset/Liability/Equity/Income/Expense) are genuinely global — every
- * country's accounting still groups into the same five buckets, so
- * business_reports correctly reuses them for every business. But the
- * real, named LEAF accounts underneath are genuinely country-specific
- * prototypes that already exist as real, distinct entities: "Cash and
- * Bank"/"Sales Revenue" (English/generic, used by admin and
- * Wine Retail Business), "Bankkontokorrent"/"Umsatzerlöse" (German,
- * BMW M GmbH), "Autres créances"/"Achats de marchandises" (French,
- * Peugeot), "Cassa e valori"/"Ricavi cessione beni" (Italian, Ditta
- * Italiana Srl), "Kasse"/"Kassenbestand und Bankguthaben" (Swiss,
- * Schweizer KMU AG) — genuinely different entities, confirmed by
- * entity_id, not just different display names for the same thing.
- *
- * A new business should reuse whichever prototype actually matches its
- * real country/jurisdiction — getChartOfAccountsPrototype(language)
- * surfaces exactly which real accounts that prototype actually means,
- * read directly from the one, real, shared template (never an
- * existing business's own posted history), so a person setting up a
- * new business can see exactly which real accounts to post to before
- * they start, rather than guessing or accidentally defaulting to the
- * generic English set regardless of their business's actual country.
- * This function itself creates no new accounts —
- * every real leaf account, in every prototype, already exists and is
- * simply reused; a genuinely new country not yet represented here
- * still needs its own leaves built through the Entity Tree Editor, a
- * real, honest, unbuilt gap (see docs/TODO.md).
- *
- * The ledger's real, stored name is genuinely just "{ledgerLabel}"
- * (e.g. "Actual", "Budget 2026-27") — no business-name prefix. This
- * was not always true: entity names were once globally unique across
- * the whole app, so a plain "Actual" would have collided with the
- * very first other business that also wanted one. Scoped uniqueness
- * (unique among real, direct siblings under the same real parent, not
- * globally) now correctly allows every business to have its own
- * "Actual" ledger without collision — confirmed safe only after fixing
- * a real, separate risk this exposed: post_journal_entry_insert and
- * post_quantity_movement_insert both resolved a ledger by a bare name
- * lookup with no business scoping, which would have silently posted a
- * transaction against the wrong business's own "Actual" ledger. Both
- * triggers now scope the lookup by the transaction's own, known
- * business first.
- *
- * See docs/entity-model.md and docs/TODO.md.
- *
- * Creates two real ledgers, not one — "Budget is just another
- * ledger," the same proven pattern admin's own real "Proposed
- * Growth Budget 2026-27" ledger already uses, and the same one this
- * project already built a real, working Budget-vs-Actual comparison
- * against for Wine Retail Business (see
- * scripts/generate-wine-retail-budget.ts). A new business genuinely
- * needs both from day one: a real, ongoing Actual ledger to post real
- * transactions to, and a real Budget ledger for the financial year to
- * plan against and compare — not a second thing to remember to set up
- * later. financialYearLabel (e.g. "2026-27") is real, free text — not
- * computed from today's date, since a business's actual fiscal year
- * start genuinely varies by country/jurisdiction, and guessing it
- * wrong would silently mislabel a real business's own budget period. */
-/** Per direct confirmation: a business's own legal/entity structure is
- * largely a cosmetic/reporting concern — the real, underlying
- * mechanism (entities, relationships, accounts) doesn't change per
- * structure, only the Balance Sheet's own equity-section presentation
- * does. "Sole Trader" and "Unlimited Liability" both genuinely use the
- * one, real, shared "Owner's Equity" account already built in — no
- * extra accounts needed. The others each get their own, real,
- * additional equity accounts, tagged with the same real CoA prototype as
- * the business itself so they're genuinely findable through the real
- * General Journal account dropdown, not created orphaned. */
 export type EntityStructure = 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded';
 
-/** Nominates one real bank account for a business - a real bank name, its own
- * real routing detail (a BSB in Australia; a sort code, routing number, or IBAN
- * elsewhere), and its own real account number, per
- * docs/bank-accounts-and-currencies-design.md. Lazily creates this business's
- * own real "Bank Accounts" area on first use - real, nominated data, never a
- * shared, global default (per direct instruction, decided shape A: Collections
- * would only ever hold the abstract shape, never actual instances). */
-/** Adds a real, free-text financial-statement note (an accounting
- * policy, a contingent liability, a related-party disclosure) for one
- * specific business - the real, standard "Notes to the Financial
- * Statements" practice from any real, published set of accounts.
- * Lazily creates this business's own real "Notes to the Financial
- * Statements" area on first use, under this business's own real
- * "Business Reports" (the one, real, global list of report kinds
- * itself never holds actual note content - each business's own real
- * notes are its own, real, business-scoped data, the same, real
- * principle already established for Bank Accounts). */
 export function addFinancialStatementNote(businessName: BusinessName, noteText: string, userId: UserId): { id: number } {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   let notesRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Notes to the Financial Statements' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
@@ -7377,86 +4479,21 @@ export function getFinancialStatementNotes(businessName: BusinessName): { name: 
   return rows.map((r) => ({ name: r.name, text: (JSON.parse(r.detail_json || '{}').text as string) ?? '' }));
 }
 
-/** Nominates one real bank account for a business - a real bank name, its own
- * real routing detail (a BSB in Australia; a sort code, routing number, or IBAN
- * elsewhere), and its own real account number, per
- * docs/bank-accounts-and-currencies-design.md. Lazily creates this business's
- * own real "Bank Accounts" area on first use - real, nominated data, never a
- * shared, global default (per direct instruction, decided shape A: Collections
- * would only ever hold the abstract shape, never actual instances). */
-/** The one, real, correct way a new location entity is created for a
- * specific business, per direct instruction eliminating generic
- * createEntity from ordinary application flows entirely. Resolves
- * this business's own, real, scoped "Locations" root directly - never
- * a bare, ambiguous name. */
 export function createLocation(businessName: BusinessName, locationName: string, userId: UserId): TypedNode<'LocationEntityName'> {
-  // Legacy-root aware (see resolveBusinessLocationsRootId above) - a
-  // bare requireEntity('Locations', ...) throws outright for one,
-  // specific, pre-existing demo business ("Wine Retail Business")
-  // that still uses the legacy, combined-name root, confirmed
-  // directly: creating a new location against it failed every time.
   const locationsRootId = resolveBusinessLocationsRootId(businessName);
   if (!locationsRootId) throw new ValidationError(`"${businessName}" has no Locations root to create a location under.`);
   return create({ id: asEntityId(locationsRootId), name: 'Locations' as string & { __brand: 'RootName' } }, typeLocationEntityName, locationName, userId);
 }
 
-/** The one, real, atomic way a new location is genuinely created,
- * per direct instruction: creating the real entity, then setting its
- * own real details (city, capacity, timezone, type), used to be two,
- * real, separate steps a caller could complete only one of - now one,
- * real, single db.transaction(), so it either fully applies or fully
- * doesn't, per the real, absolute transactional-integrity
- * requirement.
- *
- * A real, confirmed gap, found directly (not assumed) while wiring
- * the tutorial e2e test through the real UI: a location's optional
- * group was previously only ever recorded as a Hierarchy tag
- * (ensureHierarchyValue/setHierarchyParent) - the real mechanism
- * group-breakdown reports (e.g. Close Books' preview) actually read.
- * That is a genuinely separate, non-overlapping mechanism from the
- * real "Belongs To Group" entity relationship getOrganizationChart()
- * actually reads (see business-setup's own real location-creation
- * flow) - so a location created this way never appeared in the real
- * org chart at all, and Business Setup's own "+ Insert employee"
- * could never be reached for it, however it was created.
- *
- * Per direct correction: a real business genuinely does not have to
- * have any groups at all - `group` here stays optional, never
- * required, and no hierarchy name is ever hardcoded: the caller
- * supplies which real, business-chosen hierarchy (`groupingName` —
- * e.g. "Division") the group belongs to, right alongside the group's
- * own name, so this function itself never special-cases any one
- * hierarchy by name. getOrganizationChart() already, directly
- * supports a location with no real, separate group of its own - a
- * genuine, single-location group that simply targets itself. So
- * every real location gets a real "Belongs To Group" relationship
- * unconditionally, the one, real, single place this is ever recorded
- * - targeting the given, real, shared group name when one is
- * provided, or targeting the location's own name when none is, never
- * left unset either way. The separate Hierarchy tag (group-breakdown
- * reports) stays conditional on both a real group name and a real
- * groupingName actually being given - a location with no group has
- * nothing real for that hierarchy to tag. */
 export function createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId, group?: string, groupingName?: string): TypedNode<'LocationEntityName'> {
   return db.transaction(() => {
     const entity = createLocation(businessName, locationName, userId);
     setLocation(locationName, location, businessName);
-    // Per direct instruction: the real Storage Capacity Remaining/
-    // Installed accounts, and their own real, balanced opening
-    // posting, are created here, atomically, as part of the real
-    // location's own creation - never lazily, the first time some
-    // later, real stock movement happens to touch this location.
     ensureLocationCapacityAccount(businessName, asLedgerName('Actual'), asLocationName(locationName), userId);
     if (group && groupingName) {
       ensureHierarchyGrouping(businessName, groupingName, userId);
       ensureHierarchyValue(businessName, groupingName, group, userId);
       setHierarchyParent(locationName, groupingName, group, userId);
-      // getOrganizationChart() only ever recognizes a shared,
-      // multi-location group name as real once the group entity
-      // itself also carries a real "Belongs To Business" relationship
-      // back to this business. setRelationship is already idempotent
-      // (keyed on the real record name), so calling it again for a
-      // group shared by a later location is always safe.
       setRelationship(group, 'Belongs To Business', businessName, userId);
     }
     setRelationship(locationName, 'Belongs To Group', group || locationName, userId);
@@ -7464,9 +4501,6 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
   })();
 }
 
-/** The one, real, correct way a new item category is created for a
- * specific business, per direct instruction eliminating generic
- * createEntity from ordinary application flows entirely. */
 export function createItemCategory(businessName: BusinessName, categoryName: string, parentCategoryName: string | undefined, userId: UserId): TypedNode<'RootName'> {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const itemsRoot = requireEntity('Items', typeRootName, business);
@@ -7509,25 +4543,10 @@ export interface BusinessConfigurationReport {
   notes: { name: string; text: string }[];
 }
 
-/** Everything a real business's own setup actually captured - real
- * Name, Addresses, Phones, Owner(s)/Partner(s), real Banking Details,
- * real Currencies, every real Hierarchy grouping and its own real
- * values, real Locations, real Categories, and which real Chart of
- * Accounts prototype it was built from - per direct instruction,
- * deliberately never Item Details (a genuinely separate, further,
- * much larger real report of its own). One, real, direct aggregation
- * across every real setup area, not a fragile stitching-together of
- * many, separately-shaped calls the caller has to know about
- * individually. hierarchies is read from the one, real, generic,
- * per-business hierarchy store (getBusinessHierarchy) - never a
- * single, hardcoded grouping name - so a business's own "Division,"
- * "Region," or any other real, chosen grouping all show here equally. */
 export function getBusinessConfigurationReport(businessName: BusinessName): BusinessConfigurationReport {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const entities = getEntityTree();
 
-  // Owner/Partner names - the real, stored Detail answers for the
-  // real, known business-type questions that actually name a person.
   const ownerOrPartners: string[] = [
     ...Detail.list(businessName, 'Owner name'),
     ...Detail.list(businessName, 'Names of partners'),
@@ -7536,11 +4555,6 @@ export function getBusinessConfigurationReport(businessName: BusinessName): Busi
 
   const hierarchies = getBusinessHierarchy(businessName);
 
-  // Legacy-root aware (see resolveBusinessLocationsRootId above) -
-  // the real "Locations" child, or, for one, specific, pre-existing
-  // demo business ("Wine Retail Business"), its legacy, combined-name
-  // root. Without this, this report silently showed zero locations
-  // for that one business, exactly like getOrganizationChart used to.
   const locationsRootId = resolveBusinessLocationsRootId(businessName);
   const locationEntities = locationsRootId ? entities.filter((e) => e.parent_id === locationsRootId) : [];
   const locations = locationEntities.map((e) => {
@@ -7548,26 +4562,13 @@ export function getBusinessConfigurationReport(businessName: BusinessName): Busi
     return { name: e.name, city: loc?.city ?? '', locationType: loc?.location_type ?? '' };
   });
 
-  // Legacy-root aware, the same, exact bare-name gap already found
-  // and fixed above for Locations: one, specific, pre-existing demo
-  // business ("Wine Retail Business") still seeds its own real Items
-  // root under the legacy, combined name ("${business} Items"), not
-  // the modern, plain "Items" child every business created through
-  // the application itself actually gets.
   const itemsRootId = (entities.find((e) => e.name === 'Items' && e.parent_id === business.id) ?? entities.find((e) => e.name === `${businessName} Items` && e.parent_id === business.id))?.id;
-  // A real category is any real, direct child of Items that itself
-  // has at least one real child - the exact, same, established rule
-  // already used for the Items page's own category tree.
   const categories = itemsRootId
     ? entities.filter((e) => e.parent_id === itemsRootId && entities.some((c) => c.parent_id === e.id)).map((e) => e.name)
     : [];
 
   const coaRootId = entities.find((e) => e.name === 'Chart of Accounts' && e.parent_id === business.id)?.id;
   const assetId = coaRootId ? entities.find((e) => e.name === 'Asset' && e.parent_id === coaRootId)?.id : undefined;
-  // Every real, currency-tagged Cash at Bank leaf names a further,
-  // real, secondary currency this business actually trades in -
-  // derived directly from what was actually built, never a separate,
-  // hand-maintained list that could drift from reality.
   const cashLeaves = assetId ? entities.filter((e) => e.parent_id === assetId && e.name.startsWith('Cash at Bank')) : [];
   const secondaryCurrencies = cashLeaves.map((e) => (db.prepare(`SELECT currency FROM account WHERE entity_id = ?`).get(e.id) as { currency: string | null } | undefined)?.currency).filter((c): c is string => !!c);
 
@@ -7587,16 +4588,6 @@ export function getBusinessConfigurationReport(businessName: BusinessName): Busi
   };
 }
 
-/** Builds the one, real, shared mechanism behind both "Cash at Bank" and a
- * real partner's own Drawing account, per direct instruction: the exact, same
- * real bank-accounts-by-currencies nomination applies to each. A single,
- * ticked combination collapses to one, plain, directly postable account - no
- * header, no further structure, exactly as simple as the business genuinely
- * is. More than one ticked combination makes headerName a real, non-postable
- * header (automatically, per this codebase's own, established, no-new-flags
- * is_postable_account rule - a header is simply an entity with real
- * children), with one real, postable leaf per ticked combination underneath,
- * never the untamed, full cartesian product blindly. */
 export function buildBankCurrencyStructure<TBrand extends string>(
   businessName: BusinessName,
   headerName: string,
@@ -7607,50 +4598,6 @@ export function buildBankCurrencyStructure<TBrand extends string>(
 ): void {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const parentCategory = requireEntity(leafType.brand === 'EquityAccountName' ? 'Equity' : 'Asset', typeRootName, requireEntity('Chart of Accounts', typeChartOfAccountsRootName, business));
-  // A real, confirmed bug, found directly while exercising this
-  // wizard end-to-end through the real UI for the first time: a
-  // business's own Chart of Accounts prototype (English CoA, in
-  // particular) already ships a real "Cash at Bank" leaf by default
-  // — this wizard's own single-bank/single-currency path then threw
-  // "already exists" the very first time it was ever actually used,
-  // never reaching the real, intended "ensure this specific real
-  // structure exists" behavior its own doc comment above already
-  // describes. Entity.ensureUnder (not create) genuinely tolerates a
-  // same-named leaf already being there, reusing it rather than
-  // failing — the same, real "ensure" shape every other lazy
-  // account-creation function in this file already uses.
-  //
-  // A second, further, real, confirmed bug, found directly right
-  // after fixing the first one, while actually posting a real Cash
-  // Purchase through the resulting account for the first time: this
-  // function used to currency-tag the single-bank/single-currency
-  // leaf with its own, real account.currency unconditionally (e.g.
-  // "Cash at Bank" -> currency "AUD"). But account.currency has one,
-  // real, specific, pre-existing meaning in this schema (see
-  // setAccountCurrency's own doc comment above) - a currency-specific
-  // SIBLING of a home-currency account, for a genuinely
-  // foreign-denominated transaction. Tagging the business's own,
-  // single, ordinary Cash at Bank account this way pulled it OUT of
-  // the real, NULL/home-currency group that every other ordinary
-  // account (Inventory, Tax, Sales, COGS...) posts in by default -
-  // and since nothing in this app ever actually called the real,
-  // genuine setBusinessHomeCurrency function either (confirmed
-  // directly: zero call sites, anywhere, before this fix), there was
-  // no real home currency on record for post_journal_entry_insert's
-  // own, correct per-currency balance check to fall back to. The
-  // result: the very first ordinary, single-currency Cash
-  // Purchase/Cash Sale through this account failed outright with
-  // "entry does not balance (per currency)" - the cash leg landed in
-  // its own real "AUD" group while every other leg landed in the
-  // real, NULL, home group. Fixed here, directly, at the one real
-  // place a business's home currency is actually first nominated: the
-  // selected currency is recorded as this business's own real home
-  // currency, and the single, ordinary Cash at Bank leaf is left
-  // genuinely untagged (home/NULL), exactly like every other ordinary
-  // account. The same real principle applies to the multi-selection
-  // branch below - only a leaf whose own currency genuinely differs
-  // from the business's real home currency is a real, foreign
-  // sibling, and gets tagged; the home-currency leaf stays untagged.
   setBusinessHomeCurrency(businessName, homeCurrency, userId);
   if (selections.length === 1) {
     Entity.ensureUnder(headerName, parentCategory.id, userId);
@@ -7660,29 +4607,11 @@ export function buildBankCurrencyStructure<TBrand extends string>(
   for (const selection of selections) {
     const leafName = `${headerName} — ${selection.bankAccountName} (${selection.currency})`;
     const leaf = Entity.ensureUnder(leafName, header.id, userId);
-    // Same, real bug class as ensureCurrencyAccount (db-reports.ts):
-    // two different businesses' own bank-currency leaves can
-    // genuinely share this exact, same display name - passing the
-    // real, already-resolved leaf.id here, instead of the bare name,
-    // avoids setAccountCurrency's own, separate, unscoped fallback
-    // lookup ever tagging some OTHER business's account instead.
     if (selection.currency !== homeCurrency) setAccountCurrency(leafName, selection.currency, leaf.id);
   }
 }
 
 export function setupEquityStructure(businessName: BusinessName, structure: EntityStructure, userId: UserId, coaPrototype?: string, partnerNames?: string[]): void {
-  // This one, specific business's own, real, independent Equity
-  // mirror - instantiateChartOfAccounts has already run by this point
-  // in createBusiness, so this business's own real "Chart of
-  // Accounts" (and its own real "Equity" copy within it) already,
-  // genuinely exists. A real, confirmed, fundamental fix: a bare
-  // fetch('Equity', typeRootName) would resolve ambiguously now that
-  // every business genuinely, correctly owns its own, independent
-  // copy of this name (see PER_BUSINESS_ROOTS' Vocabulary entry and
-  // copyChartOfAccountsInto) - a real partner's own Capital/Drawing
-  // accounts belong under this one, specific business's own real
-  // Equity, never the shared, global template, and never a genuinely
-  // different, other real business's own, separate copy.
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const businessCoa = requireEntity('Chart of Accounts', typeChartOfAccountsRootName, business);
   const businessEquity = requireEntity('Equity', typeRootName, businessCoa);
@@ -7701,12 +4630,8 @@ export function setupEquityStructure(businessName: BusinessName, structure: Enti
   switch (structure) {
     case 'sole_trader':
     case 'unlimited_liability':
-      // Owner's Equity already, genuinely exists as the real, shared, default account — nothing extra needed.
       break;
     case 'partnership':
-      // A real Capital/Drawing account pair per real, named partner —
-      // each partner's own real contribution and own real withdrawals
-      // tracked separately, the real, standard partnership convention.
       for (const partner of partnerNames ?? []) {
         ensure(`${businessName} — ${partner} Capital`);
         ensure(`${businessName} — ${partner} Drawing`);
@@ -7721,42 +4646,10 @@ export function setupEquityStructure(businessName: BusinessName, structure: Enti
     case 'publicly_traded':
       ensure(`${businessName} Share Capital`);
       ensure(`${businessName} Dividends`);
-      // Retained Earnings already, genuinely exists as the real, shared, default account.
       break;
   }
 }
 
-/** A real, structural, eager, one-time copy of the applicable Chart
- * of Accounts template into a genuine, independent, per-business
- * instance — the "class/instance" model, per direct instruction: the
- * system-supplied templates (Chart of Accounts, tagged per real CoA
- * prototype) are the real classes, living at the application level;
- * this is the real instance, living at the business level. Every
- * universal (untagged) account, plus every account tagged for this
- * exact prototype, is copied; accounts tagged for a different real
- * prototype are skipped. Deliberately additive, not a replacement: the
- * existing, global Chart of Accounts and its established, tag-based
- * prototype mechanism are left completely untouched, so every existing
- * GL-reporting function keeps working exactly as it already did —
- * this creates a genuine, new, real, independent copy alongside it,
- * not yet wired into posting or reporting (see
- * docs/coa-class-instance-plan.md for what remains). */
-/** The one, real, shared mechanism that copies the shared Chart of
- * Accounts into any real, new destination root — prototype-tagged leaves
- * genuinely copied (only those matching coaPrototype), a non-leaf,
- * structural category mirrored under a genuinely unique name (never
- * the bare category name alone — see the real, critical bug this
- * fixed, in lessons-learned.md). Used both by instantiateChartOfAccounts
- * (a real, per-business instance) and by the business-type template
- * mechanism (a real, per-legal-type prototype CoA) — the exact, same,
- * one, real copy logic, never duplicated. */
-/** Every real, existing business type — Sole Trader, Partnership,
- * Pty Ltd Company, Incorporated Company — with its own real
- * questions, read directly from the real 'Business Type' entity tree
- * seeded in db-seed.ts. The one, real, database-driven source for the
- * new-business form's own type selector, replacing a hardcoded
- * frontend array with the same, real entities the prototype CoA
- * copies already live under. */
 export interface BusinessTypeInfo {
   name: string;
   questions: string[];
@@ -7774,11 +4667,6 @@ export function getBusinessTypes(): BusinessTypeInfo[] {
   });
 }
 
-/** Records a real business's own real answers to its business type's
- * own questions, via Detail — the exact, same primitive already used
- * for every other open-ended contact fact (address, phone, email).
- * Genuinely additive: called separately, after a business already
- * exists, rather than folded into createBusiness's own signature. */
 export function saveBusinessTypeAnswers(businessName: BusinessName, answers: Record<string, string>, userId: UserId): void {
   for (const [question, answer] of Object.entries(answers)) {
     if (answer.trim()) Detail.set(businessName, question, answer.trim(), userId);
@@ -7798,108 +4686,22 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
     for (const child of children) {
       const isPrototypeTagged = child.relation_id !== null && coaPrototypeMarkerIds.has(child.relation_id);
       if (isPrototypeTagged) {
-        // A real, prototype-tagged leaf is genuinely copied — a
-        // universal (untagged) leaf is already, correctly, shared
-        // across every business as-is, and copying it too would
-        // create a dangerous, global name-duplicate breaking every
-        // existing by-name lookup elsewhere in the app (confirmed
-        // directly: this broke getBankAccounts/getCashPosition on a
-        // duplicated test account before this fix).
         if (child.relation_id === prototypeId) {
           const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
           if (!existing) create(requireEntityById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
         }
       } else {
-        // A real, confirmed, further fix, found directly: "has any
-        // real child at all" is not a safe signal for "is a genuine,
-        // further CoA structural category" - a real, ordinary leaf
-        // account (a registered bank account, say) can genuinely have
-        // its own real children too, for a completely unrelated
-        // reason (setEntityLink's own real link records, Detail's own
-        // real stored answers) - both use this codebase's own,
-        // established "ParentName — ..." naming convention, never a
-        // genuine, further, independently-named CoA sub-account.
-        // Confirmed directly: a real, registered bank account's own
-        // real link records were being misread as "this must be a
-        // structural category," creating a real, duplicate-name
-        // collision (and a spurious, wrong Vocabulary entry) the
-        // moment a second business was created. Checked here, first,
-        // before touching Vocabulary at all - an ordinary leaf must
-        // never get its own, real, further Vocabulary copy.
         const realChildren = db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(child.id) as { name: string }[];
         const hasRealStructuralChild = realChildren.some((c) => !c.name.startsWith(`${child.name} — `));
-        // A real, confirmed, further finding: "Cost of Goods Sold"
-        // cannot carry an "% CoA" prototype tag at all - its one real
-        // relation_id slot is already spoken for by the Gross Profit
-        // report's own "COGS" category marker (see getBusinessReports),
-        // so it never takes the isPrototypeTagged branch above and
-        // depended entirely on hasRealStructuralChild - genuinely true
-        // only by coincidence, while demo per-product leaves happened
-        // to exist under the global template. On a fresh database with
-        // zero demo data it has none, and was silently never copied
-        // into any new business's own CoA at all - the direct, root
-        // cause of every later, lazy COGS leaf (ensureCombinationAccountLeaf)
-        // falling back to the bare, global lookup. Named explicitly here,
-        // the same, established, by-name-exception style this function
-        // already uses throughout (Chart of Accounts, Vocabulary, etc.),
-        // since it is a real, fixed, known header, not a general rule.
         const alwaysCopyRegardlessOfDemoData = child.name === 'Cost of Goods Sold';
         if (!hasRealStructuralChild && !alwaysCopyRegardlessOfDemoData) continue;
 
-        // A non-leaf, structural category (Asset/Liability/...) is a
-        // real, genuine copy, per direct, fundamental correction: a
-        // business's own Chart of Accounts structure is always
-        // subject to real, further change by that one business alone
-        // (incorporation, a partner joining or leaving) and must
-        // never touch the global template or any other real
-        // business's own copy. This is not just a structural copy -
-        // the category's own real name is itself copied, as a real,
-        // new, genuinely independent entity, into this one business's
-        // own real Vocabulary (never a relation_id link back to the
-        // real, original, shared word), so this business is free to
-        // rename its own "Equity" without touching the global
-        // template or any other business's own, separate copy.
         let ownWord = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, businessVocabulary.id) as { id: number } | undefined;
         if (!ownWord) ownWord = create(businessVocabulary, typeRootName, child.name, userId);
 
         let mirror = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
         if (!mirror) {
           mirror = create(requireEntityById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
-          // A real, confirmed, latent bug, found directly by a test
-          // suite that finally exercises more than one real business:
-          // { relation: child.name } resolves by a bare, unscoped
-          // name lookup, which is only ever safe while 'child.name'
-          // (e.g. "Equity") names exactly one real entity anywhere -
-          // true only for the very first business ever created. Every
-          // business after that gets its own real "Equity" mirror
-          // (plus its own real Vocabulary word copy of the same
-          // name), so the bare lookup becomes genuinely ambiguous and
-          // can silently point this business's own mirror at some
-          // OTHER business's own "Equity", not the real, global
-          // category this code means. `child` is already that exact,
-          // correct, known entity - relationId bypasses the ambiguous
-          // name resolution entirely, the same, already-proven pattern
-          // used elsewhere in this file for exactly this reason.
-          //
-          // "Cost of Goods Sold" specifically is not a genuine
-          // structural category the way Asset/Liability/Expense are -
-          // it is the one, real, special-cased LEAF this function
-          // always copies regardless of coaPrototype (see
-          // alwaysCopyRegardlessOfDemoData above). Its own, real
-          // relation_id slot is spoken for by the Gross Profit
-          // report's own "COGS" tag (see getBusinessReports'
-          // cogsAccountIds / buildProfitAndLossFromBalances), the
-          // exact, same tag the GLOBAL "Cost of Goods Sold" leaf
-          // itself already carries (schema/00-core.sql row 514) and
-          // every per-product COGS leaf gets via
-          // ensureItemSalesCogsAccounts. Pointing this business's own
-          // mirror at `child.id` (the global leaf) instead would
-          // leave it permanently untagged as COGS - a real, confirmed
-          // bug found directly: a non-'admin' business's own COGS
-          // postings silently landed in operating_expenses instead of
-          // cogs_expenses on every real P&L, since 'admin' alone
-          // posts straight to the real, correctly-tagged global leaf
-          // and so never exposed this.
           if (child.name === 'Cost of Goods Sold') {
             Entity.relate(mirror.id, 'COGS', userId);
           } else {
@@ -7923,37 +4725,12 @@ export function instantiateChartOfAccounts(businessName: BusinessName, coaProtot
   copyChartOfAccountsInto(business, destRoot, coaPrototype, userId);
 }
 
-/** The one, real, single, complete list of every real, structural
- * root a new business gets, scoped as `${businessName} ${suffix}` -
- * per direct instruction, so adding a further one is a genuine,
- * real, one-line addition here, never a search across this codebase.
- * "Hierarchies" is included here too, now correctly scoped like every
- * other real root - a real, confirmed bug, found directly: it was
- * previously created as a bare, unscoped "Hierarchies" node, silently
- * shared across every real business rather than genuinely separate.
- * Each suffix is also this root's own, real, direct, translatable
- * display word - the exact, same, established mechanism already used
- * for every other real entity name (`translations.current[name] ??
- * name`), so a further root added here is genuinely translatable
- * immediately, with no separate, further registration step. Chart of
- * Accounts is deliberately NOT listed here - its own real creation
- * (`instantiateChartOfAccounts`, above) does real, further work
- * (copying a real CoA prototype template) beyond a bare root, so it
- * keeps its own, real, dedicated function; `getLedgers`, below,
- * accounts for it separately, alongside this list.
- */
 export const PER_BUSINESS_ROOTS: { name: string; type: TypeDescriptor<string> }[] = [
   { name: 'Locations', type: typeBusinessLocationsRootName },
   { name: 'Items', type: typeBusinessItemsRootName },
   { name: 'Contacts', type: typeBusinessContactsRootName },
   { name: 'Vocabulary', type: typeRootName },
   { name: 'Ledgers', type: typeRootName },
-  // Per docs/profit-centers-design.md's Phase A: a real, empty root
-  // every business gets, holding zero real Profit Centers until one
-  // is explicitly created (createProfitCenter, below) — purely
-  // additive, a business with none behaves exactly as it already did,
-  // since every per-item resolver below only ever looks under here
-  // when a caller actually passes a real profitCenter name.
   { name: 'Profit Centers', type: typeRootName },
 ];
 
@@ -7969,20 +4746,6 @@ export function createBusiness(
   return db.transaction((): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName } => {
   const businessesRoot = requireEntity('Businesses', typeRootName);
   const business = create(businessesRoot, typeBusinessName, businessName, userId);
-  // Every real, structural root a new business gets, per the one,
-  // single, real, consolidated list above (PER_BUSINESS_ROOTS) -
-  // Locations, Items, Contacts, Vocabulary, and Ledgers today;
-  // adding a further one is a genuine, real, one-line addition
-  // to that list alone, never a further edit here. Per a real,
-  // confirmed, fundamental correction: each one is a real, plain name
-  // (never business-prefixed) - create()'s own uniqueness check is
-  // already scoped by real, direct parent, never global, so
-  // "Locations" under one real business and "Locations" under a
-  // genuinely different real business were never actually in conflict
-  // at all; resolving one back by name uses fetch's own, real,
-  // further, optional parent argument (see fetch, above) to
-  // disambiguate, never a mangled name. Ledgers must exist before the
-  // real ledgers below are parented under it.
   for (const root of PER_BUSINESS_ROOTS) {
     create(business, root.type, root.name, userId);
   }
@@ -7991,22 +4754,7 @@ export function createBusiness(
   const budgetLedger = asLedgerName(`Budget ${financialYearLabel}`);
   create(ledgersRoot, typeLedgerName, actualLedger, userId);
   create(ledgersRoot, typeLedgerName, budgetLedger, userId);
-  // Per docs/active-ledger-design.md: the real "Actual" ledger just
-  // created is this business's own, real, starting "active" ledger —
-  // ordinary trading posts here by default until a real rollover
-  // flips it.
   setActiveLedger(businessName, actualLedger, userId);
-  // A real, second fix, found via the real, full-lifecycle Playwright
-  // test: a new business was never actually tagged with its own real
-  // CoA prototype relation at all — only the original, hand-tagged demo
-  // businesses were (see backend/scripts/tag-coa-prototypes.ts). The
-  // real, live General Journal account dropdown filters strictly by
-  // this tag (see frontend/src/routes/post/+page.svelte), so an
-  // untagged business could never post to any real, prototype-specific
-  // account at all through the actual UI — only universal ones
-  // (customer/vendor contacts, product Sales-/COGS- accounts). Tags
-  // the new business with its real, chosen prototype here, the same
-  // real relation mechanism the demo businesses already use.
   if (coaPrototype) {
     supersedeEntity(
       (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number }).id,
@@ -8014,51 +4762,12 @@ export function createBusiness(
       userId
     );
   }
-  // The real, genuine, per-business instance of the applicable Chart
-  // of Accounts template class, per direct instruction — additive
-  // alongside the existing, unchanged, global, tag-based mechanism
-  // above, which every existing GL-reporting function still uses.
   instantiateChartOfAccounts(businessName, coaPrototype, userId);
-  // Per direct request, and the real, direct insight behind it: most
-  // real businesses transact in one, single, home currency — a
-  // second currency is a real, genuine need only for a business
-  // genuinely near a national border, not the common case. So this
-  // is deliberately a real, optional, low-friction addition, not a
-  // mandatory step every new business has to think through — a
-  // completely ordinary business omits this entirely and gets
-  // nothing extra. For each real, accepted secondary currency, a
-  // real "Cash at Bank ({currency})" account is created — the same
-  // real pattern the two, existing, hand-written demo currency
-  // accounts (Bank Account (DKK)/(EUR)) already use, now genuinely
-  // automatic rather than hand-written. Tagged with the same real CoA
-  // prototype as the business itself, so it's genuinely findable through
-  // the real General Journal account dropdown, not created orphaned
-  // from a filtering standpoint.
   for (const currency of secondaryCurrencies ?? []) {
     const accountName = `Cash at Bank (${currency})`;
-    // A real, confirmed bug, found directly: every lookup below was
-    // bare and unscoped-by-business (`WHERE name = ?`, no parent at
-    // all) - genuinely ambiguous the moment ANY second business
-    // anywhere in the whole system also ever gets (directly, or via
-    // ensureCurrencyAccount's own, already-correctly-scoped POS/sale
-    // path) a same-named "Cash at Bank (CUR)" leaf. The second such
-    // business to arrive here silently skipped creating its OWN real
-    // leaf and instead mutated the FIRST business's own leaf in
-    // place - sharing one GL account across two, genuinely distinct
-    // businesses. Fixed by scoping every step through this business's
-    // own, already-resolved Asset category (businessAsset below),
-    // the exact same real scoping resolveCashAtBankAccount/
-    // ensureCurrencyAccount (db-reports.ts) already use for the
-    // lazily-created case.
     const businessCoa = requireEntity('Chart of Accounts', typeChartOfAccountsRootName, business);
     const businessAsset = requireEntity('Asset', typeRootName, businessCoa);
     const account = Entity.getUnder(accountName, businessAsset.id) ?? create(businessAsset, typeAssetAccountName, accountName, userId);
-    // The same real logic as setAccountCurrency (backend/src/db-reports.ts)
-    // — inlined here rather than imported, since db-reports.ts already
-    // imports from this module, and importing back would create a
-    // real, genuine circular dependency between the two. Scoped by
-    // the real, known entity id resolved just above, never by a bare
-    // re-lookup of the name.
     db.prepare(`INSERT INTO account (entity_id) VALUES (?) ON CONFLICT (entity_id) DO NOTHING`).run(account.id);
     db.prepare(`UPDATE account SET currency = ? WHERE entity_id = ?`).run(currency, account.id);
     if (coaPrototype) {
@@ -8068,21 +4777,11 @@ export function createBusiness(
   if (entityStructure) {
     setupEquityStructure(businessName, entityStructure, userId, coaPrototype, partnerNames);
   }
-  // Ensures a real, business-scoped "Cash at Bank" exists from
-  // creation, even for a business that never runs the bank-account
-  // wizard (nominateBankAccount/buildBankCurrencyStructure) at all -
-  // without this, a business's first posting that needs it
-  // (stageLine has no lazy-vivification path of its own) fails with
-  // "NOT NULL constraint failed: journal_line.account_id".
   resolveCashAtBankAccount(businessName, undefined, userId);
   return { business: businessName, actualLedger, budgetLedger };
   })();
 }
 
-/** Creates one further real ledger under an existing business's own,
- * real Ledgers node - the real, direct prerequisite for the year/
- * period rollover procedure (docs/ledger-scoped-accounts-and-rollover.md),
- * whose own structural phase requires the new ledger to already exist. */
 export function createLedger(businessName: BusinessName, ledgerName: LedgerName, userId: UserId): void {
   const business = requireEntity(businessName, typeBusinessName);
   const ledgersRoot = requireEntity('Ledgers', typeRootName, business);
@@ -8091,20 +4790,6 @@ export function createLedger(businessName: BusinessName, ledgerName: LedgerName,
   create(ledgersRoot, typeLedgerName, ledgerName, userId);
 }
 
-/** Every real account a given real CoA prototype/language would actually
- * give a new business - walking the one, real, global Chart of
- * Accounts template directly (never a specific, already-existing
- * business's own posted history), returning every real leaf account
- * that is either genuinely universal (untagged, shared by every real
- * prototype) or tagged with this one, specific, real prototype - exactly
- * the real set copyChartOfAccountsInto would actually copy for a
- * business choosing this language. A real, confirmed, better
- * replacement for the previous, real getCoaPrototypeAccounts - that one
- * needed an already-existing, real business actually using a prototype
- * before its own real accounts could be shown at all, so a genuinely
- * new prototype had nothing to preview; this one needs no exemplar
- * business, ever, since it reads the one, real, shared template
- * directly. */
 export function getChartOfAccountsPrototype(language: string): string[] {
   const prototypeMarker = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(`${language} CoA`, globalVocabularyId()) as { id: number } | undefined;
   const globalCoaId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')`).get() as { id: number }).id;
@@ -8124,18 +4809,8 @@ export function getChartOfAccountsPrototype(language: string): string[] {
   return names.sort();
 }
 
-// ---------------------------------------------------------------------------
-// Journal staging + posting
-// ---------------------------------------------------------------------------
-
 export * from './db-journal.js';
 import { stageLine, postJournalEntry } from './db-journal.js';
 export * from './db-stock.js';
 import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, type Location as StockLocation } from './db-stock.js';
-
-
-// Migrates every real, existing translation into the entity-only
-// mechanism — must run after every function above (setTranslation,
-// createEntity, etc.) is defined, and after seedRemainingData() has
-// already created every real concept entity.
 

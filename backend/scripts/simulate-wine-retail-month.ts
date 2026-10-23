@@ -1,18 +1,6 @@
-/**
- * A full month of real trading for Wine Retail Business, end to end,
- * through the exact same functions the real frontend calls — not raw
- * SQL. Committed (per this project's "never throw away" discipline),
- * not a one-off throwaway.
- *
- * Sequence: owner's $100,000 capital injection -> several hundred
- * purchases of a dozen key products, received at the two warehouses
- * and distributed to retail outlets -> several thousand retail sales
- * across the outlets -> a handful of realistic breakages and returns
- * -> a month-end stocktake -> year-end close.
- *
- * Run with: node --import tsx backend/scripts/simulate-wine-retail-month.ts
- * (runs against the real app database at backend/data/entities.sqlite)
- */
+// A full month of trading for Wine Retail Business, end to end, through the same
+// functions the frontend calls. Run: node --import tsx backend/scripts/simulate-wine-retail-month.ts
+// Full documentation: docs/pm-build-and-tooling.md ("Wine Retail Business simulation").
 import {
   create,
   requireEntity,
@@ -124,15 +112,6 @@ async function main() {
   }
 
   console.log('=== Setup: vendor, CoA accounts this simulation needs ===');
-  // A real, direct, previously-existing bug fixed here, found live:
-  // this vendor was incorrectly parented under "Vendors" — the real,
-  // Vocabulary alternate-word entity for "Suppliers", linked to
-  // Accounts Payable only via the real, established "Header Account"
-  // dimension relationship, never a real, direct parent-child one —
-  // rather than under "Accounts Payable" itself. Every real page's
-  // own, established vendor filter (`parent?.name === 'Accounts
-  // Payable'`) genuinely missed this vendor entirely as a real,
-  // direct, confirmed consequence.
   create(requireEntity('Accounts Payable', typeRootName), typeProviderName, VENDOR, 1);
   setContact(VENDOR, { payment_terms_days: 30 });
   for (const [name, category] of [
@@ -153,16 +132,8 @@ async function main() {
   console.log(`Warehouses: ${warehouses.map((w) => w.name).join(', ')}`);
   console.log(`Retail outlets: ${retailOutlets.map((r) => r.name).join(', ')}`);
 
-  // A refrigerated display at each retail outlet — sparkling wine and
-  // some popular beer need to be kept cold, ordinary still wine and
-  // spirits don't. A genuinely separate location, same mechanism as
-  // every other location, not a new concept: the same item can sit at
-  // different locations, this is just one more of them.
-  //
-  // Sized proportionally to each outlet's own real capacity, not a
-  // flat number regardless of shop size — a real beverage cooler is a
-  // dedicated appliance/area, roughly 8-10% of a shop's total bottle
-  // capacity in practice, not comparable in scale to the shop itself.
+  // A refrigerated display at each outlet (an ordinary location, same mechanism, for
+  // cold beer/sparkling wine) sized to ~10% of that outlet's own bottle capacity.
   const refrigeratedOutlets: { name: string; city: string; location_type: 'Retail' }[] = [];
   for (const outlet of retailOutlets) {
     const mainLocation = getLocation(outlet.name);
@@ -175,29 +146,12 @@ async function main() {
     } catch {
       // already exists from a prior run
     }
-    // A real, confirmed bug, found live: outlet.city is the real,
-    // coarse, city-level value (e.g. "Rivertown"), not the real,
-    // fine-grained division of this specific outlet (e.g. "Eastside
-    // Cellar Door Division"). The plain outlet resolves its own real
-    // division correctly via a real, direct division.relation_id link
-    // set up separately (db-seed.ts), which this real, newer
-    // Refrigerated location never got. Using the coarse city here
-    // caused every real cold-storage sale (beer, sparkling wine) to be
-    // misattributed one, real division level up, making its own real
-    // outlet look like it never sold any — the exact, confirmed root
-    // cause of a real, reported "missing Beer and Sparkling Wine"
-    // finding. Fixed here by deriving the real, correct, fine-grained
-    // division directly from the real, already-proven getDivisionForLocation,
-    // falling back to the coarse city only if the real parent outlet
-    // genuinely has no division link at all yet.
+    // outlet.city is coarse; the fine-grained division (needed so cold-storage sales
+    // attribute to the same division as the parent outlet) comes from getDivisionForLocation.
     const fineGrainedDivision = getDivisionForLocation(outlet.name) ?? outlet.city;
     setLocation(name, { city: fineGrainedDivision, location_type: 'Retail', is_billing_address: false, bottle_capacity: fridgeBottleCapacity, carton_capacity: fridgeCartonCapacity, timezone: getLocation(outlet.name)?.timezone ?? 'UTC' });
-    // A real, explicit relation to its own real parent outlet — per
-    // direct report, a store clerk shouldn't need to know or care
-    // which physical fridge a bottle actually lives in; this real
-    // link is what lets completePosSale route a cold product there
-    // automatically, so the real POS "store" dropdown only ever needs
-    // to show the one, real, logical outlet.
+    // Relation to the parent outlet lets completePosSale route a cold product to the
+    // fridge automatically — the POS "store" dropdown only shows the logical outlet.
     supersedeEntity(getEntityTree().find((e) => e.name === name)!.id, { relation: outlet.name }, 1);
     refrigeratedOutlets.push({ name, city: outlet.city, location_type: 'Retail' });
   }
@@ -205,11 +159,7 @@ async function main() {
 
   const allParts = listItems(asBusinessName('Wine Retail Business'));
   const entities = getEntityTree();
-  // Real category classification via the actual entity tree, not a
-  // hardcoded list of product names — every product in Ale/Lager/Stout
-  // is genuinely beer, every product in Champagne/Cava/Prosecco is
-  // genuinely sparkling, regardless of which specific 36 products this
-  // seed data happens to contain.
+  // Category classification via the entity tree, not a hardcoded product list.
   const categoryOf = (itemName: string): string | undefined => {
     const entity = entities.find((e) => e.name === itemName);
     const parent = entities.find((e) => e.id === entity?.parent_id);
@@ -218,9 +168,6 @@ async function main() {
   const products = allParts.filter((p) => categoryOf(p.name) !== undefined);
   console.log(`${products.length} real products confirmed present — every product in the catalog, not a curated subset.`);
 
-  // Lagers and stouts genuinely serve cold; ales traditionally don't
-  // (a real, defensible distinction, not an arbitrary one) — same for
-  // sparkling wine (always cold) vs. still wine and spirits (not).
   const BEER_CATEGORIES = new Set(['Ale', 'Lager', 'Stout']);
   const COLD_BEER_CATEGORIES = new Set(['Lager', 'Stout']);
   const SPARKLING_CATEGORIES = new Set(['Champagne', 'Cava', 'Prosecco']);
@@ -229,10 +176,7 @@ async function main() {
     products.filter((p) => COLD_BEER_CATEGORIES.has(categoryOf(p.name)!) || SPARKLING_CATEGORIES.has(categoryOf(p.name)!)).map((p) => p.name)
   );
 
-  // Real package quantities — a wine/spirits carton is a dozen
-  // bottles, a beer carton is two dozen, both genuinely different from
-  // each other, not an arbitrary shared constant. Beer additionally
-  // sells in six-packs at retail, wine and spirits don't.
+  // Wine/spirits carton = 12 bottles; beer carton = 24 (and beer additionally sells in six-packs).
   const packageQuantity: Record<string, number> = {};
   for (const p of products) packageQuantity[p.name] = beerNames.has(p.name) ? 24 : 12;
   const dozen = products; // kept as `dozen` below purely to minimize an already-large diff — this is genuinely every product now, not a curated twelve.
@@ -265,17 +209,9 @@ async function main() {
 
   const scheduledPayments: { payDay: number; amount: number; ref: string }[] = [];
 
-  // A real, deliberate reorder cadence — not a random daily flood.
-  // Per direct request: "a major and perhaps a minor one are placed
-  // per week spaced suitably in each warehouse to get an even
-  // workload for the current human work force." Products are split
-  // by real, relative popularity (their own real, existing category
-  // and price already say which is which — beer and cheaper wine
-  // move fast, premium wine/spirits move slow) into a real "major"
-  // rotation (large, frequent orders) and a real "minor" rotation
-  // (smaller, less frequent orders), each warehouse working through
-  // its own real rotation on its own, staggered real days so two
-  // warehouses' own real deliveries never land on the same day.
+  // Deliberate reorder cadence (one major + one minor order/week per warehouse, on
+  // staggered days): products split into a fast-moving "major" rotation (beer, cheap
+  // wine) and a slower "minor" one (premium wine/spirits) by category/price.
   const majorProducts = dozen.filter((p) => beerNames.has(p.name) || unitCostMinor[p.name] < 2500);
   const minorProducts = dozen.filter((p) => !majorProducts.includes(p));
   const majorOrderDaysByWarehouse: Record<string, number> = {};
@@ -292,17 +228,9 @@ async function main() {
       const isMinorDay = weekday === minorOrderDaysByWarehouse[warehouse.name];
       if (!isMajorDay && !isMinorDay) continue;
       const week = Math.floor(day / 7);
-      // A real major delivery day restocks every fast-moving product
-      // at once (a real weekly truck naturally carries several real
-      // products in one visit, even though each is still its own real
-      // PO) — a real minor day only tops up a small, rotating subset
-      // of the slower-moving ones, not everything.
-      // A real major day restocks a real, rotating subset of the
-      // fast-moving products — not literally everything at once,
-      // which would be a genuinely unrealistic single delivery and,
-      // confirmed directly, drove total purchase spend to 3.6x real
-      // sales revenue regardless of timing. A real minor day tops up
-      // a smaller, rotating subset of the slow-moving ones.
+      // A major day restocks a rotating subset of fast-moving products (not literally
+      // all at once — that drove purchase spend to 3.6x sales revenue); a minor day
+      // tops up a smaller rotating subset of the slow-moving ones.
       const majorSubsetSize = 12;
       const partsToOrder = isMajorDay
         ? Array.from({ length: Math.min(majorSubsetSize, majorProducts.length) }, (_, k) => majorProducts[(week * majorSubsetSize + k) % majorProducts.length])
@@ -316,12 +244,7 @@ async function main() {
       const totalCost = qty * unitCost;
       const ref = `PO-${day}-${warehouse.name.replace(/\s/g, '')}-${purchaseCount}`;
 
-      // A real Purchase Order first — a genuine commitment, no GL
-      // effect of its own — found to be a real, genuine gap via
-      // direct report: this simulation previously went straight to a
-      // direct receipt, so the real Purchase Order screen always
-      // appeared empty, even though the mechanism itself was real and
-      // already tested.
+      // A Purchase Order first — a commitment with no GL effect of its own.
       stagePurchaseOrder({ reference: `${ref}-PO`, business: BUSINESS, ledger: LEDGER, vendor: VENDOR, item: item.name, quantity: qty, price_minor: unitCost, transdate: today(day) });
       postPurchaseOrder(`${ref}-PO`, BUSINESS, LEDGER, 1);
 
@@ -331,11 +254,8 @@ async function main() {
       receiveItems(BUSINESS, LEDGER, `${ref}-RECV`, item.name, warehouse.name, qty, 1, today(day));
       purchaseCount++;
 
-      // Real vendor terms — paid roughly 7-21 days after receipt, not
-      // instantly and not never. Only scheduled if it actually falls
-      // within this simulated month; a late-month purchase genuinely
-      // would still be outstanding at month-end, which is realistic,
-      // not a bug.
+      // Vendor terms: paid 7-21 days after receipt; a late-month purchase stays
+      // outstanding at month-end (realistic, not a bug).
       const payDay = day + rand(7, 21);
       if (payDay < 28) scheduledPayments.push({ payDay, amount: totalCost, ref: `${ref}-PAY` });
 
@@ -345,20 +265,10 @@ async function main() {
         if (toSend > 0) {
           const outlet = pick(retailOutlets.filter((r) => r.city === warehouse.city));
           if (outlet) {
-            // Cold products go straight to the refrigerated display at
-            // that outlet, not the ordinary shelf — the same transfer
-            // mechanism, just a different destination location.
+            // Cold products go to the refrigerated display, not the ordinary shelf.
             const destination = coldProducts.has(item.name) ? refrigeratedOutlets.find((r) => r.city === outlet.city)! : outlet;
             try {
-              // The real restocking mechanism, per direct request —
-              // not a direct transferItems call any more: a real
-              // picking list (shelf-ordered, even if this specific
-              // product has no real shelf position recorded at this
-              // specific warehouse), a real tick-off, then a real
-              // dispatch that itself calls transferItems internally —
-              // the exact same real, physical stock movement as
-              // before, just genuinely routed through the real
-              // mechanism this app now has for it.
+              // Routed through the picking-list/dispatch mechanism (not a direct transferItems call).
               const runRef = `${ref}-RESTOCK`;
               const restockLines = [{ item: item.name, quantity: toSend }];
               getRestockPickingList(runRef, warehouse.name, restockLines);
@@ -374,9 +284,6 @@ async function main() {
     }
   }
 
-  // Actually pay the vendor — via the real, already-correct AP payment
-  // mechanism (stageAPPayment/postAPPayment already post a genuine,
-  // balanced GL entry; they were simply never called before).
   let paymentsPosted = 0;
   let totalPaidMinor = 0;
   scheduledPayments.sort((a, b) => a.payDay - b.payDay);
@@ -391,18 +298,14 @@ async function main() {
 
   // ---------------------------------------------------------------
   console.log('\n=== 2b. Real, manual AR/AP invoices, allocated three real ways ===');
-  // Per direct request: exercise the real, direct invoice-allocation
-  // mechanism (AR Receipt/AP Payment, built this session) three,
-  // real, distinct ways a real, live business genuinely encounters —
-  // not just posting a receipt/payment in isolation, the way the
-  // rest of this simulation already, largely does.
+  // Exercises invoice allocation (AR Receipt/AP Payment) three ways a live business
+  // encounters it, not just posting a receipt/payment in isolation.
   const allocationCustomer = 'Riverside Wine Merchants Pty Ltd';
   const allocationVendor2 = 'Alpine Cellar Imports GmbH';
   create(requireEntity('Accounts Receivable', typeRootName), typeCustomerName, allocationCustomer, 1);
   create(requireEntity('Accounts Payable', typeRootName), typeProviderName, allocationVendor2, 1);
 
-  // (1) Full payment — a real invoice, paid off completely, in one,
-  // single, real receipt.
+  // (1) Full payment.
   const fullPayInvoiceId = createInvoice(
     { invoiceType: 'AR', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AR-FULL', counterpartyName: allocationCustomer, invoiceDate: today(3),
       lines: [{ description: 'Case order — full payment example', amountMinor: 84000, taxMinor: 0 }] },
@@ -413,10 +316,7 @@ async function main() {
   postARReceipt('ALLOC-AR-FULL-RCPT', BUSINESS, LEDGER, 1);
   allocatePayment(fullPayInvoiceId, 'ALLOC-AR-FULL-RCPT-alloc', 84000, today(10), 'Cash and Bank', 1);
 
-  // (2) Partial payment — a real invoice, only item paid, a real,
-  // genuine balance still outstanding at month-end (matching how
-  // this simulation's own AP side already, deliberately leaves real
-  // amounts unpaid).
+  // (2) Partial payment — balance left outstanding at month-end.
   const partialPayInvoiceId = createInvoice(
     { invoiceType: 'AR', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AR-PARTIAL', counterpartyName: allocationCustomer, invoiceDate: today(5),
       lines: [{ description: 'Case order — partial payment example', amountMinor: 120000, taxMinor: 0 }] },
@@ -427,13 +327,9 @@ async function main() {
   postARReceipt('ALLOC-AR-PARTIAL-RCPT', BUSINESS, LEDGER, 1);
   allocatePayment(partialPayInvoiceId, 'ALLOC-AR-PARTIAL-RCPT-alloc', 50000, today(14), 'Cash and Bank', 1);
 
-  // (3) Overpayment — a real receipt genuinely larger than the real
-  // invoice it's for; only the invoice's own, real, outstanding
-  // amount is allocated to it, the real, remaining excess
-  // deliberately left unallocated — a real, genuine customer credit
-  // balance, exactly as a real business would see it (allocatePayment
-  // itself already, correctly refuses to allocate more than a real
-  // invoice's own outstanding balance).
+  // (3) Overpayment — only the invoice's own outstanding amount is allocated;
+  // the excess is left unallocated as a customer credit balance (allocatePayment
+  // refuses to allocate more than the invoice's outstanding balance).
   const overpayInvoiceId = createInvoice(
     { invoiceType: 'AR', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AR-OVERPAID', counterpartyName: allocationCustomer, invoiceDate: today(7),
       lines: [{ description: 'Case order — overpayment example', amountMinor: 60000, taxMinor: 0 }] },
@@ -447,10 +343,7 @@ async function main() {
   allocatePayment(overpayInvoiceId, 'ALLOC-AR-OVERPAID-RCPT-alloc', overpayOutstanding, today(16), 'Cash and Bank', 1);
   const overpayUnallocatedMinor = overpayReceiptMinor - overpayOutstanding;
 
-  // The exact, same, real three scenarios, mirrored on the AP side —
-  // a real, second, distinct vendor from the one already used above,
-  // so its own real, outstanding balance is genuinely isolated and
-  // easy to find/verify directly.
+  // Same three scenarios, mirrored on the AP side with a second, distinct vendor.
   const fullPayAPInvoiceId = createInvoice(
     { invoiceType: 'AP', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AP-FULL', counterpartyName: allocationVendor2, invoiceDate: today(4),
       lines: [{ description: 'Case order — full payment example', amountMinor: 45000, taxMinor: 0 }] },
@@ -478,14 +371,8 @@ async function main() {
 
   // ---------------------------------------------------------------
   console.log('\n=== 2c. Real, alternate suppliers for a handful of products ===');
-  // Per direct request: "products need the notion of normal and
-  // alternate suppliers, so purchase orders need to match suppliers
-  // of products being ordered." Every real product already, above,
-  // got its own, single, preferred source — this adds a real, second,
-  // genuine, alternate source for a handful of them, so the Purchase
-  // Order page's own, real vendor-matching UI has real, live data to
-  // actually exercise, not just the one, single, "only known source"
-  // scenario every other product still has.
+  // Adds a second, non-preferred source for a handful of products, so the PO
+  // page's vendor-matching UI has data beyond the single "only known source" case.
   const alternateSupplierCandidates = dozen.slice(0, 6);
   for (const p of alternateSupplierCandidates) {
     addOrUpdateItemSource({
@@ -538,11 +425,8 @@ async function main() {
       const lines = [];
       let feasible = true;
       const partsThisSale = new Set<string>();
-      // Once the first line determines whether this basket is cold or
-      // warm, later lines stay in the same category — completePosSale
-      // only supports one stock location per sale, and mixing would
-      // otherwise make a large, unrealistic fraction of multi-line
-      // sales simply impossible rather than genuinely rare.
+      // Later lines stay in the same cold/warm category as the first — completePosSale
+      // only supports one stock location per sale.
       let saleIsCold: boolean | null = null;
       for (let l = 0; l < lineCount; l++) {
         const candidates = saleIsCold === null ? dozen : dozen.filter((p) => coldProducts.has(p.name) === saleIsCold);
@@ -551,18 +435,10 @@ async function main() {
         partsThisSale.add(item.name);
         saleIsCold = coldProducts.has(item.name);
 
-        // Cold products are sold from that outlet's refrigerated
-        // display, not its ordinary shelf — the same completePosSale
-        // call, just a different source location for stock/COGS purposes.
+        // Cold products sell from the refrigerated display, not the ordinary shelf.
         const sellLocation = coldProducts.has(item.name) ? `${outlet.name} — Refrigerated` : outlet.name;
 
-        // Beer genuinely sells three ways: single bottle, six-pack (a
-        // real ~8% discount vs. six singles, a typical real-world
-        // deal), or occasionally a full carton for a party. Every
-        // other product sells at least two ways too — mostly single
-        // bottles, occasionally a full carton (a steeper discount) —
-        // "at least bottle and carton" for the whole catalog, not just
-        // beer.
+        // Beer sells bottle/six-pack(~8% off)/carton; everything else sells bottle/carton.
         let qty: number;
         let unitPriceMinor: number;
         let tier: string;
@@ -603,10 +479,7 @@ async function main() {
         continue;
       }
       try {
-        // completePosSale takes one location for the whole sale — cold
-        // and ordinary items can't genuinely mix in one register
-        // transaction here, so skip (rare, most sales are single-category)
-        // rather than force an incorrect stock location.
+        // completePosSale takes one location per sale; skip rather than force a wrong one.
         const locationsInSale = new Set(lines.map((l) => l.locationOverride));
         if (locationsInSale.size > 1) {
           saleFailures++;
@@ -630,12 +503,7 @@ async function main() {
         );
         saleInvoiceIds.push(result.invoiceId);
         saleCount++;
-        // Real COGS + Inventory-value reduction now happens directly
-        // inside completePosSale itself — a real, structural fix
-        // (this simulation's own, earlier, manual workaround here is
-        // no longer needed at all, and would double-post if left in
-        // place). Reads each product's own real cost from the exact,
-        // same item_source data already registered above.
+        // COGS + inventory-value reduction happens inside completePosSale itself.
       } catch {
         saleFailures++;
       }
@@ -644,16 +512,8 @@ async function main() {
   console.log(`${saleCount} retail sales completed (${saleFailures} skipped — insufficient stock at that moment, expected at this volume).`);
 
   console.log(`\n=== Foreign-currency sales: one real POS terminal, one real border-town location, real exchange rates ===`);
-  // Per direct request: the real currency-exchange-rate mechanism
-  // (ensureCurrencyPair/setCurrencyExchangeRate, and the real,
-  // separate border-multicurrency-pos-plan.md terminal-currency
-  // mechanism it's built to support) had real, isolated unit test
-  // coverage but had never once been exercised against this real,
-  // full-scale simulation - confirmed directly, a genuine gap, not
-  // assumed fine because the isolated tests passed. A real, 3-currency
-  // cartesian setup (AUD home, USD and EUR foreign) - 9 total real
-  // pairs, 3 trivial self-pairs, 6 real, distinct, independently-set
-  // buy/sell rates, exactly per docs/multicurrency-design.md.
+  // 3-currency cartesian setup (AUD home, USD/EUR foreign): 6 distinct, independently-set
+  // buy/sell rates plus 3 trivial self-pairs — see docs/multicurrency-design.md.
   const CCY_PAIRS: [string, string, number, number][] = [
     ['AUD', 'USD', 65000, 65500],
     ['USD', 'AUD', 153000, 154000],
@@ -693,20 +553,15 @@ async function main() {
       );
       usdSaleCount++;
     } catch {
-      /* insufficient stock at that moment, same, real tolerance as the ordinary retail loop above */
+      /* insufficient stock at that moment */
     }
   }
   console.log(`${usdSaleCount} real USD sales completed through Border Store USD Till, at real, independently-configured exchange rates.`);
 
   console.log(`\n=== Wine bars: one per division, selling by the glass ===`);
-  // A real, deliberate simplification, stated plainly: cocktails are
-  // given a real BOM (per no-new-tables, the exact same, existing
-  // assembly mechanism already proven in
-  // backend/scripts/proof-year-end-lifecycle.ts) recording their real
-  // recipe for costing/reporting purposes, but are stocked here as a
-  // directly-received, pre-mixed item for actual sale - a full
-  // "assemble from raw components at time of sale" flow is real,
-  // separate, future work (see docs/stock-lifecycle-review-plan.md).
+  // Cocktails get a BOM (existing assembly mechanism) recording their recipe for
+  // costing, but are stocked as a pre-mixed, directly-received item for sale —
+  // assembly-at-time-of-sale is separate future work (docs/stock-lifecycle-review-plan.md).
   const wineBars = listLocations().filter((l) => l.location_type === 'Wine Bar');
   const wineByGlass = ['Barossa Shiraz 2021', 'Margaret River Chardonnay 2022'];
   const beerByGlass = ['Golden Lager 330ml', 'Amber Ale 330ml'];
@@ -723,8 +578,7 @@ async function main() {
 
   let wineBarSaleCount = 0;
   for (const bar of wineBars) {
-    // Stock each real item this wine bar sells - wine/beer/soft drinks
-    // by their two real glass-size tiers, cocktails and snacks as-is.
+    // Wine/beer/soft drinks stocked by their two glass-size tiers; cocktails/snacks as-is.
     for (const base of [...wineByGlass, ...beerByGlass, ...softDrinksByGlass]) {
       for (const tier of ['Small Glass', 'Large Glass']) {
         const { tierItemName } = ensureItemTier(base, tier, 1);
@@ -795,30 +649,16 @@ async function main() {
         },
         1
       );
-      // A real bug found and fixed here, not assumed correct: the
-      // original sale posts to a specific package-tier's own real
-      // Sales account (e.g. "Sales - X (Bottle)"), but
-      // ensureItemSalesCogsAccounts without a tier falls back to a
-      // plain, tier-less account that was never the real account the
-      // sale itself used — creating a separate, disconnected "ghost"
-      // account that only ever holds tiny, orphaned return amounts.
-      // Found the real, actual account the original sale posted to
-      // directly, rather than guessing or reconstructing it.
+      // The original sale posts to a tier-specific Sales account (e.g. "Sales - X
+      // (Bottle)"); ensureItemSalesCogsAccounts without a tier would fall back to a
+      // different, tier-less "ghost" account, so look up the account the sale actually used.
       const originalSalesAccounts = getAccountsPostedTo(original.reference).filter((n) => n.startsWith('Sales - '));
       const salesAccount = originalSalesAccounts[0] ?? ensureItemSalesCogsAccounts(line.itemName!, 1).salesAccount;
       const originalLocationMatch = original.description?.match(/^POS sale at (.+)$/);
       const returnLocation = originalLocationMatch?.[1];
       const returnDivision = returnLocation ? getDivisionForLocation(returnLocation) : undefined;
-      // A real, direct fix per direct question: "it definitely cannot
-      // go back on the shelves" — confirmed exactly right. The
-      // financial reversal (crediting the customer) is real and
-      // correct, but restockInventory: true was previously putting a
-      // genuinely corked, unsellable bottle back into real, sellable
-      // stock. Fixed: never restock a spoiled return — the bottle
-      // simply never becomes sellable stock again, the same real,
-      // permanent loss "Breakage & Spoilage" already represents
-      // elsewhere in this simulation, not a separate write-off entry
-      // needed on top of the credit note's own real reversal.
+      // A spoiled return is never restocked — the financial reversal (crediting the
+      // customer) happens, but the bottle doesn't become sellable stock again.
       postInvoice(creditId, salesAccount, 'Sales Tax Payable', 1, false, returnDivision);
       returnCount++;
     } catch {
@@ -834,9 +674,7 @@ async function main() {
     const takeId = createStockTake(location.name, today(28), 1);
     const take = (await import('../src/db.js')).getStockTake(takeId)!;
     for (const line of take.lines) {
-      // Only products actually traded in this simulation have a real
-      // defined unit cost — anything else at a location has no real
-      // activity, so it must not get random variance applied.
+      // Only products actually traded here have a defined unit cost; others get no variance.
       const variance = unitCostMinor[line.item] != null && seededRandom() < 0.15 ? rand(-2, 2) : 0;
       recordStockTakeCount(takeId, line.item, Math.max(0, line.expected_quantity + variance));
     }

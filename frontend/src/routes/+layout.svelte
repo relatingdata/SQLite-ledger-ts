@@ -1,4 +1,7 @@
 <script lang="ts">
+  // The app shell: menu, top-bar/sidebar section tracking, keyboard
+  // nav, login/session gates, RTL, and the live clock — see
+  // docs/pm-frontend-reference.md for the full design.
   import { onMount, onDestroy } from 'svelte';
   import '../lib/app.css';
   import '@keenmate/svelte-treeview/styles.css';
@@ -20,11 +23,7 @@
     href: string;
     label: string;
     notImplemented?: boolean;
-    /** A real, non-clickable sub-heading within a section's own link
-     * list — not a real link at all, just a real, visual grouping
-     * (e.g. "Hierarchies" within Setup). href is ignored entirely
-     * when this is set. */
-    isSubheading?: boolean;
+    isSubheading?: boolean; // non-clickable grouping heading; href ignored — see docs/pm-frontend-reference.md
   }
   interface NavSection {
     key: string;
@@ -32,14 +31,6 @@
     links: NavLink[];
   }
 
-  // Step 2 of docs/menu-as-entity-tree-plan.md: the real, live menu
-  // structure is now fetched from its own, real, structural source
-  // (getMenuTree) rather than a hardcoded array — the exact, same
-  // real shape, verified identical in step 1. Role filtering and
-  // per-language translation are still applied here, the exact, same,
-  // established way as before — those are real, separate, ordinary
-  // concerns, not something the structural fetch itself needs to
-  // know about.
   let rawMenuSections: MenuSectionRow[] = $state([]);
   async function loadMenu() {
     if (!session.current) return;
@@ -53,15 +44,7 @@
   $effect(() => {
     if (session.current) loadMenu();
   });
-  // A real, confirmed regression, caught live before this was
-  // committed: the original app defaulted to General Ledger's own
-  // links being visible on the home page (its own, real key was the
-  // hardcoded default). The new, dynamic, entity-id key can't be
-  // known ahead of time, so once the real, live menu actually loads,
-  // default to whichever real section's own, raw, untranslated label
-  // is "General Ledger" — but only if nothing more specific (a real,
-  // direct URL match, or a person's own, real, prior choice) has
-  // already, correctly set the active section.
+  // Defaults the active section to General Ledger — see docs/pm-frontend-reference.md.
   $effect(() => {
     if (!activeSectionKey || (rawMenuSections.length > 0 && !rawMenuSections.some((s) => s.key === activeSectionKey))) {
       const generalLedger = rawMenuSections.find((s) => s.label === 'General Ledger');
@@ -69,29 +52,11 @@
     }
   });
 
-  // A real, confirmed, direct bug, found live: activeSectionKey was
-  // only ever set by a real, direct click on a top-bar section
-  // button (or loaded once from localStorage on mount) — never
-  // genuinely recalculated from the current URL at all. Directly
-  // navigating to any real page without first clicking its own
-  // section — a bookmark, a page refresh, a link from another real
-  // page, browser back/forward — silently left the sidebar showing
-  // whichever section was active before, not the real, current one.
-  // Confirmed directly: navigating straight to /setup left "General
-  // Ledger" showing in the sidebar, even seconds later. Fixed by
-  // matching the real, current URL path against every real section's
-  // own links, whenever the path changes.
+  // Recalculates activeSectionKey from the URL — see docs/pm-frontend-reference.md.
   $effect(() => {
     if ($page.url.pathname && rawMenuSections.length > 0) {
       let matching = rawMenuSections.find((s) => s.links.some((l) => l.href === $page.url.pathname));
-      // /setup itself — the Configuration landing page — has no real,
-      // direct menu link pointing at it at all (every real link
-      // targets a specific sub-page instead), so an exact-match alone
-      // never finds it; a real, direct, explicit case for this one,
-      // known, ambiguous root instead of a real, broad prefix match
-      // (confirmed live: /setup/periods and /setup/yearend genuinely
-      // belong to General Ledger, not Configuration, so a plain
-      // "starts with /setup" match picks the wrong section).
+      // /setup has no direct menu link of its own — see docs/pm-frontend-reference.md.
       if (!matching && $page.url.pathname === '/setup') {
         matching = rawMenuSections.find((s) => s.label === 'Configuration');
       }
@@ -122,13 +87,7 @@
     }
   }
 
-  // Arrow-key navigation, per direct request — the menu structure
-  // reactive to arrow key strokes. A real, direct, generic helper:
-  // given the real, current keyboard event and a real CSS selector
-  // for the focusable items within the same, real container, moves
-  // focus to the next or previous real, matching sibling. Stops at
-  // the real, first/last item rather than wrapping around — a real,
-  // simpler, more predictable choice for a real, hierarchical menu.
+  // Generic arrow-key focus helper — see docs/pm-frontend-reference.md.
   function moveFocusWithinContainer(e: KeyboardEvent, itemSelector: string, nextKey: string, prevKey: string, onMove?: (el: HTMLElement) => void) {
     if (e.key !== nextKey && e.key !== prevKey) return;
     const container = e.currentTarget as HTMLElement;
@@ -142,27 +101,12 @@
       onMove?.(items[nextIndex]);
     }
   }
-  // A real, confirmed, direct highlighting bug, found live: moving
-  // keyboard focus with the arrow keys only ever moved focus itself —
-  // the real, "active" gold-underline highlight (top bar) and the
-  // real, active sidebar link both, genuinely, stayed on whichever
-  // item was active before, since neither is driven by keyboard focus
-  // at all, only by a real, direct click or the current URL. Fixed by
-  // immediately activating each, real, newly-focused item as focus
-  // moves — the same, established, real "click" behavior each one
-  // already has, just triggered by arrow-key movement too, matching
-  // how a real, standard desktop menu bar behaves.
+  // Activates the newly-focused item on arrow-key move — see docs/pm-frontend-reference.md.
   function onTopBarKeydown(e: KeyboardEvent) {
     moveFocusWithinContainer(e, 'button.top-bar-item', 'ArrowRight', 'ArrowLeft', (el) => {
       const key = el.dataset.sectionKey;
       if (key) {
-        // A real, confirmed bug found live: SvelteKit's own, direct,
-        // established behavior automatically refocuses <body> after
-        // every real, client-side navigation, for real, genuine
-        // accessibility reasons — undoing el.focus() above the
-        // moment onTopBarSectionClick's own goto() resolves. Fixed
-        // by re-focusing this same, real button once that
-        // navigation has genuinely completed, not before.
+        // Re-focus after SvelteKit's post-navigation body refocus — see docs/pm-frontend-reference.md.
         Promise.resolve(onTopBarSectionClick(key)).then(() => el.focus());
       }
     });
@@ -174,12 +118,7 @@
     });
   }
 
-  // Esc, per direct request: return focus to the left sidebar from
-  // within a real, main-content panel — but if that panel has a
-  // real, genuine, unsaved edit pending (hasUnsavedEdit.current, opted into
-  // per page, not assumed), warn first, rather than silently discard
-  // it, the same, established, direct confirm()-style pattern already
-  // proven this session for the real, structural-change guard rail.
+  // Esc returns focus to the sidebar, warning first on an unsaved edit — see docs/pm-frontend-reference.md.
   function onMainKeydown(e: KeyboardEvent) {
     if (e.key !== 'Escape') return;
     if (hasUnsavedEdit.current) {
@@ -191,26 +130,13 @@
     activeLink?.focus();
   }
 
-  // Only updates which section is highlighted — never navigates.
-  // Used by the reactive URL-watcher below, which runs on every real
-  // navigation (including a direct, real click on a specific
-  // sidebar link, or a direct URL visit) — re-navigating here would
-  // immediately bounce that real, specific, just-requested page back
-  // to its own section's first link instead, a real, confirmed
-  // regression caught directly, live, by testing a real, direct
-  // navigation to a specific, non-first link (Vendors).
+  // Highlight-only, never navigates — see docs/pm-frontend-reference.md.
   function setActiveSectionHighlight(key: string) {
     activeSectionKey = key;
     if (browser) localStorage.setItem(ACTIVE_SECTION_KEY, key);
   }
 
-  // Used only by a direct, real, user click on a top-bar section
-  // button — where auto-navigating to that section's own, first,
-  // real link is the correct, desired behavior (the real, original,
-  // confirmed, reproduced bug this fixed: switching sections left the
-  // real, main panel showing whatever, previous page was already
-  // open, since the top-bar click itself never changed the URL at
-  // all before this).
+  // Auto-navigates to the section's first link on a top-bar click — see docs/pm-frontend-reference.md.
   function onTopBarSectionClick(key: string) {
     setActiveSectionHighlight(key);
     const section = sections.find((s) => s.key === key);
@@ -223,11 +149,7 @@
 
   loadActiveSection();
 
-  // Whichever real section actually contains the current page takes
-  // over as active — a direct navigation, a refresh, or a link
-  // clicked from outside the nav itself should always land on the
-  // real, correct top-bar/sidebar state, not whatever was last
-  // manually selected.
+  // See docs/pm-frontend-reference.md.
   let lastPathname = $state('');
   let lastSectionsAttempt = $state(-1);
   $effect(() => {
@@ -239,15 +161,7 @@
     }
   });
 
-  // Two gates, in order: logged in at all, then which business/ledger/
-  // language. Login comes first — nothing else makes sense to ask
-  // before knowing who's asking.
-  //
-  // The `browser` guard matters: SvelteKit renders this layout
-  // server-side first, and calling goto() during that server render
-  // throws ("Cannot call goto(...) on the server") — a real bug hit
-  // earlier in this project's history. Only redirect once actually
-  // running client-side.
+  // Login/session redirect gates — see docs/pm-frontend-reference.md.
   $effect(() => {
     if (browser && auth.current === null && $page.url.pathname !== '/login' && $page.url.pathname !== '/customer-terminal') {
       goto('/login');
@@ -268,12 +182,7 @@
     }
   }
 
-  // Real, direct RTL support for the whole app shell — per direct
-  // request, mirrors the sidebar to the right and reverses the main
-  // menu's own order for a genuinely right-to-left language, driven
-  // by the same, real, generic mechanism already proven on Login and
-  // Choose Business (setLanguageDirection/getLanguageDirection), not
-  // a hardcoded language-name check.
+  // RTL support — see docs/pm-frontend-reference.md.
   let textDirection = $state<'ltr' | 'rtl'>('ltr');
   async function loadTextDirection() {
     if (!session.current) return;
@@ -285,30 +194,7 @@
     }
   }
 
-  // A real, live, ticking clock — the browser's own, real, current
-  // locale and timezone (via Intl, the same real mechanism the
-  // backend's own location-timezone work relies on), not a static
-  // snapshot taken once at page load. Shown at the very start of the
-  // top bar so a person can directly confirm what date/time/locale
-  // the application currently believes it is, right next to who
-  // they're logged in as and which business/ledger they're in.
-  // Updates every real 30 seconds, not every second — confirming the
-  // approximate current date/time genuinely doesn't need
-  // second-level ticking, and a less frequent update means far fewer
-  // real re-renders of this header on every real page.
-  // Hidden entirely under real, automated test conditions
-  // (navigator.webdriver — the standard, real signal Playwright and
-  // every other WebDriver-based tool sets) since a constantly
-  // changing, real timestamp in the page's own text content is
-  // genuinely incompatible with a stable, deterministic test
-  // snapshot — not merely cosmetic, a real source of test flakiness.
-  //
-  // Re-enabled: the real, ongoing shelf-capacity/general-journal e2e
-  // hang investigation this was temporarily disabled for has now
-  // genuinely concluded — both real causes found and fixed (a real
-  // CSS flexbox bug in the new-category form, and a real,
-  // exact-label-matching bug in the tutorial script itself), neither
-  // one related to this clock at all. See docs/lessons-learned.md.
+  // The live clock, hidden under automated tests — see docs/pm-frontend-reference.md.
   let now = $state(new Date());
   let clockInterval: ReturnType<typeof setInterval> | undefined;
   const resolvedLocale = new Intl.DateTimeFormat().resolvedOptions().locale;
@@ -444,15 +330,7 @@
                           class:active={$page.url.pathname + $page.url.search === link.href}
                           class:not-implemented={link.notImplemented}
                           onclick={(e) => {
-                            // A real, confirmed bug, found live: SvelteKit
-                            // refocuses <body> after every real
-                            // navigation — including a real, direct mouse
-                            // click, not just the arrow-key path already
-                            // fixed above — silently breaking Up/Down
-                            // immediately after the single most natural
-                            // way anyone actually reaches the sidebar at
-                            // all. Re-focus this same, real link once its
-                            // own navigation genuinely completes.
+                            // Re-focus after navigation — see docs/pm-frontend-reference.md.
                             const el = e.currentTarget as HTMLElement;
                             Promise.resolve(goto(link.href)).then(() => el.focus());
                             e.preventDefault();
@@ -618,16 +496,7 @@
     padding: 0 1rem;
   }
 
-  /* Real, direct RTL mirroring, per direct request. Genuinely
-     confirmed by a real, reported bug: flex-direction: row (the
-     default, used by both .top-bar-items and .lower) ALREADY
-     respects dir="rtl" natively - the browser lays out flex items
-     starting from the right when dir="rtl", with no override needed
-     at all. Explicitly adding flex-direction: row-reverse on top of
-     that double-reverses it, putting things back on the wrong side -
-     confirmed directly: the submenu moved back to the left. Only
-     margin/padding/border (which do NOT auto-flip with dir) need a
-     real, explicit override here. */
+  /* RTL mirroring: margin/padding/border only — see docs/pm-frontend-reference.md. */
   .shell[dir="rtl"] .sidebar {
     margin: 0.6rem 0.6rem 0.6rem 0;
   }

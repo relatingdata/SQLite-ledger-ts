@@ -475,3 +475,324 @@ time. Regenerate via `node --import tsx
 backend/scripts/generate-entity-chains-doc.ts` after any structural
 change, rather than trusting a stale copy; it is not duplicated here
 since it would go stale the moment this file isn't updated in lockstep.
+
+## Contacts, credit, and aging
+
+A customer/vendor's credit status (`getCreditStatus`) compares their
+entity's own live balance (already the true, current outstanding
+amount) against their configured `credit_limit_minor` — a
+non-blocking check; callers decide whether to warn or refuse. Aging
+buckets (`getAgedInvoices`/`getAgedSummary`) are derived per-account
+from `payment_terms_days` (null → conventional 30/60/90; 0 → cash-only,
+whose single bucket boundary is 0 itself — nothing is ever exempt from
+aging), never a fixed 30/60/90 for every account.
+
+## Invoices — AR and AP share one mechanism
+
+Invoices are the real billing event, distinct from the physical
+Dispatch Note/Goods Receipt. AR and AP mirror each other (same shape,
+debit/credit sign flipped) — `postInvoice` debits the customer for AR,
+credits the vendor for AP; a Credit Note/Debit Memo is the same
+mechanism run in reverse, correcting an invoice, so its effect on the
+counterparty and on revenue/expense is the opposite of an ordinary
+invoice's. `postInvoice`'s `revenueOrExpenseAccount` parameter is
+normally one account name (a lump-sum line), but can be a function
+instead, posting one line per `invoice_detail_line` to each product's
+own Sales/COGS leaf — this is the fix for "the same two aggregate
+accounts absorb every product's revenue."
+
+`counterpartyAccountOverride` lets a sale post straight to a payment
+account instead of the customer's AR balance — for a genuinely
+immediate cash sale, which has no real receivable at all, even
+momentarily; the invoice record's own counterparty is untouched either
+way, for history/receipt purposes.
+
+`allocatePayment` records that a receipt/payment was applied against a
+specific invoice (needed since a receipt can span several invoices)
+**and** posts the real GL movement this represents. This GL-posting
+behavior was added after a confirmed, live finding: it previously only
+recorded the allocation as a tracking fact without ever touching the
+ledger, so a "paid" sale's cash never actually reached Cash and Bank
+and the customer's AR balance never actually went down — confirmed
+against real data, where $920,626.23 in sales marked paid via this
+function had only $500 ever actually reach Cash and Bank.
+`skipJournalPosting: true` is for the case where the cash-side GL
+effect already happened once elsewhere (an immediate cash sale's
+initial posting) — only the allocation record is needed, not a second
+journal entry. The allocation record is only written after the
+underlying journal posting has genuinely succeeded (or was correctly
+skipped), not before, so a "successful" allocation can never be
+recorded while the actual cash movement failed to post.
+
+`getCustomerStatement` deliberately does not reuse
+`getInvoiceOutstandingMinor` as-is — that sums every allocation ever
+made regardless of date, correct for "right now" but wrong for a
+historical "as of" statement, which must only count payments actually
+allocated by that date. Recomputed directly, filtered by
+`allocation_date`.
+
+## E-invoicing (UBL 2.1)
+
+`exportInvoiceAsUbl`/`parseUblInvoice` target the core, mandatory UBL
+2.1 fields (the structure Peppol BIS Billing 3.0/PINT A-NZ build on)
+rather than every optional business rule in the full schema — a
+genuinely UBL-structured document, not a claim of full
+network-certified compliance. Import uses deliberately simple,
+regex-based field extraction rather than a full XML parser dependency,
+since the fields needed back out are a small, well-known set within a
+document this same export function already produces in a predictable
+shape.
+
+`checkEInvoiceDiscrepancies` is the "3-way match" — compares an
+incoming e-invoice against the PO it claims to be for (matched by
+vendor and a close-enough total, with a 1-cent-per-line rounding
+tolerance), surfacing genuine mismatches. Returns empty both when
+everything matches and when no matching PO can be found at all — the
+caller decides separately how to handle "no PO found."
+`importUblInvoiceAsDraft` imports a parsed e-invoice as a draft AP
+invoice, deliberately never auto-posted — the existing draft status is
+itself the approval gate (no GL effect until someone reviews and posts
+it, the same mechanism every other invoice uses); any discrepancy
+found is recorded directly in the invoice's description so it's
+visible to whoever reviews the draft.
+
+## Picking, packing, dispatch, and restocking
+
+Built on the existing invoice mechanism (an unposted invoice *is* an
+approved order — no new "order" concept needed) and the existing
+`item_location` shelf fields, not the old abstract Qty/Value
+stock-dispatch mechanism, which never knew about real shelves.
+`getPickingList` sorts by shelf order — rack (alphabetical), then
+level (low to high, so a person works one level at a time), then
+shelf side — with shelf detail printed last so the column can be torn
+off before the list goes out with the delivery, without a customer
+ever seeing the warehouse layout. A line with no shelf recorded sorts
+last, not first.
+
+`confirmPickedLine` is the third and final exception to the
+single-financial-posting-path rule described above: a bare `journal`
+row with no `journal_line` and no account at all, since a tick-off has
+no financial or quantity meaning whatsoever — the real stock reduction
+happens once, later, at `dispatchOrderFromPickingList`.
+`dispatchOrderFromPickingList` is the "delivery run/courier pickup
+completed" moment: posts the invoice (recognizing revenue) and
+dispatches physical stock via the same `dispatchItems` mechanism POS
+sales already use.
+
+Restocking retail outlets from a warehouse (`getRestockPickingList`/
+`confirmRestockPickedLine`/`dispatchRestockFromPickingList`) is a
+deliberately separate case — an internal transfer has no customer and
+no revenue, so it's genuinely not an invoice, but needs the same
+shelf-order/tick-off/refuse-until-complete pattern. Built on
+`transferItems` rather than `dispatchItems`/`postInvoice`. Each line's
+transfer reference must be distinct per product within a run, since
+`journal.reference` must be unique per (business, ledger) and a shared
+base reference across products in the same run would collide.
+
+## POS and cash-register flows
+
+`completePosSale` completes a full register sale as one atomic
+operation — posts the invoice, dispatches stock from the specific
+location the sale happened at, and (for cash/card) allocates full
+payment immediately — rather than three separate calls that could
+leave a sale half-completed. Stock availability at the exact location
+is checked for every line before anything is written. It also posts
+COGS and reduces Inventory for the sale (added after a confirmed
+finding that this function previously posted revenue/tax only, with no
+real COGS effect and no Inventory reduction in live use) — a product
+with no known supplier/cost registered yet simply posts no COGS/
+Inventory line for itself, rather than a fabricated cost.
+`completeCashPurchase` mirrors this exactly for the purchase side:
+posts straight to Cash and Bank (no AP round-trip), receives physical
+stock at an explicit chosen location (any location, not just a
+warehouse — a wholesale purchase might receive directly into a retail
+outlet).
+
+A POS terminal (`terminalName`) resolves its own currency
+(`getEffectiveSaleCurrency`) and auto-fills any line's unspecified
+`unitPriceMinor` from that item's matching `item_source` row for that
+currency — two terminals at the same location can transact in
+genuinely different currencies. A sale resolving to a currency the
+location never nominated is rejected outright, per "Where currency
+lives, and precedence" below.
+
+Barcode scanning at the register: `getItemByUpc` is an exact match
+(a scanner types the UPC and hits Enter) and returns `undefined` for
+no match, never a fuzzy search or a NULL-UPC coincidence.
+`getCombinationByUpc` is the combination-aware counterpart (see
+"Barcode scanning" in `pm-entity-model.md`).
+
+### Account resolution split between frontend and backend
+
+Per `docs/canned-journal-to-frontend-design.md`: for a canned Cash
+Purchase/Cash Sale/Transfer, everything about *which* account is a
+deterministic, given-the-form's-own-inputs computation that lives in
+the frontend (`frontend/src/lib/canned-journal.ts`). The one thing
+that cannot move there is whether a specific item's real,
+location-qualified cartesian-product account (Inventory/Sales/COGS
+leaf) already exists — a genuinely stateful fact only the server can
+safely decide, since two concurrent users' browsers can't both safely
+decide whether an account already exists. `resolveCashTransactionAccounts`/
+`resolveSaleAccounts`/`resolveTransferAccounts` are the three narrow,
+server-side resolvers for this — none of them ever resolves or returns
+a division/category: every dimension is already baked into the
+account's own name. `resolveOpenContainerAccounts` is the equivalent
+for Open Container, which (unlike the other three) has no physical
+quantity-on-hand side effect — it only reclassifies which storage-space/
+Inventory tier the same stock already sits in.
+
+## Employee payroll and timecards
+
+`payEmployeeWages` treats an employee as an AP counterparty (the same
+mechanism a vendor invoice uses) but posts a genuine multi-line entry,
+not a simple two-sided one: gross pay (an expense), a Medicare levy
+withheld from the employee's own pay (a liability owed to the ATO, not
+a business cost — reduces what they're owed), and a superannuation
+employer contribution on top of gross pay (an additional business
+cost **and** a separate liability to a super fund, never touching the
+employee's own balance) — three independent amounts, not one derived
+from another. `MEDICARE_LEVY_RATE = 0.015` is a real, current flat
+Australian rate, deliberately not a bracketed/progressive scale (which
+would need an annual-income-threshold input this app doesn't collect).
+
+Timecards (`signOn`/`signOff`/`getActiveShiftsAtLocation`/
+`getOpenShiftForEmployee`) validate a PIN (`setPosPin`/`verifyPosPin`)
+directly, not through the app's users/roles login — a different kind
+of credential for a different purpose. Signing on genuinely *is* the
+timecard (`payEmployeeWages`'s hours-worked mode sums these shifts
+directly), so a shift's own `created_at` is its real signed-on-at
+timestamp, with no separate attribute needed. A second sign-on while
+already signed on elsewhere is refused — the matching query must look
+for the "Open" tag on the Shift entity itself (one level under the
+employee), not the employee directly, which was a confirmed bug that
+silently let a double sign-on through.
+
+`setLocationOpenHours`/`setEmployeeSchedule` are both built on the
+entity-tree mechanism already proven for typed addresses/phones — one
+named child entity per open day/scheduled shift, tagged to the real
+day entity. A proposed shift is validated against that location's open
+hours *unless* it's being scheduled outside them for a reason other
+than serving customers (cleaning, stocking, receiving a delivery before
+doors open) — what's genuinely limited instead is a hard cap on hours
+per day (`MAX_HOURS_PER_DAY = 12`) and per week, checked across every
+location an employee works combined, and a hard rule that the same
+employee cannot work two different locations at the same time, checked
+against every *other* location's already-saved shifts (never this
+location's own shifts, which are the ones about to be replaced).
+
+## Where currency lives, and precedence
+
+Per `docs/multicurrency-design.md`: operational currency facts exist
+at exactly two levels — **Location** (a set of currencies actually
+traded there, `nominateLocationCurrency`/`getLocationCurrencies`) and
+**Business** (one home/reporting currency, the default/fallback,
+`setBusinessHomeCurrency`). Division and Category are deliberately
+absent — both are pure reporting rollups, never operational units, and
+never nominate a currency of their own. A sale resolving to a currency
+a location never nominated is rejected, not silently allowed through.
+
+## Currency exchange is a cartesian product, not one rate per currency
+
+With N distinct currencies in active use there are N×N ordered pairs
+(From × To), of which exactly N are trivial self-pairs (always exactly
+1 — USD to USD is not a real exchange), leaving N×(N−1) real,
+independently-configurable rates. This reuses the same Hierarchy/
+Product cartesian mechanism already built for product combinations: a
+currency pair is a Product Instance whose two dimensions ("From
+Currency", "To Currency") both point at the same "Currency" Hierarchy
+grouping — no change needed to `defineProductShape` at all. Buy and
+sell rates per pair reuse `item_source` directly, keyed by two standing
+vendor rows ("FX Market (Buy)"/"FX Market (Sell)") against the pair's
+own `productInstanceId` — buying or selling a currency is, by design,
+no different from buying or selling any other item.
+`setCurrencyExchangeRate` expresses each rate as "how many minor units
+of the home/reporting currency equal one minor unit of
+`fromCurrency`," with buy and sell set independently (a genuine
+bid/ask spread, never one shared number); a self-pair is rejected
+outright, since its rate is always, definitionally 1.
+
+## Cash flow — bank account registration, cash position, and forecasting
+
+Three layers, per `docs/cash-flow-and-growth-planning.md`:
+
+1. **`registerBankAccount`** marks an existing GL account as genuinely
+   representing cash (Inventory and AR also sit under Asset but are
+   genuinely not cash). `scopeName` is a business or division name
+   (one division may bank with a different bank than another); `business`
+   is a separate, required fact from `scopeName`, since the shared
+   Chart of Accounts means a GL account like "Cash and Bank" can be one
+   single global entity used by every business — without an explicit
+   business link there'd be no honest way to know which business a
+   registered account belongs to once `scopeName` is a division.
+2. **`getCashPosition`** sums every registered bank account for one
+   business's ledger, grouped by currency (a €500 and a $500 are not
+   the same €1000 without a genuine exchange rate) — never blended into
+   one meaningless total. Each currency group's headroom (balance plus
+   overdraft limit) is null if any account in that group has no
+   arranged facility, since an unlimited headroom can't honestly be
+   computed from an unknown limit.
+3. **`getCashFlowForecast`** is a forward-looking projection (distinct
+   from the historical Cashflow Statement), combining three sources in
+   date order: anticipated AR receipts (every outstanding AR invoice's
+   own due date), committed AP payments, and anticipated recurring cash
+   movements (`journal_occurrences` filtered to lines touching a
+   registered bank account, explicitly excluding `journal.recurrence =
+   'once'` — without that exclusion, every historical one-off POS sale
+   and AP payment ever posted would flood into the "recurring" source
+   too, since `journal_occurrences` expands every journal into its own
+   occurrences). `starting_cash_minor` is deliberately home-currency
+   only — a genuinely multi-currency forecast is future work. A
+   shortfall is only ever evaluated against a known overdraft limit;
+   none is reported when the limit is unknown, rather than silently
+   treating "unknown" as "zero headroom."
+
+## Vocabulary, translation, and localized alternates
+
+The global Vocabulary (scoped through `Application`, distinct from
+each business's own separate "Vocabulary" entity) holds the canonical
+word per concept. `ensureVocabularyAlternate` lets a business (or
+user) choose a different word for a concept (e.g. "Suppliers" instead
+of "Vendors") — the word and its translations stay owned by the global
+Vocabulary by default; a local, business-owned word is only created
+the first time a genuinely new name (not already known anywhere) is
+chosen, after first checking whether that text already exists as a
+global synonym for some other concept and reusing it rather than
+duplicating. The concept's own "Header Account" hierarchy link (the
+same mechanism `getConceptsWithAlternates` reads) always points at
+whichever entity now carries the chosen name. `setVocabularyPreference`/
+`getLocalizedText` apply a 3-tier fallback — a user-scoped preference
+first, then business-scoped, then the global default — the same shape
+already proven for the menu (`getMenuTree`, also 3-tier: user, then
+business, then global). A menu override lives as a direct child entity
+of the menu item itself (`setEntityLink`), never a dedicated
+`menu_override` table or JSON.
+
+`setTranslation` prefers the Vocabulary concept over any other
+same-named entity when resolving which entity a translation attaches
+to (several unrelated entities can share a name — every business's own
+"Actual" ledger, for instance) — and sets `relation_id` directly from
+an already-resolved concept id via the low-level `entity_update`
+insert, rather than through `supersedeEntity`'s own generic,
+non-Vocabulary-scoped relation resolution, which was a confirmed bug:
+re-resolving "Actual" by bare name there could silently attach a
+translation to the wrong one of several same-named ledger entities.
+A genuine collision (two different concepts wanting the exact same
+word under the exact same language) is flagged to a log file
+(`docs/flagged-translation-collisions.log`) rather than silently
+worked around with a suffix, and never halts any other, unrelated
+translation.
+
+## The "active" ledger
+
+A per-business pointer at "the one ledger ordinary trading posts into
+right now," flipped by `rolloverToNewPeriod` (see
+`pm-reports-reference.md`) — deliberately *not* a hard lock on the old
+ledger, which stays postable forever for corrections. It's the
+frontend's Session screen default and the one fact `POST /post`
+checks before allowing a posting into a different ledger. Stored as a
+dedicated marker entity (a direct child of the business), pointing at
+the ledger entity **by id**, never by bare name — a ledger's own name
+("Actual") is deliberately not globally unique, so the general-purpose
+`setRelationship`/`getRelationship` helpers (which resolve a target by
+bare name) would silently resolve to the wrong business's "Actual" the
+moment more than one business exists.

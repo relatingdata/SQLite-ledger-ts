@@ -357,10 +357,6 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
     const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
     return pl.net_income_minor > 0;
   },
-  // A brand-new ledger's own P&L is genuinely zero until something is
-  // actually posted into it - Income/Expense are never carried
-  // forward across a rollover (docs/ledger-scoped-accounts-and-
-  // rollover.md), only the real, "used" Balance Sheet accounts are.
   profit_and_loss_zero: (a) => {
     const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
     return pl.net_income_minor === 0 && pl.total_income_minor === 0;
@@ -370,22 +366,11 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
     recordedNetIncome.set(plKey(a), pl.net_income_minor);
     return true;
   },
-  // The real, direct proof that closing the books never changes the
-  // P&L already reported for that same, real period - closeBooks'
-  // own closing entry is deliberately excluded from this read
-  // (excludeCloseEntries, default true, db-reports.ts), specifically
-  // so this stays true.
   profit_and_loss_net_income_matches_recorded: (a) => {
     const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
     const recorded = recordedNetIncome.get(plKey(a));
     return recorded !== undefined && recorded === pl.net_income_minor;
   },
-  // Confirms a real Set User Roles step genuinely left the user with
-  // exactly the role set asked for - the real, direct assertion the
-  // failing unit test itself makes (via a fresh login's own
-  // user.roles), read here the exact, same, real way listUsers()
-  // itself already reports every other real user's role set, never a
-  // separate, parallel mechanism.
   user_has_exact_roles: (a) => {
     const user = auth.listUsers().find((u) => u.username === a.username);
     if (!user) return false;
@@ -393,15 +378,7 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
     const actual = [...user.roles].sort();
     return expected.length === actual.length && expected.every((r, i) => r === actual[i]);
   },
-  // Confirms a real Set Translation step genuinely saved the exact,
-  // real text asked for - read back the exact, same, real way
-  // GET /api/i18n/text/:language itself already reports every other
-  // real saved translation, never a separate, parallel mechanism.
   translation_matches: (a) => db.getTranslation(a.concept, a.language) === a.translationText,
-  // A real, generic, screen-agnostic existence check, reusable by any
-  // real screen whose own fields include a plain "name" - confirms a
-  // real Add Vocabulary Word (or Create Entity) step genuinely left a
-  // real entity by that exact name somewhere in the real tree.
   entity_named_exists: (a) => db.getEntityTree().some((e) => e.name === a.name),
 };
 
@@ -432,14 +409,7 @@ function readCsvLines(path: string): { line: string; fileLine: number }[] {
     .filter((l) => l.line.trim() !== '');
 }
 
-// Per direct instruction: a real line in the data file itself, starting
-// with '#', is a real, free-text explanation of the step(s) that
-// follow it - never a data row, never counted as a real step, never
-// touching the control file at all (which stays exactly the four,
-// documented columns: path, verify, screenshot, skip). One or more
-// consecutive '#' lines accumulate into a single, real comment,
-// attached to the next real data row that follows them, shown before
-// that step runs - pretty-printed or during an actual run, api or ui.
+// '#'-prefixed lines in the data file (docs/pm-testing-e2e.md) — never a data row.
 function splitDataAndComments(lines: { line: string; fileLine: number }[]): { line: string; fileLine: number; comment: string }[] {
   const out: { line: string; fileLine: number; comment: string }[] = [];
   let pending: string[] = [];
@@ -451,8 +421,7 @@ function splitDataAndComments(lines: { line: string; fileLine: number }[]): { li
   return out;
 }
 
-/** Loads the real screen registry, grouping each screen's own real
- * field rows together, sorted by their own real position. */
+/** Loads the screen registry, grouping each screen's fields by position. */
 export function loadScreens(path: string): Map<string, Screen> {
   const lines = readCsvLines(path).map((l) => l.line);
   const headers = parseCsvLine(lines[0]);
@@ -472,10 +441,8 @@ export function loadScreens(path: string): Map<string, Screen> {
   return screens;
 }
 
-/** Loads a real, purely positional data file - no header row, column
- * 1 is the screen name, columns 2+ are that screen's own real values
- * in position order. Loads the matching, optional .control.csv
- * (same base name) for verify/screenshot, kept entirely separate. */
+/** Loads a positional data file (docs/pm-testing-e2e.md) plus its
+ * optional sibling .control.csv (verify/screenshot/skip). */
 export function loadSteps(dataPath: string): Step[] {
   const lines = splitDataAndComments(readCsvLines(dataPath));
   const controlPath = dataPath.replace(/\.csv$/, '.control.csv');
@@ -490,17 +457,7 @@ export function loadSteps(dataPath: string): Step[] {
   });
 }
 
-// A real, generic, screen-agnostic templating extension, same contract
-// as "money"/"select"/"check_by_text" above: a field_selector or
-// submit_selector can reference ANOTHER field of the exact same step by
-// name - "{{fieldName}}" - resolved from this step's own, already-built
-// args before the selector is ever handed to Playwright. Needed by any
-// real screen whose own, real selector genuinely depends on which
-// value a sibling field carries (e.g. /setup/translations: which
-// fieldset's own input/button to use depends entirely on that row's
-// own "language" value) - never a per-screen special case, the exact,
-// same, real "tell the runner how to apply this value" contract this
-// file already uses throughout.
+// {{fieldName}} templating — see docs/pm-testing-e2e.md "Field types and action sequences".
 function resolveSelectorTemplate(selector: string, args: Record<string, string>): string {
   return selector.replace(/\{\{(\w+)\}\}/g, (_match, name: string) => args[name] ?? '');
 }
@@ -514,9 +471,7 @@ function buildArgs(step: Step, screen: Screen | undefined): Record<string, strin
   return args;
 }
 
-/** Real, direct integrity checks on a proposed data file and its
- * real, referenced screens - catching a real, broken fixture before
- * any real step of it is ever run. */
+/** Integrity checks on a data file and its referenced screens. */
 export function lintSteps(steps: Step[], screens: Map<string, Screen>): string[] {
   const problems: string[] = [];
   for (const s of steps) {
@@ -529,11 +484,6 @@ export function lintSteps(steps: Step[], screens: Map<string, Screen>): string[]
     if (screen.api_function && !API_REGISTRY[screen.api_function]) {
       problems.push(`Row ${s.index}: screen "${s.screen_name}"'s api_function "${screen.api_function}" has no real API_REGISTRY entry.`);
     }
-    // Per direct, absolute instruction: a real screen that genuinely
-    // submits data (it has its own real submit_selector) but has no
-    // real api_function at all is a real, silent no-op waiting to
-    // happen the moment anyone runs it via --path api - lint must
-    // strenuously object to this, not stay quiet about it.
     if (screen.submit_selector && !screen.api_function && screen.screen_kind === 'data') {
       problems.push(`Row ${s.index}: screen "${s.screen_name}" has a real submit_selector but no real api_function - running this step via --path api would silently do nothing at all.`);
     }
@@ -542,7 +492,7 @@ export function lintSteps(steps: Step[], screens: Map<string, Screen>): string[]
   return problems;
 }
 
-/** Real, formatted, human-readable printing of every real step. */
+/** Human-readable printing of every step (--pretty). */
 export function prettyPrintSteps(steps: Step[], screens: Map<string, Screen>): string {
   const lines: string[] = [];
   for (const s of steps) {
@@ -580,15 +530,8 @@ export function runStepViaApi(step: Step, screens: Map<string, Screen>): { ok: b
   }
 }
 
-/** Reads the real, currently logged-in session's own bearer token
- * straight out of the real browser's own sessionStorage (confirmed
- * directly, frontend/src/lib/state.svelte.ts: 'sql-ledger-ts-auth',
- * deliberately sessionStorage, never a cookie) - the real, same token
- * the frontend's own api.ts attaches as `Authorization: Bearer
- * <token>` to every real call. A raw `page.request` call carries none
- * of this automatically (it is not cookie-based auth), which is
- * exactly why the first version of the recording-verification feature
- * (§19) silently got a real 401 back without ever throwing. */
+// Reads the logged-in session's bearer token from sessionStorage ('sql-ledger-ts-auth',
+// frontend/src/lib/state.svelte.ts) — a raw page.request call is not cookie-authenticated.
 async function authHeader(page: Page): Promise<Record<string, string>> {
   const raw = await page.evaluate(() => sessionStorage.getItem('sql-ledger-ts-auth'));
   if (!raw) return {};
@@ -600,18 +543,7 @@ async function authHeader(page: Page): Promise<Record<string, string>> {
   }
 }
 
-// Shared by open_selector and submit_selector: both are a real,
-// ";;"-separated sequence of actions needed to reach or commit a real
-// screen's own form, never anything specific to one particular screen.
-// Three real kinds of action: a plain Playwright selector (clicked), a
-// real key press ("key:Name"), or - the one case a real, bare click
-// can never cover - choosing a real, fixed <option> that is itself a
-// genuine, required precondition for the rest of the form to even
-// render (e.g. Open Container's own Grouping dropdown must already be
-// "Container" before its Container-value/Unit-value selects exist at
-// all), named directly here rather than through a real data-file
-// column, since this one, specific value is never something a given
-// screen's own data varies by ("select:<selector>::<value>").
+// Shared by open_selector/submit_selector — see docs/pm-testing-e2e.md "Field types and action sequences".
 async function runActionSequence(page: Page, actionsRaw: string): Promise<void> {
   for (const action of actionsRaw.split(';;').map((a) => a.trim()).filter(Boolean)) {
     if (action.startsWith('key:')) {
@@ -633,16 +565,7 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
   try {
     const screen = screens.get(step.screen_name);
     const args = buildArgs(step, screen);
-    // A real, honest failure, not a silent no-op: if screens.csv has no
-    // real UI wiring at all for this screen (no ui_path/open_selector to
-    // reach it, no submit_selector to commit it, and no field actually
-    // has a field_selector to drive), there is genuinely no UI
-    // interaction this function can perform. Previously this fell
-    // through every `if` below untouched and returned `ok: true` having
-    // done nothing - a confirmed, real false-positive that let UI-path
-    // runs report success for steps the browser never touched. Fail
-    // loudly instead, so --fallback-to-api (and a plain run) see the
-    // truth.
+    // See docs/pm-testing-e2e.md — "runStepViaUi fails loudly when a screen has no UI wiring"
     const hasAnyRealUiWiring = !!(
       screen &&
       (screen.ui_path || screen.open_selector || screen.submit_selector || screen.fields.some((f) => f.field_selector))
@@ -658,13 +581,6 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
       await page.goto(screen.ui_path);
       console.log(`  [load] goto ${screen.ui_path}: ${Date.now() - navStart}ms`);
     }
-    // open_selector is almost always one, real click - but a real
-    // screen can genuinely need more than one real action to reach
-    // its own form (e.g. Business Setup's real Insert-key tree:
-    // select a real row, then press a real key - never a click on
-    // its own; or Open Container, which must pick its own, fixed
-    // Grouping option before its real Container/Unit-value selects
-    // even exist). See runActionSequence - still purely generic.
     if (screen?.open_selector) {
       const openStart = Date.now();
       await runActionSequence(page, screen.open_selector);
@@ -675,22 +591,7 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         if (!field.field_selector) continue;
         const value = step.values[field.position - 1] ?? '';
         if (value === '') continue;
-        // Every field_selector is resolved against this step's own
-        // args first ({{fieldName}} -> that sibling field's own value)
-        // - see resolveSelectorTemplate above - before it is ever
-        // handed to Playwright, so the narrow field_types below never
-        // need to know or care whether their own selector was literal
-        // or templated.
         const resolvedSelector = resolveSelectorTemplate(field.field_selector, args);
-        // "signed_money" is the one, narrow, generic extension a real
-        // debit/credit grid needs (docs/skill-step-runner-design.md
-        // §11b-ii): a single minor-units value is genuinely routed to
-        // one of two different real inputs depending only on its own
-        // sign - never a per-screen special case, the same "tell the
-        // runner how to apply this value" contract "select"/"check"/
-        // "money" already use. field_selector carries both real
-        // locators, "<debit>|<credit>", because this is the only
-        // field_type that ever needs two.
         if (field.field_type === 'signed_money') {
           const [debitSelector, creditSelector] = resolvedSelector.split('|');
           const minorUnits = Number(value);
@@ -700,17 +601,6 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
           await page.waitForTimeout(200);
           continue;
         }
-        // "check_by_text" is the last of these narrow, generic
-        // extensions: a real, generic multiselect-by-checkbox widget
-        // (e.g. Create User's own Roles field) renders one checkbox per
-        // real, named option, each wrapped in its own <label>, with no
-        // other stable, per-option selector at all - the only real way
-        // to tell them apart is the real, visible text already carried
-        // by the data file's own value. field_selector names the real,
-        // containing element (e.g. ".multiselect"); one or more
-        // comma-separated real names are each checked within it - still
-        // the same, generic "tell the runner how to apply this value"
-        // contract, never a per-screen special case.
         if (field.field_type === 'check_by_text') {
           const container = page.locator(resolvedSelector);
           for (const name of value.split(',').map((n) => n.trim()).filter(Boolean)) {
@@ -719,30 +609,10 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
           }
           continue;
         }
-        // "search_and_select" is the real, generic, screen-agnostic
-        // shape a dynamic search-then-select list needs (e.g.
-        // /setup/translations' own real word list): fills a real
-        // search input with this field's own value, then clicks the
-        // real list item whose own, visible text matches it exactly -
-        // the same, real "tell the runner how to apply this value"
-        // contract every other field_type here already uses, never
-        // anything specific to one particular screen. field_selector
-        // carries both real locators, "<search input>|<list item>".
         if (field.field_type === 'search_and_select') {
           const [searchSelector, itemSelector] = resolvedSelector.split('|');
           await page.locator(searchSelector).fill(value);
           await page.waitForTimeout(300);
-          // A real, confirmed bug, found directly: Playwright's own
-          // `hasText` option is a real, SUBSTRING match, not an exact
-          // one - "Account" genuinely matched "Bank Account" (whichever
-          // real row happened to come first in the real, live list),
-          // silently editing the wrong, real word entirely, rather
-          // than genuinely selecting "Account" itself (or honestly
-          // failing, if no word by that exact name exists at all - a
-          // real, narrow, already-documented case this exact UI
-          // genuinely can't reach, e.g. a real CoA account name that
-          // is never a standalone Vocabulary word). Anchored regex
-          // forces an exact, whole-text match instead.
           const exact = new RegExp(`^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
           await page.locator(itemSelector).filter({ hasText: exact }).first().click();
           await page.waitForTimeout(200);
@@ -750,33 +620,9 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         }
         const locator = page.locator(resolvedSelector);
         if (field.field_type === 'select') await locator.selectOption({ label: value });
-        // "select_value" is the other narrow, generic extension a real
-        // screen can need: some real <option>s show a longer, decorated
-        // label (e.g. "Main Street Cellar (Springfield)") than the real,
-        // plain name their own value attribute carries - the same plain
-        // name every real data-file value already uses. Matching on the
-        // real value attribute instead of the label is the same, generic
-        // "tell the runner how to apply this value" contract "select"
-        // already uses, never a per-screen special case.
         else if (field.field_type === 'select_value') await locator.selectOption({ value });
         else if (field.field_type === 'check') await (value === 'true' ? locator.check() : locator.uncheck());
-        // A real, generic, screen-agnostic unit conversion, not a
-        // per-screen special case: several real data-file values are
-        // genuinely stored in minor currency units (matching the real
-        // API path exactly - e.g. unitCostMinor), while the matching
-        // real UI field genuinely displays/accepts whole-currency
-        // decimal amounts (e.g. "3.50", never "350"). "money" tells
-        // the runner to convert, the same way "select"/"check" already
-        // tell it how to apply a value - never anything specific to
-        // which real screen this is.
         else if (field.field_type === 'money') await locator.fill((Number(value) / 100).toFixed(2));
-        // "text_enter" is the other narrow, generic extension a real
-        // screen can need: some real fields (e.g. a live item-search box
-        // that adds its top match on Enter, never on a separate submit
-        // click) only commit their value on a real Enter keypress, not
-        // merely by being filled. Same contract as "money"/"select"/
-        // "check" - tells the runner how to apply the value, never
-        // anything specific to which real screen this is.
         else if (field.field_type === 'text_enter') {
           await locator.fill(value);
           await locator.press('Enter');
@@ -784,29 +630,11 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
         await page.waitForTimeout(200);
       }
       if (screen.submit_selector) {
-        // submit_selector is almost always one, real click - but a real
-        // screen can genuinely need more than one real action to commit
-        // its own form (e.g. a two-step confirm flow: "Preview" then
-        // "Accept"). ";;"-separated steps, each either a real Playwright
-        // selector (clicked) or "key:Name" (a real key press), mirror
-        // open_selector's own existing support for this - still purely
-        // generic. Also resolved against this step's own args first, the
-        // exact, same, real reason field_selector is resolved above -
-        // a real submit button can genuinely live inside the exact,
-        // same, templated container a sibling field's own input does
-        // (e.g. /setup/translations' own, real, per-language Save
-        // button).
         const resolvedSubmitSelector = resolveSelectorTemplate(screen.submit_selector, args);
         for (const action of resolvedSubmitSelector.split(';;').map((a) => a.trim()).filter(Boolean)) {
           if (action.startsWith('key:')) await page.keyboard.press(action.slice(4));
           else await page.locator(action).click();
-          // A real, confirmed timing gap, not a guess: repeated, real runs
-          // in this same session showed "Verify ... returned false"
-          // immediately after a real, successful-looking submit click -
-          // the real POST was still in flight when the very next line read
-          // the database. 800ms was not enough real margin under genuine,
-          // ordinary load; widened once, directly in response to that
-          // repeated, observed failure, not spent speculatively.
+          // 2000ms margin after submit click, so the POST completes before the next verify reads the DB.
           await page.waitForTimeout(2000);
         }
       }
@@ -846,43 +674,11 @@ async function main() {
   const skipN = args.includes('--skip') ? Number(args[args.indexOf('--skip') + 1]) : 0;
   const delayMs = args.includes('--delay') ? Number(args[args.indexOf('--delay') + 1]) : 5000;
   const openInspector = args.includes('--ui');
-  // Real, confirmed confusion (found while writing the User Manual tutorial
-  // chapter): this script always runs with `backend/` as its own real cwd
-  // (the Makefile's own `cd backend &&` prefix), so the old relative
-  // default here ('docs/manual-images-tutorial') genuinely wrote to
-  // backend/docs/manual-images-tutorial/ - a second, real, different
-  // directory from docs/manual-images-tutorial/ at the repo root, which is
-  // the one the real User Manual markdown actually references. Pointed at
-  // the real, same, single, canonical directory the manual uses, so a
-  // fresh UI-path run's own real screenshots land exactly where the
-  // manual expects them, with no further manual copying step.
   const screenshotDir = args.includes('--screenshot-dir') ? args[args.indexOf('--screenshot-dir') + 1] : '../docs/manual-images-tutorial';
   const inlineVerify = args.includes('--verify') ? args[args.indexOf('--verify') + 1] : undefined;
   const inlineScreenshot = args.includes('--screenshot') ? args[args.indexOf('--screenshot') + 1] : undefined;
-  // Per direct request: a real UI step that fails is retried once,
-  // immediately, via the API path, so one, real, still-broken UI
-  // interaction doesn't block every later step that genuinely depends
-  // on this one's data existing. Off by default - a pure --path ui
-  // run still reports every real UI failure as a real failure, never
-  // silently papered over, unless this is explicitly asked for.
   const fallbackToApi = args.includes('--fallback-to-api');
-  // Per direct instruction: a --path ui run should prove its own real
-  // UI actions genuinely produced the real, correct backend call -
-  // not just "nothing threw" - by reusing the already-built Admin
-  // Recording feature (docs/skill-step-runner-design.md §11, §19) as
-  // an independent, externally-generated oracle. Off by default -
-  // this needs a real, logged-in Login step to actually run via the
-  // UI first, which isn't true of every possible run (--only N on a
-  // later step, for instance).
   const verifyViaRecording = args.includes('--verify-via-recording');
-  // Per direct request: this runner is the one, real, single way any
-  // front-end or back-end step in a fixture is ever exercised -
-  // nobody writes a raw, one-off Playwright script instead. Every
-  // real run can therefore record its own, real, per-step execution
-  // time to one, nominated file, a real, structured place to look for
-  // a slow step instead of scrolling console output - rather than
-  // leaving timing as something only ever read by eye, once, as the
-  // run scrolls past.
   const timingFile = args.includes('--timing-file') ? args[args.indexOf('--timing-file') + 1] : undefined;
   if (timingFile) writeFileSync(timingFile, 'index,screen_name,path,ms,ok,error\n');
   function recordTiming(stepIndex: number, screenName: string, stepPath: string, ms: number, ok: boolean, error?: string) {
@@ -921,11 +717,7 @@ async function main() {
       browser = await chromium.launch({ headless: !openInspector });
       const context = await browser.newContext({ baseURL: 'http://localhost:5173' });
       page = await context.newPage();
-      // Real, measured backend wait time per real network call - not a
-      // guess, not the blind post-submit sleep. timing() gives Playwright's
-      // own resource-timing numbers for the real request; responseEnd minus
-      // requestStart is the real time spent waiting on this real backend
-      // call (DNS/connect/TLS excluded, both zero on localhost anyway).
+      // Logs measured backend wait time (responseEnd - requestStart) per network call.
       page.on('requestfinished', async (req) => {
         if (!req.url().includes(':3001')) return;
         try {
@@ -942,12 +734,7 @@ async function main() {
   }
   if (path === 'ui') await ensureUiPage();
 
-  // Recording verification state (--verify-via-recording). Started
-  // right after a real, successful, UI-driven Login step; every
-  // further real, successfully UI-driven, data-kind step's own
-  // values are the real, expected row the backend's own recording
-  // mechanism should independently produce - compared, not assumed,
-  // once the run finishes.
+  // --verify-via-recording state — see docs/pm-testing-e2e.md "The Admin recording feature".
   let recordingStarted = false;
   let recordingUsername: string | undefined;
   const recordedExpectations: { screen_name: string; values: string[] }[] = [];
@@ -972,18 +759,6 @@ async function main() {
       if (verifyViaRecording && uiSucceededDirectly) {
         if (step.screen_name === 'Login' && !recordingStarted) {
           try {
-            // A real, absolute URL, deliberately - the browser
-            // context's own baseURL is the real frontend's own origin
-            // (localhost:5173, never proxying /api anywhere - checked
-            // directly, frontend/vite.config.ts has no proxy at all),
-            // the exact, same reason the real frontend's own api.ts
-            // always calls localhost:3001 directly, never a relative
-            // path. A relative '/api/...' here would silently resolve
-            // against the wrong origin and never throw - `page.request`
-            // does not throw on a non-2xx response, so its own real
-            // status is checked explicitly instead of trusting "did
-            // not throw" the same way section 18 already found wrong
-            // for runStepViaUi itself.
             const startResp = await (await ensureUiPage()).request.post('http://localhost:3001/api/recording/start', {
               headers: await authHeader(await ensureUiPage()),
             });
@@ -998,14 +773,6 @@ async function main() {
           recordedExpectations.push({ screen_name: step.screen_name, values: step.values });
         }
       }
-      // Per direct request: a real UI step that fails is retried once,
-      // immediately, via the API path - the same, real, live backend
-      // and database the browser's own session is already pointed at
-      // (never a separate one), so the fallback's own effect is
-      // genuinely visible to the next, real UI step. Reported as its
-      // own, distinct, real line - never silently folded into the
-      // original UI result - so a reader can tell "the UI genuinely
-      // works" from "the UI is broken here, the API covered for it."
       if (!result.ok && stepPath === 'ui' && fallbackToApi) {
         const fallbackStart = Date.now();
         const apiResult = runStepViaApi(step, screens);
@@ -1031,12 +798,7 @@ async function main() {
     } catch (err) {
       console.log(`Could not stop recording: ${err instanceof Error ? err.message : String(err)}`);
     }
-    // The real recording file lives at the real project root
-    // (backend/src/recording.ts's own join(__dirname, '../../', ...)
-    // - this file's own __dirname is backend/scripts, the same, real
-    // two-levels-up distance), in the exact, same, plain data-file
-    // format loadSteps() already reads - so it is read back with the
-    // exact, same parser, never a separate one.
+    // Recording file lives at the project root (backend/src/recording.ts); read back via loadSteps.
     const recordingPath = join(__dirname, '../../', `${recordingUsername}.recording`);
     if (existsSync(recordingPath)) {
       const actualRows = loadSteps(recordingPath);
@@ -1071,10 +833,6 @@ async function main() {
   }
   if (browser) await browser.close();
   if (timingFile) {
-    // A real, direct "what was slow" summary, read back from the same
-    // file just written - so a reader sees it without opening a
-    // second file, but the file itself stays the one, real source of
-    // truth for anything that needs the full, per-step detail.
     const rows = readFileSync(timingFile, 'utf-8').trim().split('\n').slice(1)
       .map((line) => {
         const m = line.match(/^(\d+),"((?:[^"]|"")*)",([a-z-]+),(\d+),(true|false),"((?:[^"]|"")*)"$/);

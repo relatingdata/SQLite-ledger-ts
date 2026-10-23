@@ -96,7 +96,9 @@ step-runner <data.csv> [--screens screens.csv] [options]
   --fallback-to-api           when a --path ui step fails, retry it via the API call
                                in the same database; the fallback's own outcome is
                                reported as a distinct line, never folded into the UI result
-  --screenshot-dir DIR        where screenshots are saved
+  --screenshot-dir DIR        where screenshots are saved (default: '../docs/manual-images-tutorial',
+                               relative to the Makefile's `cd backend &&` cwd — i.e. the repo-root
+                               docs/manual-images-tutorial/ that the User Manual itself references)
   --verify NAME               (single-step mode) the check to run after this step
   --screenshot NAME           (single-step mode) the screenshot name for this step
   --verify-via-recording      start the Admin recording feature right after a UI-path Login
@@ -210,6 +212,23 @@ step's own original values, position for position. A mismatch, or a
 UI step with no matching recorded row, is an independently-confirmed
 failure — stronger than "the click didn't throw."
 
+`--verify-via-recording`'s own HTTP calls (start/stop recording) use an
+absolute `http://localhost:3001/...` URL rather than a relative one: the
+browser context's `baseURL` is the frontend's own origin (`:5173`, which
+proxies nothing — `frontend/vite.config.ts` has no proxy), and
+`page.request` does not throw on a non-2xx response, so the response
+status is checked explicitly rather than trusted.
+
+### `runStepViaUi` fails loudly when a screen has no UI wiring
+
+If `screens.csv` gives a screen no UI wiring at all for the step it's
+running (no `ui_path`/`open_selector`/`submit_selector`, and no field with
+a `field_selector` — only `api_function` is set), `runStepViaUi` returns
+`ok: false` rather than falling through every `if` untouched and reporting
+success. A UI path that silently does nothing is a worse failure mode than
+an honest error, since `--fallback-to-api` and plain runs need the truth
+to react to.
+
 ### Structural verification, not golden figures — the ledger-isolation checks
 
 The Tutorial fixture's own `VERIFY_REGISTRY` (`backend/scripts/step-runner.ts`)
@@ -284,6 +303,12 @@ the API path, rather than calling a backend function 1:1:
   share browser session state, so a run that starts `api` and
   switches to `ui` mid-sequence finds no logged-in session in the
   freshly-launched browser.
+- A confirmed application gap, surfaced by `e2e/tests/tutorial-walkthrough.spec.ts`:
+  no screen sets a persistent retail price on an item, so a POS sale with none ever
+  set defaults to $0.00; the only way to get a non-zero price today is typing it
+  directly into the cart line every time. The same gap applies per-currency: the
+  cart's default price doesn't distinguish currency even with a foreign-currency
+  terminal active, so a USD sale needs its own manually-typed price too.
 
 ## Tutorial / minimal — `tutorial-steps.csv`
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+  // The generic entity editor — see docs/pm-frontend-reference.md for
+  // the full design of the sections below.
   import { onMount } from 'svelte';
   import {
     getEntityTree,
