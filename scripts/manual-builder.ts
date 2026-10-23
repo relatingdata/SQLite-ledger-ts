@@ -30,6 +30,7 @@ const REPLACEMENTS: [string, string][] = [
   ['◄', '<'],
   ['┐', '.'],
   ['┤', '|'],
+  ['↔', '<->'],
 ];
 
 function fixGlyphs(text: string): string {
