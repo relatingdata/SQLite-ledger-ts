@@ -103,10 +103,6 @@ test('revokeEntity refuses to delete a business\'s last real Actual or last real
 });
 
 // --- business-scoped reports / chart of accounts --------------------
-// Each test below creates its own, fresh, real business (with the
-// 'English CoA' prototype, so it gets a genuine, isolated copy of
-// every prototype-tagged account it posts to) rather than reaching
-// into any shared one.
 
 test('business_reports groups categories under their fixed report via relation_id', () => {
   const biz = fx.freshBusiness('BizReportsTest Co');
@@ -121,16 +117,8 @@ test('business_reports groups categories under their fixed report via relation_i
 });
 
 test('chart_of_accounts shows the real hierarchy including sub-accounts', () => {
-  // A genuinely global contact (createCustomer is never business-
-  // scoped - customers/vendors live once, globally, under the
-  // universal Accounts Receivable/Payable roots, shared by every
-  // business exactly the way a real counterparty can trade with more
-  // than one of a group's own businesses) - 'admin' only ever proved
-  // this against the one, legacy business that happens to fall back
-  // to the GLOBAL Chart of Accounts directly; this proves it the
-  // ordinary way too, for a ledger a real customer actually posted
-  // to, confirming getChartOfAccounts resolves a business-scoped
-  // customer posting correctly, not just the global-fallback case.
+  // createCustomer is never business-scoped — customers/vendors live once, globally,
+  // under the universal Accounts Receivable/Payable roots.
   const biz = fx.freshBusiness('ChartOfAccountsTest Co');
   const customerName = fx.uniqueName('Acme Corp');
   db.createCustomer(customerName, fx.userId);
@@ -213,14 +201,6 @@ test('French works as a genuine, complete third language — no special-casing n
 });
 
 // --- staging / posting --------------------------------------------
-// Originally a single, cumulative chain sharing one posting
-// ("TEST-001") across six tests, each relying on exactly what the
-// tests before it had already posted into the shared 'admin'
-// business - a textbook case of "operating in an assumed global
-// context." Each test below creates its own fresh business and posts
-// exactly, only, the one entry it needs, so the balance/total it
-// asserts is the whole, self-contained story, not "the one thing this
-// suite has posted so far."
 
 test('staging + posting a balanced entry works end to end and clears staging', () => {
   const biz = fx.freshBusiness('StagingTest Co');

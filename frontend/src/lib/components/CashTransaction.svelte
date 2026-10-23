@@ -110,14 +110,7 @@
   function removeLine(key: number) {
     lines = lines.filter((l) => l.key !== key);
   }
-  // Auto-add: as soon as every existing line has a real item name
-  // filled in (no blank line left anywhere), a fresh, empty one
-  // appears at the end — the same, real, direct spreadsheet-style
-  // convention already used elsewhere in this codebase for a form of
-  // unknown length, so there's never an "Add line" button to click.
-  // Re-fires only on that real transition (not on every keystroke):
-  // once a blank line exists, every line().itemName.trim() check
-  // below is false until every one is filled again.
+  // Spreadsheet-style auto-add — see docs/pm-frontend-reference.md.
   $effect(() => {
     if (lines.length > 0 && lines.every((l) => l.itemName.trim())) addLine();
   });
@@ -132,25 +125,10 @@
     error = '';
     result = null;
     try {
-      // A real, confirmed bug, found directly: the auto-added,
-      // trailing blank line (the exact, same, real convention this
-      // component's own addLine/$effect above already documents)
-      // must never actually be sent - genuinely filtered out here,
-      // not just visually blank, since the real, live backend schema
-      // correctly rejects an empty itemName, and submitting it
-      // silently failed every real purchase/sale that reached this
-      // point with a real, unfilled line still present.
+      // Filters the trailing auto-added blank line — see docs/pm-frontend-reference.md.
       const commonLines = lines.filter((l) => l.itemName.trim()).map(({ key, ...l }) => ({ ...l, itemName: asItemName(l.itemName) }));
       if (isPurchase) {
-        // Per docs/canned-journal-to-frontend-design.md Phase 0: the
-        // canned account selection (which account, how much) is now
-        // computed here, client-side, by the one, shared
-        // cashPurchaseLines function — the backend is only asked to
-        // resolve/create the real Inventory accounts (a real, stateful
-        // side effect) and to receive the physical stock; the actual
-        // posting goes through the exact, same, generic journal
-        // staging+post calls the General Journal screen's own "Save"
-        // button uses.
+        // Canned account selection via cashPurchaseLines — see docs/pm-frontend-reference.md.
         const purchaseLines = commonLines.map((l) => ({ ...l, itemName: l.itemName as string }));
         const resolved = await resolveCashTransactionAccounts({
           business: asBusinessName(business),
@@ -188,17 +166,7 @@
         const totalMinor = purchaseLines.reduce((s, l) => s + l.quantity * l.unitPriceMinor + l.taxMinor, 0);
         result = { invoiceId: 0, reference, totalMinor };
       } else {
-        // Per docs/canned-journal-to-frontend-design.md Phase 1: the
-        // exact, same real pattern as the purchase branch above,
-        // mirrored for the sale side — the canned account selection
-        // moves client-side (posSaleLines), the backend is only asked
-        // to resolve/create the real Sales/COGS/Inventory accounts
-        // (plus each item's own, real, known per-unit cost) and to
-        // dispatch the real, physical stock. Per the real precedent
-        // already established and committed for Cash Purchase: a real,
-        // immediate-cash sale creates no genuine invoice/receivable
-        // record at all, just a direct journal posting plus the real,
-        // physical stock side effect.
+        // Mirrors the purchase branch via posSaleLines — see docs/pm-frontend-reference.md.
         const saleLines = commonLines.map((l) => ({ ...l, itemName: l.itemName as string }));
         const resolved = await resolveSaleAccounts({
           business: asBusinessName(business),
@@ -217,11 +185,7 @@
           taxAccount,
           cashAccount: resolved.cashAccount,
         });
-        // Dispatched first, deliberately, before anything is staged or
-        // posted: dispatchStock is the one, real step genuinely likely
-        // to fail (not enough real stock on hand) — a failed dispatch
-        // must never leave a real, posted journal entry behind for
-        // stock that was never actually sent out.
+        // dispatchStock first, deliberately — see docs/pm-frontend-reference.md.
         await dispatchStock({
           business: asBusinessName(business),
           ledger: asLedgerName(ledger),
