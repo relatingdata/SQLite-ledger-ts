@@ -1,4 +1,6 @@
 <script lang="ts">
+  // Locations setup and storage actions — see
+  // docs/pm-frontend-reference.md for the full design.
   import { onMount } from 'svelte';
   import { getEntityTree, listLocations, saveLocation, createLocation, createEntity, asBusinessName, asLedgerName, asAccountName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, getHierarchy, convertStorageSpace, resolveOpenContainerAccounts, stageLine, postJournalEntry, type EntityNode, type LocationRecord, type HierarchyGroupingWithValues } from '$lib/api';
   import { translations } from '$lib/state.svelte';

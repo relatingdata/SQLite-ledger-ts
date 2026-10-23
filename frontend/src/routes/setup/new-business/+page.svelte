@@ -4,13 +4,7 @@
   import { translations } from '$lib/state.svelte';
   import { onMount } from 'svelte';
 
-  // Real, existing ledgers whose actual Chart of Accounts a new
-  // business can reuse — confirmed directly, not assumed, that these
-  // are genuinely distinct real account sets, not just different
-  // display names for the same underlying accounts. Only the five
-  // top-level report categories (Asset/Liability/Equity/Income/
-  // Expense) are actually shared across every business; these leaf
-  // accounts are real, country-specific prototypes.
+  // Prototype CoA reuse — see docs/pm-frontend-reference.md.
   const COA_PROTOTYPES = [
     { label: 'English / generic', language: 'English', prototypeName: 'English CoA' },
     { label: 'German', language: 'German', prototypeName: 'German CoA' },
@@ -26,12 +20,7 @@
   let error = '';
   let result: { business: string; actualLedger: string; budgetLedger: string; businessAdmin: { username: string; password: string } } | null = null;
 
-  // Per direct insight: the vast majority of real businesses transact
-  // in one, single, home currency — a second currency is a real need
-  // only for a business genuinely near a national border, not the
-  // common case. Deliberately collapsed, optional, and off by
-  // default, not a mandatory step every new business has to think
-  // through.
+  // Second currency, collapsed and optional — see docs/pm-frontend-reference.md.
   let showCurrencies = false;
   let newCurrencyCode = '';
   let secondaryCurrencies: string[] = [];
@@ -45,10 +34,7 @@
     secondaryCurrencies = secondaryCurrencies.filter((c) => c !== code);
   }
 
-  // Per direct confirmation: a business's own legal structure is
-  // largely cosmetic/reporting — only the Balance Sheet's own equity
-  // section changes shape, nothing else. Defaults to Sole Trader,
-  // which needs no extra setup at all (Owner's Equity already exists).
+  // Legal structure defaults to Sole Trader — see docs/pm-frontend-reference.md.
   const ENTITY_STRUCTURES: { value: 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded'; label: string; needsPartners: boolean }[] = [
     { value: 'sole_trader', label: 'Sole Trader', needsPartners: false },
     { value: 'partnership', label: 'Partnership', needsPartners: true },

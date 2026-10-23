@@ -520,6 +520,47 @@ form state — it's a full replace, not a partial merge (see
 `schema.sql`'s note on `contact_entry`) — so a partial send would
 silently wipe whatever field isn't included.
 
+## `frontend/src/routes/setup/new-business/+page.svelte` — the new-business wizard
+
+**Prototype CoA reuse** lists existing ledgers whose Chart of Accounts
+a new business can start from — confirmed to be genuinely distinct
+account sets, not just different display names for the same
+underlying accounts: only the five top-level report categories
+(Asset/Liability/Equity/Income/Expense) are actually shared across
+every business, and these leaf accounts are real, country-specific
+prototypes.
+
+**Second currency** is deliberately collapsed, optional, and off by
+default, not a mandatory step: the vast majority of businesses
+transact in one home currency, and a second currency is a real need
+only for a business near a national border.
+
+**Legal structure** defaults to Sole Trader, which needs no extra
+setup (Owner's Equity already exists) — a business's legal structure
+is largely cosmetic/reporting, since only the Balance Sheet's equity
+section actually changes shape. Business types are read from the
+database (the "Business Type" entity tree — Sole Trader/Partnership/
+Pty Ltd Company/Incorporated Company, each with its own prototype CoA
+and questions) rather than a hardcoded frontend list, and mapped to
+the existing `EntityStructure` values so the backend's
+`setupEquityStructure` mechanism (which creates the extra equity
+accounts per structure) keeps working unchanged — additive
+unification, not a rewrite of a working mechanism.
+
+`loadPrototypeAccounts`'s own loading call was moved into the same
+`onMount` already used for the sibling initial-load call, since it
+previously ran as a bare top-level call that also ran during SSR,
+triggering SvelteKit's "Avoid calling fetch eagerly during server-side
+rendering" warning on every visit.
+
+**The post-creation bank-accounts-by-currencies wizard**, per
+`docs/user-manual-ch2-configuration.md`'s "Setup then walks through
+the business's own banking arrangement" section: nominate one or more
+bank accounts, nominate one or more currencies, then tick exactly
+which combinations actually exist. The grid shown is the full
+Cartesian product as tick-boxes — only the ticked combinations
+actually get built, never the full grid blindly.
+
 ## `frontend/src/routes/locations/+page.svelte` — Locations setup and storage actions
 
 A refrigerated section's location entity is named with a suffix,
