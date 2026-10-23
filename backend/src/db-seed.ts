@@ -1126,8 +1126,17 @@ function migrateForMenuEntities() {
     },
   ];
 
-  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Menu'`).get()) return;
-  create(requireEntity('Application', typeRootName), typeRootName, 'Menu', SEED_USER_ID);
+  // Per-item idempotent, not a one-time blanket guard: an existing
+  // database must still pick up sections/links added to the array
+  // above *after* it was first seeded, the same way the 'Routes' and
+  // flag entities below already handle re-running this function
+  // safely. The old `if (Menu exists) return;` guard made the whole
+  // tree a single all-or-nothing snapshot — any section/link added to
+  // `sections` later never reached a database that already had a
+  // 'Menu' entity from an earlier, smaller version of this array.
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Menu'`).get()) {
+    create(requireEntity('Application', typeRootName), typeRootName, 'Menu', SEED_USER_ID);
+  }
 
   for (const section of sections) {
     // Confirmed directly: several, real section labels (Cash, HR,
@@ -1139,14 +1148,18 @@ function migrateForMenuEntities() {
     // append-only creation order already, genuinely is the real
     // sibling order, since these are seeded in the exact, intended
     // display order. No separate mechanism needed.
-    const sectionEntity = create(requireEntity('Menu', typeRootName), typeMenuSectionName, sectionName, SEED_USER_ID);
-    const existingSectionVocabWord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(section.label) as { id: number } | undefined;
-    if (existingSectionVocabWord) {
-      supersedeEntity(sectionEntity.id, { relation: section.label }, SEED_USER_ID);
+    const existingSectionEntity = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(sectionName) as { id: number } | undefined;
+    if (!existingSectionEntity) {
+      const sectionEntity = create(requireEntity('Menu', typeRootName), typeMenuSectionName, sectionName, SEED_USER_ID);
+      const existingSectionVocabWord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(section.label) as { id: number } | undefined;
+      if (existingSectionVocabWord) {
+        supersedeEntity(sectionEntity.id, { relation: section.label }, SEED_USER_ID);
+      }
     }
 
     for (const link of section.links) {
       const linkName = `Menu Link: ${section.label} — ${link.label}`;
+      if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(linkName)) continue;
       const linkEntity = create(requireEntity(sectionName, typeMenuSectionName), typeMenuLinkName, linkName, SEED_USER_ID);
 
       // A real link's own real target route — its own, real, direct
