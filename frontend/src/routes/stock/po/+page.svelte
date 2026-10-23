@@ -8,11 +8,7 @@
   import { parseMinorUnits, parseQuantity } from '$lib/money';
   import { filterToItems } from '$lib/entityTree';
 
-  // Real, known sources for the currently-selected item — per direct
-  // request: "purchase orders need to match suppliers of products
-  // being ordered." Fetched fresh whenever the item changes; drives
-  // which real vendors are actually offered, and auto-fills the
-  // preferred one's own, known price.
+  // Known sources, fetched fresh per item — see docs/pm-frontend-reference.md.
   let itemSources: ItemSource[] = [];
   let loadingSources = false;
   let showAllVendors = false;
@@ -64,12 +60,7 @@
   });
   $: items = filterToItems(entities);
 
-  // Real, known vendors for the currently-selected item — the item's
-  // own preferred source's own vendor first, then every other real,
-  // known alternate. showAllVendors is the real, direct escape hatch
-  // for a genuine, new, one-off supplier this item has never been
-  // bought from before — never silently blocked, just not the
-  // default.
+  // Known vendors, preferred first — see docs/pm-frontend-reference.md.
   $: knownVendorNames = itemSources.map((s) => s.vendor_name);
   $: vendorOptions = showAllVendors || itemSources.length === 0 ? vendors : vendors.filter((v) => knownVendorNames.includes(v.name));
 
@@ -92,9 +83,7 @@
         vendor = '';
       }
     } catch {
-      // A real, direct order can still be placed even if the real,
-      // known-sources list fails to load — this is a real, direct
-      // guide, not a hard requirement.
+      // Order still works if known-sources fails to load.
       itemSources = [];
     } finally {
       loadingSources = false;
@@ -103,10 +92,7 @@
 
   $: totalMinor = quantity && price ? parseQuantity(quantity) * parseMinorUnits(price) : 0;
 
-  // If the vendor is changed directly (e.g. picking a real,
-  // known alternate instead of the auto-selected preferred one),
-  // follow that source's own, known price too, rather than leaving a
-  // stale figure from whichever source was previously selected.
+  // Changing vendor also follows that source's known price — see docs/pm-frontend-reference.md.
   $: if (vendor && itemSources.length > 0) {
     const matching = itemSources.find((s) => s.vendor_name === vendor);
     if (matching?.price_minor != null) price = (matching.price_minor / 100).toFixed(2);

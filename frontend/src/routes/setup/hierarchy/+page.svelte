@@ -23,10 +23,7 @@
   let valueForGrouping: Record<string, string> = {};
   let addingValueTo = '';
 
-  // A real, direct, growable list of (dimension name, grouping name)
-  // pairs — the same, real shape defineProductShape itself expects,
-  // built up one real row at a time rather than a single, fragile
-  // text field a person would have to format exactly right.
+  // Growable (dimension, grouping) pair list — see docs/pm-frontend-reference.md.
   let newShapeRows: { dimension: string; grouping: string }[] = [{ dimension: '', grouping: '' }];
   let definingShape = false;
 

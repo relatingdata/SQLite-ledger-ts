@@ -23,15 +23,7 @@
       .sort((a, b) => a.localeCompare(b));
   }
 
-  // A real, genuine race is possible here: loadCustomers() fetches
-  // the full, real entity tree, which can genuinely take a moment on
-  // a real, populated business — long enough that a real person could
-  // already change the customer or date before it resolves. Without
-  // a guard, that slower, earlier request's own result would land
-  // last and silently overwrite the person's real, later choice. This
-  // is the standard, real fix: each call captures its own id, and
-  // only ever applies its own result if it's still the most recent
-  // request by the time it actually completes.
+  // Request-id guard against a slow stale request overwriting a later choice — see docs/pm-frontend-reference.md.
   let latestRequestId = 0;
   async function load() {
     if (!session.current || !selectedCustomer) return;

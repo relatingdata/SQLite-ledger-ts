@@ -19,9 +19,7 @@ function loadStored(): SessionContext | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SessionContext;
-    // A real, direct value read back from localStorage is always,
-    // genuinely just a plain string at that boundary — the same real
-    // reasoning as a database read or an API response, cast once here.
+    // Superseded by state.svelte.ts — see docs/pm-frontend-reference.md.
     return { ...parsed, businessName: asBusinessName(parsed.businessName), ledgerName: asLedgerName(parsed.ledgerName) };
   } catch {
     return null;

@@ -7,19 +7,12 @@
   import { formatAmount } from '$lib/format';
   import { translations } from '$lib/state.svelte';
 
-  /** The real, single source of truth for any real, dynamic entity
-   * name's own display — never the raw, English name directly. */
+  // Single source of truth for entity name display.
   function T(name: string): string {
     return translations.current[name] ?? name;
   }
 
-  // Real, direct, structural anchors — the Balance Sheet and P&L's
-  // own shape rests on these existing exactly where they are. Never
-  // offered for rename or delete here, regardless of whether the
-  // real, underlying revokeEntity safeguards (no children, no
-  // postings) would technically allow it — this is a real, additional,
-  // deliberate guard rail for the accounting structure itself, not
-  // just data integrity.
+  // Structural anchors, never renamable/deletable — see docs/pm-frontend-reference.md.
   const SACROSANCT = new Set([
     'Chart of Accounts',
     'Asset',

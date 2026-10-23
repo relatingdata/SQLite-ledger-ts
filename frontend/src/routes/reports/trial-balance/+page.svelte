@@ -14,7 +14,7 @@
   let asOfDate = $state(todayIsoDate());
 
   let latestRequestId = 0;
-  // Same, real, confirmed fix as Balance Sheet — see there for why.
+  // Same {@html}-reactivity fix as Balance Sheet — see docs/pm-frontend-reference.md.
   let introTemplate = $derived(translations.current['Every account with a posted balance, split into its debit or credit column. Any ledger in {NAME} should balance — Actual, or any proposed budget.'] ?? 'Every account with a posted balance, split into its debit or credit column. Any ledger in {NAME} should balance — Actual, or any proposed budget.');
   let introItems = $derived(introTemplate.split('{NAME}'));
   async function load() {
@@ -47,13 +47,7 @@
 
   const fmt = (c: number) => formatAmount(c, auth.current?.user.number_format ?? '1 000.00');
 
-  // Per the User Manual's own specification of this screen: every
-  // currency genuinely present gets its own, clearly separate group of
-  // rows, never one flat list mixing a dollar account next to a
-  // bottle-count account as if they were the same kind of number. A
-  // real storage-unit or quantity currency is shown as a plain,
-  // whole-number count (fmt would wrongly treat it as cents); only a
-  // null (home) or other real monetary currency is run through fmt.
+  // Grouped by currency, quantity currencies shown as whole numbers — see docs/pm-frontend-reference.md.
   interface CurrencyGroup {
     currency: string | null;
     rows: TrialBalanceRow[];

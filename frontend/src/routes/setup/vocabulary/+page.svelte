@@ -18,19 +18,10 @@
   let error = '';
   let saving = '';
 
-  // The real, current business's own real, structural entity id —
-  // needed as the real, direct scope_id for a real, business-level
-  // preference. Resolved once, from the already-available entity
-  // tree, rather than adding a real, new, separate endpoint just for
-  // this one, real lookup.
+  // Business entity id, resolved from the existing tree — see docs/pm-frontend-reference.md.
   let businessId: number | null = null;
 
-  // A real, direct, per-concept selection state — defaults to
-  // whichever real, alternate word this business already, currently
-  // sees (resolved via translations.current, the exact, same, real, live
-  // source every other page already reads), so the form opens
-  // already, correctly reflecting the real, current choice, not a
-  // blank one.
+  // Per-concept selection state — see docs/pm-frontend-reference.md.
   let selected: Record<string, string> = {};
 
   async function load() {
@@ -41,12 +32,7 @@
       concepts = loadedConcepts;
       businessId = tree.find((e: EntityNode) => e.name === session.current?.businessName)?.id ?? null;
       for (const c of concepts) {
-        // The real, currently-effective word, for this real concept,
-        // as this business already sees it today — resolved from
-        // translations.current against the real, known defaultAlternate
-        // (the one, real, stable key any real preference actually
-        // overwrites), then matched back to whichever real alternate
-        // currently produces that same, real, resolved text.
+        // See docs/pm-frontend-reference.md.
         const currentlyShown = translations.current[c.defaultAlternate] ?? c.defaultAlternate;
         selected[c.headerAccountName] = c.alternates.find((a) => (translations.current[a] ?? a) === currentlyShown) ?? c.defaultAlternate;
       }
@@ -65,18 +51,13 @@
     saving = concept.headerAccountName;
     error = '';
     try {
-      // Choosing the real, original default word back is a real,
-      // direct "reset to default" — removing the preference entirely,
-      // rather than leaving a real, redundant override row saying
-      // the same thing the default already would.
+      // Choosing the default back removes the preference entirely — see docs/pm-frontend-reference.md.
       if (selected[concept.headerAccountName] === concept.defaultAlternate) {
         await deleteVocabularyPreference(concept.defaultAlternate, 'business', businessId);
       } else {
         await setVocabularyPreference(concept.defaultAlternate, 'business', businessId, selected[concept.headerAccountName]);
       }
-      // A real, live, direct confirmation this actually took: reload
-      // the real, current translations, the exact, same, real way the
-      // whole app already does on login/business change.
+      // Reload translations as live confirmation — see docs/pm-frontend-reference.md.
       window.location.reload();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not save.';

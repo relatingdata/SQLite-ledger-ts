@@ -14,11 +14,7 @@
   type Tab = 'receipts' | 'transfers' | 'sales';
   let tab: Tab = $state('receipts');
 
-  // The real grouping names offered here are never hardcoded to one,
-  // privileged hierarchy ("group" stands for whichever one a business
-  // has actually configured, e.g. "Division" - read live, below)
-  // alongside the three real, structural groupings every stock
-  // movement row always has: location, vendor, category.
+  // Grouping names never hardcoded — see docs/pm-frontend-reference.md.
   type GroupKey = 'group' | 'location' | 'vendor' | 'category';
   let groupBy: GroupKey = $state('group');
   let hierarchyName: string | undefined = $state(undefined);
@@ -51,9 +47,7 @@
     await load();
   });
 
-  // Every group starts collapsed — the same real pattern already
-  // proven on the P&L and Inventory Listing reports: subtotals first, real
-  // detail on demand.
+  // Starts collapsed, same pattern as P&L/Inventory Listing.
   let expandedGroups = $state(new Set<string>());
   function toggleGroup(key: string) {
     expandedGroups = new Set(expandedGroups);
@@ -64,9 +58,7 @@
   function keyFor(row: OrderReceiptRow | StockTransferRow | StockSaleRow, key: GroupKey): string {
     if (key === 'category') return row.category ?? '(No category)';
     if ('from_location' in row) {
-      // Transfers have no group/vendor of their own — group by
-      // location falls back to the real destination, since that's the
-      // real, receiving side a person actually cares about grouping by.
+      // Transfers group by destination location — see docs/pm-frontend-reference.md.
       return key === 'location' ? row.to_location : '(Not applicable to transfers)';
     }
     if (key === 'group') return row.group ?? '(No group)';

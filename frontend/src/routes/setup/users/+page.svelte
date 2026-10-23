@@ -26,10 +26,7 @@
   let error = '';
   let message = '';
 
-  // Per docs/user-business-role-matrix-design.md: a real, genuine,
-  // per-business Cartesian Product of User × Role - a second, real
-  // fact, additive alongside the global roles table above (which
-  // this never changes).
+  // Per-business User x Role matrix, additive — see docs/pm-frontend-reference.md.
   let businesses: { id: number; name: string }[] = [];
   let matrixBusiness = '';
   let matrix: UserRoleMatrix | null = null;

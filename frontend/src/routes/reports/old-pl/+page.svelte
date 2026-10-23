@@ -20,11 +20,7 @@
   import ProfitAndLossTable from '$lib/components/ProfitAndLossTable.svelte';
   import HierarchyGroupPLNode from '$lib/components/HierarchyGroupPLNode.svelte';
 
-  // "Division" here is only ever a real, business-chosen hierarchy
-  // name — the one this particular demo business happens to use — not
-  // a hardcoded, privileged concept. A real business could configure
-  // any other real hierarchy name instead; this page would work
-  // identically against it.
+  // "Division" is a business-chosen name, not privileged — see docs/pm-frontend-reference.md.
   const hierarchyName = 'Division';
   const hierarchyPath = ['Location', hierarchyName];
 
@@ -36,11 +32,7 @@
   let toDate = $state('');
   let groups: HierarchyGroupRecord[] = $state([]);
   let selectedGroup = $state('');
-  // Per direct request: "Consolidated per Division" belongs inside
-  // this same, one, beautiful P&L report, not as a real, separate
-  // report page — with the same, real drill-down capability. "Per
-  // Division" and picking one specific group via the tree picker are
-  // mutually exclusive real views of the same underlying report.
+  // "Per Division" and the tree picker are mutually exclusive views — see docs/pm-frontend-reference.md.
   let viewMode: 'consolidated' | 'per-group' = $state('consolidated');
 
   let latestRequestId = 0;
@@ -78,13 +70,7 @@
     } catch {
       /* the group filter is optional; leave the list empty if it fails to load */
     }
-    // A real, genuine bug otherwise: once a Year End Close has run
-    // (zeroing every real Income/Expense account, exactly as
-    // intended), a blank date range shows "right now" — correctly
-    // zero, but reads as broken to a person who never set a date on
-    // purpose. Default to the ledger's own real, earliest-to-latest
-    // activity so the first thing shown is genuinely real data, not a
-    // technically-correct but misleading zero.
+    // Default date range to earliest-to-latest activity — see docs/pm-frontend-reference.md.
     if (session.current) {
       try {
         const range = await getLedgerDateRange(session.current.businessName, session.current.ledgerName);

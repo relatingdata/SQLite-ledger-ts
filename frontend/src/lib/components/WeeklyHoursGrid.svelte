@@ -12,9 +12,7 @@
 
   const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  // A real, local, per-day working copy — one real row per day of the
-  // week, always all 7, with a real "on" flag driving whether that
-  // day's real times are actually included in the emitted `lines`.
+  // Local per-day working copy, all 7 days — see docs/pm-frontend-reference.md.
   let days = $state(
     DAY_NAMES.map((name) => {
       const existing = lines.find((l) => l.day === name);

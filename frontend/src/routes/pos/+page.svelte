@@ -40,11 +40,7 @@
   let customerName = 'Cash Sale';
   let onAccount = false;
 
-  // Per docs/multicurrency-design.md, Slice 4 - each real POS terminal
-  // is a real, single cash drawer, transacting in exactly one real
-  // currency. A real, ordinary retail outlet has none of these at
-  // all; a real, border-town one may show two or more real terminals,
-  // one per real, distinct currency it actually serves customers in.
+  // One terminal per currency, per docs/multicurrency-design.md Slice 4 — see docs/pm-frontend-reference.md.
   let terminals: PosTerminalRecord[] = [];
   let terminalName = '';
   let showAddTerminal = false;
@@ -65,10 +61,7 @@
   let pendingCustomers: PendingCustomer[] = [];
   let showPending = false;
 
-  // Every real terminal a real location actually has, each with its
-  // own real, resolved currency (or none — the real, ordinary,
-  // home-currency case). Re-loaded whenever the selected location
-  // changes; a real, ordinary location returns a real, empty list.
+  // Terminals per location, reloaded on location change — see docs/pm-frontend-reference.md.
   async function loadTerminals(name: string) {
     terminals = [];
     terminalName = '';
@@ -76,7 +69,7 @@
     try {
       terminals = await getPosTerminals(name);
     } catch {
-      // non-critical — the register still works in the real, ordinary, home-currency case
+      // non-critical — the register still works in the home-currency case
     }
   }
   $: loadTerminals(locationName);
@@ -139,11 +132,7 @@
           id: crypto.randomUUID(),
           itemName: asItemName(item.name),
           quantity: 1,
-          // A real, combination-tagged item's own, real price is
-          // resolved server-side (getItemPriceForCurrency, checked
-          // against its exact combination first) - omitted here
-          // entirely, rather than defaulting to a real item's own,
-          // separate, base retail price (or, worse, a bare 0).
+          // Combination-tagged price resolved server-side — see docs/pm-frontend-reference.md.
           unitPriceMinor: item.combinationValues ? undefined : (item.retail_price_minor ?? 0),
           taxMinor: 0,
           combinationValues: item.combinationValues,
@@ -157,8 +146,7 @@
 
   async function onProductInputKeydown(e: KeyboardEvent) {
     if (e.key !== 'Enter' || !productInput.trim()) return;
-    // A scanner types the UPC then hits Enter — try an exact UPC match
-    // first. If nothing matches, fall back to the first name search hit.
+    // Exact UPC match first, then name search — see docs/pm-frontend-reference.md.
     try {
       const item = await lookupItemByUpc(productInput.trim());
       addToCart(item);

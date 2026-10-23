@@ -8,9 +8,8 @@ export interface TreeItem {
   balance_minor: number | null;
 }
 
-/** Converts the flat, parent_id-based entity list into the dot-separated
- * path format @keenmate/svelte-treeview expects ("1", "1.1", "1.1.2", ...),
- * assigning each node's position among its siblings by name order. */
+// Converts the flat parent_id entity list to svelte-treeview's
+// dot-separated path format — see docs/pm-frontend-reference.md.
 export function toTreePaths(entities: EntityNode[]): TreeItem[] {
   const byParent = new Map<number | null, EntityNode[]>();
   for (const e of entities) {

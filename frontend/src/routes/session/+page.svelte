@@ -52,17 +52,12 @@
     if (!businessName) return;
     ledgers = await getLedgers(businessName);
     const current = session.current;
-    // Per docs/active-ledger-design.md: the real, current "active"
-    // ledger (set at business creation, flipped by a real rollover)
-    // is the strongest, most current signal - a real, soft switch
-    // onto wherever ordinary trading actually moved to, with no
-    // forced logout. Falls back to whatever this screen already did
-    // for a business created before this concept existed (null).
+    // Default to the active ledger — see docs/pm-frontend-reference.md.
     let activeLedgerName: string | null = null;
     try {
       activeLedgerName = (await getActiveLedger(businessName)).activeLedger;
     } catch {
-      // Fine - falls through to the real, existing defaults below.
+      // Falls through to the existing defaults below.
     }
     const preferred =
       (activeLedgerName && ledgers.find((l) => l.name === activeLedgerName)) ||
@@ -71,10 +66,7 @@
     selectedLedgerId = preferred?.id ?? ledgers[0]?.id ?? '';
   }
 
-  // Per docs/profit-centers-design.md's Phase C: a business with zero
-  // real Profit Centers (every business, until one is explicitly
-  // created) gets an empty list here and no picker shown at all —
-  // purely additive, exactly like Phase A's own structural accounts.
+  // Profit Centers, Phase C — see docs/pm-frontend-reference.md.
   async function loadProfitCenters() {
     if (!selectedBusinessId) {
       profitCenters = [];
@@ -101,11 +93,7 @@
     }
   });
 
-  // Reactive display translation — the same pattern the login page
-  // uses (translations is populated from session.current.languageName
-  // everywhere else in the app, but there's no session yet while
-  // picking one, so this page needs its own direct wiring, same as
-  // login does before authentication exists at all).
+  // Reactive display translation, same pattern as login — see docs/pm-frontend-reference.md.
   let textDirection = $state<'ltr' | 'rtl'>('ltr');
 
   async function applyDisplayLanguage() {
@@ -129,11 +117,7 @@
     const business = businesses.find((b) => b.id === selectedBusinessId)!;
     const ledger = ledgers.find((l) => l.id === selectedLedgerId)!;
     const language = languages.find((l) => l.id === selectedLanguageId)!;
-    // A real Profit Center is only ever included when this business
-    // actually has one chosen — a business with none (every business,
-    // until Phase A's own createProfitCenter is used) must store
-    // exactly what it always has, undefined, never a stray, empty
-    // value.
+    // Only included when actually chosen — see docs/pm-frontend-reference.md.
     const profitCenter = selectedProfitCenterId ? profitCenters.find((p) => p.id === selectedProfitCenterId) : undefined;
     session.set({
       businessId: business.id,

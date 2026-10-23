@@ -16,9 +16,7 @@
   const pageSize = 100;
 
   let latestRequestId = 0;
-  // Split on {NAME} — same, real, confirmed fix as Balance Sheet:
-  // {@html} with an inline .replace() never updates once session.current
-  // populates after this page's own, first, server-rendered pass.
+  // Same {@html}-reactivity fix as Balance Sheet — see docs/pm-frontend-reference.md.
   let introTemplate = $derived(translations.current["Every real posted sale for {NAME} in the selected period — a category summary rolled up from each product's own real place in the catalog, and the full line-by-line detail underneath it."] ?? "Every real posted sale for {NAME} in the selected period — a category summary rolled up from each product's own real place in the catalog, and the full line-by-line detail underneath it.");
   let introItems = $derived(introTemplate.split('{NAME}'));
   async function load() {

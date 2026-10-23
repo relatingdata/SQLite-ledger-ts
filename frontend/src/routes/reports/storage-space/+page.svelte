@@ -19,10 +19,7 @@
     }
   });
 
-  // Storage-space currencies are real, physical unit counts (how many
-  // cartons, how many bottles) — never a dollar amount — so they are
-  // shown as plain, whole numbers, never run through formatAmount's
-  // own, real, currency-cents formatting.
+  // Storage-space currencies are plain whole-number counts, not cents — see docs/pm-frontend-reference.md.
   const fmt = (n: number) => n.toLocaleString(auth.current?.user.number_format?.includes(',') ? 'de-DE' : 'en-US');
 </script>
 

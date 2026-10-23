@@ -40,9 +40,7 @@
     }
   }
 
-  // Re-check on-hand quantity, and reset the destination, whenever
-  // the item or the source location changes — the same real, dynamic
-  // dependency the original hand-written page already had.
+  // Re-check on-hand and reset destination on change — see docs/pm-frontend-reference.md.
   let lastItem = '';
   let lastFromLocation = '';
   $effect(() => {
@@ -69,18 +67,7 @@
     try {
       const business = asBusinessName(session.current?.businessName ?? '');
       const ledger = asLedgerName(session.current?.ledgerName ?? '');
-      // Per docs/canned-journal-to-frontend-design.md Phase 1: the
-      // real, physical quantity movement is done first, deliberately,
-      // before anything is staged or posted — transferStock is the one,
-      // real step genuinely likely to fail (not enough real stock on
-      // hand, or the two real locations aren't actually in the same
-      // city), and a failed transfer must never leave a real, posted
-      // dollar journal entry behind for stock that never actually
-      // moved. The canned account selection (which account, how much)
-      // for the real dollar VALUE entry is computed here, client-side,
-      // by the one, shared transferLines function — the backend is
-      // only asked to resolve/create the real Inventory accounts (a
-      // real, stateful side effect) and to move the real stock.
+      // Physical movement first, then transferLines for the VALUE entry — see docs/pm-frontend-reference.md.
       await transferStock({
         business,
         ledger,

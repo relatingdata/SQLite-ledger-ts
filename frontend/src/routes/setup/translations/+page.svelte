@@ -21,10 +21,7 @@
   let search = $state('');
   let selectedWord: VocabularyWord | null = $state(null);
 
-  // Every real, direct edit made to the currently-selected word's own
-  // translations — a real, local, plain object, one entry per real
-  // language, kept separate from words itself so a real, in-progress
-  // edit doesn't need to be re-derived on every keystroke.
+  // Pending edits, kept separate from words — see docs/pm-frontend-reference.md.
   let editValues: Record<string, string> = $state({});
 
   let newLanguageName = $state('');
@@ -34,11 +31,7 @@
   let newWordName = $state('');
   let addingWord = $state(false);
 
-  // Per direct instruction: real, direct RTL support for every real
-  // language, Hebrew/Arabic included — one text-direction lookup per
-  // real language, loaded once alongside the language list itself and
-  // reused everywhere a translation input or a reference column is
-  // shown, never a hardcoded special case for any one language.
+  // Per-language RTL lookup, loaded once — see docs/pm-frontend-reference.md.
   let languageDirections: Record<string, 'ltr' | 'rtl'> = $state({});
   async function loadLanguageDirections(langs: { id: number; name: string }[]) {
     const entries = await Promise.all(
@@ -54,13 +47,7 @@
     languageDirections = { ...languageDirections, ...Object.fromEntries(entries) };
   }
 
-  // Per direct instruction: a real translator, working into a target
-  // language they're producing, may be more fluent in some third,
-  // already-translated language than in English — "reference" is
-  // whichever real language they choose to read while they work,
-  // falling back to the real, native English wording (now a genuine,
-  // real translation row of its own, not merely implied) whenever the
-  // chosen reference language doesn't have this particular word yet.
+  // Reference language — see docs/pm-frontend-reference.md.
   let mode: 'single' | 'translate' = $state('single');
   let targetLanguage = $state('');
   let referenceLanguage = $state('English');
@@ -69,11 +56,7 @@
     return word.translations[referenceLanguage] ?? word.translations['English'] ?? word.name;
   }
 
-  // Keyed by concept name — only words the translator has actually,
-  // genuinely touched this session get an entry; everything else
-  // reads its own, real, current target text (or a real, fresh copy
-  // of the reference text, per direct instruction, as a real,
-  // editable starting point rather than a blank field) directly.
+  // See docs/pm-frontend-reference.md.
   let translateEdits: Record<string, string> = $state({});
   let translateSaving = $state('');
 
@@ -132,11 +115,7 @@
   onMount(load);
 
   let filteredWords = $derived(search.trim() ? words.filter((w) => w.name.toLowerCase().includes(search.trim().toLowerCase())) : words);
-  // English is now a real, genuine translation target too, per direct
-  // instruction — its own wording lives in a real translation row
-  // under the real "English" Language, exactly like German or French,
-  // not merely implied by a concept's own name any more. No special
-  // case needed here any more either.
+  // English is a real translation target too — see docs/pm-frontend-reference.md.
   let editableLanguages = $derived(languages);
 
   function select(word: VocabularyWord) {
@@ -155,8 +134,7 @@
     error = '';
     try {
       await setTranslation(selectedWord.name, language, text);
-      // Real, direct, local update — reflects the real, just-saved
-      // value immediately, without a real, full, separate reload.
+      // Local update, no reload — see docs/pm-frontend-reference.md.
       selectedWord.translations[language] = text;
       words = words;
     } catch (e) {

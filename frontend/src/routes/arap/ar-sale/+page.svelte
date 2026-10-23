@@ -55,10 +55,7 @@
   function removeLine(key: number) {
     lines = lines.filter((l) => l.key !== key);
   }
-  // Auto-add: matching Cash Sale/Purchase's own, established
-  // convention — a fresh, empty line appears once every existing
-  // line has a real item name filled in, so there's never an
-  // "Add line" button to click.
+  // Auto-add, matching CashTransaction's convention — see docs/pm-frontend-reference.md.
   $effect(() => {
     if (lines.length > 0 && lines.every((l) => l.itemName.trim())) addLine();
   });
@@ -73,10 +70,7 @@
   let taxMinor = $derived(taxRate ? Math.round(subtotalMinor * (Number(taxRate) / 100)) : 0);
   let totalMinor = $derived(subtotalMinor + taxMinor);
 
-  // A real, non-blocking warning — never silently refuses the sale,
-  // since account management practice genuinely sometimes extends
-  // credit past a nominal limit for a trusted customer; this only
-  // makes sure that's a deliberate, informed choice, not an accident.
+  // Credit-limit check is a non-blocking warning — see docs/pm-frontend-reference.md.
   let creditStatus: CreditStatus | null = $state(null);
   $effect(() => {
     if (customer) loadCreditStatus(customer);
@@ -95,8 +89,7 @@
     try {
       [businesses, entities] = await Promise.all([getBusinesses(), getEntityTree()]);
       business = session.current?.businessName ?? businesses[0]?.name ?? '';
-      // Items are scoped per business - never fetched before the real
-      // business is known.
+      // Items are scoped per business.
       if (business) items = (await listItems(business)).rows;
       await loadLedgers();
       locations = await listLocations(asBusinessName(business));

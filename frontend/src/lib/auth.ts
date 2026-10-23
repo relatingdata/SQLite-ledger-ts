@@ -5,10 +5,8 @@ export interface AuthUser {
   id: number;
   username: string;
   roles: string[];
-  /** How many rows this user sees per page on any paginated list. */
+  // Superseded by state.svelte.ts — see docs/pm-frontend-reference.md.
   page_size: number;
-  /** Explicit, fixed-choice display patterns — see $lib/format for
-   * how these are actually applied. */
   number_format: string;
   date_format: string;
 }
@@ -20,13 +18,7 @@ export interface AuthState {
 
 const STORAGE_KEY = 'sql-ledger-ts-auth';
 
-// Deliberately sessionStorage, not localStorage: a financial
-// application shouldn't stay logged in indefinitely just because the
-// token is sitting in storage — closing the browser should mean
-// logging in again next time. sessionStorage still survives an
-// ordinary page reload within the same tab (so a refresh doesn't log
-// you out), but clears when the tab/window itself closes, unlike
-// localStorage which persists across browser restarts entirely.
+// sessionStorage, not localStorage — see docs/pm-frontend-reference.md.
 function loadStored(): AuthState | null {
   if (!browser) return null;
   try {

@@ -10,14 +10,7 @@
 
   let open = false;
 
-  // A real group can be genuinely nested (a real, per-location group
-  // under a real, per-city one) — built into an actual tree here, not
-  // left as the flat, alphabetical list a plain <select> forced
-  // everything into, since the whole point of this picker is to make
-  // that real structure visible: Consolidated (the company) -> group
-  // -> Location, any level directly choosable, not just the leaves.
-  // hierarchyName is never hardcoded — a caller passes its own, real,
-  // chosen hierarchy name (e.g. "Division").
+  // Nested group tree, never flat — see docs/pm-frontend-reference.md.
   $: tree = (() => {
     const byParent = new Map<string | null, HierarchyGroupRecord[]>();
     for (const g of groups) {
@@ -30,10 +23,7 @@
         .map((g) => ({ name: g.name, children: build(g.name) }))
         .sort((a, b) => a.name.localeCompare(b.name));
     }
-    // Groups whose own real parent isn't itself a group (e.g. a city
-    // group parented directly under an application root) are the real
-    // top level here — found by checking which parent names never
-    // appear as a group's own name.
+    // Top level: parent names that never appear as a group's own name.
     const groupNames = new Set(groups.map((g) => g.name));
     const topLevelParents = new Set(groups.filter((g) => !groupNames.has(g.parentName ?? '')).map((g) => g.parentName));
     return [...topLevelParents].flatMap((p) => build(p));

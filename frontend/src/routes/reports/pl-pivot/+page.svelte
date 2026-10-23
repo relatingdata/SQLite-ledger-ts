@@ -10,16 +10,7 @@
   import { getProfitAndLossByAxis, getAxisValues, MatrixApiError, type ProfitAndLossByAxisNode, type MatrixAxis, type AxisValues } from '$lib/matrix-api';
   import AxisPLNode from '$lib/components/AxisPLNode.svelte';
 
-  // Per docs/pl-pivot-builder-dnd-plan.md: the exact, same, real,
-  // existing opposingHierarchyAxes constraint new-new-pl already
-  // enforces via its own two dropdowns - a business's own further,
-  // chosen hierarchy (e.g. "Division") and Location are the exact,
-  // same, real hierarchy at two different grains, and so are
-  // Category/Product, so crossing either against its own other level
-  // is genuinely redundant, never a real, second, independent axis. No
-  // further hierarchy name is ever hardcoded here — LOCATION_HIERARCHY
-  // is filled in once axisValues loads, below, with whatever real
-  // hierarchies this business actually configured.
+  // Enforces the same opposingHierarchyAxes constraint as new-new-pl — see docs/pm-frontend-reference.md.
   type GroupableAxis = Exclude<MatrixAxis, 'Consolidated'>;
   let LOCATION_HIERARCHY: GroupableAxis[] = ['Location'];
   const PRODUCT_HIERARCHY: GroupableAxis[] = ['Category', 'Product'];
@@ -37,10 +28,7 @@
   let trayChips: Chip[] = chipsFor(['Location', 'Category', 'Product']);
   let rowChips: Chip[] = [];
   let colChips: Chip[] = [];
-  // A real, direct, per-zone narrowing value ("this whole axis" vs
-  // "just this one, specific value within it") - attached to the
-  // zone itself once it holds a real chip, per the plan's own,
-  // stated design, rather than a separate, disconnected control.
+  // Per-zone narrowing value — see docs/pm-frontend-reference.md.
   let rowFilter = '';
   let colFilter = '';
 
@@ -72,9 +60,7 @@
 
   function finalizeZone(zone: 'row' | 'col', e: CustomEvent<DndEvent<Chip>>) {
     let items = e.detail.items;
-    // A real drop zone holds exactly one real axis at a time — a
-    // second chip landing here bumps the zone's own, real, prior
-    // occupant straight back to the tray, rather than allowing two.
+    // One axis per drop zone — see docs/pm-frontend-reference.md.
     if (items.length > 1) {
       const kept = items[items.length - 1];
       const bumped = items.filter((c) => c.id !== kept.id);
@@ -83,9 +69,7 @@
     }
     const opposing = zone === 'row' ? colAxis : rowAxis;
     if (items[0] && opposing !== 'Consolidated' && !opposingHierarchyAxes(items[0].axis).includes(opposing as GroupableAxis)) {
-      // A real, redundant, same-hierarchy crossing — the chip
-      // visibly, immediately returns to the tray instead of silently
-      // producing a self-crossed, meaningless report.
+      // Redundant crossing bounces the chip back to the tray — see docs/pm-frontend-reference.md.
       trayChips = [...trayChips, items[0]];
       items = [];
       flashReject(zone);
@@ -126,10 +110,7 @@
     if (session.current) {
       try {
         axisValues = await getAxisValues(session.current.businessName, session.current.ledgerName);
-        // Every further, real, business-chosen hierarchy configured
-        // (e.g. "Division") joins Location's own real hierarchy here —
-        // never hardcoded, read live from whatever this business
-        // actually set up.
+        // See docs/pm-frontend-reference.md.
         const furtherHierarchies = Object.keys(axisValues).filter((k) => !['Product', 'Category', 'Location'].includes(k)) as GroupableAxis[];
         if (furtherHierarchies.length > 0) {
           LOCATION_HIERARCHY = ['Location', ...furtherHierarchies];

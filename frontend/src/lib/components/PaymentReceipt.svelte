@@ -1,10 +1,6 @@
 <script lang="ts">
-  // PaymentReceipt.svelte — the one, real, genuine screen behind
-  // both "AP Payment" and "AR Receipt". Confirmed directly: the two
-  // original, separate files differed almost entirely by
-  // parameter-swapping (vendor<->customer, Accounts Payable<->
-  // Accounts Receivable, "paid"<->"received") — one real screen,
-  // parameterized by direction.
+  // The shared AP Payment/AR Receipt screen — see
+  // docs/pm-frontend-reference.md for the full design.
   import { onMount } from 'svelte';
   import { session, translations } from '$lib/state.svelte';
   import {
@@ -30,9 +26,7 @@
 
   let { direction }: { direction: 'payment' | 'receipt' } = $props();
 
-  // direction is genuinely static for this component's whole real
-  // lifetime - the same, real reasoning as CashTransaction.svelte's
-  // own, identical pattern.
+  // direction is static — same pattern as CashTransaction.svelte.
   // svelte-ignore state_referenced_locally
   const isPayment = direction === 'payment';
   const partyLabel = isPayment ? 'Vendor' : 'Customer';
@@ -47,9 +41,7 @@
   const referencePlaceholder = isPayment ? 'e.g. PMT-1001' : 'e.g. RCT-1001';
   const invoiceSide: 'AP' | 'AR' = isPayment ? 'AP' : 'AR';
 
-  // Real, outstanding invoices for the currently-selected party, each
-  // with its own, real, remaining balance — fetched fresh whenever
-  // the party changes.
+  // Outstanding invoices, fetched fresh per party — see docs/pm-frontend-reference.md.
   let outstandingInvoices: (Invoice & { outstanding_minor: number })[] = $state([]);
   let allocations: Record<number, string> = $state({});
   let loadingInvoices = $state(false);
@@ -103,10 +95,7 @@
       outstandingInvoices = withOutstanding.filter((inv) => inv.outstanding_minor > 0);
       allocations = {};
     } catch {
-      // A real, direct payment/receipt can still be recorded even if
-      // the real, outstanding-invoice list fails to load —
-      // allocation is an optional, additional step, not a hard
-      // requirement.
+      // Payment/receipt still works if invoice list fails to load — see docs/pm-frontend-reference.md.
       outstandingInvoices = [];
     } finally {
       loadingInvoices = false;
@@ -144,15 +133,10 @@
         await stageARReceipt({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), customer: asCustomerName(partyName), amount_minor, transdate, description: description || undefined });
         await postARReceipt(reference, asBusinessName(business), asLedgerName(ledger));
       }
-      // Real, direct, optional allocation against specific, real,
-      // outstanding invoices. Best-effort per invoice: one real,
-      // failed allocation doesn't undo the payment/receipt itself,
-      // which has already, genuinely posted.
+      // Optional, best-effort allocation per invoice — see docs/pm-frontend-reference.md.
       const realAllocations = Object.entries(allocations).filter(([, v]) => parseMinorUnits(v || '0') > 0);
       for (const [invoiceId, v] of realAllocations) {
-        // A real, distinct reference per invoice allocated to —
-        // reusing the payment/receipt's own reference would collide
-        // with its own, already-posted journal entry.
+        // Distinct reference per allocation — see docs/pm-frontend-reference.md.
         await allocatePaymentToInvoice(Number(invoiceId), `${reference}-alloc-${invoiceId}`, parseMinorUnits(v), transdate, 'Cash and Bank');
       }
       message = `${isPayment ? 'Payment' : 'Receipt'} ${reference} ${isPayment ? 'to' : 'from'} ${partyName} recorded${realAllocations.length ? `, allocated to ${realAllocations.length} invoice(s)` : ''}.`;

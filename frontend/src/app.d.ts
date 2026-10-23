@@ -5,9 +5,7 @@ declare global {
     // interface PageData {}
     // interface Platform {}
   }
-  // Per direct instruction: the frontend's own real, build-time
-  // version, injected by vite.config.ts from the exact, same, single
-  // VERSION file the backend reads at startup.
+  // Build-time version, from the shared VERSION file — see docs/pm-frontend-reference.md.
   const __APP_VERSION__: string;
 }
 

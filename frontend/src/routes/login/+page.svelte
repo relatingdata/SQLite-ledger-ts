@@ -8,11 +8,7 @@
 
   const DISPLAY_LANGUAGE_KEY = 'display-language';
 
-  // The real brand name itself, never line-broken mid-phrase — a
-  // real, direct, non-breaking space between each word, regardless
-  // of which real, translated language wraps around it, without
-  // forcing the whole sentence onto one line (which would risk a
-  // real overflow on a narrow, real screen instead).
+  // Brand name joined with non-breaking spaces — see docs/pm-frontend-reference.md.
   let welcomeMessage = $derived(
     (translations.current['Welcome to Better Brighter Multi-Ledger — please log in.'] ?? 'Welcome to Better Brighter Multi-Ledger — please log in.').replace(
       'Better Brighter Multi-Ledger',
@@ -23,16 +19,7 @@
   let languages: { id: number; name: string }[] = $state([]);
   let displayLanguage = $state('');
 
-  // Display only — this just changes what language the login form's
-  // own labels show in, entirely separate from choosing a business/
-  // ledger, which needs an actual session and comes after logging in.
-  //
-  // Priority: a person's own previously-chosen preference (if they've
-  // been here before and picked something) beats the system default;
-  // the system default beats a hardcoded English fallback for anyone
-  // new. The system default has to live somewhere reachable before
-  // login exists at all, since this screen itself needs it — see
-  // getDefaultLanguage/setDefaultLanguage in db.ts for where.
+  // Display-only language priority — see docs/pm-frontend-reference.md.
   onMount(async () => {
     try {
       languages = await getLanguages();
@@ -136,10 +123,7 @@
     color: var(--ink);
   }
 
-  /* Real, direct RTL mirroring, per direct request: absolute
-     left/right positioning does not automatically flip with dir="rtl"
-     the way text-align or flex-direction do, so this needs its own,
-     explicit override. */
+  /* RTL mirroring: absolute positioning doesn't auto-flip — see docs/pm-frontend-reference.md. */
   .app-frame[dir="rtl"] .app-frame-title {
     left: auto;
     right: 1.2rem;

@@ -8,16 +8,7 @@
   import { getSalesCogsMatrix, MatrixApiError, type SalesCogsMatrix, type MatrixAxis } from '$lib/matrix-api';
   import { getHierarchy } from '$lib/api';
 
-  // A business's own further, chosen hierarchies (e.g. "Division") are
-  // never hardcoded here — they're read live from the business's own
-  // Hierarchy configuration below, whatever real names it actually
-  // chose. Location and any such further hierarchy are genuinely the
-  // same, one real hierarchy (Location Categorization) at two
-  // different levels of grain; the exact, same is true of Category and
-  // Product (Product Categorization). Crossing a hierarchy against its
-  // own other level ("Division x Location", "Category x Product") is
-  // genuinely redundant — see the identical, fuller comment in New New
-  // P&L.
+  // Hierarchy-redundancy guard, as in New New P&L — see docs/pm-frontend-reference.md.
   let furtherHierarchies: MatrixAxis[] = [];
   $: locationHierarchy = ['Location', ...furtherHierarchies] as MatrixAxis[];
   const PRODUCT_HIERARCHY: MatrixAxis[] = ['Category', 'Product'];
@@ -78,9 +69,7 @@
 
   const fmt = (c: number) => formatAmount(c, auth.current?.user.number_format ?? '1 000.00');
 
-  // Build the real, distinct row and column keys, each sorted, and a
-  // real, direct lookup from (row, col) to its own real cell — the
-  // standard, real pivot-table shape.
+  // Standard pivot-table shape — see docs/pm-frontend-reference.md.
   $: rowKeys = matrix ? [...new Set(matrix.cells.map((c) => c.rowKey))].sort() : [];
   $: colKeys = matrix ? [...new Set(matrix.cells.map((c) => c.colKey))].sort() : [];
   $: cellLookup = matrix ? new Map(matrix.cells.map((c) => [`${c.rowKey}\u0000${c.colKey}`, c])) : new Map();

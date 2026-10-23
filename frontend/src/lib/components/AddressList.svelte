@@ -5,13 +5,7 @@
 
   let { entityName }: { entityName: string } = $props();
 
-  // "For the moment" — address line 1/2 are combined into a single,
-  // multi-line "Building & Street Address" box, not two separate
-  // fields, per direct instruction. Still stored as address_line1/2
-  // on the backend (no schema change here) — the first line a person
-  // types becomes address_line1, everything after becomes
-  // address_line2, joined back into one box the same way when
-  // re-displayed.
+  // Combined address box, split across address_line1/2 — see docs/pm-frontend-reference.md.
   function combinedLines(a: TypedAddress): string {
     return [a.address_line1, a.address_line2].filter(Boolean).join('\n');
   }

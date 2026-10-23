@@ -1,13 +1,6 @@
 <script lang="ts">
-  // Form.svelte — the one, real, generic form component this whole
-  // application should compose, per the one-file-per-page
-  // consolidation plan (docs/one-file-per-page-consolidation-plan.md).
-  // Restrictive by construction, matching the same closed field-type
-  // set already designed for the business-type questions: text,
-  // number, select, password, date. No conditional logic, no
-  // branching, no computed fields — if a real page needs to decide
-  // something from an answer, that's real code around this
-  // component, not a new feature grown into it.
+  // The generic form component — see docs/pm-frontend-reference.md
+  // for the full design.
   import { translations } from '$lib/state.svelte';
 
   export interface FormField {
@@ -16,14 +9,10 @@
     type: 'text' | 'number' | 'select' | 'password' | 'date' | 'multiselect';
     /** Required for type: 'select' or 'multiselect'. */
     options?: string[];
-    /** Real, optional HTML input constraints — passed straight
-     * through, never reinterpreted. */
-    min?: number;
+    min?: number; // passed straight through, never reinterpreted
     max?: number;
     step?: number;
     autocomplete?: 'off' | 'current-password' | 'new-password' | 'username' | 'email';
-    /** A hint line shown under the field's own label, the same real
-     * shape every existing hand-written form already uses. */
     hint?: string;
   }
 
@@ -59,12 +48,7 @@
     }
   }
 
-  // Enter-to-submit, from any field — a genuine, generic feature
-  // every real form gets for free, rather than a per-page workaround.
-  // (Component exports cannot be bound to in Svelte 5 runes mode, so
-  // this can't be exposed via bind:this for an external caller to
-  // trigger instead — handling it here, once, is the real, correct
-  // fix, not a workaround.)
+  // Enter-to-submit from any field — see docs/pm-frontend-reference.md.
   function onKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') submit();
   }

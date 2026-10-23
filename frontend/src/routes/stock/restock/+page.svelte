@@ -48,19 +48,11 @@
   let warehouses = $derived(locations.filter((l) => l.location_type === 'Warehouse'));
   let outlets = $derived.by(() => locations.filter((l) => l.location_type === 'Retail' && (!warehouseName || l.city === locations.find((w) => w.name === warehouseName)?.city)));
 
-  // The real, suggested restocking list — every real product genuinely
-  // below its own reorder level at the selected outlet, topped up to
-  // its own real max level. A real starting point matching what a
-  // real store manager would actually notice (this product's shelf is
-  // looking thin), not a blank form to fill in from memory.
+  // Suggested restocking list — see docs/pm-frontend-reference.md.
   let suggestions = $derived(outletName ? belowReorder.filter((r) => r.location === outletName) : []);
 
   function loadSuggestions() {
-    // Computed directly here, not read from the reactive `suggestions`
-    // variable — a real, genuine timing bug found live: this function
-    // runs on the same tick as the outlet selection change, before
-    // Svelte has recomputed `suggestions` for the newly-selected
-    // outlet, so reading it here would use the stale, previous value.
+    // Computed here, not from reactive `suggestions` — avoids a stale-tick bug; see docs/pm-frontend-reference.md.
     const freshSuggestions = outletName ? belowReorder.filter((r) => r.location === outletName) : [];
     lines = freshSuggestions.map((s) => ({ item: s.item, quantity: Math.max(1, (s.max_level ?? s.reorder_level * 2) - s.quantity_on_hand) }));
     pickingList = [];
@@ -281,9 +273,7 @@
   .shelf-col {
     text-align: right;
     color: var(--ink-soft);
-    /* Per direct request: shelf detail sits on the far right, so this
-       whole column can be neatly torn off before a picking list ever
-       leaves the building. */
+    /* Shelf detail on the far right, so this column can be torn off before a picking list leaves the building. */
   }
   .no-shelf {
     color: var(--ink-soft);

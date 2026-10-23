@@ -92,17 +92,7 @@
 
   onMount(loadStatic);
 
-  // A real, reported bug fixed here: the dropdown used to show every
-  // account in the entire system, mixing every real CoA prototype
-  // together (German/French/Italian accounts alongside English ones)
-  // regardless of which business was actually selected. Each real
-  // account and each real business now carries a relation tagging its
-  // own CoA prototype (see backend/scripts/tag-coa-prototypes.ts) — filter
-  // to the current business's own prototype specifically. Accounts with
-  // no prototype relation at all are always shown: real, product-specific
-  // Sales/COGS accounts (named "Sales - ..."/"COGS - ...", already
-  // tagged COGS for a different purpose) and real customer/vendor
-  // contact accounts are universal, not tied to any one CoA prototype.
+  // CoA prototype filtering — see docs/pm-frontend-reference.md.
   const postableAccounts = () => {
     const currentBusiness = accounts.find((a) => a.name === business);
     const currentPrototypeId = currentBusiness?.relation_id ?? null;
@@ -120,29 +110,14 @@
   };
 
   function onRowChanged(index: number, field: 'account' | 'debit' | 'credit') {
-    // A single journal line is either a debit or a credit, never
-    // both — confirmed as a real, live bug: entering a value in both
-    // fields on one line silently computed debit-minus-credit as a
-    // net amount rather than rejecting the input, which could post a
-    // real, wrong-sign figure without any warning. Typing into one
-    // field now clears the other, the same behavior standard
-    // accounting software uses, rather than relying on a person to
-    // notice and self-correct.
+    // Debit/credit mutual exclusion — see docs/pm-frontend-reference.md.
     if (field === 'debit' && rows[index].debit) rows[index].credit = '';
     if (field === 'credit' && rows[index].credit) rows[index].debit = '';
     rows = autoExpandIfTrailingRowFilled(rows);
     rows = autoBalanceTrailingRow(rows, index);
   }
 
-  // Insert always adds a new row at the end — it has no conflicting
-  // native meaning in a modern browser, so it's safe to act on
-  // regardless of which field currently has focus.
-  //
-  // Delete is trickier: a text input already uses Delete to remove the
-  // character ahead of the cursor, and stealing that would break normal
-  // editing. So Delete only removes the row when there's nothing for it
-  // to do natively — the account dropdown (not a text field at all) or
-  // a text field that's currently empty.
+  // Insert/Delete on the grid — see docs/pm-frontend-reference.md.
   function onRowKeydown(e: KeyboardEvent, index: number) {
     if (e.key === 'Insert') {
       e.preventDefault();

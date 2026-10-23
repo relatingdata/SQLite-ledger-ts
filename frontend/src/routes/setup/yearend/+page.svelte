@@ -22,10 +22,7 @@
     type ResolvedRollover,
   } from '$lib/api';
 
-  // The close-books breakdown walks Location, then whatever further
-  // hierarchy a business has actually configured (e.g. "Division") —
-  // never a single, privileged name hardcoded here; read live, below,
-  // from the business's own Hierarchy configuration.
+  // Close-books breakdown by Location + configured hierarchy — see docs/pm-frontend-reference.md.
   let hierarchyPath: string[] = ['Location'];
 
   let entities: EntityNode[] = [];
@@ -99,14 +96,7 @@
     }
   }
 
-  // Per direct instruction, the real logic here is sound and not
-  // unlike the P&L-into-consolidated-revenue close itself: posts the
-  // exact, same, already-computed preview.lines directly from the
-  // frontend via the exact, same generic stageLine/postJournalEntry
-  // calls the General Journal screen's own "Save" button already
-  // uses, rather than the old all-in-one closeBooks() backend call —
-  // previewCloseBooks has already done all the real arithmetic, so
-  // there is nothing left to re-derive here, only to post.
+  // Posts preview.lines directly, not via closeBooks() — see docs/pm-frontend-reference.md.
   async function acceptAndClose() {
     if (!session.current || !preview) return;
     closing = true;
@@ -140,14 +130,7 @@
     previewError = '';
   }
 
-  // --- Roll over to a new period --------------------------------------
-  // Per direct instruction: the real logic here is sound too, and not
-  // unlike the close above — resolveRolloverLines does the genuinely
-  // stateful half (creating each carried-forward account's own node
-  // under the new ledger) server-side and returns the real,
-  // already-computed opening-balance lines; the frontend then posts
-  // them itself via the exact, same generic stageLine/postJournalEntry
-  // calls, rather than re-deriving anything.
+  // --- Roll over to a new period — see docs/pm-frontend-reference.md.
   const NEW_LEDGER_OPTION = '__new__';
   let ledgers: { id: number; name: string }[] = [];
   let selectedLedgerOption = NEW_LEDGER_OPTION;
@@ -186,11 +169,7 @@
         try {
           await createLedger(session.current.businessName, asLedgerName(target));
         } catch (e) {
-          // A real ledger of this exact name may already exist from an
-          // earlier, half-finished attempt — rolling into it is still a
-          // real, valid case. Any other, genuine problem creating it
-          // surfaces anyway, below, once resolveRolloverLines itself
-          // can't find the ledger it needs.
+          // Rolling into an existing ledger from a half-finished attempt is valid — see docs/pm-frontend-reference.md.
           if (!(e instanceof ApiError)) throw e;
         }
         ledgers = await getLedgers(session.current.businessName);

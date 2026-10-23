@@ -8,19 +8,7 @@
   import { getProfitAndLossByAxis, getAxisValues, MatrixApiError, type ProfitAndLossByAxisNode, type MatrixAxis, type AxisValues } from '$lib/matrix-api';
   import AxisPLNode from '$lib/components/AxisPLNode.svelte';
 
-  // A real, single, unified dropdown per vector — per direct request,
-  // "Consolidated" at the top, then each real axis type as its own,
-  // real, selectable group-by heading, with every real, specific value
-  // within it listed directly beneath, in the same, one dropdown —
-  // rather than two, real, separate dropdowns (axis type, then a
-  // second, separate "narrow to one value" picker).
-  //
-  // Each option's own real value is a real, combined string: the axis
-  // type alone ("Location") means "group by every real Location";
-  // "Location::Riverside Cellars" means "narrow to this one, real,
-  // specific value" — still genuinely grouped by Location underneath
-  // (so its own real drill-down still shows correctly), just showing
-  // only the one, real, chosen branch.
+  // Unified axis dropdown — see docs/pm-frontend-reference.md.
   let outerSelection = $state('Location');
   let innerSelection = $state('Product');
 
@@ -31,22 +19,7 @@
   let loading = $state(true);
   let error = $state('');
 
-  // A business's own further, chosen hierarchies (e.g. "Division") are
-  // never hardcoded here — they're read live from axisValues above,
-  // whatever real names this business actually configured. Location
-  // and any such further hierarchy are genuinely the same, one real
-  // hierarchy — Location Categorization — at two different levels of
-  // grain (a division is a real, coarser grouping of locations; a
-  // location is that same hierarchy's own finest, individual leaf).
-  // The exact, same is true of Category and Product — Product
-  // Categorization. Crossing a hierarchy against its own other level
-  // ("Division v Location", "Category v Product") is genuinely
-  // redundant, not a real, second, independent dimension — it's the
-  // same grouping crossed against itself. A real, meaningful two-axis
-  // breakdown crosses one, real, whole hierarchy against the other:
-  // Location-side (how a real sale is grouped by where it happened)
-  // against Product-side (what was actually sold) — always makes real
-  // sense, in any combination, including any drill-down within each.
+  // Hierarchy-redundancy guard — see docs/pm-frontend-reference.md.
   const PRODUCT_HIERARCHY: Exclude<MatrixAxis, 'Consolidated'>[] = ['Category', 'Product'];
   let furtherHierarchies = $derived((axisValues ? Object.keys(axisValues).filter((k) => !['Product', 'Category', 'Location'].includes(k)) : []) as Exclude<MatrixAxis, 'Consolidated'>[]);
   let locationHierarchy = $derived(['Location', ...furtherHierarchies] as Exclude<MatrixAxis, 'Consolidated'>[]);
@@ -102,16 +75,7 @@
   let allowedOuterAxes = $derived(opposingHierarchyAxes(innerAxis).filter((a): a is Exclude<MatrixAxis, 'Consolidated'> => a !== 'Consolidated'));
   let totalProfitLoss = $derived(nodes.reduce((s, n) => s + n.profitAndLoss.net_income_minor, 0));
 
-  // A real, direct guard: if changing one grouping's own hierarchy
-  // would leave the other one showing a stale, no-longer-real,
-  // available selection (e.g. Outer moves from Location to Category
-  // while Inner is still Product — now genuinely the same hierarchy
-  // crossed against itself), reset that one to Consolidated rather
-  // than silently keeping an invalid, unlisted value selected. A
-  // direct function call, not a reactive statement — Svelte correctly
-  // rejects the reactive form here as a genuine cyclical dependency
-  // (outerAxis depends on outerSelection, which the guard itself
-  // would also assign).
+  // Resets the other grouping to Consolidated on conflict — see docs/pm-frontend-reference.md.
   function onOuterChange() {
     const newOuterAxis = parseSelection(outerSelection).axis;
     const currentInnerAxis = parseSelection(innerSelection).axis;

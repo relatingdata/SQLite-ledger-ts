@@ -16,11 +16,7 @@
   } = $props();
 
   const fmt = (c: number) => formatAmount(c, auth.current?.user.number_format ?? '1 000.00');
-  // Deliberately captures openByDefault's initial value only, per its
-  // own name - this sets the starting state of a real, further,
-  // user-togglable disclosure, never meant to force-collapse or
-  // force-reopen an already-interacted-with node if a parent later
-  // re-renders with a different default.
+  // Captures openByDefault once, starting state only — see docs/pm-frontend-reference.md.
   // svelte-ignore state_referenced_locally
   let open = $state(openByDefault);
 </script>

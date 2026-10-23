@@ -20,9 +20,7 @@
   let entities: EntityNode[] = $state([]);
   let bankAccounts: BankAccountRow[] = $state([]);
   let cashPosition: CashPositionByCurrency[] = $state([]);
-  // Every real group under every hierarchy a business has actually
-  // configured (e.g. "Division," or any other real, chosen name) —
-  // never a single, privileged hierarchy name hardcoded here.
+  // Every group under every configured hierarchy, never hardcoded — see docs/pm-frontend-reference.md.
   let groupNames: string[] = $state([]);
   let loading = $state(true);
   let error = $state('');

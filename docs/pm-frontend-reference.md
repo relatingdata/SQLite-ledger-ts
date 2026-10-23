@@ -520,6 +520,631 @@ form state — it's a full replace, not a partial merge (see
 `schema.sql`'s note on `contact_entry`) — so a partial send would
 silently wipe whatever field isn't included.
 
+## `frontend/src/routes/login/+page.svelte` — the login screen
+
+The brand name itself is never line-broken mid-phrase: a non-breaking
+space joins each word, regardless of which translated language wraps
+around it, without forcing the whole sentence onto one line (which
+would risk overflow on a narrow screen).
+
+**Display language on login** only changes what language the login
+form's own labels show in, entirely separate from choosing a business/
+ledger, which needs an actual session and comes after logging in.
+Priority: a person's previously-chosen preference (if they've been
+here before and picked something) beats the system default; the
+system default beats a hardcoded English fallback for anyone new. The
+system default has to live somewhere reachable before login exists at
+all, since this screen itself needs it — see `getDefaultLanguage`/
+`setDefaultLanguage` in `db.ts` (Entity Model chapter) for where. The
+language list is a nicety, not required to log in — it falls back to
+English silently if it fails to load.
+
+RTL mirroring here needs an explicit override because absolute
+left/right positioning does not automatically flip with `dir="rtl"`
+the way `text-align` or `flex-direction` do.
+
+## Smaller files: short design notes
+
+- **`setup/users/+page.svelte`**: per `docs/user-business-role-matrix-design.md`,
+  the per-business User × Role Cartesian Product is a second, additive
+  fact alongside the global roles table, which it never changes.
+- **`setup/hierarchy/+page.svelte`**: new-dimension entry is a growable
+  list of (dimension name, grouping name) pairs — the same shape
+  `defineProductShape` expects — built up one row at a time rather
+  than a single, fragile text field a person would have to format
+  exactly right.
+- **`reports/storage-space/+page.svelte`**: storage-space currencies are
+  physical unit counts (cartons, bottles), never a dollar amount, so
+  they're shown as plain whole numbers, never run through
+  `formatAmount`'s currency-cents formatting.
+- **`reports/new-stock-on-hand/+page.svelte`**: further business-chosen
+  hierarchies are appended live once read from the business's
+  Hierarchy configuration, never hardcoded; the axis dropdowns still
+  work with just Product/Category/Location/Consolidated if that load
+  fails.
+- **`lib/components/ContactPersonList.svelte`**: superseded by
+  `ContactList.svelte` (this list may hold organizations or subunits
+  too, like "Help Desk", not only individual people) — kept as a thin
+  re-export, never deleted, in case anything still imports this
+  original name.
+- **`setup/bank-accounts/+page.svelte`**: every group under every
+  hierarchy a business has actually configured (e.g. "Division," or
+  any other chosen name) is included — never a single privileged
+  hierarchy name hardcoded here.
+- **`reports/sales/+page.svelte`**: the same `{@html}`-reactivity fix
+  as Balance Sheet (see that chapter above) — splitting on `{NAME}`
+  rather than an inline `.replace()` inside `{@html}`.
+- **`lib/treeAdapter.ts`**: converts the flat, `parent_id`-based entity
+  list into the dot-separated path format `@keenmate/svelte-treeview`
+  expects (`"1"`, `"1.1"`, `"1.1.2"`, ...), assigning each node's
+  position among its siblings by name order.
+- **`lib/components/WeeklyHoursGrid.svelte`**: the local working copy
+  is one row per day of the week, always all 7, with an "on" flag
+  driving whether that day's times are actually included in the
+  emitted `lines`.
+- **`lib/auth.ts`, `lib/dirty-state.ts`, `lib/translations.ts`,
+  `lib/menu.ts`, `lib/session.ts`**: superseded by the consolidated
+  `state.svelte.ts` (see that chapter above) as part of the "one
+  library of common code" consolidation. Nothing in the app imports
+  these five files any more; they're left in place rather than
+  deleted, per this project's "recoverable, not silently discarded"
+  convention (the same one `// UNUSED (checkpoint N)` markers follow
+  elsewhere — see `docs/unused-functions.md`).
+
+## `frontend/src/lib/components/AddressList.svelte` — the combined address box
+
+Address line 1/2 are combined into a single multi-line "Building &
+Street Address" box in the UI, not two separate fields. Still stored
+as `address_line1`/`address_line2` on the backend (no schema change):
+the first line a person types becomes `address_line1`, everything
+after becomes `address_line2`, joined back into one box the same way
+when re-displayed.
+
+## `frontend/src/app.d.ts` — SvelteKit app types
+
+`version` is the frontend's own build-time version, injected by
+`vite.config.ts` from the same single `VERSION` file the backend reads
+at startup (see `checkVersion` in the api.ts chapter above).
+
+## `frontend/src/lib/matrix-api.ts` — self-contained fetch wrapper
+
+A small, deliberately self-contained fetch wrapper: duplicates
+(rather than imports/exports) the same simple pattern `$lib/api.ts`
+already uses internally, since that helper isn't itself exported and
+this file must not modify `api.ts` at all.
+
+## `frontend/src/lib/components/AxisPLNode.svelte` — the P&L axis tree node
+
+The disclosure's initial open/collapsed state deliberately captures
+`openByDefault`'s value only once, per its own name — this sets the
+starting state of a further, user-togglable disclosure, never meant
+to force-collapse or force-reopen an already-interacted-with node if
+a parent later re-renders with a different default (hence the
+`svelte-ignore state_referenced_locally`).
+
+## `frontend/src/lib/components/HierarchyGroupTreeNode.svelte` — group display stripping
+
+A per-location group can never literally share its own location's
+name (entity names are globally unique — the "Head Office" location
+already exists), so it's genuinely named `"Head Office
+<hierarchyName>"` underneath (e.g. "Head Office Division"). That's a
+necessary implementation detail, not something a person picking a
+group from a dropdown needs to see — stripped here for display only,
+using whichever business-chosen hierarchy name was actually passed
+in, never a hardcoded "Division"; `name` itself (used for the actual
+selection) is untouched.
+
+## `frontend/src/routes/setup/chart-of-accounts/+page.svelte` — the CoA tree
+
+**Structural anchors**: the five top-level report categories are
+never offered for rename or delete here, regardless of whether the
+underlying `revokeEntity` safeguards (no children, no postings) would
+technically allow it — this is a deliberate guard rail for the
+accounting structure itself, not just data integrity, since the
+Balance Sheet and P&L's own shape rests on these existing exactly
+where they are.
+
+## `frontend/src/routes/reports/statement/+page.svelte` — the Customer/Vendor Statement report
+
+A race is possible here: `loadCustomers()` fetches the full entity
+tree, which can take a moment on a populated business — long enough
+that a person could already change the customer or date before it
+resolves. Without a guard, a slower, earlier request's result could
+land last and silently overwrite the person's later choice. Fixed the
+standard way: each call captures its own request id, and only applies
+its result if it's still the most recent request by the time it
+completes.
+
+## `frontend/src/routes/reports/trial-balance/+page.svelte` — the Trial Balance report
+
+The same `{@html}`-reactivity fix as Balance Sheet applies here (see
+that chapter above). Per the User Manual's specification of this
+screen, every currency present gets its own clearly separate group of
+rows, never one flat list mixing a dollar account next to a
+bottle-count account as if they were the same kind of number: a
+storage-unit or quantity currency is shown as a plain whole-number
+count (`fmt` would wrongly treat it as cents); only a null (home) or
+other monetary currency is run through `fmt`.
+
+## `frontend/src/routes/arap/ap-purchase/+page.svelte` — the Invoiced Purchase screen
+
+Auto-add matches Cash Sale/Purchase and AR Sale's established
+convention (see the CashTransaction chapter above). Items are scoped
+per business. Any postable account can be the "what this purchase was
+for" side — an expense (Office, Rent) or an asset (Inventory).
+
+## `frontend/src/routes/reports/new-pl/+page.svelte` — the P&L pivot table
+
+Further business-chosen hierarchies (e.g. "Division") are never
+hardcoded — read live from the business's own Hierarchy
+configuration. Location and any further hierarchy are the same one
+hierarchy (Location Categorization) at two grains; the same is true of
+Category and Product (Product Categorization) — crossing a hierarchy
+against its own other level is redundant (see the fuller comment in
+the New New P&L chapter above). The axis dropdowns still work with
+just Product/Category/Location if that configuration lookup fails;
+further hierarchies are an addition, not a requirement. Row/column
+keys and the (row, col) → cell lookup are built once in the standard
+pivot-table shape.
+
+## `frontend/src/routes/reports/stock-movement/+page.svelte` — the Stock Movement report
+
+Grouping names offered are never hardcoded to one privileged
+hierarchy — "group" stands for whichever one a business has actually
+configured (e.g. "Division"), read live, alongside the three
+structural groupings every stock movement row always has: location,
+vendor, category. The report still works with no group tagging at
+all if that lookup fails. Every group starts collapsed, the same
+pattern already proven on the P&L and Inventory Listing reports —
+subtotals first, detail on demand. Transfers have no group/vendor of
+their own, so grouping by location falls back to the destination,
+since that's the receiving side a person actually cares about
+grouping by.
+
+## `frontend/src/lib/components/HierarchyGroupTreePicker.svelte` — the nested group picker
+
+A group can genuinely be nested (a per-location group under a
+per-city one) — built into an actual tree here, not left as the flat
+alphabetical list a plain `<select>` forced everything into, since the
+whole point of this picker is to make that structure visible:
+Consolidated (the company) → group → Location, any level directly
+choosable, not just the leaves. `hierarchyName` is never hardcoded —
+a caller passes its own chosen hierarchy name (e.g. "Division").
+Groups whose own parent isn't itself a group (e.g. a city group
+parented directly under an application root) are the top level here
+— found by checking which parent names never appear as a group's own
+name.
+
+## `frontend/src/routes/stock/restock/+page.svelte` — the restock suggestions screen
+
+**Suggestions** list every product genuinely below its own reorder
+level at the selected outlet, topped up to its own max level — a
+starting point matching what a store manager would actually notice
+("this product's shelf is looking thin"), not a blank form to fill in
+from memory. A per-outlet total is computed directly in the function,
+not read from the reactive `suggestions` variable, since that
+function runs on the same tick as the outlet selection change, before
+Svelte has recomputed `suggestions` for the newly-selected outlet —
+reading it there would use the stale, previous value.
+
+## `frontend/src/routes/reports/compare/+page.svelte` — the period comparison report
+
+A net income total can genuinely be negative (a net loss) — shown
+parenthesized and in red, the same convention as everywhere else,
+never as a bare negative number. Unfavorable variances are shown
+parenthesized the same way, matching the contra-balance styling on
+Balance Sheet/P&L, but this takes "is this unfavorable" explicitly
+rather than inferring it from raw sign: favorable/unfavorable flips
+between Income (more is good) and Expense (less is good), so the same
+positive number needs opposite treatment depending on which section
+it's in. The same `{@html}`-reactivity fix as Balance Sheet (see that
+chapter above) applies here too.
+
+## `frontend/src/routes/arap/ar-sale/+page.svelte` — the Invoiced Sale screen
+
+Auto-add matches Cash Sale/Purchase's convention: a fresh empty line
+appears once every existing line has an item name filled in, so
+there's never an "Add line" button (see the CashTransaction chapter
+above). The credit-limit check is a non-blocking warning, never
+silently refusing the sale, since account management practice
+sometimes genuinely extends credit past a nominal limit for a trusted
+customer — this only makes sure that's a deliberate, informed choice,
+not an accident. Items are scoped per business, never fetched before
+the business is known. Customers live under Accounts Receivable in
+the entity tree.
+
+## `frontend/src/routes/stock/po/+page.svelte` — the Purchase Order screen
+
+**Known sources** for the selected item ("purchase orders need to
+match suppliers of products being ordered") are fetched fresh
+whenever the item changes; they drive which vendors are offered and
+auto-fill the preferred one's known price. A PO can still be placed
+even if the known-sources list fails to load — it's a direct guide,
+not a hard requirement.
+
+**Vendor list** is the item's own preferred source's vendor first,
+then every other known alternate; `showAllVendors` is the escape
+hatch for a genuine new, one-off supplier this item has never been
+bought from before — never silently blocked, just not the default.
+Changing the vendor directly (picking a known alternate instead of
+the auto-selected preferred one) follows that source's own known
+price too, rather than leaving a stale figure from whichever source
+was previously selected.
+
+## `frontend/src/lib/money.ts` — currency and quantity parsing
+
+Both parsers (`toMinorUnits`, the quantity equivalent) always return a
+non-negative magnitude: a person should never be able to type or see
+a negative number anywhere in this application; direction (debit vs.
+credit, receipt vs. payment, a negative quantity typed into an order/
+dispatch/receipt screen) always comes from which field or screen it's
+entered on, never from a typed minus sign. Invalid or empty input is
+treated as zero, the same as `journalGrid`'s `toMinorUnits`.
+
+**Known gap, not fixed here**: `toMinorUnits` always assumes 100 minor
+units per major unit (a "cents"-style, 2-decimal currency) — correct
+for USD/EUR/GBP and most others, but wrong for a genuinely zero-decimal
+currency (JPY, KRW) or three-decimal currency (BHD, KWD).
+`decimalPlacesFor(unitCode)` in `format.ts` (see the Format chapter)
+already has the correct per-currency scale; this function doesn't yet
+take a unit code and apply it.
+
+## `frontend/src/routes/stock/transfer/+page.svelte` — the Stock Transfer screen
+
+On-hand quantity is re-checked and the destination reset whenever the
+item or source location changes — the same dynamic dependency the
+original hand-written page already had. Per
+`docs/canned-journal-to-frontend-design.md` Phase 1: the physical
+quantity movement (`transferStock`) happens first, deliberately,
+since it's the step most likely to fail (not enough stock on hand, or
+the two locations aren't actually in the same city), and a failed
+transfer must never leave a posted dollar journal entry behind for
+stock that never actually moved. The canned account selection for the
+dollar VALUE entry is computed client-side by `transferLines` (see
+the canned-journal chapter); the backend is only asked to
+resolve/create the Inventory accounts and move the stock.
+
+## `frontend/src/routes/stock/listing/+page.svelte` — the Stock Listing report
+
+The hierarchy locations are grouped by (e.g. "Division", or any other
+business-chosen name) is never hardcoded — it's read live from the
+business's own Hierarchy configuration, first grouping found; with
+none configured, every location simply has no group, and the report
+still works with no group tagging at all if that lookup fails. Groups
+are built directly from the same group tag
+`getInventoryListingByLocation` already computed, not re-derived
+here; locations with no group fall under an explicit "(No group)"
+group rather than being silently dropped. Every group and every
+location starts collapsed — totals first, detail on demand, the same
+pattern already proven on the P&L report.
+
+## `frontend/src/routes/session/+page.svelte` — the Business/Ledger/Profit Center picker
+
+**Default ledger** per `docs/active-ledger-design.md`: the business's
+"active" ledger (set at business creation, flipped by a rollover) is
+the strongest, most current signal — a soft switch onto wherever
+ordinary trading actually moved to, with no forced logout. Falls back
+to whatever this screen already did for a business created before
+this concept existed (`null`).
+
+**Profit Centers**, per `docs/profit-centers-design.md` Phase C: a
+business with zero Profit Centers (every business, until one is
+explicitly created) gets an empty list and no picker shown at all —
+purely additive, exactly like Phase A's own structural accounts. A
+Profit Center is only ever included in the saved session when the
+business actually has one chosen; a business with none must store
+exactly what it always has (`undefined`), never a stray empty value.
+
+**Reactive display translation** uses the same pattern the login page
+uses: `translations` is normally populated from
+`session.current.languageName` everywhere else in the app, but there's
+no session yet while picking one, so this page needs its own direct
+wiring, same as login does before authentication exists at all.
+
+## `frontend/src/lib/components/Form.svelte` — the generic form component
+
+The one generic form component this whole application composes, per
+`docs/one-file-per-page-consolidation-plan.md`. Restrictive by
+construction, matching the same closed field-type set already
+designed for the business-type questions: text, number, select,
+password, date. No conditional logic, no branching, no computed
+fields — if a page needs to decide something from an answer, that's
+code around this component, not a new feature grown into it.
+
+**Enter-to-submit** from any field is a generic feature every form
+gets for free, rather than a per-page workaround. (Component exports
+cannot be bound to in Svelte 5 runes mode, so this can't be exposed
+via `bind:this` for an external caller to trigger instead — handling
+it here, once, is the correct fix, not a workaround.)
+
+## `frontend/src/routes/reports/old-pl/+page.svelte` — the original consolidated P&L
+
+"Division" here is only ever a business-chosen hierarchy name — the
+one this particular demo business happens to use — not a hardcoded,
+privileged concept; a business could configure any other hierarchy
+name instead and this page would work identically against it.
+"Consolidated per Division" belongs inside this same one P&L report,
+not as a separate report page, with the same drill-down capability —
+"Per Division" and picking one specific group via the tree picker are
+mutually exclusive views of the same underlying report.
+
+**Default date range**: once a Year End Close has run (zeroing every
+Income/Expense account, exactly as intended), a blank date range shows
+"right now" — correctly zero, but reads as broken to a person who
+never set a date on purpose. Defaults to the ledger's own
+earliest-to-latest activity instead, so the first thing shown is
+genuinely real data, not a technically-correct but misleading zero;
+defaulting the range is a convenience, not a requirement, so it falls
+through to "all time" if that lookup fails.
+
+## `frontend/src/routes/pos/+page.svelte` — the POS terminal screen
+
+Per `docs/multicurrency-design.md` Slice 4, each POS terminal is a
+single cash drawer transacting in exactly one currency: an ordinary
+retail outlet has none of these at all, while a border-town one may
+show two or more terminals, one per distinct currency it actually
+serves customers in. Every terminal a location actually has, each
+with its own resolved currency (or none, the ordinary home-currency
+case), is reloaded whenever the selected location changes; an
+ordinary location returns an empty list, and this is non-critical —
+the register still works without it, in the home-currency case.
+
+A combination-tagged item's price is resolved server-side
+(`getItemPriceForCurrency`, checked against its exact combination
+first) and omitted here entirely rather than defaulting to the item's
+separate base retail price (or, worse, a bare 0). The barcode scanner
+flow tries an exact UPC match first (a scanner types the UPC then hits
+Enter); if nothing matches, it falls back to the first name search
+hit.
+
+## `frontend/src/routes/setup/yearend/+page.svelte` — Close Books and Rollover
+
+**The close-books breakdown** walks Location, then whatever further
+hierarchy a business has actually configured (e.g. "Division") —
+never a single privileged name hardcoded here; read live from the
+business's own Hierarchy configuration. If that fails, the close
+still works with just a Location breakdown.
+
+**Close Books posting**: `previewCloseBooks` has already done all the
+arithmetic, so `completeClose` posts the already-computed
+`preview.lines` directly from the frontend via the same generic
+`stageLine`/`postJournalEntry` calls the General Journal "Save"
+button uses, rather than the old all-in-one `closeBooks()` backend
+call — there is nothing left to re-derive, only to post.
+
+**Rollover posting** follows the same split: `resolveRolloverLines`
+does the genuinely stateful half (creating each carried-forward
+account's node under the new ledger) server-side and returns the
+already-computed opening-balance lines; the frontend posts them
+itself via the same generic staging calls, rather than re-deriving
+anything. A ledger of the target name may already exist from an
+earlier, half-finished rollover attempt — rolling into it is still a
+valid case; any other genuine problem creating it surfaces anyway once
+`resolveRolloverLines` can't find the ledger it needs.
+
+## `frontend/src/routes/reports/pl-pivot/+page.svelte` — the drag-and-drop P&L pivot builder
+
+Per `docs/pl-pivot-builder-dnd-plan.md`, this enforces the same
+`opposingHierarchyAxes` constraint `new-new-pl` enforces via its two
+dropdowns (see the two-axis P&L chapter above): a business's further
+chosen hierarchy and Location are the same hierarchy at two different
+grains, and so are Category/Product, so crossing either against its
+own other level is redundant, never a second independent axis. No
+further hierarchy name is hardcoded; `LOCATION_HIERARCHY` is filled in
+once `axisValues` loads, with whatever hierarchies the business
+actually configured. Further business-chosen hierarchies and the
+specific-value narrowing are both a convenience, not a requirement —
+the zones still work with just Location/Category/Product if that load
+fails.
+
+**Drag-and-drop zones**: a per-zone narrowing value ("this whole axis"
+vs. "just this one specific value within it") is attached to the zone
+itself once it holds a chip, per the plan's stated design, rather
+than a separate disconnected control. A drop zone holds exactly one
+axis at a time — a second chip landing there bumps the zone's prior
+occupant back to the tray, rather than allowing two. A redundant
+same-hierarchy crossing makes the chip visibly, immediately return to
+the tray instead of silently producing a self-crossed, meaningless
+report.
+
+## `frontend/src/routes/setup/vocabulary/+page.svelte` — per-business word-choice overrides
+
+The current business's structural entity id is resolved once from the
+already-available entity tree (rather than a new endpoint) for use as
+the `scope_id` of a business-level preference. The per-concept
+selection state defaults to whichever alternate word the business
+already currently sees (resolved via `translations.current`, the
+same live source every other page reads), so the form opens already
+reflecting the current choice, not a blank one — it's resolved from
+`translations.current` against the known `defaultAlternate` (the one
+stable key any preference actually overwrites), then matched back to
+whichever alternate currently produces that same resolved text.
+
+Choosing the original default word back is a direct "reset to
+default" — it removes the preference entirely, rather than leaving a
+redundant override row saying the same thing the default already
+would. After saving, the current translations are reloaded, the same
+way the whole app already does on login/business change, as live
+confirmation the change actually took.
+
+## `frontend/src/lib/components/PaymentReceipt.svelte` — the shared AP Payment/AR Receipt screen
+
+This is the one real screen behind both "AP Payment" and "AR
+Receipt": the two original separate files differed almost entirely by
+parameter-swapping (vendor↔customer, Accounts Payable↔Accounts
+Receivable, "paid"↔"received") — one screen, parameterized by
+`direction`, static for the component's lifetime, the same pattern as
+`CashTransaction.svelte` (hence the same `svelte-ignore
+state_referenced_locally`).
+
+**Outstanding invoices** for the currently-selected party, each with
+its own remaining balance, are fetched fresh whenever the party
+changes. A payment/receipt can still be recorded even if that
+outstanding-invoice list fails to load — allocation against invoices
+is an optional additional step, not a hard requirement.
+
+**Allocation** against specific outstanding invoices is optional and
+best-effort per invoice: one failed allocation doesn't undo the
+payment/receipt itself, which has already genuinely posted. Each
+allocation uses a reference distinct from the payment/receipt's own —
+reusing the payment/receipt's own reference would collide with its
+already-posted journal entry.
+
+## `frontend/src/routes/setup/translations/+page.svelte` — the translator screen
+
+**Pending edits** are a local, plain object keyed by language, one
+entry per language, kept separate from `words` so an in-progress edit
+doesn't need to be re-derived on every keystroke; only concepts the
+translator has actually touched this session get an entry, everything
+else reads its current target text (or a fresh copy of the reference
+text, as an editable starting point rather than a blank field)
+directly. After a save, the just-saved value is reflected locally
+immediately, without a full separate reload.
+
+**RTL support** is a per-language text-direction lookup, loaded once
+alongside the language list and reused everywhere a translation input
+or reference column is shown — never a hardcoded special case for any
+one language, Hebrew/Arabic included.
+
+**Reference language**: a translator working into a target language
+may be more fluent in some third, already-translated language than in
+English — "reference" is whichever language they choose to read while
+they work, falling back to the native English wording (now a genuine
+translation row of its own under the "English" Language, not merely
+implied by a concept's own name) whenever the chosen reference
+language doesn't have this particular word yet. English being a real
+translation target removes the need for any English-specific special
+case elsewhere in this screen.
+
+## `frontend/src/routes/post/+page.svelte` — the General Journal posting screen
+
+**CoA prototype filtering**: the account dropdown used to show every
+account in the system, mixing every CoA prototype together
+(German/French/Italian accounts alongside English ones) regardless of
+which business was selected — fixed by filtering to the current
+business's own prototype specifically, using the relation tag each
+account and each business carries (see
+`backend/scripts/tag-coa-prototypes.ts`). Accounts with no prototype
+relation at all are always shown: product-specific Sales/COGS accounts
+(named `"Sales - ..."`/`"COGS - ..."`, already tagged COGS for a
+different purpose) and customer/vendor contact accounts are universal,
+not tied to any one CoA prototype.
+
+**Debit/credit mutual exclusion**: a single journal line is either a
+debit or a credit, never both — a real bug let entering a value in
+both fields on one line silently compute debit-minus-credit as a net
+amount rather than rejecting the input, which could post a
+wrong-sign figure with no warning. Typing into one field now clears
+the other, matching standard accounting software, rather than relying
+on a person to notice and self-correct.
+
+**Insert/Delete on the grid**: Insert always adds a new row at the
+end — it has no conflicting native meaning in a modern browser, so
+it's safe to act on regardless of which field has focus. Delete is
+trickier: a text input already uses Delete to remove the character
+ahead of the cursor, so stealing that would break normal editing —
+Delete only removes the row when there's nothing for it to do
+natively: the account dropdown (not a text field at all), or a text
+field that's currently empty.
+
+## `frontend/src/routes/contacts/+page.svelte` — the Customers/Vendors/Providers screen
+
+**Contact fields** that still live directly on the contact record are
+distinct from address/phone, which are now handled entirely by the
+shared `AddressList`/`PhoneList` components — not a second copy of
+the old `address_line1`/`phone` fields here. `setContact` is still a
+full replace, not a partial merge, but since address/phone are no
+longer part of what this screen manages at all (those components save
+independently, immediately, the moment each is edited), there's
+nothing to lose by omitting them here.
+
+**Category scoping**: each category lives under a different branch of
+the entity tree. The same real person can appear in more than one
+list at once (an employee who's also a customer) — that's two
+separate entities today, one per role, not one entity trying to
+occupy two places in a tree that only allows a single parent. This
+screen shows whichever category an entity actually belongs to; it
+doesn't try to unify "these are the same real person" across
+categories, a genuinely separate design question.
+
+**Default category** is set by the menu link actually clicked
+(Customers under Accounts Receivable, Vendors under Accounts Payable),
+not guessed: the same shared underlying page and mechanism stays
+exactly as it was — customers and vendors ARE genuinely the same kind
+of record — but which one is shown by default is now clear from the
+person's own immediate perspective, rather than left for them to pick
+out of four lists every time.
+
+## `frontend/src/routes/reports/profit-and-loss/+page.svelte` and `reports/new-new-pl/+page.svelte` — the two-axis P&L breakdown
+
+**The axis dropdown** is a single, unified dropdown per vector:
+"Consolidated" at the top, then each axis type as its own selectable
+group-by heading, with every specific value listed directly beneath
+in the same one dropdown — rather than two separate dropdowns (axis
+type, then a second "narrow to one value" picker). Each option's
+value is a combined string: the axis type alone ("Location") means
+"group by every Location"; `"Location::Riverside Cellars"` means
+"narrow to this one specific value," while still genuinely grouped by
+Location underneath (so drill-down still shows correctly) — just
+showing only the one chosen branch. If loading the specific-value
+lists fails, the dropdowns still work with just the four group-by
+headings; the per-value lists are a convenience, not a requirement.
+
+**Hierarchy redundancy guard**: a business's further chosen
+hierarchies (e.g. "Division") are never hardcoded — they're read live
+from `axisValues`, whatever names the business actually configured.
+Location and any such further hierarchy are the same hierarchy
+(Location Categorization) at two levels of grain — a division is a
+coarser grouping of locations, a location is that hierarchy's finest
+leaf — and the same is true of Category and Product (Product
+Categorization). Crossing a hierarchy against its own other level
+("Division v Location", "Category v Product") is redundant, not a
+second independent dimension — it's the same grouping crossed against
+itself. A meaningful two-axis breakdown always crosses one whole
+hierarchy against the other: Location-side (where a sale happened)
+against Product-side (what was sold), in any combination including
+drill-down within each. If changing one grouping's hierarchy would
+leave the other showing a stale, no-longer-available selection (e.g.
+Outer moves from Location to Category while Inner is still Product —
+now the same hierarchy crossed against itself), that one resets to
+Consolidated rather than silently keeping an invalid value selected.
+This guard is a direct function call, not a reactive statement —
+Svelte correctly rejects the reactive form here as a genuine cyclical
+dependency (`outerAxis` depends on `outerSelection`, which the guard
+itself would also assign).
+
+## `frontend/src/routes/reports/balance-sheet/+page.svelte` — the Balance Sheet report
+
+The `{@html}`-vs-template bug: an early version computed the
+session-dependent heading text inline inside an `{@html}` block,
+which never re-evaluated once `session.current` populated after the
+page's first render — it only ever showed the "…" fallback, even long
+after `session.current` genuinely was ready, even though the same
+read works fine elsewhere on the page (`load()`). The underlying
+reactive variable recomputed correctly the whole time; Svelte's
+hydration just doesn't reliably re-diff `{@html}` content against a
+later client value once the server-rendered pass (which always sees
+`session.current` as null, since it reads from browser storage) has
+already run. Fixed by splitting on the `{NAME}` placeholder and
+rendering each piece as ordinary Svelte template content with a real
+`<strong>` element in between, never `{@html}`, computed via an
+explicit reactive statement rather than inline in the template.
+
+A contra line's amount is shown parenthesized and in red wherever it
+actually falls (debit or credit) — an Asset with a credit balance, a
+Liability with a debit balance, and so on: a genuinely unusual
+position (an overdrawn account), not an error, but worth flagging
+rather than presenting as an ordinary number. A section total (Total
+Assets, Total Liabilities, Total Equity) is a single signed number but
+still needs to land in the correct debit/credit column exactly like
+every individual line, including the case where a whole section nets
+to the unusual side (e.g. a genuine deficit — negative Total Equity,
+confirmed live on real data) rather than always assuming the expected
+sign. Every category starts collapsed, the same drill-down pattern
+the P&L report already uses; each of the three sections (Assets/
+Liabilities/Equity) gets its own independent expand state, since the
+same category name could in principle appear on more than one side.
+
 ## `frontend/src/lib/components/TypedList.svelte` — the generic typed sub-list
 
 The one generic mechanism behind every typed sub-list on an entity

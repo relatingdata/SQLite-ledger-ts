@@ -55,10 +55,7 @@
   function removeLine(key: number) {
     lines = lines.filter((l) => l.key !== key);
   }
-  // Auto-add: matching Cash Sale/Purchase and AR Sale's own,
-  // established convention — a fresh, empty line appears once every
-  // existing line has a real item name filled in, so there's never
-  // an "Add line" button to click.
+  // Auto-add, matching CashTransaction/AR Sale's convention — see docs/pm-frontend-reference.md.
   $effect(() => {
     if (lines.length > 0 && lines.every((l) => l.itemName.trim())) addLine();
   });
@@ -77,8 +74,7 @@
     try {
       [businesses, entities] = await Promise.all([getBusinesses(), getEntityTree()]);
       business = session.current?.businessName ?? businesses[0]?.name ?? '';
-      // Items are scoped per business - never fetched before the real
-      // business is known.
+      // Items are scoped per business.
       if (business) items = (await listItems(business)).rows;
       await loadLedgers();
       locations = await listLocations(asBusinessName(business));

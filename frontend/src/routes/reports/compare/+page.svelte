@@ -22,17 +22,9 @@
   let error = $state('');
 
   const fmt = (c: number) => formatAmount(c, auth.current?.user.number_format ?? '1 000.00');
-  // A net income total can genuinely be negative (a net loss) — shown
-  // parenthesized and in red, same convention as everywhere else,
-  // never as a bare negative number.
+  // Net loss shown parenthesized — see docs/pm-frontend-reference.md.
   const fmtNet = (c: number) => (c < 0 ? `(${fmt(Math.abs(c))})` : fmt(c));
-  // Unfavorable variances shown parenthesized, matching the same
-  // convention as the contra-balance styling on Balance Sheet/P&L.
-  // Deliberately takes "is this unfavorable" explicitly rather than
-  // inferring it from raw sign — favorable/unfavorable flips between
-  // Income (more is good) and Expense (less is good), so the same
-  // positive number needs opposite treatment depending on which
-  // section it's in.
+  // Unfavorable variances, explicit flag not inferred from sign — see docs/pm-frontend-reference.md.
   const fmtVariance = (c: number, isUnfavorable: boolean) => (isUnfavorable ? `(${fmt(Math.abs(c))})` : fmt(Math.abs(c)));
 
   onMount(async () => {
@@ -50,7 +42,7 @@
   });
 
   let latestRequestId = 0;
-  // Same, real, confirmed fix as Balance Sheet — see there for why.
+  // Same {@html}-reactivity fix as Balance Sheet — see docs/pm-frontend-reference.md.
   let introTemplate = $derived(translations.current["Any two ledgers in {NAME} side by side — Actual against a proposed budget, or two proposed budgets against each other. Not limited to whichever ledger you're currently in."] ?? "Any two ledgers in {NAME} side by side — Actual against a proposed budget, or two proposed budgets against each other. Not limited to whichever ledger you're currently in.");
   let introItems = $derived(introTemplate.split('{NAME}'));
   async function loadComparison() {

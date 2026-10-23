@@ -21,11 +21,7 @@
   let message = $state('');
 
   let selectedName = $state('');
-  // Real contact fields that still live directly on the contact
-  // itself, distinct from address/phone — those are now handled
-  // entirely by AddressList/PhoneList below, the one, shared
-  // component used everywhere an entity needs them, not a second copy
-  // of the old address_line1/phone fields here.
+  // Contact fields, distinct from address/phone — see docs/pm-frontend-reference.md.
   let contact: Pick<Contact, 'email' | 'payment_terms_days' | 'credit_limit_minor' | 'wage_minor_per_hour' | 'salary_minor_per_year' | 'reminder_level' | 'preferred_language'> = $state({
     email: null,
     payment_terms_days: null,
@@ -47,29 +43,14 @@
     }
   });
 
-  // Each category lives under a different branch of the entity tree.
-  // The same real person can appear in more than one list at once (an
-  // employee who's also a customer) — that's two separate entities
-  // today, one per role, not one entity trying to occupy two places in
-  // a tree that only allows a single parent. This screen shows
-  // whichever of these categories a given entity actually belongs to;
-  // it doesn't try to unify "these are the same real person" across
-  // categories, which is a genuinely separate design question.
+  // Category scoping — see docs/pm-frontend-reference.md.
   let employees = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Employees'));
   let customers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Receivable'));
   let vendors = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
   let manufacturers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Manufacturers'));
   let isEmployee = $derived(employees.some((e) => e.name === selectedName));
 
-  // Which real category the person actually arrived to see — set by
-  // the real menu link they clicked (Customers under Accounts
-  // Receivable, Vendors under Accounts Payable), not guessed. Per
-  // direct request: the same, real, shared underlying page and
-  // mechanism stays exactly as it was — customers and vendors ARE
-  // genuinely the same kind of record — but which one is actually
-  // shown by default is now clear from the person's own real,
-  // immediate perspective, not left for them to visually pick out of
-  // four lists every time.
+  // Default category set by the menu link clicked — see docs/pm-frontend-reference.md.
   let focus = $derived($page.url.searchParams.get('focus'));
 
   async function select(name: string) {
@@ -100,11 +81,7 @@
     error = '';
     message = '';
     try {
-      // setContact does a full replace, not a partial merge — but
-      // address_line1/phone are no longer item of what this screen
-      // manages at all (AddressList/PhoneList save independently,
-      // immediately, the moment each is edited), so there's nothing
-      // to lose by omitting them here.
+      // setContact is a full replace, but address/phone aren't managed here — see docs/pm-frontend-reference.md.
       await setContact(selectedName, contact);
       message = `Saved ${selectedName}.`;
     } catch (e) {

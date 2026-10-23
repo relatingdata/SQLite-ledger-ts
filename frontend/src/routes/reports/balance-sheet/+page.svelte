@@ -11,24 +11,7 @@
   let error = $state('');
   let asOfDate = $state(todayIsoDate());
 
-  // A real, direct, explicit reactive statement — not computed
-  // inline inside the {@html} block below. A real, confirmed bug:
-  // the inline version never re-evaluated once session.current populated
-  // after this page's own first render (it only ever showed "…", the
-  // real fallback for session.current not being ready yet, even long after
-  // it genuinely was) — this same session.current read already works fine
-  // elsewhere on this page (the load() function below), confirming
-  // session.current itself was never the problem, only the {@html}
-  // expression's own reactivity.
-  // Split on the {NAME} placeholder and render each item as ordinary,
-  // ordinary Svelte template content, with a real <strong> element in
-  // between — not {@html}. A real, confirmed bug: {@html} here never
-  // updated once session.current populated after this page's own first,
-  // server-rendered pass (which always sees session.current as null, since
-  // it reads from browser storage) — Svelte's own hydration doesn't
-  // reliably re-diff {@html} content against a later, real client
-  // value, even though the underlying reactive variable itself
-  // recomputed correctly the whole time.
+  // Split on {NAME} and render as template content, never {@html} — see docs/pm-frontend-reference.md.
   let introTemplate = $derived(translations.current['For {NAME} only.'] ?? 'For {NAME} only.');
   let introItems = $derived(introTemplate.split('{NAME}'));
 
@@ -51,20 +34,10 @@
   onMount(load);
 
   const fmt = (c: number) => formatAmount(c, auth.current?.user.number_format ?? '1 000.00');
-  // A contra line's amount is shown parenthesized and in red, wherever
-  // it actually falls (debit or credit) — an Asset with a credit
-  // balance, a Liability with a debit balance, and so on. A genuinely
-  // unusual position (an overdrawn account), not an error, but worth
-  // flagging rather than presenting as an ordinary number.
+  // Contra amounts parenthesized/red wherever they fall — see docs/pm-frontend-reference.md.
   const cell = (minorUnits: number, isContra: boolean) => (minorUnits === 0 ? '' : isContra ? `(${fmt(minorUnits)})` : fmt(minorUnits));
 
-  // A section total (Total Assets, Total Liabilities, Total Equity)
-  // is a single, signed number — but still needs to land in the
-  // correct debit/credit column, exactly like every individual line
-  // above it, including the real, genuine case where a whole section
-  // nets to the unusual side (e.g. a genuine deficit — negative Total
-  // Equity, already confirmed live on Peugeot's own real data) rather
-  // than always assuming the expected, normal sign.
+  // Section totals land in the correct debit/credit column even on a deficit — see docs/pm-frontend-reference.md.
   function totalCell(amountMinor: number, normalSide: 'debit' | 'credit') {
     const isNormal = amountMinor >= 0;
     const magnitude = Math.abs(amountMinor);
@@ -73,12 +46,7 @@
     return { debit: cell(debit, !isNormal), credit: cell(credit, !isNormal), debitContra: !isNormal && debit > 0, creditContra: !isNormal && credit > 0 };
   }
 
-  // Every real category starts collapsed — the same, real, already-
-  // proven drill-down pattern the P&L report already uses. Each of
-  // the three, real, separate sections (Assets/Liabilities/Equity)
-  // gets its own, real, independent expand state, since the exact
-  // same real category name could, in principle, appear on more than
-  // one real side.
+  // Categories start collapsed, each section its own expand state — see docs/pm-frontend-reference.md.
   let expandedAssets = $state(new Set<string>());
   let expandedLiabilities = $state(new Set<string>());
   let expandedEquity = $state(new Set<string>());

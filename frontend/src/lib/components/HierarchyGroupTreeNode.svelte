@@ -7,16 +7,7 @@
   export let onSelect: (name: string) => void;
   export let depth = 0;
 
-  // A real, per-location group can never literally share its own
-  // location's name (entity names are globally unique — "Head
-  // Office" the location already exists), so it's genuinely named
-  // "Head Office <hierarchyName>" underneath (e.g. "Head Office
-  // Division"). That's a real, necessary implementation detail, not
-  // something a person picking a group from a dropdown needs to see —
-  // stripped here for display only, using whichever real, business-
-  // chosen hierarchy name was actually passed in, never a hardcoded
-  // "Division"; `name` itself (used for the real selection) is
-  // untouched.
+  // Display-only name stripping — see docs/pm-frontend-reference.md.
   $: suffixPattern = new RegExp(` ${hierarchyName}$`);
   $: displayName = name.replace(suffixPattern, '');
 </script>

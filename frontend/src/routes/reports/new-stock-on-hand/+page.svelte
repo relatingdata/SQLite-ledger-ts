@@ -7,9 +7,7 @@
   import { getStockOnHandMatrix, MatrixApiError, type StockOnHandMatrix, type MatrixAxis } from '$lib/matrix-api';
   import { getHierarchy } from '$lib/api';
 
-  // A business's own further, chosen hierarchies (e.g. "Division") are
-  // never hardcoded here — they're appended live, below, once read
-  // from the business's own Hierarchy configuration.
+  // Further hierarchies appended live, never hardcoded — see docs/pm-frontend-reference.md.
   let AXES: MatrixAxis[] = $state(['Product', 'Category', 'Location', 'Consolidated']);
 
   let rowAxis: MatrixAxis = $state('Product');

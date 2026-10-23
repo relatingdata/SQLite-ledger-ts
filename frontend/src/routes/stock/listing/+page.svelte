@@ -7,11 +7,7 @@
   let loading = $state(true);
   let error = $state('');
 
-  // The real hierarchy a business's own locations are grouped by (e.g.
-  // "Division," or any other real, business-chosen name) is never
-  // hardcoded here — it's read live from the business's own Hierarchy
-  // configuration, first grouping found. With none configured, every
-  // location simply has no group.
+  // Grouping hierarchy name, never hardcoded — see docs/pm-frontend-reference.md.
   let hierarchyName: string | undefined = $state(undefined);
 
   async function load() {
@@ -38,11 +34,7 @@
     await load();
   });
 
-  // Real groups, each holding its own real location groups — built
-  // directly from the same real group tag getInventoryListingByLocation
-  // already computed, not re-derived here. Locations with no real
-  // group fall under a real, explicit "(No group)" group rather than
-  // being silently dropped.
+  // Built from getInventoryListingByLocation's own group tag — see docs/pm-frontend-reference.md.
   const NO_GROUP = '__none__';
   let hierarchyGroups = $derived.by(() => {
     const byGroup = new Map<string, InventoryListingLocationGroup[]>();
@@ -56,9 +48,7 @@
       .sort((a, b) => (a.name === NO_GROUP ? 1 : b.name === NO_GROUP ? -1 : a.name.localeCompare(b.name)));
   });
 
-  // Every group and every location starts collapsed — read as totals
-  // first, real detail on demand, the same pattern already proven on
-  // the P&L report.
+  // Starts collapsed, same pattern as the P&L report.
   let expandedGroups = $state(new Set<string>());
   let expandedLocations = $state(new Set<string>());
   function toggleGroup(name: string) {

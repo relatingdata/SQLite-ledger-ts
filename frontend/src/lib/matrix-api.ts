@@ -1,11 +1,8 @@
 import { auth } from '$lib/state.svelte';
 import type { ProfitAndLoss } from '$lib/api';
 
-// A real, small, deliberately self-contained fetch wrapper — per
-// direct instruction to touch no existing code at all, this
-// duplicates (rather than imports/exports) the same, simple pattern
-// $lib/api.ts already uses internally, since that helper isn't
-// itself exported and this file must not modify that one at all.
+// Self-contained fetch wrapper, deliberately not sharing api.ts's
+// internal helper — see docs/pm-frontend-reference.md.
 
 const BASE = 'http://localhost:3001/api';
 
