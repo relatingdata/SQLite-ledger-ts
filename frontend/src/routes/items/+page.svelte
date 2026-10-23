@@ -1,4 +1,6 @@
 <script lang="ts">
+  // The Items catalog tree — see docs/pm-frontend-reference.md for the
+  // full design of the sections below.
   import { auth } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
   import { session } from '$lib/state.svelte';
@@ -46,17 +48,7 @@
   let error = $state('');
   let message = $state('');
 
-  // The tree's own real selection — a category (any real, arbitrary-
-  // depth entity under "Items" with at least one real child) or an
-  // item (a real leaf). Per direct instruction, this page's own
-  // former flat list + "Category…" dropdown is replaced with the
-  // real, shared TreeEditor idiom already proven for Business Setup —
-  // a category selected and Insert adds a real item within it, Delete
-  // removes whatever's selected; a real, plain "+ Subcategory" link
-  // button (not Insert/Delete — the exact, same, deliberate choice
-  // already made for Business Setup's own "Additional locations")
-  // handles the one, secondary, less common action: nesting a further
-  // category.
+  // The tree selection: category or item — see docs/pm-frontend-reference.md.
   type Selection = { type: 'category'; name: string } | { type: 'item'; name: string; category: string } | null;
   let selection: Selection = $state(null);
   let selectedName = $derived.by(() => (selection?.type === 'item' ? selection.name : ''));
@@ -83,11 +75,7 @@
   let bomUnit = $state('ml');
   let savingBom = $state(false);
 
-  // Per direct instruction: receiving stock directly into a real,
-  // named storage combination (e.g. Secure) - reuses the exact, same
-  // real Hierarchy groupings already set up under Setup → Hierarchies,
-  // exactly the same, established pattern the Locations page's own
-  // Storage Actions section already uses.
+  // Receiving into a named storage combination — see docs/pm-frontend-reference.md.
   let locations: LocationRecord[] = $state([]);
   let hierarchyGroupings: HierarchyGroupingWithValues[] = $state([]);
   let receiveLocation = $state('');
@@ -104,17 +92,7 @@
     receiveError = '';
     receiveMessage = '';
     try {
-      // Per docs/canned-journal-to-frontend-design.md Phase 1: the
-      // real, physical quantity movement (and, for a real,
-      // combination-tracked receipt, the real parallel units-on-hand
-      // count tracking) is done first, deliberately, before anything
-      // else is staged or posted — receiveIntoStorageStock is the one,
-      // real step genuinely likely to fail. The canned account
-      // selection for the real dollar VALUE entry (only ever relevant
-      // for a combination-tracked receipt) is computed here,
-      // client-side, by the one, shared receiveIntoStorageLines
-      // function — the backend is only asked to resolve/create the
-      // real Inventory account (a real, stateful side effect).
+      // Physical movement first, then the canned VALUE entry — see docs/pm-frontend-reference.md.
       const business = asBusinessName(session.current.businessName);
       const ledger = asLedgerName(session.current.ledgerName);
       const quantity = Number(receiveQuantity);
@@ -180,22 +158,7 @@
   let manufacturers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Manufacturers'));
   let vendors = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
 
-  // A real, separate, pre-existing bug found directly while verifying
-  // this page's own redesign (the exact, same legacy-root class
-  // already fixed for Locations — see resolveBusinessLocationsRootId,
-  // backend/src/db.ts): one, specific, pre-existing demo business
-  // ("Wine Retail Business") still seeds its own real Items root under
-  // a legacy, combined name, "Wine Retail Business Items", not the
-  // modern, plain "Items" child every business created through the
-  // application itself actually gets (PER_BUSINESS_ROOTS). Without
-  // the fallback below, this business's own real categories were
-  // silently invisible here — scoped lookup found nothing, and the
-  // unscoped fallback resolved to the one, real, global "Items"
-  // template root under "Application" instead (id 102, parent of
-  // every business's own copy, never a real business's own data).
-  // The backend's own equivalent lookups already tolerate this exact
-  // shape (`name = 'Items' OR name LIKE '% Items'`, db.ts) - this
-  // mirrors that, client-side, against the already-fetched tree.
+  // Legacy-root fallback, mirroring resolveBusinessLocationsRootId — see docs/pm-frontend-reference.md.
   const itemsRoot = () => {
     const biz = entities.find((e) => e.name === session.current?.businessName);
     if (biz) {
@@ -207,25 +170,7 @@
     return entities.find((e) => e.name === 'Items');
   };
 
-  // The real, nested category tree actually rendered, built once by
-  // walking down from the real Items root via real parent_id
-  // children - never by scanning every entity in the whole, global
-  // tree and guessing which ones are "categories" from shape alone.
-  // A real child is an item (named in the real `items` list from
-  // listItems) or a category; an item is always a leaf here - its own
-  // further real children (e.g. its own per-location Storage Capacity
-  // structure, "Craft Vodka 700ml — Market Square Liquor — Levels")
-  // are never descended into, so they can never be mistaken for a
-  // nested category. A category is included even with zero children
-  // right now - a genuinely new, empty subcategory (via "+
-  // Subcategory") is still a real category, not something only
-  // "has at least one child" can recognize; the real, confirmed gap
-  // that criterion had, found directly while exercising this page's
-  // own redesign. Building this way is also O(n) overall (one
-  // id->children index built once, `childrenByParentId` below), but
-  // walks only the real Items subtree itself - a small, real fraction
-  // of the whole, global chart-of-accounts/vocabulary/menu tree the
-  // older, flat-scan version had to touch in full.
+  // One id->children index, built once — see docs/pm-frontend-reference.md.
   let childrenByParentId = $derived.by(() => {
     const map = new Map<number, EntityNode[]>();
     for (const e of entities) {
@@ -264,11 +209,7 @@
       .map(buildCategory);
   });
 
-  // Items directly under the Items root itself, with no real category
-  // at all — never produced by this page's own, new Insert flow
-  // (which always requires a category selected first), but real,
-  // older data (or data from the Structured Editor) can still be
-  // shaped this way, so it stays visible rather than silently hidden.
+  // Items with no category at all — see docs/pm-frontend-reference.md.
   let uncategorizedItems = $derived.by(() => {
     const root = itemsRoot();
     if (!root) return [];
@@ -320,12 +261,7 @@
     }
   }
 
-  // --- Subcategory creation — a real, plain link button per category
-  // row, deliberately not folded into Insert/Delete, the exact, same
-  // choice already made for Business Setup's own "Additional
-  // locations" (see that page's own comment) — a secondary action,
-  // never competing with the main tree navigation Insert/Delete
-  // already covers (adding an item within the selected category).
+  // --- Subcategory creation (link button, not Insert/Delete) — see docs/pm-frontend-reference.md.
   let addingSubcategoryUnder: string | null = $state(null);
   let newSubcategoryName = $state('');
   let subcategoryError = $state('');
@@ -362,12 +298,7 @@
     itemAddError = '';
     try {
       await createEntity({ name: newItemNameField, parentId }, 'Create Entity');
-      // A real, pre-existing bug fixed here, not introduced by this
-      // change: listItems requires a real `item` table row (INNER
-      // JOIN), but creating only the bare entity would silently vanish
-      // a newly-added item from its own list the moment it was
-      // created, with no error shown. setItem here ensures the real
-      // row exists immediately.
+      // setItem ensures the item row exists immediately — see docs/pm-frontend-reference.md.
       await setItem(newItemNameField, { description: null, unit_of_measure: null, upc: null });
       const created = newItemNameField;
       newItemNameField = '';
@@ -381,13 +312,7 @@
     }
   }
 
-  // --- Insert/Delete on the tree itself — the two, real, generic
-  // callbacks TreeEditor.svelte dispatches a real Insert/Delete
-  // keypress to. This page's own, specific decision of what either
-  // one means for its own, current selection (a category/item tree),
-  // kept here rather than pushed into the shared shell, exactly as
-  // Business Setup's own handleInsert/handleDelete are — a different
-  // real tree genuinely needs a genuinely different decision.
+  // --- Insert/Delete callbacks dispatched by TreeEditor.svelte — see docs/pm-frontend-reference.md.
   function handleInsert() {
     if (selection?.type === 'category') {
       addingItemUnder = selection.name;
@@ -419,9 +344,7 @@
     if (selection) deleteSelected();
   }
 
-  // The real, dynamic keyboard-hint text shown below the tree -
-  // TreeEditor only renders it; this page alone knows what
-  // Insert/Delete actually do for its own, current selection.
+  // Dynamic keyboard-hint text — see docs/pm-frontend-reference.md.
   let hintText = $derived.by(() => {
     if (selection?.type === 'category') {
       return translations.current['Press Insert to add an item in this category, or Delete to remove it. Use "+ Subcategory" to nest a category within it instead.'] ??

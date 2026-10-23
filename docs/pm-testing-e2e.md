@@ -310,6 +310,25 @@ the API path, rather than calling a backend function 1:1:
   cart's default price doesn't distinguish currency even with a foreign-currency
   terminal active, so a USD sale needs its own manually-typed price too.
 
+### Known gap: "Wine Retail Business"'s legacy Locations root
+
+The "Wine Retail Business" demo fixture seeds its locations under a
+legacy, combined-name root (`"Wine Retail Business Locations"`, one
+entity) predating the modern per-business root convention
+(`PER_BUSINESS_ROOTS`: a plain `"Locations"` child of the business).
+`getOrganizationChart`'s `businessLocationNames` lookup and
+`setLocation`/`createEntity`'s "Locations child of this business"
+lookup both only recognize the modern shape, so for this one business
+the Business Setup tree shows no groups/locations at all, and
+creating or saving a location against it fails outright. Not fixed —
+migrating this large, pre-existing demo dataset is its own, separate,
+riskier undertaking. `e2e/tests/business-setup.spec.ts` therefore only
+covers what's genuinely functional against this business (company-wide
+staff display, group/division creation via `createHierarchyValue`/
+`setEntityRelationship` — neither touches the Locations root); full
+location/employee/open-hours/schedule coverage for Business Setup runs
+instead against a freshly-created business (`make test-e2e-tutorial-browser`).
+
 ## Tutorial / minimal — `tutorial-steps.csv`
 
 The Tutorial fixture (`shared-fixtures/tutorial-steps.csv` +

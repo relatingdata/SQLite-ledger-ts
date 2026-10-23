@@ -67,6 +67,16 @@ checks against whatever database currently exists: every
 no negative on-hand stock quantities, no duplicate active entity
 names.
 
+Two non-obvious points in its balance checks: "reportable" postable
+accounts are the union of two separate entity subtrees — Chart of
+Accounts and Customers/Vendors (contact entities are valid AR/AP
+posting targets but live under a separate branch, not under Chart of
+Accounts). And for quantity-movement entries (posted under Items), only
+a *multi-line* entry must balance to zero — a single-line
+adjustment/breakage or order-placement entry (e.g. crediting "On
+Order" when a PO is placed, before stock has moved) is intentionally
+one line on its own and is never expected to balance.
+
 ## `backend/schema/` — structural schema and seed data
 
 Split into `00-core.sql` (every table, view, trigger, and

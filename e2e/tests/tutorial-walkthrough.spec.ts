@@ -1,3 +1,4 @@
+// Full UI-path tutorial walkthrough. Full documentation: docs/pm-testing-e2e.md.
 import { test, expect } from '@playwright/test';
 import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import * as fs from 'fs';
@@ -127,19 +128,14 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1000);
   await shot('first_product_created');
 
-  // === A second, real, distinct packaging of the same real beer -  ===
-  // === cans, not bottles - genuinely its own, separate item, since  ===
-  // === this application tracks stock per real, distinct SKU, never ===
-  // === a shared "unit type" toggle on one item.                    ===
+  // === A second packaging of the same beer (cans) - its own, separate item/SKU ===
   await page.locator('input[placeholder="New item name"]').fill('Amber Ale 330ml Can');
   await page.locator('select').first().selectOption({ label: 'Beer' });
   await page.getByRole('button', { name: '+ Add' }).click();
   await page.waitForTimeout(1000);
   await shot('beer_can_variant_created');
 
-  // === A real wine, sold in 750ml bottles, bought in real cartons   ===
-  // === of 12 - the real, further packaging-unit case, distinct     ===
-  // === from the beer's own, real carton-of-24 convention.          ===
+  // === A wine, sold in 750ml bottles, bought in cartons of 12 (vs. beer's 24) ===
   await page.locator('input[placeholder="New item name"]').fill('Barossa Shiraz 750ml');
   await page.locator('select').first().selectOption({ label: '+ New category…' });
   await page.waitForTimeout(300);
@@ -169,8 +165,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1000);
   await shot('trial_balance_after_first_transaction');
 
-  // === Set real, physical details on Amber Ale 330ml: glass bottle, ===
-  // === cold storage - per direct request, before ordering it       ===
+  // === Set physical details on Amber Ale 330ml: glass bottle, cold storage ===
   await page.goto('/items');
   await page.waitForTimeout(800);
   await page.locator('button.entry', { hasText: 'Amber Ale 330ml' }).filter({ hasNotText: 'Can' }).click();
@@ -207,8 +202,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1200);
   await shot('purchase_order_placed');
 
-  // === Purchase it and receive it into the warehouse - a real Cash ===
-  // === Purchase, the same, real, proven, direct receiving path     ===
+  // === Receive it into the warehouse via Cash Purchase ===
   await page.goto('/arap/cash-purchase');
   await page.waitForTimeout(1200);
   await page.locator('select').first().locator('option', { hasText: 'Highland Brewing Co' }).waitFor({ state: 'attached', timeout: 15000 });
@@ -224,9 +218,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1500);
   await shot('purchase_received_done');
 
-  // === A real vendor source for the wine, with its own, real, ===
-  // === further, distinct carton size (12, not the beer's own    ===
-  // === real 24) - set once, before ever ordering it.             ===
+  // === A vendor source for the wine, with its own carton size (12) ===
   await page.goto('/items');
   await page.waitForTimeout(800);
   await page.locator('button.entry', { hasText: 'Barossa Shiraz 750ml' }).click();
@@ -240,9 +232,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(800);
   await shot('wine_source_saved');
 
-  // === Receive one real, whole carton (12 bottles) of the wine, ===
-  // === into the warehouse's own, real, ordinary, room-temperature ===
-  // === storage - never cold yet, since it hasn't moved there.     ===
+  // === Receive one whole carton (12 bottles) into ordinary warehouse storage ===
   await page.goto('/arap/cash-purchase');
   await page.waitForTimeout(1200);
   await page.locator('select').first().locator('option', { hasText: 'Highland Brewing Co' }).waitFor({ state: 'attached', timeout: 15000 });
@@ -258,17 +248,10 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1500);
   await shot('wine_carton_received_done');
 
-  // === Check the real, live Inventory Listing and Trial Balance   ===
-  // === right here - one real, whole carton (12) of the wine,      ===
-  // === sitting in the warehouse's own, ordinary, room-temperature ===
-  // === storage - wine needs no real refrigeration at all, unlike  ===
-  // === the real, further, chilled-beer scenario right after this. ===
+  // === Check Inventory Listing and Trial Balance ===
   await page.goto('/stock/listing');
   await page.waitForTimeout(1000);
-  // The level-input fields below only render once their own division
-  // and location disclosure buttons are expanded - click every
-  // disclosure open first, matching how a real person would actually
-  // reach them.
+  // Level-input fields only render once their division/location disclosures are expanded.
   const divisionButtons = page.locator('button.division-head');
   for (let i = 0; i < (await divisionButtons.count()); i++) await divisionButtons.nth(i).click();
   await page.waitForTimeout(300);
@@ -279,12 +262,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   const wineRow = await page.locator('tr', { hasText: 'Barossa Shiraz 750ml' }).first().innerText();
   expect(wineRow).toContain('12');
 
-  // === Setting min/max/reorder stock levels for this real item at ===
-  // === this real location - a real, further, financial-data-grade ===
-  // === figure per direct instruction (stock units count as real   ===
-  // === financial data), saved via the level-input fields' own,    ===
-  // === real onchange handler, confirmed by reloading the page and ===
-  // === reading the saved values straight back.                    ===
+  // === Set min/max/reorder stock levels; confirm by reloading and reading them back ===
   const wineRowLocator = page.locator('tr', { hasText: 'Barossa Shiraz 750ml' }).first();
   const levelInputs = wineRowLocator.locator('input.level-input');
   await levelInputs.nth(0).fill('4');
@@ -308,10 +286,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1000);
   await shot('trial_balance_wine_received');
 
-  // === A real vendor source for the beer's own, real can variant - ===
-  // === its own, real, further carton size (24 cans), matching the ===
-  // === real can-carton convention already established for the     ===
-  // === bottle variant above, before ever ordering it.              ===
+  // === A vendor source for the beer's can variant (carton size 24) ===
   await page.goto('/items');
   await page.waitForTimeout(800);
   await page.locator('button.entry', { hasText: 'Amber Ale 330ml Can' }).click();
@@ -324,16 +299,8 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(800);
   await shot('beer_can_source_saved');
 
-  // === A real, further, distinct case: some real vendors deliver  ===
-  // === already-chilled cartons of beer, by refrigerated truck,    ===
-  // === directly to a retail outlet - never through the warehouse  ===
-  // === at all, and never needing a real, separate transfer step.  ===
-  // === Real warehouses are, as a rule, NOT refrigerated (bulk,    ===
-  // === room-temperature storage only) - real refrigeration is a   ===
-  // === real, further need specific to a retail outlet actually    ===
-  // === displaying chilled stock for sale, per direct correction.  ===
-  // === Main Street Cellar gets its own, real, further refrigerated ===
-  // === section for exactly this real, further case.               ===
+  // === Some vendors deliver already-chilled beer directly to a retail outlet's
+  // === refrigerated section, bypassing the (non-refrigerated) warehouse entirely ===
   await page.goto('/locations');
   await page.waitForTimeout(700);
   await page.getByRole('button', { name: 'Main Street Cellar' }).click();
@@ -344,11 +311,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(800);
   await shot('retail_refrigerated_section_created');
 
-  // === One real, whole carton (24 cans) of the beer's own, real,  ===
-  // === separate can variant, received directly at the retail      ===
-  // === outlet's own, real, further refrigerated section - a real  ===
-  // === vendor's refrigerated-truck delivery, bypassing the        ===
-  // === warehouse entirely, per direct correction.                 ===
+  // === One carton (24 cans) received directly at the retail outlet's refrigerated section ===
   await page.goto('/arap/cash-purchase');
   await page.waitForTimeout(1200);
   await page.locator('select').first().locator('option', { hasText: 'Highland Brewing Co' }).waitFor({ state: 'attached', timeout: 15000 });
@@ -364,13 +327,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1500);
   await shot('chilled_beer_direct_delivery_done');
 
-  // === Check the real, live Inventory Listing and Trial Balance   ===
-  // === one final time - the real, chilled carton of cans now      ===
-  // === shows up at the retail outlet's own, real, further         ===
-  // === refrigerated section specifically, never at the warehouse  ===
-  // === at all, and that section's own, real Storage Capacity      ===
-  // === Remaining account moves in real, direct opposition to this ===
-  // === real delivery.                                             ===
+  // === Confirm the chilled carton shows up at the refrigerated section, not the warehouse ===
   await page.goto('/stock/listing');
   await page.waitForTimeout(1000);
   await shot('inventory_listing_chilled_beer_delivered');
@@ -396,10 +353,8 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(800);
   await shot('second_retail_location_created');
 
-  // === Create a third retail location — this one never stocks the ===
-  // === item at all, per direct request, to distinguish a real,    ===
-  // === expected absence from the reported bug (a real item wrongly ===
-  // === missing from a sheet it should genuinely be on)             ===
+  // === A third retail location that never stocks the item — to distinguish an
+  // === expected absence from a bug (item wrongly missing from a sheet) ===
   await page.goto('/locations');
   await page.waitForTimeout(800);
   await page.getByRole('button', { name: '+ New Location' }).click();
@@ -476,9 +431,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1200);
   await shot('stocktake_rundle_street_done');
 
-  // === A real POS sale at Main Street Cellar - the ordinary, real, ===
-  // === home-currency retail selling path, never yet exercised     ===
-  // === anywhere in this same, real tutorial walkthrough before now ===
+  // === A POS sale at Main Street Cellar (ordinary home-currency retail path) ===
   await page.goto('/pos');
   await page.waitForTimeout(800);
   await page.locator('select').first().selectOption({ value: 'Main Street Cellar' });
@@ -487,12 +440,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(500);
   await page.locator('input[placeholder*="Scan" i], input[placeholder*="search" i]').first().press('Enter');
   await page.waitForTimeout(300);
-  // A real, confirmed application gap: no screen anywhere sets a
-  // persistent retail price on an item - completing a sale with none
-  // ever set defaults to a real $0.00 line. The only real way to get
-  // a genuine, non-zero price today is typing it directly into this
-  // cart line, every real time - reported as a real, further
-  // application defect once this run confirms it.
+  // See docs/pm-testing-e2e.md "Honest, current status" — no screen sets a persistent retail price.
   await page.locator('.price-input').first().fill('5.00');
   await page.waitForTimeout(300);
   await shot('pos_sale_filled');
@@ -500,13 +448,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1200);
   await shot('pos_sale_done');
 
-  // === A real, further location, nominating a real, further        ===
-  // === currency (USD) - the multicurrency mechanism, exercised end ===
-  // === to end through the real UI for the first time in this same, ===
-  // === real tutorial: nominate the currency, create a real POS     ===
-  // === terminal resolving it, register a real, independently-set   ===
-  // === USD price for the same, existing item, then complete one,   ===
-  // === real sale through it.                                       ===
+  // === Multicurrency: nominate USD, create a terminal for it, set a USD price, sell ===
   await page.goto('/locations');
   await page.waitForTimeout(700);
   await page.getByRole('button', { name: 'Main Street Cellar' }).click();
@@ -546,13 +488,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(500);
   await page.locator('input[placeholder*="Scan" i], input[placeholder*="search" i]').first().press('Enter');
   await page.waitForTimeout(300);
-  // A further, real, confirmed gap alongside the one above: the
-  // cart's own default price never distinguishes currency at all,
-  // even with a real, foreign-currency terminal active - it would
-  // otherwise default to the same, generic (here, zero) home-currency
-  // retail price rather than this item's own, real, separately-set
-  // USD price. Set manually here too, matching the real USD price
-  // already registered on this item's own vendor source above.
+  // Same gap, per-currency — see docs/pm-testing-e2e.md "Honest, current status".
   await page.locator('.price-input').first().fill('5.00');
   await page.waitForTimeout(300);
   await shot('pos_usd_sale_filled');
@@ -560,18 +496,11 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1200);
   await shot('pos_usd_sale_done');
 
-  // === Review the real, live Trial Balance, Balance Sheet, Profit ===
-  // === & Loss, and the DND P&L pivot builder - confirming every    ===
-  // === real posting made throughout this whole, real tutorial      ===
-  // === still genuinely balances, in both the home currency and the ===
-  // === real, further USD group just exercised above.               ===
+  // === Review Trial Balance, Balance Sheet, P&L, and the DND P&L pivot builder ===
   await page.goto('/reports/trial-balance');
   await page.waitForTimeout(1000);
   await shot('trial_balance_final');
-  // === The real, concrete guarantee this whole tutorial is meant to ===
-  // === prove: every real posting made throughout, staged and       ===
-  // === posted through the real journal-staging mechanism, still     ===
-  // === genuinely balances, debits to credits, right at the end.     ===
+  // Every posting made throughout still balances, debits to credits, at the end.
   const finalDebit = await page.locator('.totals-row .amount-debit').innerText();
   const finalCredit = await page.locator('.totals-row .amount-credit').innerText();
   expect(finalDebit.trim()).toBe(finalCredit.trim());
@@ -587,11 +516,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1000);
   await shot('dnd_pl_final');
 
-  // === Stock take #3: Glenelg Beachside Store — never stocked this ===
-  // === item at all. The real, expected, correct behavior: a genuine, ===
-  // === empty sheet (or a sheet with no Amber Ale line at all) — NOT ===
-  // === the reported bug (a "not on this stock take sheet" error     ===
-  // === thrown when trying to count a real, present item).           ===
+  // === Stock take #3: Glenelg Beachside Store, never stocked — expect an empty sheet ===
   await page.goto('/stock/stock-take');
   await page.waitForTimeout(700);
   await page.locator('select').first().selectOption({ label: 'Glenelg Beachside Store' });

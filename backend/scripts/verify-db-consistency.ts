@@ -1,10 +1,6 @@
-/**
- * Real, direct database consistency checks — not a simulation
- * re-run, a genuine audit of whatever the current database actually
- * contains, for every real ledger that has any real activity.
- *
- * Run with: node --import tsx backend/scripts/verify-db-consistency.ts
- */
+// Direct SQL consistency checks against whatever the current database contains.
+// Run: node --import tsx backend/scripts/verify-db-consistency.ts
+// Full documentation: docs/pm-build-and-tooling.md ("Verification scripts").
 import { getBusinesses, getLedgers, getTrialBalance, getBalanceSheet, db } from '../src/db.js';
 
 let failures = 0;
@@ -18,16 +14,7 @@ function check(label: string, ok: boolean, detail?: string) {
 }
 
 console.log('=== 1. Every real, financial journal entry (posted under Chart of Accounts) balances to exactly zero ===');
-// Confirmed directly, not assumed: getLedgerBalances itself unions
-// TWO separate subtrees as real, postable "reportable_accounts" —
-// Chart of Accounts AND Customers/Vendors (contact entities are real,
-// valid AR/AP posting targets, e.g. a vendor's own balance, but live
-// under a genuinely separate branch of the entity tree, not under
-// Chart of Accounts at all). My own first version of this check only
-// included Chart of Accounts, and incorrectly flagged real,
-// genuinely-balanced AR/AP entries as unbalanced — found by directly
-// tracing one flagged entry's full line set, not assumed to be a real
-// app bug just because a naive query said so.
+// "reportable" accounts = Chart of Accounts ∪ Customers/Vendors — see docs/pm-build-and-tooling.md.
 const unbalanced = db
   .prepare(
     `WITH RECURSIVE coa(id) AS (
@@ -56,25 +43,7 @@ const unbalanced = db
 check('every real, financial journal entry balances to zero', unbalanced.length === 0, unbalanced.length ? `${unbalanced.length} unbalanced entries, e.g. ${unbalanced[0].reference} off by ${unbalanced[0].total}` : undefined);
 
 console.log('\n=== 1b. Every real, multi-line quantity-movement entry (posted under Items) is genuinely balanced to zero ===');
-// A real, single-account adjustment/breakage or an order-placement
-// record (e.g. crediting a real "On Order" account when a purchase
-// order is placed, before any real stock has actually moved) is
-// genuinely, intentionally one real line on its own — not a
-// double-entry movement at all, so it's never expected to balance to
-// zero. A real, true double-entry movement (a transfer between two
-// real locations, a receipt crediting "On Order" while debiting
-// on-hand, a sale crediting on-hand while debiting "Units Sold") is
-// genuinely two or more real lines, and THOSE must genuinely balance
-// to zero — the same real requirement postJournalEntry itself already
-// enforces for financial postings. Confirmed directly against live
-// data before finalizing this: this check's own, prior "must be
-// exactly one line" version was stale (predating the real, true
-// double-entry quantity tracking built for transfers/receipts/sales),
-// and a first attempt at fixing it here was itself too broad
-// (checking every real line for balance, not just multi-line ones) —
-// caught directly by re-running against live data and seeing the
-// real, single-line order-placement entries correctly, intentionally
-// flagged as "unbalanced," which they're supposed to be.
+// Only multi-line entries must balance — see docs/pm-build-and-tooling.md.
 const unbalancedQuantityMovements = db
   .prepare(
     `WITH RECURSIVE items(id) AS (

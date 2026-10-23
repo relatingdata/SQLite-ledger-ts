@@ -520,6 +520,147 @@ form state — it's a full replace, not a partial merge (see
 `schema.sql`'s note on `contact_entry`) — so a partial send would
 silently wipe whatever field isn't included.
 
+## `frontend/src/routes/setup/business-setup/+page.svelte` — org chart: groups, locations, employees
+
+**The grouping hierarchy name** (used to group Locations in this
+tree) is never hardcoded to "Division": it's detected by overlap with
+the business's already-configured org-chart group names when any
+exist, otherwise falls back to the business's first configured
+hierarchy (`getHierarchy`), or the literal word "Division" only for a
+brand-new business with nothing configured yet — the business is free
+to use any other name just by typing it into "Add a `<name>`" the
+first time. **`otherHierarchies`** are every further hierarchy
+dimension the business has configured beyond that one (e.g.
+"Storage", "Packaging", "Size") — one further entry field per
+dimension on a Location's add/edit form, never hardcoded to any
+particular name or count.
+
+**Location creation** resolves the Locations root the same way the
+backend does: the modern plain "Locations" child, with a read-only
+fallback to the legacy combined `"${businessName} Locations"` root
+name the one pre-existing demo business ("Wine Retail Business")
+still uses — mirroring `resolveBusinessLocationsRootId` (backend/src/db.ts,
+see the Entity Model chapter) client-side against the already-fetched
+tree. A new location is also tagged via the Hierarchy mechanism
+(`setHierarchyTag` → `setHierarchyParent`), not only the separate org-
+chart relationship, since every hierarchy-driven report (Old P&L,
+Stock Listing, Stock Movement, Bank Accounts, Year-End) reads that tag
+— `locationHierarchyName` is always this business's own chosen name,
+never hardcoded to "Division". This closes a previously-latent gap: a
+location added through this page never carried the tag before, so
+those reports silently showed it as ungrouped.
+
+**Insert/Delete on the tree** extends the established pattern already
+proven for addresses and phone numbers, replacing scattered "+ Add…"
+link-buttons that were reported confusing. What Insert does depends on
+the current selection: a group selected adds a location within it; a
+location selected adds an employee at it; nothing (or an employee)
+selected adds a new top-level group (the default). `handleInsert`/
+`handleDelete` are the two generic callbacks `TreeEditor.svelte`
+dispatches a keypress to — this page's own decision of what either
+means for its current selection (group/location/employee) is kept
+here, since the Items page's category/item tree needs a genuinely
+different decision. `hintText` is the dynamic keyboard-hint text shown
+below the tree — `TreeEditor` only renders it.
+
+**Location detail**: this location's currently-tagged value for each
+`otherHierarchies` dimension is loaded fresh via `getHierarchyTag`
+whenever a location is selected, and saved back via
+`setHierarchyTag`/`deleteHierarchyTag` on Save.
+
+**Employee detail**: the "Additional locations" list tracks every
+location an employee already has a schedule at, beyond their single
+primary "Place of Employment" — the backend's `setEmployeeSchedule`/
+`getEmployeeSchedule` already supported this per location; this was
+previously a UI gap, not a backend one. Its "+ Add" is deliberately
+kept as a plain link-button, not converted to the tree's Insert/Delete
+pattern, since it's a secondary action inside the employee detail
+panel (choosing which of several work locations to add a further
+schedule for), never competing with the main tree navigation's
+Insert/Delete. After saving a schedule, the employee is reloaded fresh
+so `fullEmployeeSchedule` and the additional-locations list both
+reflect the just-saved change rather than stale local state.
+
+## `frontend/src/routes/items/+page.svelte` — the Items catalog tree
+
+**Selection model**: the tree's selection is a category (any
+arbitrary-depth entity under "Items" with at least one child) or an
+item (a leaf). This page's former flat-list + "Category…" dropdown was
+replaced with the shared `TreeEditor` idiom already proven for
+Business Setup: with a category selected, Insert adds an item within
+it and Delete removes whatever's selected; a plain "+ Subcategory"
+link button (not Insert/Delete — the same deliberate choice made for
+Business Setup's own "Additional locations") handles the secondary,
+less common action of nesting a further category.
+
+**`doReceiveIntoStorage`** receives stock directly into a named
+storage combination (e.g. "Secure"), reusing the Hierarchy groupings
+under Setup → Hierarchies — the same pattern the Locations page's own
+Storage Actions section uses. Per `docs/canned-journal-to-frontend-design.md`
+Phase 1, the physical quantity movement (`receiveIntoStorageStock`,
+and for a combination-tracked receipt, the parallel units-on-hand
+count) happens first, deliberately, since it's the step most likely
+to fail; the canned account selection for the dollar VALUE entry
+(relevant only for a combination-tracked receipt) is computed
+client-side by `receiveIntoStorageLines` (see the canned-journal
+chapter), with the backend asked only to resolve/create the Inventory
+account.
+
+**`itemsRoot`** works around a legacy-root naming issue also fixed on
+the backend (see `resolveBusinessLocationsRootId` in the Entity Model
+chapter): one pre-existing demo business ("Wine Retail Business")
+seeds its Items root under a legacy combined name ("Wine Retail
+Business Items"), not the modern plain "Items" child every business
+created through the application gets. Without the fallback, that
+business's categories were silently invisible — the scoped lookup
+found nothing and the unscoped fallback resolved to the global
+"Items" template root instead (id 102, parent of every business's own
+copy, never a business's own data). This mirrors the backend's own
+tolerant lookup (`name = 'Items' OR name LIKE '% Items'`) client-side,
+against the already-fetched tree.
+
+**`categoryTree`/`childrenByParentId`** build the nested category
+tree once, by walking down from the Items root via `parent_id`
+children — never by scanning the whole global tree and guessing which
+nodes are "categories" from shape alone. A child is either an item
+(named in the `items` list from `listItems`) or a category; an item
+is always treated as a leaf here, so its own further children (e.g.
+its per-location Storage Capacity structure) are never descended into
+and mistaken for a nested category. A category is included even with
+zero children — a genuinely new, empty subcategory is still a
+category, which a naive "has at least one child" criterion would
+miss. This also keeps the build O(n) overall (`childrenByParentId` is
+one id→children index built once), walking only the Items subtree
+rather than the whole chart-of-accounts/vocabulary/menu tree.
+
+**`uncategorizedItems`** surfaces items that sit directly under the
+Items root with no category — never produced by this page's own
+Insert flow (which always requires a category first), but older data
+or data created via the Structured Editor can still be shaped this
+way, so it stays visible rather than silently hidden.
+
+**`addSubcategory`**'s "+ Subcategory" link button is deliberately not
+folded into Insert/Delete — the same choice made for Business Setup's
+"Additional locations" — since it's a secondary action that shouldn't
+compete with the main tree navigation's Insert/Delete (adding an item
+within the selected category).
+
+**`addItemUnderCategory`** calls `setItem` immediately after
+`createEntity`, fixing a pre-existing bug: `listItems` requires a real
+`item` table row (an INNER JOIN), so creating only the bare entity
+would silently vanish a newly-added item from its own list the moment
+it was created, with no error shown.
+
+**`handleInsert`/`handleDelete`** are the two generic callbacks
+`TreeEditor.svelte` dispatches an Insert/Delete keypress to; this
+page's own decision of what either means for its current selection
+(category vs. item) is kept here rather than pushed into the shared
+shell — the same split as Business Setup's own `handleInsert`/
+`handleDelete`, since a different tree genuinely needs a different
+decision. `hintText` is the dynamic keyboard-hint text shown below the
+tree — `TreeEditor` only renders it; this page alone knows what
+Insert/Delete actually do for the current selection.
+
 ## `frontend/src/routes/+layout.svelte` — the app shell: menu, sections, keyboard nav, clock
 
 **Menu structure** comes from `getMenuTree` (a structural, entity-tree
