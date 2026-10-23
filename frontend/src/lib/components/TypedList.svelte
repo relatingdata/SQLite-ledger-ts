@@ -1,14 +1,6 @@
 <script lang="ts" generics="T extends Record<string, any>">
-  // TypedList.svelte — the one, real, generic mechanism behind every
-  // typed sub-list on an entity (Addresses, Phone numbers, Contacts,
-  // and any real, future kind — spouses, children, whatever a real
-  // workplace wants to organize). Per direct correction: three
-  // hand-copied components (Address/Phone/Contact) were the exact DRY
-  // violation this whole consolidation effort exists to eliminate.
-  // This provides the mechanism — load/save/delete, the type-amend
-  // UI, Insert/Delete keyboard handling, selection — once; each real
-  // kind supplies only its own field shape and display, via Svelte 5
-  // snippets, not policy baked in here.
+  // The generic typed sub-list mechanism — see
+  // docs/pm-frontend-reference.md for the full design.
   import type { Snippet } from 'svelte';
   import { translations } from '$lib/state.svelte';
 
@@ -28,9 +20,7 @@
     display,
   }: {
     entityName: string;
-    /** Shown as this block's own legend — "Addresses", "Phone numbers", "Contacts". */
-    kindLabel: string;
-    /** Which real property of T holds its own type string ("address_type", "phone_type", "contact_type"). */
+    kindLabel: string; // see docs/pm-frontend-reference.md
     typeField: keyof T & string;
     emptyText: string;
     newTypePlaceholder: string;
@@ -38,23 +28,14 @@
     getItems: (entityName: string) => Promise<T[]>;
     save: (entityName: string, type: string, values: Record<string, unknown>) => Promise<void>;
     remove: (entityName: string, type: string) => Promise<void>;
-    /** Whether the current, real, in-progress form values are complete enough to save. */
     canSave: (values: Record<string, unknown>) => boolean;
-    /** A real, fresh values object for a new, blank entry. */
     initialValues: () => Record<string, unknown>;
-    /** The field-specific, real form body — receives the live values
-     * object (mutate it directly via bind) and a ref-setter for the
-     * field that should receive focus after pressing Insert. */
     form: Snippet<[{ values: Record<string, unknown>; setFirstField: (el: HTMLElement | undefined) => void }]>;
-    /** The field-specific, real read-only display for one item. */
     display: Snippet<[T]>;
   } = $props();
 
   let items: T[] = $state([]);
-  // A real, unique id for this real component instance's own
-  // keyboard-hint text, so the panel below can genuinely announce
-  // its real keyboard shortcuts to a screen reader, not just show
-  // them visually.
+  // See docs/pm-frontend-reference.md.
   const hintId = `typed-list-hint-${crypto.randomUUID()}`;
   let knownTypes: string[] = $state([]);
   let loading = $state(true);
@@ -81,9 +62,7 @@
     }
   }
 
-  // Reload whenever the caller points this component at a different
-  // entity (e.g. switching which vendor, customer, or location is
-  // selected).
+  // See docs/pm-frontend-reference.md.
   $effect(() => {
     if (entityName) load();
   });
@@ -96,8 +75,7 @@
     newTypeText = '';
     values = initialValues();
     adding = true;
-    // A person just pressed Insert to get here — put their cursor
-    // straight into the field they'll actually type into.
+    // See docs/pm-frontend-reference.md.
     setTimeout(() => firstFieldEl?.focus(), 0);
   }
 
@@ -133,11 +111,7 @@
     (e.currentTarget as HTMLElement)?.focus();
   }
 
-  // Owned entirely by this component, attached to its own root
-  // element (not the window) — Insert/Delete work correctly the
-  // moment this component is used anywhere, on any page, with zero
-  // extra wiring required from the parent. No Add/Remove buttons at
-  // all — Insert/Delete are the only way in or out.
+  // Insert/Delete owned by this component's own root element — see docs/pm-frontend-reference.md.
   function handleKeydown(e: KeyboardEvent) {
     const target = e.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;

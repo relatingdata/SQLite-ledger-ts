@@ -55,15 +55,7 @@
     partnerNames = partnerNames.filter((p) => p !== name);
   }
 
-  // Real business types, read from the database (the real 'Business
-  // Type' entity tree — Sole Trader/Partnership/Pty Ltd Company/
-  // Incorporated Company, each with its own real prototype CoA and
-  // questions) rather than a hardcoded frontend list. Mapped to the
-  // existing, already-working EntityStructure values so the backend's
-  // own setupEquityStructure mechanism (which creates the real extra
-  // equity accounts per structure) keeps working unchanged — this is
-  // a real, additive unification, not a rewrite of a working
-  // mechanism.
+  // Business types from the database, mapped to EntityStructure — see docs/pm-frontend-reference.md.
   const BUSINESS_TYPE_TO_ENTITY_STRUCTURE: Record<string, (typeof ENTITY_STRUCTURES)[number]['value']> = {
     'Sole Trader': 'sole_trader',
     Partnership: 'partnership',
@@ -80,13 +72,7 @@
     } catch {
       businessTypes = [];
     }
-    // Per direct finding: this was previously a bare, top-level call
-    // (line, at the time, right after loadPrototypeAccounts' own
-    // definition) - genuinely ran during SSR too, not just in the
-    // browser, triggering SvelteKit's own "Avoid calling fetch
-    // eagerly during server-side rendering" warning on every real
-    // visit to this page. Moved into the same, real onMount already
-    // used for the sibling initial-load call above.
+    // Moved into onMount to avoid running during SSR — see docs/pm-frontend-reference.md.
     loadPrototypeAccounts();
   });
   function selectBusinessType(bt: { name: string; questions: string[] }) {
@@ -133,12 +119,7 @@
     }
   }
 
-  // The real, post-creation bank-accounts-by-currencies wizard, per
-  // docs/user-manual-ch2-configuration.md's own, already-written
-  // "Setup then walks through the business's own real banking
-  // arrangement" section: nominate one or more real bank accounts,
-  // nominate one or more real currencies, then tick exactly which
-  // real combinations actually exist.
+  // Post-creation bank-accounts-by-currencies wizard — see docs/pm-frontend-reference.md.
   let banksAtOneOrMore: 'one' | 'more' = 'one';
   let newBankName = '';
   let newRoutingDetail = '';
@@ -171,9 +152,7 @@
     wizardNewCurrency = '';
   }
 
-  // The real, full cartesian product, shown as tick-boxes - only the
-  // real, ticked combinations actually get built, never the untamed,
-  // full grid blindly.
+  // Full Cartesian product as tick-boxes — see docs/pm-frontend-reference.md.
   let tickedCombinations: Record<string, boolean> = {};
   function comboKey(bankName: string, currency: string): string {
     return `${bankName}\u0000${currency}`;

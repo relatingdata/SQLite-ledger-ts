@@ -520,6 +520,71 @@ form state — it's a full replace, not a partial merge (see
 `schema.sql`'s note on `contact_entry`) — so a partial send would
 silently wipe whatever field isn't included.
 
+## `frontend/src/lib/components/TypedList.svelte` — the generic typed sub-list
+
+The one generic mechanism behind every typed sub-list on an entity
+(Addresses, Phone numbers, Contacts, and any future kind — spouses,
+children, whatever a workplace wants to organize). Three hand-copied
+components (Address/Phone/Contact) were the exact DRY violation this
+consolidation eliminates: this provides the mechanism — load/save/
+delete, the type-amend UI, Insert/Delete keyboard handling, selection
+— once; each kind supplies only its own field shape and display via
+Svelte 5 snippets, never policy baked in here.
+
+Props include the block's legend ("Addresses", "Phone numbers",
+"Contacts"), which property of `T` holds its type string
+(`address_type`, `phone_type`, `contact_type`), whether the
+in-progress form values are complete enough to save, a factory for a
+fresh blank entry, a field-specific form-body snippet (receives the
+live values object to mutate via `bind`, plus a ref-setter for the
+field that should receive focus after Insert), and a field-specific
+read-only display snippet for one item.
+
+A unique id is generated per instance for its keyboard-hint text, so
+the panel can announce its keyboard shortcuts to a screen reader, not
+just show them visually. It reloads whenever the caller points it at
+a different entity (e.g. switching which vendor, customer, or
+location is selected). After pressing Insert, the cursor goes straight
+into the field the person will actually type into. Insert/Delete are
+owned entirely by this component and attached to its own root element
+(not the window), so they work correctly the moment it's used anywhere
+with zero extra wiring from the parent — there are no Add/Remove
+buttons at all; Insert/Delete are the only way in or out.
+
+## `frontend/src/lib/components/TreeEditor.svelte` — the shared tree+Insert/Delete shell
+
+The generic shell shared by every selectable-tree + Insert/Delete
+screen (Business Setup and Items today — see
+`docs/shared-tree-editor-component-plan.md`). It deliberately owns
+nothing about what a "node" is, what kinds exist, or what Insert/
+Delete should actually do for the caller's current selection — that
+decision is always the caller's, since it genuinely differs per screen
+(Business Setup: group → location → employee; Items: arbitrary-depth
+category → item). What this component DOES own once, for every
+caller: the toolbar wrapper, the ARIA wiring (`role="toolbar"`,
+`tabindex`, a unique id linking the toolbar to its own keyboard-hint
+text for a screen reader), the INPUT/SELECT/TEXTAREA keydown guard (so
+typing into an inline add-form's fields never triggers Insert/Delete),
+and translating an Insert/Delete keypress into the two generic
+callbacks the caller supplies.
+
+`<fieldset>` can never legally take an interactive ARIA role (a fixed,
+implicit "group" semantic the spec won't let any role override), so
+the deliberate keyboard-navigable toolbar semantics live on the inner
+`<div>`, wrapping just the tree content passed in via the default
+snippet. A unique id is generated per instance, so more than one
+`TreeEditor` on the same page (unlikely today, but never assumed)
+still links its own toolbar to its own hint text correctly.
+
+Props: the legend text for the tree panel's fieldset; the dynamic
+keyboard-hint text (computed by the caller from its current selection,
+since only the caller knows what Insert/Delete will actually do);
+`onInsert`/`onDelete` callbacks (the caller reads its own current
+selection to decide what either means, and handles its own
+confirmation/async work); and the tree content itself via the default
+snippet, entirely the caller's own since node kinds and their detail
+genuinely differ per screen.
+
 ## `frontend/src/routes/setup/new-business/+page.svelte` — the new-business wizard
 
 **Prototype CoA reuse** lists existing ledgers whose Chart of Accounts
