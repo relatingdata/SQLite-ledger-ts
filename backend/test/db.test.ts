@@ -1,18 +1,4 @@
-// The one, real, complete backend test suite - built one test at a
-// time per direct instruction, replacing an earlier version of this
-// file that read and wrote the shared, globally-seeded 'admin'
-// business directly (see docs/test-fixtures-design.md for the full
-// rationale, and docs/lessons-learned.md for the real bugs this
-// migration surfaced along the way). The one rule every test here
-// follows: no test reads or writes the shared 'admin' business, or
-// any other globally-seeded business or account. Every test creates
-// its own, uniquely-named, real business via fixtures.ts's
-// freshBusiness (a thin wrapper around the real createBusiness
-// production function), then adds only the small, specific set of
-// further fixtures that one test actually needs. Tests are written to
-// run correctly in any order, and to tolerate running concurrently
-// with each other (no two tests ever share a business, location, or
-// item name).
+// The backend test suite. Full documentation: docs/pm-testing-unit.md.
 import { test, after } from './test-runtime.ts';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -22,10 +8,6 @@ import { makeFixtures } from './fixtures.ts';
 
 const tmpDbPath = path.join(os.tmpdir(), `sql-ledger-ts-test-${process.pid}-${Date.now()}.sqlite`);
 process.env.DB_PATH = tmpDbPath;
-// No demo business, no shared business, nothing seeded beyond the
-// real, unconditional, structural core (vocabulary, translations, the
-// one, permanent, legacy 'admin' business this suite never touches) -
-// per direct instruction, this test file depends on none of it.
 process.env.SEED_DEMO_BUSINESSES = 'false';
 
 const db = await import('../src/db.ts');
@@ -43,13 +25,7 @@ after(() => {
 });
 
 // --- bootstrap / entity-tree primitives -----------------------------
-// These exercise the core structural mechanism directly (Root,
-// Application, the universal Accounts Receivable/Payable roots) -
-// genuinely global, structural entities that exist unconditionally
-// and are never business-scoped, so there is no "own business" to
-// create here. Each still uses a unique name for anything it creates
-// under one of those shared roots, so two such tests can never
-// collide, whatever order they run in.
+// Global, structural entities (Root, Application, AR/AP roots) — never business-scoped.
 
 test('the bootstrap tree loads with exactly one root', () => {
   const tree = db.getEntityTree();

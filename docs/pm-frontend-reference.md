@@ -520,6 +520,55 @@ form state — it's a full replace, not a partial merge (see
 `schema.sql`'s note on `contact_entry`) — so a partial send would
 silently wipe whatever field isn't included.
 
+## `frontend/src/lib/components/CashTransaction.svelte` — the shared Cash Purchase/Sale screen
+
+This is the one real screen behind both "Cash Purchase" and "Cash
+Sale": every line of difference between the two original separate
+files was pure parameter-swapping (vendor↔customer, Accounts
+Payable↔Accounts Receivable, "Purchase"↔"Sale", receive↔dispatch) with
+zero genuine structural difference, so it's one screen parameterized
+by `direction`, set once by the route file that renders it
+(`<CashTransaction direction="purchase" />`) and never reassigned —
+a plain `const`, not a missed `$derived` (hence the `svelte-ignore
+state_referenced_locally`).
+
+**The party-list string differs by direction for a real reason, not a
+leftover asymmetry**: the backend's `createProvider` parents a new
+provider directly under the `Accounts Payable` CoA account, so
+`'Accounts Payable'` is the correct lookup for the purchase side. Its
+`createCustomer`, by contrast, parents a new customer under
+`'Customers'` — a structural Vocabulary category, never the `Accounts
+Receivable` CoA account — so `'Customers'` is the correct lookup for
+the sale side, not `'Accounts Receivable'`.
+
+**Auto-add**: as soon as every existing line has an item name filled
+in (no blank line left anywhere), a fresh empty one appears at the
+end — the same spreadsheet-style convention used elsewhere in this
+codebase for a form of unknown length, so there's never an "Add line"
+button. The effect re-fires only on that transition, not on every
+keystroke: once a blank line exists, the "every line filled" check is
+false until all are filled again. The auto-added trailing blank line
+must never actually be sent — it's filtered out before submission,
+since the backend schema correctly rejects an empty `itemName`, and
+submitting it previously silently failed every purchase/sale that
+reached this point with an unfilled line still present.
+
+**Submission** follows `docs/canned-journal-to-frontend-design.md`:
+for a purchase (Phase 0), the canned account selection is computed
+client-side by `cashPurchaseLines` (see the canned-journal chapter),
+with the backend asked only to resolve/create the Inventory accounts
+and receive the physical stock; posting goes through the same generic
+staging+post calls the General Journal "Save" button uses. The sale
+side (Phase 1) mirrors this with `posSaleLines` — the backend resolves
+Sales/COGS/Inventory accounts (plus each item's known per-unit cost)
+and dispatches the physical stock. Per the precedent established for
+Cash Purchase, an immediate-cash sale creates no invoice/receivable
+record at all, just a direct journal posting plus the physical stock
+side effect. `dispatchStock` runs first, deliberately, since it's the
+step most likely to fail (not enough stock on hand) — a failed
+dispatch must never leave a posted journal entry behind for stock that
+was never actually sent out.
+
 ## `frontend/src/routes/setup/business-setup/+page.svelte` — org chart: groups, locations, employees
 
 **The grouping hierarchy name** (used to group Locations in this

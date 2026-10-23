@@ -1,4 +1,6 @@
 <script lang="ts">
+  // Org chart: groups, locations, employees — see
+  // docs/pm-frontend-reference.md for the full design.
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
@@ -44,15 +46,7 @@
   type Selection = { type: 'group' | 'location' | 'employee'; name: string; group?: string; location?: string } | null;
   let selection: Selection = $state(null);
 
-  // The one, real, business-chosen hierarchy that groups Locations in
-  // this tree — never hardcoded to "Division." Detected by real
-  // overlap with the business's own, already-real org-chart group
-  // names, when any already exist; otherwise falls back to the
-  // first real hierarchy this business has configured at all
-  // (getHierarchy), or the plain word "Division" only when nothing
-  // has been configured yet at all (a brand-new business — the
-  // business is free to use any other name simply by typing it into
-  // "Add a <name>" below, the first time).
+  // Grouping hierarchy name, never hardcoded — see docs/pm-frontend-reference.md.
   let locationHierarchyName = $derived.by(() => {
     const groupNames = new Set<string>(chart ? chart.groups.map((g): string => g.group) : []);
     if (groupNames.size > 0) {
@@ -62,11 +56,7 @@
     return hierarchy[0]?.grouping ?? 'Division';
   });
 
-  // Every further, real hierarchy dimension this business has
-  // configured beyond the one above used to group Locations (e.g.
-  // "Storage," "Packaging," "Size") — one further, real entry field
-  // per dimension on a Location's own add/edit form below, never
-  // hardcoded to any particular name or count.
+  // Further hierarchy dimensions beyond the grouping one — see docs/pm-frontend-reference.md.
   let otherHierarchies = $derived.by(() => hierarchy.filter((h) => h.grouping !== locationHierarchyName));
 
   function selectGroup(name: string) {
@@ -116,9 +106,7 @@
   let newLocationType: string = $state('Retail');
   let newLocationTimezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const ALL_TIMEZONES = Intl.supportedValuesOf('timeZone');
-  // One further entry per further, real, configured hierarchy
-  // dimension (otherHierarchies) — keyed by that hierarchy's own,
-  // real grouping name, never a fixed set of fields.
+  // See docs/pm-frontend-reference.md.
   let newLocationDimensionValues: Record<string, string> = $state({});
   let creatingLocationFor: string | null = $state(null);
   let locationError = $state('');
@@ -128,14 +116,7 @@
     try {
       const treeEntities = await getEntityTree();
       const biz = treeEntities.find((e) => e.name === session.current!.businessName);
-      // The modern shape every business created through the
-      // application itself actually has (a plain "Locations" child),
-      // with a real, read-only fallback to the legacy, combined
-      // "${businessName} Locations" root name one specific,
-      // pre-existing demo business ("Wine Retail Business") still
-      // uses — the same, real compatibility resolveBusinessLocationsRootId
-      // (backend/src/db.ts) applies server-side, mirrored here since
-      // this lookup runs against the already-fetched tree client-side.
+      // Mirrors resolveBusinessLocationsRootId's legacy-root fallback — see docs/pm-frontend-reference.md.
       const locationsId = biz
         ? (treeEntities.find((e) => e.name === 'Locations' && e.parent_id === biz.id) ??
           treeEntities.find((e) => e.name === `${session.current!.businessName} Locations` && e.parent_id === biz.id))?.id
@@ -147,16 +128,7 @@
         session.current.businessName
       );
       await setEntityRelationship(newLocationName.trim(), 'Belongs To Group', groupName);
-      // Per direct instruction: also tagged via the real Hierarchy
-      // mechanism (setHierarchyTag -> setHierarchyParent), not only
-      // the separate, bare org-chart relationship above — the one,
-      // real thing every hierarchy-driven report (old-pl,
-      // stock-listing, stock-movement, bank-accounts, year-end)
-      // actually reads. Never hardcoded to "Division" —
-      // locationHierarchyName is this business's own, real, chosen
-      // name. A real, previously-latent gap: a location added through
-      // this page never carried this real tag before, so these
-      // reports silently showed it as ungrouped.
+      // Also tagged via the Hierarchy mechanism — see docs/pm-frontend-reference.md.
       await setHierarchyTag(newLocationName.trim(), locationHierarchyName, groupName);
       for (const h of otherHierarchies) {
         const value = newLocationDimensionValues[h.grouping];
@@ -189,15 +161,7 @@
     }
   }
 
-  // --- Insert/Delete on the tree itself, per direct request: the
-  // real, established Insert/Delete pattern already proven for
-  // addresses and phone numbers, extended here to replace the real,
-  // scattered "+ Add..." link-buttons a direct report called
-  // confusing. What Insert does depends on which real, currently
-  // selected/focused item it's pressed from — a group selected adds
-  // a location within it; a location selected adds an employee at
-  // it; nothing (or an employee) selected adds a new group, the
-  // real, top-level default.
+  // --- Insert/Delete on the tree — see docs/pm-frontend-reference.md.
   async function deleteSelected() {
     if (!selection) return;
     const label = selection.type === 'group' ? locationHierarchyName.toLowerCase() : selection.type === 'location' ? 'location' : 'employee';
@@ -214,12 +178,7 @@
     }
   }
 
-  // The two, real, generic callbacks TreeEditor.svelte dispatches a
-  // real Insert/Delete keypress to — this page's own, specific
-  // decision of what either one means for its own, current selection
-  // (a group/location/employee tree), kept here rather than pushed
-  // into the shared shell, since a different real tree (items'
-  // category/item one) would need a genuinely different decision.
+  // Insert/Delete callbacks dispatched by TreeEditor.svelte — see docs/pm-frontend-reference.md.
   function handleInsert() {
     if (selection?.type === 'group') {
       creatingLocationFor = selection.name;
@@ -234,9 +193,7 @@
     if (selection) deleteSelected();
   }
 
-  // The real, dynamic keyboard-hint text shown below the tree -
-  // TreeEditor only renders it; this page alone knows what
-  // Insert/Delete actually do for its own, current selection.
+  // Dynamic keyboard-hint text — see docs/pm-frontend-reference.md.
   let hintText = $derived.by(() => {
     if (selection?.type === 'group') {
       return `Press Insert to add a location in "${translations.current[selection.name] ?? selection.name}", or Delete to remove it.`;
@@ -251,11 +208,7 @@
   // --- Location detail -----------------------------------------------
   let locationRecord: LocationRecord | null = $state(null);
   let openHours: { day: string; from_time: string; to_time: string }[] = $state([]);
-  // This location's own, real, currently-tagged value for each
-  // further hierarchy dimension (otherHierarchies), keyed by that
-  // hierarchy's own grouping name — loaded fresh via getHierarchyTag
-  // whenever a location is selected, saved back via
-  // setHierarchyTag/deleteHierarchyTag on Save.
+  // See docs/pm-frontend-reference.md.
   let locationDimensionValues: Record<string, string> = $state({});
   let locationSaving = $state(false);
   let locationSaveError = $state('');
@@ -320,11 +273,7 @@
   let employeeSaveError = $state('');
   let employeeSaveMessage = $state('');
 
-  // Every real location this employee already has a real schedule at,
-  // beyond their own single, primary "Place of Employment" — the
-  // backend's own setEmployeeSchedule/getEmployeeSchedule already,
-  // genuinely support this, per location; this was previously a real,
-  // direct UI gap, never a real backend one.
+  // See docs/pm-frontend-reference.md.
   let fullEmployeeSchedule: { day: string; location: string; starts_at: string; ends_at: string }[] = $state([]);
   let additionalLocationSelection: string | null = $state(null);
   let additionalLocationSchedule: { day: string; from_time: string; to_time: string }[] = $state([]);
@@ -387,13 +336,7 @@
       .map((s) => ({ day: s.day, from_time: s.starts_at, to_time: s.ends_at }));
   }
 
-  // Per direct consideration and decision: this remains a real, plain
-  // link-button, not converted to the tree's own Insert/Delete
-  // pattern — it is a secondary form action inside the employee
-  // detail panel's own "Additional locations" sub-section (choosing
-  // which of this employee's several, real work locations to add a
-  // further schedule for), never competing with the main tree
-  // navigation Insert/Delete already covers. Kept deliberately.
+  // Deliberately a plain link-button, not Insert/Delete — see docs/pm-frontend-reference.md.
   function startAddingAdditionalLocation() {
     addingAdditionalLocation = true;
     additionalLocationSelection = null;
@@ -415,9 +358,7 @@
         asLocationName(locationName),
         additionalLocationSchedule.map((s) => ({ day: s.day, starts_at: s.from_time, ends_at: s.to_time }))
       );
-      // Reload this same employee fresh, so fullEmployeeSchedule and
-      // the additional-locations list both genuinely reflect the
-      // real, just-saved change, not stale, local state.
+      // Reload fresh so state reflects the just-saved change — see docs/pm-frontend-reference.md.
       await selectEmployee(selection.name, selection.group, selection.location);
       selectAdditionalLocation(locationName);
     } catch (e) {

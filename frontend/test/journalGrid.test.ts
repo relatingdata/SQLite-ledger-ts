@@ -1,14 +1,4 @@
-// NOTE on this file's history: an earlier version of this grid
-// auto-added a new blank row the instant the last row became "filled".
-// Real user feedback identified this as actively wrong, not a matter of
-// taste: it caused the total/balance display to look stuck (the
-// trailing row's auto-suggested amount didn't count until an account
-// was also chosen for it) and then, the moment an account WAS chosen,
-// silently spawned an unwanted extra row. This is a deliberate,
-// explicit revision of the earlier "protected contract" — the
-// requirement itself changed, not just the implementation — replacing
-// automatic expansion with addRow/removeRowAt as explicit actions only.
-
+// Row expansion is explicit (addRow/removeRowAt) only — no auto-added blank row.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {

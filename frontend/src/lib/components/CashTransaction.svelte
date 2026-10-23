@@ -1,11 +1,6 @@
 <script lang="ts">
-  // CashTransaction.svelte — the one, real, genuine screen behind
-  // both "Cash Purchase" and "Cash Sale". Confirmed directly: every
-  // line of difference between the two original, separate files was
-  // pure parameter-swapping (vendor<->customer, Accounts Payable<->
-  // Accounts Receivable, "Purchase"<->"Sale", receive<->dispatch) —
-  // zero genuine structural difference. One real screen, parameterized
-  // by direction, not two.
+  // The shared Cash Purchase/Sale screen — see
+  // docs/pm-frontend-reference.md for the full design.
   import { auth, session, translations } from '$lib/state.svelte';
   import { formatAmount } from '$lib/format';
   import { onMount } from 'svelte';
@@ -35,26 +30,11 @@
 
   let { direction }: { direction: 'purchase' | 'sale' } = $props();
 
-  // direction is genuinely static for this component's whole real
-  // lifetime - set once, directly, by the one, real, separate route
-  // file that renders it (<CashTransaction direction="purchase" />),
-  // never reassigned afterward. A plain const is the correct, real
-  // choice here, not a missed $derived.
+  // direction is static for this component's lifetime — see docs/pm-frontend-reference.md.
   // svelte-ignore state_referenced_locally
   const isPurchase = direction === 'purchase';
   const partyLabel = isPurchase ? 'Vendor' : 'Customer';
-  // Real, confirmed bug (found while diagnosing why a real, just-created
-  // customer never appeared in this real Cash Sale screen's own party
-  // list): backend's own createProvider parents a new real provider
-  // directly under the real 'Accounts Payable' CoA account (confirmed
-  // directly - Highland Brewing Co's own real parent_id resolves to that
-  // real account), so 'Accounts Payable' here is correct and matches.
-  // backend's own createCustomer, by contrast, parents a new real
-  // customer under 'Customers' - a real, structural Vocabulary category,
-  // never the real 'Accounts Receivable' CoA account - confirmed
-  // directly the same way. The real string here was simply the wrong
-  // one for the sale side; 'Customers' is the one that actually matches
-  // where createCustomer puts a real customer.
+  // Matches where createProvider/createCustomer actually parent a new party — see docs/pm-frontend-reference.md.
   const partyParentEntity = isPurchase ? 'Accounts Payable' : 'Customers';
   const locationLabel = isPurchase ? 'Receive at location' : 'Dispatch from location';
   const totalLabel = isPurchase ? 'Total to pay' : 'Total owed';
