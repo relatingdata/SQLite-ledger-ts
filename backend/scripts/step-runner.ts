@@ -158,13 +158,15 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     });
     db.postPurchaseOrder(a.reference, business, ledger, userId);
   },
+  // Always to the one real "Cash" provider/customer, matching the real
+  // screen — see "Cash Sale and Cash Purchase" in pm-domain-reference.md.
   cashPurchaseSimple: (a) => {
     const userId = db.asUserId(1);
     return db.completeCashPurchase({
       business: a.businessName as any,
       ledger: db.asLedgerName('Actual'),
       locationName: a.locationName as any,
-      vendorName: a.providerName as any,
+      vendorName: 'Cash' as any,
       lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitCostMinor), taxMinor: 0 }],
       taxAccount: 'Sales Tax Payable' as any,
       paymentMethod: 'cash',
@@ -176,7 +178,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       business: a.businessName as any,
       ledger: db.asLedgerName('Actual'),
       locationName: a.locationName as any,
-      customerName: a.customerName as any,
+      customerName: 'Cash' as any,
       lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitPriceMinor), taxMinor: 0 }],
       taxAccount: 'Sales Tax Payable' as any,
       paymentMethod: 'cash',
@@ -192,7 +194,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       business: a.businessName as any,
       ledger: db.asLedgerName('Actual'),
       locationName: a.locationName as any,
-      customerName: 'Cash Sale' as any,
+      customerName: 'Cash' as any,
       lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitPriceMinor), taxMinor: 0 }],
       taxAccount: 'Sales Tax Payable' as any,
       paymentMethod: 'cash',
@@ -263,7 +265,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       business: a.businessName as any,
       ledger: db.asLedgerName(a.ledger),
       locationName: a.locationName as any,
-      customerName: 'Cash Sale' as any,
+      customerName: 'Cash' as any,
       lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitPriceMinor), taxMinor: 0 }],
       taxAccount: 'Sales Tax Payable' as any,
       paymentMethod: 'cash',

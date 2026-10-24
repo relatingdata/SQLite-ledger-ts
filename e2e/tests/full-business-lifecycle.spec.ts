@@ -162,9 +162,13 @@ test('Full business lifecycle, entirely through the real UI, from a genuinely em
   await page.waitForTimeout(1000);
   await page.screenshot({ path: '/tmp/lifecycle_7b_second_item.png', fullPage: true });
 
-  // Step 8: create a real vendor via the Structured Editor — neither
-  // Cash Purchase nor AP Purchase actually support free-text vendor
-  // entry, both require the vendor to already exist as a real entity.
+  // Step 8: create a real vendor via the Structured Editor — AP
+  // Purchase doesn't support free-text vendor entry, it requires the
+  // vendor to already exist as a real entity. (Cash Purchase itself no
+  // longer takes a vendor at all — it always posts to the one real
+  // "Cash" provider, see pm-frontend-reference.md — so this vendor
+  // isn't fed into Step 9 below; it's kept here as its own, still-real
+  // coverage of the Structured Editor's "create a Provider" path.)
   await page.goto('/editor');
   await page.waitForTimeout(500);
   const newEntityCard2 = page.locator('.form-card').filter({ hasText: 'New entity' });
@@ -174,11 +178,12 @@ test('Full business lifecycle, entirely through the real UI, from a genuinely em
   await page.waitForTimeout(1000);
   await page.screenshot({ path: '/tmp/lifecycle_8_vendor_created.png', fullPage: true });
 
-  // Step 9: a real Cash Purchase, receiving real stock at the warehouse.
+  // Step 9: a real Cash Purchase, receiving real stock at the
+  // warehouse — always to the one real "Cash" provider, no vendor to
+  // pick any more.
   await page.goto('/arap/cash-purchase');
   await page.waitForTimeout(700);
-  await page.locator('select').first().selectOption({ label: 'Test Vendor Co' });
-  await page.locator('select').nth(1).selectOption({ label: 'Main Warehouse (warehouse)' });
+  await page.locator('select').first().selectOption({ label: 'Main Warehouse (warehouse)' });
   await page.getByRole('button', { name: /add line/i }).click();
   await page.waitForTimeout(300);
   await page.locator('input[placeholder="e.g. Golden Lager 330ml"]').fill('Test Widget A');
@@ -190,10 +195,13 @@ test('Full business lifecycle, entirely through the real UI, from a genuinely em
   await page.waitForTimeout(1500);
   await page.screenshot({ path: '/tmp/lifecycle_9b_purchase_done.png', fullPage: true });
 
-  // Step 10: create a real customer via the Structured Editor —
-  // neither Cash Sale nor AR Sale actually support free-text customer
-  // entry, both require the customer to already exist as a real
-  // entity, the same real constraint as vendors.
+  // Step 10: create a real customer via the Structured Editor — AR
+  // Sale doesn't support free-text customer entry, it requires the
+  // customer to already exist as a real entity. (Cash Sale itself no
+  // longer takes a customer at all — it always posts to the one real
+  // "Cash" customer, see pm-frontend-reference.md — so this customer
+  // isn't fed into Step 11 below; it's kept here as its own, still-real
+  // coverage of the Structured Editor's "create a Customer" path.)
   await page.goto('/editor');
   await page.waitForTimeout(500);
   const newEntityCard3 = page.locator('.form-card').filter({ hasText: 'New entity' });
@@ -203,11 +211,11 @@ test('Full business lifecycle, entirely through the real UI, from a genuinely em
   await page.waitForTimeout(1000);
   await page.screenshot({ path: '/tmp/lifecycle_10_customer_created.png', fullPage: true });
 
-  // Step 11: a real Cash Sale of the stock just received.
+  // Step 11: a real Cash Sale of the stock just received — always to
+  // the one real "Cash" customer, no customer to pick any more.
   await page.goto('/arap/cash-sale');
   await page.waitForTimeout(700);
-  await page.locator('select').nth(0).selectOption({ label: 'Test Customer Co' });
-  await page.locator('select').nth(1).selectOption({ label: 'Main Warehouse (warehouse)' });
+  await page.locator('select').first().selectOption({ label: 'Main Warehouse (warehouse)' });
   await page.getByRole('button', { name: /add line/i }).click();
   await page.waitForTimeout(300);
   await page.locator('input[placeholder="e.g. Golden Lager 330ml"]').fill('Test Widget A');

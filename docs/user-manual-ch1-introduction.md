@@ -30,9 +30,21 @@ Once a business, ledger, and language are chosen, you land on the main screen. T
 
 ## How the menu is organized
 
-The top-level sections are organized around real, everyday workflows rather than abstract categories: **Accounts Receivable (Debtors / Sales)** holds everything related to selling and being paid; **Accounts Payable (Creditors / Purchasing)** holds everything related to buying and paying; **Cash** holds immediate, no-account transactions and the POS register; **General Ledger** holds the core accounting reports and the year-end close; and **Configuration** --- covered in full in Chapter 2 --- holds everything an administrator uses to set the business up in the first place.
+The top-level sections are organized around real, everyday workflows rather than abstract categories: **Accounts Receivable (Debtors / Sales)** holds everything related to selling and being paid; **Accounts Payable (Creditors / Purchasing)** holds everything related to buying and paying; **Cash** holds the immediate-payment Cash Purchase/Cash Sale screens and the POS register; **General Ledger** holds the core accounting reports and the year-end close; and **Configuration** --- covered in full in Chapter 2 --- holds everything an administrator uses to set the business up in the first place.
 
 A screen shown in italics in the sidebar (such as Reconciliation or FX Adjustment) is a real, acknowledged gap --- a planned screen that doesn't exist yet --- shown honestly rather than hidden, so it's clear what's genuinely available today versus what's still ahead.
+
+## How a purchase or sale moves stock and money together
+
+Whichever screen you use --- a Purchase/Sales Order fulfilled later, a plain on-account Purchase or Sale, or the immediate Cash Purchase/Cash Sale screens --- the pattern underneath is always the same: receiving or dispatching the real, physical stock and recording the real money owed happen together, in one step, never as two separate actions that could leave one done and not the other.
+
+![The complete shape of buying and selling in this application, from a Purchase/Sales Order through to the General Journal, including the Cash shortcut.](diagrams/cash-and-order-workflow.svg)
+
+A **Purchase Order** or **Sales Order** is a plan only --- placing one doesn't move any stock or money yet. It's the **Stock Receipt**/**Stock Dispatch** step, when the goods actually arrive or go out, that does both at once: the real stock quantity changes, and the business now owes --- or is owed --- real money. That open balance is settled later with an **AP Payment** (a remittance advice to a provider) or an **AR Receipt** (a receipt from a customer).
+
+A plain, on-account **Purchase** or **Sale** --- made without a Purchase/Sales Order behind it --- works the same way: any real item on the line is received or dispatched from stock automatically, right alongside the invoice.
+
+**Cash Purchase** and **Cash Sale** are the same thing again, just immediate: each posts a real invoice to the business's own "Cash" provider or "Cash" customer, moves the stock, and pays the invoice off in full, all in the same instant --- so even here, the amount owed is briefly real, it just never has a chance to sit open. Every one of these roads ends up in the same General Journal.
 
 ## Navigating with the keyboard
 

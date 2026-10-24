@@ -17,11 +17,11 @@ test('Post a real sale, then screenshot the P&L with expanded rows', async ({ pa
   await page.waitForURL((url) => url.pathname === '/');
   await page.waitForTimeout(500);
 
-  // Post a couple of real Cash Sales, so there's genuine P&L activity.
+  // Post a couple of real Cash Sales, so there's genuine P&L activity —
+  // always to the one real "Cash" customer now, so there's no customer
+  // to pick any more.
   await page.goto('/arap/cash-sale');
   await page.waitForTimeout(1000);
-  const customerSelect1 = page.locator('fieldset:has(legend:text-is("Customer")) select');
-  await customerSelect1.selectOption({ index: 1 });
   await page.locator('table.lines-table input').first().fill('Golden Lager 330ml');
   await page.waitForTimeout(300);
   await page.locator('table.lines-table tbody tr').nth(0).locator('input').nth(2).fill('25.00');
@@ -31,8 +31,6 @@ test('Post a real sale, then screenshot the P&L with expanded rows', async ({ pa
 
   await page.goto('/arap/cash-sale');
   await page.waitForTimeout(1000);
-  const customerSelect2 = page.locator('fieldset:has(legend:text-is("Customer")) select');
-  await customerSelect2.selectOption({ index: 1 });
   await page.locator('table.lines-table input').first().fill('Barossa Shiraz 2021');
   await page.waitForTimeout(300);
   await page.locator('table.lines-table tbody tr').nth(0).locator('input').nth(2).fill('35.00');

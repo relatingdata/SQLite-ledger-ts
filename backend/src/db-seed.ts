@@ -1,6 +1,6 @@
 import { db } from './db.js';
 import {
-  supersedeEntity, setTranslation, setContact, setContactType, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeCustomerName, type UserId, type EntityUpdate } from './db.js';
+  supersedeEntity, setTranslation, setContactType, mergeContactDetail, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeCustomerName, typeProviderName, type UserId, type EntityUpdate } from './db.js';
 
 // Every real seed function below acts as this one, real, direct admin
 // user — cast once, here, rather than at each of the many, real,
@@ -959,13 +959,31 @@ function migrateForCogsTag() {
 }
 migrateForCogsTag();
 
-function migrateForCashSaleCustomer() {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Cash Sale'`).get()) {
-    create(requireEntity('Customers', typeRootName), typeCustomerName, 'Cash Sale', SEED_USER_ID);
-    setContact('Cash Sale', { payment_terms_days: 0 });
+/** The one, real "Cash" counterparty on each side — a Customer and a
+ * Provider, both literally named "Cash", immediate payment terms
+ * (payment_terms_days: 0). Cash Sale/Cash Purchase post an invoice to
+ * these exactly like any on-account Sale/Purchase, then immediately
+ * pay it off in full — see "Cash Sale and Cash Purchase" in
+ * pm-frontend-reference.md for the full mechanism. Renames the
+ * earlier "Cash Sale" Customer (its original, narrower name, from
+ * before Cash Purchase existed) to plain "Cash" on an existing
+ * database, rather than leaving a stale duplicate around. */
+function migrateForCashCustomerAndProvider() {
+  const staleCashSale = db
+    .prepare(`SELECT id FROM current_entities WHERE name = 'Cash Sale' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Customers')`)
+    .get() as { id: number } | undefined;
+  if (staleCashSale && !db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Cash' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Customers')`).get()) {
+    supersedeEntity(staleCashSale.id, { name: 'Cash' }, SEED_USER_ID);
+  } else if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Cash' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Customers')`).get()) {
+    const customer = create(requireEntity('Customers', typeRootName), typeCustomerName, 'Cash', SEED_USER_ID);
+    mergeContactDetail(customer.id, { payment_terms_days: 0 });
+  }
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Cash' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Accounts Payable')`).get()) {
+    const provider = create(requireEntity('Accounts Payable', typeRootName), typeProviderName, 'Cash', SEED_USER_ID);
+    mergeContactDetail(provider.id, { payment_terms_days: 0 });
   }
 }
-migrateForCashSaleCustomer();
+migrateForCashCustomerAndProvider();
 
 /** The real, structural mirror of the app's own current, live menu —
  * step 1 of the menu-as-entity-tree plan (docs/menu-as-entity-tree-plan.md).

@@ -2500,7 +2500,7 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [{ itemName: waterName, quantity: 1, taxMinor: 0 } as any],
       taxAccount: db.asAccountName('Sales Tax Payable'),
       paymentMethod: 'cash',
@@ -2517,7 +2517,7 @@ test('completePosSale: the real, live, end-to-end border scenario - two real ter
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [{ itemName: waterName, quantity: 1, taxMinor: 0 } as any],
       taxAccount: db.asAccountName('Sales Tax Payable'),
       paymentMethod: 'cash',
@@ -2582,7 +2582,7 @@ test('POS terminal: a complete register sale posts the invoice, dispatches stock
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [{ itemName: merlotName, quantity: 3, unitPriceMinor: 1500, taxMinor: 450 } as any],
       revenueAccount: db.asAccountName('Sales Revenue'),
       taxAccount: db.asAccountName('Sales Tax Payable'),
@@ -2632,7 +2632,7 @@ test('POS terminal: a complete register sale posts the invoice, dispatches stock
           business: biz.business,
           ledger: biz.actualLedger,
           locationName: outlet.name,
-          customerName: db.asCustomerName('Cash Sale'),
+          customerName: db.asCustomerName('Cash'),
           lines: [{ itemName: merlotName, quantity: 999, unitPriceMinor: 1500, taxMinor: 0 } as any],
           revenueAccount: db.asAccountName('Sales Revenue'),
           taxAccount: db.asAccountName('Sales Tax Payable'),
@@ -2824,8 +2824,8 @@ test("closeBooks: division is only a real, pure sub-totaling/reporting dimension
   db.receiveItems(biz.business, biz.actualLedger, 'MDCT-REC-A', db.asItemName(merlotName), retailOutlet.name, 20, fx.userId, '2027-01-01');
   db.receiveItems(biz.business, biz.actualLedger, 'MDCT-REC-B', db.asItemName(merlotName), wholesaleOutlet.name, 20, fx.userId, '2027-01-01');
 
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: retailOutlet.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlotName, quantity: 1, unitPriceMinor: 100000, taxMinor: 0, tier: 'Bottle' } as any], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 100000 }, fx.userId);
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: wholesaleOutlet.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlotName, quantity: 1, unitPriceMinor: 60000, taxMinor: 0, tier: 'Bottle' } as any], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 60000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: retailOutlet.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlotName, quantity: 1, unitPriceMinor: 100000, taxMinor: 0, tier: 'Bottle' } as any], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 100000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: wholesaleOutlet.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlotName, quantity: 1, unitPriceMinor: 60000, taxMinor: 0, tier: 'Bottle' } as any], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 60000 }, fx.userId);
 
   const cashAccount = db.requireEntityById(db.resolveBusinessCoaAccountId(biz.business, 'Cash and Bank'), db.typeRootName).name;
   db.stageLine({ reference: 'MDCT-3', business: biz.business, ledger: biz.actualLedger, transdate: '2027-01-03', account: db.asAccountName('Sales Revenue'), amount_minor: -20000 });
@@ -2887,7 +2887,7 @@ test('completePosSale honors an explicit transdate instead of always using the r
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [{ itemName: wineName, quantity: 1, unitPriceMinor: 1500, taxMinor: 0 } as any],
       revenueAccount: db.asAccountName('Sales Revenue'),
       taxAccount: db.asAccountName('Sales Tax Payable'),
@@ -2904,7 +2904,7 @@ test('completePosSale honors an explicit transdate instead of always using the r
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [{ itemName: wineName, quantity: 1, unitPriceMinor: 1500, taxMinor: 0 } as any],
       revenueAccount: db.asAccountName('Sales Revenue'),
       taxAccount: db.asAccountName('Sales Tax Payable'),
@@ -2916,7 +2916,7 @@ test('completePosSale honors an explicit transdate instead of always using the r
   assert.equal(invoiceWithoutDate.invoice_date, new Date().toISOString().slice(0, 10), 'omitting transdate must still default to today, the ordinary live-sale case');
 });
 
-test('completePosSale: a real, immediate cash sale never touches the customer\'s own AR balance at all, even momentarily', () => {
+test('completePosSale: a real, immediate cash sale posts a genuine invoice to the customer\'s own AR account, then a genuine payment that nets it straight back to zero', () => {
   const biz = fx.freshBusiness('CashARTest Co');
   const outlet = fx.freshLocation(biz.business, 'CashARTest Outlet', { bottle_capacity: 100, carton_capacity: 20 });
   const wineName = fx.uniqueName('CashARTest Wine');
@@ -2943,25 +2943,36 @@ test('completePosSale: a real, immediate cash sale never touches the customer\'s
   const invoice = db.getInvoice(result.invoiceId)!;
   assert.equal(invoice.counterparty, customerName);
 
+  // The invoice itself posts to the customer's own, real AR account — no
+  // override any more — so the invoice's own journal line against the
+  // customer is the real, full sale amount.
+  const invoiceCustLine = db.db
+    .prepare(`SELECT jl.amount_minor FROM journal_line jl JOIN journal j ON j.id = jl.journal_id JOIN current_entities e ON e.id = jl.account_id WHERE j.reference = ? AND e.name = ?`)
+    .get(result.reference, customerName) as { amount_minor: number } | undefined;
+  assert.equal(invoiceCustLine?.amount_minor, result.totalMinor, 'the invoice must debit the customer\'s own, real AR account directly, exactly like an on-account sale');
+
+  // A genuine, second payment journal entry closes it straight back out —
+  // the "immediately paid" half of "indistinguishable from on account, then
+  // immediately paid off".
+  const paymentJournal = db.db.prepare(`SELECT 1 FROM journal WHERE reference = ?`).get(`${result.reference}-PAYMENT`);
+  assert.ok(paymentJournal, 'a real, immediate cash sale must post a genuine payment journal entry that closes the invoice it just raised');
+
   const custBalance = db.db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(customerName) as
     | { balance_minor: number }
     | undefined;
-  assert.equal(custBalance?.balance_minor ?? 0, 0, "a real, immediate cash sale must never leave any real balance on the customer's own AR account");
-
-  const paymentJournal = db.db.prepare(`SELECT 1 FROM journal WHERE reference = ?`).get(`${result.reference}-PAYMENT`);
-  assert.equal(paymentJournal, undefined, 'a real, immediate cash sale must not post a second, redundant journal entry for the same real cash movement');
+  assert.equal(custBalance?.balance_minor ?? 0, 0, "once both postings land, the customer's own AR balance must be back to zero");
 
   assert.equal(db.getInvoiceOutstandingMinor(result.invoiceId), 0);
 
   const cashAccount = db.requireEntityById(db.resolveBusinessCoaAccountId(biz.business, 'Cash and Bank'), db.typeRootName).name;
   const cashLine = db.db.prepare(`SELECT amount_minor FROM journal_line jl JOIN journal j ON j.id = jl.journal_id JOIN current_entities e ON e.id = jl.account_id WHERE j.reference = ? AND e.name = ?`).get(
-    result.reference,
+    `${result.reference}-PAYMENT`,
     cashAccount
   ) as { amount_minor: number };
-  assert.equal(cashLine.amount_minor, result.totalMinor, "Cash and Bank must be debited the real, full sale amount directly, in the same posting as the sale itself");
+  assert.equal(cashLine.amount_minor, result.totalMinor, "Cash and Bank must be debited the real, full sale amount in the payment posting that immediately follows the invoice");
 });
 
-test('completeCashPurchase: a real, immediate cash purchase never touches the vendor\'s own AP balance at all, even momentarily', () => {
+test('completeCashPurchase: a real, immediate cash purchase posts a genuine invoice to the vendor\'s own AP account, then a genuine payment that nets it straight back to zero', () => {
   const biz = fx.freshBusiness('CashPurTest Co');
   const warehouse = fx.freshLocation(biz.business, 'CashPurTest Warehouse', { location_type: 'Warehouse', bottle_capacity: 0, carton_capacity: 5000 });
   const vendorName = fx.uniqueName('CashPurTest Vendor');
@@ -2987,20 +2998,30 @@ test('completeCashPurchase: a real, immediate cash purchase never touches the ve
   const invoice = db.getInvoice(result.invoiceId)!;
   assert.equal(invoice.status, 'posted');
   assert.equal(invoice.total_amount_minor, result.totalMinor);
-  assert.equal(db.getInvoiceOutstandingMinor(result.invoiceId), 0, 'a real, immediate cash purchase must show zero outstanding — no genuine payable, even momentarily');
+  assert.equal(db.getInvoiceOutstandingMinor(result.invoiceId), 0, 'a real, immediate cash purchase must show zero outstanding once the payment posting closes it');
+
+  // The invoice itself posts to the vendor's own, real AP account — no
+  // override any more — exactly like an on-account purchase.
+  const invoiceVendorLine = db.db
+    .prepare(`SELECT jl.amount_minor FROM journal_line jl JOIN journal j ON j.id = jl.journal_id JOIN current_entities e ON e.id = jl.account_id WHERE j.reference = ? AND e.name = ?`)
+    .get(result.reference, vendorName) as { amount_minor: number } | undefined;
+  assert.equal(invoiceVendorLine?.amount_minor, -result.totalMinor, 'the invoice must credit the vendor\'s own, real AP account directly, exactly like an on-account purchase');
+
+  const paymentJournal = db.db.prepare(`SELECT 1 FROM journal WHERE reference = ?`).get(`${result.reference}-PAYMENT`);
+  assert.ok(paymentJournal, 'a real, immediate cash purchase must post a genuine payment journal entry that closes the invoice it just raised');
 
   const vendorBalance = (
     db.db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(vendorName) as
       | { balance_minor: number }
       | undefined
   )?.balance_minor;
-  assert.equal(vendorBalance ?? 0, 0, "the vendor's own real AP balance must never move at all for a real, immediate cash purchase");
+  assert.equal(vendorBalance ?? 0, 0, "once both postings land, the vendor's own real AP balance must be back to zero");
 
   const cashAccount = db.requireEntityById(db.resolveBusinessCoaAccountId(biz.business, 'Cash and Bank'), db.typeRootName).name;
   const cashLine = db.db.prepare(
     `SELECT jl.amount_minor FROM journal_line jl JOIN journal j ON j.id = jl.journal_id JOIN current_entities e ON e.id = jl.account_id WHERE j.reference = ? AND e.name = ?`
-  ).get(result.reference, cashAccount) as { amount_minor: number };
-  assert.equal(cashLine.amount_minor, -result.totalMinor, "Cash and Bank must be credited the real, full purchase amount directly, in the same posting as the purchase itself");
+  ).get(`${result.reference}-PAYMENT`, cashAccount) as { amount_minor: number };
+  assert.equal(cashLine.amount_minor, -result.totalMinor, "Cash and Bank must be credited the real, full purchase amount in the payment posting that immediately follows the invoice");
 });
 
 test('payEmployeeWages: a real employee treated as AP — real Medicare levy withheld from their own pay, real superannuation as a genuine, separate employer cost, hourly or salaried', () => {
@@ -3449,7 +3470,7 @@ test('completePosSale defaults to real, per-product Sales accounts — not one s
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [
         { itemName: wineA, quantity: 2, unitPriceMinor: 1500, taxMinor: 0 } as any,
         { itemName: wineB, quantity: 3, unitPriceMinor: 2000, taxMinor: 0 } as any,
@@ -4394,8 +4415,8 @@ test('getProfitAndLossByHierarchy: "Consolidated per Division" — one real, ful
   db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('PLDIVTEST3-REC-A'), db.asItemName(merlot), outletA.name, 20, fx.userId, today);
   db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('PLDIVTEST3-REC-B'), db.asItemName(merlot), outletB.name, 20, fx.userId, today);
 
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000 }, fx.userId);
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, fx.userId);
 
   const result = db.getProfitAndLossByHierarchy(biz.business, biz.actualLedger, ['Location', 'Division'], today, today);
   const divA = result.find((r) => r.group === divisionA);
@@ -4448,8 +4469,8 @@ test('getProfitAndLossByHierarchyTree: "Consolidated per Division per Location" 
 
   // The real, top-level "City" division genuinely never gets any
   // direct activity of its own — only its own, real child stores do.
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 20000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 20000 }, fx.userId);
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 15000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 15000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 20000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 20000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 15000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 15000 }, fx.userId);
 
   const tree = db.getProfitAndLossByHierarchyTree(biz.business, biz.actualLedger, ['Location', 'Division'], 'Division', today, today);
   const cityNode = tree.find((n) => n.group === city);
@@ -4491,8 +4512,8 @@ test('closeBooks: division is only a pure reporting dimension — every division
 
   // Division A: $1,000 real profit (via a real, structural sale).
   // Division B: $600 real profit. A real, undivided remainder: $200.
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 100000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 100000 }, fx.userId);
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 60000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 60000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 100000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 100000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 60000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 60000 }, fx.userId);
 
   db.stageLine({ reference: 'DCT-3', business: biz.business, ledger: biz.actualLedger, transdate: '2027-01-03', account: db.asAccountName('Sales Revenue'), amount_minor: -20000 });
   db.stageLine({ reference: 'DCT-3', business: biz.business, ledger: biz.actualLedger, transdate: '2027-01-03', account: db.asAccountName('Cash and Bank'), amount_minor: 20000 });
@@ -4537,7 +4558,7 @@ test('completePosSale: the real, live wiring — a real sale with a real tier no
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [{ itemName: merlot, quantity: 2, unitPriceMinor: 1500, taxMinor: 300, tier: 'Bottle' }],
       taxAccount: db.asAccountName('Sales Tax Payable'),
       paymentMethod: 'cash',
@@ -4580,8 +4601,8 @@ test('reverseJournalEntry: a real year-end close, with activity spread across mu
   db.receiveItems(biz.business, biz.actualLedger, 'RCT2-REC-A', db.asItemName(merlot), outletA.name, 20, fx.userId, '2027-06-01');
   db.receiveItems(biz.business, biz.actualLedger, 'RCT2-REC-B', db.asItemName(merlot), outletB.name, 20, fx.userId, '2027-06-01');
 
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000 }, fx.userId);
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, fx.userId);
 
   const closeResult = db.closeBooks(biz.business, biz.actualLedger, '2027-12-31', "Owner's Equity", fx.userId);
   const closeJournal = db.db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ?) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ?)))`).get(closeResult.reference, biz.business, biz.actualLedger, biz.business) as { id: number };
@@ -4665,7 +4686,7 @@ test('completePosSale: the real, live wiring — a real sale with both a real ti
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [{ itemName: merlot, quantity: 2, unitPriceMinor: 1500, taxMinor: 300, tier: 'Bottle' }],
       taxAccount: db.asAccountName('Sales Tax Payable'),
       paymentMethod: 'cash',
@@ -4734,8 +4755,8 @@ test('getLedgerBalancesByHierarchyStructural: correctly derives division by walk
   db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('ST6-REC-1'), db.asItemName(merlot), outletA.name, 20, fx.userId, today);
   db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('ST6-REC-2'), db.asItemName(merlot), outletB.name, 20, fx.userId, today);
 
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 2, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 5000 }, fx.userId);
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 3, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 5000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 2, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 5000 }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 3, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 5000 }, fx.userId);
 
   const newResult = db.getLedgerBalancesByHierarchyStructural(biz.business, biz.actualLedger, ['Location', 'Division']);
 
@@ -4770,7 +4791,7 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
   db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('REPRO-REC-1'), db.asItemName(merlot), outlet.name, 20, fx.userId, today);
 
   db.completePosSale(
-    { business: biz.business, ledger: biz.actualLedger, locationName: outlet.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 2, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 3000 },
+    { business: biz.business, ledger: biz.actualLedger, locationName: outlet.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 2, unitPriceMinor: 1500, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 3000 },
     fx.userId
   );
 
@@ -4829,11 +4850,11 @@ test('getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy -
   db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('BOTTLESIZE-REC-2'), db.asItemName(merlot), outlet.name, 12, fx.userId, today);
 
   db.completePosSale(
-    { business: biz.business, ledger: biz.actualLedger, locationName: outlet.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: amberAle, quantity: 6, unitPriceMinor: 800, taxMinor: 0 }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 4800 },
+    { business: biz.business, ledger: biz.actualLedger, locationName: outlet.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: amberAle, quantity: 6, unitPriceMinor: 800, taxMinor: 0 }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 4800 },
     fx.userId
   );
   db.completePosSale(
-    { business: biz.business, ledger: biz.actualLedger, locationName: outlet.name, customerName: db.asCustomerName('Cash Sale'), lines: [{ itemName: merlot, quantity: 3, unitPriceMinor: 2200, taxMinor: 0 }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 6600 },
+    { business: biz.business, ledger: biz.actualLedger, locationName: outlet.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 3, unitPriceMinor: 2200, taxMinor: 0 }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 6600 },
     fx.userId
   );
 
@@ -5099,7 +5120,7 @@ test('completePosSale: a real, genuine combination sale correctly resolves its o
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [{ itemName: lager, quantity: 2, taxMinor: 0, combinationValues: [outlet.name, lager, cold], combinationShape: shape }],
       taxAccount: db.asAccountName('Sales Tax Payable'),
       paymentMethod: 'cash',
@@ -5339,7 +5360,7 @@ test('completePosSale, through a real, foreign-currency terminal at a real, nomi
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [{ itemName: waterName, quantity: 1, taxMinor: 0 } as any],
       taxAccount: db.asAccountName('Sales Tax Payable'),
       paymentMethod: 'cash',
@@ -5410,7 +5431,7 @@ test('the fully worked example from multicurrency-design.md: a real sale through
       business: biz.business,
       ledger: biz.actualLedger,
       locationName: outlet.name,
-      customerName: db.asCustomerName('Cash Sale'),
+      customerName: db.asCustomerName('Cash'),
       lines: [{ itemName: aleName, quantity: 1, taxMinor: 50 } as any],
       taxAccount: db.asAccountName('Sales Tax Payable'),
       paymentMethod: 'cash',

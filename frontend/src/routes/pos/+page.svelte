@@ -37,7 +37,7 @@
   let error = '';
 
   let locationName = '';
-  let customerName = 'Cash Sale';
+  let customerName = 'Cash';
   let onAccount = false;
 
   // One terminal per currency, per docs/multicurrency-design.md Slice 4 — see docs/pm-frontend-reference.md.
@@ -181,7 +181,7 @@
         business: session.current.businessName,
         ledger: session.current.ledgerName,
         locationName: asLocationName(locationName),
-        customerName: asCustomerName(onAccount ? customerName : 'Cash Sale'),
+        customerName: asCustomerName(onAccount ? customerName : 'Cash'),
         lines: cart.map((l) => ({ itemName: asItemName(l.itemName), quantity: l.quantity, unitPriceMinor: l.unitPriceMinor, taxMinor: l.taxMinor })),
         taxAccount: asAccountName(taxAccount),
         paymentMethod: onAccount ? undefined : paymentMethod,

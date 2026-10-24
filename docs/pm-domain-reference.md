@@ -592,21 +592,36 @@ base reference across products in the same run would collide.
 ## POS and cash-register flows
 
 `completePosSale` completes a full register sale as one atomic
-operation — posts the invoice, dispatches stock from the specific
-location the sale happened at, and (for cash/card) allocates full
-payment immediately — rather than three separate calls that could
-leave a sale half-completed. Stock availability at the exact location
-is checked for every line before anything is written. It also posts
-COGS and reduces Inventory for the sale (added after a confirmed
-finding that this function previously posted revenue/tax only, with no
-real COGS effect and no Inventory reduction in live use) — a product
-with no known supplier/cost registered yet simply posts no COGS/
-Inventory line for itself, rather than a fabricated cost.
-`completeCashPurchase` mirrors this exactly for the purchase side:
-posts straight to Cash and Bank (no AP round-trip), receives physical
-stock at an explicit chosen location (any location, not just a
-warehouse — a wholesale purchase might receive directly into a retail
-outlet).
+operation — creates and posts a genuine AR invoice to the given
+customer, dispatches stock from the specific location the sale
+happened at, and (for cash/card) immediately `allocatePayment`s it in
+full — rather than three separate calls that could leave a sale
+half-completed. The invoice posts to that customer's own real
+Accounts Receivable account, never a direct-to-Cash-and-Bank
+shortcut: `postInvoice`'s `counterpartyAccountOverride` parameter is
+deliberately never passed here, so the balance is genuine, even if
+only for the instant before `allocatePayment` closes it again. This
+is what makes a POS/Cash sale structurally indistinguishable from an
+on-account one, right up until it's paid off — see "Cash Sale and
+Cash Purchase" below. Stock availability at the exact location is
+checked for every line before anything is written. It also posts COGS
+and reduces Inventory for the sale (added after a confirmed finding
+that this function previously posted revenue/tax only, with no real
+COGS effect and no Inventory reduction in live use) — a product with
+no known supplier/cost registered yet simply posts no COGS/Inventory
+line for itself, rather than a fabricated cost. `completeCashPurchase`
+mirrors this exactly for the purchase side: a genuine AP invoice to
+the given provider, posted to that provider's own real Accounts
+Payable account (same `counterpartyAccountOverride`-free posting),
+physical stock received at an explicit chosen location (any location,
+not just a warehouse — a wholesale purchase might receive directly
+into a retail outlet), then immediately paid off.
+
+Both functions take an arbitrary customer/provider name — they're not
+hardcoded to any one counterparty. `frontend/src/lib/components/
+CashTransaction.svelte` (the Cash Purchase/Cash Sale screen) is simply
+the one caller that always passes the same name, `'Cash'` — see "Cash
+Sale and Cash Purchase" below for why.
 
 A POS terminal (`terminalName`) resolves its own currency
 (`getEffectiveSaleCurrency`) and auto-fills any line's unspecified
@@ -624,22 +639,85 @@ no match, never a fuzzy search or a NULL-UPC coincidence.
 
 ### Account resolution split between frontend and backend
 
-Per `docs/canned-journal-to-frontend-design.md`: for a canned Cash
-Purchase/Cash Sale/Transfer, everything about *which* account is a
-deterministic, given-the-form's-own-inputs computation that lives in
-the frontend (`frontend/src/lib/canned-journal.ts`). The one thing
-that cannot move there is whether a specific item's real,
-location-qualified cartesian-product account (Inventory/Sales/COGS
-leaf) already exists — a genuinely stateful fact only the server can
-safely decide, since two concurrent users' browsers can't both safely
-decide whether an account already exists. `resolveCashTransactionAccounts`/
-`resolveSaleAccounts`/`resolveTransferAccounts` are the three narrow,
-server-side resolvers for this — none of them ever resolves or returns
-a division/category: every dimension is already baked into the
-account's own name. `resolveOpenContainerAccounts` is the equivalent
-for Open Container, which (unlike the other three) has no physical
-quantity-on-hand side effect — it only reclassifies which storage-space/
-Inventory tier the same stock already sits in.
+Per `docs/canned-journal-to-frontend-design.md`: for a canned
+Transfer, everything about *which* account is a deterministic,
+given-the-form's-own-inputs computation that lives in the frontend
+(`frontend/src/lib/canned-journal.ts`). The one thing that cannot move
+there is whether a specific item's real, location-qualified
+cartesian-product account (Inventory/Sales/COGS leaf) already exists —
+a genuinely stateful fact only the server can safely decide, since two
+concurrent users' browsers can't both safely decide whether an account
+already exists. `resolveTransferAccounts` is the narrow, server-side
+resolver for this — it never resolves or returns a division/category:
+every dimension is already baked into the account's own name.
+`resolveOpenContainerAccounts` is the equivalent for Open Container,
+which (unlike Transfer) has no physical quantity-on-hand side effect —
+it only reclassifies which storage-space/Inventory tier the same stock
+already sits in. Cash Purchase and Cash Sale used to have their own
+narrow resolvers here too (`resolveCashTransactionAccounts`/
+`resolveSaleAccounts`), computing a canned journal client-side exactly
+like Transfer does — removed entirely once both screens moved onto
+`completeCashPurchase`/`completePosSale` (see "POS and cash-register
+flows" above), which resolve everything server-side as part of their
+one atomic call.
+
+## Cash Sale and Cash Purchase
+
+Below is the complete, abridged shape of procure-to-pay and
+order-to-cash in this application — Purchase/Sales Orders fulfilled
+over time, plain on-account Purchases/Sales, and the Cash shortcut for
+each — and how all of it lands in the General Journal. Every path
+here combines the physical stock movement and the financial posting
+into one step; none of them ever move stock and post money as two
+separate, independently-failable actions.
+
+![Procure-to-pay and order-to-cash, including the Cash shortcut for each — every path combines the physical stock movement and the financial posting into one step, and every path ends up in the same General Journal.](diagrams/cash-and-order-workflow.svg)
+
+**Purchase Order / Sales Order** are memo-only when placed — no
+financial or stock effect at all (`stagePurchaseOrder`/
+`stageSalesOrder` in `backend/src/db-journal.ts`). **Stock Receipt**
+and **Stock Dispatch** are where an order actually becomes real:
+`stageOrderReceipt`/`postOrderReceipt` and `stageOrderDispatch`/
+`postOrderDispatch` each combine the physical quantity movement with
+the AP/AR invoice, `fulfillOrder`, and `recordInvoiceLine` (so it
+shows in aging) — all in one atomic step, never two. **AP Payment**/
+**AR Receipt** (the remittance advice/customer receipt side) is a
+separate, later step — `allocatePayment`, the one function behind
+both directions, deriving its posting sign from `invoice.invoice_type`
+rather than needing an AR and an AP variant.
+
+**Plain on-account Purchase/Sale** (AP Purchase, AR Sale — no PO/SO
+behind it) follows the same "stock and invoice together" rule now too:
+any line matching a real catalog item is received/dispatched
+automatically alongside the invoice, per "Stock receipt on an
+on-account Purchase"/"Stock dispatch on an on-account Sale" in
+`docs/pm-frontend-reference.md`. It was a real, confirmed gap until
+this was wired up — `createInvoice`+`postInvoiceById` alone never
+touched physical stock at all.
+
+**Cash Sale and Cash Purchase** are the same mechanism again, collapsed
+into a single instant: `completePosSale`/`completeCashPurchase`
+(`backend/src/db.ts`, see "POS and cash-register flows" above) post a
+genuine invoice to the one real "Cash" customer/provider — seeded once
+by `migrateForCashCustomerAndProvider` in `backend/src/db-seed.ts`, a
+Customer under `Customers` and a Provider under `Accounts Payable`,
+both literally named "Cash", both `payment_terms_days: 0` — dispatch
+or receive the stock, and then immediately `allocatePayment` the whole
+thing to zero. So a Cash Sale/Purchase is structurally indistinguishable
+from an on-account Sale/Purchase to the "Cash" party, right up until
+the instant it's reconciled; there is no separate, direct-to-Cash-and-
+Bank code path any more (the old `resolveCashTransactionAccounts`/
+`resolveSaleAccounts`/`cashPurchaseLines`/`posSaleLines` mechanism —
+see "Account resolution split between frontend and backend" above —
+was removed entirely, not merely stopped being called).
+
+**Every one of these roads ends at the General Journal** — the
+ordinary, generic staging+posting mechanism (`stageLine`/
+`postJournalEntry`) that every other screen in this application
+(including the plain General Journal "Save" button) already uses.
+There is no separate posting mechanism for "a cash transaction" versus
+"an on-account one": by the time any of these reach the journal, the
+difference between them is already gone.
 
 ## Employee payroll and timecards
 

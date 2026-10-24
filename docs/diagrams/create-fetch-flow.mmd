@@ -15,4 +15,4 @@ sequenceDiagram
     DB-->>createFn: real, new entity_id allocated
     createFn-->>Caller: TypedNode of BusinessName
 
-    Note over Caller,DB: A TypedNode of VendorName can never be passed where a TypedNode of DivisionName parent is expected - a compile error, not a runtime check.
+    Note over Caller,DB: A TypedNode of ProviderName can never be passed where a TypedNode of DivisionName parent is expected - a compile error, not a runtime check.

@@ -12,6 +12,7 @@
     listLocations,
     createInvoice,
     postInvoiceById,
+    dispatchStock,
     getCreditStatus,
     asBusinessName,
     asLedgerName,
@@ -119,6 +120,15 @@
       error = 'Reference, customer, and at least one item line are all required.';
       return;
     }
+    // Lines for real catalog items are dispatched from stock automatically,
+    // alongside the invoice — see "Stock dispatch on an on-account Sale"
+    // in pm-frontend-reference.md. A location is only required when at
+    // least one line is actually a real item.
+    const stockLines = realLines.filter((l) => itemsByName.has(l.itemName));
+    if (stockLines.length > 0 && !saleLocation) {
+      error = 'Select a location — these items will be dispatched from stock.';
+      return;
+    }
     saving = true;
     try {
       const { id } = await createInvoice({
@@ -138,6 +148,20 @@
           itemName: l.itemName,
         })),
       });
+      // Dispatch first, deliberately, same as Cash Sale — it's the step
+      // most likely to fail (not enough stock on hand), and a failed
+      // dispatch must never leave a posted invoice behind for stock that
+      // was never actually sent out.
+      if (stockLines.length > 0) {
+        await dispatchStock({
+          business: asBusinessName(business),
+          ledger: asLedgerName(ledger),
+          reference,
+          locationName: asLocationName(saleLocation),
+          lines: stockLines.map((l) => ({ itemName: l.itemName, quantity: l.quantity })),
+          transdate,
+        });
+      }
       await postInvoiceById(id, 'Sales Revenue', 'Sales Tax Payable');
       message = `Sale ${reference} to ${customer} recorded.`;
       reference = '';

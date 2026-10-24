@@ -49,11 +49,10 @@ Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-te
 Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),5,pricePerCartonMinor,input[placeholder='0.00'],money
 Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),6,reference,input[placeholder='e.g. PO-1001'],text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),1,businessName,,text
-Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),2,locationName,select >> nth=1,select
-Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),3,providerName,select >> nth=0,select
-Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),4,itemName,input[placeholder='e.g. Golden Lager 330ml'],text
-Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),5,quantity,input[type=number] >> nth=0,text
-Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),6,unitCostMinor,input[type=number] >> nth=1,money
+Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),2,locationName,select >> nth=0,select
+Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),3,itemName,input[placeholder='e.g. Golden Lager 330ml'],text
+Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),4,quantity,input[type=number] >> nth=0,text
+Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),5,unitCostMinor,input[type=number] >> nth=1,money
 Create Hierarchy Grouping,data,/setup/hierarchy,,createHierarchyGroupingSimple,button:has-text('Add grouping'),1,businessName,,text
 Create Hierarchy Grouping,data,/setup/hierarchy,,createHierarchyGroupingSimple,button:has-text('Add grouping'),2,groupingName,"input[placeholder='New grouping name (e.g. Storage, Glass Size)']",text
 Create Hierarchy Value,data,/setup/hierarchy,,createHierarchyValueSimple,.grouping-card:last-of-type button:has-text('Add'),1,businessName,,text
@@ -111,11 +110,10 @@ Post Purchase Order,data,,,postPurchaseOrderSimple,,1,reference,,text
 Post Purchase Order,data,,,postPurchaseOrderSimple,,2,businessName,,text
 Post Purchase Order,data,,,postPurchaseOrderSimple,,3,ledger,,text
 Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),1,businessName,,text
-Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),2,locationName,select >> nth=1,select
-Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),3,customerName,select >> nth=0,select
-Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),4,itemName,input[placeholder='e.g. Golden Lager 330ml'],text
-Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),5,quantity,input[type=number] >> nth=0,text
-Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),6,unitPriceMinor,input[type=number] >> nth=1,money
+Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),2,locationName,select >> nth=0,select
+Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),3,itemName,input[placeholder='e.g. Golden Lager 330ml'],text
+Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),4,quantity,input[type=number] >> nth=0,text
+Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),5,unitPriceMinor,input[type=number] >> nth=1,money
 Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),1,businessName,,text
 Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),2,customerName,input[placeholder='e.g. Gamma LLC'],text
 Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),3,parent,select >> nth=0,select

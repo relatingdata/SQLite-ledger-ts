@@ -8,25 +8,19 @@
     getBusinesses,
     getLedgers,
     listLocations,
-    getEntityTree,
     listItems,
-    resolveCashTransactionAccounts,
-    resolveSaleAccounts,
-    receiveStock,
-    dispatchStock,
-    stageLine,
-    postJournalEntry,
+    completeCashPurchase,
+    completePosSale,
     asBusinessName,
     asLedgerName,
     asLocationName,
-    asAccountName,
+    asProviderName,
+    asCustomerName,
     asItemName,
     ApiError,
     type LocationRecord,
-    type EntityNode,
     type ItemSummary,
   } from '$lib/api';
-  import { cashPurchaseLines, posSaleLines, freshReference } from '$lib/canned-journal';
 
   let { direction }: { direction: 'purchase' | 'sale' } = $props();
 
@@ -34,8 +28,6 @@
   // svelte-ignore state_referenced_locally
   const isPurchase = direction === 'purchase';
   const partyLabel = isPurchase ? 'Provider' : 'Customer';
-  // Matches where createProvider/createCustomer actually parent a new party — see docs/pm-frontend-reference.md.
-  const partyParentEntity = isPurchase ? 'Accounts Payable' : 'Customers';
   const locationLabel = isPurchase ? 'Receive at location' : 'Dispatch from location';
   const totalLabel = isPurchase ? 'Total to pay' : 'Total owed';
   const completeLabel = isPurchase ? 'Complete purchase' : 'Complete sale';
@@ -43,19 +35,20 @@
   const notCompleteError = isPurchase ? 'Could not complete this purchase.' : 'Could not complete this sale.';
   const title = isPurchase ? 'Cash Purchase' : 'Cash Sale';
   const intro = isPurchase
-    ? 'A real, immediate-payment purchase — paid in full right now, no outstanding Accounts Payable balance, even momentarily. Choose any real location to receive stock at, including a warehouse — possibly the start of a real wholesale channel.'
-    : 'A real, immediate-payment sale — paid in full right now, no outstanding Accounts Receivable balance, even momentarily. Choose any real location to dispatch from, including a warehouse — possibly the start of a real wholesale channel. The everyday retail register is the real POS Terminal; this is the same real mechanism for a larger, non-register sale.';
+    ? "A purchase from the 'Cash' provider — posted exactly like any on-account purchase, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to receive stock at, including a warehouse — possibly the start of a real wholesale channel."
+    : "A sale to the 'Cash' customer — posted exactly like any on-account sale, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to dispatch from, including a warehouse — possibly the start of a real wholesale channel. The everyday retail register is the real POS Terminal; this is the same real mechanism for a larger, non-register sale.";
 
   let businesses: { id: number; name: string }[] = $state([]);
   let ledgers: { id: number; name: string }[] = $state([]);
   let locations: LocationRecord[] = $state([]);
-  let entities: EntityNode[] = $state([]);
   let items: ItemSummary[] = $state([]);
 
   let business = $state('');
   let ledger = $state('');
   let locationName = $state('');
-  let partyName = $state('');
+  // Fixed — see "Cash Sale and Cash Purchase" in pm-frontend-reference.md: both
+  // screens always post to the one real "Cash" counterparty, never a chosen one.
+  const partyName = 'Cash';
   let transdate = $state(new Date().toISOString().slice(0, 10));
   let taxAccount = $state('Sales Tax Payable');
   let paymentMethod = $state('cash');
@@ -75,7 +68,6 @@
       businesses = await getBusinesses();
       if (session.current) {
         business = session.current.businessName;
-        entities = await getEntityTree();
         items = (await listItems(business)).rows;
       }
       if (business) await loadForBusiness();
@@ -96,7 +88,6 @@
     if (locations.length > 0 && !locationName) locationName = locations[0].name;
   }
 
-  let parties = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === partyParentEntity));
   let itemsByName = $derived(new Map(items.map((p) => [p.name, p])));
 
   function storageOriginOf(itemName: string): 'Hot' | 'Cold' | null {
@@ -120,107 +111,40 @@
   let totalMinor = $derived(subtotalMinor + taxMinor);
 
   async function submit() {
-    if (!business || !ledger || !locationName || !partyName || lines.length === 0) return;
+    if (!business || !ledger || !locationName || lines.length === 0) return;
     submitting = true;
     error = '';
     result = null;
     try {
       // Filters the trailing auto-added blank line — see docs/pm-frontend-reference.md.
       const commonLines = lines.filter((l) => l.itemName.trim()).map(({ key, ...l }) => ({ ...l, itemName: asItemName(l.itemName) }));
+      // Same mechanism as an on-account Purchase/Sale, to the one real
+      // "Cash" provider/customer, immediately paid off in full — see
+      // "Cash Sale and Cash Purchase" in pm-frontend-reference.md.
       if (isPurchase) {
-        // Canned account selection via cashPurchaseLines — see docs/pm-frontend-reference.md.
-        const purchaseLines = commonLines.map((l) => ({ ...l, itemName: l.itemName as string }));
-        const resolved = await resolveCashTransactionAccounts({
-          business: asBusinessName(business),
-          locationName: asLocationName(locationName),
-          items: purchaseLines.map((l) => ({ itemName: l.itemName })),
-          wantCashAccount: !!paymentMethod,
-        });
-        if (!resolved.cashAccount) throw new Error('No payment account resolved for this purchase.');
-        const reference = freshReference('CASHPUR');
-        const builtLines = cashPurchaseLines({
-          lines: purchaseLines,
-          inventoryAccounts: resolved.inventoryAccounts,
-          taxAccount,
-          cashAccount: resolved.cashAccount,
-        });
-        for (const line of builtLines) {
-          await stageLine({
-            reference,
-            business: asBusinessName(business),
-            ledger: asLedgerName(ledger),
-            transdate,
-            account: asAccountName(line.account),
-            amount_minor: line.amount_minor,
-          }, 'Cash Purchase');
-        }
-        await postJournalEntry(reference, asBusinessName(business), asLedgerName(ledger), 'Cash Purchase');
-        await receiveStock({
+        const res = await completeCashPurchase({
           business: asBusinessName(business),
           ledger: asLedgerName(ledger),
-          reference,
           locationName: asLocationName(locationName),
-          lines: purchaseLines.map((l) => ({ itemName: l.itemName, quantity: l.quantity })),
+          vendorName: asProviderName(partyName),
+          lines: commonLines,
+          taxAccount,
+          paymentMethod,
           transdate,
         }, 'Cash Purchase');
-        const totalMinor = purchaseLines.reduce((s, l) => s + l.quantity * l.unitPriceMinor + l.taxMinor, 0);
-        result = { invoiceId: 0, reference, totalMinor };
+        result = { invoiceId: res.invoiceId, reference: res.reference, totalMinor: res.totalMinor };
       } else {
-        // Mirrors the purchase branch via posSaleLines — see docs/pm-frontend-reference.md.
-        const saleLines = commonLines.map((l) => ({ ...l, itemName: l.itemName as string }));
-        const resolved = await resolveSaleAccounts({
-          business: asBusinessName(business),
-          locationName: asLocationName(locationName),
-          items: saleLines.map((l) => ({ itemName: l.itemName })),
-          wantCashAccount: !!paymentMethod,
-        });
-        if (!resolved.cashAccount) throw new Error('No payment account resolved for this sale.');
-        const reference = freshReference('CASHSALE');
-        const built = posSaleLines({
-          lines: saleLines,
-          salesAccounts: resolved.salesAccounts,
-          cogsAccounts: resolved.cogsAccounts,
-          inventoryAccounts: resolved.inventoryAccounts,
-          unitCostMinor: resolved.unitCostMinor,
-          taxAccount,
-          cashAccount: resolved.cashAccount,
-        });
-        // dispatchStock first, deliberately — see docs/pm-frontend-reference.md.
-        await dispatchStock({
+        const res = await completePosSale({
           business: asBusinessName(business),
           ledger: asLedgerName(ledger),
-          reference,
           locationName: asLocationName(locationName),
-          lines: saleLines.map((l) => ({ itemName: l.itemName, quantity: l.quantity })),
+          customerName: asCustomerName(partyName),
+          lines: commonLines,
+          taxAccount,
+          paymentMethod,
           transdate,
         }, 'Cash Sale');
-        for (const line of built.lines) {
-          await stageLine({
-            reference,
-            business: asBusinessName(business),
-            ledger: asLedgerName(ledger),
-            transdate,
-            account: asAccountName(line.account),
-            amount_minor: line.amount_minor,
-          }, 'Cash Sale');
-        }
-        await postJournalEntry(reference, asBusinessName(business), asLedgerName(ledger), 'Cash Sale');
-        if (built.cogsLines.length > 0) {
-          const cogsReference = `${reference}-COGS`;
-          for (const line of built.cogsLines) {
-            await stageLine({
-              reference: cogsReference,
-              business: asBusinessName(business),
-              ledger: asLedgerName(ledger),
-              transdate,
-              account: asAccountName(line.account),
-              amount_minor: line.amount_minor,
-            }, 'Cash Sale');
-          }
-          await postJournalEntry(cogsReference, asBusinessName(business), asLedgerName(ledger), 'Cash Sale');
-        }
-        const totalMinor = saleLines.reduce((s, l) => s + l.quantity * l.unitPriceMinor + l.taxMinor, 0);
-        result = { invoiceId: 0, reference, totalMinor };
+        result = { invoiceId: res.invoiceId, reference: res.reference, totalMinor: res.totalMinor };
       }
       lines = [];
     } catch (e) {
@@ -243,7 +167,7 @@
     <p class="center-text">Loading…</p>
   {:else}
     <p class="context-line">
-      <strong>{business}</strong> — {ledger}
+      <strong>{business}</strong> — {ledger} — {translations.current[partyLabel] ?? partyLabel}: <strong>{translations.current[partyName] ?? partyName}</strong>
     </p>
     <div class="row-3">
       <fieldset>
@@ -252,13 +176,6 @@
       </fieldset>
     </div>
     <div class="row-2">
-      <fieldset>
-        <legend>{translations.current[partyLabel] ?? partyLabel}</legend>
-        <select bind:value={partyName}>
-          <option value="">Select {partyLabel.toLowerCase()}…</option>
-          {#each parties as p}<option value={translations.current[p.name] ?? p.name}>{translations.current[p.name] ?? p.name}</option>{/each}
-        </select>
-      </fieldset>
       <fieldset>
         <legend>{translations.current[locationLabel] ?? locationLabel}</legend>
         <select bind:value={locationName}>
@@ -334,7 +251,7 @@
       <p class="success">{translations.current[completingLabel] ?? completingLabel}: {result.reference} — {fmt(result.totalMinor)}</p>
     {/if}
 
-    <button class="btn" onclick={submit} disabled={submitting || !partyName || lines.filter((l) => l.itemName.trim()).length === 0}>
+    <button class="btn" onclick={submit} disabled={submitting || lines.filter((l) => l.itemName.trim()).length === 0}>
       {submitting ? 'Completing…' : (translations.current[completeLabel] ?? completeLabel)}
     </button>
   {/if}

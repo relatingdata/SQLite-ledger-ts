@@ -202,13 +202,12 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1200);
   await shot('purchase_order_placed');
 
-  // === Receive it into the warehouse via Cash Purchase ===
+  // === Receive it into the warehouse via Cash Purchase — always to the
+  // one real "Cash" provider now, so there's no vendor to pick any more ===
   await page.goto('/arap/cash-purchase');
   await page.waitForTimeout(1200);
-  await page.locator('select').first().locator('option', { hasText: 'Highland Brewing Co' }).waitFor({ state: 'attached', timeout: 15000 });
-  await page.locator('select').first().selectOption({ label: 'Highland Brewing Co' });
-  await page.locator('select').nth(1).locator('option', { hasText: 'Warehouse Hub' }).waitFor({ state: 'attached', timeout: 15000 });
-  await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub' });
+  await page.locator('select').first().locator('option', { hasText: 'Warehouse Hub' }).waitFor({ state: 'attached', timeout: 15000 });
+  await page.locator('select').first().selectOption({ label: 'Warehouse Hub' });
   await page.locator('input[placeholder="e.g. Golden Lager 330ml"]').fill('Amber Ale 330ml');
   await page.locator('.num-input').first().fill('96');
   await page.locator('.lines-table input').nth(2).fill('3.50');
@@ -235,10 +234,8 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   // === Receive one whole carton (12 bottles) into ordinary warehouse storage ===
   await page.goto('/arap/cash-purchase');
   await page.waitForTimeout(1200);
-  await page.locator('select').first().locator('option', { hasText: 'Highland Brewing Co' }).waitFor({ state: 'attached', timeout: 15000 });
-  await page.locator('select').first().selectOption({ label: 'Highland Brewing Co' });
-  await page.locator('select').nth(1).locator('option', { hasText: 'Warehouse Hub' }).waitFor({ state: 'attached', timeout: 15000 });
-  await page.locator('select').nth(1).selectOption({ label: 'Warehouse Hub' });
+  await page.locator('select').first().locator('option', { hasText: 'Warehouse Hub' }).waitFor({ state: 'attached', timeout: 15000 });
+  await page.locator('select').first().selectOption({ label: 'Warehouse Hub' });
   await page.locator('input[placeholder="e.g. Golden Lager 330ml"]').fill('Barossa Shiraz 750ml');
   await page.locator('.num-input').first().fill('12');
   await page.locator('.lines-table input').nth(2).fill('18.00');
@@ -314,10 +311,8 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   // === One carton (24 cans) received directly at the retail outlet's refrigerated section ===
   await page.goto('/arap/cash-purchase');
   await page.waitForTimeout(1200);
-  await page.locator('select').first().locator('option', { hasText: 'Highland Brewing Co' }).waitFor({ state: 'attached', timeout: 15000 });
-  await page.locator('select').first().selectOption({ label: 'Highland Brewing Co' });
-  await page.locator('select').nth(1).locator('option', { hasText: 'Main Street Cellar (Refrigerated)' }).waitFor({ state: 'attached', timeout: 15000 });
-  await page.locator('select').nth(1).selectOption({ label: 'Main Street Cellar (Refrigerated)' });
+  await page.locator('select').first().locator('option', { hasText: 'Main Street Cellar (Refrigerated)' }).waitFor({ state: 'attached', timeout: 15000 });
+  await page.locator('select').first().selectOption({ label: 'Main Street Cellar (Refrigerated)' });
   await page.locator('input[placeholder="e.g. Golden Lager 330ml"]').fill('Amber Ale 330ml Can');
   await page.locator('.num-input').first().fill('24');
   await page.locator('.lines-table input').nth(2).fill('3.50');

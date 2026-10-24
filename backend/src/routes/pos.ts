@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireRole } from '../auth-middleware.js';
 import { getItemByUpc, getCombinationByUpc, completePosSale, completeCashPurchase, payEmployeeWages, getOrganizationChart, asBusinessName, asLedgerName, asLocationName, asCustomerName, asProviderName, asAccountName, asItemName, ValidationError, NotFoundError,
-  asUserId, resolveCashTransactionAccounts, receiveItems, resolveSaleAccounts, dispatchItems, resolveDispatchLocation,
+  asUserId, receiveItems, dispatchItems, resolveDispatchLocation,
 } from '../db.js';
 import { createPosTerminal, listPosTerminals, setTerminalCurrency } from '../db-stock.js';
 
@@ -118,70 +118,6 @@ posRouter.post('/complete-cash-purchase', requireRole('Administrator', 'Bookkeep
     if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not complete purchase.' });
-  }
-});
-
-// Per docs/canned-journal-to-frontend-design.md Phase 0: the two, real,
-// narrow server-side steps Cash Purchase still needs once its own
-// canned-journal account selection moves to the frontend — resolving/
-// creating the real Inventory accounts and the Cash-and-Bank account
-// (a real, stateful fact), and the real, physical stock-quantity side
-// effect (receiveItems) — neither of which is a journal entry at all.
-const resolveAccountsSchema = z.object({
-  business: z.string().min(1),
-  locationName: z.string().min(1),
-  items: z.array(z.object({ itemName: z.string().min(1), tier: z.string().optional() })).min(1),
-  wantCashAccount: z.boolean(),
-});
-
-posRouter.post('/resolve-cash-transaction-accounts', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
-  const parsed = resolveAccountsSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  try {
-    const result = resolveCashTransactionAccounts(
-      asBusinessName(parsed.data.business),
-      asLocationName(parsed.data.locationName),
-      parsed.data.items,
-      asUserId(req.user!.id),
-      parsed.data.wantCashAccount
-    );
-    res.json(result);
-  } catch (err) {
-    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
-    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
-    console.error(err);
-    res.status(500).json({ error: 'Could not resolve accounts.' });
-  }
-});
-
-// Per docs/canned-journal-to-frontend-design.md Phase 1: the real,
-// sale-side counterpart to /resolve-cash-transaction-accounts above —
-// resolves/creates the real Sales/COGS/Inventory leaves a canned Cash
-// Sale needs, plus each item's own, real, known per-unit cost.
-const resolveSaleAccountsSchema = z.object({
-  business: z.string().min(1),
-  locationName: z.string().min(1),
-  items: z.array(z.object({ itemName: z.string().min(1), tier: z.string().optional() })).min(1),
-  wantCashAccount: z.boolean(),
-});
-
-posRouter.post('/resolve-sale-accounts', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
-  const parsed = resolveSaleAccountsSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  try {
-    const result = resolveSaleAccounts(
-      asBusinessName(parsed.data.business),
-      asLocationName(parsed.data.locationName),
-      parsed.data.items,
-      asUserId(req.user!.id),
-      parsed.data.wantCashAccount
-    );
-    res.json(result);
-  } catch (err) {
-    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
-    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
-    console.error(err);
-    res.status(500).json({ error: 'Could not resolve accounts.' });
   }
 });
 

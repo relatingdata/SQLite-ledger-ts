@@ -1373,8 +1373,22 @@ export function allocatePayment(
   db.transaction(() => {
   if (!skipJournalPosting) {
     const sign = invoice.invoice_type === 'AR' ? 1 : -1;
+    const total = invoice.total_amount_minor + invoice.total_tax_minor;
+    // The invoice's own counterparty leg may not have posted to an
+    // account literally named invoice.counterparty — a foreign-currency
+    // POS sale, for instance, tags it onto a currency-specific sibling
+    // (e.g. "Cash (USD)") so it balances, per currency, against the
+    // equally-tagged revenue/tax/COGS legs. Reuse whatever account the
+    // invoice's own posting actually used, found by its own, real,
+    // signed amount in that same journal entry, rather than assuming
+    // the plain counterparty name — so the payment closes the exact
+    // same account the invoice opened, never a mismatched, untagged one.
+    const counterpartyLine = db
+      .prepare(`SELECT e.name AS name FROM journal_line jl JOIN journal j ON j.id = jl.journal_id JOIN current_entities e ON e.id = jl.account_id WHERE j.reference = ? AND jl.amount_minor = ?`)
+      .get(invoice.reference, sign * total) as { name: string } | undefined;
+    const counterpartyAccountName = counterpartyLine?.name ?? invoice.counterparty;
     stageLine({ reference: paymentReference, business: asBusinessName(invoice.business), ledger: asLedgerName(invoice.ledger), transdate: allocationDate, account: asAccountName(paymentAccount), amount_minor: sign * allocatedMinor });
-    stageLine({ reference: paymentReference, business: asBusinessName(invoice.business), ledger: asLedgerName(invoice.ledger), transdate: allocationDate, account: asAccountName(invoice.counterparty), amount_minor: -sign * allocatedMinor });
+    stageLine({ reference: paymentReference, business: asBusinessName(invoice.business), ledger: asLedgerName(invoice.ledger), transdate: allocationDate, account: asAccountName(counterpartyAccountName), amount_minor: -sign * allocatedMinor });
     postJournalEntry(paymentReference, asBusinessName(invoice.business), asLedgerName(invoice.ledger), userId);
   }
 
@@ -2308,7 +2322,19 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       })(),
       userId,
       false,
-      input.paymentMethod ? resolveCashAtBankAccount(input.business, effectiveCurrency ?? undefined, userId).name : undefined
+      // The counterparty leg posts to input.customerName directly (the
+      // real "Cash" customer for an immediate-payment sale, or any real
+      // on-account customer for the POS Terminal) — never a direct-to-
+      // Cash-and-Bank shortcut. allocatePayment below then immediately
+      // reconciles it to zero when a paymentMethod is given, so the
+      // balance is real, even if only for an instant — see "Cash Sale
+      // and Cash Purchase" in pm-frontend-reference.md. The one
+      // exception: a foreign-currency terminal already tags the
+      // revenue/tax/COGS legs onto currency-specific siblings (e.g.
+      // "Sales Revenue (USD)"), so the counterparty leg must be tagged
+      // the exact same way (e.g. "Cash (USD)") or the entry fails its
+      // own, real, per-currency balance check.
+      effectiveCurrency ? (tagCurrency(input.customerName) as { name: string }).name : undefined
     );
 
     for (const line of input.lines) {
@@ -2374,7 +2400,7 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
 
     let changeDueMinor = 0;
     if (input.paymentMethod) {
-      allocatePayment(invoiceId, `${reference}-PAYMENT`, totalMinor, today, resolveCashAtBankAccount(input.business, effectiveCurrency ?? undefined, userId).name, userId, true);
+      allocatePayment(invoiceId, `${reference}-PAYMENT`, totalMinor, today, resolveCashAtBankAccount(input.business, effectiveCurrency ?? undefined, userId).name, userId, false);
       if (input.cashTenderedMinor != null) {
         changeDueMinor = Math.max(0, input.cashTenderedMinor - totalMinor);
       }
@@ -2409,73 +2435,13 @@ export interface CashPurchaseResult {
   totalMinor: number;
 }
 
-export interface ResolvedCashTransactionAccounts {
-    inventoryAccounts: Record<string, string>;
-    cashAccount?: string;
-}
-
-export function resolveCashTransactionAccounts(
-  business: BusinessName,
-  locationName: LocationName,
-  items: { itemName: string; tier?: string }[],
-  userId: UserId,
-  wantCashAccount: boolean
-): ResolvedCashTransactionAccounts {
-  const inventoryAccounts: Record<string, string> = {};
-  for (const { itemName, tier } of items) {
-    const key = tier ? `${itemName} (${tier})` : itemName;
-    const { inventoryAccount } = ensureItemLocationInventoryAccount(asItemName(itemName), locationName, userId, tier, business);
-    inventoryAccounts[key] = inventoryAccount;
-  }
-  return {
-    inventoryAccounts,
-    cashAccount: wantCashAccount ? resolveCashAtBankAccount(business, undefined, userId).name : undefined,
-  };
-}
-
-export interface ResolvedSaleAccounts {
-    salesAccounts: Record<string, string>;
-    cogsAccounts: Record<string, string>;
-    inventoryAccounts: Record<string, string>;
-    unitCostMinor: Record<string, number | null>;
-    cashAccount?: string;
-}
-
-export function resolveSaleAccounts(
-  business: BusinessName,
-  locationName: LocationName,
-  items: { itemName: string; tier?: string }[],
-  userId: UserId,
-  wantCashAccount: boolean
-): ResolvedSaleAccounts {
-  const salesAccounts: Record<string, string> = {};
-  const cogsAccounts: Record<string, string> = {};
-  const inventoryAccounts: Record<string, string> = {};
-  const unitCostMinor: Record<string, number | null> = {};
-  for (const { itemName, tier } of items) {
-    const key = tier ? `${itemName} (${tier})` : itemName;
-    if (tier) {
-      const tierItem = ensureItemTier(asItemName(itemName), tier, userId, business);
-      const leaf = ensureItemTierLocationLeaf(tierItem.tierItemName, locationName, userId, tierItem.tierItemId);
-      salesAccounts[key] = leaf.salesAccount;
-      cogsAccounts[key] = leaf.cogsAccount;
-    } else {
-      const leaf = ensureItemLocationLeaf(asItemName(itemName), locationName, userId, business);
-      salesAccounts[key] = leaf.salesAccount;
-      cogsAccounts[key] = leaf.cogsAccount;
-    }
-    const { inventoryAccount } = ensureItemLocationInventoryAccount(asItemName(itemName), locationName, userId, tier, business);
-    inventoryAccounts[key] = inventoryAccount;
-    unitCostMinor[key] = getItemUnitCostMinor(asItemName(itemName));
-  }
-  return {
-    salesAccounts,
-    cogsAccounts,
-    inventoryAccounts,
-    unitCostMinor,
-    cashAccount: wantCashAccount ? resolveCashAtBankAccount(business, undefined, userId).name : undefined,
-  };
-}
+// resolveCashTransactionAccounts/resolveSaleAccounts (and the canned-journal
+// cashPurchaseLines/posSaleLines they fed) were the old, direct-to-Cash
+// account-selection path for Cash Purchase/Cash Sale. Removed — both
+// screens now go through completeCashPurchase/completePosSale, the
+// same genuine invoice+stock+immediate-payment mechanism as any
+// on-account Purchase/Sale, to the one real "Cash" provider/customer.
+// See "Cash Sale and Cash Purchase" in pm-frontend-reference.md.
 
 export interface ResolvedTransferAccounts {
     fromInventoryAccount: string;
@@ -2532,8 +2498,12 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
       (line) => (line.itemName ? (() => { const sourceLine = input.lines.find((l) => l.itemName === line.itemName); const inv = ensureItemLocationInventoryAccount(asItemName(line.itemName!), input.locationName, userId, sourceLine?.tier, input.business); return { name: inv.inventoryAccount, id: inv.inventoryAccountId }; })() : 'Inventory'),
       input.taxAccount,
       userId,
-      false,
-      input.paymentMethod ? resolveCashAtBankAccount(input.business, undefined, userId).name : undefined
+      false
+      // No counterpartyAccountOverride here, deliberately — see the
+      // matching note in completePosSale above. The purchase posts a
+      // genuine AP invoice to input.vendorName (the real "Cash" provider
+      // for an immediate-payment purchase), and allocatePayment below
+      // immediately reconciles it to zero.
     );
 
     for (const line of input.lines) {
@@ -2544,7 +2514,7 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
     const totalMinor = invoice.total_amount_minor + invoice.total_tax_minor;
 
     if (input.paymentMethod) {
-      allocatePayment(invoiceId, `${reference}-PAYMENT`, totalMinor, today, resolveCashAtBankAccount(input.business, undefined, userId).name, userId, true);
+      allocatePayment(invoiceId, `${reference}-PAYMENT`, totalMinor, today, resolveCashAtBankAccount(input.business, undefined, userId).name, userId, false);
     }
 
     return { invoiceId, reference, totalMinor };

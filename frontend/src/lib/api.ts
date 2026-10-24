@@ -1492,19 +1492,6 @@ export const completeCashPurchase = (input: {
   transdate?: string;
 }, screenName?: string) => request<CashPurchaseResult>('/pos/complete-cash-purchase', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
-// The account-resolution half of the canned journal pattern — see docs/pm-frontend-reference.md.
-export interface ResolvedCashTransactionAccounts {
-  inventoryAccounts: Record<string, string>;
-  cashAccount?: string;
-}
-export const resolveCashTransactionAccounts = (input: {
-  business: BusinessName;
-  locationName: LocationName;
-  items: { itemName: string; tier?: string }[];
-  wantCashAccount: boolean;
-}, screenName?: string) =>
-  request<ResolvedCashTransactionAccounts>('/pos/resolve-cash-transaction-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
-
 export const receiveStock = (input: {
   business: BusinessName;
   ledger: LedgerName;
@@ -1513,22 +1500,6 @@ export const receiveStock = (input: {
   lines: { itemName: string; quantity: number }[];
   transdate?: string;
 }, screenName?: string) => request<void>('/pos/receive-stock', { method: 'POST', body: JSON.stringify(input) }, screenName);
-
-// The account-resolution half of the sale-side canned journal pattern — see docs/pm-frontend-reference.md.
-export interface ResolvedSaleAccounts {
-  salesAccounts: Record<string, string>;
-  cogsAccounts: Record<string, string>;
-  inventoryAccounts: Record<string, string>;
-  unitCostMinor: Record<string, number | null>;
-  cashAccount?: string;
-}
-export const resolveSaleAccounts = (input: {
-  business: BusinessName;
-  locationName: LocationName;
-  items: { itemName: string; tier?: string }[];
-  wantCashAccount: boolean;
-}, screenName?: string) =>
-  request<ResolvedSaleAccounts>('/pos/resolve-sale-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
 
 export const dispatchStock = (input: {
   business: BusinessName;

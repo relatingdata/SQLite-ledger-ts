@@ -673,6 +673,21 @@ convention (see the CashTransaction chapter above). Items are scoped
 per business. Any postable account can be the "what this purchase was
 for" side — an expense (Office, Rent) or an asset (Inventory).
 
+**Stock receipt on an on-account Purchase.** A line whose item name
+matches a real catalog item is received into stock automatically,
+alongside the invoice — the same "physical stock IN and the AP
+invoice, posted together" mechanism as PO fulfillment and Cash
+Purchase, just reached from the plain on-account screen instead. A
+line that isn't a real catalog item (an expense like Office Rent,
+posted straight against its own account) is left alone — `itemName`
+here can genuinely be either, and only the real-item lines are checked
+against `items`/`itemsByName` to decide. `purchaseLocation` — long
+captured in state but never actually sent anywhere — is now required
+whenever at least one line needs it, and `receiveStock` runs before
+`postInvoiceById`, matching Cash Sale's "the physical step most likely
+to fail runs first" ordering (see the CashTransaction chapter), even
+though receiving stock essentially never fails for want of a location.
+
 ## `frontend/src/routes/reports/new-pl/+page.svelte` — the P&L pivot table
 
 Further business-chosen hierarchies (e.g. "Division") are never
@@ -752,6 +767,18 @@ customer — this only makes sure that's a deliberate, informed choice,
 not an accident. Items are scoped per business, never fetched before
 the business is known. Customers live under Accounts Receivable in
 the entity tree.
+
+**Stock dispatch on an on-account Sale.** Mirrors AP Purchase's own
+new "Stock receipt" paragraph above: a line matching a real catalog
+item is dispatched from stock automatically, alongside the invoice —
+every real sale in this application moves real stock, there's no
+"expense sale" concept the way AP Purchase has non-inventory expense
+lines. `saleLocation` — long captured in state but never actually
+sent anywhere — is now required whenever at least one real-item line
+is present, and `dispatchStock` runs before `postInvoiceById`, for the
+same reason Cash Sale's does: a failed dispatch (not enough stock on
+hand) must never leave a posted invoice behind for stock that was
+never actually sent out.
 
 ## `frontend/src/routes/stock/po/+page.svelte` — the Purchase Order screen
 
@@ -1308,14 +1335,17 @@ by `direction`, set once by the route file that renders it
 a plain `const`, not a missed `$derived` (hence the `svelte-ignore
 state_referenced_locally`).
 
-**The party-list string differs by direction for a real reason, not a
-leftover asymmetry**: the backend's `createProvider` parents a new
-provider directly under the `Accounts Payable` CoA account, so
-`'Accounts Payable'` is the correct lookup for the purchase side. Its
-`createCustomer`, by contrast, parents a new customer under
-`'Customers'` — a structural Vocabulary category, never the `Accounts
-Receivable` CoA account — so `'Customers'` is the correct lookup for
-the sale side, not `'Accounts Receivable'`.
+**The party is fixed, not chosen.** Both Cash Purchase and Cash Sale
+always post to the one real "Cash" counterparty — a Provider under
+`Accounts Payable` and a Customer under `Customers`, each seeded once
+(`migrateForCashCustomerAndProvider` in `backend/src/db-seed.ts`) and
+never re-created. There is no vendor/customer dropdown on this screen
+any more: `partyName` is a plain `const`, not state, and the party row
+in the UI is a read-only label. Picking a *different*, real,
+already-known provider or customer for an immediate-payment purchase
+or sale is exactly what AP Purchase/AR Sale are for (see those
+chapters) — Cash Purchase/Sale are deliberately narrower, for the
+anonymous, walk-in case only.
 
 **Auto-add**: as soon as every existing line has an item name filled
 in (no blank line left anywhere), a fresh empty one appears at the
@@ -1329,21 +1359,24 @@ since the backend schema correctly rejects an empty `itemName`, and
 submitting it previously silently failed every purchase/sale that
 reached this point with an unfilled line still present.
 
-**Submission** follows `docs/canned-journal-to-frontend-design.md`:
-for a purchase (Phase 0), the canned account selection is computed
-client-side by `cashPurchaseLines` (see the canned-journal chapter),
-with the backend asked only to resolve/create the Inventory accounts
-and receive the physical stock; posting goes through the same generic
-staging+post calls the General Journal "Save" button uses. The sale
-side (Phase 1) mirrors this with `posSaleLines` — the backend resolves
-Sales/COGS/Inventory accounts (plus each item's known per-unit cost)
-and dispatches the physical stock. Per the precedent established for
-Cash Purchase, an immediate-cash sale creates no invoice/receivable
-record at all, just a direct journal posting plus the physical stock
-side effect. `dispatchStock` runs first, deliberately, since it's the
-step most likely to fail (not enough stock on hand) — a failed
-dispatch must never leave a posted journal entry behind for stock that
-was never actually sent out.
+**Submission** goes straight to the backend's own atomic
+`completeCashPurchase`/`completePosSale` (`backend/src/db.ts`, exposed
+as `/pos/complete-cash-purchase`/`/pos/complete-sale`) — the same
+functions the POS Terminal uses for a register sale. Each one, in a
+single transaction: creates a genuine AR/AP invoice to the real "Cash"
+counterparty, posts it (crediting/debiting that counterparty's own
+Accounts Receivable/Payable account — never a direct-to-Cash-and-Bank
+shortcut), physically dispatches/receives the stock, and then, because
+a `paymentMethod` is always given here, immediately calls
+`allocatePayment` to bring the balance back to zero. So a Cash
+Sale/Purchase is, structurally, indistinguishable from an on-account
+Sale/Purchase to the "Cash" party, right up until the instant it's
+paid off — see "Cash Sale and Cash Purchase" in
+`docs/pm-domain-reference.md` for the full picture, including the
+diagram. The older, direct-to-Cash code paths this replaced —
+`resolveCashTransactionAccounts`/`resolveSaleAccounts` and the
+canned-journal `cashPurchaseLines`/`posSaleLines` they fed — have been
+removed entirely, not merely stopped being called.
 
 ## `frontend/src/routes/setup/business-setup/+page.svelte` — org chart: groups, locations, employees
 

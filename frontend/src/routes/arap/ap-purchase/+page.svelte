@@ -12,6 +12,7 @@
     listLocations,
     createInvoice,
     postInvoiceById,
+    receiveStock,
     asBusinessName,
     asLedgerName,
     asProviderName,
@@ -107,6 +108,17 @@
       error = 'Reference, provider, account, and at least one item line are all required.';
       return;
     }
+    // Lines for real catalog items are received into stock automatically,
+    // alongside the invoice — see "Stock receipt on an on-account
+    // Purchase" in pm-frontend-reference.md. A non-inventory line (an
+    // expense like rent, posted against a non-Inventory account) is left
+    // alone, same as before. A location is only required when at least
+    // one line is actually a real item.
+    const stockLines = realLines.filter((l) => itemsByName.has(l.itemName));
+    if (stockLines.length > 0 && !purchaseLocation) {
+      error = 'Select a location — these items will be received into stock.';
+      return;
+    }
     saving = true;
     try {
       const { id } = await createInvoice({
@@ -126,6 +138,16 @@
           itemName: l.itemName,
         })),
       });
+      if (stockLines.length > 0) {
+        await receiveStock({
+          business: asBusinessName(business),
+          ledger: asLedgerName(ledger),
+          reference,
+          locationName: asLocationName(purchaseLocation),
+          lines: stockLines.map((l) => ({ itemName: l.itemName, quantity: l.quantity })),
+          transdate,
+        });
+      }
       await postInvoiceById(id, expenseAccount, 'Purchases Tax Claimed');
       message = `Purchase ${reference} from ${provider} recorded.`;
       reference = '';

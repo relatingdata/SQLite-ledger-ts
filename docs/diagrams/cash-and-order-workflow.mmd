@@ -1,0 +1,37 @@
+%%{init: {'themeVariables': { 'fontSize': '26px' }}}%%
+graph TB
+    subgraph PUR["Procure-to-Pay"]
+        PO["Purchase Order<br/>(memo only — no financial or stock effect yet)"]
+        SR["Stock Receipt<br/>physical stock IN <i>and</i> the AP invoice,<br/>posted together, in one step"]
+        CP["Cash Purchase<br/>invoice to the 'Cash' provider, stock received,<br/>and payment applied — all in one atomic step"]
+        APO["Accounts Payable balance: open<br/>(owed to the provider)"]
+        APP["AP Payment / Remittance Advice"]
+        APZ["Balance: zero"]
+        PO -->|fulfilled by| SR --> APO -->|paid via| APP --> APZ
+        CP -.->|same mechanism, same instant| APZ
+    end
+
+    subgraph SAL["Order-to-Cash"]
+        SO["Sales Order<br/>(memo only — no financial or stock effect yet)"]
+        SD["Stock Dispatch<br/>physical stock OUT, revenue and COGS,<br/>posted together, in one step"]
+        CS["Cash Sale<br/>invoice to the 'Cash' customer, stock dispatched,<br/>and receipt applied — all in one atomic step"]
+        ARO["Accounts Receivable balance: open<br/>(owed by the customer)"]
+        ARR["AR Receipt / Customer Receipt"]
+        ARZ["Balance: zero"]
+        SO -->|fulfilled by| SD --> ARO -->|collected via| ARR --> ARZ
+        CS -.->|same mechanism, same instant| ARZ
+    end
+
+    GJ["General Journal<br/>every posting above lands here<br/>as a balanced debit/credit entry"]
+    APZ --> GJ
+    ARZ --> GJ
+
+    %% Invisible same-rank anchors: pin the two lanes side by side,
+    %% stage by stage, rather than letting the layout engine stack
+    %% them vertically (its default with no cross-lane edges).
+    PO ~~~ SO
+    SR ~~~ SD
+    APO ~~~ ARO
+    APP ~~~ ARR
+    APZ ~~~ ARZ
+    linkStyle 12,13,14,15,16 stroke:none

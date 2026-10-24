@@ -15,69 +15,13 @@ export interface CannedEntry {
   lines: CannedLine[];
 }
 
-// Cash Purchase's canned shape — see docs/pm-frontend-reference.md.
-export function cashPurchaseLines(input: {
-  lines: { itemName: string; quantity: number; unitPriceMinor: number; taxMinor: number; tier?: string }[];
-  inventoryAccounts: Record<string, string>;
-  taxAccount: string;
-  cashAccount: string;
-}): CannedLine[] {
-  const result: CannedLine[] = [];
-  let taxTotal = 0;
-  let grandTotal = 0;
-  for (const l of input.lines) {
-    const key = l.tier ? `${l.itemName} (${l.tier})` : l.itemName;
-    const inventoryAccount = input.inventoryAccounts[key];
-    if (!inventoryAccount) throw new Error(`No resolved Inventory account for "${key}".`);
-    const amount = l.quantity * l.unitPriceMinor;
-    result.push({ account: inventoryAccount, amount_minor: amount });
-    taxTotal += l.taxMinor;
-    grandTotal += amount + l.taxMinor;
-  }
-  if (taxTotal !== 0) result.push({ account: input.taxAccount, amount_minor: taxTotal });
-  result.push({ account: input.cashAccount, amount_minor: -grandTotal });
-  return result;
-}
-
-// Cash Sale's canned shape — see docs/pm-frontend-reference.md.
-export function posSaleLines(input: {
-  lines: { itemName: string; quantity: number; unitPriceMinor: number; taxMinor: number; tier?: string }[];
-  salesAccounts: Record<string, string>;
-  cogsAccounts: Record<string, string>;
-  inventoryAccounts: Record<string, string>;
-  unitCostMinor: Record<string, number | null>;
-  taxAccount: string;
-  cashAccount: string;
-}): { lines: CannedLine[]; cogsLines: CannedLine[] } {
-  const lines: CannedLine[] = [];
-  const cogsLines: CannedLine[] = [];
-  let taxTotal = 0;
-  let grandTotal = 0;
-  for (const l of input.lines) {
-    const key = l.tier ? `${l.itemName} (${l.tier})` : l.itemName;
-    const salesAccount = input.salesAccounts[key];
-    if (!salesAccount) throw new Error(`No resolved Sales Revenue account for "${key}".`);
-    const amount = l.quantity * l.unitPriceMinor;
-    lines.push({ account: salesAccount, amount_minor: -amount });
-    taxTotal += l.taxMinor;
-    grandTotal += amount + l.taxMinor;
-
-    const unitCost = input.unitCostMinor[key];
-    if (unitCost != null) {
-      const lineCogs = l.quantity * unitCost;
-      if (lineCogs > 0) {
-        const cogsAccount = input.cogsAccounts[key];
-        const inventoryAccount = input.inventoryAccounts[key];
-        if (!cogsAccount || !inventoryAccount) throw new Error(`No resolved COGS/Inventory account for "${key}".`);
-        cogsLines.push({ account: cogsAccount, amount_minor: lineCogs });
-        cogsLines.push({ account: inventoryAccount, amount_minor: -lineCogs });
-      }
-    }
-  }
-  if (taxTotal !== 0) lines.push({ account: input.taxAccount, amount_minor: -taxTotal });
-  lines.push({ account: input.cashAccount, amount_minor: grandTotal });
-  return { lines, cogsLines };
-}
+// cashPurchaseLines/posSaleLines (Cash Purchase/Cash Sale's old, direct-
+// to-Cash canned shapes) were removed along with the resolve-accounts
+// endpoints that fed them. Both screens now go through
+// completeCashPurchase/completePosSale instead — the same genuine
+// invoice+stock+immediate-payment mechanism as any on-account
+// Purchase/Sale, to the one real "Cash" provider/customer. See "Cash
+// Sale and Cash Purchase" in pm-frontend-reference.md.
 
 // Stock Transfer's canned shape — see docs/pm-frontend-reference.md.
 export function transferLines(input: {
