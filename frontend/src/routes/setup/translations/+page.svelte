@@ -213,7 +213,7 @@
     <div class="card word-list-card">
       <fieldset>
         <legend>{translations.current['Search'] ?? 'Search'}</legend>
-        <input bind:value={search} placeholder="e.g. Vendor" />
+        <input bind:value={search} placeholder="e.g. Provider" />
       </fieldset>
       <p class="hint">{filteredWords.length} of {words.length} real words</p>
     </div>
@@ -282,7 +282,7 @@
     <div class="card word-list-card">
       <fieldset>
         <legend>{translations.current['Search'] ?? 'Search'}</legend>
-        <input bind:value={search} placeholder="e.g. Vendor" />
+        <input bind:value={search} placeholder="e.g. Provider" />
       </fieldset>
       <p class="hint">{filteredWords.length} of {words.length} real words</p>
       <div class="word-list">

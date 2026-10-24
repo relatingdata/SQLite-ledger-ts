@@ -111,7 +111,7 @@
 <fieldset class="page-title">
   <legend>{translations.current['HR / Payroll'] ?? 'HR / Payroll'}</legend>
   <p class="intro">
-    {translations.current['A real employee is treated as a real Accounts Payable counterparty — the same mechanism a vendor invoice already uses. Paying wages debits Wages (or the employee\'s own monthly salary), withholds a real Medicare levy from their own pay, and accrues real superannuation as a separate, additional employer cost.'] ?? 'A real employee is treated as a real Accounts Payable counterparty — the same mechanism a vendor invoice already uses. Paying wages debits Wages (or the employee\'s own monthly salary), withholds a real Medicare levy from their own pay, and accrues real superannuation as a separate, additional employer cost.'}
+    {translations.current['A real employee is treated as a real Accounts Payable counterparty — the same mechanism a provider invoice already uses. Paying wages debits Wages (or the employee\'s own monthly salary), withholds a real Medicare levy from their own pay, and accrues real superannuation as a separate, additional employer cost.'] ?? 'A real employee is treated as a real Accounts Payable counterparty — the same mechanism a provider invoice already uses. Paying wages debits Wages (or the employee\'s own monthly salary), withholds a real Medicare levy from their own pay, and accrues real superannuation as a separate, additional employer cost.'}
   </p>
 <div class="tab-bar">
   <button type="button" class:active={activeTab === 'pay'} onclick={() => switchTab('pay')}>{translations.current['Pay Wages'] ?? 'Pay Wages'}</button>

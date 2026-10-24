@@ -62,7 +62,7 @@ test('Create every real, new vocabulary word and apply every real translation, f
 
     // Step 2 — apply every real, given translation, by selecting
     // the exact, matching word from the real, live search results.
-    await page.locator('input[placeholder="e.g. Vendor"]').fill(entry.word);
+    await page.locator('input[placeholder="e.g. Provider"]').fill(entry.word);
     await page.waitForTimeout(150);
     const escaped = entry.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const exactRow = page.locator('.word-row', { hasText: new RegExp(`^${escaped}$`) });

@@ -331,7 +331,7 @@
           <p class="hint">
             0 means cash only (due on receipt). A real term (e.g. 30) means aging reports will bucket this account at
             30/60/90 days — the buckets are always 1x/2x/3x this number, since that's how account management practice
-            actually varies per customer or vendor.
+            actually varies per customer or provider.
           </p>
           <button class="btn" onclick={saveContact} disabled={savingContact}>
             {savingContact ? 'Saving…' : (translations.current['Save'] ?? 'Save')}

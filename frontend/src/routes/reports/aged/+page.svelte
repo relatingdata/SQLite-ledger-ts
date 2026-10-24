@@ -55,7 +55,7 @@
   <p class="intro">
     {invoiceType === 'AR'
       ? (translations.current["What's outstanding, bucketed against each customer's own payment terms — not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account."] ?? "What's outstanding, bucketed against each customer's own payment terms — not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account.")
-      : (translations.current["What's outstanding, bucketed against each vendor's own payment terms — not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account."] ?? "What's outstanding, bucketed against each vendor's own payment terms — not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account.")}
+      : (translations.current["What's outstanding, bucketed against each provider's own payment terms — not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account."] ?? "What's outstanding, bucketed against each provider's own payment terms — not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account.")}
   </p>
 <div class="controls">
   <div class="toggle-group">
@@ -81,7 +81,7 @@
     <table>
       <thead>
         <tr>
-          <th>{invoiceType === 'AR' ? 'Customer' : 'Vendor'}</th>
+          <th>{invoiceType === 'AR' ? 'Customer' : 'Provider'}</th>
           <th class="num">{translations.current['Outstanding'] ?? 'Outstanding'}</th>
           <th class="num">{translations.current['Oldest (days)'] ?? 'Oldest (days)'}</th>
         </tr>
@@ -106,7 +106,7 @@
       <thead>
         <tr>
           <th>{translations.current['Reference'] ?? 'Reference'}</th>
-          <th>{invoiceType === 'AR' ? 'Customer' : 'Vendor'}</th>
+          <th>{invoiceType === 'AR' ? 'Customer' : 'Provider'}</th>
           <th>{translations.current['Due date'] ?? 'Due date'}</th>
           <th class="num">{translations.current['Outstanding'] ?? 'Outstanding'}</th>
           <th class="num">{translations.current['Days overdue'] ?? 'Days overdue'}</th>

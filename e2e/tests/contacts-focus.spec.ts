@@ -18,12 +18,12 @@ test('Contacts page is context-aware — the real, focused category shown depend
   await expect(page.getByRole('link', { name: 'Customers' })).toHaveClass(/active/);
   await expect(page.locator('.list-card')).toHaveCount(1);
 
-  await page.getByRole('button', { name: 'Accounts Payable (Creditors / Purchasing)' }).click();
+  await page.getByRole('button', { name: 'Inventory' }).click();
   await page.waitForTimeout(300);
-  await page.getByRole('link', { name: 'Vendors' }).click();
+  await page.getByRole('link', { name: 'Providers' }).click();
   await page.waitForTimeout(700);
 
-  await expect(page.locator('.page-title legend')).toContainText('Vendors');
+  await expect(page.locator('.page-title legend')).toContainText('Providers');
   await expect(page.locator('.list-card')).toHaveCount(1);
 
   await page.getByRole('button', { name: 'Show everything' }).click();

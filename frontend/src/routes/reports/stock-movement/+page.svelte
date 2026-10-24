@@ -15,7 +15,7 @@
   let tab: Tab = $state('receipts');
 
   // Grouping names never hardcoded — see docs/pm-frontend-reference.md.
-  type GroupKey = 'group' | 'location' | 'vendor' | 'category';
+  type GroupKey = 'group' | 'location' | 'provider' | 'category';
   let groupBy: GroupKey = $state('group');
   let hierarchyName: string | undefined = $state(undefined);
 
@@ -63,7 +63,7 @@
     }
     if (key === 'group') return row.group ?? '(No group)';
     if (key === 'location') return row.location;
-    return row.vendor ?? '(No vendor on file)';
+    return row.vendor ?? '(No provider on file)';
   }
 
   function groupRows<T extends OrderReceiptRow | StockTransferRow | StockSaleRow>(rows: T[], key: GroupKey) {
@@ -95,7 +95,7 @@
 
 <fieldset class="page-title">
   <legend>{translations.current['Stock Movement Report'] ?? 'Stock Movement Report'}</legend>
-  <p class="intro">{translations.current['The real, physical journey of stock — purchases received into each real warehouse, transfers on to retail outlets, and real sales — groupable by a business\'s own configured hierarchy (such as Division), location, vendor, or category.'] ?? "The real, physical journey of stock — purchases received into each real warehouse, transfers on to retail outlets, and real sales — groupable by a business's own configured hierarchy (such as Division), location, vendor, or category."}</p>
+  <p class="intro">{translations.current['The real, physical journey of stock — purchases received into each real warehouse, transfers on to retail outlets, and real sales — groupable by a business\'s own configured hierarchy (such as Division), location, provider, or category.'] ?? "The real, physical journey of stock — purchases received into each real warehouse, transfers on to retail outlets, and real sales — groupable by a business's own configured hierarchy (such as Division), location, provider, or category."}</p>
 <div class="controls">
   <div class="tabs">
     <button type="button" class:active={tab === 'receipts'} onclick={() => (tab = 'receipts')}>{translations.current['Purchases'] ?? 'Purchases'}</button>
@@ -108,7 +108,7 @@
     <select bind:value={groupBy}>
       <option value="group">{translations.current[hierarchyName ?? 'Group'] ?? (hierarchyName ?? 'Group')}</option>
       <option value="location">{translations.current['Location'] ?? 'Location'}</option>
-      <option value="vendor">{translations.current['Vendor'] ?? 'Vendor'}</option>
+      <option value="provider">{translations.current['Provider'] ?? 'Provider'}</option>
       <option value="category">{translations.current['Category'] ?? 'Category'}</option>
     </select>
   </fieldset>
@@ -144,7 +144,7 @@
                   <th>{translations.current['Date'] ?? 'Date'}</th>
                   {#if tab === 'receipts'}
                     <th>{translations.current['Location'] ?? 'Location'}</th>
-                    <th>{translations.current['Vendor'] ?? 'Vendor'}</th>
+                    <th>{translations.current['Provider'] ?? 'Provider'}</th>
                   {:else if tab === 'transfers'}
                     <th>{translations.current['From'] ?? 'From'}</th>
                     <th>To</th>

@@ -36,7 +36,7 @@
 
   let business = $state('');
   let ledger = $state('');
-  let vendor = $state('');
+  let provider = $state('');
   let expenseAccount = $state('');
   let taxRate = $state('');
   let reference = $state('');
@@ -93,7 +93,7 @@
     }
   }
 
-  let vendors = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
+  let providers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
 
   // Any postable account can be the "what this purchase was for" side —
   // an expense (Office, Rent) or an asset (Inventory).
@@ -103,8 +103,8 @@
     error = '';
     message = '';
     const realLines = lines.filter((l) => l.itemName.trim());
-    if (!reference.trim() || !vendor || !expenseAccount || realLines.length === 0) {
-      error = 'Reference, vendor, account, and at least one item line are all required.';
+    if (!reference.trim() || !provider || !expenseAccount || realLines.length === 0) {
+      error = 'Reference, provider, account, and at least one item line are all required.';
       return;
     }
     saving = true;
@@ -114,7 +114,7 @@
         business: asBusinessName(business),
         ledger: asLedgerName(ledger),
         reference,
-        counterpartyName: vendor,
+        counterpartyName: provider,
         invoiceDate: transdate,
         description: description || undefined,
         lines: realLines.map((l) => ({
@@ -127,7 +127,7 @@
         })),
       });
       await postInvoiceById(id, expenseAccount, 'Purchases Tax Claimed');
-      message = `Purchase ${reference} from ${vendor} recorded.`;
+      message = `Purchase ${reference} from ${provider} recorded.`;
       reference = '';
       lines = [{ key: nextKey++, itemName: '', quantity: 1, unitPriceMinor: 0 }];
       taxRate = '';
@@ -144,7 +144,7 @@
 
 <fieldset class="page-title">
   <legend>{translations.current['AP Purchase'] ?? 'AP Purchase'}</legend>
-  <p class="intro">{translations.current['A purchase from a vendor on credit — debits an expense or asset account, credits their Accounts Payable balance.'] ?? 'A purchase from a vendor on credit — debits an expense or asset account, credits their Accounts Payable balance.'}</p>
+  <p class="intro">{translations.current['A purchase from a provider on credit — debits an expense or asset account, credits their Accounts Payable balance.'] ?? 'A purchase from a provider on credit — debits an expense or asset account, credits their Accounts Payable balance.'}</p>
 
   {#if loading}
     <p>Loading…</p>
@@ -165,10 +165,10 @@
         <input bind:value={reference} placeholder="e.g. PO-1001" />
       </fieldset>
       <fieldset class="grow">
-        <legend>{translations.current['Vendor'] ?? 'Vendor'}</legend>
-        <select bind:value={vendor}>
-          <option value="">Select vendor…</option>
-          {#each vendors as v}<option value={translations.current[v.name] ?? v.name}>{translations.current[v.name] ?? v.name}</option>{/each}
+        <legend>{translations.current['Provider'] ?? 'Provider'}</legend>
+        <select bind:value={provider}>
+          <option value="">Select provider…</option>
+          {#each providers as v}<option value={translations.current[v.name] ?? v.name}>{translations.current[v.name] ?? v.name}</option>{/each}
         </select>
       </fieldset>
       <fieldset class="grow">

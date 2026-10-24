@@ -81,8 +81,8 @@
       'The real, same two-axis mechanism as the New P&L report, applied to real, current, on-hand stock — quantity, value at cost, and realizable value at current retail price, instead of Sales vs. COGS.'}
   </p>
   <p class="caveat">
-    {translations.current['Cost shown is the preferred vendor\u2019s own current price per unit \u2014 not a real, tracked historical average, since no such figure exists yet on a per-item basis.'] ??
-      "Cost shown is the preferred vendor's own current price per unit — not a real, tracked historical average, since no such figure exists yet on a per-item basis."}
+    {translations.current['Cost shown is the preferred provider\u2019s own current price per unit \u2014 not a real, tracked historical average, since no such figure exists yet on a per-item basis.'] ??
+      "Cost shown is the preferred provider's own current price per unit — not a real, tracked historical average, since no such figure exists yet on a per-item basis."}
   </p>
 <div class="controls">
   <fieldset>

@@ -136,4 +136,4 @@ const PARTS: Parts = [
   ]],
 ];
 
-buildManual('historical-manual.md', 'historical-manual-frontmatter.md', PARTS);
+buildManual('old/historical-manual.md', 'historical-manual-frontmatter.md', PARTS);

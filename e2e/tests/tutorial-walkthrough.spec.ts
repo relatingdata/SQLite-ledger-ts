@@ -223,7 +223,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(800);
   await page.locator('button.entry', { hasText: 'Barossa Shiraz 750ml' }).click();
   await page.waitForTimeout(500);
-  await page.getByRole('group', { name: 'Vendor', exact: true }).locator('select').selectOption({ label: 'Highland Brewing Co' });
+  await page.getByRole('group', { name: 'Provider', exact: true }).locator('select').selectOption({ label: 'Highland Brewing Co' });
   await page.locator('input[placeholder="0.00"]').first().fill('18.00');
   await page.getByRole('group', { name: 'Package quantity', exact: true }).locator('input').fill('12');
   await page.waitForTimeout(300);
@@ -291,7 +291,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(800);
   await page.locator('button.entry', { hasText: 'Amber Ale 330ml Can' }).click();
   await page.waitForTimeout(500);
-  await page.getByRole('group', { name: 'Vendor', exact: true }).locator('select').selectOption({ label: 'Highland Brewing Co' });
+  await page.getByRole('group', { name: 'Provider', exact: true }).locator('select').selectOption({ label: 'Highland Brewing Co' });
   await page.locator('input[placeholder="0.00"]').first().fill('3.50');
   await page.getByRole('group', { name: 'Package quantity', exact: true }).locator('input').fill('24');
   await page.waitForTimeout(300);
@@ -464,7 +464,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(800);
   await page.locator('button.entry', { hasText: 'Amber Ale 330ml' }).filter({ hasNotText: 'Can' }).click();
   await page.waitForTimeout(500);
-  await page.getByRole('group', { name: 'Vendor', exact: true }).locator('select').selectOption({ label: 'Highland Brewing Co' });
+  await page.getByRole('group', { name: 'Provider', exact: true }).locator('select').selectOption({ label: 'Highland Brewing Co' });
   await page.locator('input[placeholder="0.00"]').first().fill('5.00');
   await page.locator('.currency-field input').fill('USD');
   await page.waitForTimeout(300);

@@ -33,9 +33,9 @@ test('stock movement report shows real purchases, transfers, and sales, groupabl
   await page.waitForTimeout(1000);
   await expect(page.locator('.group-head').first()).toBeVisible();
 
-  // Sales tab, grouped by vendor — a real, known total.
+  // Sales tab, grouped by provider — a real, known total.
   await page.getByRole('button', { name: 'Sales', exact: true }).click();
-  await page.locator('select').first().selectOption('vendor');
+  await page.locator('select').first().selectOption('provider');
   await page.waitForTimeout(1000);
   await expect(page.locator('.group-head', { hasText: 'Boutique Wine Importers' })).toContainText('192,835.33');
 });

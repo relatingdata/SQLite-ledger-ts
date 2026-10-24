@@ -5,8 +5,8 @@
 // (build-historical-manual.ts), which preserves everything the
 // Programmer's Manual no longer includes. One, real concatenation
 // pipeline; only the file list and output name differ per manual.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DOCS = fileURLToPath(new URL('../docs/', import.meta.url));
@@ -60,6 +60,7 @@ function lineCount(text: string): number {
 
 export function buildManual(outFile: string, frontmatterFile: string, parts: Parts): void {
   const out = join(DOCS, outFile);
+  mkdirSync(dirname(out), { recursive: true }); // outFile may name a subdirectory (docs/old/...) that doesn't exist yet
   const pieces: string[] = [readText(join(DOCS, frontmatterFile))];
   for (const [partTitle, files] of parts) {
     pieces.push(`\n\\clearpage\n\n# ${partTitle}\n\n`);

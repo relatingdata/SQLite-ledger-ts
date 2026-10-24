@@ -4,5 +4,5 @@
 
 <NotImplemented
   title="Payment Batch"
-  description="Batch approval of a group of vendor payments together, mirroring Payable Batch on the payment side."
+  description="Batch approval of a group of provider payments together, mirroring Payable Batch on the payment side."
 />

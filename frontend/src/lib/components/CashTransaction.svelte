@@ -33,7 +33,7 @@
   // direction is static for this component's lifetime — see docs/pm-frontend-reference.md.
   // svelte-ignore state_referenced_locally
   const isPurchase = direction === 'purchase';
-  const partyLabel = isPurchase ? 'Vendor' : 'Customer';
+  const partyLabel = isPurchase ? 'Provider' : 'Customer';
   // Matches where createProvider/createCustomer actually parent a new party — see docs/pm-frontend-reference.md.
   const partyParentEntity = isPurchase ? 'Accounts Payable' : 'Customers';
   const locationLabel = isPurchase ? 'Receive at location' : 'Dispatch from location';

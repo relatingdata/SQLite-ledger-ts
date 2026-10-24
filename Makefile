@@ -61,7 +61,7 @@ clean:
 	rm -rf node_modules package-lock.json bun.lockb
 	rm -rf frontend/.svelte-kit
 	rm -f sql-ledger-ts_User_Manual.pdf sql-ledger-ts_Programmer_Manual.pdf sql-ledger-ts_Historical_Design_Log.pdf
-	rm -f docs/programmer-manual.md docs/historical-manual.md
+	rm -f docs/programmer-manual.md docs/old/historical-manual.md
 	rm -rf docs/manual-images docs/manual-images-german docs/manual-images-french docs/manual-images-danish docs/manual-images-italian
 
 dev:
@@ -1135,9 +1135,9 @@ docs/scoped-uniqueness-and-location-accounting.md: \
 
 historical-manual: scripts/build-historical-manual.ts scripts/manual-builder.ts docs/historical-manual-frontmatter.md $(HISTORICAL_MANUAL_CHAPTERS)
 	$(RUN_SCRIPT) scripts/build-historical-manual.ts
-	cd docs && pandoc historical-manual.md -o ../sql-ledger-ts_Historical_Design_Log.pdf \
+	cd docs/old && pandoc historical-manual.md -o ../../sql-ledger-ts_Historical_Design_Log.pdf \
 	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
-	  -H historical-manual-header-includes.tex -f markdown+raw_tex --resource-path=.
+	  -H ../historical-manual-header-includes.tex -f markdown+raw_tex --resource-path=..
 	@echo "Built sql-ledger-ts_Historical_Design_Log.pdf"
 
 programmer-manual: scripts/build-programmer-manual.ts docs/programmer-manual-frontmatter.md $(PROGRAMMER_MANUAL_CHAPTERS)

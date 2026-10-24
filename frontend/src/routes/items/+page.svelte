@@ -57,9 +57,9 @@
   let sources: ItemSource[] = $state([]);
   let savingItem = $state(false);
 
-  // A new source's fields — vendor is required, everything else optional.
+  // A new source's fields — provider is required, everything else optional.
   let sourceManufacturer = $state('');
-  let sourceVendor = $state('');
+  let sourceProvider = $state('');
   let sourceSku = $state('');
   let sourceUpc = $state('');
   let sourcePrice = $state('');
@@ -156,7 +156,7 @@
   onMount(loadAll);
 
   let manufacturers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Manufacturers'));
-  let vendors = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
+  let providers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
 
   // Legacy-root fallback, mirroring resolveBusinessLocationsRootId — see docs/pm-frontend-reference.md.
   const itemsRoot = () => {
@@ -374,8 +374,8 @@
   }
 
   async function addSource() {
-    if (!selectedName || !sourceVendor) {
-      error = 'A vendor is required.';
+    if (!selectedName || !sourceProvider) {
+      error = 'A provider is required.';
       return;
     }
     savingSource = true;
@@ -383,7 +383,7 @@
     try {
       await addOrUpdateItemSource(asItemName(selectedName), {
         manufacturerName: sourceManufacturer || null,
-        vendorName: asProviderName(sourceVendor),
+        vendorName: asProviderName(sourceProvider),
         vendorSku: sourceSku || null,
         vendorUpc: sourceUpc || null,
         priceMinor: sourcePrice ? Math.round(Math.abs(Number(sourcePrice)) * 100) : null,
@@ -395,7 +395,7 @@
       sources = await listItemSources(asItemName(selectedName));
       if (session.current?.businessName) items = (await listItems(session.current.businessName)).rows;
       sourceManufacturer = '';
-      sourceVendor = '';
+      sourceProvider = '';
       sourceSku = '';
       sourceUpc = '';
       sourcePrice = '';
@@ -502,7 +502,7 @@
 
 <fieldset class="page-title">
   <legend>{translations.current['Inventory Catalog'] ?? 'Inventory Catalog'}</legend>
-  <p class="intro">{translations.current['A item\'s canonical details are separate from who supplies it. The same item is routinely available from more than one manufacturer, through more than one vendor, at different prices and package sizes — and which one you prefer isn\'t always about price. Mark one preferred and say why: local stock, package size, reliability, whatever the real reason is.'] ?? 'A item\'s canonical details are separate from who supplies it. The same item is routinely available from more than one manufacturer, through more than one vendor, at different prices and package sizes — and which one you prefer isn\'t always about price. Mark one preferred and say why: local stock, package size, reliability, whatever the real reason is.'}</p>
+  <p class="intro">{translations.current['A item\'s canonical details are separate from who supplies it. The same item is routinely available from more than one manufacturer, through more than one provider, at different prices and package sizes — and which one you prefer isn\'t always about price. Mark one preferred and say why: local stock, package size, reliability, whatever the real reason is.'] ?? 'A item\'s canonical details are separate from who supplies it. The same item is routinely available from more than one manufacturer, through more than one provider, at different prices and package sizes — and which one you prefer isn\'t always about price. Mark one preferred and say why: local stock, package size, reliability, whatever the real reason is.'}</p>
 
   {#if loading}
     <p class="center-text">Loading…</p>
@@ -612,20 +612,20 @@
                   </select>
                 </fieldset>
                 <fieldset>
-                  <legend>{translations.current['Vendor'] ?? 'Vendor'}</legend>
-                  <select bind:value={sourceVendor}>
-                    <option value="">Select vendor…</option>
-                    {#each vendors as v}<option value={translations.current[v.name] ?? v.name}>{translations.current[v.name] ?? v.name}</option>{/each}
+                  <legend>{translations.current['Provider'] ?? 'Provider'}</legend>
+                  <select bind:value={sourceProvider}>
+                    <option value="">Select provider…</option>
+                    {#each providers as v}<option value={translations.current[v.name] ?? v.name}>{translations.current[v.name] ?? v.name}</option>{/each}
                   </select>
                 </fieldset>
               </div>
               <div class="row-2">
                 <fieldset>
-                  <legend>{translations.current['Vendor SKU'] ?? 'Vendor SKU'}</legend>
+                  <legend>{translations.current['Provider SKU'] ?? 'Provider SKU'}</legend>
                   <input bind:value={sourceSku} placeholder="optional" />
                 </fieldset>
                 <fieldset>
-                  <legend>{translations.current['Vendor UPC'] ?? 'Vendor UPC'}</legend>
+                  <legend>{translations.current['Provider UPC'] ?? 'Provider UPC'}</legend>
                   <input bind:value={sourceUpc} placeholder="optional" />
                 </fieldset>
               </div>
@@ -636,7 +636,7 @@
                 </fieldset>
                 <fieldset class="currency-field">
                   <legend>{translations.current['Currency'] ?? 'Currency'}</legend>
-                  <input bind:value={sourceCurrency} placeholder={translations.current['home'] ?? 'home'} maxlength="6" title={translations.current['Leave blank for the home currency - a real, different code (e.g. USD) is a real, separate, independently-priced source for the same vendor, per docs/multicurrency-design.md.'] ?? 'Leave blank for the home currency - a real, different code (e.g. USD) is a real, separate, independently-priced source for the same vendor.'} />
+                  <input bind:value={sourceCurrency} placeholder={translations.current['home'] ?? 'home'} maxlength="6" title={translations.current['Leave blank for the home currency - a real, different code (e.g. USD) is a real, separate, independently-priced source for the same provider, per docs/multicurrency-design.md.'] ?? 'Leave blank for the home currency - a real, different code (e.g. USD) is a real, separate, independently-priced source for the same provider.'} />
                 </fieldset>
                 <fieldset>
                   <legend>{translations.current['Package quantity'] ?? 'Package quantity'}</legend>

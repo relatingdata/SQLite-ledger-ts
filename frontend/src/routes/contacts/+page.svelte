@@ -46,7 +46,7 @@
   // Category scoping — see docs/pm-frontend-reference.md.
   let employees = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Employees'));
   let customers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Receivable'));
-  let vendors = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
+  let providers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
   let manufacturers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Manufacturers'));
   let isEmployee = $derived(employees.some((e) => e.name === selectedName));
 
@@ -97,18 +97,18 @@
 <fieldset class="page-title">
   <legend>
     {#if focus === 'customers'}{translations.current['Customers'] ?? 'Customers'}
-    {:else if focus === 'vendors'}{translations.current['Vendors'] ?? 'Vendors'}
+    {:else if focus === 'providers'}{translations.current['Providers'] ?? 'Providers'}
     {:else}{translations.current['Contacts'] ?? 'Contacts'}{/if}
   </legend>
   {#if focus === 'customers'}
     <p class="intro">{translations.current['Real, account-based customers — created automatically the first time one is used on an AR Sale. A walk-in POS sale never creates one of these.'] ?? 'Real, account-based customers — created automatically the first time one is used on an AR Sale. A walk-in POS sale never creates one of these.'}</p>
-  {:else if focus === 'vendors'}
-    <p class="intro">{translations.current['Real vendors/suppliers — created automatically the first time one is used on an AP Purchase.'] ?? 'Real vendors/suppliers — created automatically the first time one is used on an AP Purchase.'}</p>
+  {:else if focus === 'providers'}
+    <p class="intro">{translations.current['Real providers — created automatically the first time one is used on an AP Purchase.'] ?? 'Real providers — created automatically the first time one is used on an AP Purchase.'}</p>
   {:else}
-    <p class="intro">{translations.current['Employees, customers, vendors/suppliers, and manufacturers — all stored the same way, as entities with contact details. Customers and vendors are created automatically the first time they\'re used on an AR Sale or AP Purchase; employees and manufacturers don\'t have that yet, so for now they need to exist first via the Structured Editor before contact details can be added here. The same real person can appear in more than one list — an employee who\'s also a customer is two separate entities, one per role, not a special case this screen tries to unify.'] ?? 'Employees, customers, vendors/suppliers, and manufacturers — all stored the same way, as entities with contact details. Customers and vendors are created automatically the first time they\'re used on an AR Sale or AP Purchase; employees and manufacturers don\'t have that yet, so for now they need to exist first via the Structured Editor before contact details can be added here. The same real person can appear in more than one list — an employee who\'s also a customer is two separate entities, one per role, not a special case this screen tries to unify.'}</p>
+    <p class="intro">{translations.current['Employees, customers, providers, and manufacturers — all stored the same way, as entities with contact details. Customers and providers are created automatically the first time they\'re used on an AR Sale or AP Purchase; employees and manufacturers don\'t have that yet, so for now they need to exist first via the Structured Editor before contact details can be added here. The same real person can appear in more than one list — an employee who\'s also a customer is two separate entities, one per role, not a special case this screen tries to unify.'] ?? 'Employees, customers, providers, and manufacturers — all stored the same way, as entities with contact details. Customers and providers are created automatically the first time they\'re used on an AR Sale or AP Purchase; employees and manufacturers don\'t have that yet, so for now they need to exist first via the Structured Editor before contact details can be added here. The same real person can appear in more than one list — an employee who\'s also a customer is two separate entities, one per role, not a special case this screen tries to unify.'}</p>
   {/if}
   {#if focus}
-    <p class="show-all"><button type="button" class="link-btn" onclick={() => goto('/contacts')}>{translations.current['Show everything (employees, customers, vendors, manufacturers)'] ?? 'Show everything (employees, customers, vendors, manufacturers)'}</button></p>
+    <p class="show-all"><button type="button" class="link-btn" onclick={() => goto('/contacts')}>{translations.current['Show everything (employees, customers, providers, manufacturers)'] ?? 'Show everything (employees, customers, providers, manufacturers)'}</button></p>
   {/if}
 
   {#if focus && !loading}
@@ -134,12 +134,12 @@
           </button>
         {/each}
       </fieldset>
-    {:else if focus === 'vendors'}
+    {:else if focus === 'providers'}
       <fieldset class="list-card embedded">
-        {#if vendors.length === 0}
+        {#if providers.length === 0}
           <p class="empty">{translations.current['None yet.'] ?? 'None yet.'}</p>
         {/if}
-        {#each vendors as v}
+        {#each providers as v}
           <button type="button" class="entry" class:active={selectedName === v.name} onclick={() => select(v.name)}>
             {translations.current[v.name] ?? v.name}
           </button>
@@ -188,11 +188,11 @@
         {/each}
       </fieldset>
       <fieldset class="list-card">
-        <legend>{translations.current['Vendors / Suppliers'] ?? 'Vendors / Suppliers'}</legend>
-        {#if vendors.length === 0}
+        <legend>{translations.current['Providers'] ?? 'Providers'}</legend>
+        {#if providers.length === 0}
           <p class="empty">{translations.current['None yet.'] ?? 'None yet.'}</p>
         {/if}
-        {#each vendors as v}
+        {#each providers as v}
           <button type="button" class="entry" class:active={selectedName === v.name} onclick={() => select(v.name)}>
             {translations.current[v.name] ?? v.name}
           </button>
@@ -235,7 +235,7 @@
         <p class="hint">
           0 means cash only (due on receipt). A real term (e.g. 30) means aging reports bucket this account at
           30/60/90 days — the buckets are always 1x/2x/3x this number, since account management practice genuinely
-          varies per customer or vendor.
+          varies per customer or provider.
         </p>
         <fieldset>
           <legend>{translations.current['Credit limit'] ?? 'Credit limit'}</legend>
@@ -249,7 +249,7 @@
           />
         </fieldset>
         <p class="hint">
-          The real, maximum outstanding balance this customer/vendor is allowed to carry — leave blank for no limit
+          The real, maximum outstanding balance this customer/provider is allowed to carry — leave blank for no limit
           (an ordinary, unrestricted account). A real, separate setting from payment terms: generous terms and a
           tight limit, or tight terms and a generous limit, are both genuine, real combinations.
         </p>
@@ -309,7 +309,7 @@
           </select>
         </fieldset>
         <p class="hint">
-          This customer/vendor's own preferred language for invoices — genuinely necessary in multilingual markets
+          This customer/provider's own preferred language for invoices — genuinely necessary in multilingual markets
           (Canada, Switzerland) where the business's own default language doesn't tell you what a specific customer
           wants their invoice printed in. Leave unset to use the business's own default language.
         </p>

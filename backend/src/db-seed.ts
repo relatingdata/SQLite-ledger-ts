@@ -878,7 +878,7 @@ function migrateForEnglishStringAuditTranslations() {
     ['Tax account', 'Steuerkonto', 'Compte de taxe', 'Momskonto', 'Conto imposte'],
     ['Total committed:', 'Gesamt zugesagt:', 'Total engagé :', 'Total forpligtet:', 'Totale impegnato:'],
     ['Total invoiced:', 'Gesamt in Rechnung gestellt:', 'Total facturé :', 'Total faktureret:', 'Totale fatturato:'],
-    ['Total owed to vendor:', 'Gesamt an Lieferant geschuldet:', 'Total dû au fournisseur :', 'Total skyldig til leverandør:', 'Totale dovuto al fornitore:'],
+    ['Total owed to provider:', 'Gesamt an Lieferant geschuldet:', 'Total dû au fournisseur :', 'Total skyldig til leverandør:', 'Totale dovuto al fornitore:'],
     ['Total owed:', 'Gesamt geschuldet:', 'Total dû :', 'Total skyldig:', 'Totale dovuto:'],
     ['Trial Balance', 'Saldenliste', 'Balance de vérification', 'Råbalance', 'Bilancio di verifica'],
     ['Unit Price', 'Stückpreis', 'Prix unitaire', 'Enhedspris', 'Prezzo unitario'],
@@ -1076,7 +1076,7 @@ function migrateForMenuEntities() {
       // source-of-truth label.
       label: 'Inventory',
       links: [
-        { label: 'Providers', href: '/contacts?focus=vendors' },
+        { label: 'Providers', href: '/contacts?focus=providers' },
         { label: 'Manufacturers', href: '/contacts' },
         { label: 'Inventory Catalog', href: '/items' },
         { label: 'Inventory Listing', href: '/stock/listing' },
@@ -1277,6 +1277,14 @@ function migrateForMenuReorg(): void {
   moveLink('General Ledger', 'New New P&L', 'test');
 
   moveLink('Accounts Payable (Creditors / Purchasing)', 'Vendors', 'Inventory', 'Providers', 'Providers');
+  // The href itself changed too (?focus=vendors -> ?focus=providers, matching
+  // the frontend's own renamed `focus` check) - setEntityLink is its own,
+  // separate idempotent find-or-create-then-supersede, safe to re-run even
+  // though the per-item guard above already skipped re-creating the link
+  // entity itself.
+  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Menu Link: Inventory — Providers'`).get()) {
+    setEntityLink('Menu Link: Inventory — Providers', 'Route', '/contacts?focus=providers', SEED_USER_ID);
+  }
   moveLink('Accounts Payable (Creditors / Purchasing)', 'Manufacturers', 'Inventory');
   moveLink('Accounts Payable (Creditors / Purchasing)', 'Inventory Catalog', 'Inventory');
   moveLink('Accounts Payable (Creditors / Purchasing)', 'Inventory Listing', 'Inventory');

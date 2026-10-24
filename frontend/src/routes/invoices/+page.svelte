@@ -65,7 +65,7 @@
   // Import e-invoice form state
   let showImportForm = $state(false);
   let importPreviewXml = $state('');
-  let importVendor = $state('');
+  let importProvider = $state('');
   let importPoReference = $state('');
   let importing = $state(false);
   let importResult: ImportEInvoiceResult | null = $state(null);
@@ -100,8 +100,8 @@
   });
 
   let customers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Receivable'));
-  let vendors = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
-  let counterpartyOptions = $derived(invoiceTypeFilter === 'AR' ? customers : vendors);
+  let providers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
+  let counterpartyOptions = $derived(invoiceTypeFilter === 'AR' ? customers : providers);
   let postedInvoicesForCredit = $derived(invoices.filter((i) => i.status === 'posted' && i.document_type === 'invoice'));
 
   async function selectInvoice(id: number) {
@@ -249,11 +249,11 @@
   }
 
   async function submitImport() {
-    if (!session.current || !importPreviewXml || !importVendor) return;
+    if (!session.current || !importPreviewXml || !importProvider) return;
     importing = true;
     error = '';
     try {
-      importResult = await importEInvoice(importPreviewXml, session.current.businessName, session.current.ledgerName, asProviderName(importVendor), importPoReference || undefined);
+      importResult = await importEInvoice(importPreviewXml, session.current.businessName, session.current.ledgerName, asProviderName(importProvider), importPoReference || undefined);
       await loadAll();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not import this e-invoice.';
@@ -337,10 +337,10 @@
         </fieldset>
         <div class="row-2">
           <fieldset>
-            <legend>{translations.current['Vendor'] ?? 'Vendor'}</legend>
-            <select bind:value={importVendor}>
-              <option value="">Select vendor…</option>
-              {#each vendors as v}<option value={translations.current[v.name] ?? v.name}>{translations.current[v.name] ?? v.name}</option>{/each}
+            <legend>{translations.current['Provider'] ?? 'Provider'}</legend>
+            <select bind:value={importProvider}>
+              <option value="">Select provider…</option>
+              {#each providers as v}<option value={translations.current[v.name] ?? v.name}>{translations.current[v.name] ?? v.name}</option>{/each}
             </select>
           </fieldset>
           <fieldset>
@@ -366,7 +366,7 @@
             <button class="btn secondary" onclick={() => importResult && selectInvoice(importResult.invoiceId)}>{translations.current['Review the draft'] ?? 'Review the draft'}</button>
           </div>
         {/if}
-        <button class="btn" onclick={submitImport} disabled={importing || !importPreviewXml || !importVendor}>
+        <button class="btn" onclick={submitImport} disabled={importing || !importPreviewXml || !importProvider}>
           {importing ? 'Importing…' : (translations.current['Import'] ?? 'Import')}
         </button>
         <button class="btn secondary" onclick={() => (showImportForm = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
@@ -387,7 +387,7 @@
           </fieldset>
         </div>
         <fieldset>
-          <legend>{invoiceTypeFilter === 'AR' ? 'Customer' : 'Vendor'}</legend>
+          <legend>{invoiceTypeFilter === 'AR' ? 'Customer' : 'Provider'}</legend>
           <select bind:value={newCounterparty}>
             <option value="">Select…</option>
             {#each counterpartyOptions as c}<option value={translations.current[c.name] ?? c.name}>{translations.current[c.name] ?? c.name}</option>{/each}

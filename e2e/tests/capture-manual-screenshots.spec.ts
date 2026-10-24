@@ -105,7 +105,7 @@ const SCREENS: Record<string, (page: any) => Promise<void>> = {
   m_contact_persons: async (page) => {
     await loginAndChooseBusiness(page);
     await continueToApp(page);
-    await page.goto('/contacts?focus=vendors');
+    await page.goto('/contacts?focus=providers');
     await page.waitForTimeout(1200);
     await page.getByText('Boutique Wine Importers Pty Ltd').click();
     await page.waitForTimeout(800);

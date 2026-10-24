@@ -3,8 +3,8 @@
   const items = [
     { href: '/arap/ar-sale', title: 'AR Sale', description: 'Sell to a customer on credit — debits Accounts Receivable, credits Sales Revenue.' },
     { href: '/arap/ar-receipt', title: 'AR Receipt', description: 'Record a payment received from a customer — debits Cash, credits their AR balance.' },
-    { href: '/arap/ap-purchase', title: 'AP Purchase', description: 'Buy from a vendor on credit — debits an expense/asset account, credits Accounts Payable.' },
-    { href: '/arap/ap-payment', title: 'AP Payment', description: 'Pay a vendor — debits their AP balance, credits Cash.' },
+    { href: '/arap/ap-purchase', title: 'AP Purchase', description: 'Buy from a provider on credit — debits an expense/asset account, credits Accounts Payable.' },
+    { href: '/arap/ap-payment', title: 'AP Payment', description: 'Pay a provider — debits their AP balance, credits Cash.' },
   ];
 </script>
 

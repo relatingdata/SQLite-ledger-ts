@@ -22,7 +22,7 @@
 
 <fieldset class="page-title">
   <legend>{translations.current['Stock-Out Risk'] ?? 'Stock-Out Risk'}</legend>
-  <p class="intro">{translations.current['Every item genuinely on track to run out before a fresh order, placed today, could arrive — based on real, recent consumption and the shortest known vendor lead time, not just a fixed reorder threshold.'] ?? 'Every item genuinely on track to run out before a fresh order, placed today, could arrive — based on real, recent consumption and the shortest known vendor lead time, not just a fixed reorder threshold.'}</p>
+  <p class="intro">{translations.current['Every item genuinely on track to run out before a fresh order, placed today, could arrive — based on real, recent consumption and the shortest known provider lead time, not just a fixed reorder threshold.'] ?? 'Every item genuinely on track to run out before a fresh order, placed today, could arrive — based on real, recent consumption and the shortest known provider lead time, not just a fixed reorder threshold.'}</p>
 {#if loading}
   <p>Loading…</p>
 {:else if error}

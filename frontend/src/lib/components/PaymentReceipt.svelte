@@ -29,11 +29,11 @@
   // direction is static — same pattern as CashTransaction.svelte.
   // svelte-ignore state_referenced_locally
   const isPayment = direction === 'payment';
-  const partyLabel = isPayment ? 'Vendor' : 'Customer';
+  const partyLabel = isPayment ? 'Provider' : 'Customer';
   const partyParentEntity = isPayment ? 'Accounts Payable' : 'Accounts Receivable';
   const title = isPayment ? 'AP Payment' : 'AR Receipt';
   const intro = isPayment
-    ? 'A payment to a vendor — debits their Accounts Payable balance, credits Cash and Bank.'
+    ? 'A payment to a provider — debits their Accounts Payable balance, credits Cash and Bank.'
     : 'A receipt from a customer — debits Cash and Bank, credits their Accounts Receivable balance.';
   const verbedNoun = isPayment ? 'payment' : 'receipt';
   const amountVerb = isPayment ? 'paid' : 'received';

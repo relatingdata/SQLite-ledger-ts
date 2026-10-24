@@ -1,7 +1,7 @@
 <script lang="ts">
   import { translations } from '$lib/state.svelte';
   const items = [
-    { href: '/stock/po', title: 'Purchase Order', description: 'Commit to buying from a vendor — memo only, until a Stock Receipt fulfills it.' },
+    { href: '/stock/po', title: 'Purchase Order', description: 'Commit to buying from a provider — memo only, until a Stock Receipt fulfills it.' },
     { href: '/stock/stock-receipt', title: 'Stock Receipt', description: 'Fulfill a Purchase Order — receives goods or a service, real posting.' },
     { href: '/stock/so', title: 'Sales Order', description: "A customer's committed order — memo only, until a Stock Dispatch fulfills it." },
     { href: '/stock/stock-dispatch', title: 'Stock Dispatch', description: 'Fulfill a Sales Order — ships and invoices in one action, real posting.' },

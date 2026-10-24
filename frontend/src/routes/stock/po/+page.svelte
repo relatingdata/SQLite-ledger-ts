@@ -11,7 +11,7 @@
   // Known sources, fetched fresh per item — see docs/pm-frontend-reference.md.
   let itemSources: ItemSource[] = [];
   let loadingSources = false;
-  let showAllVendors = false;
+  let showAllProviders = false;
 
   let businesses: { id: number; name: string }[] = [];
   let ledgers: { id: number; name: string }[] = [];
@@ -23,7 +23,7 @@
 
   let business = '';
   let ledger = '';
-  let vendor = '';
+  let provider = '';
   let item = '';
   let quantity = '';
   let price = '';
@@ -54,33 +54,33 @@
     }
   }
 
-  $: vendors = entities.filter((e) => {
+  $: providers = entities.filter((e) => {
     const parent = entities.find((p) => p.id === e.parent_id);
     return parent?.name === 'Accounts Payable';
   });
   $: items = filterToItems(entities);
 
-  // Known vendors, preferred first — see docs/pm-frontend-reference.md.
-  $: knownVendorNames = itemSources.map((s) => s.vendor_name);
-  $: vendorOptions = showAllVendors || itemSources.length === 0 ? vendors : vendors.filter((v) => knownVendorNames.includes(v.name));
+  // Known providers, preferred first — see docs/pm-frontend-reference.md.
+  $: knownProviderNames = itemSources.map((s) => s.vendor_name);
+  $: providerOptions = showAllProviders || itemSources.length === 0 ? providers : providers.filter((v) => knownProviderNames.includes(v.name));
 
   $: if (item) loadItemSources();
   $: if (!item) {
     itemSources = [];
-    showAllVendors = false;
+    showAllProviders = false;
   }
 
   async function loadItemSources() {
     loadingSources = true;
     try {
       itemSources = await listItemSources(asItemName(item));
-      showAllVendors = false;
+      showAllProviders = false;
       const preferred = itemSources.find((s) => s.is_preferred) ?? itemSources[0];
       if (preferred) {
-        vendor = preferred.vendor_name;
+        provider = preferred.vendor_name;
         if (preferred.price_minor != null) price = (preferred.price_minor / 100).toFixed(2);
       } else {
-        vendor = '';
+        provider = '';
       }
     } catch {
       // Order still works if known-sources fails to load.
@@ -92,25 +92,25 @@
 
   $: totalMinor = quantity && price ? parseQuantity(quantity) * parseMinorUnits(price) : 0;
 
-  // Changing vendor also follows that source's known price — see docs/pm-frontend-reference.md.
-  $: if (vendor && itemSources.length > 0) {
-    const matching = itemSources.find((s) => s.vendor_name === vendor);
+  // Changing provider also follows that source's known price — see docs/pm-frontend-reference.md.
+  $: if (provider && itemSources.length > 0) {
+    const matching = itemSources.find((s) => s.vendor_name === provider);
     if (matching?.price_minor != null) price = (matching.price_minor / 100).toFixed(2);
   }
 
   async function save() {
     error = '';
     message = '';
-    if (!reference.trim() || !vendor || !item || !quantity || !price) {
-      error = 'Reference, vendor, item, quantity, and price are all required.';
+    if (!reference.trim() || !provider || !item || !quantity || !price) {
+      error = 'Reference, provider, item, quantity, and price are all required.';
       return;
     }
     saving = true;
     try {
       const price_minor = parseMinorUnits(price);
-      await stagePurchaseOrder({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), vendor: asProviderName(vendor), item: asAccountName(item), quantity: parseQuantity(quantity), price_minor, location: deliveryLocation ? asLocationName(deliveryLocation) : undefined, transdate, description: description || undefined }, 'Stage Purchase Order');
+      await stagePurchaseOrder({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), vendor: asProviderName(provider), item: asAccountName(item), quantity: parseQuantity(quantity), price_minor, location: deliveryLocation ? asLocationName(deliveryLocation) : undefined, transdate, description: description || undefined }, 'Stage Purchase Order');
       await postPurchaseOrder(reference, asBusinessName(business), asLedgerName(ledger), 'Post Purchase Order');
-      message = `Purchase Order ${reference} placed with ${vendor}.`;
+      message = `Purchase Order ${reference} placed with ${provider}.`;
       reference = '';
       quantity = '';
       price = '';
@@ -127,7 +127,7 @@
 
 <fieldset class="page-title">
   <legend>{translations.current['Purchase Order'] ?? 'Purchase Order'}</legend>
-  <p class="intro">{translations.current['Commits to buying from a vendor — memo only, no real ledger effect until a Stock Receipt fulfills it (all or item).'] ?? 'Commits to buying from a vendor — memo only, no real ledger effect until a Stock Receipt fulfills it (all or item).'}</p>
+  <p class="intro">{translations.current['Commits to buying from a provider — memo only, no real ledger effect until a Stock Receipt fulfills it (all or item).'] ?? 'Commits to buying from a provider — memo only, no real ledger effect until a Stock Receipt fulfills it (all or item).'}</p>
 
   {#if loading}
     <p>Loading…</p>
@@ -157,26 +157,26 @@
         </select>
       </fieldset>
       <fieldset class="grow">
-        <legend>{translations.current['Vendor'] ?? 'Vendor'}</legend>
-        <select bind:value={vendor}>
-          <option value="">Select vendor…</option>
-          {#each vendorOptions as v}<option value={translations.current[v.name] ?? v.name}>{translations.current[v.name] ?? v.name}</option>{/each}
+        <legend>{translations.current['Provider'] ?? 'Provider'}</legend>
+        <select bind:value={provider}>
+          <option value="">Select provider…</option>
+          {#each providerOptions as v}<option value={translations.current[v.name] ?? v.name}>{translations.current[v.name] ?? v.name}</option>{/each}
         </select>
       </fieldset>
     </div>
     {#if item && !loadingSources}
       {#if itemSources.length > 0}
         <p class="source-hint">
-          {#if showAllVendors}
-            {translations.current['Showing every real vendor — click to only show this item\'s own, known suppliers.'] ?? 'Showing every real vendor — click to only show this item\'s own, known suppliers.'}
-            <button type="button" class="link-button" onclick={() => (showAllVendors = false)}>{translations.current['Known suppliers only'] ?? 'Known suppliers only'}</button>
+          {#if showAllProviders}
+            {translations.current['Showing every real provider — click to only show this item\'s own, known suppliers.'] ?? 'Showing every real provider — click to only show this item\'s own, known suppliers.'}
+            <button type="button" class="link-button" onclick={() => (showAllProviders = false)}>{translations.current['Known suppliers only'] ?? 'Known suppliers only'}</button>
           {:else}
             {translations.current['Only showing this item\'s own, known suppliers'] ?? 'Only showing this item\'s own, known suppliers'} ({itemSources.length}).
-            <button type="button" class="link-button" onclick={() => (showAllVendors = true)}>{translations.current['Show all vendors'] ?? 'Show all vendors'}</button>
+            <button type="button" class="link-button" onclick={() => (showAllProviders = true)}>{translations.current['Show all providers'] ?? 'Show all providers'}</button>
           {/if}
         </p>
       {:else}
-        <p class="source-hint">{translations.current['No real, known supplier on record for this item yet — showing every real vendor.'] ?? 'No real, known supplier on record for this item yet — showing every real vendor.'}</p>
+        <p class="source-hint">{translations.current['No real, known supplier on record for this item yet — showing every real provider.'] ?? 'No real, known supplier on record for this item yet — showing every real provider.'}</p>
       {/if}
     {/if}
     <div class="row">

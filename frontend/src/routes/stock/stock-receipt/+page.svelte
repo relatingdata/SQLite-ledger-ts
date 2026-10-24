@@ -20,7 +20,7 @@
   let ledger = $state('');
   let poReference = $state('');
   let poStatus: { quantity: number; value_minor: number } | null = $state(null);
-  let vendor = $state('');
+  let provider = $state('');
   let item = $state('');
   let isService = $state(false);
   let itemQty = $state('');
@@ -61,7 +61,7 @@
     }
   }
 
-  let vendors = $derived.by(() => entities.filter((e) => {
+  let providers = $derived.by(() => entities.filter((e) => {
     const parent = entities.find((p) => p.id === e.parent_id);
     return parent?.name === 'Accounts Payable';
   }));
@@ -73,8 +73,8 @@
   async function save() {
     error = '';
     message = '';
-    if (!reference.trim() || !poReference.trim() || !vendor || !item || !quantity || !value) {
-      error = 'Reference, PO reference, vendor, item, quantity, and value are all required.';
+    if (!reference.trim() || !poReference.trim() || !provider || !item || !quantity || !value) {
+      error = 'Reference, PO reference, provider, item, quantity, and value are all required.';
       return;
     }
     saving = true;
@@ -82,7 +82,7 @@
       await stageOrderReceipt({
         reference, business: asBusinessName(business), ledger: asLedgerName(ledger), po_reference: poReference, item,
         item_qty: isService ? undefined : itemQty || undefined,
-        vendor, quantity: parseQuantity(quantity), value_minor: parseMinorUnits(value), tax_minor: taxMinor,
+        vendor: provider, quantity: parseQuantity(quantity), value_minor: parseMinorUnits(value), tax_minor: taxMinor,
         transdate, description: description || undefined,
       });
       await postOrderReceipt(reference, asBusinessName(business), asLedgerName(ledger));
@@ -137,10 +137,10 @@
     </div>
     <div class="row">
       <fieldset class="grow">
-        <legend>{translations.current['Vendor'] ?? 'Vendor'}</legend>
-        <select bind:value={vendor}>
-          <option value="">Select vendor…</option>
-          {#each vendors as v}<option value={translations.current[v.name] ?? v.name}>{translations.current[v.name] ?? v.name}</option>{/each}
+        <legend>{translations.current['Provider'] ?? 'Provider'}</legend>
+        <select bind:value={provider}>
+          <option value="">Select provider…</option>
+          {#each providers as v}<option value={translations.current[v.name] ?? v.name}>{translations.current[v.name] ?? v.name}</option>{/each}
         </select>
       </fieldset>
       <fieldset class="grow">
@@ -184,7 +184,7 @@
     </div>
     {#if value}
       <div class="totals-box">
-        <p class="total-line">{translations.current['Total owed to vendor:'] ?? 'Total owed to vendor:'}<strong>{formatAmount(totalMinor, auth.current?.user.number_format ?? '1 000.00')}</strong> (tax claimed: {formatAmount(taxMinor, auth.current?.user.number_format ?? '1 000.00')})</p>
+        <p class="total-line">{translations.current['Total owed to provider:'] ?? 'Total owed to provider:'}<strong>{formatAmount(totalMinor, auth.current?.user.number_format ?? '1 000.00')}</strong> (tax claimed: {formatAmount(taxMinor, auth.current?.user.number_format ?? '1 000.00')})</p>
       </div>
     {/if}
     <div class="button-row">

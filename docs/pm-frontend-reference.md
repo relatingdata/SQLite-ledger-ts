@@ -359,7 +359,7 @@ their rationale lives in the cited chapter:
   `getUsers`/`setUserRolesApi`.
 - `ItemSourceInput.currency`: `null` means the business's own home
   currency; a non-null value is a separate, independently-priced row
-  for the same item/vendor pair, never a currency conversion.
+  for the same item/provider pair, never a currency conversion.
 - `listItems` requires `business` explicitly (items are scoped per
   business, the same convention `listLocations` follows) — never an
   optional afterthought.
@@ -511,10 +511,10 @@ duplicate-intent check (§5) — case-insensitive, and also flagging a
 close, likely-typo match (same name differing only in
 whitespace/punctuation), not only an exact one, since this app's
 global-uniqueness rule makes near-misses just as real a trap as exact
-duplicates. The create-vendor path specifically (per
+duplicates. The create-provider path specifically (per
 `docs/contact-types-and-translations.md`) routes through
 `createProvider` rather than a generic structural parent, so a new
-vendor is genuinely tagged with its own Contact Type, not just
+provider is genuinely tagged with its own Contact Type, not just
 structurally parented. `setContact` always sends the complete current
 form state — it's a full replace, not a partial merge (see
 `schema.sql`'s note on `contact_entry`) — so a partial send would
@@ -644,7 +644,7 @@ accounting structure itself, not just data integrity, since the
 Balance Sheet and P&L's own shape rests on these existing exactly
 where they are.
 
-## `frontend/src/routes/reports/statement/+page.svelte` — the Customer/Vendor Statement report
+## `frontend/src/routes/reports/statement/+page.svelte` — the Customer/Provider Statement report
 
 A race is possible here: `loadCustomers()` fetches the full entity
 tree, which can take a moment on a populated business — long enough
@@ -693,10 +693,10 @@ Grouping names offered are never hardcoded to one privileged
 hierarchy — "group" stands for whichever one a business has actually
 configured (e.g. "Division"), read live, alongside the three
 structural groupings every stock movement row always has: location,
-vendor, category. The report still works with no group tagging at
+provider, category. The report still works with no group tagging at
 all if that lookup fails. Every group starts collapsed, the same
 pattern already proven on the P&L and Inventory Listing reports —
-subtotals first, detail on demand. Transfers have no group/vendor of
+subtotals first, detail on demand. Transfers have no group/provider of
 their own, so grouping by location falls back to the destination,
 since that's the receiving side a person actually cares about
 grouping by.
@@ -757,16 +757,16 @@ the entity tree.
 
 **Known sources** for the selected item ("purchase orders need to
 match suppliers of products being ordered") are fetched fresh
-whenever the item changes; they drive which vendors are offered and
+whenever the item changes; they drive which providers are offered and
 auto-fill the preferred one's known price. A PO can still be placed
 even if the known-sources list fails to load — it's a direct guide,
 not a hard requirement.
 
-**Vendor list** is the item's own preferred source's vendor first,
-then every other known alternate; `showAllVendors` is the escape
+**Provider list** is the item's own preferred source's provider first,
+then every other known alternate; `showAllProviders` is the escape
 hatch for a genuine new, one-off supplier this item has never been
 bought from before — never silently blocked, just not the default.
-Changing the vendor directly (picking a known alternate instead of
+Changing the provider directly (picking a known alternate instead of
 the auto-selected preferred one) follows that source's own known
 price too, rather than leaving a stale figure from whichever source
 was previously selected.
@@ -971,7 +971,7 @@ confirmation the change actually took.
 
 This is the one real screen behind both "AP Payment" and "AR
 Receipt": the two original separate files differed almost entirely by
-parameter-swapping (vendor↔customer, Accounts Payable↔Accounts
+parameter-swapping (provider↔customer, Accounts Payable↔Accounts
 Receivable, "paid"↔"received") — one screen, parameterized by
 `direction`, static for the component's lifetime, the same pattern as
 `CashTransaction.svelte` (hence the same `svelte-ignore
@@ -1027,7 +1027,7 @@ account and each business carries (see
 `backend/scripts/tag-coa-prototypes.ts`). Accounts with no prototype
 relation at all are always shown: product-specific Sales/COGS accounts
 (named `"Sales - ..."`/`"COGS - ..."`, already tagged COGS for a
-different purpose) and customer/vendor contact accounts are universal,
+different purpose) and customer/provider contact accounts are universal,
 not tied to any one CoA prototype.
 
 **Debit/credit mutual exclusion**: a single journal line is either a
@@ -1047,7 +1047,7 @@ Delete only removes the row when there's nothing for it to do
 natively: the account dropdown (not a text field at all), or a text
 field that's currently empty.
 
-## `frontend/src/routes/contacts/+page.svelte` — the Customers/Vendors/Providers screen
+## `frontend/src/routes/contacts/+page.svelte` — the Customers/Providers screen
 
 **Contact fields** that still live directly on the contact record are
 distinct from address/phone, which are now handled entirely by the
@@ -1068,9 +1068,9 @@ doesn't try to unify "these are the same real person" across
 categories, a genuinely separate design question.
 
 **Default category** is set by the menu link actually clicked
-(Customers under Accounts Receivable, Vendors under Accounts Payable),
+(Customers under Accounts Receivable, Providers under Accounts Payable),
 not guessed: the same shared underlying page and mechanism stays
-exactly as it was — customers and vendors ARE genuinely the same kind
+exactly as it was — customers and providers ARE genuinely the same kind
 of record — but which one is shown by default is now clear from the
 person's own immediate perspective, rather than left for them to pick
 out of four lists every time.
@@ -1168,7 +1168,7 @@ read-only display snippet for one item.
 A unique id is generated per instance for its keyboard-hint text, so
 the panel can announce its keyboard shortcuts to a screen reader, not
 just show them visually. It reloads whenever the caller points it at
-a different entity (e.g. switching which vendor, customer, or
+a different entity (e.g. switching which provider, customer, or
 location is selected). After pressing Insert, the cursor goes straight
 into the field the person will actually type into. Insert/Delete are
 owned entirely by this component and attached to its own root element
@@ -1300,7 +1300,7 @@ resolving early.
 
 This is the one real screen behind both "Cash Purchase" and "Cash
 Sale": every line of difference between the two original separate
-files was pure parameter-swapping (vendor↔customer, Accounts
+files was pure parameter-swapping (provider↔customer, Accounts
 Payable↔Accounts Receivable, "Purchase"↔"Sale", receive↔dispatch) with
 zero genuine structural difference, so it's one screen parameterized
 by `direction`, set once by the route file that renders it
@@ -1514,7 +1514,7 @@ effects, each fixing a specific regression found live:
 - `setActiveSectionHighlight` only updates the highlight, never
   navigates — the reactive URL-watcher that calls it runs on every
   navigation including a direct click on a specific, non-first link
-  (e.g. Vendors), and re-navigating there would wrongly bounce that
+  (e.g. Providers), and re-navigating there would wrongly bounce that
   link back to its own section's first link.
 
 `onTopBarSectionClick` is the one place that DOES auto-navigate — to

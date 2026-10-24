@@ -21,7 +21,7 @@ in older design documents.
 | **Division**, **Category** | *examples* of hierarchical classifications of Locations and Items | used by the bundled demo businesses; suggestions, not built-in concepts |
 | **Save**, **Update** | labels on a UI Submit button | translatable Vocabulary words, not code verbs |
 | **AR**, **AP**, **GL**, **P&L** | Accounts Receivable, Accounts Payable, General Ledger, Profit and Loss | capitalised in prose; in code, names still spell these `Ar`/`Ap` (lowercase-leading) rather than `AR`/`AP` — a known, not-yet-applied rename (see Not Yet Applied, below) |
-| **Provider** | who we buy from | the code's own internal name, in every type/function/contact-type key. The business owner's own displayed label stays separately configurable (Vendor, Supplier, Provider, Purveyor, …) via the translatable Vocabulary mechanism |
+| **Provider** | who we buy from | the one, canonical term — in code (every type/function/contact-type key) and in the default user-facing label alike. "Vendor"/"Supplier"/"Purveyor" are not competing standard terms; a business may still relabel the screen to one of them (or any word it prefers) via the translatable Vocabulary mechanism, but that is an opt-in customization, not the default |
 | **Customer** | who we sell to | |
 | **Stock** | the quantity of an Item available for sale | not the Item itself — compare *Stocktake*, which counts it |
 | **Inventory** | the Items held at Locations | the accounting/holding view; Stock is the part of it available for sale |
@@ -76,7 +76,12 @@ its qualifier, never by the bare word "receipt" alone.
 - **`AR`/`AP` capitalisation in code identifiers.** Settled in prose;
   not yet applied to the ~28 code identifiers that still spell these
   `Ar`/`Ap` (`ArSaleInput`, `stageArSale`, `arApRouter`, and similar).
-- **Vendor → Provider, fully applied in code naming.** "Provider" is
-  the settled internal term (above), but a number of names and tests
-  still use `vendor`/`Vendor` directly rather than `Provider` — not
-  yet a uniform rename across the codebase.
+- **Vendor → Provider, applied to code naming and the frontend's
+  user-facing labels** (menu, screen legends, local component
+  variables — per direct instruction). Not yet applied to the
+  backend's own request/response field names and SQL column names
+  (`vendor`, `vendor_name`, `vendor_id` in `db.ts`, `db-journal.ts`,
+  `db-stock.ts`, the `routes/*.ts` zod schemas, and the
+  `po_staging`/`ap_payment_staging`/`item_source` tables) — a larger,
+  schema-touching rename, deferred separately from the naming-only
+  work above.
