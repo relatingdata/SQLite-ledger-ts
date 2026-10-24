@@ -191,7 +191,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
     await page.getByRole('combobox').filter({ hasText: /Item/ }).selectOption({ label: 'Amber Ale 330ml' });
   });
   await page.waitForTimeout(300);
-  await page.locator('select', { hasText: 'Select vendor' }).selectOption({ label: 'Highland Brewing Co' }).catch(() => {});
+  await page.locator('select', { hasText: 'Select provider' }).selectOption({ label: 'Highland Brewing Co' }).catch(() => {});
   await page.locator('input[placeholder="0"]').first().fill('96');
   await page.locator('input[placeholder="0.00"]').first().fill('3.50');
   await page.locator('input[placeholder="e.g. PO-1001"]').fill('PO-AMBER-1');

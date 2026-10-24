@@ -1,6 +1,6 @@
 import { db } from './db.js';
 import {
-  supersedeEntity, setTranslation, getTranslation, getLanguages, setContact, setContactType, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeCustomerName, type UserId, type EntityUpdate } from './db.js';
+  supersedeEntity, setTranslation, setContact, setContactType, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeCustomerName, type UserId, type EntityUpdate } from './db.js';
 
 // Every real seed function below acts as this one, real, direct admin
 // user — cast once, here, rather than at each of the many, real,
@@ -454,7 +454,7 @@ function migrateForEnglishStringAuditGap() {
     ['Select project...', 'Projekt auswählen...', 'Sélectionner un projet...', 'Vælg projekt...', 'Seleziona progetto...'],
     ['Project (expense account)', 'Projekt (Aufwandskonto)', 'Projet (compte de charges)', 'Projekt (udgiftskonto)', 'Progetto (conto spese)'],
     ['Item / account (what this receipt is for)', 'Artikel / Konto (wofür dieser Beleg ist)', 'Article / compte (objet de ce reçu)', 'Vare / konto (hvad denne kvittering er til)', 'Articolo / conto (a cosa si riferisce questa ricevuta)'],
-    ['Show everything (employees, customers, vendors, manufacturers)', 'Alles anzeigen (Mitarbeiter, Kunden, Lieferanten, Hersteller)', 'Tout afficher (employés, clients, fournisseurs, fabricants)', 'Vis alt (medarbejdere, kunder, leverandører, producenter)', 'Mostra tutto (dipendenti, clienti, fornitori, produttori)'],
+    ['Show everything (employees, customers, providers, manufacturers)', 'Alles anzeigen (Mitarbeiter, Kunden, Lieferanten, Hersteller)', 'Tout afficher (employés, clients, fournisseurs, fabricants)', 'Vis alt (medarbejdere, kunder, leverandører, producenter)', 'Mostra tutto (dipendenti, clienti, fornitori, produttori)'],
     ['Known, real, alternate words for this concept:', 'Bekannte, tatsächliche alternative Wörter für dieses Konzept:', 'Mots alternatifs réels et connus pour ce concept :', 'Kendte, reelle alternative ord for dette begreb:', 'Parole alternative reali e conosciute per questo concetto:'],
     ['No real concept currently has more than one, known, alternate name.', 'Derzeit hat kein reales Konzept mehr als einen bekannten alternativen Namen.', "Aucun concept réel n'a actuellement plus d'un nom alternatif connu.", 'Ingen reelt begreb har i øjeblikket mere end ét kendt alternativt navn.', 'Nessun concetto reale ha attualmente più di un nome alternativo conosciuto.'],
     ['did you mean to link to it via Relation instead?', 'wollten Sie es stattdessen über Relation verknüpfen?', 'vouliez-vous plutôt le lier via Relation ?', 'mente du at linke til det via Relation i stedet?', 'intendevi collegarlo tramite Relation invece?'],
@@ -465,7 +465,7 @@ function migrateForEnglishStringAuditGap() {
     ['No real stock on hand for this combination.', 'Kein realer Lagerbestand für diese Kombination.', 'Aucun stock réel disponible pour cette combinaison.', 'Ingen reel lagerbeholdning for denne kombination.', 'Nessuna scorta reale disponibile per questa combinazione.'],
     ['No real division has any activity within this date range.', 'Kein realer Bereich weist in diesem Zeitraum eine Aktivität auf.', "Aucune division réelle n'a d'activité sur cette période.", 'Ingen reel afdeling har nogen aktivitet inden for denne periode.', 'Nessuna divisione reale ha attività in questo intervallo di date.'],
     ['No real wage or salary configured for this employee yet — set one on the Contacts page first.', 'Für diesen Mitarbeiter ist noch kein Lohn oder Gehalt festgelegt — legen Sie zuerst eines auf der Kontakte-Seite fest.', "Aucun salaire réel n'est encore configuré pour cet employé — définissez-en un d'abord sur la page Contacts.", 'Ingen reel løn er endnu konfigureret for denne medarbejder — indstil en på Kontakter-siden først.', 'Nessuno stipendio reale è ancora configurato per questo dipendente — impostane uno prima nella pagina Contatti.'],
-    ['No real, known supplier on record for this item yet — showing every real vendor.', 'Für diesen Artikel ist noch kein bekannter Lieferant erfasst — es werden alle Lieferanten angezeigt.', "Aucun fournisseur réel connu n'est encore enregistré pour cet article — affichage de tous les fournisseurs réels.", 'Ingen kendt reel leverandør er endnu registreret for denne vare — viser alle reelle leverandører.', 'Nessun fornitore reale conosciuto è ancora registrato per questo articolo — mostra tutti i fornitori reali.'],
+    ['No real, known supplier on record for this item yet — showing every real provider.', 'Für diesen Artikel ist noch kein bekannter Lieferant erfasst — es werden alle Lieferanten angezeigt.', "Aucun fournisseur réel connu n'est encore enregistré pour cet article — affichage de tous les fournisseurs réels.", 'Ingen kendt reel leverandør er endnu registreret for denne vare — viser alle reelle leverandører.', 'Nessun fornitore reale conosciuto è ancora registrato per questo articolo — mostra tutti i fornitori reali.'],
     ['No real, outstanding invoices for this customer.', 'Keine offenen Rechnungen für diesen Kunden.', "Aucune facture réelle en attente pour ce client.", 'Ingen reelle udestående fakturaer for denne kunde.', 'Nessuna fattura reale in sospeso per questo cliente.'],
     ['No real, outstanding invoices for this vendor.', 'Keine offenen Rechnungen für diesen Lieferanten.', "Aucune facture réelle en attente pour ce fournisseur.", 'Ingen reelle udestående fakturaer for denne leverandør.', 'Nessuna fattura reale in sospeso per questo fornitore.'],
     ['No anticipated movements within this horizon.', 'Keine erwarteten Bewegungen in diesem Zeitraum.', 'Aucun mouvement anticipé sur cet horizon.', 'Ingen forventede bevægelser inden for denne horisont.', 'Nessun movimento previsto in questo orizzonte.'],
@@ -509,14 +509,14 @@ function migrateForEnglishStringAuditGap() {
       'Mostra solo i fornitori propri e conosciuti di questo articolo',
     ],
     [
-      "Showing every real vendor — click to only show this item's own, known suppliers.",
+      "Showing every real provider — click to only show this item's own, known suppliers.",
       'Es werden alle Lieferanten angezeigt — klicken Sie, um nur die eigenen, bekannten Lieferanten dieses Artikels anzuzeigen.',
       "Affichage de tous les fournisseurs réels — cliquez pour n'afficher que les fournisseurs connus propres à cet article.",
       'Viser alle reelle leverandører — klik for kun at vise denne vares egne, kendte leverandører.',
       'Mostra tutti i fornitori reali — clicca per mostrare solo i fornitori propri e conosciuti di questo articolo.',
     ],
     [
-      'Cost shown is the preferred vendor\u2019s own current price per unit \u2014 not a real, tracked historical average, since no such figure exists yet on a per-item basis.',
+      'Cost shown is the preferred provider\u2019s own current price per unit \u2014 not a real, tracked historical average, since no such figure exists yet on a per-item basis.',
       'Der angezeigte Preis ist der aktuelle Preis pro Einheit des bevorzugten Lieferanten — kein realer, erfasster historischer Durchschnitt, da eine solche Kennzahl je Artikel noch nicht existiert.',
       "Le coût affiché est le prix actuel par unité du fournisseur préféré — pas une moyenne historique réelle suivie, car un tel chiffre n'existe pas encore par article.",
       'Den viste omkostning er den foretrukne leverandørs egen nuværende pris pr. enhed — ikke et reelt, sporet historisk gennemsnit, da et sådant tal endnu ikke findes pr. vare.',
@@ -558,7 +558,7 @@ function migrateForEnglishStringAuditGap() {
       "Un dipendente reale ha esattamente uno dei due — salario orario o stipendio annuo fisso, mai entrambi. Impostarne uno cancella l'altro. Paga stipendi (sotto HR) usa quello effettivamente impostato.",
     ],
     [
-      "A real employee is treated as a real Accounts Payable counterparty — the same mechanism a vendor invoice already uses. Paying wages debits Wages (or the employee's own monthly salary), withholds a real Medicare levy from their own pay, and accrues real superannuation as a separate, additional employer cost.",
+      "A real employee is treated as a real Accounts Payable counterparty — the same mechanism a provider invoice already uses. Paying wages debits Wages (or the employee's own monthly salary), withholds a real Medicare levy from their own pay, and accrues real superannuation as a separate, additional employer cost.",
       "Ein realer Mitarbeiter wird als reale Kreditoren-Gegenpartei behandelt — derselbe Mechanismus, den eine Lieferantenrechnung bereits verwendet. Die Lohnzahlung belastet Löhne (oder das monatliche Gehalt des Mitarbeiters), behält eine reale Medicare-Abgabe vom eigenen Lohn ein und verbucht reale Pensionskassenbeiträge als separate, zusätzliche Arbeitgeberkosten.",
       "Un employé réel est traité comme une contrepartie réelle de comptes fournisseurs — le même mécanisme qu'une facture fournisseur utilise déjà. Le paiement des salaires débite Salaires (ou le salaire mensuel propre de l'employé), retient un vrai prélèvement Medicare sur sa propre paie, et comptabilise une vraie retraite comme coût employeur séparé et additionnel.",
       'En reel medarbejder behandles som en reel kreditormoditem — samme mekanisme som en leverandørfaktura allerede bruger. Betaling af løn debiterer Løn (eller medarbejderens egen månedsløn), tilbageholder en reel Medicare-afgift fra egen løn, og periodiserer reel pension som en separat, ekstra arbejdsgiveromkostning.',
@@ -682,7 +682,7 @@ function migrateForEnglishStringAuditGap() {
       "Nulla viene ancora registrato — il passaggio successivo mostra la vera scrittura di giornale generale proposta per la tua revisione, prima che qualcosa venga effettivamente chiuso.",
     ],
     [
-      "Real vendors/suppliers — created automatically the first time one is used on an AP Purchase.",
+      "Real providers — created automatically the first time one is used on an AP Purchase.",
       "Reale Lieferanten — automatisch erstellt, sobald einer erstmals bei einem Kreditoren-Einkauf verwendet wird.",
       "Fournisseurs réels — créés automatiquement la première fois qu'un est utilisé sur un achat fournisseur.",
       'Reelle leverandører — oprettes automatisk, første gang en bruges på et kreditorkøb.',
@@ -1299,27 +1299,32 @@ migrateForMenuEntities();
 
 /** Step 3 of docs/translator-form-and-guard-rails-plan.md — the real,
  * concrete case confirmed by the direct review this session already
- * did (docs/user-manual.md, Item 1b): "Vendor"/"Supplier" is
- * genuinely an English-only synonym problem — German, French, Danish,
- * and Italian each already have one, single, standard word, with no
- * real, competing second term. "Suppliers" is created here as its
- * own, real, distinct Vocabulary entity (matching "Vendors" own,
- * established, plural convention), reaching "Accounts Payable" via
- * the exact, same, real "Header Account" hierarchy link "Vendors"
- * itself already uses — a second, real, equal, alternate path to the
- * same, real concept, not a replacement for "Vendors" at all. Its own
- * real, cross-language translations are deliberately identical to
- * "Vendors" own, since the real, underlying words genuinely are the
- * same in each of those four languages — confirmed directly, not
- * assumed, by the same review. */
+ * did (docs/user-manual.md, Item 1b): "Provider"/"Vendor"/"Supplier"
+ * is genuinely an English-only synonym problem — German, French,
+ * Danish, and Italian each already have one, single, standard word,
+ * with no real, competing second term. "Suppliers" is created here as
+ * its own, real, distinct Vocabulary entity (an opt-in alternate
+ * alongside "Providers", the default, canonical label), reaching
+ * "Accounts Payable" via the exact, same, real "Header Account"
+ * hierarchy link "Vendors" (the underlying, un-renamed, backend
+ * contact-type entity) itself already uses — a second, real, equal,
+ * alternate path to the same, real concept, not a replacement for
+ * either.
+ *
+ * Deliberately does NOT try to copy "Providers" own translations onto
+ * "Suppliers": setTranslation's own, real anti-ambiguity guard
+ * correctly refuses to let two distinct English concepts share the
+ * exact same translated text in a given language (confirmed directly
+ * — attempting it here logged a genuine "Suppliers/Providers both
+ * translate to Lieferanten" collision on every fresh boot). "Suppliers"
+ * is therefore a real, English-only label for now, same as any other
+ * not-yet-translated word — it falls back to its own English name in
+ * German/French/Danish/Italian until someone genuinely gives it its
+ * own, distinct real translation through /setup/translations. */
 function migrateForVocabularyAlternates() {
   if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Suppliers'`).get()) return;
   create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Suppliers', SEED_USER_ID);
   setHierarchyParent('Suppliers', 'Header Account', 'Accounts Payable', SEED_USER_ID);
-  for (const lang of getLanguages()) {
-    const text = getTranslation('Vendors', lang.name);
-    if (text) setTranslation('Suppliers', lang.name, text, SEED_USER_ID);
-  }
 }
 migrateForVocabularyAlternates();
 

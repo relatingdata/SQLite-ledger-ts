@@ -166,6 +166,19 @@ test('languages list and localized_text fallback/override work end to end', () =
   assert.ok(languages.some((l) => l.name === 'English'));
   assert.ok(languages.some((l) => l.name === 'German'));
 
+  // Per commit 5697d46, the boot seed ships with zero non-English
+  // translations by design — every base Vocabulary word falls back to
+  // its own English name until a translation is explicitly set (the
+  // real, on-demand path being shared-fixtures/translations.csv,
+  // loaded via step-runner.ts against a live instance, never baked
+  // into schema/00-core.sql). Set here, directly, to exercise the
+  // exact, same fallback-then-override mechanism this test is about,
+  // without depending on seed data that no longer exists.
+  assert.equal(db.getLocalizedText('German')['Save'], 'Save', 'untranslated word should fall back to English before any translation is set');
+  db.setTranslation('Save', 'German', 'Speichern', fx.userId);
+  db.setTranslation('Debit', 'German', 'Soll', fx.userId);
+  db.setTranslation('Credit', 'German', 'Haben', fx.userId);
+
   const german = db.getLocalizedText('German');
   assert.equal(german['Save'], 'Speichern');
   assert.equal(german['Debit'], 'Soll', 'the standard German accounting term, not a literal word-for-word guess');
@@ -188,6 +201,12 @@ test('French works as a genuine, complete third language — no special-casing n
   const languages = db.getLanguages();
   assert.ok(languages.some((l) => l.name === 'French'), 'a third language works the same way as a second');
   assert.ok(!languages.some((l) => l.name === 'Klingon'), 'dropped per explicit request once German and French were both complete');
+
+  // Same deliberate "zero non-English text in the boot seed" design as
+  // the German test above — set explicitly here rather than assumed.
+  db.setTranslation('Save', 'French', 'Enregistrer', fx.userId);
+  db.setTranslation('Debit', 'French', 'Débit', fx.userId);
+  db.setTranslation('Customers', 'French', 'Clients', fx.userId);
 
   const french = db.getLocalizedText('French');
   assert.equal(french['Save'], 'Enregistrer');
