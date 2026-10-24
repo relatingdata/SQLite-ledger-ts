@@ -1,6 +1,6 @@
 import { db } from './db.js';
 import {
-  supersedeEntity, setTranslation, getTranslation, getLanguages, setContact, setContactType, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeCustomerName, type UserId } from './db.js';
+  supersedeEntity, setTranslation, getTranslation, getLanguages, setContact, setContactType, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeCustomerName, type UserId, type EntityUpdate } from './db.js';
 
 // Every real seed function below acts as this one, real, direct admin
 // user — cast once, here, rather than at each of the many, real,
@@ -884,7 +884,7 @@ function migrateForEnglishStringAuditTranslations() {
     ['Unit Price', 'Stückpreis', 'Prix unitaire', 'Enhedspris', 'Prezzo unitario'],
     ['User:', 'Benutzer:', 'Utilisateur :', 'Bruger:', 'Utente:'],
     ['Variance account', 'Abweichungskonto', 'Compte d\'écart', 'Afvigelseskonto', 'Conto scostamenti'],
-    ['Vendors / Suppliers', 'Lieferanten', 'Fournisseurs', 'Leverandører', 'Fornitori'],
+    ['Providers', 'Lieferanten', 'Fournisseurs', 'Leverandører', 'Fornitori'],
     ['Vocabulary', 'Vokabular', 'Vocabulaire', 'Ordforråd', 'Vocabolario'],
     ['Weekly', 'Wöchentlich', 'Hebdomadaire', 'Ugentligt', 'Settimanale'],
     ['Within (days)', 'Innerhalb (Tage)', 'Dans (jours)', 'Inden for (dage)', 'Entro (giorni)'],
@@ -1013,9 +1013,6 @@ function migrateForMenuEntities() {
         { label: 'Trial Balance', href: '/reports/trial-balance' },
         { label: 'Balance Sheet', href: '/reports/balance-sheet' },
         { label: 'Profit and Loss', href: '/reports/profit-and-loss' },
-        { label: 'Old P&L', href: '/reports/old-pl' },
-        { label: 'New P&L', href: '/reports/new-pl' },
-        { label: 'New New P&L', href: '/reports/new-new-pl' },
         { label: 'DND P&L', href: '/reports/pl-pivot' },
         { label: 'New Stock on Hand', href: '/reports/new-stock-on-hand' },
         { label: 'Compare Ledgers', href: '/reports/compare' },
@@ -1024,9 +1021,23 @@ function migrateForMenuEntities() {
       ],
     },
     {
+      // Per direct instruction: these are superseded/experimental P&L
+      // variants, not real, separate reports — out of General Ledger
+      // and into their own clearly-labelled holding section rather
+      // than deleted outright, since they may still be useful as a
+      // reference while New P&L settles.
+      label: 'test',
+      links: [
+        { label: 'Old P&L', href: '/reports/old-pl' },
+        { label: 'New P&L', href: '/reports/new-pl' },
+        { label: 'New New P&L', href: '/reports/new-new-pl' },
+      ],
+    },
+    {
       label: 'Accounts Receivable (Debtors / Sales)',
       links: [
         { label: 'Sale', href: '/arap/ar-sale' },
+        { label: 'Cash Sale', href: '/arap/cash-sale' },
         { label: 'Receipt', href: '/arap/ar-receipt' },
         { label: 'Sales Invoices', href: '/invoices?type=AR' },
         { label: 'Sales Order', href: '/stock/so' },
@@ -1044,27 +1055,38 @@ function migrateForMenuEntities() {
       label: 'Accounts Payable (Creditors / Purchasing)',
       links: [
         { label: 'Purchase', href: '/arap/ap-purchase' },
+        { label: 'Cash Purchase', href: '/arap/cash-purchase' },
         { label: 'Payment', href: '/arap/ap-payment' },
         { label: 'Purchase Invoices', href: '/invoices?type=AP' },
         { label: 'Purchase Order', href: '/stock/po' },
         { label: 'RFQ (Request for Quotation)', href: '/arap/rfq', notImplemented: true },
         { label: 'Stock Receipt', href: '/stock/stock-receipt' },
         { label: 'Generate Purchase Orders', href: '/order-entry/generate-po', notImplemented: true },
-        { label: 'Vendors', href: '/contacts?focus=vendors' },
+        { label: 'Locations', href: '/locations' },
+        { label: 'Aged Payables', href: '/reports/aged?type=AP' },
+      ],
+    },
+    {
+      // Per direct instruction: split out of Accounts Payable - these
+      // are inventory-management screens, not purchasing screens.
+      // "Providers" is this project's one, real, canonical term for
+      // this contact type (matching the backend's own typeProviderName
+      // entity type) - "Vendors"/"Suppliers" are offered to a business
+      // only as an optional Vocabulary customization, never as the
+      // source-of-truth label.
+      label: 'Inventory',
+      links: [
+        { label: 'Providers', href: '/contacts?focus=vendors' },
         { label: 'Manufacturers', href: '/contacts' },
         { label: 'Inventory Catalog', href: '/items' },
         { label: 'Inventory Listing', href: '/stock/listing' },
-        { label: 'Locations', href: '/locations' },
         { label: 'Stock Take', href: '/stock/stock-take' },
         { label: 'Write-offs & Expiration', href: '/stock/write-offs' },
-        { label: 'Aged Payables', href: '/reports/aged?type=AP' },
       ],
     },
     {
       label: 'Cash',
       links: [
-        { label: 'Cash Sale', href: '/arap/cash-sale' },
-        { label: 'Cash Purchase', href: '/arap/cash-purchase' },
         { label: 'POS Terminal (retail register)', href: '/pos' },
         { label: 'Cash Flow Forecast', href: '/reports/cash-flow-forecast' },
       ],
@@ -1201,6 +1223,70 @@ function migrateForMenuEntities() {
     }
   }
 }
+/** One-off reorg, per direct instruction: moves Old P&L/New P&L/New
+ * New P&L into a new "test" section, splits the inventory-management
+ * links (renamed Vendors -> Providers, Manufacturers, Inventory
+ * Catalog, Inventory Listing, Stock Take, Write-offs & Expiration) out
+ * of Accounts Payable into a new "Inventory" section, and moves Cash
+ * Sale/Cash Purchase out of "Cash" and back beside the on-account
+ * Sale/Purchase screens they belong next to, in Accounts
+ * Receivable/Accounts Payable. The `sections` array above already
+ * reflects this as the real, current layout for a brand-new database;
+ * this function reparents the existing entities (via supersedeEntity,
+ * the same rename/reparent primitive already used above for
+ * Vocabulary-collision handling) for a database that was seeded under
+ * the old layout, so nothing here needs a reset-db to pick this up.
+ * Deliberately runs BEFORE migrateForMenuEntities() below: it renames/
+ * reparents each stale entity to the exact name its NEW location would
+ * otherwise auto-create, so migrateForMenuEntities()'s own per-item
+ * idempotent check finds it already there and skips creating a second,
+ * duplicate entity at the new location while the stale one lingers,
+ * un-reparented, at the old one.
+ */
+function migrateForMenuReorg(): void {
+  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Menu'`).get()) return; // fresh database — the sections array below already reflects the final layout; nothing pre-existing to reparent
+  function ensureSection(label: string): void {
+    const sectionName = `Menu Section: ${label}`;
+    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(sectionName)) {
+      create(requireEntity('Menu', typeRootName), typeMenuSectionName, sectionName, SEED_USER_ID);
+    }
+  }
+  function moveLink(oldSectionLabel: string, linkLabel: string, newSectionLabel: string, newLinkLabel?: string, newRelation?: string | null): void {
+    const oldName = `Menu Link: ${oldSectionLabel} — ${linkLabel}`;
+    const row = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(oldName) as { id: number } | undefined;
+    if (!row) return; // never existed under the old section on this database — nothing to move
+    const newLabel = newLinkLabel ?? linkLabel;
+    const newName = `Menu Link: ${newSectionLabel} — ${newLabel}`;
+    if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(newName)) return; // already moved
+    // A rename also needs its own real_label source re-pointed: the
+    // old "Vendors" link's relation_id already pointed at the real,
+    // pre-existing "Vendors" Vocabulary/contact-type entity, which
+    // otherwise keeps winning over the renamed entity's own bare name
+    // in getMenuTree()'s real_label fallback (confirmed directly,
+    // by inspecting the raw rows after a first, incomplete attempt).
+    const update: EntityUpdate = { name: newName, parent: `Menu Section: ${newSectionLabel}` };
+    if (newRelation !== undefined) update.relation = newRelation;
+    supersedeEntity(row.id, update, SEED_USER_ID);
+  }
+
+  ensureSection('test');
+  ensureSection('Inventory');
+
+  moveLink('General Ledger', 'Old P&L', 'test');
+  moveLink('General Ledger', 'New P&L', 'test');
+  moveLink('General Ledger', 'New New P&L', 'test');
+
+  moveLink('Accounts Payable (Creditors / Purchasing)', 'Vendors', 'Inventory', 'Providers', 'Providers');
+  moveLink('Accounts Payable (Creditors / Purchasing)', 'Manufacturers', 'Inventory');
+  moveLink('Accounts Payable (Creditors / Purchasing)', 'Inventory Catalog', 'Inventory');
+  moveLink('Accounts Payable (Creditors / Purchasing)', 'Inventory Listing', 'Inventory');
+  moveLink('Accounts Payable (Creditors / Purchasing)', 'Stock Take', 'Inventory');
+  moveLink('Accounts Payable (Creditors / Purchasing)', 'Write-offs & Expiration', 'Inventory');
+
+  moveLink('Cash', 'Cash Sale', 'Accounts Receivable (Debtors / Sales)');
+  moveLink('Cash', 'Cash Purchase', 'Accounts Payable (Creditors / Purchasing)');
+}
+migrateForMenuReorg();
 migrateForMenuEntities();
 
 /** Step 3 of docs/translator-form-and-guard-rails-plan.md — the real,
