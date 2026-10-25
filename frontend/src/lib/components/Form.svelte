@@ -22,12 +22,19 @@
     onSubmit,
     submitLabel = 'Save',
     savingLabel = 'Saving…',
+    showSubmitButton = true,
+    onCancel,
   }: {
     fields: FormField[];
     values?: Record<string, string | number | string[]>;
     onSubmit: (values: Record<string, string | number | string[]>) => Promise<void>;
     submitLabel?: string;
     savingLabel?: string;
+    // Both additive, default-preserving — existing callers never pass
+    // these, so their rendering/behavior is byte-for-byte unchanged.
+    // See docs/pm-frontend-reference.md, "Insert/Enter/Escape/Delete".
+    showSubmitButton?: boolean;
+    onCancel?: () => void;
   } = $props();
 
   let saving = $state(false);
@@ -48,13 +55,31 @@
     }
   }
 
-  // Enter-to-submit from any field — see docs/pm-frontend-reference.md.
+  // Enter-to-submit from any text/number/password field — see
+  // docs/pm-frontend-reference.md.
   function onKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') submit();
   }
+
+  // Escape-to-cancel lives on the whole form, not per-field, since it
+  // must work no matter which field currently has focus (a select, a
+  // checkbox, a date picker — fields with no onKeydown of their own).
+  // Only fires when a caller actually wants cancellation (onCancel
+  // supplied) — every existing caller leaves it unset, so this is a
+  // true no-op for them, same as before this prop existed.
+  // stopPropagation matters: frontend/src/routes/+layout.svelte has its
+  // own, unrelated, global Escape handler on <main> (the hasUnsavedEdit
+  // sidebar-focus warning) that must never also fire just because this
+  // inline form's own Escape was handled here.
+  function onFormKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && onCancel) {
+      e.stopPropagation();
+      onCancel();
+    }
+  }
 </script>
 
-<div class="generic-form">
+<div class="generic-form" onkeydown={onFormKeydown}>
   {#if error}<p class="error">{error}</p>{/if}
   {#if message}<p class="success">{message}</p>{/if}
   {#each fields as field (field.name)}
@@ -93,9 +118,11 @@
       {/if}
     </fieldset>
   {/each}
-  <button class="btn" onclick={submit} disabled={saving}>
-    {saving ? (translations.current[savingLabel] ?? savingLabel) : (translations.current[submitLabel] ?? submitLabel)}
-  </button>
+  {#if showSubmitButton}
+    <button class="btn" onclick={submit} disabled={saving}>
+      {saving ? (translations.current[savingLabel] ?? savingLabel) : (translations.current[submitLabel] ?? submitLabel)}
+    </button>
+  {/if}
 </div>
 
 <style>
