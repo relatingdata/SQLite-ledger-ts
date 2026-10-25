@@ -1250,6 +1250,67 @@ confirmation/async work); and the tree content itself via the default
 snippet, entirely the caller's own since node kinds and their detail
 genuinely differ per screen.
 
+## `frontend/src/lib/components/SelectableListEditor.svelte` — the shared flat-list+Insert/Delete shell
+
+Built as shared primitive #3 of the Insert/Enter/Escape/Delete
+keyboard-idiom plan (`/root/.claude/plans/stateful-snacking-adleman.md`),
+for every FLAT (non-tree) entity-table configuration screen the plan
+converts (`bank-accounts`, `hierarchy`'s groupings/values lists,
+`translations`' words/languages lists, `locations`' main list). It
+generalizes `TypedList.svelte`'s own Insert/Delete toolbar shape
+(itself kept untouched, since its three existing callers —
+Address/Phone/Contact — are out of scope and type-keyed rather than
+id-keyed) into something any flat list of items can use directly, by
+taking an explicit `getId: (item: T) => string | number` instead of
+assuming a `type` field.
+
+Unlike `TypedList.svelte`, this component does not manage selection or
+"am I currently inserting" state itself — both are the caller's,
+exactly the way `TreeEditor.svelte` already leaves "am I currently
+inserting" to its own callers. This was a deliberate choice to keep
+exactly one ownership model across both of the idiom's shared shells,
+rather than `TypedList.svelte`'s self-contained style and
+`TreeEditor.svelte`'s caller-owned style disagreeing with each other.
+Concretely: `selectedId`/`onSelect` is the caller's own selection
+state; `inserting` is a plain boolean prop the caller flips true from
+its own `onInsert` callback and flips back false once its own `form`
+snippet's Enter-confirm or Escape-cancel finishes (via
+`Form.svelte`'s new `showSubmitButton`/`onCancel` props, or a
+hand-rolled single-field `onkeydown`, the same pattern
+`items/+page.svelte` already uses).
+
+Each existing item is rendered inside this component's own clickable,
+keyboard-selectable (`role="button"`, Enter to select) wrapper div via
+the caller's `row: Snippet<[T]>`, so the caller only has to describe
+what one row looks like, never how selection or styling works. The
+in-progress insert row is rendered the same way, via `form: Snippet`,
+only while `inserting` is true. The Insert/Delete toolbar handling
+itself (the INPUT/SELECT/TEXTAREA keydown guard, `role="toolbar"`,
+`aria-keyshortcuts="Insert Delete"`, a unique id linking the toolbar to
+its own keyboard-hint text) is the identical shape used by
+`TreeEditor.svelte` and `TypedList.svelte`, kept deliberately
+consistent across all three so the keyboard behaves identically
+everywhere this idiom appears. An optional `emptyText` prop shows a
+plain message in place of the (empty) row list when there are no items
+yet and nothing is being inserted.
+
+No unit test was added for this component specifically: the codebase
+has no precedent anywhere for unit-testing a Svelte component's
+internals (`TreeEditor.svelte`, whose keydown-guard logic this mirrors
+exactly, has none either, despite being in production use on two
+screens already) — the existing frontend `test/*.test.ts` files
+exercise only plain-TypeScript logic modules (`entityTree.ts`,
+`format.ts`, …), never component markup or event wiring, and there is
+no `jsdom`/`@testing-library/svelte` (or equivalent) set up to make
+that possible. Inventing that scaffolding for this one new component,
+while the identical logic in the already-shipped `TreeEditor.svelte`
+stays untested, would be an inconsistent, unrequested expansion of
+scope rather than a genuine gap in this change. `tsc --noEmit` and
+`svelte-check` both pass clean for this file (0 errors, 0 warnings);
+real keyboard-flow coverage will come from the tutorial e2e fixture
+updates already planned for each screen this component gets wired
+into.
+
 ## `frontend/src/routes/setup/new-business/+page.svelte` — the new-business wizard
 
 **Prototype CoA reuse** lists existing ledgers whose Chart of Accounts
