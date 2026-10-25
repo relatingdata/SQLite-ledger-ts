@@ -7,6 +7,7 @@ import {
   stageLocation,
   postLocation,
   getLocation,
+  deleteLocation,
   getItemLocation,
   setItemLocationLevels,
   receiveItems,
@@ -427,6 +428,25 @@ locationsRouter.put('/:name', requireRole('Administrator', 'Bookkeeper'), (req, 
 // of the exact, same bug class, found directly: these two routes
 // never took the same `business` query parameter the PUT route
 // above was already fixed to require.
+// Name-based (LocationRecord, what the Locations screen and the Business
+// Structure popup both actually hold, carries no entity id) — see
+// deleteLocation in db.ts. revokeEntity's own guards do the real safety
+// work: a location with a live capacity account, inventory, journal_line
+// postings, or a Division tag still pointing at it already refuses.
+locationsRouter.delete('/:name', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const business = req.query.business as string;
+  if (!business) return res.status(400).json({ error: 'business query parameter is required.' });
+  try {
+    deleteLocation(asBusinessName(business), req.params.name, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not delete location.' });
+  }
+});
+
 locationsRouter.get('/:name/currencies', (req, res) => {
   res.json(getLocationCurrencies(req.params.name, req.query.business ? asBusinessName(req.query.business as string) : undefined));
 });

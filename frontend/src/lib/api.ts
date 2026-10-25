@@ -1212,6 +1212,13 @@ export const saveLocation = (name: string, input: LocationInput, business: strin
 export const createLocation = (name: string, business: string, input: LocationInput, screenName?: string) =>
   request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'POST', body: JSON.stringify(input) }, screenName);
 
+// Name-based, since listLocations's own LocationRecord carries no entity id
+// — see deleteLocation in db.ts. revokeEntity's own guards (capacity
+// account, inventory, journal_line postings, a Division tag) do the real
+// safety work.
+export const deleteLocation = (name: string, business: string) =>
+  request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'DELETE' });
+
 // Reuses the Hierarchy/Product mechanism — see docs/pm-frontend-reference.md.
 export const convertStorageSpace = (input: {
   business: string;

@@ -1123,6 +1123,32 @@ lookup. `ensureItemLocationInventoryAccount` has the same latent
 exposure and was not touched — out of scope for this fix, flagged
 here for whoever next touches per-location account provisioning.
 
+**A further, distinct instance of the same ambiguity, found while
+adding `deleteLocation`** (see "revokeEntity's incoming-links guard"
+below): the exposure isn't only in `setHierarchyParent`'s `parentName`/
+`targetId` side — its own `entityName`/`entityId` side (the entity
+*being tagged*) has it too, and is hit far more easily, since a
+location with a capacity account (every location created through
+`createAndConfigureLocation`, which is all of them) always has the
+same-named Storage-capacity doppelganger by the time anything tags it.
+Confirmed directly: `createAndConfigureLocation`'s own internal
+`setHierarchyParent(locationName, groupingName, group, userId)` call
+(the one that tags a brand-new location with its division at creation
+time) and `BusinessStructurePopup.svelte`'s `confirmMoveLocation`
+(`setHierarchyTag(node.name, DIVISION, destination)`, no entity id
+available to pass even if the frontend wanted to — the `POST
+/hierarchy/parent` route's own schema has no `entityId` field at all)
+both call through this same, real, currently-live code path without
+an explicit `entityId`, so either can — not deterministically, but
+depending on SQLite's unordered row selection for the bare `name`
+lookup — tag the wrong node. Not fixed here (fixing it properly needs
+either an `entityId` field threaded all the way through the
+`/hierarchy/parent` route and its two frontend callers, or a less
+collision-prone naming scheme for the Storage-capacity tree, both
+larger than the Insert/Enter/Escape/Delete idiom retrofit this was
+found during) — flagged here for whoever next touches Location-to-
+Hierarchy tagging.
+
 Verified: `tsc --noEmit` clean (backend and frontend), `svelte-check`
 0 errors, backend unit tests 233/233, frontend unit tests all passing,
 API-path and browser-path tutorial e2e 62/62 each.

@@ -181,11 +181,11 @@ Add Location Via Structure Popup,data,/setup/business-structure,button:has-text(
 Add Location Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create Location'),4,locationType,.generic-form fieldset >> nth=2 >> select,select
 Add Division Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Division'),addDivisionViaStructurePopup,.inline-form button:has-text('Create'),1,businessName,,text
 Add Division Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Division'),addDivisionViaStructurePopup,.inline-form button:has-text('Create'),2,valueName,"input[placeholder='Division name, e.g. Adelaide Metro']",text
-Move Main Street Cellar To Division,data,/setup/business-structure,.node:has-text('Main Street Cellar') button:has-text('Move'),setHierarchyTagSimple,.move-panel button:has-text('Move'),1,businessName,,text
-Move Main Street Cellar To Division,data,/setup/business-structure,.node:has-text('Main Street Cellar') button:has-text('Move'),setHierarchyTagSimple,.move-panel button:has-text('Move'),2,locationName,,text
-Move Main Street Cellar To Division,data,/setup/business-structure,.node:has-text('Main Street Cellar') button:has-text('Move'),setHierarchyTagSimple,.move-panel button:has-text('Move'),3,division,.move-panel select,select
-Move Head Office To Division,data,/setup/business-structure,.node:has-text('Head Office') button:has-text('Move'),setHierarchyTagSimple,.move-panel button:has-text('Move'),1,businessName,,text
-Move Head Office To Division,data,/setup/business-structure,.node:has-text('Head Office') button:has-text('Move'),setHierarchyTagSimple,.move-panel button:has-text('Move'),2,locationName,,text
-Move Head Office To Division,data,/setup/business-structure,.node:has-text('Head Office') button:has-text('Move'),setHierarchyTagSimple,.move-panel button:has-text('Move'),3,division,.move-panel select,select
+Move Main Street Cellar To Division,data,/setup/business-structure,.node:has-text('Main Street Cellar') button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
+Move Main Street Cellar To Division,data,/setup/business-structure,.node:has-text('Main Street Cellar') button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
+Move Main Street Cellar To Division,data,/setup/business-structure,.node:has-text('Main Street Cellar') button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.move-panel select,select
+Move Head Office To Division,data,/setup/business-structure,.node:has-text('Head Office') button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
+Move Head Office To Division,data,/setup/business-structure,.node:has-text('Head Office') button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
+Move Head Office To Division,data,/setup/business-structure,.node:has-text('Head Office') button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.move-panel select,select
 Add Category Via Structure Popup,data,/setup/business-structure,button:has-text('Item Categories');;button:has-text('+ New top-level category'),addTopLevelCategoryViaStructurePopup,.inline-form button:has-text('Create'),1,businessName,,text
 Add Category Via Structure Popup,data,/setup/business-structure,button:has-text('Item Categories');;button:has-text('+ New top-level category'),addTopLevelCategoryViaStructurePopup,.inline-form button:has-text('Create'),2,categoryName,input[placeholder='Category name'],text

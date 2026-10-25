@@ -3242,6 +3242,18 @@ function deleteTyped(entityName: string, thingSuffix: string, type: string, user
   if (record) Entity.relate(record.id, null, userId);
 }
 
+// Known, real ambiguity when `entityId` is omitted: requireEntity's own
+// name lookup (resolveId) searches `current_entities` globally, with no
+// parent scoping and no ORDER BY — so it resolves to WHICHEVER row shares
+// that exact name, not necessarily the one the caller meant. Confirmed in
+// practice for Locations specifically: every location with a capacity
+// account (ensureLocationCapacityAccount/ensureLocationStorageRoot) gets a
+// same-named doppelganger node created under Chart of Accounts > Storage,
+// so setHierarchyParent(locationName, ...) called without its own
+// `entityId` can silently tag the WRONG node. Every caller that already
+// has the real entity id in hand (setHierarchyParent's own 5th parameter)
+// should pass it, rather than relying on this bare name lookup, whenever
+// the entity's name isn't provably unique across the whole tree.
 export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number, targetId?: number): string {
   const recordName = `${entityName} — ${linkType}`;
   const parentNode = entityId != null ? requireEntityById(entityId, typeRootName) : requireEntity(entityName, typeRootName);
@@ -4790,6 +4802,22 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
     setRelationship(locationName, 'Belongs To Group', group || locationName, userId);
     return entity;
   })();
+}
+
+// Name-based, for the same reason deleteHierarchyValue/deleteHierarchyGrouping
+// above are: the Locations screen and the Business Structure popup both work
+// from listLocations's LocationRecord shape, which carries no entity id.
+// revokeEntity's own guards do the real safety work here too — a location
+// with a live capacity account/inventory/journal_line.location_id postings,
+// or a Division tag still pointing at it, is already blocked (the
+// journal_line.location_id check and the incoming-links check respectively).
+// See /root/.claude/plans/stateful-snacking-adleman.md.
+export function deleteLocation(businessName: BusinessName, locationName: string, userId: UserId): void {
+  const locationsRootId = resolveBusinessLocationsRootId(businessName);
+  if (!locationsRootId) throw new NotFoundError(`"${businessName}" has no Locations root.`);
+  const location = Entity.getUnder(locationName, locationsRootId);
+  if (!location) throw new NotFoundError(`No real location named "${locationName}" for "${businessName}".`);
+  revokeEntity(location.id, userId);
 }
 
 export function createItemCategory(businessName: BusinessName, categoryName: string, parentCategoryName: string | undefined, userId: UserId): TypedNode<'RootName'> {

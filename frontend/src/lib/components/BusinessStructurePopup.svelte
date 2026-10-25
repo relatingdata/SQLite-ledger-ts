@@ -24,6 +24,10 @@
     getEntityTree,
     createEntity,
     supersedeEntity,
+    revokeEntity,
+    deleteLocation,
+    deleteHierarchyGrouping,
+    deleteHierarchyValue,
     listItems,
     ApiError,
     type LocationRecord,
@@ -52,6 +56,25 @@
 
   const DIVISION = 'Division';
   const UNASSIGNED_KEY = '__unassigned__';
+
+  // A single selection, shared across all three tabs — cleared on every
+  // tab/step switch (see goToStep below), since a key from one tree has no
+  // meaning in another. The "+ Add"/"Move…" per-node link-buttons stay
+  // exactly as they were (see /root/.claude/plans/stateful-snacking-adleman.md's
+  // "Open items" — deliberately not folded into this selection model); only
+  // Delete (scoped to this modal's own keydown, below) acts on it.
+  let selectedKey: string | null = $state(null);
+  function selectNode(node: StructureNode) {
+    selectedKey = node.key;
+  }
+  function findNode(tree: StructureNode[], key: string): StructureNode | null {
+    for (const n of tree) {
+      if (n.key === key) return n;
+      const found = findNode(n.children, key);
+      if (found) return found;
+    }
+    return null;
+  }
 
   // ---------------------------------------------------------------
   // Locations & Divisions
@@ -188,6 +211,35 @@
     }
   }
 
+  // Delete, off the shared selection — a real Location deletes itself; a
+  // synthetic division grouping (not the "Unassigned" placeholder, which
+  // has no real entity at all) deletes that Division value via the same
+  // name-based hierarchy wrapper the Hierarchies tab below uses directly.
+  async function deleteSelectedLocationNode() {
+    if (!selectedKey) return;
+    const node = findNode(locationsTree, selectedKey);
+    if (!node) return;
+    if (node.kind === 'location') {
+      if (!confirm(`Delete "${translations.current[node.name] ?? node.name}"? This cannot be undone.`)) return;
+      try {
+        await deleteLocation(node.name, business);
+        selectedKey = null;
+        await loadLocationsTab();
+      } catch (e) {
+        locationsError = e instanceof ApiError ? e.message : 'Could not delete location.';
+      }
+    } else if (node.kind === 'division-value' && node.key !== UNASSIGNED_KEY) {
+      if (!confirm(`Delete the "${translations.current[node.name] ?? node.name}" division? This cannot be undone.`)) return;
+      try {
+        await deleteHierarchyValue(business, DIVISION, node.name);
+        selectedKey = null;
+        await loadLocationsTab();
+      } catch (e) {
+        locationsError = e instanceof ApiError ? e.message : 'Could not delete division.';
+      }
+    }
+  }
+
   // ---------------------------------------------------------------
   // Item Categories
   // ---------------------------------------------------------------
@@ -317,6 +369,22 @@
     }
   }
 
+  async function deleteSelectedCategoryNode() {
+    if (!selectedKey) return;
+    const node = findNode(categoryTree, selectedKey);
+    if (!node || node.kind !== 'category') return;
+    const entity = entities.find((e) => e.name === node.name);
+    if (!entity) return;
+    if (!confirm(`Delete "${translations.current[node.name] ?? node.name}"? This cannot be undone.`)) return;
+    try {
+      await revokeEntity(entity.id);
+      selectedKey = null;
+      await loadCategoriesTab();
+    } catch (e) {
+      categoriesError = e instanceof ApiError ? e.message : 'Could not delete category.';
+    }
+  }
+
   // ---------------------------------------------------------------
   // Other Hierarchies (any grouping other than Division)
   // ---------------------------------------------------------------
@@ -388,6 +456,30 @@
     }
   }
 
+  // Keys are 'grp:<name>' for a grouping, 'grp:<name>:<value>' for a value
+  // under it — same convention onAddChildHierarchiesTab above already uses.
+  async function deleteSelectedHierarchyNode() {
+    if (!selectedKey) return;
+    const node = findNode(hierarchiesTree, selectedKey);
+    if (!node) return;
+    const parts = node.key.split(':');
+    if (!confirm(`Delete "${translations.current[node.name] ?? node.name}"? This cannot be undone.`)) return;
+    try {
+      if (parts.length === 2) await deleteHierarchyGrouping(business, node.name);
+      else await deleteHierarchyValue(business, parts[1], node.name);
+      selectedKey = null;
+      await loadHierarchiesTab();
+    } catch (e) {
+      hierarchiesError = e instanceof ApiError ? e.message : 'Could not delete hierarchy.';
+    }
+  }
+
+  function deleteSelectedNode() {
+    if (activeTab === 'locations') deleteSelectedLocationNode();
+    else if (activeTab === 'categories') deleteSelectedCategoryNode();
+    else deleteSelectedHierarchyNode();
+  }
+
   function loadStep(tab: Tab) {
     if (tab === 'locations' && locations.length === 0 && locationsLoading) loadLocationsTab();
     if (tab === 'categories' && entities.length === 0 && categoriesLoading) loadCategoriesTab();
@@ -396,7 +488,21 @@
   function goToStep(index: number) {
     if (index < 0 || index >= STEPS.length) return;
     stepIndex = index;
+    selectedKey = null;
     loadStep(STEPS[index].id);
+  }
+
+  // Delete, scoped to this modal only (never window/document) — the
+  // existing onclick={(e) => e.stopPropagation()} below already keeps
+  // every keydown here from reaching +layout.svelte's own global handler;
+  // this adds the one real key this modal now needs to act on.
+  function onPanelKeydown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement;
+    e.stopPropagation();
+    if (e.key === 'Delete' && target.tagName !== 'INPUT' && target.tagName !== 'SELECT' && target.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      deleteSelectedNode();
+    }
   }
   function nextStep() {
     if (stepIndex < STEPS.length - 1) goToStep(stepIndex + 1);
@@ -411,7 +517,7 @@
 </script>
 
 <div class="overlay" role="presentation" onclick={onClose}>
-  <div class="panel" role="dialog" aria-modal="true" tabindex="-1" aria-label={translations.current['Business Structure'] ?? 'Business Structure'} onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+  <div class="panel" role="dialog" aria-modal="true" tabindex="-1" aria-label={translations.current['Business Structure'] ?? 'Business Structure'} onclick={(e) => e.stopPropagation()} onkeydown={onPanelKeydown}>
     <header>
       <h2>{translations.current['Business Structure'] ?? 'Business Structure'}</h2>
       <button type="button" class="close-btn" onclick={onClose} aria-label="Close">×</button>
@@ -441,9 +547,10 @@
         {:else}
           <div class="tree">
             {#each locationsTree as node (node.key)}
-              <StructureTreeNode {node} onAddChild={onAddChildLocationsTab} onStartMove={startMoveLocation} movingKey={movingLocationKey} moveOptions={moveLocationOptions} onConfirmMove={confirmMoveLocation} onCancelMove={() => (movingLocationKey = null)} />
+              <StructureTreeNode {node} onAddChild={onAddChildLocationsTab} onStartMove={startMoveLocation} movingKey={movingLocationKey} moveOptions={moveLocationOptions} onConfirmMove={confirmMoveLocation} onCancelMove={() => (movingLocationKey = null)} {selectedKey} onSelect={selectNode} />
             {/each}
           </div>
+          <p class="keyboard-hint">{translations.current['Select a location or division, then press Delete to remove it.'] ?? 'Select a location or division, then press Delete to remove it.'}</p>
           <div class="tab-actions">
             {#if !addingLocationForm}
               <button type="button" class="btn" onclick={() => (addingLocationForm = true)}>+ {translations.current['New Location'] ?? 'New Location'}</button>
@@ -470,9 +577,10 @@
         {:else}
           <div class="tree">
             {#each categoryTree as node (node.key)}
-              <StructureTreeNode {node} onAddChild={onAddChildCategoriesTab} onStartMove={startMoveCategory} movingKey={movingCategoryKey} moveOptions={moveCategoryOptions} onConfirmMove={confirmMoveCategory} onCancelMove={() => (movingCategoryKey = null)} />
+              <StructureTreeNode {node} onAddChild={onAddChildCategoriesTab} onStartMove={startMoveCategory} movingKey={movingCategoryKey} moveOptions={moveCategoryOptions} onConfirmMove={confirmMoveCategory} onCancelMove={() => (movingCategoryKey = null)} {selectedKey} onSelect={selectNode} />
             {/each}
           </div>
+          <p class="keyboard-hint">{translations.current['Select a category, then press Delete to remove it.'] ?? 'Select a category, then press Delete to remove it.'}</p>
           <div class="tab-actions">
             <button type="button" class="btn" onclick={addTopLevelCategory}>+ {translations.current['New top-level category'] ?? 'New top-level category'}</button>
           </div>
@@ -492,9 +600,10 @@
           <p class="field-note">{translations.current['Any further grouping your business wants to report by — region, bottle size, storage area — beyond Division.'] ?? 'Any further grouping your business wants to report by — region, bottle size, storage area — beyond Division.'}</p>
           <div class="tree">
             {#each hierarchiesTree as node (node.key)}
-              <StructureTreeNode {node} onAddChild={onAddChildHierarchiesTab} onStartMove={() => {}} movingKey={null} moveOptions={[]} onConfirmMove={() => {}} onCancelMove={() => {}} />
+              <StructureTreeNode {node} onAddChild={onAddChildHierarchiesTab} onStartMove={() => {}} movingKey={null} moveOptions={[]} onConfirmMove={() => {}} onCancelMove={() => {}} {selectedKey} onSelect={selectNode} />
             {/each}
           </div>
+          <p class="keyboard-hint">{translations.current['Select a grouping or value, then press Delete to remove it.'] ?? 'Select a grouping or value, then press Delete to remove it.'}</p>
           <div class="tab-actions">
             {#if !addingGrouping}
               <button type="button" class="btn" onclick={() => (addingGrouping = true)}>+ {translations.current['New Hierarchy'] ?? 'New Hierarchy'}</button>
@@ -653,5 +762,10 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
+  }
+  .keyboard-hint {
+    font-size: var(--font-size-small);
+    color: var(--ink-soft);
+    margin: -0.4rem 0 0.8rem;
   }
 </style>

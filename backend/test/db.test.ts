@@ -179,6 +179,33 @@ test('deleteHierarchyGrouping/deleteHierarchyValue: name-based wrappers resolve 
   assert.throws(() => db.deleteHierarchyValue(biz.business, groupingName, valueName, fx.userId), /No real/);
 });
 
+test('deleteLocation: name-based wrapper resolves the real entity and reuses revokeEntity\'s own guards — a Division tag still pointing at it refuses, exactly like revokeEntity itself already does', () => {
+  const biz = fx.freshBusiness('LocationDeleteTest Co');
+  const loc = fx.freshLocation(biz.business, 'LocationDeleteTest Outlet');
+  const division = fx.uniqueName('LocationDeleteTest Division');
+  db.ensureHierarchyGrouping(biz.business, 'Division', fx.userId);
+  db.ensureHierarchyValue(biz.business, 'Division', division, fx.userId);
+  // Passes the real entity id explicitly — a bare name-based lookup here
+  // would be genuinely ambiguous, since a location with a capacity account
+  // (every fx.freshLocation gets one) has a same-named doppelganger node
+  // under Chart of Accounts > Storage (see setEntityLink's own comment).
+  db.setHierarchyParent(loc.name, 'Division', division, fx.userId, loc.entity.id);
+
+  // The tag record is itself a permanent child of the location (untagging
+  // only clears its own relation_id, per Entity.untag — it doesn't revoke
+  // the record), so this reuses revokeEntity's ordinary hasChildren guard,
+  // not the incoming-links one (that guards the tagged VALUE from being
+  // revoked out from under a live tag, a different scenario already
+  // covered above and in getEntityLinksPointingAt's own tests).
+  assert.throws(() => db.deleteLocation(biz.business, loc.name, fx.userId), /still has children/);
+
+  // A clean, never-tagged location deletes without any guard firing, and
+  // a second delete of the same name correctly reports it as already gone.
+  const plain = fx.freshLocation(biz.business, 'LocationDeleteTest Plain Outlet');
+  db.deleteLocation(biz.business, plain.name, fx.userId);
+  assert.throws(() => db.deleteLocation(biz.business, plain.name, fx.userId), /No real location/);
+});
+
 test('getTranslationsReferencing/deleteTranslationConcept: a word still genuinely translated somewhere cannot be deleted, but can once every real translation of it is gone', () => {
   const word = fx.uniqueName('GuardTest Word');
   const globalVocabulary = db.requireEntity('Vocabulary', db.typeRootName, db.requireEntity('Application', db.typeRootName));

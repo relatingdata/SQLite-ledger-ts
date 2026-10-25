@@ -413,6 +413,40 @@ its list has real rows, should either reuse this same
 similar) instead of the bare toolbar selector, or scope the click to an
 element guaranteed to stay outside the row area.
 
+### Known gap (fixed): an inline Enter/Escape panel needs real focus on its own field, not whatever element opened it
+
+`StructureTreeNode.svelte`'s inline "Move…" picker (a sibling `<div
+class="move-panel">`, rendered only while `movingKey === node.key`, not
+a child of the `.node` div containing the "Move…" button that opens it)
+originally relied on keyboard focus already being somewhere inside the
+panel by the time Enter/Escape was pressed — it never moved focus there
+itself. In practice, after clicking "Move…", focus stays on that button
+(a real DOM sibling of the panel, so an Enter/Escape keydown bubbling
+from it can never reach the panel's own `onkeydown` handler at all); the
+event bubbles instead through `.node`'s own
+`onkeydown={(e) => { if (e.key === 'Enter') onSelect(node); }}`, so
+Enter was silently treated as "select this node" rather than "confirm
+the move." This reproduced identically for a real user clicking
+"Move…", selecting a destination from the dropdown with a mouse, and
+pressing Enter without an intervening Tab/click into the `<select>` —
+not a test-only artifact. Confirmed live (both via a standalone
+Playwright repro script against the dev servers and via the "Move Main
+Street Cellar To Division (ui)"/"Move Head Office To Division (ui)"
+`tutorial-steps.csv` steps, both of which failed with zero
+`/api/hierarchy/parent` network calls logged) that `document.activeElement`
+stayed the "Move…" `<button>` even after `selectOption()` set the
+`<select>`'s value. Fixed by giving the `<select>` a `bind:this` and
+adding an `$effect` that calls `.focus()` on it whenever
+`movingKey === node.key` becomes true — the same "auto-focus a freshly
+opened form's field" pattern used elsewhere, which both correctly
+improves the real-keyboard-user experience (the idiom's whole premise)
+and makes the panel's own `onMovePanelKeydown` the thing that actually
+receives Enter/Escape, regardless of exactly where the opening click
+left focus. The general lesson for any future Insert/Enter/Escape panel
+that isn't a strict DOM descendant of whatever button opens it: moving
+focus into the panel on open is not optional UX polish, it is what
+makes the panel's own keydown handler reachable at all.
+
 ## Tutorial / minimal — `tutorial-steps.csv`
 
 The Tutorial fixture (`shared-fixtures/tutorial-steps.csv` +
