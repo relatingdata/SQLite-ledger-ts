@@ -73,6 +73,18 @@ export function makeFixtures(db: DbModule) {
     return { name: db.asLocationName(name), entity };
   }
 
+  function freshDepartment(business: BusinessName, hint: string): { name: string; entity: TypedNode<'DepartmentEntityName'> } {
+    const name = uniqueName(hint);
+    const entity = db.createAndConfigureDepartment(business, name, userId);
+    return { name, entity };
+  }
+
+  function freshEmployee(business: BusinessName, hint: string, placeOfEmployment: string): { name: string } {
+    const name = uniqueName(hint);
+    db.createEmployee(name, placeOfEmployment, userId);
+    return { name };
+  }
+
   function freshItem(business: BusinessName, hint: string): { category: TypedNode<'RootName'>; itemName: ItemName } {
     const categoryName = uniqueName(`${hint} Category`);
     const itemNameStr = uniqueName(hint);
@@ -120,6 +132,8 @@ export function makeFixtures(db: DbModule) {
     uniqueSuffix,
     freshBusiness,
     freshLocation,
+    freshDepartment,
+    freshEmployee,
     freshItem,
     freshHierarchyValue,
     getAccountBalance,

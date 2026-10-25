@@ -29,14 +29,26 @@
     deleteHierarchyGrouping,
     deleteHierarchyValue,
     listItems,
+    listDepartments,
+    createDepartment,
+    deleteDepartment,
+    getOrgChartStructure,
+    setEmployeeDepartment,
+    deleteEmployeeDepartment,
+    setEmployeeManager,
+    deleteEmployeeManager,
     ApiError,
     type LocationRecord,
     type HierarchyGroupingWithValues,
     type EntityNode,
     type ItemSummary,
+    type DepartmentRecord,
+    type OrgChartStructure,
+    type OrgChartEmployee,
   } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import StructureTreeNode, { type StructureNode } from './StructureTreeNode.svelte';
+  import OrgChartNode, { type OrgChartBox } from './OrgChartNode.svelte';
   import Form, { type FormField } from './Form.svelte';
 
   let { business, onClose }: { business: string; onClose: () => void } = $props();
@@ -45,9 +57,9 @@
   // because a business (a sole trader working from home, say) can finish having added nothing at
   // all: no locations, no divisions, no categories, no other hierarchy. See
   // docs/pm-frontend-reference.md.
-  type Tab = 'locations' | 'categories' | 'hierarchies';
+  type Tab = 'structure' | 'categories' | 'hierarchies';
   const STEPS: { id: Tab; title: string; blurb: string }[] = [
-    { id: 'locations', title: 'Locations & Divisions', blurb: 'Where this business physically operates — a shop, a warehouse, or nowhere at all if it trades from home. Add as many as you like, group them into divisions if you report by region or site, or skip this entirely and add locations later from the Locations screen.' },
+    { id: 'structure', title: 'Org Chart', blurb: 'Where this business physically operates, and who works there — locations, divisions, departments, and employees, all in one chart. Add as many as you like, or skip this entirely and come back to it later from the Locations and Employees screens.' },
     { id: 'categories', title: 'Item Categories', blurb: 'An optional way to group what this business sells or stocks. Plenty of businesses never need one — items can always live with no category at all.' },
     { id: 'hierarchies', title: 'Other Hierarchies', blurb: 'Any further grouping this business wants to report by — region, bottle size, storage area — beyond Division. Most businesses never need this.' },
   ];
@@ -56,6 +68,7 @@
 
   const DIVISION = 'Division';
   const UNASSIGNED_KEY = '__unassigned__';
+  const UNASSIGNED_DEPT_KEY = '__unassigned_dept__';
 
   // A single selection, shared across all three tabs — cleared on every
   // tab/step switch (see goToStep below), since a key from one tree has no
@@ -64,7 +77,7 @@
   // "Open items" — deliberately not folded into this selection model); only
   // Delete (scoped to this modal's own keydown, below) acts on it.
   let selectedKey: string | null = $state(null);
-  function selectNode(node: StructureNode) {
+  function selectNode(node: { key: string }) {
     selectedKey = node.key;
   }
   function findNode(tree: StructureNode[], key: string): StructureNode | null {
@@ -77,58 +90,90 @@
   }
 
   // ---------------------------------------------------------------
-  // Locations & Divisions
+  // Org Chart — Locations, Divisions, Departments, Employees, all
+  // together on one graphical OrgChartNode canvas. See
+  // /root/.claude/plans/stateful-snacking-adleman.md.
   // ---------------------------------------------------------------
   let locations: LocationRecord[] = $state([]);
   let locationDivision: Record<string, string | null> = $state({});
   let divisionValues: string[] = $state([]);
   let locationTypes: string[] = $state([]);
-  let locationsError = $state('');
-  let locationsLoading = $state(true);
+  let departments: DepartmentRecord[] = $state([]);
+  let orgChart: OrgChartStructure | null = $state(null);
+  let structureError = $state('');
+  let structureLoading = $state(true);
 
-  async function loadLocationsTab() {
-    locationsLoading = true;
-    locationsError = '';
+  async function loadStructureTab() {
+    structureLoading = true;
+    structureError = '';
     try {
       const biz = asBusinessName(business);
-      const [locs, hierarchy, types] = await Promise.all([listLocations(biz), getHierarchy(business), getLocationTypes()]);
+      const [locs, hierarchy, types, depts, chart] = await Promise.all([
+        listLocations(biz),
+        getHierarchy(business),
+        getLocationTypes(),
+        listDepartments(business),
+        getOrgChartStructure(business),
+      ]);
       locations = locs;
       locationTypes = types;
+      departments = depts;
+      orgChart = chart;
       divisionValues = hierarchy.find((h: HierarchyGroupingWithValues) => h.grouping === DIVISION)?.values ?? [];
+      // One bulk read, not a per-location getHierarchyTag loop — see
+      // getOrgChartStructure/getHierarchyTag's own N+1 note in the plan
+      // for why this was worth avoiding for Division too, while already here.
       const tags = await Promise.all(locs.map((l) => getHierarchyTag(l.name, DIVISION).catch(() => ({ parentName: null }))));
       locationDivision = Object.fromEntries(locs.map((l, i) => [l.name, tags[i].parentName]));
     } catch (e) {
-      locationsError = e instanceof ApiError ? e.message : 'Could not load locations and divisions.';
+      structureError = e instanceof ApiError ? e.message : 'Could not load the org chart.';
     } finally {
-      locationsLoading = false;
+      structureLoading = false;
     }
   }
 
-  let locationsTree: StructureNode[] = $derived.by(() => {
-    const byDivision = new Map<string | null, LocationRecord[]>();
-    for (const l of locations) {
-      const d = locationDivision[l.name] ?? null;
-      const list = byDivision.get(d) ?? [];
-      list.push(l);
-      byDivision.set(d, list);
+  // One flat box list for OrgChartNode — Locations/Divisions on the left
+  // half of the containment forest, Departments/Employees on the right,
+  // with Employee.managerId drawing the one, independent, dashed
+  // "reports to" connector OrgChartNode's layout handles on its own.
+  let orgChartNodes: OrgChartBox[] = $derived.by(() => {
+    const nodes: OrgChartBox[] = [];
+    for (const v of divisionValues.slice().sort((a, b) => a.localeCompare(b))) {
+      nodes.push({ key: `div:${v}`, parentId: null, label: v, kind: 'division', canMove: false });
     }
-    const locationNode = (l: LocationRecord): StructureNode => ({ key: `loc:${l.name}`, name: l.name, kind: 'location', children: [], canMove: true });
-    const divisionNodes: StructureNode[] = divisionValues
-      .slice()
-      .sort((a, b) => a.localeCompare(b))
-      .map((v) => ({
-        key: `div:${v}`,
-        name: v,
-        kind: 'division-value',
-        children: (byDivision.get(v) ?? []).sort((a, b) => a.name.localeCompare(b.name)).map(locationNode),
-        canMove: false,
-      }));
-    const unassigned = (byDivision.get(null) ?? []).sort((a, b) => a.name.localeCompare(b.name)).map(locationNode);
-    return [
-      ...divisionNodes,
-      { key: UNASSIGNED_KEY, name: 'Unassigned', label: 'Unassigned (no division)', kind: 'division-value', children: unassigned, canMove: false },
-    ];
+    nodes.push({ key: UNASSIGNED_KEY, parentId: null, label: 'Unassigned (no division)', kind: 'unassigned' });
+    for (const l of locations.slice().sort((a, b) => a.name.localeCompare(b.name))) {
+      const d = locationDivision[l.name] ?? null;
+      nodes.push({ key: `loc:${l.name}`, parentId: d ? `div:${d}` : UNASSIGNED_KEY, label: l.name, kind: 'location', canMove: true });
+    }
+
+    for (const d of departments.slice().sort((a, b) => a.name.localeCompare(b.name))) {
+      nodes.push({ key: `dept:${d.name}`, parentId: null, label: d.name, kind: 'department', canMove: false });
+    }
+    nodes.push({ key: UNASSIGNED_DEPT_KEY, parentId: null, label: 'Unassigned (no department)', kind: 'unassigned' });
+    const employeeNode = (e: OrgChartEmployee, departmentName: string | null): OrgChartBox => ({
+      key: `emp:${e.name}`,
+      parentId: departmentName ? `dept:${departmentName}` : UNASSIGNED_DEPT_KEY,
+      label: e.name,
+      kind: 'employee',
+      canMove: true,
+      canReassignManager: true,
+      managerId: e.managerName ? `emp:${e.managerName}` : null,
+    });
+    for (const d of orgChart?.departments ?? []) {
+      for (const e of d.employees) nodes.push(employeeNode(e, d.name));
+    }
+    for (const e of orgChart?.unassignedEmployees ?? []) nodes.push(employeeNode(e, null));
+    return nodes;
   });
+  function findStructureNode(key: string): OrgChartBox | undefined {
+    return orgChartNodes.find((n) => n.key === key);
+  }
+  function allEmployeeNames(): string[] {
+    const fromDepartments = (orgChart?.departments ?? []).flatMap((d) => d.employees.map((e) => e.name));
+    const unassigned = (orgChart?.unassignedEmployees ?? []).map((e) => e.name);
+    return [...fromDepartments, ...unassigned];
+  }
 
   // Add forms — a new Location, or a new Division value.
   let addingLocationForm = $state(false);
@@ -167,7 +212,7 @@
     );
     addingLocationForm = false;
     newLocationValues = { name: '', city: '', locationType: 'Retail', bottleCapacity: '', cartonCapacity: '' };
-    await loadLocationsTab();
+    await loadStructureTab();
   }
 
   let addingDivisionValue = $state(false);
@@ -179,63 +224,135 @@
       await createHierarchyValue(business, DIVISION, newDivisionValueName.trim());
       newDivisionValueName = '';
       addingDivisionValue = false;
-      await loadLocationsTab();
+      await loadStructureTab();
     } catch (e) {
-      locationsError = e instanceof ApiError ? e.message : 'Could not create division.';
+      structureError = e instanceof ApiError ? e.message : 'Could not create division.';
     }
   }
 
-  function onAddChildLocationsTab(node: StructureNode) {
-    // Only the synthetic "Unassigned"/division roots offer "+ Add" in
-    // this tab, used to add a brand-new division value; adding a
-    // location itself uses the standalone button below the tree.
-    addingDivisionValue = true;
-  }
-
-  let movingLocationKey: string | null = $state(null);
-  let moveLocationOptions: { value: string | null; label: string }[] = $derived.by(() => [
-    { value: null, label: translations.current['Unassigned (no division)'] ?? 'Unassigned (no division)' },
-    ...divisionValues.map((v) => ({ value: v, label: v })),
-  ]);
-  function startMoveLocation(node: StructureNode) {
-    movingLocationKey = node.key;
-  }
-  async function confirmMoveLocation(node: StructureNode, destination: string | null) {
+  let addingDepartmentForm = $state(false);
+  let newDepartmentName = $state('');
+  async function submitNewDepartment() {
+    if (!newDepartmentName.trim()) return;
     try {
-      if (destination) await setHierarchyTag(node.name, DIVISION, destination);
-      else await deleteHierarchyTag(node.name, DIVISION);
-      movingLocationKey = null;
-      await loadLocationsTab();
+      await createDepartment(business, newDepartmentName.trim());
+      newDepartmentName = '';
+      addingDepartmentForm = false;
+      await loadStructureTab();
     } catch (e) {
-      locationsError = e instanceof ApiError ? e.message : 'Could not move location.';
+      structureError = e instanceof ApiError ? e.message : 'Could not create department.';
     }
   }
 
-  // Delete, off the shared selection — a real Location deletes itself; a
-  // synthetic division grouping (not the "Unassigned" placeholder, which
-  // has no real entity at all) deletes that Division value via the same
-  // name-based hierarchy wrapper the Hierarchies tab below uses directly.
-  async function deleteSelectedLocationNode() {
+  // "+ Add" is unused on this canvas — no org-chart box sets canAddChild
+  // (new Locations/Divisions/Departments all have their own standalone
+  // "+ New …" button below the canvas instead); kept only so OrgChartNode's
+  // generic contract doesn't need a dead branch for this one caller.
+  function onAddChildStructureTab(_node: OrgChartBox) {}
+
+  // "Move…" means "change Division" for a Location, "change Department"
+  // for an Employee — one shared moving/options state, dispatched by the
+  // currently-moving node's own kind.
+  let movingStructureKey: string | null = $state(null);
+  let moveStructureOptions: { value: string | null; label: string }[] = $derived.by(() => {
+    const node = movingStructureKey ? findStructureNode(movingStructureKey) : undefined;
+    if (node?.kind === 'location') {
+      return [{ value: null, label: translations.current['Unassigned (no division)'] ?? 'Unassigned (no division)' }, ...divisionValues.map((v) => ({ value: v, label: v }))];
+    }
+    if (node?.kind === 'employee') {
+      return [
+        { value: null, label: translations.current['Unassigned (no department)'] ?? 'Unassigned (no department)' },
+        ...departments.map((d) => ({ value: d.name, label: d.name })),
+      ];
+    }
+    return [];
+  });
+  function startMoveStructureNode(node: OrgChartBox) {
+    reassigningManagerKey = null;
+    movingStructureKey = node.key;
+  }
+  async function confirmMoveStructureNode(node: OrgChartBox, destination: string | null) {
+    try {
+      if (node.kind === 'location') {
+        if (destination) await setHierarchyTag(node.label, DIVISION, destination);
+        else await deleteHierarchyTag(node.label, DIVISION);
+      } else if (node.kind === 'employee') {
+        if (destination) await setEmployeeDepartment(node.label, destination);
+        else await deleteEmployeeDepartment(node.label);
+      }
+      movingStructureKey = null;
+      await loadStructureTab();
+    } catch (e) {
+      structureError = e instanceof ApiError ? e.message : 'Could not move that.';
+    }
+  }
+
+  // "Reports to…" — only ever offered on an Employee box; entirely
+  // independent of "Move…"/Department (see setEmployeeManager/
+  // setEmployeeDepartment's own independent setEntityLink facts).
+  let reassigningManagerKey: string | null = $state(null);
+  let managerOptions: { value: string | null; label: string }[] = $derived.by(() => {
+    const node = reassigningManagerKey ? findStructureNode(reassigningManagerKey) : undefined;
+    if (!node) return [];
+    return [
+      { value: null, label: translations.current['No manager'] ?? 'No manager' },
+      ...allEmployeeNames()
+        .filter((n) => n !== node.label)
+        .sort((a, b) => a.localeCompare(b))
+        .map((n) => ({ value: n, label: n })),
+    ];
+  });
+  function startReassignManager(node: OrgChartBox) {
+    movingStructureKey = null;
+    reassigningManagerKey = node.key;
+  }
+  async function confirmReassignManager(node: OrgChartBox, managerName: string | null) {
+    try {
+      if (managerName) await setEmployeeManager(node.label, managerName);
+      else await deleteEmployeeManager(node.label);
+      reassigningManagerKey = null;
+      await loadStructureTab();
+    } catch (e) {
+      structureError = e instanceof ApiError ? e.message : 'Could not reassign that manager.';
+    }
+  }
+
+  // Delete, off the shared selection. A real Location/Department deletes
+  // itself; a synthetic Division grouping (not the "Unassigned"
+  // placeholder, which has no real entity at all) deletes that Division
+  // value via the same name-based hierarchy wrapper the Hierarchies tab
+  // below uses directly. An Employee box is never created or deleted from
+  // here at all (see the Employees screen) — only (re)assigned.
+  async function deleteSelectedStructureNode() {
     if (!selectedKey) return;
-    const node = findNode(locationsTree, selectedKey);
+    const node = findStructureNode(selectedKey);
     if (!node) return;
     if (node.kind === 'location') {
-      if (!confirm(`Delete "${translations.current[node.name] ?? node.name}"? This cannot be undone.`)) return;
+      if (!confirm(`Delete "${translations.current[node.label] ?? node.label}"? This cannot be undone.`)) return;
       try {
-        await deleteLocation(node.name, business);
+        await deleteLocation(node.label, business);
         selectedKey = null;
-        await loadLocationsTab();
+        await loadStructureTab();
       } catch (e) {
-        locationsError = e instanceof ApiError ? e.message : 'Could not delete location.';
+        structureError = e instanceof ApiError ? e.message : 'Could not delete location.';
       }
-    } else if (node.kind === 'division-value' && node.key !== UNASSIGNED_KEY) {
-      if (!confirm(`Delete the "${translations.current[node.name] ?? node.name}" division? This cannot be undone.`)) return;
+    } else if (node.kind === 'division' ) {
+      if (!confirm(`Delete the "${translations.current[node.label] ?? node.label}" division? This cannot be undone.`)) return;
       try {
-        await deleteHierarchyValue(business, DIVISION, node.name);
+        await deleteHierarchyValue(business, DIVISION, node.label);
         selectedKey = null;
-        await loadLocationsTab();
+        await loadStructureTab();
       } catch (e) {
-        locationsError = e instanceof ApiError ? e.message : 'Could not delete division.';
+        structureError = e instanceof ApiError ? e.message : 'Could not delete division.';
+      }
+    } else if (node.kind === 'department') {
+      if (!confirm(`Delete the "${translations.current[node.label] ?? node.label}" department? This cannot be undone.`)) return;
+      try {
+        await deleteDepartment(node.label, business);
+        selectedKey = null;
+        await loadStructureTab();
+      } catch (e) {
+        structureError = e instanceof ApiError ? e.message : 'Could not delete department.';
       }
     }
   }
@@ -475,13 +592,13 @@
   }
 
   function deleteSelectedNode() {
-    if (activeTab === 'locations') deleteSelectedLocationNode();
+    if (activeTab === 'structure') deleteSelectedStructureNode();
     else if (activeTab === 'categories') deleteSelectedCategoryNode();
     else deleteSelectedHierarchyNode();
   }
 
   function loadStep(tab: Tab) {
-    if (tab === 'locations' && locations.length === 0 && locationsLoading) loadLocationsTab();
+    if (tab === 'structure' && locations.length === 0 && structureLoading) loadStructureTab();
     if (tab === 'categories' && entities.length === 0 && categoriesLoading) loadCategoriesTab();
     if (tab === 'hierarchies' && hierarchy.length === 0 && hierarchiesLoading) loadHierarchiesTab();
   }
@@ -513,7 +630,7 @@
   }
 
   // Load the first step eagerly on mount.
-  loadLocationsTab();
+  loadStructureTab();
 </script>
 
 <div class="overlay" role="presentation" onclick={onClose}>
@@ -540,23 +657,39 @@
     <p class="step-blurb">{translations.current[STEPS[stepIndex].blurb] ?? STEPS[stepIndex].blurb}</p>
 
     <div class="tab-body">
-      {#if activeTab === 'locations'}
-        {#if locationsError}<p class="error">{locationsError}</p>{/if}
-        {#if locationsLoading}
+      {#if activeTab === 'structure'}
+        {#if structureError}<p class="error">{structureError}</p>{/if}
+        {#if structureLoading}
           <p>{translations.current['Loading…'] ?? 'Loading…'}</p>
         {:else}
-          <div class="tree">
-            {#each locationsTree as node (node.key)}
-              <StructureTreeNode {node} onAddChild={onAddChildLocationsTab} onStartMove={startMoveLocation} movingKey={movingLocationKey} moveOptions={moveLocationOptions} onConfirmMove={confirmMoveLocation} onCancelMove={() => (movingLocationKey = null)} {selectedKey} onSelect={selectNode} />
-            {/each}
+          <div class="org-chart">
+            <OrgChartNode
+              nodes={orgChartNodes}
+              onAddChild={onAddChildStructureTab}
+              onStartMove={startMoveStructureNode}
+              movingKey={movingStructureKey}
+              moveOptions={moveStructureOptions}
+              onConfirmMove={confirmMoveStructureNode}
+              onCancelMove={() => (movingStructureKey = null)}
+              onStartReassignManager={startReassignManager}
+              reassigningManagerKey={reassigningManagerKey}
+              {managerOptions}
+              onConfirmReassignManager={confirmReassignManager}
+              onCancelReassignManager={() => (reassigningManagerKey = null)}
+              {selectedKey}
+              onSelect={selectNode}
+            />
           </div>
-          <p class="keyboard-hint">{translations.current['Select a location or division, then press Delete to remove it.'] ?? 'Select a location or division, then press Delete to remove it.'}</p>
+          <p class="keyboard-hint">{translations.current['Select a box, then press Delete to remove it. Locations/Divisions and Departments delete here; Employees are only (re)assigned here — see the Employees screen to add or remove one.'] ?? 'Select a box, then press Delete to remove it. Locations/Divisions and Departments delete here; Employees are only (re)assigned here — see the Employees screen to add or remove one.'}</p>
           <div class="tab-actions">
             {#if !addingLocationForm}
               <button type="button" class="btn" onclick={() => (addingLocationForm = true)}>+ {translations.current['New Location'] ?? 'New Location'}</button>
             {/if}
             {#if !addingDivisionValue}
               <button type="button" class="btn secondary" onclick={() => (addingDivisionValue = true)}>+ {translations.current['New Division'] ?? 'New Division'}</button>
+            {/if}
+            {#if !addingDepartmentForm}
+              <button type="button" class="btn secondary" onclick={() => (addingDepartmentForm = true)}>+ {translations.current['New Department'] ?? 'New Department'}</button>
             {/if}
           </div>
           {#if addingLocationForm}
@@ -567,6 +700,13 @@
               <input bind:value={newDivisionValueName} placeholder={translations.current['Division name, e.g. Adelaide Metro'] ?? 'Division name, e.g. Adelaide Metro'} />
               <button type="button" class="btn" onclick={submitNewDivisionValue}>{translations.current['Create'] ?? 'Create'}</button>
               <button type="button" class="btn secondary" onclick={() => (addingDivisionValue = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+            </div>
+          {/if}
+          {#if addingDepartmentForm}
+            <div class="inline-form">
+              <input bind:value={newDepartmentName} placeholder={translations.current['Department name, e.g. Sales'] ?? 'Department name, e.g. Sales'} />
+              <button type="button" class="btn" onclick={submitNewDepartment}>{translations.current['Create'] ?? 'Create'}</button>
+              <button type="button" class="btn secondary" onclick={() => (addingDepartmentForm = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
             </div>
           {/if}
         {/if}
@@ -752,6 +892,14 @@
     margin-bottom: 0.8rem;
     max-height: 18rem;
     overflow-y: auto;
+  }
+  .org-chart {
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 0.8rem;
+    margin-bottom: 0.8rem;
+    max-height: 22rem;
+    overflow: auto;
   }
   .tab-actions {
     display: flex;

@@ -275,6 +275,32 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.createItemCategory(a.businessName as any, a.categoryName, undefined, userId);
   },
+  // Business Structure popup's Org Chart tab, "+ New Department" — one
+  // click, the same db.createAndConfigureDepartment the dedicated route
+  // calls, provisioning the Payroll/Other Expenses leaves alongside.
+  addDepartmentViaStructurePopup: (a) => {
+    const userId = db.asUserId(1);
+    db.createAndConfigureDepartment(a.businessName as any, a.departmentName, userId);
+  },
+  // An Employee box's own "Move…" action in the Org Chart tab means
+  // "change Department" (never Division, which only applies to Location
+  // boxes) — setEntityLink-based, independent of Place of Employment.
+  assignEmployeeDepartmentViaStructurePopup: (a) => {
+    const userId = db.asUserId(1);
+    db.setEmployeeDepartment(a.employeeName, a.departmentName, userId);
+  },
+  // The Org Chart tab's Employee-only "Reports to…" action.
+  setEmployeeManagerViaStructurePopup: (a) => {
+    const userId = db.asUserId(1);
+    db.setEmployeeManager(a.employeeName, a.managerName, userId);
+  },
+  // Business Structure popup's Org Chart tab Delete key on a selected
+  // Department box — cascades to its two provisioned leaves, same as the
+  // dedicated DELETE /departments/:name route.
+  deleteDepartmentViaStructurePopup: (a) => {
+    const userId = db.asUserId(1);
+    db.deleteDepartment(a.businessName as any, a.departmentName, userId);
+  },
   receiveStockWithCombination: (a) => {
     const userId = db.asUserId(1);
     db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);

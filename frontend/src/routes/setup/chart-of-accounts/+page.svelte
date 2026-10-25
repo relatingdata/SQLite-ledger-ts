@@ -23,6 +23,11 @@
     'Sales Revenue',
     'Cost of Goods Sold',
     'Inventory',
+    // Container for Department CoA subtrees (ensureDepartmentsRoot,
+    // backend/src/db.ts) — individual departments and their Payroll/Other
+    // Expenses leaves stay deletable normally; only this container is
+    // protected, same reasoning as the other roots above.
+    'Departments',
   ]);
 
   let allEntities: EntityNode[] = $state([]);

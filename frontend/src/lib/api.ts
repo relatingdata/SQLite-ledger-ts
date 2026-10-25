@@ -1219,6 +1219,44 @@ export const createLocation = (name: string, business: string, input: LocationIn
 export const deleteLocation = (name: string, business: string) =>
   request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'DELETE' });
 
+// Department CRUD + Employee ↔ Department/Manager — mirrors deleteLocation's
+// own business-scoped, name-based conventions. See backend/src/routes/departments.ts
+// and /root/.claude/plans/stateful-snacking-adleman.md.
+export interface DepartmentRecord {
+  id: number;
+  name: string;
+}
+export const listDepartments = (business: string) => request<DepartmentRecord[]>(`/departments?business=${encodeURIComponent(business)}`);
+export const createDepartment = (business: string, name: string) =>
+  request<DepartmentRecord>('/departments', { method: 'POST', body: JSON.stringify({ business, name }) });
+export const deleteDepartment = (name: string, business: string) =>
+  request<void>(`/departments/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'DELETE' });
+
+export interface OrgChartEmployee {
+  name: string;
+  location: string | null;
+  managerName: string | null;
+}
+export interface OrgChartDepartment {
+  name: string;
+  employees: OrgChartEmployee[];
+}
+export interface OrgChartStructure {
+  business: string;
+  departments: OrgChartDepartment[];
+  unassignedEmployees: OrgChartEmployee[];
+}
+export const getOrgChartStructure = (business: string) => request<OrgChartStructure>(`/departments/org-chart?business=${encodeURIComponent(business)}`);
+
+export const setEmployeeDepartment = (employeeName: string, departmentName: string) =>
+  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/department`, { method: 'PUT', body: JSON.stringify({ departmentName }) });
+export const deleteEmployeeDepartment = (employeeName: string) =>
+  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/department`, { method: 'DELETE' });
+export const setEmployeeManager = (employeeName: string, managerName: string) =>
+  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/manager`, { method: 'PUT', body: JSON.stringify({ managerName }) });
+export const deleteEmployeeManager = (employeeName: string) =>
+  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/manager`, { method: 'DELETE' });
+
 // Reuses the Hierarchy/Product mechanism — see docs/pm-frontend-reference.md.
 export const convertStorageSpace = (input: {
   business: string;

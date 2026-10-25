@@ -37,6 +37,12 @@ api,,,false
 ,location_in_hierarchy_group,structure_popup_move_ho,false
 ,,structure_popup_category_added,false
 ,,employee_created,false
+,,employee_sam_created,false
+,,structure_popup_department_created,false
+,,structure_popup_employee_department_assigned,false
+,,structure_popup_employee_manager_assigned,false
+,,structure_popup_temp_department_created,false
+api,,,false
 ,,category_beer_created,false
 ,,item_amber_ale_created,false
 ,,item_highland_single_malt_created,false

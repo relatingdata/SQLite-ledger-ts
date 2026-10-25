@@ -206,6 +206,123 @@ test('deleteLocation: name-based wrapper resolves the real entity and reuses rev
   assert.throws(() => db.deleteLocation(biz.business, plain.name, fx.userId), /No real location/);
 });
 
+// --- Department / Employee org chart -------------------------------
+// See /root/.claude/plans/stateful-snacking-adleman.md.
+
+test('createAndConfigureDepartment: real Chart of Accounts subtree, created once, idempotent on a second call', () => {
+  const biz = fx.freshBusiness('DepartmentCreateTest Co');
+  const dept = fx.freshDepartment(biz.business, 'DepartmentCreateTest Marketing');
+
+  const businessEntity = db.requireEntity(biz.business, db.typeBusinessName, db.requireEntity('Businesses', db.typeRootName));
+  const coa = db.requireEntity('Chart of Accounts', db.typeRootName, businessEntity);
+  const expense = db.requireEntity('Expense', db.typeRootName, coa);
+  const departmentsRoot = db.requireEntity('Departments', db.typeRootName, expense);
+  const departmentEntity = db.requireEntity(dept.name, db.typeRootName, departmentsRoot);
+  assert.equal(departmentEntity.id, dept.entity.id, 'the department itself lives directly under Chart of Accounts > Expense > Departments');
+
+  const payroll = db.requireEntity('Payroll', db.typeRootName, departmentEntity);
+  const otherExpenses = db.requireEntity('Other Expenses', db.typeRootName, departmentEntity);
+  assert.ok(payroll.id && otherExpenses.id, 'both real leaf accounts exist immediately, not lazily');
+
+  // Idempotent: calling again for the same name must not duplicate anything.
+  db.createAndConfigureDepartment(biz.business, dept.name, fx.userId);
+  const allUnderRoot = db.getEntityTree().filter((e) => e.parent_id === departmentsRoot.id && e.name === dept.name);
+  assert.equal(allUnderRoot.length, 1, 'a second call must not create a duplicate department node');
+});
+
+test('deleteDepartment: a department that has been posted to stays undeletable, a clean one deletes (and its two placeholder leaves with it)', () => {
+  const biz = fx.freshBusiness('DepartmentDeleteTest Co');
+  const dept = fx.freshDepartment(biz.business, 'DepartmentDeleteTest Ops');
+
+  const businessEntity = db.requireEntity(biz.business, db.typeBusinessName, db.requireEntity('Businesses', db.typeRootName));
+  const coa = db.requireEntity('Chart of Accounts', db.typeRootName, businessEntity);
+  const expense = db.requireEntity('Expense', db.typeRootName, coa);
+  const departmentsRoot = db.requireEntity('Departments', db.typeRootName, expense);
+  const departmentEntity = db.requireEntity(dept.name, db.typeRootName, departmentsRoot);
+  const payroll = db.requireEntity('Payroll', db.typeRootName, departmentEntity);
+
+  // A real posting against Payroll (a genuine, balanced two-line entry
+  // against the business's own Cash account) must block the whole delete —
+  // revokeEntity's existing hasPostings guard, reached via deleteDepartment's
+  // own cascading leaf-revoke.
+  const cash = db.requireEntity('Cash and Bank', db.typeRootName, db.requireEntity('Asset', db.typeRootName, coa));
+  const reference = fx.uniqueName('DepartmentDeleteTest Posting');
+  db.stageLine({ reference, business: biz.business, ledger: biz.actualLedger, account: db.asAccountName(payroll.name), accountId: payroll.id, amount_minor: 1000 });
+  db.stageLine({ reference, business: biz.business, ledger: biz.actualLedger, account: db.asAccountName(cash.name), accountId: cash.id, amount_minor: -1000 });
+  db.postJournalEntry(reference, biz.business, biz.actualLedger, fx.userId);
+  assert.throws(() => db.deleteDepartment(biz.business, dept.name, fx.userId), /journal postings/);
+
+  // A clean, never-posted-to department deletes in full — both placeholder
+  // leaves and the department node itself — and a second delete correctly
+  // reports it as already gone.
+  const clean = fx.freshDepartment(biz.business, 'DepartmentDeleteTest Clean');
+  db.deleteDepartment(biz.business, clean.name, fx.userId);
+  assert.throws(() => db.deleteDepartment(biz.business, clean.name, fx.userId), /No real department/);
+});
+
+test('deleteDepartment: refuses while a real Employee is still assigned to it, exactly like revokeEntity\'s own incoming-links guard elsewhere', () => {
+  const biz = fx.freshBusiness('DepartmentEmployeeGuardTest Co');
+  const dept = fx.freshDepartment(biz.business, 'DepartmentEmployeeGuardTest Sales');
+  const employee = fx.freshEmployee(biz.business, 'DepartmentEmployeeGuardTest Rep', biz.business);
+  db.setEmployeeDepartment(employee.name, dept.name, fx.userId);
+
+  assert.throws(() => db.deleteDepartment(biz.business, dept.name, fx.userId), /still referenced by/);
+
+  db.deleteEmployeeDepartment(employee.name, fx.userId);
+  db.deleteDepartment(biz.business, dept.name, fx.userId); // now succeeds
+});
+
+test('setEmployeeDepartment/setEmployeeManager coexist independently with the employee\'s existing Place of Employment — neither clobbers the other, because setEntityLink (unlike setRelationship) never touches the employee\'s own relation_id slot', () => {
+  const biz = fx.freshBusiness('EmployeeFactsTest Co');
+  const loc = fx.freshLocation(biz.business, 'EmployeeFactsTest Outlet');
+  const dept = fx.freshDepartment(biz.business, 'EmployeeFactsTest Dept');
+  const manager = fx.freshEmployee(biz.business, 'EmployeeFactsTest Manager', loc.name);
+  const employee = fx.freshEmployee(biz.business, 'EmployeeFactsTest Report', loc.name);
+
+  db.setEmployeeDepartment(employee.name, dept.name, fx.userId);
+  db.setEmployeeManager(employee.name, manager.name, fx.userId);
+
+  assert.equal(db.getRelationship(employee.name)?.target, loc.name, 'Place of Employment must still be exactly what createEmployee originally set it to');
+  assert.equal(db.getEmployeeDepartment(employee.name), dept.name);
+  assert.equal(db.getEmployeeManager(employee.name), manager.name);
+});
+
+test('setEmployeeManager: rejects a self-report and rejects closing a reporting cycle', () => {
+  const biz = fx.freshBusiness('ManagerCycleTest Co');
+  const a = fx.freshEmployee(biz.business, 'ManagerCycleTest A', biz.business);
+  const b = fx.freshEmployee(biz.business, 'ManagerCycleTest B', biz.business);
+  const c = fx.freshEmployee(biz.business, 'ManagerCycleTest C', biz.business);
+
+  assert.throws(() => db.setEmployeeManager(a.name, a.name, fx.userId), /cannot be their own manager/);
+
+  // A -> B -> C is a real, valid chain.
+  db.setEmployeeManager(b.name, a.name, fx.userId);
+  db.setEmployeeManager(c.name, b.name, fx.userId);
+
+  // Making A report to C would close A -> B -> C -> A into a real cycle.
+  assert.throws(() => db.setEmployeeManager(a.name, c.name, fx.userId), /reporting cycle/);
+});
+
+test('getOrgChartStructure: one aggregate read groups employees by department, with location and manager alongside, including an Unassigned bucket', () => {
+  const biz = fx.freshBusiness('OrgChartReadTest Co');
+  const loc = fx.freshLocation(biz.business, 'OrgChartReadTest Outlet');
+  const dept = fx.freshDepartment(biz.business, 'OrgChartReadTest Dept');
+  const manager = fx.freshEmployee(biz.business, 'OrgChartReadTest Manager', loc.name);
+  const report = fx.freshEmployee(biz.business, 'OrgChartReadTest Report', loc.name);
+  const loose = fx.freshEmployee(biz.business, 'OrgChartReadTest Loose', loc.name);
+  db.setEmployeeDepartment(manager.name, dept.name, fx.userId);
+  db.setEmployeeDepartment(report.name, dept.name, fx.userId);
+  db.setEmployeeManager(report.name, manager.name, fx.userId);
+
+  const structure = db.getOrgChartStructure(biz.business);
+  const deptNode = structure.departments.find((d) => d.name === dept.name);
+  assert.ok(deptNode, 'the department must appear even with no explicit lookup by name');
+  const reportNode = deptNode!.employees.find((e) => e.name === report.name);
+  assert.deepEqual(reportNode, { name: report.name, location: loc.name, managerName: manager.name });
+  const looseNode = structure.unassignedEmployees.find((e) => e.name === loose.name);
+  assert.deepEqual(looseNode, { name: loose.name, location: loc.name, managerName: null });
+});
+
 test('getTranslationsReferencing/deleteTranslationConcept: a word still genuinely translated somewhere cannot be deleted, but can once every real translation of it is gone', () => {
   const word = fx.uniqueName('GuardTest Word');
   const globalVocabulary = db.requireEntity('Vocabulary', db.typeRootName, db.requireEntity('Application', db.typeRootName));

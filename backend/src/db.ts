@@ -93,6 +93,7 @@ export const typeChartOfAccountsRootName: TypeDescriptor<'ChartOfAccountsRootNam
 export const typeLocationTypeMarkerName: TypeDescriptor<'LocationTypeMarkerName'> = { brand: 'LocationTypeMarkerName' };
 export const typeIsBillingAddressMarkerName: TypeDescriptor<'IsBillingAddressMarkerName'> = { brand: 'IsBillingAddressMarkerName' };
 export const typeLocationEntityName: TypeDescriptor<'LocationEntityName'> = { brand: 'LocationEntityName' };
+export const typeDepartmentEntityName: TypeDescriptor<'DepartmentEntityName'> = { brand: 'DepartmentEntityName' };
 export const typeExpenseCategoryName: TypeDescriptor<'ExpenseCategoryName'> = { brand: 'ExpenseCategoryName' };
 export const typeMenuSectionName: TypeDescriptor<'MenuSectionName'> = { brand: 'MenuSectionName' };
 export const typeMenuLinkName: TypeDescriptor<'MenuLinkName'> = { brand: 'MenuLinkName' };
@@ -3527,6 +3528,25 @@ export function getEntityLinksPointingAt(targetName: string): { entityName: stri
   return rows.map((r) => ({ entityName: r.entity_name, linkType: r.link_type }));
 }
 
+// Symmetric, bulk counterpart to getEntityLinksPointingAt above (that one
+// goes target → owners for any link type; this one goes "every owner of
+// this one link type → its target," in a single query, for getOrgChartStructure's
+// Employee → Department/Manager reads below — avoiding an N+1 per-employee
+// getEntityLink call). Same join shape, same live-tag requirement.
+export function getEntitiesWithLink(linkType: string): { entityName: string; targetName: string }[] {
+  const rows = db
+    .prepare(
+      `SELECT orig.name AS entity_name, target.name AS target_name
+       FROM current_entities link
+       JOIN current_entities target ON target.id = link.relation_id
+       JOIN current_entities orig ON orig.id = link.parent_id
+       JOIN current_entities tag ON tag.parent_id = link.id AND tag.name = ? AND tag.relation_id IS NOT NULL
+       WHERE link.name = orig.name || ' — ' || ?`
+    )
+    .all(linkType, linkType) as { entity_name: string; target_name: string }[];
+  return rows.map((r) => ({ entityName: r.entity_name, targetName: r.target_name }));
+}
+
 // A thin filter over getEntityLinksPointingAt, kept so this function's two
 // existing callers (editor/+page.svelte's warning panel, the Header
 // Account/vocabulary-alternates lookup below) see no behavior change.
@@ -4818,6 +4838,222 @@ export function deleteLocation(businessName: BusinessName, locationName: string,
   const location = Entity.getUnder(locationName, locationsRootId);
   if (!location) throw new NotFoundError(`No real location named "${locationName}" for "${businessName}".`);
   revokeEntity(location.id, userId);
+}
+
+// Department — a new, genuinely different concept from Location, not a
+// copy of it. See /root/.claude/plans/stateful-snacking-adleman.md's
+// "Context": only Location and Product/Item map to real, postable CoA
+// accounts; Division/Category stay pure reporting tags on purpose, and
+// this plan doesn't touch that. Department is the other real case —
+// a department-as-cost-center genuinely needs its own balance, the
+// same way a Location does.
+//
+// Deliberately NOT the Location pattern of "a separate business-
+// structure entity, cross-linked by name to a same-named CoA node"
+// (ensureLocationStorageRoot/createLocation) — that's the documented,
+// unresolved bare-name-collision class (docs/pm-entity-model.md). A
+// Department's own entity, directly under Chart of Accounts > Expense
+// > Departments, IS both the org-chart box and the postable account.
+// One tree, nothing to collide.
+export function ensureDepartmentsRoot(businessName: BusinessName, userId: UserId): { id: number; name: string } {
+  const expenseId = resolveBusinessCoaAccountId(businessName, 'Expense');
+  return Entity.ensureUnder('Departments', expenseId, userId);
+}
+
+export function createDepartment(businessName: BusinessName, departmentName: string, userId: UserId): TypedNode<'DepartmentEntityName'> {
+  const departmentsRoot = ensureDepartmentsRoot(businessName, userId);
+  // Entity.ensureUnder (get-or-create), not create() directly - a second
+  // call for the same name must be a no-op, not a ValidationError, so that
+  // createAndConfigureDepartment is genuinely idempotent end to end.
+  const entity = Entity.ensureUnder(departmentName, departmentsRoot.id, userId);
+  return { id: asEntityId(entity.id), name: entity.name as string & { __brand: 'DepartmentEntityName' } };
+}
+
+// Ordinary leaf accounts in the business's own home currency — unlike
+// Location's Storage Capacity accounts, which deliberately use a
+// synthetic unit currency (SPACE-BOTTLE/SPACE-CARTON), a department's
+// Payroll/Other Expenses post in plain money, so no setAccountCurrency
+// call is needed: every account is lazily vivified into the `account`
+// table on its first real posting (see backend/schema/00-core.sql's
+// "on-first-post account vivification" trigger), exactly like any
+// ordinary, hand-created Chart of Accounts leaf.
+export function ensureDepartmentAccounts(businessName: BusinessName, departmentName: string, userId: UserId): { payrollId: number; otherExpensesId: number } {
+  const departmentsRoot = ensureDepartmentsRoot(businessName, userId);
+  const department = Entity.getUnder(departmentName, departmentsRoot.id);
+  if (!department) throw new NotFoundError(`No real department named "${departmentName}" for "${businessName}".`);
+  const payroll = Entity.ensureUnder('Payroll', department.id, userId);
+  const otherExpenses = Entity.ensureUnder('Other Expenses', department.id, userId);
+  return { payrollId: payroll.id, otherExpensesId: otherExpenses.id };
+}
+
+export function createAndConfigureDepartment(businessName: BusinessName, departmentName: string, userId: UserId): TypedNode<'DepartmentEntityName'> {
+  return db.transaction(() => {
+    const entity = createDepartment(businessName, departmentName, userId);
+    ensureDepartmentAccounts(businessName, departmentName, userId);
+    return entity;
+  })();
+}
+
+// Name-based, same reasoning as deleteLocation/deleteHierarchyValue
+// above — but unlike those, a department always has two real children
+// of its own the instant it's created (ensureDepartmentAccounts's
+// Payroll/Other Expenses are provisioned eagerly, not lazily like a
+// Location's per-item accounts), so a plain, single revokeEntity call
+// here would make hasChildren refuse *every* department, always — not
+// a meaningful guard, just a permanent dead end. This revokes the two
+// known, always-provisioned leaves first (each still protected by
+// revokeEntity's own hasPostings guard — a department that's actually
+// been posted to stays genuinely undeletable), then the department
+// itself, so hasChildren still correctly blocks on any *further*,
+// manually-added sub-account, and the incoming-links guard
+// (getEntityLinksPointingAt) still blocks while any Employee is tagged
+// to this department via setEmployeeDepartment below.
+export function deleteDepartment(businessName: BusinessName, departmentName: string, userId: UserId): void {
+  const departmentsRoot = ensureDepartmentsRoot(businessName, userId);
+  const department = Entity.getUnder(departmentName, departmentsRoot.id);
+  if (!department) throw new NotFoundError(`No real department named "${departmentName}" for "${businessName}".`);
+  db.transaction(() => {
+    // Check the department's own incoming-links guard FIRST, by its real,
+    // original name, before touching either leaf — otherwise an
+    // Employee-guard failure on the department (reached last, below)
+    // would only be discovered after the two leaves were already revoked,
+    // which (see the rename note just below) is not a no-op.
+    const incoming = getEntityLinksPointingAt(department.name);
+    if (incoming.length) {
+      const taggers = [...new Set(incoming.map((l) => l.entityName))].join(', ');
+      throw new ValidationError(`Cannot revoke "${department.name}" — still referenced by: ${taggers}.`);
+    }
+    const payroll = Entity.getUnder('Payroll', department.id);
+    const otherExpenses = Entity.getUnder('Other Expenses', department.id);
+    // revokeEntity reparents every revoked entity into one shared, global
+    // "Application > Revoked" bucket, by name. Unlike Location's uniquely-
+    // named per-item leaves, every department reuses the identical two
+    // literal leaf names ("Payroll"/"Other Expenses") - so revoking a
+    // second department's leaves would bare-name-collide with the first
+    // department's already-revoked leaves sitting there under Revoked.
+    // Renaming each entity to something globally unique (its own id,
+    // already unique) immediately before revoking it means only its
+    // resting place under Revoked is distinguished - nothing else, since
+    // every guard above that cares about the real name (hasPostings is
+    // id-based; the incoming-links guard on the department itself was
+    // already checked above using its real, original name).
+    if (payroll) {
+      Entity.rename(payroll.id, `${departmentName} — Payroll (#${payroll.id})`, userId);
+      revokeEntity(payroll.id, userId);
+    }
+    if (otherExpenses) {
+      Entity.rename(otherExpenses.id, `${departmentName} — Other Expenses (#${otherExpenses.id})`, userId);
+      revokeEntity(otherExpenses.id, userId);
+    }
+    Entity.rename(department.id, `${departmentName} (#${department.id})`, userId);
+    revokeEntity(department.id, userId);
+  })();
+}
+
+export function listDepartments(businessName: BusinessName): { id: number; name: string }[] {
+  const departmentsRoot = ensureDepartmentsRoot(businessName, asUserId(1));
+  return Entity.children(departmentsRoot.id).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Employee ↔ Department and Employee ↔ Manager — two new, independent
+// facts about an employee. Deliberately built on setEntityLink (the
+// same generic primitive setHierarchyParent wraps), never setRelationship
+// — an entity's relation_id is a single slot, and setRelationship
+// overwrites it; employees already use that one slot for their existing
+// "Place of Employment" relationship (createEmployee, above). Using
+// setEntityLink instead creates a separate *child* link-record entity
+// with its own relation_id, so Department and Manager can coexist with
+// Place of Employment on the same employee without clobbering it — and
+// revokeEntity's incoming-links guard (getEntityLinksPointingAt) already
+// matches this "<entity> — <linkType>" record shape, so deleting a
+// Department while an employee is tagged to it, or revoking a manager
+// while someone still reports to them, is blocked for free.
+export function setEmployeeDepartment(employeeName: string, departmentName: string, userId: UserId, employeeId?: number, departmentId?: number): void {
+  setEntityLink(employeeName, 'Department', departmentName, userId, employeeId, departmentId);
+}
+
+export function getEmployeeDepartment(employeeName: string): string | undefined {
+  return getEntityLink(employeeName, 'Department');
+}
+
+export function deleteEmployeeDepartment(employeeName: string, userId: UserId): void {
+  deleteEntityLink(employeeName, 'Department', userId);
+}
+
+export function getEmployeeManager(employeeName: string): string | undefined {
+  return getEntityLink(employeeName, 'Manager');
+}
+
+// Rejects a self-report outright, and rejects anything that would close
+// a reporting cycle by walking the existing Manager chain upward from
+// the proposed manager — if employeeName turns up anywhere in that
+// chain, assigning it would make employeeName indirectly their own
+// manager. No existing primitive enforces this (no prior "chain of
+// command" concept existed anywhere in the codebase before this plan),
+// so it's a genuinely new invariant, checked here rather than left to
+// a future report to silently loop forever.
+export function setEmployeeManager(employeeName: string, managerName: string, userId: UserId, employeeId?: number, managerId?: number): void {
+  if (managerName === employeeName) throw new ValidationError(`"${employeeName}" cannot be their own manager.`);
+  let cursor: string | undefined = managerName;
+  const seen = new Set<string>();
+  while (cursor) {
+    if (cursor === employeeName) throw new ValidationError(`Making "${managerName}" report to "${employeeName}" would create a reporting cycle.`);
+    if (seen.has(cursor)) break; // a genuine, pre-existing cycle elsewhere — not this call's to fix
+    seen.add(cursor);
+    cursor = getEmployeeManager(cursor);
+  }
+  setEntityLink(employeeName, 'Manager', managerName, userId, employeeId, managerId);
+}
+
+export function deleteEmployeeManager(employeeName: string, userId: UserId): void {
+  deleteEntityLink(employeeName, 'Manager', userId);
+}
+
+export interface OrgChartDepartment {
+  name: string;
+  employees: { name: string; location: string | null; managerName: string | null }[];
+}
+export interface OrgChartStructure {
+  business: string;
+  departments: OrgChartDepartment[];
+  unassignedEmployees: { name: string; location: string | null; managerName: string | null }[];
+}
+
+// One aggregate read replacing what would otherwise be an N+1-per-
+// employee/per-department fetch pattern (the same shape
+// BusinessStructurePopup.svelte's loadLocationsTab already has for
+// Locations/Divisions, via one getHierarchyTag call per location —
+// deliberately not repeated here for Departments/Employees).
+export function getOrgChartStructure(businessName: BusinessName): OrgChartStructure {
+  const departmentRows = listDepartments(businessName);
+  // Place of Employment is the older setRelationship mechanism (a
+  // relationship record is a child of the relationship TYPE's own root,
+  // not of the employee) — getEntitiesWithRelationship is the right
+  // bulk reader for it. Department/Manager are the newer setEntityLink
+  // mechanism (record is a child of the EMPLOYEE, tagged with the link
+  // type) — getEntitiesWithLink is the right bulk reader for those; see
+  // the two functions' own comments for why they're genuinely different
+  // shapes, not interchangeable.
+  const employmentRows = getEntitiesWithRelationship('Place of Employment');
+  const departmentLinks = getEntitiesWithLink('Department');
+  const managerLinks = getEntitiesWithLink('Manager');
+  const locationByEmployee = new Map(employmentRows.map((r) => [r.source, r.target]));
+  const departmentByEmployee = new Map(departmentLinks.map((r) => [r.entityName, r.targetName]));
+  const managerByEmployee = new Map(managerLinks.map((r) => [r.entityName, r.targetName]));
+
+  const allEmployeeNames = new Set([...locationByEmployee.keys(), ...departmentByEmployee.keys(), ...managerByEmployee.keys()]);
+  const describe = (name: string) => ({
+    name,
+    location: locationByEmployee.get(name) ?? null,
+    managerName: managerByEmployee.get(name) ?? null,
+  });
+
+  const departments: OrgChartDepartment[] = departmentRows.map((d) => ({
+    name: d.name,
+    employees: [...allEmployeeNames].filter((e) => departmentByEmployee.get(e) === d.name).sort().map(describe),
+  }));
+  const unassignedEmployees = [...allEmployeeNames].filter((e) => !departmentByEmployee.has(e)).sort().map(describe);
+  return { business: businessName, departments, unassignedEmployees };
 }
 
 export function createItemCategory(businessName: BusinessName, categoryName: string, parentCategoryName: string | undefined, userId: UserId): TypedNode<'RootName'> {
