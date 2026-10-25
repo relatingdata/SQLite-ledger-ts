@@ -53,8 +53,17 @@ test('Create every real, new vocabulary word and apply every real translation, f
     // genuinely marked as new (not already a real, different entity
     // living elsewhere in the tree under the exact, same name).
     if (entry.createUnderVocabulary) {
-      await page.locator('.new-word-card input').fill(entry.word);
-      await page.locator('.new-word-card button.btn').click();
+      // Single mode's word list dropped its own, separate "Add a new word"
+      // card for the Insert/Enter/Escape/Delete idiom (see
+      // docs/pm-frontend-reference.md) — a word is now created the same
+      // way here as a real person would in the browser: focus the word
+      // list's own toolbar, press Insert to reveal its inline add-form,
+      // type the name, and press Enter to confirm it.
+      await page.locator('.word-list-card [role="toolbar"]').focus();
+      await page.keyboard.press('Insert');
+      await page.waitForTimeout(150);
+      await page.locator(".word-list-card input[placeholder='e.g. Balance Sheet']").fill(entry.word);
+      await page.keyboard.press('Enter');
       await page.waitForTimeout(150);
       const errorVisible = await page.locator('fieldset.page-title > .error').count();
       if (errorVisible === 0) created++;
@@ -65,7 +74,11 @@ test('Create every real, new vocabulary word and apply every real translation, f
     await page.locator('input[placeholder="e.g. Provider"]').fill(entry.word);
     await page.waitForTimeout(150);
     const escaped = entry.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const exactRow = page.locator('.word-row', { hasText: new RegExp(`^${escaped}$`) });
+    // Words are .repeat-block rows inside the word list's own
+    // SelectableListEditor now (the old, separate .word-row button is
+    // gone) — scoped to .word-list-card so this can never match a row in
+    // the unrelated Languages list that sits alongside it on this page.
+    const exactRow = page.locator('.word-list-card .repeat-block', { hasText: new RegExp(`^${escaped}$`) });
     const count = await exactRow.count();
     if (count === 0) {
       failed.push(`${entry.word}: exact match not found in search results (real, existing entity outside Vocabulary — not reachable from this screen)`);

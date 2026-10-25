@@ -89,7 +89,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.keyboard.press('Insert');
   await page.waitForTimeout(300);
   await page.locator('input[placeholder="Division name"]').fill('Main Division');
-  await page.locator('.inline-add .btn.small').first().click();
+  await page.keyboard.press('Enter');
   await page.waitForTimeout(800);
   await shot('first_division_created');
 
@@ -100,7 +100,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(300);
   await page.locator('input[placeholder="Location name"]').fill('Warehouse Hub');
   await page.locator('input[placeholder="City"]').fill('Adelaide');
-  await page.getByRole('button', { name: 'Add' }).first().click();
+  await page.keyboard.press('Enter');
   await page.waitForTimeout(800);
   await shot('first_warehouse_created');
 
@@ -111,7 +111,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.keyboard.press('Insert');
   await page.waitForTimeout(300);
   await page.locator('input[placeholder="Employee name"]').fill('Jamie Chen');
-  await page.getByRole('button', { name: 'Add' }).first().click();
+  await page.keyboard.press('Enter');
   await page.waitForTimeout(800);
   await shot('first_employee_created');
 

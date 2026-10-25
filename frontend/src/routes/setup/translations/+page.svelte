@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { translations } from '$lib/state.svelte';
+  import SelectableListEditor from '$lib/components/SelectableListEditor.svelte';
   import {
     getVocabularyWords,
     getLanguages,
@@ -8,9 +9,16 @@
     createEntity,
     setLanguageDirection,
     getLanguageDirection,
+    deleteVocabularyWord,
+    revokeEntity,
     ApiError,
     type VocabularyWord,
   } from '$lib/api';
+
+  // Single source of truth for entity name display.
+  function T(name: string): string {
+    return translations.current[name] ?? name;
+  }
 
   let words: VocabularyWord[] = $state([]);
   let languages: { id: number; name: string }[] = $state([]);
@@ -30,6 +38,65 @@
 
   let newWordName = $state('');
   let addingWord = $state(false);
+
+  // Insert/Delete state for the single-mode words/languages lists — see
+  // docs/pm-frontend-reference.md, "Insert/Enter/Escape/Delete". Only
+  // "single" mode (editing one word's translations) has a real selection
+  // model to hang Delete off; "translate" mode's own "Add a new word"/
+  // "Add a new language" cards are deliberately left button-driven and
+  // unchanged, since nothing there is ever selected.
+  let insertingWord = $state(false);
+  let insertingLanguage = $state(false);
+  let selectedLanguageId: number | null = $state(null);
+
+  function selectLanguage(lang: { id: number; name: string }) {
+    selectedLanguageId = lang.id;
+  }
+
+  function openInsertWord() {
+    insertingWord = true;
+  }
+
+  function closeInsertWord() {
+    insertingWord = false;
+    newWordName = '';
+  }
+
+  function openInsertLanguage() {
+    insertingLanguage = true;
+  }
+
+  function closeInsertLanguage() {
+    insertingLanguage = false;
+    newLanguageName = '';
+    newLanguageDirection = 'LTR';
+  }
+
+  async function deleteWord(word: VocabularyWord) {
+    if (!confirm(`${T('Delete')} "${T(word.name)}"? ${T("This can't be undone.")}`)) return;
+    error = '';
+    try {
+      await deleteVocabularyWord(word.name);
+      if (selectedWord?.name === word.name) selectedWord = null;
+      words = await getVocabularyWords();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Could not delete this word.';
+    }
+  }
+
+  async function deleteLanguage(lang: { id: number; name: string }) {
+    if (!confirm(`${T('Delete')} "${T(lang.name)}"? ${T("This can't be undone.")}`)) return;
+    error = '';
+    try {
+      await revokeEntity(lang.id);
+      if (selectedLanguageId === lang.id) selectedLanguageId = null;
+      languages = await getLanguages();
+      await loadLanguageDirections(languages);
+      if (selectedWord) select(selectedWord);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Could not delete this language.';
+    }
+  }
 
   // Per-language RTL lookup, loaded once — see docs/pm-frontend-reference.md.
   let languageDirections: Record<string, 'ltr' | 'rtl'> = $state({});
@@ -89,7 +156,7 @@
     error = '';
     try {
       await createEntity({ name: newWordName.trim(), parent: 'Vocabulary' });
-      newWordName = '';
+      closeInsertWord();
       words = await getVocabularyWords();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not add word.';
@@ -151,8 +218,7 @@
     try {
       await createEntity({ name: newLanguageName.trim(), parent: 'Languages' });
       await setLanguageDirection(newLanguageName.trim(), newLanguageDirection);
-      newLanguageName = '';
-      newLanguageDirection = 'LTR';
+      closeInsertLanguage();
       languages = await getLanguages();
       await loadLanguageDirections(languages);
       if (selectedWord) select(selectedWord);
@@ -285,16 +351,37 @@
         <input bind:value={search} placeholder="e.g. Provider" />
       </fieldset>
       <p class="hint">{filteredWords.length} of {words.length} real words</p>
-      <div class="word-list">
-        {#each filteredWords.slice(0, 200) as word}
-          <button class="word-row" class:selected={selectedWord?.name === word.name} onclick={() => select(word)}>
-            {translations.current[word.name] ?? word.name}
-          </button>
-        {/each}
-        {#if filteredWords.length > 200}
-          <p class="hint">…and {filteredWords.length - 200} more — narrow the search to see them.</p>
-        {/if}
-      </div>
+      <SelectableListEditor
+        legend={translations.current['Words'] ?? 'Words'}
+        hintText={translations.current['Insert adds a word. Delete removes the selected word.'] ?? 'Insert adds a word. Delete removes the selected word.'}
+        items={filteredWords.slice(0, 200)}
+        getId={(w) => w.name}
+        selectedId={selectedWord?.name ?? null}
+        onSelect={select}
+        onInsert={openInsertWord}
+        onDelete={deleteWord}
+        inserting={insertingWord}
+        emptyText={translations.current['No matching words.'] ?? 'No matching words.'}
+      >
+        {#snippet form()}
+          <input
+            type="text"
+            placeholder="e.g. Balance Sheet"
+            bind:value={newWordName}
+            disabled={addingWord}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); addWord(); }
+              else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertWord(); }
+            }}
+          />
+        {/snippet}
+        {#snippet row(word)}
+          <span>{T(word.name)}</span>
+        {/snippet}
+      </SelectableListEditor>
+      {#if filteredWords.length > 200}
+        <p class="hint">…and {filteredWords.length - 200} more — narrow the search to see them.</p>
+      {/if}
     </div>
 
     <div class="card edit-card">
@@ -316,33 +403,45 @@
       {/if}
     </div>
 
-    <div class="card new-word-card">
-      <h3>{translations.current['Add a new word'] ?? 'Add a new word'}</h3>
-      <fieldset>
-        <legend>{translations.current['Name'] ?? 'Name'}</legend>
-        <input bind:value={newWordName} placeholder="e.g. Balance Sheet" />
-      </fieldset>
-      <button class="btn" onclick={addWord} disabled={addingWord}>
-        {addingWord ? 'Adding…' : (translations.current['Add word'] ?? 'Add word')}
-      </button>
-    </div>
-
     <div class="card new-language-card">
-      <h3>{translations.current['Add a new language'] ?? 'Add a new language'}</h3>
-      <fieldset>
-        <legend>{translations.current['Name'] ?? 'Name'}</legend>
-        <input bind:value={newLanguageName} placeholder="e.g. Spanish" />
-      </fieldset>
-      <fieldset>
-        <legend>{translations.current['Text Direction'] ?? 'Text Direction'}</legend>
-        <select bind:value={newLanguageDirection}>
-          <option value="LTR">{translations.current['Left to right (LTR)'] ?? 'Left to right (LTR)'}</option>
-          <option value="RTL">{translations.current['Right to left (RTL)'] ?? 'Right to left (RTL)'}</option>
-        </select>
-      </fieldset>
-      <button class="btn" onclick={addLanguage} disabled={addingLanguage}>
-        {addingLanguage ? 'Adding…' : (translations.current['Add language'] ?? 'Add language')}
-      </button>
+      <h3>{translations.current['Languages'] ?? 'Languages'}</h3>
+      <SelectableListEditor
+        legend={translations.current['Languages'] ?? 'Languages'}
+        hintText={translations.current['Insert adds a language. Delete removes the selected language.'] ?? 'Insert adds a language. Delete removes the selected language.'}
+        items={languages}
+        getId={(l) => l.id}
+        selectedId={selectedLanguageId}
+        onSelect={selectLanguage}
+        onInsert={openInsertLanguage}
+        onDelete={deleteLanguage}
+        inserting={insertingLanguage}
+        emptyText={translations.current['No real languages yet.'] ?? 'No real languages yet.'}
+      >
+        {#snippet form()}
+          <div
+            class="inline-add-block"
+            onkeydown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); addLanguage(); }
+              else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertLanguage(); }
+            }}
+          >
+            <fieldset>
+              <legend>{translations.current['Name'] ?? 'Name'}</legend>
+              <input type="text" placeholder="e.g. Spanish" bind:value={newLanguageName} disabled={addingLanguage} />
+            </fieldset>
+            <fieldset>
+              <legend>{translations.current['Text Direction'] ?? 'Text Direction'}</legend>
+              <select bind:value={newLanguageDirection}>
+                <option value="LTR">{translations.current['Left to right (LTR)'] ?? 'Left to right (LTR)'}</option>
+                <option value="RTL">{translations.current['Right to left (RTL)'] ?? 'Right to left (RTL)'}</option>
+              </select>
+            </fieldset>
+          </div>
+        {/snippet}
+        {#snippet row(lang)}
+          <span>{T(lang.name)}</span>
+        {/snippet}
+      </SelectableListEditor>
     </div>
   </div>
 {/if}
@@ -423,29 +522,14 @@
     width: 320px;
     padding: 1rem;
   }
-  .word-list {
+  .word-list-card :global(.sub-block > div[role='toolbar']) {
     max-height: 500px;
     overflow-y: auto;
+  }
+  .inline-add-block {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-  }
-  .word-row {
-    text-align: left;
-    background: none;
-    border: none;
-    padding: 0.4rem 0.5rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: var(--font-size-base);
-    line-height: 1.3;
-  }
-  .word-row:hover {
-    background: var(--paper-dim, #f2ede1);
-  }
-  .word-row.selected {
-    background: var(--brass, #c9a24b);
-    color: white;
+    gap: 0.6rem;
   }
   .edit-card {
     width: 420px;

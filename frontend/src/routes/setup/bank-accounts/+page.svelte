@@ -16,6 +16,7 @@
     type BankAccountRow,
     type CashPositionByCurrency,
   } from '$lib/api';
+  import SelectableListEditor from '$lib/components/SelectableListEditor.svelte';
 
   let entities: EntityNode[] = $state([]);
   let bankAccounts: BankAccountRow[] = $state([]);
@@ -73,6 +74,21 @@
 
   let registerValues: Record<string, string | number | string[]> = $state({ account: '', scope: '', overdraftLimit: '' });
 
+  // Selection + Insert/Delete model (see docs/pm-frontend-reference.md,
+  // "Insert/Enter/Escape/Delete") — no row-selection concept existed on
+  // this screen before.
+  let selectedAccountName: string | null = $state(null);
+  let inserting = $state(false);
+
+  function openInsert() {
+    inserting = true;
+  }
+
+  function closeInsert() {
+    inserting = false;
+    registerValues = { account: '', scope: '', overdraftLimit: '' };
+  }
+
   async function register(values: Record<string, string | number | string[]>) {
     const accountName = String(values.account ?? '');
     const scopeName = String(values.scope ?? '');
@@ -80,13 +96,14 @@
     const overdraft = values.overdraftLimit;
     const limitMinor = overdraft === '' || overdraft == null ? null : Math.round(Number(overdraft) * 100);
     await registerBankAccount(accountName, session.current.businessName, scopeName, limitMinor);
-    registerValues = { account: '', scope: '', overdraftLimit: '' };
+    closeInsert();
     await load();
   }
 
   async function unregister(accountName: string) {
     try {
       await unregisterBankAccount(accountName);
+      if (selectedAccountName === accountName) selectedAccountName = null;
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not unregister this account.';
@@ -138,56 +155,57 @@
     </div>
   {/if}
 
-  <fieldset class="card-legend">
-    <legend>{translations.current['Registered bank accounts'] ?? 'Registered bank accounts'}</legend>
-    {#if bankAccounts.length === 0}
-      <p class="empty">{translations.current['No bank accounts registered yet.'] ?? 'No bank accounts registered yet.'}</p>
-    {:else}
-      <table>
-        <thead>
-          <tr>
-            <th>{translations.current['Account'] ?? 'Account'}</th>
-            <th>{translations.current['Scope'] ?? 'Scope'}</th>
-            <th>{translations.current['Currency'] ?? 'Currency'}</th>
-            <th class="num">{translations.current['Balance'] ?? 'Balance'}</th>
-            <th class="num">{translations.current['Overdraft limit'] ?? 'Overdraft limit'}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each bankAccounts as acc}
-            <tr>
-              <td>{translations.current[acc.name] ?? acc.name}</td>
-              <td>{acc.scope}</td>
-              <td>{acc.currency ?? ''}</td>
-              <td class="num mono">{fmt(acc.balance_minor)}</td>
-              <td class="num mono">{acc.overdraft_limit_minor === null ? '—' : fmt(acc.overdraft_limit_minor)}</td>
-              <td><button type="button" class="remove-link" onclick={() => unregister(acc.name)}>{translations.current['Unregister'] ?? 'Unregister'}</button></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+  <div class="bank-list-wrap">
+    {#if bankAccounts.length > 0}
+      <div class="bank-row bank-header">
+        <span>{translations.current['Account'] ?? 'Account'}</span>
+        <span>{translations.current['Scope'] ?? 'Scope'}</span>
+        <span>{translations.current['Currency'] ?? 'Currency'}</span>
+        <span class="num">{translations.current['Balance'] ?? 'Balance'}</span>
+        <span class="num">{translations.current['Overdraft limit'] ?? 'Overdraft limit'}</span>
+      </div>
     {/if}
-  </fieldset>
-
-  <fieldset class="card-legend">
-    <legend>{translations.current['Register a bank account'] ?? 'Register a bank account'}</legend>
-    <Form
-      fields={[
-        { name: 'account', label: 'Account', type: 'select', options: candidateAccounts.map((acc) => acc.name) },
-        {
-          name: 'scope',
-          label: 'Scope (business or group)',
-          type: 'select',
-          options: [...(session.current ? [session.current.businessName] : []), ...groupNames],
-        },
-        { name: 'overdraftLimit', label: 'Overdraft limit (optional)', type: 'number', step: 0.01 },
-      ]}
-      bind:values={registerValues}
-      onSubmit={register}
-      submitLabel="Register"
-    />
-  </fieldset>
+    <SelectableListEditor
+      legend={translations.current['Registered bank accounts'] ?? 'Registered bank accounts'}
+      hintText={translations.current['Insert registers a bank account. Delete unregisters the selected one.'] ?? 'Insert registers a bank account. Delete unregisters the selected one.'}
+      items={bankAccounts}
+      getId={(a) => a.name}
+      selectedId={selectedAccountName}
+      onSelect={(a) => (selectedAccountName = a.name)}
+      onInsert={openInsert}
+      onDelete={(a) => unregister(a.name)}
+      inserting={inserting}
+      emptyText={translations.current['No bank accounts registered yet.'] ?? 'No bank accounts registered yet.'}
+    >
+      {#snippet form()}
+        <Form
+          fields={[
+            { name: 'account', label: 'Account', type: 'select', options: candidateAccounts.map((acc) => acc.name) },
+            {
+              name: 'scope',
+              label: 'Scope (business or group)',
+              type: 'select',
+              options: [...(session.current ? [session.current.businessName] : []), ...groupNames],
+            },
+            { name: 'overdraftLimit', label: 'Overdraft limit (optional)', type: 'number', step: 0.01 },
+          ]}
+          bind:values={registerValues}
+          onSubmit={register}
+          showSubmitButton={false}
+          onCancel={closeInsert}
+        />
+      {/snippet}
+      {#snippet row(acc)}
+        <div class="bank-row">
+          <span>{translations.current[acc.name] ?? acc.name}</span>
+          <span>{acc.scope}</span>
+          <span>{acc.currency ?? ''}</span>
+          <span class="num mono">{fmt(acc.balance_minor)}</span>
+          <span class="num mono">{acc.overdraft_limit_minor === null ? '—' : fmt(acc.overdraft_limit_minor)}</span>
+        </div>
+      {/snippet}
+    </SelectableListEditor>
+  </div>
 {/if}
 
 <style>
@@ -231,14 +249,19 @@
     color: var(--debit, #a33a2e);
     font-weight: 600;
   }
-  .empty {
-    color: var(--ink-soft);
+  .bank-list-wrap {
+    max-width: 900px;
+    margin: 0 auto 1.2rem;
   }
-  .remove-link {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--debit, #a33a2e);
-    font-size: var(--font-size-base);
+  .bank-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto auto;
+    gap: 0.6rem;
+    align-items: center;
+  }
+  .bank-header {
+    font-weight: bold;
+    color: var(--ink-soft);
+    padding: 0 0.7rem 0.4rem;
   }
 </style>

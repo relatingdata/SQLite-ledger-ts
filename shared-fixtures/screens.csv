@@ -62,11 +62,11 @@ Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Comp
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),4,quantity,input[type=number] >> nth=0,text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),5,unitCostMinor,input[type=number] >> nth=1,money
 Cash Purchase,data,,,,,6,ledger,,text
-Create Hierarchy Grouping,data,/setup/hierarchy,,createHierarchyGroupingSimple,button:has-text('Add grouping'),1,businessName,,text
-Create Hierarchy Grouping,data,/setup/hierarchy,,createHierarchyGroupingSimple,button:has-text('Add grouping'),2,groupingName,"input[placeholder='New grouping name (e.g. Storage, Glass Size)']",text
-Create Hierarchy Value,data,/setup/hierarchy,,createHierarchyValueSimple,.grouping-card:last-of-type button:has-text('Add'),1,businessName,,text
-Create Hierarchy Value,data,/setup/hierarchy,,createHierarchyValueSimple,.grouping-card:last-of-type button:has-text('Add'),2,groupingName,,text
-Create Hierarchy Value,data,/setup/hierarchy,,createHierarchyValueSimple,.grouping-card:last-of-type button:has-text('Add'),3,valueName,.grouping-card:last-of-type input[placeholder='New value'],text
+Create Hierarchy Grouping,data,/setup/hierarchy,.hierarchy-layout fieldset.sub-block:first-of-type [role="toolbar"];;key:Insert,createHierarchyGroupingSimple,key:Enter,1,businessName,,text
+Create Hierarchy Grouping,data,/setup/hierarchy,.hierarchy-layout fieldset.sub-block:first-of-type [role="toolbar"];;key:Insert,createHierarchyGroupingSimple,key:Enter,2,groupingName,"input[placeholder='New grouping name (e.g. Storage, Glass Size)']",text
+Create Hierarchy Value,data,/setup/hierarchy,.hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role="toolbar"];;key:Insert,createHierarchyValueSimple,key:Enter,1,businessName,,text
+Create Hierarchy Value,data,/setup/hierarchy,.hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role="toolbar"];;key:Insert,createHierarchyValueSimple,key:Enter,2,groupingName,,text
+Create Hierarchy Value,data,/setup/hierarchy,.hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role="toolbar"];;key:Insert,createHierarchyValueSimple,key:Enter,3,valueName,.hierarchy-layout fieldset.sub-block:last-of-type input[placeholder='New value'],text
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),1,businessName,,text
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),2,itemName,,text
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),3,locationName,select >> nth=2,select
@@ -170,10 +170,10 @@ Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,cr
 Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,createUserSimple,key:Enter,3,roles,.form-card .multiselect,check_by_text
 Set User Roles,data,,,setUserRolesSimple,,1,username,,text
 Set User Roles,data,,,setUserRolesSimple,,2,roles,,text
-Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),1,concept,.word-list-card input|.word-row,search_and_select
+Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),1,concept,.word-list-card input|.word-list-card .repeat-block,search_and_select
 Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),2,language,,text
 Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),3,translationText,.edit-card fieldset:has(legend:has-text('{{language}}')) input,text
-Add Vocabulary Word,data,/setup/translations,,createEntitySimple,.new-word-card button:has-text('Add word'),1,name,.new-word-card input,text
+Add Vocabulary Word,data,/setup/translations,.word-list-card [role="toolbar"][aria-keyshortcuts];;key:Insert,createEntitySimple,key:Enter,1,name,.word-list-card input[placeholder='e.g. Balance Sheet'],text
 Add Vocabulary Word,data,/setup/translations,,createEntitySimple,.new-word-card button:has-text('Add word'),2,parent,,text
 Add Location Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create Location'),1,businessName,,text
 Add Location Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create Location'),2,locationName,.generic-form fieldset >> nth=0 >> input,text

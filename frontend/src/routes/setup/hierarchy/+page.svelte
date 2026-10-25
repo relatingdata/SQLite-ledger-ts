@@ -2,15 +2,23 @@
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
+  import SelectableListEditor from '$lib/components/SelectableListEditor.svelte';
   import {
     getHierarchy,
     getProductShapes,
     createHierarchyGrouping,
     createHierarchyValue,
+    deleteHierarchyGrouping,
+    deleteHierarchyValue,
     defineProductShape as defineProductShapeApi,
     ApiError,
     type HierarchyGroupingWithValues,
   } from '$lib/api';
+
+  // Single source of truth for entity name display.
+  function T(name: string): string {
+    return translations.current[name] ?? name;
+  }
 
   let groupings: HierarchyGroupingWithValues[] = [];
   let shapes: [string, string][][] = [];
@@ -22,6 +30,71 @@
 
   let valueForGrouping: Record<string, string> = {};
   let addingValueTo = '';
+
+  // Groupings list + each grouping's own values list, both converted to
+  // the shared SelectableListEditor shell — see docs/pm-frontend-reference.md,
+  // "Insert/Enter/Escape/Delete". Product Shapes below is deliberately left
+  // button-driven (an in-progress multi-row draft committed as one unit,
+  // not a list of independently insertable/deletable items — see the plan).
+  let selectedGroupingName: string | null = null;
+  let insertingGrouping = false;
+  let selectedValueName: string | null = null;
+  let insertingValue = false;
+  $: selectedGrouping = groupings.find((g) => g.grouping === selectedGroupingName) ?? null;
+
+  function selectGrouping(g: HierarchyGroupingWithValues) {
+    selectedGroupingName = g.grouping;
+    selectedValueName = null;
+    insertingValue = false;
+  }
+
+  function openInsertGrouping() {
+    insertingGrouping = true;
+  }
+
+  function closeInsertGrouping() {
+    insertingGrouping = false;
+    newGroupingName = '';
+  }
+
+  function selectValue(v: string) {
+    selectedValueName = v;
+  }
+
+  function openInsertValue() {
+    insertingValue = true;
+  }
+
+  function closeInsertValue() {
+    insertingValue = false;
+    if (selectedGroupingName) valueForGrouping[selectedGroupingName] = '';
+  }
+
+  async function deleteGrouping(g: HierarchyGroupingWithValues) {
+    if (!session.current?.businessName) return;
+    if (!confirm(`${T('Delete')} "${T(g.grouping)}"? ${T("This can't be undone.")}`)) return;
+    error = '';
+    try {
+      await deleteHierarchyGrouping(session.current.businessName, g.grouping);
+      if (selectedGroupingName === g.grouping) selectedGroupingName = null;
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Could not delete this grouping.';
+    }
+  }
+
+  async function deleteValue(v: string) {
+    if (!session.current?.businessName || !selectedGroupingName) return;
+    if (!confirm(`${T('Delete')} "${T(v)}"? ${T("This can't be undone.")}`)) return;
+    error = '';
+    try {
+      await deleteHierarchyValue(session.current.businessName, selectedGroupingName, v);
+      if (selectedValueName === v) selectedValueName = null;
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Could not delete this value.';
+    }
+  }
 
   // Growable (dimension, grouping) pair list — see docs/pm-frontend-reference.md.
   let newShapeRows: { dimension: string; grouping: string }[] = [{ dimension: '', grouping: '' }];
@@ -50,7 +123,7 @@
     error = '';
     try {
       await createHierarchyGrouping(session.current.businessName, newGroupingName.trim());
-      newGroupingName = '';
+      closeInsertGrouping();
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not create grouping.';
@@ -66,7 +139,7 @@
     error = '';
     try {
       await createHierarchyValue(session.current.businessName, groupingName, valueName);
-      valueForGrouping[groupingName] = '';
+      closeInsertValue();
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not create value.';
@@ -117,48 +190,67 @@
   {:else}
     <section>
       <h3>{translations.current['Groupings'] ?? 'Groupings'}</h3>
-      {#if groupings.length === 0}
-        <p class="empty">{translations.current['No real hierarchy groupings yet.'] ?? 'No real hierarchy groupings yet.'}</p>
-      {:else}
-        <div class="cards">
-          {#each groupings as g}
-            <div class="card grouping-card">
-              <h4>{g.grouping}</h4>
-              {#if g.values.length === 0}
-                <p class="hint">{translations.current['No real values yet.'] ?? 'No real values yet.'}</p>
-              {:else}
-                <ul class="values">
-                  {#each g.values as v}
-                    <li>{v}</li>
-                  {/each}
-                </ul>
-              {/if}
-              <div class="add-row">
-                <input
-                  type="text"
-                  placeholder={translations.current['New value'] ?? 'New value'}
-                  bind:value={valueForGrouping[g.grouping]}
-                  onkeydown={(e) => e.key === 'Enter' && addValue(g.grouping)}
-                />
-                <button class="btn" onclick={() => addValue(g.grouping)} disabled={addingValueTo === g.grouping}>
-                  {addingValueTo === g.grouping ? '…' : (translations.current['Add'] ?? 'Add')}
-                </button>
-              </div>
-            </div>
-          {/each}
-        </div>
-      {/if}
+      <div class="hierarchy-layout">
+        <SelectableListEditor
+          legend={translations.current['Groupings'] ?? 'Groupings'}
+          hintText={translations.current['Insert adds a grouping. Delete removes the selected grouping.'] ?? 'Insert adds a grouping. Delete removes the selected grouping.'}
+          items={groupings}
+          getId={(g) => g.grouping}
+          selectedId={selectedGroupingName}
+          onSelect={selectGrouping}
+          onInsert={openInsertGrouping}
+          onDelete={deleteGrouping}
+          inserting={insertingGrouping}
+          emptyText={translations.current['No real hierarchy groupings yet.'] ?? 'No real hierarchy groupings yet.'}
+        >
+          {#snippet form()}
+            <input
+              type="text"
+              placeholder={translations.current['New grouping name (e.g. Storage, Glass Size)'] ?? 'New grouping name (e.g. Storage, Glass Size)'}
+              bind:value={newGroupingName}
+              disabled={creatingGrouping}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addGrouping(); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertGrouping(); }
+              }}
+            />
+          {/snippet}
+          {#snippet row(g)}
+            <span>{T(g.grouping)}</span>
+            <span class="hint">({g.values.length})</span>
+          {/snippet}
+        </SelectableListEditor>
 
-      <div class="add-row new-grouping">
-        <input
-          type="text"
-          placeholder={translations.current['New grouping name (e.g. Storage, Glass Size)'] ?? 'New grouping name (e.g. Storage, Glass Size)'}
-          bind:value={newGroupingName}
-          onkeydown={(e) => e.key === 'Enter' && addGrouping()}
-        />
-        <button class="btn" onclick={addGrouping} disabled={creatingGrouping}>
-          {creatingGrouping ? '…' : (translations.current['Add grouping'] ?? 'Add grouping')}
-        </button>
+        {#if selectedGrouping}
+          <SelectableListEditor
+            legend={`${T('Values in')} "${T(selectedGrouping.grouping)}"`}
+            hintText={translations.current['Insert adds a value. Delete removes the selected value.'] ?? 'Insert adds a value. Delete removes the selected value.'}
+            items={selectedGrouping.values}
+            getId={(v) => v}
+            selectedId={selectedValueName}
+            onSelect={selectValue}
+            onInsert={openInsertValue}
+            onDelete={deleteValue}
+            inserting={insertingValue}
+            emptyText={translations.current['No real values yet.'] ?? 'No real values yet.'}
+          >
+            {#snippet form()}
+              <input
+                type="text"
+                placeholder={translations.current['New value'] ?? 'New value'}
+                bind:value={valueForGrouping[selectedGrouping.grouping]}
+                disabled={addingValueTo === selectedGrouping.grouping}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); addValue(selectedGrouping!.grouping); }
+                  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertValue(); }
+                }}
+              />
+            {/snippet}
+            {#snippet row(v)}
+              <span>{T(v)}</span>
+            {/snippet}
+          </SelectableListEditor>
+        {/if}
       </div>
     </section>
 
@@ -232,20 +324,6 @@
     gap: 1rem;
     margin-bottom: 0.8rem;
   }
-  .grouping-card {
-    padding: 1rem 1.1rem;
-    width: 260px;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .grouping-card h4 {
-    margin: 0;
-  }
-  .values {
-    margin: 0;
-    padding-left: 1.2rem;
-  }
   .hint {
     font-size: var(--font-size-small);
     color: var(--ink-soft);
@@ -260,8 +338,15 @@
     flex: 1;
     min-width: 0;
   }
-  .new-grouping {
-    max-width: 480px;
+  .hierarchy-layout {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .hierarchy-layout :global(fieldset.sub-block) {
+    flex: 1;
+    min-width: 260px;
   }
   .shape-list {
     margin: 0;

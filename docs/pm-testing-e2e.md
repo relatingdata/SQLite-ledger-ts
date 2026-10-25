@@ -335,6 +335,31 @@ staff display, group/division creation via `createHierarchyValue`/
 location/employee/open-hours/schedule coverage for Business Setup runs
 instead against a freshly-created business (`make test-e2e-tutorial-browser`).
 
+### Known gap: `e2e/tests/tutorial-walkthrough.spec.ts`'s Items-section-onward is already stale
+
+While retrofitting the Insert/Enter/Escape/Delete keyboard idiom (see
+"Insert/Enter/Escape/Delete" in docs/pm-frontend-reference.md), the
+Business Setup portion of this spec (division/location/employee
+creation, lines ~84-116) genuinely broke — it filled the same inputs
+as before but then clicked the now-removed Add buttons to confirm —
+and was fixed in place to press Enter instead, same as every other
+converted screen. Investigating further turned up a second, unrelated,
+pre-existing gap: from the "Create the first product category and
+product" section onward (`/items`'s own `select`-based "+ New
+category…" flow, a single "+ Add" button, and more further down), this
+spec describes an items screen shape that predates the current
+tree-based `items/+page.svelte` entirely — `items/+page.svelte` has no
+top-level `<select>` or "+ New category…" option at all any more. This
+is not a regression from this plan's own changes (confirmed by reading
+the current screen's markup, which never matched what this spec
+assumes) and is not fixed here — rewriting the rest of this long,
+screenshot-generating spec to match the real, current UI for every
+screen it drives (items, General Journal, Purchase Order, Cash
+Purchase, Locations, Stock Transfer, Stock Take, POS) is its own,
+separate, much larger undertaking, out of scope for a keyboard-idiom
+retrofit. `make e2e-spec-tutorial`/`e2e-spec-all` will still fail from
+that point on until someone takes that on directly.
+
 ## Tutorial / minimal — `tutorial-steps.csv`
 
 The Tutorial fixture (`shared-fixtures/tutorial-steps.csv` +

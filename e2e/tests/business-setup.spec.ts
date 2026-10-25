@@ -23,7 +23,7 @@ test('Business Setup: the tree, company-wide staff, and group creation via Inser
   await page.keyboard.press('Insert');
   await page.waitForTimeout(300);
   await page.locator('input[placeholder="Division name"]').fill('Testburg');
-  await page.locator('.inline-add .btn.small').first().click();
+  await page.keyboard.press('Enter');
   await page.waitForTimeout(1000);
   await expect(page.getByRole('button', { name: 'Testburg' })).toBeVisible();
 
