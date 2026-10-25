@@ -448,6 +448,7 @@ export const createProfitCenter = (businessName: string, profitCenterName: strin
   request<{ id: number; name: string }>(`/businesses/${encodeURIComponent(businessName)}/profit-centers`, { method: 'POST', body: JSON.stringify({ profitCenterName }) });
 export const setSessionProfitCenter = (profitCenterName: string | null) =>
   request<void>('/auth/session/profit-center', { method: 'POST', body: JSON.stringify({ profitCenterName }) });
+export type ReportingFrequency = 'annual' | 'biannual' | 'quarterly' | 'monthly';
 export const createBusiness = (
   businessName: string,
   financialYearLabel: string,
@@ -455,14 +456,19 @@ export const createBusiness = (
   secondaryCurrencies?: string[],
   entityStructure?: 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded',
   partnerNames?: string[],
+  financialYearStart?: string,
+  reportingFrequency?: ReportingFrequency,
   screenName?: string
 ) =>
   // businessAdmin.password is shown exactly once, never recoverable later — see docs/pm-frontend-reference.md.
   request<{ business: BusinessName; actualLedger: string; budgetLedger: string; businessAdmin: { username: string; password: string } }>('/businesses', {
     method: 'POST',
-    body: JSON.stringify({ businessName, financialYearLabel, coaPrototype, secondaryCurrencies, entityStructure, partnerNames }),
+    body: JSON.stringify({ businessName, financialYearLabel, coaPrototype, secondaryCurrencies, entityStructure, partnerNames, financialYearStart, reportingFrequency }),
   }, screenName);
 export const getCoaPrototypeAccounts = (language: string) => request<string[]>(`/businesses/coa-prototype/${encodeURIComponent(language)}`);
+export interface ReportingPeriod { label: string; startDate: string; endDate: string; }
+export const getReportingPeriods = (businessName: string, asOf?: string) =>
+  request<ReportingPeriod[]>(`/businesses/${encodeURIComponent(businessName)}/reporting-periods${asOf ? `?asOf=${encodeURIComponent(asOf)}` : ''}`);
 
 export const nominateBankAccount = (businessName: string, bankAccountName: string, routingDetail: string, accountNumber: string) =>
   request<{ id: number }>(`/businesses/${encodeURIComponent(businessName)}/bank-accounts`, { method: 'POST', body: JSON.stringify({ bankAccountName, routingDetail, accountNumber }) });

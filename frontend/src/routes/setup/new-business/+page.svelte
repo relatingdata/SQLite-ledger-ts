@@ -16,6 +16,17 @@
 
   let businessName = '';
   let financialYearLabel = '2026-27';
+  // Real reporting-period data (see docs/pm-domain-reference.md), alongside the pre-existing
+  // free-text label above — financialYearLabel still names the Budget ledger exactly as before,
+  // this is the real date/frequency the system itself now understands and can compute from.
+  let financialYearStart = `${new Date().getFullYear()}-07-01`;
+  const REPORTING_FREQUENCIES: { value: 'annual' | 'biannual' | 'quarterly' | 'monthly'; label: string }[] = [
+    { value: 'annual', label: 'Annual' },
+    { value: 'biannual', label: 'Biannual (every 6 months)' },
+    { value: 'quarterly', label: 'Quarterly' },
+    { value: 'monthly', label: 'Monthly' },
+  ];
+  let reportingFrequency: (typeof REPORTING_FREQUENCIES)[number] = REPORTING_FREQUENCIES[0];
   let selectedPrototype = COA_PROTOTYPES[0];
   let prototypeAccounts: string[] = [];
   let loadingAccounts = false;
@@ -109,6 +120,8 @@
         secondaryCurrencies.length > 0 ? secondaryCurrencies : undefined,
         entityStructure.value,
         entityStructure.needsPartners && partnerNames.length > 0 ? partnerNames : undefined,
+        financialYearStart || undefined,
+        reportingFrequency.value,
         'Create Business'
       );
       const answered = Object.fromEntries(Object.entries(questionAnswers).filter(([, v]) => v && v.trim()));
@@ -295,6 +308,27 @@
         Creates both a real Actual ledger for ongoing transactions and a real Budget ledger for this financial
         year — a new business needs both from day one, not a second thing to remember to set up later. Free
         text, not computed from today's date — a real fiscal year start genuinely varies by country.
+      </p>
+    </fieldset>
+    <fieldset>
+      <legend>{translations.current['Financial Year Start Date'] ?? 'Financial Year Start Date'}</legend>
+      <input type="date" bind:value={financialYearStart} />
+      <p class="field-note">
+        The real date, not just a label — this is what lets Close Books/Rollover suggest the right
+        quarter or month-end dates below, instead of you having to work them out by hand.
+      </p>
+    </fieldset>
+    <fieldset>
+      <legend>{translations.current['Reporting Period'] ?? 'Reporting Period'}</legend>
+      <select bind:value={reportingFrequency}>
+        {#each REPORTING_FREQUENCIES as freq}
+          <option value={freq}>{translations.current[freq.label] ?? freq.label}</option>
+        {/each}
+      </select>
+      <p class="field-note">
+        How often this business closes its books — annually is the simplest and most common
+        choice, but Close Books/Rollover will genuinely understand and support closing a quarter
+        or month at a time if you pick one of those instead.
       </p>
     </fieldset>
     <fieldset>

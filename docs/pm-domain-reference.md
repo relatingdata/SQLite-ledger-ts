@@ -894,3 +894,106 @@ is purely additive. The Items catalog and Business Structure popup
 were the first callers updated, since an unscoped entity tree (every
 business's data, returned to every one of ~20 screens) was the real
 root cause of Create Item's reported slowness.
+
+## Reporting periods — a real financial-year start date and frequency
+
+`closeBooks`/`rolloverToNewPeriod` (`backend/src/db-reports.ts`) were
+already fully period-length-agnostic: both take an arbitrary
+`asOfDate` and an arbitrary ledger name, with nothing in either
+function assuming a full year. What was missing wasn't capability, it
+was the business itself knowing its own period boundaries — a person
+had to work out "what's Q2 2026-27's end date" by hand and type an
+arbitrary ledger name, with no validation against the business's real
+financial-year structure.
+
+`setBusinessReportingPeriod`/`getBusinessReportingPeriod`
+(`backend/src/db.ts`) store a real ISO `financialYearStart` date and a
+`ReportingFrequency` (`'annual' | 'biannual' | 'quarterly' |
+'monthly'`) the same way `setBusinessHomeCurrency` already stores
+`home_currency` — in the business entity's own `detail_json`, not a
+new table. `createBusiness` takes both as new, trailing, optional
+parameters; omitted (every pre-existing caller, including all of
+`backend/test/db.test.ts`'s fixtures), a business has no stored
+reporting period at all and every downstream feature here falls back
+silently to the prior free-form behavior.
+
+`getReportingPeriods(businessName, asOfDate?)` is the real calendar
+math: starting from `financialYearStart`, it steps forward in
+whole-month increments (12/6/3/1 months per `PERIOD_MONTHS`) through
+the first period that ends on or after `asOfDate` (today by default),
+labeling each one by convention — `"2026-27"` for annual,
+`"H1 2026-27"`/`"H2 2026-27"` for biannual, `"Q1 2026-27"`..`"Q4
+2026-27"` for quarterly, `"Jul 2026"`-style for monthly — reusing the
+financial-year-label convention the free-text field on New Business
+already established, just computed from a real date instead of typed
+by hand. It's whole-month arithmetic via `Date.UTC`, so it's correct
+across different month lengths and leap years (tested directly:
+February's real, shorter length).
+
+**Where this surfaces**: `setup/new-business/+page.svelte` gets a real
+date field and a frequency `<select>`, alongside (not replacing) the
+pre-existing free-text `financialYearLabel`, which still only names
+the Budget ledger. `GET /businesses/:businessName/reporting-periods`
+exposes `getReportingPeriods` over HTTP; the Close Books/Rollover
+screen (`setup/yearend/+page.svelte`) shows a "Reporting period"
+picker when the current business has any (`[]` otherwise, so the
+section doesn't render at all for a business with no stored period),
+which fills in `asOfDate` and suggests a new ledger name
+(`"Actual <period label>"`) for the Rollover section below — a real
+suggestion the person can still freely override, not a hard constraint.
+
+**What this deliberately does not do**: there is still no "period is
+closed/locked" flag, and no validation preventing a close on a date
+that isn't a real period boundary — `closeBooks` keeps its existing,
+deliberately permissive behavior (any date, including one mid-period,
+for a genuine correction). This is additive period *awareness*, not a
+new period-locking subsystem; a harder lock was not part of what was
+asked for and would be a materially larger, separate feature.
+
+## Design note (not yet built): converting a sole trader to a partnership
+
+Not implemented — the user asked for a design to review before any
+code is written, given it's a real change to equity structure, not a
+cosmetic label change.
+
+`setupEquityStructure` (`backend/src/db.ts`) is already additive and
+idempotent per structure: its `ensure()` helper only creates an
+account if one of that exact name doesn't already exist, and
+`sole_trader`'s own case does nothing destructive (no accounts are
+removed). That means the mechanical half of a conversion is almost
+free: calling `setupEquityStructure(business, 'partnership', userId,
+coaPrototype, partnerNames)` again on an existing sole-trader business
+would create each named partner's `"<business> — <partner> Capital"`
+and `"<business> — <partner> Drawing"` accounts without disturbing
+anything already there.
+
+The part that genuinely can't be automated is what happens to the
+sole trader's *existing* accumulated `Owner's Equity` balance — it
+doesn't split itself among incoming partners; that's a real business
+decision (buy-in amounts, agreed capital contributions, how retained
+earnings-to-date get allocated) that only a human can make. The real
+design, then, is a short wizard — likely a new step on
+`BusinessStructurePopup.svelte` or its own screen — that:
+
+1. Changes the business's recorded `EntityStructure` (not currently
+   stored anywhere as mutable state — `entityStructure` is only ever
+   an input to `createBusiness`/`setupEquityStructure`, never read
+   back; this conversion is also the first real need for storing it,
+   the same `detail_json`-on-the-business pattern as `home_currency`
+   and the new reporting-period fields above).
+2. Calls `setupEquityStructure` again with the new structure and
+   partner names, creating the new equity accounts.
+3. Shows the business's current `Owner's Equity` balance and proposes
+   (never auto-posts) a journal entry zeroing it into the new
+   partners' Capital accounts in whatever split the person enters —
+   the same stage-then-preview pattern `setup/yearend/+page.svelte`'s
+   Close Books already uses, reused rather than reinvented.
+4. Leaves the old `Owner's Equity` account exactly where it is
+   afterward (never deleted — this system never deletes real,
+   historical accounts), simply zeroed and no longer posted to going
+   forward, consistent with how a closed ledger's accounts are
+   handled elsewhere.
+
+No backend change is needed to make step 2 possible today; steps 1 and
+3 are the real, new work, and are a self-contained, separately
+scoped/estimated feature from everything else in this document.

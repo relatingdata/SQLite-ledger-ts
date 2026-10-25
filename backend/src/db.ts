@@ -3974,6 +3974,89 @@ export function getBusinessHomeCurrency(businessName: string): string | null {
   return JSON.parse(row.detail_json).home_currency ?? null;
 }
 
+// A business's financial-year start date and reporting-period frequency - stored the same way as
+// home_currency above (detail_json on the business entity itself), real data rather than just the
+// free-text financialYearLabel (which only ever drove the Budget ledger's name). See
+// docs/pm-domain-reference.md ("Reporting periods") for the period-boundary math this backs.
+export type ReportingFrequency = 'annual' | 'biannual' | 'quarterly' | 'monthly';
+export const PERIOD_MONTHS: Record<ReportingFrequency, number> = { annual: 12, biannual: 6, quarterly: 3, monthly: 1 };
+
+export function setBusinessReportingPeriod(businessName: string, financialYearStart: string, frequency: ReportingFrequency, userId: UserId): void {
+  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined)?.id;
+  if (!businessId) throw new ValidationError(`No business named "${businessName}".`);
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(businessId) as { detail_json: string | null } | undefined;
+  const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
+  Entity.setDetailJson(businessId, JSON.stringify({ ...current, financial_year_start: financialYearStart, reporting_frequency: frequency }));
+  void userId;
+}
+
+export function getBusinessReportingPeriod(businessName: string): { financialYearStart: string; frequency: ReportingFrequency } | null {
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { detail_json: string | null } | undefined;
+  if (!row?.detail_json) return null;
+  const detail = JSON.parse(row.detail_json);
+  if (!detail.financial_year_start || !detail.reporting_frequency) return null;
+  return { financialYearStart: detail.financial_year_start, frequency: detail.reporting_frequency };
+}
+
+export interface ReportingPeriod {
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+// Every real period boundary from the stored financial-year start forward, at the stored
+// frequency, through the first period that ends on or after `asOfDate` (today by default) - the
+// one currently in progress. Pure calendar arithmetic (whole-month steps, so it's correct across
+// different month lengths and leap years), not a fixed day-count. Returns [] when the business
+// has no stored reporting period at all (createBusiness's legacy callers, or any business created
+// before this feature) - callers fall back to free-form dates/ledger names exactly as before.
+export function getReportingPeriods(businessName: string, asOfDate?: string): ReportingPeriod[] {
+  const period = getBusinessReportingPeriod(businessName);
+  if (!period) return [];
+  const months = PERIOD_MONTHS[period.frequency];
+  const start = new Date(`${period.financialYearStart}T00:00:00Z`);
+  const limit = new Date(`${asOfDate ?? new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+  const periods: ReportingPeriod[] = [];
+  let cursor = start;
+  let periodNumber = 1; // 1-based, resets to 1 at each financial-year anniversary
+  let guard = 0;
+  while (guard++ < 1000) {
+    const next = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + months, cursor.getUTCDate()));
+    const endDate = new Date(next.getTime() - 86400000);
+    const fyLabel = financialYearLabelFor(start, cursor);
+    periods.push({
+      label: periodLabel(period.frequency, periodNumber, fyLabel, endDate),
+      startDate: cursor.toISOString().slice(0, 10),
+      endDate: endDate.toISOString().slice(0, 10),
+    });
+    if (endDate >= limit) break;
+    cursor = next;
+    periodNumber = periodNumber >= 12 / months ? 1 : periodNumber + 1;
+  }
+  return periods;
+}
+
+// "2026-27" when the financial year crosses a calendar year boundary (the FY start month isn't
+// January), else just "2026" — the same convention the New Business screen's free-text
+// financialYearLabel already used, now derived from a real date instead of typed by hand.
+function financialYearLabelFor(fyStart: Date, periodCursor: Date): string {
+  const anniversaryYear =
+    periodCursor.getUTCMonth() < fyStart.getUTCMonth() ||
+    (periodCursor.getUTCMonth() === fyStart.getUTCMonth() && periodCursor.getUTCDate() < fyStart.getUTCDate())
+      ? periodCursor.getUTCFullYear() - 1
+      : periodCursor.getUTCFullYear();
+  if (fyStart.getUTCMonth() === 0) return String(anniversaryYear);
+  return `${anniversaryYear}-${String((anniversaryYear + 1) % 100).padStart(2, '0')}`;
+}
+
+function periodLabel(frequency: ReportingFrequency, periodNumber: number, fyLabel: string, endDate: Date): string {
+  if (frequency === 'annual') return fyLabel;
+  if (frequency === 'biannual') return `H${periodNumber} ${fyLabel}`;
+  if (frequency === 'quarterly') return `Q${periodNumber} ${fyLabel}`;
+  const monthName = endDate.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  return `${monthName} ${endDate.getUTCFullYear()}`;
+}
+
 export function nominateLocationCurrency(locationName: string, currencyCode: string, userId: UserId, business?: BusinessName): void {
   const locationId = resolveScopedLocationId(locationName, business);
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
@@ -4726,7 +4809,9 @@ export function createBusiness(
   coaPrototype?: string,
   secondaryCurrencies?: string[],
   entityStructure?: EntityStructure,
-  partnerNames?: string[]
+  partnerNames?: string[],
+  financialYearStart?: string,
+  reportingFrequency?: ReportingFrequency
 ): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName } {
   return db.transaction((): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName } => {
   const businessesRoot = requireEntity('Businesses', typeRootName);
@@ -4761,6 +4846,11 @@ export function createBusiness(
   }
   if (entityStructure) {
     setupEquityStructure(businessName, entityStructure, userId, coaPrototype, partnerNames);
+  }
+  // Optional — legacy callers (existing tests/scripts) omit both and get exactly the prior
+  // behavior. See docs/pm-domain-reference.md ("Reporting periods").
+  if (financialYearStart) {
+    setBusinessReportingPeriod(businessName, financialYearStart, reportingFrequency ?? 'annual', userId);
   }
   resolveCashAtBankAccount(businessName, undefined, userId);
   return { business: businessName, actualLedger, budgetLedger };

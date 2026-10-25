@@ -3695,6 +3695,33 @@ test('createBusiness: real, optional secondary currencies each get a real, autom
   }
 });
 
+test('createBusiness + getReportingPeriods: a real financial-year start date and frequency, understood well enough to compute real quarter/month boundaries — omitted entirely, a business behaves exactly as before', () => {
+  const noPeriodName = fx.uniqueName('NoReportingPeriodTest Co');
+  db.createBusiness(db.asBusinessName(noPeriodName), '2027-28', fx.userId);
+  assert.deepEqual(db.getReportingPeriods(noPeriodName), [], 'a business created without a financial-year start must report no periods at all, not a guessed default');
+  assert.equal(db.getBusinessReportingPeriod(noPeriodName), null);
+
+  const quarterlyName = fx.uniqueName('QuarterlyReportingTest Co');
+  db.createBusiness(db.asBusinessName(quarterlyName), '2026-27', fx.userId, undefined, undefined, undefined, undefined, '2026-07-01', 'quarterly');
+  const stored = db.getBusinessReportingPeriod(quarterlyName);
+  assert.deepEqual(stored, { financialYearStart: '2026-07-01', frequency: 'quarterly' });
+
+  const periods = db.getReportingPeriods(quarterlyName, '2026-10-15');
+  assert.deepEqual(
+    periods.map((p) => ({ label: p.label, startDate: p.startDate, endDate: p.endDate })),
+    [
+      { label: 'Q1 2026-27', startDate: '2026-07-01', endDate: '2026-09-30' },
+      { label: 'Q2 2026-27', startDate: '2026-10-01', endDate: '2026-12-31' },
+    ],
+    'real calendar-month quarters from the real financial-year start, through the quarter the given date actually falls in — not a fixed 90-day approximation'
+  );
+
+  const monthlyName = fx.uniqueName('MonthlyReportingTest Co');
+  db.createBusiness(db.asBusinessName(monthlyName), '2026-27', fx.userId, undefined, undefined, undefined, undefined, '2026-01-01', 'monthly');
+  const febPeriod = db.getReportingPeriods(monthlyName, '2026-02-10').at(-1);
+  assert.deepEqual(febPeriod && { label: febPeriod.label, endDate: febPeriod.endDate }, { label: 'Feb 2026', endDate: '2026-02-28' }, 'a real calendar month, correctly handling February\'s real, shorter length');
+});
+
 test('ensureItemSalesCogsAccounts: mirrors the real, existing product category tree onto the GL side, not a flat or hardcoded structure', () => {
   const biz = fx.freshBusiness('CategoryMirrorTest Co');
   const category = fx.uniqueName('CategoryMirrorTest Category');

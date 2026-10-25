@@ -4,7 +4,7 @@ import { requireRole, requireGlobalRole } from '../auth-middleware.js';
 import { provisionBusinessAdminUser } from '../auth.js';
 import { getBusinesses, getLedgers, getActiveLedger, createBusiness, getChartOfAccountsPrototype, getBusinessTypes, saveBusinessTypeAnswers, asBusinessName, ValidationError,
   asUserId, nominateBankAccount, getNominatedBankAccounts, buildBankCurrencyStructure, typeAssetAccountName, typeEquityAccountName, getBusinessConfigurationReport,
-  createProfitCenter, getProfitCenters,
+  createProfitCenter, getProfitCenters, getReportingPeriods,
 } from '../db.js';
 
 export const businessesRouter = Router();
@@ -67,6 +67,15 @@ businessesRouter.get('/coa-prototype/:language', (req, res) => {
   res.json(getChartOfAccountsPrototype(req.params.language));
 });
 
+// Real period boundaries from this business's stored financial-year start/frequency, through the
+// one in progress as of ?asOf (today, by default) — [] for a business with no stored reporting
+// period (created before this feature, or via a legacy caller). Drives Close Books/Rollover's
+// suggested date and ledger name — see docs/pm-domain-reference.md ("Reporting periods").
+businessesRouter.get('/:businessName/reporting-periods', (req, res) => {
+  const asOf = typeof req.query.asOf === 'string' ? req.query.asOf : undefined;
+  res.json(getReportingPeriods(req.params.businessName, asOf));
+});
+
 const createBusinessSchema = z.object({
   businessName: z.string().min(1),
   financialYearLabel: z.string().min(1),
@@ -74,6 +83,10 @@ const createBusinessSchema = z.object({
   secondaryCurrencies: z.array(z.string().min(1)).optional(),
   entityStructure: z.enum(['sole_trader', 'partnership', 'llc', 'unlimited_liability', 'publicly_traded']).optional(),
   partnerNames: z.array(z.string().min(1)).optional(),
+  // Real reporting-period data (see docs/pm-domain-reference.md) — both optional so a business can
+  // still be created exactly as before, with just the free-text financialYearLabel.
+  financialYearStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  reportingFrequency: z.enum(['annual', 'biannual', 'quarterly', 'monthly']).optional(),
 });
 
 // Creating a business is the one, real, deliberately narrow operation
@@ -93,7 +106,9 @@ businessesRouter.post('/', requireGlobalRole('Administrator'), (req, res) => {
       parsed.data.coaPrototype,
       parsed.data.secondaryCurrencies,
       parsed.data.entityStructure,
-      parsed.data.partnerNames
+      parsed.data.partnerNames,
+      parsed.data.financialYearStart,
+      parsed.data.reportingFrequency
     );
     // Per direct instruction: every real, new business gets its own,
     // real, dedicated admin user — full, real access within this one

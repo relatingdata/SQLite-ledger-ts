@@ -13,6 +13,7 @@
     createLedger,
     resolveRolloverLines,
     getHierarchy,
+    getReportingPeriods,
     asLedgerName,
     asAccountName,
     ApiError,
@@ -20,6 +21,7 @@
     type CloseBooksResult,
     type CloseBooksPreview,
     type ResolvedRollover,
+    type ReportingPeriod,
   } from '$lib/api';
 
   // Close-books breakdown by Location + configured hierarchy — see docs/pm-frontend-reference.md.
@@ -31,6 +33,25 @@
 
   let asOfDate = new Date().toISOString().slice(0, 10);
   let retainedEarningsAccount = '';
+
+  // Real sub-annual close support — see docs/pm-domain-reference.md ("Reporting periods"). [] for
+  // a business with no stored financial-year start/frequency, in which case this section simply
+  // doesn't render and everything below works exactly as it always did (free-form date + ledger
+  // name). closeBooks/rolloverToNewPeriod themselves already take an arbitrary date and ledger
+  // name — what this adds is the business genuinely knowing its own period boundaries, rather
+  // than the user having to compute "what's Q2 2026-27's end date" by hand.
+  let reportingPeriods: ReportingPeriod[] = [];
+  let selectedPeriodLabel = '';
+  function applySelectedPeriod() {
+    const period = reportingPeriods.find((p) => p.label === selectedPeriodLabel);
+    if (!period) return;
+    asOfDate = period.endDate;
+    resetProposal();
+    if (selectedLedgerOption === NEW_LEDGER_OPTION && !newLedgerName.trim()) {
+      newLedgerName = `Actual ${period.label}`;
+    }
+    resetRollover();
+  }
 
   let previewing = false;
   let previewError = '';
@@ -63,6 +84,11 @@
           if (hierarchy.length > 0) hierarchyPath = ['Location', ...hierarchy.map((h) => h.grouping)];
         } catch {
           /* the close still works with just a Location breakdown if this fails */
+        }
+        try {
+          reportingPeriods = await getReportingPeriods(session.current.businessName);
+        } catch {
+          reportingPeriods = []; // no stored reporting period — falls back to free-form date/ledger name
         }
       }
     } catch (e) {
@@ -240,6 +266,18 @@
       <strong>{session.current?.businessName ?? ''}</strong> — {session.current?.ledgerName ?? ''}
     </p>
 
+    {#if reportingPeriods.length > 0}
+      <fieldset>
+        <legend>{translations.current['Reporting period'] ?? 'Reporting period'}</legend>
+        <select bind:value={selectedPeriodLabel} onchange={applySelectedPeriod}>
+          <option value="">{translations.current['Pick a period…'] ?? 'Pick a period…'}</option>
+          {#each reportingPeriods as p}<option value={p.label}>{p.label} ({translations.current['ends'] ?? 'ends'} {p.endDate})</option>{/each}
+        </select>
+        <p class="field-note">
+          {translations.current["Computed from this business's own financial-year start date and reporting frequency — pick one to fill in the as-of date (and, below, a suggested new ledger name) instead of working it out by hand."] ?? "Computed from this business's own financial-year start date and reporting frequency — pick one to fill in the as-of date (and, below, a suggested new ledger name) instead of working it out by hand."}
+        </p>
+      </fieldset>
+    {/if}
     <div class="row-2">
       <fieldset>
         <legend>{translations.current['As of date'] ?? 'As of date'}</legend>

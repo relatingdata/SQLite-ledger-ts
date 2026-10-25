@@ -949,6 +949,19 @@ earlier, half-finished rollover attempt — rolling into it is still a
 valid case; any other genuine problem creating it surfaces anyway once
 `resolveRolloverLines` can't find the ledger it needs.
 
+**Real sub-annual close support**: a "Reporting period" `<select>`,
+shown only when `getReportingPeriods` returns anything (i.e. the
+current business has a stored financial-year start/frequency —
+`[]` otherwise, and the section simply doesn't render), lets the
+person pick a real period (e.g. "Q2 2026-27") instead of typing an
+`asOfDate` and a new ledger name by hand. `applySelectedPeriod` fills
+in `asOfDate` from the period's real `endDate` and, if the Rollover
+section's target is still "new ledger" with no name typed yet,
+suggests `"Actual <period label>"` — still freely editable, never a
+hard constraint. See `docs/pm-domain-reference.md` ("Reporting
+periods") for why no backend changes to `closeBooks`/
+`rolloverToNewPeriod` themselves were needed.
+
 ## `frontend/src/routes/reports/pl-pivot/+page.svelte` — the drag-and-drop P&L pivot builder
 
 Per `docs/pl-pivot-builder-dnd-plan.md`, this enforces the same
@@ -1269,6 +1282,15 @@ unification, not a rewrite of a working mechanism.
 previously ran as a bare top-level call that also ran during SSR,
 triggering SvelteKit's "Avoid calling fetch eagerly during server-side
 rendering" warning on every visit.
+
+**Financial Year Start Date + Reporting Period**, alongside (not
+replacing) the pre-existing free-text `financialYearLabel`: a real
+`<input type="date">` plus an `annual`/`biannual`/`quarterly`/`monthly`
+`<select>`, wired through `createBusiness`'s two new trailing optional
+parameters to `setBusinessReportingPeriod` — see
+`docs/pm-domain-reference.md` ("Reporting periods"). Both are optional;
+leaving the date blank creates a business exactly as before, with no
+stored reporting period at all.
 
 **The post-creation bank-accounts-by-currencies wizard**, per
 `docs/user-manual-ch2-configuration.md`'s "Setup then walks through
