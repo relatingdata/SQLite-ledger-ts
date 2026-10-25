@@ -55,24 +55,29 @@
     }
   }
 
-  // Enter-to-submit from any text/number/password field — see
-  // docs/pm-frontend-reference.md.
-  function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') submit();
-  }
-
-  // Escape-to-cancel lives on the whole form, not per-field, since it
-  // must work no matter which field currently has focus (a select, a
-  // checkbox, a date picker — fields with no onKeydown of their own).
-  // Only fires when a caller actually wants cancellation (onCancel
-  // supplied) — every existing caller leaves it unset, so this is a
+  // Enter-to-submit AND Escape-to-cancel both live on the whole form, not
+  // per-field, since both must work no matter which field currently has
+  // focus — a select, a checkbox, a date picker, or a multiselect's own
+  // checkboxes all have no onkeydown of their own. This was discovered as
+  // a real bug while converting setup/users/+page.svelte to Insert-opens-
+  // form: the "roles" multiselect is the last field in that form, so a
+  // real, UI-driven Enter press (shared-fixtures screens.csv's own
+  // key:Enter submit_selector) landed on a checkbox, not a text input,
+  // and a per-field-only Enter handler never saw it — the step reported
+  // success (no exception) while genuinely submitting nothing at all.
+  // Escape only fires when a caller actually wants cancellation (onCancel
+  // supplied) — every existing caller leaves it unset, so that half is a
   // true no-op for them, same as before this prop existed.
-  // stopPropagation matters: frontend/src/routes/+layout.svelte has its
-  // own, unrelated, global Escape handler on <main> (the hasUnsavedEdit
-  // sidebar-focus warning) that must never also fire just because this
-  // inline form's own Escape was handled here.
+  // stopPropagation on Escape matters: frontend/src/routes/+layout.svelte
+  // has its own, unrelated, global Escape handler on <main> (the
+  // hasUnsavedEdit sidebar-focus warning) that must never also fire just
+  // because this inline form's own Escape was handled here. Enter needs
+  // no stopPropagation — nothing else up the tree reacts to it.
   function onFormKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && onCancel) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submit();
+    } else if (e.key === 'Escape' && onCancel) {
       e.stopPropagation();
       onCancel();
     }
@@ -108,13 +113,13 @@
           {/each}
         </div>
       {:else if field.type === 'number'}
-        <input type="number" min={field.min} max={field.max} step={field.step ?? 1} bind:value={values[field.name]} onkeydown={onKeydown} />
+        <input type="number" min={field.min} max={field.max} step={field.step ?? 1} bind:value={values[field.name]} />
       {:else if field.type === 'password'}
-        <input type="password" autocomplete={field.autocomplete} bind:value={values[field.name]} onkeydown={onKeydown} />
+        <input type="password" autocomplete={field.autocomplete} bind:value={values[field.name]} />
       {:else if field.type === 'date'}
         <input type="date" bind:value={values[field.name]} />
       {:else}
-        <input type="text" autocomplete={field.autocomplete} bind:value={values[field.name]} onkeydown={onKeydown} />
+        <input type="text" autocomplete={field.autocomplete} bind:value={values[field.name]} />
       {/if}
     </fieldset>
   {/each}

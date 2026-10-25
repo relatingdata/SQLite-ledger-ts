@@ -165,9 +165,9 @@ Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,
 Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,,,,2,ledger,,text
 Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text
 Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> nth=1,text
-Create User,data,/setup/users,,createUserSimple,button:has-text('Create user'),1,username,.form-card fieldset:has(legend:has-text('Username')) input,text
-Create User,data,/setup/users,,createUserSimple,button:has-text('Create user'),2,password,.form-card fieldset:has(legend:has-text('Password')) input,text
-Create User,data,/setup/users,,createUserSimple,button:has-text('Create user'),3,roles,.form-card .multiselect,check_by_text
+Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,createUserSimple,key:Enter,1,username,.form-card fieldset:has(legend:has-text('Username')) input,text
+Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,createUserSimple,key:Enter,2,password,.form-card fieldset:has(legend:has-text('Password')) input,text
+Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,createUserSimple,key:Enter,3,roles,.form-card .multiselect,check_by_text
 Set User Roles,data,,,setUserRolesSimple,,1,username,,text
 Set User Roles,data,,,setUserRolesSimple,,2,roles,,text
 Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),1,concept,.word-list-card input|.word-row,search_and_select

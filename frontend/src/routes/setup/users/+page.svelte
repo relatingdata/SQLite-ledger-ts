@@ -60,6 +60,45 @@
 
   let newUserValues: Record<string, string | number | string[]> = { username: '', password: '', roles: [] };
 
+  // Selection + Insert/Delete model (see docs/pm-frontend-reference.md,
+  // "Insert/Enter/Escape/Delete"). This page has no $state/$props runes
+  // anywhere else, so these stay plain `let` too, matching its existing
+  // legacy-reactivity style rather than mixing modes within one file.
+  let selectedUserId: number | null = null;
+  let inserting = false;
+
+  function selectUser(e: MouseEvent | KeyboardEvent, u: UserSummary) {
+    selectedUserId = u.id;
+    (e.currentTarget as HTMLElement)?.focus();
+  }
+
+  function openInsert() {
+    inserting = true;
+  }
+
+  function closeInsert() {
+    inserting = false;
+    newUserValues = { username: '', password: '', roles: [] };
+  }
+
+  // Scoped to the user-list card's own toolbar div, target-tag-filtered
+  // the same way every other converted screen's handler is, so typing in
+  // the checkbox/password/reset-password inputs never fires these.
+  function handleTableKeydown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
+    if (e.key === 'Insert') {
+      e.preventDefault();
+      openInsert();
+    } else if (e.key === 'Delete' && selectedUserId != null) {
+      const u = users.find((x) => x.id === selectedUserId);
+      if (u && u.active) {
+        e.preventDefault();
+        deactivate(u);
+      }
+    }
+  }
+
   async function load() {
     loading = true;
     try {
@@ -83,7 +122,7 @@
       throw new Error('Username, a password of at least 8 characters, and at least one role are all required.');
     }
     await createUserAccount(username, password, roleNames);
-    newUserValues = { username: '', password: '', roles: [] };
+    closeInsert();
     await load();
   }
 
@@ -98,13 +137,26 @@
     }
   }
 
-  async function toggleActive(user: UserSummary) {
+  // Delete only naturally maps to deactivation, per the plan — reactivation
+  // stays a real, explicit button below (an Inactive row has nothing
+  // selectable about it that Delete could sensibly mean).
+  async function deactivate(user: UserSummary) {
     error = '';
     try {
-      await setUserActiveApi(user.id, !user.active);
+      await setUserActiveApi(user.id, false);
       await load();
     } catch (e) {
-      error = e instanceof ApiError ? e.message : 'Could not update user.';
+      error = e instanceof ApiError ? e.message : 'Could not deactivate user.';
+    }
+  }
+
+  async function reactivate(user: UserSummary) {
+    error = '';
+    try {
+      await setUserActiveApi(user.id, true);
+      await load();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Could not reactivate user.';
     }
   }
 
@@ -140,7 +192,7 @@
   {#if error}<p class="error">{error}</p>{/if}
   {#if message}<p class="success">{message}</p>{/if}
 
-  <div class="card">
+  <div class="card" role="toolbar" tabindex="0" aria-keyshortcuts="Insert Delete" onkeydown={handleTableKeydown}>
     <table>
       <thead>
         <tr>
@@ -152,28 +204,38 @@
       </thead>
       <tbody>
         {#each users as u}
-          <tr>
+          <tr
+            tabindex="0"
+            class:selected={selectedUserId === u.id}
+            onclick={(e) => selectUser(e, u)}
+            onkeydown={(e) => e.key === 'Enter' && selectUser(e, u)}
+          >
             <td>{u.username}</td>
             <td>
-              <button class="link" onclick={() => toggleActive(u)}>{u.active ? 'Active' : 'Inactive'}</button>
+              {#if u.active}
+                {translations.current['Active'] ?? 'Active'}
+              {:else}
+                <button class="link" onclick={(e) => { e.stopPropagation(); reactivate(u); }}>{translations.current['Reactivate'] ?? 'Reactivate'}</button>
+              {/if}
             </td>
             {#each roles as r}
               <td>
-                <input type="checkbox" checked={u.roles.includes(r.name)} onchange={() => toggleRole(u, r.name)} />
+                <input type="checkbox" checked={u.roles.includes(r.name)} onchange={() => toggleRole(u, r.name)} onclick={(e) => e.stopPropagation()} />
               </td>
             {/each}
             <td>
               {#if resettingId === u.id}
-                <input type="password" bind:value={resetPassword} placeholder="new password" />
-                <button class="link" onclick={() => submitReset(u.id)}>{translations.current['Save'] ?? 'Save'}</button>
+                <input type="password" bind:value={resetPassword} placeholder="new password" onclick={(e) => e.stopPropagation()} />
+                <button class="link" onclick={(e) => { e.stopPropagation(); submitReset(u.id); }}>{translations.current['Save'] ?? 'Save'}</button>
               {:else}
-                <button class="link" onclick={() => { resettingId = u.id; resetPassword = ''; }}>{translations.current['Reset password'] ?? 'Reset password'}</button>
+                <button class="link" onclick={(e) => { e.stopPropagation(); resettingId = u.id; resetPassword = ''; }}>{translations.current['Reset password'] ?? 'Reset password'}</button>
               {/if}
             </td>
           </tr>
         {/each}
       </tbody>
     </table>
+    <p class="keyboard-hint">{translations.current['Insert adds a new user. Delete deactivates the selected, active user.'] ?? 'Insert adds a new user. Delete deactivates the selected, active user.'}</p>
   </div>
 
   <div class="card">
@@ -210,19 +272,22 @@
     {/if}
   </div>
 
-  <div class="card form-card">
-    <h3>{translations.current['New user'] ?? 'New user'}</h3>
-    <Form
-      fields={[
-        { name: 'username', label: 'Username', type: 'text' },
-        { name: 'password', label: 'Password', type: 'password', hint: 'at least 8 characters' },
-        { name: 'roles', label: 'Roles', type: 'multiselect', options: roles.map((r) => r.name) },
-      ]}
-      bind:values={newUserValues}
-      onSubmit={create}
-      submitLabel="Create user"
-    />
-  </div>
+  {#if inserting}
+    <div class="card form-card">
+      <h3>{translations.current['New user'] ?? 'New user'}</h3>
+      <Form
+        fields={[
+          { name: 'username', label: 'Username', type: 'text' },
+          { name: 'password', label: 'Password', type: 'password', hint: 'at least 8 characters' },
+          { name: 'roles', label: 'Roles', type: 'multiselect', options: roles.map((r) => r.name) },
+        ]}
+        bind:values={newUserValues}
+        onSubmit={create}
+        showSubmitButton={false}
+        onCancel={closeInsert}
+      />
+    </div>
+  {/if}
 {/if}
 
 </fieldset>
@@ -251,5 +316,19 @@
 
   .success {
     color: var(--credit);
+  }
+
+  tr[tabindex] {
+    cursor: pointer;
+  }
+
+  tr.selected {
+    background: var(--accent-soft, #f0e6cf);
+  }
+
+  .keyboard-hint {
+    margin-top: 0.6rem;
+    font-size: var(--font-size-small);
+    color: var(--ink-soft);
   }
 </style>

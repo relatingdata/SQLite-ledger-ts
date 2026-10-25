@@ -96,6 +96,23 @@
 
   let isSacrosanct = $derived.by(() => selectedEntity ? SACROSANCT.has(selectedEntity.name) : false);
 
+  // Delete key on the selected tree node, scoped away from any typing in
+  // the add-child/rename inputs the same way every other converted screen
+  // filters its own toolbar handler (target-tag check, not a modal state
+  // flag — this page has no separate "inserting" mode to gate on).
+  // Sacrosanct accounts are silently refused here exactly as the old
+  // Delete button already refused them (it only ever rendered inside the
+  // `{#if !isSacrosanct}` block) — the .sacrosanct-note below is the only
+  // feedback, never a confirm() a sacrosanct account could never pass.
+  function handleLayoutKeydown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
+    if (e.key === 'Delete' && selectedEntity && !isSacrosanct) {
+      e.preventDefault();
+      remove();
+    }
+  }
+
   async function addChild() {
     if (!selectedEntity || !newChildName.trim()) return;
     adding = true;
@@ -162,7 +179,7 @@
   {:else if error && treeData.length === 0}
     <p class="error">{error}</p>
   {:else}
-    <div class="layout">
+    <div class="layout" onkeydown={handleLayoutKeydown}>
       <div class="card tree-card">
         <Tree
           data={treeData}
@@ -214,24 +231,31 @@
 
           <fieldset class="action">
             <legend>{translations.current['Add a new account under this one'] ?? 'Add a new account under this one'}</legend>
-            <input bind:value={newChildName} placeholder="e.g. Office Supplies" onkeydown={(e) => e.key === 'Enter' && addChild()} />
-            <button class="btn" onclick={addChild} disabled={adding || !newChildName.trim()}>
-              {translations.current['Add'] ?? 'Add'}
-            </button>
+            <input
+              bind:value={newChildName}
+              placeholder="e.g. Office Supplies"
+              disabled={adding}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addChild(); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); newChildName = ''; }
+              }}
+            />
           </fieldset>
 
           {#if !isSacrosanct}
             <fieldset class="action">
               <legend>{translations.current['Rename'] ?? 'Rename'}</legend>
-              <input bind:value={renameValue} onkeydown={(e) => e.key === 'Enter' && rename()} />
-              <button class="btn" onclick={rename} disabled={renaming || !renameValue.trim()}>
-                {translations.current['Save'] ?? 'Save'}
-              </button>
+              <input
+                bind:value={renameValue}
+                disabled={renaming}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); rename(); }
+                  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); renameValue = selectedEntity ? selectedEntity.name : ''; }
+                }}
+              />
             </fieldset>
 
-            <button class="btn danger" onclick={remove} disabled={deleting}>
-              {translations.current['Delete'] ?? 'Delete'}
-            </button>
+            <p class="keyboard-hint">{translations.current['Press Delete to remove this account.'] ?? 'Press Delete to remove this account.'}</p>
           {/if}
         {/if}
 
@@ -298,10 +322,10 @@
     flex: 1;
   }
 
-  .danger {
+  .keyboard-hint {
     margin-top: 0.8rem;
-    background: var(--danger, #b3382c);
-    color: white;
+    font-size: var(--font-size-small);
+    color: var(--ink-soft);
   }
 
   :global(.node-selected) {
