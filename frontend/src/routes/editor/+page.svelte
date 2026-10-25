@@ -81,6 +81,45 @@
   let newAccountnumber = $state('');
   let creating = $state(false);
 
+  // Insert/Enter/Escape/Delete on the entity list itself — see
+  // docs/pm-frontend-reference.md. Deliberately a plain, transient
+  // `$state` flag, never wired into `hasUnsavedEdit`: that mechanism (the
+  // $effect above, and +layout.svelte's global Escape-with-confirm
+  // handler) exists specifically to warn before abandoning a real edit to
+  // an already-persisted entity — a freshly-opened, still-empty "New
+  // entity" form has nothing real to lose, so it gets its own, local,
+  // silent Escape instead (stopPropagation, same as every other
+  // converted screen's inline-add form).
+  let insertingEntity = $state(false);
+
+  function openInsertEntity() {
+    insertingEntity = true;
+  }
+
+  function closeInsertEntity() {
+    insertingEntity = false;
+  }
+
+  function selectRow(e: MouseEvent | KeyboardEvent, entity: EntityNode) {
+    select(entity);
+    (e.currentTarget as HTMLElement)?.focus();
+  }
+
+  // Scoped to the list's own toolbar div, target-tag-filtered the same
+  // way every other converted screen's handler is, so typing in the Edit
+  // or New-entity forms' own inputs/selects never fires these.
+  function handleListKeydown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
+    if (e.key === 'Insert') {
+      e.preventDefault();
+      openInsertEntity();
+    } else if (e.key === 'Delete' && selectedId != null) {
+      e.preventDefault();
+      removeSelected();
+    }
+  }
+
   // Duplicate-intent guard rail (§5) — see docs/pm-frontend-reference.md.
   function normalizeForDuplicateCheck(name: string): string {
     return name.trim().toLowerCase().replace(/[\s\-–—.,'’]+/g, ' ').trim();
@@ -221,11 +260,38 @@
       }
       newName = '';
       newAccountnumber = '';
+      insertingEntity = false;
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not create.';
     } finally {
       creating = false;
+    }
+  }
+
+  // The new-entity form's own, local Escape — stopPropagation so it never
+  // also bubbles into +layout.svelte's global, hasUnsavedEdit-gated
+  // handler (which must stay reserved for real edits to an existing,
+  // persisted entity, per docs/pm-frontend-reference.md).
+  function onNewEntityKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      createNew();
+    } else if (e.key === 'Escape') {
+      e.stopPropagation();
+      closeInsertEntity();
+      newName = '';
+      newAccountnumber = '';
+    }
+  }
+
+  // The Edit form's own Enter-to-save. Escape is deliberately left
+  // unhandled here, so it bubbles up untouched into +layout.svelte's
+  // existing, global hasUnsavedEdit warning — unchanged behavior.
+  function onEditFormKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEdit();
     }
   }
 </script>
@@ -243,7 +309,14 @@
   <p>Loading…</p>
 {:else}
   <div class="layout">
-    <div class="card list">
+    <div
+      class="card list"
+      role="toolbar"
+      tabindex="0"
+      aria-describedby="editor-list-hint"
+      aria-keyshortcuts="Insert Delete"
+      onkeydown={handleListKeydown}
+    >
       <table>
         <thead>
           <tr>
@@ -254,7 +327,12 @@
         </thead>
         <tbody>
           {#each entities as e (e.id)}
-            <tr class:selected={selectedId === e.id} onclick={() => select(e)}>
+            <tr
+              tabindex="0"
+              class:selected={selectedId === e.id}
+              onclick={(ev) => selectRow(ev, e)}
+              onkeydown={(ev) => { if (ev.key === 'Enter') selectRow(ev, e); }}
+            >
               <td style="padding-left: {0.7 + e.depth * 0.9}rem">{translations.current[e.name] ?? e.name}</td>
               <td class="muted">{nameFor(e.parent_id)}</td>
               <td class="muted">{nameFor(e.relation_id)}</td>
@@ -262,19 +340,22 @@
           {/each}
         </tbody>
       </table>
+      <p class="keyboard-hint" id="editor-list-hint">
+        {translations.current['Insert adds a new entity. Delete removes the selected one.'] ?? 'Insert adds a new entity. Delete removes the selected one.'}
+      </p>
     </div>
 
     <div class="side">
       {#if selectedId != null}
-        <div class="card form-card">
+        <div class="card form-card" onkeydown={onEditFormKeydown}>
           <h3>{translations.current['Edit'] ?? 'Edit'}</h3>
           <fieldset>
             <legend>{translations.current['Name'] ?? 'Name'}</legend>
-            <input bind:value={editName} />
+            <input bind:value={editName} disabled={saving} />
           </fieldset>
           <fieldset>
             <legend>{translations.current['Parent'] ?? 'Parent'}</legend>
-            <select bind:value={editParent}>
+            <select bind:value={editParent} disabled={saving}>
               <option value="">— none —</option>
               {#each parentableEntities as e}
                 <option value={translations.current[e.name] ?? e.name}>{translations.current[e.name] ?? e.name}</option>
@@ -283,7 +364,7 @@
           </fieldset>
           <fieldset>
             <legend>{translations.current['Relation'] ?? 'Relation'}</legend>
-            <select bind:value={editRelation}>
+            <select bind:value={editRelation} disabled={saving}>
               <option value="">— none —</option>
               {#each parentableEntities as e}
                 <option value={translations.current[e.name] ?? e.name}>{translations.current[e.name] ?? e.name}</option>
@@ -292,12 +373,11 @@
           </fieldset>
           <fieldset>
             <legend>{translations.current['Account Number'] ?? 'Account number'}</legend>
-            <input bind:value={editAccountnumber} placeholder="optional" />
+            <input bind:value={editAccountnumber} placeholder="optional" disabled={saving} />
           </fieldset>
-          <div class="actions">
-            <button class="btn" onclick={saveEdit} disabled={saving}>{saving ? 'Saving…' : (translations.current['Save'] ?? 'Save')}</button>
-            <button class="btn secondary" onclick={removeSelected}>{translations.current['Delete'] ?? 'Delete'}</button>
-          </div>
+          <p class="keyboard-hint">
+            {translations.current['Enter saves changes. Delete (on the list) removes this entity.'] ?? 'Enter saves changes. Delete (on the list) removes this entity.'}
+          </p>
           {#if hierarchyLinksIn.length > 0}
             <p class="hint hierarchy-trail">
               <strong>{translations.current['Reached via a hierarchy link by:'] ?? 'Reached via a hierarchy link by:'}</strong>
@@ -339,43 +419,47 @@
         </div>
       {/if}
 
-      <div class="card form-card">
-        <h3>{translations.current['New'] ?? 'New'} entity</h3>
-        <fieldset>
-          <legend>{translations.current['Name'] ?? 'Name'}</legend>
-          <input bind:value={newName} placeholder="e.g. Gamma LLC" />
-        </fieldset>
-        {#if possibleDuplicate}
-          <p class="hint hierarchy-trail">
-            <strong>{translations.current['Already exists:'] ?? 'Already exists:'}</strong>
-            "{translations.current[possibleDuplicate.name] ?? possibleDuplicate.name}"{possibleDuplicate.parent_id != null ? ` (${translations.current['under'] ?? 'under'} "${nameFor(possibleDuplicate.parent_id)}")` : ''} —
-            {translations.current['did you mean to link to it via Relation instead?'] ?? 'did you mean to link to it via Relation instead?'}
+      {#if insertingEntity}
+        <div class="card form-card" onkeydown={onNewEntityKeydown}>
+          <h3>{translations.current['New'] ?? 'New'} entity</h3>
+          <fieldset>
+            <legend>{translations.current['Name'] ?? 'Name'}</legend>
+            <input bind:value={newName} placeholder="e.g. Gamma LLC" disabled={creating} />
+          </fieldset>
+          {#if possibleDuplicate}
+            <p class="hint hierarchy-trail">
+              <strong>{translations.current['Already exists:'] ?? 'Already exists:'}</strong>
+              "{translations.current[possibleDuplicate.name] ?? possibleDuplicate.name}"{possibleDuplicate.parent_id != null ? ` (${translations.current['under'] ?? 'under'} "${nameFor(possibleDuplicate.parent_id)}")` : ''} —
+              {translations.current['did you mean to link to it via Relation instead?'] ?? 'did you mean to link to it via Relation instead?'}
+            </p>
+          {/if}
+          <fieldset>
+            <legend>{translations.current['Parent'] ?? 'Parent'}</legend>
+            <select bind:value={newParent} disabled={creating}>
+              <option value="">— none —</option>
+              {#each parentableEntities as e}
+                <option value={translations.current[e.name] ?? e.name}>{translations.current[e.name] ?? e.name}</option>
+              {/each}
+            </select>
+          </fieldset>
+          <fieldset>
+            <legend>{translations.current['Relation'] ?? 'Relation'}</legend>
+            <select bind:value={newRelation} disabled={creating}>
+              <option value="">— none —</option>
+              {#each parentableEntities as e}
+                <option value={translations.current[e.name] ?? e.name}>{translations.current[e.name] ?? e.name}</option>
+              {/each}
+            </select>
+          </fieldset>
+          <fieldset>
+            <legend>{translations.current['Account Number'] ?? 'Account number'}</legend>
+            <input bind:value={newAccountnumber} placeholder="optional" disabled={creating} />
+          </fieldset>
+          <p class="keyboard-hint">
+            {translations.current['Enter creates this entity. Escape cancels.'] ?? 'Enter creates this entity. Escape cancels.'}
           </p>
-        {/if}
-        <fieldset>
-          <legend>{translations.current['Parent'] ?? 'Parent'}</legend>
-          <select bind:value={newParent}>
-            <option value="">— none —</option>
-            {#each parentableEntities as e}
-              <option value={translations.current[e.name] ?? e.name}>{translations.current[e.name] ?? e.name}</option>
-            {/each}
-          </select>
-        </fieldset>
-        <fieldset>
-          <legend>{translations.current['Relation'] ?? 'Relation'}</legend>
-          <select bind:value={newRelation}>
-            <option value="">— none —</option>
-            {#each parentableEntities as e}
-              <option value={translations.current[e.name] ?? e.name}>{translations.current[e.name] ?? e.name}</option>
-            {/each}
-          </select>
-        </fieldset>
-        <fieldset>
-          <legend>{translations.current['Account Number'] ?? 'Account number'}</legend>
-          <input bind:value={newAccountnumber} placeholder="optional" />
-        </fieldset>
-        <button class="btn" onclick={createNew} disabled={creating}>{creating ? 'Creating…' : 'Create'}</button>
-      </div>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -438,9 +522,10 @@
     margin: 0;
   }
 
-  .actions {
-    display: flex;
-    gap: 0.6rem;
+  .keyboard-hint {
+    font-size: var(--font-size-small);
+    color: var(--ink-soft);
+    margin: 0.2rem 0 0;
   }
 
   .hint {

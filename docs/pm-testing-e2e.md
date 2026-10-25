@@ -360,6 +360,59 @@ separate, much larger undertaking, out of scope for a keyboard-idiom
 retrofit. `make e2e-spec-tutorial`/`e2e-spec-all` will still fail from
 that point on until someone takes that on directly.
 
+### Known gap: a bare-selector click in `open_selector` targets the center of its element, not a safe empty spot
+
+The Insert/Enter/Escape/Delete idiom's toolbar shell — both the
+hand-rolled `.card.list` div in `routes/editor/+page.svelte` and
+`SelectableListEditor.svelte`'s own `role="toolbar"` div — wraps its
+*rows*, not just its own empty chrome: `<div role="toolbar"
+tabindex="0" ...><table>...rows...</table></div>`. `runActionSequence`
+(`backend/scripts/step-runner.ts`) resolves a bare CSS selector (no
+`key:`/`select:`/`maybe-click:` prefix) as `page.locator(action).click()`
+— a real Playwright click at the *center of that element's bounding
+box*, not a `.focus()`. While the list behind the toolbar is empty or
+short, that center lands on blank padding (or the legend/hint text),
+which isn't itself clickable, so focus still lands on the toolbar div
+(the nearest focusable ancestor) exactly as intended, and Insert fires
+on the right handler. Once the list is long enough that the click
+center falls on an actual data row, the row's own `onclick` fires
+instead — in `editor/+page.svelte` this silently selects a real entity,
+which (since `selectedId != null`) mounts the Edit panel's own `Parent`/
+`Relation` `<select>` elements *ahead of* the New-entity form's, so a
+page-wide selector like `select >> nth=0` for a `screens.csv` field
+starts resolving to the wrong element entirely.
+
+This is exactly what broke `Create Provider`/`Create Customer`
+(`shared-fixtures/screens.csv`, `/editor`) the first time they were
+converted: by the point those two steps run in `tutorial-steps.csv`
+(deep into the tutorial, with the full entity tree already built),
+`[role="toolbar"][aria-keyshortcuts];;key:Insert` reliably clicked an
+existing row (observed: "Business Type") instead of empty space. With
+the wrong `Parent` select filled, `newParent` on the real New-entity
+form stayed empty, so `createNew()` fell through to plain
+`createEntity()` (`POST /api/entities`) instead of `createProvider()`/
+`createCustomer()` (`POST /api/entities/contact`) — silently creating a
+plain entity that never shows up as a provider, which only surfaced
+several steps later as an unrelated-looking `selectOption` timeout on
+`/items`' own provider dropdown. Fixed by pointing the `open_selector`
+at a genuinely non-interactive, stable spot instead —
+`.card.list th:first-child;;key:Insert` (a table header cell; clicking
+it still focuses the toolbar div via nearest-focusable-ancestor, but it
+can never be an actual data row).
+
+The same underlying fragility exists in principle wherever
+`SelectableListEditor`'s own `[role="toolbar"]` div is targeted by a
+bare-selector click in an `open_selector` while its list is non-empty —
+`hierarchy`/`translations`/`users`/`bank-accounts` never hit it only
+because every `screens.csv` row exercising their Insert forms happens
+while that particular list is still empty or short enough that the
+center-click lands clear of a row, not because the component itself is
+immune. A future fixture addition against one of those screens, once
+its list has real rows, should either reuse this same
+`<container> <non-interactive-child>` pattern (a legend, a header, or
+similar) instead of the bare toolbar selector, or scope the click to an
+element guaranteed to stay outside the row area.
+
 ## Tutorial / minimal — `tutorial-steps.csv`
 
 The Tutorial fixture (`shared-fixtures/tutorial-steps.csv` +

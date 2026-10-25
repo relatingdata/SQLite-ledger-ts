@@ -28,9 +28,9 @@ Create Location,data,/locations,button:has-text('+ New Location'),createAndConfi
 Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,1,businessName,,text
 Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,2,employeeName,input[placeholder='Employee name'],text
 Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,3,locationName,,text
-Create Provider,data,/editor,,createProviderSimple,button:has-text('Create'),1,businessName,,text
-Create Provider,data,/editor,,createProviderSimple,button:has-text('Create'),2,providerName,input[placeholder='e.g. Gamma LLC'],text
-Create Provider,data,/editor,,createProviderSimple,button:has-text('Create'),3,parent,select >> nth=0,select
+Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,1,businessName,,text
+Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,2,providerName,input[placeholder='e.g. Gamma LLC'],text
+Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,3,parent,select >> nth=0,select
 Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,key:Enter,1,businessName,,text
 Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,key:Enter,2,itemName,input[placeholder='New item name'],text
 Create Category,data,/items,[role="toolbar"][aria-keyshortcuts];;key:Insert,createCategorySimple,key:Enter,1,businessName,,text
@@ -128,9 +128,9 @@ Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),
 Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),4,quantity,input[type=number] >> nth=0,text
 Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),5,unitPriceMinor,input[type=number] >> nth=1,money
 Cash Sale,data,,,,,6,ledger,,text
-Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),1,businessName,,text
-Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),2,customerName,input[placeholder='e.g. Gamma LLC'],text
-Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),3,parent,select >> nth=0,select
+Create Customer,data,/editor,.card.list th:first-child;;key:Insert,createCustomerSimple,key:Enter,1,businessName,,text
+Create Customer,data,/editor,.card.list th:first-child;;key:Insert,createCustomerSimple,key:Enter,2,customerName,input[placeholder='e.g. Gamma LLC'],text
+Create Customer,data,/editor,.card.list th:first-child;;key:Insert,createCustomerSimple,key:Enter,3,parent,select >> nth=0,select
 POS Sale In Ledger,data,,,posSaleInLedgerSimple,,1,businessName,,text
 POS Sale In Ledger,data,,,posSaleInLedgerSimple,,2,locationName,,text
 POS Sale In Ledger,data,,,posSaleInLedgerSimple,,3,ledger,,text
