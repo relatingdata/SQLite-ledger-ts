@@ -2,13 +2,35 @@
 \usepackage{fancyhdr}
 \usepackage{graphicx}
 
+% Pandoc wraps any image WITH a caption (alt text) in a real LaTeX
+% figure float, whose default [htbp] placement lets LaTeX drift it
+% away from the paragraph that actually refers to it whenever space on
+% the current page is tight — confirmed directly against the real,
+% rendered tutorial PDF (the content/screenshot order was always
+% correct; only the visual placement drifted). [H] (this float
+% package's own, stronger placement specifier, not plain [h]) pins
+% every figure exactly where it occurs in the source, matching how a
+% step-by-step tutorial's screenshots are meant to read.
+\usepackage{float}
+\floatplacement{figure}{H}
+
 % A real, direct, thin border around every real screenshot in the
 % manual — applied once, globally, by redefining \includegraphics
 % itself, so every existing markdown image reference picks it up
 % automatically, with nothing to change per-figure.
+% max width/height caps, so a real, tall screenshot (several of this
+% manual's own Locations/Items screens genuinely run long) can never
+% overflow a page's real text body once \floatplacement{figure}{H}
+% (below) pins it exactly where it occurs instead of letting it float
+% to a fresh page — confirmed directly against the rendered PDF:
+% without this, a sufficiently tall figure ran straight off the bottom
+% margin into the footer. keepaspectratio so neither cap ever distorts
+% a real screenshot; #1 (any explicit per-image options a future
+% markdown reference supplies) still takes precedence over these
+% defaults, per graphicx's own normal option-merging behavior.
 \let\oldincludegraphics\includegraphics
 \renewcommand{\includegraphics}[2][]{%
-  {\fboxsep=0pt\fbox{\oldincludegraphics[#1]{#2}}}%
+  {\fboxsep=0pt\fbox{\oldincludegraphics[width=\linewidth,height=0.8\textheight,keepaspectratio,#1]{#2}}}%
 }
 
 % Real, direct table-of-contents depth — chapters and real, direct
@@ -31,10 +53,18 @@
 % the real page number, per direct request — genuinely automatic via
 % \leftmark (LaTeX's own, built-in "what chapter am I currently in"
 % marker), not hand-tracked.
+% The real chapter title (\leftmark) and the manual's own tagline used
+% to share the header's left/right corners, and genuinely collided
+% whenever a chapter's own markdown H1 text ran long (e.g. Chapter 3's
+% own "Tutorial: Building a Real Wine Retail Business, Start to
+% Finish") — confirmed directly against the rendered PDF. Moved the
+% tagline into the footer instead of shortening or shrinking it:
+% there's no long, real chapter title this can ever collide with again,
+% regardless of how a future chapter's own heading is worded.
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\small\itshape\leftmark}
-\fancyhead[R]{\small\itshape Better~Brighter~Multi-Ledger --- User Manual}
+\fancyfoot[L]{\small\itshape Better~Brighter~Multi-Ledger --- User Manual}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\chaptermark}[1]{\markboth{#1}{}}
