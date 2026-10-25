@@ -138,7 +138,7 @@
     loading = true;
     try {
       const [entityTree, itemsResult, loadedLocations, loadedGroupings] = await Promise.all([
-        getEntityTree(), session.current?.businessName ? listItems(session.current.businessName) : Promise.resolve({ rows: [], totalCount: 0 }),
+        getEntityTree(session.current?.businessName), session.current?.businessName ? listItems(session.current.businessName) : Promise.resolve({ rows: [], totalCount: 0 }),
         session.current?.businessName ? listLocations(asBusinessName(session.current.businessName)) : Promise.resolve([]),
         session.current?.businessName ? getHierarchy(session.current.businessName) : Promise.resolve([]),
       ]);
@@ -221,7 +221,7 @@
   });
 
   async function reloadTreeAndItems() {
-    entities = await getEntityTree();
+    entities = await getEntityTree(session.current?.businessName);
     if (session.current?.businessName) items = (await listItems(session.current.businessName)).rows;
   }
 
@@ -255,7 +255,7 @@
       await createEntity({ name: newCategoryNameRoot.trim(), parentId: root.id }, 'Create Entity');
       newCategoryNameRoot = '';
       addingCategory = false;
-      entities = await getEntityTree();
+      entities = await getEntityTree(session.current?.businessName);
     } catch (e) {
       categoryError = e instanceof ApiError ? e.message : 'Could not create category.';
     }
@@ -279,7 +279,7 @@
       await createEntity({ name: newSubcategoryName.trim(), parentId }, 'Create Entity');
       newSubcategoryName = '';
       addingSubcategoryUnder = null;
-      entities = await getEntityTree();
+      entities = await getEntityTree(session.current?.businessName);
     } catch (e) {
       subcategoryError = e instanceof ApiError ? e.message : 'Could not create subcategory.';
     }

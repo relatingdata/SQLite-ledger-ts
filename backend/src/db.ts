@@ -155,11 +155,21 @@ export interface EntityNode {
   currency: string | null;
 }
 
-export function getEntityTree(): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null })[] {
+// businessName scopes the tree to just that business's own subtree (its PER_BUSINESS_ROOTS —
+// Locations, Items, Contacts, Vocabulary, Ledgers, Profit Centers — are all children of the
+// business entity, so this is a safe, self-contained filter). Omitted, behavior is unchanged:
+// the full system-wide tree (all businesses, CoA prototypes, vocabulary) is returned, which is
+// still required by callers such as the Entity Tree admin screen and CoA-prototype pickers.
+// See docs/pm-domain-reference.md.
+export function getEntityTree(businessName?: string): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null })[] {
+  const businessRow = businessName
+    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id IS NULL`).get(businessName) as { id: number } | undefined)
+    : undefined;
+  if (businessName && !businessRow) return []; // unknown business — scoped query, so an empty tree rather than silently falling back to everything
   const rows = db
     .prepare(
       `WITH RECURSIVE walk(id, depth) AS (
-         SELECT id, 0 FROM current_entities WHERE parent_id IS NULL
+         SELECT id, 0 FROM current_entities WHERE ${businessRow ? 'id = ?' : 'parent_id IS NULL'}
          UNION ALL
          SELECT e.id, w.depth + 1 FROM current_entities e JOIN walk w ON e.parent_id = w.id
        ),
@@ -185,7 +195,7 @@ export function getEntityTree(): (EntityNode & { depth: number; is_postable_acco
        LEFT JOIN current_entities do_target ON do_target.id = do_record.relation_id
        ORDER BY w.depth, e.name`
     )
-    .all() as (EntityNode & { depth: number; is_postable_account: number; line_type: string | null; display_order_next: string | null })[];
+    .all(...(businessRow ? [businessRow.id] : [])) as (EntityNode & { depth: number; is_postable_account: number; line_type: string | null; display_order_next: string | null })[];
   const withFlags = rows.map((r) => ({ ...r, is_postable_account: !!r.is_postable_account }));
   const byParent = new Map<number | null, typeof withFlags>();
   for (const r of withFlags) {

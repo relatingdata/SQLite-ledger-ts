@@ -126,7 +126,12 @@ export interface EntityNode {
   is_postable_account: boolean;
 }
 
-export const getEntityTree = () => request<EntityNode[]>('/entities');
+// business scopes the tree to just that business's own subtree - a performance fix for screens
+// that only ever need one business's locations/items/contacts/ledgers, not the whole system's
+// entity tree (every business, every CoA prototype, all vocabulary). Omitted, unchanged: the
+// full tree, still needed by admin-style screens (Entity Tree, CoA prototype pickers).
+export const getEntityTree = (business?: string) =>
+  request<EntityNode[]>(`/entities${business ? `?business=${encodeURIComponent(business)}` : ''}`);
 
 export interface HierarchyLinkPointingAt {
   entityName: string;

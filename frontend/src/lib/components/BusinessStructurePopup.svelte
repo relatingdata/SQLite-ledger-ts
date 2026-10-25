@@ -170,7 +170,7 @@
     categoriesLoading = true;
     categoriesError = '';
     try {
-      const [tree, itemsResult] = await Promise.all([getEntityTree(), listItems(business)]);
+      const [tree, itemsResult] = await Promise.all([getEntityTree(business), listItems(business)]);
       entities = tree;
       items = itemsResult.rows;
     } catch (e) {

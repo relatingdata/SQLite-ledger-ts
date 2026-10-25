@@ -10,8 +10,13 @@ import { requireRole } from '../auth-middleware.js';
 
 export const entitiesRouter = Router();
 
-entitiesRouter.get('/', (_req, res) => {
-  res.json(getEntityTree());
+entitiesRouter.get('/', (req, res) => {
+  // ?business=<name> scopes the tree to just that business's own subtree - see
+  // getEntityTree's own comment and docs/pm-domain-reference.md. Omitted, the
+  // full system-wide tree is returned unchanged, for callers (the Entity Tree
+  // admin screen, CoA-prototype pickers) that genuinely need everything.
+  const business = typeof req.query.business === 'string' ? req.query.business : undefined;
+  res.json(getEntityTree(business));
 });
 
 entitiesRouter.get('/line-types', (_req, res) => {
