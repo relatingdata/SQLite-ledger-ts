@@ -1,6 +1,6 @@
 # Chapter 3 --- Tutorial: Building a Real Wine Retail Business, Start to Finish
 
-This chapter walks through one, single, real, worked exercise --- setting a brand-new wine retail business up entirely through this application's own real interface, from the very first login through its first real posted transactions, checking the real, live figures at each step along the way. Every numbered step below is exercised, end to end, by this project's own automated Tutorial test (`make test-e2e-tutorial-browser`, driven by `shared-fixtures/tutorial-steps.csv`) --- the same, real, data-driven test-runner described in the Programmer's Manual, never a separate, hand-maintained script. Every screenshot below is real and current, captured directly from a live, passing run of this exact tutorial. A step whose own screenhot is not shown is marked plainly, with the real reason --- either its UI path has not yet been wired into the automated test (it is still exercised at the API layer only), or a real, confirmed application bug currently blocks that one screen --- rather than shown with a stale or substitute image.
+This chapter walks through one, single, real, worked exercise --- setting a brand-new wine retail business up entirely through this application's own real interface, from the very first login through its first real posted transactions, checking the real, live figures at each step along the way. Every numbered step below is exercised, end to end, by this project's own automated Tutorial test (`make test-e2e-tutorial-browser`, driven by `shared-fixtures/tutorial-steps.csv`) --- the same, real, data-driven test-runner described in the Programmer's Manual, never a separate, hand-maintained script. Every screenshot below is real and current, captured directly from a live, passing run of this exact tutorial. A step whose own screenshot is not shown is marked plainly: most run through the real UI the same as every other step, simply with no screenshot yet configured for them; exactly one (creating a new ledger at rollover) has no UI screen at all, by design --- the only place a new ledger is ever created is inline, as part of the Rollover screen's own flow, so that one step runs at the API layer directly.
 
 This tutorial's own business trades in a home currency (AUD) but, at creation, also nominates a further currency (NZD) it is willing to accept --- a real, further note on multi-currency follows at the end of this chapter. It also, deliberately, starts from as little real structure as a business can have --- one location, one item, no divisions, no categories --- trades like that for real, for the last two months of its very first financial year, then genuinely closes its books and rolls over into a new one, before growing into a proper multi-location wine retailer, through the real **Business Structure** popup, rather than arriving already fully built.
 
@@ -44,11 +44,11 @@ A business starts with one location selling one item --- not a fully-built org c
 
 ![The retail outlet, Main Street Cellar, created with its own real shelf and carton capacity, no division yet.](manual-images-tutorial/retail_created.png)
 
-The **Items Catalog** then creates the simplest possible item: a block of **Ice**, under a brand-new **General** category --- no tiers, no combinations, no registered cost. Every further item this tutorial creates has more going on than this one does.
+The **Items Catalog** then creates the simplest possible item: a block of **Ice**, with genuinely no category at all --- not even a "General" catch-all. The system itself must be able to operate with zero hierarchy (no categories, divisions, or profit centers), and this is the real, live proof: the "+ Item (no category)" action adds Ice directly under the Items root, no category ever created or selected.
 
-*Screenshot not shown --- a real, confirmed performance issue (noted below) occasionally makes this one screen take longer to render than the automated test's own screenshot capture allows; this step is still exercised, end to end, by the automated Tutorial test's API-path run.*
+![Ice created, with no category at all.](manual-images-tutorial/item_ice_created.png)
 
-The owner runs this single-item Ice stall for real, for the last two months of this first financial year, before building anything further. **Cash Purchase** brings in 1,000 bags of Ice at $1.00 each ($1,000.00 total), paid cash on the spot, and **Cash Sale** sells all 1,000 of them straight back out at $2.00 each ($2,000.00 total) --- a $1,000.00 gross profit, exactly a 50% margin, and the first real revenue this business has ever recorded, before it has grown into anything more than a single location and a single item.
+The owner runs this single-item Ice stall for real, for the last two months of this first financial year, before building anything further. **Cash Purchase** brings in 1,000 bags of Ice at $1.00 each ($1,000.00 total), paid cash on the spot --- booked straight to Ice's own real Inventory account, an asset, since Ice has never been given a registered unit cost (that comes later, for Amber Ale and Highland Single Malt) and so earns no automatic Cost of Goods Sold leg here. **Cash Sale** then sells all 1,000 bags straight back out at $2.00 each ($2,000.00 total), recognized as pure Sales revenue --- the first real revenue this business has ever recorded, before it has grown into anything more than a single location and a single item.
 
 ![The Ice stock purchased for cash, 1,000 bags at $1.00 each.](manual-images-tutorial/cash_purchase_ice_done.png)
 
@@ -64,9 +64,17 @@ Before growing any further, the owner stops and genuinely closes the books on th
 
 First, the real, live Trial Balance and Profit and Loss for the still-open `Actual` ledger are checked --- a real, structural confirmation (balanced), and a real, recorded net income figure, kept so that the same checks just after Close Books below can prove closing the books never changes the P&L already reported for this same, real period.
 
-**Close Books** then closes `Actual`'s own Income and Expense accounts --- Sales, Cost of Goods Sold, and this one Rent expense --- into **Retained Earnings**, as of `2027-06-30`, the end of this business's first real financial year. The owner's real review follows immediately: the Trial Balance, still genuinely balanced, and the Balance Sheet it underlies; and the Profit and Loss for these same two months, its net income figure exactly unchanged from what was recorded just before closing --- a real $1,000.00 gross profit on Ice, less $100.00 of rent, for a real $900.00 net income, the whole of this business's own first year.
+**Close Books** then closes `Actual`'s own Income and Expense accounts --- Sales and this one Rent expense --- into **Retained Earnings**, as of `2027-06-30`, the end of this business's first real financial year. Ice's own $1,000.00 purchase cost stays exactly where it was booked, in its Inventory account on the Balance Sheet, unexpensed --- Close Books never touches a real asset account.
 
 ![The Ice business's own books, closed as of 2027-06-30.](manual-images-tutorial/ice_phase_books_closed.png)
+
+The owner's real review follows immediately --- all three of the business's own real reports, checked and captured fresh right after closing, not merely checked at the API layer: the Trial Balance, still genuinely balanced; the Profit and Loss for these same two months, its net income figure exactly unchanged from what was recorded just before closing --- a real $2,000.00 in Ice sales, less $100.00 of rent, for a real $1,900.00 net income, the whole of this business's own first year (Ice's $1,000.00 purchase cost sits unexpensed in Inventory, so it never reaches this report at all); and the Balance Sheet it underlies, its own real Assets and Liabilities-plus-Equity genuinely equal.
+
+![The Trial Balance, still balanced, right after closing.](manual-images-tutorial/ice_trial_balance_after_close.png)
+
+![The Profit and Loss for the Ice business's own first year, net income unchanged by closing.](manual-images-tutorial/ice_profit_and_loss_after_close.png)
+
+![The Balance Sheet, genuinely balanced, right after closing.](manual-images-tutorial/ice_balance_sheet_after_close.png)
 
 A new ledger, `Actual 2027-28`, is then created structurally, before any posting into it, and **Rollover To New Period** posts the real, final, balanced opening entry into it --- the new period never references or posts against the old one. The new ledger's own opening Trial Balance is checked balanced, and its own Profit and Loss checked genuinely zero: Income and Expense are never carried forward across a rollover, only the real, "used" Balance Sheet accounts are. This old ledger's own trial balance total is recorded one final time here too, so that the very last check in this chapter can prove nothing that follows ever touches it again.
 
@@ -112,11 +120,15 @@ One further growth step, on the popup's "Item Categories" tab: a **Whiskey** cat
 
 ## Creating the next items
 
-The **Items Catalog** creates two further items: **Amber Ale 330ml**, under a new **Beer** category, typed inline the same way Ice's own category was; and **Highland Single Malt 700ml**, under the **Whiskey** category --- already sitting there in the dropdown, exactly as the Business Structure popup left it, so this screen simply selects it rather than creating anything new. Neither screen sets a cost or selling price yet --- no cost/price field exists here; that is set separately below, once a real supplier exists for the item to be costed against.
+The **Items Catalog** creates two further items. Unlike Ice, both get a real category --- but creating a brand-new category is now its own, separate, real step: with nothing selected in the tree, Insert opens a plain "new top-level category" form, used here to create **Beer**.
 
-![Amber Ale 330ml created, under a new Beer category.](manual-images-tutorial/item_amber_ale_created.png)
+![A new Beer category, created on its own, before any item sits inside it.](manual-images-tutorial/category_beer_created.png)
 
-![Highland Single Malt 700ml created, selecting the already-existing Whiskey category.](manual-images-tutorial/item_highland_single_malt_created.png)
+**Amber Ale 330ml** is then added under it --- the category selected in the tree, then Insert again, this time adding an item within it. **Highland Single Malt 700ml** goes under **Whiskey** instead --- already sitting there in the tree, exactly as the Business Structure popup left it earlier in this chapter, so no further category needs creating here. Neither screen sets a cost or selling price yet --- no cost/price field exists here; that is set separately below, once a real supplier exists for the item to be costed against.
+
+![Amber Ale 330ml added under the new Beer category.](manual-images-tutorial/item_amber_ale_created.png)
+
+![Highland Single Malt 700ml added under the already-existing Whiskey category.](manual-images-tutorial/item_highland_single_malt_created.png)
 
 **A real, confirmed performance note**: at the time of this printing, creating an item on a business with a large, real chart-of-accounts/vocabulary tree could take tens of real seconds on this one screen, even though every real backend call involved returns in well under half a second --- a genuine client-side rendering defect, found and fixed during this same tutorial's own development (see the Programmer's Manual for the full, real root cause and fix).
 
@@ -128,15 +140,15 @@ The **Items Catalog** creates two further items: **Amber Ale 330ml**, under a ne
 
 ## Setting the item's real cost and pack size
 
-*Screenshot not shown --- this screen's UI path has not yet been wired into the automated Tutorial test; this step is currently exercised at the API layer only.*
-
 Amber Ale's real cost and real pack size are registered against this specific supplier --- $84.00 per carton, 24 bottles per carton --- before a Purchase Order can be placed against it. No generic, supplier-independent cost mechanism exists: the same item can genuinely cost a different amount from a different supplier, and each is tracked separately.
+
+![Amber Ale's real cost and pack size, registered against Highland Brewing Co.](manual-images-tutorial/item_cost_set.png)
 
 ## Placing the Purchase Order
 
-*Screenshot not shown --- this screen's UI path has not yet been wired into the automated Tutorial test; this step is currently exercised at the API layer only.*
-
 **An important, real detail, easy to get wrong**: a real order placed with a supplier is always for a whole number of real cartons --- never a raw, arbitrary bottle count. This tutorial's own Purchase Order for Amber Ale 330ml, reference `PO-AMBER-1`, is placed as 4 real cartons at $84.00 per carton --- the same, real $3.50-per-bottle cost as registered above, just expressed the way an actual invoice from a real supplier would state it.
+
+![The Purchase Order placed, 4 cartons at $84.00 each.](manual-images-tutorial/purchase_order_placed.png)
 
 ## Receiving and paying for the stock
 
@@ -154,21 +166,19 @@ A real stock transfer moves part of what Head Office received through to Main St
 
 ## Selling at the retail outlet
 
-*Screenshot not shown --- this screen's UI path has not yet been wired into the automated Tutorial test; this step is currently exercised at the API layer only.*
+*Screenshot not shown --- this step is exercised end to end through the real UI by the automated Tutorial test, with no screenshot yet configured.*
 
-A real POS sale, run twice, sells 2 bottles of Amber Ale 330ml at a time at $5.00 per bottle --- a real cost of $3.50 marked up to a real selling price of $5.00, so the live Profit & Loss shows a genuine profit once this retail markup is actually sold through.
+A real POS sale, run twice, sells 2 bottles of Amber Ale 330ml at a time at $5.00 per bottle --- a real cost of $3.50 marked up to a real selling price of $5.00, so the live Profit & Loss shows a genuine profit once this retail markup is actually sold through. The second sale reuses the exact, same real register screen right after the first --- its own "Sale complete" receipt view, shown after any sale, is dismissed with "New sale" before the second sale's own fields are filled in.
 
 ## Creating a named customer and recording a cash sale
 
-*Screenshot not shown --- a real, confirmed application bug currently blocks this screen's UI path (see below); this step is currently exercised at the API layer only.*
+*Screenshot not shown --- this step is exercised end to end through the real UI by the automated Tutorial test, with no screenshot yet configured for either screen.*
 
 Not every real sale goes through the POS register. A local restaurant, **Riverside Restaurant**, phones in an order for half a carton (12 bottles) of Amber Ale, to be paid cash on the spot when collected. Staff still creates the real, named customer account under the **Customers** parent, for the business's own records --- but since Cash Sale always posts to the business's own "Cash" customer, the sale itself is recorded there, the same real, immediate screen Cash Purchase's own counterpart: a genuine Sales Invoice to "Cash", Accounts Receivable briefly open, paid off in full the same instant. Invoicing a sale directly to Riverside Restaurant's own account --- for a business that extends it real, ongoing credit --- would instead use **AR Sale**, Chapter 1's on-account screen.
 
-**A real, confirmed bug, reported, not yet fixed**: the real dropdown used to choose a new entity's parent (here, `Customers`) does not always show the plain name it should. A translation/label lookup can resolve `Customers` to a long, decorated menu-help string instead of leaving it as the plain word `Customers`, which currently prevents this one step from completing through the real UI. See the Programmer's Manual for the full, real detail.
-
 ## Receiving sealed stock directly at retail, then opening a carton
 
-*Screenshots not shown --- these screens' UI paths have not yet been wired into the automated Tutorial test; both steps are currently exercised at the API layer only.*
+*Screenshots not shown --- both steps are exercised end to end through the real UI by the automated Tutorial test, with no screenshot yet configured for either.*
 
 Highland Single Malt 700ml is received sealed directly at Main Street Cellar --- 1 carton, 24 bottles --- stored under a **Secure** storage grouping. **Open Container** then converts that one sealed carton into 24 individual, sellable bottles on the shelf --- a real, ordinary internal stock movement between the item's own "Carton" and "Bottle" forms, mirrored against the location's own storage-space accounts, with no contra accounting involved.
 

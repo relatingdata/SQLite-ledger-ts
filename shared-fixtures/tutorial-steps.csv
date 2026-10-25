@@ -37,11 +37,14 @@
 # but no division at all yet (the division field is left blank) -
 # this business genuinely has zero structure beyond one shop, for now.
 "Create Location","Tutorial Wine Retail Business","Main Street Cellar","Adelaide","Retail","","120","10"
-# The simplest possible item: a block of Ice, in a new "General"
-# category, no tiers, no combinations, no registered cost. Every
-# further item this tutorial creates will have more going on than
-# this one does.
-"Create Item","Tutorial Wine Retail Business","Ice","+ New category…","General"
+# The simplest possible item: a block of Ice, with NO category at all
+# - not even a "General" one. Per direct instruction, the system must
+# be able to operate with zero hierarchy (no categories, divisions, or
+# profit centers); Ice is the proof. Uses the real "+ Item (no
+# category)" path (items/+page.svelte's addUncategorizedItem), not a
+# throwaway catch-all category. Every further item this tutorial
+# creates will have more going on than this one does.
+"Create Item No Category","Tutorial Wine Retail Business","Ice"
 # The owner runs this single-item Ice stall for real, for the last two
 # months of this financial year (the fixture doesn't model individual
 # transaction dates - only Close Books' own "as of" date below does -
@@ -83,11 +86,20 @@
 # Post year-end reports, OLD ledger: still balanced, and the real
 # P&L figure for the same, real period is exactly unchanged by
 # closing the books. This is the owner's real review of the Ice
-# business's own Balance Sheet (the Trial Balance underlying it,
-# confirmed balanced) and Profit and Loss for these two months.
-"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual",""
+# business's own Balance Sheet, Trial Balance, and Profit and Loss for
+# these two months - a real, UI-driven visit to each of the three
+# dedicated report screens (not just an API-level check), captured so
+# the manual actually shows them, per direct instruction.
+"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual","2027-06-30"
 "Check Profit And Loss Net Income Matches Recorded","Tutorial Wine Retail Business","Actual","",""
+"Check Balance Sheet Balanced","Tutorial Wine Retail Business","Actual","2027-06-30"
 
+# No real, standalone "Create Ledger" screen exists in the UI at all, by design - the only place a
+# new ledger is ever created through the app is inline, as part of the Rollover screen's own flow
+# (setup/yearend/+page.svelte's resolveRollover calls createLedger itself when "new ledger" is
+# chosen). The API path genuinely needs this step on its own first; forced to "api" in
+# tutorial-steps.control.csv regardless of --path, since there is no real UI wiring to build here -
+# see docs/pm-testing-e2e.md.
 "Create Ledger","Tutorial Wine Retail Business","Actual 2027-28"
 "Rollover To New Period","Tutorial Wine Retail Business","Actual","Actual 2027-28","2027-07-01"
 
@@ -156,13 +168,19 @@
 # Chapter 3's Business Setup: the business's first employee, at the
 # warehouse, to receive and later staff the retail counter.
 "Create Employee","Tutorial Wine Retail Business","Jordan Lee","Head Office"
-# Creates the item and its category. No cost/price field exists on
-# this screen - set separately below, once a Provider exists.
-"Create Item","Tutorial Wine Retail Business","Amber Ale 330ml","+ New category…","Beer"
+# items/+page.svelte's current tree UI has no combined "new category +
+# item in it" action any more (that belonged to the old dropdown
+# form); a brand-new category is its own real, separate step now - the
+# "+ Category" action (Insert with nothing selected), done once before
+# Amber Ale can be added under it. No cost/price field exists on the
+# item screen either way - set separately below, once a Provider
+# exists.
+"Create Category","Tutorial Wine Retail Business","Beer"
+"Create Item Under Beer Category","Tutorial Wine Retail Business","Amber Ale 330ml","Beer"
 # "Whiskey" already exists (the Business Structure popup created it
 # above), so this item selects it directly rather than creating a new
-# category inline.
-"Create Item","Tutorial Wine Retail Business","Highland Single Malt 700ml","Whiskey",""
+# category.
+"Create Item Under Whiskey Category","Tutorial Wine Retail Business","Highland Single Malt 700ml","Whiskey"
 # Chapter 3's first supplier, name only.
 "Create Provider","Tutorial Wine Retail Business","Highland Brewing Co","Accounts Payable"
 # Amber Ale's real cost, registered as the per-carton price ($84.00 =

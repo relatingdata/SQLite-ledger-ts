@@ -19,9 +19,10 @@ path,verify,screenshot,skip
 ,record_profit_and_loss_net_income,,false
 ,profit_and_loss_positive,,false
 ,,ice_phase_books_closed,false
-,trial_balance_balanced,,false
-,profit_and_loss_net_income_matches_recorded,,false
-,,,false
+,trial_balance_balanced,ice_trial_balance_after_close,false
+,profit_and_loss_net_income_matches_recorded,ice_profit_and_loss_after_close,false
+,balance_sheet_balanced,ice_balance_sheet_after_close,false
+api,,,false
 ,,rollover_to_new_period_done,false
 ,trial_balance_balanced,,false
 ,profit_and_loss_zero,,false
@@ -36,6 +37,7 @@ path,verify,screenshot,skip
 ,location_in_hierarchy_group,structure_popup_move_ho,false
 ,,structure_popup_category_added,false
 ,,employee_created,false
+,,category_beer_created,false
 ,,item_amber_ale_created,false
 ,,item_highland_single_malt_created,false
 ,,provider_created,false

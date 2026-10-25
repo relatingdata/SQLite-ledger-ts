@@ -6,9 +6,9 @@ Switch Session,session,/session,,,button:has-text('Continue'),1,businessName,sel
 Switch Session,session,/session,,,button:has-text('Continue'),2,ledger,select >> nth=1,select
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),1,businessName,input[placeholder='e.g. Corner Store Pty Ltd'],text
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),2,financialYearLabel,input[placeholder='e.g. 2026-27'],text
-Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),3,businessType,select >> nth=1,select
+Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),3,businessType,select >> nth=2,select
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),4,homeCurrency,,text
-Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),5,coaPrototype,select >> nth=0,select
+Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),5,coaPrototype,select >> nth=1,select
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),6,secondaryCurrencies,,text
 Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),1,businessName,,text
 Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),2,bankAccountName,"input[placeholder='Bank name, e.g. Westpac Business Cheque']",text
@@ -31,13 +31,19 @@ Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nt
 Create Provider,data,/editor,,createProviderSimple,button:has-text('Create'),1,businessName,,text
 Create Provider,data,/editor,,createProviderSimple,button:has-text('Create'),2,providerName,input[placeholder='e.g. Gamma LLC'],text
 Create Provider,data,/editor,,createProviderSimple,button:has-text('Create'),3,parent,select >> nth=0,select
-Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),1,businessName,,text
-Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),2,itemName,input[placeholder='New item name'],text
-Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),3,category,select >> nth=0,select
-Create Item,data,/items,,createItemAndCategory,button:has-text('+ Add'),4,newCategoryName,"input[placeholder=""New category name, e.g. Pinot Noir""]",text
+Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,.tree-section:has-text('Uncategorized') >> button:has-text('Add'),1,businessName,,text
+Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,.tree-section:has-text('Uncategorized') >> button:has-text('Add'),2,itemName,input[placeholder='New item name'],text
+Create Category,data,/items,[role="toolbar"][aria-keyshortcuts];;key:Insert,createCategorySimple,".inline-add:has(input[placeholder='Category name']) >> button:has-text('Add')",1,businessName,,text
+Create Category,data,/items,[role="toolbar"][aria-keyshortcuts];;key:Insert,createCategorySimple,".inline-add:has(input[placeholder='Category name']) >> button:has-text('Add')",2,categoryName,input[placeholder='Category name'],text
+Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,"button:has-text('Add')",1,businessName,,text
+Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,"button:has-text('Add')",2,itemName,input[placeholder='New item name'],text
+Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,"button:has-text('Add')",3,category,,text
+Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,"button:has-text('Add')",1,businessName,,text
+Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,"button:has-text('Add')",2,itemName,input[placeholder='New item name'],text
+Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,"button:has-text('Add')",3,category,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),1,businessName,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),2,itemName,,text
-Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),3,providerName,select >> nth=2,select
+Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),3,providerName,select >> nth=1,select
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),4,unitCostMinor,input[placeholder='0.00'],money
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),5,packageQuantity,input[placeholder='e.g. 100'],text
 Post Journal Entry,data,/post,,postJournalEntrySimple,button:has-text('Save'),1,reference,,text
@@ -83,16 +89,16 @@ Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transf
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),5,quantity,input[type=number],text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),6,reference,input[type=text],text
 Transfer Items,data,,,,,7,ledger,,text
-POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),1,businessName,,text
-POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),2,locationName,select >> nth=0,select_value
-POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),3,itemName,"input[placeholder='Scan barcode or type a name…']",text_enter
-POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),4,quantity,.qty-input,text
-POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),5,unitPriceMinor,.price-input >> nth=0,money
+POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),1,businessName,,text
+POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),2,locationName,select >> nth=0,select_value
+POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),3,itemName,"input[placeholder='Scan barcode or type a name…']",text_enter
+POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),4,quantity,.qty-input,text
+POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),5,unitPriceMinor,.price-input >> nth=0,money
 POS Sale,data,,,,,6,ledger,,text
 Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),1,businessName,,text
 Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),2,ledger,,text
 Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),3,asOfDate,input[type=date],text
-Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),4,retainedEarningsAccount,select >> nth=0,select
+Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),4,retainedEarningsAccount,select >> nth=1,select
 Create Ledger,data,,,createLedgerSimple,,1,businessName,,text
 Create Ledger,data,,,createLedgerSimple,,2,ledger,,text
 Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),1,businessName,,text
@@ -140,6 +146,9 @@ Record Trial Balance Total,data,/reports/trial-balance,,,,3,asOfDate,input[type=
 Check Trial Balance Total Matches Recorded,data,/reports/trial-balance,,,,1,businessName,,text
 Check Trial Balance Total Matches Recorded,data,/reports/trial-balance,,,,2,ledger,select,select
 Check Trial Balance Total Matches Recorded,data,/reports/trial-balance,,,,3,asOfDate,input[type=date],text
+Check Balance Sheet Balanced,data,/reports/balance-sheet,,,,1,businessName,,text
+Check Balance Sheet Balanced,data,/reports/balance-sheet,,,,2,ledger,,text
+Check Balance Sheet Balanced,data,/reports/balance-sheet,,,,3,asOfDate,input[type=date],text
 Check Profit And Loss Positive,data,/reports/profit-and-loss,,,,1,businessName,,text
 Check Profit And Loss Positive,data,/reports/profit-and-loss,,,,2,ledger,,text
 Check Profit And Loss Positive,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text

@@ -1583,6 +1583,25 @@ link button (not Insert/Delete — the same deliberate choice made for
 Business Setup's own "Additional locations") handles the secondary,
 less common action of nesting a further category.
 
+**`entities` vs. `globalEntities`**: `entities` is the business-scoped
+tree (`getEntityTree(session.current?.businessName)`) the category/
+item tree, `itemsRoot`, and every create/rename/reparent call on this
+page work from. Manufacturers and providers are deliberately *not*
+derived from it, even though both used to be: they're real, global
+entities — a vendor lives once, system-wide, never nested under any
+one business (see `api.ts`'s `createProvider`/`createCustomer`) — so
+scoping `entities` to the business (a real, separate, earlier fix;
+see the Entity Model chapter's own "`getEntityTree` business scoping"
+section) silently emptied the manufacturers/providers pickers, a real
+regression found only by a genuinely clean, live browser run (see
+`docs/pm-testing-e2e.md`). Fixed with a second, separate, unscoped
+`globalEntities` fetch (`getEntityTree()`, no business argument),
+loaded alongside `entities` in the same `Promise.all`, used only by
+the `manufacturers`/`providers` derived values. Any future global
+root (another contact-like concern that lives once, system-wide) needs
+the same treatment — never assume `entities` on this page can answer
+a question that isn't genuinely scoped to the current business.
+
 **`doReceiveIntoStorage`** receives stock directly into a named
 storage combination (e.g. "Secure"), reusing the Hierarchy groupings
 under Setup → Hierarchies — the same pattern the Locations page's own

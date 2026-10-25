@@ -7,6 +7,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { chromium, type Browser, type Page } from 'playwright';
 import * as db from '../src/db.js';
+import { getBalanceSheet } from '../src/db-reports.js';
 import * as auth from '../src/auth.js';
 import { unescapeAscii } from '../../shared-fixtures/csv.js';
 
@@ -217,6 +218,32 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     }
     db.create(categoryEntity, db.typeItemName, a.itemName, userId);
   },
+  // Mirrors items/+page.svelte's addUncategorizedItem — an item directly under the business's
+  // Items root, with no category at all. Uses the real, canonical db.createItem (which also
+  // creates the item table row via setItem, unlike createItemAndCategory above, a pre-existing,
+  // separate function this one deliberately does not touch). See docs/pm-frontend-reference.md.
+  createUncategorizedItem: (a) => {
+    const userId = db.asUserId(1);
+    db.createItem(a.itemName, 'Items', userId, a.businessName as any);
+  },
+  // A real, top-level category on its own - items/+page.svelte's current tree UI has no combined
+  // "new category + item in it" action any more (that belonged to the old dropdown form); creating
+  // a brand-new category is now its own real, separate step (the "+ Category" / Insert-with-
+  // nothing-selected path), done before an item can be added under it. See
+  // docs/pm-frontend-reference.md.
+  createCategorySimple: (a) => {
+    const userId = db.asUserId(1);
+    db.createItemCategory(a.businessName as any, a.categoryName, undefined, userId);
+  },
+  // An item under an EXISTING category (created via createCategorySimple above, or already
+  // present) - the real browser path selects that category's own tree node by name (the category
+  // argument only drives the browser's open_selector per screen, hardcoded per fixture screen
+  // name, since open_selector itself can't be templated - see docs/pm-testing-e2e.md), then
+  // presses Insert.
+  createItemUnderCategory: (a) => {
+    const userId = db.asUserId(1);
+    db.createItem(a.itemName, a.category, userId, a.businessName as any);
+  },
   // Idempotent precondition for receiveStockWithCombination/openContainer below, which otherwise create these lazily.
   createHierarchyGroupingSimple: (a) => {
     const userId = db.asUserId(1);
@@ -370,6 +397,12 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   trial_balance_balanced: (a) => {
     const tb = db.getTrialBalance(a.businessName as any, db.asLedgerName(a.ledger), a.asOfDate || undefined);
     return tb.total_debit_minor === tb.total_credit_minor && tb.total_debit_minor > 0;
+  },
+  // Pairs with /reports/balance-sheet's own screenshot steps below — the real, missing report
+  // screenshot the user flagged. See docs/pm-testing-e2e.md.
+  balance_sheet_balanced: (a) => {
+    const bs = getBalanceSheet(a.businessName as any, db.asLedgerName(a.ledger), a.asOfDate || undefined);
+    return bs.balanced && bs.total_assets_minor > 0;
   },
   record_trial_balance_total: (a) => {
     const tb = db.getTrialBalance(a.businessName as any, db.asLedgerName(a.ledger), a.asOfDate || undefined);
@@ -586,6 +619,17 @@ async function runActionSequence(page: Page, actionsRaw: string): Promise<void> 
       const selector = rest.slice(0, sepIdx);
       const optionValue = rest.slice(sepIdx + 2);
       await page.locator(selector).selectOption({ value: optionValue });
+    } else if (action.startsWith('maybe-click:')) {
+      // Clicks only if the element is genuinely there within a short, real wait - never fails the
+      // step when it isn't. For a screen reused across several, real, same-page steps in a row
+      // (e.g. POS Sale, run twice per shared-fixtures/tutorial-steps.csv) where an earlier run's
+      // own real, live UI state (here: /pos's own post-sale receipt view replacing the register
+      // form until "New sale" is clicked) would otherwise block every later run's own real fields.
+      const selector = action.slice('maybe-click:'.length);
+      const locator = page.locator(selector);
+      if (await locator.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+        await locator.first().click();
+      }
     } else {
       await page.locator(action).click();
     }
@@ -672,6 +716,15 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
       }
     }
     if (step.screenshot) {
+      // Report screens (screen_kind 'data' with no submit_selector) fetch and render
+      // reactively after the last field change rather than on a button click, so the
+      // 200ms per-field margin above isn't enough: a screenshot taken right after filling
+      // the last field can catch the page's own bootstrap/loading splash instead of the
+      // real report. See docs/pm-testing-e2e.md - "Profit and Loss / Balance Sheet
+      // after-close screenshots captured the loading spinner, not the report".
+      if (!screen?.submit_selector) {
+        await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+      }
       mkdirSync(screenshotDir, { recursive: true });
       await page.screenshot({ path: `${screenshotDir}/${step.screenshot}.png`, fullPage: true });
     }

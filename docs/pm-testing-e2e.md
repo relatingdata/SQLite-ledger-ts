@@ -137,12 +137,18 @@ depends on that row's own `language` value).
 
 `open_selector` and `submit_selector` are each a `;;`-separated
 sequence of actions, run in order: a plain Playwright selector
-(clicked), `key:Name` (a key press), or — the one case a plain click
-can't cover — `select:<selector>::<value>` (choosing a fixed
-`<option>` that is itself a precondition for the rest of the form to
-render, e.g. Open Container's own Grouping dropdown must already read
-"Container" before its Container-value/Unit-value selects exist at
-all).
+(clicked), `key:Name` (a key press), `select:<selector>::<value>`
+(choosing a fixed `<option>` that is itself a precondition for the
+rest of the form to render, e.g. Open Container's own Grouping
+dropdown must already read "Container" before its Container-value/
+Unit-value selects exist at all), or `maybe-click:<selector>` (clicks
+only if the element is visible within a short, real wait, otherwise a
+true no-op, never failing the step) — for a screen reused across
+several, real, same-page steps in a row, where an earlier run's own
+live UI state would otherwise block a later run's own fields (e.g.
+POS Sale, run twice per `tutorial-steps.csv`: `/pos`'s own post-sale
+"Sale complete" receipt view replaces the register form, including its
+location `<select>`, until "New sale" is clicked).
 
 ### `API_REGISTRY` and the real HTTP layer
 
@@ -333,20 +339,116 @@ instead against a freshly-created business (`make test-e2e-tutorial-browser`).
 
 The Tutorial fixture (`shared-fixtures/tutorial-steps.csv` +
 `tutorial-steps.control.csv`) drives a complete, from-scratch business
-lifecycle through the step runner — 60 steps at present, matching
+lifecycle through the step runner — 62 steps at present, matching
 `docs/user-manual-ch3-tutorial.md`'s own chapter exactly. It genuinely
 runs across *two* real ledgers, not one: a single-item "Ice" stall
-trades for its first two months (one location, no divisions, no
-categories), posts a real rent expense, then genuinely closes its
-books and rolls over into a new ledger (`Actual 2027-28`) before a
-further capital injection funds growing into the full, multi-location
-wine retailer (via the Business Structure popup) — Head Office, an
-employee, two further items, a provider, a Purchase Order, a Cash
-Purchase, a Stock Transfer, two POS sales, a phoned-in Cash Sale to a
-named customer, and Storage/Container stock movements, all now posted
-into `Actual 2027-28`. It creates its own "Tutorial Wine Retail
-Business" from scratch and does not depend on, or interact with, any
-other demo business.
+trades for its first two months (one location, no divisions, **no
+category at all** — not even a "General" catch-all, via the real
+"Create Item No Category" screen/`addUncategorizedItem`, proving the
+system can genuinely operate with zero hierarchy), posts a real rent
+expense, then genuinely closes its books — visiting all three of its
+real Trial Balance/Profit and Loss/Balance Sheet report screens
+afterward, captured as real screenshots (`ice_trial_balance_after_close`,
+`ice_profit_and_loss_after_close`, `ice_balance_sheet_after_close`),
+not just API-level checks — and rolls over into a new ledger
+(`Actual 2027-28`) before a further capital injection funds growing
+into the full, multi-location wine retailer (via the Business
+Structure popup, now a step-by-step wizard — see
+`pm-frontend-reference.md`) — Head Office, an employee, two further
+items, a provider, a Purchase Order, a Cash Purchase, a Stock
+Transfer, two POS sales, a phoned-in Cash Sale to a named customer,
+and Storage/Container stock movements, all now posted into
+`Actual 2027-28`. It creates its own "Tutorial Wine Retail Business"
+from scratch and does not depend on, or interact with, any other demo
+business.
+
+**`Check Balance Sheet Balanced`** (`balance_sheet_balanced` in
+`VERIFY_REGISTRY`) is the newest verify — a thin wrapper on
+`getBalanceSheet`'s own `balanced` flag, mirroring
+`trial_balance_balanced`'s shape, added specifically so a real
+Balance Sheet screenshot could exist in the manual (it never did
+before this).
+
+**A real, confirmed regression found and fixed while adding the above**:
+`screens.csv`'s "Create Item" browser wiring (`select >> nth=0` for
+category) was stale against `items/+page.svelte`'s current tree-based
+UI, which has had no category `<select>` at all since that page's
+rewrite — any UI-path run of this step would genuinely hang. Confirmed
+directly by running it against a live browser session, not assumed.
+"Create Item No Category"'s own wiring was built and verified the same
+way (a real, live, isolated browser-driven check, not just the API
+path) before being trusted. The old, single "Create Item" (with a
+category) screen no longer exists at all: `items/+page.svelte`'s tree
+UI has no combined "new category + item in it" action any more, so
+creating a brand-new category is now its own real, separate screen
+(**`Create Category`** — Insert with nothing selected, via the shared
+`[role="toolbar"][aria-keyshortcuts]` selector, disambiguated from the
+top nav's own, unrelated `[role="toolbar"]` — see below) followed by
+**`Create Item Under <X> Category`** (select the category's own tree
+node by name, then Insert). Both are now real, live, browser-verified,
+and exercise Amber Ale (Beer) and Highland Single Malt (Whiskey, the
+category the Business Structure popup created a step earlier) in the
+fixture.
+
+**A second, deeper, real regression found while getting a genuinely
+clean browser-path run** (not merely assumed clean from an earlier
+session's commit message — the Makefile passes no
+`--fallback-to-api`, so a UI failure hard-fails rather than masking,
+and this run had in fact not been exercised cleanly in some time):
+business-scoping `GET /entities` (`getEntityTree(businessName)`,
+`backend/src/db.ts`) looked a business up via
+`WHERE name = ? AND parent_id IS NULL` — but no real business entity
+is ever a top-level, `parent_id IS NULL` row; every one sits under the
+real `"Businesses"` entity (the same, established pattern every other
+business lookup in `db.ts` already uses:
+`parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).
+The scoped query therefore matched no business, ever, and silently
+returned `[]` for every real business — confirmed directly via a live
+browser session reading its own fetched entities, not assumed. Fixed
+in `getEntityTree` itself, with a new regression test
+(`backend/test/db.test.ts`, "getEntityTree(businessName): scoped to
+one business's own subtree"). This had a second, real consequence:
+`items/+page.svelte`'s manufacturers/providers pickers derive from the
+same `entities` array the category/item tree uses — but manufacturers
+and providers are genuinely **global** entities (vendors live once,
+system-wide, never nested under any one business — see
+`api.ts`'s `createProvider`/`createCustomer`), so scoping `entities`
+to the business silently emptied both dropdowns. Fixed by fetching a
+second, separate, unscoped `globalEntities` alongside the business-
+scoped `entities`, used only for the manufacturers/providers filters.
+
+**Two further, real, pre-existing selector regressions found by the
+same clean-run effort**, both from earlier, unrelated session work
+that shifted a page's own `<select>` DOM order without updating
+`screens.csv`'s positional selectors: Close Books'
+`retainedEarningsAccount` (`select >> nth=0` → `nth=1`, after
+`setup/yearend/+page.svelte` gained its own "Reporting period"
+`<select>` ahead of it), and Set Item Cost and Pack Size's
+`providerName` (`select >> nth=2` → `nth=1`, once accounted for
+correctly against `items/+page.svelte`'s real, always-rendered
+"Add a source" form).
+
+**A real, live-state bug in `/pos` itself**, not a selector problem:
+after a successful sale, the page shows a "Sale complete" receipt
+view in place of the register form (including its location `<select>`)
+until "New sale" is clicked — which silently blocked the fixture's own
+second, back-to-back POS Sale step. Fixed with a new, small
+`runActionSequence` primitive, `maybe-click:<selector>` (clicks only
+if the element is visible within a short, real wait, otherwise a true
+no-op — never fails a step when the element genuinely isn't there),
+wired into POS Sale's own `open_selector`.
+
+**`Create Ledger` has no real UI wiring, by design, not by omission**:
+no standalone "create a ledger" screen exists anywhere in the app —
+the only place a new ledger is ever created is inline, inside the
+Rollover screen's own flow (`setup/yearend/+page.svelte`'s
+`resolveRollover` calls `createLedger` itself when "new ledger" is
+chosen). The API path still needs this step on its own first (the
+API-only `rolloverToNewPeriodSimple` doesn't create the ledger
+itself); `tutorial-steps.control.csv` pins this one row's own `path`
+column to `api`, overriding `--path ui` for just this step, rather
+than inventing UI wiring for a screen that doesn't and shouldn't
+exist.
 
 **Genuinely trading in a second ledger, both paths**: every ordinary
 trading screen (Cash Purchase, Cash Sale, POS Sale, Transfer Items,
@@ -370,6 +472,67 @@ left to the page's own async default and a fixed timing margin — found
 directly: without it, a race between the dropdown's own
 `getActiveLedger` network call and the step runner's next click could
 leave the session pointed at the old ledger.
+
+**A real screenshot-capture bug, found by actually looking at the
+rendered manual, not just at the step runner's own ✅**: the three
+post-close report screenshots (`ice_trial_balance_after_close`,
+`ice_profit_and_loss_after_close`, `ice_balance_sheet_after_close`)
+were, for a time, genuinely capturing the app's own bootstrap/loading
+splash (the "Better Brighter Multi-Ledger" screen with its spinner),
+not the report — the Profit and Loss and Balance Sheet pages fetch and
+render reactively after the last field change, with no submit button
+to wait on, and `runStepViaUi`'s existing 200ms-per-field margin
+wasn't always enough for that fetch-and-render to finish before the
+screenshot fired. Found only by rendering the rebuilt PDF to images
+and reading every page — the step runner's own ✅ never notices a
+screenshot is wrong, only that the step didn't throw. Fixed by adding
+a real `page.waitForLoadState('networkidle', { timeout: 5000 })`
+immediately before any screenshot of a `screen_kind: 'data'` screen
+that has no `submit_selector` (`runStepViaUi`, `step-runner.ts`) —
+scoped to exactly that case so ordinary submit-driven screens (which
+already have their own 2000ms post-submit margin) aren't slowed down.
+
+**A second, genuinely unbalanced Balance Sheet, caught the same way**:
+once the screenshot bug above was fixed, the real, rendered Balance
+Sheet screenshot showed **"Assets ≠ Liabilities + Equity"** in red —
+not a display bug, a real, correct report telling the truth about a
+fixture mistake. `tutorial-steps.csv`'s "Check Trial Balance Balanced"
+and "Check Balance Sheet Balanced" rows (right after Close Books) both
+left their `asOfDate` field blank, so the UI's `<input type=date>`
+fell back to its own default, the real wall-clock date the fixture
+happened to run on (e.g. `2026-10-25`) — which sits *before* this
+business's own fictional close date, `2027-06-30`. Queried as of a
+date before the close, the Balance Sheet correctly excludes the
+future-dated Close Books entry and its Retained Earnings line
+entirely, so Equity understates Assets by exactly the period's net
+income. The automated `balance_sheet_balanced`/`trial_balance_balanced`
+verifies never caught this because they pass `a.asOfDate || undefined`
+straight to `getBalanceSheet`/`getTrialBalance` — `undefined` means
+"no cutoff, all time," which *does* legitimately include the close
+entry regardless of today's real date, so the verify and the UI
+screenshot were silently checking two different things. Fixed by
+giving both rows an explicit `"2027-06-30"` `asOfDate` in
+`tutorial-steps.csv`, so the screenshot shows the same, real, as-of
+state the narrative describes (Trial Balance now also genuinely shows
+a closed **Retained Earnings** line instead of the still-open Sales/
+Rent accounts).
+
+**A real, invented-number documentation bug, found while explaining
+the (now-correct) screenshots**: the manual's own prose claimed a
+"$1,000.00 gross profit… $900.00 net income" for the Ice stall — but
+the real, live Profit and Loss has always said **$1,900.00** net
+income (a real $2,000.00 in Ice sales, less $100.00 of rent). The
+$900 figure assumed Ice's $1,000.00 purchase cost was expensed as
+Cost of Goods Sold; it genuinely isn't — `completeCashPurchase`
+(`backend/src/db.ts`) books a cash purchase straight to the item's own
+Inventory account (an asset), and `completePosSale`'s own COGS leg
+(`getItemUnitCostMinor`) is skipped entirely whenever an item has no
+registered unit cost, which Ice deliberately never gets (see "Opening
+with one location and one item" above). So Ice's $1,000.00 sits
+unexpensed in Inventory on the Balance Sheet for this whole first
+year, and the real net income is pure Sales less Rent. The prose (and
+the Close Books/post-close paragraphs around it) now says $1,900.00
+and explains why, rather than asserting an unverified number.
 
 ```
 make test-e2e-tutorial            # fast — API path only, no browser

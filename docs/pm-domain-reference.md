@@ -895,6 +895,29 @@ were the first callers updated, since an unscoped entity tree (every
 business's data, returned to every one of ~20 screens) was the real
 root cause of Create Item's reported slowness.
 
+**A real, confirmed bug in the business-lookup query itself, found
+only once a genuinely clean browser run was pursued (not assumed from
+an earlier commit message)**: the original lookup read
+`WHERE name = ? AND parent_id IS NULL` — but no real business entity
+is ever a top-level, `parent_id IS NULL` row; every one sits under the
+real `"Businesses"` entity, the same, established pattern every other
+business lookup in `db.ts` already uses
+(`parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).
+This meant the scoped query matched no business, ever, and silently
+returned `[]` for every real business — not a rare edge case, the
+*only* case. Confirmed directly via a live browser session reading
+its own fetched entities over the wire, not assumed; fixed in
+`getEntityTree` itself, with a regression test
+(`backend/test/db.test.ts`) asserting a fresh business's own scoped
+tree is non-empty, rooted at the business entity at depth 0, and
+genuinely excludes both `Root`/`Businesses` and a second, different
+business's own entities. This also surfaced a second, real
+consequence on the Items catalog specifically — see
+`docs/pm-frontend-reference.md`'s "`entities` vs. `globalEntities`"
+note: manufacturers and providers are global entities, never part of
+any one business's own scoped subtree, so the page needs a second,
+separate, unscoped fetch for them.
+
 ## Reporting periods — a real financial-year start date and frequency
 
 `closeBooks`/`rolloverToNewPeriod` (`backend/src/db-reports.ts`) were

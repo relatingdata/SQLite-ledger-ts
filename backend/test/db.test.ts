@@ -35,6 +35,29 @@ test('the bootstrap tree loads with exactly one root', () => {
   assert.ok(tree.length > 40, 'expected the full bootstrap tree to be present');
 });
 
+test('getEntityTree(businessName): scoped to one business\'s own subtree - a real regression guard for the business-lookup condition (a business entity sits under "Businesses", never at parent_id NULL)', () => {
+  const biz = fx.freshBusiness('Scoped Tree Co');
+  const scoped = db.getEntityTree(biz.business);
+  assert.ok(scoped.length > 0, 'a real, existing business must return a non-empty scoped tree, not silently nothing');
+  assert.ok(
+    scoped.some((e) => e.name === biz.business && e.depth === 0),
+    'the business entity itself is the root of its own scoped tree, at depth 0'
+  );
+  assert.ok(scoped.some((e) => e.name === 'Items'), "the business's own Items root is present");
+  assert.ok(scoped.some((e) => e.name === 'Locations'), "the business's own Locations root is present");
+  // Scoping genuinely excludes everything outside this business's own subtree.
+  assert.equal(scoped.some((e) => e.name === 'Root'), false);
+  assert.equal(scoped.some((e) => e.name === 'Businesses'), false);
+  const otherBiz = fx.freshBusiness('Scoped Tree Other Co');
+  assert.equal(scoped.some((e) => e.name === otherBiz.business), false, "a different business's own entity never leaks into this one's scoped tree");
+  // Unscoped behavior is unchanged.
+  const full = db.getEntityTree();
+  assert.ok(full.some((e) => e.name === biz.business));
+  assert.ok(full.some((e) => e.name === otherBiz.business));
+  // An unknown business name is a real, empty tree - never a silent fallback to everything.
+  assert.deepEqual(db.getEntityTree('No Such Business At All'), []);
+});
+
 test('creating an entity by name works and rejects duplicates', () => {
   const name = fx.uniqueName('Gamma LLC');
   const arNode = db.requireEntity('Accounts Receivable', db.typeRootName);

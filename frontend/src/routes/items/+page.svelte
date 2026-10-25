@@ -43,6 +43,12 @@
   import { receiveIntoStorageLines, freshReference } from '$lib/canned-journal';
 
   let entities: EntityNode[] = $state([]);
+  // Manufacturers and Accounts Payable (providers) are real, global entities — vendors live once,
+  // across the whole system, never nested under any one business (see api.ts's createProvider).
+  // `entities` above is deliberately business-scoped for the category/item tree; a global,
+  // unscoped fetch is needed separately for the manufacturers/providers picker below, or scoping
+  // silently empties both dropdowns - see docs/pm-frontend-reference.md.
+  let globalEntities: EntityNode[] = $state([]);
   let items: ItemSummary[] = $state([]);
   let loading = $state(true);
   let error = $state('');
@@ -137,12 +143,14 @@
   async function loadAll() {
     loading = true;
     try {
-      const [entityTree, itemsResult, loadedLocations, loadedGroupings] = await Promise.all([
-        getEntityTree(session.current?.businessName), session.current?.businessName ? listItems(session.current.businessName) : Promise.resolve({ rows: [], totalCount: 0 }),
+      const [entityTree, globalTree, itemsResult, loadedLocations, loadedGroupings] = await Promise.all([
+        getEntityTree(session.current?.businessName), getEntityTree(),
+        session.current?.businessName ? listItems(session.current.businessName) : Promise.resolve({ rows: [], totalCount: 0 }),
         session.current?.businessName ? listLocations(asBusinessName(session.current.businessName)) : Promise.resolve([]),
         session.current?.businessName ? getHierarchy(session.current.businessName) : Promise.resolve([]),
       ]);
       entities = entityTree;
+      globalEntities = globalTree;
       items = itemsResult.rows;
       locations = loadedLocations;
       hierarchyGroupings = loadedGroupings;
@@ -155,8 +163,8 @@
 
   onMount(loadAll);
 
-  let manufacturers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Manufacturers'));
-  let providers = $derived(entities.filter((e) => entities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
+  let manufacturers = $derived(globalEntities.filter((e) => globalEntities.find((p) => p.id === e.parent_id)?.name === 'Manufacturers'));
+  let providers = $derived(globalEntities.filter((e) => globalEntities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
 
   // Legacy-root fallback, mirroring resolveBusinessLocationsRootId — see docs/pm-frontend-reference.md.
   const itemsRoot = () => {

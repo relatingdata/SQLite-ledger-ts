@@ -163,7 +163,9 @@ export interface EntityNode {
 // See docs/pm-domain-reference.md.
 export function getEntityTree(businessName?: string): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null })[] {
   const businessRow = businessName
-    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id IS NULL`).get(businessName) as { id: number } | undefined)
+    ? (db
+        .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`)
+        .get(businessName) as { id: number } | undefined)
     : undefined;
   if (businessName && !businessRow) return []; // unknown business — scoped query, so an empty tree rather than silently falling back to everything
   const rows = db
