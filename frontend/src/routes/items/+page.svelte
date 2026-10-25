@@ -515,10 +515,12 @@
           <input
             bind:value={newItemNameField}
             placeholder={translations.current['New item name'] ?? 'New item name'}
-            onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItemUnderCategory(node.entity.name); } }}
+            disabled={addingItem}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); addItemUnderCategory(node.entity.name); }
+              else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingItemUnder = null; itemAddError = ''; }
+            }}
           />
-          <button class="btn small" onclick={() => addItemUnderCategory(node.entity.name)} disabled={addingItem || !newItemNameField.trim()}>{translations.current['Add'] ?? 'Add'}</button>
-          <button class="btn small secondary" onclick={() => (addingItemUnder = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
         </div>
         {#if itemAddError}<p class="error small">{itemAddError}</p>{/if}
       {/if}
@@ -527,10 +529,11 @@
           <input
             bind:value={newSubcategoryName}
             placeholder={translations.current['Subcategory name'] ?? 'Subcategory name'}
-            onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSubcategory(node.entity.name); } }}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); addSubcategory(node.entity.name); }
+              else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingSubcategoryUnder = null; subcategoryError = ''; }
+            }}
           />
-          <button class="btn small" onclick={() => addSubcategory(node.entity.name)} disabled={!newSubcategoryName.trim()}>{translations.current['Add'] ?? 'Add'}</button>
-          <button class="btn small secondary" onclick={() => (addingSubcategoryUnder = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
         </div>
         {#if subcategoryError}<p class="error small">{subcategoryError}</p>{/if}
       {:else if selection?.type === 'category' && selection.name === node.entity.name}
@@ -570,10 +573,12 @@
                 <input
                   bind:value={newItemNameField}
                   placeholder={translations.current['New item name'] ?? 'New item name'}
-                  onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addUncategorizedItem(); } }}
+                  disabled={addingItem}
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); addUncategorizedItem(); }
+                    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingItemUnder = null; itemAddError = ''; }
+                  }}
                 />
-                <button class="btn small" onclick={addUncategorizedItem} disabled={addingItem || !newItemNameField.trim()}>{translations.current['Add'] ?? 'Add'}</button>
-                <button class="btn small secondary" onclick={() => (addingItemUnder = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
               </div>
               {#if itemAddError}<p class="error small">{itemAddError}</p>{/if}
             {/if}
@@ -594,10 +599,11 @@
               <input
                 bind:value={newCategoryNameRoot}
                 placeholder={translations.current['Category name'] ?? 'Category name'}
-                onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTopLevelCategory(); } }}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); addTopLevelCategory(); }
+                  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingCategory = false; categoryError = ''; }
+                }}
               />
-              <button class="btn small" onclick={addTopLevelCategory} disabled={!newCategoryNameRoot.trim()}>{translations.current['Add'] ?? 'Add'}</button>
-              <button class="btn small secondary" onclick={() => (addingCategory = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
             </div>
           {/if}
           {#if categoryError}<p class="error small">{categoryError}</p>{/if}
@@ -1023,11 +1029,5 @@
 
   .success {
     color: var(--credit);
-  }
-
-  .secondary {
-    background: transparent;
-    border: 1px solid var(--rule-strong);
-    color: var(--ink);
   }
 </style>

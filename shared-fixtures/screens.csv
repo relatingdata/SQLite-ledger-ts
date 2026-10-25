@@ -25,22 +25,22 @@ Create Location,data,/locations,button:has-text('+ New Location'),createAndConfi
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),5,division,,text
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),6,bottleCapacity,,text
 Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),7,cartonCapacity,,text
-Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,button:has-text('Add'),1,businessName,,text
-Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,button:has-text('Add'),2,employeeName,input[placeholder='Employee name'],text
-Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,button:has-text('Add'),3,locationName,,text
+Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,1,businessName,,text
+Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,2,employeeName,input[placeholder='Employee name'],text
+Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,3,locationName,,text
 Create Provider,data,/editor,,createProviderSimple,button:has-text('Create'),1,businessName,,text
 Create Provider,data,/editor,,createProviderSimple,button:has-text('Create'),2,providerName,input[placeholder='e.g. Gamma LLC'],text
 Create Provider,data,/editor,,createProviderSimple,button:has-text('Create'),3,parent,select >> nth=0,select
-Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,.tree-section:has-text('Uncategorized') >> button:has-text('Add'),1,businessName,,text
-Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,.tree-section:has-text('Uncategorized') >> button:has-text('Add'),2,itemName,input[placeholder='New item name'],text
-Create Category,data,/items,[role="toolbar"][aria-keyshortcuts];;key:Insert,createCategorySimple,".inline-add:has(input[placeholder='Category name']) >> button:has-text('Add')",1,businessName,,text
-Create Category,data,/items,[role="toolbar"][aria-keyshortcuts];;key:Insert,createCategorySimple,".inline-add:has(input[placeholder='Category name']) >> button:has-text('Add')",2,categoryName,input[placeholder='Category name'],text
-Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,"button:has-text('Add')",1,businessName,,text
-Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,"button:has-text('Add')",2,itemName,input[placeholder='New item name'],text
-Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,"button:has-text('Add')",3,category,,text
-Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,"button:has-text('Add')",1,businessName,,text
-Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,"button:has-text('Add')",2,itemName,input[placeholder='New item name'],text
-Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,"button:has-text('Add')",3,category,,text
+Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,key:Enter,1,businessName,,text
+Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,key:Enter,2,itemName,input[placeholder='New item name'],text
+Create Category,data,/items,[role="toolbar"][aria-keyshortcuts];;key:Insert,createCategorySimple,key:Enter,1,businessName,,text
+Create Category,data,/items,[role="toolbar"][aria-keyshortcuts];;key:Insert,createCategorySimple,key:Enter,2,categoryName,input[placeholder='Category name'],text
+Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,key:Enter,1,businessName,,text
+Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,key:Enter,2,itemName,input[placeholder='New item name'],text
+Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,key:Enter,3,category,,text
+Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,key:Enter,1,businessName,,text
+Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,key:Enter,2,itemName,input[placeholder='New item name'],text
+Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,key:Enter,3,category,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),1,businessName,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),2,itemName,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),3,providerName,select >> nth=1,select

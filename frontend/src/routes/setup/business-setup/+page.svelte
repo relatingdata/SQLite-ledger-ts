@@ -423,9 +423,14 @@
                 <li>
                   {#if creatingEmployeeFor === loc.location}
                     <div class="inline-add">
-                      <input bind:value={newEmployeeName} placeholder={translations.current['Employee name'] ?? 'Employee name'} />
-                      <button class="btn small" onclick={() => addEmployee(loc.location)}>{translations.current['Add'] ?? 'Add'}</button>
-                      <button class="btn small secondary" onclick={() => (creatingEmployeeFor = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+                      <input
+                        bind:value={newEmployeeName}
+                        placeholder={translations.current['Employee name'] ?? 'Employee name'}
+                        onkeydown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); addEmployee(loc.location); }
+                          else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); creatingEmployeeFor = null; employeeError = ''; }
+                        }}
+                      />
                     </div>
                   {/if}
                 </li>
@@ -435,7 +440,18 @@
           {#if employeeError}<p class="error small">{employeeError}</p>{/if}
 
           {#if creatingLocationFor === group.group}
-            <div class="inline-add-block">
+            <!-- A whole-form keydown, not per-field — see Form.svelte's own
+                 onFormKeydown and docs/pm-frontend-reference.md: this plain
+                 field group has no Form.svelte of its own, but Escape must
+                 still work from the select fields too, not just the text
+                 inputs. -->
+            <div
+              class="inline-add-block"
+              onkeydown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addLocation(group.group); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); creatingLocationFor = null; locationError = ''; }
+              }}
+            >
               <input bind:value={newLocationName} placeholder={translations.current['Location name'] ?? 'Location name'} />
               <input bind:value={newLocationCity} placeholder={translations.current['City'] ?? 'City'} />
               <select bind:value={newLocationType}>
@@ -451,8 +467,6 @@
                   {#each h.values as v}<option value={v}>{translations.current[v] ?? v}</option>{/each}
                 </select>
               {/each}
-              <button class="btn small" onclick={() => addLocation(group.group)}>{translations.current['Add'] ?? 'Add'}</button>
-              <button class="btn small secondary" onclick={() => (creatingLocationFor = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
             </div>
           {/if}
           {#if locationError}<p class="error small">{locationError}</p>{/if}
@@ -462,9 +476,15 @@
       <div class="tree-section">
         {#if showAddGroup}
           <div class="inline-add">
-            <input bind:value={newGroupName} placeholder={`${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['name'] ?? 'name'}`} />
-            <button class="btn small" disabled={creatingGroup} onclick={addGroup}>{translations.current['Add'] ?? 'Add'}</button>
-            <button class="btn small secondary" onclick={() => (showAddGroup = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+            <input
+              bind:value={newGroupName}
+              placeholder={`${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['name'] ?? 'name'}`}
+              disabled={creatingGroup}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addGroup(); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); showAddGroup = false; groupError = ''; }
+              }}
+            />
           </div>
         {/if}
         {#if groupError}<p class="error small">{groupError}</p>{/if}
@@ -698,10 +718,6 @@
     padding: 0.15rem 0.3rem;
     border: 1px solid var(--rule);
     border-radius: 4px;
-  }
-  .btn.small {
-    padding: 0.15rem 0.5rem;
-    font-size: var(--font-size-small);
   }
   .hint {
     color: var(--ink-soft);
