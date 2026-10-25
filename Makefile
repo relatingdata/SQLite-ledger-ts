@@ -1147,6 +1147,22 @@ programmer-manual: scripts/build-programmer-manual.ts docs/programmer-manual-fro
 	  -H programmer-manual-header-includes.tex -f markdown+raw_tex --resource-path=.
 	@echo "Built sql-ledger-ts_Programmer_Manual.pdf"
 
+# Just the User Manual's own Chapter 3 (docs/user-manual-ch3-tutorial.md),
+# built standalone - the exact, same, real chapter `make manual` folds into
+# the full book, here on its own. Depends on test-e2e-tutorial-browser,
+# which is itself the one, real, data-driven test-runner
+# (backend/scripts/step-runner.ts) actually driving a live browser through
+# the real UI against the real, augmented tutorial datafile
+# (shared-fixtures/tutorial-steps.csv, paired with its own
+# tutorial-steps.control.csv) - the one, real source of every screenshot
+# this chapter references, captured fresh on every real run, never a
+# separate, hand-maintained script of any kind.
+tutorial-section-user-manual: test-e2e-tutorial-browser
+	cd docs && pandoc user-manual-ch3-tutorial.md -o ../sql-ledger-ts_Tutorial_Section.pdf \
+	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
+	  -H manual-header-includes.tex -f markdown+raw_tex --resource-path=.
+	@echo "Built sql-ledger-ts_Tutorial_Section.pdf"
+
 # Renders a real, complete, vector (SVG) illustration of the entire,
 # live entity tree -- every real (id, name, parent_id) triple, plus
 # every real, labelled relationship link, overlaid as dashed edges.

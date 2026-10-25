@@ -3,6 +3,7 @@ Login,session,/login,,,button:has-text('Log in'),1,username,input[autocomplete=u
 Login,session,/login,,,button:has-text('Log in'),2,password,input[autocomplete=current-password],text
 Select Business,session,,,,button:has-text('Continue'),1,businessName,select >> nth=0,select
 Switch Session,session,/session,,,button:has-text('Continue'),1,businessName,select >> nth=0,select
+Switch Session,session,/session,,,button:has-text('Continue'),2,ledger,select >> nth=1,select
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),1,businessName,input[placeholder='e.g. Corner Store Pty Ltd'],text
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),2,financialYearLabel,input[placeholder='e.g. 2026-27'],text
 Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create Business'),3,businessType,select >> nth=1,select
@@ -48,11 +49,13 @@ Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-te
 Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),4,cartons,input[placeholder='0'],text
 Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),5,pricePerCartonMinor,input[placeholder='0.00'],money
 Create Purchase Order,data,/stock/po,,createPurchaseOrderInCartons,button:has-text('Save'),6,reference,input[placeholder='e.g. PO-1001'],text
+Create Purchase Order,data,,,,,7,ledger,,text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),1,businessName,,text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),2,locationName,select >> nth=0,select
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),3,itemName,input[placeholder='e.g. Golden Lager 330ml'],text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),4,quantity,input[type=number] >> nth=0,text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),5,unitCostMinor,input[type=number] >> nth=1,money
+Cash Purchase,data,,,,,6,ledger,,text
 Create Hierarchy Grouping,data,/setup/hierarchy,,createHierarchyGroupingSimple,button:has-text('Add grouping'),1,businessName,,text
 Create Hierarchy Grouping,data,/setup/hierarchy,,createHierarchyGroupingSimple,button:has-text('Add grouping'),2,groupingName,"input[placeholder='New grouping name (e.g. Storage, Glass Size)']",text
 Create Hierarchy Value,data,/setup/hierarchy,,createHierarchyValueSimple,.grouping-card:last-of-type button:has-text('Add'),1,businessName,,text
@@ -64,6 +67,7 @@ Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),r
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),4,quantity,input[placeholder='e.g. 24'],text
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),5,groupingName,select >> nth=3,select
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),6,storageValue,select >> nth=4,select
+Receive Into Storage,data,,,,,7,ledger,,text
 Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),1,businessName,,text
 Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),2,locationName,,text
 Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),3,itemName,input[placeholder='Item name…'],text
@@ -71,17 +75,20 @@ Open Container,data,/locations,button:has-text('Main Street Cellar');;select:sel
 Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),5,cartonsOpened,input[placeholder='1'],text
 Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),6,unitValue,select >> nth=4,select
 Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),7,unitsProduced,input[placeholder='e.g. 24'],text
+Open Container,data,,,,,8,ledger,,text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),1,businessName,,text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),3,fromLocationName,select >> nth=1,select
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),2,itemName,select >> nth=0,select
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),4,toLocationName,select >> nth=2,select
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),5,quantity,input[type=number],text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),6,reference,input[type=text],text
+Transfer Items,data,,,,,7,ledger,,text
 POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),1,businessName,,text
 POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),2,locationName,select >> nth=0,select_value
 POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),3,itemName,"input[placeholder='Scan barcode or type a name…']",text_enter
 POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),4,quantity,.qty-input,text
 POS Sale,data,/pos,,posSaleSimple,button:has-text('Complete Sale'),5,unitPriceMinor,.price-input >> nth=0,money
+POS Sale,data,,,,,6,ledger,,text
 Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),1,businessName,,text
 Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),2,ledger,,text
 Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),3,asOfDate,input[type=date],text
@@ -114,6 +121,7 @@ Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),
 Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),3,itemName,input[placeholder='e.g. Golden Lager 330ml'],text
 Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),4,quantity,input[type=number] >> nth=0,text
 Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),5,unitPriceMinor,input[type=number] >> nth=1,money
+Cash Sale,data,,,,,6,ledger,,text
 Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),1,businessName,,text
 Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),2,customerName,input[placeholder='e.g. Gamma LLC'],text
 Create Customer,data,/editor,,createCustomerSimple,button:has-text('Create'),3,parent,select >> nth=0,select

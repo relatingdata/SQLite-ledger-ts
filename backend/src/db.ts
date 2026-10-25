@@ -4459,7 +4459,12 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
   return db.transaction(() => {
     const entity = createLocation(businessName, locationName, userId);
     setLocation(locationName, location, businessName);
-    ensureLocationCapacityAccount(businessName, asLedgerName('Actual'), asLocationName(locationName), userId);
+    // A location's capacity account always belongs to whichever ledger is
+    // genuinely open for trading right now - not forever hardcoded to
+    // "Actual", which would silently misfile it into an old, closed
+    // ledger once a rollover has moved the business into a later period
+    // (see docs/user-manual-ch3-tutorial.md's Ice-business mini year-end).
+    ensureLocationCapacityAccount(businessName, getActiveLedger(businessName) ?? asLedgerName('Actual'), asLocationName(locationName), userId);
     if (group && groupingName) {
       ensureHierarchyGrouping(businessName, groupingName, userId);
       ensureHierarchyValue(businessName, groupingName, group, userId);

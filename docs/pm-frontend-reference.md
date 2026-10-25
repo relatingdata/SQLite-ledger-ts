@@ -1349,6 +1349,26 @@ no business parameter and queries globally via a `LIKE` pattern, a
 cross-business data-leak risk); the popup instead always reads via the
 properly business-scoped `getHierarchy(business)`.
 
+**A real, confirmed bug fixed alongside the reshaped Chapter 3
+tutorial's own mini year-end**: `createAndConfigureLocation`
+(`backend/src/db.ts`) and `postLocation` (`backend/src/db-journal.ts`)
+each hardcoded `asLedgerName('Actual')` when creating a new location's
+capacity account — fine while a business only ever has one real
+trading ledger, but silently wrong once a business has genuinely
+rolled over into a new financial year and `Actual` is no longer the
+live one: a location added through this popup (or the dedicated
+Locations screen) *after* a rollover would have had its capacity
+account misfiled into the old, closed ledger forever. Both call sites
+now resolve the real, currently-active ledger first
+(`getActiveLedger(businessName) ?? asLedgerName('Actual')`), falling
+back to `Actual` only for a business with no Active Ledger marker yet
+(impossible in practice — `createBusiness` sets one immediately — but
+kept as a defensive default, matching every other `?? asLedgerName('Actual')`
+fallback already used elsewhere, such as `cashPurchaseSimple` in
+`backend/scripts/step-runner.ts`). Found directly: the reshaped
+tutorial now rolls over into `Actual 2027-28` *before* using this
+popup to add Head Office, which immediately exposed the bug.
+
 ## `frontend/src/routes/locations/+page.svelte` — Locations setup and storage actions
 
 A refrigerated section's location entity is named with a suffix,

@@ -308,7 +308,7 @@ A real, honest note on where this stands today: the setup screen above is real a
 
 This chapter walks through one, single, real, worked exercise --- setting a brand-new wine retail business up entirely through this application's own real interface, from the very first login through its first real posted transactions, checking the real, live figures at each step along the way. Every numbered step below is exercised, end to end, by this project's own automated Tutorial test (`make test-e2e-tutorial-browser`, driven by `shared-fixtures/tutorial-steps.csv`) --- the same, real, data-driven test-runner described in the Programmer's Manual, never a separate, hand-maintained script. Every screenshot below is real and current, captured directly from a live, passing run of this exact tutorial. A step whose own screenhot is not shown is marked plainly, with the real reason --- either its UI path has not yet been wired into the automated test (it is still exercised at the API layer only), or a real, confirmed application bug currently blocks that one screen --- rather than shown with a stale or substitute image.
 
-This tutorial's own business trades in a home currency (AUD) but, at creation, also nominates a further currency (NZD) it is willing to accept --- a real, further note on multi-currency follows at the end of this chapter. It also, deliberately, starts from as little real structure as a business can have --- one location, one item --- and grows from there, through the real **Business Structure** popup, rather than arriving already fully built.
+This tutorial's own business trades in a home currency (AUD) but, at creation, also nominates a further currency (NZD) it is willing to accept --- a real, further note on multi-currency follows at the end of this chapter. It also, deliberately, starts from as little real structure as a business can have --- one location, one item, no divisions, no categories --- trades like that for real, for the last two months of its very first financial year, then genuinely closes its books and rolls over into a new one, before growing into a proper multi-location wine retailer, through the real **Business Structure** popup, rather than arriving already fully built.
 
 ## Logging in and choosing a business
 
@@ -354,11 +354,39 @@ The **Items Catalog** then creates the simplest possible item: a block of **Ice*
 
 *Screenshot not shown --- a real, confirmed performance issue (noted below) occasionally makes this one screen take longer to render than the automated test's own screenshot capture allows; this step is still exercised, end to end, by the automated Tutorial test's API-path run.*
 
-This business is trading from day one: **Cash Purchase** brings in 50 bags of Ice at $1.00 each, paid cash on the spot, and **Cash Sale** sells 5 of them straight back out at $2.50 each --- the first real revenue this business has ever recorded, before it has grown into anything more than a single location and a single item.
+The owner runs this single-item Ice stall for real, for the last two months of this first financial year, before building anything further. **Cash Purchase** brings in 1,000 bags of Ice at $1.00 each ($1,000.00 total), paid cash on the spot, and **Cash Sale** sells all 1,000 of them straight back out at $2.00 each ($2,000.00 total) --- a $1,000.00 gross profit, exactly a 50% margin, and the first real revenue this business has ever recorded, before it has grown into anything more than a single location and a single item.
 
-![The Ice stock purchased for cash, 50 bags at $1.00 each.](manual-images-tutorial/cash_purchase_ice_done.png)
+![The Ice stock purchased for cash, 1,000 bags at $1.00 each.](manual-images-tutorial/cash_purchase_ice_done.png)
 
-![The first Ice sold for cash, 5 bags at $2.50 each.](manual-images-tutorial/cash_sale_ice_done.png)
+![The Ice sold for cash, 1,000 bags at $2.00 each.](manual-images-tutorial/cash_sale_ice_done.png)
+
+There is one further real cost for these same two months, posted the same way the owner's own capital was: $100.00 of rent, through the **General Journal** --- a debit to **Rent**, a credit to **Cash and Bank**, staged in turn and posted together under the reference `JE-ICE-RENT`. This is the stall's first real expense that isn't simply the cost of what it sold.
+
+![The rent expense staged and posted.](manual-images-tutorial/rent_expense_posted.png)
+
+## Closing the books on the Ice business's own first year
+
+Before growing any further, the owner stops and genuinely closes the books on these first two months of trading --- the real year/period rollover procedure, exercised here, right after the business's own first real stretch of trading, not held off until the very end of this chapter.
+
+First, the real, live Trial Balance and Profit and Loss for the still-open `Actual` ledger are checked --- a real, structural confirmation (balanced), and a real, recorded net income figure, kept so that the same checks just after Close Books below can prove closing the books never changes the P&L already reported for this same, real period.
+
+**Close Books** then closes `Actual`'s own Income and Expense accounts --- Sales, Cost of Goods Sold, and this one Rent expense --- into **Retained Earnings**, as of `2027-06-30`, the end of this business's first real financial year. The owner's real review follows immediately: the Trial Balance, still genuinely balanced, and the Balance Sheet it underlies; and the Profit and Loss for these same two months, its net income figure exactly unchanged from what was recorded just before closing --- a real $1,000.00 gross profit on Ice, less $100.00 of rent, for a real $900.00 net income, the whole of this business's own first year.
+
+![The Ice business's own books, closed as of 2027-06-30.](manual-images-tutorial/ice_phase_books_closed.png)
+
+A new ledger, `Actual 2027-28`, is then created structurally, before any posting into it, and **Rollover To New Period** posts the real, final, balanced opening entry into it --- the new period never references or posts against the old one. The new ledger's own opening Trial Balance is checked balanced, and its own Profit and Loss checked genuinely zero: Income and Expense are never carried forward across a rollover, only the real, "used" Balance Sheet accounts are. This old ledger's own trial balance total is recorded one final time here too, so that the very last check in this chapter can prove nothing that follows ever touches it again.
+
+![The rollover to Actual 2027-28 complete.](manual-images-tutorial/rollover_to_new_period_done.png)
+
+## A further capital investment, to build out the full wine retailer
+
+The session now switches back into Tutorial Wine Retail Business a second time --- the exact, same real screen as before, re-submitted. This is not a no-op: the real session now genuinely points at `Actual 2027-28`, the newly rolled-over ledger, which every ordinary trading screen from here on (Cash Purchase, Cash Sale, POS Sale, Transfer, Purchase Order) reads directly from the real, live session.
+
+![The session switched a second time, now onto Actual 2027-28.](manual-images-tutorial/session_switched_to_new_ledger.png)
+
+With a single Ice stall's first year closed out, the owner puts in a further, real $20,000.00 of capital --- the same, real General Journal mechanism as before, a debit to **Cash and Bank**, a credit to **Owner's Equity**, staged and posted together under the reference `JE-OWNER-CAPITAL-2` --- this time into `Actual 2027-28`, not `Actual`. This is the real money that funds everything below: a second location, a full wine catalog, and real stock on hand at more than one site.
+
+![The further capital investment staged and posted, into Actual 2027-28.](manual-images-tutorial/second_capital_investment_posted.png)
 
 ## Growing the business, through the Business Structure popup
 
@@ -450,11 +478,11 @@ Not every real sale goes through the POS register. A local restaurant, **Riversi
 
 Highland Single Malt 700ml is received sealed directly at Main Street Cellar --- 1 carton, 24 bottles --- stored under a **Secure** storage grouping. **Open Container** then converts that one sealed carton into 24 individual, sellable bottles on the shelf --- a real, ordinary internal stock movement between the item's own "Carton" and "Bottle" forms, mirrored against the location's own storage-space accounts, with no contra accounting involved.
 
-## Closing the books and rolling over to a new period
+## Reviewing the full wine retailer's own figures
 
-*Screenshots not shown --- these screens' UI paths have not yet been wired into the automated Tutorial test; all three steps are currently exercised at the API layer only.*
+With the wine retailer now fully built out and trading --- still entirely within `Actual 2027-28`, the ledger created by the rollover above --- its own real Trial Balance is checked balanced one final time, and its own Profit and Loss checked genuinely positive, covering everything from the second capital investment through every sale made above.
 
-At financial year end, **Close Books** closes the old period's Income and Expense accounts into **Retained Earnings**, entirely within the `Actual` ledger. A new ledger, `Actual 2027-28`, is then created structurally, before any posting into it. **Rollover To New Period** then posts the real, final, balanced opening entry into the new ledger only --- the new period never references or posts against the old one.
+One last, real proof closes this chapter out: `Actual`'s own trial balance total, recorded right after the rollover, is checked once more here, at the very end --- exactly unchanged. None of this full wine-retail build-out, however much of it there genuinely is, ever once touches the Ice business's own, already-closed first year.
 
 ## Reviewing the real, live figures
 

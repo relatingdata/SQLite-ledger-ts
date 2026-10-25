@@ -21,6 +21,7 @@ import {
   createLocation,
   setLocation,
   ensureLocationCapacityAccount,
+  getActiveLedger,
   resolveBusinessCoaAccountId,
   type Location as StockLocation,
   type BusinessName,
@@ -415,7 +416,10 @@ export function postLocation(reference: string, business: BusinessName, userId: 
       carton_capacity: staged.carton_capacity ?? null,
       timezone: staged.timezone,
     } as StockLocation, business);
-    ensureLocationCapacityAccount(business, asLedgerName('Actual'), asLocationName(staged.location_name), userId);
+    // See the matching comment in createAndConfigureLocation (db.ts) - a
+    // staged location's capacity account belongs in whichever ledger is
+    // genuinely active now, not forever "Actual".
+    ensureLocationCapacityAccount(business, getActiveLedger(business) ?? asLedgerName('Actual'), asLocationName(staged.location_name), userId);
     setRelationship(staged.location_name, 'Belongs To Group', staged.location_name, userId);
     db.prepare(`DELETE FROM location_staging WHERE reference = ? AND business = ?`).run(reference, business);
     return entity;

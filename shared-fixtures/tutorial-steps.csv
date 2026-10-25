@@ -21,7 +21,7 @@
 "Nominate Bank Account","Tutorial Wine Retail Business","Westpac Business Cheque","032-001","123456"
 "Build Bank Currency Structure","Tutorial Wine Retail Business","Westpac Business Cheque","AUD","true"
 # Moves the session into the new business.
-"Switch Session","Tutorial Wine Retail Business"
+"Switch Session","Tutorial Wine Retail Business","Actual"
 # Moved up, ahead of any real trading: the owner's own opening capital
 # (DR Cash and Bank, CR Owner's Equity, $5,000.00 / 500000 minor units)
 # - a business needs real cash on hand before it can buy anything, so
@@ -42,14 +42,85 @@
 # further item this tutorial creates will have more going on than
 # this one does.
 "Create Item","Tutorial Wine Retail Business","Ice","+ New category…","General"
-# First trade: 50 bags received at Main Street Cellar, paid cash on
-# the spot, at $1.00/bag (100 minor units) - always posts to the one
-# real "Cash" provider, not a named supplier, since none exists yet.
-"Cash Purchase","Tutorial Wine Retail Business","Main Street Cellar","Ice","50","100"
-# First real revenue: 5 bags sold at $2.50/bag (250 minor units) -
-# this business is trading from day one, before it has grown into
-# anything more than a single location and a single item.
-"Cash Sale","Tutorial Wine Retail Business","Main Street Cellar","Ice","5","250"
+# The owner runs this single-item Ice stall for real, for the last two
+# months of this financial year (the fixture doesn't model individual
+# transaction dates - only Close Books' own "as of" date below does -
+# so these two totals stand for the real, whole two months' worth of
+# trading, not one single sale). 1,000 bags bought at $1.00/bag (100
+# minor units) = $1,000.00 total cost, always posting to the one real
+# "Cash" provider, not a named supplier, since none exists yet.
+"Cash Purchase","Tutorial Wine Retail Business","Main Street Cellar","Ice","1000","100","Actual"
+# The same 1,000 bags, sold at $2.00/bag (200 minor units) = $2,000.00
+# total revenue, for a real $1,000.00 gross profit - exactly a 50%
+# margin on this, the business's one and only real two-month trading
+# period so far.
+"Cash Sale","Tutorial Wine Retail Business","Main Street Cellar","Ice","1000","200","Actual"
+# A real, further running cost for these same two months: $100.00 of
+# rent (10000 minor units), DR "Rent", CR "Cash and Bank" - the
+# business's first expense that isn't the cost of what it sold.
+"Stage Journal Line","JE-ICE-RENT","Tutorial Wine Retail Business","Actual","Rent","10000"
+"Stage Journal Line","JE-ICE-RENT","Tutorial Wine Retail Business","Actual","Cash and Bank","-10000"
+"Post Journal Entry","JE-ICE-RENT","Tutorial Wine Retail Business","Actual"
+
+# Pre year-end reports, read from the still-open "Actual" ledger
+# before Close Books runs - a real, structural check (balanced), and
+# a recorded figure (net income) to prove, right after Close Books
+# below, that closing the books never changes the P&L already
+# reported for this same, real period (closeBooks' own closing entry
+# is deliberately excluded from this read - excludeCloseEntries,
+# db-reports.ts).
+"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual",""
+"Record Profit And Loss Net Income","Tutorial Wine Retail Business","Actual","",""
+"Check Profit And Loss Positive","Tutorial Wine Retail Business","Actual","",""
+
+# The owner closes the books on this, the Ice business's own first
+# real financial year - end of the real year/period rollover procedure
+# (docs/ledger-scoped-accounts-and-rollover.md), exercised end to end,
+# right here, straight after the business's own first real two months
+# of trading, not at the very end of this tutorial.
+"Close Books","Tutorial Wine Retail Business","Actual","2027-06-30","Retained Earnings"
+
+# Post year-end reports, OLD ledger: still balanced, and the real
+# P&L figure for the same, real period is exactly unchanged by
+# closing the books. This is the owner's real review of the Ice
+# business's own Balance Sheet (the Trial Balance underlying it,
+# confirmed balanced) and Profit and Loss for these two months.
+"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual",""
+"Check Profit And Loss Net Income Matches Recorded","Tutorial Wine Retail Business","Actual","",""
+
+"Create Ledger","Tutorial Wine Retail Business","Actual 2027-28"
+"Rollover To New Period","Tutorial Wine Retail Business","Actual","Actual 2027-28","2027-07-01"
+
+# Post year-end reports, NEW ledger: the opening Balance Sheet is
+# genuinely balanced, and its own P&L is genuinely zero - Income/
+# Expense are never carried forward across a rollover, only the real,
+# "used" Balance Sheet accounts are.
+"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual 2027-28",""
+"Check Profit And Loss Zero","Tutorial Wine Retail Business","Actual 2027-28","",""
+
+# Records the now-closed Ice ledger's own trial balance total, so the
+# very last check in this tutorial can prove the whole wine-retail
+# build-out below - everything from here on - never once touches it
+# again.
+"Record Trial Balance Total","Tutorial Wine Retail Business","Actual",""
+
+# A real, second session switch - the exact, same real screen as
+# above, re-submitted. Nothing here is a no-op: the real session now
+# genuinely points at "Actual 2027-28", the newly rolled-over ledger,
+# which every ordinary trading screen below (Cash Purchase, Cash Sale,
+# POS Sale, Transfer, Purchase Order) reads directly from the real,
+# live session - never "Actual" again, from here on.
+"Switch Session","Tutorial Wine Retail Business","Actual 2027-28"
+
+# The further capital the owner puts in, in this new financial year,
+# to fund the real build-out below into a proper multi-location wine
+# retailer - a second, real $20,000.00 (2000000 minor units) DR Cash
+# and Bank / CR Owner's Equity, posted into "Actual 2027-28" this
+# time, not "Actual".
+"Stage Journal Line","JE-OWNER-CAPITAL-2","Tutorial Wine Retail Business","Actual 2027-28","Cash and Bank","2000000"
+"Stage Journal Line","JE-OWNER-CAPITAL-2","Tutorial Wine Retail Business","Actual 2027-28","Owner's Equity","-2000000"
+"Post Journal Entry","JE-OWNER-CAPITAL-2","Tutorial Wine Retail Business","Actual 2027-28"
+
 # Now the business grows - entirely through the Business Structure
 # popup (Configuration → Business Structure, or the "Set up your
 # business structure" button shown right after creating a business),
@@ -107,22 +178,23 @@
 # directly reading that function, not assumed.
 "Set Item Cost and Pack Size","Tutorial Wine Retail Business","Amber Ale 330ml","Highland Brewing Co","8400","24"
 # Chapter 3's Purchase Order: 4 cartons at $84.00/carton (8400 minor
-# units), placed and posted together.
-"Create Purchase Order","Tutorial Wine Retail Business","Highland Brewing Co","Amber Ale 330ml","4","8400","PO-AMBER-1"
+# units), placed and posted together - now in "Actual 2027-28", the
+# business's new financial year.
+"Create Purchase Order","Tutorial Wine Retail Business","Highland Brewing Co","Amber Ale 330ml","4","8400","PO-AMBER-1","Actual 2027-28"
 # Cash Purchase: receives the order at the warehouse, 96 bottles
 # (4 cartons x 24), paid in full on the spot, at the real per-bottle
 # cost (350 minor units). Always posts to the one real "Cash" provider
 # now, not Highland Brewing Co by name - see "Cash Sale and Cash
 # Purchase" in pm-domain-reference.md.
-"Cash Purchase","Tutorial Wine Retail Business","Head Office","Amber Ale 330ml","96","350"
+"Cash Purchase","Tutorial Wine Retail Business","Head Office","Amber Ale 330ml","96","350","Actual 2027-28"
 # Stock Transfer: 24 bottles (1 whole carton) warehouse to retail,
 # leaving 72 at the warehouse, per Chapter 3's own numbers.
-"Transfer Items","Tutorial Wine Retail Business","Amber Ale 330ml","Head Office","Main Street Cellar","24","TRANSFER-AMBER-1"
+"Transfer Items","Tutorial Wine Retail Business","Amber Ale 330ml","Head Office","Main Street Cellar","24","TRANSFER-AMBER-1","Actual 2027-28"
 # POS Sale, at $5.00/bottle (500 minor units) - run more than once,
 # per Chapter 3; quantity per sale (2) is an assumed figure, since
 # Chapter 3 states the price but never a per-sale quantity.
-"POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500"
-"POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500"
+"POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500","Actual 2027-28"
+"POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500","Actual 2027-28"
 # A real, named party - not through the POS register, no cart, no
 # scanning: a local restaurant phones in an order for half a carton
 # (12 bottles - the real stock on hand at this point in the tutorial
@@ -136,7 +208,7 @@
 # Restaurant's own account would be an AR Sale instead, not currently
 # exercised by this tutorial.
 "Create Customer","Tutorial Wine Retail Business","Riverside Restaurant","Customers"
-"Cash Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","12","500"
+"Cash Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","12","500","Actual 2027-28"
 # Highland Single Malt, received sealed directly at retail (as in the
 # chapter 3 e2e review mid-session), then opened: 1 carton -> 24
 # bottles. Open Container is now constrained to a real, specific
@@ -155,55 +227,21 @@
 # either screen below.
 "Create Hierarchy Grouping","Tutorial Wine Retail Business","Storage"
 "Create Hierarchy Value","Tutorial Wine Retail Business","Storage","Secure"
-"Receive Into Storage","Tutorial Wine Retail Business","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure"
+"Receive Into Storage","Tutorial Wine Retail Business","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure","Actual 2027-28"
 "Create Hierarchy Grouping","Tutorial Wine Retail Business","Container"
 "Create Hierarchy Value","Tutorial Wine Retail Business","Container","Carton"
 "Create Hierarchy Value","Tutorial Wine Retail Business","Container","Bottle"
-"Open Container","Tutorial Wine Retail Business","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24"
+"Open Container","Tutorial Wine Retail Business","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24","Actual 2027-28"
 
-# Pre year-end reports, read from the still-open "Actual" ledger
-# before Close Books runs - a real, structural check (balanced), and
-# a recorded figure (net income) to prove, right after Close Books
-# below, that closing the books never changes the P&L already
-# reported for this same, real period (closeBooks' own closing entry
-# is deliberately excluded from this read - excludeCloseEntries,
-# db-reports.ts).
-"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual",""
-"Record Profit And Loss Net Income","Tutorial Wine Retail Business","Actual","",""
-"Check Profit And Loss Positive","Tutorial Wine Retail Business","Actual","",""
-
-# The real year/period rollover procedure (docs/ledger-scoped-accounts-and-
-# rollover.md), exercised end to end. Nothing ever posts across ledgers:
-# closing the old period's Income/Expense into Retained Earnings happens
-# entirely within "Actual"; the new ledger's own account nodes are created
-# structurally, before any posting; the real, final, balanced opening entry
-# posts only within the new ledger, never referencing the old one.
-"Close Books","Tutorial Wine Retail Business","Actual","2027-06-30","Retained Earnings"
-
-# Post year-end reports, OLD ledger: still balanced, and the real
-# P&L figure for the same, real period is exactly unchanged by
-# closing the books.
-"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual",""
-"Check Profit And Loss Net Income Matches Recorded","Tutorial Wine Retail Business","Actual","",""
-
-"Create Ledger","Tutorial Wine Retail Business","Actual 2027-28"
-"Rollover To New Period","Tutorial Wine Retail Business","Actual","Actual 2027-28","2027-07-01"
-
-# Post year-end reports, NEW ledger: the opening Balance Sheet is
-# genuinely balanced, and its own P&L is genuinely zero - Income/
-# Expense are never carried forward across a rollover, only the real,
-# "used" Balance Sheet accounts are.
+# Post year-end reports, NEW ledger, now at the end of the wine
+# retailer's own first real stretch of full trading: still balanced,
+# with a real, positive Profit and Loss.
 "Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual 2027-28",""
-"Check Profit And Loss Zero","Tutorial Wine Retail Business","Actual 2027-28","",""
-
-# Some sales, genuinely in the new trading period - the business
-# keeps trading in the new ledger immediately (step 6 of the real
-# rollover procedure). Records the OLD ledger's own trial balance
-# total first, so the checks below can prove this real sale, posted
-# into the NEW ledger, never touches the OLD one.
-"Record Trial Balance Total","Tutorial Wine Retail Business","Actual",""
-"POS Sale In Ledger","Tutorial Wine Retail Business","Main Street Cellar","Actual 2027-28","Amber Ale 330ml","2","500"
 "Check Profit And Loss Positive","Tutorial Wine Retail Business","Actual 2027-28","",""
+# The real, final proof that none of the real wine-retail build-out
+# above ever touched the Ice business's own, already-closed first
+# year: "Actual"'s own trial balance total is exactly what it was
+# recorded as, right after the rollover.
 "Check Trial Balance Total Matches Recorded","Tutorial Wine Retail Business","Actual",""
 
 # A real, separate, administrative scenario - reproducing, via this

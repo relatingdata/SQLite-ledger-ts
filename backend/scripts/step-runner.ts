@@ -138,7 +138,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   createPurchaseOrderInCartons: (a) => {
     const userId = db.asUserId(1);
     const business = a.businessName as any;
-    const ledger = db.asLedgerName('Actual');
+    const ledger = db.asLedgerName(a.ledger || 'Actual');
     const packRow = db.db
       .prepare(
         `SELECT src.package_quantity AS package_quantity
@@ -160,11 +160,15 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   },
   // Always to the one real "Cash" provider/customer, matching the real
   // screen — see "Cash Sale and Cash Purchase" in pm-domain-reference.md.
+  // `a.ledger` defaults to "Actual" when a row doesn't carry it - every
+  // row that now trades after a rollover (the reshaped Chapter 3
+  // tutorial's wine-business phase, in "Actual 2027-28") passes it
+  // explicitly instead.
   cashPurchaseSimple: (a) => {
     const userId = db.asUserId(1);
     return db.completeCashPurchase({
       business: a.businessName as any,
-      ledger: db.asLedgerName('Actual'),
+      ledger: db.asLedgerName(a.ledger || 'Actual'),
       locationName: a.locationName as any,
       vendorName: 'Cash' as any,
       lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitCostMinor), taxMinor: 0 }],
@@ -176,7 +180,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     return db.completePosSale({
       business: a.businessName as any,
-      ledger: db.asLedgerName('Actual'),
+      ledger: db.asLedgerName(a.ledger || 'Actual'),
       locationName: a.locationName as any,
       customerName: 'Cash' as any,
       lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitPriceMinor), taxMinor: 0 }],
@@ -186,13 +190,13 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   },
   transferItemsSimple: (a) => {
     const userId = db.asUserId(1);
-    db.transferItems(a.businessName as any, db.asLedgerName('Actual'), a.itemName as any, a.fromLocationName as any, a.toLocationName as any, Number(a.quantity), `TRANSFER-${a.itemName}-${Date.now()}`, userId);
+    db.transferItems(a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), a.itemName as any, a.fromLocationName as any, a.toLocationName as any, Number(a.quantity), `TRANSFER-${a.itemName}-${Date.now()}`, userId);
   },
   posSaleSimple: (a) => {
     const userId = db.asUserId(1);
     return db.completePosSale({
       business: a.businessName as any,
-      ledger: db.asLedgerName('Actual'),
+      ledger: db.asLedgerName(a.ledger || 'Actual'),
       locationName: a.locationName as any,
       customerName: 'Cash' as any,
       lines: [{ itemName: a.itemName, quantity: Number(a.quantity), unitPriceMinor: Number(a.unitPriceMinor), taxMinor: 0 }],
@@ -250,7 +254,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.storageValue, userId);
     db.defineProductShape(a.businessName as any, [[a.groupingName, a.groupingName]], userId);
     db.receiveItems(
-      a.businessName as any, db.asLedgerName('Actual'), `RECEIVE-${a.itemName}-${a.storageValue}`,
+      a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), `RECEIVE-${a.itemName}-${a.storageValue}`,
       a.itemName as any, a.locationName as any, Number(a.quantity), userId, undefined,
       [a.storageValue], [[a.groupingName, a.groupingName]]
     );
@@ -263,7 +267,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     db.ensureHierarchyValue(a.businessName as any, 'Container', a.unitValue, userId);
     db.defineProductShape(a.businessName as any, [['Container', 'Container']], userId);
     db.openStorageContainer(
-      a.businessName as any, db.asLedgerName('Actual'), a.locationName as any, a.itemName as any, [['Container', 'Container']],
+      a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), a.locationName as any, a.itemName as any, [['Container', 'Container']],
       [a.containerValue], Number(a.cartonsOpened), [a.unitValue], Number(a.unitsProduced), userId,
       `STORAGE-OPEN-${a.locationName}`
     );
@@ -355,7 +359,7 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // - the real UI and backend had genuinely succeeded the whole time;
   // only this exact-match check was wrong). Fixed to match on the real,
   // confirmed `-PLACE` suffix convention instead.
-  purchase_order_posted: (a) => db.listJournalEntries(a.businessName as any, db.asLedgerName('Actual'), 500, 0).some((j) => j.reference === `${a.reference}-PLACE`),
+  purchase_order_posted: (a) => db.listJournalEntries(a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), 500, 0).some((j) => j.reference === `${a.reference}-PLACE`),
   item_source_registered: (a) => db.listItemSources(a.itemName).some((s) => s.vendor_name === a.providerName),
   // Real, structural checks on a real, live Trial Balance/Profit and
   // Loss report - never a hand-computed "golden" figure that would go

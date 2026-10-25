@@ -332,15 +332,44 @@ instead against a freshly-created business (`make test-e2e-tutorial-browser`).
 ## Tutorial / minimal — `tutorial-steps.csv`
 
 The Tutorial fixture (`shared-fixtures/tutorial-steps.csv` +
-`tutorial-steps.control.csv`) drives a complete, small, from-scratch
-business lifecycle through the step runner: login, select/switch
-business, create a business, create a location, create items and a
-category, place and receive a purchase order, a cash purchase, a
-stock transfer, a POS sale, a phoned-in Cash Sale to a named customer,
-and a General Journal entry for the owner's opening capital — 26
-steps at present. It creates its own "Tutorial Wine Retail Business"
-from scratch and does not depend on, or interact with, any other demo
-business.
+`tutorial-steps.control.csv`) drives a complete, from-scratch business
+lifecycle through the step runner — 60 steps at present, matching
+`docs/user-manual-ch3-tutorial.md`'s own chapter exactly. It genuinely
+runs across *two* real ledgers, not one: a single-item "Ice" stall
+trades for its first two months (one location, no divisions, no
+categories), posts a real rent expense, then genuinely closes its
+books and rolls over into a new ledger (`Actual 2027-28`) before a
+further capital injection funds growing into the full, multi-location
+wine retailer (via the Business Structure popup) — Head Office, an
+employee, two further items, a provider, a Purchase Order, a Cash
+Purchase, a Stock Transfer, two POS sales, a phoned-in Cash Sale to a
+named customer, and Storage/Container stock movements, all now posted
+into `Actual 2027-28`. It creates its own "Tutorial Wine Retail
+Business" from scratch and does not depend on, or interact with, any
+other demo business.
+
+**Genuinely trading in a second ledger, both paths**: every ordinary
+trading screen (Cash Purchase, Cash Sale, POS Sale, Transfer Items,
+Create Purchase Order, Receive Into Storage, Open Container) now takes
+an explicit `ledger` field in `screens.csv`/the data file — on the API
+path this is simply passed straight through (`a.ledger || 'Actual'`,
+the same fallback already used throughout `step-runner.ts`'s
+`API_REGISTRY`); on the UI path, these screens have no ledger
+field/selector of their own at all (blank `field_selector`) because
+the real screens themselves always read `session.current.ledgerName`
+directly. The fixture instead submits the real **Switch Session**
+screen a *second* time, right after the rollover — not a no-op: the
+real `/session` page defaults its ledger `<select>` to
+`getActiveLedger(business)`, which the rollover itself just moved to
+the new ledger, so re-submitting this one real screen is what
+genuinely points every later UI-driven trading screen at
+`Actual 2027-28` instead of `Actual`. `screens.csv`'s own "Switch
+Session" row now has an explicit second field (`ledger`, its own
+`select >> nth=1`) so this choice is driven deliberately rather than
+left to the page's own async default and a fixed timing margin — found
+directly: without it, a race between the dropdown's own
+`getActiveLedger` network call and the step runner's next click could
+leave the session pointed at the old ledger.
 
 ```
 make test-e2e-tutorial            # fast — API path only, no browser
