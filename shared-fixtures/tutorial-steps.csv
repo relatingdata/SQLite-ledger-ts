@@ -22,38 +22,76 @@
 "Build Bank Currency Structure","Tutorial Wine Retail Business","Westpac Business Cheque","AUD","true"
 # Moves the session into the new business.
 "Switch Session","Tutorial Wine Retail Business"
-# Creates the warehouse, within the Adelaide Metro division, and its
-# real carton capacity, directly on the same screen, per Chapter 3's
-# own narrative - a real, confirmed bug was found and fixed here: an
-# earlier version set capacity via a separate, later step, which
-# silently lost the real opening balance entirely, since
-# createAndConfigureLocation's own design posts the opening entry
-# atomically at creation, before that later step could ever run.
-# bottleCapacity is left blank, not "0" (a truthy string in
-# JavaScript), so this warehouse genuinely tracks carton space, never
-# bottle space.
-"Create Location","Tutorial Wine Retail Business","Head Office","Adelaide","Warehouse","Adelaide Metro","","40"
-# Creates the retail outlet, same division, with its own real shelf
-# (bottle) and carton capacity - a real retail outlet genuinely holds
-# both sealed cartons and loose bottles at once.
-"Create Location","Tutorial Wine Retail Business","Main Street Cellar","Adelaide","Retail","Adelaide Metro","120","10"
+# Moved up, ahead of any real trading: the owner's own opening capital
+# (DR Cash and Bank, CR Owner's Equity, $5,000.00 / 500000 minor units)
+# - a business needs real cash on hand before it can buy anything, so
+# this genuinely comes first now, not after a warehouse and an
+# employee already exist. Still the real, separate sequence of calls a
+# genuine browser session actually makes - two real staged lines, then
+# one real post - never one, combined, artificial row.
+"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual","Cash and Bank","500000"
+"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual","Owner's Equity","-500000"
+"Post Journal Entry","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual"
+# A business starts with one location selling one item. Main Street
+# Cellar is created alone here, with real street/shelf/carton capacity
+# but no division at all yet (the division field is left blank) -
+# this business genuinely has zero structure beyond one shop, for now.
+"Create Location","Tutorial Wine Retail Business","Main Street Cellar","Adelaide","Retail","","120","10"
+# The simplest possible item: a block of Ice, in a new "General"
+# category, no tiers, no combinations, no registered cost. Every
+# further item this tutorial creates will have more going on than
+# this one does.
+"Create Item","Tutorial Wine Retail Business","Ice","+ New category…","General"
+# First trade: 50 bags received at Main Street Cellar, paid cash on
+# the spot, at $1.00/bag (100 minor units) - always posts to the one
+# real "Cash" provider, not a named supplier, since none exists yet.
+"Cash Purchase","Tutorial Wine Retail Business","Main Street Cellar","Ice","50","100"
+# First real revenue: 5 bags sold at $2.50/bag (250 minor units) -
+# this business is trading from day one, before it has grown into
+# anything more than a single location and a single item.
+"Cash Sale","Tutorial Wine Retail Business","Main Street Cellar","Ice","5","250"
+# Now the business grows - entirely through the Business Structure
+# popup (Configuration → Business Structure, or the "Set up your
+# business structure" button shown right after creating a business),
+# a graphical, editable view over Locations, Divisions, and Item
+# Categories built from the exact, same screens/backend calls as the
+# dedicated Locations, Hierarchies & Products, and Inventory Catalog
+# pages - see docs/pm-frontend-reference.md's "Business Structure
+# popup" section. A second location first: Head Office, a warehouse,
+# added via the popup's own "+ New Location" form (which, unlike the
+# dedicated Locations screen, has no capacity fields of its own -
+# capacity can still be set afterwards on the Locations page itself).
+"Add Location Via Structure Popup","Tutorial Wine Retail Business","Head Office","Adelaide","Warehouse"
+# A division this business didn't have a moment ago: "Adelaide Metro",
+# created via the popup's "+ New Division" action - one click, which
+# itself ensures the Division grouping (not yet created at all, until
+# now) and then its first value, together.
+"Add Division Via Structure Popup","Tutorial Wine Retail Business","Adelaide Metro"
+# Repositioning, not structural reparenting: Main Street Cellar
+# already existed with no division at all, and is now tagged into
+# Adelaide Metro via the popup's "Move…" action on its own tree node -
+# proving the popup can genuinely move something that predates the
+# division it's moving into, not just place a brand-new location
+# straight into one.
+"Move Main Street Cellar To Division","Tutorial Wine Retail Business","Main Street Cellar","Adelaide Metro"
+# Head Office joins the same division, the same way.
+"Move Head Office To Division","Tutorial Wine Retail Business","Head Office","Adelaide Metro"
+# One more growth step through the popup: a "Whiskey" category,
+# created ahead of time on the Item Categories tab, so that Highland
+# Single Malt's own creation below can select it directly instead of
+# using "+ New category…" - the popup's category-adding capability,
+# with a concrete, later-used result.
+"Add Category Via Structure Popup","Tutorial Wine Retail Business","Whiskey"
 # Chapter 3's Business Setup: the business's first employee, at the
 # warehouse, to receive and later staff the retail counter.
 "Create Employee","Tutorial Wine Retail Business","Jordan Lee","Head Office"
 # Creates the item and its category. No cost/price field exists on
 # this screen - set separately below, once a Provider exists.
 "Create Item","Tutorial Wine Retail Business","Amber Ale 330ml","+ New category…","Beer"
-"Create Item","Tutorial Wine Retail Business","Highland Single Malt 700ml","+ New category…","Whiskey"
-# The owner's own opening capital: DR Cash and Bank, CR Owner's
-# Equity, $5,000.00 (500000 minor units) - an assumed figure, since
-# Chapter 3 states the entry's shape but never a number. Per the real,
-# settled design (docs/skill-step-runner-design.md §11b): recorded,
-# and replayed, as the real, separate sequence of calls a genuine
-# browser session actually makes - two real staged lines, then one
-# real post - never one, combined, artificial row.
-"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual","Cash and Bank","500000"
-"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual","Owner's Equity","-500000"
-"Post Journal Entry","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual"
+# "Whiskey" already exists (the Business Structure popup created it
+# above), so this item selects it directly rather than creating a new
+# category inline.
+"Create Item","Tutorial Wine Retail Business","Highland Single Malt 700ml","Whiskey",""
 # Chapter 3's first supplier, name only.
 "Create Provider","Tutorial Wine Retail Business","Highland Brewing Co","Accounts Payable"
 # Amber Ale's real cost, registered as the per-carton price ($84.00 =

@@ -222,6 +222,28 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
   },
+  // Business Structure popup (frontend/src/lib/components/BusinessStructurePopup.svelte)
+  // "+ New Division" — one click, two backend calls: the Division
+  // grouping itself is ensured idempotently (it may not exist yet, as
+  // in the reshaped tutorial's first expansion), then the new value.
+  addDivisionViaStructurePopup: (a) => {
+    const userId = db.asUserId(1);
+    db.ensureHierarchyGrouping(a.businessName as any, 'Division', userId);
+    db.ensureHierarchyValue(a.businessName as any, 'Division', a.valueName, userId);
+  },
+  // Business Structure popup's "Move…" action on a Location node —
+  // always against the Division grouping (the only hierarchy the
+  // Locations & Divisions tab tags), matching the popup's own
+  // hardcoded DIVISION constant.
+  setHierarchyTagSimple: (a) => {
+    const userId = db.asUserId(1);
+    db.setHierarchyParent(a.locationName, 'Division', a.division, userId);
+  },
+  // Business Structure popup's Item Categories tab, "+ New top-level category".
+  addTopLevelCategoryViaStructurePopup: (a) => {
+    const userId = db.asUserId(1);
+    db.createItemCategory(a.businessName as any, a.categoryName, undefined, userId);
+  },
   receiveStockWithCombination: (a) => {
     const userId = db.asUserId(1);
     db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);
@@ -382,6 +404,10 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   },
   translation_matches: (a) => db.getTranslation(a.concept, a.language) === a.translationText,
   entity_named_exists: (a) => db.getEntityTree().some((e) => e.name === a.name),
+  // Confirms a Business Structure popup "Move…" action genuinely
+  // re-tagged the location's Division membership - the same
+  // getHierarchyParent read the popup itself uses to render its tree.
+  location_in_hierarchy_group: (a) => db.getHierarchyParent(a.locationName, 'Division') === a.division,
 };
 
 /** A minimal, real CSV field parser handling real, quoted fields with

@@ -1278,6 +1278,77 @@ which combinations actually exist. The grid shown is the full
 Cartesian product as tick-boxes — only the ticked combinations
 actually get built, never the full grid blindly.
 
+## `frontend/src/lib/components/BusinessStructurePopup.svelte` and `StructureTreeNode.svelte` — the Business Structure popup
+
+A graphical, editable view over one business's Locations, Divisions,
+Item Categories, and any other generic Hierarchy, in a single modal —
+built by composing the exact, same backend/API calls the dedicated
+Locations, Setup → Hierarchies, and Items Catalog screens already use
+directly, not a new, parallel mechanism. No backend changes were
+needed for this feature at all: every add/move action below reuses an
+existing, already-wired function.
+
+**Entry points**: a "Set up your business structure" button on
+`setup/new-business/+page.svelte`, shown right after creating a
+business, alongside (not instead of) its existing links to the
+General Journal, Entity Tree, and Locations; and a standalone
+`setup/business-structure/+page.svelte` route, reachable at any later
+time via a "Business Structure" entry under Configuration
+(`migrateForMenuEntities`, `backend/src/db-seed.ts`), which opens the
+same popup for `session.current.businessName`.
+
+**Two distinct reposition mechanisms**, carried through the component
+without being collapsed into one:
+
+- **Locations ↔ Division membership is a hierarchy *tag***
+  (`setHierarchyTag`/`deleteHierarchyTag`, `frontend/src/lib/api.ts` —
+  `setHierarchyParent`/`deleteHierarchyParent` on the backend,
+  `backend/src/db.ts`). A location's real `parent_id` never changes —
+  it stays under the business's `Locations` root forever. "Moving" a
+  location between divisions, or to "Unassigned", only changes or
+  clears this tag. The Locations & Divisions tab hardcodes the
+  `Division` grouping name as its one, conventional axis (the same
+  convention `business-setup/+page.svelte`'s own org chart already
+  assumes), and otherwise treats it as an ordinary generic hierarchy —
+  "Division" has no privileged backend concept of its own.
+- **Item category nesting is a real structural reparent**
+  (`supersedeEntity`, `backend/src/db.ts:402`) — "moving" a category is
+  a genuine change of `parent_id`, the same mechanism the Structured
+  Editor's own flat-table parent dropdown already uses.
+
+**`StructureTreeNode.svelte`** is the generic, recursive node renderer
+shared by all three tabs — unlike the read-only, select-only
+`HierarchyGroupTreeNode.svelte`, each node can offer an "+ Add" action
+(opens a type-specific form the caller owns) and a "Move…" action
+(an inline destination picker rendered by the node itself). The
+component has no opinion on Locations vs Item Categories vs a generic
+Hierarchy; the caller supplies `canAddChild`/`canMove` per node and the
+valid move destinations, and makes no API call of its own.
+
+**A known, pre-existing, inherited limitation, not introduced by this
+feature**: `supersedeEntity`'s reparent API takes a bare parent *name*,
+not a parent id, and `resolveId()` (`backend/src/db.ts:262`) resolves a
+bare name with no parent scoping at all when none is given. Every
+business's Items root is literally named `Items` (unique only among
+siblings under the same parent, per `schema/00-core.sql`'s
+`entities_name_unique` trigger), so "move to top level" is reliable
+only while at most one business's `Items` root is reachable by that
+bare name at once — true for this application's own single-business-
+at-a-time setup today, documented directly above
+`moveCategoryOptions` in `BusinessStructurePopup.svelte`, and worth
+fixing in `supersedeEntity` itself (accepting a parent id) before this
+popup — or the Structured Editor's own, equally-affected dropdown — is
+trusted multi-business.
+
+**Deliberately out of scope**: the popup's own quick-add Location form
+has no capacity (bottle/carton) fields, unlike the dedicated Locations
+screen — a location added this way can still have its capacity set
+afterwards, directly on that page. `getHierarchyGroups()`
+(`backend/src/db.ts:3371`) is deliberately avoided throughout (it has
+no business parameter and queries globally via a `LIKE` pattern, a
+cross-business data-leak risk); the popup instead always reads via the
+properly business-scoped `getHierarchy(business)`.
+
 ## `frontend/src/routes/locations/+page.svelte` — Locations setup and storage actions
 
 A refrigerated section's location entity is named with a suffix,

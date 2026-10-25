@@ -2,7 +2,7 @@
 
 This chapter walks through one, single, real, worked exercise --- setting a brand-new wine retail business up entirely through this application's own real interface, from the very first login through its first real posted transactions, checking the real, live figures at each step along the way. Every numbered step below is exercised, end to end, by this project's own automated Tutorial test (`make test-e2e-tutorial-browser`, driven by `shared-fixtures/tutorial-steps.csv`) --- the same, real, data-driven test-runner described in the Programmer's Manual, never a separate, hand-maintained script. Every screenshot below is real and current, captured directly from a live, passing run of this exact tutorial. A step whose own screenhot is not shown is marked plainly, with the real reason --- either its UI path has not yet been wired into the automated test (it is still exercised at the API layer only), or a real, confirmed application bug currently blocks that one screen --- rather than shown with a stale or substitute image.
 
-This tutorial's own business trades in a home currency (AUD) but, at creation, also nominates a further currency (NZD) it is willing to accept --- a real, further note on multi-currency follows at the end of this chapter.
+This tutorial's own business trades in a home currency (AUD) but, at creation, also nominates a further currency (NZD) it is willing to accept --- a real, further note on multi-currency follows at the end of this chapter. It also, deliberately, starts from as little real structure as a business can have --- one location, one item --- and grows from there, through the real **Business Structure** popup, rather than arriving already fully built.
 
 ## Logging in and choosing a business
 
@@ -28,13 +28,53 @@ The session then moves into the new business --- every further step in this tuto
 
 ![The session switched into Tutorial Wine Retail Business.](manual-images-tutorial/session_switched.png)
 
-## Creating the first locations
+## Posting the owner's initial cash deposit
 
-**Locations** is where a real retail outlet or warehouse is created. This tutorial's own business creates two: **Head Office**, a warehouse in Adelaide, within the Adelaide Metro division, with a 40-carton capacity and no bottle (shelf) capacity --- a warehouse genuinely tracks carton space only, never bottle space --- and **Main Street Cellar**, a retail outlet in the same city and division, with both a 120-bottle shelf capacity and a 10-carton capacity, since a real retail outlet genuinely holds both sealed cartons and loose bottles at once. Both capacities are set directly on the same screen at creation, not as a separate, later step --- the location's own opening entry posts atomically at creation, before any later step could run.
+Before any real trading, the owner's own real capital contribution --- $5,000.00 --- is posted directly through the **General Journal**, the same, real journal every other manual transaction in this application posts through. A real, live browser session stages each line of a balanced entry separately, then posts the whole, balanced entry in one, final, separate step --- never one, combined, artificial call: a debit to **Cash and Bank**, a credit to **Owner's Equity**, each staged in turn, then posted together under the reference `JE-OWNER-CAPITAL`. A real business needs cash on hand before it can buy anything, so this now genuinely comes first --- ahead of any location, any employee, any item.
 
-![The warehouse, Head Office, created with its own real carton capacity.](manual-images-tutorial/warehouse_created.png)
+![The first line staged — Cash and Bank debited $5,000.00.](manual-images-tutorial/journal_line_1_staged.png)
 
-![The retail outlet, Main Street Cellar, created with its own real shelf and carton capacity.](manual-images-tutorial/retail_created.png)
+![The second line staged — Owner's Equity credited $5,000.00.](manual-images-tutorial/journal_line_2_staged.png)
+
+![The balanced entry posted.](manual-images-tutorial/journal_entry_posted.png)
+
+## Opening with one location and one item
+
+A business starts with one location selling one item --- not a fully-built org chart. **Locations** creates **Main Street Cellar**, a retail outlet in Adelaide, with its own real 120-bottle shelf capacity and 10-carton capacity, set directly on the same screen at creation. It has no division at all yet --- the division field is simply left blank --- since this business genuinely has no further structure to put it in.
+
+![The retail outlet, Main Street Cellar, created with its own real shelf and carton capacity, no division yet.](manual-images-tutorial/retail_created.png)
+
+The **Items Catalog** then creates the simplest possible item: a block of **Ice**, under a brand-new **General** category --- no tiers, no combinations, no registered cost. Every further item this tutorial creates has more going on than this one does.
+
+*Screenshot not shown --- a real, confirmed performance issue (noted below) occasionally makes this one screen take longer to render than the automated test's own screenshot capture allows; this step is still exercised, end to end, by the automated Tutorial test's API-path run.*
+
+This business is trading from day one: **Cash Purchase** brings in 50 bags of Ice at $1.00 each, paid cash on the spot, and **Cash Sale** sells 5 of them straight back out at $2.50 each --- the first real revenue this business has ever recorded, before it has grown into anything more than a single location and a single item.
+
+![The Ice stock purchased for cash, 50 bags at $1.00 each.](manual-images-tutorial/cash_purchase_ice_done.png)
+
+![The first Ice sold for cash, 5 bags at $2.50 each.](manual-images-tutorial/cash_sale_ice_done.png)
+
+## Growing the business, through the Business Structure popup
+
+Everything from here on is genuine growth, carried out entirely through the real **Business Structure** popup --- reachable either from **Configuration → Business Structure**, at any time, or straight from the **Set up your business structure** button shown right after creating a business. It is a graphical, editable view over a business's Locations, Divisions, and Item Categories, built from the exact, same screens and backend calls as the dedicated Locations, Hierarchies & Products, and Inventory Catalog pages it fronts --- never a separate, parallel mechanism of its own. See the Programmer's Manual for the full design.
+
+![The Business Structure popup, opened over Tutorial Wine Retail Business.](manual-images-tutorial/structure_popup_location_added.png)
+
+A second location first: **Head Office**, a warehouse in Adelaide, added via the popup's own "+ New Location" form, on its "Locations & Divisions" tab. Unlike the dedicated Locations screen, the popup's own quick-add form has no capacity fields of its own --- a warehouse added this way can still have its real carton capacity set afterwards, directly on the Locations page.
+
+A division this business did not have a moment ago comes next: **Adelaide Metro**, created with the popup's own "+ New Division" action --- one click, which itself creates the Division grouping (not yet in existence at all until now) and its first value, together.
+
+![A new division, Adelaide Metro, created from inside the popup.](manual-images-tutorial/structure_popup_division_added.png)
+
+Then the real growing-up moment: **Main Street Cellar**, which already existed with no division at all, is tagged into Adelaide Metro using the popup's "Move…" action on its own tree node --- this is a *repositioning*, not a structural move; the location's own real record never changes, only which division it now reports under. Head Office joins the same division the same way, right after.
+
+![Main Street Cellar, repositioned into the Adelaide Metro division.](manual-images-tutorial/structure_popup_move_msc.png)
+
+![Head Office joining the same division.](manual-images-tutorial/structure_popup_move_ho.png)
+
+One further growth step, on the popup's "Item Categories" tab: a **Whiskey** category, created ahead of time with "+ New top-level category" --- so that Highland Single Malt's own creation, later in this chapter, can simply select it from the dropdown rather than typing a brand-new category name inline.
+
+![A Whiskey category, pre-created from the popup, ready for Highland Single Malt to select directly.](manual-images-tutorial/structure_popup_category_added.png)
 
 ## Creating the first employee
 
@@ -42,25 +82,15 @@ The session then moves into the new business --- every further step in this tuto
 
 ![The business's own first, real employee created.](manual-images-tutorial/employee_created.png)
 
-## Creating the first items and their categories
+## Creating the next items
 
-The **Items Catalog** is where a genuinely new category is created inline, and where the item itself is created on the same screen --- the category exists the moment it is typed and confirmed, with the item created directly underneath it. This tutorial's own business creates two: **Amber Ale 330ml**, under a new **Beer** category, and **Highland Single Malt 700ml**, under a new **Whiskey** category. Neither screen sets a cost or selling price yet --- no cost/price field exists here; that is set separately below, once a real supplier exists for the item to be costed against.
+The **Items Catalog** creates two further items: **Amber Ale 330ml**, under a new **Beer** category, typed inline the same way Ice's own category was; and **Highland Single Malt 700ml**, under the **Whiskey** category --- already sitting there in the dropdown, exactly as the Business Structure popup left it, so this screen simply selects it rather than creating anything new. Neither screen sets a cost or selling price yet --- no cost/price field exists here; that is set separately below, once a real supplier exists for the item to be costed against.
 
 ![Amber Ale 330ml created, under a new Beer category.](manual-images-tutorial/item_amber_ale_created.png)
 
-![Highland Single Malt 700ml created, under a new Whiskey category.](manual-images-tutorial/item_highland_single_malt_created.png)
+![Highland Single Malt 700ml created, selecting the already-existing Whiskey category.](manual-images-tutorial/item_highland_single_malt_created.png)
 
 **A real, confirmed performance note**: at the time of this printing, creating an item on a business with a large, real chart-of-accounts/vocabulary tree could take tens of real seconds on this one screen, even though every real backend call involved returns in well under half a second --- a genuine client-side rendering defect, found and fixed during this same tutorial's own development (see the Programmer's Manual for the full, real root cause and fix).
-
-## Posting the owner's initial cash deposit
-
-The owner's own real capital contribution --- $5,000.00 --- is posted directly through the **General Journal**, the same, real journal every other manual transaction in this application posts through. A real, live browser session stages each line of a balanced entry separately, then posts the whole, balanced entry in one, final, separate step --- never one, combined, artificial call: a debit to **Cash and Bank**, a credit to **Owner's Equity**, each staged in turn, then posted together under the reference `JE-OWNER-CAPITAL`.
-
-![The first line staged — Cash and Bank debited $5,000.00.](manual-images-tutorial/journal_line_1_staged.png)
-
-![The second line staged — Owner's Equity credited $5,000.00.](manual-images-tutorial/journal_line_2_staged.png)
-
-![The balanced entry posted.](manual-images-tutorial/journal_entry_posted.png)
 
 ## Creating the first supplier
 

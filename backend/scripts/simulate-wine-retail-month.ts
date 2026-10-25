@@ -35,7 +35,7 @@ import {
   getInvoice,
   createInvoice,
   postInvoice,
-  getDivisionForLocation,
+  getHierarchyGroupForLocation,
   getAccountsPostedTo,
   stagePurchaseOrder,
   postPurchaseOrder,
@@ -147,8 +147,8 @@ async function main() {
       // already exists from a prior run
     }
     // outlet.city is coarse; the fine-grained division (needed so cold-storage sales
-    // attribute to the same division as the parent outlet) comes from getDivisionForLocation.
-    const fineGrainedDivision = getDivisionForLocation(outlet.name) ?? outlet.city;
+    // attribute to the same division as the parent outlet) comes from getHierarchyGroupForLocation.
+    const fineGrainedDivision = getHierarchyGroupForLocation(outlet.name, 'Division') ?? outlet.city;
     setLocation(name, { city: fineGrainedDivision, location_type: 'Retail', is_billing_address: false, bottle_capacity: fridgeBottleCapacity, carton_capacity: fridgeCartonCapacity, timezone: getLocation(outlet.name)?.timezone ?? 'UTC' });
     // Relation to the parent outlet lets completePosSale route a cold product to the
     // fridge automatically — the POS "store" dropdown only shows the logical outlet.
@@ -656,7 +656,7 @@ async function main() {
       const salesAccount = originalSalesAccounts[0] ?? ensureItemSalesCogsAccounts(line.itemName!, 1).salesAccount;
       const originalLocationMatch = original.description?.match(/^POS sale at (.+)$/);
       const returnLocation = originalLocationMatch?.[1];
-      const returnDivision = returnLocation ? getDivisionForLocation(returnLocation) : undefined;
+      const returnDivision = returnLocation ? getHierarchyGroupForLocation(returnLocation, 'Division') : undefined;
       // A spoiled return is never restocked — the financial reversal (crediting the
       // customer) happens, but the bottle doesn't become sellable stock again.
       postInvoice(creditId, salesAccount, 'Sales Tax Payable', 1, false, returnDivision);

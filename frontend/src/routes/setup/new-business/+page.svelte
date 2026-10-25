@@ -3,6 +3,9 @@
   import { createBusiness, getCoaPrototypeAccounts, getBusinessTypes, saveBusinessTypeAnswers, nominateBankAccount, buildBankCurrencyStructure, ApiError } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { onMount } from 'svelte';
+  import BusinessStructurePopup from '$lib/components/BusinessStructurePopup.svelte';
+
+  let showStructurePopup = false;
 
   // Prototype CoA reuse — see docs/pm-frontend-reference.md.
   const COA_PROTOTYPES = [
@@ -264,12 +267,22 @@
     <p>
       Next: post the owner's capital contribution into <strong>{result.actualLedger}</strong> through
       <a href="/post">{translations.current['General Journal'] ?? 'General Journal'}</a> (debit whichever cash/bank account matches the chosen prototype, credit
-      the matching equity account), then set up any real locations under
-      <a href="/setup/tree">{translations.current['Entity Tree'] ?? 'Entity Tree'}</a> and <a href="/locations">{translations.current['Locations'] ?? 'Locations'}</a>. Post the financial year's
+      the matching equity account). Post the financial year's
       plan into <strong>{result.budgetLedger}</strong> the same way — Budget is just another real ledger,
       comparable against Actual through <a href="/reports/compare">{translations.current['Compare Ledgers'] ?? 'Compare Ledgers'}</a>.
     </p>
-    <button class="btn" onclick={() => goto('/post')}>{translations.current['Go to General Journal'] ?? 'Go to General Journal'}</button>
+    <p class="field-note">
+      {translations.current["Set up your business structure — locations, divisions, item categories, and any other hierarchy — in one place, graphically. It reuses the exact same screens below, just gathered together."] ?? "Set up your business structure — locations, divisions, item categories, and any other hierarchy — in one place, graphically. It reuses the exact same screens below, just gathered together."}
+    </p>
+    <div class="button-row">
+      <button class="btn" onclick={() => (showStructurePopup = true)}>{translations.current['Set up your business structure'] ?? 'Set up your business structure'}</button>
+      <button class="btn secondary" onclick={() => goto('/post')}>{translations.current['Go to General Journal'] ?? 'Go to General Journal'}</button>
+      <a href="/setup/tree">{translations.current['Entity Tree'] ?? 'Entity Tree'}</a>
+      <a href="/locations">{translations.current['Locations'] ?? 'Locations'}</a>
+    </div>
+    {#if showStructurePopup}
+      <BusinessStructurePopup business={result.business} onClose={() => (showStructurePopup = false)} />
+    {/if}
   {:else}
     <fieldset>
       <legend>{translations.current['Business Name'] ?? 'Business Name'}</legend>
@@ -371,6 +384,12 @@
 </fieldset>
 
 <style>
+  .button-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
   .business-type-questions {
     display: flex;
     flex-direction: column;

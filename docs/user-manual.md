@@ -128,9 +128,21 @@ Once a business, ledger, and language are chosen, you land on the main screen. T
 
 ## How the menu is organized
 
-The top-level sections are organized around real, everyday workflows rather than abstract categories: **Accounts Receivable (Debtors / Sales)** holds everything related to selling and being paid; **Accounts Payable (Creditors / Purchasing)** holds everything related to buying and paying; **Cash** holds immediate, no-account transactions and the POS register; **General Ledger** holds the core accounting reports and the year-end close; and **Configuration** --- covered in full in Chapter 2 --- holds everything an administrator uses to set the business up in the first place.
+The top-level sections are organized around real, everyday workflows rather than abstract categories: **Accounts Receivable (Debtors / Sales)** holds everything related to selling and being paid; **Accounts Payable (Creditors / Purchasing)** holds everything related to buying and paying; **Cash** holds the immediate-payment Cash Purchase/Cash Sale screens and the POS register; **General Ledger** holds the core accounting reports and the year-end close; and **Configuration** --- covered in full in Chapter 2 --- holds everything an administrator uses to set the business up in the first place.
 
 A screen shown in italics in the sidebar (such as Reconciliation or FX Adjustment) is a real, acknowledged gap --- a planned screen that doesn't exist yet --- shown honestly rather than hidden, so it's clear what's genuinely available today versus what's still ahead.
+
+## How a purchase or sale moves stock and money together
+
+Whichever screen you use --- a Purchase/Sales Order fulfilled later, a plain on-account Purchase or Sale, or the immediate Cash Purchase/Cash Sale screens --- the pattern underneath is always the same: receiving or dispatching the real, physical stock and recording the real money owed happen together, in one step, never as two separate actions that could leave one done and not the other.
+
+![The complete shape of buying and selling in this application, from a Purchase/Sales Order through to the General Journal, including the Cash shortcut.](diagrams/cash-and-order-workflow.svg)
+
+A **Purchase Order** or **Sales Order** is a plan only --- placing one doesn't move any stock or money yet. It's the **Stock Receipt**/**Stock Dispatch** step, when the goods actually arrive or go out, that does both at once: the real stock quantity changes, and the business now owes --- or is owed --- real money. That open balance is settled later with an **AP Payment** (a remittance advice to a provider) or an **AR Receipt** (a receipt from a customer).
+
+A plain, on-account **Purchase** or **Sale** --- made without a Purchase/Sales Order behind it --- works the same way: any real item on the line is received or dispatched from stock automatically, right alongside the invoice.
+
+**Cash Purchase** and **Cash Sale** are the same thing again, just immediate: each posts a real invoice to the business's own "Cash" provider or "Cash" customer, moves the stock, and pays the invoice off in full, all in the same instant --- so even here, the amount owed is briefly real, it just never has a chance to sit open. Every one of these roads ends up in the same General Journal.
 
 ## Navigating with the keyboard
 
@@ -171,7 +183,7 @@ Setup then walks through the business's own real banking arrangement, in order:
 
 ## Business Setup --- divisions, locations, employees
 
-**Business Setup** is the one, real, single place to set up and amend a business's whole, real structure at once --- its divisions, each division's own real locations (with address, phone, and real weekly open hours), and each location's own real staff (with address, phone, wage/salary, and a real weekly schedule validated against that location's own open hours). A division is a real profit or cost center --- it can be as simple as "Retail" and "Wholesale", or genuinely nested --- and it's purely a reporting mechanism: it exists to group a business's own real transactions for the P&L (Trial Balance, Balance Sheet, and P&L all accept a real division filter), and Year End Close correctly rolls each division's own net income into its own real Retained Earnings line, never blended together with any other division's own activity. There is no separate, dedicated "Divisions" screen --- division setup lives here, directly alongside locations and staff, since the two are so closely related in everyday, real use.
+**Business Setup** is the one, real, single place to set up and amend a business's whole, real structure at once --- the real hierarchy that groups its locations (named "Division" by default, but genuinely whatever a business calls its own structure --- "Region," "Branch," anything else), each group's own real locations (with address, phone, and real weekly open hours), and each location's own real staff (with address, phone, wage/salary, and a real weekly schedule validated against that location's own open hours). This grouping is a real profit or cost center --- it can be as simple as "Retail" and "Wholesale", or genuinely nested --- and it's purely a reporting mechanism: it exists to group a business's own real transactions for the P&L (Trial Balance, Balance Sheet, and P&L all accept a real group filter), and Year End Close correctly rolls each group's own net income into its own real Retained Earnings line, never blended together with any other group's own activity. The screen's own headings and field labels always follow whatever name the business actually chose, never a fixed word. There is no separate, dedicated screen for this grouping alone --- its setup lives here, directly alongside locations and staff, since the two are so closely related in everyday, real use. A location can also be tagged against any further, real hierarchy the business has configured (Storage, Packaging, Size, and so on) --- Business Setup shows one further field per such dimension when adding or editing a location.
 
 This whole tree works entirely by keyboard, the same real Insert/Delete pattern used for addresses and phone numbers elsewhere in this application: select a division, location, or employee, then press **Insert** to add something new within it --- a division selected adds a location; a location selected adds an employee. Press **Delete** to remove whatever's currently selected. There are no separate "Add" buttons scattered through the tree at all --- the hint at the bottom always states exactly what Insert and Delete will do for the current selection.
 
@@ -279,7 +291,7 @@ Beyond a party's own address and phone number, a real, named person can be attac
 
 ## Making your reports insightful and more useful with Hierarchies
 
-A **Hierarchy** is a real, business-defined way of grouping things for reporting --- separate from what a product is actually called. Two are set up for you from the start: **Division** (grouping locations --- a region, a city, however the business is structured) and **Category** (grouping products --- Red Wine, White Wine, and so on). Neither is special or fixed: they're simply the two most businesses need on day one. A business is free to rename them, remove them, or add real, further ones of its own --- Storage temperature, glass size, a seasonal range, anything that's actually useful to see broken out on a report.
+A **Hierarchy** is a real, business-defined way of grouping things for reporting --- separate from what a product is actually called. None is pre-seeded or special: a new business starts with no hierarchy at all. **Business Setup**'s own tree suggests "Division" as the name for the hierarchy that groups your real locations --- a region, a city, however the business is structured --- the first time you add one, but you're free to type any other name there instead (the screen's own headings and labels follow whatever name you actually choose). Products are grouped the same, general way, through "Create/Edit Hierarchy" --- "Category" is simply the name most businesses find natural for that one. Any hierarchy, once created, can be renamed, removed, or joined by further, real ones of its own --- Storage temperature, glass size, a seasonal range, anything that's actually useful to see broken out on a report.
 
 **The one rule that makes hierarchies genuinely useful: keep it out of the product's own name.** If a lager is sold both cold and at room temperature, and cold pours for more, the temptation is to create two separate products --- "Lager" and "Cold Lager." Don't. Keep one real product, "Lager," and add a real **Storage** hierarchy with values like "Cold" and "Ambient." The same goes for a wine bar pouring beer by the glass in two sizes --- one product, "Lager," with a real **Glass Size** hierarchy ("Small," "Large"), not two differently-named products that happen to be the same beer.
 
@@ -296,7 +308,7 @@ A real, honest note on where this stands today: the setup screen above is real a
 
 This chapter walks through one, single, real, worked exercise --- setting a brand-new wine retail business up entirely through this application's own real interface, from the very first login through its first real posted transactions, checking the real, live figures at each step along the way. Every numbered step below is exercised, end to end, by this project's own automated Tutorial test (`make test-e2e-tutorial-browser`, driven by `shared-fixtures/tutorial-steps.csv`) --- the same, real, data-driven test-runner described in the Programmer's Manual, never a separate, hand-maintained script. Every screenshot below is real and current, captured directly from a live, passing run of this exact tutorial. A step whose own screenhot is not shown is marked plainly, with the real reason --- either its UI path has not yet been wired into the automated test (it is still exercised at the API layer only), or a real, confirmed application bug currently blocks that one screen --- rather than shown with a stale or substitute image.
 
-This tutorial's own business trades in a home currency (AUD) but, at creation, also nominates a further currency (NZD) it is willing to accept --- a real, further note on multi-currency follows at the end of this chapter.
+This tutorial's own business trades in a home currency (AUD) but, at creation, also nominates a further currency (NZD) it is willing to accept --- a real, further note on multi-currency follows at the end of this chapter. It also, deliberately, starts from as little real structure as a business can have --- one location, one item --- and grows from there, through the real **Business Structure** popup, rather than arriving already fully built.
 
 ## Logging in and choosing a business
 
@@ -322,13 +334,53 @@ The session then moves into the new business --- every further step in this tuto
 
 ![The session switched into Tutorial Wine Retail Business.](manual-images-tutorial/session_switched.png)
 
-## Creating the first locations
+## Posting the owner's initial cash deposit
 
-**Locations** is where a real retail outlet or warehouse is created. This tutorial's own business creates two: **Head Office**, a warehouse in Adelaide, within the Adelaide Metro division, with a 40-carton capacity and no bottle (shelf) capacity --- a warehouse genuinely tracks carton space only, never bottle space --- and **Main Street Cellar**, a retail outlet in the same city and division, with both a 120-bottle shelf capacity and a 10-carton capacity, since a real retail outlet genuinely holds both sealed cartons and loose bottles at once. Both capacities are set directly on the same screen at creation, not as a separate, later step --- the location's own opening entry posts atomically at creation, before any later step could run.
+Before any real trading, the owner's own real capital contribution --- $5,000.00 --- is posted directly through the **General Journal**, the same, real journal every other manual transaction in this application posts through. A real, live browser session stages each line of a balanced entry separately, then posts the whole, balanced entry in one, final, separate step --- never one, combined, artificial call: a debit to **Cash and Bank**, a credit to **Owner's Equity**, each staged in turn, then posted together under the reference `JE-OWNER-CAPITAL`. A real business needs cash on hand before it can buy anything, so this now genuinely comes first --- ahead of any location, any employee, any item.
 
-![The warehouse, Head Office, created with its own real carton capacity.](manual-images-tutorial/warehouse_created.png)
+![The first line staged — Cash and Bank debited $5,000.00.](manual-images-tutorial/journal_line_1_staged.png)
 
-![The retail outlet, Main Street Cellar, created with its own real shelf and carton capacity.](manual-images-tutorial/retail_created.png)
+![The second line staged — Owner's Equity credited $5,000.00.](manual-images-tutorial/journal_line_2_staged.png)
+
+![The balanced entry posted.](manual-images-tutorial/journal_entry_posted.png)
+
+## Opening with one location and one item
+
+A business starts with one location selling one item --- not a fully-built org chart. **Locations** creates **Main Street Cellar**, a retail outlet in Adelaide, with its own real 120-bottle shelf capacity and 10-carton capacity, set directly on the same screen at creation. It has no division at all yet --- the division field is simply left blank --- since this business genuinely has no further structure to put it in.
+
+![The retail outlet, Main Street Cellar, created with its own real shelf and carton capacity, no division yet.](manual-images-tutorial/retail_created.png)
+
+The **Items Catalog** then creates the simplest possible item: a block of **Ice**, under a brand-new **General** category --- no tiers, no combinations, no registered cost. Every further item this tutorial creates has more going on than this one does.
+
+*Screenshot not shown --- a real, confirmed performance issue (noted below) occasionally makes this one screen take longer to render than the automated test's own screenshot capture allows; this step is still exercised, end to end, by the automated Tutorial test's API-path run.*
+
+This business is trading from day one: **Cash Purchase** brings in 50 bags of Ice at $1.00 each, paid cash on the spot, and **Cash Sale** sells 5 of them straight back out at $2.50 each --- the first real revenue this business has ever recorded, before it has grown into anything more than a single location and a single item.
+
+![The Ice stock purchased for cash, 50 bags at $1.00 each.](manual-images-tutorial/cash_purchase_ice_done.png)
+
+![The first Ice sold for cash, 5 bags at $2.50 each.](manual-images-tutorial/cash_sale_ice_done.png)
+
+## Growing the business, through the Business Structure popup
+
+Everything from here on is genuine growth, carried out entirely through the real **Business Structure** popup --- reachable either from **Configuration → Business Structure**, at any time, or straight from the **Set up your business structure** button shown right after creating a business. It is a graphical, editable view over a business's Locations, Divisions, and Item Categories, built from the exact, same screens and backend calls as the dedicated Locations, Hierarchies & Products, and Inventory Catalog pages it fronts --- never a separate, parallel mechanism of its own. See the Programmer's Manual for the full design.
+
+![The Business Structure popup, opened over Tutorial Wine Retail Business.](manual-images-tutorial/structure_popup_location_added.png)
+
+A second location first: **Head Office**, a warehouse in Adelaide, added via the popup's own "+ New Location" form, on its "Locations & Divisions" tab. Unlike the dedicated Locations screen, the popup's own quick-add form has no capacity fields of its own --- a warehouse added this way can still have its real carton capacity set afterwards, directly on the Locations page.
+
+A division this business did not have a moment ago comes next: **Adelaide Metro**, created with the popup's own "+ New Division" action --- one click, which itself creates the Division grouping (not yet in existence at all until now) and its first value, together.
+
+![A new division, Adelaide Metro, created from inside the popup.](manual-images-tutorial/structure_popup_division_added.png)
+
+Then the real growing-up moment: **Main Street Cellar**, which already existed with no division at all, is tagged into Adelaide Metro using the popup's "Move…" action on its own tree node --- this is a *repositioning*, not a structural move; the location's own real record never changes, only which division it now reports under. Head Office joins the same division the same way, right after.
+
+![Main Street Cellar, repositioned into the Adelaide Metro division.](manual-images-tutorial/structure_popup_move_msc.png)
+
+![Head Office joining the same division.](manual-images-tutorial/structure_popup_move_ho.png)
+
+One further growth step, on the popup's "Item Categories" tab: a **Whiskey** category, created ahead of time with "+ New top-level category" --- so that Highland Single Malt's own creation, later in this chapter, can simply select it from the dropdown rather than typing a brand-new category name inline.
+
+![A Whiskey category, pre-created from the popup, ready for Highland Single Malt to select directly.](manual-images-tutorial/structure_popup_category_added.png)
 
 ## Creating the first employee
 
@@ -336,25 +388,15 @@ The session then moves into the new business --- every further step in this tuto
 
 ![The business's own first, real employee created.](manual-images-tutorial/employee_created.png)
 
-## Creating the first items and their categories
+## Creating the next items
 
-The **Items Catalog** is where a genuinely new category is created inline, and where the item itself is created on the same screen --- the category exists the moment it is typed and confirmed, with the item created directly underneath it. This tutorial's own business creates two: **Amber Ale 330ml**, under a new **Beer** category, and **Highland Single Malt 700ml**, under a new **Whiskey** category. Neither screen sets a cost or selling price yet --- no cost/price field exists here; that is set separately below, once a real supplier exists for the item to be costed against.
+The **Items Catalog** creates two further items: **Amber Ale 330ml**, under a new **Beer** category, typed inline the same way Ice's own category was; and **Highland Single Malt 700ml**, under the **Whiskey** category --- already sitting there in the dropdown, exactly as the Business Structure popup left it, so this screen simply selects it rather than creating anything new. Neither screen sets a cost or selling price yet --- no cost/price field exists here; that is set separately below, once a real supplier exists for the item to be costed against.
 
 ![Amber Ale 330ml created, under a new Beer category.](manual-images-tutorial/item_amber_ale_created.png)
 
-![Highland Single Malt 700ml created, under a new Whiskey category.](manual-images-tutorial/item_highland_single_malt_created.png)
+![Highland Single Malt 700ml created, selecting the already-existing Whiskey category.](manual-images-tutorial/item_highland_single_malt_created.png)
 
 **A real, confirmed performance note**: at the time of this printing, creating an item on a business with a large, real chart-of-accounts/vocabulary tree could take tens of real seconds on this one screen, even though every real backend call involved returns in well under half a second --- a genuine client-side rendering defect, found and fixed during this same tutorial's own development (see the Programmer's Manual for the full, real root cause and fix).
-
-## Posting the owner's initial cash deposit
-
-The owner's own real capital contribution --- $5,000.00 --- is posted directly through the **General Journal**, the same, real journal every other manual transaction in this application posts through. A real, live browser session stages each line of a balanced entry separately, then posts the whole, balanced entry in one, final, separate step --- never one, combined, artificial call: a debit to **Cash and Bank**, a credit to **Owner's Equity**, each staged in turn, then posted together under the reference `JE-OWNER-CAPITAL`.
-
-![The first line staged — Cash and Bank debited $5,000.00.](manual-images-tutorial/journal_line_1_staged.png)
-
-![The second line staged — Owner's Equity credited $5,000.00.](manual-images-tutorial/journal_line_2_staged.png)
-
-![The balanced entry posted.](manual-images-tutorial/journal_entry_posted.png)
 
 ## Creating the first supplier
 
@@ -376,7 +418,7 @@ Amber Ale's real cost and real pack size are registered against this specific su
 
 ## Receiving and paying for the stock
 
-Receiving the order at Head Office --- through **Cash Purchase**, since this tutorial's own business pays on the spot rather than carrying an outstanding supplier balance --- brings the real, physical stock onto the books at cost, converted back to its own real, individual bottle count (96 bottles, at $3.50 each) the moment it is actually receipted, since every other real screen (Stock Transfer, POS, the Trial Balance itself) tracks real, physical stock in real, individual units throughout, never in cartons. The resulting Purchase Invoice is paid in full at the same time, reducing the real cash/bank balance directly.
+Receiving the order at Head Office --- through **Cash Purchase**, since this tutorial's own business pays on the spot rather than carrying an outstanding supplier balance --- brings the real, physical stock onto the books at cost, converted back to its own real, individual bottle count (96 bottles, at $3.50 each) the moment it is actually receipted, since every other real screen (Stock Transfer, POS, the Trial Balance itself) tracks real, physical stock in real, individual units throughout, never in cartons. Cash Purchase always posts to the business's own "Cash" provider --- a real, genuine Purchase Invoice is created and the Accounts Payable balance briefly opens, the same as an ordinary on-account purchase, before being paid off in full the same instant, reducing the real cash/bank balance directly.
 
 ![The cash purchase received and paid — 96 bottles at $3.50 each.](manual-images-tutorial/cash_purchase_done.png)
 
@@ -398,7 +440,7 @@ A real POS sale, run twice, sells 2 bottles of Amber Ale 330ml at a time at $5.0
 
 *Screenshot not shown --- a real, confirmed application bug currently blocks this screen's UI path (see below); this step is currently exercised at the API layer only.*
 
-Not every real sale goes through the POS register. A local restaurant, **Riverside Restaurant**, phones in an order for half a carton (12 bottles) of Amber Ale, to be paid cash on the spot when collected. Staff takes the order directly, first creating the real, named customer account under the **Customers** parent, then recording the sale itself as a real **Cash Sale** --- the same, immediate, no-account-balance screen Cash Purchase's own counterpart.
+Not every real sale goes through the POS register. A local restaurant, **Riverside Restaurant**, phones in an order for half a carton (12 bottles) of Amber Ale, to be paid cash on the spot when collected. Staff still creates the real, named customer account under the **Customers** parent, for the business's own records --- but since Cash Sale always posts to the business's own "Cash" customer, the sale itself is recorded there, the same real, immediate screen Cash Purchase's own counterpart: a genuine Sales Invoice to "Cash", Accounts Receivable briefly open, paid off in full the same instant. Invoicing a sale directly to Riverside Restaurant's own account --- for a business that extends it real, ongoing credit --- would instead use **AR Sale**, Chapter 1's on-account screen.
 
 **A real, confirmed bug, reported, not yet fixed**: the real dropdown used to choose a new entity's parent (here, `Customers`) does not always show the plain name it should. A translation/label lookup can resolve `Customers` to a long, decorated menu-help string instead of leaving it as the plain word `Customers`, which currently prevents this one step from completing through the real UI. See the Programmer's Manual for the full, real detail.
 
@@ -430,6 +472,8 @@ A real sale through `Border Store USD Till` posts entirely within its own real `
 # Appendix --- Every Screen in the Application
 
 A real, complete reference of every real screen this application has a route for, grouped by the same, real top-level section the menu itself uses --- whether that screen is genuinely working today, or still a real, honestly-labeled gap. A screen marked "Not yet implemented" shows a real, direct placeholder in the running application (with its own description of what it would do), rather than being hidden from the menu entirely --- so the full, real shape of the application is always visible, not just the parts already built.
+
+**On "screens v roles" and "roles v users," directly**: "roles v users" already exists, fully built, as a genuine Cartesian Product --- a real, per-business User x Role matrix (`docs/user-business-role-matrix-design.md`), edited through a real checkbox grid on the Users screen (Configuration section, below). "Screens v roles" does not exist anywhere in this project today --- no table here, no column in `screens.csv`, no code --- and is not a small, honest thing to fabricate: a real screen often calls several, independently role-gated backend routes, and most report screens call none at all, so there is no one real role that a whole screen can honestly be said to require. What *is* real, and already fully enforced today, is `docs/role-routes-matrix.md` --- a Role x Route matrix, read directly from every real `requireRole(...)`/`requireGlobalRole(...)` call (`make role-routes-matrix`).
 
 ## POS Terminal
 

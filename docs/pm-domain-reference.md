@@ -413,6 +413,7 @@ parameter:
 - `closeBooks`/`previewCloseBooks`/`computeCloseLines` take an explicit `hierarchyPath: string[] = []`; their result's informational summary field is `groupBreakdown`, not `divisionBreakdown`.
 - `MatrixAxis` is `'Product' | 'Category' | 'Location' | 'Consolidated' | (string & {})` — no fixed `'Division'` member; `resolveKey`'s fallback tries a hierarchy-parent lookup on the product, then its location, for any axis name not already structurally known.
 - The frontend's generic `HierarchyGroupTreePicker.svelte`/`HierarchyGroupPLNode.svelte`/`HierarchyGroupTreeNode.svelte` each take a `hierarchyName` prop; the matrix-report pages read a business's configured hierarchies live (`getHierarchy`/`getAxisValues`) rather than hardcoding `'Division'` in an axis list.
+- `BusinessStructurePopup.svelte`'s "Locations & Divisions" tab likewise treats `Division` as just the one, conventional hierarchy name it happens to tag Locations against — see `docs/pm-frontend-reference.md`'s "Business Structure popup" section for the full design, including the hierarchy-tag-vs-structural-reparent distinction it depends on.
 - A business that names a hierarchy "Division" gets identical reports, close-books breakdown, and org-chart grouping as before — nothing privileges that one name over any other a business might choose.
 
 `getOrganizationChart`'s own HR-specific relationship is a separate

@@ -1151,6 +1151,7 @@ function migrateForMenuEntities() {
         { label: 'Chart of Accounts', href: '/setup/chart-of-accounts', notImplemented: true, requiredRoles: 'Administrator,Developer' },
         { label: 'New Business', href: '/setup/new-business', requiredRoles: 'Administrator' },
         { label: 'Business Setup', href: '/setup/business-setup', requiredRoles: 'Administrator' },
+        { label: 'Business Structure', href: '/setup/business-structure', requiredRoles: 'Administrator' },
         { label: 'Business Configuration Report', href: '/reports/business-configuration', requiredRoles: 'Administrator' },
         { label: 'Users', href: '/setup/users', requiredRoles: 'Administrator' },
         { label: 'Warehouses', href: '/locations', requiredRoles: 'Administrator' },
