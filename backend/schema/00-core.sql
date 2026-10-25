@@ -1001,12 +1001,6 @@ CREATE TABLE journal_line (
   effective_date TEXT NOT NULL,
   amount_minor   INTEGER NOT NULL,          -- positive = debit, negative = credit
   memo           TEXT NOT NULL DEFAULT '',
-  -- Which real location a quantity movement (receive/dispatch/
-  -- transfer/write-off) actually happened at; NULL for every real,
-  -- ordinary financial journal_line, which has no location of its
-  -- own. Only ever set directly by postQuantityMovement, never
-  -- inferred.
-  location_id    INTEGER,
   -- The bank's own real cheque/EFT reference number, distinct from
   -- this app's own internal journal reference — captured at payment
   -- time so a later, real bank reconciliation can match a real
@@ -1016,25 +1010,27 @@ CREATE TABLE journal_line (
   -- the same day). NULL for every real posting that isn't a cheque or
   -- EFT payment at all.
   bank_reference TEXT,
-  -- A real, surrogate primary key, not the composite
-  -- (journal_id, account_id, effective_date) this table used to use
-  -- directly — needed because a real transfer now genuinely posts two
-  -- real lines against the SAME product account, on the SAME date,
-  -- within the SAME journal entry (source location, destination
-  -- location), which that composite key could never allow. The
-  -- original safeguard — no two lines for the same ordinary financial
-  -- account on the same date within one journal — is preserved below
-  -- as a real, partial unique index instead, scoped to exactly the
-  -- real case it was protecting: ordinary financial lines, which
-  -- never carry a location at all.
+  -- A real, surrogate primary key, kept even though
+  -- (journal_id, account_id, effective_date) is unique again below —
+  -- a plain surrogate key is simply the right default for a table
+  -- rows get looked up by id elsewhere.
   id             INTEGER PRIMARY KEY
 );
--- Preserves the original duplicate-prevention guarantee for every
--- real, ordinary financial journal_line (location_id IS NULL) —
--- genuinely does NOT apply to quantity-movement lines, which
--- legitimately can and do share (journal_id, account_id,
--- effective_date) across two different, real locations.
-CREATE UNIQUE INDEX journal_line_unique_ordinary ON journal_line(journal_id, account_id, effective_date) WHERE location_id IS NULL;
+-- No two lines for the same account on the same date within one
+-- journal. A quantity movement between two locations (a transfer)
+-- used to need a documented exception here: location_id let two
+-- lines share (journal_id, account_id, effective_date) by giving the
+-- "same" product account two different location tags. Per direct
+-- instruction, removed — location is now encoded by WHICH account a
+-- quantity line hits (a real, provisioned per-location quantity
+-- account, ensureItemLocationQuantityAccount in db.ts), the same way
+-- the VALUE side already worked via ensureItemLocationInventoryAccount.
+-- A transfer's two lines now hit two genuinely different accounts, so
+-- this constraint never collides for them, and needs no WHERE clause
+-- or exception of any kind. See docs/pm-domain-reference.md,
+-- "Quantity-on-hand by location: real per-location accounts, not a
+-- side-channel column".
+CREATE UNIQUE INDEX journal_line_unique_ordinary ON journal_line(journal_id, account_id, effective_date);
 
 -- Expands every journal into its actual occurrences: for 'once', just
 -- itself; for a recurring journal, one row per scheduled date, with each
@@ -1116,20 +1112,7 @@ CREATE TABLE journal_entry_staging (
   amount_minor INTEGER NOT NULL,
   memo         TEXT NOT NULL DEFAULT '',
   bank_reference TEXT, -- the bank's own real cheque/EFT reference number, same dimension as journal_line.bank_reference
-  -- The real, physical location a quantity movement actually happened
-  -- at, same dimension as journal_line.location_id — '' (not NULL) and
-  -- unused for an ordinary financial posting. NOT NULL with a real,
-  -- shared default rather than nullable: SQLite treats NULL as
-  -- distinct from itself in a primary key, so a nullable location
-  -- would silently let an ordinary financial posting stage two lines
-  -- against the same account — the exact duplicate-line mistake this
-  -- key exists to prevent. A real transfer is the one, genuine case
-  -- that needs two lines against the SAME account (a product) at two
-  -- DIFFERENT real locations (source, destination) under one, shared
-  -- reference — true double-entry quantity tracking, not two separate,
-  -- merely-netting-to-zero postings.
-  location     TEXT NOT NULL DEFAULT '',
-  PRIMARY KEY (reference, business, ledger, account, account_id, location)
+  PRIMARY KEY (reference, business, ledger, account, account_id)
 );
 
 -- Four real, form-specific staging tables — each shaped exactly to the
@@ -1932,7 +1915,7 @@ BEGIN
     ),
     NEW.user_id;
 
-  INSERT INTO journal_line (journal_id, account_id, effective_date, amount_minor, memo, location_id)
+  INSERT INTO journal_line (journal_id, account_id, effective_date, amount_minor, memo)
   SELECT
     (SELECT j.id FROM journal j
      WHERE j.reference = NEW.reference
@@ -1945,8 +1928,7 @@ BEGIN
       date('now')
     ),
     s.amount_minor,
-    s.memo,
-    (SELECT id FROM current_entities WHERE name = s.location)
+    s.memo
   FROM journal_entry_staging s
   WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
 

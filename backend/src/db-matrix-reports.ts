@@ -184,23 +184,33 @@ export interface StockOnHandMatrix {
 export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): StockOnHandMatrix {
   const entityIndex = loadEntityIndex();
 
+  // Quantity-on-hand is read directly from each real, provisioned
+  // per-location quantity account's own balance_minor (see
+  // ensureItemLocationQuantityAccount, backend/src/db.ts) rather than
+  // summed from journal_line, which no longer carries a location of its
+  // own — the account itself (a child of the item, named
+  // "{item} — {location} — Qty") now carries the location, found the same
+  // way locationForAccount above reads it, via the " — Hierarchy: Location"
+  // link record. See docs/pm-domain-reference.md, "Quantity-on-hand by
+  // location: real per-location accounts, not a side-channel column".
   const rows = db
     .prepare(
-      `SELECT jl.account_id AS item_id, pe.name AS item_name, jl.location_id, le.name AS location_name,
-              SUM(jl.amount_minor) AS quantity_on_hand, p.item_retail_price_minor AS retail_price_minor,
-              (SELECT ps.price_minor FROM item_source ps WHERE ps.item_id = jl.account_id ORDER BY ps.is_preferred DESC, ps.id ASC LIMIT 1) AS package_cost_minor,
-              (SELECT ps.package_quantity FROM item_source ps WHERE ps.item_id = jl.account_id ORDER BY ps.is_preferred DESC, ps.id ASC LIMIT 1) AS package_quantity
-       FROM journal_line jl
-       JOIN current_entities pe ON pe.id = jl.account_id
-       JOIN current_entities le ON le.id = jl.location_id
-       JOIN contact p ON p.entity_id = jl.account_id
-       GROUP BY jl.account_id, jl.location_id
-       HAVING SUM(jl.amount_minor) != 0`
+      `SELECT item.id AS item_id, item.name AS item_name, loc.name AS location_name,
+              acct.balance_minor AS quantity_on_hand, p.item_retail_price_minor AS retail_price_minor,
+              (SELECT ps.price_minor FROM item_source ps WHERE ps.item_id = item.id ORDER BY ps.is_preferred DESC, ps.id ASC LIMIT 1) AS package_cost_minor,
+              (SELECT ps.package_quantity FROM item_source ps WHERE ps.item_id = item.id ORDER BY ps.is_preferred DESC, ps.id ASC LIMIT 1) AS package_quantity
+       FROM current_entities leaf
+       JOIN account acct ON acct.entity_id = leaf.id
+       JOIN current_entities item ON item.id = leaf.parent_id
+       JOIN current_entities link ON link.name = leaf.name || ' — Hierarchy: Location'
+       JOIN current_entities loc ON loc.id = link.relation_id
+       JOIN contact p ON p.entity_id = item.id
+       WHERE leaf.name LIKE '% — Qty'
+         AND acct.balance_minor != 0`
     )
     .all() as {
     item_id: number;
     item_name: string;
-    location_id: number;
     location_name: string;
     quantity_on_hand: number;
     retail_price_minor: number | null;

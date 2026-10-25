@@ -16,6 +16,8 @@ import {
   setAccountCurrency,
   ensureItemInventoryAccount,
   ensureItemLocationInventoryAccount,
+  ensureItemLocationQuantityAccount,
+  resolveItemLocationQuantityAccountId,
   postJournalEntry,
   getItemUnitCostMinor,
   ensureProductInstance,
@@ -48,7 +50,14 @@ import {
   type LocationName,
 } from './db.js';
 
-export function stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, locationName?: LocationName, accountId?: number): void {
+// `locationName` no longer tags a journal_line (the location_id column was
+// removed per direct instruction) — WHICH account a quantity line hits now
+// carries the location, via ensureItemLocationQuantityAccount. Kept as a
+// parameter only for callers that still pass `account`/`accountId`
+// resolved from one of these per-location accounts; it is otherwise unused
+// here directly. See docs/pm-domain-reference.md, "Quantity-on-hand by
+// location: real per-location accounts, not a side-channel column".
+export function stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, accountId?: number): void {
   const resolvedAccountId =
     accountId ??
     (
@@ -66,9 +75,9 @@ export function stageQuantityMovementLine(business: BusinessName, ledger: Ledger
         .get(account) as { entity_id: number } | undefined
     )?.entity_id ?? null;
   db.prepare(
-    `INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, account_id, amount_minor, memo, location)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(reference, business, ledger, 'Quantity movement', transdate, account, resolvedAccountId, deltaQuantity, '', locationName ?? '');
+    `INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, account_id, amount_minor, memo)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(reference, business, ledger, 'Quantity movement', transdate, account, resolvedAccountId, deltaQuantity, '');
 }
 
 export function postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void {
@@ -92,7 +101,7 @@ export function postQuantityMovement(
 ): void {
   const date = transdate ?? (locationName ? todayAtLocation(locationName) : new Date().toISOString().slice(0, 10));
   assertPeriodOpen(business, ledger, date);
-  stageQuantityMovementLine(business, ledger, reference, account, deltaQuantity, date, locationName, accountId);
+  stageQuantityMovementLine(business, ledger, reference, account, deltaQuantity, date, accountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
 }
 
@@ -223,7 +232,12 @@ export interface ItemLocationLevels {
 }
 
 export function getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels {
-  const quantity_on_hand = Balance.getScoped(itemName, 'location_id', locationName);
+  // Real, provisioned per-location quantity account's own balance — see
+  // ensureItemLocationQuantityAccount in db.ts. undefined (never
+  // provisioned, i.e. this item has never moved to this location) reads
+  // as zero on hand, same as before.
+  const quantityAccountId = resolveItemLocationQuantityAccountId(itemName, locationName);
+  const quantity_on_hand = quantityAccountId != null ? Balance.get(quantityAccountId) : 0;
   const levelsRecordName = `${itemName} — ${locationName} — Levels`;
   const levelsRow = Entity.get(levelsRecordName);
   function getLevelFigure(field: 'Min Level' | 'Max Level' | 'Reorder Level' | 'Shelf Level'): number | null {
@@ -294,14 +308,19 @@ export interface LocationCapacityStatus {
 
 export function getLocationCapacityStatus(locationName: LocationName): LocationCapacityStatus {
   const location = getLocation(locationName);
+  // Reads each item's own real, provisioned per-location quantity
+  // account balance directly — see ensureItemLocationQuantityAccount,
+  // db.ts, and docs/pm-domain-reference.md, "Quantity-on-hand by
+  // location: real per-location accounts, not a side-channel column".
   const rows = db
     .prepare(
-      `SELECT p.name AS item, SUM(jl.amount_minor) AS qty
-       FROM journal_line jl
-       JOIN current_entities p ON p.id = jl.account_id
-       JOIN current_entities l ON l.id = jl.location_id
-       WHERE l.name = ?
-       GROUP BY p.name`
+      `SELECT item.name AS item, acct.balance_minor AS qty
+       FROM current_entities leaf
+       JOIN account acct ON acct.entity_id = leaf.id
+       JOIN current_entities item ON item.id = leaf.parent_id
+       JOIN current_entities link ON link.name = leaf.name || ' — Hierarchy: Location'
+       JOIN current_entities loc ON loc.id = link.relation_id
+       WHERE leaf.name LIKE '% — Qty' AND loc.name = ?`
     )
     .all(locationName) as { item: string; qty: number }[];
 
@@ -475,19 +494,32 @@ export function getStorageSpaceReport(): StorageSpaceLocationGroup[] {
 // See docs/pm-stock-api.md § "Stock listing and the movement report"
 export function getInventoryListingByLocation(business?: BusinessName, hierarchyName?: string): InventoryListingLocationGroup[] {
   const resolvedBusiness = business ?? asBusinessName(Session.Business.name);
-  const businessId = business ? requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName)).id : Session.Business.id;
-  const qtyRows = db
-    .prepare(
-      `SELECT p.name AS item, l.name AS location, SUM(jl.amount_minor) AS quantity_on_hand
-       FROM journal j
-       JOIN journal_line jl ON jl.journal_id = j.id
-       JOIN current_entities p ON p.id = jl.account_id
-       JOIN current_entities l ON l.id = jl.location_id
-       WHERE j.business_id = ?
-       GROUP BY p.name, l.name
-       ORDER BY l.name, p.name`
-    )
-    .all(businessId) as { item: string; location: string; quantity_on_hand: number }[];
+  // Quantity-on-hand is read directly from each real, provisioned
+  // per-location quantity account's own balance_minor (see
+  // ensureItemLocationQuantityAccount in db.ts) — not summed from
+  // journal_line, which no longer carries a location of its own. Scoped
+  // to this business via its own real Locations root (a location is
+  // always a direct child of it), the same scoping resolveBusinessLocationsRootId
+  // already provides elsewhere — see docs/pm-stock-api.md § "Stock listing
+  // and the movement report" ("Business-scoping is not yet complete end to
+  // end") for the pre-existing, acknowledged limits of this scoping.
+  const locationsRootId = resolveBusinessLocationsRootId(resolvedBusiness);
+  const qtyRows = locationsRootId
+    ? (db
+        .prepare(
+          `SELECT item.name AS item, loc.name AS location, acct.balance_minor AS quantity_on_hand
+           FROM current_entities leaf
+           JOIN account acct ON acct.entity_id = leaf.id
+           JOIN current_entities item ON item.id = leaf.parent_id
+           JOIN current_entities link ON link.name = leaf.name || ' — Hierarchy: Location'
+           JOIN current_entities loc ON loc.id = link.relation_id
+           WHERE leaf.name LIKE '% — Qty'
+             AND loc.parent_id = ?
+             AND acct.balance_minor != 0
+           ORDER BY loc.name, item.name`
+        )
+        .all(locationsRootId) as { item: string; location: string; quantity_on_hand: number }[])
+    : [];
   // getItemLocation has no business parameter — see docs/pm-stock-api.md § "Stock listing and the movement report" ("Business-scoping is not yet complete end to end")
   const rows: InventoryListingRow[] = qtyRows.map((r) => {
     const levels = getItemLocation(asItemName(r.item), asLocationName(r.location));
@@ -583,15 +615,25 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
   const categories = allItemCategories();
   const vendors = allPreferredProviders();
 
+  // Each quantity-movement line hits a real, provisioned per-location
+  // quantity account (a child of the item, named "{item} — {location} —
+  // Qty") — see ensureItemLocationQuantityAccount, db.ts. item/location
+  // are read from that account's own parent and Hierarchy:Location tag,
+  // and the " — Qty" filter keeps this a quantity-only report: an
+  // inventory VALUE account carries the same Location tag, but is never a
+  // quantity movement. See docs/pm-domain-reference.md, "Quantity-on-hand
+  // by location: real per-location accounts, not a side-channel column".
   const movementRows = db
     .prepare(
-      `SELECT jl.journal_id, j.reference, p.name AS item, l.name AS location, jl.amount_minor AS quantity, j.transdate AS date
+      `SELECT jl.journal_id, j.reference, item.name AS item, loc.name AS location, jl.amount_minor AS quantity, j.transdate AS date
        FROM journal_line jl
        JOIN journal j ON j.id = jl.journal_id
-       JOIN current_entities p ON p.id = jl.account_id
-       JOIN current_entities l ON l.id = jl.location_id
-       WHERE j.ledger_id = ? ${dateFilter}
-       ORDER BY j.transdate, l.name, p.name`
+       JOIN current_entities leaf ON leaf.id = jl.account_id
+       JOIN current_entities item ON item.id = leaf.parent_id
+       JOIN current_entities link ON link.name = leaf.name || ' — Hierarchy: Location'
+       JOIN current_entities loc ON loc.id = link.relation_id
+       WHERE j.ledger_id = ? ${dateFilter} AND leaf.name LIKE '% — Qty'
+       ORDER BY j.transdate, loc.name, item.name`
     )
     .all(ledgerId, ...dateParams) as { journal_id: number; reference: string; item: string; location: string; quantity: number; date: string }[];
   const movementsByJournalId = new Map<number, typeof movementRows>();
@@ -688,18 +730,21 @@ export function getInventoryListing(limit = 100, offset = 0): InventoryListingRo
 }
 
 export function countInventoryListing(): number {
+  // Same real per-location quantity accounts getInventoryListingByLocation
+  // reads — see ensureItemLocationQuantityAccount, db.ts.
+  const locationsRootId = resolveBusinessLocationsRootId(asBusinessName(Session.Business.name));
+  if (!locationsRootId) return 0;
   const row = db
     .prepare(
       `SELECT COUNT(*) AS total FROM (
-         SELECT 1 FROM journal j
-         JOIN journal_line jl ON jl.journal_id = j.id
-         JOIN current_entities p ON p.id = jl.account_id
-         JOIN current_entities l ON l.id = jl.location_id
-         WHERE j.business_id = ?
-         GROUP BY p.name, l.name
+         SELECT 1 FROM current_entities leaf
+         JOIN account acct ON acct.entity_id = leaf.id
+         JOIN current_entities link ON link.name = leaf.name || ' — Hierarchy: Location'
+         JOIN current_entities loc ON loc.id = link.relation_id
+         WHERE leaf.name LIKE '% — Qty' AND loc.parent_id = ? AND acct.balance_minor != 0
        )`
     )
-    .get(Session.Business.id) as { total: number };
+    .get(locationsRootId) as { total: number };
   return row.total;
 }
 
@@ -770,8 +815,9 @@ export function receiveItems(
   const date = transdate ?? todayAtLocation(locationName);
   assertPeriodOpen(business, ledger, date);
   const { onOrderAccount, onOrderAccountId } = ensureItemQuantityAccounts(itemName, userId);
-  stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, locationName);
-  stageQuantityMovementLine(business, ledger, reference, asAccountName(onOrderAccount), -quantity, date, undefined, onOrderAccountId);
+  const { quantityAccount, quantityAccountId } = ensureItemLocationQuantityAccount(itemName, locationName, userId, undefined, business);
+  stageQuantityMovementLine(business, ledger, reference, asAccountName(quantityAccount), quantity, date, quantityAccountId);
+  stageQuantityMovementLine(business, ledger, reference, asAccountName(onOrderAccount), -quantity, date, onOrderAccountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
   adjustLocationCapacity(business, ledger, locationName, itemName, quantity, date, userId, reference);
 
@@ -826,8 +872,9 @@ export function receiveStockPhysical(input: ReceiveStockPhysicalInput, userId: U
     const date = transdate ?? todayAtLocation(locationName);
     assertPeriodOpen(business, ledger, date);
     const { onOrderAccount, onOrderAccountId } = ensureItemQuantityAccounts(itemName, userId);
-    stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, locationName);
-    stageQuantityMovementLine(business, ledger, reference, asAccountName(onOrderAccount), -quantity, date, undefined, onOrderAccountId);
+    const { quantityAccount, quantityAccountId } = ensureItemLocationQuantityAccount(itemName, locationName, userId, undefined, business);
+    stageQuantityMovementLine(business, ledger, reference, asAccountName(quantityAccount), quantity, date, quantityAccountId);
+    stageQuantityMovementLine(business, ledger, reference, asAccountName(onOrderAccount), -quantity, date, onOrderAccountId);
     postStagedQuantityMovement(business, ledger, reference, userId);
     adjustLocationCapacity(business, ledger, locationName, itemName, quantity, date, userId, reference);
 
@@ -894,8 +941,9 @@ export function dispatchItems(
   assertPeriodOpen(business, ledger, date);
   db.transaction(() => {
   const { unitsSoldAccount, unitsSoldAccountId } = ensureItemQuantityAccounts(itemName, userId);
-  stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), -quantity, date, locationName);
-  stageQuantityMovementLine(business, ledger, reference, asAccountName(unitsSoldAccount), quantity, date, undefined, unitsSoldAccountId);
+  const { quantityAccount, quantityAccountId } = ensureItemLocationQuantityAccount(itemName, locationName, userId, undefined, business);
+  stageQuantityMovementLine(business, ledger, reference, asAccountName(quantityAccount), -quantity, date, quantityAccountId);
+  stageQuantityMovementLine(business, ledger, reference, asAccountName(unitsSoldAccount), quantity, date, unitsSoldAccountId);
   postStagedQuantityMovement(business, ledger, reference, userId);
   adjustLocationCapacity(business, ledger, locationName, itemName, -quantity, date, userId, reference);
 
@@ -959,8 +1007,10 @@ export function transferItems(
   const date = transdate ?? todayAtLocation(fromLocationName);
   assertPeriodOpen(business, ledger, date);
   db.transaction(() => {
-  stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), -quantity, date, fromLocationName);
-  stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, toLocationName);
+  const fromQty = ensureItemLocationQuantityAccount(itemName, fromLocationName, asUserId(userId), undefined, business);
+  const toQty = ensureItemLocationQuantityAccount(itemName, toLocationName, asUserId(userId), undefined, business);
+  stageQuantityMovementLine(business, ledger, reference, asAccountName(fromQty.quantityAccount), -quantity, date, fromQty.quantityAccountId);
+  stageQuantityMovementLine(business, ledger, reference, asAccountName(toQty.quantityAccount), quantity, date, toQty.quantityAccountId);
   postStagedQuantityMovement(business, ledger, reference, asUserId(userId));
   adjustLocationCapacity(business, ledger, fromLocationName, itemName, -quantity, date, asUserId(userId), reference);
   adjustLocationCapacity(business, ledger, toLocationName, itemName, quantity, date, asUserId(userId), reference);
@@ -1040,8 +1090,10 @@ export function transferStock(input: TransferStockInput, userId: UserId): void {
   const date = transdate ?? todayAtLocation(fromLocationName);
   assertPeriodOpen(business, ledger, date);
   db.transaction(() => {
-    stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), -quantity, date, fromLocationName);
-    stageQuantityMovementLine(business, ledger, reference, asAccountName(itemName), quantity, date, toLocationName);
+    const fromQty = ensureItemLocationQuantityAccount(itemName, fromLocationName, userId, undefined, business);
+    const toQty = ensureItemLocationQuantityAccount(itemName, toLocationName, userId, undefined, business);
+    stageQuantityMovementLine(business, ledger, reference, asAccountName(fromQty.quantityAccount), -quantity, date, fromQty.quantityAccountId);
+    stageQuantityMovementLine(business, ledger, reference, asAccountName(toQty.quantityAccount), quantity, date, toQty.quantityAccountId);
     postStagedQuantityMovement(business, ledger, reference, userId);
     adjustLocationCapacity(business, ledger, fromLocationName, itemName, -quantity, date, userId, reference);
     adjustLocationCapacity(business, ledger, toLocationName, itemName, quantity, date, userId, reference);
@@ -1102,16 +1154,20 @@ export function getStockOutRiskReport(windowDays: number = 2): StockOutRiskRow[]
   const stockRows = getInventoryListingByLocation().flatMap((g) => g.rows.map((r) => ({ ...r, location: g.location })));
   const results: StockOutRiskRow[] = [];
   for (const row of stockRows) {
-    const consumed = db
-      .prepare(
-        `SELECT COALESCE(-SUM(jl.amount_minor), 0) AS consumed
-         FROM journal_line jl
-         JOIN current_entities p ON p.id = jl.account_id
-         JOIN current_entities l ON l.id = jl.location_id
-         WHERE p.name = ? AND l.name = ? AND jl.amount_minor < 0
-           AND jl.effective_date >= date('now', '-' || ? || ' days')`
-      )
-      .get(row.item, row.location, windowDays) as { consumed: number };
+    // The item's own real, provisioned per-location quantity account —
+    // see ensureItemLocationQuantityAccount, db.ts — found by name/parent
+    // directly rather than a location_id join.
+    const quantityAccountId = resolveItemLocationQuantityAccountId(asItemName(row.item), asLocationName(row.location));
+    const consumed = (quantityAccountId != null
+      ? db
+          .prepare(
+            `SELECT COALESCE(-SUM(amount_minor), 0) AS consumed
+             FROM journal_line
+             WHERE account_id = ? AND amount_minor < 0
+               AND effective_date >= date('now', '-' || ? || ' days')`
+          )
+          .get(quantityAccountId, windowDays)
+      : { consumed: 0 }) as { consumed: number };
     const dailyRate = consumed.consumed / windowDays;
     const leadTimes = getItemLeadTimes(asItemName(row.item));
     const shortestLeadTime = leadTimes.length > 0 ? Math.min(...leadTimes.map((l) => l.days)) : null;
@@ -1265,8 +1321,9 @@ export function completeStockTake(
     const delta = line.counted_quantity! - currentOnHand;
     if (delta !== 0) {
       const { countAdjustmentAccount, countAdjustmentAccountId } = ensureItemQuantityAccounts(asItemName(line.item), userId);
-      stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(line.item), delta, take.take_date, take.location as LocationName);
-      stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(countAdjustmentAccount), -delta, take.take_date, undefined, countAdjustmentAccountId);
+      const { quantityAccount, quantityAccountId } = ensureItemLocationQuantityAccount(asItemName(line.item), take.location as LocationName, userId, undefined, asBusinessName(business));
+      stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(quantityAccount), delta, take.take_date, quantityAccountId);
+      stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(countAdjustmentAccount), -delta, take.take_date, countAdjustmentAccountId);
       postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
       adjustLocationCapacity(business, ledger, take.location as LocationName, asItemName(line.item), delta, take.take_date, userId, reference);
     }
@@ -1305,7 +1362,7 @@ export function writeOffItems(
 
   const { writeOffAccount, writeOffAccountId } = ensureItemQuantityAccounts(itemName, userId);
   stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(itemName), -quantity, date);
-  stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(writeOffAccount), quantity, date, undefined, writeOffAccountId);
+  stageQuantityMovementLine(business, ledger, `${reference}-QTY`, asAccountName(writeOffAccount), quantity, date, writeOffAccountId);
   postStagedQuantityMovement(business, ledger, `${reference}-QTY`, userId);
 
   if (locationName) adjustLocationCapacity(business, ledger, locationName, itemName, -quantity, date, userId, reference);

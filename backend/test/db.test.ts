@@ -2107,10 +2107,23 @@ test('quantity movements carry a real, queryable location — receive, dispatch,
 
   const recRef = fx.uniqueName('MOVELOCTEST-REC');
   db.receiveItems(biz.business, biz.actualLedger, recRef, db.asItemName(itemName), warehouse.name, 100, fx.userId, '2027-09-01');
+  // Location is no longer a journal_line column — it's which real,
+  // provisioned per-location quantity account the line hits (see
+  // ensureItemLocationQuantityAccount, backend/src/db.ts), found the same
+  // way getLocationForAccount does, via the account's own
+  // " — Hierarchy: Location" link record.
   function locationOf(reference: string, sign?: 'positive' | 'negative'): string | null {
     const signClause = sign === 'positive' ? 'AND jl.amount_minor > 0' : sign === 'negative' ? 'AND jl.amount_minor < 0' : '';
     const row = db.db
-      .prepare(`SELECT l.name FROM journal_line jl JOIN journal j ON j.id = jl.journal_id LEFT JOIN current_entities l ON l.id = jl.location_id WHERE j.reference = ? ${signClause}`)
+      .prepare(
+        `SELECT loc.name
+         FROM journal_line jl
+         JOIN journal j ON j.id = jl.journal_id
+         JOIN current_entities acct ON acct.id = jl.account_id
+         JOIN current_entities link ON link.name = acct.name || ' — Hierarchy: Location'
+         JOIN current_entities loc ON loc.id = link.relation_id
+         WHERE j.reference = ? ${signClause}`
+      )
       .get(reference) as { name: string | null } | undefined;
     return row?.name ?? null;
   }
@@ -5512,7 +5525,13 @@ test('the fully worked example from multicurrency-design.md: a real sale through
 
   // The home-currency AUD accounts for this same item stay genuinely
   // untouched by this one, real, foreign-currency sale.
-  const homeRevenueRow = db.db.prepare(`SELECT a.balance_minor FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name LIKE ? AND e.name NOT LIKE '%(USD)%' AND e.name NOT LIKE '%Inventory%'`).get(`${aleName} — %`) as { balance_minor: number } | undefined;
+  // Excludes this item's own real, provisioned per-location QUANTITY
+  // account too (named "{item} — {location} — Qty" — see
+  // ensureItemLocationQuantityAccount, db.ts): it genuinely shares this
+  // same "{item} — ..." name prefix but is a unit count, not a
+  // home-currency Revenue balance, so it isn't what this assertion means
+  // to check.
+  const homeRevenueRow = db.db.prepare(`SELECT a.balance_minor FROM account a JOIN current_entities e ON e.id = a.entity_id WHERE e.name LIKE ? AND e.name NOT LIKE '%(USD)%' AND e.name NOT LIKE '%Inventory%' AND e.name NOT LIKE '% — Qty'`).get(`${aleName} — %`) as { balance_minor: number } | undefined;
   assert.equal(homeRevenueRow?.balance_minor ?? 0, 0, 'the plain, home-currency Revenue account stays genuinely untouched');
 });
 

@@ -1031,6 +1031,102 @@ unit tests (233/233), API-path and browser-path tutorial e2e (62/62
 each) — a purely additive schema change, no existing query's shape or
 semantics changed.
 
+## Quantity-on-hand by location: real per-location accounts, not a side-channel column
+
+`journal_line.location_id` — a column tagging a quantity-movement line
+with which real location it physically happened at — was removed per
+direct instruction, once it exposed a real, confirmed inconsistency:
+the VALUE side of a location move already worked a different, better
+way. `ensureItemLocationInventoryAccount` (db.ts) provisions a real,
+per-location Inventory account, and a transfer posts ordinary journal
+lines directly between two of them — location is encoded by WHICH
+account a line hits, never a side-channel tag. The QUANTITY side,
+instead, posted every location's quantity against one single, shared,
+global `"{item}"` account and used `location_id` to fake per-location
+scoping — the real inconsistency, not the column itself being
+"wrong" in isolation.
+
+**The fix**: a new `ensureItemLocationQuantityAccount` (db.ts),
+mirroring `ensureItemLocationInventoryAccount` exactly, provisions a
+real, per-location quantity account — a direct child of the item
+entity (the same level as `ensureItemQuantityAccounts`' own siblings:
+On Order, Units Sold, Count Adjustment, Write-off), carrying the
+item's own unit-of-measure as its account currency. Named
+`"{item} — {location} — Qty"` (a distinct `" — Qty"` suffix, never
+`"{item} — {location}"` alone) specifically so it can never collide,
+by name, with `ensureItemLocationInventoryAccount`'s own account for
+the same item/location/tier — a different, real account, under a
+different parent (Chart of Accounts → Inventory), but this codebase
+already had one documented, confirmed bug class from two different,
+real entities sharing one name (see
+`journal_entry_staging.account_id`'s own comment in 00-core.sql).
+`receiveItems`/`receiveStockPhysical`/`dispatchItems`/`transferItems`/
+`transferStock`/`completeStockTake`'s simple (non-combination) paths
+now stage their quantity line against this real account instead of
+the item's own global one, with an explicit `accountId` (same pattern
+their own "On Order"/"Units Sold"/"Count Adjustment" counter-accounts
+already used). `getItemLocation`'s `quantity_on_hand` is now a direct
+read of that account's own `balance_minor` (via a new, read-only
+`resolveItemLocationQuantityAccountId`, which never provisions an
+account just by being asked about a location an item never moved to —
+undefined reads as zero).
+
+Once a transfer's two lines hit two genuinely different accounts, the
+original reason for `location_id`'s existence disappears entirely:
+`journal_line`'s unique index — "no two lines for the same account on
+the same date within one journal" — no longer needs a `WHERE
+location_id IS NULL` exception, since a transfer's two lines never
+again share `(journal_id, account_id, effective_date)`. Restored to a
+plain index, no exception. `journal_entry_staging.location` (a TEXT
+column that existed purely so two staged lines could share
+`(reference, business, ledger, account, account_id)` by differing
+only in `location`) was removed the same way, for the same reason.
+
+**Storage-area/tier granularity is a separate, already-correct,
+untouched system.** `tier` exists on `ensureItemLocationQuantityAccount`
+for API parity with the inventory side, but no simple-path caller
+passes one — same as the inventory side, where `tier` is also always
+left undefined on these same call sites. Real storage-area tracking
+(Hot/Cold, Carton/Bottle) is the `combinationShape`/
+`ensureProductInstance`/`ensureCombinationAccountLeaf` system's own
+job (see `docs/storage-space-as-currency-design.md`), which already
+tracks quantity correctly, with no location_id of any kind, via its
+own per-combination "On Hand"/"Units Received From" accounts — this
+fix only brings the single-location, no-tier path up to the same
+standard the value side already met there.
+
+**Report/query callers updated** (each previously joined
+`journal_line` to `current_entities` via `jl.location_id`; all now
+read a real per-location account's own `balance_minor` directly, or
+resolve item/location from the account's own parent and
+`" — Hierarchy: Location"` link record, the same way
+`getLocationForAccount` already does):
+`getItemLocation`, `getLocationCapacityStatus`,
+`getInventoryListingByLocation`, `countInventoryListing`,
+`getStockMovementReport`, `getStockOutRiskReport` (db-stock.ts), and
+`getStockOnHandMatrix` (db-matrix-reports.ts). `Balance.getScoped`
+(primitives.ts), the one-off `'location_id'`-dimension helper these
+all used, was deleted outright — nothing else called it.
+
+**A real, separate, pre-existing ambiguity bug, found and fixed in
+passing**: `setHierarchyParent`'s bare, unscoped name lookup for its
+`parentName` argument can resolve to the wrong entity when two
+different, real entities share that exact name under different
+parents — confirmed directly: a location's own name collides with its
+own, same-named Storage-capacity node under Chart of Accounts →
+Storage → `{location}` (`docs/storage-space-as-currency-design.md`).
+`ensureItemLocationQuantityAccount` now resolves the location
+unambiguously (scoped to the business's own real Locations root, via
+`resolveBusinessLocationsRootId`) and passes it as `setHierarchyParent`'s
+explicit `targetId`, rather than relying on the ambient, ambiguous bare
+lookup. `ensureItemLocationInventoryAccount` has the same latent
+exposure and was not touched — out of scope for this fix, flagged
+here for whoever next touches per-location account provisioning.
+
+Verified: `tsc --noEmit` clean (backend and frontend), `svelte-check`
+0 errors, backend unit tests 233/233, frontend unit tests all passing,
+API-path and browser-path tutorial e2e 62/62 each.
+
 ## Design note (not yet built): converting a sole trader to a partnership
 
 Not implemented — the user asked for a design to review before any

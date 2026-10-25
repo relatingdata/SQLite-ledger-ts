@@ -141,18 +141,6 @@ export const Balance = {
     const row = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(accountId) as { balance_minor: number } | undefined;
     return row?.balance_minor ?? 0;
   },
-  getScoped(accountName: string, dimensionColumn: 'location_id', dimensionName: string): number {
-    const row = db
-      .prepare(
-        `SELECT SUM(jl.amount_minor) AS total
-         FROM journal_line jl
-         JOIN current_entities a ON a.id = jl.account_id
-         JOIN current_entities d ON d.id = jl.${dimensionColumn}
-         WHERE a.name = ? AND d.name = ?`
-      )
-      .get(accountName, dimensionName) as { total: number | null } | undefined;
-    return row?.total ?? 0;
-  },
 };
 
 export const Hierarchy = {

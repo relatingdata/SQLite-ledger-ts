@@ -62,7 +62,7 @@ export function stageLine(line: StagedLine): void {
   db.prepare(
     `INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, account_id, amount_minor, memo, bank_reference)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business, ledger, account, account_id, location) DO UPDATE SET amount_minor = excluded.amount_minor, memo = excluded.memo, bank_reference = excluded.bank_reference, account_id = excluded.account_id`
+     ON CONFLICT (reference, business, ledger, account, account_id) DO UPDATE SET amount_minor = excluded.amount_minor, memo = excluded.memo, bank_reference = excluded.bank_reference, account_id = excluded.account_id`
   ).run(
     line.reference,
     line.business,

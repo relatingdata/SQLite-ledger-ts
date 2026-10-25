@@ -1689,6 +1689,70 @@ export function ensureItemLocationInventoryAccount(itemName: ItemName, locationN
   return { inventoryAccount: locationAccount, inventoryAccountId: row.id };
 }
 
+// Mirrors ensureItemLocationInventoryAccount above, but for the item's own
+// QUANTITY (unit count), not its financial value. Per direct instruction,
+// replaces the former journal_line.location_id tag column: the VALUE side
+// already worked this way (a real, provisioned per-location account,
+// ordinary journal lines moving value directly between two of them), and
+// the quantity side's own single, shared, global "Qty" account plus a
+// location_id tag was the real inconsistency. A direct child of the item
+// entity itself — the same level as ensureItemQuantityAccounts' own
+// siblings (On Order, Units Sold, Count Adjustment, Write-off) — carrying
+// the item's own unit-of-measure as its account currency.
+//
+// Named with a distinct " — Qty" suffix specifically so it can never
+// collide, by name, with ensureItemLocationInventoryAccount's own account
+// for the same item/location/tier (a different, real account, under a
+// different parent — Chart of Accounts → Inventory — but this codebase
+// already has one documented, confirmed bug class from two different, real
+// accounts sharing one name: see journal_entry_staging.account_id's own
+// comment in 00-core.sql). `tier` exists only for the same reason it does
+// on the inventory side — storage-area/tier granularity (Hot/Cold,
+// Carton/Bottle) is the combinationShape/ensureCombinationAccountLeaf
+// system's own job (see docs/storage-space-as-currency-design.md), which
+// already tracks quantity correctly, with no location_id of any kind, via
+// its own per-combination "On Hand" accounts. This function and its
+// read-only counterpart below cover only the single-location, no-tier
+// (simple) receive/dispatch/transfer/stock-take path, at parity with how
+// ensureItemLocationInventoryAccount already covers that same simple path
+// (also always called with tier left undefined there).
+export function ensureItemLocationQuantityAccount(itemName: ItemName, locationName: LocationName, userId: UserId, tier?: string, business?: BusinessName): { quantityAccount: string; quantityAccountId: number } {
+  const itemId = resolveIdOrThrow(itemName);
+  const unit = (getItem(itemName)?.unit_of_measure || 'UNITS').toUpperCase();
+  const quantityAccount = `${itemName}${tier ? ` (${tier})` : ''} — ${locationName} — Qty`;
+  const existing = Entity.getUnder(quantityAccount, itemId);
+  const row = existing ?? Entity.create(quantityAccount, itemId, userId);
+  if (!existing) {
+    setAccountCurrency(quantityAccount, unit, row.id);
+    // A location's own name can collide, by name alone, with an entirely
+    // different entity elsewhere in the tree (e.g. the "Storage" subtree's
+    // own, same-named capacity-account node for that same location — a
+    // real, confirmed collision, found directly) — a bare
+    // setHierarchyParent(..., locationName, userId) with no explicit
+    // target id can silently resolve to the wrong one. When the business
+    // is known, resolve the real Location entity unambiguously, scoped to
+    // that business's own real Locations root, and pass its id directly.
+    const locationsRootId = business ? resolveBusinessLocationsRootId(business) : undefined;
+    const locationId = locationsRootId
+      ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, locationsRootId) as { id: number } | undefined)?.id
+      : undefined;
+    setHierarchyParent(quantityAccount, 'Location', locationName, userId, row.id, locationId);
+  }
+  return { quantityAccount, quantityAccountId: row.id };
+}
+
+// Read-only counterpart: resolves the account id without creating it, so a
+// pure read (getItemLocation) never silently provisions a new, empty
+// per-location quantity account just by being asked about a location an
+// item has never actually moved to — undefined (not 0) means "never
+// provisioned," which the caller treats as zero on-hand.
+export function resolveItemLocationQuantityAccountId(itemName: ItemName, locationName: LocationName, tier?: string): number | undefined {
+  const itemId = resolveItemId(itemName);
+  if (itemId == null) return undefined;
+  const quantityAccount = `${itemName}${tier ? ` (${tier})` : ''} — ${locationName} — Qty`;
+  return Entity.getUnder(quantityAccount, itemId)?.id;
+}
+
 function ensureBusinessRoot(businessName: BusinessName, rootName: string, userId: UserId): { id: number; name: string } {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   return Entity.getUnder(rootName, business.id) ?? Entity.create(rootName, business.id, userId);
