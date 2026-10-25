@@ -973,6 +973,64 @@ for a genuine correction). This is additive period *awareness*, not a
 new period-locking subsystem; a harder lock was not part of what was
 asked for and would be a materially larger, separate feature.
 
+## Entity tree performance: two real indexes, measured before and after
+
+Raised as an open question — whether `getEntityTree`'s recursive CTE
+walk needed Materialized Path, Nested Sets, or a Closure Table to
+scale. Measured first, directly, via `EXPLAIN QUERY PLAN` on the real
+`entities` table (confirmed on a real, ~4,800-row/~3,170-current-row
+dev database — a full tutorial run's worth of data): no real,
+persistent index on `parent_id` existed at all (SQLite was rebuilding
+its own `AUTOMATIC COVERING INDEX (parent_id=?)` from scratch, every
+single call), and `current_entities`' own per-row correlated subquery
+(`SELECT row_id FROM entities e2 WHERE e2.entity_id = e.entity_id
+ORDER BY created_at DESC, row_id DESC LIMIT 1`) fell back to a real,
+repeated `USE TEMP B-TREE FOR ORDER BY` on almost every row, because
+the one existing `entity_id`-only index (`entities_entity_id_current`)
+didn't cover that exact sort order. 200 real, repeated calls to the
+full `getEntityTree()` query averaged **25.251ms/call** before any
+change.
+
+Given that — an append-only table with frequent reparents, where the
+"current row" is resolved by recency rather than stored structurally
+— Materialized Path and Nested Sets are a poor structural fit (both
+need an update to every descendant's own path/bounds on a reparent,
+which this schema's append-only, insert-a-new-row design already
+avoids elsewhere by design; forcing it back in for the tree shape
+alone would fight the schema, not help it). Plain indexing, matching
+what the real queries already do, was the right first step, with a
+real Closure Table (a frequently-read, rarely-reparented case) flagged
+as the only structurally-compatible fallback if indexing alone proves
+insufficient at real scale.
+
+Two real, additive indexes added to `backend/schema/00-core.sql`:
+
+```sql
+CREATE INDEX entities_parent_id ON entities(parent_id);
+CREATE INDEX entities_entity_id_current_row ON entities(entity_id, created_at DESC, row_id DESC);
+```
+
+Re-measured the same way, same real database (freshly reinitialized
+from schema, same tutorial fixture reloaded, same real row counts):
+every `AUTOMATIC COVERING INDEX (parent_id=?)` became a real `SEARCH e
+USING INDEX entities_parent_id (parent_id=?)`, and almost every
+per-row `current_entities` resolution became a real `SEARCH e2 USING
+COVERING INDEX entities_entity_id_current_row (entity_id=?)` with no
+`TEMP B-TREE` sort at all (the one remaining `TEMP B-TREE FOR ORDER
+BY` in the plan is the query's own, final, unrelated `ORDER BY
+w.depth, e.name` over the already-assembled result set — expected,
+not a resolution cost). 200 calls averaged **16.634ms/call** after —
+a real ~34% reduction, confirmed, not estimated. Both existing,
+narrower indexes (`entities_entity_id_current`, `entities_entity_id_all`)
+are left in place; the planner still reaches for them in a few other
+call sites inside the same query, so removing either was not tested
+and not assumed safe.
+
+Full verification after adding these: `tsc --noEmit` clean, backend
+unit tests (233/233), API-path and browser-path tutorial e2e (62/62
+each) — a purely additive schema change, no existing query's shape or
+semantics changed.
+
 ## Design note (not yet built): converting a sole trader to a partnership
 
 Not implemented — the user asked for a design to review before any

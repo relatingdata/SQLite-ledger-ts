@@ -186,6 +186,24 @@ CREATE INDEX entities_relation_id_current ON entities(relation_id) WHERE relatio
 -- needs, avoiding a second lookup for row_id after finding entity_id.
 CREATE INDEX entities_entity_id_all ON entities(entity_id, row_id);
 
+-- Two further real indexes, added after directly confirming via
+-- EXPLAIN QUERY PLAN (on a real, ~4,800-row dev database) that every
+-- real, recursive getEntityTree() tree walk pays two real, repeated
+-- costs: (1) SQLite building its own AUTOMATIC COVERING INDEX on
+-- parent_id fresh, on every single call, since no real, persistent
+-- one existed - entities_parent_id below replaces that throwaway
+-- index with a real, permanent one; (2) current_entities' own
+-- per-row correlated subquery (`ORDER BY created_at DESC, row_id DESC
+-- LIMIT 1`) falling back to a real, temp B-tree sort every time,
+-- because entities_entity_id_current above only covers entity_id
+-- alone, not this exact ORDER BY - entities_entity_id_current_row
+-- below is a real, direct covering index, in the exact column order
+-- this query already sorts by, so SQLite can walk straight to the
+-- one, current row without sorting anything. Confirmed directly,
+-- measured before and after, in docs/pm-domain-reference.md.
+CREATE INDEX entities_parent_id ON entities(parent_id);
+CREATE INDEX entities_entity_id_current_row ON entities(entity_id, created_at DESC, row_id DESC);
+
 -- Per direct instruction: entities is guarded, structurally, against
 -- any UPDATE or DELETE - only INSERT and SELECT are ever permitted,
 -- enforced here, by the database itself, not by convention or code
