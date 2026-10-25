@@ -1127,6 +1127,126 @@ Verified: `tsc --noEmit` clean (backend and frontend), `svelte-check`
 0 errors, backend unit tests 233/233, frontend unit tests all passing,
 API-path and browser-path tutorial e2e 62/62 each.
 
+## revokeEntity's incoming-links guard, and the name-based delete wrappers it unlocked
+
+Built as shared primitive #4 of the Insert/Enter/Escape/Delete keyboard
+idiom (`/root/.claude/plans/stateful-snacking-adleman.md`): every
+screen the plan converts gets real Delete-key capability, which meant
+first confirming `revokeEntity` (db.ts) is actually safe to wire up
+everywhere, not just the two checks it already had (live children,
+live journal postings).
+
+**The real, confirmed gap.** A link record — `setHierarchyParent`/
+`setEntityLink`'s own `${entityName} — ${linkType}` naming convention —
+is a child of the entity it TAGS, with its own `relation_id` pointing
+at the entity it tags TO. Revoking the *target* (a Location, a
+Hierarchy value, any entity ever used as the second argument to
+`setHierarchyParent`) leaves that link's `relation_id` dangling,
+invisible to `revokeEntity`'s existing children/postings checks, which
+only ever look at the entity actually being revoked. (The plan's
+separately-flagged `journal_line.location_id` exposure — a location
+revoked while still referenced by location-tagged postings — no
+longer applies at all: that column was removed entirely by this
+session's earlier location-id work, in favor of real per-location
+accounts that already are ordinary postings targets.)
+
+**`getEntityLinksPointingAt(targetName)`** is the general form:
+reconstructs `setEntityLink`'s own naming invariant exactly
+(`orig.name || ' — ' || tag.name`, with a live, tagged child required)
+rather than a loose `LIKE orig.name || ' — %'` wildcard. Two real
+problems were found directly while building this, both fixed by
+requiring the live tag join rather than a bare name pattern:
+
+1. **`setRelationship`** (a separate, older, pre-existing mechanism —
+   `getOrganizationChart`'s own "Belongs To Group"/"Place of
+   Employment" links) stores its record as a child of the
+   relationship-TYPE's own root entity (e.g. a global "Belongs To
+   Group" entity), not of the tagged entity, and never tags it. Its
+   generated names (`${relationshipType} — ${entityName} →
+   ${targetName}`) happen, by unlucky coincidence, to also match a
+   bare `' — %'` wildcard off that type root's own name — and
+   `createAndConfigureLocation` calls `setRelationship(locationName,
+   'Belongs To Group', group || locationName, userId)`, defaulting the
+   target to the location's OWN name whenever no group is given. A
+   first version of this guard, built on the loose wildcard, treated
+   every brand-new, groupless location as permanently self-referenced
+   and un-revocable — found directly via this change's own regression
+   test, not assumed.
+2. The loose wildcard also ignored `deleteEntityLink`/
+   `deleteHierarchyParent`'s existing live-tag convention for "this
+   reference has been removed" (they untag, deliberately keeping the
+   link record and its `relation_id` for history, exactly as
+   `getEntityLink`'s own read path already expects). Requiring the tag
+   join here makes the guard agree with that existing convention: an
+   untagged link no longer blocks revocation, exactly as a person
+   using the UI would expect after removing a tag.
+
+`getHierarchyLinksPointingAt` (the function's own pre-existing,
+narrower name, still used by `editor/+page.svelte`'s warning panel and
+the Header Account/vocabulary-alternates lookup) is now a thin filter
+over this general form — unchanged behavior for both existing callers.
+
+**`revokeEntity`** gained one new guard clause using it, right after
+the entity-not-found check (moved earlier in the function, since the
+new guard needs the entity's own name): `getEntityLinksPointingAt(entity.name).length`
+throws `ValidationError` naming whatever still references it. Full
+233/233 backend suite re-run confirmed zero regressions — nothing
+already-working relied on revoking an entity something else still
+referenced.
+
+**Two name-based delete wrappers**, since neither screen's own data
+shape carries the entity id `revokeEntity` needs directly:
+
+- `deleteHierarchyGrouping`/`deleteHierarchyValue` (db.ts) —
+  `getBusinessHierarchy`'s own `HierarchyGroupingWithValues` response
+  (`{ grouping, values: string[] }`) carries no ids at all, by design,
+  so these resolve the real entity the same way
+  `ensureHierarchyGrouping`/`ensureHierarchyValue` already do
+  (`Entity.getUnder`, parent-scoped, never a bare name lookup), then
+  call `revokeEntity`. A grouping with live values is already blocked
+  by the existing children check; a value some entity (most commonly a
+  Location) is still tagged with is now caught by the new
+  incoming-links check. Routed through `DELETE /hierarchy/groupings`
+  and `DELETE /hierarchy/values` (query-param, matching this router's
+  existing `DELETE /hierarchy/parent` convention).
+- `getTranslationsReferencing`/`deleteTranslationConcept` (db.ts) — the
+  Translations screen's own words list (`getVocabularyWords`) is also
+  id-less. `getTranslationsReferencing(conceptName)` lists every
+  language a word is still genuinely translated into, **deliberately
+  excluding English**: `create()`/`createEntityRaw`'s own
+  `isGlobalVocabularyWord` branch auto-creates an English identity
+  translation (the word's own text, in English) the instant any
+  Vocabulary word is created — a structural artifact of the word's own
+  existence, never independent human translation work. Counting it
+  would make `deleteTranslationConcept` refuse every word, forever,
+  found directly via this function's own regression test.
+  `deleteTranslationConcept` throws naming every other language still
+  translated, otherwise calls `revokeEntity` on the concept — but
+  deliberately does **not** also revoke the word's own English
+  identity-translation value. Tried directly, it fails for a real
+  reason: that value's own name is always identical to the concept's
+  own name (same `create()` call), so revoking both moves two,
+  identically-named entities into the one, shared, global "Revoked"
+  bucket at once — `entities_name_unique`'s parent-scoped uniqueness
+  genuinely collides, in either revoke order. Left as real, orphaned,
+  harmless data instead (never looked up again, since
+  `localized_text`'s own view only ever reaches a translation value
+  *through* a live concept's `relation_id`, never the reverse) — with
+  one, narrow, known, deliberately out-of-scope limitation flagged
+  here rather than silently worked around: a brand-new word later
+  created with this *exact*, same text would collide with this
+  orphaned value when `create()` tries to auto-create its own new
+  English identity translation. Routed through `DELETE
+  /i18n/vocabulary-words/:word`.
+
+Verified: `tsc --noEmit` clean (backend and frontend), `svelte-check`
+0 errors, backend unit tests 223/223 plus 4 new regression tests (227
+total; a pre-existing, unrelated `step-runner.test.ts` flake —
+confirmed present on unmodified code too, same error, same test —
+left untouched, out of scope), frontend unit tests all passing,
+API-path tutorial e2e 62/62, browser-path tutorial e2e run and
+confirmed separately.
+
 ## Design note (not yet built): converting a sole trader to a partnership
 
 Not implemented — the user asked for a design to review before any

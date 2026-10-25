@@ -396,6 +396,10 @@ export interface VocabularyWord {
   translations: Record<string, string>;
 }
 export const getVocabularyWords = () => request<VocabularyWord[]>('/i18n/vocabulary-words');
+// Name-based — see deleteTranslationConcept in db.ts. Refuses (409) while
+// the word is still genuinely translated anywhere, or is a real hierarchy/
+// vocabulary-alternate target.
+export const deleteVocabularyWord = (word: string) => request<void>(`/i18n/vocabulary-words/${encodeURIComponent(word)}`, { method: 'DELETE' });
 
 export const setVocabularyPreference = (conceptName: string, scope: 'business' | 'user', scopeId: number, preferredAlternateName: string) =>
   request<{ ok: true }>('/i18n/vocabulary-preference', { method: 'POST', body: JSON.stringify({ conceptName, scope, scopeId, preferredAlternateName }) });
@@ -424,6 +428,13 @@ export const createHierarchyValue = (business: string, groupingName: string, val
   request<{ name: string }>('/hierarchy/values', { method: 'POST', body: JSON.stringify({ business, groupingName, valueName, parentValueName }) });
 export const defineProductShape = (business: string, dimensions: [string, string][]) =>
   request<{ dimensions: [string, string][] }>('/hierarchy/shapes', { method: 'POST', body: JSON.stringify({ business, dimensions }) });
+// Name-based, like the creators just above — getHierarchy's own
+// HierarchyGroupingWithValues shape carries no entity ids. See
+// deleteHierarchyGrouping/deleteHierarchyValue in db.ts.
+export const deleteHierarchyGrouping = (business: string, groupingName: string) =>
+  request<void>(`/hierarchy/groupings?business=${encodeURIComponent(business)}&groupingName=${encodeURIComponent(groupingName)}`, { method: 'DELETE' });
+export const deleteHierarchyValue = (business: string, groupingName: string, valueName: string) =>
+  request<void>(`/hierarchy/values?business=${encodeURIComponent(business)}&groupingName=${encodeURIComponent(groupingName)}&valueName=${encodeURIComponent(valueName)}`, { method: 'DELETE' });
 
 // Generic entity-to-hierarchy-value tagging — see docs/pm-frontend-reference.md.
 export const setHierarchyTag = (entityName: string, hierarchyName: string, parentName: string) =>

@@ -723,12 +723,36 @@ export function getOrganizationChart(businessName: BusinessName): OrganizationCh
 }
 
 export function revokeEntity(id: number, userId: UserId): void {
+  // Fetched first (not after the other guards, as before) because the new
+  // incoming-links guard below needs the entity's own name to check.
+  const entity = getEntity(id);
+  if (!entity) throw new NotFoundError(`Entity ${id} not found.`);
   const hasChildren = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? LIMIT 1`).get(id);
   if (hasChildren) throw new ValidationError('Cannot revoke an entity that still has children — move or revoke them first.');
   const hasPostings = db.prepare(`SELECT 1 FROM journal_line WHERE account_id = ? LIMIT 1`).get(id);
   if (hasPostings) throw new ValidationError('Cannot revoke an entity that has journal postings against it.');
-  const entity = getEntity(id);
-  if (!entity) throw new NotFoundError(`Entity ${id} not found.`);
+  // A real, confirmed orphaning risk the two checks above can't see: a link
+  // record (setHierarchyParent/setEntityLink's `${entityName} — ${linkType}`
+  // naming) is a child of the entity it TAGS, not of the entity it points
+  // AT — so revoking the target (a Location, a Hierarchy value, a COGS
+  // account, any entity referenced via relation_id) leaves that link's
+  // relation_id dangling, invisible to the hasChildren check above. See
+  // getEntityLinksPointingAt's own comment for the full reasoning, and
+  // docs/pm-domain-reference.md for the specific cases this was found to
+  // affect (per-location inventory/quantity accounts, Hierarchy values).
+  //
+  // Note: this codebase's SECOND, separate, previously-flagged exposure —
+  // journal_line's own now-removed `location_id` column letting a Location
+  // be revoked while still referenced by location-tagged postings — no
+  // longer applies: that column was removed entirely (see "Quantity-on-hand
+  // by location" in docs/pm-domain-reference.md), in favor of real,
+  // per-location accounts that ARE ordinary children/postings targets and
+  // so are already caught by the two checks above.
+  const incomingLinks = getEntityLinksPointingAt(entity.name);
+  if (incomingLinks.length) {
+    const taggers = [...new Set(incomingLinks.map((l) => l.entityName))].join(', ');
+    throw new ValidationError(`Cannot revoke "${entity.name}" — still referenced by: ${taggers}.`);
+  }
   const parent = entity.parent_id ? getEntity(entity.parent_id) : null;
   const isRealLedgersNode = parent && parent.name === 'Ledgers' && db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses') AND id = ?`).get(parent.parent_id ?? -1);
   if (parent && isRealLedgersNode) {
@@ -1766,6 +1790,31 @@ export function ensureHierarchyGrouping(businessName: BusinessName, groupingName
 export function ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): { id: number; name: string } {
   const grouping = ensureHierarchyGrouping(businessName, groupingName, userId);
   return Entity.getUnder(valueName, grouping.id) ?? Entity.create(valueName, grouping.id, userId);
+}
+
+// Name-based delete wrappers for the two, since getBusinessHierarchy's own
+// HierarchyGroupingWithValues response (what the Hierarchy screen actually
+// has in hand) carries no entity ids at all — changing that shared shape
+// for this alone would ripple into every other consumer, so these resolve
+// the id internally instead, the same way ensureHierarchyGrouping/Value
+// above already do. revokeEntity's own guards (children, postings,
+// incoming links via getEntityLinksPointingAt) do the real safety work —
+// a grouping with live values is already blocked by the children check; a
+// value some entity is still actually tagged with (e.g. a Location) is now
+// caught by the incoming-links check. See
+// /root/.claude/plans/stateful-snacking-adleman.md.
+export function deleteHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): void {
+  const grouping = ensureHierarchyGrouping(businessName, groupingName, userId);
+  const value = Entity.getUnder(valueName, grouping.id);
+  if (!value) throw new NotFoundError(`No real value named "${valueName}" under "${groupingName}".`);
+  revokeEntity(value.id, userId);
+}
+
+export function deleteHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): void {
+  const hierarchyRoot = ensureBusinessRoot(businessName, 'Hierarchy', userId);
+  const grouping = Entity.getUnder(groupingName, hierarchyRoot.id);
+  if (!grouping) throw new NotFoundError(`No real hierarchy grouping named "${groupingName}" for "${businessName}".`);
+  revokeEntity(grouping.id, userId);
 }
 
 export function createProfitCenter(businessName: BusinessName, profitCenterName: string, userId: UserId): { id: number; name: string } {
@@ -3428,20 +3477,51 @@ export function getHierarchyChildren(parentName: string, hierarchyName: string):
   return rows.map((r) => r.entity_name);
 }
 
-export function getHierarchyLinksPointingAt(targetName: string): { entityName: string; hierarchyName: string }[] {
+// The general form behind getHierarchyLinksPointingAt below: EVERY kind of
+// link record this codebase creates (setEntityLink's own `${entityName} —
+// ${linkType}` naming convention — Hierarchy: *, Location, COGS Product,
+// Contact Type: *, Override: *, and any future kind) is a child of the
+// TAGGED entity (`orig`), with its own relation_id pointing at the TARGET —
+// so a plain children-check on the target alone (what revokeEntity already
+// did before this function existed) can never see these, no matter which
+// kind of link they are. Built for the Insert/Enter/Escape/Delete keyboard
+// idiom's delete-safety guard (see docs/pm-frontend-reference.md and
+// /root/.claude/plans/stateful-snacking-adleman.md) — see revokeEntity below.
+export function getEntityLinksPointingAt(targetName: string): { entityName: string; linkType: string }[] {
+  // Reconstructs setEntityLink's own naming invariant exactly
+  // (`${entityName} — ${linkType}`, record tagged with linkType itself)
+  // rather than a bare `LIKE orig.name || ' — %'` pattern, for two real
+  // reasons found directly while wiring this up as revokeEntity's new
+  // guard (see below): (1) setRelationship (a completely different, older
+  // mechanism — a relationship record is a child of the relationship
+  // TYPE's own root entity, e.g. "Belongs To Group", not of the tagged
+  // entity) produces names that, by unlucky coincidence, also match a bare
+  // `' — %'` wildcard off that root's name, with no real "entityName" to
+  // report at all; (2) requiring the live tag join means deleteEntityLink/
+  // deleteHierarchyParent's existing untag-based "remove this reference"
+  // mechanism is correctly respected here too — an untagged link no longer
+  // counts as a real, current reference, exactly as getEntityLink's own
+  // read path already treats it.
   const rows = db
     .prepare(
-      `SELECT orig.name AS entity_name, link.name AS link_name
+      `SELECT orig.name AS entity_name, tag.name AS link_type
        FROM current_entities link
        JOIN current_entities target ON target.id = link.relation_id
        JOIN current_entities orig ON orig.id = link.parent_id
-       WHERE target.name = ? AND link.name LIKE orig.name || ' — Hierarchy: %'`
+       JOIN current_entities tag ON tag.parent_id = link.id AND tag.relation_id IS NOT NULL
+       WHERE target.name = ? AND link.name = orig.name || ' — ' || tag.name`
     )
-    .all(targetName) as { entity_name: string; link_name: string }[];
-  return rows.map((r) => ({
-    entityName: r.entity_name,
-    hierarchyName: r.link_name.slice(`${r.entity_name} — Hierarchy: `.length),
-  }));
+    .all(targetName) as { entity_name: string; link_type: string }[];
+  return rows.map((r) => ({ entityName: r.entity_name, linkType: r.link_type }));
+}
+
+// A thin filter over getEntityLinksPointingAt, kept so this function's two
+// existing callers (editor/+page.svelte's warning panel, the Header
+// Account/vocabulary-alternates lookup below) see no behavior change.
+export function getHierarchyLinksPointingAt(targetName: string): { entityName: string; hierarchyName: string }[] {
+  return getEntityLinksPointingAt(targetName)
+    .filter((l) => l.linkType.startsWith('Hierarchy: '))
+    .map((l) => ({ entityName: l.entityName, hierarchyName: l.linkType.slice('Hierarchy: '.length) }));
 }
 
 export function getHierarchyGroups(hierarchyName: string): { name: string; parentName: string | null }[] {
@@ -4538,6 +4618,83 @@ export function setTranslation(conceptName: string, languageName: string, text: 
     conceptId,
     userId
   );
+}
+
+// Every language that still has a real, current translation value for this
+// concept — mirrors setTranslation's own conceptId resolution (global
+// Vocabulary first, then any entity of that name) and its "stale" lookup
+// shape (a translation value is a real child of the LANGUAGE, with its own
+// relation_id pointing at the concept), but across every language rather
+// than one. Built as the delete-safety check deleteTranslationConcept below
+// needs — a word with live, real translations should never be silently
+// deleted out from under them. See
+// /root/.claude/plans/stateful-snacking-adleman.md.
+//
+// Deliberately excludes English: create()/createEntityRaw's own
+// isGlobalVocabularyWord branch auto-creates an English identity
+// translation (the word's own text, in English) the instant any Vocabulary
+// word is created, as a structural artifact of the word's own existence —
+// never independent, real human translation work. Counting it here would
+// make deleteTranslationConcept refuse every single word, forever, which
+// defeats the whole point of the guard. Found directly while writing this
+// function's own regression test.
+export function getTranslationsReferencing(conceptName: string): { languageName: string; text: string }[] {
+  const conceptId = (
+    db.prepare(`SELECT e.id FROM current_entities e WHERE e.name = ? AND e.parent_id = ?`).get(conceptName, globalVocabularyId()) as { id: number } | undefined
+    ?? db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined
+  )?.id;
+  if (!conceptId) return [];
+  const rows = db
+    .prepare(
+      `SELECT lang.name AS language_name, e.name AS text
+       FROM current_entities e
+       JOIN current_entities lang ON lang.id = e.parent_id
+       WHERE e.relation_id = ? AND lang.parent_id = (SELECT id FROM current_entities WHERE name = 'Languages') AND lang.name != 'English'`
+    )
+    .all(conceptId) as { language_name: string; text: string }[];
+  return rows.map((r) => ({ languageName: r.language_name, text: r.text }));
+}
+
+// A real, Vocabulary-word-specific delete, name-based like setTranslation
+// itself (the Translations screen's own words list — see
+// getVocabularyWords — never carries entity ids, only names). Checks
+// getTranslationsReferencing first so a word still genuinely translated
+// somewhere is never silently deleted along with those translations; once
+// clear, revokeEntity itself still independently guards against a word
+// that's become a real hierarchy/vocabulary-alternate target (see
+// getEntityLinksPointingAt) or that still has children.
+export function deleteTranslationConcept(conceptName: string, userId: UserId): void {
+  const stillTranslated = getTranslationsReferencing(conceptName);
+  if (stillTranslated.length) {
+    const languages = stillTranslated.map((t) => t.languageName).join(', ');
+    throw new ValidationError(`"${conceptName}" is still translated in ${languages} — remove those translations first.`);
+  }
+  const conceptId = (
+    db.prepare(`SELECT e.id FROM current_entities e WHERE e.name = ? AND e.parent_id = ?`).get(conceptName, globalVocabularyId()) as { id: number } | undefined
+  )?.id;
+  if (!conceptId) throw new NotFoundError(`No real vocabulary word named "${conceptName}".`);
+  // Deliberately does NOT also revoke the word's own auto-created English
+  // identity translation value (same reasoning as getTranslationsReferencing
+  // excluding it above). Tried directly, revoking both genuinely fails:
+  // the identity value's own name is always identical to the concept's own
+  // name (create()'s own `setTranslation(name, 'English', name, userId)`),
+  // so revoking both moves two, real, identically-named entities into the
+  // one, same, global "Revoked" bucket at once — a genuine
+  // entities_name_unique collision (parent-scoped uniqueness, see
+  // docs/pm-domain-reference.md), regardless of which order they're
+  // revoked in. Left as real, orphaned, harmless data instead — it's
+  // never looked up again once the concept itself is gone, since
+  // localized_text's own query only ever reaches a translation VALUE
+  // through a live concept's relation_id, never the other way around.
+  // Known, narrow, deliberately out-of-scope edge case left here, flagged
+  // for visibility rather than silently worked around: a BRAND NEW word
+  // later created with this exact, same text would collide with this
+  // orphaned value when create() tries to auto-create its own English
+  // identity translation — a real, pre-existing kind of limitation (this
+  // whole codebase already accepts some append-only history cruft
+  // elsewhere), not something this change introduces new risk for beyond
+  // that one narrow case.
+  revokeEntity(conceptId, userId);
 }
 
 export function getTranslation(conceptName: string, languageName: string): string | null {

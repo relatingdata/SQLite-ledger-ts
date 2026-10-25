@@ -7,11 +7,14 @@ import {
   setHierarchyParent,
   getHierarchyParent,
   deleteHierarchyParent,
+  deleteHierarchyGrouping,
+  deleteHierarchyValue,
   defineProductShape,
   getBusinessHierarchy,
   getBusinessProductShapes,
   getHierarchyGroups,
   ValidationError,
+  NotFoundError,
   asBusinessName,
   asUserId,
 } from '../db.js';
@@ -133,6 +136,47 @@ hierarchyRouter.delete('/parent', requireRole('Administrator', 'Bookkeeper'), (r
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Could not remove hierarchy tag.' });
+  }
+});
+
+/** Removes a real, named grouping (e.g. "Division") under a business's own
+ * Hierarchy root — the name-based wrapper the Hierarchy screen's own
+ * groupings/values lists need, since getBusinessHierarchy's own
+ * HierarchyGroupingWithValues shape carries no entity ids at all. Reuses
+ * revokeEntity's own guards unchanged: a grouping with live values still
+ * refuses, exactly as deleting that entity directly already would. */
+hierarchyRouter.delete('/groupings', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const business = req.query.business as string;
+  const groupingName = req.query.groupingName as string;
+  if (!business || !groupingName) return res.status(400).json({ error: 'business and groupingName query parameters are both required.' });
+  try {
+    deleteHierarchyGrouping(asBusinessName(business), groupingName, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not delete hierarchy grouping.' });
+  }
+});
+
+/** Removes a real, named value (e.g. "Retail") under a real grouping — see
+ * /groupings above for why this is name-based. revokeEntity's own
+ * incoming-links guard refuses a value some entity (most commonly a
+ * Location) is still actually tagged with. */
+hierarchyRouter.delete('/values', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  const business = req.query.business as string;
+  const groupingName = req.query.groupingName as string;
+  const valueName = req.query.valueName as string;
+  if (!business || !groupingName || !valueName) return res.status(400).json({ error: 'business, groupingName, and valueName query parameters are all required.' });
+  try {
+    deleteHierarchyValue(asBusinessName(business), groupingName, valueName, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not delete hierarchy value.' });
   }
 });
 

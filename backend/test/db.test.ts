@@ -125,6 +125,83 @@ test('revokeEntity refuses to delete a business\'s last real Actual or last real
   assert.throws(() => db.revokeEntity(actual.id, fx.userId), /must always have a real Actual ledger/);
 });
 
+// --- revokeEntity's incoming-links guard (keyboard-idiom delete safety) ---
+// See /root/.claude/plans/stateful-snacking-adleman.md and
+// docs/pm-frontend-reference.md's getEntityLinksPointingAt section. Note:
+// the plan's fourth case — "a Location with journal_line.location_id
+// postings" — no longer applies at all: that column was removed entirely
+// in favor of real, per-location accounts (see "Quantity-on-hand by
+// location" in docs/pm-domain-reference.md), which are ordinary postable
+// accounts already caught by revokeEntity's existing hasPostings check.
+
+test('getEntityLinksPointingAt/revokeEntity: a Hierarchy value still assigned to a live entity cannot be revoked, but can once nothing points at it any more', () => {
+  const biz = fx.freshBusiness('HierarchyGuardTest Co');
+  const north = fx.freshHierarchyValue(biz.business, 'Division', 'North');
+  const south = fx.freshHierarchyValue(biz.business, 'Division', 'South');
+  const loc = fx.freshLocation(biz.business, 'HierarchyGuardTest Location');
+  db.setHierarchyParent(loc.name, north.groupingName, north.valueName, fx.userId);
+
+  const northId = db.getEntityTree().find((e) => e.name === north.valueName)!.id;
+  assert.ok(db.getEntityLinksPointingAt(north.valueName).some((l) => l.linkType === 'Hierarchy: Division'));
+  assert.throws(() => db.revokeEntity(northId, fx.userId), /still referenced by/);
+
+  // Repointing the location's own Division tag at a different value — the
+  // real, established way setHierarchyParent itself is meant to be used to
+  // move a tag, per its own doc comment — leaves nothing pointing at
+  // "North" any more, so it can now genuinely be revoked.
+  db.setHierarchyParent(loc.name, north.groupingName, south.valueName, fx.userId);
+  assert.equal(db.getEntityLinksPointingAt(north.valueName).length, 0);
+  db.revokeEntity(northId, fx.userId);
+  assert.equal(db.getEntity(northId)!.relation_id, null);
+});
+
+test('getEntityLinksPointingAt/revokeEntity: a Location still referenced by a real per-location quantity account cannot be revoked, but can once that account is retagged elsewhere', () => {
+  const biz = fx.freshBusiness('LocationGuardTest Co');
+  const { itemName } = fx.freshItem(biz.business, 'LocationGuardTest Item');
+  const locA = fx.freshLocation(biz.business, 'LocationGuardTest Location A');
+  const locB = fx.freshLocation(biz.business, 'LocationGuardTest Location B');
+  const { quantityAccount } = db.ensureItemLocationQuantityAccount(itemName, locA.name, fx.userId, undefined, biz.business);
+
+  assert.throws(() => db.revokeEntity(locA.entity.id, fx.userId), /still referenced by/);
+
+  db.setHierarchyParent(quantityAccount, 'Location', locB.name, fx.userId);
+  db.revokeEntity(locA.entity.id, fx.userId);
+  assert.equal(db.getEntity(locA.entity.id)!.relation_id, null);
+});
+
+test('deleteHierarchyGrouping/deleteHierarchyValue: name-based wrappers resolve the real entity and reuse revokeEntity\'s own guards — a grouping with a live value still refuses, exactly like revokeEntity itself already does', () => {
+  const biz = fx.freshBusiness('HierarchyDeleteTest Co');
+  const { groupingName, valueName } = fx.freshHierarchyValue(biz.business, fx.uniqueName('Region'), 'East');
+
+  assert.throws(() => db.deleteHierarchyGrouping(biz.business, groupingName, fx.userId), /still has children/);
+  db.deleteHierarchyValue(biz.business, groupingName, valueName, fx.userId);
+  db.deleteHierarchyGrouping(biz.business, groupingName, fx.userId);
+  assert.throws(() => db.deleteHierarchyValue(biz.business, groupingName, valueName, fx.userId), /No real/);
+});
+
+test('getTranslationsReferencing/deleteTranslationConcept: a word still genuinely translated somewhere cannot be deleted, but can once every real translation of it is gone', () => {
+  const word = fx.uniqueName('GuardTest Word');
+  const globalVocabulary = db.requireEntity('Vocabulary', db.typeRootName, db.requireEntity('Application', db.typeRootName));
+  const conceptRow = db.create(globalVocabulary, db.typeRootName, word, fx.userId);
+  db.setTranslation(word, 'German', 'Testwort', fx.userId);
+
+  assert.deepEqual(db.getTranslationsReferencing(word), [{ languageName: 'German', text: 'Testwort' }]);
+  assert.throws(() => db.deleteTranslationConcept(word, fx.userId), /still translated in German/);
+
+  // Revoking the one real, live translation value directly — the
+  // German-language entity whose relation_id points at this concept — is
+  // the genuine, real way a single translation is removed; nothing else
+  // in this fresh fixture references it, so this itself succeeds cleanly.
+  const germanId = (db.db.prepare(`SELECT id FROM current_entities WHERE name = 'German'`).get() as { id: number }).id;
+  const translationValue = db.db.prepare(`SELECT id FROM current_entities WHERE parent_id = ? AND relation_id = ?`).get(germanId, conceptRow.id) as { id: number };
+  db.revokeEntity(translationValue.id, fx.userId);
+
+  assert.deepEqual(db.getTranslationsReferencing(word), []);
+  db.deleteTranslationConcept(word, fx.userId);
+  assert.equal(db.getEntity(conceptRow.id)!.relation_id, null);
+  assert.throws(() => db.deleteTranslationConcept(word, fx.userId), /No real vocabulary word/);
+});
+
 // --- business-scoped reports / chart of accounts --------------------
 
 test('business_reports groups categories under their fixed report via relation_id', () => {

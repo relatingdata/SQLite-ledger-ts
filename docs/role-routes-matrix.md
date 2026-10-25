@@ -7,7 +7,6 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | Method | Route | Source File | Also requires |
 |---|---|---|---|
 | POST | / | backend/src/routes/businesses.ts | — |
-| GET | / | backend/src/routes/entities.ts | Bookkeeper |
 | POST | / | backend/src/routes/entities.ts | Bookkeeper |
 | POST | / | backend/src/routes/invoices.ts | Bookkeeper |
 | POST | / | backend/src/routes/locations.ts | Bookkeeper |
@@ -58,17 +57,20 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | POST | /close-books | backend/src/routes/journal.ts | Bookkeeper |
 | POST | /complete-cash-purchase | backend/src/routes/pos.ts | Bookkeeper |
 | POST | /complete-sale | backend/src/routes/pos.ts | Bookkeeper |
+| GET | /concepts-with-alternates | backend/src/routes/i18n.ts | Bookkeeper |
 | POST | /convert-storage | backend/src/routes/locations.ts | Bookkeeper |
 | POST | /create-ledger | backend/src/routes/journal.ts | Bookkeeper |
 | GET | /default-language | backend/src/routes/i18n.ts | — |
 | POST | /dispatch-stock | backend/src/routes/pos.ts | Bookkeeper |
 | PUT | /employees/:employeeName/schedule | backend/src/routes/locations.ts | Bookkeeper |
 | POST | /groupings | backend/src/routes/hierarchy.ts | Bookkeeper |
+| DELETE | /groupings | backend/src/routes/hierarchy.ts | Bookkeeper |
 | POST | /import-e-invoice | backend/src/routes/invoices.ts | Bookkeeper |
 | PUT | /item-assignment | backend/src/routes/products.ts | Bookkeeper |
 | PUT | /language-direction/:language | backend/src/routes/i18n.ts | — |
 | POST | /lead-time | backend/src/routes/locations.ts | Bookkeeper |
 | PUT | /line-type | backend/src/routes/entities.ts | Bookkeeper |
+| GET | /line-types | backend/src/routes/entities.ts | Bookkeeper |
 | POST | /lots | backend/src/routes/stock-lots.ts | Bookkeeper |
 | POST | /lots/consume | backend/src/routes/stock-lots.ts | Bookkeeper |
 | POST | /open-container | backend/src/routes/locations.ts | Bookkeeper |
@@ -86,11 +88,9 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | POST | /relationship | backend/src/routes/entities.ts | Bookkeeper |
 | POST | /reopen | backend/src/routes/period.ts | — |
 | POST | /reorder | backend/src/routes/entities.ts | Bookkeeper |
-| POST | /resolve-cash-transaction-accounts | backend/src/routes/pos.ts | Bookkeeper |
 | POST | /resolve-open-container-accounts | backend/src/routes/locations.ts | Bookkeeper |
 | POST | /resolve-receive-accounts | backend/src/routes/locations.ts | Bookkeeper |
 | POST | /resolve-rollover-lines | backend/src/routes/journal.ts | Bookkeeper |
-| POST | /resolve-sale-accounts | backend/src/routes/pos.ts | Bookkeeper |
 | POST | /resolve-transfer-accounts | backend/src/routes/locations.ts | Bookkeeper |
 | POST | /restock/:runReference/confirm-picked | backend/src/routes/locations.ts | Bookkeeper |
 | POST | /restock/:runReference/dispatch | backend/src/routes/locations.ts | Bookkeeper |
@@ -108,13 +108,13 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | PUT | /users/:id/password | backend/src/routes/auth.ts | — |
 | PUT | /users/:id/roles | backend/src/routes/auth.ts | — |
 | POST | /values | backend/src/routes/hierarchy.ts | Bookkeeper |
+| DELETE | /values | backend/src/routes/hierarchy.ts | Bookkeeper |
 | POST | /write-off | backend/src/routes/stock-lots.ts | Bookkeeper |
 
 ## Bookkeeper
 
 | Method | Route | Source File | Also requires |
 |---|---|---|---|
-| GET | / | backend/src/routes/entities.ts | Administrator |
 | POST | / | backend/src/routes/entities.ts | Administrator |
 | POST | / | backend/src/routes/invoices.ts | Administrator |
 | POST | / | backend/src/routes/locations.ts | Administrator |
@@ -156,15 +156,18 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | POST | /close-books | backend/src/routes/journal.ts | Administrator |
 | POST | /complete-cash-purchase | backend/src/routes/pos.ts | Administrator |
 | POST | /complete-sale | backend/src/routes/pos.ts | Administrator |
+| GET | /concepts-with-alternates | backend/src/routes/i18n.ts | Administrator |
 | POST | /convert-storage | backend/src/routes/locations.ts | Administrator |
 | POST | /create-ledger | backend/src/routes/journal.ts | Administrator |
 | POST | /dispatch-stock | backend/src/routes/pos.ts | Administrator |
 | PUT | /employees/:employeeName/schedule | backend/src/routes/locations.ts | Administrator |
 | POST | /groupings | backend/src/routes/hierarchy.ts | Administrator |
+| DELETE | /groupings | backend/src/routes/hierarchy.ts | Administrator |
 | POST | /import-e-invoice | backend/src/routes/invoices.ts | Administrator |
 | PUT | /item-assignment | backend/src/routes/products.ts | Administrator |
 | POST | /lead-time | backend/src/routes/locations.ts | Administrator |
 | PUT | /line-type | backend/src/routes/entities.ts | Administrator |
+| GET | /line-types | backend/src/routes/entities.ts | Administrator |
 | POST | /lots | backend/src/routes/stock-lots.ts | Administrator |
 | POST | /lots/consume | backend/src/routes/stock-lots.ts | Administrator |
 | POST | /open-container | backend/src/routes/locations.ts | Administrator |
@@ -181,11 +184,9 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | POST | /recurring | backend/src/routes/journal.ts | Administrator |
 | POST | /relationship | backend/src/routes/entities.ts | Administrator |
 | POST | /reorder | backend/src/routes/entities.ts | Administrator |
-| POST | /resolve-cash-transaction-accounts | backend/src/routes/pos.ts | Administrator |
 | POST | /resolve-open-container-accounts | backend/src/routes/locations.ts | Administrator |
 | POST | /resolve-receive-accounts | backend/src/routes/locations.ts | Administrator |
 | POST | /resolve-rollover-lines | backend/src/routes/journal.ts | Administrator |
-| POST | /resolve-sale-accounts | backend/src/routes/pos.ts | Administrator |
 | POST | /resolve-transfer-accounts | backend/src/routes/locations.ts | Administrator |
 | POST | /restock/:runReference/confirm-picked | backend/src/routes/locations.ts | Administrator |
 | POST | /restock/:runReference/dispatch | backend/src/routes/locations.ts | Administrator |
@@ -199,6 +200,7 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | POST | /transfer-stock | backend/src/routes/locations.ts | Administrator |
 | GET | /types | backend/src/routes/locations.ts | Administrator |
 | POST | /values | backend/src/routes/hierarchy.ts | Administrator |
+| DELETE | /values | backend/src/routes/hierarchy.ts | Administrator |
 | POST | /write-off | backend/src/routes/stock-lots.ts | Administrator |
 
 ## Every real route with no role guard at all (open to any authenticated — or, for a route with no `requireAuth` either, any — caller)
@@ -206,6 +208,7 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | Method | Route | Source File |
 |---|---|---|
 | GET | / | backend/src/routes/businesses.ts |
+| GET | / | backend/src/routes/entities.ts |
 | GET | / | backend/src/routes/hierarchy.ts |
 | GET | / | backend/src/routes/invoices.ts |
 | GET | / | backend/src/routes/invoices.ts |
@@ -219,6 +222,7 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | GET | / | backend/src/routes/locations.ts |
 | GET | / | backend/src/routes/menu.ts |
 | GET | / | backend/src/routes/recording.ts |
+| GET | /:businessName/reporting-periods | backend/src/routes/businesses.ts |
 | GET | /:id | backend/src/routes/entities.ts |
 | GET | /:id | backend/src/routes/invoices.ts |
 | GET | /:id | backend/src/routes/locations.ts |
@@ -258,7 +262,6 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | POST | /clock-in | backend/src/routes/projects.ts |
 | POST | /clock-out | backend/src/routes/projects.ts |
 | GET | /coa-prototype/:language | backend/src/routes/businesses.ts |
-| GET | /concepts-with-alternates | backend/src/routes/i18n.ts |
 | GET | /contact-person-types | backend/src/routes/contacts.ts |
 | GET | /drill-down | backend/src/routes/reports.ts |
 | GET | /employees/:employeeName/schedule | backend/src/routes/locations.ts |
@@ -308,6 +311,7 @@ Every real backend route guarded by `requireRole(...)`/`requireGlobalRole(...)`,
 | GET | /trial-balance | backend/src/routes/reports.ts |
 | GET | /trial-balance-comparison | backend/src/routes/reports.ts |
 | GET | /vocabulary-alternates/:word | backend/src/routes/i18n.ts |
+| POST | /vocabulary-preference | backend/src/routes/i18n.ts |
 | DELETE | /vocabulary-preference | backend/src/routes/i18n.ts |
 
-**103 real, role-guarded route(s)** across 2 real role(s); **104 route(s)** with no role guard.
+**104 real, role-guarded route(s)** across 2 real role(s); **106 route(s)** with no role guard.

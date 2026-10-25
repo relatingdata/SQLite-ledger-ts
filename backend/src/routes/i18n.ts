@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { getLanguages, getLocalizedText, setTranslation, getDefaultLanguage, setDefaultLanguage, getVocabularyAlternates, getConceptsWithAlternates, getVocabularyWords, setVocabularyPreference, deleteVocabularyPreference, getLanguageDirection, setLanguageDirection, ValidationError,
+import { getLanguages, getLocalizedText, setTranslation, getDefaultLanguage, setDefaultLanguage, getVocabularyAlternates, getConceptsWithAlternates, getVocabularyWords, setVocabularyPreference, deleteVocabularyPreference, getLanguageDirection, setLanguageDirection, deleteTranslationConcept, ValidationError, NotFoundError,
   asUserId, ensureVocabularyAlternate, db,
 } from '../db.js';
 import { requireAuth, requireRole } from '../auth-middleware.js';
@@ -71,6 +71,24 @@ i18nRouter.get('/concepts-with-alternates', requireAuth, (_req, res) => {
 
 i18nRouter.get('/vocabulary-words', requireAuth, (_req, res) => {
   res.json(getVocabularyWords());
+});
+
+/** Deletes a real, named Vocabulary word — name-based, like every other
+ * route here, since getVocabularyWords' own VocabularyWord shape carries
+ * no entity id. Refuses while the word is still genuinely translated
+ * anywhere (see getTranslationsReferencing/deleteTranslationConcept in
+ * db.ts), or while it's become a real hierarchy/vocabulary-alternate
+ * target (revokeEntity's own incoming-links guard). */
+i18nRouter.delete('/vocabulary-words/:word', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
+  try {
+    deleteTranslationConcept(req.params.word, asUserId(req.user!.id));
+    res.status(204).end();
+  } catch (err) {
+    if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
+    if (err instanceof NotFoundError) return res.status(404).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Could not delete vocabulary word.' });
+  }
 });
 
 const vocabularyPreferenceSchema = z.object({
