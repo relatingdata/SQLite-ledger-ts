@@ -1281,12 +1281,31 @@ actually get built, never the full grid blindly.
 ## `frontend/src/lib/components/BusinessStructurePopup.svelte` and `StructureTreeNode.svelte` — the Business Structure popup
 
 A graphical, editable view over one business's Locations, Divisions,
-Item Categories, and any other generic Hierarchy, in a single modal —
-built by composing the exact, same backend/API calls the dedicated
-Locations, Setup → Hierarchies, and Items Catalog screens already use
-directly, not a new, parallel mechanism. No backend changes were
-needed for this feature at all: every add/move action below reuses an
-existing, already-wired function.
+Item Categories, and any other generic Hierarchy, built by composing
+the exact, same backend/API calls the dedicated Locations, Setup →
+Hierarchies, and Items Catalog screens already use directly, not a new,
+parallel mechanism. No backend changes were needed for this feature at
+all: every add/move action below reuses an existing, already-wired
+function.
+
+**Presented as a step-by-step wizard, not a free-form tabbed modal**:
+a `stepper` nav across the top (Locations & Divisions → Item Categories
+→ Other Hierarchies), a one-line blurb per step, and Back/Next/Finish
+footer buttons, instead of the earlier plain tab bar. Every single step
+is explicitly optional and skippable with Next — the wizard can be
+finished having added nothing at all, because a business (a sole
+trader working from home, say) legitimately needs zero locations, zero
+divisions, zero categories, and zero other hierarchy. `stepIndex`
+drives `activeTab` (a `$derived`, not independent state) so the old
+per-tab load-on-first-visit logic (`loadStep`) keeps working unchanged
+under `goToStep`/`nextStep`/`prevStep`.
+
+**The quick-add Location form now has real capacity fields**
+(`bottleCapacity`/`cartonCapacity`, both optional) — previously it had
+none at all, which was the actual root cause of a newly-added location
+showing a storage capacity of zero: there was simply nowhere to enter
+one. `parseOptionalInt` treats a blank field as `null` (no capacity
+tracked for that location) rather than `0`.
 
 **Entry points**: a "Set up your business structure" button on
 `setup/new-business/+page.svelte`, shown right after creating a

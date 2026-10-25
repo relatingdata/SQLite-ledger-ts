@@ -37,8 +37,18 @@
 
   let { business, onClose }: { business: string; onClose: () => void } = $props();
 
+  // A step-by-step wizard, not a free-form tabbed modal — every step is optional and skippable,
+  // because a business (a sole trader working from home, say) can finish having added nothing at
+  // all: no locations, no divisions, no categories, no other hierarchy. See
+  // docs/pm-frontend-reference.md.
   type Tab = 'locations' | 'categories' | 'hierarchies';
-  let activeTab: Tab = $state('locations');
+  const STEPS: { id: Tab; title: string; blurb: string }[] = [
+    { id: 'locations', title: 'Locations & Divisions', blurb: 'Where this business physically operates — a shop, a warehouse, or nowhere at all if it trades from home. Add as many as you like, group them into divisions if you report by region or site, or skip this entirely and add locations later from the Locations screen.' },
+    { id: 'categories', title: 'Item Categories', blurb: 'An optional way to group what this business sells or stocks. Plenty of businesses never need one — items can always live with no category at all.' },
+    { id: 'hierarchies', title: 'Other Hierarchies', blurb: 'Any further grouping this business wants to report by — region, bottle size, storage area — beyond Division. Most businesses never need this.' },
+  ];
+  let stepIndex = $state(0);
+  let activeTab: Tab = $derived(STEPS[stepIndex].id);
 
   const DIVISION = 'Division';
   const UNASSIGNED_KEY = '__unassigned__';
@@ -99,21 +109,41 @@
 
   // Add forms — a new Location, or a new Division value.
   let addingLocationForm = $state(false);
-  let newLocationValues: Record<string, string | number | string[]> = $state({ name: '', city: '', locationType: 'Retail' });
+  let newLocationValues: Record<string, string | number | string[]> = $state({ name: '', city: '', locationType: 'Retail', bottleCapacity: '', cartonCapacity: '' });
+  // Capacity fields, added here — previously this quick-add form had none at all, which is the
+  // real root cause of a newly-added location (e.g. a Head Office warehouse) showing a storage
+  // capacity of zero: there was never anywhere to enter one. Both optional/blank for a location
+  // that doesn't track storage capacity at all (an office, a sole trader's home). See
+  // docs/pm-frontend-reference.md.
   const locationFields: FormField[] = $derived.by(() => [
     { name: 'name', label: 'Location name', type: 'text' },
     { name: 'city', label: 'City', type: 'text' },
     { name: 'locationType', label: 'Location type', type: 'select', options: locationTypes },
+    { name: 'bottleCapacity', label: 'Bottle capacity (optional)', type: 'text' },
+    { name: 'cartonCapacity', label: 'Carton capacity (optional)', type: 'text' },
   ]);
+  function parseOptionalInt(v: string | number | string[] | undefined): number | null {
+    const s = String(v ?? '').trim();
+    if (!s) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
   async function submitNewLocation(values: Record<string, string | number | string[]>) {
     await createLocation(
       String(values.name ?? '').trim(),
       business,
-      { city: String(values.city ?? '').trim(), location_type: String(values.locationType ?? 'Retail'), is_billing_address: false, bottle_capacity: null, carton_capacity: null, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+      {
+        city: String(values.city ?? '').trim(),
+        location_type: String(values.locationType ?? 'Retail'),
+        is_billing_address: false,
+        bottle_capacity: parseOptionalInt(values.bottleCapacity),
+        carton_capacity: parseOptionalInt(values.cartonCapacity),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
       'Business Structure Popup'
     );
     addingLocationForm = false;
-    newLocationValues = { name: '', city: '', locationType: 'Retail' };
+    newLocationValues = { name: '', city: '', locationType: 'Retail', bottleCapacity: '', cartonCapacity: '' };
     await loadLocationsTab();
   }
 
@@ -358,14 +388,25 @@
     }
   }
 
-  function selectTab(tab: Tab) {
-    activeTab = tab;
+  function loadStep(tab: Tab) {
     if (tab === 'locations' && locations.length === 0 && locationsLoading) loadLocationsTab();
     if (tab === 'categories' && entities.length === 0 && categoriesLoading) loadCategoriesTab();
     if (tab === 'hierarchies' && hierarchy.length === 0 && hierarchiesLoading) loadHierarchiesTab();
   }
+  function goToStep(index: number) {
+    if (index < 0 || index >= STEPS.length) return;
+    stepIndex = index;
+    loadStep(STEPS[index].id);
+  }
+  function nextStep() {
+    if (stepIndex < STEPS.length - 1) goToStep(stepIndex + 1);
+    else onClose();
+  }
+  function prevStep() {
+    goToStep(stepIndex - 1);
+  }
 
-  // Load the first tab eagerly on mount.
+  // Load the first step eagerly on mount.
   loadLocationsTab();
 </script>
 
@@ -375,11 +416,22 @@
       <h2>{translations.current['Business Structure'] ?? 'Business Structure'}</h2>
       <button type="button" class="close-btn" onclick={onClose} aria-label="Close">×</button>
     </header>
-    <nav class="tabs">
-      <button type="button" class:active={activeTab === 'locations'} onclick={() => selectTab('locations')}>{translations.current['Locations & Divisions'] ?? 'Locations & Divisions'}</button>
-      <button type="button" class:active={activeTab === 'categories'} onclick={() => selectTab('categories')}>{translations.current['Item Categories'] ?? 'Item Categories'}</button>
-      <button type="button" class:active={activeTab === 'hierarchies'} onclick={() => selectTab('hierarchies')}>{translations.current['Other Hierarchies'] ?? 'Other Hierarchies'}</button>
+    <nav class="stepper" aria-label="Setup steps">
+      {#each STEPS as step, i (step.id)}
+        <button
+          type="button"
+          class="step"
+          class:active={i === stepIndex}
+          class:done={i < stepIndex}
+          onclick={() => goToStep(i)}
+        >
+          <span class="step-num">{i < stepIndex ? '✓' : i + 1}</span>
+          <span class="step-title">{translations.current[step.title] ?? step.title}</span>
+        </button>
+        {#if i < STEPS.length - 1}<span class="step-sep"></span>{/if}
+      {/each}
     </nav>
+    <p class="step-blurb">{translations.current[STEPS[stepIndex].blurb] ?? STEPS[stepIndex].blurb}</p>
 
     <div class="tab-body">
       {#if activeTab === 'locations'}
@@ -465,6 +517,14 @@
         {/if}
       {/if}
     </div>
+
+    <footer class="wizard-nav">
+      <button type="button" class="btn secondary" onclick={prevStep} disabled={stepIndex === 0}>{translations.current['Back'] ?? 'Back'}</button>
+      <span class="step-count">{translations.current['Step'] ?? 'Step'} {stepIndex + 1} {translations.current['of'] ?? 'of'} {STEPS.length}</span>
+      <button type="button" class="btn" onclick={nextStep}>
+        {stepIndex === STEPS.length - 1 ? (translations.current['Finish'] ?? 'Finish') : (translations.current['Next'] ?? 'Next')}
+      </button>
+    </footer>
   </div>
 </div>
 
@@ -507,25 +567,70 @@
     cursor: pointer;
     color: var(--ink-soft);
   }
-  .tabs {
+  .stepper {
     display: flex;
+    align-items: center;
     gap: 0.3rem;
-    padding: 0.6rem 1.2rem 0;
-    border-bottom: 1px solid var(--rule);
+    padding: 1rem 1.2rem 0;
   }
-  .tabs button {
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     background: none;
     border: none;
-    padding: 0.5rem 0.8rem;
+    padding: 0.3rem 0.4rem;
     cursor: pointer;
     font: inherit;
-    border-bottom: 2px solid transparent;
     color: var(--ink-soft);
   }
-  .tabs button.active {
-    color: var(--ink);
-    border-bottom-color: var(--brass);
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    border: 2px solid var(--rule);
+    font-size: 0.85rem;
     font-weight: 600;
+  }
+  .step.active .step-num {
+    border-color: var(--brass);
+    background: var(--brass);
+    color: var(--paper);
+  }
+  .step.done .step-num {
+    border-color: var(--brass);
+    color: var(--brass);
+  }
+  .step.active .step-title {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .step-sep {
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+    margin: 0 0.2rem;
+  }
+  .step-blurb {
+    margin: 0.6rem 1.2rem 0;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-soft);
+    font-size: var(--font-size-small, 0.9rem);
+  }
+  .wizard-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.8rem 1.2rem;
+    border-top: 1px solid var(--rule);
+  }
+  .step-count {
+    color: var(--ink-soft);
+    font-size: var(--font-size-small, 0.9rem);
   }
   .tab-body {
     padding: 1rem 1.2rem;
