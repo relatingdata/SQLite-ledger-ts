@@ -875,3 +875,22 @@ the ledger entity **by id**, never by bare name — a ledger's own name
 `setRelationship`/`getRelationship` helpers (which resolve a target by
 bare name) would silently resolve to the wrong business's "Actual" the
 moment more than one business exists.
+
+## `getEntityTree` business scoping
+
+`getEntityTree(businessName?)` (`backend/src/db.ts`) walks the whole
+`current_entities` recursive structure from the system root by
+default — every business, every Chart-of-Accounts prototype, all
+Vocabulary — because several callers (the Entity Tree admin screen,
+CoA-prototype pickers) genuinely need everything. Most callers don't:
+a business's own `PER_BUSINESS_ROOTS` (Locations, Items, Contacts,
+Vocabulary, Ledgers, Profit Centers) are all children of the business
+entity, so passing a `businessName` anchors the recursive walk at that
+business's own entity instead of the system root, returning just its
+subtree. `GET /entities?business=<name>` carries this through over
+HTTP; `frontend/src/lib/api.ts`'s `getEntityTree(business?)` wraps it.
+Unscoped remains the default everywhere it was already in use — this
+is purely additive. The Items catalog and Business Structure popup
+were the first callers updated, since an unscoped entity tree (every
+business's data, returned to every one of ~20 screens) was the real
+root cause of Create Item's reported slowness.

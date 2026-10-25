@@ -1583,10 +1583,18 @@ one id→children index built once), walking only the Items subtree
 rather than the whole chart-of-accounts/vocabulary/menu tree.
 
 **`uncategorizedItems`** surfaces items that sit directly under the
-Items root with no category — never produced by this page's own
-Insert flow (which always requires a category first), but older data
-or data created via the Structured Editor can still be shaped this
-way, so it stays visible rather than silently hidden.
+Items root with no category. This used to be display-only — never
+producible from this page's own Insert flow, only via older data or
+the Structured Editor — even though the backend (`createItem` in
+`backend/src/db.ts`) already treats a falsy/`'Items'` parent as "no
+category" and always has. Per the explicit requirement that the
+system must be able to operate with zero hierarchy (no categories,
+divisions, or profit centers), there is now a real UI path: the
+"+ Item (no category)" link button next to "+ Category" (and Insert,
+when an uncategorized item is already selected) calls
+**`addUncategorizedItem`**, the same pattern as
+`addItemUnderCategory` but targeting the Items root directly instead
+of looking up a category's id.
 
 **`addSubcategory`**'s "+ Subcategory" link button is deliberately not
 folded into Insert/Delete — the same choice made for Business Setup's

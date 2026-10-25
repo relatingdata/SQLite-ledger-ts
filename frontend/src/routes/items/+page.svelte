@@ -312,10 +312,42 @@
     }
   }
 
+  // Sentinel addingItemUnder value for "add an item directly under Items, with no category at
+  // all" — the backend (createItem) already supports a falsy/'Items' parent for exactly this,
+  // and uncategorizedItems already displays the result; this was the missing UI path to create
+  // one in the first place. Per the user's own "the system must be able to operate without any
+  // hierarchy" requirement — see docs/pm-frontend-reference.md.
+  const NO_CATEGORY = '__no_category__';
+  async function addUncategorizedItem() {
+    if (!newItemNameField.trim()) return;
+    const root = itemsRoot();
+    if (!root) return;
+    addingItem = true;
+    itemAddError = '';
+    try {
+      await createEntity({ name: newItemNameField, parentId: root.id }, 'Create Entity');
+      await setItem(newItemNameField, { description: null, unit_of_measure: null, upc: null });
+      const created = newItemNameField;
+      newItemNameField = '';
+      addingItemUnder = null;
+      await reloadTreeAndItems();
+      await selectItem(created, root.name);
+    } catch (e) {
+      itemAddError = e instanceof ApiError ? e.message : 'Could not add item.';
+    } finally {
+      addingItem = false;
+    }
+  }
+
   // --- Insert/Delete callbacks dispatched by TreeEditor.svelte — see docs/pm-frontend-reference.md.
   function handleInsert() {
     if (selection?.type === 'category') {
       addingItemUnder = selection.name;
+      newItemNameField = '';
+      itemAddError = '';
+    } else if (selection?.type === 'item' && selection.category === (itemsRoot()?.name ?? 'Items')) {
+      // Insert with an uncategorized item selected adds another one alongside it, no category required.
+      addingItemUnder = NO_CATEGORY;
       newItemNameField = '';
       itemAddError = '';
     } else {
@@ -516,7 +548,7 @@
         onInsert={handleInsert}
         onDelete={handleDelete}
       >
-        {#if uncategorizedItems.length > 0}
+        {#if uncategorizedItems.length > 0 || addingItemUnder === NO_CATEGORY}
           <div class="tree-section">
             <p class="tree-heading">{translations.current['Uncategorized'] ?? 'Uncategorized'}</p>
             {#each uncategorizedItems as it (it.name)}
@@ -525,6 +557,18 @@
                 {#if it.source_count > 0}<span class="count">{it.source_count} source{it.source_count === 1 ? '' : 's'}</span>{/if}
               </button>
             {/each}
+            {#if addingItemUnder === NO_CATEGORY}
+              <div class="inline-add">
+                <input
+                  bind:value={newItemNameField}
+                  placeholder={translations.current['New item name'] ?? 'New item name'}
+                  onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addUncategorizedItem(); } }}
+                />
+                <button class="btn small" onclick={addUncategorizedItem} disabled={addingItem || !newItemNameField.trim()}>{translations.current['Add'] ?? 'Add'}</button>
+                <button class="btn small secondary" onclick={() => (addingItemUnder = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+              </div>
+              {#if itemAddError}<p class="error small">{itemAddError}</p>{/if}
+            {/if}
           </div>
         {/if}
 
@@ -549,6 +593,13 @@
             </div>
           {/if}
           {#if categoryError}<p class="error small">{categoryError}</p>{/if}
+          <!-- Always offered, not just when an uncategorized item happens to be selected — a
+               business with no hierarchy at all still needs a direct way to add its first item. -->
+          {#if addingItemUnder !== NO_CATEGORY}
+            <button type="button" class="link-button" onclick={() => { addingItemUnder = NO_CATEGORY; newItemNameField = ''; itemAddError = ''; }}>
+              + {translations.current['Item (no category)'] ?? 'Item (no category)'}
+            </button>
+          {/if}
         </div>
       </TreeEditor>
 
