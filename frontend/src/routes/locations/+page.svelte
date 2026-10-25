@@ -2,7 +2,7 @@
   // Locations setup and storage actions — see
   // docs/pm-frontend-reference.md for the full design.
   import { onMount } from 'svelte';
-  import { getEntityTree, listLocations, saveLocation, createLocation, createEntity, asBusinessName, asLedgerName, asAccountName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, getHierarchy, convertStorageSpace, resolveOpenContainerAccounts, stageLine, postJournalEntry, type EntityNode, type LocationRecord, type HierarchyGroupingWithValues } from '$lib/api';
+  import { getEntityTree, listLocations, saveLocation, createLocation, deleteLocation, createEntity, asBusinessName, asLedgerName, asAccountName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, getHierarchy, convertStorageSpace, resolveOpenContainerAccounts, stageLine, postJournalEntry, type EntityNode, type LocationRecord, type HierarchyGroupingWithValues } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { session } from '$lib/state.svelte';
   import { openContainerLines, freshReference } from '$lib/canned-journal';
@@ -213,11 +213,48 @@
     } catch (e) {
       throw e instanceof ApiError ? e : new Error('Could not create location.');
     }
-    creatingNew = false;
-    newLocationValues = { name: '', city: '', locationType: 'Retail', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+    closeInsert();
     await loadAll();
     const loc = locations.find((l) => l.name === name);
     if (loc) select(loc);
+  }
+
+  // Insert/Enter/Escape/Delete idiom — see docs/pm-frontend-reference.md.
+  // selectedName already IS this list's selection model (set by select()
+  // below, which the detail panel has always used), so there's no second,
+  // parallel id to keep in sync — Delete just acts on whichever location
+  // the existing detail panel already has open.
+  function closeInsert() {
+    creatingNew = false;
+    newLocationValues = { name: '', city: '', locationType: 'Retail', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+  }
+
+  // Scoped to the location-list toolbar div, target-tag-filtered the same
+  // way every other converted screen's handler is, so typing in the
+  // "+ Add type" mini-form's own input never fires these.
+  function handleListKeydown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;
+    if (e.key === 'Insert') {
+      e.preventDefault();
+      creatingNew = true;
+    } else if (e.key === 'Delete' && selectedName) {
+      e.preventDefault();
+      deleteSelectedLocation();
+    }
+  }
+
+  async function deleteSelectedLocation() {
+    if (!selectedName || !session.current?.businessName) return;
+    if (!confirm(`Delete "${translations.current[selectedName] ?? selectedName}"? This cannot be undone.`)) return;
+    error = '';
+    try {
+      await deleteLocation(selectedName, session.current.businessName);
+      selectedName = '';
+      await loadAll();
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Could not delete location.';
+    }
   }
 
   async function select(loc: LocationRecord) {
@@ -358,44 +395,50 @@
     {#if error}<p class="error center-text">{error}</p>{/if}
     {#if message}<p class="success center-text">{message}</p>{/if}
 
-    <div class="list-header">
-      <button type="button" class="btn secondary small" onclick={() => (creatingNew = !creatingNew)}>
-        {creatingNew ? 'Cancel' : '+ New Location'}
-      </button>
-    </div>
-    {#if creatingNew}
-      <div class="new-type-row">
-        <input
-          type="text"
-          placeholder={translations.current['New type…'] ?? 'New type…'}
-          bind:value={newLocationType}
-          onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLocationType(); } }}
+    <div class="list-toolbar" role="toolbar" tabindex="0" aria-describedby="locations-hint" aria-keyshortcuts="Insert Delete" onkeydown={handleListKeydown}>
+      {#if creatingNew}
+        <div class="new-type-row">
+          <input
+            type="text"
+            placeholder={translations.current['New type…'] ?? 'New type…'}
+            bind:value={newLocationType}
+            onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLocationType(); } }}
+          />
+          <button type="button" onclick={addLocationType} disabled={addingLocationType || !newLocationType.trim()}>
+            {translations.current['+ Add type'] ?? '+ Add type'}
+          </button>
+        </div>
+        <Form
+          fields={[
+            { name: 'name', label: 'Location name, e.g. Downtown Cellar', type: 'text' },
+            { name: 'city', label: 'City', type: 'text' },
+            { name: 'locationType', label: 'Type', type: 'select', options: locationTypes },
+            { name: 'timezone', label: 'Timezone', type: 'select', options: ALL_TIMEZONES },
+          ]}
+          bind:values={newLocationValues}
+          onSubmit={createNewLocation}
+          showSubmitButton={false}
+          onCancel={closeInsert}
         />
-        <button type="button" onclick={addLocationType} disabled={addingLocationType || !newLocationType.trim()}>
-          {translations.current['+ Add type'] ?? '+ Add type'}
-        </button>
-      </div>
-      <Form
-        fields={[
-          { name: 'name', label: 'Location name, e.g. Downtown Cellar', type: 'text' },
-          { name: 'city', label: 'City', type: 'text' },
-          { name: 'locationType', label: 'Type', type: 'select', options: locationTypes },
-          { name: 'timezone', label: 'Timezone', type: 'select', options: ALL_TIMEZONES },
-        ]}
-        bind:values={newLocationValues}
-        onSubmit={createNewLocation}
-        submitLabel="Create"
-      />
-    {/if}
-    {#if locations.length === 0}
-      <p class="empty">None yet — use "+ New Location" above.</p>
-    {/if}
-    {#each locations.filter((l) => !l.name.endsWith(COLD_SUFFIX)) as loc}
-      <button type="button" class="entry" class:active={selectedName === loc.name} onclick={() => select(loc)}>
-        <span class="ref">{translations.current[loc.name] ?? loc.name}</span>
-        <span class="dim">{loc.city} · {loc.location_type}</span>
-      </button>
-    {/each}
+      {/if}
+      {#if locations.length === 0 && !creatingNew}
+        <p class="empty">{translations.current['None yet — press Insert to add one.'] ?? 'None yet — press Insert to add one.'}</p>
+      {/if}
+      {#each locations.filter((l) => !l.name.endsWith(COLD_SUFFIX)) as loc}
+        <div
+          class="entry"
+          class:active={selectedName === loc.name}
+          role="button"
+          tabindex="0"
+          onclick={() => select(loc)}
+          onkeydown={(e) => { if (e.key === 'Enter') select(loc); }}
+        >
+          <span class="ref">{translations.current[loc.name] ?? loc.name}</span>
+          <span class="dim">{loc.city} · {loc.location_type}</span>
+        </div>
+      {/each}
+    </div>
+    <p class="keyboard-hint" id="locations-hint">{translations.current['Insert adds a new location. Delete removes the selected one.'] ?? 'Insert adds a new location. Delete removes the selected one.'}</p>
   {/if}
 
 {#if !loading}
@@ -690,10 +733,16 @@
     display: flex;
     justify-content: center;
   }
-  .list-header {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 0.5rem;
+  .list-toolbar:focus {
+    outline: none;
+  }
+  .list-toolbar:focus-visible {
+    border-color: var(--brass);
+  }
+  .keyboard-hint {
+    font-size: var(--font-size-small);
+    color: var(--ink-soft);
+    margin: 0.3rem 0 0;
   }
   .btn.secondary {
     background: transparent;

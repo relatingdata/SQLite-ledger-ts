@@ -18,13 +18,13 @@ Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has
 Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),2,bankAccountName,,text
 Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),3,currency,input[placeholder='e.g. AUD'],text
 Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),4,confirmCombination,table input[type=checkbox],check
-Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),1,businessName,,text
-Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),2,locationName,.generic-form fieldset >> nth=0 >> input,text
-Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),3,city,.generic-form fieldset >> nth=1 >> input,text
-Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),4,locationType,.generic-form fieldset >> nth=2 >> select,select
-Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),5,division,,text
-Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),6,bottleCapacity,,text
-Create Location,data,/locations,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create'),7,cartonCapacity,,text
+Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,1,businessName,,text
+Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,2,locationName,.generic-form fieldset >> nth=0 >> input,text
+Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,3,city,.generic-form fieldset >> nth=1 >> input,text
+Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,4,locationType,.generic-form fieldset >> nth=2 >> select,select
+Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,5,division,,text
+Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,6,bottleCapacity,,text
+Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,7,cartonCapacity,,text
 Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,1,businessName,,text
 Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,2,employeeName,input[placeholder='Employee name'],text
 Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,3,locationName,,text
@@ -74,13 +74,13 @@ Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),r
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),5,groupingName,select >> nth=3,select
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),6,storageValue,select >> nth=4,select
 Receive Into Storage,data,,,,,7,ledger,,text
-Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),1,businessName,,text
-Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),2,locationName,,text
-Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),3,itemName,input[placeholder='Item name…'],text
-Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),4,containerValue,select >> nth=3,select
-Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),5,cartonsOpened,input[placeholder='1'],text
-Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),6,unitValue,select >> nth=4,select
-Open Container,data,/locations,button:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),7,unitsProduced,input[placeholder='e.g. 24'],text
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),1,businessName,,text
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),2,locationName,,text
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),3,itemName,input[placeholder='Item name…'],text
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),4,containerValue,select >> nth=3,select
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),5,cartonsOpened,input[placeholder='1'],text
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),6,unitValue,select >> nth=4,select
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),7,unitsProduced,input[placeholder='e.g. 24'],text
 Open Container,data,,,,,8,ledger,,text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),1,businessName,,text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),3,fromLocationName,select >> nth=1,select
