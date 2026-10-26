@@ -99,12 +99,16 @@ Every helper in `fixtures.ts` is a thin, named wrapper around a real
   can never collide on the same business name.
 - **`freshLocation`**, **`freshItem`**, **`freshHierarchyValue`** are
   the same pattern one level down: each calls the real
-  `createAndConfigureLocation`, `createItemCategory`/`create`, or
+  `createAndConfigureLocation`, `createItem`, or
   `ensureHierarchyGrouping`/`ensureHierarchyValue`, pre-filled with
   sensible, overridable defaults (a location defaults to an ordinary
-  retail outlet in Adelaide; an item is always created under a fresh
-  category, never directly under the bare `Items` root — that shape
-  is deliberately rejected, see `isGenuineCategoryOrItemsRoot`).
+  retail outlet in Adelaide; `freshItem` always creates the item flat,
+  directly under the business's `Items` root — the same, real,
+  category-free path `createItem` always uses — since Category is a
+  separate, optional `Hierarchy` tag now, never a required real
+  position in the Items catalog tree; a test that specifically needs a
+  tagged category calls `freshHierarchyValue(business, 'Category',
+  hint)` and tags the item itself with `setHierarchyParent`).
 - **`getAccountBalance`**, **`findChild`**, **`findByName`**,
   **`coaCategoryRoot`** are read-side helpers — thin wrappers around
   one repeated query shape (walk `Businesses → <business> → Chart of

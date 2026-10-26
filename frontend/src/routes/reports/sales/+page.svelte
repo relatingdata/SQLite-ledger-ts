@@ -111,7 +111,7 @@
           <tr>
             <th>{translations.current['Date'] ?? 'Date'}</th>
             <th>{translations.current['Reference'] ?? 'Reference'}</th>
-            <th>{translations.current['Product'] ?? 'Product'}</th>
+            <th>{translations.current['Item'] ?? 'Item'}</th>
             <th class="num">{translations.current['Qty'] ?? 'Qty'}</th>
             <th class="num">{translations.current['Unit price'] ?? 'Unit price'}</th>
             <th class="num">{translations.current['Amount'] ?? 'Amount'}</th>

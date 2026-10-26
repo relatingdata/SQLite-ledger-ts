@@ -13,11 +13,11 @@
   // Enforces the same opposingHierarchyAxes constraint as new-new-pl — see docs/pm-frontend-reference.md.
   type GroupableAxis = Exclude<MatrixAxis, 'Consolidated'>;
   let LOCATION_HIERARCHY: GroupableAxis[] = ['Location'];
-  const PRODUCT_HIERARCHY: GroupableAxis[] = ['Category', 'Product'];
+  const ITEM_HIERARCHY: GroupableAxis[] = ['Category', 'Item'];
   function opposingHierarchyAxes(axis: GroupableAxis): GroupableAxis[] {
-    if (LOCATION_HIERARCHY.includes(axis)) return PRODUCT_HIERARCHY;
-    if (PRODUCT_HIERARCHY.includes(axis)) return LOCATION_HIERARCHY;
-    return [...LOCATION_HIERARCHY, ...PRODUCT_HIERARCHY];
+    if (LOCATION_HIERARCHY.includes(axis)) return ITEM_HIERARCHY;
+    if (ITEM_HIERARCHY.includes(axis)) return LOCATION_HIERARCHY;
+    return [...LOCATION_HIERARCHY, ...ITEM_HIERARCHY];
   }
 
   interface Chip { id: GroupableAxis; axis: GroupableAxis; }
@@ -25,7 +25,7 @@
     return axes.map((axis) => ({ id: axis, axis }));
   }
 
-  let trayChips: Chip[] = chipsFor(['Location', 'Category', 'Product']);
+  let trayChips: Chip[] = chipsFor(['Location', 'Category', 'Item']);
   let rowChips: Chip[] = [];
   let colChips: Chip[] = [];
   // Per-zone narrowing value — see docs/pm-frontend-reference.md.
@@ -111,13 +111,13 @@
       try {
         axisValues = await getAxisValues(session.current.businessName, session.current.ledgerName);
         // See docs/pm-frontend-reference.md.
-        const furtherHierarchies = Object.keys(axisValues).filter((k) => !['Product', 'Category', 'Location'].includes(k)) as GroupableAxis[];
+        const furtherHierarchies = Object.keys(axisValues).filter((k) => !['Item', 'Category', 'Location'].includes(k)) as GroupableAxis[];
         if (furtherHierarchies.length > 0) {
           LOCATION_HIERARCHY = ['Location', ...furtherHierarchies];
           trayChips = [...trayChips, ...chipsFor(furtherHierarchies)];
         }
       } catch {
-        /* the zones still work with just Location/Category/Product if this fails — further, business-chosen hierarchies and the specific-value narrowing are both a convenience, not a requirement */
+        /* the zones still work with just Location/Category/Item if this fails — further, business-chosen hierarchies and the specific-value narrowing are both a convenience, not a requirement */
       }
     }
     await load();

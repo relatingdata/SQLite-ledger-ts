@@ -9,19 +9,19 @@
   import AxisPLNode from '$lib/components/AxisPLNode.svelte';
 
   // Hierarchy-redundancy guard — see docs/pm-frontend-reference.md.
-  const PRODUCT_HIERARCHY: Exclude<MatrixAxis, 'Consolidated'>[] = ['Category', 'Product'];
-  $: furtherHierarchies = (axisValues ? Object.keys(axisValues).filter((k) => !['Product', 'Category', 'Location'].includes(k)) : []) as Exclude<MatrixAxis, 'Consolidated'>[];
+  const ITEM_HIERARCHY: Exclude<MatrixAxis, 'Consolidated'>[] = ['Category', 'Item'];
+  $: furtherHierarchies = (axisValues ? Object.keys(axisValues).filter((k) => !['Item', 'Category', 'Location'].includes(k)) : []) as Exclude<MatrixAxis, 'Consolidated'>[];
   $: locationHierarchy = ['Location', ...furtherHierarchies] as Exclude<MatrixAxis, 'Consolidated'>[];
-  $: groupableAxes = ['Product', 'Category', ...locationHierarchy] as Exclude<MatrixAxis, 'Consolidated'>[];
+  $: groupableAxes = ['Item', 'Category', ...locationHierarchy] as Exclude<MatrixAxis, 'Consolidated'>[];
   function opposingHierarchyAxes(axis: Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated'): (Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated')[] {
-    if (locationHierarchy.includes(axis as never)) return ['Consolidated', ...PRODUCT_HIERARCHY];
-    if (PRODUCT_HIERARCHY.includes(axis as never)) return ['Consolidated', ...locationHierarchy];
+    if (locationHierarchy.includes(axis as never)) return ['Consolidated', ...ITEM_HIERARCHY];
+    if (ITEM_HIERARCHY.includes(axis as never)) return ['Consolidated', ...locationHierarchy];
     return ['Consolidated', ...groupableAxes];
   }
 
   // Unified axis dropdown — see docs/pm-frontend-reference.md.
   let outerSelection = 'Location';
-  let innerSelection = 'Product';
+  let innerSelection = 'Item';
 
   let axisValues: AxisValues | null = null;
   let fromDate = '';

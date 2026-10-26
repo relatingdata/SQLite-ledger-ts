@@ -17,18 +17,14 @@
     getLocationTypes,
     getHierarchy,
     getHierarchyTag,
+    getHierarchyAssignments,
     setHierarchyTag,
     deleteHierarchyTag,
     createHierarchyGrouping,
     createHierarchyValue,
-    getEntityTree,
-    createEntity,
-    supersedeEntity,
-    revokeEntity,
     deleteLocation,
     deleteHierarchyGrouping,
     deleteHierarchyValue,
-    listItems,
     listDepartments,
     createDepartment,
     deleteDepartment,
@@ -40,8 +36,6 @@
     ApiError,
     type LocationRecord,
     type HierarchyGroupingWithValues,
-    type EntityNode,
-    type ItemSummary,
     type DepartmentRecord,
     type OrgChartStructure,
     type OrgChartEmployee,
@@ -67,6 +61,7 @@
   let activeTab: Tab = $derived(STEPS[stepIndex].id);
 
   const DIVISION = 'Division';
+  const CATEGORY = 'Category';
   const UNASSIGNED_KEY = '__unassigned__';
   const UNASSIGNED_DEPT_KEY = '__unassigned_dept__';
 
@@ -358,10 +353,21 @@
   }
 
   // ---------------------------------------------------------------
-  // Item Categories
+  // Item Categories — a pure, optional Hierarchy of tags on items,
+  // exactly like Division (see setHierarchyParent/getHierarchyParent
+  // in db.ts and docs/pm-domain-reference.md): a category VALUE is a
+  // real, lightweight entity registered under the business's
+  // Hierarchy registry, never a position in the real Items catalog
+  // tree. A value can itself be tagged under a further value of the
+  // same grouping to any depth (the same generic value-to-value
+  // nesting createHierarchyValue's own parentValueName already
+  // supports for every hierarchy) — rendered here as a tree since a
+  // business typically has only this one Category grouping to
+  // browse, unlike Other Hierarchies below which lists several
+  // groupings side by side.
   // ---------------------------------------------------------------
-  let entities: EntityNode[] = $state([]);
-  let items: ItemSummary[] = $state([]);
+  let categoryValues: string[] = $state([]);
+  let categoryParents: Record<string, string> = $state({});
   let categoriesError = $state('');
   let categoriesLoading = $state(true);
 
@@ -369,9 +375,9 @@
     categoriesLoading = true;
     categoriesError = '';
     try {
-      const [tree, itemsResult] = await Promise.all([getEntityTree(business), listItems(business)]);
-      entities = tree;
-      items = itemsResult.rows;
+      const [h, assignments] = await Promise.all([getHierarchy(business), getHierarchyAssignments(CATEGORY)]);
+      categoryValues = h.find((g) => g.grouping === CATEGORY)?.values ?? [];
+      categoryParents = assignments;
     } catch (e) {
       categoriesError = e instanceof ApiError ? e.message : 'Could not load item categories.';
     } finally {
@@ -379,53 +385,28 @@
     }
   }
 
-  function itemsRootEntity(): EntityNode | undefined {
-    const biz = entities.find((e) => e.name === business);
-    if (biz) {
-      const scoped = entities.find((e) => e.name === 'Items' && e.parent_id === biz.id);
-      if (scoped) return scoped;
-    }
-    return entities.find((e) => e.name === 'Items');
-  }
+  let allCategoryNames: string[] = $derived.by(() => categoryValues);
 
   let categoryTree: StructureNode[] = $derived.by(() => {
-    const root = itemsRootEntity();
-    if (!root) return [];
-    const itemNames = new Set(items.map((i) => i.name));
-    const byParentId = new Map<number, EntityNode[]>();
-    for (const e of entities) {
-      if (e.parent_id == null) continue;
-      const list = byParentId.get(e.parent_id) ?? [];
-      list.push(e);
-      byParentId.set(e.parent_id, list);
+    const valueSet = new Set(categoryValues);
+    const byParent = new Map<string, string[]>();
+    for (const name of categoryValues) {
+      const parent = categoryParents[name];
+      const bucket = parent && valueSet.has(parent) ? parent : UNASSIGNED_KEY;
+      const list = byParent.get(bucket) ?? [];
+      list.push(name);
+      byParent.set(bucket, list);
     }
-    const build = (categoryEntity: EntityNode): StructureNode => {
-      const kids = (byParentId.get(categoryEntity.id) ?? []).filter((k) => !itemNames.has(k.name)).sort((a, b) => a.name.localeCompare(b.name));
-      return { key: `cat:${categoryEntity.id}`, name: categoryEntity.name, kind: 'category', canAddChild: true, canMove: categoryEntity.id !== root.id, children: kids.map(build) };
-    };
-    return (byParentId.get(root.id) ?? [])
-      .filter((e) => !itemNames.has(e.name))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map(build);
+    const build = (name: string): StructureNode => ({
+      key: `cat:${name}`,
+      name,
+      kind: 'category',
+      canAddChild: true,
+      canMove: true,
+      children: (byParent.get(name) ?? []).sort((a, b) => a.localeCompare(b)).map(build),
+    });
+    return (byParent.get(UNASSIGNED_KEY) ?? []).sort((a, b) => a.localeCompare(b)).map(build);
   });
-
-  let allCategoryNames: string[] = $derived.by(() => {
-    const root = itemsRootEntity();
-    const itemNames = new Set(items.map((i) => i.name));
-    return entities.filter((e) => e.id !== root?.id && !itemNames.has(e.name) && isUnderItemsRoot(e)).map((e) => e.name);
-  });
-  function isUnderItemsRoot(e: EntityNode): boolean {
-    const root = itemsRootEntity();
-    if (!root) return false;
-    let cur: EntityNode | undefined = e;
-    const byId = new Map(entities.map((x) => [x.id, x]));
-    let guard = 0;
-    while (cur && guard++ < 50) {
-      if (cur.id === root.id) return true;
-      cur = cur.parent_id != null ? byId.get(cur.parent_id) : undefined;
-    }
-    return false;
-  }
 
   let addingCategoryUnder: StructureNode | 'root' | null = $state(null);
   let newCategoryName = $state('');
@@ -439,12 +420,10 @@
   }
   async function submitNewCategory() {
     if (!newCategoryName.trim() || !addingCategoryUnder) return;
-    const root = itemsRootEntity();
-    if (!root) return;
-    const parentId = addingCategoryUnder === 'root' ? root.id : entities.find((e) => e.name === (addingCategoryUnder as StructureNode).name)?.id;
-    if (!parentId) return;
     try {
-      await createEntity({ name: newCategoryName.trim(), parentId }, 'Business Structure Popup');
+      await createHierarchyGrouping(business, CATEGORY);
+      const parentValueName = addingCategoryUnder === 'root' ? undefined : (addingCategoryUnder as StructureNode).name;
+      await createHierarchyValue(business, CATEGORY, newCategoryName.trim(), parentValueName);
       addingCategoryUnder = null;
       newCategoryName = '';
       await loadCategoriesTab();
@@ -453,32 +432,30 @@
     }
   }
 
-  // supersedeEntity's own reparent API (backend/src/db.ts:402, api.ts:148)
-  // takes a bare parent NAME, not a parent id — a pre-existing
-  // limitation this popup inherits rather than introduces (the
-  // Structured Editor's own reparent dropdown has the same one). Every
-  // business's Items root is literally named "Items" (only unique
-  // among siblings under the same parent, per schema/00-core.sql's
-  // entities_name_unique trigger), so "move to top level" is reliable
-  // only while at most one business's Items root is reachable by that
-  // bare name at once — true for this app's own single-business-at-a-
-  // time demo/test setup, but worth fixing in supersedeEntity itself
-  // (accepting a parent id) before this popup is trusted multi-business.
+  // "Move…" here re-tags a category value's own Hierarchy: Category
+  // link — the identical setHierarchyTag/deleteHierarchyTag mechanism
+  // Division's own "Move…" (above) uses to move a Location between
+  // Divisions. "Top level" clears the tag rather than pointing it
+  // anywhere, exactly like "Unassigned (no division)" does there.
   let movingCategoryKey: string | null = $state(null);
   let moveCategoryOptions: { value: string | null; label: string }[] = $derived.by(() => {
-    const root = itemsRootEntity();
-    const options = root ? [{ value: root.name, label: `${translations.current['Top level'] ?? 'Top level'} (${root.name})` }] : [];
-    return [...options, ...allCategoryNames.sort((a, b) => a.localeCompare(b)).map((n) => ({ value: n, label: n }))];
+    const node = movingCategoryKey ? findNode(categoryTree, movingCategoryKey) : undefined;
+    const options = [{ value: null, label: translations.current['Top level'] ?? 'Top level' }];
+    return [
+      ...options,
+      ...allCategoryNames
+        .filter((n) => n !== node?.name)
+        .sort((a, b) => a.localeCompare(b))
+        .map((n) => ({ value: n, label: n })),
+    ];
   });
   function startMoveCategory(node: StructureNode) {
     movingCategoryKey = node.key;
   }
   async function confirmMoveCategory(node: StructureNode, destination: string | null) {
-    if (!destination) return;
-    const entity = entities.find((e) => e.name === node.name);
-    if (!entity) return;
     try {
-      await supersedeEntity(entity.id, { parent: destination });
+      if (destination) await setHierarchyTag(node.name, CATEGORY, destination);
+      else await deleteHierarchyTag(node.name, CATEGORY);
       movingCategoryKey = null;
       await loadCategoriesTab();
     } catch (e) {
@@ -490,11 +467,9 @@
     if (!selectedKey) return;
     const node = findNode(categoryTree, selectedKey);
     if (!node || node.kind !== 'category') return;
-    const entity = entities.find((e) => e.name === node.name);
-    if (!entity) return;
     if (!confirm(`Delete "${translations.current[node.name] ?? node.name}"? This cannot be undone.`)) return;
     try {
-      await revokeEntity(entity.id);
+      await deleteHierarchyValue(business, CATEGORY, node.name);
       selectedKey = null;
       await loadCategoriesTab();
     } catch (e) {
@@ -513,7 +488,7 @@
     hierarchiesLoading = true;
     hierarchiesError = '';
     try {
-      hierarchy = (await getHierarchy(business)).filter((h) => h.grouping !== DIVISION);
+      hierarchy = (await getHierarchy(business)).filter((h) => h.grouping !== DIVISION && h.grouping !== CATEGORY);
     } catch (e) {
       hierarchiesError = e instanceof ApiError ? e.message : 'Could not load hierarchies.';
     } finally {
@@ -599,7 +574,7 @@
 
   function loadStep(tab: Tab) {
     if (tab === 'structure' && locations.length === 0 && structureLoading) loadStructureTab();
-    if (tab === 'categories' && entities.length === 0 && categoriesLoading) loadCategoriesTab();
+    if (tab === 'categories' && categoryValues.length === 0 && categoriesLoading) loadCategoriesTab();
     if (tab === 'hierarchies' && hierarchy.length === 0 && hierarchiesLoading) loadHierarchiesTab();
   }
   function goToStep(index: number) {

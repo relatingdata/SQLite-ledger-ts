@@ -183,13 +183,19 @@ depth — a company, a division, a location, and an employee can all
 correctly be named "Springfield" at once.
 
 Only **product** and **location** map to a real, physical, posted-to
-account. Division and category are purely computed reporting rollups
-— walked at report time from a location's own division-tree parent or
-a product's own category-tree parent — never a stored column on the
-journal line (`journal_line` has no `division_id` column at all).
-Every product, tiered or not, resolves to its own `{Product} —
-{Location}` Sales/COGS/Inventory leaf once a location is known
-(`ensureItemLocationLeaf`, `ensureItemTierLocationLeaf`).
+account. Division, category, and any other business-defined Hierarchy
+are purely computed reporting rollups — resolved at report time from
+a lateral, optional tag (`getHierarchyParent`), never a real position
+in either the Locations tree or the Items catalog tree, and never a
+stored column on the journal line (`journal_line` has no `division_id`
+column at all, nor any equivalent for category). A product's Sales/
+COGS leaves always post flat, directly under the real "Sales Revenue"/
+"Cost of Goods Sold" accounts (or under a real Profit Center
+sub-account, where one applies) — a product's own category tag, if
+any, never shapes real Chart-of-Accounts structure. Every product,
+tiered or not, resolves to its own `{Product} — {Location}` Sales/
+COGS/Inventory leaf once a location is known (`ensureItemLocationLeaf`,
+`ensureItemTierLocationLeaf`).
 
 Purchase Orders and Sales Orders carry an optional `location` field
 (delivery/dispatch instructions). AR Sale, Cash Sale, AP Purchase, and
@@ -234,7 +240,7 @@ mechanisms address it:
 resolve via `COALESCE(account_id, (SELECT id FROM current_entities
 WHERE name = account))` — the direct id is preferred when a caller
 has one, falling back to the name lookup for an ordinary, user-typed
-value. `createEntity`, `ensureCategoryChain`,
+value. `createEntity`, `resolvePostingRoot`,
 `ensureItemSalesCogsAccounts`, `ensureProductTierPart`,
 `ensureItemLocationLeaf`, `ensureItemTierLocationLeaf`,
 `ensureItemInventoryAccount`, and `ensureItemLocationInventoryAccount`
@@ -369,19 +375,25 @@ own file (a flagged, not-yet-done cleanup).
 ## Hierarchies and multi-dimensional reporting
 
 A single leaf account is reachable via more than one independent,
-equally-valid accumulation path to the same business root — e.g. a
-division/location path and a product-category path for the same
-"Amber Ale 330ml — Sales" leaf. Neither path is the account's "real"
-`parent_id` with the other as secondary; both are genuine, complete,
-independent summation paths, and a leaf's own name never encodes
-which hierarchy it's being viewed through (the *path* carries that
-meaning, not the *name*).
+equally-valid accumulation path to the same business root — e.g. its
+real, structural Chart-of-Accounts path (which is always either a
+location's own account placement, for "where," or a product's own
+flat Sales/COGS posting, for "what" — see `resolvePostingRoot` above)
+alongside any number of further, purely lateral paths such as
+Division or Category, for the same "Amber Ale 330ml — Sales" leaf.
+Only the structural path is the account's "real" `parent_id`; every
+other hierarchy is a genuine, complete, independent, but
+*computed-only* summation path — it never shapes real account
+structure, and a leaf's own name never encodes which hierarchy it's
+being viewed through (the *path* carries that meaning, not the
+*name*).
 
 `parent_id` gives exactly one such path for free (whichever dimension
 is chosen as the entity's structural placement — for a GL account,
-that's the Chart of Accounts/product-category placement). Every
-further, equal dimension needs its own real, separate, reversible
-index, independent of `parent_id`:
+that's the Chart of Accounts/location placement, or, for a product,
+its own flat posting root). Every further, equal dimension — Division,
+Category, or any other business-defined grouping — needs its own
+real, separate, reversible index, independent of `parent_id`:
 
 ```typescript
 export function setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId): string {
@@ -402,19 +414,22 @@ correct, current term for this mechanism; **"dimension"** is reserved
 for two unrelated things — `definitionDimensions` (a product's own
 variant axes: Size/Pack/Color) and the drag-and-drop hierarchy editor.
 
-**"Division" is not a privileged concept anywhere in the code.**
-Everything that once had Division-specific naming has been
-generalized to take an ordinary, business-chosen hierarchy name as a
-parameter:
+**Neither "Division" nor "Category" is a privileged concept anywhere
+in the code.** Both are just two conventional, suggested hierarchy
+names — a business could rename or drop either, or add any number of
+further ones (region, bottle size, storage area), with zero code
+change. Everything that once had Division- or Category-specific naming
+has been generalized to take an ordinary, business-chosen hierarchy
+name as a parameter:
 
 - `getHierarchyGroups(hierarchyName)`, `getHierarchyGroupForAccount(accountName, hierarchyName)`, `getHierarchyGroupForLocation(locationName, hierarchyName)`
 - `getProfitAndLossByHierarchy(business, ledger, hierarchyPath, ...)`, `getProfitAndLossForHierarchyGroup(business, ledger, hierarchyPath, groups, groupName, ...)`, `getProfitAndLossByHierarchyTree(business, ledger, hierarchyPath, hierarchyName, ...)`
 - `getLedgerBalancesByHierarchyStructural(business, ledger, hierarchyPath, fromDate?, toDate?, excludeCloseEntries?)` — resolves each account to its group by walking `hierarchyPath` (an ordered list of hierarchy names) one `getHierarchyParent` hop at a time; `['Location']` for a one-hop breakdown, `['Location', 'Division']` for a two-hop one.
 - `closeBooks`/`previewCloseBooks`/`computeCloseLines` take an explicit `hierarchyPath: string[] = []`; their result's informational summary field is `groupBreakdown`, not `divisionBreakdown`.
-- `MatrixAxis` is `'Product' | 'Category' | 'Location' | 'Consolidated' | (string & {})` — no fixed `'Division'` member; `resolveKey`'s fallback tries a hierarchy-parent lookup on the product, then its location, for any axis name not already structurally known.
-- The frontend's generic `HierarchyGroupTreePicker.svelte`/`HierarchyGroupPLNode.svelte`/`HierarchyGroupTreeNode.svelte` each take a `hierarchyName` prop; the matrix-report pages read a business's configured hierarchies live (`getHierarchy`/`getAxisValues`) rather than hardcoding `'Division'` in an axis list.
-- `BusinessStructurePopup.svelte`'s "Locations & Divisions" tab likewise treats `Division` as just the one, conventional hierarchy name it happens to tag Locations against — see `docs/pm-frontend-reference.md`'s "Business Structure popup" section for the full design, including the hierarchy-tag-vs-structural-reparent distinction it depends on.
-- A business that names a hierarchy "Division" gets identical reports, close-books breakdown, and org-chart grouping as before — nothing privileges that one name over any other a business might choose.
+- `MatrixAxis` is `'Item' | 'Location' | 'Consolidated' | (string & {})` — no fixed `'Division'` or `'Category'` member; `resolveKey`'s fallback tries a hierarchy-parent lookup on the product, then its location, for any axis name not already structurally known. Category used to be the one exception — a product's own real ancestor position in the Items catalog tree, and the one real-GL-account-mirroring hierarchy in the codebase (`ensureCategoryChain`, since removed) — until it was generalized to the exact same lateral tag mechanism Division already used (`resolvePostingRoot` now posts every product's Sales/COGS leaves flat, with no category-shaped sub-account structure at all).
+- The frontend's generic `HierarchyGroupTreePicker.svelte`/`HierarchyGroupPLNode.svelte`/`HierarchyGroupTreeNode.svelte` each take a `hierarchyName` prop; the matrix-report pages read a business's configured hierarchies live (`getHierarchy`/`getAxisValues`) rather than hardcoding `'Division'` or `'Category'` in an axis list.
+- `BusinessStructurePopup.svelte`'s "Org Chart" and "Item Categories" steps likewise each treat their own hierarchy name (`Division`, `Category`) as just the one, conventional name they happen to tag Locations or Items against — see `docs/pm-frontend-reference.md`'s "Business Structure popup" section for the full design, including the hierarchy-tag-vs-structural-reparent distinction both depend on.
+- A business that names a hierarchy "Division" or "Category" gets identical reports, close-books breakdown, and catalog grouping as any other hierarchy name it might instead have chosen — nothing privileges either name over any other, and the application works fine with no hierarchy at all (a single item in a single location, no category or division structure whatsoever).
 
 `getOrganizationChart`'s own HR-specific relationship is a separate
 mechanism (`Belongs To Group`, formerly `Belongs To Division`) — a
@@ -445,8 +460,8 @@ Amber Ale 330ml            (a summary category — never sold, never postable)
 `ensureProductTierPart` creates a new, additional, distinct tier-level
 part alongside the existing base product (never re-parenting the
 shared, ambiguous one — re-parenting breaks the moment a product has
-more than one tier, since the second tier can no longer walk back to
-its own category chain). Wired into the live POS sale posting path.
+more than one tier, since the second tier can no longer resolve its
+own flat posting root). Wired into the live POS sale posting path.
 The `real_accounts` recursive CTE (`getLedgerBalances` and relatives)
 stops walking the moment it reaches an entity with a real `part` row —
 never descending into that part's own quantity-domain children

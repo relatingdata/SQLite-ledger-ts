@@ -8,9 +8,9 @@
   import { getHierarchy } from '$lib/api';
 
   // Further hierarchies appended live, never hardcoded — see docs/pm-frontend-reference.md.
-  let AXES: MatrixAxis[] = $state(['Product', 'Category', 'Location', 'Consolidated']);
+  let AXES: MatrixAxis[] = $state(['Item', 'Category', 'Location', 'Consolidated']);
 
-  let rowAxis: MatrixAxis = $state('Product');
+  let rowAxis: MatrixAxis = $state('Item');
   let colAxis: MatrixAxis = $state('Location');
   let matrix: StockOnHandMatrix | null = $state(null);
   let loading = $state(true);
@@ -38,9 +38,9 @@
       try {
         const hierarchy = await getHierarchy(session.current.businessName);
         const furtherHierarchies = hierarchy.map((h) => h.grouping) as MatrixAxis[];
-        if (furtherHierarchies.length > 0) AXES = ['Product', 'Category', 'Location', ...furtherHierarchies, 'Consolidated'];
+        if (furtherHierarchies.length > 0) AXES = ['Item', 'Category', 'Location', ...furtherHierarchies, 'Consolidated'];
       } catch {
-        /* the axis dropdowns still work with just Product/Category/Location/Consolidated if this fails — further, business-chosen hierarchies are an addition, not a requirement */
+        /* the axis dropdowns still work with just Item/Category/Location/Consolidated if this fails — further, business-chosen hierarchies are an addition, not a requirement */
       }
     }
     await load();

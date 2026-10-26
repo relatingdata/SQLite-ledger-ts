@@ -4,13 +4,14 @@ import { asBusinessName, asLedgerName } from '../db.js';
 
 export const matrixReportsRouter = Router();
 
-// The three, real, structural axes plus "Consolidated" are the only
-// ones resolved specially (see resolveKey in db-matrix-reports.ts) -
-// any other, real, non-empty string is a genuine, user-defined
-// hierarchy name (e.g. "Division," or anything else a real business
-// has set up), accepted here exactly the same way, never a closed,
-// hardcoded set.
-const STRUCTURAL_AXES: MatrixAxis[] = ['Product', 'Category', 'Location', 'Consolidated'];
+// Item, Location, and Consolidated are the only axes resolved
+// specially (see resolveKey in db-matrix-reports.ts) - any other,
+// real, non-empty string ("Category," "Division," or anything else a
+// real business has set up) is a genuine, user-defined hierarchy
+// name, accepted here exactly the same way, never a closed, hardcoded
+// set. This list is only ever used for an error message's example
+// text below, never for validation.
+const STRUCTURAL_AXES: MatrixAxis[] = ['Item', 'Location', 'Consolidated'];
 
 function parseAxis(value: unknown): MatrixAxis | null {
   return typeof value === 'string' && value.length > 0 ? value : null;

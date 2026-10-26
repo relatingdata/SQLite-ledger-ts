@@ -6,6 +6,7 @@ import {
   ensureHierarchyValue,
   setHierarchyParent,
   getHierarchyParent,
+  getHierarchyAssignments,
   deleteHierarchyParent,
   deleteHierarchyGrouping,
   deleteHierarchyValue,
@@ -110,6 +111,17 @@ hierarchyRouter.post('/parent', requireRole('Administrator', 'Bookkeeper'), (req
     console.error(err);
     res.status(500).json({ error: 'Could not set hierarchy tag.' });
   }
+});
+
+/** Every real, direct tag for one named hierarchy, in one call - entity
+ * name -> the value it's tagged with. Lets a screen build a real display
+ * tree (e.g. the Items catalog's Category grouping, or a Division
+ * assignment view) for any hierarchy without one request per item or
+ * per value. Never defaulted to any particular hierarchy name. */
+hierarchyRouter.get('/assignments', (req, res) => {
+  const hierarchyName = req.query.hierarchyName as string;
+  if (!hierarchyName) return res.status(400).json({ error: 'hierarchyName query parameter is required.' });
+  res.json(getHierarchyAssignments(hierarchyName));
 });
 
 /** Real, direct lookup: what value (if any) a real entity is currently

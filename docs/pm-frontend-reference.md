@@ -559,9 +559,12 @@ the way `text-align` or `flex-direction` do.
   `formatAmount`'s currency-cents formatting.
 - **`reports/new-stock-on-hand/+page.svelte`**: further business-chosen
   hierarchies are appended live once read from the business's
-  Hierarchy configuration, never hardcoded; the axis dropdowns still
-  work with just Product/Category/Location/Consolidated if that load
-  fails.
+  Hierarchy configuration; the axis dropdowns default to, and still
+  work with, just Item/Category/Location/Consolidated if that load
+  fails — Category and Location here are two ordinary, conventional
+  axis names among the default set, with no privileged backend concept
+  of their own (see `docs/pm-domain-reference.md`'s "Hierarchies and
+  multi-dimensional reporting").
 - **`lib/components/ContactPersonList.svelte`**: superseded by
   `ContactList.svelte` (this list may hold organizations or subunits
   too, like "Help Desk", not only individual people) — kept as a thin
@@ -694,10 +697,10 @@ Further business-chosen hierarchies (e.g. "Division") are never
 hardcoded — read live from the business's own Hierarchy
 configuration. Location and any further hierarchy are the same one
 hierarchy (Location Categorization) at two grains; the same is true of
-Category and Product (Product Categorization) — crossing a hierarchy
+Category and Item (Item Categorization) — crossing a hierarchy
 against its own other level is redundant (see the fuller comment in
 the New New P&L chapter above). The axis dropdowns still work with
-just Product/Category/Location if that configuration lookup fails;
+just Item/Category/Location if that configuration lookup fails;
 further hierarchies are an addition, not a requirement. Row/column
 keys and the (row, col) → cell lookup are built once in the standard
 pivot-table shape.
@@ -706,9 +709,11 @@ pivot-table shape.
 
 Grouping names offered are never hardcoded to one privileged
 hierarchy — "group" stands for whichever one a business has actually
-configured (e.g. "Division"), read live, alongside the three
-structural groupings every stock movement row always has: location,
-provider, category. The report still works with no group tagging at
+configured (e.g. "Division"), read live, alongside location and
+provider (always structural) and category (a lateral `Hierarchy:
+Category` tag lookup, resolved the same generic way as "group",
+falling back to "(No category)" when untagged, never a structural
+walk). The report still works with no group tagging at
 all if that lookup fails. Every group starts collapsed, the same
 pattern already proven on the P&L and Inventory Listing reports —
 subtotals first, detail on demand. Transfers have no group/provider of
@@ -968,13 +973,13 @@ Per `docs/pl-pivot-builder-dnd-plan.md`, this enforces the same
 `opposingHierarchyAxes` constraint `new-new-pl` enforces via its two
 dropdowns (see the two-axis P&L chapter above): a business's further
 chosen hierarchy and Location are the same hierarchy at two different
-grains, and so are Category/Product, so crossing either against its
+grains, and so are Category/Item, so crossing either against its
 own other level is redundant, never a second independent axis. No
 further hierarchy name is hardcoded; `LOCATION_HIERARCHY` is filled in
 once `axisValues` loads, with whatever hierarchies the business
 actually configured. Further business-chosen hierarchies and the
 specific-value narrowing are both a convenience, not a requirement —
-the zones still work with just Location/Category/Product if that load
+the zones still work with just Location/Category/Item if that load
 fails.
 
 **Drag-and-drop zones**: a per-zone narrowing value ("this whole axis"
@@ -1136,16 +1141,16 @@ from `axisValues`, whatever names the business actually configured.
 Location and any such further hierarchy are the same hierarchy
 (Location Categorization) at two levels of grain — a division is a
 coarser grouping of locations, a location is that hierarchy's finest
-leaf — and the same is true of Category and Product (Product
+leaf — and the same is true of Category and Item (Item
 Categorization). Crossing a hierarchy against its own other level
-("Division v Location", "Category v Product") is redundant, not a
+("Division v Location", "Category v Item") is redundant, not a
 second independent dimension — it's the same grouping crossed against
 itself. A meaningful two-axis breakdown always crosses one whole
 hierarchy against the other: Location-side (where a sale happened)
-against Product-side (what was sold), in any combination including
+against Item-side (what was sold), in any combination including
 drill-down within each. If changing one grouping's hierarchy would
 leave the other showing a stale, no-longer-available selection (e.g.
-Outer moves from Location to Category while Inner is still Product —
+Outer moves from Location to Category while Inner is still Item —
 now the same hierarchy crossed against itself), that one resets to
 Consolidated rather than silently keeping an invalid value selected.
 This guard is a direct function call, not a reactive statement —
@@ -1372,7 +1377,7 @@ all: every add/move action below reuses an existing, already-wired
 function.
 
 **Presented as a step-by-step wizard, not a free-form tabbed modal**:
-a `stepper` nav across the top (Locations & Divisions → Item Categories
+a `stepper` nav across the top (Org Chart → Item Categories
 → Other Hierarchies), a one-line blurb per step, and Back/Next/Finish
 footer buttons, instead of the earlier plain tab bar. Every single step
 is explicitly optional and skippable with Next — the wizard can be
@@ -1399,48 +1404,55 @@ time via a "Business Structure" entry under Configuration
 (`migrateForMenuEntities`, `backend/src/db-seed.ts`), which opens the
 same popup for `session.current.businessName`.
 
-**Two distinct reposition mechanisms**, carried through the component
-without being collapsed into one:
+**Every reposition in this popup is a hierarchy *tag*, never a
+structural reparent** — Locations ↔ Division, Item Category value ↔
+parent Category value, and Employee ↔ Department/Manager are all the
+same kind of move, carried through the component without being
+collapsed into one mechanism only because each targets a different
+named link:
 
-- **Locations ↔ Division membership is a hierarchy *tag***
+- **Locations ↔ Division membership** is a tag on the Location
   (`setHierarchyTag`/`deleteHierarchyTag`, `frontend/src/lib/api.ts` —
   `setHierarchyParent`/`deleteHierarchyParent` on the backend,
   `backend/src/db.ts`). A location's real `parent_id` never changes —
   it stays under the business's `Locations` root forever. "Moving" a
   location between divisions, or to "Unassigned", only changes or
-  clears this tag. The Locations & Divisions tab hardcodes the
-  `Division` grouping name as its one, conventional axis (the same
-  convention `business-setup/+page.svelte`'s own org chart already
-  assumes), and otherwise treats it as an ordinary generic hierarchy —
-  "Division" has no privileged backend concept of its own.
-- **Item category nesting is a real structural reparent**
-  (`supersedeEntity`, `backend/src/db.ts:402`) — "moving" a category is
-  a genuine change of `parent_id`, the same mechanism the Structured
-  Editor's own flat-table parent dropdown already uses.
+  clears this tag.
+- **Item Category value ↔ parent Category value** is a tag on the
+  category value itself, via the exact same `setHierarchyTag`/
+  `deleteHierarchyTag` pair — "moving" a category re-tags its own
+  `Hierarchy: Category` link (clearing it for "Top level"), the same
+  as moving a Location between Divisions. A category value's real
+  `parent_id` never changes either — it's a lightweight entity
+  registered once under the business's Hierarchy registry
+  (`ensureHierarchyValue`/`createHierarchyValue`) and never nested in
+  the real Items catalog tree, so arbitrarily deep category-under-
+  category nesting is free: a value can be tagged under a further
+  value of the same grouping to any depth, the identical mechanism
+  Division itself could use but conventionally doesn't.
+- **Employee ↔ Department/Manager** is two further, independent tags
+  on the Employee (`setEmployeeDepartment`/`setEmployeeManager`,
+  wrapping `setEntityLink` directly rather than the Hierarchy-specific
+  wrapper, since neither Department nor Manager is itself a reporting
+  Hierarchy) — see the Org Chart section above.
+
+Both `Division` and `Category` are ordinary, conventional grouping
+names with no privileged backend concept of their own — a business
+could rename or drop either with zero code change, and the rest of
+this popup (and every report that reads these tags) works identically
+with no hierarchy configured at all: a single item in a single
+location, no category or division structure whatsoever.
 
 **`StructureTreeNode.svelte`** is the generic, recursive node renderer
-shared by all three tabs — unlike the read-only, select-only
-`HierarchyGroupTreeNode.svelte`, each node can offer an "+ Add" action
-(opens a type-specific form the caller owns) and a "Move…" action
-(an inline destination picker rendered by the node itself). The
-component has no opinion on Locations vs Item Categories vs a generic
-Hierarchy; the caller supplies `canAddChild`/`canMove` per node and the
-valid move destinations, and makes no API call of its own.
-
-**A known, pre-existing, inherited limitation, not introduced by this
-feature**: `supersedeEntity`'s reparent API takes a bare parent *name*,
-not a parent id, and `resolveId()` (`backend/src/db.ts:262`) resolves a
-bare name with no parent scoping at all when none is given. Every
-business's Items root is literally named `Items` (unique only among
-siblings under the same parent, per `schema/00-core.sql`'s
-`entities_name_unique` trigger), so "move to top level" is reliable
-only while at most one business's `Items` root is reachable by that
-bare name at once — true for this application's own single-business-
-at-a-time setup today, documented directly above
-`moveCategoryOptions` in `BusinessStructurePopup.svelte`, and worth
-fixing in `supersedeEntity` itself (accepting a parent id) before this
-popup — or the Structured Editor's own, equally-affected dropdown — is
-trusted multi-business.
+shared by the Item Categories and Other Hierarchies tabs (the Org
+Chart tab uses the separate `OrgChartNode.svelte`, described above) —
+unlike the read-only, select-only `HierarchyGroupTreeNode.svelte`,
+each node can offer an "+ Add" action (opens a type-specific form the
+caller owns) and a "Move…" action (an inline destination picker
+rendered by the node itself). The component has no opinion on Item
+Categories vs a generic Hierarchy; the caller supplies
+`canAddChild`/`canMove` per node and the valid move destinations, and
+makes no API call of its own.
 
 **Deliberately out of scope**: the popup's own quick-add Location form
 has no capacity (bottle/carton) fields, unlike the dedicated Locations
@@ -1634,15 +1646,58 @@ reflect the just-saved change rather than stale local state.
 
 ## `frontend/src/routes/items/+page.svelte` — the Items catalog tree
 
-**Selection model**: the tree's selection is a category (any
-arbitrary-depth entity under "Items" with at least one child) or an
-item (a leaf). This page's former flat-list + "Category…" dropdown was
-replaced with the shared `TreeEditor` idiom already proven for
-Business Setup: with a category selected, Insert adds an item within
-it and Delete removes whatever's selected; a plain "+ Subcategory"
-link button (not Insert/Delete — the same deliberate choice made for
+**Category is a real, optional Hierarchy tag here, exactly like
+Division** — the same, generic `setHierarchyParent`/
+`getHierarchyAssignments` mechanism any business-defined grouping
+uses, never a real position in the Items catalog tree. Every item is
+created flat, directly under the business's `Items` root
+(`createEntity` + `setItem`, the same path every item has always
+used); a category is then a separate, optional tag
+(`setHierarchyTag`/`deleteHierarchyTag`), and a category *value* is
+itself a lightweight entity registered once under the business's
+Hierarchy registry (`createHierarchyValue`/`ensureHierarchyValue`),
+never nested in the Items tree. This is the single biggest
+architectural change from this page's earlier design, in which a
+category was a real `parent_id` position under `Items` and an item's
+own Sales/COGS accounts mirrored that position into real Chart-of-
+Accounts structure (`ensureCategoryChain`, since removed — see
+`docs/pm-domain-reference.md`'s "Hierarchies and multi-dimensional
+reporting"). Per the explicit requirement that the application work
+fine with a single item in a single location and no category
+structure at all, every category-related control here is optional and
+skippable.
+
+- **`categoryValues`** is this business's own registered `Category`
+  grouping values (`getHierarchy(business)`, filtered to the
+  `'Category'` grouping) — loaded even when no item is tagged yet, so
+  a genuinely new, empty category still shows.
+- **`categoryAssignments`** is every real `Hierarchy: Category` tag in
+  one call (`getHierarchyAssignments('Category')`, entity name → the
+  value it's tagged with) — covering both an item tagged into a
+  category and a category value itself tagged with a further parent
+  value, avoiding one request per item or per value.
+- **`categoryTree`** builds the nested tree purely from
+  `categoryValues`/`categoryAssignments` — a value with no parent tag
+  (or whose parent isn't itself a registered value) is top-level; a
+  value can be tagged under a further value of the same grouping to
+  any depth, the same generic value-to-value nesting Division could
+  use but conventionally doesn't, with zero dedicated Category code.
+  Items are attached to their tagged category by name, not by walking
+  any real tree.
+- **`uncategorizedItems`** is every item with no `Category` tag at all
+  — always a real, reachable state, not a fallback.
+
+**Selection model**: the tree's selection is a category value (any
+node in `categoryTree`, regardless of whether it currently holds any
+items) or an item (a leaf, under its tagged category or under
+`uncategorizedItems`). The shared `TreeEditor` idiom already proven
+for Business Setup drives Insert/Delete: with a category selected,
+Insert adds an item tagged into it and Delete removes whatever's
+selected (deleting a category removes only its own tag/value via
+`deleteHierarchyValue`, never any item); a plain "+ Subcategory" link
+button (not Insert/Delete — the same deliberate choice made for
 Business Setup's own "Additional locations") handles the secondary,
-less common action of nesting a further category.
+less common action of nesting a further category value.
 
 **`entities` vs. `globalEntities`**: `entities` is the business-scoped
 tree (`getEntityTree(session.current?.businessName)`) the category/
@@ -1681,53 +1736,38 @@ the backend (see `resolveBusinessLocationsRootId` in the Entity Model
 chapter): one pre-existing demo business ("Wine Retail Business")
 seeds its Items root under a legacy combined name ("Wine Retail
 Business Items"), not the modern plain "Items" child every business
-created through the application gets. Without the fallback, that
-business's categories were silently invisible — the scoped lookup
-found nothing and the unscoped fallback resolved to the global
-"Items" template root instead (id 102, parent of every business's own
-copy, never a business's own data). This mirrors the backend's own
+created through the application gets. This mirrors the backend's own
 tolerant lookup (`name = 'Items' OR name LIKE '% Items'`) client-side,
-against the already-fetched tree.
+against the already-fetched tree — still needed since every item is
+still created flat under this root (`createEntity({ name, parentId:
+root.id })`), even though category is now a separate tag rather than
+a further real nesting under it.
 
-**`categoryTree`/`childrenByParentId`** build the nested category
-tree once, by walking down from the Items root via `parent_id`
-children — never by scanning the whole global tree and guessing which
-nodes are "categories" from shape alone. A child is either an item
-(named in the `items` list from `listItems`) or a category; an item
-is always treated as a leaf here, so its own further children (e.g.
-its per-location Storage Capacity structure) are never descended into
-and mistaken for a nested category. A category is included even with
-zero children — a genuinely new, empty subcategory is still a
-category, which a naive "has at least one child" criterion would
-miss. This also keeps the build O(n) overall (`childrenByParentId` is
-one id→children index built once), walking only the Items subtree
-rather than the whole chart-of-accounts/vocabulary/menu tree.
-
-**`uncategorizedItems`** surfaces items that sit directly under the
-Items root with no category. This used to be display-only — never
-producible from this page's own Insert flow, only via older data or
-the Structured Editor — even though the backend (`createItem` in
-`backend/src/db.ts`) already treats a falsy/`'Items'` parent as "no
-category" and always has. Per the explicit requirement that the
-system must be able to operate with zero hierarchy (no categories,
-divisions, or profit centers), there is now a real UI path: the
-"+ Item (no category)" link button next to "+ Category" (and Insert,
-when an uncategorized item is already selected) calls
-**`addUncategorizedItem`**, the same pattern as
-`addItemUnderCategory` but targeting the Items root directly instead
-of looking up a category's id.
+**`addUncategorizedItem`** is the real UI path for the explicit
+requirement that the system work with zero hierarchy (no categories,
+divisions, or profit centers): the "+ Item (no category)" link button
+next to "+ Category" (and Insert, when an uncategorized item is
+already selected) creates the item flat under `itemsRoot` with no
+`Category` tag at all — the same `createEntity`/`setItem` pair
+`addItemUnderCategory` uses, just without the trailing
+`setHierarchyTag` call.
 
 **`addSubcategory`**'s "+ Subcategory" link button is deliberately not
 folded into Insert/Delete — the same choice made for Business Setup's
 "Additional locations" — since it's a secondary action that shouldn't
 compete with the main tree navigation's Insert/Delete (adding an item
-within the selected category).
+within the selected category). It calls `createHierarchyValue(business,
+'Category', name, parentCategoryName)`, the identical value-to-value
+nesting call `addTopLevelCategory` makes with `parentCategoryName`
+omitted.
 
 **`addItemUnderCategory`** calls `setItem` immediately after
 `createEntity`, fixing a pre-existing bug: `listItems` requires a real
 `item` table row (an INNER JOIN), so creating only the bare entity
 would silently vanish a newly-added item from its own list the moment
-it was created, with no error shown.
+it was created, with no error shown. The trailing `setHierarchyTag`
+call is what actually places the item in its category — the entity
+and item-row creation above it never touch the category at all.
 
 **`handleInsert`/`handleDelete`** are the two generic callbacks
 `TreeEditor.svelte` dispatches an Insert/Delete keypress to; this
@@ -1966,7 +2006,10 @@ must filter by ancestry, not by postable-leaf-ness alone.
 entity is — or lives beneath — one of a real product's own internal,
 per-item records (quantity sub-accounts, source/cost records, and
 anything nested under those), as opposed to being a real, user-named
-catalog item or category. It checks a fixed set of known bare names
+catalog item. (A category is never a candidate here at all — a
+category value lives under the business's separate Hierarchy
+registry, never under `Items`, so it's simply outside the subtree this
+walk ever sees.) It checks a fixed set of known bare names
 (`INTERNAL_ITEM_RECORD_NAMES`: `On Order`, `Units Sold`, `Count
 Adjustment`, `Write-off`, `Item Source`) together with the generated,
 structural `" — Source — "` naming pattern that `addOrUpdateItemSource`

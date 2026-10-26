@@ -187,6 +187,10 @@ this chapter.
 item's category or preferred vendor in one query each, to avoid a
 query per row on a report that can have thousands (measured: the
 naive per-row version took ~4 seconds for one month of data).
+`allItemCategories` is a thin wrapper over the fully generic
+`getHierarchyAssignments('Category')` (`db.ts`) — the same bulk
+tag-lookup every hierarchy-backed screen uses, not a dedicated
+Category query.
 
 **`getStockMovementReport`** reports stock's physical journey
 (received, transferred, sold), groupable by vendor/category and,

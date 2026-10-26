@@ -585,7 +585,7 @@ test('profit and loss excludes a Year End Close entry from its own totals, even 
   assert.equal(after.total_income_minor, 50000, "a Year End Close's own reversal must never be counted as item of the period's real P&L, even when the close date falls inside the requested range");
 });
 
-test('profit and loss income_tree groups by the real category hierarchy, with correct subtotals at every level', () => {
+test('profit and loss income_tree reflects the real GL account tree directly - Category never leaks into real account structure, however deep the Items catalog itself is nested', () => {
   const biz = fx.freshBusiness('PLTreeTest Co');
   db.create(db.requireEntity('Ledgers', db.typeRootName, db.requireEntity(biz.business, db.typeBusinessName, db.requireEntity('Businesses', db.typeRootName))), db.typeRootName, 'PL Tree Test Ledger', fx.userId);
   // Items are genuinely global (createCustomer-style) - every unique
@@ -624,19 +624,22 @@ test('profit and loss income_tree groups by the real category hierarchy, with co
 
   const salesHeading = pl.income_tree.find((n) => n.name === 'Sales Revenue');
   assert.ok(salesHeading, 'the real, existing Sales Revenue heading account must be present as the one, top-level entry');
-  const beveragesNode = salesHeading!.children.find((n) => n.name === beverages);
-  assert.ok(beveragesNode, 'a real, known category must be present under the real Sales heading');
-  assert.equal(beveragesNode!.is_leaf, false);
-  const ciderNode = beveragesNode!.children.find((c) => c.name === cider);
-  assert.ok(ciderNode, 'a real, nested sub-category must be present');
-  assert.equal(ciderNode!.is_leaf, false);
-  assert.equal(ciderNode!.credit_minor, 8000, "a category's own subtotal must be the real sum of its real leaf descendants");
+  // Both items post flat, directly under Sales Revenue - their real,
+  // deep Items-catalog position (Beverages > Cider) never leaks onto
+  // the real GL side at all. Category is a pure, optional reporting
+  // tag (resolveKey, db-matrix-reports.ts), never real account structure.
+  assert.ok(!salesHeading!.children.some((n) => n.name === beverages), 'the Items catalog position must never create a matching real GL sub-account');
+  assert.ok(!salesHeading!.children.some((n) => n.name === cider));
 
-  const dryLeaf = ciderNode!.children.find((c) => c.name === dry.salesAccount);
-  assert.ok(dryLeaf, 'a real, known leaf account must be present at the deepest level');
+  const dryLeaf = salesHeading!.children.find((c) => c.name === dry.salesAccount);
+  assert.ok(dryLeaf, 'a real, known leaf account must be present directly under Sales Revenue');
   assert.equal(dryLeaf!.is_leaf, true);
   assert.equal(dryLeaf!.children.length, 0);
   assert.equal(dryLeaf!.credit_minor, 5000);
+
+  const sweetLeaf = salesHeading!.children.find((c) => c.name === sweet.salesAccount);
+  assert.ok(sweetLeaf);
+  assert.equal(sweetLeaf!.credit_minor, 3000);
 });
 
 test('Actual and a budget ledger are genuinely isolated in every financial statement — this is the whole point of having separate ledgers, and it was actually broken once', () => {
@@ -2442,9 +2445,10 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
   const outlet = fx.freshLocation(biz.business, 'SMRTest Outlet', { city: region, location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 });
   db.setHierarchyParent(outlet.name, 'Division', region, fx.userId);
   const categoryName = fx.uniqueName('SMRTest Category');
-  db.createItemCategory(biz.business, categoryName, undefined, fx.userId);
+  db.create(db.requireEntity('Application', db.typeRootName), db.typeRootName, categoryName, fx.userId);
   const itemName = fx.uniqueName('SMRTest Wine');
-  db.createItem(itemName, categoryName, fx.userId, biz.business);
+  db.createItem(itemName, 'Items', fx.userId, biz.business);
+  db.setHierarchyParent(itemName, 'Category', categoryName, fx.userId);
   const vendorName = fx.uniqueName('SMRTest Vendor');
   const customerName = fx.uniqueName('SMRTest Wine Customer');
   db.create(db.requireEntity('Vendors', db.typeRootName), db.typeRootName, vendorName, fx.userId);
@@ -2492,25 +2496,36 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
   assert.equal(report.sales[0].amount_minor, 4500, "a real sale's own real dollar amount must be correctly joined from the real Sales account posting, not left at zero");
 });
 
-test('item categories: nested arbitrarily deep in the existing entity tree, and an empty subcategory never shows up as a fake item', () => {
+test('Category: an arbitrarily deep, generic Hierarchy of pure tags (setHierarchyParent) — never a real position in the Items catalog, and never mistaken for an item', () => {
   const biz = fx.freshBusiness('CatTest Co');
   const redWine = fx.uniqueName('CatTest Red Wine');
   const whiteWine = fx.uniqueName('CatTest White Wine');
   const merlotCat = fx.uniqueName('CatTest Merlot');
   const chablisCat = fx.uniqueName('CatTest Chablis');
-  db.createItemCategory(biz.business, redWine, undefined, fx.userId);
-  db.createItemCategory(biz.business, whiteWine, undefined, fx.userId);
-  db.createItemCategory(biz.business, merlotCat, redWine, fx.userId);
-  db.createItemCategory(biz.business, chablisCat, whiteWine, fx.userId); // deliberately left empty
+  // Every real Category value is a real, lightweight entity under this
+  // business's own Hierarchy registry (ensureHierarchyValue) - the exact
+  // same, generic registration Division already uses - never a node
+  // nested in the real Items catalog tree.
+  for (const name of [redWine, whiteWine, merlotCat, chablisCat]) db.ensureHierarchyValue(biz.business, 'Category', name, fx.userId);
+  // A Category VALUE can itself carry a further parent value, arbitrarily
+  // deep - the exact, same generic value-to-value chaining Division
+  // already relies on, with zero dedicated Category code anywhere.
+  db.setHierarchyParent(merlotCat, 'Category', redWine, fx.userId);
+  db.setHierarchyParent(chablisCat, 'Category', whiteWine, fx.userId); // deliberately left with no items tagged into it
 
   const itemName = fx.uniqueName('CatTest Château Merlot 2020');
-  db.createItem(itemName, merlotCat, fx.userId, biz.business);
+  db.createItem(itemName, 'Items', fx.userId, biz.business);
+  db.setHierarchyParent(itemName, 'Category', merlotCat, fx.userId);
+
+  assert.equal(db.getHierarchyParent(itemName, 'Category'), merlotCat, 'the item resolves its own, direct category value');
+  assert.equal(db.getHierarchyParent(merlotCat, 'Category'), redWine, 'and that value resolves its own further parent value');
+  assert.equal(db.getHierarchyParent(chablisCat, 'Category'), whiteWine, 'an empty category (no items tagged into it yet) is exactly as real as one with items');
 
   const items = db.listItems(biz.business).map((p) => p.name);
   assert.ok(items.includes(itemName), 'the real item shows up');
-  assert.ok(!items.includes(redWine), 'a category is never listed as a item');
-  assert.ok(!items.includes(merlotCat), 'a subcategory is never listed as a item, even though it has a real item underneath it');
-  assert.ok(!items.includes(chablisCat), 'an empty subcategory (no products yet) must not be mistaken for a real item just because it is currently a leaf');
+  assert.ok(!items.includes(redWine), 'a category value never sits in the real Items catalog tree, so it can never be mistaken for an item');
+  assert.ok(!items.includes(merlotCat), 'nor can a sub-category value, even though a real item is tagged into it');
+  assert.ok(!items.includes(chablisCat));
 });
 
 test('stock take sheets: ordered by shelf_side/rack (alphabetically, as free text) then level numerically (top to bottom), and completing posts genuine loss/gain variance while leaving uncounted lines untouched', () => {
@@ -3770,18 +3785,20 @@ test('a item\'s real retail_price_minor is a genuine lookup field, reachable via
   assert.equal(viaUpc?.retail_price_minor, 4250, 'getItemByUpc (what a barcode scan actually calls) must return the real price, not just the bare name it used to');
 });
 
-test('getSalesReport: detailed lines and a genuine category rollup (via the real entity tree, not a hand-maintained list) that both sum to the same real total', () => {
+test('getSalesReport: detailed lines and a genuine category rollup (via the real, generic Hierarchy tag, not a hand-maintained list) that both sum to the same real total', () => {
   const biz = fx.freshBusiness('SalesReportTest Co');
   const customerName = fx.uniqueName('SalesReportTest Customer');
   db.create(db.requireEntity('Customers', db.typeRootName), db.typeRootName, customerName, fx.userId);
   const merlotCat = fx.uniqueName('SalesReportTest Merlot Category');
   const shirazCat = fx.uniqueName('SalesReportTest Shiraz Category');
-  db.createItemCategory(biz.business, merlotCat, undefined, fx.userId);
-  db.createItemCategory(biz.business, shirazCat, undefined, fx.userId);
+  db.ensureHierarchyValue(biz.business, 'Category', merlotCat, fx.userId);
+  db.ensureHierarchyValue(biz.business, 'Category', shirazCat, fx.userId);
   const merlotName = fx.uniqueName('SalesReportTest Merlot');
   const shirazName = fx.uniqueName('SalesReportTest Shiraz');
-  db.createItem(merlotName, merlotCat, fx.userId, biz.business);
-  db.createItem(shirazName, shirazCat, fx.userId, biz.business);
+  db.createItem(merlotName, 'Items', fx.userId, biz.business);
+  db.createItem(shirazName, 'Items', fx.userId, biz.business);
+  db.setHierarchyParent(merlotName, 'Category', merlotCat, fx.userId);
+  db.setHierarchyParent(shirazName, 'Category', shirazCat, fx.userId);
 
   const inv = db.createInvoice(
     {
@@ -3979,43 +3996,47 @@ test('createBusiness + getReportingPeriods: a real financial-year start date and
   assert.deepEqual(febPeriod && { label: febPeriod.label, endDate: febPeriod.endDate }, { label: 'Feb 2026', endDate: '2026-02-28' }, 'a real calendar month, correctly handling February\'s real, shorter length');
 });
 
-test('ensureItemSalesCogsAccounts: mirrors the real, existing product category tree onto the GL side, not a flat or hardcoded structure', () => {
+test('ensureItemSalesCogsAccounts: posts flat, directly under Sales Revenue/Cost of Goods Sold — Category is a real, optional reporting tag (setHierarchyParent), never real account structure', () => {
   const biz = fx.freshBusiness('CategoryMirrorTest Co');
   const category = fx.uniqueName('CategoryMirrorTest Category');
   const subCategory = fx.uniqueName('CategoryMirrorTest SubCategory');
-  db.createItemCategory(biz.business, category, undefined, fx.userId);
-  db.createItemCategory(biz.business, subCategory, category, fx.userId);
+  db.ensureHierarchyValue(biz.business, 'Category', category, fx.userId);
+  db.ensureHierarchyValue(biz.business, 'Category', subCategory, fx.userId);
+  // Nesting is the same, generic, already-existing setHierarchyParent
+  // value-to-value chaining Division already supports - a Category
+  // VALUE can itself carry a further parent VALUE, with zero dedicated
+  // Category code anywhere.
+  db.setHierarchyParent(subCategory, 'Category', category, fx.userId);
   const productName = fx.uniqueName('CategoryMirrorTest Product');
-  db.createItem(productName, subCategory, fx.userId, biz.business);
+  db.createItem(productName, 'Items', fx.userId, biz.business);
+  db.setHierarchyParent(productName, 'Category', subCategory, fx.userId);
 
   const { salesAccount, salesAccountId, cogsAccountId } = db.ensureItemSalesCogsAccounts(db.asItemName(productName), fx.userId, undefined, biz.business);
   assert.equal(salesAccount, productName);
 
   const entities = db.getEntityTree();
   const salesLeaf = entities.find((e) => e.id === salesAccountId)!;
-  const salesSubCat = entities.find((e) => e.id === salesLeaf.parent_id)!;
-  assert.equal(salesSubCat.name, subCategory, 'the leaf must nest under a real, mirrored sub-category, not sit flat under Income directly');
-  const salesTopCat = entities.find((e) => e.id === salesSubCat.parent_id)!;
-  assert.equal(salesTopCat.name, category);
-  const salesRoot = entities.find((e) => e.id === salesTopCat.parent_id)!;
-  assert.equal(salesRoot.name, 'Sales Revenue', 'the top category must parent under the real, existing Sales Revenue heading account');
-  const salesGrandRoot = entities.find((e) => e.id === salesRoot.parent_id)!;
-  assert.equal(salesGrandRoot.name, 'Income', 'the real, existing Sales Revenue heading account itself parents directly under Income, completing the real, mirrored chain');
+  const salesRoot = entities.find((e) => e.id === salesLeaf.parent_id)!;
+  assert.equal(salesRoot.name, 'Sales Revenue', 'a Category tag never creates any real, intervening GL sub-account - the leaf sits flat, directly under Sales Revenue, exactly like an item with no category at all');
 
   const cogsLeaf = entities.find((e) => e.id === cogsAccountId)!;
-  const cogsSubCat = entities.find((e) => e.id === cogsLeaf.parent_id)!;
-  assert.equal(cogsSubCat.name, subCategory, 'COGS mirrors the exact same real category chain, independently, on the Expense side');
+  const cogsRoot = entities.find((e) => e.id === cogsLeaf.parent_id)!;
+  assert.equal(cogsRoot.name, 'Cost of Goods Sold', 'COGS posts exactly the same, flat way, independently of the Sales side');
 
-  const flatCategory = fx.uniqueName('CategoryMirrorTest FlatCategory');
-  db.createItemCategory(biz.business, flatCategory, undefined, fx.userId);
-  const flatProductName = fx.uniqueName('CategoryMirrorTest FlatProduct');
-  db.createItem(flatProductName, flatCategory, fx.userId, biz.business);
-  const flatResult = db.ensureItemSalesCogsAccounts(db.asItemName(flatProductName), fx.userId, undefined, biz.business);
-  const flatLeaf = db.getEntityTree().find((e) => e.id === flatResult.salesAccountId)!;
-  const flatParent = db.getEntityTree().find((e) => e.id === flatLeaf.parent_id)!;
-  assert.equal(flatParent.name, flatCategory);
-  const flatRoot = db.getEntityTree().find((e) => e.id === flatParent.parent_id)!;
-  assert.equal(flatRoot.name, 'Sales Revenue', 'a product with no sub-category still gets exactly one real grouping level under the real, existing Sales Revenue heading, not a fixed number of levels regardless of the real catalog depth');
+  // The real, reportable Category/sub-Category chain comes back purely
+  // from the generic tag, never from tree position.
+  assert.equal(db.getHierarchyParent(productName, 'Category'), subCategory);
+  assert.equal(db.getHierarchyParent(subCategory, 'Category'), category);
+
+  // An item with NO category tag at all works exactly the same way -
+  // nothing special to set up, nothing to go wrong.
+  const uncategorized = fx.uniqueName('CategoryMirrorTest Uncategorized');
+  db.createItem(uncategorized, 'Items', fx.userId, biz.business);
+  const uncategorizedResult = db.ensureItemSalesCogsAccounts(db.asItemName(uncategorized), fx.userId, undefined, biz.business);
+  const uncategorizedLeaf = db.getEntityTree().find((e) => e.id === uncategorizedResult.salesAccountId)!;
+  const uncategorizedRoot = db.getEntityTree().find((e) => e.id === uncategorizedLeaf.parent_id)!;
+  assert.equal(uncategorizedRoot.name, 'Sales Revenue', 'a product with no category at all still posts flat, directly under the real, existing Sales Revenue heading');
+  assert.equal(db.getHierarchyParent(uncategorized, 'Category'), undefined);
 });
 
 test('Profit Centers (Phase A, docs/profit-centers-design.md): a business starts with none, creating one is real and rejects a duplicate, and getProfitCenters is scoped per business', () => {
@@ -5250,19 +5271,22 @@ test('createItem: the original, confirmed gap is now genuinely closed - a non-Ca
 
 test('getHierarchyChain: a real, uniform, non-generic walk up parent_id - genuinely reaches Business for an Item, and confirms the real Location/Business resolution for a correctly-scoped business', () => {
   const biz = fx.freshBusiness('ChainTest Co');
-  // A real, deliberately deep item chain: Items -> top category ->
-  // sub category -> item (arbitrary, user-defined depth - not
-  // hardcoded to exactly one Category level).
-  const topCategory = fx.uniqueName('ChainTest Red Wine');
-  const subCategory = fx.uniqueName('ChainTest SubRegion');
-  db.createItemCategory(biz.business, topCategory, undefined, fx.userId);
-  db.createItemCategory(biz.business, subCategory, topCategory, fx.userId);
+  // A real, deliberately deep item chain: Items -> top folder -> sub
+  // folder -> item (arbitrary, user-defined real tree depth — plain,
+  // generic entity nesting, nothing to do with the Category Hierarchy
+  // tag, which is a pure, optional setHierarchyParent concept elsewhere
+  // and never real tree position).
+  const itemsRoot = db.requireEntity('Items', db.typeRootName, db.requireEntity(biz.business, db.typeBusinessName, db.requireEntity('Businesses', db.typeRootName)));
+  const topFolder = fx.uniqueName('ChainTest Red Wine');
+  const subFolder = fx.uniqueName('ChainTest SubRegion');
+  const topNode = db.create(itemsRoot, db.typeRootName, topFolder, fx.userId);
+  db.create(topNode, db.typeRootName, subFolder, fx.userId);
   const itemName = fx.uniqueName('ChainTest Wine');
-  db.createItem(itemName, subCategory, fx.userId, biz.business);
+  db.createItem(itemName, subFolder, fx.userId, biz.business);
 
   const itemChain = db.getHierarchyChain(db.asItemName(itemName));
   const itemChainNames = itemChain.map((n) => n.name);
-  assert.deepEqual(itemChainNames, [itemName, subCategory, topCategory, 'Items', biz.business], 'an Item genuinely, correctly reaches its real Business - Items is properly scoped per business');
+  assert.deepEqual(itemChainNames, [itemName, subFolder, topFolder, 'Items', biz.business], 'an Item genuinely, correctly reaches its real Business - Items is properly scoped per business');
   assert.equal(itemChain[itemChain.length - 1].name, biz.business, 'the real, terminal element of a real Item chain is genuinely the real Business');
 
   // A real, direct, honest confirmation that a real Location chain now
@@ -6302,9 +6326,8 @@ test('receiveItems with a real combination: parallel currency AND count postings
     city: 'Adelaide', location_type: 'Retail', is_billing_address: false,
     bottle_capacity: 100, carton_capacity: null, timezone: 'Australia/Adelaide',
   } as any, fx.userId);
-  const catEntity = db.createItemCategory(biz.business, fx.uniqueName('Parallel Count Category'), undefined, fx.userId);
   const wineName = fx.uniqueName('Parallel Count Wine');
-  db.create(catEntity, db.typeItemName, wineName, fx.userId);
+  db.createItem(wineName, 'Items', fx.userId, biz.business);
 
   const storageGrouping = fx.uniqueName('ParallelCountTest Storage');
   const secure = fx.uniqueName('ParallelCountTest Secure');
@@ -6343,9 +6366,8 @@ test('dispatchItems with a real combination: parallel currency AND count posting
     city: 'Adelaide', location_type: 'Retail', is_billing_address: false,
     bottle_capacity: 100, carton_capacity: null, timezone: 'Australia/Adelaide',
   } as any, fx.userId);
-  const catEntity = db.createItemCategory(biz.business, fx.uniqueName('Dispatch Parallel Category'), undefined, fx.userId);
   const wineName = fx.uniqueName('Dispatch Parallel Wine');
-  db.create(catEntity, db.typeItemName, wineName, fx.userId);
+  db.createItem(wineName, 'Items', fx.userId, biz.business);
 
   const storageGrouping = fx.uniqueName('DispatchParallelTest Storage');
   const secure = fx.uniqueName('DispatchParallelTest Secure');
@@ -6376,9 +6398,8 @@ test('transferItems with a real combination: the real unit count moves in parall
     city: 'Adelaide', location_type: 'Retail', is_billing_address: false,
     bottle_capacity: 100, carton_capacity: null, timezone: 'Australia/Adelaide',
   } as any, fx.userId);
-  const catEntity = db.createItemCategory(biz.business, fx.uniqueName('Transfer Parallel Category'), undefined, fx.userId);
   const wineName = fx.uniqueName('Transfer Parallel Wine');
-  db.create(catEntity, db.typeItemName, wineName, fx.userId);
+  db.createItem(wineName, 'Items', fx.userId, biz.business);
 
   const storageGrouping = fx.uniqueName('TransferParallelTest Storage');
   const secure = fx.uniqueName('TransferParallelTest Secure');
@@ -6409,9 +6430,8 @@ test('writeOffItems with a real combination: the real Inventory value and real u
     city: 'Adelaide', location_type: 'Retail', is_billing_address: false,
     bottle_capacity: 100, carton_capacity: null, timezone: 'Australia/Adelaide',
   } as any, fx.userId);
-  const catEntity = db.createItemCategory(business, fx.uniqueName('Write Off Parallel Category'), undefined, fx.userId);
   const wineName = fx.uniqueName('Write Off Parallel Wine');
-  db.create(catEntity, db.typeItemName, wineName, fx.userId);
+  db.createItem(wineName, 'Items', fx.userId, business);
   db.ensureItemInventoryAccount(db.asItemName(wineName), fx.userId);
   const bizEntity = db.getEntityTree().find((e) => e.name === business);
   const coaEntity = db.getEntityTree().find((e) => e.name === 'Chart of Accounts' && e.parent_id === bizEntity?.id);

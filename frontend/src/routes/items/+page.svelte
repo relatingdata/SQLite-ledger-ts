@@ -25,6 +25,10 @@
     ApiError,
     listLocations,
     getHierarchy,
+    createHierarchyValue,
+    deleteHierarchyValue,
+    setHierarchyTag,
+    getHierarchyAssignments,
     receiveIntoStorageStock,
     resolveReceiveAccounts,
     stageLine,
@@ -140,20 +144,44 @@
   let sourceNotes = $state('');
   let savingSource = $state(false);
 
+  // Category is a real, optional Hierarchy tag here — the exact same
+  // generic setHierarchyParent/getHierarchyAssignments mechanism
+  // Division or any other business-defined grouping already uses, never
+  // a real position in the Items catalog tree. categoryValues is this
+  // business's own registered "Category" grouping values (so an empty
+  // category still shows); categoryAssignments is every real tag for
+  // that hierarchy in one call — entity name -> the value it's tagged
+  // with, covering both an item tagged into a category and a category
+  // value itself tagged with a further parent value. See
+  // docs/pm-frontend-reference.md.
+  let categoryValues: string[] = $state([]);
+  let categoryAssignments: Record<string, string> = $state({});
+
+  async function loadCategoryData() {
+    if (!session.current?.businessName) {
+      categoryValues = [];
+      categoryAssignments = {};
+      return;
+    }
+    const [groupings, assignments] = await Promise.all([getHierarchy(session.current.businessName), getHierarchyAssignments('Category')]);
+    hierarchyGroupings = groupings;
+    categoryValues = groupings.find((g) => g.grouping === 'Category')?.values ?? [];
+    categoryAssignments = assignments;
+  }
+
   async function loadAll() {
     loading = true;
     try {
-      const [entityTree, globalTree, itemsResult, loadedLocations, loadedGroupings] = await Promise.all([
+      const [entityTree, globalTree, itemsResult, loadedLocations] = await Promise.all([
         getEntityTree(session.current?.businessName), getEntityTree(),
         session.current?.businessName ? listItems(session.current.businessName) : Promise.resolve({ rows: [], totalCount: 0 }),
         session.current?.businessName ? listLocations(asBusinessName(session.current.businessName)) : Promise.resolve([]),
-        session.current?.businessName ? getHierarchy(session.current.businessName) : Promise.resolve([]),
       ]);
       entities = entityTree;
       globalEntities = globalTree;
       items = itemsResult.rows;
       locations = loadedLocations;
-      hierarchyGroupings = loadedGroupings;
+      await loadCategoryData();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -178,59 +206,47 @@
     return entities.find((e) => e.name === 'Items');
   };
 
-  // One id->children index, built once — see docs/pm-frontend-reference.md.
-  let childrenByParentId = $derived.by(() => {
-    const map = new Map<number, EntityNode[]>();
-    for (const e of entities) {
-      if (e.parent_id == null) continue;
-      const list = map.get(e.parent_id) ?? [];
-      list.push(e);
-      map.set(e.parent_id, list);
-    }
-    return map;
-  });
-
   interface CategoryTreeNode {
-    entity: EntityNode;
+    name: string;
     items: ItemSummary[];
     children: CategoryTreeNode[];
   }
-  let categoryTree = $derived.by(() => {
-    const root = itemsRoot();
-    if (!root) return [];
-    const itemByName = new Map(items.map((i) => [i.name, i]));
-    const buildCategory = (categoryEntity: EntityNode): CategoryTreeNode => {
-      const kids = (childrenByParentId.get(categoryEntity.id) ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
-      const childCategories: CategoryTreeNode[] = [];
-      const childItems: ItemSummary[] = [];
-      for (const kid of kids) {
-        const asItem = itemByName.get(kid.name);
-        if (asItem) childItems.push(asItem);
-        else childCategories.push(buildCategory(kid));
+  let categoryTree: CategoryTreeNode[] = $derived.by(() => {
+    const itemsByCategory = new Map<string, ItemSummary[]>();
+    for (const it of items) {
+      const cat = categoryAssignments[it.name];
+      if (!cat) continue;
+      const list = itemsByCategory.get(cat) ?? [];
+      list.push(it);
+      itemsByCategory.set(cat, list);
+    }
+    const childrenOfValue = new Map<string, string[]>();
+    const topLevel: string[] = [];
+    for (const v of categoryValues) {
+      const parent = categoryAssignments[v];
+      if (parent && categoryValues.includes(parent)) {
+        const list = childrenOfValue.get(parent) ?? [];
+        list.push(v);
+        childrenOfValue.set(parent, list);
+      } else {
+        topLevel.push(v);
       }
-      return { entity: categoryEntity, items: childItems.sort((a, b) => a.name.localeCompare(b.name)), children: childCategories };
-    };
-    return (childrenByParentId.get(root.id) ?? [])
-      .filter((e) => !itemByName.has(e.name))
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map(buildCategory);
+    }
+    const build = (name: string): CategoryTreeNode => ({
+      name,
+      items: (itemsByCategory.get(name) ?? []).slice().sort((a, b) => a.name.localeCompare(b.name)),
+      children: (childrenOfValue.get(name) ?? []).slice().sort((a, b) => a.localeCompare(b)).map(build),
+    });
+    return topLevel.slice().sort((a, b) => a.localeCompare(b)).map(build);
   });
 
-  // Items with no category at all — see docs/pm-frontend-reference.md.
-  let uncategorizedItems = $derived.by(() => {
-    const root = itemsRoot();
-    if (!root) return [];
-    const itemByName = new Map(items.map((i) => [i.name, i]));
-    return (childrenByParentId.get(root.id) ?? [])
-      .filter((e) => itemByName.has(e.name))
-      .map((e) => itemByName.get(e.name)!)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  });
+  // Items with no category tag at all — see docs/pm-frontend-reference.md.
+  let uncategorizedItems = $derived.by(() => items.filter((it) => !categoryAssignments[it.name]).slice().sort((a, b) => a.name.localeCompare(b.name)));
 
   async function reloadTreeAndItems() {
     entities = await getEntityTree(session.current?.businessName);
     if (session.current?.businessName) items = (await listItems(session.current.businessName)).rows;
+    await loadCategoryData();
   }
 
   function selectCategory(name: string) {
@@ -251,19 +267,20 @@
   }
 
   // --- Top-level category creation (Insert with nothing/an item selected) ---
+  // Category is a real, optional Hierarchy value here (createHierarchyValue
+  // — the exact same, generic registration Division already uses) never a
+  // real position in the Items catalog tree. See docs/pm-frontend-reference.md.
   let addingCategory = $state(false);
   let newCategoryNameRoot = $state('');
   let categoryError = $state('');
   async function addTopLevelCategory() {
-    if (!newCategoryNameRoot.trim()) return;
-    const root = itemsRoot();
-    if (!root) return;
+    if (!newCategoryNameRoot.trim() || !session.current?.businessName) return;
     categoryError = '';
     try {
-      await createEntity({ name: newCategoryNameRoot.trim(), parentId: root.id }, 'Create Entity');
+      await createHierarchyValue(session.current.businessName, 'Category', newCategoryNameRoot.trim());
       newCategoryNameRoot = '';
       addingCategory = false;
-      entities = await getEntityTree(session.current?.businessName);
+      await loadCategoryData();
     } catch (e) {
       categoryError = e instanceof ApiError ? e.message : 'Could not create category.';
     }
@@ -279,35 +296,41 @@
     subcategoryError = '';
   }
   async function addSubcategory(parentCategoryName: string) {
-    if (!newSubcategoryName.trim()) return;
-    const parentId = entities.find((e) => e.name === parentCategoryName)?.id;
-    if (!parentId) return;
+    if (!newSubcategoryName.trim() || !session.current?.businessName) return;
     subcategoryError = '';
     try {
-      await createEntity({ name: newSubcategoryName.trim(), parentId }, 'Create Entity');
+      // Nesting is the same, generic value-to-value chaining
+      // (createHierarchyValue's own parentValueName) Division already
+      // supports — a Category value can itself carry a further parent
+      // value, arbitrarily deep, with zero dedicated Category code.
+      await createHierarchyValue(session.current.businessName, 'Category', newSubcategoryName.trim(), parentCategoryName);
       newSubcategoryName = '';
       addingSubcategoryUnder = null;
-      entities = await getEntityTree(session.current?.businessName);
+      await loadCategoryData();
     } catch (e) {
       subcategoryError = e instanceof ApiError ? e.message : 'Could not create subcategory.';
     }
   }
 
   // --- Item creation (Insert with a category selected) ---
+  // The item itself is always created flat, directly under Items (the
+  // same, real db.createItem path every item uses) — Category is then a
+  // separate, optional tag (setHierarchyTag), never a real tree position.
   let addingItemUnder: string | null = $state(null);
   let newItemNameField = $state('');
   let addingItem = $state(false);
   let itemAddError = $state('');
   async function addItemUnderCategory(categoryName: string) {
     if (!newItemNameField.trim()) return;
-    const parentId = entities.find((e) => e.name === categoryName)?.id;
-    if (!parentId) return;
+    const root = itemsRoot();
+    if (!root) return;
     addingItem = true;
     itemAddError = '';
     try {
-      await createEntity({ name: newItemNameField, parentId }, 'Create Entity');
+      await createEntity({ name: newItemNameField, parentId: root.id }, 'Create Entity');
       // setItem ensures the item row exists immediately — see docs/pm-frontend-reference.md.
       await setItem(newItemNameField, { description: null, unit_of_measure: null, upc: null });
+      await setHierarchyTag(newItemNameField, 'Category', categoryName);
       const created = newItemNameField;
       newItemNameField = '';
       addingItemUnder = null;
@@ -370,9 +393,19 @@
     const label = selection.type === 'category' ? 'category' : 'item';
     if (!confirm(`Delete ${label} "${translations.current[selection.name] ?? selection.name}"? This cannot be undone.`)) return;
     try {
-      const target = entities.find((e) => e.name === selection!.name);
-      if (!target) throw new Error(`${translations.current['No real entity named'] ?? 'No real entity named'} "${selection!.name}".`);
-      await revokeEntity(target.id);
+      if (selection.type === 'category') {
+        if (!session.current?.businessName) throw new Error('No business selected.');
+        // Deletes the real, registered Hierarchy value itself (never a
+        // real position in the Items catalog) — the same guard every
+        // other hierarchy value's delete already has: refuses while a
+        // real item or a further, nested category value is still
+        // tagged into it.
+        await deleteHierarchyValue(session.current.businessName, 'Category', selection.name);
+      } else {
+        const target = entities.find((e) => e.name === selection!.name);
+        if (!target) throw new Error(`${translations.current['No real entity named'] ?? 'No real entity named'} "${selection!.name}".`);
+        await revokeEntity(target.id);
+      }
       selection = null;
       await reloadTreeAndItems();
     } catch (e) {
@@ -497,47 +530,47 @@
 
 {#snippet categoryRow(node: CategoryTreeNode)}
   <div class="tree-category">
-    <button type="button" class="tree-item category" class:active={selection?.type === 'category' && selection.name === node.entity.name} onclick={() => selectCategory(node.entity.name)}>
-      {translations.current[node.entity.name] ?? node.entity.name}
+    <button type="button" class="tree-item category" class:active={selection?.type === 'category' && selection.name === node.name} onclick={() => selectCategory(node.name)}>
+      {translations.current[node.name] ?? node.name}
     </button>
     <div class="tree-children">
-      {#each node.children as child (child.entity.id)}
+      {#each node.children as child (child.name)}
         {@render categoryRow(child)}
       {/each}
       {#each node.items as it (it.name)}
-        <button type="button" class="tree-item item" class:active={selection?.type === 'item' && selection.name === it.name} onclick={() => selectItem(it.name, node.entity.name)}>
+        <button type="button" class="tree-item item" class:active={selection?.type === 'item' && selection.name === it.name} onclick={() => selectItem(it.name, node.name)}>
           <span>{translations.current[it.name] ?? it.name}</span>
           {#if it.source_count > 0}<span class="count">{it.source_count} source{it.source_count === 1 ? '' : 's'}</span>{/if}
         </button>
       {/each}
-      {#if addingItemUnder === node.entity.name}
+      {#if addingItemUnder === node.name}
         <div class="inline-add">
           <input
             bind:value={newItemNameField}
             placeholder={translations.current['New item name'] ?? 'New item name'}
             disabled={addingItem}
             onkeydown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); addItemUnderCategory(node.entity.name); }
+              if (e.key === 'Enter') { e.preventDefault(); addItemUnderCategory(node.name); }
               else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingItemUnder = null; itemAddError = ''; }
             }}
           />
         </div>
         {#if itemAddError}<p class="error small">{itemAddError}</p>{/if}
       {/if}
-      {#if addingSubcategoryUnder === node.entity.name}
+      {#if addingSubcategoryUnder === node.name}
         <div class="inline-add">
           <input
             bind:value={newSubcategoryName}
             placeholder={translations.current['Subcategory name'] ?? 'Subcategory name'}
             onkeydown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); addSubcategory(node.entity.name); }
+              if (e.key === 'Enter') { e.preventDefault(); addSubcategory(node.name); }
               else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingSubcategoryUnder = null; subcategoryError = ''; }
             }}
           />
         </div>
         {#if subcategoryError}<p class="error small">{subcategoryError}</p>{/if}
-      {:else if selection?.type === 'category' && selection.name === node.entity.name}
-        <button type="button" class="link-button" onclick={() => startAddingSubcategory(node.entity.name)}>+ {translations.current['Subcategory'] ?? 'Subcategory'}</button>
+      {:else if selection?.type === 'category' && selection.name === node.name}
+        <button type="button" class="link-button" onclick={() => startAddingSubcategory(node.name)}>+ {translations.current['Subcategory'] ?? 'Subcategory'}</button>
       {/if}
     </div>
   </div>
@@ -589,7 +622,7 @@
           <p class="empty">{translations.current['None yet.'] ?? 'None yet.'}</p>
         {/if}
 
-        {#each categoryTree as node (node.entity.id)}
+        {#each categoryTree as node (node.name)}
           {@render categoryRow(node)}
         {/each}
 

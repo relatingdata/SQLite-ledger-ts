@@ -295,31 +295,46 @@ at the boundary where an untyped value (a route's `req.params`, a raw
 database row) first becomes a typed value the rest of the codebase
 can trust.
 
-## Item hierarchies: Category → Product → Item
+## Item hierarchies: Product → Item, with Category as a lateral tag
 
 Items sit under a business-scoped `{business} Items` root (one of
 `PER_BUSINESS_ROOTS` — `Locations`, `Items`, `Contacts`, `Vocabulary`,
-`Ledgers`, `Profit Centers` — every business gets exactly these six).
-An item can sit several real levels deep — a category (`Beer`), a
-Product underneath it (`Amber`, conceptual/brand, never itself
-sellable), and the concrete, sellable Item beneath that:
+`Ledgers`, `Profit Centers` — every business gets exactly these six),
+always flat, directly under that root
+(`createItem(name, 'Items', userId, business)`) — never positioned by
+category. Only **Product → Item** is a real, structural `parent_id`
+relationship: a Product (`Amber`, conceptual/brand, never itself
+sellable) is the direct parent of one or more concrete, sellable
+Items beneath it:
 
 ```
-{business} Items → Beer → Amber → Amber Ale 330ml Aluminum Can (Cold)
+{business} Items → Amber → Amber Ale 330ml Aluminum Can (Cold)
 ```
 
 `listProducts()` finds any entity under Items that is the *direct*
 parent of at least one real Item — the level immediately above where
-Items sit, regardless of how many broader category levels sit above
-that. Each dimension in parentheses (`(Ale)`, `(330ml)`, `(Aluminum
-Can)`, `(Cold)`) is a naming convention today, not yet a separate,
-structured field per dimension.
+Items sit. Each dimension in parentheses (`(Ale)`, `(330ml)`,
+`(Aluminum Can)`, `(Cold)`) is a naming convention today, not yet a
+separate, structured field per dimension.
 
-Any function walking "up from an item to find its category" must
-recognize either the exact global `Items` name or any name ending in
-`" Items"` (a word-boundary suffix match, never a loose `endsWith`) —
-a hardcoded exact match terminates too early and never reaches a
-business-scoped root.
+**Category is a separate, optional, lateral tag** — exactly like
+Division — applied to a Product or an Item by name
+(`setHierarchyParent(name, 'Category', parentName, userId)`,
+`getHierarchyParent(name, 'Category')`), never a real ancestor in this
+tree. A category *value* (`Beer`) is itself a lightweight entity
+registered once under the business's own Hierarchy registry, not
+nested under `Items` — "walking up from an item to find its category"
+is a single tag lookup today, never a `parent_id` walk, and an item or
+product can be re-tagged into a different category at any time with no
+catalog reshuffling. See `docs/pm-domain-reference.md`'s "Hierarchies
+and multi-dimensional reporting" for the full, generic mechanism this
+shares with Division and any other business-defined grouping.
+
+Any function walking "up from an item to find its business-scoped
+Items root" must recognize either the exact global `Items` name or any
+name ending in `" Items"` (a word-boundary suffix match, never a loose
+`endsWith`) — a hardcoded exact match terminates too early and never
+reaches a business-scoped root.
 
 **Storage Origin** (Hot/Cold) and **Text Direction** (LTR/RTL, for
 Hebrew/Arabic) are both explicit, per-entity dimensions using the same
@@ -736,7 +751,7 @@ below), and a bare lookup silently resolves to whichever one a query
 happens to return first — frequently the wrong business's.
 
 The fix, applied throughout (`getHierarchy`, `resolveCashAtBankAccount`,
-`getChartOfAccounts`, `ensureCategoryChain`, `ensureItemInventoryAccount`,
+`getChartOfAccounts`, `resolvePostingRoot`, `ensureItemInventoryAccount`,
 year-end close, rollover, and more): a `knownRootId`/explicit-id
 parameter lets a caller that already knows the correct, business-scoped
 entity id bypass the ambiguous name resolution entirely.
@@ -897,8 +912,10 @@ re-parenting the shared base item. `ensureItemTier` creates a brand-new,
 additional tier-level entity alongside the base product, which is left
 completely untouched — the direct fix for an earlier, corrupting
 attempt where re-parenting the one shared item broke every other
-tier's own ability to walk back to `Items` to re-derive its category
-chain. `ensureItemTierLocationLeaf` mirrors this one level deeper:
+tier's own ability to resolve its own flat posting root
+(`resolvePostingRoot`, directly under `Sales Revenue`/`Cost of Goods
+Sold` — see `docs/pm-domain-reference.md`). `ensureItemTierLocationLeaf`
+mirrors this one level deeper:
 `setHierarchyParent(salesAccount, 'Location', locationName, userId)`
 is set on the actual posting targets (the Sales/COGS leaves
 themselves, since that's what `journal_line.account_id` ever points
@@ -910,8 +927,11 @@ structural replacements for that same retired tag.
 
 Per `docs/profit-centers-design.md` Phase A/B: a Profit Center is a
 **structural subtree nested inside** one business's own CoA — its own
-Sales Revenue/COGS/Inventory grouping nodes, one level deeper than
-product-category grouping, under the exact same shared headers every
+Sales Revenue/COGS/Inventory grouping nodes, one level deeper than the
+flat Item leaves `resolvePostingRoot` otherwise posts directly under
+(there is no further product-category grouping level in real CoA
+structure to be deeper than — Category is a lateral tag now, never
+real account nesting), under the exact same shared headers every
 business already has — deliberately *not* a second root alongside
 Chart of Accounts, so `getBalanceSheet`/`getProfitAndLoss`/
 `getBusinessReports`'s existing structural tree walk picks up every

@@ -6,7 +6,10 @@ import { getHierarchyParent, getBusinessHierarchy } from './db.js';
 import { buildProfitAndLossFromBalances, getLedgerBalances, type ProfitAndLoss } from './db-reports.js';
 import type { BusinessName, LedgerName } from './db.js';
 
-export type MatrixAxis = 'Product' | 'Category' | 'Location' | 'Consolidated' | (string & {});
+// 'Category', 'Division', or any other business-defined grouping flows
+// through the same, single generic Hierarchy branch below — only
+// Consolidated/Item/Location are structural literals here.
+export type MatrixAxis = 'Item' | 'Location' | 'Consolidated' | (string & {});
 
 export interface MatrixCell {
   rowKey: string;
@@ -41,32 +44,6 @@ function stripLocationSuffix(name: string): string {
   return idx === -1 ? n : n.slice(0, idx);
 }
 
-function categoryForAccount(accountId: number, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
-  const rawName = entityIndex.get(accountId)?.name ?? '';
-  const locIdx = rawName.indexOf(' — ');
-  const productName = locIdx === -1 ? rawName : rawName.slice(0, locIdx);
-  let productEntityId: number | undefined;
-  for (const [id, e] of entityIndex.entries()) {
-    if (e.name === productName) {
-      productEntityId = id;
-      break;
-    }
-  }
-  if (productEntityId === undefined) return stripLocationSuffix(productName);
-  const parentId = entityIndex.get(productEntityId)?.parent_id;
-  const parent = parentId !== null && parentId !== undefined ? entityIndex.get(parentId) : undefined;
-  const categoryRaw = parent?.name ?? productName;
-  if (categoryRaw.startsWith('Sales - ')) return categoryRaw.slice('Sales - '.length);
-  if (categoryRaw.startsWith('COGS - ')) return categoryRaw.slice('COGS - '.length);
-  return categoryRaw;
-}
-
-function categoryForItem(itemId: number, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
-  const parentId = entityIndex.get(itemId)?.parent_id;
-  if (parentId === null || parentId === undefined) return stripLocationSuffix(entityIndex.get(itemId)?.name ?? '');
-  return categoryForAccount(parentId, entityIndex);
-}
-
 function locationForAccount(accountName: string): string | undefined {
   const row = db
     .prepare(
@@ -81,8 +58,7 @@ function locationForAccount(accountName: string): string | undefined {
 
 function resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
   if (axis === 'Consolidated') return CONSOLIDATED_KEY;
-  if (axis === 'Product') return stripLocationSuffix(entityIndex.get(accountId)?.name ?? '');
-  if (axis === 'Category') return categoryForAccount(accountId, entityIndex);
+  if (axis === 'Item') return stripLocationSuffix(entityIndex.get(accountId)?.name ?? '');
   const accountName = entityIndex.get(accountId)?.name ?? '';
   const location = locationForAccount(accountName);
   if (axis === 'Location') return location ?? NO_LOCATION_KEY;
@@ -96,10 +72,9 @@ function resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number
   return `No ${axis}`;
 }
 
-function resolveItemKey(axis: MatrixAxis, itemId: number, itemName: string, locationName: string, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
+function resolveItemKey(axis: MatrixAxis, itemName: string, locationName: string): string {
   if (axis === 'Consolidated') return CONSOLIDATED_KEY;
-  if (axis === 'Product') return stripLocationSuffix(itemName);
-  if (axis === 'Category') return categoryForItem(itemId, entityIndex);
+  if (axis === 'Item') return stripLocationSuffix(itemName);
   if (axis === 'Location') return locationName;
   const baseProductName = stripLocationSuffix(itemName);
   const direct = getHierarchyParent(baseProductName, axis);
@@ -182,8 +157,6 @@ export interface StockOnHandMatrix {
 }
 
 export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): StockOnHandMatrix {
-  const entityIndex = loadEntityIndex();
-
   // Quantity-on-hand is read directly from each real, provisioned
   // per-location quantity account's own balance_minor (see
   // ensureItemLocationQuantityAccount, backend/src/db.ts) rather than
@@ -223,8 +196,8 @@ export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): 
   let totalRealizableValueMinor = 0;
 
   for (const r of rows) {
-    const rowKey = resolveItemKey(rowAxis, r.item_id, r.item_name, r.location_name, entityIndex);
-    const colKey = resolveItemKey(colAxis, r.item_id, r.item_name, r.location_name, entityIndex);
+    const rowKey = resolveItemKey(rowAxis, r.item_name, r.location_name);
+    const colKey = resolveItemKey(colAxis, r.item_name, r.location_name);
 
     const key = `${rowKey}\u0000${colKey}`;
     if (!cellMap.has(key)) {
@@ -321,7 +294,7 @@ export function getProfitAndLossByAxis(
 }
 
 export interface AxisValues {
-  Product: string[];
+  Item: string[];
   Category: string[];
   Location: string[];
   [hierarchyName: string]: string[];
@@ -340,8 +313,8 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
 
   for (const [id, balance] of balances.entries()) {
     if (!validIds.has(id) || balance === 0) continue;
-    const product = resolveKey('Product', id, entityIndex);
-    if (product !== CONSOLIDATED_KEY) products.add(product);
+    const item = resolveKey('Item', id, entityIndex);
+    if (item !== CONSOLIDATED_KEY) products.add(item);
     const category = resolveKey('Category', id, entityIndex);
     if (category !== CONSOLIDATED_KEY) categories.add(category);
     const location = resolveKey('Location', id, entityIndex);
@@ -353,7 +326,7 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
   }
 
   const result: AxisValues = {
-    Product: [...products].sort(),
+    Item: [...products].sort(),
     Category: [...categories].sort(),
     Location: [...locations].sort(),
   };

@@ -1647,22 +1647,17 @@ export function getHierarchyChain(leafName: ItemName | LocationName): HierarchyC
   return chain;
 }
 
-export function getAncestorChain(entityName: string, rootName: string): string[] {
-  const start = db.prepare(`SELECT id, parent_id FROM current_entities WHERE name = ?`).get(entityName) as { id: number; parent_id: number | null } | undefined;
-  if (!start) return [];
-  const chain: string[] = [];
-  const isRoot = (name: string) => name === rootName || (rootName === 'Items' && name.endsWith(' Items'));
-  let currentId = start.parent_id;
-  for (let i = 0; i < 100 && currentId != null; i++) {
-    const row = db.prepare(`SELECT id, name, parent_id FROM current_entities WHERE id = ?`).get(currentId) as { id: number; name: string; parent_id: number | null } | undefined;
-    if (!row || isRoot(row.name)) break;
-    chain.unshift(row.name);
-    currentId = row.parent_id;
-  }
-  return chain;
-}
-
-export function ensureCategoryChain(rootName: string, prefix: string, chain: string[], userId: UserId, business?: BusinessName, profitCenter?: string): { name: string; id: number } {
+// Resolves where an item's Sales/COGS leaf account should post: the
+// named root (Sales Revenue / Cost of Goods Sold), under its real
+// Profit Center sub-account if one applies (Department is the one
+// genuine "needs its own real balance" grouping, same reasoning as
+// Location — see docs/pm-domain-reference.md). No further real
+// sub-account nesting happens here for any reporting-only grouping
+// (Category, Division, or any other business-defined Hierarchy) —
+// those are never real account structure, only ever a generic,
+// optional setHierarchyParent tag read back by the matrix-report
+// engine (db-matrix-reports.ts), exactly alike for every one of them.
+function resolvePostingRoot(rootName: string, userId: UserId, business?: BusinessName, profitCenter?: string): { name: string; id: number } {
   let currentParent = rootName;
   let currentParentId = business
     ? resolveBusinessCoaAccountId(business, rootName)
@@ -1672,25 +1667,19 @@ export function ensureCategoryChain(rootName: string, prefix: string, chain: str
     currentParent = profitCenter;
     currentParentId = pcNode.id;
   }
-  for (const cat of chain) {
-    const catName = `${prefix}${cat}`;
-    const row = currentParentId ? Entity.ensureUnder(catName, currentParentId, userId) : Entity.create(catName, rootName, userId);
-    currentParent = catName;
-    currentParentId = row.id;
-  }
-  return { name: currentParent, id: currentParentId! };
+  if (currentParentId == null) throw new ValidationError(`No real "${rootName}" account found${business ? ` for "${business}"` : ''}.`);
+  return { name: currentParent, id: currentParentId };
 }
 
 export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
   const suffix = tier ? ` (${tier})` : '';
   const salesAccount = `${itemName}${suffix}`;
   const cogsAccount = `${itemName}${suffix}`;
-  const categoryChain = getAncestorChain(itemName, 'Items');
 
-  const salesParent = ensureCategoryChain('Sales Revenue', '', categoryChain, userId, business, profitCenter);
+  const salesParent = resolvePostingRoot('Sales Revenue', userId, business, profitCenter);
   const salesRow = Entity.ensureUnder(salesAccount, salesParent.id, userId);
 
-  const cogsParent = ensureCategoryChain('Cost of Goods Sold', '', categoryChain, userId, business, profitCenter);
+  const cogsParent = resolvePostingRoot('Cost of Goods Sold', userId, business, profitCenter);
   const existingCogs = Entity.getUnder(cogsAccount, cogsParent.id);
   const cogsRow = existingCogs ?? Entity.create(cogsAccount, cogsParent.id, userId);
   if (!existingCogs || !Entity.get(cogsRow.id)?.relation_id) Entity.relate(cogsRow.id, 'COGS', userId);
@@ -3490,6 +3479,28 @@ export function getHierarchyChildren(parentName: string, hierarchyName: string):
   return rows.map((r) => r.entity_name);
 }
 
+// Every real, direct setHierarchyParent tag for one named hierarchy, in
+// one query - entity name -> the value it's tagged with. Covers both an
+// item tagged with a value, and a value itself tagged with a further
+// parent value (the same, single tag type either way), so one call gives
+// every edge needed to build a real display tree for any hierarchy
+// (Category included) without an N+1 per item or per value. Never
+// privileges any particular hierarchy name.
+export function getHierarchyAssignments(hierarchyName: string): Record<string, string> {
+  const rows = db
+    .prepare(
+      `SELECT orig.name AS entity_name, target.name AS value_name
+       FROM current_entities link
+       JOIN current_entities target ON target.id = link.relation_id
+       JOIN current_entities orig ON orig.id = link.parent_id
+       WHERE link.name = orig.name || ' — ' || ?`
+    )
+    .all(`Hierarchy: ${hierarchyName}`) as { entity_name: string; value_name: string }[];
+  const result: Record<string, string> = {};
+  for (const r of rows) result[r.entity_name] = r.value_name;
+  return result;
+}
+
 // The general form behind getHierarchyLinksPointingAt below: EVERY kind of
 // link record this codebase creates (setEntityLink's own `${entityName} —
 // ${linkType}` naming convention — Hierarchy: *, Location, COGS Product,
@@ -5054,13 +5065,6 @@ export function getOrgChartStructure(businessName: BusinessName): OrgChartStruct
   }));
   const unassignedEmployees = [...allEmployeeNames].filter((e) => !departmentByEmployee.has(e)).sort().map(describe);
   return { business: businessName, departments, unassignedEmployees };
-}
-
-export function createItemCategory(businessName: BusinessName, categoryName: string, parentCategoryName: string | undefined, userId: UserId): TypedNode<'RootName'> {
-  const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
-  const itemsRoot = requireEntity('Items', typeRootName, business);
-  const parent = parentCategoryName ? requireEntity(parentCategoryName, typeRootName, itemsRoot) : itemsRoot;
-  return create(parent, typeRootName, categoryName, userId);
 }
 
 export function nominateBankAccount(businessName: BusinessName, bankAccountName: string, routingDetail: string, accountNumber: string, userId: UserId): { id: number } {

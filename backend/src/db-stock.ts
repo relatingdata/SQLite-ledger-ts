@@ -12,6 +12,7 @@ import {
   mergeContactDetail,
   assertPeriodOpen,
   getHierarchyGroupForLocation,
+  getHierarchyAssignments,
   ensureItemQuantityAccounts,
   setAccountCurrency,
   ensureItemInventoryAccount,
@@ -576,15 +577,14 @@ export interface StockMovementReport {
   sales: StockSaleRow[];
 }
 
+// Category is a genuinely optional, generic Hierarchy tag — the exact
+// same getHierarchyAssignments/getHierarchyParent mechanism Division or
+// any other business-defined grouping already uses, never a real
+// tree-position lookup. An item with no Category tag at all is
+// correctly absent from this map, rather than reporting whatever real
+// entity happens to sit above it.
 function allItemCategories(): Map<string, string | null> {
-  const rows = db
-    .prepare(
-      `SELECT p.name AS item, parent.name AS category
-       FROM current_entities p
-       JOIN current_entities parent ON parent.id = p.parent_id`
-    )
-    .all() as { item: string; category: string }[];
-  return new Map(rows.map((r) => [r.item, r.category]));
+  return new Map(Object.entries(getHierarchyAssignments('Category')));
 }
 
 function allPreferredProviders(): Map<string, string> {

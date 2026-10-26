@@ -443,6 +443,12 @@ export const getHierarchyTag = (entityName: string, hierarchyName: string) =>
   request<{ parentName: string | null }>(`/hierarchy/parent?entityName=${encodeURIComponent(entityName)}&hierarchyName=${encodeURIComponent(hierarchyName)}`);
 export const deleteHierarchyTag = (entityName: string, hierarchyName: string) =>
   request<void>(`/hierarchy/parent?entityName=${encodeURIComponent(entityName)}&hierarchyName=${encodeURIComponent(hierarchyName)}`, { method: 'DELETE' });
+// Every real tag for one named hierarchy in one call (entity name ->
+// value name) — builds a real display tree (e.g. Category in the Items
+// catalog) without one request per item or per value. See
+// getHierarchyAssignments in db.ts.
+export const getHierarchyAssignments = (hierarchyName: string) =>
+  request<Record<string, string>>(`/hierarchy/assignments?hierarchyName=${encodeURIComponent(hierarchyName)}`);
 
 export const getBusinesses = () => request<{ id: number; name: string }[]>('/businesses');
 export const getBusinessTypes = () => request<{ name: string; questions: string[] }[]>('/businesses/types');

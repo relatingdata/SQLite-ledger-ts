@@ -85,12 +85,10 @@ export function makeFixtures(db: DbModule) {
     return { name };
   }
 
-  function freshItem(business: BusinessName, hint: string): { category: TypedNode<'RootName'>; itemName: ItemName } {
-    const categoryName = uniqueName(`${hint} Category`);
+  function freshItem(business: BusinessName, hint: string): { itemName: ItemName } {
     const itemNameStr = uniqueName(hint);
-    const category = db.createItemCategory(business, categoryName, undefined, userId);
-    db.create(category, db.typeItemName, itemNameStr, userId);
-    return { category, itemName: db.asItemName(itemNameStr) };
+    db.createItem(itemNameStr, 'Items', userId, business);
+    return { itemName: db.asItemName(itemNameStr) };
   }
 
   function freshHierarchyValue(business: BusinessName, groupingName: string, valueHint: string): { groupingName: string; valueName: string } {

@@ -28,6 +28,20 @@ function looksLikeSourceRecordName(name: string): boolean {
   return name.includes(' — Source — ');
 }
 
+// setEntityLink (backend/src/db.ts) names every link record
+// "{entityName} — {linkType}" as a direct child of entityName — the
+// same mechanism setHierarchyParent uses to tag an item with a
+// Category (or any other Hierarchy) value. Category is the first
+// Hierarchy that routinely tags Items themselves (Division has always
+// tagged Locations instead), so a tagged item now genuinely has a
+// real "{item} — Hierarchy: Category" child of its own; without
+// recognizing it here, filterToItems's own leaf check below wrongly
+// stopped treating a tagged item as a leaf at all, silently vanishing
+// it from every item picker built from a real, confirmed regression.
+function looksLikeHierarchyLinkRecordName(name: string): boolean {
+  return name.includes(' — Hierarchy: ');
+}
+
 // See docs/pm-frontend-reference.md.
 function isInternalItemRecord(entity: EntityNode, allEntities: EntityNode[]): boolean {
   const byId = new Map(allEntities.map((e) => [e.id, e]));
@@ -36,7 +50,7 @@ function isInternalItemRecord(entity: EntityNode, allEntities: EntityNode[]): bo
   while (current) {
     if (seen.has(current.id)) return false; // guard against a malformed/cyclic tree
     seen.add(current.id);
-    if (INTERNAL_ITEM_RECORD_NAMES.has(current.name) || looksLikeSourceRecordName(current.name)) return true;
+    if (INTERNAL_ITEM_RECORD_NAMES.has(current.name) || looksLikeSourceRecordName(current.name) || looksLikeHierarchyLinkRecordName(current.name)) return true;
     if (current.name === 'Items') return false; // reached the real catalog root without finding an internal marker
     current = current.parent_id != null ? byId.get(current.parent_id) : undefined;
   }

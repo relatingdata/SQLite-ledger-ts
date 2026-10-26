@@ -275,10 +275,14 @@ the API path, rather than calling a backend function 1:1:
   `createAndConfigureLocation` design calls
   `ensureLocationCapacityAccount` immediately so the opening balance
   is known and posted at creation, never lazily.
-- **`createItemAndCategory`** matches the real UI's own behavior: a
-  `"+ New category…"` value creates the category first, under the
-  business's own `Items` root, before creating the item under it; any
-  other value names an already-existing category directly.
+- **`createItemAndCategory`** creates the item flat, directly under
+  the business's own `Items` root (`createItem`), then tags it into
+  the named category (`setHierarchyParent(itemName, 'Category',
+  categoryName, userId)`) — a `"+ New category…"` value is resolved to
+  the newly-typed name before tagging; any other value names an
+  already-existing category directly. Category is a real, optional
+  Hierarchy tag here, exactly like Division — never a real position in
+  the Items catalog tree. See `docs/pm-frontend-reference.md`.
 
 ### Honest, current status
 

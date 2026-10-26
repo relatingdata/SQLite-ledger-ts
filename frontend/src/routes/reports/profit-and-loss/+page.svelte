@@ -10,7 +10,7 @@
 
   // Unified axis dropdown — see docs/pm-frontend-reference.md.
   let outerSelection = $state('Location');
-  let innerSelection = $state('Product');
+  let innerSelection = $state('Item');
 
   let axisValues: AxisValues | null = $state(null);
   let fromDate = $state('');
@@ -20,13 +20,13 @@
   let error = $state('');
 
   // Hierarchy-redundancy guard — see docs/pm-frontend-reference.md.
-  const PRODUCT_HIERARCHY: Exclude<MatrixAxis, 'Consolidated'>[] = ['Category', 'Product'];
-  let furtherHierarchies = $derived((axisValues ? Object.keys(axisValues).filter((k) => !['Product', 'Category', 'Location'].includes(k)) : []) as Exclude<MatrixAxis, 'Consolidated'>[]);
+  const ITEM_HIERARCHY: Exclude<MatrixAxis, 'Consolidated'>[] = ['Category', 'Item'];
+  let furtherHierarchies = $derived((axisValues ? Object.keys(axisValues).filter((k) => !['Item', 'Category', 'Location'].includes(k)) : []) as Exclude<MatrixAxis, 'Consolidated'>[]);
   let locationHierarchy = $derived(['Location', ...furtherHierarchies] as Exclude<MatrixAxis, 'Consolidated'>[]);
-  let groupableAxes = $derived(['Product', 'Category', ...locationHierarchy] as Exclude<MatrixAxis, 'Consolidated'>[]);
+  let groupableAxes = $derived(['Item', 'Category', ...locationHierarchy] as Exclude<MatrixAxis, 'Consolidated'>[]);
   function opposingHierarchyAxes(axis: Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated'): (Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated')[] {
-    if (locationHierarchy.includes(axis as never)) return ['Consolidated', ...PRODUCT_HIERARCHY];
-    if (PRODUCT_HIERARCHY.includes(axis as never)) return ['Consolidated', ...locationHierarchy];
+    if (locationHierarchy.includes(axis as never)) return ['Consolidated', ...ITEM_HIERARCHY];
+    if (ITEM_HIERARCHY.includes(axis as never)) return ['Consolidated', ...locationHierarchy];
     return ['Consolidated', ...groupableAxes];
   }
 

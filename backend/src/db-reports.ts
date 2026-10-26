@@ -1086,11 +1086,18 @@ export function getSalesReport(business: BusinessName, ledger: LedgerName, fromD
     .all(business, ledger, business, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as (SalesReportLine & { item_id: number | null })[];
 
   const entities = getEntityTree();
+  // Category is a genuinely optional, generic Hierarchy tag here — the
+  // exact same `getHierarchyParent` mechanism Division/any other
+  // business-defined grouping already uses, never a special, real
+  // tree-position lookup. An item with no Category tag at all (the
+  // single-item, no-grouping case) genuinely, correctly falls to
+  // 'Other' rather than resolving to whatever real entity happens to
+  // sit above it in the tree.
   const categoryOf = (itemId: number | null): string => {
     if (!itemId) return 'Other';
     const entity = entities.find((e) => e.id === itemId);
-    const parent = entities.find((e) => e.id === entity?.parent_id);
-    return parent?.name ?? 'Other';
+    if (!entity) return 'Other';
+    return getHierarchyParent(entity.name, 'Category') ?? 'Other';
   };
 
   const summaryMap = new Map<string, { quantity: number; amount_minor: number }>();

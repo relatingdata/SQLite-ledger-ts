@@ -208,15 +208,8 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   createItemAndCategory: (a) => {
     const userId = db.asUserId(1);
     const categoryName = a.category === '+ New category…' ? a.newCategoryName : a.category;
-    const business = db.requireEntity(a.businessName as any, db.typeBusinessName, db.requireEntity('Businesses', db.typeRootName));
-    const itemsRoot = db.requireEntity('Items', db.typeRootName, business);
-    let categoryEntity;
-    try {
-      categoryEntity = db.requireEntity(categoryName, db.typeRootName, itemsRoot);
-    } catch {
-      categoryEntity = db.createItemCategory(a.businessName as any, categoryName, undefined, userId);
-    }
-    db.create(categoryEntity, db.typeItemName, a.itemName, userId);
+    db.createItem(a.itemName, 'Items', userId, a.businessName as any);
+    db.setHierarchyParent(a.itemName, 'Category', categoryName, userId);
   },
   // Mirrors items/+page.svelte's addUncategorizedItem — an item directly under the business's
   // Items root, with no category at all. Uses the real, canonical db.createItem (which also
@@ -233,16 +226,19 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   // docs/pm-frontend-reference.md.
   createCategorySimple: (a) => {
     const userId = db.asUserId(1);
-    db.createItemCategory(a.businessName as any, a.categoryName, undefined, userId);
+    db.ensureHierarchyGrouping(a.businessName as any, 'Category', userId);
+    db.ensureHierarchyValue(a.businessName as any, 'Category', a.categoryName, userId);
   },
-  // An item under an EXISTING category (created via createCategorySimple above, or already
+  // An item tagged into an EXISTING category (created via createCategorySimple above, or already
   // present) - the real browser path selects that category's own tree node by name (the category
   // argument only drives the browser's open_selector per screen, hardcoded per fixture screen
   // name, since open_selector itself can't be templated - see docs/pm-testing-e2e.md), then
-  // presses Insert.
+  // presses Insert. Category is a real, optional Hierarchy tag here - the same, generic
+  // setHierarchyParent mechanism Division already uses - never a real tree position.
   createItemUnderCategory: (a) => {
     const userId = db.asUserId(1);
-    db.createItem(a.itemName, a.category, userId, a.businessName as any);
+    db.createItem(a.itemName, 'Items', userId, a.businessName as any);
+    db.setHierarchyParent(a.itemName, 'Category', a.category, userId);
   },
   // Idempotent precondition for receiveStockWithCombination/openContainer below, which otherwise create these lazily.
   createHierarchyGroupingSimple: (a) => {
@@ -270,10 +266,13 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.setHierarchyParent(a.locationName, 'Division', a.division, userId);
   },
-  // Business Structure popup's Item Categories tab, "+ New top-level category".
+  // Business Structure popup's Hierarchies tab, "+ New top-level category" -
+  // registers the Category grouping/value exactly like any other
+  // business-defined Hierarchy (Division included), never a real tree position.
   addTopLevelCategoryViaStructurePopup: (a) => {
     const userId = db.asUserId(1);
-    db.createItemCategory(a.businessName as any, a.categoryName, undefined, userId);
+    db.ensureHierarchyGrouping(a.businessName as any, 'Category', userId);
+    db.ensureHierarchyValue(a.businessName as any, 'Category', a.categoryName, userId);
   },
   // Business Structure popup's Org Chart tab, "+ New Department" — one
   // click, the same db.createAndConfigureDepartment the dedicated route

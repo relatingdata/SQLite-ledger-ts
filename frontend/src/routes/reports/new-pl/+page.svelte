@@ -11,17 +11,17 @@
   // Hierarchy-redundancy guard, as in New New P&L — see docs/pm-frontend-reference.md.
   let furtherHierarchies: MatrixAxis[] = [];
   $: locationHierarchy = ['Location', ...furtherHierarchies] as MatrixAxis[];
-  const PRODUCT_HIERARCHY: MatrixAxis[] = ['Category', 'Product'];
-  $: axes = ['Product', 'Category', ...locationHierarchy, 'Consolidated'] as MatrixAxis[];
+  const ITEM_HIERARCHY: MatrixAxis[] = ['Category', 'Item'];
+  $: axes = ['Item', 'Category', ...locationHierarchy, 'Consolidated'] as MatrixAxis[];
   function opposingHierarchyAxes(axis: MatrixAxis): MatrixAxis[] {
-    if (locationHierarchy.includes(axis)) return ['Consolidated', ...PRODUCT_HIERARCHY];
-    if (PRODUCT_HIERARCHY.includes(axis)) return ['Consolidated', ...locationHierarchy];
+    if (locationHierarchy.includes(axis)) return ['Consolidated', ...ITEM_HIERARCHY];
+    if (ITEM_HIERARCHY.includes(axis)) return ['Consolidated', ...locationHierarchy];
     return axes;
   }
   $: allowedColAxes = opposingHierarchyAxes(rowAxis);
   $: allowedRowAxes = opposingHierarchyAxes(colAxis);
 
-  let rowAxis: MatrixAxis = 'Product';
+  let rowAxis: MatrixAxis = 'Item';
   let colAxis: MatrixAxis = 'Location';
   let fromDate = '';
   let toDate = '';
@@ -61,7 +61,7 @@
         const hierarchy = await getHierarchy(session.current.businessName);
         furtherHierarchies = hierarchy.map((h) => h.grouping) as MatrixAxis[];
       } catch {
-        /* the axis dropdowns still work with just Product/Category/Location if this fails — further, business-chosen hierarchies are an addition, not a requirement */
+        /* the axis dropdowns still work with just Item/Category/Location if this fails — further, business-chosen hierarchies are an addition, not a requirement */
       }
     }
     await load();
@@ -97,8 +97,8 @@
 <fieldset class="page-title">
   <legend>{translations.current['New P&L (Matrix)'] ?? 'New P&L (Matrix)'}</legend>
   <p class="intro">
-    {translations.current['A real, two-axis Sales vs. COGS report. Pick what each axis breaks down by — Product, Category, Location, any further hierarchy this business has set up, or Consolidated (no breakdown at all) — for any real combination, from the single, most-granular Product-by-Location matrix down to one, single, Consolidated number.'] ??
-      'A real, two-axis Sales vs. COGS report. Pick what each axis breaks down by — Product, Category, Location, any further hierarchy this business has set up, or Consolidated (no breakdown at all) — for any real combination, from the single, most-granular Product-by-Location matrix down to one, single, Consolidated number.'}
+    {translations.current['A real, two-axis Sales vs. COGS report. Pick what each axis breaks down by — Item, Category, Location, any further hierarchy this business has set up, or Consolidated (no breakdown at all) — for any real combination, from the single, most-granular Item-by-Location matrix down to one, single, Consolidated number.'] ??
+      'A real, two-axis Sales vs. COGS report. Pick what each axis breaks down by — Item, Category, Location, any further hierarchy this business has set up, or Consolidated (no breakdown at all) — for any real combination, from the single, most-granular Item-by-Location matrix down to one, single, Consolidated number.'}
   </p>
 <div class="controls">
   <fieldset>
