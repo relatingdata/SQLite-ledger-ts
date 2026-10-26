@@ -165,6 +165,22 @@ Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,
 Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,,,,2,ledger,,text
 Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text
 Check Profit And Loss Net Income Matches Recorded,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> nth=1,text
+Check P&L By Item,data,,,,,1,businessName,,text
+Check P&L By Item,data,,,,,2,ledger,,text
+Check P&L By Item,data,,,,,3,fromDate,,text
+Check P&L By Item,data,,,,,4,toDate,,text
+Check P&L By Item,data,,,,,5,itemName,,text
+Check P&L By Category,data,,,,,1,businessName,,text
+Check P&L By Category,data,,,,,2,ledger,,text
+Check P&L By Category,data,,,,,3,fromDate,,text
+Check P&L By Category,data,,,,,4,toDate,,text
+Check P&L By Category,data,,,,,5,categoryName,,text
+Check P&L By Category,data,,,,,6,itemName,,text
+Check P&L By Division,data,,,,,1,businessName,,text
+Check P&L By Division,data,,,,,2,ledger,,text
+Check P&L By Division,data,,,,,3,fromDate,,text
+Check P&L By Division,data,,,,,4,toDate,,text
+Check P&L By Division,data,,,,,5,divisionName,,text
 Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,createUserSimple,key:Enter,1,username,.form-card fieldset:has(legend:has-text('Username')) input,text
 Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,createUserSimple,key:Enter,2,password,.form-card fieldset:has(legend:has-text('Password')) input,text
 Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,createUserSimple,key:Enter,3,roles,.form-card .multiselect,check_by_text

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { chromium, type Browser, type Page } from 'playwright';
 import * as db from '../src/db.js';
 import { getBalanceSheet } from '../src/db-reports.js';
+import { getProfitAndLossByAxis } from '../src/db-matrix-reports.js';
 import * as auth from '../src/auth.js';
 import { unescapeAscii } from '../../shared-fixtures/csv.js';
 
@@ -456,6 +457,55 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
     const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
     const recorded = recordedNetIncome.get(plKey(a));
     return recorded !== undefined && recorded === pl.net_income_minor;
+  },
+  // The simplest possible two-axis breakdown: a single item, in a
+  // single location, with zero hierarchy configured at all (the Ice
+  // stall - see docs/pm-domain-reference.md's "the application should
+  // work fine with a single item in a single location"). Item axis
+  // against Consolidated must still resolve the one real item to its
+  // own, real, positive-net-income outer node - and summing every
+  // outer node this axis finds (Ice's own node, plus Rent's, the
+  // business's one other real account by this point) must reconcile
+  // exactly to the business's one, real, ordinary getProfitAndLoss
+  // total - proving the generic axis-resolution path needs no Category
+  // or Division to be configured to work, or to reconcile, at all.
+  profit_and_loss_by_item_single_row: (a) => {
+    const nodes = getProfitAndLossByAxis(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined, 'Item', 'Consolidated');
+    const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
+    const itemNode = nodes.find((n) => n.key === a.itemName);
+    const summed = nodes.reduce((sum, n) => sum + n.profitAndLoss.net_income_minor, 0);
+    return !!itemNode && itemNode.profitAndLoss.net_income_minor > 0 && summed === pl.net_income_minor;
+  },
+  // Detailed: once a real category and a real item exist (Beer, tagged
+  // onto Amber Ale) and have real, posted Sales/COGS activity, a
+  // Category-outer/Item-inner breakdown must resolve the item under
+  // the category it was tagged into - via getHierarchyParent's own
+  // generic lookup, not any structural, Category-specific walk (see
+  // "Hierarchies and multi-dimensional reporting" in
+  // docs/pm-domain-reference.md). Scoped to Beer/Amber Ale specifically
+  // - Highland Single Malt (tagged Whiskey) is only ever received into
+  // storage in this tutorial, never sold, so it posts no real
+  // Sales/COGS leaf for any axis to resolve at all.
+  profit_and_loss_by_category_detailed: (a) => {
+    const nodes = getProfitAndLossByAxis(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined, 'Category', 'Item');
+    const categoryNode = nodes.find((n) => n.key === a.categoryName);
+    return !!categoryNode && categoryNode.children.some((c) => c.key === a.itemName);
+  },
+  // Full, summary/consolidated: a Division-outer/Consolidated-inner
+  // breakdown across the whole, by-now multi-location wine retailer
+  // must still reconcile exactly to the one, real, ordinary
+  // getProfitAndLoss total - no matter which real hierarchy a report
+  // slices by, the sum across every real outer group is always the
+  // same, real, whole-business net income. Every real location this
+  // tutorial creates ends up tagged into the one real "Adelaide Metro"
+  // division, so this also confirms that division's own outer node
+  // alone accounts for the business's entire real net income.
+  profit_and_loss_by_division_consolidated: (a) => {
+    const nodes = getProfitAndLossByAxis(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined, 'Division', 'Consolidated');
+    const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
+    const divisionNode = nodes.find((n) => n.key === a.divisionName);
+    const summed = nodes.reduce((sum, n) => sum + n.profitAndLoss.net_income_minor, 0);
+    return !!divisionNode && divisionNode.profitAndLoss.net_income_minor === pl.net_income_minor && summed === pl.net_income_minor;
   },
   user_has_exact_roles: (a) => {
     const user = auth.listUsers().find((u) => u.username === a.username);

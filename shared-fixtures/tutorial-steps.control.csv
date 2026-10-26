@@ -18,6 +18,7 @@ path,verify,screenshot,skip
 ,trial_balance_balanced,,false
 ,record_profit_and_loss_net_income,,false
 ,profit_and_loss_positive,,false
+api,profit_and_loss_by_item_single_row,,false
 ,,ice_phase_books_closed,false
 ,trial_balance_balanced,ice_trial_balance_after_close,false
 ,profit_and_loss_net_income_matches_recorded,ice_profit_and_loss_after_close,false
@@ -64,6 +65,8 @@ api,,,false
 ,,,false
 ,trial_balance_balanced,,false
 ,profit_and_loss_positive,,false
+api,profit_and_loss_by_category_detailed,,false
+api,profit_and_loss_by_division_consolidated,,false
 ,trial_balance_total_matches_recorded,,false
 ,,,false
 api,user_has_exact_roles,,false

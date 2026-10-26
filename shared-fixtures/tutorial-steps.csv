@@ -75,6 +75,23 @@
 "Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual",""
 "Record Profit And Loss Net Income","Tutorial Wine Retail Business","Actual","",""
 "Check Profit And Loss Positive","Tutorial Wine Retail Business","Actual","",""
+# The simplest possible two-axis breakdown: one item, in one location,
+# with zero hierarchy configured at all (no Category, no Division -
+# see "the application should work fine with a single item in a
+# single location" in docs/pm-domain-reference.md). An Item-outer/
+# Consolidated-inner breakdown must still resolve Ice to its own, real,
+# positive-net-income outer node, and summing every real outer node
+# this axis finds (Ice's own, plus Rent's - the business's one other
+# real account by this point) must reconcile exactly to the business's
+# one, real, ordinary Profit and Loss total above - proving the
+# generic axis-resolution path needs no Category or Division
+# configured to work, or to reconcile, at all. No real, dedicated UI
+# screen exists yet for a by-axis breakdown report with reliable,
+# automatable selectors (the two-axis picker on /reports/new-new-pl is
+# a session-driven, combined-string dropdown) - forced to "api" in
+# tutorial-steps.control.csv regardless of --path, same as the
+# Rollover-adjacent steps above.
+"Check P&L By Item","Tutorial Wine Retail Business","Actual","","","Ice"
 
 # The owner closes the books on this, the Ice business's own first
 # real financial year - end of the real year/period rollover procedure
@@ -280,6 +297,29 @@
 # with a real, positive Profit and Loss.
 "Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual 2027-28",""
 "Check Profit And Loss Positive","Tutorial Wine Retail Business","Actual 2027-28","",""
+# Detailed: once a real category and a real item exist (Beer, tagged
+# onto Amber Ale) with real, posted Sales/COGS activity, a
+# Category-outer/Item-inner breakdown must resolve the item under the
+# category it was tagged into - via getHierarchyParent's own generic
+# lookup, not any structural, Category-specific walk (see "Hierarchies
+# and multi-dimensional reporting" in docs/pm-domain-reference.md).
+# Scoped to Beer/Amber Ale specifically - Highland Single Malt (tagged
+# Whiskey) is only ever received into storage in this tutorial, never
+# sold, so it posts no real Sales/COGS leaf for any axis to resolve at
+# all. Forced to "api", same reason as the single-item check above.
+"Check P&L By Category","Tutorial Wine Retail Business","Actual 2027-28","","","Beer","Amber Ale 330ml"
+# Full, summary/consolidated: a Division-outer/Consolidated-inner
+# breakdown across the whole, by-now multi-location wine retailer must
+# still reconcile exactly to the one, real, ordinary Profit and Loss
+# total above - no matter which real hierarchy a report slices by, the
+# sum across every real outer group is always the same, real,
+# whole-business net income. Every real location this tutorial creates
+# ends up tagged into the one real "Adelaide Metro" division, so this
+# also confirms that division's own outer node alone accounts for the
+# business's entire real net income. Forced to "api", same reason as
+# above.
+"Check P&L By Division","Tutorial Wine Retail Business","Actual 2027-28","","","Adelaide Metro"
+
 # The real, final proof that none of the real wine-retail build-out
 # above ever touched the Ice business's own, already-closed first
 # year: "Actual"'s own trial balance total is exactly what it was
