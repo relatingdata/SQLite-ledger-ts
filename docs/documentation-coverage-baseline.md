@@ -245,3 +245,106 @@ file name, and not a business concept worth prose on its own.
 - `check-backend-types`
 - `check-e2e-types`
 - `/reports/stock-out-risk`
+
+<!-- Added 2026-10-26, auditing the Programmer's/User Manual for
+completeness per direct request: `check-docs-coverage` had never been
+re-run since Departments/Org Chart, POS terminals, multi-currency,
+BOM assembly, project tasks, invoicing, and the recording/replay test
+infrastructure were each built - all genuinely real, substantial,
+undocumented features, not small branding helpers. None of these were
+touched this session; logged here, honestly, rather than either
+silently leaving the check broken or writing 90 names' worth of
+first-pass prose about systems this session never verified against
+their own real, current behavior. Prioritize by subsystem, not
+alphabetically: Departments/Org Chart and POS terminals/currency pairs
+are the two largest, most recently-built, most user-visible gaps. -->
+- `createUser`
+- `BUSINESS_ADMIN_ROLE`
+- `getLedgerBalancesByLocationStructural`
+- `seedRemainingData`
+- `createPosTerminal`
+- `setTerminalCurrency`
+- `recordStockTakeCount`
+- `asAccountName`
+- `resolveItemId`
+- `isGenuineCategoryOrItemsRoot`
+- `listLineTypes`
+- `setLineType`
+- `listInvoices`
+- `countInvoices`
+- `getCounterpartyHistory`
+- `getHierarchyChain`
+- `ensureLocationStorageRoot`
+- `ensureStorageCapacityStructure`
+- `getBusinessProductShapes`
+- `resolveDispatchLocation`
+- `getReminderCandidates`
+- `getInvoiceLine`
+- `getTypedContactPersons`
+- `stageBomComponent`
+- `postBomComponents`
+- `getBomComponents`
+- `createProjectTask`
+- `getProjectTasks`
+- `addTaskDependency`
+- `getTaskDependencies`
+- `getEntitiesWithLink`
+- `countItems`
+- `getBusinessHomeCurrency`
+- `ensureCurrencyPair`
+- `getCurrencyExchangeRate`
+- `listCurrencyPairs`
+- `ensureDepartmentsRoot`
+- `createDepartment`
+- `ensureDepartmentAccounts`
+- `createAndConfigureDepartment`
+- `deleteDepartment`
+- `listDepartments`
+- `getEmployeeDepartment`
+- `deleteEmployeeDepartment`
+- `getEmployeeManager`
+- `deleteEmployeeManager`
+- `getOrgChartStructure`
+- `getBusinessTypes`
+- `saveBusinessTypeAnswers`
+- `getChartOfAccountsPrototype`
+- `typeEmployeeName`
+- `typeDepartmentEntityName`
+- `isRecording`
+- `startRecording`
+- `stopRecording`
+- `recordingMiddleware`
+- `departmentsRouter`
+- `recordingRouter`
+- `load-translations-api`
+- `load-translations-ui`
+- `check-node-refs`
+- `check-journal-staging-only`
+- `call-graph`
+- `svelte-call-trace`
+- `documentation-baseline-report`
+- `manual-diagrams`
+- `role-routes-matrix`
+- `analyze-classification`
+- `strip-comments`
+- `find-symbols`
+- `analyze-vocabulary`
+- `find-uses`
+- `explain-function`
+- `cycles-baseline`
+- `dependency-graph`
+- `comment-out-functions`
+- `sim-golden`
+- `check-sim-unchanged`
+- `rename-identifiers`
+- `measure-comments`
+- `show-comments`
+- `check-test-docs`
+- `test-docs-baseline`
+- `test-one`
+- `tutorial-section-user-manual`
+- `entity-tree-svg`
+- `untrack`
+- `release`
+- `/reports/storage-space`
+- `/setup/business-structure`

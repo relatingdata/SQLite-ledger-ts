@@ -1091,24 +1091,50 @@ docs/user-manual-ch2-configuration.md: \
 	docs/manual-images/m_balance_sheet.png \
 	docs/manual-images/m_contact_persons.png
 
+# Regenerated to match the real screenshot names this chapter actually
+# embeds (shared-fixtures/tutorial-steps.control.csv's own screenshot
+# column) - the previous t01..t17 list named files this chapter had
+# already stopped referencing, so `make manual` could miss a real,
+# needed rebuild whenever only a screenshot changed. Re-derive with:
+# grep -oE 'manual-images-tutorial/[a-zA-Z0-9_.-]+\.png' docs/user-manual-ch3-tutorial.md | sort -u
 docs/user-manual-ch3-tutorial.md: \
-	docs/manual-images/t01_login_landing.png \
-	docs/manual-images/t02_new_business_form.png \
-	docs/manual-images/t03_new_business_created.png \
-	docs/manual-images/t04_locations_empty.png \
-	docs/manual-images/t05_locations_new_form.png \
-	docs/manual-images/t06_locations_created.png \
-	docs/manual-images/t07_business_setup_landing.png \
-	docs/manual-images/t08_first_division_created.png \
-	docs/manual-images/t09_first_warehouse_created.png \
-	docs/manual-images/t10_first_employee_created.png \
-	docs/manual-images/t11_items_empty.png \
-	docs/manual-images/t12_new_category_and_product_form.png \
-	docs/manual-images/t13_first_product_created.png \
-	docs/manual-images/t14_general_journal_empty.png \
-	docs/manual-images/t15_general_journal_filled.png \
-	docs/manual-images/t16_general_journal_posted.png \
-	docs/manual-images/t17_trial_balance_after_first_transaction.png
+	docs/manual-images-tutorial/bank_account_nominated.png \
+	docs/manual-images-tutorial/bank_currency_structure_built.png \
+	docs/manual-images-tutorial/cash_purchase_done.png \
+	docs/manual-images-tutorial/cash_purchase_ice_done.png \
+	docs/manual-images-tutorial/cash_sale_ice_done.png \
+	docs/manual-images-tutorial/category_beer_created.png \
+	docs/manual-images-tutorial/employee_created.png \
+	docs/manual-images-tutorial/ice_balance_sheet_after_close.png \
+	docs/manual-images-tutorial/ice_phase_books_closed.png \
+	docs/manual-images-tutorial/ice_profit_and_loss_after_close.png \
+	docs/manual-images-tutorial/ice_trial_balance_after_close.png \
+	docs/manual-images-tutorial/item_amber_ale_created.png \
+	docs/manual-images-tutorial/item_cost_set.png \
+	docs/manual-images-tutorial/item_highland_single_malt_created.png \
+	docs/manual-images-tutorial/item_ice_created.png \
+	docs/manual-images-tutorial/journal_entry_posted.png \
+	docs/manual-images-tutorial/journal_line_1_staged.png \
+	docs/manual-images-tutorial/journal_line_2_staged.png \
+	docs/manual-images-tutorial/login_landing.png \
+	docs/manual-images-tutorial/new_business_created.png \
+	docs/manual-images-tutorial/pl_by_category_detailed.png \
+	docs/manual-images-tutorial/pl_by_division_consolidated.png \
+	docs/manual-images-tutorial/pl_by_item_single_row.png \
+	docs/manual-images-tutorial/provider_created.png \
+	docs/manual-images-tutorial/purchase_order_placed.png \
+	docs/manual-images-tutorial/rent_expense_posted.png \
+	docs/manual-images-tutorial/retail_created.png \
+	docs/manual-images-tutorial/rollover_to_new_period_done.png \
+	docs/manual-images-tutorial/second_capital_investment_posted.png \
+	docs/manual-images-tutorial/session_switched.png \
+	docs/manual-images-tutorial/session_switched_to_new_ledger.png \
+	docs/manual-images-tutorial/structure_popup_category_added.png \
+	docs/manual-images-tutorial/structure_popup_division_added.png \
+	docs/manual-images-tutorial/structure_popup_location_added.png \
+	docs/manual-images-tutorial/structure_popup_move_ho.png \
+	docs/manual-images-tutorial/structure_popup_move_msc.png \
+	docs/manual-images-tutorial/transfer_done.png
 
 docs/user-manual-appendix-screens.md: \
 	docs/manual-images/pos_terminal.png \

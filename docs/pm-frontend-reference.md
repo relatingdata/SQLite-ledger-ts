@@ -1158,6 +1158,35 @@ Svelte correctly rejects the reactive form here as a genuine cyclical
 dependency (`outerAxis` depends on `outerSelection`, which the guard
 itself would also assign).
 
+**A real, confirmed bug, found and fixed while wiring the Division/
+Category tutorial screenshots**: `allowedOuterAxes`/`allowedInnerAxes`
+— the two reactive statements that decide which axes actually appear
+as options in each dropdown — called `opposingHierarchyAxes(axis)` as
+a plain function, reading `locationHierarchy`/`groupableAxes` from the
+enclosing scope rather than naming them in the reactive statement
+itself. Svelte's reactive dependency tracking is static, keyed off the
+identifiers a `$:` statement's own right-hand side actually names —
+not off whatever a called function happens to close over — so these
+two statements only ever re-ran when `outerAxis`/`innerAxis`
+themselves changed (the person picking a new value), never when
+`axisValues` first resolved (`onMount`'s own async `getAxisValues`
+call) or changed again on a session/ledger switch. In practice this
+meant any further hierarchy beyond Location (Division, or any other a
+business has configured) could become selectable only after the
+person happened to first toggle one side to "Consolidated" — the one
+dependency change guaranteed to force a recompute, via
+`opposingHierarchyAxes`'s own unrestricted, "anything goes" branch —
+and pick the axis they actually wanted from there; with no such detour
+of their own idea, a first-time visitor to this screen had no way to
+reach Division at all. Fixed by giving `opposingHierarchyAxes` two
+further, explicit parameters (`locHier`, `groupable`) and passing
+`locationHierarchy`/`groupableAxes` at each of its three call sites —
+the two reactive statements now name them directly, so Svelte tracks
+them correctly; the two imperative `onOuterChange`/`onInnerChange`
+handlers pass the same two values along too, though they never needed
+the fix themselves, since a plain function call already reads whatever
+is passed at the moment it runs.
+
 ## `frontend/src/routes/reports/balance-sheet/+page.svelte` — the Balance Sheet report
 
 The `{@html}`-vs-template bug: an early version computed the

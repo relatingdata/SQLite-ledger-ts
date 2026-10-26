@@ -13,10 +13,36 @@
   $: furtherHierarchies = (axisValues ? Object.keys(axisValues).filter((k) => !['Item', 'Category', 'Location'].includes(k)) : []) as Exclude<MatrixAxis, 'Consolidated'>[];
   $: locationHierarchy = ['Location', ...furtherHierarchies] as Exclude<MatrixAxis, 'Consolidated'>[];
   $: groupableAxes = ['Item', 'Category', ...locationHierarchy] as Exclude<MatrixAxis, 'Consolidated'>[];
-  function opposingHierarchyAxes(axis: Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated'): (Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated')[] {
-    if (locationHierarchy.includes(axis as never)) return ['Consolidated', ...ITEM_HIERARCHY];
-    if (ITEM_HIERARCHY.includes(axis as never)) return ['Consolidated', ...locationHierarchy];
-    return ['Consolidated', ...groupableAxes];
+  // locHier/groupable are taken as explicit parameters, not read from
+  // the enclosing scope, purely so the two *display* reactive
+  // statements below (allowedInnerAxes/allowedOuterAxes) name
+  // locationHierarchy/groupableAxes directly in their own right-hand
+  // side — Svelte's reactive dependency tracking is static, keyed off
+  // the identifiers actually written in a `$:` statement itself, not
+  // off whatever a called function happens to close over. Before this,
+  // both of those statements only ever re-ran when outerAxis/innerAxis
+  // themselves changed (a user picking a new value) — never when
+  // axisValues first resolved (onMount's async getAxisValues call) or
+  // later changed on a session switch, so Division/Storage/Container
+  // (any hierarchy beyond Location) could only ever become selectable
+  // after the user happened to first toggle one side to 'Consolidated'
+  // (the one dependency change guaranteed to force a recompute using
+  // groupableAxes's unrestricted, "anything goes" branch) and from
+  // there pick the axis they actually wanted — a real, confirmed
+  // dead-end for a first-time user with no "Consolidated" detour of
+  // their own idea, found while wiring the Division/Category tutorial
+  // screenshots below. The two imperative onChange handlers further
+  // down call this with the same, always-current values directly —
+  // no bug there, since a plain function call always reads whatever
+  // was passed at the moment it runs.
+  function opposingHierarchyAxes(
+    axis: Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated',
+    locHier: Exclude<MatrixAxis, 'Consolidated'>[],
+    groupable: Exclude<MatrixAxis, 'Consolidated'>[]
+  ): (Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated')[] {
+    if (locHier.includes(axis as never)) return ['Consolidated', ...ITEM_HIERARCHY];
+    if (ITEM_HIERARCHY.includes(axis as never)) return ['Consolidated', ...locHier];
+    return ['Consolidated', ...groupable];
   }
 
   // Unified axis dropdown — see docs/pm-frontend-reference.md.
@@ -71,15 +97,15 @@
 
   $: outerAxis = parseSelection(outerSelection).axis;
   $: innerAxis = parseSelection(innerSelection).axis;
-  $: allowedInnerAxes = opposingHierarchyAxes(outerAxis).filter((a): a is Exclude<MatrixAxis, 'Consolidated'> => a !== 'Consolidated');
-  $: allowedOuterAxes = opposingHierarchyAxes(innerAxis).filter((a): a is Exclude<MatrixAxis, 'Consolidated'> => a !== 'Consolidated');
+  $: allowedInnerAxes = opposingHierarchyAxes(outerAxis, locationHierarchy, groupableAxes).filter((a): a is Exclude<MatrixAxis, 'Consolidated'> => a !== 'Consolidated');
+  $: allowedOuterAxes = opposingHierarchyAxes(innerAxis, locationHierarchy, groupableAxes).filter((a): a is Exclude<MatrixAxis, 'Consolidated'> => a !== 'Consolidated');
   $: totalProfitLoss = nodes.reduce((s, n) => s + n.profitAndLoss.net_income_minor, 0);
 
   // Resets the other grouping to Consolidated on conflict — see docs/pm-frontend-reference.md.
   function onOuterChange() {
     const newOuterAxis = parseSelection(outerSelection).axis;
     const currentInnerAxis = parseSelection(innerSelection).axis;
-    if (currentInnerAxis !== 'Consolidated' && !opposingHierarchyAxes(newOuterAxis).includes(currentInnerAxis)) {
+    if (currentInnerAxis !== 'Consolidated' && !opposingHierarchyAxes(newOuterAxis, locationHierarchy, groupableAxes).includes(currentInnerAxis)) {
       innerSelection = 'Consolidated';
     }
     load();
@@ -87,7 +113,7 @@
   function onInnerChange() {
     const newInnerAxis = parseSelection(innerSelection).axis;
     const currentOuterAxis = parseSelection(outerSelection).axis;
-    if (currentOuterAxis !== 'Consolidated' && !opposingHierarchyAxes(newInnerAxis).includes(currentOuterAxis)) {
+    if (currentOuterAxis !== 'Consolidated' && !opposingHierarchyAxes(newInnerAxis, locationHierarchy, groupableAxes).includes(currentOuterAxis)) {
       outerSelection = 'Consolidated';
     }
     load();

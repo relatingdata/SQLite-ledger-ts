@@ -730,6 +730,21 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
     if (screen?.ui_path && !page.url().endsWith(screen.ui_path)) {
       const navStart = Date.now();
       await page.goto(screen.ui_path);
+      // A real, confirmed race, found wiring the New New P&L screen's
+      // two axis <select>s: page.goto() resolves once the document has
+      // loaded, which can be before SvelteKit has finished hydrating -
+      // a selectOption() landing in that window sets the DOM value and
+      // fires a native 'change' event into a page that isn't listening
+      // yet, so the reactive state it should have driven (here,
+      // allowedOuterAxes/allowedInnerAxes, each sourced from an onMount
+      // fetch) never updates, and a later field's own selectOption call
+      // times out hunting for an <option> that a fully-hydrated page
+      // would already have rendered. Every "data" screen already waits
+      // for networkidle once, right before its own screenshot, for the
+      // same underlying reason (see below) - doing it here too, before
+      // any field is ever touched, is the same fix applied where the
+      // race actually first bites.
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
       console.log(`  [load] goto ${screen.ui_path}: ${Date.now() - navStart}ms`);
     }
     if (screen?.open_selector) {

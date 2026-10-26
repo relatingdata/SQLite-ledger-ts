@@ -655,7 +655,7 @@ Called from: production: db-matrix-reports.ts (getAxisValues ×1, getProfitAndLo
 getProfitAndLossByAxis(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, outerAxis: MatrixAxis, innerAxis: MatrixAxis, outerFilter?: string, innerFilter?: string): ProfitAndLossByAxisNode[]
 ```
 
-Called from: production: routes/matrix-reports.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: routes/matrix-reports.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
 
 **`getAxisValues`** *(exported)*
 
@@ -777,7 +777,7 @@ Called from: production: db-reports.ts (buildProfitAndLossFromBalances ×3, getB
 getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries?: boolean): ProfitAndLoss
 ```
 
-Called from: production: db-reports.ts (getBalanceSheet ×1, getProfitAndLossComparison ×2); routes/reports.ts ((module level) ×1) · tests: 12 call(s) in 1 file(s) · tooling: 8 call(s) in 4 file(s)
+Called from: production: db-reports.ts (getBalanceSheet ×1, getProfitAndLossComparison ×2); routes/reports.ts ((module level) ×1) · tests: 12 call(s) in 1 file(s) · tooling: 10 call(s) in 4 file(s)
 
 **`buildProfitAndLossFromBalances`** *(exported)*
 
@@ -1327,7 +1327,7 @@ Called from: production: auth-middleware.ts (requireRole ×1); db-journal.ts (po
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: db-journal.ts (postLocation ×1, postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-stock.ts (completeStockTake ×2, writeOffItems ×2); db.ts (allocatePayment ×3, completePosSale ×2, createAndConfigureLocation ×1, createBusiness ×2, dispatchOrderFromPickingList ×1, getActiveLedger ×1, and 2 more); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4); routes/invoices.ts ((module level) ×9); routes/journal.ts ((module level) ×16, canPostToLedger ×1); and 8 more file(s) · tests: 20 call(s) in 1 file(s) · tooling: 24 call(s) in 3 file(s)
+Called from: production: db-journal.ts (postLocation ×1, postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-stock.ts (completeStockTake ×2, writeOffItems ×2); db.ts (allocatePayment ×3, completePosSale ×2, createAndConfigureLocation ×1, createBusiness ×2, dispatchOrderFromPickingList ×1, getActiveLedger ×1, and 2 more); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4); routes/invoices.ts ((module level) ×9); routes/journal.ts ((module level) ×16, canPostToLedger ×1); and 8 more file(s) · tests: 20 call(s) in 1 file(s) · tooling: 29 call(s) in 3 file(s)
 
 **`asAccountName`** *(exported)*
 

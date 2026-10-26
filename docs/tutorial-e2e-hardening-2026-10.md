@@ -292,3 +292,45 @@ per real entities load, turning every `nameFor` call into an O(1) lookup.
 Verified directly, re-running the full Tutorial e2e test: `Create Provider`
 fell from ~18s to ~5.5s, and `Create Customer` (the same screen) fell from
 ~10s to ~4.6s.
+
+## Wiring the progressive P&L-by-axis tutorial checks: two further, real bugs found
+
+Adding `Check P&L By Item`/`Check P&L By Category`/`Check P&L By Division` —
+real UI steps against `/reports/new-new-pl`, the two-axis P&L breakdown — to
+drive real screenshots for the User Manual's Tutorial chapter surfaced two
+further, real, confirmed bugs, neither related to Category/Division
+themselves:
+
+1. **`allowedOuterAxes`/`allowedInnerAxes` never reacted to `axisValues`.**
+   `frontend/src/routes/reports/new-new-pl/+page.svelte`'s two dropdowns
+   decide which axes they offer via `opposingHierarchyAxes(axis)`, a plain
+   function reading `locationHierarchy`/`groupableAxes` from the enclosing
+   scope. Svelte's reactive dependency tracking is static — keyed off the
+   identifiers a `$:` statement's own right-hand side names, not off what a
+   called function closes over — so `allowedOuterAxes`/`allowedInnerAxes`
+   only ever recomputed when `outerAxis`/`innerAxis` themselves changed,
+   never when `onMount`'s own async `getAxisValues` call first resolved or
+   later changed on a session/ledger switch. In practice, any further
+   hierarchy beyond Location (Division, here) could become selectable only
+   after first toggling one side to "Consolidated" — the one dependency
+   change guaranteed to force a recompute — with no way to reach it
+   otherwise. Fixed by giving `opposingHierarchyAxes` two further, explicit
+   parameters and naming `locationHierarchy`/`groupableAxes` directly at
+   each of its three call sites, so Svelte tracks them correctly. Full
+   detail and the exact fix: `docs/pm-frontend-reference.md`'s "Hierarchy
+   redundancy guard" section.
+2. **`runStepViaUi`'s own navigation raced Svelte's hydration.** Once (1)
+   was fixed, the same two-field step still failed intermittently —
+   `locator.selectOption` timing out hunting for an `<option>` a
+   fully-hydrated page would already have rendered. Root cause: `page.goto()`
+   resolves once the document has loaded, which can be before SvelteKit has
+   finished hydrating; a `selectOption()` landing in that window sets the DOM
+   value and fires a native `change` event into a page that isn't listening
+   yet, so the reactive state it should have driven never updates. Every
+   "data" screen already waited for `networkidle` once, right before its own
+   screenshot, for this same underlying reason — fixed by doing the same
+   wait right after every `ui_path` navigation too, before any field is ever
+   touched, since that's where the race actually first bites. Verified: two
+   full, clean `make reset-db && make test-e2e-tutorial-browser` runs in a
+   row, 71/71 real steps each, no `❌` anywhere in either log — one of the
+   two runs had failed at exactly this step before fix (2).
