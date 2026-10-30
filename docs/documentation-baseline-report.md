@@ -41,7 +41,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `typeTextDirectionMarkerName` | `backend/src/db.ts` | (none) | `const typeTextDirectionMarkerName = { brand: 'TextDirectionMarkerName' };` |
 | `typeTranslationConceptName` | `backend/src/db.ts` | (none) | `const typeTranslationConceptName = { brand: 'TranslationConceptName' };` |
 
-## Router Constants (32, alphabetical)
+## Router Constants (33, alphabetical)
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
@@ -68,6 +68,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `posRouter` | `backend/src/routes/pos.ts` | `backend/src/server.ts` | `const posRouter = Router();` |
 | `productsRouter` | `backend/src/routes/products.ts` | `backend/src/server.ts` | `const productsRouter = Router();` |
 | `projectsRouter` | `backend/src/routes/projects.ts` | `backend/src/server.ts` | `const projectsRouter = Router();` |
+| `quotationsRouter` | `backend/src/routes/quotations.ts` | `backend/src/server.ts` | `const quotationsRouter = Router();` |
 | `recordingRouter` | `backend/src/routes/recording.ts` | `backend/src/recording.ts`, `backend/src/server.ts` | `const recordingRouter = Router();` |
 | `remindersRouter` | `backend/src/routes/invoices.ts` | `backend/src/server.ts` | `const remindersRouter = Router();` |
 | `reportsRouter` | `backend/src/routes/reports.ts` | `backend/src/server.ts` | `const reportsRouter = Router();` |
@@ -78,7 +79,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `stockRouter` | `backend/src/routes/stock.ts` | `backend/src/server.ts` | `const stockRouter = Router();` |
 | `stockTakesRouter` | `backend/src/routes/locations.ts` | `backend/src/server.ts` | `const stockTakesRouter = Router();` |
 
-## Functions (165, alphabetical)
+## Functions (154, alphabetical)
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
@@ -86,36 +87,31 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `addTaskDependency` | `backend/src/db.ts` | (none) | `function addTaskDependency(dependentTask: string, predecessorTask: string, dependencyType: 'finish_to_start' \| 'start_to_start' \| 'finish_to_finish' \| 'start_to_finish', userId: UserId): void` |
 | `addTypedAddress` | `backend/src/db.ts` | `backend/src/routes/contacts.ts`, `backend/src/routes/entities.ts` | `function addTypedAddress(entityName: string, addressType: string, value: Partial<Contact>, userId: UserId): string` |
 | `addTypedContactPerson` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function addTypedContactPerson(entityName: string, contactType: string, value: { name: string; phone?: string \| null; email?: string \| null }, userId: UserId): string` |
-| `addTypedPhone` | `backend/src/db.ts` | `backend/src/routes/contacts.ts`, `backend/src/routes/entities.ts` | `function addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId): string` |
+| `addTypedPhone` | `backend/src/db.ts` | `backend/src/routes/contacts.ts`, `backend/src/routes/entities.ts` | `function addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId, businessName?: string \| null): string` |
 | `adjustLocationCapacity` | `backend/src/db-stock.ts` | (none) | `function adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void` |
-| `asAccountName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `backend/src/routes/journal.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/projects.ts`, `backend/src/routes/stock-lots.ts` | `function asAccountName(name: string): AccountName` |
+| `asAccountName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-quotations.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts`, `backend/src/routes/journal.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/projects.ts`, `backend/src/routes/stock-lots.ts` | `function asAccountName(name: string): AccountName` |
 | `asCustomerName` | `backend/src/db.ts` | `backend/src/routes/arap.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/pos.ts` | `function asCustomerName(name: string): CustomerName` |
 | `asEmployeeName` | `backend/src/db.ts` | `backend/src/routes/projects.ts` | `function asEmployeeName(name: string): EmployeeName` |
 | `asEntityId` | `backend/src/db.ts` | `backend/src/routes/entities.ts` | `function asEntityId(id: number): EntityId` |
-| `asItemName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-stock.ts`, `backend/src/routes/items.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/stock-lots.ts` | `function asItemName(name: string): ItemName` |
-| `asLocationName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-stock.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asLocationName(name: string): LocationName` |
+| `asItemName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-quotations.ts`, `backend/src/db-stock.ts`, `backend/src/routes/items.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/stock-lots.ts` | `function asItemName(name: string): ItemName` |
+| `asLocationName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-quotations.ts`, `backend/src/db-stock.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asLocationName(name: string): LocationName` |
 | `asProviderName` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/pos.ts` | `function asProviderName(name: string): ProviderName` |
-| `asUserId` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/auth.ts`, `backend/src/routes/businesses.ts`, `backend/src/routes/contacts.ts`, `backend/src/routes/customer-registration.ts`, `backend/src/routes/departments.ts`, `backend/src/routes/entities.ts`, `backend/src/routes/hierarchy.ts`, `backend/src/routes/i18n.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/items.ts`, `backend/src/routes/journal.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/period.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/products.ts`, `backend/src/routes/projects.ts`, `backend/src/routes/reports.ts`, `backend/src/routes/stock-lots.ts`, `backend/src/routes/stock.ts` | `function asUserId(id: number): UserId` |
+| `asUserId` | `backend/src/db.ts` | `backend/src/db-journal.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/routes/arap.ts`, `backend/src/routes/auth.ts`, `backend/src/routes/businesses.ts`, `backend/src/routes/contacts.ts`, `backend/src/routes/customer-registration.ts`, `backend/src/routes/departments.ts`, `backend/src/routes/entities.ts`, `backend/src/routes/hierarchy.ts`, `backend/src/routes/i18n.ts`, `backend/src/routes/invoices.ts`, `backend/src/routes/items.ts`, `backend/src/routes/journal.ts`, `backend/src/routes/locations.ts`, `backend/src/routes/period.ts`, `backend/src/routes/pos.ts`, `backend/src/routes/products.ts`, `backend/src/routes/projects.ts`, `backend/src/routes/quotations.ts`, `backend/src/routes/reports.ts`, `backend/src/routes/stock-lots.ts`, `backend/src/routes/stock.ts` | `function asUserId(id: number): UserId` |
 | `attachUser` | `backend/src/auth-middleware.ts` | `backend/src/recording.ts`, `backend/src/server.ts` | `function attachUser(req: Request, _res: Response, next: NextFunction): void` |
 | `authenticateCustomer` | `backend/src/db.ts` | `backend/src/routes/customer-registration.ts` | `function authenticateCustomer(name: string, password: string): boolean` |
 | `buildProfitAndLossFromBalances` | `backend/src/db-reports.ts` | `backend/src/db-matrix-reports.ts` | `function buildProfitAndLossFromBalances(business: string, balances: Map<number, number>): ProfitAndLoss` |
 | `changeOwnPassword` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function changeOwnPassword(userId: number, currentPassword: string, newPassword: string): void` |
 | `changePassword` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function changePassword(userId: number, newPassword: string): void` |
-| `checkEInvoiceDiscrepancies` | `backend/src/db.ts` | (none) | `function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[]` |
+| `checkEInvoiceDiscrepancies` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[]` |
 | `countInvoices` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function countInvoices(business: BusinessName, ledger: LedgerName, invoiceType?: 'AR' \| 'AP', source: 'manual' \| 'pos' \| 'all' = 'manual'): number` |
 | `countItems` | `backend/src/db.ts` | `backend/src/routes/items.ts` | `function countItems(businessName: BusinessName): number` |
-| `createAndConfigureDepartment` | `backend/src/db.ts` | `backend/src/routes/departments.ts` | `function createAndConfigureDepartment(businessName: BusinessName, departmentName: string, userId: UserId): TypedNode<'DepartmentEntityName'>` |
-| `createDepartment` | `backend/src/db.ts` | (none) | `function createDepartment(businessName: BusinessName, departmentName: string, userId: UserId): TypedNode<'DepartmentEntityName'>` |
 | `createLocationType` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function createLocationType(name: string, userId: UserId): void` |
 | `createPosTerminal` | `backend/src/db-stock.ts` | `backend/src/routes/pos.ts` | `function createPosTerminal(terminalName: string, locationName: LocationName, userId: UserId): void` |
 | `createProduct` | `backend/src/db.ts` | `backend/src/routes/products.ts` | `function createProduct(name: string, parent: string, userId: UserId): void` |
 | `createProjectTask` | `backend/src/db.ts` | (none) | `function createProjectTask(projectName: string, taskName: string, plannedStart: string, plannedEnd: string, userId: UserId): void` |
-| `createSystemEntity` | `backend/src/db-stock.ts` | (none) | `function createSystemEntity(name: string, parentId: number \| null): number` |
+| `createSystemEntity` | `backend/src/db-stock.ts` | `backend/src/db-quotations.ts` | `function createSystemEntity(name: string, parentId: number \| null): number` |
 | `createUser` | `backend/src/auth.ts` | `backend/src/routes/auth.ts` | `function createUser(username: string, password: string, roleNames: string[]): UserSummary` |
 | `deleteBomComponent` | `backend/src/db.ts` | `backend/src/routes/items.ts` | `function deleteBomComponent(assemblyItem: string, componentItem: string, userId: UserId): void` |
-| `deleteDepartment` | `backend/src/db.ts` | `backend/src/routes/departments.ts` | `function deleteDepartment(businessName: BusinessName, departmentName: string, userId: UserId): void` |
-| `deleteEmployeeDepartment` | `backend/src/db.ts` | `backend/src/routes/departments.ts` | `function deleteEmployeeDepartment(employeeName: string, userId: UserId): void` |
-| `deleteEmployeeManager` | `backend/src/db.ts` | `backend/src/routes/departments.ts` | `function deleteEmployeeManager(employeeName: string, userId: UserId): void` |
 | `deleteHierarchyParent` | `backend/src/db.ts` | `backend/src/routes/hierarchy.ts` | `function deleteHierarchyParent(entityName: string, hierarchyName: string, userId: UserId): void` |
 | `deleteItemSource` | `backend/src/db.ts` | `backend/src/routes/items.ts` | `function deleteItemSource(id: number): void` |
 | `deleteMenuOverride` | `backend/src/db.ts` | `backend/src/routes/menu.ts` | `function deleteMenuOverride(menuItemKey: string, scope: 'business' \| 'user', scopeId: number, userId: UserId = asUserId(1)): void` |
@@ -127,8 +123,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `ensureAddressType` | `backend/src/db.ts` | (none) | `function ensureAddressType(typeName: string, userId: UserId): void` |
 | `ensureContactPersonType` | `backend/src/db.ts` | (none) | `function ensureContactPersonType(typeName: string, userId: UserId): void` |
 | `ensureCurrencyPair` | `backend/src/db.ts` | (none) | `function ensureCurrencyPair(businessName: BusinessName, fromCurrency: string, toCurrency: string, userId: UserId): ` |
-| `ensureDepartmentAccounts` | `backend/src/db.ts` | (none) | `function ensureDepartmentAccounts(businessName: BusinessName, departmentName: string, userId: UserId): ` |
-| `ensureDepartmentsRoot` | `backend/src/db.ts` | (none) | `function ensureDepartmentsRoot(businessName: BusinessName, userId: UserId): ` |
 | `ensureItemTier` | `backend/src/db.ts` | (none) | `function ensureItemTier(baseProductName: ItemName, tier: string, userId: UserId, business?: BusinessName): ` |
 | `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts` | `function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): ` |
 | `ensureLocationStorageRoot` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function ensureLocationStorageRoot(business: BusinessName, locationName: string, userId: UserId): ` |
@@ -152,8 +146,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getCounterpartyHistory` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function getCounterpartyHistory(business: BusinessName, ledger: LedgerName, counterpartyName: string): HistoryLine[]` |
 | `getCreditStatus` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function getCreditStatus(entityName: string): CreditStatus` |
 | `getCurrencyExchangeRate` | `backend/src/db.ts` | (none) | `function getCurrencyExchangeRate(businessName: BusinessName, fromCurrency: string, toCurrency: string, side: 'buy' \| 'sell'): number \| null` |
-| `getEmployeeDepartment` | `backend/src/db.ts` | (none) | `function getEmployeeDepartment(employeeName: string): string \| undefined` |
-| `getEmployeeManager` | `backend/src/db.ts` | (none) | `function getEmployeeManager(employeeName: string): string \| undefined` |
 | `getEmployeeSchedule` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function getEmployeeSchedule(employeeName: string): EmployeeScheduleLine[]` |
 | `getEntitiesWithLink` | `backend/src/db.ts` | (none) | `function getEntitiesWithLink(linkType: string): ` |
 | `getExpiringStock` | `backend/src/db-stock.ts` | `backend/src/routes/stock-lots.ts` | `function getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[]` |
@@ -176,7 +168,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getLocationTypes` | `backend/src/db-stock.ts` | `backend/src/routes/locations.ts` | `function getLocationTypes(): string[]` |
 | `getMenuTree` | `backend/src/db.ts` | `backend/src/db-seed.ts`, `backend/src/routes/menu.ts` | `function getMenuTree(opts?: { businessName?: string; userId?: number }): MenuSectionRow[]` |
 | `getOpenShiftForEmployee` | `backend/src/db.ts` | (none) | `function getOpenShiftForEmployee(employeeName: string): PosShift \| undefined` |
-| `getOrgChartStructure` | `backend/src/db.ts` | `backend/src/routes/departments.ts` | `function getOrgChartStructure(businessName: BusinessName): OrgChartStructure` |
 | `getPickingList` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function getPickingList(invoiceId: number, locationName: LocationName): PickingListLine[]` |
 | `getProfitAndLossByAxis` | `backend/src/db-matrix-reports.ts` | `backend/src/routes/matrix-reports.ts` | `function getProfitAndLossByAxis(businessName: BusinessName, ledgerName: LedgerName, fromDate: string \| undefined, toDate: string \| undefined, outerAxis: MatrixAxis, innerAxis: MatrixAxis, outerFilter?: string, innerFilter?: string): ProfitAndLossByAxisNode[]` |
 | `getProjectTasks` | `backend/src/db.ts` | (none) | `function getProjectTasks(projectName: string): ` |
@@ -198,7 +189,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `listAddressTypes` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function listAddressTypes(): string[]` |
 | `listContactPersonTypes` | `backend/src/db.ts` | `backend/src/routes/contacts.ts` | `function listContactPersonTypes(): string[]` |
 | `listCurrencyPairs` | `backend/src/db.ts` | (none) | `function listCurrencyPairs(currencies: string[]): ` |
-| `listDepartments` | `backend/src/db.ts` | `backend/src/routes/departments.ts` | `function listDepartments(businessName: BusinessName): ` |
 | `listInvoices` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function listInvoices(business: BusinessName, ledger: LedgerName, options: ListInvoicesOptions = {}): Invoice[]` |
 | `listItemSources` | `backend/src/db.ts` | `backend/src/routes/items.ts` | `function listItemSources(itemName: string): ItemSource[]` |
 | `listLineTypes` | `backend/src/db.ts` | `backend/src/routes/entities.ts` | `function listLineTypes(): string[]` |
@@ -254,4 +244,4 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 |---|---|---|---|
 | `BUSINESS_ADMIN_ROLE` | `backend/src/auth.ts` | (none) | `const BUSINESS_ADMIN_ROLE = 'Business Admin';` |
 
-232 real, tracked baseline names reported (34 TypeDescriptor constants, 32 router constants, 165 functions, 1 other constants) out of 297 total names in the baseline file.
+222 real, tracked baseline names reported (34 TypeDescriptor constants, 33 router constants, 154 functions, 1 other constants) out of 287 total names in the baseline file.

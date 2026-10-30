@@ -106,10 +106,6 @@ export function createRecurringJournal(
   description?: string,
   recurrenceCount?: number
 ): void {
-  const totalAtStart = lines.reduce((s, l) => s + (l.effective_date && l.effective_date !== startDate ? 0 : l.amount_minor), 0);
-  if (totalAtStart !== 0) {
-    throw new PostingError(`This entry does not balance at its start date (off by ${totalAtStart} minor units).`);
-  }
   assertPeriodOpen(business, ledger, startDate);
 
   const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(business) as { id: number } | undefined)?.id;
@@ -125,13 +121,49 @@ export function createRecurringJournal(
   const insertLine = db.prepare(
     `INSERT INTO journal_line (journal_id, account_id, effective_date, amount_minor, memo) VALUES (?, ?, ?, ?, ?)`
   );
+  const getCurrency = db.prepare(`SELECT currency FROM account WHERE entity_id = ?`);
 
   const journalId = db.transaction(() => {
-    const info = insertJournal.run(businessId, ledgerId, reference, description ?? '', startDate, userId, recurrence, recurrenceCount ?? null);
-    const jid = Number(info.lastInsertRowid);
-    for (const line of lines) {
+    // Resolve and vivify every referenced account FIRST, inside this same
+    // transaction — the per-currency balance check just below needs each
+    // line's real account.currency to exist, the same way
+    // post_journal_entry_insert's own per-currency check (00-core.sql)
+    // already requires for an ordinary posting. A vivified-but-unused
+    // account row is harmless and rolls back with everything else if the
+    // balance check below throws.
+    const resolved = lines.map((line) => {
       const acctId = resolveBusinessCoaAccountId(business, line.account);
       vivify.run(acctId);
+      return { line, acctId };
+    });
+
+    // Real, confirmed fix for the documented gap in docs/pm-journal-api.md:
+    // this used to be one flat sum across every line regardless of
+    // currency, so a recurring entry genuinely mixing currencies could
+    // pass as "balanced" while not balancing in either currency on its
+    // own — exactly the hole post_journal_entry_insert's own per-currency
+    // grouping (00-core.sql) closes for every ordinary posting. Grouped
+    // the same way here: only lines effective at the start date count
+    // toward the start-date balance (a line whose effective_date is
+    // later — e.g. the wage-increase amendment test — isn't part of what
+    // must balance today), same as the original flat check already did;
+    // NULL currency (an account's own home/reporting currency) is its
+    // own group, same as the trigger's COALESCE(currency, '').
+    const totalsByCurrency = new Map<string, number>();
+    for (const { line, acctId } of resolved) {
+      if (line.effective_date && line.effective_date !== startDate) continue;
+      const currency = (getCurrency.get(acctId) as { currency: string | null } | undefined)?.currency ?? '';
+      totalsByCurrency.set(currency, (totalsByCurrency.get(currency) ?? 0) + line.amount_minor);
+    }
+    for (const [currency, total] of totalsByCurrency) {
+      if (total !== 0) {
+        throw new PostingError(`This entry does not balance at its start date${currency ? ` in ${currency}` : ''} (off by ${total} minor units).`);
+      }
+    }
+
+    const info = insertJournal.run(businessId, ledgerId, reference, description ?? '', startDate, userId, recurrence, recurrenceCount ?? null);
+    const jid = Number(info.lastInsertRowid);
+    for (const { line, acctId } of resolved) {
       insertLine.run(jid, acctId, line.effective_date ?? startDate, line.amount_minor, line.memo ?? '');
     }
     return jid;

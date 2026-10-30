@@ -59,13 +59,21 @@ stockLotsRouter.post('/lots', requireRole('Administrator', 'Bookkeeper'), (req, 
   }
 });
 
-const consumeSchema = z.object({ itemName: z.string().min(1), quantity: z.number().int().positive() });
+const consumeSchema = z.object({
+  business: z.string().min(1),
+  ledger: z.string().min(1),
+  reference: z.string().min(1),
+  itemName: z.string().min(1),
+  quantity: z.number().int().positive(),
+  transdate: z.string().optional(),
+});
 
 stockLotsRouter.post('/lots/consume', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
   const parsed = consumeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    res.json(consumeFromLots(asItemName(parsed.data.itemName), parsed.data.quantity));
+    const d = parsed.data;
+    res.json(consumeFromLots(asBusinessName(d.business), asLedgerName(d.ledger), d.reference, asItemName(d.itemName), d.quantity, asUserId(req.user!.id), d.transdate));
   } catch (err) {
     if (err instanceof ValidationError) return res.status(409).json({ error: err.message });
     console.error(err);

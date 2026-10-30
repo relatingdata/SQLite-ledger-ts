@@ -15,8 +15,20 @@
    against one product's own tracking account, not a two-sided,
    balanced transaction, so it isn't forced through the balance check.
 3. **Recurring journals**: `createRecurringJournal` writes directly to
-   `journal`/`journal_line`, never staged at all — see the known gap,
-   below.
+   `journal`/`journal_line`, never staged at all — deliberately, not a
+   gap. A recurring entry's real "balance" was never the kind of thing
+   `journal_entry_staging`/`post_journal_entry` exist to check once:
+   `journal_occurrences` (00-core.sql) expands the one stored line set
+   into every scheduled occurrence at read time, resolving each line to
+   whichever `effective_date` is current as of that occurrence — the
+   same mechanism every report, the journal list, and account balances
+   already read through for every ledger, recurring or not. Routing a
+   12-month schedule through the ordinary trigger would try to apply
+   its whole staged sum once, immediately, which is simply the wrong
+   operation for a template with its own expansion view — not a stricter
+   version of the same one. See `RecurringJournalLine`/`Recurrence`/
+   `createRecurringJournal` below for what *was* a real gap here (now
+   fixed) and what's still open.
 
 ## `StagedLine` / `stageLine`
 
@@ -60,13 +72,26 @@ what a screen shows before the person confirms the post.
 
 ## `RecurringJournalLine` / `Recurrence` / `createRecurringJournal`
 
-**Known, open gap**: this function bypasses `journal_entry_staging`
-and the per-currency balance check `post_journal_entry_insert`
-enforces for every other posting path. Its own balance check is a
+**Fixed, previously a real gap**: this function deliberately bypasses
+`journal_entry_staging` (see above — a recurring entry isn't staged at
+all, by design), but its own start-date balance check used to be a
 flat sum across every line with no currency grouping, so a recurring
-entry mixing currencies could pass as "balanced" while not being
-balanced per currency. `journal_occurrences` performs no currency or
-balance check either — there is no secondary safety net.
+entry genuinely mixing currencies could have passed as "balanced"
+while not actually balancing in either currency on its own —
+`post_journal_entry_insert` closes exactly this hole for every
+ordinary posting (00-core.sql's per-currency `GROUP BY` before it ever
+writes `journal_line`), and `createRecurringJournal` now does the same
+grouping directly, in TypeScript, before writing anything: every
+referenced account is resolved and vivified first (inside the same
+transaction), each line effective at the start date is bucketed by its
+own account's real `currency` (NULL/home-currency is its own bucket,
+matching the trigger's `COALESCE(currency, '')`), and the whole write
+is rejected — nothing inserted — the moment any one bucket doesn't sum
+to zero. `journal_occurrences` itself still performs no currency or
+balance check of its own for later occurrences — it only ever expands
+rows that already passed this check at creation time, same as an
+ordinary journal's `journal_line` rows only ever contain what already
+passed `post_journal_entry_insert`.
 
 **Planned fix, not yet implemented**: the recurrence *schedule*
 (recurrence type, count, start date, template lines) should be a
@@ -228,6 +253,74 @@ targets itself is the already-supported case for exactly this (a
 business genuinely does not have to have any groups at all). Setting
 it here too keeps a location created through this screen just as
 reachable from Business Setup as one created directly through it.
+
+## Quotations (AR) and RFQs (AP) — `backend/src/db-quotations.ts`
+
+A Quotation (to a customer) or RFQ (to a provider) is a real Sales
+Order / Purchase Order, staged exactly as one already is via the
+existing `stageSalesOrder`/`stagePurchaseOrder` (`so_staging`/
+`po_staging`, both real, pre-existing tables, unmodified), deliberately
+never posted via `postSalesOrder`/`postPurchaseOrder` until it's
+accepted. "Convert to order" has no code path of its own: accepting
+calls the exact same post function a real order already posts through.
+Per direct instruction, this introduces no new SQL table and no schema
+change of any kind.
+
+The one fact a quote needs that an order doesn't — its own `status`
+(`draft`/`sent`/`accepted`/`rejected`/`expired`), its direction
+(`AR`/`AP`), which `business`/`ledger` it belongs to, and an optional
+`expiryDate` — has nowhere to live in `so_staging`/`po_staging`'s own
+columns. Per direct instruction, none of this uses `detail_json`/JSON
+of any kind, a new table, or a raw SQL `UPDATE` (an upsert's own
+`ON CONFLICT DO UPDATE` included) anywhere in `db-quotations.ts`. Each
+is instead one scalar child entity via the existing, generic
+`Entity.setAttr`/`getAttr` primitives (`primitives.ts`) — a named,
+typed child entity holding one value, changed only by `Entity.rename`,
+which itself writes through `entity_update`'s INSERT-based, append-only
+trigger, never a literal `UPDATE`. This is the same non-JSON,
+non-table, non-UPDATE mechanism already used elsewhere in this
+codebase for one labeled scalar fact on an entity.
+
+Status is never inferred from `so_staging`/`po_staging`'s presence or
+absence — `acceptQuotation`/`rejectQuotation` both gate purely on the
+structural `Status` attribute, so a rejected quote's staged row is
+simply left exactly as it is (a harmless, permanent, real record of
+what was quoted) rather than deleted; nothing can accidentally post it
+later regardless, because acceptance checks `Status`, never staging.
+While a draft/sent/rejected/expired quote's staged row still exists,
+reading it (`customer`/`vendor`, item, quantity, price, location,
+transdate, description) comes straight from `so_staging`/`po_staging`'s
+own real, typed columns — never duplicated anywhere. Once accepted,
+`postSalesOrder`/`postPurchaseOrder` has already cleared that row
+(unmodified, pre-existing behavior); from that point on the real order
+itself (`placeOrder`'s own Qty/Value system entities, inspectable via
+`getOrderStatus`) is the permanent record, the same as any order that
+was never a quote.
+
+- `createQuotation(input: SalesOrderInput, userId, expiryDate?)` /
+  `createRfq(input: PurchaseOrderInput, userId, expiryDate?)` — stage
+  the real order, then create its entity with `Direction`/`Status:
+  'draft'`/`Business`/`Ledger` (and `Expiry Date` if given) as scalar
+  attributes.
+- `getQuotation(reference)` / `listQuotations(business, ledger,
+  direction?)` — read the entity's own attributes plus, while still
+  staged, the matching `so_staging`/`po_staging` row.
+- `markQuotationSent(reference, userId)` — sets `Status: 'sent'`;
+  stages nothing further.
+- `acceptQuotation(reference, userId)` — calls `postSalesOrder` (AR) or
+  `postPurchaseOrder` (AP) by reference, then sets `Status: 'accepted'`.
+  Refuses an already-`accepted`/`rejected`/`expired` quote.
+- `rejectQuotation(reference, userId)` — sets `Status: 'rejected'`
+  only; the staged row is left untouched (see above). Refuses an
+  already-`accepted` quote.
+
+Routes: `backend/src/routes/quotations.ts`, mounted at
+`/api/quotations` (`requireAuth` + `requireRole('Administrator',
+'Bookkeeper')`, same gate as `/api/arap` and `/api/stock`). Frontend:
+`frontend/src/routes/arap/quotations/+page.svelte` (AR) and
+`frontend/src/routes/arap/rfq/+page.svelte` (AP) — each a staging form
+plus a list with Mark sent/Accept/Reject actions, replacing their
+former `NotImplemented` stubs.
 
 ## Express routers — the full current mount table
 

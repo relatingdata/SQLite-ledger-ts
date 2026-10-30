@@ -375,10 +375,24 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 -- intentionally not a secret (it's sitting in this file in plain sight)
 -- — it exists purely so the very first login works at all; changing it
 -- immediately is expected, not optional, and is called out clearly in
--- the user guide. detail_json holds password_hash/active/page_size/
--- number_format/date_format directly - the same, real, established
--- pattern combination_ids/detail_json already proves elsewhere.
-INSERT INTO entities (row_id, entity_id, name, parent_id, detail_json, created_at, created_by) VALUES (906, 906, 'admin', 905, '{"password_hash":"9449e240ea040d81cce78dcf91e50ffb:b4eaa553abe22de695e080aad6d24828f6eccb7cd1a4b1177affd4e925437cf7c6babe4741221068334450a454e0db24dcabad0694a432272d7b3f3912270da7","active":1,"page_size":20,"number_format":"1 000.00","date_format":"dd/mm/yyyy"}', '2026-01-01', 1);
+-- the user guide. Each of password_hash/active/page_size/number_format/
+-- date_format is its own real Entity.setAttr-shaped fact (a container
+-- entity named for the field, holding one child entity whose own name
+-- IS the value) - no detail_json, per standing instruction. These rows
+-- are exactly what Entity.setAttr(906, '<Field>', '<value>', 1) would
+-- itself insert; hand-written here only because this is bootstrap data,
+-- not a live app.setAttr call.
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (906, 906, 'admin', 905, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (911, 911, 'Password Hash', 906, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (912, 912, '9449e240ea040d81cce78dcf91e50ffb:b4eaa553abe22de695e080aad6d24828f6eccb7cd1a4b1177affd4e925437cf7c6babe4741221068334450a454e0db24dcabad0694a432272d7b3f3912270da7', 911, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (913, 913, 'Active', 906, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (914, 914, '1', 913, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (915, 915, 'Page Size', 906, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (916, 916, '20', 915, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (917, 917, 'Number Format', 906, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (918, 918, '1 000.00', 917, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (919, 919, 'Date Format', 906, '2026-01-01', 1);
+INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (920, 920, 'dd/mm/yyyy', 919, '2026-01-01', 1);
 -- A real, direct child entity under the user itself, one per real
 -- role granted, relation_id pointing at that real role - the exact,
 -- same, real pattern already proven for vocabulary_preference.
@@ -706,49 +720,65 @@ CREATE TABLE account (
 -- structured address is what makes a mailing-label or a report actually
 -- usable later, and splitting it now costs nothing.
 -- contact eliminated as its own table, per direct, absolute
--- instruction. A true 1:1 extension needs no child entity at all -
--- every real field lives directly in the parent entity's own, real
--- detail_json (the same, real, established pattern already proven
--- for item_source/stock_lot). This compatibility view recomputes the
--- exact, same, real column shape the removed table used to provide,
--- so this codebase's own, many, real, existing read queries against
--- "contact" keep working completely unchanged - only the real write
--- paths (setContact and its own, dedicated siblings - setReminderLevel,
--- registerCustomer, verifyCustomer, setPosPin, setLocation,
--- clockInToProject's own wage lookup, item description setters) needed
--- rewriting to merge into detail_json directly instead.
+-- instruction - and, later, its own detail_json/JSON-backed field set
+-- eliminated too, per a second, equally absolute, non-negotiable
+-- instruction ("everything else a definite no!!" - bank account
+-- routing/account-number and business notes `text` are the only two
+-- JSON exceptions left anywhere in this app). Every real field below
+-- is now its own independent Entity.setAttr/getAttr fact directly
+-- under the owning entity (a child container entity named for the
+-- field, holding one value entity whose own name IS the value), and
+-- "is this entity a contact at all" is a real Entity.tag("Contact"),
+-- not a JSON flag - see mergeContactDetail (db.ts), the one write path
+-- every contact field setter funnels through. This view recomputes the
+-- exact, same, real column shape the old JSON-backed view used to
+-- provide, by joining into those same attr/tag entities instead of
+-- json_extract, so this codebase's own, many, real, existing read
+-- queries against "contact" (getContact, getItem, signOn, and the
+-- report/matrix queries in db-reports.ts/db-matrix-reports.ts/
+-- db-stock.ts) keep working completely unchanged - only the write path
+-- itself needed rewriting.
 CREATE VIEW contact AS
 SELECT
-  e.entity_id AS entity_id,
-  json_extract(e.detail_json, '$.person_name') AS person_name,
-  json_extract(e.detail_json, '$.phone') AS phone,
-  json_extract(e.detail_json, '$.email') AS email,
-  json_extract(e.detail_json, '$.address_line1') AS address_line1,
-  json_extract(e.detail_json, '$.address_line2') AS address_line2,
-  json_extract(e.detail_json, '$.city') AS city,
-  json_extract(e.detail_json, '$.region') AS region,
-  json_extract(e.detail_json, '$.postal_code') AS postal_code,
-  json_extract(e.detail_json, '$.country') AS country,
-  CAST(json_extract(e.detail_json, '$.payment_terms_days') AS INTEGER) AS payment_terms_days,
-  CAST(json_extract(e.detail_json, '$.credit_limit_minor') AS INTEGER) AS credit_limit_minor,
-  CAST(json_extract(e.detail_json, '$.wage_minor_per_hour') AS INTEGER) AS wage_minor_per_hour,
-  CAST(json_extract(e.detail_json, '$.salary_minor_per_year') AS INTEGER) AS salary_minor_per_year,
-  COALESCE(CAST(json_extract(e.detail_json, '$.reminder_level') AS INTEGER), 0) AS reminder_level,
-  json_extract(e.detail_json, '$.preferred_language') AS preferred_language,
-  json_extract(e.detail_json, '$.password_hash') AS password_hash,
-  json_extract(e.detail_json, '$.verification_status') AS verification_status,
-  json_extract(e.detail_json, '$.card_label') AS card_label,
-  json_extract(e.detail_json, '$.pos_pin') AS pos_pin,
-  CAST(json_extract(e.detail_json, '$.bottle_capacity') AS INTEGER) AS bottle_capacity,
-  CAST(json_extract(e.detail_json, '$.carton_capacity') AS INTEGER) AS carton_capacity,
-  json_extract(e.detail_json, '$.timezone') AS timezone,
-  json_extract(e.detail_json, '$.item_description') AS item_description,
-  json_extract(e.detail_json, '$.item_unit_of_measure') AS item_unit_of_measure,
-  json_extract(e.detail_json, '$.item_upc') AS item_upc,
-  CAST(json_extract(e.detail_json, '$.item_retail_price_minor') AS INTEGER) AS item_retail_price_minor
-FROM entities e
-WHERE e.row_id = (SELECT MAX(row_id) FROM entities e2 WHERE e2.entity_id = e.entity_id)
-  AND e.detail_json IS NOT NULL AND json_extract(e.detail_json, '$.__is_contact') = 1;
+  e.id AS entity_id,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Person Name' ORDER BY v.id LIMIT 1) AS person_name,
+  -- Added per direct request: a business/company name, entered
+  -- alongside a specific typed address or typed phone record (not a
+  -- single name on the contact as a whole) - a contact genuinely can
+  -- trade under different names at different locations/numbers. Since
+  -- each typed address/phone record IS its own entity with its own
+  -- attr facts in this same `contact` shape (see getTyped's
+  -- `getContact(recordName)` load callback below), this one column
+  -- covers the main contact record and every typed address/phone
+  -- record for free - no separate table or migration needed.
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Business Name' ORDER BY v.id LIMIT 1) AS business_name,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Phone' ORDER BY v.id LIMIT 1) AS phone,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Email' ORDER BY v.id LIMIT 1) AS email,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Address Line 1' ORDER BY v.id LIMIT 1) AS address_line1,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Address Line 2' ORDER BY v.id LIMIT 1) AS address_line2,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'City' ORDER BY v.id LIMIT 1) AS city,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Region' ORDER BY v.id LIMIT 1) AS region,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Postal Code' ORDER BY v.id LIMIT 1) AS postal_code,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Country' ORDER BY v.id LIMIT 1) AS country,
+  CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Payment Terms Days' ORDER BY v.id LIMIT 1) AS INTEGER) AS payment_terms_days,
+  CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Credit Limit Minor' ORDER BY v.id LIMIT 1) AS INTEGER) AS credit_limit_minor,
+  CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Wage Minor Per Hour' ORDER BY v.id LIMIT 1) AS INTEGER) AS wage_minor_per_hour,
+  CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Salary Minor Per Year' ORDER BY v.id LIMIT 1) AS INTEGER) AS salary_minor_per_year,
+  COALESCE(CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Reminder Level' ORDER BY v.id LIMIT 1) AS INTEGER), 0) AS reminder_level,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Preferred Language' ORDER BY v.id LIMIT 1) AS preferred_language,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Password Hash' ORDER BY v.id LIMIT 1) AS password_hash,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Verification Status' ORDER BY v.id LIMIT 1) AS verification_status,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Card Label' ORDER BY v.id LIMIT 1) AS card_label,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Pos Pin' ORDER BY v.id LIMIT 1) AS pos_pin,
+  CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Bottle Capacity' ORDER BY v.id LIMIT 1) AS INTEGER) AS bottle_capacity,
+  CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Carton Capacity' ORDER BY v.id LIMIT 1) AS INTEGER) AS carton_capacity,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Timezone' ORDER BY v.id LIMIT 1) AS timezone,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Item Description' ORDER BY v.id LIMIT 1) AS item_description,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Item Unit Of Measure' ORDER BY v.id LIMIT 1) AS item_unit_of_measure,
+  (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Item UPC' ORDER BY v.id LIMIT 1) AS item_upc,
+  CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Item Retail Price Minor' ORDER BY v.id LIMIT 1) AS INTEGER) AS item_retail_price_minor
+FROM current_entities e
+WHERE EXISTS (SELECT 1 FROM current_entities tag WHERE tag.parent_id = e.id AND tag.name = 'Contact' AND tag.relation_id IS NOT NULL);
 
 -- pos_shift: a real, timestamped clerk sign-on/sign-off record — per
 -- direct requirement, this genuinely IS the real timecard
@@ -1556,7 +1586,7 @@ END;
 -- verifyCustomer, setPosPin, setItem) all write directly via
 -- mergeContactDetail now, never through this view.
 CREATE VIEW contact_entry AS
-SELECT e.name, c.person_name, c.phone, c.email, c.address_line1, c.address_line2, c.city, c.region, c.postal_code, c.country, c.payment_terms_days, c.credit_limit_minor, c.wage_minor_per_hour, c.salary_minor_per_year, c.reminder_level, c.preferred_language, c.verification_status, c.card_label, c.pos_pin, c.bottle_capacity, c.carton_capacity, c.timezone, c.item_description, c.item_unit_of_measure, c.item_upc, c.item_retail_price_minor
+SELECT e.name, c.person_name, c.business_name, c.phone, c.email, c.address_line1, c.address_line2, c.city, c.region, c.postal_code, c.country, c.payment_terms_days, c.credit_limit_minor, c.wage_minor_per_hour, c.salary_minor_per_year, c.reminder_level, c.preferred_language, c.verification_status, c.card_label, c.pos_pin, c.bottle_capacity, c.carton_capacity, c.timezone, c.item_description, c.item_unit_of_measure, c.item_upc, c.item_retail_price_minor
 FROM contact c
 JOIN current_entities e ON e.id = c.entity_id;
 

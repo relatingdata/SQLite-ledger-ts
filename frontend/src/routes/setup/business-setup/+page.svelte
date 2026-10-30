@@ -294,7 +294,7 @@
     additionalLocationError = '';
     const [contact, schedule] = await Promise.all([getContact(asEmployeeName(name)), getEmployeeSchedule(asEmployeeName(name))]);
     employeeContact = contact ?? {
-      phone: null, email: null, address_line1: null, address_line2: null, city: null, region: null, postal_code: null, country: null,
+      business_name: null, phone: null, email: null, address_line1: null, address_line2: null, city: null, region: null, postal_code: null, country: null,
       payment_terms_days: null, credit_limit_minor: null, wage_minor_per_hour: null, salary_minor_per_year: null, reminder_level: 0,
       preferred_language: null,
     };

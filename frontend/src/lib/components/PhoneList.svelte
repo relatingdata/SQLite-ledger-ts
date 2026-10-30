@@ -14,10 +14,10 @@
   newTypePlaceholder="e.g. Direct Line, After Hours"
   listTypes={listPhoneTypes}
   getItems={getTypedPhones}
-  save={(name, type, values) => setTypedPhone(name, type, String(values.number ?? ''))}
+  save={(name, type, values) => setTypedPhone(name, type, String(values.number ?? ''), (values.businessName as string) || null)}
   remove={deleteTypedPhone}
   canSave={(values) => !!String(values.number ?? '').trim()}
-  initialValues={() => ({ number: '' })}
+  initialValues={() => ({ number: '', businessName: '' })}
 >
   {#snippet form({ values, setFirstField })}
     <input
@@ -27,8 +27,13 @@
       type="tel"
       placeholder={translations.current['Number'] ?? 'Number'}
     />
+    <input
+      value={String(values.businessName ?? '')}
+      oninput={(e) => (values.businessName = e.currentTarget.value)}
+      placeholder="Business / company name (optional)"
+    />
   {/snippet}
   {#snippet display(p)}
-    {p.phone}
+    {#if p.business_name}<strong>{p.business_name}</strong> — {/if}{p.phone}
   {/snippet}
 </TypedList>

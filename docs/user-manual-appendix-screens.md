@@ -38,7 +38,7 @@ A real, complete reference of every real screen this application has a route for
 | AR Receipt | Implemented |
 | Sales Invoices | Implemented |
 | Sales Order | Implemented |
-| Quotations | Not yet implemented |
+| Quotations | Implemented |
 | Stock Dispatch | Implemented |
 | Generate Sales Invoices | Not yet implemented |
 | Reminders | Implemented |
@@ -63,7 +63,7 @@ A real, complete reference of every real screen this application has a route for
 | AP Payment | Implemented |
 | Purchase Invoices | Implemented |
 | Purchase Order | Implemented |
-| RFQ (Request for Quotation) | Not yet implemented |
+| RFQ (Request for Quotation) | Implemented |
 | Stock Receipt | Implemented |
 | Generate Purchase Orders | Not yet implemented |
 | Vendors | Implemented |

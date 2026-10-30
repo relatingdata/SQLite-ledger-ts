@@ -619,6 +619,7 @@ export const getProfitAndLossComparison = (business: BusinessName, a: string, b:
   request<ProfitAndLossComparison>(`/reports/profit-and-loss-comparison?business=${encodeURIComponent(business)}&a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`);
 
 export interface Contact {
+  business_name: string | null;
   phone: string | null;
   email: string | null;
   address_line1: string | null;
@@ -650,6 +651,7 @@ export const getCreditStatus = (name: string) => request<CreditStatus>(`/contact
 export interface TypedAddress {
   address_type: string;
   record_name: string;
+  business_name: string | null;
   address_line1: string | null;
   address_line2: string | null;
   city: string | null;
@@ -667,10 +669,11 @@ export interface TypedPhone {
   phone_type: string;
   record_name: string;
   phone: string | null;
+  business_name: string | null;
 }
 export const getTypedPhones = (name: string) => request<TypedPhone[]>(`/contacts/${encodeURIComponent(name)}/phones`);
-export const setTypedPhone = (name: string, phoneType: string, phone: string) =>
-  request<void>(`/contacts/${encodeURIComponent(name)}/phones`, { method: 'PUT', body: JSON.stringify({ phone_type: phoneType, phone }) });
+export const setTypedPhone = (name: string, phoneType: string, phone: string, businessName?: string | null) =>
+  request<void>(`/contacts/${encodeURIComponent(name)}/phones`, { method: 'PUT', body: JSON.stringify({ phone_type: phoneType, phone, business_name: businessName ?? null }) });
 export const deleteTypedPhone = (name: string, phoneType: string) =>
   request<void>(`/contacts/${encodeURIComponent(name)}/phones/${encodeURIComponent(phoneType)}`, { method: 'DELETE' });
 
@@ -839,6 +842,38 @@ export const stageSalesOrder = (input: SalesOrderInput) =>
   request<void>('/stock/so/stage', { method: 'POST', body: JSON.stringify(input) });
 export const postSalesOrder = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/stock/so/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+
+// Quotations (AR, to a customer) and RFQs (AP, to a provider) — each is
+// a real Sales/Purchase Order staged exactly as one would be, just not
+// yet posted. See docs/pm-journal-api.md.
+export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+export type QuotationDirection = 'AR' | 'AP';
+export interface QuotationRecord {
+  reference: string;
+  direction: QuotationDirection;
+  status: QuotationStatus;
+  business: string;
+  ledger: string;
+  customer?: string;
+  vendor?: string;
+  item: string;
+  quantity: number;
+  price_minor: number;
+  location?: string | null;
+  transdate?: string | null;
+  description?: string | null;
+  expiryDate?: string | null;
+}
+export const listQuotations = (business: BusinessName, ledger: LedgerName, direction?: QuotationDirection) =>
+  request<QuotationRecord[]>(`/quotations?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${direction ? `&direction=${direction}` : ''}`);
+export const getQuotation = (reference: string) => request<QuotationRecord>(`/quotations/${encodeURIComponent(reference)}`);
+export const createQuotation = (input: SalesOrderInput & { expiryDate?: string }) =>
+  request<void>('/quotations/quotation', { method: 'PUT', body: JSON.stringify(input) });
+export const createRfq = (input: PurchaseOrderInput & { expiryDate?: string }) =>
+  request<void>('/quotations/rfq', { method: 'PUT', body: JSON.stringify(input) });
+export const markQuotationSent = (reference: string) => request<void>(`/quotations/${encodeURIComponent(reference)}/sent`, { method: 'POST' });
+export const acceptQuotation = (reference: string) => request<void>(`/quotations/${encodeURIComponent(reference)}/accept`, { method: 'POST' });
+export const rejectQuotation = (reference: string) => request<void>(`/quotations/${encodeURIComponent(reference)}/reject`, { method: 'POST' });
 
 export interface OrderDispatchInput {
   reference: string;

@@ -1382,6 +1382,48 @@ export function writeOffItems(
   }
 }
 
+// Per direct instruction: no detail_json/JSON, no new table, no raw
+// SQL UPDATE (an upsert's own "ON CONFLICT DO UPDATE" included)
+// anywhere in this lot-tracking code. A lot's quantity-on-hand and
+// cost basis are running numbers that change over time — exactly what
+// this codebase already has a real, structural, append-only mechanism
+// for (postQuantityMovement, the same primitive placeOrder/fulfillOrder
+// use for their own "${reference} Qty"/"${reference} Value" running
+// balances), so lots use the identical pattern instead of a mutable
+// JSON counter: each lot gets its own real "${lotName} Qty" and
+// "${lotName} Value" system account, under a shared "Stock Lots" root
+// (mirroring the existing "Orders" root), and every receipt/consumption
+// is a real, append-only quantity-movement posting against it — the
+// actual running balance lives in account.balance_minor, maintained
+// entirely by the pre-existing, foundational post_quantity_movement
+// trigger (00-core.sql), never written to directly here. The lot's own
+// tree position (a child of its item, for getExpiringStock's join) and
+// its two write-once facts (received date, expiration date) are
+// unchanged structurally — the dates move onto the lot entity via the
+// existing, generic Entity.setAttr primitive (one scalar child entity,
+// changed only through Entity.rename's INSERT-based entity_update
+// trigger, never a literal UPDATE) instead of detail_json.
+function ensureStockLotsRoot(): { id: number } {
+  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = 'Stock Lots'`).get() as { id: number } | undefined;
+  if (existing) return existing;
+  const application = db.prepare(`SELECT id FROM current_entities WHERE name = 'Application'`).get() as { id: number };
+  return { id: createSystemEntity('Stock Lots', application.id) };
+}
+
+function ensureLotAccount(lotAccountName: string): void {
+  if (Entity.get(lotAccountName)) return;
+  const root = ensureStockLotsRoot();
+  createSystemEntity(lotAccountName, root.id);
+}
+
+function lotBalance(lotAccountName: string): number {
+  return (
+    (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(lotAccountName) as
+      | { balance_minor: number }
+      | undefined)?.balance_minor ?? 0
+  );
+}
+
 export function receiveLot(
   business: BusinessName,
   ledger: LedgerName,
@@ -1400,34 +1442,43 @@ export function receiveLot(
 
   const lotName = `${itemName} — Lot — ${lotNumber}`;
   const existing = Entity.getUnder(lotName, itemId);
-  if (existing) {
-    const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(existing.id) as { detail_json: string };
-    const detail = JSON.parse(row.detail_json);
-    detail.quantity_on_hand += quantity;
-    detail.cost_basis_minor = (detail.cost_basis_minor ?? 0) + (costBasisMinor ?? 0);
-    Entity.setDetailJson(existing.id, JSON.stringify(detail));
-  } else {
+  if (!existing) {
     const created = Entity.create(lotName, itemId, userId);
-    const detail = { received_date: receivedDate, expiration_date: expirationDate, quantity_on_hand: quantity, cost_basis_minor: costBasisMinor ?? null };
-    Entity.setDetailJson(created.id, JSON.stringify(detail));
+    Entity.setAttr(created.id, 'Received Date', receivedDate, userId);
+    if (expirationDate) Entity.setAttr(created.id, 'Expiration Date', expirationDate, userId);
   }
+
+  const qtyAccount = `${lotName} Qty`;
+  const valueAccount = `${lotName} Value`;
+  ensureLotAccount(qtyAccount);
+  ensureLotAccount(valueAccount);
+  postQuantityMovement(business, ledger, `${reference}-LOT-QTY`, asAccountName(qtyAccount), quantity, userId, receivedDate);
+  if (costBasisMinor) postQuantityMovement(business, ledger, `${reference}-LOT-VALUE`, asAccountName(valueAccount), costBasisMinor, userId, receivedDate);
 
   postQuantityMovement(business, ledger, reference, asAccountName(itemName), quantity, userId, receivedDate);
 }
 
-export function consumeFromLots(itemName: ItemName, quantity: number): { lot_number: string; consumed: number; expiration_date: string | null; cost_basis_minor: number | null }[] {
+export function consumeFromLots(
+  business: BusinessName,
+  ledger: LedgerName,
+  reference: string,
+  itemName: ItemName,
+  quantity: number,
+  userId: UserId,
+  transdate?: string
+): { lot_number: string; consumed: number; expiration_date: string | null; cost_basis_minor: number | null }[] {
   if (quantity <= 0) throw new ValidationError('Quantity to consume must be positive.');
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
 
-  const lotRows = db
-    .prepare(`SELECT id, name, detail_json FROM current_entities WHERE parent_id = ? AND name LIKE '% — Lot — %'`)
-    .all(itemId) as { id: number; name: string; detail_json: string }[];
+  const lotRows = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND name LIKE '% — Lot — %'`).all(itemId) as { id: number; name: string }[];
   const lots = lotRows
     .map((r) => {
-      const detail = JSON.parse(r.detail_json);
       const lotNumber = r.name.split(' — Lot — ')[1];
-      return { id: r.id, lot_number: lotNumber, expiration_date: detail.expiration_date as string | null, quantity_on_hand: detail.quantity_on_hand as number, cost_basis_minor: detail.cost_basis_minor as number | null };
+      const expirationDate = Entity.getAttr(r.id, 'Expiration Date') ?? null;
+      const quantityOnHand = lotBalance(`${r.name} Qty`);
+      const costBasisMinor = lotBalance(`${r.name} Value`) || null;
+      return { id: r.id, name: r.name, lot_number: lotNumber, expiration_date: expirationDate, quantity_on_hand: quantityOnHand, cost_basis_minor: costBasisMinor };
     })
     .filter((l) => l.quantity_on_hand > 0)
     .sort((a, b) => {
@@ -1443,15 +1494,14 @@ export function consumeFromLots(itemName: ItemName, quantity: number): { lot_num
 
   const consumed: { lot_number: string; consumed: number; expiration_date: string | null; cost_basis_minor: number | null }[] = [];
   let remaining = quantity;
+  let n = 0;
   for (const lot of lots) {
     if (remaining <= 0) break;
+    n += 1;
     const take = Math.min(remaining, lot.quantity_on_hand);
     const costBasisTaken = lot.cost_basis_minor != null ? Math.round((lot.cost_basis_minor * take) / lot.quantity_on_hand) : null;
-    const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(lot.id) as { detail_json: string };
-    const detail = JSON.parse(row.detail_json);
-    detail.quantity_on_hand -= take;
-    detail.cost_basis_minor = costBasisTaken != null ? lot.cost_basis_minor! - costBasisTaken : lot.cost_basis_minor;
-    Entity.setDetailJson(lot.id, JSON.stringify(detail));
+    postQuantityMovement(business, ledger, `${reference}-LOT-QTY-${n}`, asAccountName(`${lot.name} Qty`), -take, userId, transdate);
+    if (costBasisTaken) postQuantityMovement(business, ledger, `${reference}-LOT-VALUE-${n}`, asAccountName(`${lot.name} Value`), -costBasisTaken, userId, transdate);
     consumed.push({ lot_number: lot.lot_number, consumed: take, expiration_date: lot.expiration_date, cost_basis_minor: costBasisTaken });
     remaining -= take;
   }
@@ -1467,21 +1517,26 @@ export interface ExpiringLot {
 }
 
 export function getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[] {
-  const rows = db
+  const lotRows = db
     .prepare(
-      `SELECT item.name AS item,
-              SUBSTR(lot.name, INSTR(lot.name, ' — Lot — ') + LENGTH(' — Lot — ')) AS lot_number,
-              json_extract(lot.detail_json, '$.expiration_date') AS expiration_date,
-              CAST(json_extract(lot.detail_json, '$.quantity_on_hand') AS INTEGER) AS quantity_on_hand,
-              CAST(julianday(json_extract(lot.detail_json, '$.expiration_date')) - julianday(?) AS INTEGER) AS days_until_expiration
+      `SELECT item.name AS item, lot.id AS lot_id, lot.name AS lot_name,
+              SUBSTR(lot.name, INSTR(lot.name, ' — Lot — ') + LENGTH(' — Lot — ')) AS lot_number
        FROM current_entities lot
        JOIN current_entities item ON item.id = lot.parent_id
-       WHERE lot.name LIKE '% — Lot — %'
-         AND json_extract(lot.detail_json, '$.expiration_date') IS NOT NULL
-         AND CAST(json_extract(lot.detail_json, '$.quantity_on_hand') AS INTEGER) > 0
-         AND julianday(json_extract(lot.detail_json, '$.expiration_date')) - julianday(?) <= ?`
+       WHERE lot.name LIKE '% — Lot — %'`
     )
-    .all(asOfDate, asOfDate, withinDays) as ExpiringLot[];
+    .all() as { item: string; lot_id: number; lot_name: string; lot_number: string }[];
+
+  const rows: ExpiringLot[] = [];
+  for (const row of lotRows) {
+    const expirationDate = Entity.getAttr(row.lot_id, 'Expiration Date');
+    if (!expirationDate) continue;
+    const quantityOnHand = lotBalance(`${row.lot_name} Qty`);
+    if (quantityOnHand <= 0) continue;
+    const daysUntilExpiration = Math.trunc((Date.parse(expirationDate) - Date.parse(asOfDate)) / 86400000);
+    if (daysUntilExpiration > withinDays) continue;
+    rows.push({ item: row.item, lot_number: row.lot_number, expiration_date: expirationDate, quantity_on_hand: quantityOnHand, days_until_expiration: daysUntilExpiration });
+  }
   return rows.sort((a, b) => a.days_until_expiration - b.days_until_expiration);
 }
 
@@ -1513,13 +1568,32 @@ export function placeOrder(
   if (vendor) supersedeEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(qtyName) as { id: number }).id, { relation: vendor }, userId);
   if (item) supersedeEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(valueName) as { id: number }).id, { relation: item }, userId);
   if (location) setHierarchyParent(qtyName, 'Location', location, userId);
-  postQuantityMovement(business, ledger, `${orderReference}-PLACE`, asAccountName(qtyName), quantity, userId, transdate);
   postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueName), priceMinor, userId, transdate);
   if (item) {
+    // The item's own, real On Order account (ensureItemQuantityAccounts)
+    // already carries this exact quantity — posting it a second time to
+    // `${orderReference} Qty` as well would just be the same number
+    // recorded twice. Only post it there when there's no item (the
+    // qtyName entity is then the only place this number exists at all).
     const { onOrderAccount, onOrderAccountId } = ensureItemQuantityAccounts(item, userId);
     postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(onOrderAccount), quantity, userId, transdate, undefined, onOrderAccountId);
+  } else {
+    postQuantityMovement(business, ledger, `${orderReference}-PLACE`, asAccountName(qtyName), quantity, userId, transdate);
   }
   })();
+}
+
+// An order known to have a real item (the `${orderReference} Value`
+// entity's own relation — set by placeOrder above, the same real
+// relation every entity already has, read back exactly as
+// checkEInvoiceDiscrepancies already does) tracks quantity on that
+// item's own On Order account instead of a second, duplicate number on
+// `${orderReference} Qty`.
+function resolveOrderItem(orderReference: string): ItemName | undefined {
+  const row = db.prepare(`SELECT relation_id FROM current_entities WHERE name = ?`).get(`${orderReference} Value`) as { relation_id: number | null } | undefined;
+  if (!row?.relation_id) return undefined;
+  const item = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(row.relation_id) as { name: string } | undefined;
+  return item ? asItemName(item.name) : undefined;
 }
 
 export function fulfillOrder(
@@ -1533,16 +1607,34 @@ export function fulfillOrder(
   transdate?: string
 ): void {
   db.transaction(() => {
-  postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}`, asAccountName(`${orderReference} Qty`), -quantityFulfilled, userId, transdate);
   postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-VALUE`, asAccountName(`${orderReference} Value`), -valueFulfilledMinor, userId, transdate);
+  const item = resolveOrderItem(orderReference);
+  if (item) {
+    const { onOrderAccount, onOrderAccountId } = ensureItemQuantityAccounts(item, userId);
+    postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-ONORDER`, asAccountName(onOrderAccount), -quantityFulfilled, userId, transdate, undefined, onOrderAccountId);
+  } else {
+    postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}`, asAccountName(`${orderReference} Qty`), -quantityFulfilled, userId, transdate);
+  }
   })();
 }
 
 export function getOrderStatus(orderReference: string): { quantity: number; value_minor: number } {
-  const qty =
-    (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(`${orderReference} Qty`) as
-      | { balance_minor: number }
-      | undefined)?.balance_minor ?? 0;
+  const item = resolveOrderItem(orderReference);
+  const qty = item
+    ? (() => {
+        const { onOrderAccountId } = ensureItemQuantityAccounts(item, asUserId(1));
+        return (
+          (db
+            .prepare(
+              `SELECT SUM(jl.amount_minor) AS total FROM journal j JOIN journal_line jl ON jl.journal_id = j.id
+               WHERE j.reference LIKE ? AND jl.account_id = ?`
+            )
+            .get(`${orderReference}%`, onOrderAccountId) as { total: number | null }).total ?? 0
+        );
+      })()
+    : (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(`${orderReference} Qty`) as
+        | { balance_minor: number }
+        | undefined)?.balance_minor ?? 0;
   const value =
     (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(`${orderReference} Value`) as
       | { balance_minor: number }

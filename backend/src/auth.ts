@@ -21,12 +21,23 @@ interface UserDetail {
 }
 
 function getUserDetail(userId: number): UserDetail | undefined {
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')`).get(userId) as { detail_json: string } | undefined;
-  return row ? JSON.parse(row.detail_json) : undefined;
+  const row = db.prepare(`SELECT id FROM current_entities WHERE id = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')`).get(userId) as { id: number } | undefined;
+  if (!row) return undefined;
+  const password_hash = Entity.getAttr(userId, 'Password Hash');
+  const active = Entity.getAttr(userId, 'Active');
+  const page_size = Entity.getAttr(userId, 'Page Size');
+  const number_format = Entity.getAttr(userId, 'Number Format');
+  const date_format = Entity.getAttr(userId, 'Date Format');
+  if (password_hash === undefined || active === undefined || page_size === undefined || number_format === undefined || date_format === undefined) return undefined;
+  return { password_hash, active: active === '1' ? 1 : 0, page_size: Number(page_size), number_format, date_format };
 }
 
 function setUserDetail(userId: number, detail: UserDetail): void {
-  Entity.setDetailJson(userId, JSON.stringify(detail));
+  Entity.setAttr(userId, 'Password Hash', detail.password_hash, 1 as never);
+  Entity.setAttr(userId, 'Active', detail.active ? '1' : '0', 1 as never);
+  Entity.setAttr(userId, 'Page Size', String(detail.page_size), 1 as never);
+  Entity.setAttr(userId, 'Number Format', detail.number_format, 1 as never);
+  Entity.setAttr(userId, 'Date Format', detail.date_format, 1 as never);
 }
 
 function getUserRoleNames(userId: number): string[] {
@@ -46,12 +57,9 @@ export interface UserSummary {
 
 export function listUsers(): UserSummary[] {
   const users = db
-    .prepare(`SELECT id, name AS username, detail_json FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'System Users') ORDER BY name`)
-    .all() as { id: number; username: string; detail_json: string }[];
-  return users.map((u) => {
-    const detail: UserDetail = JSON.parse(u.detail_json);
-    return { id: u.id, username: u.username, active: !!detail.active, roles: getUserRoleNames(u.id) };
-  });
+    .prepare(`SELECT id, name AS username FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'System Users') ORDER BY name`)
+    .all() as { id: number; username: string }[];
+  return users.map((u) => ({ id: u.id, username: u.username, active: Entity.getAttr(u.id, 'Active') === '1', roles: getUserRoleNames(u.id) }));
 }
 
 export function listRoles(): { id: number; name: string }[] {
@@ -172,10 +180,8 @@ export function canUserPostToLedger(business: BusinessName, ledger: LedgerName, 
 }
 
 export function setUserActive(userId: number, active: boolean): void {
-  const detail = getUserDetail(userId);
-  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
-  detail.active = active ? 1 : 0;
-  setUserDetail(userId, detail);
+  if (Entity.getAttr(userId, 'Active') === undefined) throw new NotFoundError(`User ${userId} not found.`);
+  Entity.setAttr(userId, 'Active', active ? '1' : '0', 1 as never);
   if (!active) {
     const sessions = db.prepare(`SELECT id FROM current_entities WHERE relation_id = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`).all(userId) as { id: number }[];
     for (const s of sessions) Entity.relate(s.id, null, 1 as never);
@@ -184,16 +190,14 @@ export function setUserActive(userId: number, active: boolean): void {
 
 export function changePassword(userId: number, newPassword: string): void {
   if (newPassword.length < 8) throw new ValidationError('Password must be at least 8 characters.');
-  const detail = getUserDetail(userId);
-  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
-  detail.password_hash = hashPassword(newPassword);
-  setUserDetail(userId, detail);
+  if (Entity.getAttr(userId, 'Password Hash') === undefined) throw new NotFoundError(`User ${userId} not found.`);
+  Entity.setAttr(userId, 'Password Hash', hashPassword(newPassword), 1 as never);
 }
 
 export function changeOwnPassword(userId: number, currentPassword: string, newPassword: string): void {
-  const detail = getUserDetail(userId);
-  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
-  if (!verifyPassword(currentPassword, detail.password_hash)) {
+  const passwordHash = Entity.getAttr(userId, 'Password Hash');
+  if (passwordHash === undefined) throw new NotFoundError(`User ${userId} not found.`);
+  if (!verifyPassword(currentPassword, passwordHash)) {
     throw new ValidationError('Current password is incorrect.');
   }
   changePassword(userId, newPassword);
@@ -223,7 +227,7 @@ export function login(username: string, password: string): { token: string; user
   const sessionsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'System Sessions'`).get() as { id: number };
   const sessionEntity = Entity.create(`Session — ${token}`, sessionsRoot.id, 1 as never);
   supersedeEntity(sessionEntity.id, { relation: username }, 1 as never);
-  Entity.setDetailJson(sessionEntity.id, JSON.stringify({ expires_at: expiresAt }));
+  Entity.setAttr(sessionEntity.id, 'Expires At', expiresAt, 1 as never);
 
   const roles = getUserRoleNames(userRow.id);
 
@@ -235,11 +239,13 @@ export function login(username: string, password: string): { token: string; user
 
 function findSessionByToken(token: string): { id: number; user_id: number; expires_at: string; business_name: string | null; profit_center_name: string | null } | undefined {
   const row = db
-    .prepare(`SELECT id, relation_id AS user_id, detail_json FROM current_entities WHERE name = ? AND relation_id IS NOT NULL AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`)
-    .get(`Session — ${token}`) as { id: number; user_id: number; detail_json: string } | undefined;
+    .prepare(`SELECT id, relation_id AS user_id FROM current_entities WHERE name = ? AND relation_id IS NOT NULL AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`)
+    .get(`Session — ${token}`) as { id: number; user_id: number } | undefined;
   if (!row) return undefined;
-  const detail = JSON.parse(row.detail_json);
-  return { id: row.id, user_id: row.user_id, expires_at: detail.expires_at, business_name: detail.business_name ?? null, profit_center_name: detail.profit_center_name ?? null };
+  const expires_at = Entity.getAttr(row.id, 'Expires At');
+  if (expires_at === undefined) return undefined;
+  const profitCenterName = Entity.getAttr(row.id, 'Profit Center Name');
+  return { id: row.id, user_id: row.user_id, expires_at, business_name: Entity.getAttr(row.id, 'Business Name') ?? null, profit_center_name: profitCenterName ? profitCenterName : null };
 }
 
 export function logout(token: string): void {
@@ -250,10 +256,7 @@ export function logout(token: string): void {
 export function setSessionBusiness(token: string, businessName: string): void {
   const session = findSessionByToken(token);
   if (!session) throw new AuthError('Session not found or expired.');
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(session.id) as { detail_json: string };
-  const detail = JSON.parse(row.detail_json);
-  detail.business_name = businessName;
-  Entity.setDetailJson(session.id, JSON.stringify(detail));
+  Entity.setAttr(session.id, 'Business Name', businessName, 1 as never);
 }
 
 export function getSessionBusiness(token: string): string | null {
@@ -264,10 +267,12 @@ export function getSessionBusiness(token: string): string | null {
 export function setSessionProfitCenter(token: string, profitCenterName: string | null): void {
   const session = findSessionByToken(token);
   if (!session) throw new AuthError('Session not found or expired.');
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(session.id) as { detail_json: string };
-  const detail = JSON.parse(row.detail_json);
-  detail.profit_center_name = profitCenterName;
-  Entity.setDetailJson(session.id, JSON.stringify(detail));
+  // An empty string is used as the "cleared" sentinel — real profit
+  // center names are always non-empty — so this stays a plain scalar
+  // Entity.setAttr fact with no JSON and no SQL UPDATE, same as every
+  // other field here; a null value cannot be represented by renaming a
+  // value-entity, since the entity must always have SOME name.
+  Entity.setAttr(session.id, 'Profit Center Name', profitCenterName ?? '', 1 as never);
 }
 
 export function getSessionProfitCenter(token: string): string | null {
@@ -295,10 +300,8 @@ export function setOwnPageSize(userId: number, pageSize: number): void {
   if (!Number.isInteger(pageSize) || pageSize < 5 || pageSize > 200) {
     throw new ValidationError('Page size must be a whole number between 5 and 200.');
   }
-  const detail = getUserDetail(userId);
-  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
-  detail.page_size = pageSize;
-  setUserDetail(userId, detail);
+  if (Entity.getAttr(userId, 'Page Size') === undefined) throw new NotFoundError(`User ${userId} not found.`);
+  Entity.setAttr(userId, 'Page Size', String(pageSize), 1 as never);
 }
 
 const ALLOWED_NUMBER_FORMATS = ["1,000.00", '1 000.00', '1.000,00', '1000,00', '1000.00', "1'000.00"];
@@ -306,10 +309,8 @@ export function setOwnNumberFormat(userId: number, numberFormat: string): void {
   if (!ALLOWED_NUMBER_FORMATS.includes(numberFormat)) {
     throw new ValidationError(`Number format must be one of: ${ALLOWED_NUMBER_FORMATS.join(', ')}.`);
   }
-  const detail = getUserDetail(userId);
-  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
-  detail.number_format = numberFormat;
-  setUserDetail(userId, detail);
+  if (Entity.getAttr(userId, 'Number Format') === undefined) throw new NotFoundError(`User ${userId} not found.`);
+  Entity.setAttr(userId, 'Number Format', numberFormat, 1 as never);
 }
 
 const ALLOWED_DATE_FORMATS = ['dd/mm/yyyy', 'mm/dd/yyyy', 'dd.mm.yyyy', 'dd-mm-yyyy', 'yyyy-mm-dd'];
@@ -317,8 +318,6 @@ export function setOwnDateFormat(userId: number, dateFormat: string): void {
   if (!ALLOWED_DATE_FORMATS.includes(dateFormat)) {
     throw new ValidationError(`Date format must be one of: ${ALLOWED_DATE_FORMATS.join(', ')}.`);
   }
-  const detail = getUserDetail(userId);
-  if (!detail) throw new NotFoundError(`User ${userId} not found.`);
-  detail.date_format = dateFormat;
-  setUserDetail(userId, detail);
+  if (Entity.getAttr(userId, 'Date Format') === undefined) throw new NotFoundError(`User ${userId} not found.`);
+  Entity.setAttr(userId, 'Date Format', dateFormat, 1 as never);
 }

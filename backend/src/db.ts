@@ -613,16 +613,16 @@ export function getRelationship(entityName: string): Relationship | undefined {
   return row;
 }
 
-export function getEntitiesWithRelationship(relationshipType: string): { source: string; target: string }[] {
+export function getEntitiesWithRelationship(relationshipType: string): { source: string; target: string; sourceId: number; targetId: number }[] {
   return db
     .prepare(
-      `SELECT source.name AS source, target.name AS target
+      `SELECT source.name AS source, target.name AS target, source.id AS sourceId, target.id AS targetId
        FROM current_entities rel
        JOIN current_entities rel_type ON rel_type.id = rel.parent_id AND rel_type.name = ?
        JOIN current_entities target ON target.id = rel.relation_id
        JOIN current_entities source ON source.relation_id = rel.id`
     )
-    .all(relationshipType) as { source: string; target: string }[];
+    .all(relationshipType) as { source: string; target: string; sourceId: number; targetId: number }[];
 }
 
 export interface OrgChartGroup {
@@ -646,10 +646,18 @@ export function getHierarchy(rootName: string, relationshipType?: string, knownR
   if (!rootId) throw new NotFoundError(`No real entity named "${rootName}".`);
 
   const relPairs = relationshipType ? getEntitiesWithRelationship(relationshipType) : [];
-  const childrenByTarget = new Map<string, string[]>();
-  for (const { source, target } of relPairs) {
-    if (!childrenByTarget.has(target)) childrenByTarget.set(target, []);
-    childrenByTarget.get(target)!.push(source);
+  // Keyed by the target's real id, not its name - a bare name lookup
+  // here used to be safe when a free-text field like "city" only ever
+  // lived in JSON, but now that every such field is a real, named
+  // Entity.setAttr value entity (per standing instruction), a person
+  // can genuinely type a value that collides with some other, unrelated
+  // entity's name anywhere in the app. Resolving by id (already
+  // available from getEntitiesWithRelationship) avoids that whole class
+  // of ambiguous-name bug rather than hoping no one ever collides.
+  const childrenByTargetId = new Map<number, { id: number; name: string }[]>();
+  for (const { source, sourceId, targetId } of relPairs) {
+    if (!childrenByTargetId.has(targetId)) childrenByTargetId.set(targetId, []);
+    childrenByTargetId.get(targetId)!.push({ id: sourceId, name: source });
   }
 
   const MAX_DEPTH = 100;
@@ -658,12 +666,9 @@ export function getHierarchy(rootName: string, relationshipType?: string, knownR
       throw new ValidationError(`getHierarchy("${rootName}") exceeded ${MAX_DEPTH} levels of real depth — a genuine cycle in the relationship chain, not a real, this-deep hierarchy.`);
     }
     const directChildren = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ?`).all(id) as { id: number; name: string }[];
-    const seen = new Set(directChildren.map((c) => c.name));
-    const relationshipChildNames = (childrenByTarget.get(name) ?? []).filter((n) => n !== name && !seen.has(n));
-    for (const n of relationshipChildNames) seen.add(n);
-    const relationshipChildren = relationshipChildNames
-      .map((n) => db.prepare(`SELECT id, name FROM current_entities WHERE name = ?`).get(n) as { id: number; name: string } | undefined)
-      .filter((c): c is { id: number; name: string } => !!c);
+    const seenIds = new Set(directChildren.map((c) => c.id));
+    const relationshipChildren = (childrenByTargetId.get(id) ?? []).filter((c) => c.id !== id && !seenIds.has(c.id));
+    for (const c of relationshipChildren) seenIds.add(c.id);
     return {
       id,
       name,
@@ -723,12 +728,33 @@ export function getOrganizationChart(businessName: BusinessName): OrganizationCh
   return { business: businessName, companyWideEmployees, groups };
 }
 
+// Child entity names created solely by Entity.setAttr/Entity.tag to hold
+// a single scalar fact ABOUT their parent (a former detail_json column,
+// now a real child entity per standing instruction) - never independent,
+// never structural, and explicitly meant to survive revoking their
+// owner as history (see the "contact row deliberately kept" test in
+// db.test.ts). revokeEntity's hasChildren guard below exists to catch
+// genuine substructure (sub-accounts, stock lots, department leaves)
+// that would otherwise be orphaned - these names are excluded from that
+// check so having a phone number, a password hash, or a city on file
+// never, by itself, blocks revoking the entity they're attached to.
+const FACT_ATTR_CHILD_NAMES = new Set([
+  'Contact', 'Person Name', 'Business Name', 'Phone', 'Email', 'Address Line 1', 'Address Line 2',
+  'City', 'Region', 'Postal Code', 'Country', 'Payment Terms Days', 'Credit Limit Minor',
+  'Wage Minor Per Hour', 'Salary Minor Per Year', 'Reminder Level', 'Preferred Language',
+  'Password Hash', 'Verification Status', 'Card Label', 'Pos Pin', 'Bottle Capacity',
+  'Carton Capacity', 'Timezone', 'Item Description', 'Item Unit Of Measure', 'Item UPC',
+  'Item Retail Price Minor', 'Active', 'Page Size', 'Number Format', 'Date Format',
+  'Expires At', 'Profit Center Name', 'Home Currency', 'Financial Year Start', 'Reporting Frequency',
+]);
+
 export function revokeEntity(id: number, userId: UserId): void {
   // Fetched first (not after the other guards, as before) because the new
   // incoming-links guard below needs the entity's own name to check.
   const entity = getEntity(id);
   if (!entity) throw new NotFoundError(`Entity ${id} not found.`);
-  const hasChildren = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? LIMIT 1`).get(id);
+  const childNames = (db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(id) as { name: string }[]).map((r) => r.name);
+  const hasChildren = childNames.some((n) => !FACT_ATTR_CHILD_NAMES.has(n));
   if (hasChildren) throw new ValidationError('Cannot revoke an entity that still has children — move or revoke them first.');
   const hasPostings = db.prepare(`SELECT 1 FROM journal_line WHERE account_id = ? LIMIT 1`).get(id);
   if (hasPostings) throw new ValidationError('Cannot revoke an entity that has journal postings against it.');
@@ -2768,6 +2794,16 @@ export function getReminderCandidates(business: BusinessName, ledger: LedgerName
 
 export interface Contact {
     person_name: string | null;
+  // The business/company name this specific record trades under.
+  // Deliberately per-record (set on the main contact AND, independently,
+  // on each typed address/typed phone record below — see
+  // addTypedAddress/addTypedPhone) rather than a single name on the
+  // contact as a whole: a real contact can trade under different names
+  // at different addresses or phone numbers (a head office vs. a
+  // franchised outlet, say), and the contact view backs every typed
+  // address/phone record as its own entity with its own detail_json in
+  // this exact same shape, so one column here covers all of them.
+  business_name: string | null;
   phone: string | null;
   email: string | null;
   address_line1: string | null;
@@ -2790,7 +2826,7 @@ export interface Contact {
 export function getContact(entityName: string): Contact | undefined {
   return db
     .prepare(
-      `SELECT person_name, phone, email, address_line1, address_line2, city, region, postal_code, country, payment_terms_days, credit_limit_minor, wage_minor_per_hour, salary_minor_per_year, reminder_level, preferred_language, verification_status, card_label, pos_pin
+      `SELECT person_name, business_name, phone, email, address_line1, address_line2, city, region, postal_code, country, payment_terms_days, credit_limit_minor, wage_minor_per_hour, salary_minor_per_year, reminder_level, preferred_language, verification_status, card_label, pos_pin
        FROM contact_entry WHERE name = ?`
     )
     .get(entityName) as Contact | undefined;
@@ -2847,11 +2883,67 @@ export function getAccountsPostedTo(reference: string): string[] {
   return rows.map((r) => r.name);
 }
 
+// Per standing, non-negotiable instruction, "contact" fields are no
+// longer one merged detail_json blob - each is its own independent
+// Entity.setAttr/getAttr fact (a child container entity per field,
+// holding one value entity whose own name IS the value), and whether
+// an entity "is a contact" at all is a real Entity.tag("Contact"), not
+// a JSON flag. The `contact`/`contact_entry` SQL views (00-core.sql)
+// compute the exact same column shape by joining into these same
+// attr/tag entities instead of json_extract, so every existing raw-SQL
+// reader of those views (getContact, getItem, signOn, and the many
+// report/matrix queries) keeps working completely unchanged - only
+// this write path needed to change.
+// A plain function (not a module-level const) so it is safely callable
+// from db-seed.ts's own module-init-time seeding (which runs near the
+// very top of this file, long before a later const's own declaration
+// line would otherwise have executed - a real TDZ failure, found and
+// fixed during this exact rewrite).
+function contactFieldAttrName(field: string): string | undefined {
+  const map: Record<string, string> = {
+    person_name: 'Person Name',
+    business_name: 'Business Name',
+    phone: 'Phone',
+    email: 'Email',
+    address_line1: 'Address Line 1',
+    address_line2: 'Address Line 2',
+    city: 'City',
+    region: 'Region',
+    postal_code: 'Postal Code',
+    country: 'Country',
+    payment_terms_days: 'Payment Terms Days',
+    credit_limit_minor: 'Credit Limit Minor',
+    wage_minor_per_hour: 'Wage Minor Per Hour',
+    salary_minor_per_year: 'Salary Minor Per Year',
+    reminder_level: 'Reminder Level',
+    preferred_language: 'Preferred Language',
+    password_hash: 'Password Hash',
+    verification_status: 'Verification Status',
+    card_label: 'Card Label',
+    pos_pin: 'Pos Pin',
+    bottle_capacity: 'Bottle Capacity',
+    carton_capacity: 'Carton Capacity',
+    timezone: 'Timezone',
+    item_description: 'Item Description',
+    item_unit_of_measure: 'Item Unit Of Measure',
+    item_upc: 'Item UPC',
+    item_retail_price_minor: 'Item Retail Price Minor',
+  };
+  return map[field];
+}
+
 export function mergeContactDetail(entityId: number, fields: Record<string, unknown>): void {
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(entityId) as { detail_json: string | null } | undefined;
-  const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
-  const merged = { ...current, __is_contact: true, ...fields };
-  Entity.setDetailJson(entityId, JSON.stringify(merged));
+  const userId = 1 as unknown as UserId;
+  Entity.tag(entityId, 'Contact', userId);
+  for (const [field, value] of Object.entries(fields)) {
+    const attrName = contactFieldAttrName(field);
+    if (!attrName) continue;
+    if (value === null || value === undefined) {
+      Entity.clearAttr(entityId, attrName, userId);
+    } else {
+      Entity.setAttr(entityId, attrName, String(value), userId);
+    }
+  }
 }
 
 export function setContact(entityName: string, contact: Partial<Contact>): void {
@@ -2859,6 +2951,7 @@ export function setContact(entityName: string, contact: Partial<Contact>): void 
   if (!entityId) throw new ValidationError(`No entity named "${entityName}".`);
   mergeContactDetail(entityId, {
     person_name: contact.person_name ?? null,
+    business_name: contact.business_name ?? null,
     phone: contact.phone ?? null,
     email: contact.email ?? null,
     address_line1: contact.address_line1 ?? null,
@@ -3132,6 +3225,7 @@ export interface TypedPhone {
   phone_type: string;
   record_name: string;
   phone: string | null;
+  business_name: string | null;
 }
 
 export function ensurePhoneType(typeName: string, userId: UserId): void {
@@ -3149,13 +3243,16 @@ export function listPhoneTypes(): string[] {
     .map((r) => (r as { name: string }).name);
 }
 
-export function addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId): string {
+export function addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId, businessName?: string | null): string {
   ensurePhoneType(phoneType, userId);
-  return addTyped(entityName, 'Phone', phoneType, { phone: number }, (recordName, v) => setContact(recordName, v), userId);
+  return addTyped(entityName, 'Phone', phoneType, { phone: number, business_name: businessName ?? null }, (recordName, v) => setContact(recordName, v), userId);
 }
 
 export function getTypedPhones(entityName: string): TypedPhone[] {
-  return getTyped<TypedPhone>(entityName, 'Phone Types', 'phone_type', (recordName) => ({ phone: getContact(recordName)?.phone ?? null }));
+  return getTyped<TypedPhone>(entityName, 'Phone Types', 'phone_type', (recordName) => {
+    const c = getContact(recordName);
+    return { phone: c?.phone ?? null, business_name: c?.business_name ?? null };
+  });
 }
 
 export function deleteTypedPhone(entityName: string, phoneType: string, userId: UserId): void {
@@ -4149,42 +4246,50 @@ export function getItemPriceForCurrency(itemName: string, currency: string | nul
   return fallback?.price_minor ?? null;
 }
 
-export function setBusinessHomeCurrency(businessName: string, currencyCode: string, userId: UserId): void {
+function requireBusinessId(businessName: string): number {
   const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined)?.id;
   if (!businessId) throw new ValidationError(`No business named "${businessName}".`);
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(businessId) as { detail_json: string | null } | undefined;
-  const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
-  Entity.setDetailJson(businessId, JSON.stringify({ ...current, home_currency: currencyCode }));
+  return businessId;
+}
+
+// Per direct instruction: no detail_json/JSON, no new table, no raw SQL
+// UPDATE anywhere here. home_currency is one scalar fact on the
+// business entity, via the existing, generic Entity.setAttr/getAttr
+// primitives (primitives.ts) — a named, typed child entity holding one
+// value, changed only by Entity.rename, which writes through
+// entity_update's INSERT-based, append-only trigger, never a literal
+// UPDATE.
+export function setBusinessHomeCurrency(businessName: string, currencyCode: string, userId: UserId): void {
+  Entity.setAttr(requireBusinessId(businessName), 'Home Currency', currencyCode, userId);
 }
 
 export function getBusinessHomeCurrency(businessName: string): string | null {
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { detail_json: string | null } | undefined;
-  if (!row?.detail_json) return null;
-  return JSON.parse(row.detail_json).home_currency ?? null;
+  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined)?.id;
+  if (!businessId) return null;
+  return Entity.getAttr(businessId, 'Home Currency') ?? null;
 }
 
-// A business's financial-year start date and reporting-period frequency - stored the same way as
-// home_currency above (detail_json on the business entity itself), real data rather than just the
-// free-text financialYearLabel (which only ever drove the Budget ledger's name). See
-// docs/pm-domain-reference.md ("Reporting periods") for the period-boundary math this backs.
+// A business's financial-year start date and reporting-period frequency - stored the same, non-JSON,
+// non-UPDATE way as home_currency above: two scalar Entity.setAttr facts on the business entity
+// itself, real data rather than just the free-text financialYearLabel (which only ever drove the
+// Budget ledger's name). See docs/pm-domain-reference.md ("Reporting periods") for the
+// period-boundary math this backs.
 export type ReportingFrequency = 'annual' | 'biannual' | 'quarterly' | 'monthly';
 export const PERIOD_MONTHS: Record<ReportingFrequency, number> = { annual: 12, biannual: 6, quarterly: 3, monthly: 1 };
 
 export function setBusinessReportingPeriod(businessName: string, financialYearStart: string, frequency: ReportingFrequency, userId: UserId): void {
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined)?.id;
-  if (!businessId) throw new ValidationError(`No business named "${businessName}".`);
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(businessId) as { detail_json: string | null } | undefined;
-  const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
-  Entity.setDetailJson(businessId, JSON.stringify({ ...current, financial_year_start: financialYearStart, reporting_frequency: frequency }));
-  void userId;
+  const businessId = requireBusinessId(businessName);
+  Entity.setAttr(businessId, 'Financial Year Start', financialYearStart, userId);
+  Entity.setAttr(businessId, 'Reporting Frequency', frequency, userId);
 }
 
 export function getBusinessReportingPeriod(businessName: string): { financialYearStart: string; frequency: ReportingFrequency } | null {
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { detail_json: string | null } | undefined;
-  if (!row?.detail_json) return null;
-  const detail = JSON.parse(row.detail_json);
-  if (!detail.financial_year_start || !detail.reporting_frequency) return null;
-  return { financialYearStart: detail.financial_year_start, frequency: detail.reporting_frequency };
+  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined)?.id;
+  if (!businessId) return null;
+  const financialYearStart = Entity.getAttr(businessId, 'Financial Year Start');
+  const frequency = Entity.getAttr(businessId, 'Reporting Frequency') as ReportingFrequency | undefined;
+  if (!financialYearStart || !frequency) return null;
+  return { financialYearStart, frequency };
 }
 
 export interface ReportingPeriod {
@@ -4246,22 +4351,29 @@ function periodLabel(frequency: ReportingFrequency, periodNumber: number, fyLabe
   return `${monthName} ${endDate.getUTCFullYear()}`;
 }
 
+// Per direct instruction: no detail_json/JSON, no new table, no raw
+// UPDATE. A location's accepted currencies are a real set, not one
+// scalar, so this uses a dedicated "Currencies" container child of the
+// location plus the existing, generic Entity.tag/hasTag primitives
+// (primitives.ts) — each nominated currency becomes its own named
+// child of that container, tagged "Active" via Entity.relate, which
+// itself writes through entity_update's INSERT-based, append-only
+// trigger, never a literal UPDATE.
 export function nominateLocationCurrency(locationName: string, currencyCode: string, userId: UserId, business?: BusinessName): void {
   const locationId = resolveScopedLocationId(locationName, business);
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(locationId) as { detail_json: string | null } | undefined;
-  const current = row?.detail_json ? JSON.parse(row.detail_json) : {};
-  const currencies: string[] = current.currencies ?? [];
-  if (!currencies.includes(currencyCode)) currencies.push(currencyCode);
-  Entity.setDetailJson(locationId, JSON.stringify({ ...current, currencies }));
+  const container = Entity.ensureUnder('Currencies', locationId, userId);
+  Entity.tag(container.id, currencyCode, userId);
 }
 
 export function getLocationCurrencies(locationName: string, business?: BusinessName): string[] {
   const locationId = resolveScopedLocationId(locationName, business);
   if (!locationId) return [];
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(locationId) as { detail_json: string | null } | undefined;
-  if (!row?.detail_json) return [];
-  return JSON.parse(row.detail_json).currencies ?? [];
+  const container = Entity.getUnder('Currencies', locationId);
+  if (!container) return [];
+  return Entity.children(container.id)
+    .filter((c) => Entity.hasTag(container.id, c.name))
+    .map((c) => c.name);
 }
 
 function resolveScopedLocationId(locationName: string, business?: BusinessName): number | undefined {
@@ -5379,4 +5491,5 @@ export * from './db-journal.js';
 import { stageLine, postJournalEntry } from './db-journal.js';
 export * from './db-stock.js';
 import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, type Location as StockLocation } from './db-stock.js';
+export * from './db-quotations.js';
 

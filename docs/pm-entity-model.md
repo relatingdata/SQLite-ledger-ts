@@ -859,6 +859,99 @@ revoke a business's last-remaining Actual or Budget ledger (every
 business must always have both, even a brand-new, empty one with
 no postings yet to otherwise block the revoke).
 
+### Departments and the Org Chart: a real, worked `setEntityLink` example
+
+Departments (`ensureDepartmentsRoot`, `createDepartment`,
+`ensureDepartmentAccounts`, `createAndConfigureDepartment`,
+`deleteDepartment`, `listDepartments` — all `backend/src/db.ts`) are
+the concrete case the three-mechanism split above exists for.
+
+A Department is modeled like Location, not like Division: it gets a
+**real, postable CoA account**, because "payroll for this cost center"
+needs a genuine balance, not a reporting tag. But unlike Location
+(a separate business-structure entity cross-linked by name to a
+same-named CoA node — the source of a documented, unresolved
+bare-name-collision class), a Department's own entity *is* its CoA
+account node directly: `ensureDepartmentsRoot` places a `Departments`
+container under the business's `Expense` root (via
+`resolveBusinessCoaAccountId`), and `createDepartment` creates the
+department as a direct `Entity.ensureUnder` child of that root — one
+tree, nothing to collide. `createAndConfigureDepartment` then
+transactionally calls `ensureDepartmentAccounts`, which provisions two
+always-present leaves, `Payroll` and `Other Expenses`, in the
+business's plain home currency (no synthetic unit-currency dance the
+way Location's Storage Capacity accounts need — every leaf vivifies
+into the `account` table lazily on its first real posting, same as any
+hand-created CoA leaf). Both `createDepartment` and
+`ensureDepartmentAccounts` use `Entity.ensureUnder` (get-or-create), so
+`createAndConfigureDepartment` is idempotent end to end — a second call
+for the same department name is a no-op, not a `ValidationError`.
+
+`deleteDepartment` is the one place this design costs something: because
+the two leaves are provisioned *eagerly* at creation (not lazily, the
+way Location's per-item accounts are), a department always has children
+the instant it exists, so a single, plain `revokeEntity` call on the
+department would make `hasChildren` refuse *every* department,
+permanently. `deleteDepartment` instead revokes the two known leaves
+first and the department last, inside one transaction, checking the
+department's own incoming-links guard (`getEntityLinksPointingAt`) up
+front by its real name before touching anything — so an Employee still
+tagged to the department blocks the whole delete before any leaf is
+touched. Because every department reuses the identical two leaf names
+("Payroll"/"Other Expenses"), and `revokeEntity` reparents revoked
+entities by name into one shared, global `Application > Revoked`
+bucket, each entity is renamed to something globally unique (its own id
+is already unique) immediately before revoking it — the only purpose
+is to keep two different departments' revoked leaves from colliding
+under `Revoked`; every guard that cares about the real name has already
+run by that point.
+
+The Employee side is where the three-mechanism split in the section
+above stops being theoretical. An Employee already uses its one
+`relation_id` slot for `Place of Employment` (`setRelationship`, set at
+`createEmployee` time). Giving that same employee a Department and a
+Manager too **cannot** go through `setRelationship` — it would silently
+overwrite `Place of Employment`, since that slot holds exactly one
+pointer. `setEmployeeDepartment`/`getEmployeeDepartment`/
+`deleteEmployeeDepartment` and `setEmployeeManager`/`getEmployeeManager`/
+`deleteEmployeeManager` are instead thin, named wrappers around the
+generic `setEntityLink`/`getEntityLink`/`deleteEntityLink` primitives,
+tagged `'Department'` and `'Manager'` respectively — each creates its
+own separate child link-record entity with its own `relation_id` slot,
+so Department, Manager, and Place of Employment all coexist
+independently on one employee. This also means `revokeEntity`'s
+existing incoming-links guard protects both new links for free: it
+already recognizes any `"<entity> — <linkType>"` child record, so
+deleting a Department while an employee is tagged to it, or revoking a
+manager while someone still reports to them, is blocked without any
+new guard code.
+
+`setEmployeeManager` adds one genuinely new invariant no prior
+primitive enforced: it rejects a self-report outright
+(`managerName === employeeName`), and walks the existing Manager chain
+upward from the proposed manager via repeated `getEmployeeManager`
+calls, rejecting the assignment if `employeeName` turns up anywhere in
+that chain (which would otherwise make them indirectly their own
+manager — nothing before this existed to stop a reporting line from
+silently looping forever). A pre-existing cycle discovered elsewhere
+while walking is not this call's to fix, so the walk simply stops
+there rather than throwing.
+
+`getOrgChartStructure(businessName)` is the one aggregate read the
+org-chart UI uses — departments with their employees, each employee's
+own location, department, and manager — built to avoid an N+1-per-
+employee/per-department fetch pattern (the same shape
+`BusinessStructurePopup.svelte`'s Locations/Divisions tab already has,
+one `getHierarchyTag` call per location). It deliberately reads
+`Place of Employment` via `getEntitiesWithRelationship` (the bulk
+reader for the older `setRelationship` mechanism — a relationship
+record is a child of the relationship *type's* own root) and
+Department/Manager via `getEntitiesWithLink` (the bulk reader for the
+newer `setEntityLink` mechanism — a link record is a child of the
+*employee* itself, tagged with the link type), because the two really
+are structurally different record shapes, not interchangeable despite
+both ending up as "one fact about an employee."
+
 ### The Hierarchy / Product cartesian mechanism
 
 Per `docs/cartesian-account-linking-plan.md`, two layers:

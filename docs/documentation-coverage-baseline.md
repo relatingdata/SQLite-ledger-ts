@@ -100,6 +100,7 @@ file name, and not a business concept worth prose on its own.
 - `customerVerificationRouter`
 - `contactsRouter`
 - `menuRouter`
+- `quotationsRouter`
 
 - `getLocationTypes`
 - `createLocationType`
@@ -294,17 +295,6 @@ are the two largest, most recently-built, most user-visible gaps. -->
 - `ensureCurrencyPair`
 - `getCurrencyExchangeRate`
 - `listCurrencyPairs`
-- `ensureDepartmentsRoot`
-- `createDepartment`
-- `ensureDepartmentAccounts`
-- `createAndConfigureDepartment`
-- `deleteDepartment`
-- `listDepartments`
-- `getEmployeeDepartment`
-- `deleteEmployeeDepartment`
-- `getEmployeeManager`
-- `deleteEmployeeManager`
-- `getOrgChartStructure`
 - `getBusinessTypes`
 - `saveBusinessTypeAnswers`
 - `getChartOfAccountsPrototype`

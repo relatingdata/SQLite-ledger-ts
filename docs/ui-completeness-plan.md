@@ -53,7 +53,7 @@ Real gap already flagged in `docs/TODO.md` and confirmed again this session (men
 Real gap already flagged in `docs/TODO.md`: `account.currency` and per-currency balance validation are real and tested, but `setupCurrency`/`convertCurrency`/`spendCurrency` don't exist, and no screen lets a person actually transact in a foreign currency. `docs/foreign-currency-receipts-and-payments.md` already has a real, proposed design — this is "ready to build," not "ready to design." Recommended scope for this push: build just enough to let a person view/set an exchange rate and see its effect on a foreign-currency account balance — not the full receipt/payment workflow, which is its own, separate piece.
 
 ### 3c. Quotations, RFQ, generate-invoices/generate-PO from orders
-Zero backend. These are real, useful features but not load-bearing for "create the whole wine business" — a quotation is a pre-order convenience, and the existing `placeOrder`/`fulfillOrder` mechanism already covers the real purchase/sale path without them. **Recommend deferring** — lowest real value for this specific goal.
+**Quotations (AR) and RFQ (AP) are now real** — see `docs/pm-journal-api.md`'s "Quotations (AR) and RFQs (AP)" section: each is a real Sales/Purchase Order staged via the existing `stageSalesOrder`/`stagePurchaseOrder` but not posted until accepted, with status tracked on a schema-less entity (no new table). `generate-invoices`/`generate-PO` from orders remains zero backend and still genuinely deferred — lowest real value for this specific goal.
 
 ### 3d. Vouchers (payable/payment/general-ledger batch approval)
 Zero backend — a real, multi-user review-before-posting workflow, genuinely different from the current stage→post-by-the-same-session model. Real, separate scope (session/role modeling for "who can approve what"). **Recommend deferring.**
@@ -98,4 +98,4 @@ Given real risk and real value, in order:
 
 ## What this plan deliberately does not promise
 
-Reconciliation, real multi-currency transactions, quotations/RFQ, vouchers, and the assembly/projects/jobs/shipping subsystems are real, genuine gaps that will still exist after Part 5 step 4. This plan closes the gap for a wine retail business's real, ordinary operations — it does not claim feature parity with everything SQL-Ledger itself has (see `SQL_LEDGER_MAPPING.md` for that fuller, still-honest picture).
+Reconciliation, real multi-currency transactions, vouchers, and the assembly/projects/jobs/shipping subsystems are real, genuine gaps that will still exist after Part 5 step 4. Quotations/RFQ (3c, above) are no longer one of them. This plan closes the gap for a wine retail business's real, ordinary operations — it does not claim feature parity with everything SQL-Ledger itself has (see `SQL_LEDGER_MAPPING.md` for that fuller, still-honest picture).

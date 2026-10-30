@@ -60,9 +60,14 @@ Users and roles are plain entities under `System Users`/`System
 Roles` — no permanent table beyond the four
 (`check-schema-table-count`, Build & Tooling chapter). A user's own
 detail (`password_hash`, `active`, `page_size`, `number_format`,
-`date_format`) lives in that entity's own `detail_json`. Each granted
-(global) role is a direct child entity under the user, `relation_id`
-pointing at the role — the same pattern already used for
+`date_format`) is five independent `Entity.setAttr`/`getAttr` facts —
+each its own child container entity under the user, holding one value
+entity whose own name is the value — not `detail_json`: per standing
+instruction, JSON is no longer used for this (removed together with
+every other non-exempted `detail_json` use in the app; only bank
+account routing/account-number and business notes remain JSON-backed).
+Each granted (global) role is a direct child entity under the user,
+`relation_id` pointing at the role — the same pattern already used for
 `vocabulary_preference`.
 
 - `listUsers()` / `listRoles()` — every active user, every available role.
@@ -77,12 +82,17 @@ pointing at the role — the same pattern already used for
 ### Sessions
 
 A session is a plain entity under `System Sessions`, named
-`Session — {token}`, `relation_id` pointing at the user, `detail_json`
-holding `expires_at` plus the session's own current `business_name`/
-`profit_center_name`. `login(username, password)` creates one and
-returns the token; `logout(token)` clears its relation (`Entity.relate
-(id, null, ...)`), not a delete. `getSessionUser(token)` also
-transparently expires a session whose `expires_at` has passed.
+`Session — {token}`, `relation_id` pointing at the user. `expires_at`
+plus the session's own current `business_name`/`profit_center_name`
+are three independent `Entity.setAttr`/`getAttr` facts, not a
+`detail_json` blob — each settable on its own, with no read-modify-
+write needed. A cleared Profit Center is represented by the empty
+string (a real Profit Center name is never empty), since a value-entity
+can be renamed to a new value but never to "no value." `login(username,
+password)` creates the session entity and returns the token;
+`logout(token)` clears its relation (`Entity.relate(id, null, ...)`),
+not a delete. `getSessionUser(token)` also transparently expires a
+session whose `expires_at` has passed.
 
 `setSessionBusiness(token, businessName)` / `getSessionBusiness` set
 and read the session's current business — and, on set, also update
@@ -309,6 +319,53 @@ language ("Setup" and "Configuration" both translate to
 "Configuration" in French). `setTranslation` detects this via the
 scoped-uniqueness constraint and logs it as a flagged collision for
 further review rather than crashing or silently resolving it.
+
+## Contact field storage: 27 independent attr facts, not one JSON blob
+
+`contact`/`contact_entry` (00-core.sql) are compatibility views giving
+every "has contact details" entity (customers, vendors, employees,
+locations, items, and the typed address/phone/contact-person records
+addresses/phones carry per-record) the same, stable, flat column
+shape every existing raw-SQL reader already queries (`getContact`,
+`getItem`, `signOn`, and the report/matrix queries in
+db-reports.ts/db-matrix-reports.ts/db-stock.ts). Per standing,
+non-negotiable instruction, none of those 27 fields (person_name
+through item_retail_price_minor) live in `detail_json` any more - each
+is its own independent `Entity.setAttr`/`getAttr` fact, and "is this
+entity a contact at all" is a real `Entity.tag(id, 'Contact', userId)`,
+not a JSON flag. `mergeContactDetail` (db.ts) is the one write path
+every contact field setter (`setContact`, `setPosPin`, `setItem`,
+`setLocation`, `registerCustomer`, `verifyCustomer`, `setReminderLevel`,
+…) funnels through; it tags the entity Contact once and, per field,
+calls `Entity.setAttr` for a real value or `Entity.clearAttr` (a small
+new primitive, revoking any current value under that field's container
+without ever touching the entity's own row) for `null`. The views
+recompute the exact same 27-column shape via correlated subqueries
+that walk the same attr-container/value chain `Entity.getAttr` itself
+walks, instead of `json_extract`, so no reader needed to change.
+
+Two real bugs were found and fixed while making this change, both
+documented in code comments at their fix sites:
+
+- `revokeEntity`'s `hasChildren` guard used to see every one of these
+  new per-field child entities as "real substructure" and refuse to
+  revoke ANY contact-bearing entity at all (a location with a phone
+  number, a customer with an address) - a real, serious regression,
+  since the whole point of a contact record (per its own, directly
+  tested requirement) is that it survives revoking its owner as
+  history. Fixed with `FACT_ATTR_CHILD_NAMES` (db.ts), an explicit,
+  documented set of attr-fact child names the guard ignores, leaving
+  it fully strict about everything else (real sub-accounts, stock
+  lots, department leaves still block revoke exactly as before).
+- `getHierarchy`'s relationship-child resolution used to re-resolve
+  each target by a bare, unscoped `WHERE name = ?` - harmless while
+  free-text fields like `city` only ever lived in JSON, but a real,
+  live collision risk once a person's typed value (say, a location's
+  `city` happening to match a real Division's name) becomes a real,
+  globally-nameable entity in its own right. Fixed by resolving
+  relationship children by id (`getEntitiesWithRelationship` now also
+  returns `sourceId`/`targetId`), the same bug class already fixed
+  several times elsewhere in this codebase, applied here too.
 
 ## Contact types: one contact, any combination of roles
 

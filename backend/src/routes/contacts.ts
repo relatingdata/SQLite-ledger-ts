@@ -32,6 +32,7 @@ contactsRouter.get('/:name/credit-status', (req, res) => {
 });
 
 const contactSchema = z.object({
+  business_name: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   email: z.string().nullable().optional(),
   address_line1: z.string().nullable().optional(),
@@ -68,6 +69,7 @@ contactsRouter.get('/:name/addresses', (req, res) => {
 
 const typedAddressSchema = z.object({
   address_type: z.string().min(1),
+  business_name: z.string().nullable().optional(),
   address_line1: z.string().nullable().optional(),
   address_line2: z.string().nullable().optional(),
   city: z.string().nullable().optional(),
@@ -107,13 +109,14 @@ contactsRouter.get('/:name/phones', (req, res) => {
 const typedPhoneSchema = z.object({
   phone_type: z.string().min(1),
   phone: z.string().min(1),
+  business_name: z.string().nullish(),
 });
 
 contactsRouter.put('/:name/phones', requireRole('Administrator', 'Bookkeeper'), (req, res) => {
   const parsed = typedPhoneSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    addTypedPhone(req.params.name, parsed.data.phone_type, parsed.data.phone, asUserId(req.user!.id));
+    addTypedPhone(req.params.name, parsed.data.phone_type, parsed.data.phone, asUserId(req.user!.id), parsed.data.business_name);
     res.status(204).end();
   } catch (err) {
     console.error(err);

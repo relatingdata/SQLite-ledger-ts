@@ -75,7 +75,7 @@ async function main() {
   console.log('EUR lot received: €1,000.00, cost basis implied by the $1,090 clearing amount (fee excluded).');
 
   console.log('\n=== Scenario 2: later spend €400 of it, when the rate has moved ===');
-  const consumed = consumeFromLots('EUR', 40000);
+  const consumed = consumeFromLots('admin', 'Actual', 'FX-BUY-1-EUR-CONSUME', 'EUR', 40000, 1);
   console.log('Lots consumed via the REAL, unmodified consumeFromLots (FIFO):', consumed);
 
   const lotCostBasisMinor = usdPaid;

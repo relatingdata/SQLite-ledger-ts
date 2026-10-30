@@ -2244,7 +2244,7 @@ test('lot/expiration tracking: consumption is genuinely FIFO by expiration date,
   const overallQty = (db.db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name=?)`).get(itemName) as { balance_minor: number });
   assert.equal(overallQty.balance_minor, 120, 'overall quantity tracks the sum across all lots');
 
-  const consumed = db.consumeFromLots(db.asItemName(itemName), 60);
+  const consumed = db.consumeFromLots(biz.business, biz.actualLedger, 'LOTTEST-CONSUME-1', db.asItemName(itemName), 60, fx.userId);
   assert.deepEqual(
     consumed,
     [
@@ -2259,7 +2259,7 @@ test('lot/expiration tracking: consumption is genuinely FIFO by expiration date,
   assert.ok(thisItemExpiring.length >= 1, 'LOT-B genuinely qualifies as expiring stock with its remaining 20 units');
   assert.ok(!expiring.some((e) => e.lot_number === 'LOT-A'), 'LOT-A is fully consumed and must be excluded');
 
-  assert.throws(() => db.consumeFromLots(db.asItemName(itemName), 999), db.ValidationError, 'cannot consume more than what is genuinely on hand across all lots');
+  assert.throws(() => db.consumeFromLots(biz.business, biz.actualLedger, 'LOTTEST-CONSUME-2', db.asItemName(itemName), 999, fx.userId), db.ValidationError, 'cannot consume more than what is genuinely on hand across all lots');
 });
 
 test('Locations: per-location stock, exactly one billing address, warehouse-direct dispatch for large orders, same-city transfers, and below-reorder reporting', () => {
@@ -6454,4 +6454,112 @@ test('writeOffItems with a real combination: the real Inventory value and real u
   const onHandLeaf = entities.find((e) => e.parent_id === onHandRoot?.id);
   const onHandBalance = (db.db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(onHandLeaf!.id) as { balance_minor: number }).balance_minor;
   assert.equal(onHandBalance, 7, '10 real units received minus 3 real units written off must genuinely leave 7 real units for this combination');
+});
+
+function onOrderBalance(itemName: string): number {
+  return (
+    (db.db
+      .prepare(
+        `SELECT balance_minor FROM account WHERE entity_id = (
+           SELECT c.id FROM current_entities c JOIN current_entities p ON p.id = c.parent_id
+           WHERE c.name = 'On Order' AND p.name = ?
+         )`
+      )
+      .get(itemName) as { balance_minor: number } | undefined)?.balance_minor ?? 0
+  );
+}
+
+test('a Quotation (AR) is, from the moment it is drafted, a real future-dated journal entry and a real On Order posting — accepting it is a pure status flip, nothing new gets posted', () => {
+  const biz = fx.freshBusiness('QuotationTest Co');
+  const { itemName } = fx.freshItem(biz.business, 'QuotationTest Item');
+  const customerName = fx.uniqueName('QuotationTest Customer');
+  db.createCustomer(customerName, fx.userId);
+  const reference = fx.uniqueName('QUOTE');
+
+  db.createQuotation(
+    { reference, business: biz.business, ledger: biz.actualLedger, customer: customerName, item: itemName, quantity: 10, price_minor: 2000, transdate: '2027-02-01' },
+    fx.userId,
+    '2027-03-01'
+  );
+
+  const quotation = db.getQuotation(reference);
+  assert.equal(quotation?.status, 'draft');
+  assert.equal(quotation?.direction, 'AR');
+  assert.equal(quotation?.customer, customerName);
+  assert.equal(quotation?.expiryDate, '2027-03-01');
+
+  // The real commitment already exists at draft time — a sale reduces
+  // what's still available, so a Quotation's On Order delta is negative,
+  // the same sign a real sales order's fulfillment already uses.
+  assert.equal(onOrderBalance(itemName), -10, 'drafting a quote already posts the real on-order quantity, before any acceptance');
+
+  const listed = db.listQuotations(biz.business, biz.actualLedger, 'AR');
+  assert.ok(listed.some((q) => q.reference === reference));
+
+  db.acceptQuotation(reference, fx.userId);
+  assert.equal(db.getQuotation(reference)?.status, 'accepted');
+  assert.equal(onOrderBalance(itemName), -10, 'accepting is a pure status flip — nothing further gets posted');
+
+  assert.throws(() => db.acceptQuotation(reference, fx.userId), db.ValidationError, 'an already-accepted quotation cannot be accepted again');
+});
+
+test('an RFQ (AP) is the same real future-dated journal entry and On Order posting, and rejecting one reverses both — never leaving a half-posted trace', () => {
+  const biz = fx.freshBusiness('RfqTest Co');
+  const { itemName } = fx.freshItem(biz.business, 'RfqTest Item');
+  const vendorName = fx.uniqueName('RfqTest Vendor');
+  db.createProvider(vendorName, fx.userId);
+  const reference = fx.uniqueName('RFQ');
+
+  db.createRfq(
+    { reference, business: biz.business, ledger: biz.actualLedger, vendor: vendorName, item: itemName, quantity: 5, price_minor: 3000, transdate: '2027-02-01' },
+    fx.userId
+  );
+  assert.equal(db.getQuotation(reference)?.direction, 'AP');
+  assert.equal(db.getQuotation(reference)?.vendor, vendorName);
+  assert.equal(onOrderBalance(itemName), 5, 'drafting an RFQ already posts the real on-order quantity — a purchase increases it');
+
+  db.rejectQuotation(reference, fx.userId, '2027-01-15');
+  assert.equal(db.getQuotation(reference)?.status, 'rejected');
+  assert.equal(onOrderBalance(itemName), 0, 'rejecting reverses the on-order posting back to exactly zero');
+  assert.throws(() => db.acceptQuotation(reference, fx.userId), db.ValidationError, 'a rejected RFQ cannot later be accepted');
+  assert.throws(() => db.rejectQuotation(reference, fx.userId), db.ValidationError, 'an already-rejected RFQ cannot be rejected again');
+});
+
+test('createRecurringJournal now rejects a start-date entry that is balanced in flat total but NOT balanced within either real currency — the exact gap docs/pm-journal-api.md used to document as open', () => {
+  const biz = fx.freshBusiness('RecurringCurrencyGapTest Co');
+  const usdCash = fx.uniqueName('RecurringCurrencyGapTest Cash (USD)');
+  db.create(fx.coaCategoryRoot(biz.business, 'Asset'), db.typeRootName, usdCash, fx.userId);
+  db.setAccountCurrency(usdCash, 'USD');
+  const eurCash = fx.uniqueName('RecurringCurrencyGapTest Cash (EUR)');
+  db.create(fx.coaCategoryRoot(biz.business, 'Asset'), db.typeRootName, eurCash, fx.userId);
+  db.setAccountCurrency(eurCash, 'EUR');
+
+  // Flat sum across both lines is zero (100 + -100), but neither
+  // currency balances on its own — USD has a lone +100 and EUR a lone
+  // -100. The old flat-sum-only check let exactly this through.
+  assert.throws(
+    () => db.createRecurringJournal(biz.business, biz.actualLedger, fx.uniqueName('REC-CCY-GAP'), '2027-01-01', 'monthly', [
+      { account: usdCash, amount_minor: 100 },
+      { account: eurCash, amount_minor: -100 },
+    ], fx.userId, 'Mismatched currencies', 6),
+    db.PostingError
+  );
+
+  // A real, genuinely per-currency-balanced entry across two currencies
+  // must still work.
+  const usdExpense = fx.uniqueName('RecurringCurrencyGapTest Expense (USD)');
+  db.create(fx.coaCategoryRoot(biz.business, 'Expense'), db.typeRootName, usdExpense, fx.userId);
+  db.setAccountCurrency(usdExpense, 'USD');
+  const eurExpense = fx.uniqueName('RecurringCurrencyGapTest Expense (EUR)');
+  db.create(fx.coaCategoryRoot(biz.business, 'Expense'), db.typeRootName, eurExpense, fx.userId);
+  db.setAccountCurrency(eurExpense, 'EUR');
+  const reference = fx.uniqueName('REC-CCY-OK');
+  db.createRecurringJournal(biz.business, biz.actualLedger, reference, '2027-01-01', 'monthly', [
+    { account: usdExpense, amount_minor: 100 },
+    { account: usdCash, amount_minor: -100 },
+    { account: eurExpense, amount_minor: 200 },
+    { account: eurCash, amount_minor: -200 },
+  ], fx.userId, 'Genuinely balanced per currency', 3);
+  assert.ok(db.getEntityTree().some((e) => e.name === usdCash), 'sanity: the accounts used above are real');
+  void reference;
 });

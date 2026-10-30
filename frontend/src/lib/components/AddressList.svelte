@@ -23,6 +23,7 @@
     const lines = String(values.lines ?? '').split('\n');
     return setTypedAddress(name, {
       address_type: type,
+      business_name: (values.businessName as string) || null,
       address_line1: lines[0] || null,
       address_line2: lines.slice(1).join('\n') || null,
       city: (values.city as string) || null,
@@ -33,13 +34,20 @@
   }}
   remove={deleteTypedAddress}
   canSave={(values) => !!String(values.lines ?? '').trim()}
-  initialValues={() => ({ lines: '', city: '', region: '', postal: '', country: '' })}
+  initialValues={() => ({ businessName: '', lines: '', city: '', region: '', postal: '', country: '' })}
 >
   {#snippet form({ values, setFirstField })}
+    <label class="field-label" for="addr-business-{entityName}">Business / company name</label>
+    <input
+      id="addr-business-{entityName}"
+      {@attach (el) => setFirstField(el)}
+      value={String(values.businessName ?? '')}
+      oninput={(e) => (values.businessName = e.currentTarget.value)}
+      placeholder="e.g. Acme Pty Ltd — leave blank if this is a personal address"
+    />
     <label class="field-label" for="addr-lines-{entityName}">Building &amp; Street Address</label>
     <textarea
       id="addr-lines-{entityName}"
-      {@attach (el) => setFirstField(el)}
       value={String(values.lines ?? '')}
       oninput={(e) => (values.lines = e.currentTarget.value)}
       rows="2"
@@ -55,6 +63,7 @@
     </div>
   {/snippet}
   {#snippet display(a)}
+    {#if a.business_name}<div><strong>{a.business_name}</strong></div>{/if}
     {#each combinedLines(a).split('\n') as line}<div>{line}</div>{/each}
     <div>{[a.city, a.region, a.postal_code].filter(Boolean).join(', ')}</div>
     {#if a.country}<div>{a.country}</div>{/if}

@@ -68,7 +68,7 @@ async function main() {
   console.log("EUR lot received against the EUR item — the SAME entity whose 'Cash at Bank (EUR)' is the real GL Inventory account.");
 
   console.log('\n=== Spend €400 later, rate has moved, realize gain/loss ===');
-  const consumed = consumeFromLots('EUR', 40000);
+  const consumed = consumeFromLots('admin', 'Actual', 'FX-BUY-1-EUR-CONSUME', 'EUR', 40000, 1);
   console.log('Lots consumed via the REAL, unmodified consumeFromLots (FIFO):', consumed);
 
   const lotCostBasisMinor = 109000, lotQuantityMinor = 100000, consumedQuantityMinor = 40000;

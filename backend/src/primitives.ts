@@ -80,6 +80,12 @@ export const Entity = {
     if (!typeNode) return undefined;
     return Entity.children(typeNode.id)[0]?.name;
   },
+  clearAttr(id: number, attrType: string, userId: UserId): void {
+    const typeNode = Entity.getUnder(attrType, id);
+    if (!typeNode) return;
+    const existing = Entity.children(typeNode.id)[0];
+    if (existing) Entity.revoke(existing.id, userId);
+  },
   setDetailJson(id: number, detailJson: string): void {
     db.prepare(`INSERT INTO entity_set_detail (entity_id, detail_json) VALUES (?, ?)`).run(id, detailJson);
   },
