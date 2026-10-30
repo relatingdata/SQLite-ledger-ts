@@ -192,12 +192,14 @@ investigation corrected its own premise. Neither one is a case-2 instance in the
 document defined:
 
 **Purchase Order / Stage Purchase Order / Post Purchase Order: nothing to port.** `placeOrder`/
-`fulfillOrder` (`backend/src/db-stock.ts`) never touch the generic journal staging table at all —
-they post quantity movements against synthetic, reference-scoped tracking entities
-(`${orderReference} Qty`/`${orderReference} Value`), which is open-order bookkeeping, not a
-discretionary choice of real Chart-of-Accounts leaves. The one function in this area that does post
-a real journal entry, `postOrderReceipt` (`backend/src/db-journal.ts`), already takes the vendor
-and item/account as plain strings the person chose themselves on the Stock Receipt screen's own
+`fulfillOrder` (`backend/src/db-stock.ts`) post quantity movements against the dollar-value
+synthetic, reference-scoped tracking entity (`${orderReference} Value`) always, and against
+quantity either the item's own, real `On Order` account (when the order has a real item — the
+usual case) or the matching synthetic `${orderReference} Qty` tracking entity (when it doesn't) —
+either way, open-order bookkeeping, not a discretionary choice of real Chart-of-Accounts leaves.
+The one function in this area that does post a real journal entry, `postOrderReceipt`
+(`backend/src/db-journal.ts`), already takes the vendor and item/account as plain strings the
+person chose themselves on the Stock Receipt screen's own
 vendor/account dropdowns (`frontend/src/routes/stock/stock-receipt/+page.svelte`) — there is no
 backend logic deciding *which* account to use, unlike `postInvoice`'s real, algorithmic
 location-scoped Inventory resolution for Cash Purchase/Sale. This screen is already, functionally,

@@ -256,27 +256,37 @@ mechanism every other creation path uses, after the `entity_ids` table was elimi
 keeping a second manual implementation. (Its doc block had been left above `placeOrder`'s.)
 
 **`placeOrder`** creates the order's Qty and Value entities under `Orders` (parented by name so
-multiple orders do not collide) and posts the committed quantity and value to them. **It is purely
-informational: nothing here touches a real account.** With no new table or column, the order's two
-entities use the one relation slot every entity already has: Qty's relation carries the vendor and
-Value's carries the item, the same "relation is a separate, lateral tag" mechanism used for COGS and
-Chart-of-Accounts prototype tagging. Delivery or dispatch instructions (where a purchase order should
-arrive, where a sales order should ship from) use the generic Location *dimension* on the Qty leaf,
-since the relation slots are already taken and a dimension is a separate, independent slot. It also
-posts the product's own "on order" quantity, credited later at receipt (see
-`receiveItems`). See Open question 2 about that line.
+multiple orders do not collide) and posts the committed value to Value always, but the committed
+quantity to Qty only **when the order has no real item** — a caller-supplied `item` means the item's
+own, real `On Order` account (`ensureItemQuantityAccounts`) already carries this exact quantity
+(tagged with this order's reference), so posting it a second time to Qty would just be the same
+number recorded twice; that duplicate posting is skipped in that case. **Qty/Value are still purely
+informational either way: nothing here touches a real account for value, and quantity touches a real
+account only via the item's own On Order, never via Qty/Value themselves.** With no new table or
+column, the order's two entities still use the one relation slot every entity already has: Qty's
+relation carries the vendor and Value's carries the item — this relation is also how a later call
+(`fulfillOrder`, `getOrderStatus`) recovers "does this order have a real item" without a parameter of
+its own, via the shared `resolveOrderItem` helper. Delivery or dispatch instructions (where a purchase
+order should arrive, where a sales order should ship from) use the generic Location *dimension* on
+the Qty leaf, since the relation slots are already taken and a dimension is a separate, independent
+slot.
 
-**`fulfillOrder`** reduces the order's Qty and Value memo balances by exactly what was fulfilled.
-**Whatever remains on those accounts afterwards is the back order**, read directly, never stored as a
-separate fact. Its references include the `fulfillingReference` (the receipt or dispatch doing the
-fulfilling) so they are unique per call. *A found bug:* the old `${orderReference}-FULFILL` naming
-assumed exactly one fulfilment per order, but partial fulfilment, a back order closed over several
-separate receipts, is explicitly supported, and reusing the same reference on a second partial
-fulfilment silently corrupted `journal_line`. See the `journal_reference_unique` index and its
-comment for how that surfaced.
+**`fulfillOrder`** always reduces Value by exactly what was fulfilled, and reduces quantity the same
+way `placeOrder` posted it: the item's real On Order account when `resolveOrderItem` finds one,
+Qty's own balance otherwise. **Whatever remains afterwards is the back order**, read directly, never
+stored as a separate fact. Its references include the `fulfillingReference` (the receipt or dispatch
+doing the fulfilling) so they are unique per call. *A found bug:* the old `${orderReference}-FULFILL`
+naming assumed exactly one fulfilment per order, but partial fulfilment, a back order closed over
+several separate receipts, is explicitly supported, and reusing the same reference on a second
+partial fulfilment silently corrupted `journal_line`. See the `journal_reference_unique` index and
+its comment for how that surfaced.
 
-**`getOrderStatus`** returns the remaining committed quantity and value on an order: zero means
-fully fulfilled; anything else is the open back order.
+**`getOrderStatus`** returns the remaining committed quantity and value on an order: zero means fully
+fulfilled; anything else is the open back order. Value is always read from Value's own balance.
+Quantity, when the order has a real item, is computed instead — `SUM(journal_line.amount_minor)`
+over every journal whose reference starts with this order's reference, against that item's On Order
+account id — rather than read from Qty's own balance, since nothing is posted there in that case;
+with no item, it falls back to Qty's own balance exactly as before.
 
 ## Comments that were wrong or damaged, removed at checkpoint 420
 
@@ -307,7 +317,9 @@ Recorded because each was trusted by the next reader.
    commitment being recorded, not a transfer between two existing pools, so this one single-sided line
    is correct, since the offsetting credit happens at the real, later moment the stock actually
    arrives." The standing rule is that no posting is ever single-sided. Whether an order is a genuine
-   exception to that rule, or needs a counteritem, has not been decided.
+   exception to that rule, or needs a counteritem, has not been decided. (Still open as of the
+   On-Order dedup change above: that change only removed the *duplicate* posting of the same
+   single-sided line to a second account — it did not add a counteritem to the remaining one.)
 3. **Classification.** The stock listing groups by division and the movement report by division and
    category. Those are among the terms the classification-neutrality analysis measures
    (`docs/classification-neutrality-impact.md`).

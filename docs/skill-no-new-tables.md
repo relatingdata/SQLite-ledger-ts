@@ -13,7 +13,8 @@ This project's entire, real architecture rests on a small number of generic mech
 - **Exchange rates as a delivery-fee template**: the design reuses the *existing* `item_source.package_quantity` field to convert an order's base-unit quantity into a carton count for fee calculation — not a new `conversion_ratio` table.
 - **Per-product quantity accounts** (`On Order`, `Units Sold`, `Count Adjustment`, `Write-off`) — each a real, plain entity under the product's own entity, using the same, generic account/balance mechanism every other account uses — not a dedicated `product_quantity_tracking` table.
 - **Location types, address types, phone types** — real Vocabulary words under a real parent entity, linked via `relation_id` — not an enum column or a dedicated lookup table per type category.
-- **Back orders** (`placeOrder`/`fulfillOrder`) — read directly as whatever remains on a real `Qty`/`Value` account pair, never stored as its own, separate "back order" table or flag.
+- **Back orders** (`placeOrder`/`fulfillOrder`/`getOrderStatus`) — read directly as whatever remains on a real account, never stored as its own, separate "back order" table or flag: the real `Qty`/`Value` account pair when an order has no item, or the item's own real `On Order` account (filtered to this order's reference) once it does — never both, since that would just be the same quantity recorded twice.
+- **Quotations/RFQ** (`db-quotations.ts`) — a quote's own commitment is a real, future-dated `journal`/`journal_line` entry plus a real `On Order` posting, both created at draft time; never a new table, never `so_staging`/`po_staging`.
 
 ## The real, absolute rule
 

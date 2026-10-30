@@ -50,18 +50,24 @@ called on-demand, not at item-creation time.
 
 Real function: `placeOrder(...)`.
 
-1. **A real `{orderReference} Qty` account** posted to, quantity =
-   the ordered amount. Single-sided — a genuine, real, standing
-   commitment, no counteritem yet.
-2. **A real `{orderReference} Value` account** posted to, same
-   pattern, for the dollar value.
-3. **The product's own real `On Order` account** (lazily created if
+1. **A real `{orderReference} Value` account** posted to, quantity
+   &times; price — the dollar value. Single-sided — a genuine, real,
+   standing commitment, no counteritem yet.
+2. **The product's own real `On Order` account** (lazily created if
    needed) posted to, **+quantity** — a genuine, real double-entry
    counteritem: "this many units are now genuinely committed, not yet
    physically here."
+3. **A real `{orderReference} Qty` account** is *not* posted to when
+   the order has a real item, the usual case — that would just be the
+   same quantity recorded a second time, once the item's own On Order
+   account already carries it (tagged by this order's reference). The
+   `{orderReference} Qty` entity still gets created either way, since
+   it's also where the real vendor relation lives — it just stays at
+   zero. (Only an order placed with no item at all — the generic,
+   item-less case some callers still use — posts quantity there.)
 
-Reference used for all three: `{orderReference}-PLACE`,
-`{orderReference}-PLACE-VALUE`, `{orderReference}-PLACE-ONORDER`.
+Reference used: `{orderReference}-PLACE-VALUE`,
+`{orderReference}-PLACE-ONORDER`.
 
 ## 4. Fully receive an ordered product
 
@@ -78,15 +84,19 @@ both lines — a real, balanced pair).
 
 **(b) `fulfillOrder(orderReference, receiptReference, ...)`** — closes
 out the standing order commitment:
-1. The order's own `{orderReference} Qty` account, **−quantity
-   fulfilled**.
-2. The order's own `{orderReference} Value` account, **−value
-   fulfilled**.
+1. The order's own `{orderReference} Value` account, **−value
+   fulfilled**, always.
+2. Quantity, mirroring however `placeOrder` posted it: the item's own
+   real `On Order` account, **−quantity fulfilled** (the order has a
+   real item, the usual case — resolved via the item/vendor relation
+   already carried on the order's own entities, with no new
+   parameter), or the order's own `{orderReference} Qty` account
+   otherwise.
 
 Reference: `{orderReference}-FULFILL-{receiptReference}` (and its own
-`-VALUE` sibling) — genuinely unique per fulfillment, confirmed
-directly as a real, fixed bug: reusing one fixed reference broke a
-second, later partial fulfillment against the same order.
+`-VALUE`/`-ONORDER` sibling) — genuinely unique per fulfillment,
+confirmed directly as a real, fixed bug: reusing one fixed reference
+broke a second, later partial fulfillment against the same order.
 
 After a **full** receipt, `getOrderStatus(orderReference)` reads back
 `{ quantity: 0, value_minor: 0 }` — nothing left owing.
@@ -96,10 +106,12 @@ After a **full** receipt, `getOrderStatus(orderReference)` reads back
 Identical to §4, except `quantityFulfilled` is less than the real,
 original ordered quantity. `fulfillOrder` can be called **again
 later**, with a **new**, different `receiptReference`, when the rest
-arrives — each call reduces the same order's own `Qty`/`Value`
-accounts further. `getOrderStatus` at any point reads back exactly
-what's still genuinely outstanding — the real back order, computed
-directly, never stored as its own, separate fact.
+arrives — each call reduces the same order's `Value` account, and
+whichever quantity account `placeOrder` posted to (the item's own
+`On Order`, or `{orderReference} Qty` with no item), further.
+`getOrderStatus` at any point reads back exactly what's still
+genuinely outstanding — the real back order, computed directly, never
+stored as its own, separate fact.
 
 ## 6. Sell with immediate delivery (POS / Cash Sale)
 

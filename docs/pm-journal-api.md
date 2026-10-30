@@ -256,69 +256,67 @@ reachable from Business Setup as one created directly through it.
 
 ## Quotations (AR) and RFQs (AP) — `backend/src/db-quotations.ts`
 
-A Quotation (to a customer) or RFQ (to a provider) is a real Sales
-Order / Purchase Order, staged exactly as one already is via the
-existing `stageSalesOrder`/`stagePurchaseOrder` (`so_staging`/
-`po_staging`, both real, pre-existing tables, unmodified), deliberately
-never posted via `postSalesOrder`/`postPurchaseOrder` until it's
-accepted. "Convert to order" has no code path of its own: accepting
-calls the exact same post function a real order already posts through.
-Per direct instruction, this introduces no new SQL table and no schema
-change of any kind.
+A Quotation (to a customer) or RFQ (to a provider) is, from the moment
+it is drafted, a real journal entry — `createRecurringJournal`
+(unmodified), dated at its `transdate` (which may be in the future,
+with zero effect on any report until that date falls inside a query's
+own range), `recurrence: 'once'` for an ordinary quote or `'weekly'`/
+`'monthly'`/`'yearly'` + a count for a standing one — plus a real
+`postQuantityMovement` against the item's own, existing `On Order`
+account (`ensureItemQuantityAccounts`), tagged by reference. There is
+no staging step: `so_staging`/`po_staging`/`journal_entry_staging` play
+no part in a Quotation/RFQ at all. Per direct instruction, this
+introduces no new SQL table, no new column, and no schema change of
+any kind — every moving part here (`createRecurringJournal`,
+`reverseJournalEntry`, `ensureItemQuantityAccounts`,
+`postQuantityMovement`) already existed before this file did.
 
-The one fact a quote needs that an order doesn't — its own `status`
-(`draft`/`sent`/`accepted`/`rejected`/`expired`), its direction
-(`AR`/`AP`), which `business`/`ledger` it belongs to, and an optional
-`expiryDate` — has nowhere to live in `so_staging`/`po_staging`'s own
-columns. Per direct instruction, none of this uses `detail_json`/JSON
-of any kind, a new table, or a raw SQL `UPDATE` (an upsert's own
-`ON CONFLICT DO UPDATE` included) anywhere in `db-quotations.ts`. Each
-is instead one scalar child entity via the existing, generic
-`Entity.setAttr`/`getAttr` primitives (`primitives.ts`) — a named,
-typed child entity holding one value, changed only by `Entity.rename`,
-which itself writes through `entity_update`'s INSERT-based, append-only
-trigger, never a literal `UPDATE`. This is the same non-JSON,
-non-table, non-UPDATE mechanism already used elsewhere in this
-codebase for one labeled scalar fact on an entity.
+"Accepting" a quote changes nothing about what's already posted — the
+real commitment (the journal entry and the On Order posting) exists
+from draft time, so accepting is a pure `Status` flip. "Rejecting"/
+"expiring" reverses both real postings: the journal entry via the
+existing `reverseJournalEntry`, and the On Order posting via an equal,
+opposite `postQuantityMovement` — no new logic, both pre-existing
+mechanisms used exactly as they already are everywhere else. A
+quotation whose circumstances change (different date/quantity/price)
+is handled the same way: reject (reverse), then draft a fresh one.
 
-Status is never inferred from `so_staging`/`po_staging`'s presence or
-absence — `acceptQuotation`/`rejectQuotation` both gate purely on the
-structural `Status` attribute, so a rejected quote's staged row is
-simply left exactly as it is (a harmless, permanent, real record of
-what was quoted) rather than deleted; nothing can accidentally post it
-later regardless, because acceptance checks `Status`, never staging.
-While a draft/sent/rejected/expired quote's staged row still exists,
-reading it (`customer`/`vendor`, item, quantity, price, location,
-transdate, description) comes straight from `so_staging`/`po_staging`'s
-own real, typed columns — never duplicated anywhere. Once accepted,
-`postSalesOrder`/`postPurchaseOrder` has already cleared that row
-(unmodified, pre-existing behavior); from that point on the real order
-itself (`placeOrder`'s own Qty/Value system entities, inspectable via
-`getOrderStatus`) is the permanent record, the same as any order that
-was never a quote.
+Every fact a quote needs beyond the real journal entry itself —
+direction, status, business/ledger, counterparty, item, quantity,
+price, location, an optional expiry — is a scalar child entity via the
+existing, generic `Entity.setAttr`/`getAttr` primitives
+(`primitives.ts`). Per direct instruction, none of this uses
+`detail_json`/JSON of any kind or a raw SQL `UPDATE` (an upsert's own
+`ON CONFLICT DO UPDATE` included) anywhere in `db-quotations.ts`.
 
-- `createQuotation(input: SalesOrderInput, userId, expiryDate?)` /
-  `createRfq(input: PurchaseOrderInput, userId, expiryDate?)` — stage
-  the real order, then create its entity with `Direction`/`Status:
-  'draft'`/`Business`/`Ledger` (and `Expiry Date` if given) as scalar
-  attributes.
+- `createQuotation(input: QuotationInput, userId, expiryDate?,
+  recurrence?, recurrenceCount?)` / `createRfq(...)` — post the real
+  journal entry (debit customer / credit `Sales Revenue` for a
+  Quotation; debit item / credit vendor for an RFQ) and the real On
+  Order posting, then create the quote's entity with
+  `Direction`/`Status: 'draft'`/`Business`/`Ledger`/`Counterparty`/
+  `Item`/`Quantity`/`Price Minor`/`Transdate` (and `Location`/
+  `Description`/`Expiry Date` if given) as scalar attributes.
 - `getQuotation(reference)` / `listQuotations(business, ledger,
-  direction?)` — read the entity's own attributes plus, while still
-  staged, the matching `so_staging`/`po_staging` row.
+  direction?)` — read the entity's own attributes; nothing to read
+  from staging, since none is ever written.
 - `markQuotationSent(reference, userId)` — sets `Status: 'sent'`;
-  stages nothing further.
-- `acceptQuotation(reference, userId)` — calls `postSalesOrder` (AR) or
-  `postPurchaseOrder` (AP) by reference, then sets `Status: 'accepted'`.
-  Refuses an already-`accepted`/`rejected`/`expired` quote.
-- `rejectQuotation(reference, userId)` — sets `Status: 'rejected'`
-  only; the staged row is left untouched (see above). Refuses an
-  already-`accepted` quote.
+  posts nothing further.
+- `acceptQuotation(reference, userId)` — sets `Status: 'accepted'`
+  only. Refuses an already-`accepted`/`rejected`/`expired` quote.
+- `rejectQuotation(reference, userId, asOfDate?)` — looks the real
+  journal entry up by reference (`journal.reference` is unique per
+  business/ledger, the same guarantee `so_staging`'s old PK gave),
+  calls `reverseJournalEntry` against it, posts an equal/opposite
+  `postQuantityMovement` on the item's On Order account, then sets
+  `Status: 'rejected'`. Refuses an already-`accepted`/`rejected`/
+  `expired` quote.
 
 Routes: `backend/src/routes/quotations.ts`, mounted at
 `/api/quotations` (`requireAuth` + `requireRole('Administrator',
 'Bookkeeper')`, same gate as `/api/arap` and `/api/stock`). Frontend:
 `frontend/src/routes/arap/quotations/+page.svelte` (AR) and
-`frontend/src/routes/arap/rfq/+page.svelte` (AP) — each a staging form
+`frontend/src/routes/arap/rfq/+page.svelte` (AP) — each a drafting form
 plus a list with Mark sent/Accept/Reject actions, replacing their
 former `NotImplemented` stubs.
 
