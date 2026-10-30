@@ -404,15 +404,17 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // require an EXACT match (`j.reference === a.reference`), but
   // `placeOrder` (backend/src/db-stock.ts) never posts a journal entry
   // under the bare order reference at all - every quantity movement it
-  // posts is suffixed (`${reference}-PLACE`, `${reference}-PLACE-
-  // VALUE`, `${reference}-PLACE-ONORDER`), confirmed directly via a
-  // live query against the real `journal` table after a real, UI-driven
-  // Purchase Order (the real screenshot for this exact run already
-  // showed "Purchase Order PO-AMBER-1 placed with Highland Brewing Co."
-  // - the real UI and backend had genuinely succeeded the whole time;
-  // only this exact-match check was wrong). Fixed to match on the real,
-  // confirmed `-PLACE` suffix convention instead.
-  purchase_order_posted: (a) => db.listJournalEntries(a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), 500, 0).some((j) => j.reference === `${a.reference}-PLACE`),
+  // posts is suffixed. `${reference}-PLACE-VALUE` always posts,
+  // regardless of whether the order has a real item; `${reference}-
+  // PLACE` (quantity, on the order's own synthetic Qty account) only
+  // posts when there's no item, and `${reference}-PLACE-ONORDER`
+  // (quantity, on the item's own real On Order account instead) only
+  // when there is one - an ordinary tutorial Purchase Order always
+  // names a real item, so `-PLACE` itself never posts here. Matching
+  // on `-PLACE-VALUE`, the one suffix every placeOrder call posts
+  // unconditionally, confirmed directly via a live query against the
+  // real `journal` table after a real, UI-driven Purchase Order.
+  purchase_order_posted: (a) => db.listJournalEntries(a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), 500, 0).some((j) => j.reference === `${a.reference}-PLACE-VALUE`),
   item_source_registered: (a) => db.listItemSources(a.itemName).some((s) => s.vendor_name === a.providerName),
   // Real, structural checks on a real, live Trial Balance/Profit and
   // Loss report - never a hand-computed "golden" figure that would go
