@@ -47,6 +47,10 @@ api,,,false
 ,,category_beer_created,false
 ,,item_amber_ale_created,false
 ,,item_highland_single_malt_created,false
+,,,false
+,,,false
+,,,false
+,,,false
 ,,provider_created,false
 ,item_source_registered,item_cost_set,false
 ,purchase_order_posted,purchase_order_placed,false

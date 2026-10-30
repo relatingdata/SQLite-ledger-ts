@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-docs e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -1188,6 +1188,23 @@ tutorial-section-user-manual: test-e2e-tutorial-browser
 	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
 	  -H manual-header-includes.tex -f markdown+raw_tex --resource-path=.
 	@echo "Built sql-ledger-ts_Tutorial_Section.pdf"
+
+# The one, real command that proves the Tutorial still passes, on
+# both its real paths, AND leaves every real manual it feeds already
+# brought back up to date from that exact, same, fresh run - per
+# direct instruction: the manuals and the tests are never allowed to
+# drift apart, so the one target that runs the real Tutorial is also
+# the one that regenerates everything downstream of it, not a
+# separate, easy-to-forget, manual step afterward. Real, direct
+# composition of three, already-existing, real targets -
+# test-e2e-tutorial (the fast, no-browser API path), tutorial-section-
+# user-manual (test-e2e-tutorial-browser's own fresh screenshots,
+# folded straight into a rebuilt Chapter 3 PDF), and check-docs-
+# coverage (which itself regenerates docs/programmer-manual.md before
+# checking it) - never a third, parallel implementation of any of the
+# three.
+test-e2e-tutorial-docs: test-e2e-tutorial tutorial-section-user-manual check-docs-coverage
+	@echo "Tutorial verified end to end (API + driven-browser paths); Chapter 3 PDF and the Programmer's Manual both rebuilt from this exact run."
 
 # Renders a real, complete, vector (SVG) illustration of the entire,
 # live entity tree -- every real (id, name, parent_id) triple, plus

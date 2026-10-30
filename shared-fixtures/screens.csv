@@ -101,6 +101,10 @@ Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the c
 Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),4,retainedEarningsAccount,select >> nth=1,select
 Create Ledger,data,,,createLedgerSimple,,1,businessName,,text
 Create Ledger,data,,,createLedgerSimple,,2,ledger,,text
+Tag Item Hierarchy,data,,,tagItemHierarchy,,1,businessName,,text
+Tag Item Hierarchy,data,,,tagItemHierarchy,,2,itemName,,text
+Tag Item Hierarchy,data,,,tagItemHierarchy,,3,groupingName,,text
+Tag Item Hierarchy,data,,,tagItemHierarchy,,4,valueName,,text
 Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),1,businessName,,text
 Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),2,oldLedger,,text
 Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),3,newLedger,input[placeholder='New ledger name'],text

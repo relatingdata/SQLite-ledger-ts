@@ -241,6 +241,27 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     db.createItem(a.itemName, 'Items', userId, a.businessName as any);
     db.setHierarchyParent(a.itemName, 'Category', a.category, userId);
   },
+  // An already-existing item tagged into a hierarchy grouping that isn't
+  // Category/Division - the exact, same, generic setHierarchyParent
+  // mechanism those two already use, just under whatever groupingName
+  // this call names (e.g. "Size", "Packaging" - not "Container", which
+  // already names a different, real, existing grouping, Open
+  // Container's own Carton/Bottle unit-of-measure form, below). This
+  // fixture's own Create Hierarchy Grouping/Create Hierarchy Value steps already run
+  // through the real /setup/hierarchy screen on both paths; this one
+  // tagging action, API-path only for now (data-kind in screens.csv,
+  // the same, documented exception the ledger-creation-at-rollover step
+  // already uses) - no dedicated UI control exists yet for tagging an
+  // existing item into an arbitrary hierarchy value after creation
+  // (Category is only ever set inline at item-creation time; Division
+  // tagging has its own, Location-specific "Move..." action in the
+  // Business Structure popup). See docs/sales-item-cartesian-product.md.
+  tagItemHierarchy: (a) => {
+    const userId = db.asUserId(1);
+    db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
+    db.setHierarchyParent(a.itemName, a.groupingName, a.valueName, userId);
+  },
   // Idempotent precondition for receiveStockWithCombination/openContainer below, which otherwise create these lazily.
   createHierarchyGroupingSimple: (a) => {
     const userId = db.asUserId(1);

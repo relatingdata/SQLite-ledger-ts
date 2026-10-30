@@ -653,12 +653,26 @@ and explains why, rather than asserting an unverified number.
 ```
 make test-e2e-tutorial            # fast — API path only, no browser
 make test-e2e-tutorial-browser    # same fixture, driven through a real browser
+make test-e2e-tutorial-docs       # both of the above, plus every manual they feed, rebuilt
 ```
 
-Both reset the database first (`reset-db`), since the fixture always
-starts from a clean slate. `test-e2e-tutorial-browser` depends on
-`ensure-servers` (reuses already-healthy backend/frontend dev servers,
-starting whichever one isn't already up).
+The first two reset the database first (`reset-db`), since the
+fixture always starts from a clean slate. `test-e2e-tutorial-browser`
+depends on `ensure-servers` (reuses already-healthy backend/frontend
+dev servers, starting whichever one isn't already up).
+`test-e2e-tutorial-docs` is the one, real composition of three,
+already-existing targets — `test-e2e-tutorial` (the fast API path),
+`tutorial-section-user-manual` (which itself depends on
+`test-e2e-tutorial-browser`, then rebuilds the Chapter 3 PDF from the
+screenshots that run just captured), and `check-docs-coverage` (which
+regenerates `docs/programmer-manual.md` before checking it) — so the
+one target that runs the Tutorial is also the one that brings every
+manual it feeds back up to date from that exact, same, fresh run,
+never a separate, easy-to-forget manual step afterward. Chapter 3 of
+the user manual says its own screenshots are "real and current,
+captured directly from a live, passing run of this exact tutorial" —
+true only once this target (or its two underlying pieces) actually
+runs.
 
 A separate, real browser spec covers the same ground from an entirely
 independent, hand-written Playwright test rather than the step-runner

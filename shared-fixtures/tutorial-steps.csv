@@ -223,6 +223,30 @@
 # above), so this item selects it directly rather than creating a new
 # category.
 "Create Item Under Whiskey Category","Tutorial Wine Retail Business","Highland Single Malt 700ml","Whiskey"
+# "330ml"/"700ml" and "Glass Bottle" are not just name suffixes - Size
+# and Packaging are two further, real, generic Hierarchy groupings
+# (the exact, same ensureHierarchyGrouping/ensureHierarchyValue/
+# setHierarchyParent mechanism Category/Division/Storage already use
+# above), tagged onto each item the same way. "Packaging," not
+# "Container" - "Container" already names a real, different, existing
+# grouping below (Open Container's own Carton/Bottle unit-of-measure
+# form), and reusing that name for a genuinely different concept
+# (glass vs. aluminium) would be exactly the kind of name collision
+# this codebase has already found and fixed once before (see
+# getHierarchy's id-based fix in docs/pm-domain-reference.md). A
+# Sales Item's full real identity is a Cartesian product of its base
+# product against every such dimension - see
+# docs/sales-item-cartesian-product.md for the full design, including
+# why this stays a classification tag here rather than the separate,
+# existing ensureProductInstance/combination-id mechanism (which needs
+# its own, separate quantity/COGS/On-Order accounts an Item already
+# has - a genuinely different case). Values are supplied in OSASCOMP
+# order (Size before Material) so a combined display name, were one
+# built by joining them, would already read in natural English order.
+"Tag Item Hierarchy","Tutorial Wine Retail Business","Amber Ale 330ml","Size","330ml"
+"Tag Item Hierarchy","Tutorial Wine Retail Business","Amber Ale 330ml","Packaging","Glass Bottle"
+"Tag Item Hierarchy","Tutorial Wine Retail Business","Highland Single Malt 700ml","Size","700ml"
+"Tag Item Hierarchy","Tutorial Wine Retail Business","Highland Single Malt 700ml","Packaging","Glass Bottle"
 # Chapter 3's first supplier, name only.
 "Create Provider","Tutorial Wine Retail Business","Highland Brewing Co","Accounts Payable"
 # Amber Ale's real cost, registered as the per-carton price ($84.00 =
