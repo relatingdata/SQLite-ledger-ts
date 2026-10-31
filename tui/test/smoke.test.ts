@@ -561,6 +561,79 @@ test('TUI smoke: login through every implemented screen', { timeout: 60_000 }, a
         await terminal.getByText('Customers — ').expect();
         await press(terminal, 'Escape');
         await terminal.getByText('Menu — ').expect();
+
+        // --- Menu: Cash -> POS Terminal — a cash sale -----------------------
+        // Section order from backend/src/db-seed.ts: General Ledger(0),
+        // test(1), Accounts Receivable(2), Accounts Payable(3),
+        // Inventory(4), Cash(5). Within Cash: POS Terminal(0). The POS
+        // screen's own location picker is filtered to real, Retail-type
+        // locations only (unlike every other screen's own, unfiltered
+        // picker) — "Main Street Cellar" is the one real Retail location
+        // this tutorial fixture seeds, untouched by every Purchasing/AR
+        // Sale step above (those all land on "Head Office", the first
+        // real location alphabetically, via the location pickers that
+        // list every location rather than only Retail ones) — so its
+        // stock here is exactly what the tutorial fixture itself seeded.
+        await pressRepeated(terminal, 'Down', 5);
+        await press(terminal, 'Enter');
+        await terminal.getByText('POS Terminal').expect();
+        await press(terminal, 'Enter'); // POS Terminal, index 0
+        await terminal.getByText('POS Terminal — ').expect();
+        await press(terminal, 'Enter'); // "Main Street Cellar" — the only real Retail location
+        await terminal.getByText('No lines yet').expect();
+
+        await press(terminal, 'i');
+        await terminal.getByText('New line').expect();
+        await typeAndEnter(terminal, 'Highland Single Malt 700ml');
+        text2 = await terminal.text();
+        assert.match(text2, /matches catalog item "Highland Single Malt 700ml"/, 'a real catalog item should be recognized while typing the line');
+        await typeAndEnter(terminal, '1');
+        await typeAndEnter(terminal, '40.00');
+        await press(terminal, 'Enter'); // skip tax
+        await terminal.getByText('Total').expect();
+        await press(terminal, 's');
+        await terminal.getByText('Customer').expect();
+        await press(terminal, 'Enter'); // blank — pays now, to the one real 'Cash' customer
+        await terminal.getByText('payment method').expect();
+        await press(terminal, 'Enter'); // Cash
+        await terminal.getByText('cash tendered').expect();
+        await typeAndEnter(terminal, '50.00');
+        await terminal.getByText('completed — ').expect({ timeout: 10_000 });
+        text2 = await terminal.text();
+        assert.match(text2, /Change due: \$10\.00/, 'cash tendered minus the total should be the real change due');
+        await press(terminal, 'Escape');
+        await terminal.getByText('Menu — ').expect();
+
+        // --- Menu: Cash -> POS Terminal — an on-account sale ----------------
+        await pressRepeated(terminal, 'Down', 5);
+        await press(terminal, 'Enter');
+        await terminal.getByText('POS Terminal').expect();
+        await press(terminal, 'Enter');
+        await terminal.getByText('POS Terminal — ').expect();
+        await press(terminal, 'Enter');
+        await terminal.getByText('No lines yet').expect();
+
+        await press(terminal, 'i');
+        await terminal.getByText('New line').expect();
+        await typeAndEnter(terminal, 'Amber Ale 330ml');
+        await typeAndEnter(terminal, '1');
+        await typeAndEnter(terminal, '12.00');
+        await press(terminal, 'Enter');
+        await terminal.getByText('Total').expect();
+        await press(terminal, 's');
+        await terminal.getByText('Customer').expect();
+        // A real, different customer name here — not the pre-filled
+        // default this field used to have — is exactly the case that
+        // caught the ink-text-input append-bug class in this screen
+        // (typed "Riverside Restaurant" over a pre-filled "Cash"
+        // rendered as "CashRiverside Restaurant" and failed to resolve
+        // to any real customer, confirmed live before the fix).
+        await typeAndEnter(terminal, 'Riverside Restaurant');
+        await terminal.getByText('completed — ').expect({ timeout: 10_000 });
+        text2 = await terminal.text();
+        assert.doesNotMatch(text2, /Change due/, 'an on-account sale should show no change-due line — nothing was tendered');
+        await press(terminal, 'Escape');
+        await terminal.getByText('Menu — ').expect();
       }
     );
   } finally {

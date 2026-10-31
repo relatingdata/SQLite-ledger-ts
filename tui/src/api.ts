@@ -507,11 +507,11 @@ export const dispatchStock = (
   input: { business: BusinessName; ledger: LedgerName; reference: string; locationName: string; lines: { itemName: string; quantity: number }[]; transdate?: string }
 ) => request<void>('/pos/dispatch-stock', { method: 'POST', body: JSON.stringify(input) });
 
-// --- Cash Sale ---------------------------------------------------------------
-// Mirrors frontend/src/lib/api.ts's own completePosSale — the same real
-// endpoint the POS terminal itself uses (a Cash Sale is "the same real
-// mechanism for a larger, non-register sale", per CashTransaction.svelte's
-// own comment), always to the one real 'Cash' customer here.
+// --- Cash Sale / POS Terminal -------------------------------------------------
+// Mirrors frontend/src/lib/api.ts's own completePosSale — the same
+// real endpoint both Cash Sale (CashSale.tsx, always to the one real
+// 'Cash' customer) and the POS Terminal (POS.tsx, 'Cash' or a real,
+// named on-account customer) call.
 
 export interface PosSaleLineInput {
   itemName: string;
@@ -533,7 +533,9 @@ export const completePosSale = (input: {
   lines: PosSaleLineInput[];
   taxAccount: string;
   paymentMethod?: string;
+  cashTenderedMinor?: number;
   transdate?: string;
+  terminalName?: string;
 }) => request<PosSaleResult>('/pos/complete-sale', { method: 'POST', body: JSON.stringify(input) });
 
 // --- Contacts (Customers/Providers) -----------------------------------------

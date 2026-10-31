@@ -47,7 +47,7 @@ frontend via Playwright.
 ## Scope: what v1 actually covers
 
 Per direct instruction, v1 is a real, working **test implementation** of
-thirteen screens (the seventh — Business Structure — has three real
+fourteen screens (the seventh — Business Structure — has three real
 steps of its own), not a full port of every route the web frontend has:
 
 1. **Login** — username/password, real `POST /auth/login`.
@@ -198,15 +198,30 @@ steps of its own), not a full port of every route the web frontend has:
     state of the web app itself, where creating one also isn't wired to
     any screen despite its own intro text's claim.
 
-Everything else the web frontend has (POS, AR Receipt, Quotations, RFQs,
+15. **POS Terminal** (`POS.tsx`) — the real POS Terminal flow
+    (`frontend/src/routes/pos/+page.svelte`): the everyday retail
+    register — pick a real, Retail-type location, build a cart (typing
+    an item name shows a live hint when it matches a real catalog item,
+    along with that item's own retail price — blank price falls back to
+    it), then either pay now (cash, with change due, or card) or sell on
+    account to a real, named customer, same `completePosSale` endpoint
+    Cash Sale itself calls (CashSale.tsx). Unlike the web screen's own
+    checkbox, "on account" here isn't a separate toggle — typing any
+    customer name other than `'Cash'` (or leaving the field blank, which
+    means `'Cash'`) at the customer step means on account, skipping
+    payment entirely, the same real distinction the web screen's own
+    `onAccount` flag makes.
+
+Everything else the web frontend has (AR Receipt, Quotations, RFQs,
 Stock Receipt/Dispatch, and every other report) is explicitly out of
 scope for this test implementation — the screens above are chosen
 because together they already exercise every *kind* of screen this app
 has (a simple form, a navigable tree, a stage/post transactional flow, a
 read-only report, a multi-step wizard, a drill-down CRUD screen, a
-procure-to-pay sequence, and now its order-to-cash mirror), so the same
-pattern extends to any further screen later without a new architectural
-decision.
+procure-to-pay sequence, its order-to-cash mirror, and now the
+real-time register both of those on-account flows feed into), so the
+same pattern extends to any further screen later without a new
+architectural decision.
 
 ## Keyboard navigation model
 
@@ -300,6 +315,7 @@ tui/
       ARSale.tsx            # AR Sale — on-account, createInvoice + optional dispatchStock + postInvoiceById
       CashSale.tsx          # Cash Sale — one atomic completePosSale call, to the one real 'Cash' customer
       Customers.tsx         # browse + edit real customer contacts (unscoped entity tree)
+      POS.tsx               # POS Terminal — the retail register, completePosSale cash or on-account
     components/
       Panel.tsx           # a bordered box using --rule/--rule-strong, a title bar in --brass
       MoneyText.tsx        # minor-units → "$1,234.56" / "$(100.00)" for negatives, matching StatementLine's own sign convention
@@ -360,12 +376,15 @@ new grouping and a new value under it) — all four Purchasing
 screens — an AP Purchase (provider `'Cash'`, account `'Inventory'`, one
 real-item line received into stock and posted on account), a Cash
 Purchase (one line, paid off immediately), an AP Payment to `'Cash'`,
-and a Purchase Order (placed, memo-only) — and all three Sales
+and a Purchase Order (placed, memo-only) — all three Sales
 screens — an AR Sale (customer `'Riverside Restaurant'`, one real-item
 line dispatched from stock and posted on account), a Cash Sale (one
 line, paid off immediately), and Customers (opening the real, seeded
 `'Cash'` customer and saving an edited email/terms/limit/reminder
-level) — exactly the way a person would.
+level) — and the POS Terminal, both ways — a cash sale (one real line,
+cash tendered, a real change-due amount) and an on-account sale to
+`'Riverside Restaurant'` (no change due) — exactly the way a person
+would.
 
 ## What this test implementation deliberately does not solve yet
 
@@ -414,6 +433,15 @@ level) — exactly the way a person would.
   `getCounterpartyHistory`) are real, optional extras on the web screen
   this v1 port skips, same stated reason as the rest of this TUI's own
   simplifications.
+- **POS has no barcode/UPC scanning** (`lookupItemByUpc`) — a real
+  scanner isn't something a terminal session can exercise; an item is
+  found by typing its name instead. It also has no per-location,
+  per-currency terminal selection (`getPosTerminals`/`createPosTerminal`,
+  a real, optional multi-currency feature) and no pending-customer
+  self-registration review (`listPendingCustomers`/`verifyCustomer`, a
+  real, separate, customer-facing screen on the web app, not part of
+  completing a sale). Every sale here posts in the business's own home
+  currency, with no terminal chosen.
 - **Item Categories has no "Move…" (re-parent an existing category)** —
   create/browse/delete are real; moving one to a different parent, the
   way the web's own `StructureTreeNode.svelte` allows, isn't built yet.
