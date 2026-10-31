@@ -47,7 +47,7 @@ frontend via Playwright.
 ## Scope: what v1 actually covers
 
 Per direct instruction, v1 is a real, working **test implementation** of
-six screens (the seventh — Business Structure — has three real steps of
+ten screens (the seventh — Business Structure — has three real steps of
 its own), not a full port of every route the web frontend has:
 
 1. **Login** — username/password, real `POST /auth/login`.
@@ -118,14 +118,56 @@ its own), not a full port of every route the web frontend has:
      nested) list of values (`GET /hierarchy`, `POST
      /hierarchy/groupings`, `POST`/`DELETE /hierarchy/values`,
      `DELETE /hierarchy/groupings`). Most businesses never need this.
+8. **Purchase** (`Purchase.tsx`) — the real AP Purchase flow
+   (`frontend/src/routes/arap/ap-purchase/+page.svelte`): a purchase from
+   a provider on credit, via the real, shared AR/AP invoice mechanism
+   (`createInvoice` with `invoiceType: 'AP'`, then `postInvoiceById`). A
+   line naming a real catalog item is received into stock alongside the
+   invoice (`receiveStock`, only for lines that match a real item), the
+   same conditional behavior the web screen has. Provider and Account are
+   free-text fields, the same stated v1 simplification the General
+   Journal's own Account field already makes; Location uses a real
+   `SelectInput` picker, since it's a small, bounded, per-business list.
+9. **Cash Purchase** (`CashPurchase.tsx`) — the real Cash Purchase flow
+   (`frontend/src/lib/components/CashTransaction.svelte`, direction
+   `'purchase'`): a purchase from the one real `'Cash'` provider, posted
+   and paid off in full the same instant, via one atomic backend call
+   (`completeCashPurchase` — invoice-post, stock-receive, and immediate
+   full payment together). Location uses a real picker; Item is
+   free-text, same simplification as Purchase above.
+10. **Payment** (`Payment.tsx`) — the real AP Payment flow
+    (`frontend/src/lib/components/PaymentReceipt.svelte`, direction
+    `'payment'`): a payment to a provider, debiting their Accounts
+    Payable balance and crediting Cash and Bank (`stageAPPayment`, then
+    `postAPPayment`, the same two-step stage-then-post shape the General
+    Journal already uses). Provider is free-text. Deliberately out of
+    scope for this v1 screen: allocating the payment against specific
+    outstanding invoices (the web screen's own optional "Allocate to
+    outstanding invoices" table) — the payment itself is real and fully
+    posted either way, just not tied to a particular invoice yet.
+11. **Purchase Order** (`PurchaseOrder.tsx`) — the real Purchase Order
+    flow (`frontend/src/routes/stock/po/+page.svelte`): commits to buying
+    one item from a provider; memo-only when placed, with no real ledger
+    effect until a Stock Receipt later fulfills it (`stagePurchaseOrder`,
+    then `postPurchaseOrder`, again the same stage-then-post shape). The
+    web screen is itself single-item (no line list), so this screen is a
+    short linear wizard — reference, item, provider, quantity, price,
+    delivery location, description, then a review step requiring an
+    explicit `S` to place the order. Provider/Item are free-text; Location
+    uses a real picker, with a `'Not yet known'` option first (the one
+    difference from Purchase/Cash Purchase's own location pickers, which
+    have no such option since every one of their lines receives stock
+    immediately).
 
-Everything else the web frontend has (POS, Purchase Orders, Quotations,
-and every other report) is explicitly out of scope for this test
-implementation — the screens above are chosen because together they
-already exercise every *kind* of screen this app has (a simple form, a
-navigable tree, a stage/post transactional flow, a read-only report, a
-multi-step wizard, and a drill-down CRUD screen), so the same pattern
-extends to any further screen later without a new architectural decision.
+Everything else the web frontend has (POS, AR/Customer invoicing and Cash
+Sale, Quotations, RFQs, Stock Receipt, and every other report) is
+explicitly out of scope for this test implementation — the screens above
+are chosen because together they already exercise every *kind* of screen
+this app has (a simple form, a navigable tree, a stage/post transactional
+flow, a read-only report, a multi-step wizard, a drill-down CRUD screen,
+and now a procure-to-pay sequence built from the same primitives), so the
+same pattern extends to any further screen later without a new
+architectural decision.
 
 ## Keyboard navigation model
 
@@ -212,6 +254,10 @@ tui/
       OrgChart.tsx          # step 1: Locations/Divisions + Departments/Employees drill-down (the Business Structure popup's unified Org Chart step, as a list)
       ItemCategories.tsx    # step 2: recursively-nestable Category Hierarchy, as a drill-down list
       OtherHierarchies.tsx  # step 3: any further, flat Hierarchy grouping besides Division/Category
+      Purchase.tsx          # AP Purchase — on-account, createInvoice + optional receiveStock + postInvoiceById
+      CashPurchase.tsx      # Cash Purchase — one atomic completeCashPurchase call
+      Payment.tsx           # AP Payment — stageAPPayment + postAPPayment
+      PurchaseOrder.tsx     # Purchase Order — memo-only, stagePurchaseOrder + postPurchaseOrder
     components/
       Panel.tsx           # a bordered box using --rule/--rule-strong, a title bar in --brass
       MoneyText.tsx        # minor-units → "$1,234.56" / "$(100.00)" for negatives, matching StatementLine's own sign convention
@@ -264,11 +310,16 @@ the direct API path, starts a real backend, and runs this suite against
 it — logging in as the real seeded admin user and driving the real
 "Tutorial Wine Retail Business" through Login, Menu navigation, a real
 staged General Journal entry (posted), the Balance Sheet, a full New
-Business creation, and all three Business Structure steps — Org Chart
+Business creation, all three Business Structure steps — Org Chart
 department/division/location creation (including moving the new Location
 into the new Division), Item Categories (a top-level category, a nested
 child under it, stepped into and back out of), and Other Hierarchies (a
-new grouping and a new value under it) — exactly the way a person would.
+new grouping and a new value under it) — and all four Purchasing
+screens — an AP Purchase (provider `'Cash'`, account `'Inventory'`, one
+real-item line received into stock and posted on account), a Cash
+Purchase (one line, paid off immediately), an AP Payment to `'Cash'`,
+and a Purchase Order (placed, memo-only) — exactly the way a person
+would.
 
 ## What this test implementation deliberately does not solve yet
 
@@ -282,12 +333,22 @@ new grouping and a new value under it) — exactly the way a person would.
   `request()` already does on the web (`ApiError` with the backend's own
   message) — a dropped connection mid-session shows the error and lets the
   person retry the action, nothing more sophisticated yet.
-- **POS, Purchase Orders, Quotations, and every other remaining screen**
-  are out of scope for this pass, per the stated v1 scope above — the
-  architecture (typed API port, Panel/MoneyText components, the
-  Insert/Enter/Escape/Delete idiom) is meant to make adding each of them
-  later a repetition of an established pattern, not a new design decision
-  each time.
+- **POS, AR/Customer invoicing and Cash Sale, Quotations, RFQs, Stock
+  Receipt, and every other remaining screen** are out of scope for this
+  pass, per the stated v1 scope above — the architecture (typed API port,
+  Panel/MoneyText components, the Insert/Enter/Escape/Delete idiom) is
+  meant to make adding each of them later a repetition of an established
+  pattern, not a new design decision each time. Purchasing (Purchase,
+  Cash Purchase, Purchase Order, Payment) is the first full-sized proof of
+  that claim, built after the screens above rather than alongside them.
+- **An AP Payment's own optional "allocate to a specific outstanding
+  invoice" step isn't built** — the payment itself is still real and
+  fully posted, just not tied to a particular invoice yet (see item 10
+  above).
+- **Purchase Order's own review step requires a real catalog item and
+  provider typed by exact name**, no live picker — same free-text
+  simplification as Purchase/Cash Purchase/Payment's Provider/Item
+  fields, for the same stated reason.
 - **Item Categories has no "Move…" (re-parent an existing category)** —
   create/browse/delete are real; moving one to a different parent, the
   way the web's own `StructureTreeNode.svelte` allows, isn't built yet.

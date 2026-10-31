@@ -321,3 +321,180 @@ export const deleteHierarchyTag = (entityName: string, hierarchyName: string) =>
 // name) — builds a real display tree without one request per value.
 export const getHierarchyAssignments = (hierarchyName: string) =>
   request<Record<string, string>>(`/hierarchy/assignments?hierarchyName=${encodeURIComponent(hierarchyName)}`);
+
+// --- Entity tree, Items ---------------------------------------------------
+// Mirrors frontend/src/lib/api.ts's own getEntityTree/listItems — used
+// here only to list real providers/accounts (filtered by parent) and
+// real items, for the Purchasing screens below.
+
+export interface EntityNode {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  relation_id: number | null;
+  accountnumber: string | null;
+  balance_minor: number | null;
+  currency: string | null;
+  depth: number;
+  is_postable_account: boolean;
+}
+export const getEntityTree = (business?: string) => request<EntityNode[]>(`/entities${business ? `?business=${encodeURIComponent(business)}` : ''}`);
+
+export interface ItemSummary {
+  name: string;
+  description: string | null;
+  unit_of_measure: string | null;
+  upc: string | null;
+  retail_price_minor: number | null;
+  source_count: number;
+  storage_origin: 'Hot' | 'Cold' | null;
+  product: string | null;
+}
+export const listItems = (business: string, limit?: number, offset = 0) =>
+  request<{ rows: ItemSummary[]; totalCount: number }>(`/items?business=${encodeURIComponent(business)}${limit != null ? `&limit=${limit}&offset=${offset}` : ''}`);
+
+export interface ItemSource {
+  id: number;
+  item_id: number;
+  item_name: string;
+  manufacturer_id: number | null;
+  manufacturer_name: string | null;
+  vendor_id: number;
+  vendor_name: string;
+  vendor_sku: string | null;
+  vendor_upc: string | null;
+  price_minor: number | null;
+  currency: string | null;
+  package_quantity: number | null;
+  is_preferred: boolean;
+  preference_notes: string | null;
+}
+export const listItemSources = (itemName: string) => request<ItemSource[]>(`/items/${encodeURIComponent(itemName)}/sources`);
+
+// --- Invoices (AP Purchase uses the real, shared AR/AP invoice mechanism) -
+// Mirrors frontend/src/lib/api.ts's own Invoices section.
+
+export interface InvoiceLine {
+  id?: number;
+  description: string;
+  quantity?: number | null;
+  unitPriceMinor?: number | null;
+  amountMinor: number;
+  taxMinor?: number;
+  itemName?: string | null;
+  dispatchReference?: string | null;
+}
+export interface InvoiceInput {
+  invoiceType: 'AR' | 'AP';
+  documentType?: 'invoice' | 'credit_note' | 'debit_memo';
+  referencesInvoiceId?: number | null;
+  business: BusinessName;
+  ledger: LedgerName;
+  reference: string;
+  counterpartyName: string;
+  invoiceDate: string;
+  description?: string;
+  lines: InvoiceLine[];
+}
+export interface Invoice {
+  id: number;
+  invoice_type: 'AR' | 'AP';
+  document_type: 'invoice' | 'credit_note' | 'debit_memo';
+  references_invoice_id: number | null;
+  business: BusinessName;
+  ledger: LedgerName;
+  reference: string;
+  counterparty: string;
+  invoice_date: string;
+  due_date: string | null;
+  description: string;
+  status: 'draft' | 'posted' | 'void';
+  posted_by: string | null;
+  source: 'manual' | 'pos';
+  lines: (InvoiceLine & { id: number })[];
+  total_amount_minor: number;
+  total_tax_minor: number;
+}
+export const listInvoices = (business: BusinessName, ledger: LedgerName, invoiceType?: 'AR' | 'AP', source: 'manual' | 'pos' | 'all' = 'manual', limit = 50, offset = 0) =>
+  request<{ rows: Invoice[]; totalCount: number }>(
+    `/invoices?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${invoiceType ? `&type=${invoiceType}` : ''}&source=${source}&limit=${limit}&offset=${offset}`
+  );
+export const createInvoice = (input: InvoiceInput) => request<{ id: number }>('/invoices', { method: 'POST', body: JSON.stringify(input) });
+export const postInvoiceById = (id: number, revenueOrExpenseAccount: string, taxAccount: string, restockInventory = false) =>
+  request<void>(`/invoices/${id}/post`, { method: 'POST', body: JSON.stringify({ revenueOrExpenseAccount, taxAccount, restockInventory }) });
+export const getInvoiceOutstanding = (id: number) => request<{ outstanding_minor: number }>(`/invoices/${id}/outstanding`);
+export const allocatePaymentToInvoice = (id: number, paymentReference: string, allocatedMinor: number, allocationDate: string, paymentAccount: string) =>
+  request<void>(`/invoices/${id}/allocate`, { method: 'POST', body: JSON.stringify({ paymentReference, allocatedMinor, allocationDate, paymentAccount }) });
+
+// --- Stock receive (alongside an on-account Purchase) ---------------------
+
+export const receiveStock = (
+  input: { business: BusinessName; ledger: LedgerName; reference: string; locationName: string; lines: { itemName: string; quantity: number }[]; transdate?: string }
+) => request<void>('/pos/receive-stock', { method: 'POST', body: JSON.stringify(input) });
+
+// --- Cash Purchase ---------------------------------------------------------
+// Mirrors frontend/src/lib/api.ts's own completeCashPurchase — one real,
+// atomic call: a genuine AP invoice to the given provider, posted,
+// stock received, then immediately paid off in full.
+
+export interface CashPurchaseLineInput {
+  itemName: string;
+  quantity: number;
+  unitPriceMinor: number;
+  taxMinor: number;
+}
+export interface CashPurchaseResult {
+  invoiceId: number;
+  reference: string;
+  totalMinor: number;
+}
+export const completeCashPurchase = (input: {
+  business: BusinessName;
+  ledger: LedgerName;
+  locationName: string;
+  vendorName: string;
+  lines: CashPurchaseLineInput[];
+  taxAccount: string;
+  paymentMethod?: string;
+  transdate?: string;
+}) => request<CashPurchaseResult>('/pos/complete-cash-purchase', { method: 'POST', body: JSON.stringify(input) });
+
+// --- Purchase Order ---------------------------------------------------------
+// Mirrors frontend/src/lib/api.ts's own stagePurchaseOrder/postPurchaseOrder
+// — memo-only when placed (backend/src/db-journal.ts's stagePurchaseOrder),
+// no real ledger effect until a Stock Receipt fulfills it.
+
+export interface PurchaseOrderInput {
+  reference: string;
+  business: BusinessName;
+  ledger: LedgerName;
+  vendor: string;
+  item: string;
+  quantity: number;
+  price_minor: number;
+  location?: string;
+  transdate?: string;
+  description?: string;
+}
+export const stagePurchaseOrder = (input: PurchaseOrderInput) => request<void>('/stock/po/stage', { method: 'POST', body: JSON.stringify(input) });
+export const postPurchaseOrder = (reference: string, business: BusinessName, ledger: LedgerName) =>
+  request<void>('/stock/po/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+
+// --- AP Payment -------------------------------------------------------------
+// Mirrors frontend/src/lib/api.ts's own stageAPPayment/postAPPayment —
+// debits the provider's Accounts Payable balance, credits Cash and Bank.
+
+export interface ARAPBaseInput {
+  reference: string;
+  business: BusinessName;
+  ledger: LedgerName;
+  amount_minor: number;
+  tax_minor?: number;
+  location?: string;
+  transdate?: string;
+  description?: string;
+}
+export const stageAPPayment = (input: ARAPBaseInput & { vendor: string }) =>
+  request<void>('/arap/ap-payment/stage', { method: 'POST', body: JSON.stringify(input) });
+export const postAPPayment = (reference: string, business: BusinessName, ledger: LedgerName) =>
+  request<void>('/arap/ap-payment/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });

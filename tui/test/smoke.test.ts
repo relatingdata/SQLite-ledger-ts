@@ -339,6 +339,132 @@ test('TUI smoke: login through every implemented screen', { timeout: 60_000 }, a
         await terminal.getByText('Org Chart — ').expect({ timeout: 10_000 });
         await press(terminal, 'Escape');
         await terminal.getByText('Menu — ').expect();
+
+        // --- Menu: Accounts Payable -> Purchase ---------------------------
+        // Section order from backend/src/db-seed.ts: General Ledger(0),
+        // test(1), Accounts Receivable(2), Accounts Payable(3). Within
+        // Accounts Payable: Purchase(0), Cash Purchase(1), Payment(2),
+        // Purchase Invoices(3), Purchase Order(4). The real tutorial
+        // fixture has exactly one real provider ('Cash') and these real
+        // items: 'Amber Ale 330ml', 'Highland Single Malt 700ml', 'Ice'.
+        await pressRepeated(terminal, 'Down', 3);
+        await press(terminal, 'Enter');
+        await terminal.getByText('Purchase').expect();
+        await press(terminal, 'Enter'); // Purchase, index 0
+        await terminal.getByText('AP Purchase — ').expect();
+
+        const purchaseRef = `TUI-PUR-${Date.now()}`;
+        await typeAndEnter(terminal, purchaseRef);
+        await terminal.getByText('Provider').expect();
+        await typeAndEnter(terminal, 'Cash');
+        await terminal.getByText('Account (what this was for)').expect();
+        await typeAndEnter(terminal, 'Inventory');
+        await terminal.getByText('Tax %').expect();
+        await press(terminal, 'Enter'); // skip — no tax
+        await terminal.getByText('Where item lines').expect();
+        // This picker's own first item is "Not yet known" (NO_LOCATION) —
+        // unlike Cash Purchase's, which has no such option — so Down once
+        // is needed to land on the first real location rather than no
+        // location at all (which would later block the save, since the
+        // one line below names a real catalog item and so must be
+        // received into stock somewhere).
+        await press(terminal, 'Down');
+        await press(terminal, 'Enter'); // first real location
+        await terminal.getByText('Optional · Enter continues').expect();
+        await press(terminal, 'Enter'); // skip description
+        await terminal.getByText('No lines yet').expect();
+
+        await press(terminal, 'i');
+        await terminal.getByText('New line').expect();
+        await typeAndEnter(terminal, 'Amber Ale 330ml');
+        await typeAndEnter(terminal, '5');
+        await typeAndEnter(terminal, '10.00');
+        await terminal.getByText('Total owed').expect();
+        let text2 = await terminal.text();
+        assert.match(text2, /5\s+\$10\.00/, 'quantity and price should render exactly as typed, not concatenated with a stale default');
+        await press(terminal, 's'); // save (no payment-method prompt — on-account)
+        await terminal.getByText('recorded — ').expect({ timeout: 10_000 });
+        await press(terminal, 'Escape');
+        await terminal.getByText('Menu — ').expect();
+
+        // --- Menu: Accounts Payable -> Cash Purchase -----------------------
+        await pressRepeated(terminal, 'Down', 3);
+        await press(terminal, 'Enter');
+        await terminal.getByText('Purchase').expect();
+        await press(terminal, 'Down'); // Cash Purchase, index 1
+        await press(terminal, 'Enter');
+        await terminal.getByText('Cash Purchase — ').expect();
+        await terminal.getByText('Receive at location').expect();
+        await press(terminal, 'Enter'); // first real location
+        await terminal.getByText('No lines yet').expect();
+
+        await press(terminal, 'i');
+        await terminal.getByText('New line').expect();
+        await typeAndEnter(terminal, 'Amber Ale 330ml');
+        await typeAndEnter(terminal, '3');
+        await typeAndEnter(terminal, '10.00');
+        await typeAndEnter(terminal, '1.00');
+        await terminal.getByText('Total to pay').expect();
+        text2 = await terminal.text();
+        assert.match(text2, /3\s+\$10\.00\s+\$1\.00/, 'quantity, price, and tax should render exactly as typed');
+        await press(terminal, 's');
+        await terminal.getByText('payment method').expect();
+        await press(terminal, 'Enter'); // Cash
+        await terminal.getByText('completed — ').expect({ timeout: 10_000 });
+        await press(terminal, 'Escape');
+        await terminal.getByText('Menu — ').expect();
+
+        // --- Menu: Accounts Payable -> Payment ------------------------------
+        await pressRepeated(terminal, 'Down', 3);
+        await press(terminal, 'Enter');
+        await terminal.getByText('Purchase').expect();
+        await pressRepeated(terminal, 'Down', 2); // Payment, index 2
+        await press(terminal, 'Enter');
+        await terminal.getByText('AP Payment — ').expect();
+
+        const paymentRef = `TUI-PMT-${Date.now()}`;
+        await typeAndEnter(terminal, paymentRef);
+        await terminal.getByText('Provider').expect();
+        await typeAndEnter(terminal, 'Cash');
+        await terminal.getByText('Amount').expect();
+        await typeAndEnter(terminal, '25.00');
+        await terminal.getByText('Optional · Enter saves').expect();
+        await press(terminal, 'Enter'); // skip description — saves and posts
+        await terminal.getByText('recorded.').expect({ timeout: 10_000 });
+        await press(terminal, 'Escape');
+        await terminal.getByText('Menu — ').expect();
+
+        // --- Menu: Accounts Payable -> Purchase Order -----------------------
+        await pressRepeated(terminal, 'Down', 3);
+        await press(terminal, 'Enter');
+        await terminal.getByText('Purchase').expect();
+        await pressRepeated(terminal, 'Down', 4); // Purchase Order, index 4
+        await press(terminal, 'Enter');
+        await terminal.getByText('Purchase Order — ').expect();
+
+        const poRef = `TUI-PO-${Date.now()}`;
+        await typeAndEnter(terminal, poRef);
+        await terminal.getByText('Item').expect();
+        await typeAndEnter(terminal, 'Amber Ale 330ml');
+        await terminal.getByText('Provider').expect();
+        await typeAndEnter(terminal, 'Cash');
+        await terminal.getByText('Quantity').expect();
+        await typeAndEnter(terminal, '2');
+        await terminal.getByText('Price per unit').expect();
+        await typeAndEnter(terminal, '9.50');
+        await terminal.getByText('Delivery location').expect();
+        await press(terminal, 'Down'); // skip "Not yet known" -> first real location
+        await press(terminal, 'Enter');
+        await terminal.getByText('Optional · Enter continues').expect();
+        await press(terminal, 'Enter'); // skip description -> review
+        await terminal.getByText('review').expect();
+        text2 = await terminal.text();
+        assert.match(text2, /Quantity: 2/);
+        assert.match(text2, /Price per unit: \$9\.50/);
+        await press(terminal, 's');
+        await terminal.getByText('placed with').expect({ timeout: 10_000 });
+        await press(terminal, 'Escape');
+        await terminal.getByText('Menu — ').expect();
       }
     );
   } finally {
