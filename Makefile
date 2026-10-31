@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test-tui test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -178,43 +178,32 @@ test-e2e-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real, augmented tutorial fixture via the real, driven UI path..."
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive
 
-# NOTE, corrected: this does NOT drive the shared, CSV tutorial fixture
-# the way test-e2e-tutorial-browser drives it via step-runner.ts --path
-# ui - it runs tui/test/smoke.test.ts, a separate, hand-written
-# @microsoft/tui-test script with its own hardcoded values, screen by
-# screen. It still proves every one of the 15 built TUI screens really
-# works end to end against a real, seeded backend - just not via the
-# same, shared data file as the other two paths. See
-# test-e2e-tutorial-text below for the real, CSV-driven equivalent
-# (currently proven for one screen only), and docs/tui-design.md.
-# Seeds the real tutorial fixture via the fast, direct API path
-# *before* the backend server starts, not after - a server already
-# holding entities.sqlite open while this, separate, in-process path
-# writes to the same file is exactly the stale-handle hazard
-# reset-db's own comment further up warns about. Only once that real
-# data exists does a real backend start, for the TUI to actually talk
-# to, same as any other real client of this API.
-test-tui: reset-db
-	@echo "Seeding the real tutorial fixture via the direct API path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path api --non-interactive
-	$(MAKE) ensure-servers
-	@echo "Running the real tui-test smoke suite against the real, now-seeded backend..."
-	cd tui && $(RUN_NPM_SCRIPT) test
-
 # The real, CSV-driven tutorial fixture's own text-frontend path —
 # step-runner.ts --path text, driving a real tui/src/cli.tsx process
 # via @microsoft/tui-test, the same way test-e2e-tutorial-browser's
-# --path ui drives a real browser. Unlike that target, this one does
-# NOT yet run the whole fixture: only screen_name "Login" has a real
-# TEXT_DRIVER_REGISTRY entry (step-runner.ts) today, proven live. Every
-# other row would fail loudly (no registered driver) rather than
-# silently pass, and tutorial-steps.control.csv's own `skip` column is
-# shared across api/ui/text alike - there is no way yet to mark a row
-# "skip for text only" without also skipping it for the other two,
-# already-working paths - so `--only 1` is deliberate, not a stand-in
-# for "run everything". See docs/tui-design.md and
-# docs/pm-testing-e2e.md for what's proven today and what a real,
-# per-path skip mechanism would need.
+# --path ui drives a real browser. Purely generic (runStepViaText,
+# backend/scripts/step-runner.ts): no per-screen driver code, no
+# screen_name-keyed registry — the exact, same screen_name and
+# positional field list screens.csv already carries for --path
+# api/--path ui drives the TUI too, dispatching only on field_type and
+# on the presence of field_selector/submit_selector (never their web-
+# specific values). The former tui/test/smoke.test.ts (a separate,
+# hand-written script with its own hardcoded per-screen sequences) and
+# its own `make test-tui` target are gone — this is the one, real way
+# the TUI gets tested now, the same way the web frontend only has one.
+#
+# Unlike test-e2e-tutorial-browser, this one is NOT yet proven over the
+# whole fixture: it depends on the TUI's own on-screen menu label
+# matching a row's screen_name exactly, which isn't true for every row
+# today (see "Known gap: TUI screen granularity doesn't match
+# screens.csv", docs/pm-testing-e2e.md) - a real, confirmed, pre-
+# existing data mismatch between screens.csv's own screen_names and
+# the TUI's menu labels, not a step-runner limitation. tutorial-
+# steps.control.csv's own `skip` column is also shared across
+# api/ui/text alike, with no way yet to skip a row for `text` only
+# without also skipping it for the other two, already-working paths -
+# so `--only 1` is deliberate here, not a stand-in for "run everything".
+# See docs/tui-design.md and docs/pm-testing-e2e.md.
 test-e2e-tutorial-text: reset-db
 	@echo "Running the real, augmented tutorial fixture's one, proven --path text step..."
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path text --non-interactive --only 1

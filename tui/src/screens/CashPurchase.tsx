@@ -79,7 +79,9 @@ export function CashPurchase({ businessName, ledgerName, onBack }: { businessNam
       setLines((prev) => prev.filter((_, i) => i !== selected));
       setSelected((s) => Math.max(0, Math.min(s, lines.length - 2)));
     }
-    if (input === 's' && lines.length > 0) setStep('payment-method');
+    // Enter finalizes - standardized across every TUI screen (see
+    // Purchase.tsx's own comment on this same convention change).
+    if (key.return && lines.length > 0) setStep('payment-method');
   });
 
   function addLine() {
@@ -196,7 +198,7 @@ export function CashPurchase({ businessName, ledgerName, onBack }: { businessNam
         )}
         {error && <Text color="red">{error}</Text>}
         <Text color={inkSoft} dimColor>
-          I add a line · ↑/↓ select · D delete selected · S choose payment method and complete · Escape back
+          I add a line · ↑/↓ select · D delete selected · Enter chooses payment method and completes · Escape back
         </Text>
       </Box>
     </Panel>

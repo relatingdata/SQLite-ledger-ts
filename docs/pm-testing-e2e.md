@@ -85,14 +85,16 @@ overrides the command line's `--path` flag for that row; `skip`
 **A real, current limitation, found wiring up `--path text`**: `skip`
 is one, path-agnostic boolean — there is no way for a row to say
 "skip under `--path text` only," without also skipping it for the
-already-working `api`/`ui` paths. Since almost every row has no real
-`TEXT_DRIVER_REGISTRY` entry yet (see below), `tutorial-steps.csv`'s
-own control file is deliberately left untouched rather than risk
-breaking `test-e2e-tutorial`/`test-e2e-tutorial-browser` — a full
-`--path text` run over the whole fixture isn't attempted yet; only
-`--only 1` (`make test-e2e-tutorial-text`) is. A real per-path skip
-column (or a `skip_text`/`skip_ui`/`skip_api` triple) would be needed
-before more screens' drivers are worth adding here.
+already-working `api`/`ui` paths. Since `--path text`'s own generic
+driver (below) only reaches as far as the TUI's own on-screen labels
+and step shapes actually match this fixture's rows — `Login` today,
+confirmed live — `tutorial-steps.csv`'s own control file is
+deliberately left untouched rather than risk breaking
+`test-e2e-tutorial`/`test-e2e-tutorial-browser` — a full `--path text`
+run over the whole fixture isn't attempted yet; only `--only 1`
+(`make test-e2e-tutorial-text`) is. A real per-path skip column (or a
+`skip_text`/`skip_ui`/`skip_api` triple) would be needed before a
+wider `--path text` run is worth attempting here.
 
 ### The CLI
 
@@ -250,7 +252,7 @@ success. A UI path that silently does nothing is a worse failure mode than
 an honest error, since `--fallback-to-api` and plain runs need the truth
 to react to.
 
-### `--path text` — driving the real TUI
+### `--path text` — driving the real TUI, purely generically
 
 A third path, parallel to `--path ui`: `runStepViaText`
 (`backend/scripts/step-runner.ts`) drives a real, separately-running
@@ -262,45 +264,79 @@ mirroring `ensureUiPage`) and reused across every step in a run, since
 the TUI is a single, long-lived, stateful terminal process, not a
 per-request HTTP call.
 
-Unlike `field_selector`-driven web forms, a TUI screen is a step
-machine (`SelectInput` pickers, line-item Insert/Delete/Save
-sub-loops, blank-means-default conventions) — there is no generic,
-column-based way to drive one. `TEXT_DRIVER_REGISTRY`
-(`backend/scripts/step-runner.ts`) is instead one real, hand-written
-driver function per `screen_name`, each consuming the exact same
-`buildArgs()` output every other path already uses. The shared
-keystroke helpers (`press`/`pressRepeated`/`typeAndEnter`/
-`selectItemByText`/`navigateToScreen`,
-`backend/scripts/text-driver-helpers.ts`) were extracted out of
-`tui/test/smoke.test.ts`, which now imports this same module rather
-than keeping its own, separate copy.
+**There is no per-screen driver code, and no `screen_name`-keyed
+registry** — a design point worth stating as plainly as the "two
+paths test genuinely different surfaces" one above. `runStepViaText`
+is one, generic function, reusing exactly the same `screen_name` and
+positional field list (`position`/`field_name`/`field_type`) every
+other path already uses, plus the PRESENCE (never the web-specific
+value) of two columns that mechanism already has:
+
+- A field with a blank `field_selector` has no real on-screen TUI
+  input either — the exact, same skip rule `runStepViaUi` already
+  applies (a position that only ever fed `api_function`, never a real
+  UI field on the web path either).
+- A screen with no real `submit_selector` is an intermediate "add one
+  line" action, driven by the TUI's own, uniform Insert/Enter/Escape/
+  Delete idiom (Insert opens the line-item sub-form; its own fields,
+  typed and Enter-confirmed in position order, finalize with the
+  line-item sub-form's own last field — no separate key). A screen
+  WITH a real `submit_selector` and no real fields of its own (e.g.
+  "Post Journal Entry") is a pure finalize action — one, standalone
+  Enter, now standardized across every TUI screen (see
+  `docs/tui-design.md`).
+- `select`/`select_value`/`search_and_select` fields are driven by
+  on-screen text search (`findItemByText`,
+  `backend/scripts/text-driver-helpers.ts`) rather than a Playwright
+  locator.
+
+Getting to the right screen in the first place
+(`navigateMenuGenerically`, same module) is equally generic: it
+searches the Menu's own top-level sections by on-screen text for a
+match on `screen_name`, never a hardcoded Down-count naming a specific
+screen.
 
 `runStepViaText` fails loudly — the same, real design `runStepViaUi`
-already uses — when a screen has no registered driver, rather than
-silently reporting success: `No real TEXT_DRIVER_REGISTRY entry for
-screen "X"...`.
+already uses — rather than silently reporting success: a picker
+search that never finds the named value, or `navigateMenuGenerically`
+exhausting every top-level section, both throw a real, specific error
+naming what it was looking for.
 
-**Honest, current status**: only `Login` has a real, proven driver
-today (confirmed live, against a real backend and a real `tui/src/cli.tsx`
-process — see `make test-e2e-tutorial-text`). A live check during this
-work also found a real bug class worth naming directly: a driver that
-only sends keystrokes and returns, without waiting for the screen the
-keystrokes should produce, reports success even with no backend
-running at all behind it — `Login`'s own driver now waits for the real
-"Choose a business" text afterward specifically because of this,
-confirmed live both ways (fails loudly inside 10s with no backend;
-passes against a real one). Every further screen needs its own driver
-written and proven the same, live way before it gets a real entry
-here — see "Known gap: TUI screen granularity doesn't match
-`screens.csv`" below for why most of the 15 built TUI screens can't
-just reuse their own `screens.csv` row directly.
+**Honest, current status**: `Login` runs end to end from this generic
+mechanism alone, with zero screen-specific code, confirmed live
+against a real backend and a real `tui/src/cli.tsx` process (`make
+test-e2e-tutorial-text`) — it fails loudly within 10s with no backend
+running, and passes against a real one. Running the *whole*, 75-step
+fixture through `--path text` (not yet wired into any Makefile target,
+since most of it isn't expected to pass) confirms the mechanism itself
+works exactly as designed, and shows precisely where it currently
+can't go further — see "Known gap: TUI screen granularity doesn't
+match `screens.csv`" below.
 
 ### Known gap: TUI screen granularity doesn't match `screens.csv`
 
-`screens.csv`'s own `screen_name`s were written against the web
-frontend's own screen boundaries, which don't always match the TUI's.
-Two concrete, confirmed examples, found while scoping `--path text`:
+`screens.csv`'s own `screen_name`s and field lists were written
+against the web frontend's own screen boundaries, which don't always
+match the TUI's — the one real thing stopping the generic `--path
+text` driver above from reaching further than `Login` today. Concrete,
+confirmed examples (the first two found live, running the whole
+fixture through `--path text`; the rest found by inspection):
 
+- **`Select Business`**: its one real value in `tutorial-steps.csv`
+  (`"admin"`) is a placeholder — this row is a genuine no-op for
+  `--path api`/`--path ui` too, since no business exists yet on a
+  fresh database (`screen_kind: session`, no `api_function`). For
+  `--path text`, the generic driver tries to find a picker item named
+  `"admin"` on the real Choose Business screen and, correctly,
+  fails to find one. The TUI's own `ChooseBusiness` screen also picks
+  a business *and* a ledger together in one screen (`App.tsx`'s
+  `onChosen(businessName, ledgerName)`) — no `screens.csv` row carries
+  a ledger value for this screen at all.
+- **`Create Business`**: the TUI's own `NewBusinessWizard` has more
+  real steps (financial year start date, reporting frequency, …) than
+  `screens.csv`'s flat field list for this row has values for — a
+  generic, position-by-position driver runs out of real values before
+  the wizard's own real steps are done.
 - **Purchase Order**: `screens.csv`'s `"Create Purchase Order"` row
   calls `createPurchaseOrderInCartons` (one combined, carton-based
   create) against the web's `/stock/po` screen — but the TUI's own
@@ -308,30 +344,23 @@ Two concrete, confirmed examples, found while scoping `--path text`:
   calls (`stagePurchaseOrderSimple`/`postPurchaseOrderSimple`,
   matching `screens.csv`'s *separate* `"Stage Purchase Order"`/
   `"Post Purchase Order"` rows instead, which have no UI wiring of
-  their own at all). A text driver for the TUI's Purchase Order screen
-  needs the stage/post rows' own values, not the "Create Purchase
-  Order" row's.
+  their own at all).
 - **General Journal**: `"Stage Journal Line"` (one row per line) and
   `"Post Journal Entry"` (one final row) already match the TUI's own
   General Journal screen's real shape (type a reference once, Insert
-  N lines, then Post) — but a single, stateless
-  `(terminal, args) => Promise<void>` driver function can't tell, on
-  its own, whether a given `"Stage Journal Line"` row is the first
-  line of a brand-new entry (navigate to the screen, type the
-  reference, then Insert) or a later line of one already open
-  (just Insert again) without either reading the terminal's own
-  current screen to decide, or threading extra state between calls
-  that the other two paths don't need. Neither has been built or
-  proven yet.
-- **`Select Business`**: its one real field is `businessName`; the
-  TUI's own `ChooseBusiness` screen picks a business *and* a ledger
-  together in one screen (`App.tsx`'s `onChosen(businessName,
-  ledgerName)`). No `screens.csv` row carries a ledger value for this
-  screen at all.
+  N lines, then Post) — reachable by the generic mechanism in
+  principle — but the TUI's own on-screen menu label is "General
+  Journal," which matches neither CSV `screen_name`, so
+  `navigateMenuGenerically` can't find either one by text search.
 
-None of this blocks `Login` (already proven), but each further driver
-needs its own, specific design decision made and proven live, not a
-generic template applied blindly across all 15 built screens.
+None of this is a `step-runner.ts` limitation to code around — it's
+`shared-fixtures/screens.csv`/`tutorial-steps.csv`'s own row design
+(written against the web frontend first) genuinely not lining up with
+the TUI's own screens and menu labels for several rows yet. Closing
+this gap is a real, further change to that shared fixture data (likely
+renaming/restructuring a handful of rows so one `screen_name` serves
+both frontends identically) or to the TUI screens' own step shapes —
+not more code in the generic driver itself.
 
 ### Structural verification, not golden figures — the ledger-isolation checks
 
@@ -419,11 +448,14 @@ the API path, rather than calling a backend function 1:1:
   state, but the function can't currently tell the difference itself.
 - The web interface (`/dev/step-runner`) and full UI wiring for every
   screen type remain future work.
-- `--path text` exists and is proven for exactly one screen (`Login`)
-  — see "`--path text` — driving the real TUI" above. The other 14
-  built TUI screens need their own drivers written and proven, and a
-  real per-path `skip` mechanism is needed before a full-fixture
-  `--path text` run is attempted.
+- `--path text` is a purely generic driver (no per-screen code) and is
+  proven end to end for exactly one screen (`Login`) — see "`--path
+  text` — driving the real TUI, purely generically" above. Reaching
+  further needs `shared-fixtures/screens.csv`/`tutorial-steps.csv`'s
+  own row design brought in line with the TUI's own screens and menu
+  labels (see "Known gap: TUI screen granularity doesn't match
+  `screens.csv`"), and a real per-path `skip` mechanism before a
+  full-fixture `--path text` run is attempted.
 - The mixed-mode control file example (switching `--path` mid-run) is
   not yet proven end to end — the API and UI paths do not currently
   share browser session state, so a run that starts `api` and

@@ -63,7 +63,9 @@ export function PurchaseOrder({ businessName, ledgerName, onBack }: { businessNa
       if (step === 'review') return setStep('description');
       return;
     }
-    if (step === 'review' && input === 's') void save();
+    // Enter finalizes - standardized across every TUI screen (see
+    // Purchase.tsx's own comment on this same convention change).
+    if (step === 'review' && key.return) void save();
   });
 
   async function save() {
@@ -178,7 +180,7 @@ export function PurchaseOrder({ businessName, ledgerName, onBack }: { businessNa
       <Text color={ink}>Delivery location: {locationName || '(not yet known)'}</Text>
       {error && <Text color="red">{error}</Text>}
       {busy && <Text color={inkSoft}>Working…</Text>}
-      <Text color={inkSoft} dimColor>S saves and places the order · Escape back to edit</Text>
+      <Text color={inkSoft} dimColor>Enter saves and places the order · Escape back to edit</Text>
     </Panel>
   );
 }

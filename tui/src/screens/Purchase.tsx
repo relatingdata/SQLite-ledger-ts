@@ -119,7 +119,12 @@ export function Purchase({ businessName, ledgerName, onBack }: { businessName: s
       setLines((prev) => prev.filter((_, i) => i !== selected));
       setSelected((s) => Math.max(0, Math.min(s, lines.length - 2)));
     }
-    if (input === 's' && lines.length > 0) void save();
+    // Enter finalizes (same key the field steps above already use to
+    // confirm each one) - standardized across every TUI screen rather
+    // than each screen picking its own key ('s' here used to), so
+    // step-runner.ts's --path text can finalize any screen the exact,
+    // same, generic way. See docs/pm-testing-e2e.md - "--path text".
+    if (key.return && lines.length > 0) void save();
   });
 
   function addLine() {
@@ -289,7 +294,7 @@ export function Purchase({ businessName, ledgerName, onBack }: { businessName: s
         {error && <Text color="red">{error}</Text>}
         {busy && <Text color={inkSoft}>Working…</Text>}
         <Text color={inkSoft} dimColor>
-          I add a line · ↑/↓ select · D delete selected · S save (once at least one line) · Escape back
+          I add a line · ↑/↓ select · D delete selected · Enter saves (once at least one line) · Escape back
         </Text>
       </Box>
     </Panel>

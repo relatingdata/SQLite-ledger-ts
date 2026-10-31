@@ -82,7 +82,9 @@ export function GeneralJournal({
     if ((input === 'd' || key.backspace) && lines[selected]) {
       void removeLine(selected);
     }
-    if ((input === 'p' || (key.ctrl && input === 'p')) && balanced) {
+    // Enter finalizes - standardized across every TUI screen (see
+    // Purchase.tsx's own comment on this same convention change).
+    if (key.return && balanced) {
       void post();
     }
   });
@@ -266,7 +268,7 @@ export function GeneralJournal({
         {error && <Text color="red">{error}</Text>}
         {busy && <Text color={inkSoft}>Working…</Text>}
         <Text color={inkSoft} dimColor>
-          I add a line · ↑/↓ select · D delete selected · P post (once balanced) · Escape back to menu
+          I add a line · ↑/↓ select · D delete selected · Enter posts (once balanced) · Escape back to menu
         </Text>
       </Box>
     </Panel>

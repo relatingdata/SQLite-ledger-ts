@@ -128,7 +128,9 @@ export function ARSale({ businessName, ledgerName, onBack }: { businessName: str
       setLines((prev) => prev.filter((_, i) => i !== selected));
       setSelected((s) => Math.max(0, Math.min(s, lines.length - 2)));
     }
-    if (input === 's' && lines.length > 0) void save();
+    // Enter finalizes - standardized across every TUI screen (see
+    // Purchase.tsx's own comment on this same convention change).
+    if (key.return && lines.length > 0) void save();
   });
 
   function addLine() {
@@ -295,7 +297,7 @@ export function ARSale({ businessName, ledgerName, onBack }: { businessName: str
         {error && <Text color="red">{error}</Text>}
         {busy && <Text color={inkSoft}>Working…</Text>}
         <Text color={inkSoft} dimColor>
-          I add a line · ↑/↓ select · D delete selected · S save (once at least one line) · Escape back
+          I add a line · ↑/↓ select · D delete selected · Enter saves (once at least one line) · Escape back
         </Text>
       </Box>
     </Panel>

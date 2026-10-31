@@ -55,44 +55,74 @@ export async function typeAndEnter(terminal: TuiTest, text: string): Promise<voi
 }
 
 /** Moves the highlight ('› ') down, one settled press at a time, until it
- * lands on a line containing `labelSubstring` — robust against a list
- * whose exact contents/order this driver doesn't fully control (a real
- * business's own, real, pre-existing data alongside whatever this run
- * just created), without parsing the panel's own box-drawing border
- * characters to compute an index by hand. */
-export async function selectItemByText(terminal: TuiTest, labelSubstring: string, maxSteps = 30): Promise<void> {
+ * lands on a line containing `labelSubstring`, returning whether it was
+ * found — robust against a list whose exact contents/order this driver
+ * doesn't fully control (a real business's own, real, pre-existing data
+ * alongside whatever this run just created), without parsing the
+ * panel's own box-drawing border characters to compute an index by
+ * hand, and without needing to know in advance whether `labelSubstring`
+ * is even in this particular list (see navigateMenuGenerically below,
+ * which relies on a real "not found" instead of a thrown error to try
+ * the next section). Leaves the highlight wherever it lands either way
+ * — on a genuine find, exactly on the matching line; otherwise wherever
+ * `maxSteps` Down presses ended up, which callers that care should
+ * explicitly reset (e.g. Escape back out) rather than assume. */
+export async function findItemByText(terminal: TuiTest, labelSubstring: string, maxSteps = 30): Promise<boolean> {
   for (let i = 0; i < maxSteps; i++) {
     const lines = (await terminal.text()).split('\n');
-    if (lines.some((l) => l.includes('›') && l.includes(labelSubstring))) return;
+    if (lines.some((l) => l.includes('›') && l.includes(labelSubstring))) return true;
     await press(terminal, 'Down');
   }
-  throw new Error(`selectItemByText: never found a highlighted line containing "${labelSubstring}" within ${maxSteps} Down presses`);
+  return false;
 }
 
-// The Menu component (tui/src/screens/Menu.tsx) remounts fresh —
-// resetting its own activeSection to null — every single time App.tsx's
-// screen union returns to 'menu' via a screen's own onBack(). So every
-// navigation from the top-level menu down into a given screen is the
-// exact, same, fixed keystroke sequence each time: Down `topLevelDowns`
-// times to the right top-level section, Enter, Down `sectionDowns` times
-// to the right screen within that section, Enter. There is no "deep
-// link" the way the `ui` path's own open_selector sometimes provides.
-//
-// `topLevelDowns`/`sectionDowns` are read directly from
-// backend/src/db-seed.ts's own, real, hand-authored seed order — the
-// same, real way tui/test/smoke.test.ts's own comments document each
-// one — never guessed or computed from on-screen text, since a freshly-
-// mounted list always starts back at its own index 0.
-export async function navigateToScreen(
-  terminal: TuiTest,
-  expectedScreenHeaderPrefix: string,
-  topLevelDowns: number,
-  sectionDowns: number
-): Promise<void> {
+/** Same as findItemByText, but throws when nothing matches — for a
+ * caller that already knows the item must be there. */
+export async function selectItemByText(terminal: TuiTest, labelSubstring: string, maxSteps = 30): Promise<void> {
+  const found = await findItemByText(terminal, labelSubstring, maxSteps);
+  if (!found) throw new Error(`selectItemByText: never found a highlighted line containing "${labelSubstring}" within ${maxSteps} Down presses`);
+}
+
+// The real, current number of top-level Menu sections (General
+// Ledger/Accounts Receivable/Accounts Payable/Inventory/Cash/
+// Configuration/...), read directly from backend/src/db-seed.ts's own,
+// real, hand-authored seed order. Generic across every screen — never
+// specific to any one of them — purely a property of the Menu itself,
+// the same way runStepViaUi's own hardcoded 2000ms post-submit margin
+// is a property of the web app, not of any one screen.
+const TOP_LEVEL_SECTION_COUNT = 12;
+
+/** Finds and opens a screen from the Menu's own top level, by on-screen
+ * text alone — never a hardcoded Down-count naming a specific screen,
+ * never a screen_name special case. The Menu component
+ * (tui/src/screens/Menu.tsx) remounts fresh — resetting its own
+ * activeSection to null — every single time App.tsx's screen union
+ * returns to 'menu' via a screen's own onBack(), so "press Escape, land
+ * back at the top level's own index 0" is a real, reliable, generic
+ * reset this can lean on between attempts; there is no "deep link" the
+ * way the `ui` path's own open_selector sometimes provides.
+ *
+ * Tries each of the real, current top-level sections in turn: opens
+ * it, searches its own item list for `screenLabel` (findItemByText),
+ * and either opens the match or backs out and tries the next section.
+ * Throws, rather than guessing, if `screenLabel` isn't found in any of
+ * them — most commonly because the TUI's own on-screen menu label
+ * doesn't actually match `screenLabel` (see "Known gap: TUI screen
+ * granularity doesn't match screens.csv", docs/pm-testing-e2e.md). */
+export async function navigateMenuGenerically(terminal: TuiTest, screenLabel: string): Promise<void> {
   await terminal.getByText('Menu — ').expect();
-  await pressRepeated(terminal, 'Down', topLevelDowns);
-  await press(terminal, 'Enter');
-  await pressRepeated(terminal, 'Down', sectionDowns);
-  await press(terminal, 'Enter');
-  await terminal.getByText(expectedScreenHeaderPrefix).expect();
+  for (let section = 0; section < TOP_LEVEL_SECTION_COUNT; section++) {
+    if (section > 0) await pressRepeated(terminal, 'Down', section);
+    await press(terminal, 'Enter');
+    const found = await findItemByText(terminal, screenLabel, 20);
+    if (found) {
+      await press(terminal, 'Enter');
+      return;
+    }
+    await press(terminal, 'Escape');
+    await terminal.getByText('Menu — ').expect();
+  }
+  throw new Error(
+    `navigateMenuGenerically: no menu item matching "${screenLabel}" found in any of the ${TOP_LEVEL_SECTION_COUNT} top-level Menu sections. Most likely the TUI's own on-screen label for this screen doesn't match screen_name exactly — see "Known gap: TUI screen granularity doesn't match screens.csv" in docs/pm-testing-e2e.md.`
+  );
 }

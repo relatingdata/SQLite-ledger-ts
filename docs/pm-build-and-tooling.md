@@ -12,7 +12,7 @@
 | `make text-frontend` | The real, Ink-based terminal frontend (`tui/`) alone — a second, real client of the exact same backend API; needs its own real terminal, so never bundled into `dev`/`dev-verbose` the way backend+web are paired there. See `docs/tui-design.md`. |
 | `make test` | Backend unit tests (Node's built-in test runner) + frontend tests — see the Testing: Unit chapter |
 | `make test-e2e` / `make demo-full-year` | Full/volume simulation and full-year data generation — see the Testing: E2E chapter |
-| `make test-tui` | The terminal frontend's own, real, live, end-to-end smoke test via `@microsoft/tui-test` — see "Testing the terminal frontend" below |
+| `make test-e2e-tutorial-text` | The real, CSV-driven tutorial fixture, driven through the terminal frontend via `@microsoft/tui-test` — see "Testing the terminal frontend" below |
 | `make check-db-consistency` | The consistency check alone, on whatever database currently exists — balanced entries, no orphaned references, referential integrity |
 | `make reset-db` | Deletes the SQLite database file; it reinitializes from `backend/schema/*.sql` on the next backend start |
 | `make verify-fresh` | Resets the database, confirms it loads cleanly, then runs the full backend test suite plus every mechanical gate (see "Gates," below) |
@@ -50,19 +50,21 @@ live network traffic looked like at that moment.
 
 ## Testing the terminal frontend — `@microsoft/tui-test`
 
-`tui/test/smoke.test.ts`, run via `make test-tui` (or `npm test` inside
-`tui/`), drives the real Ink terminal frontend the same way Playwright
-drives the browser one above: a genuine terminal-emulator engine (not a
-mock), `Locator`s (`terminal.getByText(...)`), and `expect()`-style
-assertions that poll until a condition holds or a real timeout fires.
-`make test-tui` reseeds the database, seeds the real tutorial fixture via
-the direct API path, starts a real backend, then logs in as the real
-seeded admin user and drives the real "Tutorial Wine Retail Business"
-through Login, Menu navigation, a staged-and-posted General Journal
-entry, the Balance Sheet, a full New Business creation, and an Org Chart
-department creation. See `docs/tui-design.md` for the two, real, confirmed
-gotchas typing text and repeated key presses into Ink both ran into (and
-how the test file works around them).
+There is no separate, hand-written test file for the terminal frontend
+any more (a prior `tui/test/smoke.test.ts`, with its own per-screen
+hardcoded sequences, was removed). `backend/scripts/step-runner.ts`'s
+`--path text` drives the real Ink terminal frontend the same way
+`--path ui` drives the real browser one above — a genuine
+terminal-emulator engine (`@microsoft/tui-test`), not a mock — and,
+critically, through the exact same `screens.csv`/`tutorial-steps.csv`
+fixture `--path api`/`--path ui` already use: `runStepViaText` is
+purely generic, with no per-screen driver code, dispatching only on a
+field's `field_type` and on whether `field_selector`/`submit_selector`
+are present (never their web-specific values). Run it with `make
+test-e2e-tutorial-text`. See `docs/tui-design.md` for the mechanism,
+the two real, confirmed gotchas typing text and repeated key presses
+into Ink both ran into, and the current, honest limit on how much of
+the fixture this reaches today.
 
 ## The Wine Retail Business simulation and its companion scripts
 

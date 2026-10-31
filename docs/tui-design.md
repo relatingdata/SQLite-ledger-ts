@@ -36,13 +36,12 @@ stdin/stdout — never bundled into `dev`/`dev-verbose` the way backend+web
 are paired there). The browser frontend's own target is now `make
 web-frontend` for symmetry, now that there are genuinely two, real,
 separate frontends — `make frontend` stays as a working alias to it, so
-old muscle memory keeps working. `make test-tui` is this TUI's own,
-real, live, end-to-end smoke test (`tui/test/smoke.test.ts`, via
-`@microsoft/tui-test` — see below) — it reseeds the database, seeds the
-real tutorial fixture via the direct API path, starts a real backend, and
-drives the TUI through every screen below exactly the way a person would,
-the same real proof `make test-e2e-tutorial-browser` already gives the web
-frontend via Playwright.
+old muscle memory keeps working. `make test-e2e-tutorial-text` drives
+this TUI through the exact, same, shared `screens.csv`/
+`tutorial-steps.csv` fixture `make test-e2e-tutorial-browser` already
+drives the web frontend through, via `@microsoft/tui-test` (see
+below) — purely generic, no per-screen driver code — reseeding the
+database and starting a real backend first.
 
 ## Scope: what v1 actually covers
 
@@ -240,9 +239,9 @@ below it already assumes:
 | Enter | Drill into a submenu, open the selected screen, or confirm a field |
 | Escape | Back out one level (submenu → menu, screen → menu, field → list) |
 | Tab / Shift-Tab | Move between fields within a form (Login, a Journal line) |
-| I (Insert's own, real idiom — terminals don't reliably deliver a literal Insert keypress to a raw-mode app) | Start a new staged line (General Journal) |
-| D (Delete's own idiom, same real reason) | Remove the selected staged line, before posting |
-| P | Post the staged entry (General Journal) |
+| I (Insert's own, real idiom — terminals don't reliably deliver a literal Insert keypress to a raw-mode app) | Start a new staged line (General Journal, Purchase, Cash Purchase, AR Sale, Cash Sale, POS Terminal) |
+| D (Delete's own idiom, same real reason) | Remove the selected staged line, before posting/saving |
+| Enter (once at least one line exists) | Finalize the whole screen — post (General Journal) or save (every other line-item screen) — standardized on plain Enter across every screen, never a separate key, so a purely generic test driver can finalize any of them the same way (see `docs/pm-testing-e2e.md`, "`--path text`") |
 | q (from the top-level Menu only) | Quit |
 
 The Menu screen is a real, two-level tree (section → links), navigated the
@@ -331,20 +330,33 @@ the Login form and the Menu/business/ledger pickers; the Balance Sheet's
 own section tables are small enough to hand-render with `<Box>`/`<Text>`
 column alignment rather than pulling in a table library for three columns.
 
-## Testing: a real terminal-emulator engine, not a hand-rolled pty wrapper
+## Testing: a real terminal-emulator engine, driven purely generically
 
-`tui/test/smoke.test.ts` is driven through **`@microsoft/tui-test`** —
-Microsoft's own terminal-testing framework, built around a genuine
-terminal-emulator engine (not a mock), with the same real shape Playwright
-gives the browser frontend: a `TuiTest` client, chainable `Locator`s
-(`terminal.getByText(...)`), and `expect()`-style assertions that poll
-until a condition holds or a real timeout fires. It replaced an earlier,
-throwaway set of hand-rolled Python `pty.openpty()` driver scripts used
-while building each screen — real and useful for one-off, interactive
-verification, but not something to keep maintaining or committing.
+There is no separate, hand-written TUI test file. `backend/scripts/
+step-runner.ts`'s `--path text` drives this TUI through
+**`@microsoft/tui-test`** — Microsoft's own terminal-testing
+framework, built around a genuine terminal-emulator engine (not a
+mock), with the same real shape Playwright gives the browser frontend:
+a `TuiTest` client, chainable `Locator`s (`terminal.getByText(...)`),
+and `expect()`-style assertions that poll until a condition holds or a
+real timeout fires. It replaced an earlier, throwaway set of
+hand-rolled Python `pty.openpty()` driver scripts used while building
+each screen, and later a hand-written `tui/test/smoke.test.ts` with
+its own per-screen hardcoded keystroke sequences — real and useful for
+one-off, interactive verification during development, but neither one
+something to keep maintaining: **`--path text` (`runStepViaText`,
+`backend/scripts/step-runner.ts`) is purely generic, with no
+per-screen driver code anywhere**, dispatching only on a field's
+`field_type` and on whether `field_selector`/`submit_selector` are
+present — the exact, same `screen_name` and positional field list
+`screens.csv`/`tutorial-steps.csv` already carries for `--path api`
+and `--path ui`, never a screen-specific case. The shared keystroke
+helpers (`press`/`pressRepeated`/`typeAndEnter`/`findItemByText`/
+`selectItemByText`/`navigateMenuGenerically`) live in one module,
+`backend/scripts/text-driver-helpers.ts`.
 
-Two real, confirmed-live gotchas carried over from that earlier,
-hand-rolled driver, and apply equally here:
+Two real, confirmed-live gotchas, carried over from the earlier,
+hand-rolled drivers, and apply equally here:
 
 - **Sending a whole string in one write (or one `submit()`/`type()` call)
   trips Ink's own paste-detection heuristic** — a multi-character chunk
@@ -353,67 +365,79 @@ hand-rolled driver, and apply equally here:
   processed key-by-key. `@microsoft/tui-test`'s own `submit()`/`type()`
   convenience methods hit this the same way the naive Python writer did;
   the real fix, confirmed live, is typing one character per
-  `keyboard.press()` call (`typeAndEnter()` in the test file).
+  `keyboard.press()` call (`typeAndEnter()` in `text-driver-helpers.ts`).
 - **Even one key per `press()` call isn't always paced enough** — a
   `Down`/`Enter` pair fired the instant a list's text first appears can
   still occasionally race the real `ink-select-input` component attaching
   its own stdin listener, landing both keys in the same native-side read.
   A small, explicit delay after every single key press (the `press()`
-  wrapper in the test file), confirmed live across repeated runs, is what
-  actually makes the suite reliably green rather than intermittently
-  flaky.
+  wrapper), confirmed live across repeated runs, is what actually makes
+  this reliably green rather than intermittently flaky.
 
-`make test-tui` reseeds the database, loads the real tutorial fixture via
-the direct API path, starts a real backend, and runs this suite against
-it — logging in as the real seeded admin user and driving the real
-"Tutorial Wine Retail Business" through Login, Menu navigation, a real
-staged General Journal entry (posted), the Balance Sheet, a full New
-Business creation, all three Business Structure steps — Org Chart
-department/division/location creation (including moving the new Location
-into the new Division), Item Categories (a top-level category, a nested
-child under it, stepped into and back out of), and Other Hierarchies (a
-new grouping and a new value under it) — all four Purchasing
-screens — an AP Purchase (provider `'Cash'`, account `'Inventory'`, one
-real-item line received into stock and posted on account), a Cash
-Purchase (one line, paid off immediately), an AP Payment to `'Cash'`,
-and a Purchase Order (placed, memo-only) — all three Sales
-screens — an AR Sale (customer `'Riverside Restaurant'`, one real-item
-line dispatched from stock and posted on account), a Cash Sale (one
-line, paid off immediately), and Customers (opening the real, seeded
-`'Cash'` customer and saving an edited email/terms/limit/reminder
-level) — and the POS Terminal, both ways — a cash sale (one real line,
-cash tendered, a real change-due amount) and an on-account sale to
-`'Riverside Restaurant'` (no change due) — exactly the way a person
-would.
+A third, standardizing change made alongside this: every TUI screen
+that builds up a running list of lines (Purchase, Cash Purchase,
+Purchase Order, AR Sale, Cash Sale, POS Terminal, General Journal)
+used to finalize (save/post) with its own key — `S` on most, `P` on
+General Journal. All seven now finalize with plain **Enter**,
+standardized across every screen so a purely generic driver has one,
+uniform key to press — never a screen-specific one — once at least
+one line already exists, matching the TUI's own, already-established
+Insert/Enter/Escape/Delete idiom (Insert adds, Enter confirms/
+finalizes, Escape backs out, Delete removes).
 
-## `--path text` — the shared tutorial fixture, now also driving the TUI
+## `--path text` — how the generic driver works, and its real, current reach
 
-`tui/test/smoke.test.ts` is a separate, hand-written script with its
-own hardcoded values — it never touches the shared
-`shared-fixtures/tutorial-steps.csv`/`screens.csv` fixture that drives
-`--path api` and `--path ui` in `backend/scripts/step-runner.ts`. A
-third path, `--path text`, now exists there too: it drives a real,
-separately-running `tui/src/cli.tsx` process via `@microsoft/tui-test`
-(never importing `tui/src` TypeScript directly, the same rule
-`--path ui` follows for the browser), through a `TEXT_DRIVER_REGISTRY`
-of per-screen keystroke drivers. The keystroke helpers
-(`press`/`pressRepeated`/`typeAndEnter`/`selectItemByText`/
-`navigateToScreen`) now live in one shared module,
-`backend/scripts/text-driver-helpers.ts`, imported by both this file
-and `step-runner.ts` — not duplicated.
+`runStepViaText` (`backend/scripts/step-runner.ts`) drives a real,
+separately-running `tui/src/cli.tsx` process (never importing
+`tui/src` TypeScript directly, the same rule `--path ui` follows for
+the browser), purely from `screens.csv`'s existing columns:
 
-**Today, only `Login` has a real driver**, proven live both ways (see
-`make test-e2e-tutorial-text`): it fails loudly within 10s when no
-backend is running behind the TUI, and passes against a real one. The
-other 14 built screens don't have drivers yet — partly because
-`screens.csv`'s own `screen_name`s were written against the web
-frontend's screen boundaries, which don't always match the TUI's own
-(see "`--path text` — driving the real TUI" and "Known gap: TUI
-screen granularity doesn't match `screens.csv`" in
-`docs/pm-testing-e2e.md` for the specific, confirmed examples: Purchase
-Order, General Journal, and Select Business). Writing the remaining
-drivers is real, straightforward follow-up work, screen by screen —
-not a generic mechanism that can be applied to all of them at once.
+- **Navigation** (`navigateMenuGenerically`, `text-driver-helpers.ts`):
+  for any screen that isn't `screen_kind: session`, searches the
+  Menu's own top-level sections by on-screen text alone, looking for a
+  menu item matching `screen_name` — never a hardcoded Down-count
+  naming a specific screen.
+- **Fields**: each field with a real `field_selector` (the same,
+  existing signal that already means "this field has a real on-screen
+  web input," reused rather than duplicated) is driven generically by
+  its `field_type` — `text`/`money`/etc. are typed and Enter-confirmed;
+  `select`/`select_value`/`search_and_select` are found by on-screen
+  text (`findItemByText`) and confirmed with Enter; a blank value just
+  presses Enter to accept whatever default is already showing.
+- **Opening/finalizing a line-item sub-form**: a screen with no real
+  `submit_selector` is an intermediate "add one line" action — Insert
+  opens it, the fields above fill it in, and its own last field's
+  Enter both confirms that field and adds the line (no separate key).
+  A screen WITH a real `submit_selector` and no real fields of its own
+  (e.g. "Post Journal Entry") is a pure finalize action — one,
+  standalone Enter press at the screen's own list.
+
+**Proven live** (`make test-e2e-tutorial-text`, `--only 1`): `Login`
+runs end to end exactly from this generic mechanism, with zero
+screen-specific code — it fails loudly within 10s with no backend
+running, and passes against a real one.
+
+**The real, current limit, found by running the whole fixture live**:
+beyond `Login`, the mechanism depends on `screens.csv`'s own
+`screen_name`s and field lists matching the TUI's own on-screen menu
+labels and step sequences exactly — and for several rows, they don't
+(see "Known gap: TUI screen granularity doesn't match `screens.csv`"
+in `docs/pm-testing-e2e.md`). Running the full, 75-step fixture
+confirms this concretely: step 2, `Select Business`, fails because its
+one real value (`"admin"`, a placeholder — this row is a no-op for
+`--path api`/`--path ui` too, since no business exists yet on a fresh
+database) matches no real picker item; every later row then fails
+loudly waiting for `Menu — ` to reappear, since the session never
+leaves the Choose Business screen. `Create Business` has the same
+kind of mismatch for a different reason — the TUI's own
+`NewBusinessWizard` has more real steps (financial-year start date,
+reporting frequency, …) than `screens.csv`'s flat field list for this
+row has values for. None of this is a step-runner bug: it's
+`screens.csv`/`tutorial-steps.csv`'s own row design (written against
+the web frontend first) genuinely not lining up with the TUI's own
+screens yet, for several rows. Closing that gap is a real, further
+change to that shared fixture data (or to the TUI screens' own step
+shapes) — not more step-runner code.
 
 ## Entity-tree inspection: `backend/scripts/inspect-entities.ts`
 

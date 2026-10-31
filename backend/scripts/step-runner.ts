@@ -12,7 +12,7 @@ import { getBalanceSheet } from '../src/db-reports.js';
 import { getProfitAndLossByAxis } from '../src/db-matrix-reports.js';
 import * as auth from '../src/auth.js';
 import { unescapeAscii } from '../../shared-fixtures/csv.js';
-import { press, typeAndEnter } from './text-driver-helpers.js';
+import { press, typeAndEnter, findItemByText, navigateMenuGenerically } from './text-driver-helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -854,56 +854,76 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
   }
 }
 
-/** The real, per-screen keystroke driver registry for `--path text` —
- * the same, real role API_REGISTRY plays for `--path api` and
- * field_selector/open_selector/submit_selector play for `--path ui`,
- * but TUI screens are step machines (SelectInput pickers, line-item
- * Insert/Delete/Save sub-loops, blank-means-default conventions), not
- * flat, column-driven forms — so each entry here is real, hand-written
- * code, not a generic selector template. Keyed by the exact, real
- * screen_name a row in screens.csv/tutorial-steps.csv names — see
- * docs/pm-testing-e2e.md and docs/tui-design.md.
- *
- * Deliberately small today: only the screens actually proven live (see
- * tutorial-steps.control.csv's own `text` column) have a real entry
- * here. Every other screen_name fails loudly via runStepViaText below,
- * the same, real way runStepViaUi already fails loudly for a
- * screen.csv row with no real UI wiring at all — never a silent no-op.
- */
-export const TEXT_DRIVER_REGISTRY: Record<string, (terminal: TuiTest, args: Record<string, string>) => Promise<void>> = {
-  // tui/src/screens/Login.tsx — the one, real screen every `--path text`
-  // run starts from; a fresh TuiTest session always opens here first.
-  // Waits for the real "Choose a business" screen afterward rather than
-  // just returning once the keys are sent - a real, confirmed gap
-  // found live: without this wait, the step reported success even with
-  // no backend running at all behind it (the login POST simply never
-  // resolved, and nothing here was checking for that) - the exact kind
-  // of silent false-positive runStepViaUi's own design already refuses
-  // to allow.
-  Login: async (terminal, args) => {
-    await terminal.getByText('Log in').expect();
-    await typeAndEnter(terminal, args.username);
-    await typeAndEnter(terminal, args.password);
-    await terminal.getByText('Choose a business').expect({ timeout: 10_000 });
-  },
-};
-
 /** Drives one real, already-open TUI session via @microsoft/tui-test —
- * the same, real role runStepViaUi plays for a real, driven browser,
- * never importing tui/src TypeScript directly (see docs/tui-design.md,
- * "--path text"). */
+ * purely generic, exactly the same real way runStepViaUi is: no
+ * per-screen driver code anywhere, no screen_name-keyed registry. It
+ * reuses exactly the same screen_name + positional field list
+ * (position/field_name/field_type) screens.csv already carries for
+ * `--path api`/`--path ui`, plus the PRESENCE (never the web-specific
+ * value) of two columns that mechanism already has:
+ *
+ * - A field with a blank `field_selector` has no real on-screen TUI
+ *   input either — the exact, same skip rule runStepViaUi already
+ *   applies (a position that only ever fed `api_function`, e.g. "Post
+ *   Journal Entry"'s own reference/businessName/ledger columns, which
+ *   carry no real UI field on the web path either).
+ * - A screen with no real `submit_selector` is an intermediate "add
+ *   one line" action — driven by the one, real, uniform
+ *   Insert/Enter/Escape/Delete idiom every TUI screen already shares
+ *   (Insert opens the line-item sub-form; its own last field's Enter
+ *   both confirms that field AND adds the line, returning to the
+ *   list) — never a screen-specific key. A screen WITH a real
+ *   `submit_selector` and no real fields of its own (e.g. "Post
+ *   Journal Entry") is a pure finalize action: one, real, standalone
+ *   Enter at the screen's own list, now standardized across every TUI
+ *   screen to both confirm and finalize (save/post) — see
+ *   docs/tui-design.md.
+ *
+ * Navigating there in the first place (`navigateMenuGenerically`,
+ * `text-driver-helpers.ts`) is the same kind of generic, text-search
+ * mechanism — it never hardcodes which top-level section a given
+ * screen_name lives under.
+ *
+ * This genuinely can't reach every screen yet: it depends on the TUI's
+ * own on-screen menu label matching `screen_name` exactly, which isn't
+ * true for every row today (see "Known gap: TUI screen granularity
+ * doesn't match screens.csv" in docs/pm-testing-e2e.md — General
+ * Journal's "Stage Journal Line"/"Post Journal Entry" rows are real,
+ * separate screen_names that don't match the TUI's own single
+ * "General Journal" menu label, for one). Fails loudly either way —
+ * `navigateMenuGenerically` throws rather than guessing, same as every
+ * other real failure path here. */
 export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map<string, Screen>): Promise<{ ok: boolean; error?: string }> {
   try {
     const screen = screens.get(step.screen_name);
     const args = buildArgs(step, screen);
-    const driver = TEXT_DRIVER_REGISTRY[step.screen_name];
-    if (!driver) {
-      return {
-        ok: false,
-        error: `No real TEXT_DRIVER_REGISTRY entry for screen "${step.screen_name}" - this screen's TUI driver has never actually been implemented/proven. See tutorial-steps.control.csv's "text" column and docs/tui-design.md.`,
-      };
+    if (!screen) return { ok: false, error: `No real screen registry entry for "${step.screen_name}".` };
+    if (screen.screen_kind !== 'session') {
+      await navigateMenuGenerically(terminal, step.screen_name);
     }
-    await driver(terminal, args);
+    const realFields = screen.fields.filter((f) => f.field_selector);
+    if (!screen.submit_selector && realFields.length > 0) {
+      await press(terminal, 'i'); // the one, real, uniform "add a line" key — never screen-specific
+    }
+    for (const field of realFields) {
+      const value = step.values[field.position - 1] ?? '';
+      if (value === '') {
+        await press(terminal, 'Enter'); // blank — accept whatever default this step is already on
+        continue;
+      }
+      if (field.field_type === 'select' || field.field_type === 'select_value' || field.field_type === 'search_and_select') {
+        const found = await findItemByText(terminal, value, 30);
+        if (!found) return { ok: false, error: `No real picker item matching "${value}" found for field "${field.field_name}".` };
+        await press(terminal, 'Enter');
+      } else {
+        await typeAndEnter(terminal, value);
+      }
+    }
+    if (screen.submit_selector && realFields.length === 0) {
+      // A pure finalize row with no real fields of its own — the one,
+      // standalone Enter every TUI screen now uses uniformly.
+      await press(terminal, 'Enter');
+    }
     if (step.verify) {
       const verifyFn = VERIFY_REGISTRY[step.verify];
       if (!verifyFn) return { ok: false, error: `No real verify registry entry for "${step.verify}".` };
