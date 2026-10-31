@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-docs e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test-tui test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-docs e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -119,8 +119,24 @@ backend:
 backend-verbose:
 	cd backend && DB_VERBOSE=1 $(RUN_NPM_SCRIPT) dev
 
-frontend:
+# The real, SvelteKit, browser frontend — renamed from the original,
+# bare `frontend` for symmetry with `text-frontend` below, now that
+# there are genuinely two, real, separate frontends against the one,
+# same backend (see docs/tui-design.md). `frontend` itself stays as a
+# real, working alias so old muscle memory still works — same pattern
+# as `dev-no-demo: dev` above.
+web-frontend:
 	cd frontend && $(RUN_NPM_SCRIPT) dev
+
+frontend: web-frontend
+
+# The real, Ink-based terminal frontend (tui/) — a second, real client
+# of the exact same backend API, not a mock or a demo. Needs its own
+# real terminal (stdin/stdout), so it's never part of `dev`/`dev-verbose`
+# alongside the backend+web frontend the way those two are paired —
+# run `make backend` in one terminal, `make text-frontend` in another.
+text-frontend:
+	cd tui && $(RUN_NPM_SCRIPT) dev
 
 test:
 	cd backend && $(RUN_TEST) test/*.test.ts scripts/*.test.ts
@@ -161,6 +177,24 @@ test-e2e-tutorial: reset-db
 test-e2e-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real, augmented tutorial fixture via the real, driven UI path..."
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive
+
+# The same real, live, driven-UI proof as test-e2e-tutorial-browser
+# above, for the text frontend (tui/) instead of the browser one —
+# via @microsoft/tui-test, a genuine terminal-emulator engine playing
+# the same role here Playwright plays there (see docs/tui-design.md).
+# Seeds the real tutorial fixture via the fast, direct API path
+# *before* the backend server starts, not after - a server already
+# holding entities.sqlite open while this, separate, in-process path
+# writes to the same file is exactly the stale-handle hazard
+# reset-db's own comment further up warns about. Only once that real
+# data exists does a real backend start, for the TUI to actually talk
+# to, same as any other real client of this API.
+test-tui: reset-db
+	@echo "Seeding the real tutorial fixture via the direct API path..."
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path api --non-interactive
+	$(MAKE) ensure-servers
+	@echo "Running the real tui-test smoke suite against the real, now-seeded backend..."
+	cd tui && $(RUN_NPM_SCRIPT) test
 
 # The one, real, test-runner-driven way every non-English translation
 # in shared-fixtures/translations.csv is ever loaded into a running

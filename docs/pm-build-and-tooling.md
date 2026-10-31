@@ -8,8 +8,11 @@
 | `make dev` | Starts backend (`:3001`) and frontend (`:5173`) together, one `Ctrl+C` stops both |
 | `make dev-verbose` | The same, with `DB_VERBOSE=1` — every SQL statement the backend executes is printed live |
 | `make dev-no-demo` | The same, with `SEED_DEMO_BUSINESSES=false` — only the one, dummy "My Business," no Wine Retail/BMW/Peugeot/Ditta/Schweizer demo data |
+| `make web-frontend` | The real, browser (SvelteKit) frontend alone — `make frontend` stays as a working alias to it, for old muscle memory |
+| `make text-frontend` | The real, Ink-based terminal frontend (`tui/`) alone — a second, real client of the exact same backend API; needs its own real terminal, so never bundled into `dev`/`dev-verbose` the way backend+web are paired there. See `docs/tui-design.md`. |
 | `make test` | Backend unit tests (Node's built-in test runner) + frontend tests — see the Testing: Unit chapter |
 | `make test-e2e` / `make demo-full-year` | Full/volume simulation and full-year data generation — see the Testing: E2E chapter |
+| `make test-tui` | The terminal frontend's own, real, live, end-to-end smoke test via `@microsoft/tui-test` — see "Testing the terminal frontend" below |
 | `make check-db-consistency` | The consistency check alone, on whatever database currently exists — balanced entries, no orphaned references, referential integrity |
 | `make reset-db` | Deletes the SQLite database file; it reinitializes from `backend/schema/*.sql` on the next backend start |
 | `make verify-fresh` | Resets the database, confirms it loads cleanly, then runs the full backend test suite plus every mechanical gate (see "Gates," below) |
@@ -44,6 +47,22 @@ file, deleted immediately after use, with `console.log` between every
 step and `page.on('console'/'requestfinished', ...)` handlers attached
 — isolates exactly which step a hang or failure occurs at and what the
 live network traffic looked like at that moment.
+
+## Testing the terminal frontend — `@microsoft/tui-test`
+
+`tui/test/smoke.test.ts`, run via `make test-tui` (or `npm test` inside
+`tui/`), drives the real Ink terminal frontend the same way Playwright
+drives the browser one above: a genuine terminal-emulator engine (not a
+mock), `Locator`s (`terminal.getByText(...)`), and `expect()`-style
+assertions that poll until a condition holds or a real timeout fires.
+`make test-tui` reseeds the database, seeds the real tutorial fixture via
+the direct API path, starts a real backend, then logs in as the real
+seeded admin user and drives the real "Tutorial Wine Retail Business"
+through Login, Menu navigation, a staged-and-posted General Journal
+entry, the Balance Sheet, a full New Business creation, and an Org Chart
+department creation. See `docs/tui-design.md` for the two, real, confirmed
+gotchas typing text and repeated key presses into Ink both ran into (and
+how the test file works around them).
 
 ## The Wine Retail Business simulation and its companion scripts
 

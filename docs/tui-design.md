@@ -28,6 +28,22 @@ re-deriving it:
   branded types (`BusinessName`, `LedgerName`, `AccountName`) — not a
   reimplementation against the HTTP routes from scratch.
 
+## Running it
+
+`make backend` starts the one, real, shared backend; `make text-frontend`
+starts this TUI against it (its own terminal, since it needs real
+stdin/stdout — never bundled into `dev`/`dev-verbose` the way backend+web
+are paired there). The browser frontend's own target is now `make
+web-frontend` for symmetry, now that there are genuinely two, real,
+separate frontends — `make frontend` stays as a working alias to it, so
+old muscle memory keeps working. `make test-tui` is this TUI's own,
+real, live, end-to-end smoke test (`tui/test/smoke.test.ts`, via
+`@microsoft/tui-test` — see below) — it reseeds the database, seeds the
+real tutorial fixture via the direct API path, starts a real backend, and
+drives the TUI through every screen below exactly the way a person would,
+the same real proof `make test-e2e-tutorial-browser` already gives the web
+frontend via Playwright.
+
 ## Scope: what v1 actually covers
 
 Per direct instruction, v1 is a real, working **test implementation** of
@@ -176,6 +192,46 @@ foreign imperative-draw API. `ink-text-input` and `ink-select-input` cover
 the Login form and the Menu/business/ledger pickers; the Balance Sheet's
 own section tables are small enough to hand-render with `<Box>`/`<Text>`
 column alignment rather than pulling in a table library for three columns.
+
+## Testing: a real terminal-emulator engine, not a hand-rolled pty wrapper
+
+`tui/test/smoke.test.ts` is driven through **`@microsoft/tui-test`** —
+Microsoft's own terminal-testing framework, built around a genuine
+terminal-emulator engine (not a mock), with the same real shape Playwright
+gives the browser frontend: a `TuiTest` client, chainable `Locator`s
+(`terminal.getByText(...)`), and `expect()`-style assertions that poll
+until a condition holds or a real timeout fires. It replaced an earlier,
+throwaway set of hand-rolled Python `pty.openpty()` driver scripts used
+while building each screen — real and useful for one-off, interactive
+verification, but not something to keep maintaining or committing.
+
+Two real, confirmed-live gotchas carried over from that earlier,
+hand-rolled driver, and apply equally here:
+
+- **Sending a whole string in one write (or one `submit()`/`type()` call)
+  trips Ink's own paste-detection heuristic** — a multi-character chunk
+  arriving in a single `data` event is treated as a pasted block, not
+  discrete keystrokes, and gets inserted as literal text instead of
+  processed key-by-key. `@microsoft/tui-test`'s own `submit()`/`type()`
+  convenience methods hit this the same way the naive Python writer did;
+  the real fix, confirmed live, is typing one character per
+  `keyboard.press()` call (`typeAndEnter()` in the test file).
+- **Even one key per `press()` call isn't always paced enough** — a
+  `Down`/`Enter` pair fired the instant a list's text first appears can
+  still occasionally race the real `ink-select-input` component attaching
+  its own stdin listener, landing both keys in the same native-side read.
+  A small, explicit delay after every single key press (the `press()`
+  wrapper in the test file), confirmed live across repeated runs, is what
+  actually makes the suite reliably green rather than intermittently
+  flaky.
+
+`make test-tui` reseeds the database, loads the real tutorial fixture via
+the direct API path, starts a real backend, and runs this suite against
+it — logging in as the real seeded admin user and driving the real
+"Tutorial Wine Retail Business" through Login, Menu navigation, a real
+staged General Journal entry (posted), the Balance Sheet, a full New
+Business creation, and an Org Chart department creation, exactly the way
+a person would.
 
 ## What this test implementation deliberately does not solve yet
 
