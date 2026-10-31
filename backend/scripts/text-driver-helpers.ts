@@ -54,9 +54,9 @@ export async function typeAndEnter(terminal: TuiTest, text: string): Promise<voi
   await press(terminal, 'Enter');
 }
 
-/** Moves the highlight ('› ') down, one settled press at a time, until it
- * lands on a line containing `labelSubstring`, returning whether it was
- * found — robust against a list whose exact contents/order this driver
+/** Moves the highlight down, one settled press at a time, until it lands
+ * on a line containing `labelSubstring`, returning whether it was found
+ * — robust against a list whose exact contents/order this driver
  * doesn't fully control (a real business's own, real, pre-existing data
  * alongside whatever this run just created), without parsing the
  * panel's own box-drawing border characters to compute an index by
@@ -66,11 +66,26 @@ export async function typeAndEnter(terminal: TuiTest, text: string): Promise<voi
  * the next section). Leaves the highlight wherever it lands either way
  * — on a genuine find, exactly on the matching line; otherwise wherever
  * `maxSteps` Down presses ended up, which callers that care should
- * explicitly reset (e.g. Escape back out) rather than assume. */
+ * explicitly reset (e.g. Escape back out) rather than assume.
+ *
+ * Checks for BOTH of this project's two real, live highlight markers —
+ * '›' (U+203A), used by every hand-rolled line-item list, e.g.
+ * Purchase.tsx/GeneralJournal.tsx's own running lines), and '❯'
+ * (U+276F, `figures.pointer`), which `ink-select-input` itself renders
+ * for every screen that uses it instead (Menu, ChooseBusiness, and any
+ * other plain picker list) — confirmed live: checking only '›' means
+ * this function never finds a real match on an ink-select-input
+ * screen, so it silently exhausts `maxSteps` Down presses and returns
+ * false every time, leaving the highlight wherever the (often even)
+ * press count happened to land — exactly the bug that made
+ * navigateMenuGenerically appear to "pick" an unrelated top item (e.g.
+ * landing back on a list's own first entry after a wrapped-around,
+ * even number of Down presses) rather than ever genuinely finding the
+ * requested item. */
 export async function findItemByText(terminal: TuiTest, labelSubstring: string, maxSteps = 30): Promise<boolean> {
   for (let i = 0; i < maxSteps; i++) {
     const lines = (await terminal.text()).split('\n');
-    if (lines.some((l) => l.includes('›') && l.includes(labelSubstring))) return true;
+    if (lines.some((l) => (l.includes('›') || l.includes('❯')) && l.includes(labelSubstring))) return true;
     await press(terminal, 'Down');
   }
   return false;

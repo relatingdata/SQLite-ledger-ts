@@ -2,6 +2,19 @@
 \usepackage{fancyhdr}
 \usepackage{graphicx}
 
+% xelatex's own default monospace font (Latin Modern Mono) has no real
+% box-drawing glyphs (─│╭╮╰╯❯›, etc.) — confirmed directly, as
+% "Missing character" warnings, once this manual's own TUI chapter
+% (docs/user-manual-ch3b-tutorial-tui.md) started embedding real,
+% captured terminal transcripts as fenced code blocks, every one of
+% which draws its own real panel border this way. DejaVu Sans Mono
+% (already installed, used nowhere else in this build) genuinely has
+% these glyphs, so pandoc's own verbatim/code environment is pointed
+% at it here, rather than redrawing every real transcript's border in
+% plain ASCII just to dodge the gap.
+\usepackage{fontspec}
+\setmonofont{DejaVu Sans Mono}
+
 % Pandoc wraps any image WITH a caption (alt text) in a real LaTeX
 % figure float, whose default [htbp] placement lets LaTeX drift it
 % away from the paragraph that actually refers to it whenever space on

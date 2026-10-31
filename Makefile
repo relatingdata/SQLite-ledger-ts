@@ -721,6 +721,7 @@ USER_MANUAL_CHAPTERS := \
 	docs/user-manual-ch1-introduction.md \
 	docs/user-manual-ch2-configuration.md \
 	docs/user-manual-ch3-tutorial.md \
+	docs/user-manual-ch3b-tutorial-tui.md \
 	docs/user-manual-appendix-screens.md \
 	docs/user-manual-appendix-step-runner.md \
 	docs/user-manual-glossary.md \
@@ -1234,6 +1235,29 @@ tutorial-section-user-manual: test-e2e-tutorial-browser
 	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
 	  -H manual-header-includes.tex -f markdown+raw_tex --resource-path=.
 	@echo "Built sql-ledger-ts_Tutorial_Section.pdf"
+
+# The TUI edition of the same tutorial chapter
+# (docs/user-manual-ch3b-tutorial-tui.md) - this one's own, real
+# "screenshots" are terminal-text transcripts (docs/manual-images-
+# tutorial-tui/*.txt), captured fresh on every real run by
+# backend/scripts/capture-tui-transcripts.ts, the exact, real,
+# terminal-emulator equivalent of the web chapter's own Playwright
+# screenshot capture above. Builds the real "Tutorial Wine Retail
+# Business" the fast way first (test-e2e-tutorial, --path api - no
+# browser needed), starts the real backend (ensure-servers also starts
+# the web frontend, harmlessly unused here), then drives the real,
+# separately-running TUI process live to capture each real, built
+# screen. Deliberately does NOT use the test-e2e-tutorial-browser
+# dependency tutorial-section-user-manual uses above - that would
+# overwrite the real business this target itself just built with the
+# web path's own, separate run.
+tutorial-section-user-manual-tui: test-e2e-tutorial ensure-servers
+	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
+	cd backend && $(RUN_SCRIPT) scripts/capture-tui-transcripts.ts
+	cd docs && pandoc user-manual-ch3b-tutorial-tui.md -o ../sql-ledger-ts_Tutorial_Section_TUI.pdf \
+	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
+	  -H manual-header-includes.tex -f markdown+raw_tex --resource-path=.
+	@echo "Built sql-ledger-ts_Tutorial_Section_TUI.pdf"
 
 # The one, real command that proves the Tutorial still passes, on
 # both its real paths, AND leaves every real manual it feeds already

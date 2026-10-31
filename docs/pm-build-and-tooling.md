@@ -17,6 +17,7 @@
 | `make reset-db` | Deletes the SQLite database file; it reinitializes from `backend/schema/*.sql` on the next backend start |
 | `make verify-fresh` | Resets the database, confirms it loads cleanly, then runs the full backend test suite plus every mechanical gate (see "Gates," below) |
 | `make manual` / `make programmer-manual` / `make historical-manual` | Builds the User Manual / this Programmer's Manual / the Historical Design & Decision Log, each from its own source chapters via pandoc + xelatex |
+| `make tutorial-section-user-manual` / `make tutorial-section-user-manual-tui` | The User Manual's Chapter 3 tutorial, standalone — the web edition (real browser screenshots, via `test-e2e-tutorial-browser`) and the TUI edition (real terminal-text transcripts, via `test-e2e-tutorial` + `backend/scripts/capture-tui-transcripts.ts`) — each built to its own PDF |
 | `make screens-inventory` | Regenerates `docs/screens-inventory.md` from the live frontend route tree |
 | `make function-inventory` / `make check-function-inventory` | Regenerates / checks `docs/function-inventory.md` against the live backend source |
 | `make servers-status` / `make ensure-servers` / `make stop-servers` | Dev-server lifecycle management, see below |
