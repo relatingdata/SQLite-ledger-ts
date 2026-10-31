@@ -498,3 +498,77 @@ export const stageAPPayment = (input: ARAPBaseInput & { vendor: string }) =>
   request<void>('/arap/ap-payment/stage', { method: 'POST', body: JSON.stringify(input) });
 export const postAPPayment = (reference: string, business: BusinessName, ledger: LedgerName) =>
   request<void>('/arap/ap-payment/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+
+// --- Stock dispatch (alongside an on-account AR Sale) -----------------------
+// Mirrors frontend/src/lib/api.ts's own dispatchStock — the Sale-side
+// counterpart to receiveStock above.
+
+export const dispatchStock = (
+  input: { business: BusinessName; ledger: LedgerName; reference: string; locationName: string; lines: { itemName: string; quantity: number }[]; transdate?: string }
+) => request<void>('/pos/dispatch-stock', { method: 'POST', body: JSON.stringify(input) });
+
+// --- Cash Sale ---------------------------------------------------------------
+// Mirrors frontend/src/lib/api.ts's own completePosSale — the same real
+// endpoint the POS terminal itself uses (a Cash Sale is "the same real
+// mechanism for a larger, non-register sale", per CashTransaction.svelte's
+// own comment), always to the one real 'Cash' customer here.
+
+export interface PosSaleLineInput {
+  itemName: string;
+  quantity: number;
+  unitPriceMinor?: number;
+  taxMinor: number;
+}
+export interface PosSaleResult {
+  invoiceId: number;
+  reference: string;
+  totalMinor: number;
+  changeDueMinor: number;
+}
+export const completePosSale = (input: {
+  business: BusinessName;
+  ledger: LedgerName;
+  locationName: string;
+  customerName: string;
+  lines: PosSaleLineInput[];
+  taxAccount: string;
+  paymentMethod?: string;
+  transdate?: string;
+}) => request<PosSaleResult>('/pos/complete-sale', { method: 'POST', body: JSON.stringify(input) });
+
+// --- Contacts (Customers/Providers) -----------------------------------------
+// Mirrors frontend/src/lib/api.ts's own Contact/getContact/setContact and
+// CreditStatus/getCreditStatus — used here by the Customers screen.
+// Address/phone management and counterparty history (AddressList.svelte,
+// PhoneList.svelte, ContactList.svelte, getCounterpartyHistory) are real,
+// optional extras on the web screen this v1 port skips, same stated
+// reason as the rest of this file's own simplifications.
+
+export interface Contact {
+  business_name: string | null;
+  phone: string | null;
+  email: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  region: string | null;
+  postal_code: string | null;
+  country: string | null;
+  payment_terms_days: number | null;
+  credit_limit_minor: number | null;
+  wage_minor_per_hour: number | null;
+  salary_minor_per_year: number | null;
+  reminder_level: number;
+  preferred_language: string | null;
+}
+export const getContact = (name: string) => request<Contact | null>(`/contacts/${encodeURIComponent(name)}`);
+export const setContact = (name: string, contact: Partial<Contact>) =>
+  request<void>(`/contacts/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(contact) });
+
+export interface CreditStatus {
+  balanceMinor: number;
+  limitMinor: number | null;
+  overLimit: boolean;
+  remainingMinor: number | null;
+}
+export const getCreditStatus = (name: string) => request<CreditStatus>(`/contacts/${encodeURIComponent(name)}/credit-status`);

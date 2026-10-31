@@ -12,6 +12,9 @@ import { Purchase } from './screens/Purchase.js';
 import { CashPurchase } from './screens/CashPurchase.js';
 import { PurchaseOrder } from './screens/PurchaseOrder.js';
 import { Payment } from './screens/Payment.js';
+import { ARSale } from './screens/ARSale.js';
+import { CashSale } from './screens/CashSale.js';
+import { Customers } from './screens/Customers.js';
 import { inkSoft } from './theme.js';
 
 type Screen =
@@ -25,7 +28,10 @@ type Screen =
   | { name: 'purchase'; businessName: string; ledgerName: string }
   | { name: 'cash-purchase'; businessName: string; ledgerName: string }
   | { name: 'purchase-order'; businessName: string; ledgerName: string }
-  | { name: 'payment'; businessName: string; ledgerName: string };
+  | { name: 'payment'; businessName: string; ledgerName: string }
+  | { name: 'ar-sale'; businessName: string; ledgerName: string }
+  | { name: 'cash-sale'; businessName: string; ledgerName: string }
+  | { name: 'customers'; businessName: string; ledgerName: string };
 
 function initialScreen(): Screen {
   const session = getSession();
@@ -47,7 +53,7 @@ export function App() {
   return (
     <Box flexDirection="column">
       <Text color={inkSoft} dimColor>
-        sql-ledger-ts — text user interface (test implementation: Login, Menu, General Journal, Balance Sheet, New Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment)
+        sql-ledger-ts — text user interface (test implementation: Login, Menu, General Journal, Balance Sheet, New Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment, AR Sale, Cash Sale, Customers)
       </Text>
       {screen.name === 'login' && <Login onLoggedIn={() => setScreen({ name: 'choose-business' })} />}
       {screen.name === 'choose-business' && (
@@ -109,6 +115,26 @@ export function App() {
         <Payment
           businessName={screen.businessName}
           ledgerName={screen.ledgerName}
+          onBack={() => setScreen({ name: 'menu', businessName: screen.businessName, ledgerName: screen.ledgerName })}
+        />
+      )}
+      {screen.name === 'ar-sale' && (
+        <ARSale
+          businessName={screen.businessName}
+          ledgerName={screen.ledgerName}
+          onBack={() => setScreen({ name: 'menu', businessName: screen.businessName, ledgerName: screen.ledgerName })}
+        />
+      )}
+      {screen.name === 'cash-sale' && (
+        <CashSale
+          businessName={screen.businessName}
+          ledgerName={screen.ledgerName}
+          onBack={() => setScreen({ name: 'menu', businessName: screen.businessName, ledgerName: screen.ledgerName })}
+        />
+      )}
+      {screen.name === 'customers' && (
+        <Customers
+          businessName={screen.businessName}
           onBack={() => setScreen({ name: 'menu', businessName: screen.businessName, ledgerName: screen.ledgerName })}
         />
       )}

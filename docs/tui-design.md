@@ -47,8 +47,8 @@ frontend via Playwright.
 ## Scope: what v1 actually covers
 
 Per direct instruction, v1 is a real, working **test implementation** of
-ten screens (the seventh — Business Structure — has three real steps of
-its own), not a full port of every route the web frontend has:
+thirteen screens (the seventh — Business Structure — has three real
+steps of its own), not a full port of every route the web frontend has:
 
 1. **Login** — username/password, real `POST /auth/login`.
 2. **Business and ledger selection** — a real prerequisite the web app also
@@ -159,15 +159,54 @@ its own), not a full port of every route the web frontend has:
     have no such option since every one of their lines receives stock
     immediately).
 
-Everything else the web frontend has (POS, AR/Customer invoicing and Cash
-Sale, Quotations, RFQs, Stock Receipt, and every other report) is
-explicitly out of scope for this test implementation — the screens above
-are chosen because together they already exercise every *kind* of screen
-this app has (a simple form, a navigable tree, a stage/post transactional
-flow, a read-only report, a multi-step wizard, a drill-down CRUD screen,
-and now a procure-to-pay sequence built from the same primitives), so the
-same pattern extends to any further screen later without a new
-architectural decision.
+12. **AR Sale** (`ARSale.tsx`) — the real AR Sale flow
+    (`frontend/src/routes/arap/ar-sale/+page.svelte`): a sale to a
+    customer on credit, via the same shared invoice mechanism as
+    Purchase (`createInvoice` with `invoiceType: 'AR'`, then
+    `postInvoiceById`, fixed to `'Sales Revenue'`/`'Sales Tax Payable'`
+    — unlike Purchase, the web screen itself has no separate Account
+    field, so neither does this one). A line naming a real catalog item
+    is dispatched from stock alongside the invoice (`dispatchStock`,
+    the Sale-side counterpart of `receiveStock`). Customer is free-text,
+    same stated v1 simplification as every other counterparty field in
+    this TUI — and, confirmed live, the named customer must already be
+    a real, existing contact; `createInvoice` resolves it by an exact
+    name match and does not create one on the fly.
+13. **Cash Sale** (`CashSale.tsx`) — the real Cash Sale flow
+    (`frontend/src/lib/components/CashTransaction.svelte`, direction
+    `'sale'`): a sale to the one real `'Cash'` customer, posted and paid
+    off in full the same instant, via `completePosSale` — the same real
+    endpoint the POS terminal itself uses (a Cash Sale is "the same
+    real mechanism for a larger, non-register sale", per that
+    component's own comment). Location uses a real picker, with no
+    `'Not yet known'` option (every line dispatches immediately); Item
+    is free-text.
+14. **Customers** (`Customers.tsx`) — the real Customers screen
+    (`frontend/src/routes/contacts/+page.svelte`, `focus=customers`):
+    browse existing customer contacts and edit their email, payment
+    terms, credit limit, and reminder level (`getContact`/`setContact`,
+    plus a read-only credit-status line from `getCreditStatus`).
+    Customer contacts aren't scoped to one business — confirmed live,
+    they're direct children of the one, real, global entity literally
+    named `"Customers"` — so this screen reads the unscoped entity tree
+    (`getEntityTree()`, no business argument) rather than
+    `getEntityTree(businessName)` the way every other screen in this
+    TUI does, and filters out the generic link/tag child records
+    (`setEntityLink`'s own `"<entity> — <linkType>"` convention) that
+    also live under that same container. Customers aren't created from
+    this screen (or anywhere else in this TUI yet) — matching the real
+    state of the web app itself, where creating one also isn't wired to
+    any screen despite its own intro text's claim.
+
+Everything else the web frontend has (POS, AR Receipt, Quotations, RFQs,
+Stock Receipt/Dispatch, and every other report) is explicitly out of
+scope for this test implementation — the screens above are chosen
+because together they already exercise every *kind* of screen this app
+has (a simple form, a navigable tree, a stage/post transactional flow, a
+read-only report, a multi-step wizard, a drill-down CRUD screen, a
+procure-to-pay sequence, and now its order-to-cash mirror), so the same
+pattern extends to any further screen later without a new architectural
+decision.
 
 ## Keyboard navigation model
 
@@ -258,6 +297,9 @@ tui/
       CashPurchase.tsx      # Cash Purchase — one atomic completeCashPurchase call
       Payment.tsx           # AP Payment — stageAPPayment + postAPPayment
       PurchaseOrder.tsx     # Purchase Order — memo-only, stagePurchaseOrder + postPurchaseOrder
+      ARSale.tsx            # AR Sale — on-account, createInvoice + optional dispatchStock + postInvoiceById
+      CashSale.tsx          # Cash Sale — one atomic completePosSale call, to the one real 'Cash' customer
+      Customers.tsx         # browse + edit real customer contacts (unscoped entity tree)
     components/
       Panel.tsx           # a bordered box using --rule/--rule-strong, a title bar in --brass
       MoneyText.tsx        # minor-units → "$1,234.56" / "$(100.00)" for negatives, matching StatementLine's own sign convention
@@ -314,12 +356,16 @@ Business creation, all three Business Structure steps — Org Chart
 department/division/location creation (including moving the new Location
 into the new Division), Item Categories (a top-level category, a nested
 child under it, stepped into and back out of), and Other Hierarchies (a
-new grouping and a new value under it) — and all four Purchasing
+new grouping and a new value under it) — all four Purchasing
 screens — an AP Purchase (provider `'Cash'`, account `'Inventory'`, one
 real-item line received into stock and posted on account), a Cash
 Purchase (one line, paid off immediately), an AP Payment to `'Cash'`,
-and a Purchase Order (placed, memo-only) — exactly the way a person
-would.
+and a Purchase Order (placed, memo-only) — and all three Sales
+screens — an AR Sale (customer `'Riverside Restaurant'`, one real-item
+line dispatched from stock and posted on account), a Cash Sale (one
+line, paid off immediately), and Customers (opening the real, seeded
+`'Cash'` customer and saving an edited email/terms/limit/reminder
+level) — exactly the way a person would.
 
 ## What this test implementation deliberately does not solve yet
 
@@ -333,22 +379,41 @@ would.
   `request()` already does on the web (`ApiError` with the backend's own
   message) — a dropped connection mid-session shows the error and lets the
   person retry the action, nothing more sophisticated yet.
-- **POS, AR/Customer invoicing and Cash Sale, Quotations, RFQs, Stock
-  Receipt, and every other remaining screen** are out of scope for this
-  pass, per the stated v1 scope above — the architecture (typed API port,
+- **POS, AR Receipt, Quotations, RFQs, Stock Receipt/Dispatch, and every
+  other remaining screen** are out of scope for this pass, per the
+  stated v1 scope above — the architecture (typed API port,
   Panel/MoneyText components, the Insert/Enter/Escape/Delete idiom) is
   meant to make adding each of them later a repetition of an established
   pattern, not a new design decision each time. Purchasing (Purchase,
-  Cash Purchase, Purchase Order, Payment) is the first full-sized proof of
-  that claim, built after the screens above rather than alongside them.
+  Cash Purchase, Purchase Order, Payment) and Sales (AR Sale, Cash Sale,
+  Customers) are the first full-sized proof of that claim, each built
+  after the screens before it rather than alongside them.
 - **An AP Payment's own optional "allocate to a specific outstanding
   invoice" step isn't built** — the payment itself is still real and
   fully posted, just not tied to a particular invoice yet (see item 10
   above).
 - **Purchase Order's own review step requires a real catalog item and
   provider typed by exact name**, no live picker — same free-text
-  simplification as Purchase/Cash Purchase/Payment's Provider/Item
-  fields, for the same stated reason.
+  simplification as Purchase/Cash Purchase/Payment/AR Sale's
+  Provider/Customer/Item fields, for the same stated reason.
+- **AR Sale's own non-blocking over-credit-limit warning isn't built**
+  — the web screen's own `getCreditStatus` check before a sale that
+  would exceed a customer's credit limit; the sale itself still posts
+  exactly the same whether or not this screen warns about it first.
+  Customers.tsx does still show a customer's current balance and limit,
+  once opened, via the same real `getCreditStatus` call.
+- **Customers has no "create a new customer" step** — matching the real
+  state of the web app's own Customers screen today (its own intro text
+  claims new customers appear automatically "the first time one is used
+  on an AR Sale," but confirmed live, `createInvoice` does not create
+  one on the fly) — a real, existing gap in the web app itself, not a
+  TUI-side simplification. A real customer exists today only via the
+  Structured Editor or an API-side fixture step (`createCustomer`).
+  Address/phone management and counterparty transaction history
+  (`AddressList.svelte`/`PhoneList.svelte`/`ContactList.svelte`,
+  `getCounterpartyHistory`) are real, optional extras on the web screen
+  this v1 port skips, same stated reason as the rest of this TUI's own
+  simplifications.
 - **Item Categories has no "Move…" (re-parent an existing category)** —
   create/browse/delete are real; moving one to a different parent, the
   way the web's own `StructureTreeNode.svelte` allows, isn't built yet.

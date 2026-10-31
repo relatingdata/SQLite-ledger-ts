@@ -18,7 +18,10 @@ export type MenuScreenKey =
   | 'purchase'
   | 'cash-purchase'
   | 'purchase-order'
-  | 'payment';
+  | 'payment'
+  | 'ar-sale'
+  | 'cash-sale'
+  | 'customers';
 
 // Which real menu-link hrefs this v1 test implementation actually
 // knows how to open — matched on href (backend/src/db-seed.ts's own,
@@ -38,6 +41,9 @@ const KNOWN_SCREENS: Record<string, MenuScreenKey> = {
   '/arap/cash-purchase': 'cash-purchase',
   '/arap/ap-payment': 'payment',
   '/stock/po': 'purchase-order',
+  '/arap/ar-sale': 'ar-sale',
+  '/arap/cash-sale': 'cash-sale',
+  '/contacts?focus=customers': 'customers',
 };
 
 export function Menu({ businessName, onOpenScreen }: { businessName: string; onOpenScreen: (screen: MenuScreenKey) => void }) {

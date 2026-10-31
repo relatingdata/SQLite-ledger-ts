@@ -465,6 +465,102 @@ test('TUI smoke: login through every implemented screen', { timeout: 60_000 }, a
         await terminal.getByText('placed with').expect({ timeout: 10_000 });
         await press(terminal, 'Escape');
         await terminal.getByText('Menu — ').expect();
+
+        // --- Menu: Accounts Receivable -> AR Sale ---------------------------
+        // Section order from backend/src/db-seed.ts: General Ledger(0),
+        // test(1), Accounts Receivable(2). Within Accounts Receivable:
+        // Sale(0), Cash Sale(1), Receipt(2), ..., Customers(9). Real
+        // customer contacts aren't scoped to one business — they live as
+        // direct children of the one, real, global entity literally
+        // named "Customers" (confirmed live via the unscoped
+        // GET /entities) — "Cash" and "Riverside Restaurant" (seeded by
+        // this tutorial fixture) both really exist there.
+        await pressRepeated(terminal, 'Down', 2);
+        await press(terminal, 'Enter');
+        await terminal.getByText('Sale').expect();
+        await press(terminal, 'Enter'); // AR Sale, index 0
+        await terminal.getByText('AR Sale — ').expect();
+
+        const saleRef = `TUI-SALE-${Date.now()}`;
+        await typeAndEnter(terminal, saleRef);
+        await terminal.getByText('Customer').expect();
+        await typeAndEnter(terminal, 'Riverside Restaurant');
+        await terminal.getByText('Tax %').expect();
+        await press(terminal, 'Enter'); // skip — no tax
+        await terminal.getByText('Where item lines').expect();
+        // Same "Not yet known" NO_LOCATION-first picker as AP Purchase's
+        // own location step (Purchase.tsx) — Down once for the first
+        // real location.
+        await press(terminal, 'Down');
+        await press(terminal, 'Enter');
+        await terminal.getByText('Optional · Enter continues').expect();
+        await press(terminal, 'Enter'); // skip description
+        await terminal.getByText('No lines yet').expect();
+
+        await press(terminal, 'i');
+        await terminal.getByText('New line').expect();
+        await typeAndEnter(terminal, 'Amber Ale 330ml');
+        await typeAndEnter(terminal, '4');
+        await typeAndEnter(terminal, '15.00');
+        await terminal.getByText('Total owed').expect();
+        text2 = await terminal.text();
+        assert.match(text2, /4\s+\$15\.00/, 'quantity and price should render exactly as typed');
+        await press(terminal, 's');
+        await terminal.getByText('recorded — ').expect({ timeout: 10_000 });
+        await press(terminal, 'Escape');
+        await terminal.getByText('Menu — ').expect();
+
+        // --- Menu: Accounts Receivable -> Cash Sale -------------------------
+        await pressRepeated(terminal, 'Down', 2);
+        await press(terminal, 'Enter');
+        await terminal.getByText('Sale').expect();
+        await press(terminal, 'Down'); // Cash Sale, index 1
+        await press(terminal, 'Enter');
+        await terminal.getByText('Cash Sale — ').expect();
+        await terminal.getByText('Dispatch from location').expect();
+        await press(terminal, 'Enter'); // first real location — no "Not yet known" here
+        await terminal.getByText('No lines yet').expect();
+
+        await press(terminal, 'i');
+        await terminal.getByText('New line').expect();
+        await typeAndEnter(terminal, 'Amber Ale 330ml');
+        await typeAndEnter(terminal, '2');
+        await typeAndEnter(terminal, '15.00');
+        await typeAndEnter(terminal, '1.50');
+        await terminal.getByText('Total owed').expect();
+        text2 = await terminal.text();
+        assert.match(text2, /2\s+\$15\.00\s+\$1\.50/, 'quantity, price, and tax should render exactly as typed');
+        await press(terminal, 's');
+        await terminal.getByText('payment method').expect();
+        await press(terminal, 'Enter'); // Cash
+        await terminal.getByText('completed — ').expect({ timeout: 10_000 });
+        await press(terminal, 'Escape');
+        await terminal.getByText('Menu — ').expect();
+
+        // --- Menu: Accounts Receivable -> Customers -------------------------
+        await pressRepeated(terminal, 'Down', 2);
+        await press(terminal, 'Enter');
+        await terminal.getByText('Sale').expect();
+        await pressRepeated(terminal, 'Down', 9); // Customers, index 9
+        await press(terminal, 'Enter');
+        await terminal.getByText('Customers — ').expect();
+        await terminal.getByText('Cash').expect({ timeout: 10_000 });
+        text2 = await terminal.text();
+        assert.match(text2, /Riverside Restaurant/, 'the real, seeded Riverside Restaurant customer should be listed');
+        assert.doesNotMatch(text2, /Hierarchy: Header Account/, 'the generic link/tag child record under the Customers container should be filtered out, not shown as a selectable customer');
+
+        await press(terminal, 'Enter'); // open "Cash" (the first, highlighted customer)
+        await terminal.getByText('Email').expect();
+        await terminal.getByText('Payment terms (days)').expect();
+        await typeAndEnter(terminal, 'cash-desk@example.test');
+        await press(terminal, 'Enter'); // keep the existing payment terms (0 — cash only)
+        await press(terminal, 'Enter'); // keep the existing (blank) credit limit
+        await press(terminal, 'Enter'); // keep the existing reminder level — saves
+        await terminal.getByText('Saved Cash.').expect({ timeout: 10_000 });
+        await press(terminal, 'Escape');
+        await terminal.getByText('Customers — ').expect();
+        await press(terminal, 'Escape');
+        await terminal.getByText('Menu — ').expect();
       }
     );
   } finally {
