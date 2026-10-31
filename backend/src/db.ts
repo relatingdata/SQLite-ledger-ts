@@ -1641,16 +1641,28 @@ export interface PosSaleResult {
   changeDueMinor: number;
 }
 
+// Checks every real entity named `entityName`, not just the first one
+// found — confirmed live, a plain, unscoped "first match" genuinely
+// picks the wrong one whenever a real, permanent, structural
+// Vocabulary word happens to share a name with real business data
+// (e.g. "Lager" is also the real Danish word for "warehouse"): the
+// Vocabulary word, seeded earlier and so earlier in getEntityTree()'s
+// own real ordering, isn't a descendant of "Items", while the real
+// product subcategory named "Lager" genuinely is — so only checking
+// the first match wrongly said no. This is a real, strict widening,
+// never a narrowing: every case that used to return true still does
+// (it's still checked, just no longer the only one looked at).
 export function isDescendantOf(entityName: string, rootName: string): boolean {
   const entities = getEntityTree();
-  const start = entities.find((e) => e.name === entityName);
-  if (!start) return false;
   if (entityName === rootName) return true;
   const isRoot = (name: string) => name === rootName || (rootName === 'Items' && name.endsWith(' Items'));
-  let current = entities.find((e) => e.id === start.parent_id);
-  for (let i = 0; i < 100 && current; i++) {
-    if (isRoot(current.name)) return true;
-    current = entities.find((e) => e.id === current!.parent_id);
+  const candidates = entities.filter((e) => e.name === entityName);
+  for (const start of candidates) {
+    let current = entities.find((e) => e.id === start.parent_id);
+    for (let i = 0; i < 100 && current; i++) {
+      if (isRoot(current.name)) return true;
+      current = entities.find((e) => e.id === current!.parent_id);
+    }
   }
   return false;
 }

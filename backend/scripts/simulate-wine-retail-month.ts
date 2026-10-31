@@ -4,14 +4,25 @@
 import {
   create,
   requireEntity,
+  requireEntityById,
+  resolveBusinessLocationsRootId,
   typeRootName,
+  typeBusinessName,
+  typeBusinessLocationsRootName,
   typeProviderName,
   typeCustomerName,
   typeCategoryOrItemsRootName,
   typeItemName,
   typeLocationEntityName,
+  typeEmployeeName,
   createBusiness,
+  createAndConfigureLocation,
+  getItem,
+  setItem,
+  asItemName,
+  asLocationName,
   setContact,
+  setRelationship,
   stageLine,
   postJournalEntry,
   receiveItems,
@@ -47,18 +58,20 @@ import {
   getInvoiceOutstandingMinor,
   ensureItemSalesCogsAccounts,
   ensureProductTierPart,
-  ensureItemTierLocationLeaf,
-  ensureItemTier,
   stageBomComponent,
   postBomComponents,
   ensureItemInventoryAccount,
+  ensureHierarchyGrouping,
+  ensureHierarchyValue,
+  setHierarchyParent,
   setCurrencyExchangeRate,
   nominateLocationCurrency,
   asBusinessName,
 } from '../src/db.js';
-import { getItemLocation, createPosTerminal, setTerminalCurrency } from '../src/db-stock.js';
+import { getItemLocation, createPosTerminal, setTerminalCurrency, setItemLocationLevels } from '../src/db-stock.js';
 import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { readCsv } from '../../shared-fixtures/csv.js';
+import { loadDemoLocations, loadDemoCategories, loadDemoProducts, loadDemoUpcs, loadDemoStockLevels, loadDemoEmployees } from '../../shared-fixtures/wine-retail-demo-data.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -71,8 +84,8 @@ const VENDOR = fixtures.vendor;
 
 function listLocations() {
   const entities = getEntityTree();
-  const locationsParent = entities.find((e) => e.name === `${BUSINESS} Locations`);
-  const locationEntities = locationsParent ? entities.filter((e) => e.parent_id === locationsParent.id) : [];
+  const locationsRootId = resolveBusinessLocationsRootId(BUSINESS);
+  const locationEntities = locationsRootId ? entities.filter((e) => e.parent_id === locationsRootId) : [];
   return locationEntities.map((e) => ({ name: e.name, ...getLocation(e.name)! }));
 }
 const today = (offsetDays: number) => {
@@ -111,9 +124,20 @@ async function main() {
     console.log(`${BUSINESS} already exists — using it as-is.`);
   }
 
-  console.log('=== Setup: vendor, CoA accounts this simulation needs ===');
+  console.log('=== Setup: vendor, customer, CoA accounts this simulation needs ===');
   create(requireEntity('Accounts Payable', typeRootName), typeProviderName, VENDOR, 1);
   setContact(VENDOR, { payment_terms_days: 30 });
+  // The real, named customer every completePosSale call below attributes
+  // walk-in retail/POS/wine-bar sales to — also real, permanent, missing
+  // infrastructure this script never created itself (same real gap as
+  // the locations/catalog/stock fix above): every one of those calls
+  // failed with "No customer/vendor named 'Cash Sale'" on a fresh
+  // database, confirmed live, until this was added.
+  try {
+    create(requireEntity('Customers', typeRootName), typeCustomerName, 'Cash Sale', 1);
+  } catch {
+    // already exists from a prior run
+  }
   for (const [name, category] of [
     ['Freight In', 'Expense'],
     ['Breakage & Spoilage', 'Expense'],
@@ -125,6 +149,149 @@ async function main() {
       // already exists from a prior run — fine, this script is safe to re-run
     }
   }
+
+  // Real locations, a full product catalog, and opening stock — this
+  // business's own structural data, loaded from shared-fixtures/
+  // wine-retail-demo-data.ts (plain, real CSV, per direct instruction;
+  // never a hardcoded TypeScript array). This used to come from a
+  // demo-seed migration that ran once at boot (migrateForWineRetailDemoData,
+  // in backend/src/db-seed.ts); that whole boot-time path was removed
+  // entirely, per direct instruction, with this script named as its
+  // real, intended replacement — but the actual replacement call was
+  // never written, leaving the loader above genuinely orphaned (zero
+  // real callers anywhere in the codebase) and this simulation unable
+  // to run at all on a fresh database. Fixed here: every real step
+  // below only creates what's genuinely missing, so this is still
+  // safe to re-run against a database that already has some or all
+  // of this real structure in place.
+  console.log(`=== Setup: real locations, product catalog, and opening stock for ${BUSINESS}, if missing (shared-fixtures/wine-retail-demo-data.ts) ===`);
+  const itemsRoot = requireEntity('Items', typeRootName, requireEntity(BUSINESS, typeBusinessName, requireEntity('Businesses', typeRootName)));
+  // Scoped to this one business's own subtree, not the whole, real,
+  // global entity namespace — confirmed live, a global snapshot
+  // wrongly treats a genuine, permanent, structural Vocabulary word
+  // (e.g. "Lager" is also the real Danish word for "warehouse") as
+  // this business's own "Lager" beer subcategory already existing,
+  // silently skipping its real creation.
+  let existingNames = new Set(getEntityTree(BUSINESS).map((e) => e.name));
+
+  const locationsRoot = requireEntityById(resolveBusinessLocationsRootId(BUSINESS)!, typeBusinessLocationsRootName);
+  let locationsCreated = 0;
+  for (const loc of loadDemoLocations()) {
+    if (existingNames.has(loc.name)) continue;
+    // createAndConfigureLocation, not a raw create+setLocation, so each
+    // location also gets its real "Belongs To Group"/"Belongs To Business"
+    // wiring (grouped by city, under the existing "Division" hierarchy
+    // convention — the same one the refrigerated-outlet setup below reads
+    // back via getHierarchyGroupForLocation) — confirmed directly: without
+    // this, getOrganizationChart has no group containing any location, so
+    // the Business Setup org chart (and every employee on it) never
+    // renders at all, regardless of how many real employees exist.
+    createAndConfigureLocation(
+      BUSINESS,
+      loc.name,
+      {
+        city: loc.city,
+        location_type: loc.locationType,
+        is_billing_address: loc.isBilling,
+        bottle_capacity: loc.bottleCap,
+        carton_capacity: loc.cartonCap,
+        timezone: loc.timezone,
+      },
+      1,
+      loc.city,
+      'Division'
+    );
+    existingNames.add(loc.name);
+    locationsCreated++;
+  }
+  console.log(`Locations: ${locationsCreated} created, ${loadDemoLocations().length - locationsCreated} already real and present.`);
+
+  // categoryOfSubcategory tracked by hand, here, rather than resolved
+  // later by name (as createItem's own businessName branch would) —
+  // confirmed live, a real, permanent, structural Vocabulary word can
+  // genuinely collide, by plain string, with a product subcategory
+  // ("Lager" is also the real Danish word for "warehouse"), and
+  // isDescendantOf (db.ts) resolves a bare name globally, picking
+  // whichever same-named entity happens to come first in the whole,
+  // real entity tree — not necessarily this business's own real
+  // subcategory. Looking each category/subcategory node up by its own,
+  // already-known, directly-scoped parent (itemsRoot, then that
+  // category's own real node) side-steps that collision entirely,
+  // rather than papering over it with a rename of otherwise real,
+  // correct fixture data.
+  const categoryOfSubcategory = new Map<string, string>();
+  let categoriesCreated = 0;
+  // 'Category' as a real Hierarchy grouping, alongside (never instead of)
+  // the structural Items/category/subcategory tree above — confirmed
+  // directly: the Items screen's own category picker and getSalesReport's
+  // own category grouping (db-reports.ts) both read a product's Category
+  // through getHierarchyParent(itemName, 'Category'), the exact same
+  // generic tag mechanism Division already uses for locations, never the
+  // structural tree position. Without this, every product has no
+  // Category tag at all and genuinely, correctly falls back to 'Other'.
+  ensureHierarchyGrouping(BUSINESS, 'Category', 1);
+  for (const cat of loadDemoCategories()) {
+    categoryOfSubcategory.set(cat.subcategory, cat.category);
+    if (!existingNames.has(cat.category)) {
+      create(itemsRoot, typeCategoryOrItemsRootName, cat.category, 1);
+      existingNames.add(cat.category);
+      categoriesCreated++;
+    }
+    ensureHierarchyValue(BUSINESS, 'Category', cat.category, 1);
+    if (!existingNames.has(cat.subcategory)) {
+      create(requireEntity(cat.category, typeCategoryOrItemsRootName, itemsRoot), typeCategoryOrItemsRootName, cat.subcategory, 1);
+      existingNames.add(cat.subcategory);
+      categoriesCreated++;
+    }
+  }
+  console.log(`Categories/subcategories: ${categoriesCreated} created.`);
+
+  let productsCreated = 0;
+  for (const prod of loadDemoProducts()) {
+    const category = categoryOfSubcategory.get(prod.subcategory);
+    if (!category) throw new Error(`No real category found for subcategory "${prod.subcategory}" (product "${prod.name}") in shared-fixtures/categories.csv.`);
+    if (existingNames.has(prod.name)) continue;
+    const subcategoryNode = requireEntity(prod.subcategory, typeCategoryOrItemsRootName, requireEntity(category, typeCategoryOrItemsRootName, itemsRoot));
+    create(subcategoryNode, typeItemName, prod.name, 1);
+    setItem(prod.name, { description: null, unit_of_measure: null, upc: null, retail_price_minor: null });
+    setHierarchyParent(prod.name, 'Category', category, 1);
+    existingNames.add(prod.name);
+    productsCreated++;
+  }
+  console.log(`Products: ${productsCreated} created.`);
+
+  let upcsSet = 0;
+  for (const upc of loadDemoUpcs()) {
+    const existing = getItem(upc.name);
+    if (existing && !existing.upc) {
+      setItem(upc.name, { upc: upc.upc });
+      upcsSet++;
+    }
+  }
+  console.log(`UPCs: ${upcsSet} set.`);
+
+  let stockRowsLoaded = 0;
+  for (const row of loadDemoStockLevels()) {
+    let onHand = 0;
+    try {
+      onHand = getItemLocation(asItemName(row.itemName), asLocationName(row.locationName)).quantity_on_hand;
+    } catch {
+      // No real quantity account for this item/location pair yet — genuinely zero.
+    }
+    if (onHand <= 0 && row.qty > 0) {
+      receiveItems(BUSINESS, LEDGER, `OPENING-STOCK-${row.itemName}-${row.locationName}`, asItemName(row.itemName), asLocationName(row.locationName), row.qty, 1, today(0));
+      stockRowsLoaded++;
+    }
+    setItemLocationLevels(
+      asItemName(row.itemName),
+      asLocationName(row.locationName),
+      { minLevel: row.minLevel, maxLevel: row.maxLevel, reorderLevel: row.reorderLevel, shelfSide: row.shelfSide, rack: row.rack, level: row.level },
+      BUSINESS,
+      LEDGER,
+      1
+    );
+  }
+  console.log(`Opening stock: ${stockRowsLoaded} real receipts posted (quantity movement only — no dollar value until a unit cost is registered below).`);
 
   const locations = listLocations();
   const warehouses = locations.filter((l) => l.location_type === 'Warehouse');
@@ -142,7 +309,7 @@ async function main() {
     const fridgeCartonCapacity = Math.round(fridgeBottleCapacity / 10); // roughly one carton per 10 bottles of fridge space
     const name = `${outlet.name} — Refrigerated`;
     try {
-      create(requireEntity(`${BUSINESS} Locations`, typeRootName), typeLocationEntityName, name, 1);
+      create(locationsRoot, typeLocationEntityName, name, 1);
     } catch {
       // already exists from a prior run
     }
@@ -156,6 +323,35 @@ async function main() {
     refrigeratedOutlets.push({ name, city: outlet.city, location_type: 'Retail' });
   }
   console.log(`Refrigerated displays set up at all ${refrigeratedOutlets.length} retail outlets, each sized proportionally to its own shop.`);
+
+  // Real, named staff (shared-fixtures/employees.csv) — the real replacement
+  // for the old boot-time seedWineRetailEmployees (removed in 5697d46, which
+  // named this script as the intended replacement but never wired this part
+  // either; the User Manual's own screenshot capture genuinely depends on
+  // specific, real, named employees existing, e.g. "Nadia Petrovska").
+  let employeesCreated = 0;
+  for (const emp of loadDemoEmployees()) {
+    if (!getEntityTree().some((e) => e.name === emp.name)) {
+      create(requireEntity('Employees', typeRootName), typeEmployeeName, emp.name, 1);
+      employeesCreated++;
+    }
+    setContact(emp.name, {
+      phone: emp.phone,
+      address_line1: emp.address,
+      address_line2: emp.role,
+      city: emp.city,
+      country: 'Australia',
+      wage_minor_per_hour: emp.wageMinorPerHour,
+      salary_minor_per_year: emp.salaryMinorPerYear,
+    });
+    // Real "Place of Employment" relationship, pointing from the employee to
+    // wherever they actually work — a real location for on-site staff, or
+    // the business itself for a genuinely company-wide role (office staff,
+    // both managers) — never a reparenting of the employee's own parent_id,
+    // which stays under Employees, exactly as every existing lookup assumes.
+    setRelationship(emp.name, 'Place of Employment', emp.employedAt ?? BUSINESS, 1);
+  }
+  console.log(`Staff: ${employeesCreated} created, ${loadDemoEmployees().length - employeesCreated} already real and present.`);
 
   const allParts = listItems(asBusinessName('Wine Retail Business'));
   const entities = getEntityTree();
@@ -578,12 +774,17 @@ async function main() {
 
   let wineBarSaleCount = 0;
   for (const bar of wineBars) {
-    // Wine/beer/soft drinks stocked by their two glass-size tiers; cocktails/snacks as-is.
+    // Wine/beer/soft drinks are poured by the glass from real, physical
+    // bottle stock — "Small Glass"/"Large Glass" are a sales/COGS account
+    // split only (completePosSale's own per-line tier handling calls
+    // ensureItemTier/ensureItemTierLocationLeaf internally for that), not
+    // separate physical stock. quantity_on_hand is always checked and
+    // consumed against the base item name (confirmed directly:
+    // completePosSale's own stock check uses line.itemName, never a
+    // resolved tier item name) — so stock is received here once per base
+    // item, not once per tier.
     for (const base of [...wineByGlass, ...beerByGlass, ...softDrinksByGlass]) {
-      for (const tier of ['Small Glass', 'Large Glass']) {
-        const { tierItemName } = ensureItemTier(base, tier, 1);
-        receiveItems(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${tierItemName}`, tierItemName, bar.name, 40, 1, today(1));
-      }
+      receiveItems(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${base}`, base, bar.name, 80, 1, today(1));
     }
     for (const item of [...cocktails, ...snacks]) {
       receiveItems(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${item}`, item, bar.name, 30, 1, today(1));
@@ -600,8 +801,12 @@ async function main() {
         } else {
           const base = pick(category);
           const tier = pick(['Small Glass', 'Large Glass']);
-          const { tierItemName } = ensureItemTier(base, tier, 1);
-          lines.push({ itemName: tierItemName, quantity: 1, unitPriceMinor: tier === 'Small Glass' ? 800 : 1400, taxMinor: 0 });
+          // itemName stays the real, physical base item; tier is a separate
+          // field that completePosSale's own postInvoice logic uses to pick
+          // the right tier sales/COGS account — see the comment above the
+          // opening-stock loop for why a resolved tier item name must never
+          // go here.
+          lines.push({ itemName: base, tier, quantity: 1, unitPriceMinor: tier === 'Small Glass' ? 800 : 1400, taxMinor: 0 });
         }
       }
       try {
@@ -671,7 +876,7 @@ async function main() {
   console.log('\n=== 5. Month-end stocktake ===');
   let stocktakeCount = 0;
   for (const location of [...warehouses, ...retailOutlets]) {
-    const takeId = createStockTake(location.name, today(28), 1);
+    const takeId = createStockTake(location.name, today(28), 1, BUSINESS);
     const take = (await import('../src/db.js')).getStockTake(takeId)!;
     for (const line of take.lines) {
       // Only products actually traded here have a defined unit cost; others get no variance.

@@ -62,6 +62,36 @@ export function loadDemoProducts(): DemoProduct[] {
   return readCsv(text).map((row) => ({ name: row.name, subcategory: row.subcategory }));
 }
 
+export interface DemoEmployee {
+  name: string;
+  role: string;
+  location: string;
+  city: string;
+  address: string;
+  phone: string;
+  wageMinorPerHour: number | null;
+  salaryMinorPerYear: number | null;
+  // The real location they work at day to day, or null for a
+  // genuinely company-wide role (office staff, both managers) that
+  // should be tied to the business itself rather than any one location.
+  employedAt: string | null;
+}
+
+export function loadDemoEmployees(): DemoEmployee[] {
+  const text = fs.readFileSync(path.join(here, 'employees.csv'), 'utf-8');
+  return readCsv(text).map((row) => ({
+    name: row.name,
+    role: row.role,
+    location: row.location,
+    city: row.city,
+    address: row.address,
+    phone: row.phone,
+    wageMinorPerHour: row.wageMinorPerHour ? Number(row.wageMinorPerHour) : null,
+    salaryMinorPerYear: row.salaryMinorPerYear ? Number(row.salaryMinorPerYear) : null,
+    employedAt: row.employedAt || null,
+  }));
+}
+
 export interface DemoStockLevel {
   itemName: string;
   locationName: string;
