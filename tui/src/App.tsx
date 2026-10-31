@@ -6,6 +6,8 @@ import { ChooseBusiness } from './screens/ChooseBusiness.js';
 import { Menu, type MenuScreenKey } from './screens/Menu.js';
 import { GeneralJournal } from './screens/GeneralJournal.js';
 import { BalanceSheet } from './screens/BalanceSheet.js';
+import { NewBusinessWizard } from './screens/NewBusinessWizard.js';
+import { OrgChart } from './screens/OrgChart.js';
 import { inkSoft } from './theme.js';
 
 type Screen =
@@ -13,7 +15,9 @@ type Screen =
   | { name: 'choose-business' }
   | { name: 'menu'; businessName: string; ledgerName: string }
   | { name: 'general-journal'; businessName: string; ledgerName: string }
-  | { name: 'balance-sheet'; businessName: string; ledgerName: string };
+  | { name: 'balance-sheet'; businessName: string; ledgerName: string }
+  | { name: 'new-business-wizard'; businessName: string; ledgerName: string }
+  | { name: 'org-chart'; businessName: string; ledgerName: string };
 
 function initialScreen(): Screen {
   const session = getSession();
@@ -35,7 +39,7 @@ export function App() {
   return (
     <Box flexDirection="column">
       <Text color={inkSoft} dimColor>
-        sql-ledger-ts — text user interface (test implementation: Login, Menu, General Journal, Balance Sheet)
+        sql-ledger-ts — text user interface (test implementation: Login, Menu, General Journal, Balance Sheet, New Business, Org Chart)
       </Text>
       {screen.name === 'login' && <Login onLoggedIn={() => setScreen({ name: 'choose-business' })} />}
       {screen.name === 'choose-business' && (
@@ -60,6 +64,15 @@ export function App() {
         <BalanceSheet
           businessName={screen.businessName}
           ledgerName={screen.ledgerName}
+          onBack={() => setScreen({ name: 'menu', businessName: screen.businessName, ledgerName: screen.ledgerName })}
+        />
+      )}
+      {screen.name === 'new-business-wizard' && (
+        <NewBusinessWizard onBack={() => setScreen({ name: 'menu', businessName: screen.businessName, ledgerName: screen.ledgerName })} />
+      )}
+      {screen.name === 'org-chart' && (
+        <OrgChart
+          businessName={screen.businessName}
           onBack={() => setScreen({ name: 'menu', businessName: screen.businessName, ledgerName: screen.ledgerName })}
         />
       )}

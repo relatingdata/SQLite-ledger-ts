@@ -150,3 +150,109 @@ export const getBalanceSheet = (business: BusinessName, ledger: LedgerName, asOf
   request<BalanceSheet>(
     `/reports/balance-sheet?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${asOfDate ? `&asOfDate=${asOfDate}` : ''}`
   );
+
+// --- New Business wizard ------------------------------------------
+// Mirrors frontend/src/routes/setup/new-business/+page.svelte's own
+// createBusiness/nominateBankAccount/buildBankCurrencyStructure calls
+// — same endpoints, same payload shapes (backend/src/routes/businesses.ts).
+
+export type EntityStructure = 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded';
+export type ReportingFrequency = 'annual' | 'biannual' | 'quarterly' | 'monthly';
+
+export interface CreateBusinessResult {
+  business: string;
+  actualLedger: string;
+  budgetLedger: string;
+  businessAdmin: { username: string; password: string };
+}
+export const createBusiness = (
+  businessName: string,
+  financialYearLabel: string,
+  coaPrototype?: string,
+  secondaryCurrencies?: string[],
+  entityStructure?: EntityStructure,
+  partnerNames?: string[],
+  financialYearStart?: string,
+  reportingFrequency?: ReportingFrequency
+) =>
+  request<CreateBusinessResult>('/businesses', {
+    method: 'POST',
+    body: JSON.stringify({
+      businessName,
+      financialYearLabel,
+      coaPrototype,
+      secondaryCurrencies,
+      entityStructure,
+      partnerNames,
+      financialYearStart,
+      reportingFrequency,
+    }),
+  });
+
+export const nominateBankAccount = (businessName: string, bankAccountName: string, routingDetail: string, accountNumber: string) =>
+  request<{ id: number }>(`/businesses/${encodeURIComponent(businessName)}/bank-accounts`, {
+    method: 'POST',
+    body: JSON.stringify({ bankAccountName, routingDetail, accountNumber }),
+  });
+
+export const buildBankCurrencyStructure = (
+  businessName: string,
+  headerName: string,
+  leafKind: 'asset' | 'equity',
+  selections: { bankAccountName: string; currency: string }[],
+  homeCurrency: string
+) =>
+  request<void>(`/businesses/${encodeURIComponent(businessName)}/bank-currency-structure`, {
+    method: 'POST',
+    body: JSON.stringify({ headerName, leafKind, selections, homeCurrency }),
+  });
+
+// --- Org Chart / Departments ----------------------------------------
+// Mirrors backend/src/routes/departments.ts — a Department is a real,
+// postable CoA cost-center (unlike Division, a pure reporting tag);
+// Employee↔Department and Employee↔Manager are two independent facts
+// set via setEntityLink, never clobbering the employee's existing
+// "Place of Employment" relationship. See the plan file this backend
+// work came from for the full design rationale.
+
+export const listDepartments = (business: string) =>
+  request<{ id: number; name: string }[]>(`/departments?business=${encodeURIComponent(business)}`);
+
+export const createDepartment = (business: string, name: string) =>
+  request<{ id: number; name: string }>('/departments', { method: 'POST', body: JSON.stringify({ business, name }) });
+
+export const deleteDepartment = (business: string, name: string) =>
+  request<void>(`/departments/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'DELETE' });
+
+export interface OrgChartEmployee {
+  name: string;
+  location: string | null;
+  managerName: string | null;
+}
+export interface OrgChartDepartment {
+  name: string;
+  employees: OrgChartEmployee[];
+}
+export interface OrgChartStructure {
+  business: string;
+  departments: OrgChartDepartment[];
+  unassignedEmployees: OrgChartEmployee[];
+}
+export const getOrgChartStructure = (business: string) =>
+  request<OrgChartStructure>(`/departments/org-chart?business=${encodeURIComponent(business)}`);
+
+export const setEmployeeDepartment = (employeeName: string, departmentName: string) =>
+  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/department`, {
+    method: 'PUT',
+    body: JSON.stringify({ departmentName }),
+  });
+export const deleteEmployeeDepartment = (employeeName: string) =>
+  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/department`, { method: 'DELETE' });
+
+export const setEmployeeManager = (employeeName: string, managerName: string) =>
+  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/manager`, {
+    method: 'PUT',
+    body: JSON.stringify({ managerName }),
+  });
+export const deleteEmployeeManager = (employeeName: string) =>
+  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/manager`, { method: 'DELETE' });

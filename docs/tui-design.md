@@ -31,7 +31,7 @@ re-deriving it:
 ## Scope: what v1 actually covers
 
 Per direct instruction, v1 is a real, working **test implementation** of
-four screens, not a full port of every route the web frontend has:
+six screens, not a full port of every route the web frontend has:
 
 1. **Login** — username/password, real `POST /auth/login`.
 2. **Business and ledger selection** — a real prerequisite the web app also
@@ -52,14 +52,33 @@ four screens, not a full port of every route the web frontend has:
 5. **Balance Sheet** — read-only, `GET /reports/balance-sheet`, rendered as
    three real sections (Assets / Liabilities / Equity) with their own real
    totals and the real `balanced` flag.
+6. **New Business wizard** — the real `POST /businesses` flow
+   (`createBusiness`), mirroring
+   `frontend/src/routes/setup/new-business/+page.svelte`'s own sequence:
+   business basics (name, financial year label/start date, reporting
+   frequency, CoA prototype, legal/entity structure with partners where
+   needed, home currency, optional secondary currencies) → the generated
+   admin credentials shown exactly once → the post-creation bank/currency
+   wizard (`nominateBankAccount`, then `buildBankCurrencyStructure`).
+7. **Org Chart** — the real Department/Employee data behind the Business
+   Structure popup's Org Chart step (`GET /departments/org-chart`,
+   `POST /departments`, `DELETE /departments/:name`,
+   `PUT`/`DELETE .../employees/:name/department` and `.../manager`). The web
+   app draws this as a typed-box diagram with connector lines
+   (`OrgChartNode.svelte`); a terminal can't usefully draw that, so this
+   screen keeps the same real data and operations as a drill-down list
+   instead — Departments plus an "Unassigned" bucket, each bucket's
+   Employees underneath, each Employee's own independent Department and
+   Manager assignments one level further in.
 
-Everything else the web frontend has (POS, Purchase Orders, Quotations, the
-Business Structure popup, every other report) is explicitly out of scope
-for this test implementation — the four screens above are chosen because
-together they already exercise every *kind* of screen this app has (a
-simple form, a navigable tree, a stage/post transactional flow, and a
-read-only report), so the same pattern extends to any further screen later
-without a new architectural decision.
+Everything else the web frontend has (POS, Purchase Orders, Quotations,
+every other report, and the Business Structure popup's Locations/
+Divisions/Item-Category steps) is explicitly out of scope for this test
+implementation — the screens above are chosen because together they
+already exercise every *kind* of screen this app has (a simple form, a
+navigable tree, a stage/post transactional flow, a read-only report, a
+multi-step wizard, and a drill-down CRUD screen), so the same pattern
+extends to any further screen later without a new architectural decision.
 
 ## Keyboard navigation model
 
@@ -141,6 +160,8 @@ tui/
       Menu.tsx
       GeneralJournal.tsx
       BalanceSheet.tsx
+      NewBusinessWizard.tsx
+      OrgChart.tsx          # Departments + Employees drill-down (the Business Structure popup's Org Chart step, as a list)
     components/
       Panel.tsx           # a bordered box using --rule/--rule-strong, a title bar in --brass
       MoneyText.tsx        # minor-units → "$1,234.56" / "$(100.00)" for negatives, matching StatementLine's own sign convention
@@ -168,8 +189,20 @@ column alignment rather than pulling in a table library for three columns.
   `request()` already does on the web (`ApiError` with the backend's own
   message) — a dropped connection mid-session shows the error and lets the
   person retry the action, nothing more sophisticated yet.
-- **Business Structure, POS, and every other screen** are out of scope for
-  this pass, per the stated v1 scope above — the architecture (typed API
-  port, Panel/MoneyText components, the Insert/Enter/Escape/Delete idiom)
-  is meant to make adding each of them later a repetition of an established
-  pattern, not a new design decision each time.
+- **POS, Purchase Orders, Quotations, and every other remaining screen**
+  (including the Business Structure popup's Locations/Divisions and Item
+  Category/Other Hierarchy steps) are out of scope for this pass, per the
+  stated v1 scope above — the architecture (typed API port, Panel/
+  MoneyText components, the Insert/Enter/Escape/Delete idiom) is meant to
+  make adding each of them later a repetition of an established pattern,
+  not a new design decision each time.
+- **The New Business wizard's optional business-type Q&A
+  (`saveBusinessTypeAnswers`) and the live CoA-prototype account preview**
+  are both real, optional extras on the web screen that this v1 port
+  skips — neither is required to create a working business, and both are
+  the next, real increment for that screen if ever picked up.
+- **The Org Chart screen assigns Department/Manager by typing an exact,
+  existing name**, not a live, filtered picker — the same, stated
+  simplification the General Journal's Account field already makes, for
+  the same reason (one picker pattern, proven once, reused everywhere
+  later rather than hand-built per screen now).

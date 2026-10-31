@@ -10,7 +10,7 @@ import { ApiError, getMenuTree, type MenuSectionRow } from '../api.js';
 import { Panel } from '../components/Panel.js';
 import { inkSoft } from '../theme.js';
 
-export type MenuScreenKey = 'general-journal' | 'balance-sheet';
+export type MenuScreenKey = 'general-journal' | 'balance-sheet' | 'new-business-wizard' | 'org-chart';
 
 // Which real menu-link hrefs this v1 test implementation actually
 // knows how to open — matched on href (backend/src/db-seed.ts's own,
@@ -24,6 +24,8 @@ export type MenuScreenKey = 'general-journal' | 'balance-sheet';
 const KNOWN_SCREENS: Record<string, MenuScreenKey> = {
   '/post': 'general-journal',
   '/reports/balance-sheet': 'balance-sheet',
+  '/setup/new-business': 'new-business-wizard',
+  '/setup/business-structure': 'org-chart',
 };
 
 export function Menu({ businessName, onOpenScreen }: { businessName: string; onOpenScreen: (screen: MenuScreenKey) => void }) {
