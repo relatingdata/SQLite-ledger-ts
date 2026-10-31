@@ -76,20 +76,29 @@ six screens, not a full port of every route the web frontend has:
    needed, home currency, optional secondary currencies) → the generated
    admin credentials shown exactly once → the post-creation bank/currency
    wizard (`nominateBankAccount`, then `buildBankCurrencyStructure`).
-7. **Org Chart** — the real Department/Employee data behind the Business
-   Structure popup's Org Chart step (`GET /departments/org-chart`,
-   `POST /departments`, `DELETE /departments/:name`,
-   `PUT`/`DELETE .../employees/:name/department` and `.../manager`). The web
-   app draws this as a typed-box diagram with connector lines
-   (`OrgChartNode.svelte`); a terminal can't usefully draw that, so this
-   screen keeps the same real data and operations as a drill-down list
-   instead — Departments plus an "Unassigned" bucket, each bucket's
-   Employees underneath, each Employee's own independent Department and
-   Manager assignments one level further in.
+7. **Org Chart** — the full real data behind the Business Structure
+   popup's unified Org Chart step: Locations, Divisions, Departments, and
+   Employees together (`GET /locations`, `POST`/`DELETE /locations/:name`,
+   `GET /hierarchy`, `POST /hierarchy/groupings`, `POST`/`DELETE
+   /hierarchy/values`, `POST`/`DELETE /hierarchy/parent`,
+   `GET /departments/org-chart`, `POST /departments`,
+   `DELETE /departments/:name`, `PUT`/`DELETE .../employees/:name/department`
+   and `.../manager`). The web app draws all four together as a typed-box
+   diagram with connector lines (`OrgChartNode.svelte`); a terminal can't
+   usefully draw that, so this screen keeps the same real data and
+   operations as a drill-down list instead — Divisions (plus an
+   "Unassigned (no division)" bucket) and Departments (plus an "Unassigned
+   (no department)" bucket) at the top, each Division bucket's Locations or
+   each Department bucket's Employees underneath. A Location is a real,
+   postable CoA account and deletes/moves (between Divisions) directly;
+   a Division is a pure Hierarchy reporting tag with no account of its own,
+   same distinction the web app's own code keeps; each Employee's own
+   independent Department and Manager assignments sit one level further in,
+   under the Department side.
 
 Everything else the web frontend has (POS, Purchase Orders, Quotations,
-every other report, and the Business Structure popup's Locations/
-Divisions/Item-Category steps) is explicitly out of scope for this test
+every other report, and the Business Structure popup's Item-Category/
+Other-Hierarchies steps) is explicitly out of scope for this test
 implementation — the screens above are chosen because together they
 already exercise every *kind* of screen this app has (a simple form, a
 navigable tree, a stage/post transactional flow, a read-only report, a
@@ -177,7 +186,7 @@ tui/
       GeneralJournal.tsx
       BalanceSheet.tsx
       NewBusinessWizard.tsx
-      OrgChart.tsx          # Departments + Employees drill-down (the Business Structure popup's Org Chart step, as a list)
+      OrgChart.tsx          # Locations/Divisions + Departments/Employees drill-down (the Business Structure popup's unified Org Chart step, as a list)
     components/
       Panel.tsx           # a bordered box using --rule/--rule-strong, a title bar in --brass
       MoneyText.tsx        # minor-units → "$1,234.56" / "$(100.00)" for negatives, matching StatementLine's own sign convention
@@ -230,8 +239,9 @@ the direct API path, starts a real backend, and runs this suite against
 it — logging in as the real seeded admin user and driving the real
 "Tutorial Wine Retail Business" through Login, Menu navigation, a real
 staged General Journal entry (posted), the Balance Sheet, a full New
-Business creation, and an Org Chart department creation, exactly the way
-a person would.
+Business creation, and Org Chart department/division/location creation
+(including moving the new Location into the new Division), exactly the
+way a person would.
 
 ## What this test implementation deliberately does not solve yet
 
@@ -246,12 +256,12 @@ a person would.
   message) — a dropped connection mid-session shows the error and lets the
   person retry the action, nothing more sophisticated yet.
 - **POS, Purchase Orders, Quotations, and every other remaining screen**
-  (including the Business Structure popup's Locations/Divisions and Item
-  Category/Other Hierarchy steps) are out of scope for this pass, per the
-  stated v1 scope above — the architecture (typed API port, Panel/
-  MoneyText components, the Insert/Enter/Escape/Delete idiom) is meant to
-  make adding each of them later a repetition of an established pattern,
-  not a new design decision each time.
+  (including the Business Structure popup's Item Category/Other Hierarchy
+  steps) are out of scope for this pass, per the stated v1 scope above —
+  the architecture (typed API port, Panel/MoneyText components, the
+  Insert/Enter/Escape/Delete idiom) is meant to make adding each of them
+  later a repetition of an established pattern, not a new design decision
+  each time.
 - **The New Business wizard's optional business-type Q&A
   (`saveBusinessTypeAnswers`) and the live CoA-prototype account preview**
   are both real, optional extras on the web screen that this v1 port
@@ -261,4 +271,8 @@ a person would.
   existing name**, not a live, filtered picker — the same, stated
   simplification the General Journal's Account field already makes, for
   the same reason (one picker pattern, proven once, reused everywhere
-  later rather than hand-built per screen now).
+  later rather than hand-built per screen now). Moving a Location between
+  Divisions, by contrast, already uses a real `SelectInput` picker over
+  the business's own, small, bounded Division list — the same difference
+  in list size (every employee vs. a handful of divisions) the web app's
+  own "Move…" controls reflect.

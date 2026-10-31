@@ -191,13 +191,83 @@ test('TUI smoke: login through every implemented screen', { timeout: 60_000 }, a
         await terminal.getByText('Org Chart — ').expect();
 
         const departmentName = `TUI Smoke Dept ${Date.now()}`;
-        await press(terminal, 'i'); // Insert — new department
+        await press(terminal, 'i'); // Insert — opens the add-menu (Location / Division / Department)
+        await terminal.getByText('— add').expect();
+        await pressRepeated(terminal, 'Down', 2); // Location -> Division -> Department
+        await press(terminal, 'Enter');
         await terminal.getByText('new department').expect();
         await typeAndEnter(terminal, departmentName);
         await terminal.getByText(`${departmentName} (0)`).expect({ timeout: 10_000 });
 
-        const text = await terminal.text();
+        let text = await terminal.text();
         assert.match(text, /Unassigned/, 'the real, server-computed Unassigned bucket should always be present');
+
+        // --- Add a Division -------------------------------------------
+        const divisionName = `TUI Smoke Div ${Date.now()}`;
+        await press(terminal, 'i');
+        await terminal.getByText('— add').expect();
+        await press(terminal, 'Down'); // Location -> Division
+        await press(terminal, 'Enter');
+        await terminal.getByText('new division').expect();
+        await typeAndEnter(terminal, divisionName);
+        await terminal.getByText(`${divisionName} (0)`).expect({ timeout: 10_000 });
+
+        // --- Add a Location, then move it into that Division -----------
+        const locationName = `TUI Smoke Loc ${Date.now()}`;
+        await press(terminal, 'i');
+        await terminal.getByText('— add').expect();
+        await press(terminal, 'Enter'); // Location is the first item
+        await terminal.getByText('new location').expect();
+        await typeAndEnter(terminal, locationName); // name
+        await terminal.getByText('— city').expect();
+        await typeAndEnter(terminal, 'Adelaide'); // city
+        await terminal.getByText('— type').expect();
+        await press(terminal, 'Enter'); // accept the default type
+        await terminal.getByText('bottle capacity').expect();
+        await press(terminal, 'Enter'); // skip — optional
+        await terminal.getByText('carton capacity').expect();
+        await press(terminal, 'Enter'); // skip — creates the location
+        await terminal.getByText('Unassigned (no division)').expect({ timeout: 10_000 });
+
+        // The new Location starts out in "Unassigned (no division)" — always
+        // the last Division bucket, right before the Departments section.
+        // Every bucket line (Division or Department) ends in "(<count>)",
+        // in the same top-to-bottom order the real, flat bucket-selection
+        // array uses, so this line's position IS its real bucket index.
+        text = await terminal.text();
+        // The panel's box-drawing border leaves a trailing "│" and padding
+        // after the real "(<count>)" text, so this matches by substring
+        // rather than anchoring to end-of-line.
+        const bucketLines = text.split('\n').filter((l) => /\(\d+\)/.test(l));
+        const unassignedDivIndex = bucketLines.findIndex((l) => l.includes('Unassigned (no division)'));
+        assert.notEqual(unassignedDivIndex, -1, 'Unassigned (no division) bucket should be present');
+        await pressRepeated(terminal, 'Down', unassignedDivIndex);
+        await press(terminal, 'Enter');
+        await terminal.getByText(locationName).expect();
+        await press(terminal, 'Enter'); // open the division-move picker for the (only, highlighted) location
+        await terminal.getByText(divisionName).expect();
+        // The move-picker's own item order is "Unassigned (no division)"
+        // first, then every real division (sorted) — same real list this
+        // business's own Division grouping returns, which may already hold
+        // other, pre-existing divisions (e.g. a real tutorial business's
+        // own "Adelaide Metro"). Compute the real distance by text position
+        // rather than assuming our new division is the very next item.
+        text = await terminal.text();
+        {
+          const pickerLines = text.split('\n').map((l) => l.trim());
+          const unassignedLine = pickerLines.findIndex((l) => l.includes('Unassigned (no division)'));
+          const targetLine = pickerLines.findIndex((l, i) => i > unassignedLine && l.includes(divisionName));
+          assert.notEqual(targetLine, -1, 'the new division should appear in the move-picker list');
+          await pressRepeated(terminal, 'Down', targetLine - unassignedLine);
+        }
+        await press(terminal, 'Enter');
+        // Lands back on this same "Unassigned (no division)" bucket's own
+        // locations list, now missing the one just moved out.
+        await terminal.getByText('No locations in this bucket.').expect({ timeout: 10_000 });
+        await press(terminal, 'Escape');
+        await terminal.getByText('Org Chart — ').expect(); // back on the Org Chart buckets screen
+        text = await terminal.text();
+        assert.match(text, new RegExp(`${divisionName} \\(1\\)`), 'the location should now be counted under its new division');
       }
     );
   } finally {

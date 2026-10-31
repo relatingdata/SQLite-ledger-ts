@@ -256,3 +256,63 @@ export const setEmployeeManager = (employeeName: string, managerName: string) =>
   });
 export const deleteEmployeeManager = (employeeName: string) =>
   request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/manager`, { method: 'DELETE' });
+
+// --- Locations ---------------------------------------------------------
+// Mirrors frontend/src/lib/api.ts's own Locations section
+// (backend/src/routes/locations.ts) — same endpoints, same payload
+// shapes. Unlike Department, a Location is matched to its own,
+// separate same-named CoA account node by name, not the entity itself.
+
+export interface LocationInput {
+  city: string;
+  location_type: string;
+  is_billing_address: boolean;
+  bottle_capacity?: number | null;
+  carton_capacity?: number | null;
+  timezone: string; // IANA identifier, required
+}
+export interface LocationRecord extends LocationInput {
+  name: string;
+}
+
+export const listLocations = (business: BusinessName) => request<LocationRecord[]>(`/locations?business=${encodeURIComponent(business)}`);
+
+export const getLocationTypes = () => request<string[]>('/locations/types');
+
+export const createLocation = (name: string, business: string, input: LocationInput) =>
+  request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'POST', body: JSON.stringify(input) });
+
+// Name-based, since listLocations's own LocationRecord carries no entity
+// id — revokeEntity's own guards (capacity account, inventory,
+// journal_line postings, a Division tag) do the real safety work.
+export const deleteLocation = (name: string, business: string) =>
+  request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'DELETE' });
+
+// --- Hierarchy / Division ------------------------------------------------
+// Mirrors frontend/src/lib/api.ts's own Hierarchy section
+// (backend/src/routes/hierarchy.ts) — generic primitives; Division is
+// just a Hierarchy literally named "Division", a pure reporting tag
+// with no account of its own (unlike Location/Department).
+
+export interface HierarchyGroupingWithValues {
+  grouping: string;
+  values: string[];
+}
+export const getHierarchy = (business: string) => request<HierarchyGroupingWithValues[]>(`/hierarchy?business=${encodeURIComponent(business)}`);
+
+export const createHierarchyGrouping = (business: string, groupingName: string) =>
+  request<{ name: string }>('/hierarchy/groupings', { method: 'POST', body: JSON.stringify({ business, groupingName }) });
+export const createHierarchyValue = (business: string, groupingName: string, valueName: string, parentValueName?: string | null) =>
+  request<{ name: string }>('/hierarchy/values', { method: 'POST', body: JSON.stringify({ business, groupingName, valueName, parentValueName }) });
+
+export const deleteHierarchyGrouping = (business: string, groupingName: string) =>
+  request<void>(`/hierarchy/groupings?business=${encodeURIComponent(business)}&groupingName=${encodeURIComponent(groupingName)}`, { method: 'DELETE' });
+export const deleteHierarchyValue = (business: string, groupingName: string, valueName: string) =>
+  request<void>(`/hierarchy/values?business=${encodeURIComponent(business)}&groupingName=${encodeURIComponent(groupingName)}&valueName=${encodeURIComponent(valueName)}`, { method: 'DELETE' });
+
+export const setHierarchyTag = (entityName: string, hierarchyName: string, parentName: string) =>
+  request<{ entityName: string; hierarchyName: string; parentName: string }>('/hierarchy/parent', { method: 'POST', body: JSON.stringify({ entityName, hierarchyName, parentName }) });
+export const getHierarchyTag = (entityName: string, hierarchyName: string) =>
+  request<{ parentName: string | null }>(`/hierarchy/parent?entityName=${encodeURIComponent(entityName)}&hierarchyName=${encodeURIComponent(hierarchyName)}`);
+export const deleteHierarchyTag = (entityName: string, hierarchyName: string) =>
+  request<void>(`/hierarchy/parent?entityName=${encodeURIComponent(entityName)}&hierarchyName=${encodeURIComponent(hierarchyName)}`, { method: 'DELETE' });
