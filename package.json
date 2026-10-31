@@ -5,6 +5,7 @@
   "workspaces": [
     "backend",
     "frontend",
-    "e2e"
+    "e2e",
+    "tui"
   ]
 }
