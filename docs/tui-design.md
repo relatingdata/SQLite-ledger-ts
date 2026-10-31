@@ -386,6 +386,73 @@ cash tendered, a real change-due amount) and an on-account sale to
 `'Riverside Restaurant'` (no change due) — exactly the way a person
 would.
 
+## `--path text` — the shared tutorial fixture, now also driving the TUI
+
+`tui/test/smoke.test.ts` is a separate, hand-written script with its
+own hardcoded values — it never touches the shared
+`shared-fixtures/tutorial-steps.csv`/`screens.csv` fixture that drives
+`--path api` and `--path ui` in `backend/scripts/step-runner.ts`. A
+third path, `--path text`, now exists there too: it drives a real,
+separately-running `tui/src/cli.tsx` process via `@microsoft/tui-test`
+(never importing `tui/src` TypeScript directly, the same rule
+`--path ui` follows for the browser), through a `TEXT_DRIVER_REGISTRY`
+of per-screen keystroke drivers. The keystroke helpers
+(`press`/`pressRepeated`/`typeAndEnter`/`selectItemByText`/
+`navigateToScreen`) now live in one shared module,
+`backend/scripts/text-driver-helpers.ts`, imported by both this file
+and `step-runner.ts` — not duplicated.
+
+**Today, only `Login` has a real driver**, proven live both ways (see
+`make test-e2e-tutorial-text`): it fails loudly within 10s when no
+backend is running behind the TUI, and passes against a real one. The
+other 14 built screens don't have drivers yet — partly because
+`screens.csv`'s own `screen_name`s were written against the web
+frontend's screen boundaries, which don't always match the TUI's own
+(see "`--path text` — driving the real TUI" and "Known gap: TUI
+screen granularity doesn't match `screens.csv`" in
+`docs/pm-testing-e2e.md` for the specific, confirmed examples: Purchase
+Order, General Journal, and Select Business). Writing the remaining
+drivers is real, straightforward follow-up work, screen by screen —
+not a generic mechanism that can be applied to all of them at once.
+
+## Entity-tree inspection: `backend/scripts/inspect-entities.ts`
+
+No general-purpose way to search, filter, or dump a subtree of the
+live entity tree existed anywhere in this codebase before this —
+every existing caller of `db.getEntityTree()` (`step-runner.ts`'s own
+`VERIFY_REGISTRY`, the web frontend's read-only `/setup/tree` screen
+and its heavier `/editor` Structured Editor) either does a one-off,
+hardcoded `.find()`/`.some()` lookup, or renders the whole, unfiltered
+tree. `inspect-entities.ts` is a small, read-only CLI over the real
+`getEntityTree()`/`getEntityLinksPointingAt()` primitives
+(`backend/src/db.ts`):
+
+```
+tsx scripts/inspect-entities.ts tree [--business NAME] [--root NAME] [--depth N]
+tsx scripts/inspect-entities.ts search <substring> [--business NAME]
+tsx scripts/inspect-entities.ts show <exact-name>
+```
+
+`show` prints an entity's parent chain, its direct children, and any
+`"<entity> — <linkType>"` records pointing at it via
+`setEntityLink` (the Department/Manager tags, the generic
+`Customers — Hierarchy: Header Account` record Customers.tsx's own
+filter has to exclude) — exactly the kind of "where did this entity
+really end up, and what points at it" question that came up
+repeatedly while building the Customers and AR Sale TUI screens.
+Proven live against the real, seeded Tutorial Wine Retail Business
+(`Riverside Restaurant`'s real parent chain under `Customers`, its own
+`Contact Type: Customer` child).
+
+No TUI screen or web-frontend addition was built for this — the
+web frontend's `/setup/tree` screen is the natural place to add a
+name-substring filter later (it already renders the whole tree; a
+filter is additive there), and no TUI entry point exists for either
+web tree screen today (`Menu.tsx`/`App.tsx` have no case for one) — a
+TUI "Entity Tree" screen is lowest priority of the three, worth
+building only once there's a concrete TUI-side debugging need for it
+the CLI script above doesn't already cover.
+
 ## What this test implementation deliberately does not solve yet
 
 - **Account entry on a Journal line is a free-text field**, not a live,

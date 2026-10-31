@@ -31,72 +31,16 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TuiTest } from '@microsoft/tui-test';
 import { withTerminal } from '@microsoft/tui-test/test';
 import { test } from './test-runtime.ts';
+// press/pressRepeated/typeAndEnter/selectItemByText used to be defined
+// right here — now shared with step-runner.ts's own `--path text` mode
+// via backend/scripts/text-driver-helpers.ts, so there's one real
+// implementation of the settle-delay/paste-detection workarounds below,
+// not two copies that can drift. See docs/tui-design.md.
+import { press, pressRepeated, typeAndEnter, selectItemByText } from '../../backend/scripts/text-driver-helpers.ts';
 
 const TUI_DIR = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// `terminal.submit()`/`.type()` write the whole string as one chunk,
-// which trips Ink's own paste-detection heuristic (any multi-character
-// chunk arriving in a single `data` event is treated as a paste, not
-// discrete keystrokes — the same, real behavior the Python pty driver
-// used during development had to work around the same way). A single
-// `keyboard.press(...chars)` call for the whole string turned out to
-// have the same problem — confirmed live, it occasionally drops or
-// duplicates a character (e.g. "admin" arriving as "adminm") — because
-// nothing paces the keys it sends, and several can still land in one
-// read on the pty side. A real, explicit delay between each discrete
-// key press, confirmed live to fix it, is what actually avoids this —
-// the same fix the Python pty driver needed for the same, real reason.
-async function typeAndEnter(terminal: TuiTest, text: string): Promise<void> {
-  for (const ch of text) {
-    await terminal.keyboard.press(ch);
-    await sleep(30);
-  }
-  await sleep(30);
-  await press(terminal, 'Enter');
-}
-
-// Same reasoning as typeAndEnter above — a repeated arrow key is just
-// as capable of landing two presses in the same native-side read as a
-// run of character keys, silently selecting the wrong list item.
-async function pressRepeated(terminal: TuiTest, key: string, times: number): Promise<void> {
-  for (let i = 0; i < times; i++) {
-    await terminal.keyboard.press(key);
-    await sleep(30);
-  }
-}
-
-// A single key right after a screen transition turned out to be just
-// as flaky, confirmed live across repeated runs (a Down+Enter pair
-// fired the instant a list's text first appears can still occasionally
-// race the SelectInput component actually attaching its own input
-// listener) — so every key press in this file goes through this one,
-// settled wrapper rather than the raw client call.
-async function press(terminal: TuiTest, key: string): Promise<void> {
-  await terminal.keyboard.press(key);
-  await sleep(100);
-}
-
-// Moves the highlight ('› ') down, one settled press at a time, until it
-// lands on a line containing `labelSubstring` — robust against a list
-// whose exact contents/order this test doesn't fully control (a real
-// business's own, real, pre-existing data alongside whatever this run
-// just created), without parsing the panel's own box-drawing border
-// characters to compute an index by hand.
-async function selectItemByText(terminal: TuiTest, labelSubstring: string, maxSteps = 30): Promise<void> {
-  for (let i = 0; i < maxSteps; i++) {
-    const lines = (await terminal.text()).split('\n');
-    if (lines.some((l) => l.includes('›') && l.includes(labelSubstring))) return;
-    await press(terminal, 'Down');
-  }
-  throw new Error(`selectItemByText: never found a highlighted line containing "${labelSubstring}" within ${maxSteps} Down presses`);
-}
 
 test('TUI smoke: login through every implemented screen', { timeout: 60_000 }, async () => {
   const home = mkdtempSync(path.join(tmpdir(), 'sql-ledger-ts-tui-test-'));

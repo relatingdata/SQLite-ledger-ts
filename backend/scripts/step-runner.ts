@@ -6,11 +6,13 @@ import { createInterface } from 'readline';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { chromium, type Browser, type Page } from 'playwright';
+import { TuiTest } from '@microsoft/tui-test';
 import * as db from '../src/db.js';
 import { getBalanceSheet } from '../src/db-reports.js';
 import { getProfitAndLossByAxis } from '../src/db-matrix-reports.js';
 import * as auth from '../src/auth.js';
 import { unescapeAscii } from '../../shared-fixtures/csv.js';
+import { press, typeAndEnter } from './text-driver-helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -852,6 +854,67 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
   }
 }
 
+/** The real, per-screen keystroke driver registry for `--path text` —
+ * the same, real role API_REGISTRY plays for `--path api` and
+ * field_selector/open_selector/submit_selector play for `--path ui`,
+ * but TUI screens are step machines (SelectInput pickers, line-item
+ * Insert/Delete/Save sub-loops, blank-means-default conventions), not
+ * flat, column-driven forms — so each entry here is real, hand-written
+ * code, not a generic selector template. Keyed by the exact, real
+ * screen_name a row in screens.csv/tutorial-steps.csv names — see
+ * docs/pm-testing-e2e.md and docs/tui-design.md.
+ *
+ * Deliberately small today: only the screens actually proven live (see
+ * tutorial-steps.control.csv's own `text` column) have a real entry
+ * here. Every other screen_name fails loudly via runStepViaText below,
+ * the same, real way runStepViaUi already fails loudly for a
+ * screen.csv row with no real UI wiring at all — never a silent no-op.
+ */
+export const TEXT_DRIVER_REGISTRY: Record<string, (terminal: TuiTest, args: Record<string, string>) => Promise<void>> = {
+  // tui/src/screens/Login.tsx — the one, real screen every `--path text`
+  // run starts from; a fresh TuiTest session always opens here first.
+  // Waits for the real "Choose a business" screen afterward rather than
+  // just returning once the keys are sent - a real, confirmed gap
+  // found live: without this wait, the step reported success even with
+  // no backend running at all behind it (the login POST simply never
+  // resolved, and nothing here was checking for that) - the exact kind
+  // of silent false-positive runStepViaUi's own design already refuses
+  // to allow.
+  Login: async (terminal, args) => {
+    await terminal.getByText('Log in').expect();
+    await typeAndEnter(terminal, args.username);
+    await typeAndEnter(terminal, args.password);
+    await terminal.getByText('Choose a business').expect({ timeout: 10_000 });
+  },
+};
+
+/** Drives one real, already-open TUI session via @microsoft/tui-test —
+ * the same, real role runStepViaUi plays for a real, driven browser,
+ * never importing tui/src TypeScript directly (see docs/tui-design.md,
+ * "--path text"). */
+export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map<string, Screen>): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const screen = screens.get(step.screen_name);
+    const args = buildArgs(step, screen);
+    const driver = TEXT_DRIVER_REGISTRY[step.screen_name];
+    if (!driver) {
+      return {
+        ok: false,
+        error: `No real TEXT_DRIVER_REGISTRY entry for screen "${step.screen_name}" - this screen's TUI driver has never actually been implemented/proven. See tutorial-steps.control.csv's "text" column and docs/tui-design.md.`,
+      };
+    }
+    await driver(terminal, args);
+    if (step.verify) {
+      const verifyFn = VERIFY_REGISTRY[step.verify];
+      if (!verifyFn) return { ok: false, error: `No real verify registry entry for "${step.verify}".` };
+      if (!verifyFn(args)) return { ok: false, error: `Verify "${step.verify}" returned false.` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 async function prompt(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => rl.question(question, (answer) => { rl.close(); resolve(answer); }));
@@ -861,7 +924,7 @@ async function main() {
   const args = process.argv.slice(2);
   const dataPath = args[0];
   if (!dataPath) {
-    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api] [--verify-via-recording] [--timing-file FILE]');
+    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui|text] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api] [--verify-via-recording] [--timing-file FILE]');
     process.exit(1);
   }
   const screensPath = args.includes('--screens') ? args[args.indexOf('--screens') + 1] : dataPath.replace(/[^/]+$/, 'screens.csv');
@@ -932,6 +995,28 @@ async function main() {
   }
   if (path === 'ui') await ensureUiPage();
 
+  // A persistent TuiTest session, parallel to how `ui` reuses one
+  // Playwright `page` across steps — one real, long-lived TUI process,
+  // driven step by step, rather than a fresh process per row. Runs the
+  // real tui/src/cli.tsx (npx tsx), never importing its TypeScript
+  // source directly - the exact, same "drive a real, separately-
+  // running process" rule `ui` already follows for the browser
+  // frontend. See docs/tui-design.md - "--path text".
+  let textTerminal: TuiTest | undefined;
+  async function ensureTextTerminal(): Promise<TuiTest> {
+    if (!textTerminal) {
+      textTerminal = TuiTest.ephemeral('step-runner-text');
+      await textTerminal.run('npx', ['tsx', 'src/cli.tsx'], {
+        cwd: join(__dirname, '../../tui'),
+        cols: 100,
+        rows: 40,
+        timeouts: { text: 10_000 } as any,
+      });
+    }
+    return textTerminal;
+  }
+  if (path === 'text') await ensureTextTerminal();
+
   // --verify-via-recording state — see docs/pm-testing-e2e.md "The Admin recording feature".
   let recordingStarted = false;
   let recordingUsername: string | undefined;
@@ -949,7 +1034,11 @@ async function main() {
       const stepPath = step.path || path;
       if (step.comment) console.log(`\n# ${step.comment}`);
       const stepStart = Date.now();
-      let result = stepPath === 'ui' ? await runStepViaUi(await ensureUiPage(), step, screens, screenshotDir) : runStepViaApi(step, screens);
+      let result = stepPath === 'ui'
+        ? await runStepViaUi(await ensureUiPage(), step, screens, screenshotDir)
+        : stepPath === 'text'
+          ? await runStepViaText(await ensureTextTerminal(), step, screens)
+          : runStepViaApi(step, screens);
       const stepMs = Date.now() - stepStart;
       recordTiming(step.index, step.screen_name, stepPath, stepMs, result.ok, result.ok ? undefined : result.error);
       const uiSucceededDirectly = stepPath === 'ui' && result.ok;
@@ -1030,6 +1119,7 @@ async function main() {
     }
   }
   if (browser) await browser.close();
+  if (textTerminal) await textTerminal.close();
   if (timingFile) {
     const rows = readFileSync(timingFile, 'utf-8').trim().split('\n').slice(1)
       .map((line) => {

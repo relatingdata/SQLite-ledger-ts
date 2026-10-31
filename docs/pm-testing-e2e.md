@@ -17,11 +17,14 @@ data — everything goes through the step runner.
 
 An ordered sequence of steps, held in one plain, human-readable CSV
 file, extending the established `shared-fixtures/*.csv` convention.
-Each step is dual-path from the start: it can run either as a direct
-backend function call (`--path api`, fast, no browser) or as a driven
-Playwright browser action (`--path ui`, proving the UI works,
-producing screenshots) — the same step either way, so the two paths
-can never silently drift apart.
+Each step can run three ways: a direct backend function call
+(`--path api`, fast, no browser), a driven Playwright browser action
+(`--path ui`, proving the web UI works, producing screenshots), or a
+driven `@microsoft/tui-test` terminal action (`--path text`, proving
+the TUI — `tui/` — works) — the same step either way, so the paths
+can never silently drift apart. See "`--path text` — driving the real
+TUI" below for how new this third path is today: one screen proven,
+most not yet wired.
 
 **The core separation (Page Object Model + data-driven tests)**: how
 to drive a screen is defined once, per screen, in a registry — never
@@ -79,6 +82,18 @@ overrides the command line's `--path` flag for that row; `skip`
 (`true`/`false`) skips any specific row, not only a contiguous prefix
 (which the CLI's `--skip N` still covers).
 
+**A real, current limitation, found wiring up `--path text`**: `skip`
+is one, path-agnostic boolean — there is no way for a row to say
+"skip under `--path text` only," without also skipping it for the
+already-working `api`/`ui` paths. Since almost every row has no real
+`TEXT_DRIVER_REGISTRY` entry yet (see below), `tutorial-steps.csv`'s
+own control file is deliberately left untouched rather than risk
+breaking `test-e2e-tutorial`/`test-e2e-tutorial-browser` — a full
+`--path text` run over the whole fixture isn't attempted yet; only
+`--only 1` (`make test-e2e-tutorial-text`) is. A real per-path skip
+column (or a `skip_text`/`skip_ui`/`skip_api` triple) would be needed
+before more screens' drivers are worth adding here.
+
 ### The CLI
 
 ```
@@ -86,7 +101,7 @@ step-runner <data.csv> [--screens screens.csv] [options]
 
   --lint                      check the data file's integrity, run nothing
   --pretty                    print every step, formatted, run nothing
-  --path api|ui               which path executes each step (default: api)
+  --path api|ui|text          which path executes each step (default: api)
   --steps N                   how many steps to show/run at once (default: 1)
   --only N                    run/show only the Nth step (1-indexed)
   --skip N                    skip the first N steps, then proceed
@@ -235,6 +250,89 @@ success. A UI path that silently does nothing is a worse failure mode than
 an honest error, since `--fallback-to-api` and plain runs need the truth
 to react to.
 
+### `--path text` — driving the real TUI
+
+A third path, parallel to `--path ui`: `runStepViaText`
+(`backend/scripts/step-runner.ts`) drives a real, separately-running
+`tui/src/cli.tsx` process via `@microsoft/tui-test`'s `TuiTest` client
+— never importing `tui/src` TypeScript directly, the same "drive the
+real process" rule `--path ui` already follows for the browser. One
+persistent `TuiTest` session is opened lazily (`ensureTextTerminal`,
+mirroring `ensureUiPage`) and reused across every step in a run, since
+the TUI is a single, long-lived, stateful terminal process, not a
+per-request HTTP call.
+
+Unlike `field_selector`-driven web forms, a TUI screen is a step
+machine (`SelectInput` pickers, line-item Insert/Delete/Save
+sub-loops, blank-means-default conventions) — there is no generic,
+column-based way to drive one. `TEXT_DRIVER_REGISTRY`
+(`backend/scripts/step-runner.ts`) is instead one real, hand-written
+driver function per `screen_name`, each consuming the exact same
+`buildArgs()` output every other path already uses. The shared
+keystroke helpers (`press`/`pressRepeated`/`typeAndEnter`/
+`selectItemByText`/`navigateToScreen`,
+`backend/scripts/text-driver-helpers.ts`) were extracted out of
+`tui/test/smoke.test.ts`, which now imports this same module rather
+than keeping its own, separate copy.
+
+`runStepViaText` fails loudly — the same, real design `runStepViaUi`
+already uses — when a screen has no registered driver, rather than
+silently reporting success: `No real TEXT_DRIVER_REGISTRY entry for
+screen "X"...`.
+
+**Honest, current status**: only `Login` has a real, proven driver
+today (confirmed live, against a real backend and a real `tui/src/cli.tsx`
+process — see `make test-e2e-tutorial-text`). A live check during this
+work also found a real bug class worth naming directly: a driver that
+only sends keystrokes and returns, without waiting for the screen the
+keystrokes should produce, reports success even with no backend
+running at all behind it — `Login`'s own driver now waits for the real
+"Choose a business" text afterward specifically because of this,
+confirmed live both ways (fails loudly inside 10s with no backend;
+passes against a real one). Every further screen needs its own driver
+written and proven the same, live way before it gets a real entry
+here — see "Known gap: TUI screen granularity doesn't match
+`screens.csv`" below for why most of the 15 built TUI screens can't
+just reuse their own `screens.csv` row directly.
+
+### Known gap: TUI screen granularity doesn't match `screens.csv`
+
+`screens.csv`'s own `screen_name`s were written against the web
+frontend's own screen boundaries, which don't always match the TUI's.
+Two concrete, confirmed examples, found while scoping `--path text`:
+
+- **Purchase Order**: `screens.csv`'s `"Create Purchase Order"` row
+  calls `createPurchaseOrderInCartons` (one combined, carton-based
+  create) against the web's `/stock/po` screen — but the TUI's own
+  `PurchaseOrder.tsx` screen stages then posts in two separate backend
+  calls (`stagePurchaseOrderSimple`/`postPurchaseOrderSimple`,
+  matching `screens.csv`'s *separate* `"Stage Purchase Order"`/
+  `"Post Purchase Order"` rows instead, which have no UI wiring of
+  their own at all). A text driver for the TUI's Purchase Order screen
+  needs the stage/post rows' own values, not the "Create Purchase
+  Order" row's.
+- **General Journal**: `"Stage Journal Line"` (one row per line) and
+  `"Post Journal Entry"` (one final row) already match the TUI's own
+  General Journal screen's real shape (type a reference once, Insert
+  N lines, then Post) — but a single, stateless
+  `(terminal, args) => Promise<void>` driver function can't tell, on
+  its own, whether a given `"Stage Journal Line"` row is the first
+  line of a brand-new entry (navigate to the screen, type the
+  reference, then Insert) or a later line of one already open
+  (just Insert again) without either reading the terminal's own
+  current screen to decide, or threading extra state between calls
+  that the other two paths don't need. Neither has been built or
+  proven yet.
+- **`Select Business`**: its one real field is `businessName`; the
+  TUI's own `ChooseBusiness` screen picks a business *and* a ledger
+  together in one screen (`App.tsx`'s `onChosen(businessName,
+  ledgerName)`). No `screens.csv` row carries a ledger value for this
+  screen at all.
+
+None of this blocks `Login` (already proven), but each further driver
+needs its own, specific design decision made and proven live, not a
+generic template applied blindly across all 15 built screens.
+
 ### Structural verification, not golden figures — the ledger-isolation checks
 
 The Tutorial fixture's own `VERIFY_REGISTRY` (`backend/scripts/step-runner.ts`)
@@ -255,6 +353,19 @@ something checks it stays true. Two small in-memory maps
 (`recordedTrialBalanceTotals`, `recordedNetIncome`) hold the
 "before" figure within one run, for the "after" step to compare
 against — never persisted, never meant to be.
+
+### Ad hoc entity-tree diagnosis — `backend/scripts/inspect-entities.ts`
+
+`VERIFY_REGISTRY`'s own entity-tree checks (`business_exists`,
+`location_exists`, `entity_named_exists`, ...) are narrow, one-shot
+assertions baked into a fixture run — not a tool for exploring *why*
+a check failed. `inspect-entities.ts` is a separate, small, read-only
+CLI for exactly that: `tree`/`search`/`show` subcommands over the
+same, real `db.getEntityTree()`/`getEntityLinksPointingAt()`
+primitives, useful standalone against any seeded database (`tsx
+scripts/inspect-entities.ts show "Riverside Restaurant"`), not tied
+to a step-runner run at all. See `docs/tui-design.md`'s "Entity-tree
+inspection" section for the full rationale and usage.
 
 ### `API_REGISTRY` — notable, non-obvious mappings
 
@@ -308,6 +419,11 @@ the API path, rather than calling a backend function 1:1:
   state, but the function can't currently tell the difference itself.
 - The web interface (`/dev/step-runner`) and full UI wiring for every
   screen type remain future work.
+- `--path text` exists and is proven for exactly one screen (`Login`)
+  — see "`--path text` — driving the real TUI" above. The other 14
+  built TUI screens need their own drivers written and proven, and a
+  real per-path `skip` mechanism is needed before a full-fixture
+  `--path text` run is attempted.
 - The mixed-mode control file example (switching `--path` mid-run) is
   not yet proven end to end — the API and UI paths do not currently
   share browser session state, so a run that starts `api` and
