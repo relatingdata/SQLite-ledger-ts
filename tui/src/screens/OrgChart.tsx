@@ -433,7 +433,7 @@ export function OrgChart({ businessName, onBack }: { businessName: string; onBac
         {error && <Text color="red">{error}</Text>}
         {busy && <Text color={inkSoft}>Working…</Text>}
         <Text color={inkSoft} dimColor>
-          ↑/↓ highlight · Enter open a bucket · I add Location/Division/Department · D delete highlighted (not Unassigned) · Escape back to menu
+          ↑/↓ highlight · Enter open a bucket · I add Location/Division/Department · D delete highlighted (not Unassigned) · ←/→ Item Categories / Other Hierarchies · Escape back to menu
         </Text>
       </Panel>
     );

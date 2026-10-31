@@ -7,7 +7,7 @@ import { Menu, type MenuScreenKey } from './screens/Menu.js';
 import { GeneralJournal } from './screens/GeneralJournal.js';
 import { BalanceSheet } from './screens/BalanceSheet.js';
 import { NewBusinessWizard } from './screens/NewBusinessWizard.js';
-import { OrgChart } from './screens/OrgChart.js';
+import { BusinessStructure } from './screens/BusinessStructure.js';
 import { inkSoft } from './theme.js';
 
 type Screen =
@@ -17,7 +17,7 @@ type Screen =
   | { name: 'general-journal'; businessName: string; ledgerName: string }
   | { name: 'balance-sheet'; businessName: string; ledgerName: string }
   | { name: 'new-business-wizard'; businessName: string; ledgerName: string }
-  | { name: 'org-chart'; businessName: string; ledgerName: string };
+  | { name: 'business-structure'; businessName: string; ledgerName: string };
 
 function initialScreen(): Screen {
   const session = getSession();
@@ -39,7 +39,7 @@ export function App() {
   return (
     <Box flexDirection="column">
       <Text color={inkSoft} dimColor>
-        sql-ledger-ts — text user interface (test implementation: Login, Menu, General Journal, Balance Sheet, New Business, Org Chart)
+        sql-ledger-ts — text user interface (test implementation: Login, Menu, General Journal, Balance Sheet, New Business, Business Structure)
       </Text>
       {screen.name === 'login' && <Login onLoggedIn={() => setScreen({ name: 'choose-business' })} />}
       {screen.name === 'choose-business' && (
@@ -70,8 +70,8 @@ export function App() {
       {screen.name === 'new-business-wizard' && (
         <NewBusinessWizard onBack={() => setScreen({ name: 'menu', businessName: screen.businessName, ledgerName: screen.ledgerName })} />
       )}
-      {screen.name === 'org-chart' && (
-        <OrgChart
+      {screen.name === 'business-structure' && (
+        <BusinessStructure
           businessName={screen.businessName}
           onBack={() => setScreen({ name: 'menu', businessName: screen.businessName, ledgerName: screen.ledgerName })}
         />

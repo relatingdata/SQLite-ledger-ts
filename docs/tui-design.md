@@ -47,7 +47,8 @@ frontend via Playwright.
 ## Scope: what v1 actually covers
 
 Per direct instruction, v1 is a real, working **test implementation** of
-six screens, not a full port of every route the web frontend has:
+six screens (the seventh — Business Structure — has three real steps of
+its own), not a full port of every route the web frontend has:
 
 1. **Login** — username/password, real `POST /auth/login`.
 2. **Business and ledger selection** — a real prerequisite the web app also
@@ -76,29 +77,50 @@ six screens, not a full port of every route the web frontend has:
    needed, home currency, optional secondary currencies) → the generated
    admin credentials shown exactly once → the post-creation bank/currency
    wizard (`nominateBankAccount`, then `buildBankCurrencyStructure`).
-7. **Org Chart** — the full real data behind the Business Structure
-   popup's unified Org Chart step: Locations, Divisions, Departments, and
-   Employees together (`GET /locations`, `POST`/`DELETE /locations/:name`,
-   `GET /hierarchy`, `POST /hierarchy/groupings`, `POST`/`DELETE
-   /hierarchy/values`, `POST`/`DELETE /hierarchy/parent`,
-   `GET /departments/org-chart`, `POST /departments`,
-   `DELETE /departments/:name`, `PUT`/`DELETE .../employees/:name/department`
-   and `.../manager`). The web app draws all four together as a typed-box
-   diagram with connector lines (`OrgChartNode.svelte`); a terminal can't
-   usefully draw that, so this screen keeps the same real data and
-   operations as a drill-down list instead — Divisions (plus an
-   "Unassigned (no division)" bucket) and Departments (plus an "Unassigned
-   (no department)" bucket) at the top, each Division bucket's Locations or
-   each Department bucket's Employees underneath. A Location is a real,
-   postable CoA account and deletes/moves (between Divisions) directly;
-   a Division is a pure Hierarchy reporting tag with no account of its own,
-   same distinction the web app's own code keeps; each Employee's own
-   independent Department and Manager assignments sit one level further in,
-   under the Department side.
+7. **Business Structure** — `BusinessStructure.tsx`, a thin step-switcher
+   over the real three steps the web popup's own `STEPS` array has
+   (`BusinessStructurePopup.svelte`), ←/→ moving between them (every other
+   arrow key is already claimed by ↑/↓ list movement). Escape on a step's
+   own top-level view moves back one step, exactly like the web wizard's
+   "Back"; on the first step it leaves the screen entirely, back to the
+   menu.
+   - **7a. Org Chart** (`OrgChart.tsx`) — the full real data behind the
+     web step of the same name: Locations, Divisions, Departments, and
+     Employees together (`GET /locations`, `POST`/`DELETE
+     /locations/:name`, `GET /hierarchy`, `POST /hierarchy/groupings`,
+     `POST`/`DELETE /hierarchy/values`, `POST`/`DELETE
+     /hierarchy/parent`, `GET /departments/org-chart`,
+     `POST /departments`, `DELETE /departments/:name`, `PUT`/`DELETE
+     .../employees/:name/department` and `.../manager`). The web app
+     draws all four together as a typed-box diagram with connector lines
+     (`OrgChartNode.svelte`); a terminal can't usefully draw that, so
+     this screen keeps the same real data and operations as a drill-down
+     list instead — Divisions (plus an "Unassigned (no division)"
+     bucket) and Departments (plus an "Unassigned (no department)"
+     bucket) at the top, each Division bucket's Locations or each
+     Department bucket's Employees underneath. A Location is a real,
+     postable CoA account and deletes/moves (between Divisions)
+     directly; a Division is a pure Hierarchy reporting tag with no
+     account of its own, same distinction the web app's own code keeps;
+     each Employee's own independent Department and Manager assignments
+     sit one level further in, under the Department side.
+   - **7b. Item Categories** (`ItemCategories.tsx`) — the real, optional,
+     recursively-nestable Category Hierarchy (`GET /hierarchy`,
+     `GET /hierarchy/assignments`, `POST /hierarchy/groupings`,
+     `POST`/`DELETE /hierarchy/values`) the web renders as an indented
+     tree (`StructureTreeNode.svelte`); the TUI version is a drill-down
+     list instead — each level shows the categories directly under the
+     current one, Enter walks one level deeper, Escape climbs back out.
+     Moving a category to a different parent ("Move…" on the web) is not
+     yet built here — create/browse/delete are real, re-parenting isn't.
+   - **7c. Other Hierarchies** (`OtherHierarchies.tsx`) — any further
+     Hierarchy grouping besides Division/Category, each a flat (never
+     nested) list of values (`GET /hierarchy`, `POST
+     /hierarchy/groupings`, `POST`/`DELETE /hierarchy/values`,
+     `DELETE /hierarchy/groupings`). Most businesses never need this.
 
 Everything else the web frontend has (POS, Purchase Orders, Quotations,
-every other report, and the Business Structure popup's Item-Category/
-Other-Hierarchies steps) is explicitly out of scope for this test
+and every other report) is explicitly out of scope for this test
 implementation — the screens above are chosen because together they
 already exercise every *kind* of screen this app has (a simple form, a
 navigable tree, a stage/post transactional flow, a read-only report, a
@@ -186,7 +208,10 @@ tui/
       GeneralJournal.tsx
       BalanceSheet.tsx
       NewBusinessWizard.tsx
-      OrgChart.tsx          # Locations/Divisions + Departments/Employees drill-down (the Business Structure popup's unified Org Chart step, as a list)
+      BusinessStructure.tsx # ←/→ step-switcher over the three real steps below
+      OrgChart.tsx          # step 1: Locations/Divisions + Departments/Employees drill-down (the Business Structure popup's unified Org Chart step, as a list)
+      ItemCategories.tsx    # step 2: recursively-nestable Category Hierarchy, as a drill-down list
+      OtherHierarchies.tsx  # step 3: any further, flat Hierarchy grouping besides Division/Category
     components/
       Panel.tsx           # a bordered box using --rule/--rule-strong, a title bar in --brass
       MoneyText.tsx        # minor-units → "$1,234.56" / "$(100.00)" for negatives, matching StatementLine's own sign convention
@@ -239,9 +264,11 @@ the direct API path, starts a real backend, and runs this suite against
 it — logging in as the real seeded admin user and driving the real
 "Tutorial Wine Retail Business" through Login, Menu navigation, a real
 staged General Journal entry (posted), the Balance Sheet, a full New
-Business creation, and Org Chart department/division/location creation
-(including moving the new Location into the new Division), exactly the
-way a person would.
+Business creation, and all three Business Structure steps — Org Chart
+department/division/location creation (including moving the new Location
+into the new Division), Item Categories (a top-level category, a nested
+child under it, stepped into and back out of), and Other Hierarchies (a
+new grouping and a new value under it) — exactly the way a person would.
 
 ## What this test implementation deliberately does not solve yet
 
@@ -256,12 +283,14 @@ way a person would.
   message) — a dropped connection mid-session shows the error and lets the
   person retry the action, nothing more sophisticated yet.
 - **POS, Purchase Orders, Quotations, and every other remaining screen**
-  (including the Business Structure popup's Item Category/Other Hierarchy
-  steps) are out of scope for this pass, per the stated v1 scope above —
-  the architecture (typed API port, Panel/MoneyText components, the
+  are out of scope for this pass, per the stated v1 scope above — the
+  architecture (typed API port, Panel/MoneyText components, the
   Insert/Enter/Escape/Delete idiom) is meant to make adding each of them
   later a repetition of an established pattern, not a new design decision
   each time.
+- **Item Categories has no "Move…" (re-parent an existing category)** —
+  create/browse/delete are real; moving one to a different parent, the
+  way the web's own `StructureTreeNode.svelte` allows, isn't built yet.
 - **The New Business wizard's optional business-type Q&A
   (`saveBusinessTypeAnswers`) and the live CoA-prototype account preview**
   are both real, optional extras on the web screen that this v1 port

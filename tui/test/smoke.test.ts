@@ -83,6 +83,21 @@ async function press(terminal: TuiTest, key: string): Promise<void> {
   await sleep(100);
 }
 
+// Moves the highlight ('› ') down, one settled press at a time, until it
+// lands on a line containing `labelSubstring` — robust against a list
+// whose exact contents/order this test doesn't fully control (a real
+// business's own, real, pre-existing data alongside whatever this run
+// just created), without parsing the panel's own box-drawing border
+// characters to compute an index by hand.
+async function selectItemByText(terminal: TuiTest, labelSubstring: string, maxSteps = 30): Promise<void> {
+  for (let i = 0; i < maxSteps; i++) {
+    const lines = (await terminal.text()).split('\n');
+    if (lines.some((l) => l.includes('›') && l.includes(labelSubstring))) return;
+    await press(terminal, 'Down');
+  }
+  throw new Error(`selectItemByText: never found a highlighted line containing "${labelSubstring}" within ${maxSteps} Down presses`);
+}
+
 test('TUI smoke: login through every implemented screen', { timeout: 60_000 }, async () => {
   const home = mkdtempSync(path.join(tmpdir(), 'sql-ledger-ts-tui-test-'));
   try {
@@ -268,6 +283,62 @@ test('TUI smoke: login through every implemented screen', { timeout: 60_000 }, a
         await terminal.getByText('Org Chart — ').expect(); // back on the Org Chart buckets screen
         text = await terminal.text();
         assert.match(text, new RegExp(`${divisionName} \\(1\\)`), 'the location should now be counted under its new division');
+
+        // --- ←/→ step over to Item Categories, add a top-level one, drill
+        // into it, add a child, then back up a level --------------------
+        await press(terminal, 'Right');
+        await terminal.getByText('Item Categories').expect({ timeout: 10_000 });
+
+        const categoryName = `TUI Smoke Cat ${Date.now()}`;
+        await press(terminal, 'i');
+        await terminal.getByText('new category').expect();
+        await typeAndEnter(terminal, categoryName);
+        await terminal.getByText(categoryName).expect({ timeout: 10_000 });
+
+        await selectItemByText(terminal, categoryName);
+        await press(terminal, 'Enter'); // drill into the new, empty category
+        await terminal.getByText(`— ${categoryName}`).expect({ timeout: 10_000 });
+        await terminal.getByText('No categories here yet').expect();
+
+        const childCategoryName = `TUI Smoke SubCat ${Date.now()}`;
+        await press(terminal, 'i');
+        await terminal.getByText('new category').expect();
+        await typeAndEnter(terminal, childCategoryName);
+        await terminal.getByText(childCategoryName).expect({ timeout: 10_000 });
+
+        await press(terminal, 'Escape'); // back up a level, not out to the menu
+        await terminal.getByText('Item Categories — ').expect();
+        text = await terminal.text();
+        assert.match(text, new RegExp(`${categoryName} \\(1\\)`), 'the new category should now show its one child');
+
+        // --- ←/→ step over to Other Hierarchies, add a grouping + value --
+        await press(terminal, 'Right');
+        await terminal.getByText('Other Hierarchies').expect({ timeout: 10_000 });
+
+        const groupingName = `TUI Smoke Grouping ${Date.now()}`;
+        await press(terminal, 'i');
+        await terminal.getByText('Enter creates it').expect();
+        await typeAndEnter(terminal, groupingName);
+        await terminal.getByText(`${groupingName} (0)`).expect({ timeout: 10_000 });
+
+        await selectItemByText(terminal, groupingName);
+        await press(terminal, 'Enter'); // open the new, empty grouping
+        await terminal.getByText(`Other Hierarchies — `).expect();
+        await terminal.getByText('No values yet').expect();
+
+        const hierarchyValueName = `TUI Smoke Value ${Date.now()}`;
+        await press(terminal, 'i');
+        await terminal.getByText('Enter creates it').expect();
+        await typeAndEnter(terminal, hierarchyValueName);
+        await terminal.getByText(hierarchyValueName).expect({ timeout: 10_000 });
+
+        // --- ←/← back to Org Chart, then Escape all the way out ---------
+        await press(terminal, 'Left');
+        await terminal.getByText('Item Categories').expect({ timeout: 10_000 });
+        await press(terminal, 'Left');
+        await terminal.getByText('Org Chart — ').expect({ timeout: 10_000 });
+        await press(terminal, 'Escape');
+        await terminal.getByText('Menu — ').expect();
       }
     );
   } finally {
