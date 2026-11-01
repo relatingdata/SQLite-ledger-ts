@@ -180,9 +180,28 @@ already defined:
    mechanism (§A.1's "a change is a new version") that handles every
    other move handles this one too.
 
-An entity that still has current structural children cannot be
-withdrawn — those children must first be moved or withdrawn themselves.
-This is the only extra rule withdrawal adds.
+Withdrawal has exactly two general preconditions, both there to prevent
+something from being silently stranded:
+
+1. **No current structural children.** An entity that still has current
+   structural children cannot be withdrawn — those children must first
+   be moved or withdrawn themselves. Withdrawing it anyway would leave
+   its children's own structural parent pointing at an identity that has
+   just been removed from ordinary view.
+2. **Nothing else currently references it laterally.** An entity that
+   any other, still-live entity currently points at via a lateral
+   reference (§A.3) cannot be withdrawn either, until every such
+   reference is retargeted or its holder is itself withdrawn first.
+   Withdrawing it anyway would leave that other entity's lateral
+   reference silently dangling — pointing at an identity nothing can
+   any longer discover by ordinary means. This is the exact, lateral
+   counterpart of precondition 1: one guards the structural "who lives
+   under this," the other guards the lateral "who refers to this."
+
+Nothing about lateral references is cleared or rewritten as part of
+withdrawal itself — precondition 2 exists precisely so that never
+becomes necessary: an entity only ever reaches the point of being
+withdrawn once nothing still depends on it laterally.
 
 ### A.5 Worked example drawing the whole of Part A together
 
@@ -387,7 +406,8 @@ provides at minimum:
 6. A way to record that an identity has been withdrawn (as a separate,
    append-only fact, per §A.4), and to carry out the ordinary reparent
    described there — including refusing to withdraw an identity that
-   still has current structural children.
+   still has current structural children, or that any other current
+   entity still references laterally.
 7. A way to define a dimension and its values (ordinary entities,
    structurally parented under the dimension), a way to tag an existing
    entity along a dimension (Pattern 1), and a way to declare a
@@ -409,6 +429,7 @@ provides at minimum:
 | Full version history | `WHERE entity_id = ?` against `entities`, ordered | `entity-history` |
 | Withdrawal fact log | the separate `entity_revoke` table | the `*revocations*` lookup table |
 | Withdraw (reparent under "Withdrawn") | `revokeEntity` (reparents under `Application → Revoked`) | `entity-revoke!` (reparents under a caller-supplied bucket) |
+| Withdrawal precondition: no dangling lateral references | `getEntityLinksPointingAt` | `entity-links-pointing-at` |
 | Dimension / value | a Hierarchy grouping and its values (`ensureHierarchyGrouping`/`ensureHierarchyValue`) | not yet built in the experimental mirror |
 | Pattern 1 (classification tag) | `setHierarchyParent` | not yet built in the experimental mirror |
 | Pattern 2, Prototype | `defineProductShape` | not yet built in the experimental mirror |

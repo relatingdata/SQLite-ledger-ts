@@ -859,16 +859,28 @@ and the file is explicit about not blurring them:
   near-miss where a mistaken re-parent went unnoticed because nothing
   made the hierarchy-link path to a target visibly inspectable.
 
-`revokeEntity` only clears `relation_id` (sufficient for every
-`relation_id`-based consumer, which already requires a live entity's
-`relation_id` to match) — it does nothing for a `parent_id`-based
-structural consumer, so a revoked entity additionally gets reparented
-to a dedicated `Revoked` holding root under `Application`, closing that
-gap for every `parent_id`-based walk at once. Revoking refuses if the
-entity has children or journal postings, and specifically refuses to
-revoke a business's last-remaining Actual or Budget ledger (every
-business must always have both, even a brand-new, empty one with
-no postings yet to otherwise block the revoke).
+**A real documentation bug, found and fixed while cross-checking this
+section against `docs/storage-model-specification.md`**: this section
+previously claimed `revokeEntity` "clears `relation_id`." Checked
+directly against the real source (`backend/src/db.ts`) and found
+**false** — `revokeEntity` never touches `relation_id` at all, on the
+revoked entity or anywhere else. What it actually does, in order: (1)
+refuses if the entity has any current children (other than the
+fixed, known `FACT_ATTR_CHILD_NAMES` set); (2) refuses if anything has
+ever posted a journal entry against it; (3) refuses if any other live
+entity's own `relation_id` still points *at* it
+(`getEntityLinksPointingAt` — a link record is a structural child of
+whichever entity it *tags*, not of the entity it *points at*, so
+revoking a referenced target would otherwise leave that reference
+silently dangling); (4) refuses to revoke a business's
+last-remaining Actual or Budget ledger; (5) records the revocation in
+the separate, append-only `entity_revoke` log; (6) reparents the
+entity under a dedicated `Revoked` holding root under `Application`.
+Steps (1) and (3) are this project's SQL realization of
+`docs/storage-model-specification.md` §A.4's two general withdrawal
+preconditions (no current structural children, no live entity still
+referencing it laterally); steps (2) and (4) are domain-specific
+guards with no counterpart in the general spec.
 
 ### Departments and the Org Chart: a real, worked `setEntityLink` example
 
