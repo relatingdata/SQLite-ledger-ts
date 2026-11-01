@@ -2530,9 +2530,23 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
         cogsAccountId = base.cogsAccountId;
       }
       if (!(line.combinationValues && line.combinationShape)) {
+        // Deliberately never line.tier here, unlike the COGS account just
+        // above — confirmed directly: receiveItems/transferItems always
+        // move real dollar value into the plain, untiered per-location
+        // Inventory account (db-stock.ts), with no tier parameter at all
+        // on transferItems. A tiered sale that instead credited a
+        // tier-specific Inventory sub-account (e.g. "... (Bottle) —
+        // <location>") would only ever be credited there, never debited,
+        // since nothing ever posts received/transferred stock into that
+        // same tier-specific bucket — driving it permanently, increasingly
+        // negative while the real, plain bucket that actually received the
+        // value is never reduced. Tier stays real and correct for COGS
+        // (an expense-reporting split), just never for the real,
+        // consolidated Inventory asset, which tracks one physical pool
+        // per item per location regardless of how it's packaged for sale.
         const resolved = input.locationName
-          ? ensureItemLocationInventoryAccount(asItemName(line.itemName), input.locationName, userId, line.tier, input.business)
-          : ensureItemInventoryAccount(asItemName(line.itemName), userId, line.tier, input.business);
+          ? ensureItemLocationInventoryAccount(asItemName(line.itemName), input.locationName, userId, undefined, input.business)
+          : ensureItemInventoryAccount(asItemName(line.itemName), userId, undefined, input.business);
         inv = resolved;
       }
       if (effectiveCurrency) {
@@ -2648,7 +2662,13 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
 
     postInvoice(
       invoiceId,
-      (line) => (line.itemName ? (() => { const sourceLine = input.lines.find((l) => l.itemName === line.itemName); const inv = ensureItemLocationInventoryAccount(asItemName(line.itemName!), input.locationName, userId, sourceLine?.tier, input.business); return { name: inv.inventoryAccount, id: inv.inventoryAccountId }; })() : 'Inventory'),
+      // Deliberately never a tier here either — see the matching note in
+      // completePosSale's own Inventory resolution above. A cash purchase
+      // debits the real, plain, consolidated per-location Inventory
+      // account, the same one receiveItems/transferItems always use, not
+      // a tier-specific sub-account a later sale's own COGS leg would
+      // never be able to find or reduce back down again.
+      (line) => (line.itemName ? (() => { const inv = ensureItemLocationInventoryAccount(asItemName(line.itemName!), input.locationName, userId, undefined, input.business); return { name: inv.inventoryAccount, id: inv.inventoryAccountId }; })() : 'Inventory'),
       input.taxAccount,
       userId,
       false

@@ -2869,7 +2869,13 @@ test('POS terminal: a complete register sale posts the invoice, dispatches stock
   assert.equal(db.getItemLocation(db.asItemName(merlotName), outlet.name).quantity_on_hand, 17, 'stock dispatched from the exact location sold at, 20 - 3');
   const invoice = db.getInvoice(result.invoiceId)!;
   assert.equal(invoice.status, 'posted');
-  assert.equal(invoice.invoice_date, new Date().toISOString().slice(0, 10), 'omitting transdate must default to today, the ordinary live-sale case');
+  // The real default is the SOLD LOCATION's own local date (todayAtLocation),
+  // not a bare UTC new Date() — a sale genuinely posts on the calendar day
+  // it happened at that real location. Comparing against plain UTC breaks
+  // for several hours every day whenever the location's timezone (fixture
+  // default: Australia/Adelaide) has already rolled to the next day while
+  // UTC hasn't yet, which is exactly the scenario this used to get wrong.
+  assert.equal(invoice.invoice_date, db.todayAtLocation(outlet.name), 'omitting transdate must default to the sold location\'s own local today, the ordinary live-sale case');
 
   assert.equal(db.getInvoiceOutstandingMinor(result.invoiceId), 0, 'cash sale must be fully paid immediately, not left outstanding');
 
@@ -3185,7 +3191,10 @@ test('completePosSale honors an explicit transdate instead of always using the r
     fx.userId
   );
   const invoiceWithoutDate = db.getInvoice(withoutDate.invoiceId)!;
-  assert.equal(invoiceWithoutDate.invoice_date, new Date().toISOString().slice(0, 10), 'omitting transdate must still default to today, the ordinary live-sale case');
+  // Same real-location-local-date default as the POS terminal test above —
+  // comparing against plain UTC new Date() is wrong for several hours
+  // every day once the location's own timezone has already rolled over.
+  assert.equal(invoiceWithoutDate.invoice_date, db.todayAtLocation(outlet.name), 'omitting transdate must still default to the sold location\'s own local today, the ordinary live-sale case');
 });
 
 test('completePosSale: a real, immediate cash sale posts a genuine invoice to the customer\'s own AR account, then a genuine payment that nets it straight back to zero', () => {
@@ -4720,8 +4729,15 @@ test('getProfitAndLossByHierarchy: "Consolidated per Division" — one real, ful
   db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('PLDIVTEST3-REC-A'), db.asItemName(merlot), outletA.name, 20, fx.userId, today);
   db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('PLDIVTEST3-REC-B'), db.asItemName(merlot), outletB.name, 20, fx.userId, today);
 
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000 }, fx.userId);
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000 }, fx.userId);
+  // Explicit transdate on both sales, matching the receiveItems calls
+  // above and the query range below — without it, completePosSale
+  // defaults to the SOLD LOCATION's own local date (todayAtLocation),
+  // which can land on a different calendar day than this UTC `today`
+  // whenever the fixture location's timezone (default:
+  // Australia/Adelaide) has already rolled over while UTC hasn't,
+  // silently dropping the sale outside the date-range query below.
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 50000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 50000, transdate: today }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 30000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 30000, transdate: today }, fx.userId);
 
   const result = db.getProfitAndLossByHierarchy(biz.business, biz.actualLedger, ['Location', 'Division'], today, today);
   const divA = result.find((r) => r.group === divisionA);
@@ -4774,8 +4790,12 @@ test('getProfitAndLossByHierarchyTree: "Consolidated per Division per Location" 
 
   // The real, top-level "City" division genuinely never gets any
   // direct activity of its own — only its own, real child stores do.
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 20000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 20000 }, fx.userId);
-  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 15000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 15000 }, fx.userId);
+  // Explicit transdate: today here for the same reason as the Division
+  // P&L test above — completePosSale's own real default is the sold
+  // location's local date, not UTC, and the two can disagree for
+  // several hours a day against the fixture's default timezone.
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletA.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 20000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 20000, transdate: today }, fx.userId);
+  db.completePosSale({ business: biz.business, ledger: biz.actualLedger, locationName: outletB.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: merlot, quantity: 1, unitPriceMinor: 15000, taxMinor: 0, tier: 'Bottle' }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', cashTenderedMinor: 15000, transdate: today }, fx.userId);
 
   const tree = db.getProfitAndLossByHierarchyTree(biz.business, biz.actualLedger, ['Location', 'Division'], 'Division', today, today);
   const cityNode = tree.find((n) => n.group === city);

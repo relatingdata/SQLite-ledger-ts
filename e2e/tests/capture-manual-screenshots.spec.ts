@@ -88,8 +88,22 @@ const SCREENS: Record<string, (page: any) => Promise<void>> = {
     await continueToApp(page);
     await page.goto('/items');
     await page.waitForTimeout(800);
-    const categorySelect = page.locator('select').last();
-    await categorySelect.selectOption({ index: 1 });
+    // "+ New category" is a plain free-text field (items/+page.svelte's
+    // addTopLevelCategory/newCategoryNameRoot), opened by pressing Insert
+    // on the tree toolbar with nothing selected (TreeEditor.svelte's own
+    // onInsert -> handleInsert's fallback branch) — not a <select>. This
+    // used to target a dropdown here; the Items page's category UI was
+    // redesigned to a text input (a real Hierarchy value, created by
+    // name, never picked from a fixed list) and this step was never
+    // updated to match. crop-parts-screenshot.ts crops this same capture
+    // down to just the "+ New category..." form at the bottom.
+    // Scoped to the "Categories and items" tree panel specifically — the
+    // page also has a top-level "Sections" navigation toolbar, and an
+    // unscoped [role="toolbar"] locator resolves to that one first.
+    await page.getByRole('group', { name: /categories and items/i }).getByRole('toolbar').focus();
+    await page.keyboard.press('Insert');
+    await page.waitForTimeout(300);
+    await page.getByPlaceholder(/category name/i).fill('Example New Category');
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(OUT_DIR, 'm_items_new_category_full.png'), fullPage: true });
   },
