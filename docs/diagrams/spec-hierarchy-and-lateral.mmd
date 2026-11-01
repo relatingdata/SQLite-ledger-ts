@@ -1,0 +1,25 @@
+graph TB
+    subgraph STRUCTURAL["Structural containment — 'lives under' (at most one parent)"]
+        direction TB
+        A["Wine Retail Business"] --> B["Locations"]
+        B --> C["Riverside Cellars"]
+        A --> D["Items"]
+        D --> E["Beer"]
+        E --> F["Amber"]
+        F --> G["Amber Ale 330ml Can"]
+    end
+    subgraph LATERAL["Lateral reference — 'refers to' (at most one per version, never containment)"]
+        direction TB
+        H["Storage Origin Types"] --> I["Cold"]
+        J["Relationship Types"] --> K["Trustee Of"]
+    end
+
+    G -. lateral reference .-> I
+    G -. "'this item needs cold storage'" .-> I
+
+    L["Smith Prototype Trust"] -. lateral reference .-> M["relationship record<br/>(lives under 'Trustee Of')"]
+    K --> M
+    M -. lateral reference .-> N["Boutique Wine Company"]
+
+    style STRUCTURAL fill:#eef
+    style LATERAL fill:#fdd

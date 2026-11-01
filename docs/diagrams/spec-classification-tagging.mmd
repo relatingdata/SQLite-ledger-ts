@@ -1,0 +1,24 @@
+graph TB
+    subgraph SUBJECT["The subject keeps its one, existing identity"]
+        AMBER["Amber Ale 330ml<br/>(one Item, one set of accounts)"]
+    end
+
+    subgraph DIMENSIONS["Independent dimensions, each a flat set of values"]
+        direction TB
+        SZ["Size"] --> SZ330["330ml"]
+        SZ --> SZ700["700ml"]
+        PK["Packaging"] --> PKCAN["Aluminium Can"]
+        PK --> PKBOT["Glass Bottle"]
+        ST["Storage Origin"] --> STCOLD["Cold"]
+        ST --> SHOT["Hot"]
+    end
+
+    AMBER -. lateral reference .-> SZ330
+    AMBER -. lateral reference .-> PKCAN
+    AMBER -. lateral reference .-> STCOLD
+
+    NOTE["No new combination entity is created.<br/>The subject is tagged along each dimension independently —<br/>contrast with the Prototype/Instance diagram,<br/>where the combination itself becomes the one addressable thing."]
+
+    style SUBJECT fill:#ffd
+    style DIMENSIONS fill:#fdd
+    style NOTE fill:#fff,stroke-dasharray: 5 5

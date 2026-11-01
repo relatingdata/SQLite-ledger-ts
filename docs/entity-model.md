@@ -1,5 +1,16 @@
 # The Entity Model: `parent_id`, `relation_id`, and What They Actually Mean
 
+**This document describes this project's one, real, SQL/SQLite
+implementation of the general storage model.** For the implementation-
+independent specification this is derived from — the same concepts
+described with no SQL, no trigger, no column name anywhere in it, so that
+a different storage technology (this project also maintains an
+experimental Scheme/Lisp mirror) can be built from it just as validly —
+see `docs/storage-model-specification.md` first. That document defines
+"identity," "version," "structural parent," and "lateral reference";
+this one explains exactly how `entities.parent_id`/`entities.relation_id`
+realize them.
+
 `entities.relation_id` is a lateral pointer, not a tree relationship —
 used for classification tags and typed relationships between
 otherwise-independent entities, never a parent/child or sibling

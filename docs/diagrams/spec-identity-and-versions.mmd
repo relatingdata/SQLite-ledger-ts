@@ -1,0 +1,15 @@
+graph LR
+    subgraph ONE_IDENTITY["One stable identity, three versions over time"]
+        direction LR
+        V1["Version 1<br/>name: 'Cash and Bank'<br/>location: Asset"]
+        V2["Version 2<br/>name: 'Cash and Bank'<br/>location: Current Assets"]
+        V3["Version 3<br/>name: 'Cash & Bank'<br/>location: Current Assets"]
+        V1 -- "superseded by" --> V2
+        V2 -- "superseded by" --> V3
+    end
+    CURRENT["'Current state' of this identity<br/>(always the newest version)"] -.points at.-> V3
+
+    style V1 fill:#eee
+    style V2 fill:#eee
+    style V3 fill:#dfd
+    style CURRENT fill:#ffd

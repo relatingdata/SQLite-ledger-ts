@@ -1,5 +1,16 @@
 # The Entity Model: `parent_id`, `relation_id`, and the Primitives Built on It
 
+**This is the SQL implementation of the general storage model specified,
+independent of SQL or any other storage technology, in
+`docs/storage-model-specification.md`.** Read that document first for
+what "identity," "version," "structural parent," and "lateral reference"
+mean in the abstract, and for the cartesian-product/prototype model this
+document's own "Hierarchy/Product cartesian mechanism" section (below)
+and `docs/sales-item-cartesian-product.md`/`docs/cartesian-account-linking-plan.md`
+realize in SQL terms. Everything below is this project's one, real,
+concrete answer to that specification — not an independent design of its
+own.
+
 Every row in the single `entities` table has:
 
 - **`parent_id`** — its position in exactly **one** hierarchy (a real

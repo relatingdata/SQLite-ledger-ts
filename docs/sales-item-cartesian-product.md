@@ -1,6 +1,12 @@
 # Sales items as a Cartesian product: Size × Packaging, and beyond
 
-This is a design/convention note, not a new mechanism. The two real, generic
+**This is a worked application of Pattern 1 ("classification tagging")
+from `docs/storage-model-specification.md` §B.3** — read that document
+first for the implementation-independent distinction between tagging an
+existing subject along several dimensions (this document's case) and
+instantiating a new, combination-is-the-identity entity (§B.4, realized
+in SQL terms by `docs/cartesian-account-linking-plan.md`). This is a
+design/convention note, not a new mechanism. The two real, generic
 primitives this design rests on — "generic Hierarchy" and "generic Cartesian
 Product Builder" — already existed in this codebase before this note was
 written; it documents applying them to a real, worked case (Amber Ale

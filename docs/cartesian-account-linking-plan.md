@@ -1,5 +1,15 @@
 # The Hierarchy/Product Cartesian Mechanism — Implemented, Real, and Tested
 
+**This is the SQL implementation of Pattern 2 ("Prototype and Instance")
+from `docs/storage-model-specification.md` §B.4** — read that document
+first for the implementation-independent definition of a Prototype (an
+ordered shape, no values chosen) and an Instance (one concrete value per
+dimension, identified by the stable ids of the values chosen, never by
+name or position), and for why an instance's identity must be
+rename-safe and idempotent. Everything below — `Hierarchy`, `Product`,
+`combination_ids` — is this project's one, real SQL realization of those
+requirements, not an independent design of its own.
+
 Per direct, iterative design (the earlier drafts of this document — a combination node living under the item, applicable-hierarchies-per-location, pricing-resolution changes — are superseded by this, the real, settled, and now-implemented design). Kept in git history for the record of how the design arrived here, not deleted.
 
 ## 1. The real problem this solves

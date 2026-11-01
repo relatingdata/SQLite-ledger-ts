@@ -1,0 +1,44 @@
+graph LR
+    subgraph DIMENSIONS["Dimensions (named axes, each a flat set of values)"]
+        direction TB
+        DLOC["Location: {Riverside Cellars, Harbourside...}"]
+        DPROD["Product: {Lager, Ale...}"]
+        DSIZE["Size: {330ml, 700ml}"]
+        DCONT["Container: {Can, Glass Bottle}"]
+        DSTORE["Storage: {Hot, Cold}"]
+    end
+
+    subgraph PROTOTYPE["Prototype — an ordered list of dimensions, no values chosen yet"]
+        direction TB
+        P1["1: Location"] --> P2["2: Product"] --> P3["3: Size"] --> P4["4: Container"] --> P5["5: Storage"]
+    end
+
+    subgraph INSTANCE["One Instance — one concrete value chosen per dimension"]
+        direction TB
+        I1["Riverside Cellars"] --> I2["Lager"] --> I3["330ml"] --> I4["Can"] --> I5["Cold"]
+    end
+
+    subgraph ACCOUNTS["Addressable things that refer back to this one Instance"]
+        direction TB
+        INVL["Inventory — new leaf"]
+        SALL["Sales — new leaf"]
+        COGSL["COGS — new leaf"]
+    end
+
+    P1 -. names a dimension from .-> DLOC
+    P3 -. names a dimension from .-> DSIZE
+    P5 -. names a dimension from .-> DSTORE
+
+    I1 -. chosen value is a member of .-> DLOC
+    I3 -. chosen value is a member of .-> DSIZE
+    I5 -. chosen value is a member of .-> DSTORE
+    I1 -. "follows shape" .-> P1
+
+    INVL -. lateral reference .-> I5
+    SALL -. lateral reference .-> I5
+    COGSL -. lateral reference .-> I5
+
+    style DIMENSIONS fill:#fdd
+    style PROTOTYPE fill:#eef
+    style INSTANCE fill:#ffd
+    style ACCOUNTS fill:#dfd
