@@ -392,13 +392,21 @@ tagged with a given `Contact Type`.
 ```ts
 Balance.post(business, ledger, reference, accountName, accountId, delta, userId, transdate?)
 Balance.get(accountId)                             // live, current figure — 0 if never posted, never null
-Balance.getScoped(accountName, dimensionColumn, dimensionName)  // e.g. scoped by location_id
 ```
 
 One real, append-only posting primitive for every money *or* quantity
 figure — the direct generalization of "buying price, selling price,
 and a unit conversion are all genuinely `$/unit` exchange rates," each
 with its own real audit trail.
+
+**A real, confirmed documentation bug, found and fixed while auditing
+this section directly against `backend/src/primitives.ts`**: a third
+member, `Balance.getScoped(accountName, dimensionColumn, dimensionName)`,
+was listed here as though still real and current. It was deleted outright
+once every per-location quantity read moved onto a real, per-location
+account instead (see `docs/pm-domain-reference.md`'s own, already-correct
+note on this) — nothing in the live codebase calls it any more. Removed
+here too; this file had simply never been updated to match.
 
 ### `Currency` — debit/credit as a property of a signed amount, not a separate concept
 

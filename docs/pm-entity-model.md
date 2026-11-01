@@ -122,9 +122,19 @@ Entity.getUnder(name, parentId)
 Entity.ensureUnder(name, parentId, userId)          // find-or-create
 Entity.rename(id, name, userId)
 Entity.reparent(id, parent, userId)
-Entity.relate(id, target, userId)
-Entity.delete(id, userId)
+Entity.relate(id, target, userId, targetId?)        // target by name, or by id via targetId
+Entity.revoke(id, userId)
 Entity.children(parentId)
+Entity.tag(id, tagName, userId)                     // presence-only marker, one level deeper than Link.mark
+Entity.untag(id, tagName, userId)
+Entity.hasTag(id, tagName): boolean
+Entity.setAttr(id, attrType, value, userId)         // single-valued fact, replaced in place
+Entity.getAttr(id, attrType): string | undefined
+Entity.clearAttr(id, attrType, userId)
+Entity.setDetailJson(id, detailJson)                // the first of this project's two approved JSON exceptions
+Entity.mergeDetailJson(id, patchJson)
+Entity.setRelationId(id, relationId)                // low-level relate-by-id, bypassing name resolution entirely
+Entity.setCombinationIds(id, combinationIdsJson)    // the second approved JSON exception (§B.4's Instance identity)
 
 // Link - a named relationship between two entities
 Link.set(entityName, linkType, target, userId)
@@ -138,7 +148,6 @@ Link.withTarget(linkType, target)                   // every entity linked this 
 // Balance - a posted currency or quantity figure
 Balance.post(business, ledger, reference, accountName, accountId, delta, userId, transdate?)
 Balance.get(accountId)                              // live figure, 0 if never posted, never null
-Balance.getScoped(accountName, dimensionColumn, dimensionName)
 
 // Currency - debit/credit as a property of a signed amount
 Currency.toDebitCredit(amountMinor, normalSide)     // output: every report's own split
@@ -149,6 +158,26 @@ Detail.set(entityName, detailType, value, userId)
 Detail.list(entityName, detailType?)
 Detail.delete(entityName, detailType, value, userId)
 ```
+
+**A real, confirmed documentation bug, found and fixed while checking this
+list against `backend/src/primitives.ts` directly, before deriving a
+complete Scheme implementation from it**: this list previously named a
+function `Entity.delete(id, userId)` that has never existed under that
+name — the real, only removal primitive is `Entity.revoke(id, userId)`
+(a thin wrapper over `revokeEntity`, §A.4 of
+`docs/storage-model-specification.md`). Corrected above. The list also
+previously carried `Balance.getScoped(accountName, dimensionColumn,
+dimensionName)` — confirmed, via `docs/pm-domain-reference.md`'s own,
+already-accurate note, to have been deleted outright once every
+per-location quantity read moved to a real, per-location account
+(`docs/pm-domain-reference.md`, "Quantity-on-hand by location"); nothing
+calls it any more. Removed here too — it had drifted out of sync with
+`pm-domain-reference.md` itself, the one place in this codebase that
+already had the correction. The list was also missing nine real,
+exported `Entity` members entirely (`tag`/`untag`/`hasTag`/`setAttr`/
+`getAttr`/`clearAttr`/`setDetailJson`/`mergeDetailJson`/`setRelationId`/
+`setCombinationIds`) — described only in prose below, with no
+signatures given; added above.
 
 `Entity.get`'s `parent` argument exists so every lookup can be scoped
 — a child is unique by name *within one parent*, never resolved via a
@@ -259,13 +288,20 @@ real generalization. A few implementation details worth knowing:
   way to tell them apart. Every business lookup elsewhere in this
   codebase scopes to parent `'Businesses'` for exactly this reason.
 - **No JSON for a structured fact.** `Entity.tag`/`untag`/`hasTag` and
-  `Entity.setAttr`/`getAttr` exist so a fact about an entity (a lead
-  time in days, a BOM quantity, which of several kinds a child is) is
-  itself a named child entity, found by an exact `(parent, name)`
-  lookup — never a name pattern, never a JSON field. `setAttr` is a
-  single-valued fact (a quantity, a date, a status), replaced in place
-  under its own named type-grouping whenever it changes, rather than
-  accumulated.
+  `Entity.setAttr`/`getAttr`/`clearAttr` exist so a fact about an entity
+  (a lead time in days, a BOM quantity, which of several kinds a child
+  is) is itself a named child entity, found by an exact `(parent, name)`
+  lookup — never a name pattern, never a JSON field. Concretely: `tag`
+  finds-or-creates a child entity named `tagName` under `id` and relates
+  it to a fixed `'Active'` marker; `untag` relates that same child to
+  nothing (`null`), leaving it in place as inert history rather than
+  removing it; `hasTag` is true exactly when that child exists and its
+  relation is non-null. `setAttr` is a single-valued fact (a quantity, a
+  date, a status): it finds-or-creates a type-grouping child named
+  `attrType` under `id`, then renames that grouping's own first child to
+  `value` if one already exists, or creates it fresh otherwise — so the
+  current value is always a replace-in-place, never an accumulation;
+  `getAttr` reads that first child's name back; `clearAttr` revokes it.
 - **`entities` permits only `INSERT` and `SELECT`.**
   `Entity.setDetailJson`/`mergeDetailJson`/`setRelationId`/
   `setCombinationIds` wrap the insert-only mechanisms
