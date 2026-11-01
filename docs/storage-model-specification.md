@@ -419,15 +419,15 @@ provides at minimum:
 
 | This document's term | The project's relational (SQL) implementation | The experimental Scheme implementation |
 |---|---|---|
-| Identity | `entity_id` | an entity-id (integer) |
-| Version | one row in the append-only `entities` table | one `<entity-row>` record appended to the in-memory log |
-| Current state | the `current_entities` view (latest row per `entity_id`) | the `*current*` lookup table (latest row per entity-id) |
-| Record a new version | `INSERT` into `entities` under the same `entity_id` | `append-row!` |
-| Structural parent | `parent_id` | `entity-row-parent-id` |
-| Lateral reference | `relation_id` | `entity-row-relation-id` |
-| List current children | `WHERE parent_id = ?` against `current_entities` | `entity-children` |
+| Identity | `entity_id` | the `<entity>` box itself — object identity, not a number (see note below) |
+| Version | one row in the append-only `entities` table | a `<version>` record, held in the box's own `current` field or its `historical` list |
+| Current state | the `current_entities` view (latest row per `entity_id`) | the box's own `current` field, read directly — no separate lookup table |
+| Record a new version | `INSERT` into `entities` under the same `entity_id` | `supersede!` — mutates `current` in place, pushes the old value onto `historical` |
+| Structural parent | `parent_id` | a direct reference to another box, held in the current version's `parent` field |
+| Lateral reference | `relation_id` | a direct reference to another box, held in the current version's `relation` field |
+| List current children | `WHERE parent_id = ?` against `current_entities` | `entity-children` (scans the flat `*all-entities*` registry for a matching reference) |
 | Full version history | `WHERE entity_id = ?` against `entities`, ordered | `entity-history` |
-| Withdrawal fact log | the separate `entity_revoke` table | the `*revocations*` lookup table |
+| Withdrawal fact log | the separate `entity_revoke` table | `revoked-by`, a second, non-versioned field on the box itself |
 | Withdraw (reparent under "Withdrawn") | `revokeEntity` (reparents under `Application → Revoked`) | `entity-revoke!` (reparents under a caller-supplied bucket) |
 | Withdrawal precondition: no dangling lateral references | `getEntityLinksPointingAt` | `entity-links-pointing-at` |
 | Dimension / value | a Hierarchy grouping and its values (`ensureHierarchyGrouping`/`ensureHierarchyValue`) | not yet built in the experimental mirror |
@@ -440,3 +440,25 @@ this table exists precisely so the next person extending either one can
 confirm, before writing a line of SQL or Scheme, that what they're about
 to build is a correct implementation of a concept already defined above,
 not a third, independent, undocumented notion of its own.
+
+**A note on "Identity," since the two implementations satisfy it two
+genuinely different ways.** §A.1 only requires identity to be "stable,
+assigned once, never reused" — it does not require identity to be a
+*number*. The SQL implementation uses one because a relational table has
+no native pointers, only foreign keys, so an integer plus an index is
+the mechanism available to it. The Scheme implementation needs no such
+mechanism: an entity is a mutable record whose `current` field is
+superseded in place on every write, so the record itself — an ordinary
+Scheme object — never changes identity across any number of renames or
+reparents, and a direct reference to it (held by another entity's own
+`parent`/`relation` field) stays correct automatically, with no lookup
+at all. The *one level of indirection* §A.1's versioning model always
+requires between "what something points at" and "the current version of
+the thing pointed at" is still there in both cases — it has simply moved
+from a separate, global table (SQL's indexed `current_entities`; the
+Scheme mirror's own earlier, now-superseded design) onto the entity
+itself, as a single mutable field. Where an external, portable label is
+still needed (replaying the real system's own ids; formatting a
+response), the Scheme implementation keeps a small, separate `ext-id` —
+but that label is never used for internal traversal, which always
+follows the real reference instead.
