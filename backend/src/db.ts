@@ -1996,15 +1996,14 @@ export function resolveBusinessCoaAccountId(businessName: BusinessName, accountN
 }
 
 export function ensureCombinationAccountLeaf(baseAccountName: string, instanceTopNode: { id: number; name: string }, userId: UserId, baseAccountId?: number): { id: number; name: string } {
-  const baseId = baseAccountId ?? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(baseAccountName) as { id: number } | undefined)?.id;
+  const baseId = baseAccountId ?? Entity.get(baseAccountName)?.id;
   if (!baseId) throw new ValidationError(`No real account named "${baseAccountName}".`);
   const instanceRow = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(instanceTopNode.id) as { combination_ids: string | null } | undefined;
   const combinationIds = instanceRow?.combination_ids ?? null;
   const existingByCombination = combinationIds != null
     ? (db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(baseId, combinationIds) as { id: number; name: string } | undefined)
     : undefined;
-  const existing = existingByCombination
-    ?? (db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND name = ?`).get(baseId, instanceTopNode.name) as { id: number; name: string } | undefined);
+  const existing = existingByCombination ?? Entity.getUnder(instanceTopNode.name, baseId);
   if (existing) return existing;
   const leafName = combinationIds != null ? getCombinationDisplayName(instanceTopNode.id) : instanceTopNode.name;
   const leaf = Entity.create(leafName, baseId, userId);
@@ -2089,9 +2088,7 @@ export function openStorageContainer(
   }
   if (!resolveItemId(itemName)) throw new ValidationError(`No item named "${itemName}".`);
   const locationsRootId = resolveBusinessLocationsRootId(business);
-  const locationId = locationsRootId
-    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, locationsRootId) as { id: number } | undefined)?.id
-    : undefined;
+  const locationId = locationsRootId ? Entity.getUnder(locationName, locationsRootId)?.id : undefined;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   const storageRoot = ensureLocationStorageRoot(business, locationName, userId);
   const { remainingId, occupiedId } = ensureStorageCapacityStructure(storageRoot, userId);
@@ -2206,45 +2203,31 @@ export interface HierarchyGroupingWithValues {
 }
 
 export function getBusinessHierarchy(businessName: BusinessName): HierarchyGroupingWithValues[] {
-  const hierarchyId = (
-    db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`).get(businessName) as
-      | { id: number }
-      | undefined
-  )?.id;
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
+  const hierarchyId = businessId !== undefined ? Entity.getUnder('Hierarchy', businessId)?.id : undefined;
   if (!hierarchyId) return [];
-  const groupings = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ?`).all(hierarchyId) as { id: number; name: string }[];
+  const groupings = Entity.children(hierarchyId);
   return groupings.map((g) => ({
     grouping: g.name,
-    values: (db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(g.id) as { name: string }[]).map((v) => v.name),
+    values: Entity.children(g.id).map((v) => v.name),
   }));
 }
 
 export function getBusinessProductShapes(businessName: BusinessName): [string, string][][] {
-  const productId = (
-    db.prepare(`SELECT id FROM current_entities WHERE name = 'Product' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`).get(businessName) as
-      | { id: number }
-      | undefined
-  )?.id;
-  const hierarchyId = (
-    db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`).get(businessName) as
-      | { id: number }
-      | undefined
-  )?.id;
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
+  const productId = businessId !== undefined ? Entity.getUnder('Product', businessId)?.id : undefined;
+  const hierarchyId = businessId !== undefined ? Entity.getUnder('Hierarchy', businessId)?.id : undefined;
   if (!productId || !hierarchyId) return [];
-  const definitionRoots = db
-    .prepare(`SELECT e.id, e.name FROM current_entities e JOIN current_entities rel ON rel.id = e.relation_id WHERE e.parent_id = ? AND rel.parent_id = ?`)
-    .all(productId, hierarchyId) as { id: number; name: string }[];
+  const definitionRoots = Entity.children(productId).filter(
+    (e) => e.relation_id !== null && Entity.get(e.relation_id)?.parent_id === hierarchyId
+  );
   return definitionRoots.map((root) => {
     const chain: [string, string][] = [];
-    let node: { id: number; name: string } | undefined = root;
+    let node: { id: number; name: string; relation_id: number | null } | undefined = root;
     while (node) {
-      const row = db.prepare(`SELECT e.name AS own_name, rel.name AS relation_name FROM current_entities e LEFT JOIN current_entities rel ON rel.id = e.relation_id WHERE e.id = ?`).get(node.id) as
-        | { own_name: string; relation_name: string | null }
-        | undefined;
-      if (!row) break;
-      chain.push([row.own_name, row.relation_name ?? '']);
-      const child = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ?`).get(node.id) as { id: number; name: string } | undefined;
-      node = child;
+      const relationName = node.relation_id !== null ? Entity.get(node.relation_id)?.name ?? '' : '';
+      chain.push([node.name, relationName]);
+      node = Entity.children(node.id)[0];
     }
     return chain;
   });
