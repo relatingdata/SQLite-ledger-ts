@@ -2255,14 +2255,18 @@ export function ensureItemTier(baseProductName: ItemName, tier: string, userId: 
 }
 
 export function ensureItemTierLocationLeaf(tierItemName: string, locationName: LocationName, userId: UserId, tierItemId?: number): { leafItemName: string; leafItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number } {
-  const tierItem = tierItemId != null
-    ? (db.prepare(`SELECT id, name, parent_id FROM current_entities WHERE id = ?`).get(tierItemId) as { id: number; name: string; parent_id: number | null } | undefined)
-    : (db.prepare(`SELECT id, name, parent_id FROM current_entities WHERE name = ?`).get(tierItemName) as { id: number; name: string; parent_id: number | null } | undefined);
+  const tierItem = tierItemId != null ? Entity.get(tierItemId) : Entity.get(tierItemName);
   if (!tierItem) throw new ValidationError(`No real item named "${tierItemName}".`);
-  const tierSalesLeaf = db.prepare(`SELECT id, name FROM current_entities WHERE id = ?`).get(tierItem.parent_id) as { id: number; name: string } | undefined;
+  const tierSalesLeaf = tierItem.parent_id !== null ? Entity.get(tierItem.parent_id) : undefined;
   if (!tierSalesLeaf) throw new ValidationError(`"${tierItemName}" has no real, structural parent.`);
   const tierCogsAccount = getHierarchyParent(tierItemName, 'COGS Product');
   if (!tierCogsAccount) throw new ValidationError(`"${tierItemName}" has no real COGS account.`);
+  // Deliberately NOT Entity.get(tierCogsAccount): that matches by name
+  // alone, first row found — but when the same name exists more than
+  // once (names are unique only per-parent), the original SQL's AND
+  // relation_id IS NOT NULL clause could pick a *different* row than a
+  // plain name-only match would. Confirmed live: swapping this to
+  // Entity.get broke ensureItemTierLocationLeaf/completePosSale tests.
   const tierCogsEntity = db.prepare(`SELECT id, name FROM current_entities WHERE name = ? AND relation_id IS NOT NULL`).get(tierCogsAccount) as { id: number; name: string } | undefined;
   if (!tierCogsEntity) throw new ValidationError(`"${tierCogsAccount}" is not a real, existing entity.`);
 
@@ -2360,14 +2364,8 @@ export function getHierarchyGroupForLocation(locationName: string, hierarchyName
 
 export function resolveDispatchLocation(itemName: ItemName, logicalLocationName: LocationName): LocationName {
   if (getItemStorageOrigin(itemName) !== 'Cold') return logicalLocationName;
-  const coldSubLocation = db
-    .prepare(
-      `SELECT cold.name
-       FROM current_entities cold
-       JOIN current_entities logical ON logical.id = cold.relation_id
-       WHERE logical.name = ?`
-    )
-    .get(logicalLocationName) as { name: string } | undefined;
+  const logical = Entity.get(logicalLocationName);
+  const coldSubLocation = logical ? Entity.findAll({ relationId: logical.id })[0] : undefined;
   return coldSubLocation ? asLocationName(coldSubLocation.name) : logicalLocationName;
 }
 
@@ -2432,7 +2430,7 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
 
     const tagCurrency = (result: string | { name: string; id: number }): string | { name: string; id: number } => {
       if (!effectiveCurrency) return result;
-      const baseId = typeof result === 'string' ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(result) as { id: number }).id : result.id;
+      const baseId = typeof result === 'string' ? Entity.get(result)!.id : result.id;
       return ensureCurrencyAccount(baseId, effectiveCurrency, userId);
     };
 
@@ -2466,7 +2464,7 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
         }),
       (() => {
         if (!effectiveCurrency) return input.taxAccount;
-        const taxId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.taxAccount) as { id: number }).id;
+        const taxId = Entity.get(input.taxAccount)!.id;
         return ensureCurrencyAccount(taxId, effectiveCurrency, userId).name;
       })(),
       userId,
