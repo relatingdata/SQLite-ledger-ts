@@ -116,14 +116,11 @@ export interface Location {
 }
 
 export function getLocationTypes(): string[] {
-  return (db
-    .prepare(
-      `SELECT child.name FROM current_entities child
-       JOIN current_entities parent ON parent.id = child.parent_id AND parent.name = 'Location Types'
-       ORDER BY child.name`
-    )
-    .all() as { name: string }[])
-    .map((r) => r.name);
+  const root = Entity.get('Location Types');
+  if (!root) return [];
+  return Entity.children(root.id)
+    .map((c) => c.name)
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 export function createLocationType(name: string, userId: UserId): void {
@@ -133,19 +130,26 @@ export function createLocationType(name: string, userId: UserId): void {
 
 // See docs/pm-stock-api.md — "setLocation/getLocation are both scoped by business directly in the SQL"
 export function setLocation(name: string, location: Location, business?: BusinessName): void {
-  const id = (business
-    ? (() => {
-        const rootId = resolveBusinessLocationsRootId(business);
-        return rootId ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, rootId) as { id: number } | undefined) : undefined;
-      })()
-    : (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name) as { id: number } | undefined)
+  const id = (
+    business
+      ? (() => {
+          const rootId = resolveBusinessLocationsRootId(business);
+          return rootId ? Entity.getUnder(name, rootId) : undefined;
+        })()
+      : Entity.get(name)
   )?.id;
   if (!id) throw new ValidationError(`No location named "${name}".`);
   mergeContactDetail(id, { city: location.city, bottle_capacity: location.bottle_capacity, carton_capacity: location.carton_capacity, timezone: location.timezone });
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Location Types')`).get(location.location_type)) {
+  const locationTypesRoot = Entity.get('Location Types');
+  if (!locationTypesRoot || !Entity.getUnder(location.location_type, locationTypesRoot.id)) {
     throw new ValidationError(`No location type named "${location.location_type}" — add it first (a real, user-extensible Vocabulary word, not a fixed, built-in list).`);
   }
   const typeRecordName = `Location Type — ${name} → ${location.location_type}`;
+  // This match (name built from the CURRENT relation's own name, via a
+  // correlated subquery) has no equivalent EntityDriver primitive — it's
+  // a one-off string-reconstruction match, not a plain name/parent/tag
+  // lookup — so it stays raw SQL rather than inventing new driver scope
+  // for a single call site.
   const staleType = db
     .prepare(
       `SELECT id, name FROM current_entities
@@ -155,54 +159,52 @@ export function setLocation(name: string, location: Location, business?: Busines
     )
     .all(name, typeRecordName) as { id: number; name: string }[];
   for (const s of staleType) Entity.relate(s.id, null, asUserId(1));
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(typeRecordName)) {
+  if (!Entity.get(typeRecordName)) {
     create(requireEntity('Location Type', typeRootName), typeLocationTypeMarkerName, typeRecordName, asUserId(1));
   }
-  const typeRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(typeRecordName) as { id: number };
+  const typeRecord = Entity.get(typeRecordName)!;
   supersedeEntity(typeRecord.id, { relation: location.location_type }, asUserId(1));
 
   const billingRecordName = `Is Billing Address — ${name} → Billing Address`;
   if (location.is_billing_address) {
-    const others = db
-      .prepare(
-        `SELECT e.id, e.name FROM current_entities e
-         JOIN current_entities rel_type ON rel_type.id = e.parent_id AND rel_type.name = 'Is Billing Address'
-         WHERE e.name != ?`
-      )
-      .all(billingRecordName) as { id: number; name: string }[];
+    const relType = Entity.get('Is Billing Address');
+    const others = relType ? Entity.children(relType.id).filter((e) => e.name !== billingRecordName) : [];
     for (const other of others) Entity.relate(other.id, null, asUserId(1));
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(billingRecordName)) {
+    if (!Entity.get(billingRecordName)) {
       create(requireEntity('Is Billing Address', typeRootName), typeIsBillingAddressMarkerName, billingRecordName, asUserId(1));
     }
-    const billingRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(billingRecordName) as { id: number };
+    const billingRecord = Entity.get(billingRecordName)!;
     supersedeEntity(billingRecord.id, { relation: 'Billing Address' }, asUserId(1));
   } else {
-    const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(billingRecordName) as { id: number } | undefined;
+    const existing = Entity.get(billingRecordName);
     if (existing) Entity.relate(existing.id, null, asUserId(1));
   }
 }
 
 // See docs/pm-stock-api.md — "setLocation/getLocation are both scoped by business directly in the SQL"
 export function getLocation(name: string, business?: BusinessName): Location | undefined {
-  const row = (business
-    ? (() => {
-        const rootId = resolveBusinessLocationsRootId(business);
-        if (!rootId) return undefined;
-        return db
-          .prepare(
-            `SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone, e.id as entity_id
-             FROM contact c
-             JOIN current_entities e ON e.id = c.entity_id
-             WHERE e.name = ? AND e.parent_id = ?`
-          )
-          .get(name, rootId);
-      })()
-    : db.prepare(
-        `SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone, e.id as entity_id
-         FROM contact c JOIN current_entities e ON e.id = c.entity_id WHERE e.name = ?`
-      ).get(name)
-  ) as { city: string; bottle_capacity: number | null; carton_capacity: number | null; timezone: string; entity_id: number } | undefined;
+  // Names are only unique WITHIN a parent (entities_name_unique), not
+  // globally — the no-business branch below can't resolve via Entity.get
+  // alone, because a same-named entity with no `contact` row elsewhere in
+  // the tree would be ambiguous. The original SQL disambiguated by
+  // requiring a real `contact` row (an inner join), so that's reproduced
+  // here instead of simplifying it away. The business-scoped branch has
+  // no such ambiguity (parent_id already pins it down), so it resolves
+  // the entity via Entity.getUnder first and only touches `contact` by id.
+  const row = (
+    business
+      ? (() => {
+          const rootId = resolveBusinessLocationsRootId(business);
+          const entity = rootId ? Entity.getUnder(name, rootId) : undefined;
+          return entity ? db.prepare(`SELECT city, bottle_capacity, carton_capacity, timezone FROM contact WHERE entity_id = ?`).get(entity.id) : undefined;
+        })()
+      : db.prepare(`SELECT c.city, c.bottle_capacity, c.carton_capacity, c.timezone FROM contact c JOIN current_entities e ON e.id = c.entity_id WHERE e.name = ?`).get(name)
+  ) as { city: string; bottle_capacity: number | null; carton_capacity: number | null; timezone: string } | undefined;
   if (!row) return undefined;
+  // Same correlated-subquery string match as setLocation's staleType
+  // lookup above — stays raw SQL for the same reason (a one-off
+  // reconstruction match, not a plain lookup any EntityDriver primitive
+  // covers).
   const typeRow = db
     .prepare(
       `SELECT rel.name AS marker
@@ -212,7 +214,7 @@ export function getLocation(name: string, business?: BusinessName): Location | u
        AND rec.name = 'Location Type — ' || ? || ' → ' || rel.name`
     )
     .get(name) as { marker: string } | undefined;
-  const isBillingAddress = !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(`Is Billing Address — ${name} → Billing Address`);
+  const isBillingAddress = !!Entity.get(`Is Billing Address — ${name} → Billing Address`);
   return { city: row.city, location_type: typeRow?.marker ?? '', is_billing_address: isBillingAddress, bottle_capacity: row.bottle_capacity, carton_capacity: row.carton_capacity, timezone: row.timezone };
 }
 
@@ -344,6 +346,12 @@ export function getLocationCapacityStatus(locationName: LocationName): LocationC
 }
 
 function preferredProviderPackageQuantity(itemName: ItemName): number | null {
+  // Deliberately NOT Entity.get(itemName): item names are unique only
+  // within their own parent (category/business), never globally, so an
+  // unscoped lookup can return the wrong same-named entity when more than
+  // one exists. The original JOIN disambiguated correctly by requiring a
+  // matching item_source row to exist at all — preserved here exactly,
+  // same fix and same reasoning as getLocation's no-business branch above.
   const row = db
     .prepare(
       `SELECT ps.package_quantity
@@ -365,7 +373,7 @@ export function createPosTerminal(terminalName: string, locationName: LocationNa
 
 export function listPosTerminals(locationName: string): { name: string; currency: string | null }[] {
   const parentName = `${locationName} Terminals`;
-  const parent = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(parentName) as { id: number } | undefined;
+  const parent = Entity.get(parentName);
   if (!parent) return [];
   return db
     .prepare(`SELECT e.name, a.currency FROM current_entities e LEFT JOIN account a ON a.entity_id = e.id WHERE e.parent_id = ?`)
@@ -378,16 +386,16 @@ export function setTerminalCurrency(terminalName: string, currency: string | nul
 
 export function getEffectiveSaleCurrency(terminalName: string | undefined): string | null {
   if (!terminalName) return null;
-  const row = db.prepare(`SELECT currency FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(terminalName) as { currency: string | null } | undefined;
+  const entity = Entity.get(terminalName);
+  if (!entity) return null;
+  const row = db.prepare(`SELECT currency FROM account WHERE entity_id = ?`).get(entity.id) as { currency: string | null } | undefined;
   return row?.currency ?? null;
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. See docs/pm-stock-api.md § "Item-location levels and capacity status" for the {business} Locations root-naming note.
 export function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): { capacityAccount: string; capacityAccountId: number; occupiedAccountId: number; unit: 'bottle' | 'carton' } {
   const locationsRootId = resolveBusinessLocationsRootId(business);
-  const locationId = locationsRootId
-    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, locationsRootId) as { id: number } | undefined)?.id
-    : undefined;
+  const locationId = locationsRootId ? Entity.getUnder(locationName, locationsRootId)?.id : undefined;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   const loc = getLocation(locationName, business);
   const unit: 'bottle' | 'carton' = loc?.bottle_capacity != null ? 'bottle' : 'carton';
@@ -588,26 +596,27 @@ function allItemCategories(): Map<string, string | null> {
 }
 
 function allPreferredProviders(): Map<string, string> {
-  const rows = db
-    .prepare(
-      `SELECT p.name AS item, v.name AS vendor, ps.is_preferred
-       FROM item_source ps
-       JOIN current_entities p ON p.id = ps.item_id
-       JOIN current_entities v ON v.id = ps.vendor_id
-       ORDER BY ps.is_preferred DESC, ps.id ASC`
-    )
-    .all() as { item: string; vendor: string; is_preferred: number }[];
+  const rows = db.prepare(`SELECT item_id, vendor_id FROM item_source ORDER BY is_preferred DESC, id ASC`).all() as { item_id: number; vendor_id: number }[];
+  const ids = new Set<number>();
+  for (const r of rows) {
+    ids.add(r.item_id);
+    ids.add(r.vendor_id);
+  }
+  const names = new Map(Entity.getMany([...ids]).map((n) => [n.id, n.name] as const));
   const map = new Map<string, string>();
-  for (const r of rows) if (!map.has(r.item)) map.set(r.item, r.vendor); // first row per item, already ordered preferred-first
+  for (const r of rows) {
+    const item = names.get(r.item_id);
+    const vendor = names.get(r.vendor_id);
+    if (item && vendor && !map.has(item)) map.set(item, vendor); // first row per item, already ordered preferred-first
+  }
   return map;
 }
 
 // See docs/pm-stock-api.md § "Stock listing and the movement report"
 export function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string, hierarchyName?: string): StockMovementReport {
-  const ledgerId = (
-    db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
-      .get(ledgerName, business) as { id: number } | undefined
-  )?.id;
+  const businessEntity = Entity.get(business, 'Businesses');
+  const ledgersRoot = businessEntity ? Entity.getUnder('Ledgers', businessEntity.id) : undefined;
+  const ledgerId = ledgersRoot ? Entity.getUnder(ledgerName, ledgersRoot.id)?.id : undefined;
   if (!ledgerId) throw new ValidationError(`No real ledger named "${ledgerName}" under "${business}".`);
 
   const dateFilter = `AND (? IS NULL OR j.transdate >= ?) AND (? IS NULL OR j.transdate <= ?)`;
@@ -765,7 +774,7 @@ export function setItemLocationLevels(
 ): void {
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
-  const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
+  const locationId = Entity.get(locationName)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
   setItemLocationLevelDetails(
     itemName,
@@ -808,7 +817,7 @@ export function receiveItems(
   if (quantity <= 0) throw new ValidationError('Received quantity must be positive.');
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
-  const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
+  const locationId = Entity.get(locationName)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
   db.transaction(() => {
@@ -865,7 +874,7 @@ export function receiveStockPhysical(input: ReceiveStockPhysicalInput, userId: U
   if (quantity <= 0) throw new ValidationError('Received quantity must be positive.');
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
-  const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
+  const locationId = Entity.get(locationName)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
   db.transaction(() => {
@@ -1001,7 +1010,7 @@ export function transferItems(
   }
   resolveItemId(itemName); // validates the real item exists; throws otherwise
   for (const loc of [fromLocationName, toLocationName]) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(loc)) throw new ValidationError(`No location named "${loc}".`);
+    if (!Entity.get(loc)) throw new ValidationError(`No location named "${loc}".`);
   }
 
   const date = transdate ?? todayAtLocation(fromLocationName);
@@ -1127,16 +1136,12 @@ export function setItemSourceLeadTime(itemName: ItemName, vendorName: ProviderNa
 }
 
 export function getItemLeadTimes(itemName: ItemName): { vendor: string; days: number }[] {
-  const rows = db
-    .prepare(
-      `SELECT child.id, target.name AS vendor
-       FROM current_entities child
-       JOIN current_entities parent ON parent.id = child.parent_id
-       JOIN current_entities target ON target.id = child.relation_id
-       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Lead Time' AND tag.relation_id IS NOT NULL
-       WHERE parent.name = ?`
-    )
-    .all(itemName) as { id: number; vendor: string }[];
+  const item = Entity.get(itemName);
+  if (!item) return [];
+  const rows = Entity.children(item.id)
+    .filter((child) => child.relation_id !== null && Entity.hasTag(child.id, 'Lead Time'))
+    .map((child) => ({ id: child.id, vendor: Entity.get(child.relation_id!)?.name }))
+    .filter((r): r is { id: number; vendor: string } => r.vendor !== undefined);
   return rows.map((row) => ({ vendor: row.vendor, days: Number(Entity.getAttr(row.id, 'Days') ?? 0) }));
 }
 
@@ -1205,13 +1210,13 @@ export interface StockTake {
 }
 
 export function createStockTake(locationName: LocationName, takeDate: string, userId: UserId, business?: BusinessName): number {
-  const locationId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
+  const locationId = Entity.get(locationName)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
   const takeEntity = Entity.create(`Stock Take — ${takeDate} — ${Date.now()} — draft`, locationId, userId);
   const takeId = takeEntity.id;
 
-  const resolvedLocationName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(locationId) as { name: string }).name;
+  const resolvedLocationName = Entity.get(locationId)!.name;
   const itemsHere = (getInventoryListingByLocation(business).find((g) => g.location === resolvedLocationName)?.rows ?? [])
     .map((r) => {
       const detail = getItemLocation(asItemName(r.item), asLocationName(resolvedLocationName));
@@ -1255,20 +1260,17 @@ function parseStockTakeLine(row: { id: number; item: string; name: string }): St
 }
 
 export function getStockTake(id: number): StockTake | undefined {
-  const header = db
-    .prepare(`SELECT t.id, l.name AS location, t.name FROM current_entities t JOIN current_entities l ON l.id = t.parent_id WHERE t.id = ? AND t.name LIKE 'Stock Take — %'`)
-    .get(id) as { id: number; location: string; name: string } | undefined;
-  if (!header) return undefined;
+  const takeEntity = Entity.get(id);
+  if (!takeEntity || takeEntity.parent_id === null || !takeEntity.name.startsWith('Stock Take — ')) return undefined;
+  const location = Entity.get(takeEntity.parent_id)?.name;
+  if (location === undefined) return undefined;
+  const header = { id: takeEntity.id, location, name: takeEntity.name };
   const headerMatch = header.name.match(/^Stock Take — (\S+) — \d+ — (draft|completed)$/);
   if (!headerMatch) throw new ValidationError(`Malformed real stock take header name: "${header.name}".`);
-  const lines = db
-    .prepare(
-      `SELECT l.id, item.name AS item, l.name
-       FROM current_entities l
-       JOIN current_entities item ON item.id = l.relation_id
-       WHERE l.parent_id = ? AND l.name LIKE 'Line — %'`
-    )
-    .all(id) as { id: number; item: string; name: string }[];
+  const lines = Entity.children(id)
+    .filter((l) => l.name.startsWith('Line — ') && l.relation_id !== null)
+    .map((l) => ({ id: l.id, item: Entity.get(l.relation_id!)?.name, name: l.name }))
+    .filter((r): r is { id: number; item: string; name: string } => r.item !== undefined);
   const parsedLines = lines.map(parseStockTakeLine).sort((a, b) => {
     if ((a.shelf_side === null) !== (b.shelf_side === null)) return a.shelf_side === null ? 1 : -1;
     if (a.shelf_side !== b.shelf_side) return (a.shelf_side ?? '').localeCompare(b.shelf_side ?? '');
@@ -1287,7 +1289,7 @@ export function recordStockTakeCount(stockTakeId: number, itemName: ItemName, co
   if (countedQuantity < 0) throw new ValidationError('Counted quantity cannot be negative.');
   const line = take.lines.find((l) => l.item === itemName);
   if (!line) throw new ValidationError(`"${itemName}" is not on this stock take sheet.`);
-  const row = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(line.id) as { name: string };
+  const row = Entity.get(line.id)!;
   const newName = row.name.replace(/counted:\d*$/, `counted:${countedQuantity}`);
   supersedeEntity(line.id, { name: newName }, asUserId(1));
 }
@@ -1330,7 +1332,7 @@ export function completeStockTake(
     postJournalEntry(reference, business, ledger, userId);
   }
 
-  const takeRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(stockTakeId) as { name: string };
+  const takeRow = Entity.get(stockTakeId)!;
   supersedeEntity(stockTakeId, { name: takeRow.name.replace(/ — draft$/, ' — completed') }, userId);
 }
 
@@ -1404,9 +1406,9 @@ export function writeOffItems(
 // changed only through Entity.rename's INSERT-based entity_update
 // trigger, never a literal UPDATE) instead of detail_json.
 function ensureStockLotsRoot(): { id: number } {
-  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = 'Stock Lots'`).get() as { id: number } | undefined;
+  const existing = Entity.get('Stock Lots');
   if (existing) return existing;
-  const application = db.prepare(`SELECT id FROM current_entities WHERE name = 'Application'`).get() as { id: number };
+  const application = Entity.get('Application')!;
   return { id: createSystemEntity('Stock Lots', application.id) };
 }
 
@@ -1417,11 +1419,9 @@ function ensureLotAccount(lotAccountName: string): void {
 }
 
 function lotBalance(lotAccountName: string): number {
-  return (
-    (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(lotAccountName) as
-      | { balance_minor: number }
-      | undefined)?.balance_minor ?? 0
-  );
+  const entity = Entity.get(lotAccountName);
+  if (!entity) return 0;
+  return (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(entity.id) as { balance_minor: number } | undefined)?.balance_minor ?? 0;
 }
 
 export function receiveLot(
@@ -1471,7 +1471,7 @@ export function consumeFromLots(
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
 
-  const lotRows = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? AND name LIKE '% — Lot — %'`).all(itemId) as { id: number; name: string }[];
+  const lotRows = Entity.findByNameContaining(' — Lot — ', itemId).map((r) => ({ id: r.id, name: r.name }));
   const lots = lotRows
     .map((r) => {
       const lotNumber = r.name.split(' — Lot — ')[1];
@@ -1517,25 +1517,20 @@ export interface ExpiringLot {
 }
 
 export function getExpiringStock(asOfDate: string, withinDays: number): ExpiringLot[] {
-  const lotRows = db
-    .prepare(
-      `SELECT item.name AS item, lot.id AS lot_id, lot.name AS lot_name,
-              SUBSTR(lot.name, INSTR(lot.name, ' — Lot — ') + LENGTH(' — Lot — ')) AS lot_number
-       FROM current_entities lot
-       JOIN current_entities item ON item.id = lot.parent_id
-       WHERE lot.name LIKE '% — Lot — %'`
-    )
-    .all() as { item: string; lot_id: number; lot_name: string; lot_number: string }[];
+  const lotEntities = Entity.findByNameContaining(' — Lot — ');
 
   const rows: ExpiringLot[] = [];
-  for (const row of lotRows) {
-    const expirationDate = Entity.getAttr(row.lot_id, 'Expiration Date');
+  for (const lot of lotEntities) {
+    const item = lot.parent_id !== null ? Entity.get(lot.parent_id) : undefined;
+    if (!item) continue;
+    const lotNumber = lot.name.split(' — Lot — ')[1];
+    const expirationDate = Entity.getAttr(lot.id, 'Expiration Date');
     if (!expirationDate) continue;
-    const quantityOnHand = lotBalance(`${row.lot_name} Qty`);
+    const quantityOnHand = lotBalance(`${lot.name} Qty`);
     if (quantityOnHand <= 0) continue;
     const daysUntilExpiration = Math.trunc((Date.parse(expirationDate) - Date.parse(asOfDate)) / 86400000);
     if (daysUntilExpiration > withinDays) continue;
-    rows.push({ item: row.item, lot_number: row.lot_number, expiration_date: expirationDate, quantity_on_hand: quantityOnHand, days_until_expiration: daysUntilExpiration });
+    rows.push({ item: item.name, lot_number: lotNumber, expiration_date: expirationDate, quantity_on_hand: quantityOnHand, days_until_expiration: daysUntilExpiration });
   }
   return rows.sort((a, b) => a.days_until_expiration - b.days_until_expiration);
 }
@@ -1560,13 +1555,12 @@ export function placeOrder(
   db.transaction(() => {
   const qtyName = `${orderReference} Qty`;
   const valueName = `${orderReference} Value`;
-  const ordersId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Orders'`).get() as { id: number }).id;
+  const ordersId = Entity.get('Orders')!.id;
   for (const name of [qtyName, valueName]) {
-    const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name);
-    if (!existing) createSystemEntity(name, ordersId);
+    if (!Entity.get(name)) createSystemEntity(name, ordersId);
   }
-  if (vendor) supersedeEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(qtyName) as { id: number }).id, { relation: vendor }, userId);
-  if (item) supersedeEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(valueName) as { id: number }).id, { relation: item }, userId);
+  if (vendor) supersedeEntity(Entity.get(qtyName)!.id, { relation: vendor }, userId);
+  if (item) supersedeEntity(Entity.get(valueName)!.id, { relation: item }, userId);
   if (location) setHierarchyParent(qtyName, 'Location', location, userId);
   postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueName), priceMinor, userId, transdate);
   if (item) {
@@ -1590,9 +1584,9 @@ export function placeOrder(
 // item's own On Order account instead of a second, duplicate number on
 // `${orderReference} Qty`.
 function resolveOrderItem(orderReference: string): ItemName | undefined {
-  const row = db.prepare(`SELECT relation_id FROM current_entities WHERE name = ?`).get(`${orderReference} Value`) as { relation_id: number | null } | undefined;
+  const row = Entity.get(`${orderReference} Value`);
   if (!row?.relation_id) return undefined;
-  const item = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(row.relation_id) as { name: string } | undefined;
+  const item = Entity.get(row.relation_id);
   return item ? asItemName(item.name) : undefined;
 }
 
@@ -1620,25 +1614,19 @@ export function fulfillOrder(
 
 export function getOrderStatus(orderReference: string): { quantity: number; value_minor: number } {
   const item = resolveOrderItem(orderReference);
-  const qty = item
-    ? (() => {
-        const { onOrderAccountId } = ensureItemQuantityAccounts(item, asUserId(1));
-        return (
-          (db
-            .prepare(
-              `SELECT SUM(jl.amount_minor) AS total FROM journal j JOIN journal_line jl ON jl.journal_id = j.id
-               WHERE j.reference LIKE ? AND jl.account_id = ?`
-            )
-            .get(`${orderReference}%`, onOrderAccountId) as { total: number | null }).total ?? 0
-        );
-      })()
-    : (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(`${orderReference} Qty`) as
-        | { balance_minor: number }
-        | undefined)?.balance_minor ?? 0;
-  const value =
-    (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(`${orderReference} Value`) as
-      | { balance_minor: number }
-      | undefined)?.balance_minor ?? 0;
+  let qty: number;
+  if (item) {
+    const { onOrderAccountId } = ensureItemQuantityAccounts(item, asUserId(1));
+    qty =
+      (db.prepare(`SELECT SUM(jl.amount_minor) AS total FROM journal j JOIN journal_line jl ON jl.journal_id = j.id WHERE j.reference LIKE ? AND jl.account_id = ?`).get(`${orderReference}%`, onOrderAccountId) as {
+        total: number | null;
+      }).total ?? 0;
+  } else {
+    const qtyEntity = Entity.get(`${orderReference} Qty`);
+    qty = qtyEntity ? (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(qtyEntity.id) as { balance_minor: number } | undefined)?.balance_minor ?? 0 : 0;
+  }
+  const valueEntity = Entity.get(`${orderReference} Value`);
+  const value = valueEntity ? (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(valueEntity.id) as { balance_minor: number } | undefined)?.balance_minor ?? 0 : 0;
   return { quantity: qty, value_minor: value };
 }
 
