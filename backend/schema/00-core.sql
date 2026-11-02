@@ -150,6 +150,23 @@ CREATE TABLE db_version (
 );
 INSERT INTO db_version (id, version) VALUES (1, '0.0.0.400');
 
+-- The Kaappi entity-server's write-ahead log, per Stage B of
+-- /root/.claude/plans/stateful-snacking-adleman.md ("move the Kaappi WAL
+-- into SQLite"). A single JSONB blob (one row, same exactly-one-row
+-- discipline as db_version above) holding a JSON array of ops, oldest
+-- first — not a row-per-op table, per direct instruction, with the
+-- explicit, accepted trade-off that every write reads, appends to, and
+-- rewrites the whole array (cost grows with the log's size, not O(1); see
+-- that plan's "2. The WAL-in-SQLite redesign" for the full reasoning).
+-- Only ever read or written by KaappiEntityDriver's worker thread
+-- (backend/src/drivers/kaappi-worker.ts) — under ENTITY_DRIVER=sql (the
+-- committed default), this table exists but stays untouched.
+CREATE TABLE kaappi_wal (
+  id       INTEGER PRIMARY KEY CHECK (id = 1),
+  ops_json TEXT NOT NULL DEFAULT '[]'
+);
+INSERT INTO kaappi_wal (id, ops_json) VALUES (1, '[]');
+
 -- A plain, non-unique index on name alone. Cannot be UNIQUE — scoped
 -- uniqueness (one real name per real parent, not globally) is this
 -- schema's own, established, deliberate design, so the exact, same

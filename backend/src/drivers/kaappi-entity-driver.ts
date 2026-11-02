@@ -89,8 +89,18 @@ export class KaappiEntityDriver implements EntityDriver {
 
     // Block synchronously until the worker has started the Kaappi
     // subprocess (or failed to) — a one-time, bounded wait at construction,
-    // not per call.
-    Atomics.wait(this.control, STATUS_IDX, IDLE);
+    // not per call. A FINITE timeout here (and on every callSync below)
+    // is load-bearing, not cosmetic: if the worker thread dies before it
+    // ever reaches a point that calls Atomics.notify — e.g. an uncaught
+    // error during its own module load, confirmed directly to be possible
+    // this stage (tsx's loader not remapping a relative import inside a
+    // worker thread the way it does elsewhere) — an untimed Atomics.wait
+    // blocks this thread FOREVER: the worker's 'error' event fires, but
+    // this thread can't act on it while synchronously parked in the wait.
+    const startupTimedOut = Atomics.wait(this.control, STATUS_IDX, IDLE, 30_000) === 'timed-out';
+    if (startupTimedOut) {
+      throw new Error('KaappiEntityDriver: timed out waiting for kaappi-worker to start (30s) — it may have died before reporting why; check stderr.');
+    }
     const outcome = Atomics.load(this.control, STATUS_IDX);
     if (outcome === START_FAILED) {
       throw new Error(`KaappiEntityDriver: entity-server failed to start: ${this.readPayload()}`);
@@ -108,7 +118,13 @@ export class KaappiEntityDriver implements EntityDriver {
   private callSync(method: string, args: WireValue[]): unknown {
     Atomics.store(this.control, STATUS_IDX, IDLE);
     this.worker.postMessage({ method, args });
-    Atomics.wait(this.control, STATUS_IDX, IDLE);
+    // Same reasoning as the constructor's wait: a finite timeout so a dead
+    // or wedged worker surfaces as a clear error instead of hanging this
+    // thread forever.
+    const timedOut = Atomics.wait(this.control, STATUS_IDX, IDLE, 30_000) === 'timed-out';
+    if (timedOut) {
+      throw new Error(`KaappiEntityDriver: call to "${method}" timed out after 30s waiting for kaappi-worker.`);
+    }
     const status = Atomics.load(this.control, STATUS_IDX);
     const text = this.readPayload();
     if (status === CALL_ERROR) throw new Error(text);
