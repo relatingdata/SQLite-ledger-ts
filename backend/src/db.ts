@@ -662,7 +662,7 @@ export interface HierarchyNode {
 }
 
 export function getHierarchy(rootName: string, relationshipType?: string, knownRootId?: number): HierarchyNode {
-  const rootId = knownRootId ?? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(rootName) as { id: number } | undefined)?.id;
+  const rootId = knownRootId ?? Entity.get(rootName)?.id;
   if (!rootId) throw new NotFoundError(`No real entity named "${rootName}".`);
 
   const relPairs = relationshipType ? getEntitiesWithRelationship(relationshipType) : [];
@@ -685,7 +685,7 @@ export function getHierarchy(rootName: string, relationshipType?: string, knownR
     if (depth > MAX_DEPTH) {
       throw new ValidationError(`getHierarchy("${rootName}") exceeded ${MAX_DEPTH} levels of real depth — a genuine cycle in the relationship chain, not a real, this-deep hierarchy.`);
     }
-    const directChildren = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ?`).all(id) as { id: number; name: string }[];
+    const directChildren = Entity.children(id);
     const seenIds = new Set(directChildren.map((c) => c.id));
     const relationshipChildren = (childrenByTargetId.get(id) ?? []).filter((c) => c.id !== id && !seenIds.has(c.id));
     for (const c of relationshipChildren) seenIds.add(c.id);
@@ -699,13 +699,11 @@ export function getHierarchy(rootName: string, relationshipType?: string, knownR
 }
 
 export function resolveBusinessLocationsRootId(businessName: string): number | undefined {
-  const businessId = (
-    db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined
-  )?.id;
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
   if (!businessId) return undefined;
-  const modern = db.prepare(`SELECT id FROM current_entities WHERE name = 'Locations' AND parent_id = ?`).get(businessId) as { id: number } | undefined;
+  const modern = Entity.getUnder('Locations', businessId);
   if (modern) return modern.id;
-  const legacy = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(`${businessName} Locations`, businessId) as { id: number } | undefined;
+  const legacy = Entity.getUnder(`${businessName} Locations`, businessId);
   return legacy?.id;
 }
 
@@ -723,7 +721,7 @@ export function getOrganizationChart(businessName: BusinessName): OrganizationCh
   const businessLocationsRootId = resolveBusinessLocationsRootId(businessName);
   const businessLocationNames = new Set(
     businessLocationsRootId
-      ? ((db.prepare(`SELECT e.name FROM current_entities e WHERE e.parent_id = ?`).all(businessLocationsRootId) as { name: string }[]).map((r) => r.name))
+      ? Entity.children(businessLocationsRootId).map((c) => c.name)
       : []
   );
 
