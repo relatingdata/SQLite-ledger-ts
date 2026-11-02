@@ -2000,7 +2000,10 @@ export function resolveBusinessCoaAccountId(businessName: BusinessName, accountN
     )
     .get(businessName, accountName) as { id: number } | undefined;
   if (row) return row.id;
-  const fallback = db.prepare(`SELECT id FROM current_entities WHERE name = ? LIMIT 1`).get(accountName) as { id: number } | undefined;
+  // Entity.get(name) here is behavior-equivalent, not just a convenient
+  // substitute: the original had no ORDER BY either, so there was no
+  // tie-break to lose (unlike setRelationship's earlier, confirmed case).
+  const fallback = Entity.get(accountName);
   if (!fallback) throw new ValidationError(`No real account named "${accountName}".`);
   return fallback.id;
 }
