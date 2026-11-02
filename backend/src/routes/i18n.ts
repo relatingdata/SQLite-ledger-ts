@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getLanguages, getLocalizedText, setTranslation, getDefaultLanguage, setDefaultLanguage, getVocabularyAlternates, getConceptsWithAlternates, getVocabularyWords, setVocabularyPreference, deleteVocabularyPreference, getLanguageDirection, setLanguageDirection, deleteTranslationConcept, ValidationError, NotFoundError,
-  asUserId, ensureVocabularyAlternate, db,
+  asUserId, ensureVocabularyAlternate,
 } from '../db.js';
 import { requireAuth, requireRole } from '../auth-middleware.js';
+import { Entity as KaappiEntity } from '../entity-client.js';
 
 export const i18nRouter = Router();
 
@@ -98,7 +99,7 @@ const vocabularyPreferenceSchema = z.object({
   preferredAlternateName: z.string().min(1),
 });
 
-i18nRouter.post('/vocabulary-preference', requireAuth, (req, res) => {
+i18nRouter.post('/vocabulary-preference', requireAuth, async (req, res) => {
   const parsed = vocabularyPreferenceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
@@ -109,10 +110,16 @@ i18nRouter.post('/vocabulary-preference', requireAuth, (req, res) => {
     // local, business-owned Vocabulary word, and even then only after
     // checking whether a real, global synonym with that exact text
     // already exists.
-    const alreadyExists = db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(preferredAlternateName);
+    //
+    // Both lookups below are entity reads (existence-by-name, name-by-id)
+    // with nothing to do with account/journal/journal_line, so per the
+    // approved Kaappi-integration plan they go through entity-client
+    // (a Kaappi subprocess) rather than raw SQL against `current_entities`
+    // — this route is Phase 1's one migrated call site.
+    const alreadyExists = (await KaappiEntity.getByName(preferredAlternateName)) !== null;
     if (!alreadyExists) {
       if (scope !== 'business') return res.status(400).json({ error: 'A genuinely new name can only be added for a real business, not a user preference alone.' });
-      const businessName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(scopeId) as { name: string } | undefined)?.name;
+      const businessName = await KaappiEntity.getName(scopeId);
       if (!businessName) return res.status(400).json({ error: 'No real business with that id.' });
       ensureVocabularyAlternate(conceptName, preferredAlternateName, businessName, asUserId(1));
     }
