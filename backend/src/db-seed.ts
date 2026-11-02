@@ -1,6 +1,7 @@
 import { db } from './db.js';
 import {
   supersedeEntity, setTranslation, setContactType, mergeContactDetail, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeCustomerName, typeProviderName, type UserId, type EntityUpdate } from './db.js';
+import { Entity } from './primitives.js';
 
 // Every real seed function below acts as this one, real, direct admin
 // user — cast once, here, rather than at each of the many, real,
@@ -264,7 +265,7 @@ const coaTranslations: [string, string, string][] = [
     ['Impôts sur les bénéfices', 'Danish', 'Selskabsskat'],
   ];
   for (const [entity, language, text] of coaTranslations) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entity)) continue;
+    if (!Entity.get(entity)) continue;
     setTranslation(entity, language, text);
   }
 }
@@ -295,7 +296,7 @@ const languageNameTranslations: [string, string, string][] = [
 migrateForLanguageNameTranslations();
 
 function migrateForUtilitiesRestructure() {
-  const hasEntity = (name: string) => !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name);
+  const hasEntity = (name: string) => !!Entity.get(name);
 
   // Remove Utilities' own account row if this database still has it
   // from before this restructure — it's no longer directly postable.
@@ -308,7 +309,7 @@ function migrateForUtilitiesRestructure() {
   // the whole migration — the real fix for the actual cause (a
   // screen posting against a non-postable, structural category) is
   // separate, real work, not this migration's job to paper over.
-  const utilitiesId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Utilities'`).get() as { id: number } | undefined)?.id;
+  const utilitiesId = Entity.get('Utilities')?.id;
   if (utilitiesId) {
     const hasRealPostings = db.prepare(`SELECT 1 FROM journal_line WHERE account_id = ?`).get(utilitiesId);
     if (!hasRealPostings) {
@@ -325,8 +326,9 @@ function migrateForUtilitiesRestructure() {
   if (!hasEntity('Telephone')) create(requireEntity('Utilities', typeRootName), typeExpenseCategoryName, 'Telephone', SEED_USER_ID);
 
   for (const name of ['Refrigeration', 'Lighting & General', 'Gas', 'Water', 'Internet', 'Telephone']) {
-    if (!db.prepare(`SELECT 1 FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(name)) {
-      db.prepare(`INSERT INTO account (entity_id) VALUES ((SELECT id FROM current_entities WHERE name = ?))`).run(name);
+    const subaccountId = Entity.get(name)?.id;
+    if (subaccountId !== undefined && !db.prepare(`SELECT 1 FROM account WHERE entity_id = ?`).get(subaccountId)) {
+      db.prepare(`INSERT INTO account (entity_id) VALUES (?)`).run(subaccountId);
     }
   }
 
@@ -360,7 +362,7 @@ function migrateForUtilitiesRestructure() {
 migrateForUtilitiesRestructure();
 
 function migrateForPagerVocabulary() {
-  const hasEntity = (name: string) => !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name);
+  const hasEntity = (name: string) => !!Entity.get(name);
   for (const word of ['Newer', 'Older', 'Page']) {
     if (!hasEntity(word)) create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, word, SEED_USER_ID);
   }
@@ -484,7 +486,7 @@ function migrateForEnglishStringAuditGap() {
     ['deleted.', 'gelöscht.', 'supprimé.', 'slettet.', 'eliminato.'],
   ];
   for (const [entity, german, french, danish, italian] of short) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entity)) {
+    if (!Entity.get(entity)) {
       create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, entity, SEED_USER_ID);
     }
     setTranslation(entity, 'German', german);
@@ -566,7 +568,7 @@ function migrateForEnglishStringAuditGap() {
     ],
   ];
   for (const [entity, german, french, danish, italian] of longer) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entity)) {
+    if (!Entity.get(entity)) {
       create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, entity, SEED_USER_ID);
     }
     setTranslation(entity, 'German', german);
@@ -760,7 +762,7 @@ function migrateForEnglishStringAuditGap() {
     ],
   ];
   for (const [entity, german, french, danish, italian] of paragraphs) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entity)) {
+    if (!Entity.get(entity)) {
       create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, entity, SEED_USER_ID);
     }
     setTranslation(entity, 'German', german);
@@ -893,7 +895,7 @@ function migrateForEnglishStringAuditTranslations() {
     ['Yearly', 'Jährlich', 'Annuel', 'Årligt', 'Annuale'],
   ];
   for (const [entity, de, fr, da, it] of words) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entity)) {
+    if (!Entity.get(entity)) {
       create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, entity, SEED_USER_ID);
     }
     setTranslation(entity, 'German', de);
@@ -906,7 +908,7 @@ migrateForEnglishStringAuditTranslations();
 
 
 function migrateForInvoicePdfVocabulary() {
-  const hasEntity = (name: string) => !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name);
+  const hasEntity = (name: string) => !!Entity.get(name);
   for (const word of ['Qty', 'Amount', 'Tax', 'Invoice', 'Posted by', 'Bill to', 'Subtotal', 'Total due']) {
     if (!hasEntity(word)) create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, word, SEED_USER_ID);
   }
@@ -950,9 +952,9 @@ function migrateForUnitPriceTranslation() {
 migrateForUnitPriceTranslation();
 
 function migrateForCogsTag() {
-  const cogs = db.prepare(`SELECT id, relation_id FROM current_entities WHERE name = 'Cost of Goods Sold'`).get() as { id: number; relation_id: number | null } | undefined;
+  const cogs = Entity.get('Cost of Goods Sold');
   if (!cogs || cogs.relation_id != null) return; // no such account yet, or already tagged
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'COGS'`).get()) {
+  if (!Entity.get('COGS')) {
     create(requireEntity('Business Reports', typeRootName), typeRootName, 'COGS', SEED_USER_ID);
   }
   supersedeEntity(cogs.id, { relation: 'COGS' }, SEED_USER_ID);
@@ -969,16 +971,17 @@ migrateForCogsTag();
  * before Cash Purchase existed) to plain "Cash" on an existing
  * database, rather than leaving a stale duplicate around. */
 function migrateForCashCustomerAndProvider() {
-  const staleCashSale = db
-    .prepare(`SELECT id FROM current_entities WHERE name = 'Cash Sale' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Customers')`)
-    .get() as { id: number } | undefined;
-  if (staleCashSale && !db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Cash' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Customers')`).get()) {
+  const customersRootId = Entity.get('Customers')?.id;
+  const staleCashSale = customersRootId !== undefined ? Entity.getUnder('Cash Sale', customersRootId) : undefined;
+  const hasCashCustomer = customersRootId !== undefined && !!Entity.getUnder('Cash', customersRootId);
+  if (staleCashSale && !hasCashCustomer) {
     supersedeEntity(staleCashSale.id, { name: 'Cash' }, SEED_USER_ID);
-  } else if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Cash' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Customers')`).get()) {
+  } else if (!hasCashCustomer) {
     const customer = create(requireEntity('Customers', typeRootName), typeCustomerName, 'Cash', SEED_USER_ID);
     mergeContactDetail(customer.id, { payment_terms_days: 0 });
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Cash' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Accounts Payable')`).get()) {
+  const accountsPayableRootId = Entity.get('Accounts Payable')?.id;
+  if (!(accountsPayableRootId !== undefined && Entity.getUnder('Cash', accountsPayableRootId))) {
     const provider = create(requireEntity('Accounts Payable', typeRootName), typeProviderName, 'Cash', SEED_USER_ID);
     mergeContactDetail(provider.id, { payment_terms_days: 0 });
   }
@@ -1175,7 +1178,7 @@ function migrateForMenuEntities() {
   // tree a single all-or-nothing snapshot — any section/link added to
   // `sections` later never reached a database that already had a
   // 'Menu' entity from an earlier, smaller version of this array.
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Menu'`).get()) {
+  if (!Entity.get('Menu')) {
     create(requireEntity('Application', typeRootName), typeRootName, 'Menu', SEED_USER_ID);
   }
 
@@ -1189,10 +1192,10 @@ function migrateForMenuEntities() {
     // append-only creation order already, genuinely is the real
     // sibling order, since these are seeded in the exact, intended
     // display order. No separate mechanism needed.
-    const existingSectionEntity = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(sectionName) as { id: number } | undefined;
+    const existingSectionEntity = Entity.get(sectionName);
     if (!existingSectionEntity) {
       const sectionEntity = create(requireEntity('Menu', typeRootName), typeMenuSectionName, sectionName, SEED_USER_ID);
-      const existingSectionVocabWord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(section.label) as { id: number } | undefined;
+      const existingSectionVocabWord = Entity.get(section.label);
       if (existingSectionVocabWord) {
         supersedeEntity(sectionEntity.id, { relation: section.label }, SEED_USER_ID);
       }
@@ -1200,7 +1203,7 @@ function migrateForMenuEntities() {
 
     for (const link of section.links) {
       const linkName = `Menu Link: ${section.label} — ${link.label}`;
-      if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(linkName)) continue;
+      if (Entity.get(linkName)) continue;
       const linkEntity = create(requireEntity(sectionName, typeMenuSectionName), typeMenuLinkName, linkName, SEED_USER_ID);
 
       // A real link's own real target route — its own, real, direct
@@ -1210,10 +1213,8 @@ function migrateForMenuEntities() {
       // (the same way Vocabulary words are shared), never a bare
       // string on the link itself.
       if (link.href) {
-        if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Routes'`).get()) {
-          create(requireEntity('Application', typeRootName), typeRootName, 'Routes', SEED_USER_ID);
-        }
-        if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Routes')`).get(link.href)) {
+        const routesRoot = Entity.get('Routes') ?? create(requireEntity('Application', typeRootName), typeRootName, 'Routes', SEED_USER_ID);
+        if (!Entity.getUnder(link.href, routesRoot.id)) {
           create(requireEntity('Routes', typeRootName), typeRootName, link.href, SEED_USER_ID);
         }
         setEntityLink(linkName, 'Route', link.href, SEED_USER_ID);
@@ -1235,7 +1236,7 @@ function migrateForMenuEntities() {
         }
       }
 
-      const existingVocabWord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(link.label) as { id: number } | undefined;
+      const existingVocabWord = Entity.get(link.label);
       if (existingVocabWord) {
         supersedeEntity(linkEntity.id, { relation: link.label }, SEED_USER_ID);
       }
@@ -1263,20 +1264,20 @@ function migrateForMenuEntities() {
  * un-reparented, at the old one.
  */
 function migrateForMenuReorg(): void {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Menu'`).get()) return; // fresh database — the sections array below already reflects the final layout; nothing pre-existing to reparent
+  if (!Entity.get('Menu')) return; // fresh database — the sections array below already reflects the final layout; nothing pre-existing to reparent
   function ensureSection(label: string): void {
     const sectionName = `Menu Section: ${label}`;
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(sectionName)) {
+    if (!Entity.get(sectionName)) {
       create(requireEntity('Menu', typeRootName), typeMenuSectionName, sectionName, SEED_USER_ID);
     }
   }
   function moveLink(oldSectionLabel: string, linkLabel: string, newSectionLabel: string, newLinkLabel?: string, newRelation?: string | null): void {
     const oldName = `Menu Link: ${oldSectionLabel} — ${linkLabel}`;
-    const row = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(oldName) as { id: number } | undefined;
+    const row = Entity.get(oldName);
     if (!row) return; // never existed under the old section on this database — nothing to move
     const newLabel = newLinkLabel ?? linkLabel;
     const newName = `Menu Link: ${newSectionLabel} — ${newLabel}`;
-    if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(newName)) return; // already moved
+    if (Entity.get(newName)) return; // already moved
     // A rename also needs its own real_label source re-pointed: the
     // old "Vendors" link's relation_id already pointed at the real,
     // pre-existing "Vendors" Vocabulary/contact-type entity, which
@@ -1301,7 +1302,7 @@ function migrateForMenuReorg(): void {
   // separate idempotent find-or-create-then-supersede, safe to re-run even
   // though the per-item guard above already skipped re-creating the link
   // entity itself.
-  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Menu Link: Inventory — Providers'`).get()) {
+  if (Entity.get('Menu Link: Inventory — Providers')) {
     setEntityLink('Menu Link: Inventory — Providers', 'Route', '/contacts?focus=providers', SEED_USER_ID);
   }
   moveLink('Accounts Payable (Creditors / Purchasing)', 'Manufacturers', 'Inventory');
@@ -1341,7 +1342,7 @@ migrateForMenuEntities();
  * German/French/Danish/Italian until someone genuinely gives it its
  * own, distinct real translation through /setup/translations. */
 function migrateForVocabularyAlternates() {
-  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Suppliers'`).get()) return;
+  if (Entity.get('Suppliers')) return;
   create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Suppliers', SEED_USER_ID);
   setHierarchyParent('Suppliers', 'Header Account', 'Accounts Payable', SEED_USER_ID);
 }
@@ -1355,34 +1356,38 @@ migrateForVocabularyAlternates();
  * owning business at all, since customers/vendors/employees were
  * genuinely shared, global structural parents before this fix. */
 function migrateForContactTypesAndPerBusinessContacts() {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Customer Contact Type'`).get()) {
+  if (!Entity.get('Customer Contact Type')) {
     create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Customer Contact Type', SEED_USER_ID);
     setHierarchyParent('Customer Contact Type', 'Header Account', 'Accounts Receivable', SEED_USER_ID);
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Vendor Contact Type'`).get()) {
+  if (!Entity.get('Vendor Contact Type')) {
     create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Vendor Contact Type', SEED_USER_ID);
     setHierarchyParent('Vendor Contact Type', 'Header Account', 'Accounts Payable', SEED_USER_ID);
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Employee Contact Type'`).get()) {
+  if (!Entity.get('Employee Contact Type')) {
     create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, 'Employee Contact Type', SEED_USER_ID);
     setHierarchyParent('Employee Contact Type', 'Header Account', 'Accounts Payable', SEED_USER_ID);
   }
 
-  const businesses = db.prepare(`SELECT name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).all() as { name: string }[];
+  const businessesRootId = Entity.get('Businesses')?.id;
+  const businesses = businessesRootId !== undefined ? Entity.children(businessesRootId) : [];
   for (const b of businesses) {
     const contactsName = `${b.name} Contacts`;
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(contactsName)) {
+    if (!Entity.get(contactsName)) {
       create(requireEntity(b.name, typeBusinessName), typeBusinessContactsRootName, contactsName, SEED_USER_ID);
     }
   }
 
   const defaultBusiness = 'Wine Retail Business';
   const destName = `${defaultBusiness} Contacts`;
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(destName)) return; // demo business not seeded (yet) in this environment
+  if (!Entity.get(destName)) return; // demo business not seeded (yet) in this environment
 
-  const customers = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Accounts Receivable')`).all() as { id: number; name: string }[];
-  const vendors = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Accounts Payable')`).all() as { id: number; name: string }[];
-  const employees = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Employees')`).all() as { id: number; name: string }[];
+  const accountsReceivableId = Entity.get('Accounts Receivable')?.id;
+  const accountsPayableId = Entity.get('Accounts Payable')?.id;
+  const employeesRootId = Entity.get('Employees')?.id;
+  const customers = accountsReceivableId !== undefined ? Entity.children(accountsReceivableId) : [];
+  const vendors = accountsPayableId !== undefined ? Entity.children(accountsPayableId) : [];
+  const employees = employeesRootId !== undefined ? Entity.children(employeesRootId) : [];
 
   // Per direct, confirmed regression: re-parenting every existing
   // customer/vendor/employee under {business} Contacts broke a wide,
@@ -1421,7 +1426,7 @@ migrateForContactTypesAndPerBusinessContacts();
  * tested here; wiring a business-type choice into the create-new-
  * business UI itself is real, separate, future work. */
 function migrateForBusinessTypes() {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Business Type'`).get()) {
+  if (!Entity.get('Business Type')) {
     create(requireEntity('Application', typeRootName), typeRootName, 'Business Type', SEED_USER_ID);
   }
   const businessTypes: { name: string; coaPrototype: string; questions: string[] }[] = [
@@ -1446,24 +1451,26 @@ function migrateForBusinessTypes() {
       questions: ['Number of share classes', 'Names of share classes', 'Number of shares issued per class', 'Names of directors', 'Registered office address'],
     },
   ];
+  const businessTypeRootId = Entity.get('Business Type')?.id;
   for (const bt of businessTypes) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Business Type')`).get(bt.name)) {
+    if (!(businessTypeRootId !== undefined && Entity.getUnder(bt.name, businessTypeRootId))) {
       create(requireEntity('Business Type', typeRootName), typeBusinessTypeName, bt.name, SEED_USER_ID);
     }
     const coaRootName = `${bt.name} CoA`;
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(coaRootName, bt.name)) {
+    const btRootId = Entity.get(bt.name)?.id;
+    if (!(btRootId !== undefined && Entity.getUnder(coaRootName, btRootId))) {
       const btNode = requireEntity(bt.name, typeBusinessTypeName);
-      if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Vocabulary' AND parent_id = ?`).get(btNode.id)) {
+      if (!Entity.getUnder('Vocabulary', btNode.id)) {
         create(btNode, typeRootName, 'Vocabulary', SEED_USER_ID);
       }
       create(btNode, typeChartOfAccountsRootName, coaRootName, SEED_USER_ID);
       copyChartOfAccountsInto(btNode, requireEntity(coaRootName, typeChartOfAccountsRootName, btNode), bt.coaPrototype, SEED_USER_ID);
     }
     const questionsRootName = `${bt.name} Questions`;
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`).get(questionsRootName, bt.name)) {
+    if (!(btRootId !== undefined && Entity.getUnder(questionsRootName, btRootId))) {
       const questionsRoot = create(requireEntity(bt.name, typeBusinessTypeName), typeBusinessTypeQuestionsRootName, questionsRootName, SEED_USER_ID);
       for (const q of bt.questions) {
-        if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(q)) {
+        if (!Entity.get(q)) {
           create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, q, SEED_USER_ID);
         }
         create(requireEntityById(questionsRoot.id, typeBusinessTypeQuestionsRootName), typeBusinessTypeQuestionName, `${bt.name} — Question: ${q}`, SEED_USER_ID);
@@ -1483,13 +1490,10 @@ migrateForBusinessTypes();
  * and any number of its own real, proposed Budget ledgers, correctly
  * share the exact, same, one, real CoA instance. */
 function migrateForPerBusinessChartOfAccounts() {
-  const businesses = db.prepare(`SELECT id, name, relation_id FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).all() as {
-    id: number;
-    name: string;
-    relation_id: number | null;
-  }[];
+  const businessesRootId = Entity.get('Businesses')?.id;
+  const businesses = businessesRootId !== undefined ? Entity.children(businessesRootId) : [];
   for (const b of businesses) {
-    const coaPrototype = b.relation_id ? (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(b.relation_id) as { name: string } | undefined)?.name : undefined;
+    const coaPrototype = b.relation_id ? Entity.get(b.relation_id)?.name : undefined;
     instantiateChartOfAccounts(asBusinessName(b.name), coaPrototype, SEED_USER_ID);
   }
 }
