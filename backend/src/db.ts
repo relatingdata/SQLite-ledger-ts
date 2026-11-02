@@ -1426,9 +1426,9 @@ export function postInvoice(
     }
   }
 
+  const { businessId: invBusinessId, ledgerId: invLedgerId } = resolveBusinessAndLedgerIds(asBusinessName(invoice.business), asLedgerName(invoice.ledger));
   const journalId = (
-    db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))`)
-      .get(invoice.reference, invoice.business, invoice.ledger, invoice.business) as { id: number }
+    db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = ? AND ledger_id = ?`).get(invoice.reference, invBusinessId, invLedgerId) as { id: number }
   ).id;
   Entity.mergeDetailJson(id, JSON.stringify({ status: 'posted', posted_journal_id: journalId }));
   })();
@@ -1465,9 +1465,9 @@ export function allocatePayment(
     // the plain counterparty name — so the payment closes the exact
     // same account the invoice opened, never a mismatched, untagged one.
     const counterpartyLine = db
-      .prepare(`SELECT e.name AS name FROM journal_line jl JOIN journal j ON j.id = jl.journal_id JOIN current_entities e ON e.id = jl.account_id WHERE j.reference = ? AND jl.amount_minor = ?`)
-      .get(invoice.reference, sign * total) as { name: string } | undefined;
-    const counterpartyAccountName = counterpartyLine?.name ?? invoice.counterparty;
+      .prepare(`SELECT jl.account_id AS accountId FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ? AND jl.amount_minor = ?`)
+      .get(invoice.reference, sign * total) as { accountId: number } | undefined;
+    const counterpartyAccountName = (counterpartyLine ? Entity.get(counterpartyLine.accountId)?.name : undefined) ?? invoice.counterparty;
     stageLine({ reference: paymentReference, business: asBusinessName(invoice.business), ledger: asLedgerName(invoice.ledger), transdate: allocationDate, account: asAccountName(paymentAccount), amount_minor: sign * allocatedMinor });
     stageLine({ reference: paymentReference, business: asBusinessName(invoice.business), ledger: asLedgerName(invoice.ledger), transdate: allocationDate, account: asAccountName(counterpartyAccountName), amount_minor: -sign * allocatedMinor });
     postJournalEntry(paymentReference, asBusinessName(invoice.business), asLedgerName(invoice.ledger), userId);
@@ -1715,9 +1715,7 @@ export function getHierarchyChain(leafName: ItemName | LocationName): HierarchyC
 // engine (db-matrix-reports.ts), exactly alike for every one of them.
 function resolvePostingRoot(rootName: string, userId: UserId, business?: BusinessName, profitCenter?: string): { name: string; id: number } {
   let currentParent = rootName;
-  let currentParentId = business
-    ? resolveBusinessCoaAccountId(business, rootName)
-    : ((db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(rootName) as { id: number } | undefined)?.id ?? null);
+  let currentParentId = business ? resolveBusinessCoaAccountId(business, rootName) : Entity.get(rootName)?.id ?? null;
   if (profitCenter && business && currentParentId) {
     const pcNode = resolveProfitCenterGroupNode(business, currentParentId, profitCenter, userId);
     currentParent = profitCenter;
@@ -1743,7 +1741,7 @@ export function ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, 
 }
 
 export function ensureItemInventoryAccount(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { inventoryAccount: string; inventoryAccountId: number } {
-  let inventoryParentId = business ? resolveBusinessCoaAccountId(business, 'Inventory') : (db.prepare(`SELECT id FROM current_entities WHERE name = 'Inventory'`).get() as { id: number }).id;
+  let inventoryParentId = business ? resolveBusinessCoaAccountId(business, 'Inventory') : Entity.get('Inventory')!.id;
   if (profitCenter && business) inventoryParentId = resolveProfitCenterGroupNode(business, inventoryParentId, profitCenter, userId).id;
   const accountName = tier ? `${itemName} (${tier})` : itemName;
   const row = Entity.ensureUnder(accountName, inventoryParentId, userId);
@@ -1803,9 +1801,7 @@ export function ensureItemLocationQuantityAccount(itemName: ItemName, locationNa
     // is known, resolve the real Location entity unambiguously, scoped to
     // that business's own real Locations root, and pass its id directly.
     const locationsRootId = business ? resolveBusinessLocationsRootId(business) : undefined;
-    const locationId = locationsRootId
-      ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, locationsRootId) as { id: number } | undefined)?.id
-      : undefined;
+    const locationId = locationsRootId ? Entity.getUnder(locationName, locationsRootId)?.id : undefined;
     setHierarchyParent(quantityAccount, 'Location', locationName, userId, row.id, locationId);
   }
   return { quantityAccount, quantityAccountId: row.id };
@@ -1872,11 +1868,12 @@ export function createProfitCenter(businessName: BusinessName, profitCenterName:
 }
 
 export function getProfitCenters(businessName: BusinessName): { id: number; name: string }[] {
-  const root = db
-    .prepare(`SELECT id FROM current_entities WHERE name = 'Profit Centers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))`)
-    .get(businessName) as { id: number } | undefined;
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
+  const root = businessId !== undefined ? Entity.getUnder('Profit Centers', businessId) : undefined;
   if (!root) return [];
-  return db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? ORDER BY name`).all(root.id) as { id: number; name: string }[];
+  return Entity.children(root.id)
+    .map((c) => ({ id: c.id, name: c.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function resolveProfitCenterGroupNode(business: BusinessName, headerId: number, profitCenterName: string, userId: UserId): { id: number; name: string } {
@@ -1900,8 +1897,7 @@ export function getAccountProfitCenter(accountId: number): string | null {
       )
       .get(currentId) as { name: string } | undefined;
     if (row) return row.name;
-    const parent = db.prepare(`SELECT parent_id FROM current_entities WHERE id = ?`).get(currentId) as { parent_id: number | null } | undefined;
-    currentId = parent?.parent_id ?? null;
+    currentId = Entity.get(currentId)?.parent_id ?? null;
   }
   return null;
 }
@@ -1946,8 +1942,7 @@ export function getCombinationDisplayName(entityId: number): string {
   const row = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(entityId) as { combination_ids: string | null } | undefined;
   if (!row?.combination_ids) throw new ValidationError(`Entity ${entityId} has no real combination_ids set.`);
   const ids = JSON.parse(row.combination_ids) as number[];
-  const rows = db.prepare(`SELECT id, name FROM current_entities WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids) as { id: number; name: string }[];
-  const byId = new Map(rows.map((r) => [r.id, r.name]));
+  const byId = new Map(Entity.getMany(ids).map((e) => [e.id, e.name]));
   return ids.map((id) => byId.get(id) ?? '?').join(' — ');
 }
 
@@ -5493,13 +5488,14 @@ export function createLedger(businessName: BusinessName, ledgerName: LedgerName,
 }
 
 export function getChartOfAccountsPrototype(language: string): string[] {
-  const prototypeMarker = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(`${language} CoA`, globalVocabularyId()) as { id: number } | undefined;
-  const globalCoaId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')`).get() as { id: number }).id;
+  const prototypeMarker = Entity.getUnder(`${language} CoA`, globalVocabularyId());
+  const applicationId = Entity.get('Application')!.id;
+  const globalCoaId = Entity.getUnder('Chart of Accounts', applicationId)!.id;
   const names: string[] = [];
   function walk(parentId: number): void {
-    const children = db.prepare(`SELECT id, name, relation_id FROM current_entities WHERE parent_id = ?`).all(parentId) as { id: number; name: string; relation_id: number | null }[];
+    const children = Entity.children(parentId);
     for (const child of children) {
-      const hasChildren = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? LIMIT 1`).get(child.id);
+      const hasChildren = Entity.children(child.id).length > 0;
       if (hasChildren) {
         walk(child.id);
       } else if (child.relation_id === null || child.relation_id === prototypeMarker?.id) {
