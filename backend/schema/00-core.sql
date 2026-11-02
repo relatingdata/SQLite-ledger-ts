@@ -47,7 +47,8 @@
 --   - account is 1:1 (entity_id IS its primary key) — no duplicated
 --     hierarchy/category of its own. Deliberately NOT pre-populated: an
 --     account row is created lazily, the first time something actually
---     posts to that entity (see the posting trigger below).
+--     posts to that entity (see commitStagedEntry in
+--     backend/src/db-journal.ts, the TypeScript function that does this now).
 --   - translation is 1:many (one row per entity per language it has
 --     been translated into) — entities.name stays the canonical text
 --     (English, by convention, needing no translation row of its own);
@@ -715,7 +716,8 @@ CREATE TABLE account (
   -- currency correctly). Fixed per account via the Chart of Accounts;
   -- a single journal entry may span multiple currencies, but every
   -- distinct currency present must independently balance to zero —
-  -- see post_journal_entry_insert below.
+  -- enforced in TypeScript by commitStagedEntry/postJournalEntry
+  -- (backend/src/db-journal.ts), not a trigger here any more.
   currency      TEXT,
   -- Layer 1 of the real, dedicated cash-flow/growth-planning design
   -- (docs/cash-flow-and-growth-planning.md). Deliberately the ONLY
@@ -1028,11 +1030,12 @@ CREATE TABLE journal (
 -- without it, two DIFFERENT journal rows could share the same
 -- reference/business/ledger (e.g. reversing the same occurrence twice
 -- — the reversal reference is deterministic, so a second attempt
--- reused the first one's exact reference). post_journal_entry_insert's
--- journal_line-insert step looks up "the" journal row by reference
--- alone, which becomes genuinely ambiguous the moment a duplicate
--- exists — SQLite's scalar subquery silently picks one of the matches,
--- misattaching lines to the wrong header rather than erroring. Found
+-- reused the first one's exact reference). commitStagedEntry's own
+-- journal_line-insert step (backend/src/db-journal.ts) looks up "the"
+-- journal row by reference/business_id/ledger_id, which becomes
+-- genuinely ambiguous the moment a duplicate exists — a lookup with no
+-- further tie-break would silently pick one of the matches, misattaching
+-- lines to the wrong header rather than erroring. Found
 -- by reproducing the exact double-reversal scenario directly and
 -- inspecting the raw journal_line rows, not by inspection alone.
 CREATE UNIQUE INDEX journal_reference_unique ON journal(reference, business_id, ledger_id);
@@ -1149,9 +1152,9 @@ CREATE TABLE journal_entry_staging (
   -- genuinely, deliberately share a name once the redundant
   -- "Sales - "/"COGS - " text prefix is removed). When a caller
   -- already knows the exact, real, correct entity — not just its
-  -- name — it passes that id here directly, and the real posting
-  -- trigger resolves against it directly, skipping the ambiguous
-  -- name lookup entirely for this one line. NULL for the real,
+  -- name — it passes that id here directly, and commitStagedEntry
+  -- (backend/src/db-journal.ts) resolves against it directly, skipping
+  -- the ambiguous name lookup entirely for this one line. NULL for the real,
   -- existing, ordinary case: a caller that only has a name (a
   -- user-typed account on a form), which still resolves by name,
   -- exactly as before.
@@ -1165,12 +1168,13 @@ CREATE TABLE journal_entry_staging (
 -- Four real, form-specific staging tables — each shaped exactly to the
 -- fields that entry screen actually has (a customer, a vendor, an
 -- amount, a date, a reference), not a generic account/amount pair. Each
--- has its own "post" command (a dummy view + INSTEAD OF INSERT trigger,
--- same pattern as post_journal_entry), which builds the right two-line
--- General Journal entry into journal_entry_staging and then posts it
--- through the exact same atomic post_journal_entry mechanism everything
--- else uses — so there's still only one real posting engine underneath,
--- these are just purpose-built front doors to it.
+-- has its own "post" command (a dummy view + INSTEAD OF INSERT trigger)
+-- which builds the right two-line General Journal entry into
+-- journal_entry_staging; postARReceipt/postAPPayment (backend/src/
+-- db-journal.ts) then call postJournalEntry themselves right after, the
+-- exact same commit path every other poster in this app uses — so
+-- there's still only one real posting engine underneath, these are just
+-- purpose-built front doors to it.
 
 -- Assembly BOM staging: a real component line for an assembly Item
 -- (e.g. "Gin" at 30ml for "Gin & Tonic"). Posting this — per direct,
@@ -1212,6 +1216,12 @@ CREATE TABLE ar_receipt_staging (
   PRIMARY KEY (reference, business, ledger)
 );
 
+-- Builds the two-line journal_entry_staging entry only; no longer chains
+-- into post_journal_entry itself (removed — see that view's former comment,
+-- above). postARReceipt (backend/src/db-journal.ts) now calls
+-- postJournalEntry directly, in TypeScript, right after this trigger runs —
+-- same two-step shape every other multi-line poster (postOrderDispatch, etc.)
+-- already uses: stage, then commit, as two separate calls, not one.
 CREATE VIEW ar_receipt_post AS SELECT '' AS reference, '' AS business, '' AS ledger, 0 AS user_id;
 CREATE TRIGGER ar_receipt_post_insert INSTEAD OF INSERT ON ar_receipt_post
 BEGIN
@@ -1224,7 +1234,6 @@ BEGIN
   INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, amount_minor)
   SELECT s.reference, s.business, s.ledger, s.description, s.transdate, s.customer, -s.amount_minor
   FROM ar_receipt_staging s WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
-  INSERT INTO post_journal_entry (reference, business, ledger, user_id) VALUES (NEW.reference, NEW.business, NEW.ledger, NEW.user_id);
   DELETE FROM ar_receipt_staging WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger;
 END;
 
@@ -1239,6 +1248,9 @@ CREATE TABLE ap_payment_staging (
   PRIMARY KEY (reference, business, ledger)
 );
 
+-- Same change as ar_receipt_post_insert above: builds the staged lines only;
+-- postAPPayment (backend/src/db-journal.ts) calls postJournalEntry itself
+-- right after, now that there is no post_journal_entry view to chain into.
 CREATE VIEW ap_payment_post AS SELECT '' AS reference, '' AS business, '' AS ledger, 0 AS user_id;
 CREATE TRIGGER ap_payment_post_insert INSTEAD OF INSERT ON ap_payment_post
 BEGIN
@@ -1251,7 +1263,6 @@ BEGIN
   INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, amount_minor)
   SELECT s.reference, s.business, s.ledger, s.description, s.transdate, 'Cash and Bank', -s.amount_minor
   FROM ap_payment_staging s WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
-  INSERT INTO post_journal_entry (reference, business, ledger, user_id) VALUES (NEW.reference, NEW.business, NEW.ledger, NEW.user_id);
   DELETE FROM ap_payment_staging WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger;
 END;
 
@@ -1454,8 +1465,10 @@ WHERE e.name LIKE 'Payment — %' AND e.parent_id IN (SELECT id FROM invoice);
 -- already closes out the old row and appends a new one on every
 -- rename) providing the exact, same, real, append-only audit trail
 -- this table used to be a separate table for. This view recomputes
--- the current lock status directly from that entity, for the two,
--- real posting triggers below that need it.
+-- the current lock status directly from that entity. getPeriodLockStatus
+-- (backend/src/db-journal.ts) reads this same fact in TypeScript — used
+-- directly by assertPeriodOpen and by commitStagedEntry's own lock check,
+-- which used to be the two real posting triggers' own job.
 CREATE VIEW current_period_lock_status AS
 SELECT
   biz.name AS business,
@@ -1714,286 +1727,22 @@ LEFT JOIN account a ON a.entity_id = w.id
 WHERE w.depth >= 1
 ORDER BY w.path;
 
--- post_journal_entry: the "commit" command. A dummy view with no real
--- backing storage of its own — the INSTEAD OF trigger is the entire
--- point. Insert one marker row to post everything currently staged for
--- (reference, business, ledger) as one real transaction: any account
--- referenced that doesn't have an account row yet is vivified on the
--- spot (bare — no accountnumber assigned until someone gives it one via
--- account_entry), the lines are validated, moved to journal/journal_line,
--- balances updated, staging cleared — or, if it doesn't balance (or
--- nothing was staged at all), none of that happens and the staged rows
--- are left exactly as they were, for correction. This is one statement
--- with cascading trigger effects, which SQLite always runs atomically —
--- a crash partway through cannot leave things half-done.
---
--- A staged line with no accountId (the common case for a hand-staged
--- or test-staged entry, and for a few call sites like the cash
--- postings in completePosSale/completeCashPurchase/payEmployeeWages
--- that resolve a name but not an id) is vivified by name - confirmed,
--- directly, a real, significant, standing bug: this used to be a
--- bare, unscoped `SELECT id FROM current_entities WHERE name =
--- s.account`, which, since the exact same account name can genuinely
--- exist once per business (the whole point of copyChartOfAccountsInto
--- copying "Cash and Bank" etc. into each business's own real Chart of
--- Accounts), resolved to whichever one of those SQLite happened to
--- return - confirmed directly: every business's own "Cash and Bank"
--- postings were silently landing on entity_id=11, the GLOBAL
--- template copy, not that business's own real, separate one. Every
--- financial report built directly from account.balance_minor still
--- looked internally consistent, because both the posting AND the
--- report-building queries shared the exact same wrong resolution -
--- but the moment a report is correctly, separately scoped to one
--- specific business's own real Chart of Accounts subtree (see
--- getChartOfAccounts/getBusinessReports), it can no longer find a
--- balance posted against a different business's own entity, or the
--- shared global one. Now scoped: a real, recursive walk of this one,
--- specific business's own "Chart of Accounts" subtree (the exact,
--- same kind of walk getChartOfAccounts/getBusinessReports already
--- do), matched by name only within that walk - this does NOT resolve
--- the separate, smaller, pre-existing, documented case of the exact
--- same name appearing TWICE within one business's own tree (e.g. a
--- shared COGS/Inventory leaf name) - every real call site that could
--- hit that ambiguity already passes a real, explicit accountId
--- instead of relying on this name fallback at all.
---
--- Wrapped in a further COALESCE with the original, bare, unscoped
--- lookup as a genuine, deliberate fallback - confirmed directly
--- necessary, not just defensive: 'admin' (the one legacy,
--- pre-multi-tenancy demo business seeded right here in this same
--- against the GLOBAL Chart of Accounts - it never gets its own real,
--- separate copy via copyChartOfAccountsInto the way every business
--- actually created through createBusiness/the setup wizard does. A
--- business-scoped-only lookup would resolve to NULL for 'My
--- Business' specifically (it has no own "Chart of Accounts" child
--- entity to walk at all) and trip this table's own NOT NULL
--- constraint on journal_line.account_id. The scoped lookup still
--- always wins first when a business genuinely has its own copy -
--- this fallback only ever matters for the one legacy business that
--- doesn't.
-CREATE VIEW post_journal_entry AS SELECT '' AS reference, '' AS business, '' AS ledger, 0 AS user_id;
-
-CREATE TRIGGER post_journal_entry_insert INSTEAD OF INSERT ON post_journal_entry
-BEGIN
-  SELECT RAISE(ABORT, 'nothing staged for this reference/business/ledger')
-  WHERE NOT EXISTS (
-    SELECT 1 FROM journal_entry_staging
-    WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger
-  );
-
-  SELECT RAISE(ABORT, 'this period is closed to normal posting — reopen it first if this is a genuine correction')
-  WHERE (
-    SELECT locked_through_date FROM current_period_lock_status
-    WHERE business = NEW.business AND ledger = NEW.ledger
-  ) IS NOT NULL
-  AND COALESCE(
-    (SELECT transdate FROM journal_entry_staging
-     WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
-    date('now')
-  ) <= (
-    SELECT locked_through_date FROM current_period_lock_status
-    WHERE business = NEW.business AND ledger = NEW.ledger
-  );
-
-  -- Every distinct currency present in this entry must independently
-  -- balance to zero — since every account's currency is fixed via the
-  -- Chart of Accounts, this is a straightforward group-by. A real
-  -- transaction is allowed to genuinely span currencies (buying EUR
-  -- with USD is one entry, two currency groups); it just can't blend
-  -- them into one meaningless combined sum. NULL currency (an
-  -- account's own home/reporting currency, or a line whose account
-  -- doesn't exist yet — auto-created below) is its own group, same as
-  -- any named currency.
-  SELECT RAISE(ABORT, 'entry does not balance (per currency)')
-  WHERE EXISTS (
-    SELECT 1 FROM (
-      SELECT COALESCE(a.currency, '') AS grp, SUM(s.amount_minor) AS grp_sum
-      FROM journal_entry_staging s
-      LEFT JOIN account a ON a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
-      WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
-      GROUP BY COALESCE(a.currency, '')
-    )
-    WHERE grp_sum != 0
-  );
-
-  INSERT INTO account (entity_id)
-  SELECT DISTINCT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
-  FROM journal_entry_staging s
-  WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
-    AND NOT EXISTS (
-      SELECT 1 FROM account a WHERE a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
-    );
-
-  INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id)
-  SELECT
-    (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))),
-    (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))))),
-    NEW.reference,
-    (SELECT description FROM journal_entry_staging
-     WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
-    COALESCE(
-      (SELECT transdate FROM journal_entry_staging
-       WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
-      date('now')
-    ),
-    NEW.user_id;
-
-  INSERT INTO journal_line (journal_id, account_id, effective_date, amount_minor, memo, bank_reference)
-  SELECT
-    (SELECT j.id FROM journal j
-     WHERE j.reference = NEW.reference
-       AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
-       AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))))),
-    COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))),
-    COALESCE(
-      (SELECT transdate FROM journal_entry_staging
-       WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
-      date('now')
-    ),
-    s.amount_minor,
-    s.memo,
-    s.bank_reference
-  FROM journal_entry_staging s
-  WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
-
-  UPDATE account
-  SET balance_minor = balance_minor + (
-    SELECT SUM(s.amount_minor) FROM journal_entry_staging s
-    WHERE COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))) = account.entity_id
-      AND s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
-  )
-  WHERE entity_id IN (
-    SELECT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
-    FROM journal_entry_staging s
-    WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
-  );
-
-  DELETE FROM journal_entry_staging
-  WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger;
-END;
-
--- A real, deliberately separate posting path for quantity movements
--- (stock received, dispatched, transferred, a stock-take variance, or
--- a write-off) — sharing the exact same journal_entry_staging table
--- and the exact same real journal/journal_line/account tables as an
--- ordinary financial posting above, but through its own, parallel
--- INSTEAD OF INSERT trigger, because a quantity movement's own real
--- "amounts" are physical units, not money - it needs its own trigger
--- to write to the same, real tables a financial entry uses, not
--- because it is exempt from balancing.
---
--- This DOES still, genuinely, structurally require the same real
--- balance-to-zero the financial trigger enforces (see the RAISE below)
--- - a real, confirmed, direct incident (an unbalanced quantity
--- movement silently posted, found only by a real, direct review of
--- the raw journal) proved that every genuine, real use case in this
--- application already has a real, meaningful counter-item (receipt's
--- own "On Order", dispatch's own "Units Sold", transfer's own same
--- item at the other location, a stock-take variance's own "Count
--- Adjustment", a write-off's own "Write-off" account) - this was
--- never a case that genuinely needed a one-sided exemption; it was an
--- earlier, incomplete design that the real, evolved usage of this
--- system had already outgrown before the database itself caught up.
--- This is the ONLY other real path that writes to
--- journal/journal_line/account; every other posting in this app goes
--- through post_journal_entry_insert above.
-CREATE VIEW post_quantity_movement AS SELECT '' AS reference, '' AS business, '' AS ledger, 0 AS user_id;
-CREATE TRIGGER post_quantity_movement_insert INSTEAD OF INSERT ON post_quantity_movement
-BEGIN
-  SELECT RAISE(ABORT, 'nothing staged for this reference/business/ledger')
-  WHERE NOT EXISTS (
-    SELECT 1 FROM journal_entry_staging
-    WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger
-  );
-
-  SELECT RAISE(ABORT, 'this period is closed to normal posting — reopen it first if this is a genuine correction')
-  WHERE (
-    SELECT locked_through_date FROM current_period_lock_status
-    WHERE business = NEW.business AND ledger = NEW.ledger
-  ) IS NOT NULL
-  AND COALESCE(
-    (SELECT transdate FROM journal_entry_staging
-     WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
-    date('now')
-  ) <= (
-    SELECT locked_through_date FROM current_period_lock_status
-    WHERE business = NEW.business AND ledger = NEW.ledger
-  );
-
-  -- Deliberately NO balance check here. Confirmed directly, from
-  -- Balance.post's own documented contract: this primitive is
-  -- genuinely, intentionally usable both ways - once, for a real,
-  -- standalone value with no meaningful counteritem (a capacity
-  -- figure, a Min/Max/Reorder/Shelf Level), or twice, under the same
-  -- real reference, for a genuine double-entry pair (receipt's real
-  -- "On Order" counter-account, dispatch's real "Units Sold", a
-  -- stock-take variance's real "Count Adjustment"). The database
-  -- cannot structurally distinguish "a legitimate single value" from
-  -- "a bug that should have been paired but wasn't" from the data
-  -- alone - they are identical in shape. A real, earlier attempt to
-  -- add a blanket "must always balance" check here broke real,
-  -- correct, existing functionality (Min/Max/Reorder/Shelf Level
-  -- storage) - confirmed directly, not assumed, before being reverted.
-  -- The real, correct safeguard against the specific incident this
-  -- comment describes (completeStockTake/writeOffStock posting a
-  -- single, unpaired line where a real pair was actually intended)
-  -- has to be enforced at the calling convention, not the schema -
-  -- see the real, direct discussion in docs/testing.md.
-
-  INSERT INTO account (entity_id)
-  SELECT DISTINCT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
-  FROM journal_entry_staging s
-  WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
-    AND NOT EXISTS (
-      SELECT 1 FROM account a WHERE a.entity_id = COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
-    );
-
-  INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id)
-  SELECT
-    (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))),
-    (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))))),
-    NEW.reference,
-    (SELECT description FROM journal_entry_staging
-     WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
-    COALESCE(
-      (SELECT transdate FROM journal_entry_staging
-       WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
-      date('now')
-    ),
-    NEW.user_id;
-
-  INSERT INTO journal_line (journal_id, account_id, effective_date, amount_minor, memo)
-  SELECT
-    (SELECT j.id FROM journal j
-     WHERE j.reference = NEW.reference
-       AND j.business_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
-       AND j.ledger_id = (SELECT id FROM current_entities WHERE name = NEW.ledger AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = NEW.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))))),
-    COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))),
-    COALESCE(
-      (SELECT transdate FROM journal_entry_staging
-       WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger LIMIT 1),
-      date('now')
-    ),
-    s.amount_minor,
-    s.memo
-  FROM journal_entry_staging s
-  WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger;
-
-  UPDATE account
-  SET balance_minor = balance_minor + (
-    SELECT SUM(s.amount_minor) FROM journal_entry_staging s
-    WHERE COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1))) = account.entity_id
-      AND s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
-  )
-  WHERE entity_id IN (
-    SELECT COALESCE(s.account_id, COALESCE((SELECT ce.id FROM current_entities ce WHERE ce.name = s.account AND ce.id IN (WITH RECURSIVE biz_coa(id) AS (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = s.business AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))) UNION ALL SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id) SELECT id FROM biz_coa) LIMIT 1), (SELECT id FROM current_entities WHERE name = s.account LIMIT 1)))
-    FROM journal_entry_staging s
-    WHERE s.reference = NEW.reference AND s.business = NEW.business AND s.ledger = NEW.ledger
-  );
-
-  DELETE FROM journal_entry_staging
-  WHERE reference = NEW.reference AND business = NEW.business AND ledger = NEW.ledger;
-END;
+-- post_journal_entry / post_quantity_movement: formerly a pair of dummy
+-- views with INSTEAD OF INSERT triggers that performed the real "commit"
+-- step (validate, vivify any missing account, move staged lines into
+-- journal/journal_line, update balances, clear staging) directly in SQL.
+-- Replaced, per Stage D of
+-- /root/.claude/plans/stateful-snacking-adleman.md, by a single shared
+-- TypeScript function — commitStagedEntry in backend/src/db-journal.ts —
+-- called by postJournalEntry (the financial path, with its own per-currency
+-- balance requirement) and commitStagedQuantityMovement (the quantity path,
+-- deliberately unbalanced-allowed — see that file's own comments for why).
+-- Both still read/write the exact same journal_entry_staging/journal/
+-- journal_line/account tables below; only the orchestration moved out of
+-- SQL. See db-journal.ts for the full, current reasoning (business/ledger
+-- resolution, the account-fallback chain, the period-lock check, and the
+-- per-currency balance validation) — this schema file no longer carries
+-- that logic, so it is not duplicated or able to drift out of sync here.
 
 -- Conventional account numbers for the bootstrap chart of accounts —
 -- previously none of these had one at all, which is realistic for a

@@ -20,6 +20,7 @@ import {
   ensureItemLocationQuantityAccount,
   resolveItemLocationQuantityAccountId,
   postJournalEntry,
+  commitStagedQuantityMovement,
   getItemUnitCostMinor,
   ensureProductInstance,
   ensureCombinationAccountLeaf,
@@ -82,9 +83,16 @@ export function stageQuantityMovementLine(business: BusinessName, ledger: Ledger
 }
 
 export function postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void {
+  // Stage D: post_quantity_movement_insert (00-core.sql) is gone — this now
+  // calls the shared TypeScript orchestration (db-journal.ts) directly.
+  // commitStagedQuantityMovement already wraps failures as PostingError, so
+  // no try/catch is needed here any more; kept anyway so a non-PostingError
+  // thrown from deeper in the stack (a genuine bug) still surfaces as one,
+  // matching this function's pre-existing contract.
   try {
-    db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
+    commitStagedQuantityMovement(reference, business, ledger, userId);
   } catch (err) {
+    if (err instanceof PostingError) throw err;
     throw new PostingError(err instanceof Error ? err.message : String(err));
   }
 }

@@ -219,10 +219,15 @@ export function stageARReceipt(input: ARReceiptInput): void {
 
 export function postARReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
   try {
+    // ar_receipt_post_insert (00-core.sql) only builds the two-line
+    // journal_entry_staging entry now — it no longer chains into
+    // post_journal_entry (removed as part of Stage D), so the actual commit
+    // is this separate, explicit postJournalEntry call.
     db.prepare(`INSERT INTO ar_receipt_post (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
   } catch (err) {
     throw new PostingError(err instanceof Error ? err.message : String(err));
   }
+  postJournalEntry(reference, business, ledger, userId);
 }
 
 export interface APPaymentInput {
@@ -247,10 +252,14 @@ export function stageAPPayment(input: APPaymentInput): void {
 
 export function postAPPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
   try {
+    // Same change as postARReceipt above: ap_payment_post_insert only stages
+    // the two journal_entry_staging lines now; this explicit postJournalEntry
+    // call is the actual commit.
     db.prepare(`INSERT INTO ap_payment_post (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
   } catch (err) {
     throw new PostingError(err instanceof Error ? err.message : String(err));
   }
+  postJournalEntry(reference, business, ledger, userId);
 }
 
 export interface PurchaseOrderInput {
@@ -573,14 +582,190 @@ export function removeStagedLine(reference: string, business: BusinessName, ledg
 
 export class PostingError extends Error {}
 
-export function postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  try {
-    db.prepare(`INSERT INTO post_journal_entry (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(
+interface StagingRow {
+  reference: string;
+  business: string;
+  ledger: string;
+  description: string;
+  transdate: string | null;
+  account: string;
+  account_id: number | null;
+  amount_minor: number;
+  memo: string;
+  bank_reference: string | null;
+}
+
+// Stage D (/root/.claude/plans/stateful-snacking-adleman.md): business/ledger
+// id resolution, ported verbatim from post_journal_entry_insert/
+// post_quantity_movement_insert's own shared COALESCE chain (00-core.sql) —
+// deliberately kept as raw, read-only SQL (not routed through EntityDriver)
+// so this stays byte-for-byte identical to the trigger it replaces, rather
+// than risking a new, subtly different resolution. Confirmed via a direct
+// before/after balance diff, not just by inspection, given this is
+// money-moving logic. Run before the write transaction below, same ordering
+// the plan calls for (entity resolution never happens inside an open
+// transaction, keeping the door open for a future non-SQL EntityDriver).
+function resolveStagingBusinessId(business: string): number | undefined {
+  return (
+    db
+      .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))`)
+      .get(business) as { id: number } | undefined
+  )?.id;
+}
+
+function resolveStagingLedgerId(ledger: string, businessId: number | undefined): number | undefined {
+  if (businessId === undefined) return undefined;
+  return (
+    db
+      .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = ?)`)
+      .get(ledger, businessId) as { id: number } | undefined
+  )?.id;
+}
+
+// Same ported-verbatim reasoning as above: the trigger's own per-line account
+// fallback — a business-scoped Chart-of-Accounts walk first, then a bare,
+// unscoped name lookup as a deliberate fallback for the one legacy business
+// ('admin'/'My Business') with no Chart of Accounts copy of its own. Most
+// staged lines never reach this at all — stageLine already resolves
+// account_id itself via the ledger-scoped lookup wherever it can; this is
+// only the trigger's own last-resort path for a line that arrived without one.
+function resolveStagedAccountId(business: string, accountName: string): number | undefined {
+  const scoped = db
+    .prepare(
+      `SELECT ce.id FROM current_entities ce WHERE ce.name = ? AND ce.id IN (
+         WITH RECURSIVE biz_coa(id) AS (
+           SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
+           UNION ALL
+           SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id
+         ) SELECT id FROM biz_coa
+       ) LIMIT 1`
+    )
+    .get(accountName, business) as { id: number } | undefined;
+  if (scoped) return scoped.id;
+  return (db.prepare(`SELECT id FROM current_entities WHERE name = ? LIMIT 1`).get(accountName) as { id: number } | undefined)?.id;
+}
+
+interface CommitStagedEntryOptions {
+  // post_journal_entry_insert enforces per-currency balance; post_quantity_movement_insert
+  // deliberately does not (see 00-core.sql's own comment on why — Balance.post's documented,
+  // genuinely-intentional single-sided use for standalone figures like Min/Max/Reorder/Shelf Level).
+  requireBalance: boolean;
+  // Only post_journal_entry_insert's journal_line insert carries bank_reference;
+  // post_quantity_movement_insert's own INSERT INTO journal_line omits that column entirely.
+  includeBankReference: boolean;
+}
+
+// Stage D: the shared orchestration both post_journal_entry_insert and
+// post_quantity_movement_insert's own INSTEAD OF INSERT trigger bodies
+// (00-core.sql) used to perform, now in TypeScript. Replaces both triggers;
+// see postJournalEntry below and db-stock.ts's postStagedQuantityMovement.
+function commitStagedEntry(reference: string, business: string, ledger: string, userId: UserId, opts: CommitStagedEntryOptions): void {
+  const staged = db
+    .prepare(
+      `SELECT reference, business, ledger, description, transdate, account, account_id, amount_minor, memo, bank_reference
+       FROM journal_entry_staging WHERE reference = ? AND business = ? AND ledger = ?`
+    )
+    .all(reference, business, ledger) as StagingRow[];
+  if (staged.length === 0) {
+    throw new ValidationError('nothing staged for this reference/business/ledger');
+  }
+
+  const transdate = staged[0].transdate ?? new Date().toISOString().slice(0, 10);
+
+  // Same lock check post_journal_entry_insert/post_quantity_movement_insert's own
+  // RAISE performs, via the exact same TS-side status function assertPeriodOpen
+  // already uses elsewhere — not a second, independently-written implementation
+  // of the same lock-reading logic.
+  const lockedThroughDate = getPeriodLockStatus(business as BusinessName, ledger as LedgerName).locked_through_date;
+  if (lockedThroughDate != null && transdate <= lockedThroughDate) {
+    throw new ValidationError('this period is closed to normal posting — reopen it first if this is a genuine correction');
+  }
+
+  const resolved = staged.map((s) => ({
+    ...s,
+    resolvedAccountId: s.account_id ?? resolveStagedAccountId(business, s.account),
+  }));
+
+  // Unlike the trigger (which would only fail later, accidentally, on
+  // journal_line's NOT NULL account_id constraint, after already vivifying a
+  // bogus auto-id account row for the NULL case — a SQLite INTEGER PRIMARY KEY
+  // quirk), fail clearly up front, before touching the database at all. Same
+  // end result (nothing committed), clearer cause.
+  const unresolved = resolved.find((s) => s.resolvedAccountId === undefined);
+  if (unresolved) {
+    throw new ValidationError(`No real account named "${unresolved.account}" to post against.`);
+  }
+
+  if (opts.requireBalance) {
+    const groups = new Map<string, number>();
+    for (const s of resolved) {
+      const currency =
+        (db.prepare(`SELECT currency FROM account WHERE entity_id = ?`).get(s.resolvedAccountId!) as { currency: string | null } | undefined)?.currency ?? '';
+      groups.set(currency, (groups.get(currency) ?? 0) + s.amount_minor);
+    }
+    for (const sum of groups.values()) {
+      if (sum !== 0) throw new ValidationError('entry does not balance (per currency)');
+    }
+  }
+
+  const businessId = resolveStagingBusinessId(business);
+  const ledgerId = resolveStagingLedgerId(ledger, businessId);
+  const description = staged[0].description;
+
+  db.transaction(() => {
+    for (const s of resolved) {
+      db.prepare(`INSERT OR IGNORE INTO account (entity_id) VALUES (?)`).run(s.resolvedAccountId!);
+    }
+
+    db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES (?, ?, ?, ?, ?, ?)`).run(
+      businessId ?? null,
+      ledgerId ?? null,
       reference,
-      business,
-      ledger,
+      description,
+      transdate,
       userId
     );
+    const journalId = (
+      db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = ? AND ledger_id = ?`).get(reference, businessId, ledgerId) as { id: number }
+    ).id;
+
+    for (const s of resolved) {
+      if (opts.includeBankReference) {
+        db.prepare(`INSERT INTO journal_line (journal_id, account_id, effective_date, amount_minor, memo, bank_reference) VALUES (?, ?, ?, ?, ?, ?)`).run(
+          journalId,
+          s.resolvedAccountId!,
+          transdate,
+          s.amount_minor,
+          s.memo,
+          s.bank_reference
+        );
+      } else {
+        db.prepare(`INSERT INTO journal_line (journal_id, account_id, effective_date, amount_minor, memo) VALUES (?, ?, ?, ?, ?)`).run(
+          journalId,
+          s.resolvedAccountId!,
+          transdate,
+          s.amount_minor,
+          s.memo
+        );
+      }
+      db.prepare(`UPDATE account SET balance_minor = balance_minor + ? WHERE entity_id = ?`).run(s.amount_minor, s.resolvedAccountId!);
+    }
+
+    db.prepare(`DELETE FROM journal_entry_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
+  })();
+}
+
+export function postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+  try {
+    commitStagedEntry(reference, business, ledger, userId, { requireBalance: true, includeBankReference: true });
+  } catch (err) {
+    throw new PostingError(err instanceof Error ? err.message : String(err));
+  }
+}
+
+export function commitStagedQuantityMovement(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+  try {
+    commitStagedEntry(reference, business, ledger, userId, { requireBalance: false, includeBankReference: false });
   } catch (err) {
     throw new PostingError(err instanceof Error ? err.message : String(err));
   }

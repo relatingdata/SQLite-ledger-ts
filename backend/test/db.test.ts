@@ -3662,7 +3662,7 @@ test('getTrialBalance: has_quantity_postings correctly flags an account that has
   const qtyRef = `${reference}-QTY`;
   db.stageLine({ reference: qtyRef, business: biz.business, ledger: biz.actualLedger, transdate: '2027-02-01', account: db.asAccountName(accountName), amount_minor: 12 });
   const businessId = db.requireEntity(biz.business, db.typeBusinessName, db.requireEntity('Businesses', db.typeRootName)).id;
-  db.db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(qtyRef, biz.business, biz.actualLedger, 1);
+  db.commitStagedQuantityMovement(qtyRef, biz.business, biz.actualLedger, fx.userId);
 
   const tb = db.getTrialBalance(biz.business, biz.actualLedger);
   const row = tb.rows.find((r) => r.name === accountName);

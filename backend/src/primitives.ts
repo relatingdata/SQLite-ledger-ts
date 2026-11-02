@@ -7,6 +7,7 @@ import {
   getEntityLink,
   deleteEntityLink,
   stageLine,
+  commitStagedQuantityMovement,
   getHierarchy,
   asAccountName,
   asBusinessName,
@@ -145,7 +146,9 @@ export const Link = {
 export const Balance = {
   post(business: string, ledger: string, reference: string, accountName: string, accountId: number, delta: number, userId: UserId, transdate?: string): void {
     stageLine({ reference, business: asBusinessName(business), ledger: asLedgerName(ledger), transdate, account: asAccountName(accountName), accountId, amount_minor: delta });
-    db.prepare(`INSERT INTO post_quantity_movement (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
+    // Stage D: post_quantity_movement_insert (00-core.sql) is gone — this now
+    // calls the shared TypeScript orchestration (db-journal.ts) directly.
+    commitStagedQuantityMovement(reference, asBusinessName(business), asLedgerName(ledger), userId);
   },
   get(accountId: number): number {
     const row = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(accountId) as { balance_minor: number } | undefined;
