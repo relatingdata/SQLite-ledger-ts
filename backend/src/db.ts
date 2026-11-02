@@ -360,10 +360,15 @@ export function create<TParentBrand extends string, TChildBrand extends string>(
   if (type.validNames && !type.validNames().includes(name)) {
     throw new ValidationError(`"${name}" is not a real, known ${type.brand} — use one of: ${type.validNames().join(', ')}.`);
   }
-  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, parent.id);
+  // create() (this function) is a plain, ordinary caller of the entity
+  // store, NOT one of the backing-primitive functions (createEntityRaw/
+  // supersedeEntity/revokeEntity/getEntity) that SqlEntityDriver itself
+  // delegates to — so using Entity.getUnder here is a normal read, not
+  // a recursive call back into this function.
+  const existing = Entity.getUnder(name, parent.id);
   if (existing) throw new ValidationError(`"${name}" already exists under this real, same parent.`);
   db.prepare(`INSERT INTO entity_entry (name, parent_id, created_by) VALUES (?, ?, ?)`).run(name, parent.id, userId);
-  const row = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, parent.id) as { id: number };
+  const row = Entity.getUnder(name, parent.id)!;
   if (parent.id === globalVocabularyId()) {
     setTranslation(name, 'English', name, userId);
   }
@@ -3750,6 +3755,10 @@ export function getBankAccounts(business: BusinessName, ledger: LedgerName): Ban
     .all(business) as { name: string; accountnumber: string | null; currency: string | null; overdraft_limit_minor: number | null }[];
   const balances = getLedgerBalances(business, ledger);
   return rows.map((r) => {
+    // Deliberately NOT Entity.get(r.name): account names are unique only
+    // within their own business's chart of accounts, never globally —
+    // same reasoning as forecastCashPosition's own bank-account id
+    // lookup elsewhere in this file.
     const accountId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(r.name) as { id: number }).id;
     return {
       name: r.name,
