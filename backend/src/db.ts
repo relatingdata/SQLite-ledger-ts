@@ -548,9 +548,10 @@ function orderSiblingsByDisplayOrder<T extends { id: number; name: string }>(sib
 export function reorderSiblings(entityId: EntityId, direction: 'up' | 'down', userId: UserId): void {
   const entity = getEntity(entityId);
   if (!entity) throw new NotFoundError(`Entity ${entityId} not found.`);
-  const rawSiblings = db
-    .prepare(`SELECT id, name FROM current_entities WHERE ${entity.parent_id != null ? 'parent_id = ?' : 'parent_id IS NULL'}`)
-    .all(...(entity.parent_id != null ? [entity.parent_id] : [])) as { id: number; name: string }[];
+  const rawSiblings =
+    entity.parent_id != null
+      ? Entity.children(entity.parent_id)
+      : (db.prepare(`SELECT id, name FROM current_entities WHERE parent_id IS NULL`).all() as { id: number; name: string }[]);
   const siblings = orderSiblingsByDisplayOrder(rawSiblings);
   const index = siblings.findIndex((s) => s.id === entityId);
   const swapWith = direction === 'up' ? index - 1 : index + 1;
@@ -571,9 +572,10 @@ export function reorderSiblingsBulk(entityIds: number[], direction: 'up' | 'down
   if (entities.some((e) => e.parent_id !== parentId)) {
     throw new ValidationError('Every selected entity must share the same real parent to be reordered together.');
   }
-  const rawSiblings = db
-    .prepare(`SELECT id, name FROM current_entities WHERE ${parentId != null ? 'parent_id = ?' : 'parent_id IS NULL'}`)
-    .all(...(parentId != null ? [parentId] : [])) as { id: number; name: string }[];
+  const rawSiblings =
+    parentId != null
+      ? Entity.children(parentId)
+      : (db.prepare(`SELECT id, name FROM current_entities WHERE parent_id IS NULL`).all() as { id: number; name: string }[]);
   const siblings = orderSiblingsByDisplayOrder(rawSiblings);
   const selectedIds = new Set(entityIds);
   const block = siblings.filter((s) => selectedIds.has(s.id));
@@ -605,6 +607,11 @@ export function setRelationship(entityName: string, relationshipType: string, ta
   if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
     create(requireEntity(relationshipType, typeRootName), typeRelationshipRecordName, recordName, userId);
   }
+  // Deliberately NOT Entity.get here: current_entities is a view, and its
+  // unordered scan is NOT guaranteed to return the lowest id first (confirmed
+  // live — swapping this to Entity.get picked a genuine duplicate-named
+  // entity instead of the intended one, breaking getOrganizationChart's
+  // test). The original's explicit ORDER BY id ASC LIMIT 1 is load-bearing.
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ? ORDER BY id ASC LIMIT 1`).get(recordName) as { id: number };
   supersedeEntity(record.id, { relation: targetName }, userId);
   const entity = db.prepare(`SELECT id FROM current_entities WHERE name = ? ORDER BY id ASC LIMIT 1`).get(entityName) as { id: number } | undefined;
