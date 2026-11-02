@@ -163,11 +163,17 @@ export interface EntityNode {
 // still required by callers such as the Entity Tree admin screen and CoA-prototype pickers.
 // See docs/pm-domain-reference.md.
 export function getEntityTree(businessName?: string): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null })[] {
-  const businessRow = businessName
-    ? (db
-        .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`)
-        .get(businessName) as { id: number } | undefined)
-    : undefined;
+  // Stage C (see /root/.claude/plans/stateful-snacking-adleman.md): only the
+  // business-name resolution above is converted to Entity.get. The walk/
+  // real_accounts CTEs and the lt_record/do_record/account/contact joins
+  // below stay raw SQL — this is the plan's own flagged "single most
+  // complex call site," combining pure entity-graph recursion (category 2)
+  // with financial/contact-table joins (category 4) in one query; splitting
+  // it into driver calls plus TS-side joins would mean re-deriving this
+  // exact recursive walk and its ordering in TypeScript, a substantial
+  // rewrite with real behavior-equivalence risk, not a mechanical
+  // call-site replacement. Isolated in its own commit per the plan.
+  const businessRow = businessName ? Entity.get(businessName, 'Businesses') : undefined;
   if (businessName && !businessRow) return []; // unknown business — scoped query, so an empty tree rather than silently falling back to everything
   const rows = db
     .prepare(
