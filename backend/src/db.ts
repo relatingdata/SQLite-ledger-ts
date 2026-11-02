@@ -4931,18 +4931,17 @@ export type EntityStructure = 'sole_trader' | 'partnership' | 'llc' | 'unlimited
 
 export function addFinancialStatementNote(businessName: BusinessName, noteText: string, userId: UserId): { id: number } {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
-  let notesRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Notes to the Financial Statements' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
-  if (!notesRoot) notesRoot = create(business, typeRootName, 'Notes to the Financial Statements', userId);
-  const countRow = db.prepare(`SELECT COUNT(*) AS n FROM current_entities WHERE parent_id = ?`).get(notesRoot.id) as { n: number };
-  const noteName = `${businessName} — Note ${countRow.n + 1}`;
-  const note = create(requireEntityById(notesRoot.id, typeRootName), typeRootName, noteName, userId);
+  const notesRootId = Entity.getUnder('Notes to the Financial Statements', business.id)?.id ?? create(business, typeRootName, 'Notes to the Financial Statements', userId).id;
+  const noteCount = Entity.children(notesRootId).length;
+  const noteName = `${businessName} — Note ${noteCount + 1}`;
+  const note = create(requireEntityById(notesRootId, typeRootName), typeRootName, noteName, userId);
   Entity.setDetailJson(note.id, JSON.stringify({ text: noteText }));
   return { id: note.id };
 }
 
 export function getFinancialStatementNotes(businessName: BusinessName): { name: string; text: string }[] {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
-  const notesRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Notes to the Financial Statements' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  const notesRoot = Entity.getUnder('Notes to the Financial Statements', business.id);
   if (!notesRoot) return [];
   const rows = db.prepare(`SELECT name, detail_json FROM current_entities WHERE parent_id = ? ORDER BY name`).all(notesRoot.id) as { name: string; detail_json: string }[];
   return rows.map((r) => ({ name: r.name, text: (JSON.parse(r.detail_json || '{}').text as string) ?? '' }));
@@ -5209,16 +5208,15 @@ export function getOrgChartStructure(businessName: BusinessName): OrgChartStruct
 
 export function nominateBankAccount(businessName: BusinessName, bankAccountName: string, routingDetail: string, accountNumber: string, userId: UserId): { id: number } {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
-  let bankAccountsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Bank Accounts' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
-  if (!bankAccountsRoot) bankAccountsRoot = create(business, typeRootName, 'Bank Accounts', userId);
-  const account = create(requireEntityById(bankAccountsRoot.id, typeRootName), typeRootName, bankAccountName, userId);
+  const bankAccountsRootId = Entity.getUnder('Bank Accounts', business.id)?.id ?? create(business, typeRootName, 'Bank Accounts', userId).id;
+  const account = create(requireEntityById(bankAccountsRootId, typeRootName), typeRootName, bankAccountName, userId);
   Entity.setDetailJson(account.id, JSON.stringify({ routingDetail, accountNumber }));
   return { id: account.id };
 }
 
 export function getNominatedBankAccounts(businessName: BusinessName): { name: string; routingDetail: string; accountNumber: string }[] {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
-  const bankAccountsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Bank Accounts' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  const bankAccountsRoot = Entity.getUnder('Bank Accounts', business.id);
   if (!bankAccountsRoot) return [];
   const rows = db.prepare(`SELECT name, detail_json FROM current_entities WHERE parent_id = ?`).all(bankAccountsRoot.id) as { name: string; detail_json: string }[];
   return rows.map((r) => {
@@ -5316,11 +5314,11 @@ export function setupEquityStructure(businessName: BusinessName, structure: Enti
   const businessEquity = requireEntity('Equity', typeRootName, businessCoa);
   const tag = (accountName: string) => {
     if (coaPrototype) {
-      supersedeEntity((db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(accountName, businessEquity.id) as { id: number }).id, { relation: coaPrototype }, userId);
+      supersedeEntity(Entity.getUnder(accountName, businessEquity.id)!.id, { relation: coaPrototype }, userId);
     }
   };
   const ensure = (accountName: string) => {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(accountName, businessEquity.id)) {
+    if (!Entity.getUnder(accountName, businessEquity.id)) {
       create(businessEquity, typeEquityAccountName, accountName, userId);
       tag(accountName);
     }
@@ -5354,14 +5352,12 @@ export interface BusinessTypeInfo {
   questions: string[];
 }
 export function getBusinessTypes(): BusinessTypeInfo[] {
-  const root = db.prepare(`SELECT id FROM current_entities WHERE name = 'Business Type'`).get() as { id: number } | undefined;
+  const root = Entity.get('Business Type');
   if (!root) return [];
-  const types = db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ? ORDER BY id`).all(root.id) as { id: number; name: string }[];
+  const types = Entity.children(root.id).sort((a, b) => a.id - b.id);
   return types.map((t) => {
-    const questionsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(`${t.name} Questions`, t.id) as { id: number } | undefined;
-    const questions = questionsRoot
-      ? (db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(questionsRoot.id) as { name: string }[]).map((q) => q.name.replace(`${t.name} — Question: `, ''))
-      : [];
+    const questionsRoot = Entity.getUnder(`${t.name} Questions`, t.id);
+    const questions = questionsRoot ? Entity.children(questionsRoot.id).map((q) => q.name.replace(`${t.name} — Question: `, '')) : [];
     return { name: t.name, questions };
   });
 }
@@ -5373,41 +5369,45 @@ export function saveBusinessTypeAnswers(businessName: BusinessName, answers: Rec
 }
 
 export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: TypedNode<string>, coaPrototype: string | undefined, userId: UserId): void {
-  const prototypeId = coaPrototype ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(coaPrototype) as { id: number } | undefined)?.id : undefined;
+  const prototypeId = coaPrototype ? Entity.get(coaPrototype)?.id : undefined;
+  // Deliberately NOT Entity.findByNameContaining: "% CoA" is a suffix
+  // match (ends with " CoA"), not the substring-anywhere match
+  // findByNameContaining performs.
   const coaPrototypeMarkerIds = new Set(
     (db.prepare(`SELECT id FROM current_entities WHERE parent_id = ? AND name LIKE '% CoA'`).all(globalVocabularyId()) as { id: number }[]).map((r) => r.id)
   );
-  const sourceRootId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Chart of Accounts'`).get() as { id: number }).id;
+  const sourceRootId = Entity.get('Chart of Accounts')!.id;
   const businessVocabulary = requireEntity('Vocabulary', typeRootName, business);
 
   function copyChildren(sourceId: number, destParentId: number): void {
-    const children = db.prepare(`SELECT id, name, relation_id FROM current_entities WHERE parent_id = ?`).all(sourceId) as { id: number; name: string; relation_id: number | null }[];
+    const children = Entity.children(sourceId);
     for (const child of children) {
       const isPrototypeTagged = child.relation_id !== null && coaPrototypeMarkerIds.has(child.relation_id);
       if (isPrototypeTagged) {
         if (child.relation_id === prototypeId) {
-          const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
+          const existing = Entity.getUnder(child.name, destParentId);
           if (!existing) create(requireEntityById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
         }
       } else {
-        const realChildren = db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(child.id) as { name: string }[];
+        const realChildren = Entity.children(child.id);
         const hasRealStructuralChild = realChildren.some((c) => !c.name.startsWith(`${child.name} — `));
         const alwaysCopyRegardlessOfDemoData = child.name === 'Cost of Goods Sold';
         if (!hasRealStructuralChild && !alwaysCopyRegardlessOfDemoData) continue;
 
-        let ownWord = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, businessVocabulary.id) as { id: number } | undefined;
-        if (!ownWord) ownWord = create(businessVocabulary, typeRootName, child.name, userId);
+        if (!Entity.getUnder(child.name, businessVocabulary.id)) create(businessVocabulary, typeRootName, child.name, userId);
 
-        let mirror = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(child.name, destParentId) as { id: number } | undefined;
-        if (!mirror) {
-          mirror = create(requireEntityById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
+        const existingMirror = Entity.getUnder(child.name, destParentId);
+        let mirrorId = existingMirror?.id;
+        if (mirrorId === undefined) {
+          const mirror = create(requireEntityById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
+          mirrorId = mirror.id;
           if (child.name === 'Cost of Goods Sold') {
-            Entity.relate(mirror.id, 'COGS', userId);
+            Entity.relate(mirrorId, 'COGS', userId);
           } else {
-            supersedeEntity(mirror.id, { relationId: child.id }, userId);
+            supersedeEntity(mirrorId, { relationId: child.id }, userId);
           }
         }
-        copyChildren(child.id, mirror.id);
+        copyChildren(child.id, mirrorId);
       }
     }
   }
@@ -5416,8 +5416,8 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
 
 export function instantiateChartOfAccounts(businessName: BusinessName, coaPrototype: string | undefined, userId: UserId): void {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
-  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = ?`).get(business.id)) return;
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = 'Vocabulary' AND parent_id = ?`).get(business.id)) {
+  if (Entity.getUnder('Chart of Accounts', business.id)) return;
+  if (!Entity.getUnder('Vocabulary', business.id)) {
     create(business, typeRootName, 'Vocabulary', userId);
   }
   const destRoot = create(business, typeChartOfAccountsRootName, 'Chart of Accounts', userId);
@@ -5457,11 +5457,7 @@ export function createBusiness(
   create(ledgersRoot, typeLedgerName, budgetLedger, userId);
   setActiveLedger(businessName, actualLedger, userId);
   if (coaPrototype) {
-    supersedeEntity(
-      (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number }).id,
-      { relation: coaPrototype },
-      userId
-    );
+    supersedeEntity(business.id, { relation: coaPrototype }, userId);
   }
   instantiateChartOfAccounts(businessName, coaPrototype, userId);
   for (const currency of secondaryCurrencies ?? []) {
