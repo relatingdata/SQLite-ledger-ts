@@ -16,40 +16,37 @@ export interface ReportRow {
   balance_minor: number | null;
 }
 
+// Resolves the Chart of Accounts root a business's reports should walk —
+// the business's own copy when it has at least one real category child
+// (relation_id IS NOT NULL: every real category's relation_id points at
+// its own global counterpart), else the GLOBAL Chart of Accounts under
+// "Application". 'admin' (schema/00-core.sql's own "the one legacy,
+// pre-multi-tenancy demo business" comment) never got its own, separate
+// Chart of Accounts copy via copyChartOfAccountsInto — it posts directly
+// against the GLOBAL one instead, and falls back here for exactly that
+// reason, the same, already-established fallback post_journal_entry_insert
+// documents and uses. Resolved once in TS instead of twice per query (the
+// original SQL took the business name as two positional params, once per
+// branch of its own CASE).
+function resolveBusinessReportsCoaRootId(business: string): number {
+  const businessEntity = Entity.get(business, 'Businesses');
+  const businessCoa = businessEntity ? Entity.getUnder('Chart of Accounts', businessEntity.id) : undefined;
+  const hasRealCategoryChild = businessCoa ? Entity.children(businessCoa.id).some((c) => c.relation_id !== null) : false;
+  if (businessCoa && hasRealCategoryChild) return businessCoa.id;
+  const applicationRoot = Entity.get('Application');
+  const globalCoa = applicationRoot ? Entity.getUnder('Chart of Accounts', applicationRoot.id) : undefined;
+  if (!globalCoa) throw new ValidationError('No global Chart of Accounts found.');
+  return globalCoa.id;
+}
+
 export function getBusinessReports(business: string): ReportRow[] {
+  const rootId = resolveBusinessReportsCoaRootId(business);
   return db
     .prepare(
       `WITH RECURSIVE coa_walk(id, name, depth, category_id, combination_ids, parent_id, relation_id) AS (
         SELECT e.id, e.name, 0, e.id, e.combination_ids, e.parent_id, e.relation_id
         FROM current_entities e
-        WHERE e.parent_id = CASE
-          -- 'admin' (schema/00-core.sql's own "the one legacy,
-          -- pre-multi-tenancy demo business" comment) never got its
-          -- own real, separate Chart of Accounts copy via
-          -- copyChartOfAccountsInto - it posts directly against the
-          -- GLOBAL Chart of Accounts instead (confirmed directly:
-          -- "Cash and Bank" for 'admin' is entity id 11, parented
-          -- under the GLOBAL "Asset," id 6, not under any
-          -- business-scoped copy). It still has its OWN, real
-          -- business-scoped "Chart of Accounts" entity (used for
-          -- unrelated structural children like "Storage"), so a plain
-          -- COALESCE on the root id alone can't detect this case - the
-          -- root exists, it just has no real category children (every
-          -- real category has relation_id pointing at its own global
-          -- counterpart; "Storage" does not). Detected here instead by
-          -- checking for at least one such real category child -
-          -- falling back to the GLOBAL root, the exact, same,
-          -- already-established fallback 00-core.sql's own
-          -- post_journal_entry_insert trigger documents and uses for
-          -- this identical, confirmed reason, only when none exist.
-          WHEN EXISTS (
-            SELECT 1 FROM current_entities cc
-            WHERE cc.parent_id = (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))
-            AND cc.relation_id IS NOT NULL
-          )
-          THEN (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))
-          ELSE (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application'))
-        END
+        WHERE e.parent_id = ?
         UNION ALL
         SELECT e.id, e.name, w.depth + 1, w.category_id, e.combination_ids, e.parent_id, e.relation_id
         FROM current_entities e JOIN coa_walk w ON e.parent_id = w.id
@@ -89,7 +86,7 @@ export function getBusinessReports(business: string): ReportRow[] {
       WHERE w.depth >= 1
       ORDER BY report, category, COALESCE(parent_e.name, w.name)`
     )
-    .all(business, business) as ReportRow[];
+    .all(rootId) as ReportRow[];
 }
 
 export interface ChartRow {
@@ -102,7 +99,7 @@ export interface ChartRow {
 }
 
 export function setAccountCurrency(accountName: string, currency: string | null, entityId?: number): void {
-  const id = entityId ?? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(accountName) as { id: number } | undefined)?.id;
+  const id = entityId ?? Entity.get(accountName)?.id;
   if (id == null) throw new ValidationError(`No such account: "${accountName}".`);
   db.prepare(`INSERT INTO account (entity_id) VALUES (?) ON CONFLICT (entity_id) DO NOTHING`).run(id);
   const result = db.prepare(`UPDATE account SET currency = ? WHERE entity_id = ?`).run(currency, id);
@@ -110,8 +107,8 @@ export function setAccountCurrency(accountName: string, currency: string | null,
 }
 
 export function ensureCurrencyAccount(baseAccountId: number, currency: string, userId: UserId): { name: string; id: number } {
-  const base = db.prepare(`SELECT name, parent_id FROM current_entities WHERE id = ?`).get(baseAccountId) as { name: string; parent_id: number } | undefined;
-  if (!base) throw new ValidationError(`No such account id: ${baseAccountId}.`);
+  const base = Entity.get(baseAccountId);
+  if (!base || base.parent_id === null) throw new ValidationError(`No such account id: ${baseAccountId}.`);
   const currencyAccountName = `${base.name} (${currency})`;
   const existing = Entity.getUnder(currencyAccountName, base.parent_id) ?? Entity.create(currencyAccountName, base.parent_id, userId);
   setAccountCurrency(currencyAccountName, currency, existing.id);
@@ -119,8 +116,8 @@ export function ensureCurrencyAccount(baseAccountId: number, currency: string, u
 }
 
 export function ensureProfitCenterRetainedEarningsAccount(baseAccountId: number, profitCenterName: string, userId: UserId): { name: string; id: number } {
-  const base = db.prepare(`SELECT name, parent_id FROM current_entities WHERE id = ?`).get(baseAccountId) as { name: string; parent_id: number } | undefined;
-  if (!base) throw new ValidationError(`No such account id: ${baseAccountId}.`);
+  const base = Entity.get(baseAccountId);
+  if (!base || base.parent_id === null) throw new ValidationError(`No such account id: ${baseAccountId}.`);
   const pcAccountName = `${base.name} (Profit Center: ${profitCenterName})`;
   const existing = Entity.getUnder(pcAccountName, base.parent_id) ?? Entity.create(pcAccountName, base.parent_id, userId);
   return { name: pcAccountName, id: existing.id };
@@ -149,32 +146,13 @@ export function resolveCashAtBankAccount(business: BusinessName, currency: strin
 }
 
 export function getChartOfAccounts(business: string): ChartRow[] {
+  const rootId = resolveBusinessReportsCoaRootId(business);
   const rows = db
     .prepare(
       `WITH RECURSIVE walk(id, name, depth, path) AS (
         SELECT e.id, e.name, 0, e.name
         FROM current_entities e
-        -- Same two, real, stacked bugs already found and fixed in
-        -- getBusinessReports, just above: (1) the business-name lookup
-        -- must be scoped to 'Businesses', since a bare lookup collides
-        -- with the admin login user (same name, different entity) and
-        -- (2) 'admin' (schema/00-core.sql's own "the one legacy,
-        -- pre-multi-tenancy demo business" comment) never got its own,
-        -- separate Chart of Accounts copy - it posts directly against
-        -- the GLOBAL one, so falls back to that root, the same,
-        -- already-established COALESCE-fallback pattern
-        -- post_journal_entry_insert documents, when this business's
-        -- own Chart of Accounts has no real category child at all
-        -- (relation_id IS NOT NULL) to find.
-        WHERE e.id = CASE
-          WHEN EXISTS (
-            SELECT 1 FROM current_entities cc
-            WHERE cc.parent_id = (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))
-            AND cc.relation_id IS NOT NULL
-          )
-          THEN (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))
-          ELSE (SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application'))
-        END
+        WHERE e.id = ?
         UNION ALL
         SELECT e.id, e.name, w.depth + 1, w.path || ' > ' || e.name
         FROM current_entities e JOIN walk w ON e.parent_id = w.id
@@ -185,12 +163,12 @@ export function getChartOfAccounts(business: string): ChartRow[] {
       WHERE w.depth >= 1
       ORDER BY w.path`
     )
-    .all(business, business) as ChartRow[];
+    .all(rootId) as ChartRow[];
 
   const linkedRows: ChartRow[] = [];
   for (const row of rows) {
     for (const childRootName of getHierarchyChildren(row.name, 'Header Account')) {
-      const childRoot = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(childRootName) as { id: number } | undefined;
+      const childRoot = Entity.get(childRootName);
       if (!childRoot) continue;
       const descendants = db
         .prepare(
@@ -224,6 +202,19 @@ export function getChartOfAccounts(business: string): ChartRow[] {
   return [...rows, ...linkedRows].sort((a, b) => a.path.localeCompare(b.path));
 }
 
+// Shared business/ledger id resolution — same pattern as db-journal.ts's
+// identical local helpers, duplicated here rather than shared across files
+// (small, local, per-file helpers, not a new cross-file abstraction).
+function resolveBusinessEntityId(business: string): number | undefined {
+  return Entity.get(business, 'Businesses')?.id;
+}
+function resolveLedgerEntityId(business: string, ledger: string): number | undefined {
+  const businessId = resolveBusinessEntityId(business);
+  if (businessId === undefined) return undefined;
+  const ledgersRoot = Entity.getUnder('Ledgers', businessId);
+  return ledgersRoot ? Entity.getUnder(ledger, ledgersRoot.id)?.id : undefined;
+}
+
 function resolveAccountHierarchyGroup(accountName: string, hierarchyPath: string[]): string | undefined {
   if (hierarchyPath.length === 0) return undefined;
   let current: string | undefined = accountName;
@@ -242,6 +233,7 @@ export function getLedgerBalancesByHierarchyStructural(
   toDate?: string,
   excludeCloseEntries = false
 ): Map<number, Map<string | null, number>> {
+  const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
   const rows = db
     .prepare(
       `WITH RECURSIVE real_accounts(id) AS (
@@ -258,13 +250,13 @@ export function getLedgerBalancesByHierarchyStructural(
        JOIN real_accounts ra ON ra.id = a.entity_id
        JOIN journal_occurrences jo ON jo.account_id = a.entity_id
        JOIN journal j ON j.id = jo.journal_id
-       WHERE jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))
+       WHERE jo.ledger_id = ?
          AND (? IS NULL OR jo.transdate >= ?)
          AND (? IS NULL OR jo.transdate <= ?)
          AND (? = 0 OR j.reference NOT LIKE 'CLOSE-%')
        GROUP BY a.entity_id`
     )
-    .all(ledgerName, businessName, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, excludeCloseEntries ? 1 : 0) as {
+    .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, excludeCloseEntries ? 1 : 0) as {
     id: number;
     account_name: string;
     balance_minor: number;
@@ -291,6 +283,7 @@ export function getLedgerBalancesByLocationStructural(
 }
 
 export function getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, number> {
+  const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
   const rows = db
     .prepare(
       `WITH RECURSIVE real_accounts(id) AS (
@@ -311,7 +304,7 @@ export function getLedgerBalances(businessName: BusinessName, ledgerName: Ledger
          SELECT id FROM contact_accounts
        )
        SELECT a.entity_id AS id,
-              COALESCE(SUM(CASE WHEN jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))
+              COALESCE(SUM(CASE WHEN jo.ledger_id = ?
                                  AND (? IS NULL OR jo.transdate >= ?)
                                  AND (? IS NULL OR jo.transdate <= ?)
                                  AND (? = 0 OR j.reference NOT LIKE 'CLOSE-%')
@@ -322,7 +315,7 @@ export function getLedgerBalances(businessName: BusinessName, ledgerName: Ledger
        LEFT JOIN journal j ON j.id = jo.journal_id
        GROUP BY a.entity_id`
     )
-    .all(ledgerName, businessName, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, excludeCloseEntries ? 1 : 0) as {
+    .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, excludeCloseEntries ? 1 : 0) as {
     id: number;
     balance_minor: number;
   }[];
@@ -355,6 +348,11 @@ export interface TrialBalance {
 
 export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string): TrialBalance {
   const balances = getLedgerBalances(businessName, ledgerName, undefined, asOfDate);
+  // Stays raw SQL (category 4): needs e.combination_ids directly, which
+  // EntityNode/getMany deliberately don't carry — combination_ids is the
+  // one other approved JSON exception, explicitly out of the Entity-driver
+  // migration's scope, so this join is the simplest way to get both an
+  // account's identity and its combination_ids in one read.
   const accounts = db
     .prepare(`SELECT e.id, e.name, e.parent_id, e.combination_ids, a.accountnumber, a.currency FROM account a JOIN current_entities e ON e.id = a.entity_id`)
     .all() as { id: number; name: string; parent_id: number | null; combination_ids: string | null; accountnumber: string | null; currency: string | null }[];
@@ -455,6 +453,7 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
   const liabilities_tree = buildCategoryTree(liabilities, accountIdByName, 'Liability', 'credit', resolveBusinessCoaAccountId(businessName, 'Liability'));
   const equity_tree: CategoryTreeNode[] = equity.map((l) => ({ name: l.name, accountnumber: l.accountnumber, is_leaf: true, debit_minor: l.debit_minor, credit_minor: l.credit_minor, is_contra: l.is_contra, children: [] }));
 
+  const balanceSheetLedgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
   const sumHierarchyDescendants = (headerAccountName: string): number => {
     const hierarchyChildren = getHierarchyChildren(headerAccountName, 'Header Account');
     const startNames = [headerAccountName, ...hierarchyChildren];
@@ -470,10 +469,10 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
          FROM journal_occurrences jo
          WHERE jo.account_id IN (SELECT id FROM walk)
            AND jo.account_id NOT IN (${alreadyCapturedIds.length ? alreadyCapturedIds.map(() => '?').join(',') : 'NULL'})
-           AND jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))
+           AND jo.ledger_id = ?
            AND (? IS NULL OR jo.transdate <= ?)`
       )
-      .get(...startNames, ...alreadyCapturedIds, ledgerName, businessName, asOfDate ?? null, asOfDate ?? null) as { total: number };
+      .get(...startNames, ...alreadyCapturedIds, balanceSheetLedgerId, asOfDate ?? null, asOfDate ?? null) as { total: number };
     return row.total;
   };
 
@@ -617,16 +616,8 @@ export function buildProfitAndLossFromBalances(business: string, balances: Map<n
   const expenseRows = rows.filter((r) => r.category === 'Expense');
   const expenses = expenseRows.map((r) => toLine(r, 'debit'));
 
-  const cogsAccountIds = new Set(
-    (
-      db
-        .prepare(
-          `SELECT e.id FROM current_entities e
-           WHERE e.relation_id = (SELECT id FROM current_entities WHERE name = 'COGS')`
-        )
-        .all() as { id: number }[]
-    ).map((r) => r.id)
-  );
+  const cogsId = Entity.get('COGS')?.id ?? -1;
+  const cogsAccountIds = new Set(Entity.findAll({ relationId: cogsId }).map((e) => e.id));
   const cogs_expenses = expenseRows.filter((r) => cogsAccountIds.has(r.account_id)).map((r) => toLine(r, 'debit'));
   const operating_expenses = expenseRows.filter((r) => !cogsAccountIds.has(r.account_id)).map((r) => toLine(r, 'debit'));
 
@@ -790,9 +781,14 @@ export interface TrialBalanceComparison {
 export function getTrialBalanceComparison(businessName: BusinessName, ledgerA: LedgerName, ledgerB: LedgerName): TrialBalanceComparison {
   const balancesA = getLedgerBalances(businessName, ledgerA);
   const balancesB = getLedgerBalances(businessName, ledgerB);
-  const accounts = db
-    .prepare(`SELECT e.id, e.name, a.accountnumber FROM account a JOIN current_entities e ON e.id = a.entity_id`)
-    .all() as { id: number; name: string; accountnumber: string | null }[];
+  const accountRows = db.prepare(`SELECT entity_id AS id, accountnumber FROM account`).all() as { id: number; accountnumber: string | null }[];
+  const accountNames = new Map(Entity.getMany(accountRows.map((r) => r.id)).map((e) => [e.id, e.name] as const));
+  // The original INNER JOIN silently dropped any account whose entity_id
+  // had no current_entities row; mirrored here rather than defaulting to
+  // an empty name.
+  const accounts = accountRows
+    .filter((r) => accountNames.has(r.id))
+    .map((r) => ({ id: r.id, name: accountNames.get(r.id)!, accountnumber: r.accountnumber }));
 
   const rows: TrialBalanceComparisonRow[] = accounts
     .map((acct) => {
@@ -897,7 +893,7 @@ function computeCloseLines(businessName: BusinessName, ledger: LedgerName, asOfD
     for (const { currency, profitCenter, net } of netByCurrencyProfitCenter.values()) {
       if (net === 0) continue;
       if ((currency || profitCenter) && userId) {
-        const retainedEarningsId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(retainedEarningsAccount) as { id: number }).id;
+        const retainedEarningsId = Entity.get(retainedEarningsAccount)!.id;
         const target = profitCenter ? ensureProfitCenterRetainedEarningsAccount(retainedEarningsId, profitCenter, userId) : { id: retainedEarningsId, name: retainedEarningsAccount };
         const tagged = currency ? ensureCurrencyAccount(target.id, currency, userId) : target;
         lines.push({ account: tagged.name, accountId: tagged.id, amount_minor: -net });
@@ -994,11 +990,11 @@ export interface ResolvedRollover {
 }
 
 export function resolveRolloverLines(business: BusinessName, oldLedger: LedgerName, newLedger: LedgerName, asOfDate: string, userId: UserId): ResolvedRollover {
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(business) as { id: number } | undefined)?.id;
+  const businessId = Entity.get(business, 'Businesses')?.id;
   if (!businessId) throw new ValidationError(`No real business named "${business}".`);
-  const ledgersRootId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = ?`).get(businessId) as { id: number } | undefined)?.id;
+  const ledgersRootId = Entity.getUnder('Ledgers', businessId)?.id;
   if (!ledgersRootId) throw new ValidationError(`No real "Ledgers" node for "${business}" — this business was not created with the current, real structure.`);
-  const newLedgerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(newLedger, ledgersRootId) as { id: number } | undefined)?.id;
+  const newLedgerId = Entity.getUnder(newLedger, ledgersRootId)?.id;
   if (!newLedgerId) throw new ValidationError(`No real ledger named "${newLedger}" under "${business}" — create it first.`);
 
   const bs = getBalanceSheet(business, oldLedger, asOfDate);
@@ -1067,6 +1063,8 @@ export interface SalesReport {
 }
 
 export function getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): SalesReport {
+  const businessId = resolveBusinessEntityId(business) ?? -1;
+  const ledgerId = resolveLedgerEntityId(business, ledger) ?? -1;
   const rows = db
     .prepare(
       `SELECT i.invoice_date, i.reference, pe.name AS item_name, l.description,
@@ -1074,8 +1072,8 @@ export function getSalesReport(business: BusinessName, ledger: LedgerName, fromD
        FROM invoice_detail_line l
        JOIN invoice i ON i.id = l.invoice_id
        LEFT JOIN current_entities pe ON pe.id = l.item_id
-       WHERE i.business_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))
-         AND i.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))
+       WHERE i.business_id = ?
+         AND i.ledger_id = ?
          AND i.invoice_type = 'AR'
          AND i.document_type = 'invoice'
          AND i.status = 'posted'
@@ -1083,7 +1081,7 @@ export function getSalesReport(business: BusinessName, ledger: LedgerName, fromD
          AND (? IS NULL OR i.invoice_date <= ?)
        ORDER BY i.invoice_date, i.reference, l.line_order`
     )
-    .all(business, ledger, business, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as (SalesReportLine & { item_id: number | null })[];
+    .all(businessId, ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as (SalesReportLine & { item_id: number | null })[];
 
   const entities = getEntityTree();
   // Category is a genuinely optional, generic Hierarchy tag here — the
