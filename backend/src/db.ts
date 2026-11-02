@@ -1305,30 +1305,40 @@ export interface ListInvoicesOptions {
     limit?: number;
   offset?: number;
 }
+// Resolves a business/ledger name pair to their entity ids once in TS,
+// instead of joining current_entities by name inside each query. -1 is
+// used as a sentinel for "not found" so the subsequent id-only query's
+// WHERE clause still correctly matches zero rows (same semantics as the
+// original INNER JOIN silently dropping unmatched names).
+function resolveBusinessAndLedgerIds(business: BusinessName, ledger: LedgerName): { businessId: number; ledgerId: number } {
+  const businessId = Entity.get(business, 'Businesses')?.id ?? -1;
+  const ledgersRootId = Entity.getUnder('Ledgers', businessId)?.id;
+  const ledgerId = ledgersRootId !== undefined ? Entity.getUnder(ledger, ledgersRootId)?.id ?? -1 : -1;
+  return { businessId, ledgerId };
+}
+
 export function listInvoices(business: BusinessName, ledger: LedgerName, options: ListInvoicesOptions = {}): Invoice[] {
   const { invoiceType, source = 'manual', limit, offset = 0 } = options;
+  const { businessId, ledgerId } = resolveBusinessAndLedgerIds(business, ledger);
   const ids = db
     .prepare(
       `SELECT i.id FROM invoice i
-       JOIN current_entities biz ON biz.id = i.business_id
-       JOIN current_entities led ON led.id = i.ledger_id
-       WHERE biz.name = ? AND led.name = ? AND (? IS NULL OR i.invoice_type = ?) AND (? = 'all' OR i.source = ?)
+       WHERE i.business_id = ? AND i.ledger_id = ? AND (? IS NULL OR i.invoice_type = ?) AND (? = 'all' OR i.source = ?)
        ORDER BY i.invoice_date DESC, i.id DESC
        LIMIT ? OFFSET ?`
     )
-    .all(business, ledger, invoiceType ?? null, invoiceType ?? null, source, source, limit ?? -1, offset) as { id: number }[];
+    .all(businessId, ledgerId, invoiceType ?? null, invoiceType ?? null, source, source, limit ?? -1, offset) as { id: number }[];
   return ids.map((r) => getInvoice(r.id)!);
 }
 
 export function countInvoices(business: BusinessName, ledger: LedgerName, invoiceType?: 'AR' | 'AP', source: 'manual' | 'pos' | 'all' = 'manual'): number {
+  const { businessId, ledgerId } = resolveBusinessAndLedgerIds(business, ledger);
   const row = db
     .prepare(
       `SELECT COUNT(*) AS total FROM invoice i
-       JOIN current_entities biz ON biz.id = i.business_id
-       JOIN current_entities led ON led.id = i.ledger_id
-       WHERE biz.name = ? AND led.name = ? AND (? IS NULL OR i.invoice_type = ?) AND (? = 'all' OR i.source = ?)`
+       WHERE i.business_id = ? AND i.ledger_id = ? AND (? IS NULL OR i.invoice_type = ?) AND (? = 'all' OR i.source = ?)`
     )
-    .get(business, ledger, invoiceType ?? null, invoiceType ?? null, source, source) as { total: number };
+    .get(businessId, ledgerId, invoiceType ?? null, invoiceType ?? null, source, source) as { total: number };
   return row.total;
 }
 
@@ -3873,23 +3883,27 @@ export function getCashFlowForecast(business: BusinessName, ledger: LedgerName, 
   const bankAccountIds = new Set(
     getBankAccounts(business, ledger)
       .filter((a) => a.currency === null)
+      // Deliberately NOT Entity.get(a.name): account names are unique only
+      // within their own business's chart of accounts, never globally, so
+      // an unscoped name lookup here could match a same-named account
+      // belonging to a different business.
       .map((a) => (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(a.name) as { id: number }).id)
   );
   if (bankAccountIds.size > 0) {
     const placeholders = Array.from(bankAccountIds)
       .map(() => '?')
       .join(',');
+    const { businessId, ledgerId } = resolveBusinessAndLedgerIds(business, ledger);
     const recurringRows = db
       .prepare(
         `SELECT jo.transdate AS date, jo.reference, jo.description, jo.memo, jo.amount_minor
          FROM journal_occurrences jo
-         JOIN current_entities biz ON biz.id = jo.business_id AND biz.name = ?
-         JOIN current_entities led ON led.id = jo.ledger_id AND led.name = ?
          JOIN journal j ON j.id = jo.journal_id AND j.recurrence != 'once'
-         WHERE jo.account_id IN (${placeholders})
+         WHERE jo.business_id = ? AND jo.ledger_id = ?
+           AND jo.account_id IN (${placeholders})
            AND jo.transdate > ? AND jo.transdate <= ?`
       )
-      .all(business, ledger, ...Array.from(bankAccountIds), asOfDate, horizonEnd) as { date: string; reference: string; description: string; memo: string; amount_minor: number }[];
+      .all(businessId, ledgerId, ...Array.from(bankAccountIds), asOfDate, horizonEnd) as { date: string; reference: string; description: string; memo: string; amount_minor: number }[];
     for (const row of recurringRows) {
       lines.push({ date: row.date, description: row.description || row.memo || row.reference, amount_minor: row.amount_minor, source: 'recurring' });
     }
@@ -3957,7 +3971,7 @@ export interface CustomerRegistrationInput {
 }
 
 export function registerCustomer(input: CustomerRegistrationInput, userId: UserId): void {
-  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(input.name)) {
+  if (Entity.get(input.name)) {
     throw new ValidationError(`"${input.name}" already exists — choose a different name, or ask staff to look up the existing account.`);
   }
   create(requireEntity('Customers', typeRootName), typeCustomerName, input.name, userId);
@@ -3974,7 +3988,7 @@ export function registerCustomer(input: CustomerRegistrationInput, userId: UserI
     preferred_language: input.preferred_language ?? null,
     card_label: input.card_label ?? null,
   });
-  const entityId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.name) as { id: number }).id;
+  const entityId = Entity.get(input.name)!.id;
   mergeContactDetail(entityId, { password_hash: hashPassword(input.password), verification_status: 'pending' });
 }
 
@@ -3997,7 +4011,7 @@ export function listPendingCustomers(): PendingCustomer[] {
 }
 
 export function verifyCustomer(customerName: string, approve: boolean): void {
-  const entityId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(customerName) as { id: number } | undefined)?.id;
+  const entityId = Entity.get(customerName)?.id;
   if (!entityId) throw new ValidationError(`No customer named "${customerName}".`);
   const current = (db.prepare(`SELECT verification_status FROM contact WHERE entity_id = ?`).get(entityId) as { verification_status: string | null } | undefined)
     ?.verification_status;
@@ -4006,9 +4020,9 @@ export function verifyCustomer(customerName: string, approve: boolean): void {
 }
 
 export function authenticateCustomer(name: string, password: string): boolean {
-  const row = db.prepare(`SELECT password_hash FROM contact WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).get(name) as
-    | { password_hash: string | null }
-    | undefined;
+  const entityId = Entity.get(name)?.id;
+  if (entityId === undefined) return false;
+  const row = db.prepare(`SELECT password_hash FROM contact WHERE entity_id = ?`).get(entityId) as { password_hash: string | null } | undefined;
   if (!row?.password_hash) return false;
   return verifyPassword(password, row.password_hash);
 }
@@ -4060,17 +4074,19 @@ export interface Item {
 }
 
 export function getItem(entityName: string): Item | undefined {
+  const entityId = Entity.get(entityName)?.id;
+  if (entityId === undefined) return undefined;
   const row = db
     .prepare(
-      `SELECT c.item_description AS description, c.item_unit_of_measure AS unit_of_measure, c.item_upc AS upc, c.item_retail_price_minor AS retail_price_minor
-       FROM contact c JOIN current_entities e ON e.id = c.entity_id WHERE e.name = ?`
+      `SELECT item_description AS description, item_unit_of_measure AS unit_of_measure, item_upc AS upc, item_retail_price_minor AS retail_price_minor
+       FROM contact WHERE entity_id = ?`
     )
-    .get(entityName) as Item | undefined;
+    .get(entityId) as Item | undefined;
   return row;
 }
 
 export function setItem(entityName: string, item: Partial<Item>): void {
-  const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(entityName) as { id: number } | undefined)?.id;
+  const id = Entity.get(entityName)?.id;
   if (!id) throw new ValidationError(`No entity named "${entityName}".`);
   mergeContactDetail(id, {
     item_description: item.description ?? null,
@@ -4092,10 +4108,11 @@ export interface ItemSummary {
 }
 
 export function listItems(businessName: BusinessName, limit?: number, offset = 0): ItemSummary[] {
+  const businessId = Entity.get(businessName, 'Businesses')?.id ?? -1;
   const rows = db
     .prepare(
       `WITH RECURSIVE items_tree(id) AS (
-         SELECT id FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')) AND (name = 'Items' OR name LIKE '% Items')
+         SELECT id FROM current_entities WHERE parent_id = ? AND (name = 'Items' OR name LIKE '% Items')
          UNION ALL
          SELECT e.id FROM current_entities e JOIN items_tree t ON e.parent_id = t.id
        )
@@ -4110,15 +4127,16 @@ export function listItems(businessName: BusinessName, limit?: number, offset = 0
        ORDER BY e.name
        LIMIT ? OFFSET ?`
     )
-    .all(businessName, limit ?? -1, offset) as (ItemSummary & { parentName: string })[];
+    .all(businessId, limit ?? -1, offset) as (ItemSummary & { parentName: string })[];
   return rows.map((r) => ({ ...r, storage_origin: getItemStorageOrigin(asItemName(r.name)) ?? null, product: r.parentName === 'Items' || r.parentName.endsWith(' Items') ? null : r.parentName }));
 }
 
 export function countItems(businessName: BusinessName): number {
+  const businessId = Entity.get(businessName, 'Businesses')?.id ?? -1;
   const row = db
     .prepare(
       `WITH RECURSIVE items_tree(id) AS (
-         SELECT id FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')) AND (name = 'Items' OR name LIKE '% Items')
+         SELECT id FROM current_entities WHERE parent_id = ? AND (name = 'Items' OR name LIKE '% Items')
          UNION ALL
          SELECT e.id FROM current_entities e JOIN items_tree t ON e.parent_id = t.id
        )
@@ -4128,7 +4146,7 @@ export function countItems(businessName: BusinessName): number {
        JOIN contact p ON p.entity_id = e.id
        WHERE e.name != 'Items' AND e.name NOT LIKE '% Items'`
     )
-    .get(businessName) as { total: number };
+    .get(businessId) as { total: number };
   return row.total;
 }
 
@@ -4213,13 +4231,11 @@ export interface ItemSourceInput {
 }
 
 export function addOrUpdateItemSource(input: ItemSourceInput): void {
-  const itemId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.itemName) as { id: number } | undefined)?.id;
+  const itemId = Entity.get(input.itemName)?.id;
   if (!itemId) throw new ValidationError(`No item named "${input.itemName}".`);
-  const vendorId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.vendorName) as { id: number } | undefined)?.id;
+  const vendorId = Entity.get(input.vendorName)?.id;
   if (!vendorId) throw new ValidationError(`No vendor named "${input.vendorName}".`);
-  const manufacturerId = input.manufacturerName
-    ? (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.manufacturerName) as { id: number } | undefined)?.id
-    : null;
+  const manufacturerId = input.manufacturerName ? Entity.get(input.manufacturerName)?.id : null;
   if (input.manufacturerName && !manufacturerId) throw new ValidationError(`No manufacturer named "${input.manufacturerName}".`);
 
   const currency = input.currency ?? '';
@@ -4249,45 +4265,27 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
 }
 
 export function getItemPriceForCurrency(itemName: string, currency: string | null, productInstanceId?: number): number | null {
+  const itemId = Entity.get(itemName)?.id ?? -1;
   if (productInstanceId != null) {
     const comboRow = db
       .prepare(
-        `SELECT ps.price_minor
-         FROM item_source ps
-         JOIN current_entities item_e ON item_e.id = ps.item_id
-         WHERE item_e.name = ? AND ps.currency = ? AND ps.product_instance_id = ?
-         ORDER BY ps.is_preferred DESC
-         LIMIT 1`
+        `SELECT price_minor FROM item_source WHERE item_id = ? AND currency = ? AND product_instance_id = ? ORDER BY is_preferred DESC LIMIT 1`
       )
-      .get(itemName, currency ?? '', productInstanceId) as { price_minor: number | null } | undefined;
+      .get(itemId, currency ?? '', productInstanceId) as { price_minor: number | null } | undefined;
     if (comboRow) return comboRow.price_minor;
   }
   const row = db
-    .prepare(
-      `SELECT ps.price_minor
-       FROM item_source ps
-       JOIN current_entities item_e ON item_e.id = ps.item_id
-       WHERE item_e.name = ? AND ps.currency = ? AND ps.product_instance_id = 0
-       ORDER BY ps.is_preferred DESC
-       LIMIT 1`
-    )
-    .get(itemName, currency ?? '') as { price_minor: number | null } | undefined;
+    .prepare(`SELECT price_minor FROM item_source WHERE item_id = ? AND currency = ? AND product_instance_id = 0 ORDER BY is_preferred DESC LIMIT 1`)
+    .get(itemId, currency ?? '') as { price_minor: number | null } | undefined;
   if (row) return row.price_minor;
   const fallback = db
-    .prepare(
-      `SELECT ps.price_minor
-       FROM item_source ps
-       JOIN current_entities item_e ON item_e.id = ps.item_id
-       WHERE item_e.name = ? AND ps.currency = '' AND ps.product_instance_id = 0
-       ORDER BY ps.is_preferred DESC
-       LIMIT 1`
-    )
-    .get(itemName) as { price_minor: number | null } | undefined;
+    .prepare(`SELECT price_minor FROM item_source WHERE item_id = ? AND currency = '' AND product_instance_id = 0 ORDER BY is_preferred DESC LIMIT 1`)
+    .get(itemId) as { price_minor: number | null } | undefined;
   return fallback?.price_minor ?? null;
 }
 
 function requireBusinessId(businessName: string): number {
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined)?.id;
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
   if (!businessId) throw new ValidationError(`No business named "${businessName}".`);
   return businessId;
 }
@@ -4304,7 +4302,7 @@ export function setBusinessHomeCurrency(businessName: string, currencyCode: stri
 }
 
 export function getBusinessHomeCurrency(businessName: string): string | null {
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined)?.id;
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
   if (!businessId) return null;
   return Entity.getAttr(businessId, 'Home Currency') ?? null;
 }
@@ -4324,7 +4322,7 @@ export function setBusinessReportingPeriod(businessName: string, financialYearSt
 }
 
 export function getBusinessReportingPeriod(businessName: string): { financialYearStart: string; frequency: ReportingFrequency } | null {
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined)?.id;
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
   if (!businessId) return null;
   const financialYearStart = Entity.getAttr(businessId, 'Financial Year Start');
   const frequency = Entity.getAttr(businessId, 'Reporting Frequency') as ReportingFrequency | undefined;
