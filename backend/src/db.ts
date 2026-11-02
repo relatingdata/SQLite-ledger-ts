@@ -4417,9 +4417,9 @@ export function getLocationCurrencies(locationName: string, business?: BusinessN
 function resolveScopedLocationId(locationName: string, business?: BusinessName): number | undefined {
   if (business) {
     const rootId = resolveBusinessLocationsRootId(business);
-    return rootId ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(locationName, rootId) as { id: number } | undefined)?.id : undefined;
+    return rootId ? Entity.getUnder(locationName, rootId)?.id : undefined;
   }
-  return (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined)?.id;
+  return Entity.get(locationName)?.id;
 }
 
 const CURRENCY_EXCHANGE_ITEM_NAME = 'Currency Exchange';
@@ -4464,15 +4464,11 @@ export function getCurrencyExchangeRate(businessName: BusinessName, fromCurrency
   const pair = db.prepare(`SELECT id FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(product.id, combinationIdsJson) as { id: number } | undefined;
   if (!pair) return null;
   const vendorName = side === 'buy' ? 'FX Market (Buy)' : 'FX Market (Sell)';
+  const itemId = Entity.get(CURRENCY_EXCHANGE_ITEM_NAME)?.id ?? -1;
+  const vendorId = Entity.get(vendorName)?.id ?? -1;
   const row = db
-    .prepare(
-      `SELECT ps.price_minor
-       FROM item_source ps
-       JOIN current_entities item_e ON item_e.id = ps.item_id
-       JOIN current_entities vendor_e ON vendor_e.id = ps.vendor_id
-       WHERE item_e.name = ? AND vendor_e.name = ? AND ps.product_instance_id = ?`
-    )
-    .get(CURRENCY_EXCHANGE_ITEM_NAME, vendorName, pair.id) as { price_minor: number | null } | undefined;
+    .prepare(`SELECT price_minor FROM item_source WHERE item_id = ? AND vendor_id = ? AND product_instance_id = ?`)
+    .get(itemId, vendorId, pair.id) as { price_minor: number | null } | undefined;
   return row?.price_minor ?? null;
 }
 
@@ -4494,26 +4490,21 @@ export function deleteItemSource(id: number): void {
 export * from './db-reports.js';
 
 export function getLanguages(): { id: number; name: string }[] {
-  return db
-    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Languages')`)
-    .all() as { id: number; name: string }[];
+  const languagesRootId = Entity.get('Languages')?.id;
+  if (languagesRootId === undefined) return [];
+  return Entity.children(languagesRootId).map((c) => ({ id: c.id, name: c.name }));
 }
 
 export function getDefaultLanguage(): string | null {
-  const row = db
-    .prepare(
-      `SELECT s.name FROM current_entities e
-       JOIN current_entities s ON s.id = e.relation_id
-       WHERE e.name = 'Application'`
-    )
-    .get() as { name: string } | undefined;
-  return row?.name ?? null;
+  const application = Entity.get('Application');
+  if (!application || application.relation_id === null) return null;
+  return Entity.get(application.relation_id)?.name ?? null;
 }
 
 export function setDefaultLanguage(languageName: string, userId: UserId): void {
-  const languageId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(languageName) as { id: number } | undefined)?.id;
+  const languageId = Entity.get(languageName)?.id;
   if (!languageId) throw new ValidationError(`No language named "${languageName}".`);
-  const application = db.prepare(`SELECT id FROM current_entities WHERE name = 'Application'`).get() as { id: number };
+  const application = Entity.get('Application')!;
   supersedeEntity(application.id, { relation: languageName }, userId);
 }
 
@@ -4534,19 +4525,19 @@ export interface MenuSectionRow {
 }
 
 export function getMenuTree(opts?: { businessName?: string; userId?: number }): MenuSectionRow[] {
-  const businessId = opts?.businessName ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(opts.businessName) as { id: number } | undefined)?.id : undefined;
+  const businessId = opts?.businessName ? Entity.get(opts.businessName, 'Businesses')?.id : undefined;
 
   function resolveOverride(entityName: string): { label: string | null; hidden: boolean } | null {
     if (opts?.userId != null) {
       const scope = `user ${opts.userId}`;
-      const overrideRow = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(`${entityName} — Override: ${scope}`) as { id: number } | undefined;
+      const overrideRow = Entity.get(`${entityName} — Override: ${scope}`);
       const label = getEntityLink(`${entityName} — Override: ${scope}`, 'Label');
       const hidden = overrideRow ? Entity.hasTag(overrideRow.id, 'Hidden') : false;
       if (label !== undefined || hidden) return { label: label ?? null, hidden };
     }
     if (businessId != null) {
       const scope = `business ${businessId}`;
-      const overrideRow = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(`${entityName} — Override: ${scope}`) as { id: number } | undefined;
+      const overrideRow = Entity.get(`${entityName} — Override: ${scope}`);
       const label = getEntityLink(`${entityName} — Override: ${scope}`, 'Label');
       const hidden = overrideRow ? Entity.hasTag(overrideRow.id, 'Hidden') : false;
       if (label !== undefined || hidden) return { label: label ?? null, hidden };
@@ -4554,25 +4545,26 @@ export function getMenuTree(opts?: { businessName?: string; userId?: number }): 
     return null;
   }
 
+  const menuRootId = Entity.get('Menu')?.id ?? -1;
   const sectionRows = db
     .prepare(
       `SELECT e.id, e.name, d.name AS real_label
        FROM current_entities e
        LEFT JOIN current_entities d ON d.id = e.relation_id
-       WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = 'Menu')
+       WHERE e.parent_id = ?
        ORDER BY e.id`
     )
-    .all() as { id: number; name: string; real_label: string | null }[];
+    .all(menuRootId) as { id: number; name: string; real_label: string | null }[];
 
   const linkRows = db
     .prepare(
       `SELECT e.id, e.name, e.parent_id, d.name AS real_label
        FROM current_entities e
        LEFT JOIN current_entities d ON d.id = e.relation_id
-       WHERE e.parent_id IN (SELECT id FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Menu'))
+       WHERE e.parent_id IN (SELECT id FROM current_entities WHERE parent_id = ?)
        ORDER BY e.id`
     )
-    .all() as { id: number; name: string; parent_id: number; real_label: string | null }[];
+    .all(menuRootId) as { id: number; name: string; parent_id: number; real_label: string | null }[];
 
   return sectionRows
     .map((s) => {
@@ -4585,6 +4577,11 @@ export function getMenuTree(opts?: { businessName?: string; userId?: number }): 
           .filter((l) => l.parent_id === s.id)
           .map((l) => {
             const linkOverride = resolveOverride(l.name);
+            // Deliberately NOT Entity.findByNameContaining: that wraps the
+            // fragment in %...% on both sides (a true substring search),
+            // whereas this is a prefix match (name starts with
+            // "<l.name> — Required Role: ") — a different, narrower
+            // pattern that findByNameContaining can't express.
             const requiredRoles = (db.prepare(`SELECT name FROM current_entities WHERE parent_id = ? AND name LIKE ?`).all(l.id, `${l.name} — Required Role: %`) as { name: string }[]).map((r) =>
               r.name.replace(`${l.name} — Required Role: `, '')
             );
@@ -4592,8 +4589,8 @@ export function getMenuTree(opts?: { businessName?: string; userId?: number }): 
               key: String(l.id),
               href: getEntityLink(l.name, 'Route') ?? '',
               label: linkOverride?.label ?? l.real_label ?? l.name.replace(/^Menu Link: .* — /, ''),
-              notImplemented: !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(`${l.name} — Not Implemented`),
-              isSubheading: !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(`${l.name} — Is Subheading`),
+              notImplemented: !!Entity.get(`${l.name} — Not Implemented`),
+              isSubheading: !!Entity.get(`${l.name} — Is Subheading`),
               requiredRoles: requiredRoles.length > 0 ? requiredRoles : null,
               hidden: linkOverride?.hidden ?? false,
             };
@@ -4606,31 +4603,31 @@ export function getMenuTree(opts?: { businessName?: string; userId?: number }): 
 
 export function setMenuOverride(menuItemKey: string, scope: 'business' | 'user', scopeId: number, overrideLabel: string | null, hidden: boolean, userId: UserId = asUserId(1)): void {
   const entityId = Number(menuItemKey);
-  const menuItemName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(entityId) as { name: string } | undefined)?.name;
+  const menuItemName = Entity.get(entityId)?.name;
   if (!menuItemName) throw new NotFoundError(`No real menu item with id ${entityId}.`);
   const overrideName = `${menuItemName} — Override: ${scope} ${scopeId}`;
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = ?`).get(overrideName, entityId)) {
+  if (!Entity.getUnder(overrideName, entityId)) {
     create(requireEntityById(entityId, typeRootName), typeMenuOverrideName, overrideName, userId);
   }
   if (overrideLabel) {
-    if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(overrideLabel)) {
+    if (!Entity.get(overrideLabel)) {
       create(requireEntity('Vocabulary', typeRootName), typeVocabularyWordName, overrideLabel, userId);
     }
     setEntityLink(overrideName, 'Label', overrideLabel, userId);
   } else {
     deleteEntityLink(overrideName, 'Label', userId);
   }
-  const overrideId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(overrideName) as { id: number }).id;
+  const overrideId = Entity.get(overrideName)!.id;
   if (hidden) Entity.tag(overrideId, 'Hidden', userId);
   else Entity.untag(overrideId, 'Hidden', userId);
 }
 
 export function deleteMenuOverride(menuItemKey: string, scope: 'business' | 'user', scopeId: number, userId: UserId = asUserId(1)): void {
   const entityId = Number(menuItemKey);
-  const menuItemName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(entityId) as { name: string } | undefined)?.name;
+  const menuItemName = Entity.get(entityId)?.name;
   if (!menuItemName) return;
   const overrideName = `${menuItemName} — Override: ${scope} ${scopeId}`;
-  const row = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(overrideName) as { id: number } | undefined;
+  const row = Entity.get(overrideName);
   if (!row) return;
   Entity.untag(row.id, 'Hidden', userId);
   deleteEntityLink(overrideName, 'Label', userId);
@@ -4642,25 +4639,24 @@ export interface VocabularyWord {
 }
 
 function globalVocabularyId(): number {
-  const row = db
-    .prepare(`SELECT id FROM current_entities WHERE name = 'Vocabulary' AND parent_id = (SELECT id FROM current_entities WHERE name = 'Application')`)
-    .get() as { id: number } | undefined;
+  const applicationId = Entity.get('Application')?.id;
+  const row = applicationId !== undefined ? Entity.getUnder('Vocabulary', applicationId) : undefined;
   if (!row) throw new Error('The one, true, global Vocabulary entity is missing from the entity tree.');
   return row.id;
 }
 
 export function getVocabularyWords(): VocabularyWord[] {
-  const words = db
-    .prepare(`SELECT c.name FROM current_entities c WHERE c.parent_id = ? ORDER BY c.name`)
-    .all(globalVocabularyId()) as { name: string }[];
+  const words = Entity.children(globalVocabularyId())
+    .map((c) => c.name)
+    .sort();
   const languages = getLanguages();
-  return words.map((c) => {
+  return words.map((name) => {
     const translations: Record<string, string> = {};
     for (const lang of languages) {
-      const text = getTranslation(c.name, lang.name);
+      const text = getTranslation(name, lang.name);
       if (text) translations[lang.name] = text;
     }
-    return { name: c.name, translations };
+    return { name, translations };
   });
 }
 
@@ -4702,20 +4698,21 @@ export function getConceptsWithAlternates(): ConceptWithAlternates[] {
 }
 
 export function ensureVocabularyAlternate(conceptName: string, desiredText: string, businessName: string, userId: UserId): string {
-  const existingAnywhere = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(desiredText) as { id: number } | undefined;
+  const existingAnywhere = Entity.get(desiredText);
   if (!existingAnywhere) {
     const businessVocabulary = requireEntity('Vocabulary', typeRootName, requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName)));
     create(businessVocabulary, typeRootName, desiredText, userId);
   }
-  const alreadyLinked = db.prepare(`SELECT 1 FROM current_entities link JOIN current_entities target ON target.id = link.relation_id WHERE link.name = ? AND target.name = ?`).get(`${desiredText} — Hierarchy: Header Account`, conceptName);
+  const linkRow = Entity.get(`${desiredText} — Hierarchy: Header Account`);
+  const alreadyLinked = linkRow && linkRow.relation_id !== null && Entity.get(linkRow.relation_id)?.name === conceptName;
   if (!alreadyLinked) setEntityLink(desiredText, 'Hierarchy: Header Account', conceptName, userId);
   return desiredText;
 }
 
 export function setVocabularyPreference(conceptName: string, scope: 'business' | 'user', scopeId: number, preferredAlternateName: string): void {
-  const conceptId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined)?.id;
+  const conceptId = Entity.get(conceptName)?.id;
   if (!conceptId) throw new ValidationError(`No real entity named "${conceptName}".`);
-  const alternate = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(preferredAlternateName) as { id: number } | undefined;
+  const alternate = Entity.get(preferredAlternateName);
   if (!alternate) throw new ValidationError(`No real entity named "${preferredAlternateName}".`);
   const prefName = `${conceptName} — Preference — ${scope}:${scopeId}`;
   const existing = Entity.getUnder(prefName, conceptId);
@@ -4726,7 +4723,7 @@ export function setVocabularyPreference(conceptName: string, scope: 'business' |
 }
 
 export function deleteVocabularyPreference(conceptName: string, scope: 'business' | 'user', scopeId: number): void {
-  const conceptId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined)?.id;
+  const conceptId = Entity.get(conceptName)?.id;
   if (!conceptId) return;
   const prefName = `${conceptName} — Preference — ${scope}:${scopeId}`;
   const existing = Entity.getUnder(prefName, conceptId);
@@ -4741,7 +4738,7 @@ export function getLocalizedText(language: string, opts?: { businessName?: strin
   for (const r of rows) map[r.entity] = r.text;
 
   if (!opts?.businessName && !opts?.userId) return map;
-  const businessId = opts.businessName ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(opts.businessName) as { id: number } | undefined)?.id : undefined;
+  const businessId = opts.businessName ? Entity.get(opts.businessName, 'Businesses')?.id : undefined;
   const preferences = db
     .prepare(
       `SELECT pref.parent_id AS concept_id, alt.name AS alternate_name, tag.name AS scope
@@ -4756,9 +4753,7 @@ export function getLocalizedText(language: string, opts?: { businessName?: strin
     .all(opts.userId ?? -1, businessId ?? -1) as { concept_id: number; scope: 'business' | 'user'; alternate_name: string }[];
   if (preferences.length === 0) return map;
 
-  const conceptNames = db
-    .prepare(`SELECT id, name FROM current_entities WHERE id IN (${preferences.map(() => '?').join(',')})`)
-    .all(...preferences.map((p) => p.concept_id)) as { id: number; name: string }[];
+  const conceptNames = Entity.getMany(preferences.map((p) => p.concept_id));
   const nameById = new Map(conceptNames.map((c) => [c.id, c.name]));
 
   const sourceByConcept = new Map<string, 'business' | 'user'>();
@@ -4773,12 +4768,9 @@ export function getLocalizedText(language: string, opts?: { businessName?: strin
 }
 
 export function setTranslation(conceptName: string, languageName: string, text: string, userId: UserId = asUserId(1)): void {
-  const conceptId = (
-    db.prepare(`SELECT e.id FROM current_entities e WHERE e.name = ? AND e.parent_id = ?`).get(conceptName, globalVocabularyId()) as { id: number } | undefined
-    ?? db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined
-  )?.id;
+  const conceptId = (Entity.getUnder(conceptName, globalVocabularyId()) ?? Entity.get(conceptName))?.id;
   if (!conceptId) throw new ValidationError(`No real entity named "${conceptName}".`);
-  const languageId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(languageName) as { id: number } | undefined)?.id;
+  const languageId = Entity.get(languageName)?.id;
   if (!languageId) throw new ValidationError(`No real language named "${languageName}".`);
 
   const stale = db
@@ -4832,19 +4824,17 @@ export function setTranslation(conceptName: string, languageName: string, text: 
 // defeats the whole point of the guard. Found directly while writing this
 // function's own regression test.
 export function getTranslationsReferencing(conceptName: string): { languageName: string; text: string }[] {
-  const conceptId = (
-    db.prepare(`SELECT e.id FROM current_entities e WHERE e.name = ? AND e.parent_id = ?`).get(conceptName, globalVocabularyId()) as { id: number } | undefined
-    ?? db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(conceptName) as { id: number } | undefined
-  )?.id;
+  const conceptId = (Entity.getUnder(conceptName, globalVocabularyId()) ?? Entity.get(conceptName))?.id;
   if (!conceptId) return [];
+  const languagesRootId = Entity.get('Languages')?.id ?? -1;
   const rows = db
     .prepare(
       `SELECT lang.name AS language_name, e.name AS text
        FROM current_entities e
        JOIN current_entities lang ON lang.id = e.parent_id
-       WHERE e.relation_id = ? AND lang.parent_id = (SELECT id FROM current_entities WHERE name = 'Languages') AND lang.name != 'English'`
+       WHERE e.relation_id = ? AND lang.parent_id = ? AND lang.name != 'English'`
     )
-    .all(conceptId) as { language_name: string; text: string }[];
+    .all(conceptId, languagesRootId) as { language_name: string; text: string }[];
   return rows.map((r) => ({ languageName: r.language_name, text: r.text }));
 }
 
@@ -4862,9 +4852,7 @@ export function deleteTranslationConcept(conceptName: string, userId: UserId): v
     const languages = stillTranslated.map((t) => t.languageName).join(', ');
     throw new ValidationError(`"${conceptName}" is still translated in ${languages} — remove those translations first.`);
   }
-  const conceptId = (
-    db.prepare(`SELECT e.id FROM current_entities e WHERE e.name = ? AND e.parent_id = ?`).get(conceptName, globalVocabularyId()) as { id: number } | undefined
-  )?.id;
+  const conceptId = Entity.getUnder(conceptName, globalVocabularyId())?.id;
   if (!conceptId) throw new NotFoundError(`No real vocabulary word named "${conceptName}".`);
   // Deliberately does NOT also revoke the word's own auto-created English
   // identity translation value (same reasoning as getTranslationsReferencing
@@ -4891,30 +4879,32 @@ export function deleteTranslationConcept(conceptName: string, userId: UserId): v
 }
 
 export function getTranslation(conceptName: string, languageName: string): string | null {
+  const languageId = Entity.get(languageName)?.id ?? -1;
   const row = db
     .prepare(
       `SELECT e.name
        FROM current_entities e
        JOIN current_entities c ON c.id = e.relation_id
-       WHERE e.parent_id = (SELECT id FROM current_entities WHERE name = ?)
+       WHERE e.parent_id = ?
          AND c.name = ?
        ORDER BY (c.parent_id = ?) DESC
        LIMIT 1`
     )
-    .get(languageName, conceptName, globalVocabularyId()) as { name: string } | undefined;
+    .get(languageId, conceptName, globalVocabularyId()) as { name: string } | undefined;
   return row?.name ?? null;
 }
 
 export function getBusinesses(): { id: number; name: BusinessName }[] {
-  return db
-    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`)
-    .all() as { id: number; name: BusinessName }[];
+  const businessesRootId = Entity.get('Businesses')?.id;
+  if (businessesRootId === undefined) return [];
+  return Entity.children(businessesRootId).map((c) => ({ id: c.id, name: asBusinessName(c.name) }));
 }
 
 export function getLedgers(businessName: BusinessName): { id: number; name: LedgerName }[] {
-  return db
-    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
-    .all(businessName) as { id: number; name: LedgerName }[];
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
+  const ledgersRootId = businessId !== undefined ? Entity.getUnder('Ledgers', businessId)?.id : undefined;
+  if (ledgersRootId === undefined) return [];
+  return Entity.children(ledgersRootId).map((c) => ({ id: c.id, name: asLedgerName(c.name) }));
 }
 
 function ensureActiveLedgerMarker(businessId: number, userId: UserId): { id: number; name: string } {
@@ -4931,9 +4921,9 @@ export function setActiveLedger(businessName: BusinessName, ledgerName: LedgerNa
 
 export function getActiveLedger(businessName: BusinessName): LedgerName | null {
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
-  const marker = db.prepare(`SELECT relation_id FROM current_entities WHERE name = 'Active Ledger' AND parent_id = ?`).get(business.id) as { relation_id: number | null } | undefined;
+  const marker = Entity.getUnder('Active Ledger', business.id);
   if (!marker?.relation_id) return null;
-  const ledger = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(marker.relation_id) as { name: string } | undefined;
+  const ledger = Entity.get(marker.relation_id);
   return ledger ? asLedgerName(ledger.name) : null;
 }
 
