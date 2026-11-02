@@ -90,6 +90,12 @@ export const Entity = {
   setCombinationIds(id: number, combinationIdsJson: string): void {
     db.prepare(`INSERT INTO entity_set_combination_ids (entity_id, combination_ids) VALUES (?, ?)`).run(id, combinationIdsJson);
   },
+  // Stage C category methods — exposed here one at a time, as real call
+  // sites in the ~470-site sweep actually need them (per the approved
+  // plan's own stated discipline), not all at once speculatively.
+  findAll(filter: { relationId?: number | null; nameSuffix?: string; underTagNamed?: string }): EntityNode[] {
+    return entityDriver.findAll(filter);
+  },
 };
 
 export const Link = {

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db, ValidationError, NotFoundError, supersedeEntity, revokeEntity, ensureProductInstance, getActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { db, ValidationError, NotFoundError, ensureProductInstance, getActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 import { hashPassword, verifyPassword } from './password.js';
 
@@ -21,8 +21,9 @@ interface UserDetail {
 }
 
 function getUserDetail(userId: number): UserDetail | undefined {
-  const row = db.prepare(`SELECT id FROM current_entities WHERE id = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')`).get(userId) as { id: number } | undefined;
-  if (!row) return undefined;
+  const usersRoot = Entity.get('System Users');
+  const row = Entity.get(userId);
+  if (!row || !usersRoot || row.parent_id !== usersRoot.id) return undefined;
   const password_hash = Entity.getAttr(userId, 'Password Hash');
   const active = Entity.getAttr(userId, 'Active');
   const page_size = Entity.getAttr(userId, 'Page Size');
@@ -41,11 +42,10 @@ function setUserDetail(userId: number, detail: UserDetail): void {
 }
 
 function getUserRoleNames(userId: number): string[] {
-  return (
-    db
-      .prepare(`SELECT role.name FROM current_entities link JOIN current_entities role ON role.id = link.relation_id JOIN current_entities tag ON tag.parent_id = link.id AND tag.name = 'Role' AND tag.relation_id IS NOT NULL WHERE link.parent_id = ?`)
-      .all(userId) as { name: string }[]
-  ).map((r) => r.name);
+  return Entity.children(userId)
+    .filter((link) => link.relation_id !== null && Entity.hasTag(link.id, 'Role'))
+    .map((link) => Entity.get(link.relation_id!)?.name)
+    .filter((name): name is string => name !== undefined);
 }
 
 export interface UserSummary {
@@ -56,20 +56,26 @@ export interface UserSummary {
 }
 
 export function listUsers(): UserSummary[] {
-  const users = db
-    .prepare(`SELECT id, name AS username FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'System Users') ORDER BY name`)
-    .all() as { id: number; username: string }[];
-  return users.map((u) => ({ id: u.id, username: u.username, active: Entity.getAttr(u.id, 'Active') === '1', roles: getUserRoleNames(u.id) }));
+  const usersRoot = Entity.get('System Users');
+  const users = usersRoot
+    ? Entity.children(usersRoot.id)
+        .slice()
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    : [];
+  return users.map((u) => ({ id: u.id, username: u.name, active: Entity.getAttr(u.id, 'Active') === '1', roles: getUserRoleNames(u.id) }));
 }
 
 export function listRoles(): { id: number; name: string }[] {
-  return db
-    .prepare(`SELECT id, name FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'System Roles') ORDER BY id`)
-    .all() as { id: number; name: string }[];
+  const rolesRoot = Entity.get('System Roles');
+  if (!rolesRoot) return [];
+  return Entity.children(rolesRoot.id)
+    .slice()
+    .sort((a, b) => a.id - b.id)
+    .map((r) => ({ id: r.id, name: r.name }));
 }
 
 export function createUser(username: string, password: string, roleNames: string[]): UserSummary {
-  const usersRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'System Users'`).get() as { id: number };
+  const usersRoot = Entity.get('System Users')!;
   const existing = Entity.getUnder(username, usersRoot.id);
   if (existing) throw new ValidationError(`A user named "${username}" already exists.`);
   if (password.length < 8) throw new ValidationError('Password must be at least 8 characters.');
@@ -83,20 +89,20 @@ export function createUser(username: string, password: string, roleNames: string
 
 export function setUserRoles(userId: number, roleNames: string[]): void {
   const roleIds = roleNames.map((name) => {
-    const row = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Roles')`).get(name) as { id: number } | undefined;
+    const row = Entity.get(name, 'System Roles');
     if (!row) throw new ValidationError(`No such role "${name}".`);
     return { id: row.id, name };
   });
-  const existingLinks = db.prepare(`SELECT link.id FROM current_entities link JOIN current_entities tag ON tag.parent_id = link.id AND tag.name = 'Role' AND tag.relation_id IS NOT NULL WHERE link.parent_id = ?`).all(userId) as { id: number }[];
+  const existingLinks = Entity.children(userId).filter((link) => Entity.hasTag(link.id, 'Role'));
   for (const link of existingLinks) {
     const tagNode = Entity.getUnder('Role', link.id);
-    if (tagNode) revokeEntity(tagNode.id, 1 as never);
-    revokeEntity(link.id, 1 as never);
+    if (tagNode) Entity.revoke(tagNode.id, 1 as never);
+    Entity.revoke(link.id, 1 as never);
   }
-  const userRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(userId) as { name: string };
+  const userRow = Entity.get(userId)!;
   for (const role of roleIds) {
     const created = Entity.create(`${userRow.name} — Role — ${role.name}`, userId, 1 as never);
-    supersedeEntity(created.id, { relation: role.name }, 1 as never);
+    Entity.relate(created.id, role.name, 1 as never);
     Entity.tag(created.id, 'Role', 1 as never);
   }
 }
@@ -115,13 +121,16 @@ export interface UserRoleMatrix {
 export function getUserRoleMatrix(businessName: BusinessName): UserRoleMatrix {
   const users = listUsers().map((u) => u.username);
   const roles = listRoles().map((r) => r.name);
-  const business = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined;
+  const business = Entity.get(businessName, 'Businesses');
   if (!business) throw new NotFoundError(`No such business "${businessName}".`);
-  const productRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Product' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  const productRoot = Entity.getUnder('Product', business.id);
   if (!productRoot) return { users, roles, assignments: [] };
+  // combination_ids is one of the two standing-mandate-approved JSON
+  // exceptions (along with detail_json) and stays SQL-only — explicitly
+  // out of scope for the Kaappi/EntityDriver migration.
   const rows = db.prepare(`SELECT combination_ids FROM current_entities WHERE parent_id = ? AND combination_ids IS NOT NULL`).all(productRoot.id) as { combination_ids: string }[];
   const idToName = new Map<number, string>();
-  for (const row of db.prepare(`SELECT id, name FROM current_entities`).all() as { id: number; name: string }[]) idToName.set(row.id, row.name);
+  for (const node of Entity.findAll({})) idToName.set(node.id, node.name);
   const assignments = rows
     .map((r) => (JSON.parse(r.combination_ids) as number[]).map((id) => idToName.get(id)!))
     .filter((pair): pair is [string, string] => pair.length === 2 && pair.every(Boolean))
@@ -136,18 +145,20 @@ export function setUserRoleInBusiness(businessName: BusinessName, username: stri
 }
 
 export function unsetUserRoleInBusiness(businessName: BusinessName, username: string, roleName: string, userId: UserId): void {
-  const business = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(businessName) as { id: number } | undefined;
+  const business = Entity.get(businessName, 'Businesses');
   if (!business) return;
-  const productRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Product' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  const productRoot = Entity.getUnder('Product', business.id);
   if (!productRoot) return;
-  const hierarchyRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Hierarchy' AND parent_id = ?`).get(business.id) as { id: number } | undefined;
+  const hierarchyRoot = Entity.getUnder('Hierarchy', business.id);
   if (!hierarchyRoot) return;
-  const userGrouping = db.prepare(`SELECT id FROM current_entities WHERE name = 'User' AND parent_id = ?`).get(hierarchyRoot.id) as { id: number } | undefined;
-  const roleGrouping = db.prepare(`SELECT id FROM current_entities WHERE name = 'Role' AND parent_id = ?`).get(hierarchyRoot.id) as { id: number } | undefined;
+  const userGrouping = Entity.getUnder('User', hierarchyRoot.id);
+  const roleGrouping = Entity.getUnder('Role', hierarchyRoot.id);
   if (!userGrouping || !roleGrouping) return;
-  const userValue = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(username, userGrouping.id) as { id: number } | undefined;
-  const roleValue = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(roleName, roleGrouping.id) as { id: number } | undefined;
+  const userValue = Entity.getUnder(username, userGrouping.id);
+  const roleValue = Entity.getUnder(roleName, roleGrouping.id);
   if (!userValue || !roleValue) return;
+  // combination_ids is the approved JSON exception — stays SQL-only, out
+  // of scope for the Kaappi/EntityDriver migration.
   const combinationIdsJson = JSON.stringify([userValue.id, roleValue.id]);
   const existing = db.prepare(`SELECT id FROM current_entities WHERE parent_id = ? AND combination_ids = ?`).get(productRoot.id, combinationIdsJson) as { id: number } | undefined;
   if (!existing) return;
@@ -183,7 +194,8 @@ export function setUserActive(userId: number, active: boolean): void {
   if (Entity.getAttr(userId, 'Active') === undefined) throw new NotFoundError(`User ${userId} not found.`);
   Entity.setAttr(userId, 'Active', active ? '1' : '0', 1 as never);
   if (!active) {
-    const sessions = db.prepare(`SELECT id FROM current_entities WHERE relation_id = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`).all(userId) as { id: number }[];
+    const sessionsRoot = Entity.get('System Sessions');
+    const sessions = sessionsRoot ? Entity.children(sessionsRoot.id).filter((s) => s.relation_id === userId) : [];
     for (const s of sessions) Entity.relate(s.id, null, 1 as never);
   }
 }
@@ -215,8 +227,7 @@ export interface AuthenticatedUser {
 export class AuthError extends Error {}
 
 export function login(username: string, password: string): { token: string; user: AuthenticatedUser } {
-  const usersRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'System Users'`).get() as { id: number } | undefined;
-  const userRow = usersRoot ? (db.prepare(`SELECT id, name FROM current_entities WHERE name = ? AND parent_id = ?`).get(username, usersRoot.id) as { id: number; name: string } | undefined) : undefined;
+  const userRow = Entity.get(username, 'System Users');
   const detail = userRow ? getUserDetail(userRow.id) : undefined;
   if (!userRow || !detail || !detail.active || !verifyPassword(password, detail.password_hash)) {
     throw new AuthError('Invalid username or password.');
@@ -224,9 +235,9 @@ export function login(username: string, password: string): { token: string; user
 
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + SESSION_LIFETIME_MS).toISOString();
-  const sessionsRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'System Sessions'`).get() as { id: number };
+  const sessionsRoot = Entity.get('System Sessions')!;
   const sessionEntity = Entity.create(`Session — ${token}`, sessionsRoot.id, 1 as never);
-  supersedeEntity(sessionEntity.id, { relation: username }, 1 as never);
+  Entity.relate(sessionEntity.id, username, 1 as never);
   Entity.setAttr(sessionEntity.id, 'Expires At', expiresAt, 1 as never);
 
   const roles = getUserRoleNames(userRow.id);
@@ -238,14 +249,13 @@ export function login(username: string, password: string): { token: string; user
 }
 
 function findSessionByToken(token: string): { id: number; user_id: number; expires_at: string; business_name: string | null; profit_center_name: string | null } | undefined {
-  const row = db
-    .prepare(`SELECT id, relation_id AS user_id FROM current_entities WHERE name = ? AND relation_id IS NOT NULL AND parent_id = (SELECT id FROM current_entities WHERE name = 'System Sessions')`)
-    .get(`Session — ${token}`) as { id: number; user_id: number } | undefined;
-  if (!row) return undefined;
+  const row = Entity.get(`Session — ${token}`, 'System Sessions');
+  if (!row || row.relation_id === null) return undefined;
+  const user_id = row.relation_id;
   const expires_at = Entity.getAttr(row.id, 'Expires At');
   if (expires_at === undefined) return undefined;
   const profitCenterName = Entity.getAttr(row.id, 'Profit Center Name');
-  return { id: row.id, user_id: row.user_id, expires_at, business_name: Entity.getAttr(row.id, 'Business Name') ?? null, profit_center_name: profitCenterName ? profitCenterName : null };
+  return { id: row.id, user_id, expires_at, business_name: Entity.getAttr(row.id, 'Business Name') ?? null, profit_center_name: profitCenterName ? profitCenterName : null };
 }
 
 export function logout(token: string): void {
@@ -291,7 +301,7 @@ export function getSessionUser(token: string | undefined): AuthenticatedUser | n
     Entity.relate(session.id, null, 1 as never);
     return null;
   }
-  const userRow = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(session.user_id) as { name: string };
+  const userRow = Entity.get(session.user_id)!;
   const roles = getUserRoleNames(session.user_id);
   return { id: session.user_id, username: userRow.name, roles, page_size: detail.page_size, number_format: detail.number_format, date_format: detail.date_format };
 }
