@@ -2969,7 +2969,7 @@ export function mergeContactDetail(entityId: number, fields: Record<string, unkn
 }
 
 export function setContact(entityName: string, contact: Partial<Contact>): void {
-  const entityId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(entityName) as { id: number } | undefined)?.id;
+  const entityId = Entity.get(entityName)?.id;
   if (!entityId) throw new ValidationError(`No entity named "${entityName}".`);
   mergeContactDetail(entityId, {
     person_name: contact.person_name ?? null,
@@ -2992,7 +2992,7 @@ export function setContact(entityName: string, contact: Partial<Contact>): void 
 }
 
 export function setPosPin(employeeName: string, pin: string): void {
-  const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number } | undefined)?.id;
+  const id = Entity.get(employeeName)?.id;
   if (!id) throw new ValidationError(`No employee named "${employeeName}".`);
   mergeContactDetail(id, { pos_pin: pin });
 }
@@ -3006,15 +3006,13 @@ export interface PosShift {
 }
 
 export function signOn(employeeName: string, locationName: string): PosShift {
-  const employee = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number } | undefined;
+  const employee = Entity.get(employeeName);
   if (!employee) throw new ValidationError(`No employee named "${employeeName}".`);
-  const location = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(locationName) as { id: number } | undefined;
+  const location = Entity.get(locationName);
   if (!location) throw new ValidationError(`No location named "${locationName}".`);
   const contact = db.prepare(`SELECT pos_pin FROM contact WHERE entity_id = ?`).get(employee.id) as { pos_pin: string | null } | undefined;
   if (!contact?.pos_pin) throw new ValidationError(`"${employeeName}" has no real PIN set yet — cannot sign on.`);
-  const alreadyOpen = db
-    .prepare(`SELECT 1 FROM current_entities shift JOIN current_entities tag ON tag.parent_id = shift.id AND tag.name = 'Open' AND tag.relation_id IS NOT NULL WHERE shift.parent_id = ?`)
-    .get(employee.id);
+  const alreadyOpen = Entity.children(employee.id).some((shift) => Entity.hasTag(shift.id, 'Open'));
   if (alreadyOpen) throw new ValidationError(`"${employeeName}" is already signed on somewhere — sign off first.`);
   const signedOnAt = new Date().toISOString();
   const shiftEntity = Entity.create(`${employeeName} — Shift — ${signedOnAt}`, employee.id, asUserId(1));
@@ -3024,7 +3022,7 @@ export function signOn(employeeName: string, locationName: string): PosShift {
 }
 
 export function verifyPosPin(employeeName: string, pin: string): boolean {
-  const employee = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number } | undefined;
+  const employee = Entity.get(employeeName);
   if (!employee) return false;
   const contact = db.prepare(`SELECT pos_pin FROM contact WHERE entity_id = ?`).get(employee.id) as { pos_pin: string | null } | undefined;
   return !!contact?.pos_pin && contact.pos_pin === pin;
@@ -3079,20 +3077,19 @@ export interface OpenHoursLine {
 }
 
 export function setLocationOpenHours(locationName: string, hours: OpenHoursLine[]): void {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(locationName)) throw new ValidationError(`No location named "${locationName}".`);
+  if (!Entity.get(locationName)) throw new ValidationError(`No location named "${locationName}".`);
   for (const h of hours) {
     if (!DAY_NAMES.includes(h.day)) throw new ValidationError(`"${h.day}" is not a real day of the week.`);
     if (h.opens_at >= h.closes_at) throw new ValidationError(`${h.day}: opening time must be before closing time.`);
   }
   for (const existing of getLocationOpenHours(locationName)) {
-    const existingId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(`${locationName} — ${existing.day}: ${existing.opens_at}–${existing.closes_at}`) as { id: number }).id;
+    const existingId = Entity.get(`${locationName} — ${existing.day}: ${existing.opens_at}–${existing.closes_at}`)!.id;
     Entity.relate(existingId, null, asUserId(1));
   }
   for (const h of hours) {
     const recordName = `${locationName} — ${h.day}: ${h.opens_at}–${h.closes_at}`;
-    const existingRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
-    if (!existingRecord) create(requireEntity(locationName, typeRootName), typeOpenHoursRecordName, recordName, asUserId(1));
-    const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
+    if (!Entity.get(recordName)) create(requireEntity(locationName, typeRootName), typeOpenHoursRecordName, recordName, asUserId(1));
+    const record = Entity.get(recordName)!;
     supersedeEntity(record.id, { relation: h.day }, asUserId(1));
   }
 }
@@ -3128,8 +3125,8 @@ export interface LocationScheduleLine extends ScheduleLine {
 }
 
 export function setEmployeeSchedule(employeeName: string, locationName: string, schedule: ScheduleLine[]): void {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(employeeName)) throw new ValidationError(`No employee named "${employeeName}".`);
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(locationName)) throw new ValidationError(`No location named "${locationName}".`);
+  if (!Entity.get(employeeName)) throw new ValidationError(`No employee named "${employeeName}".`);
+  if (!Entity.get(locationName)) throw new ValidationError(`No location named "${locationName}".`);
 
   const MAX_HOURS_PER_DAY = 12;
   const MAX_HOURS_PER_WEEK = 48;
@@ -3167,14 +3164,13 @@ export function setEmployeeSchedule(employeeName: string, locationName: string, 
 
   for (const existing of getEmployeeSchedule(employeeName).filter((e) => e.location === locationName)) {
     const recordName = `${employeeName} — ${existing.day} at ${locationName}: ${existing.starts_at}–${existing.ends_at}`;
-    const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
+    const record = Entity.get(recordName);
     if (record) supersedeEntity(record.id, { name: `${recordName} (replaced)`, relation: null }, asUserId(1));
   }
   for (const s of schedule) {
     const recordName = `${employeeName} — ${s.day} at ${locationName}: ${s.starts_at}–${s.ends_at}`;
-    const existingRecord = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
-    if (!existingRecord) create(requireEntity(employeeName, typeRootName), typeScheduleRecordName, recordName, asUserId(1));
-    const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
+    if (!Entity.get(recordName)) create(requireEntity(employeeName, typeRootName), typeScheduleRecordName, recordName, asUserId(1));
+    const record = Entity.get(recordName)!;
     supersedeEntity(record.id, { relation: s.day }, asUserId(1));
   }
 }
