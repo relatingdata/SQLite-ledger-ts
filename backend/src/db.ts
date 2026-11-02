@@ -252,6 +252,12 @@ function orderSiblingsByDisplayOrderPreJoined<T extends { id: number; name: stri
   return [...chain, ...unordered];
 }
 
+// NOT migrated to Entity.get — this function IS SqlEntityDriver.get's own
+// backing implementation for numeric ids (see drivers/sql-entity-driver.ts).
+// Routing it through Entity.get would call entityDriver.get, which calls
+// back into this very function for the numeric-id case: real infinite
+// recursion, confirmed directly (RangeError: Maximum call stack size
+// exceeded) when tried. db.ts's own primitive layer, not a call site.
 export function getEntity(id: number): EntityNode | undefined {
   return db
     .prepare(
@@ -280,10 +286,7 @@ export function getEntityHistory(id: number): EntityHistoryRow[] {
 
 function resolveId(name: string | null | undefined, parentId?: number): number | null {
   if (name == null || name === '') return null;
-  const row =
-    parentId != null
-      ? (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, parentId) as { id: number } | undefined)
-      : (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(name) as { id: number } | undefined);
+  const row = parentId != null ? Entity.getUnder(name, parentId) : Entity.get(name);
   if (!row) throw new ValidationError(`No entity named "${name}".`);
   return row.id;
 }
@@ -340,7 +343,7 @@ export function requireGlobalCoaCategory(categoryName: string): TypedNode<'RootN
 }
 
 export function requireEntityById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand> {
-  const row = db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(id) as { name: string } | undefined;
+  const row = Entity.get(id);
   if (!row) throw new ValidationError(`No entity with id ${id}.`);
   if (type.validate && !type.validate(row.name)) {
     throw new ValidationError(`"${row.name}" exists, but is not a genuine ${type.brand}.`);
@@ -428,8 +431,8 @@ export function supersedeEntity(id: number, input: EntityUpdate, userId: UserId)
   if (parentId === id) throw new ValidationError('An entity cannot be its own parent.');
 
   if (input.name !== undefined || input.parent !== undefined || input.relation !== undefined || input.relationId !== undefined) {
-    const parentName = parentId != null ? (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(parentId) as { name: string }).name : null;
-    const relationName = relationId != null ? (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(relationId) as { name: string }).name : null;
+    const parentName = parentId != null ? Entity.get(parentId)!.name : null;
+    const relationName = relationId != null ? Entity.get(relationId)!.name : null;
     db.prepare(`INSERT INTO entity_update (entity_id, name, parent, parent_id, relation, relation_id, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
       id,
       name,
@@ -458,14 +461,11 @@ export interface Relationship {
 }
 
 export function listLineTypes(): string[] {
-  return db
-    .prepare(
-      `SELECT child.name FROM current_entities child
-       JOIN current_entities parent ON parent.id = child.parent_id AND parent.name = 'Chart of Accounts Line Types'
-       ORDER BY child.name`
-    )
-    .all()
-    .map((r) => (r as { name: string }).name);
+  const root = Entity.get('Chart of Accounts Line Types');
+  if (!root) return [];
+  return Entity.children(root.id)
+    .map((c) => c.name)
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 export function setLineType(entityName: string, lineType: string | null, userId: UserId): void {
@@ -473,7 +473,7 @@ export function setLineType(entityName: string, lineType: string | null, userId:
     deleteEntityLink(entityName, 'Line Type', userId);
     return;
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(lineType)) {
+  if (!Entity.get(lineType)) {
     create(requireEntity('Chart of Accounts Line Types', typeRootName), typeLineTypeMarkerName, lineType, userId);
   }
   setEntityLink(entityName, 'Line Type', lineType, userId);
@@ -484,7 +484,8 @@ export function setItemStorageOrigin(itemName: ItemName, origin: 'Hot' | 'Cold' 
     deleteEntityLink(itemName, 'Storage Origin', userId);
     return;
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Storage Origin Types')`).get(origin)) {
+  const storageOriginTypesId = Entity.get('Storage Origin Types')?.id;
+  if (!(storageOriginTypesId !== undefined && Entity.getUnder(origin, storageOriginTypesId))) {
     create(requireEntity('Storage Origin Types', typeRootName), typeStorageOriginMarkerName, origin, userId);
   }
   setEntityLink(itemName, 'Storage Origin', origin, userId);
@@ -499,7 +500,8 @@ export function setLanguageDirection(languageName: string, direction: 'LTR' | 'R
     deleteEntityLink(languageName, 'Text Direction', userId);
     return;
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Text Direction Types')`).get(direction)) {
+  const textDirectionTypesId = Entity.get('Text Direction Types')?.id;
+  if (!(textDirectionTypesId !== undefined && Entity.getUnder(direction, textDirectionTypesId))) {
     create(requireEntity('Text Direction Types', typeRootName), typeTextDirectionMarkerName, direction, userId);
   }
   setEntityLink(languageName, 'Text Direction', direction, userId);
