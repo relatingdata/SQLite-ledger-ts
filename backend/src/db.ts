@@ -3449,17 +3449,11 @@ export function createProjectTask(
 }
 
 export function getProjectTasks(projectName: string): { task: string; plannedStart: string; plannedEnd: string }[] {
-  const rows = db
-    .prepare(
-      `SELECT child.name AS task_name
-       FROM current_entities child
-       JOIN current_entities parent ON parent.id = child.parent_id
-       WHERE parent.name = ?`
-    )
-    .all(`${projectName} Tasks`) as { task_name: string }[];
+  const parentId = Entity.get(`${projectName} Tasks`)?.id;
+  const rows = parentId !== undefined ? Entity.children(parentId) : [];
   const results: { task: string; plannedStart: string; plannedEnd: string }[] = [];
   for (const row of rows) {
-    const match = row.task_name.match(/^(.+) \(([0-9-]+) to ([0-9-]+)\)$/);
+    const match = row.name.match(/^(.+) \(([0-9-]+) to ([0-9-]+)\)$/);
     if (match) results.push({ task: match[1], plannedStart: match[2], plannedEnd: match[3] });
   }
   return results;
@@ -3468,7 +3462,10 @@ export function getProjectTasks(projectName: string): { task: string; plannedSta
 const PROJECT_TASK_DATE_SUFFIX = /^(.+) \(([0-9-]+) to ([0-9-]+)\)$/;
 
 function resolveProjectTaskName(name: string): string {
-  if (db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(name)) return name;
+  if (Entity.get(name)) return name;
+  // Deliberately NOT Entity.findByNameContaining: "<name> (%" is a
+  // prefix match, not the substring-anywhere match findByNameContaining
+  // performs.
   const candidates = db.prepare(`SELECT name FROM current_entities WHERE name LIKE ?`).all(`${name} (%)`) as { name: string }[];
   const match = candidates.find((c) => PROJECT_TASK_DATE_SUFFIX.exec(c.name)?.[1] === name);
   if (!match) throw new ValidationError(`No project task named "${name}".`);
@@ -3535,14 +3532,15 @@ export function setContactType(contactName: string, typeName: string, userId: Us
 }
 
 export function getContactTypes(contactName: string): string[] {
+  const contactId = Entity.get(contactName)?.id ?? -1;
   const rows = db
     .prepare(
       `SELECT target.name AS target
        FROM current_entities child
        JOIN current_entities target ON target.id = child.relation_id
-       WHERE child.parent_id = (SELECT id FROM current_entities WHERE name = ?) AND child.name LIKE ?`
+       WHERE child.parent_id = ? AND child.name LIKE ?`
     )
-    .all(contactName, `${contactName} — Contact Type: %`) as { target: string }[];
+    .all(contactId, `${contactName} — Contact Type: %`) as { target: string }[];
   return rows.map((r) => r.target);
 }
 
@@ -3685,10 +3683,9 @@ export function getHierarchyGroups(hierarchyName: string): { name: string; paren
   return rows.map((r) => {
     const explicitParent = getHierarchyParent(r.group_name, hierarchyName);
     if (explicitParent !== undefined) return { name: r.group_name, parentName: explicitParent };
-    const structuralParent = db
-      .prepare(`SELECT parent.name AS parent_name FROM current_entities child JOIN current_entities parent ON parent.id = child.parent_id WHERE child.name = ?`)
-      .get(r.group_name) as { parent_name: string } | undefined;
-    return { name: r.group_name, parentName: structuralParent?.parent_name ?? null };
+    const childParentId = Entity.get(r.group_name)?.parent_id;
+    const structuralParentName = childParentId != null ? Entity.get(childParentId)?.name : undefined;
+    return { name: r.group_name, parentName: structuralParentName ?? null };
   });
 }
 
@@ -3705,25 +3702,27 @@ export function getHierarchyAncestorChain(entityName: string, hierarchyName: str
 }
 
 export function registerBankAccount(accountName: string, business: string, scopeName: string, overdraftLimitMinor: number | null, userId: UserId): void {
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(accountName)) {
+  const accountId = Entity.get(accountName)?.id;
+  if (accountId === undefined) {
     throw new ValidationError(`No account named "${accountName}".`);
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(business)) {
+  if (!Entity.get(business, 'Businesses')) {
     throw new ValidationError(`No real business named "${business}".`);
   }
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(scopeName)) {
+  if (!Entity.get(scopeName)) {
     throw new ValidationError(`No real business/division named "${scopeName}".`);
   }
   setEntityLink(accountName, 'Bank Account', scopeName, userId);
   setEntityLink(accountName, 'Bank Account Business', business, userId);
-  db.prepare(`INSERT INTO account (entity_id) VALUES ((SELECT id FROM current_entities WHERE name = ?)) ON CONFLICT (entity_id) DO NOTHING`).run(accountName);
-  db.prepare(`UPDATE account SET overdraft_limit_minor = ? WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).run(overdraftLimitMinor, accountName);
+  db.prepare(`INSERT INTO account (entity_id) VALUES (?) ON CONFLICT (entity_id) DO NOTHING`).run(accountId);
+  db.prepare(`UPDATE account SET overdraft_limit_minor = ? WHERE entity_id = ?`).run(overdraftLimitMinor, accountId);
 }
 
 export function unregisterBankAccount(accountName: string, userId: UserId): void {
   deleteEntityLink(accountName, 'Bank Account', userId);
   deleteEntityLink(accountName, 'Bank Account Business', userId);
-  db.prepare(`UPDATE account SET overdraft_limit_minor = NULL WHERE entity_id = (SELECT id FROM current_entities WHERE name = ?)`).run(accountName);
+  const accountId = Entity.get(accountName)?.id;
+  if (accountId !== undefined) db.prepare(`UPDATE account SET overdraft_limit_minor = NULL WHERE entity_id = ?`).run(accountId);
 }
 
 export interface BankAccountRow {
