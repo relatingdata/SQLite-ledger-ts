@@ -761,7 +761,7 @@ export function revokeEntity(id: number, userId: UserId): void {
   // incoming-links guard below needs the entity's own name to check.
   const entity = getEntity(id);
   if (!entity) throw new NotFoundError(`Entity ${id} not found.`);
-  const childNames = (db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(id) as { name: string }[]).map((r) => r.name);
+  const childNames = Entity.children(id).map((c) => c.name);
   const hasChildren = childNames.some((n) => !FACT_ATTR_CHILD_NAMES.has(n));
   if (hasChildren) throw new ValidationError('Cannot revoke an entity that still has children — move or revoke them first.');
   const hasPostings = db.prepare(`SELECT 1 FROM journal_line WHERE account_id = ? LIMIT 1`).get(id);
@@ -789,9 +789,11 @@ export function revokeEntity(id: number, userId: UserId): void {
     throw new ValidationError(`Cannot revoke "${entity.name}" — still referenced by: ${taggers}.`);
   }
   const parent = entity.parent_id ? getEntity(entity.parent_id) : null;
-  const isRealLedgersNode = parent && parent.name === 'Ledgers' && db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses') AND id = ?`).get(parent.parent_id ?? -1);
+  const businessesRootId = Entity.get('Businesses')?.id;
+  const isRealLedgersNode =
+    parent && parent.name === 'Ledgers' && parent.parent_id != null && businessesRootId !== undefined && Entity.get(parent.parent_id)?.parent_id === businessesRootId;
   if (parent && isRealLedgersNode) {
-    const siblingLedgers = db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(parent.id) as { name: string }[];
+    const siblingLedgers = Entity.children(parent.id);
     const isActual = entity.name.endsWith(' Actual') || entity.name === 'Actual';
     const isBudget = / Budget /.test(` ${entity.name} `) || entity.name.startsWith('Budget ') || entity.name === 'Budget';
     const otherActualCount = siblingLedgers.filter((s) => s.name !== entity.name && (s.name.endsWith(' Actual') || s.name === 'Actual')).length;
@@ -818,17 +820,11 @@ export interface CreditStatus {
 }
 
 export function getCreditStatus(entityName: string): CreditStatus {
-  const row = db
-    .prepare(
-      `SELECT COALESCE(a.balance_minor, 0) AS balance_minor, c.credit_limit_minor
-       FROM current_entities e
-       LEFT JOIN account a ON a.entity_id = e.id
-       LEFT JOIN contact c ON c.entity_id = e.id
-       WHERE e.name = ?`
-    )
-    .get(entityName) as { balance_minor: number; credit_limit_minor: number | null } | undefined;
-  const balanceMinor = Math.abs(row?.balance_minor ?? 0); // a real AR balance is naturally negative (credit-normal); a real outstanding amount owed is always reported as positive here
-  const limitMinor = row?.credit_limit_minor ?? null;
+  const entityId = Entity.get(entityName)?.id;
+  const accountRow = entityId !== undefined ? (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(entityId) as { balance_minor: number } | undefined) : undefined;
+  const contactRow = entityId !== undefined ? (db.prepare(`SELECT credit_limit_minor FROM contact WHERE entity_id = ?`).get(entityId) as { credit_limit_minor: number | null } | undefined) : undefined;
+  const balanceMinor = Math.abs(accountRow?.balance_minor ?? 0); // a real AR balance is naturally negative (credit-normal); a real outstanding amount owed is always reported as positive here
+  const limitMinor = contactRow?.credit_limit_minor ?? null;
   return {
     balanceMinor,
     limitMinor,
@@ -892,19 +888,19 @@ export interface Invoice {
 }
 
 function ensureSystemInvoicesRoot(userId: UserId): { id: number } {
-  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = 'System Invoices'`).get() as { id: number } | undefined;
+  const existing = Entity.get('System Invoices');
   if (existing) return existing;
-  const application = db.prepare(`SELECT id FROM current_entities WHERE name = 'Application'`).get() as { id: number };
+  const application = Entity.get('Application')!;
   return Entity.create('System Invoices', application.id, userId);
 }
 
 export function createInvoice(input: InvoiceInput, userId: UserId): number {
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(input.business) as { id: number } | undefined)?.id;
+  const businessId = Entity.get(input.business, 'Businesses')?.id;
   if (!businessId) throw new ValidationError(`No business named "${input.business}".`);
-  const ledgerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = ?)`).get(input.ledger, businessId) as { id: number } | undefined)?.id;
+  const ledgersRootId = Entity.getUnder('Ledgers', businessId)?.id;
+  const ledgerId = ledgersRootId !== undefined ? Entity.getUnder(input.ledger, ledgersRootId)?.id : undefined;
   if (!ledgerId) throw new ValidationError(`No ledger named "${input.ledger}".`);
-  const counterpartyId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(input.counterpartyName) as { id: number } | undefined)
-    ?.id;
+  const counterpartyId = Entity.get(input.counterpartyName)?.id;
   if (!counterpartyId) throw new ValidationError(`No customer/vendor named "${input.counterpartyName}".`);
   if (input.lines.length === 0) throw new ValidationError('An invoice needs at least one line.');
   if (input.referencesInvoiceId != null && !getInvoice(input.referencesInvoiceId)) {
@@ -1115,11 +1111,11 @@ export interface EInvoiceDiscrepancy {
 
 export function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[] {
   if (!poReference) return [];
-  const poProvider = db.prepare(`SELECT relation_id FROM current_entities WHERE name = ?`).get(`${poReference} Qty`) as { relation_id: number | null } | undefined;
-  const poItem = db.prepare(`SELECT relation_id FROM current_entities WHERE name = ?`).get(`${poReference} Value`) as { relation_id: number | null } | undefined;
+  const poProvider = Entity.get(`${poReference} Qty`);
+  const poItem = Entity.get(`${poReference} Value`);
   const discrepancies: EInvoiceDiscrepancy[] = [];
   if (poProvider?.relation_id) {
-    const providerName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(poProvider.relation_id) as { name: string } | undefined)?.name;
+    const providerName = Entity.get(poProvider.relation_id)?.name;
     if (providerName && providerName !== parsed.supplierName) {
       discrepancies.push({ field: 'Provider', poValue: providerName, invoiceValue: parsed.supplierName });
     }
@@ -1210,10 +1206,12 @@ export function confirmPickedLine(invoiceId: number, invoiceLineId: number, busi
   const ref = `${invoice.reference}-PICK-${invoiceLineId}`;
   const already = db.prepare(`SELECT 1 FROM journal WHERE reference = ?`).get(ref);
   if (already) return; // idempotent — ticking an already-ticked line does nothing, not a duplicate real record
-  db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES ((SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')), (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))), ?, ?, date('now'), ?)`).run(
-    business,
-    ledger,
-    business,
+  const businessId = Entity.get(business, 'Businesses')?.id ?? -1;
+  const ledgersRootId = Entity.getUnder('Ledgers', businessId)?.id;
+  const ledgerId = ledgersRootId !== undefined ? Entity.getUnder(ledger, ledgersRootId)?.id ?? -1 : -1;
+  db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES (?, ?, ?, ?, date('now'), ?)`).run(
+    businessId,
+    ledgerId,
     ref,
     'Picking list line confirmed picked',
     userId
@@ -1269,10 +1267,12 @@ export function confirmRestockPickedLine(runReference: string, itemName: string,
   const ref = `${runReference}-PICK-${itemName}`;
   const already = db.prepare(`SELECT 1 FROM journal WHERE reference = ?`).get(ref);
   if (already) return;
-  db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES ((SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')), (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))), ?, ?, date('now'), ?)`).run(
-    business,
-    ledger,
-    business,
+  const businessId = Entity.get(business, 'Businesses')?.id ?? -1;
+  const ledgersRootId = Entity.getUnder('Ledgers', businessId)?.id;
+  const ledgerId = ledgersRootId !== undefined ? Entity.getUnder(ledger, ledgersRootId)?.id ?? -1 : -1;
+  db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES (?, ?, ?, ?, date('now'), ?)`).run(
+    businessId,
+    ledgerId,
     ref,
     'Restocking run line confirmed picked',
     userId
