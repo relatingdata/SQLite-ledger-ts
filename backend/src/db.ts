@@ -2775,7 +2775,7 @@ export function payEmployeeWages(input: PayEmployeeWagesInput, userId: UserId): 
 }
 
 export function recordReminderSent(customerName: string): number {
-  const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(customerName) as { id: number } | undefined)?.id;
+  const id = Entity.get(customerName)?.id;
   if (!id) throw new ValidationError(`No customer/vendor named "${customerName}".`);
   const current = (db.prepare(`SELECT reminder_level FROM contact WHERE entity_id = ?`).get(id) as { reminder_level: number } | undefined)?.reminder_level ?? 0;
   const next = current === 0 ? 1 : Math.min(3, current + 1);
@@ -2784,7 +2784,7 @@ export function recordReminderSent(customerName: string): number {
 }
 
 export function resetReminderLevel(customerName: string): void {
-  const id = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(customerName) as { id: number } | undefined)?.id;
+  const id = Entity.get(customerName)?.id;
   if (!id) throw new ValidationError(`No customer/vendor named "${customerName}".`);
   mergeContactDetail(id, { reminder_level: 0 });
 }
@@ -2868,9 +2868,9 @@ export interface InvoiceLine {
 }
 
 function ensureInvoiceLinesRoot(userId: UserId): { id: number } {
-  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = 'Invoice Lines'`).get() as { id: number } | undefined;
+  const existing = Entity.get('Invoice Lines');
   if (existing) return existing;
-  const application = db.prepare(`SELECT id FROM current_entities WHERE name = 'Application'`).get() as { id: number };
+  const application = Entity.get('Application')!;
   return Entity.create('Invoice Lines', application.id, userId);
 }
 
@@ -2888,25 +2888,21 @@ export function recordInvoiceLine(reference: string, business: string, ledger: s
 }
 
 export function getInvoiceLine(reference: string, business: BusinessName, ledger: LedgerName): InvoiceLine | undefined {
-  const root = db.prepare(`SELECT id FROM current_entities WHERE name = 'Invoice Lines'`).get() as { id: number } | undefined;
+  const root = Entity.get('Invoice Lines');
   if (!root) return undefined;
-  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE name = ? AND parent_id = ?`).get(`${business} — ${ledger} — ${reference}`, root.id) as { detail_json: string } | undefined;
+  const lineId = Entity.getUnder(`${business} — ${ledger} — ${reference}`, root.id)?.id;
+  if (lineId === undefined) return undefined;
+  const row = db.prepare(`SELECT detail_json FROM current_entities WHERE id = ?`).get(lineId) as { detail_json: string } | undefined;
   if (!row) return undefined;
   const detail = JSON.parse(row.detail_json);
   return { reference, description: detail.description, quantity: detail.quantity, unit_price_minor: detail.unit_price_minor, amount_minor: detail.amount_minor, tax_minor: detail.tax_minor };
 }
 
 export function getAccountsPostedTo(reference: string): string[] {
-  const rows = db
-    .prepare(
-      `SELECT DISTINCT e.name
-       FROM journal_line jl
-       JOIN journal j ON j.id = jl.journal_id
-       JOIN current_entities e ON e.id = jl.account_id
-       WHERE j.reference = ?`
-    )
-    .all(reference) as { name: string }[];
-  return rows.map((r) => r.name);
+  const accountIds = db
+    .prepare(`SELECT DISTINCT jl.account_id AS accountId FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ?`)
+    .all(reference) as { accountId: number }[];
+  return Entity.getMany(accountIds.map((r) => r.accountId)).map((e) => e.name);
 }
 
 // Per standing, non-negotiable instruction, "contact" fields are no
