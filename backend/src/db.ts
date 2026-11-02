@@ -363,12 +363,23 @@ export function create<TParentBrand extends string, TChildBrand extends string>(
   // create() (this function) is a plain, ordinary caller of the entity
   // store, NOT one of the backing-primitive functions (createEntityRaw/
   // supersedeEntity/revokeEntity/getEntity) that SqlEntityDriver itself
-  // delegates to — so using Entity.getUnder here is a normal read, not
-  // a recursive call back into this function.
+  // delegates to — so using Entity.getUnder/Entity.create here is a normal
+  // call through the driver, not a recursive call back into this function.
+  //
+  // Until Stage E's first real ENTITY_DRIVER=kaappi run against the full
+  // seed path, this used a raw `INSERT INTO entity_entry` instead of
+  // Entity.create — behaviorally identical to SqlEntityDriver's own write
+  // under ENTITY_DRIVER=sql (same trigger, same table), so it was never
+  // caught by any SQL-mode test, but it meant every entity this heavily-used
+  // helper creates (db-seed.ts's entire typed/branded seed data — the bulk
+  // of a fresh database's content) was invisible to Kaappi: the one real,
+  // genuine Stage C call site this engagement's ~470-site survey missed,
+  // because it's generic/typed rather than a literal `current_entities`
+  // query. Routing it through Entity.create is what actually closes that
+  // gap, not just the three new driver methods Stage E set out to add.
   const existing = Entity.getUnder(name, parent.id);
   if (existing) throw new ValidationError(`"${name}" already exists under this real, same parent.`);
-  db.prepare(`INSERT INTO entity_entry (name, parent_id, created_by) VALUES (?, ?, ?)`).run(name, parent.id, userId);
-  const row = Entity.getUnder(name, parent.id)!;
+  const row = Entity.create(name, parent.id, userId);
   if (parent.id === globalVocabularyId()) {
     setTranslation(name, 'English', name, userId);
   }
@@ -4769,15 +4780,20 @@ export function setTranslation(conceptName: string, languageName: string, text: 
     );
     return;
   }
-  db.prepare(`INSERT INTO entity_update (entity_id, name, parent, parent_id, relation, relation_id, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
-    created.id,
-    created.name,
-    languageName,
-    languageId,
-    conceptName,
-    conceptId,
-    userId
-  );
+  // `created`'s parent is already languageId — either create() (above, now
+  // routed through Entity.create) just set it there directly, or the
+  // `stale` branch's own lookup query (`WHERE e.parent_id = ? [languageId]
+  // AND e.relation_id = ?`) already confirms it. The only field this still
+  // needs to set is the relation to its concept — Entity.relate's targetId
+  // overload does exactly that through the driver, in place of what used
+  // to be a raw `INSERT INTO entity_update` combining an (already-correct,
+  // redundant) reparent with the one real relate in a single versioned row.
+  // Confirmed directly (Stage E's first real ENTITY_DRIVER=kaappi run): this
+  // raw write was invisible to Kaappi the same way the generic create()
+  // helper's own raw insert was — the second of two Stage C sites this
+  // engagement's ~470-site survey missed, for the same reason (neither is a
+  // literal `current_entities` query).
+  Entity.relate(created.id, conceptName, userId, conceptId);
 }
 
 // Every language that still has a real, current translation value for this

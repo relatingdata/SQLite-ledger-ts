@@ -103,6 +103,9 @@ export const Entity = {
   getMany(ids: number[]): EntityNode[] {
     return entityDriver.getMany(ids);
   },
+  descendantsWithDepth(rootId: number | null): (EntityNode & { depth: number })[] {
+    return entityDriver.descendantsWithDepth(rootId);
+  },
 };
 
 export const Link = {

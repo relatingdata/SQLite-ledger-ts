@@ -12,9 +12,9 @@
 //
 // Known, disclosed gaps versus the SQL driver (not silently absorbed):
 //  - Most wire methods return only an ext-id or a scalar, not a full
-//    {id, name, parent_id, relation_id} record (no such accessor exists in
-//    the current Kaappi entity-model — Stage C's planned `entity-get-many`
-//    addition is partly motivated by this gap). Where this driver can't
+//    {id, name, parent_id, relation_id} record. `getMany`/`findAll`/
+//    `findByNameContaining` are the exception (see below) — everything
+//    else still returns a bare ext-id/scalar, and where this driver can't
 //    derive parent_id/relation_id from the call's own arguments or from a
 //    chain walk, it returns `null` for that field rather than guessing.
 //  - `revoke` throws: Kaappi's own `entity-revoke!` requires a
@@ -33,9 +33,16 @@
 //    by anything running under ENTITY_DRIVER=kaappi today (db-stock.ts's
 //    two call sites that rely on it are Stage C work), but flagged here so
 //    it isn't rediscovered the hard way when that file migrates.
-//  - `getMany`/`findAll`/`findByNameContaining` throw "not implemented" —
-//    per the approved plan, these need new entity-model primitives and
-//    protocol.md dispatch entries that don't exist yet (Stage C work).
+//  - `getMany`/`findAll`/`findByNameContaining` are now implemented for
+//    real, backed by three new protocol.md wire methods (entity-get-many,
+//    entity-find-all, entity-find-by-name-containing) added to server.scm
+//    specifically for this — unlike the rest of this dispatch table, these
+//    three return a full JSON array of {id, name, parent_id, relation_id}
+//    objects per call, so no extra per-result round trip is needed. See
+//    entities.sld's entity-find-all/entity-find-by-name-containing for the
+//    underlying full-scan primitives, and protocol.md for the (hasX, x)
+//    pair convention used to carry a three-way-optional filter argument
+//    over JSON.
 import { Worker } from 'node:worker_threads';
 import type { EntityDriver, EntityNode } from '../entity-driver.js';
 import type { UserId } from '../db.js';
@@ -228,7 +235,14 @@ export class KaappiEntityDriver implements EntityDriver {
     if (rootId == null) {
       throw new Error('KaappiEntityDriver.descendantsWithDepth: whole-tree walk (rootId=null) is not supported — Kaappi has no global "root" to start from.');
     }
-    const result: (EntityNode & { depth: number })[] = [];
+    // Includes the root itself at depth 0 — confirmed, not assumed, to match
+    // SqlEntityDriver's own CTE (`SELECT id, 0 FROM current_entities WHERE id
+    // = ?` as the walk's base case), once db-journal.ts's resolveStagedAccountId
+    // became the first real call site relying on that exact parity (its own
+    // biz_coa CTE includes the Chart-of-Accounts root the same way). This
+    // driver's own earlier version left the root out — previously just a
+    // flagged, unverified assumption with nothing depending on it either way.
+    const result: (EntityNode & { depth: number })[] = [{ id: rootId, name: this.mustGetName(rootId), parent_id: null, relation_id: null, depth: 0 }];
     const seen = new Set<number>([rootId]);
     let frontier = [rootId];
     let depth = 0;
@@ -248,16 +262,33 @@ export class KaappiEntityDriver implements EntityDriver {
     return result;
   }
 
-  getMany(_ids: number[]): EntityNode[] {
-    throw new Error('KaappiEntityDriver.getMany: not implemented yet — needs the new entity-get-many wire method (Stage C).');
+  getMany(ids: number[]): EntityNode[] {
+    if (ids.length === 0) return [];
+    // entity-get-many silently drops ids that don't currently exist — same
+    // semantics as SqlEntityDriver.getMany's own `WHERE id IN (...)`.
+    return this.callSync('entity-get-many', [ids]) as EntityNode[];
   }
 
-  findAll(_filter: { relationId?: number | null; nameSuffix?: string; underTagNamed?: string }): EntityNode[] {
-    throw new Error('KaappiEntityDriver.findAll: not implemented yet — needs the new entity-find-all wire method (Stage C).');
+  findAll(filter: { relationId?: number | null; nameSuffix?: string; underTagNamed?: string }): EntityNode[] {
+    // Each filter field is sent as its own (hasX, x) pair — see
+    // protocol.md's note on why a bare JSON null can't carry "this filter
+    // is absent" vs. "this filter is present with value null" on its own.
+    const hasRelationId = filter.relationId !== undefined;
+    const hasNameSuffix = filter.nameSuffix !== undefined;
+    const hasUnderTagNamed = filter.underTagNamed !== undefined;
+    return this.callSync('entity-find-all', [
+      hasRelationId,
+      hasRelationId ? n(filter.relationId!) : null,
+      hasNameSuffix,
+      hasNameSuffix ? filter.nameSuffix! : null,
+      hasUnderTagNamed,
+      hasUnderTagNamed ? filter.underTagNamed! : null,
+    ]) as EntityNode[];
   }
 
-  findByNameContaining(_fragment: string, _parentId?: number): EntityNode[] {
-    throw new Error('KaappiEntityDriver.findByNameContaining: not implemented yet — needs the new entity-find-by-name-containing wire method (Stage C).');
+  findByNameContaining(fragment: string, parentId?: number): EntityNode[] {
+    const hasParentId = parentId !== undefined;
+    return this.callSync('entity-find-by-name-containing', [fragment, hasParentId, hasParentId ? parentId! : null]) as EntityNode[];
   }
 
   // ---- helpers ----

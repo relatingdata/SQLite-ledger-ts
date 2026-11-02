@@ -162,11 +162,25 @@ INSERT INTO db_version (id, version) VALUES (1, '0.0.0.400');
 -- Only ever read or written by KaappiEntityDriver's worker thread
 -- (backend/src/drivers/kaappi-worker.ts) — under ENTITY_DRIVER=sql (the
 -- committed default), this table exists but stays untouched.
-CREATE TABLE kaappi_wal (
+--
+-- IF NOT EXISTS / OR IGNORE, not a plain CREATE+INSERT: confirmed directly
+-- (Stage E's first real ENTITY_DRIVER=kaappi run against a freshly-reset
+-- db) that under ENTITY_DRIVER=kaappi, primitives.ts's import of
+-- entity-driver-select.ts constructs KaappiEntityDriver — and therefore
+-- spawns kaappi-worker.ts's own SQLite connection and runs ITS
+-- ensureWalTable() — synchronously, BEFORE db.ts reaches this file's own
+-- schema-init check (db.ts's `import ... from './primitives.js'` runs
+-- ahead of its own module-level init code). So on a fresh db, by the time
+-- this script runs, kaappi_wal may already exist (created by the worker)
+-- even though `entities` does not yet — a genuine ordering race between
+-- two independent connections to the same file, same shape as the
+-- worker's own ensureWalTable() comment already anticipated in the other
+-- direction, just not this one until it was actually exercised.
+CREATE TABLE IF NOT EXISTS kaappi_wal (
   id       INTEGER PRIMARY KEY CHECK (id = 1),
   ops_json TEXT NOT NULL DEFAULT '[]'
 );
-INSERT INTO kaappi_wal (id, ops_json) VALUES (1, '[]');
+INSERT OR IGNORE INTO kaappi_wal (id, ops_json) VALUES (1, '[]');
 
 -- A plain, non-unique index on name alone. Cannot be UNIQUE — scoped
 -- uniqueness (one real name per real parent, not globally) is this

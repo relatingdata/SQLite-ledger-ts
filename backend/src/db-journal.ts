@@ -596,53 +596,75 @@ interface StagingRow {
 }
 
 // Stage D (/root/.claude/plans/stateful-snacking-adleman.md): business/ledger
-// id resolution, ported verbatim from post_journal_entry_insert/
-// post_quantity_movement_insert's own shared COALESCE chain (00-core.sql) —
-// deliberately kept as raw, read-only SQL (not routed through EntityDriver)
-// so this stays byte-for-byte identical to the trigger it replaces, rather
-// than risking a new, subtly different resolution. Confirmed via a direct
-// before/after balance diff, not just by inspection, given this is
-// money-moving logic. Run before the write transaction below, same ordering
-// the plan calls for (entity resolution never happens inside an open
-// transaction, keeping the door open for a future non-SQL EntityDriver).
+// id resolution, originally ported verbatim from post_journal_entry_insert/
+// post_quantity_movement_insert's own shared COALESCE chain (00-core.sql) as
+// raw, read-only SQL. Converted to go through entityDriver (Stage E) once it
+// was confirmed — not assumed — that these three functions were never
+// structurally tied to staying raw SQL at all: none of them joins
+// current_entities against account/journal/invoice in the same statement
+// (the actual category-4 pattern the plan reserves for raw SQL), they're
+// pure name/id resolution, and they already run entirely BEFORE the write
+// transaction below opens — exactly the ordering the plan calls for ("entity
+// resolution never happens inside an open transaction"), so routing them
+// through a driver that may call out to Kaappi is safe here, not just
+// theoretically compatible. The real reason they were raw SQL was "byte-for-
+// byte identical to the replaced trigger," not a structural constraint — and
+// leaving them raw SQL is exactly what made every live-created business
+// invisible to posting under ENTITY_DRIVER=kaappi (confirmed directly: the
+// very first real Stage E run hit "NOT NULL constraint failed:
+// journal.business_id" on a business that only ever existed in Kaappi).
+// Re-verified via the same direct before/after balance diff Stage D's own
+// original conversion used, given this is still money-moving logic.
 function resolveStagingBusinessId(business: string): number | undefined {
-  return (
-    db
-      .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application'))`)
-      .get(business) as { id: number } | undefined
-  )?.id;
+  // The original SQL scoped parent_id to whichever of 'Businesses'/
+  // 'Application' actually has a child with this name — both are
+  // singular, global roots by this schema's own design (the same
+  // assumption the original SQL's bare `name IN (...)` subquery already
+  // depended on), so checking each in turn is behavior-equivalent, just
+  // explicit about which root matched instead of leaving it to SQLite's
+  // own unordered IN-subquery evaluation.
+  for (const rootName of ['Businesses', 'Application'] as const) {
+    const root = Entity.get(rootName);
+    if (!root) continue;
+    const node = Entity.getUnder(business, root.id);
+    if (node) return node.id;
+  }
+  return undefined;
 }
 
 function resolveStagingLedgerId(ledger: string, businessId: number | undefined): number | undefined {
   if (businessId === undefined) return undefined;
-  return (
-    db
-      .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = ?)`)
-      .get(ledger, businessId) as { id: number } | undefined
-  )?.id;
+  const ledgersRoot = Entity.getUnder('Ledgers', businessId);
+  if (!ledgersRoot) return undefined;
+  return Entity.getUnder(ledger, ledgersRoot.id)?.id;
 }
 
-// Same ported-verbatim reasoning as above: the trigger's own per-line account
-// fallback — a business-scoped Chart-of-Accounts walk first, then a bare,
-// unscoped name lookup as a deliberate fallback for the one legacy business
-// ('admin'/'My Business') with no Chart of Accounts copy of its own. Most
-// staged lines never reach this at all — stageLine already resolves
-// account_id itself via the ledger-scoped lookup wherever it can; this is
-// only the trigger's own last-resort path for a line that arrived without one.
+// Same reasoning as above: the trigger's own per-line account fallback — a
+// business-scoped Chart-of-Accounts walk first, then a bare, unscoped name
+// lookup as a deliberate fallback for the one legacy business ('admin'/'My
+// Business') with no Chart of Accounts copy of its own. Most staged lines
+// never reach this at all — stageLine already resolves account_id itself via
+// the ledger-scoped lookup wherever it can; this is only the trigger's own
+// last-resort path for a line that arrived without one.
 function resolveStagedAccountId(business: string, accountName: string): number | undefined {
-  const scoped = db
-    .prepare(
-      `SELECT ce.id FROM current_entities ce WHERE ce.name = ? AND ce.id IN (
-         WITH RECURSIVE biz_coa(id) AS (
-           SELECT id FROM current_entities WHERE name = 'Chart of Accounts' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id IN (SELECT id FROM current_entities WHERE name IN ('Businesses', 'Application')))
-           UNION ALL
-           SELECT e.id FROM current_entities e JOIN biz_coa ON e.parent_id = biz_coa.id
-         ) SELECT id FROM biz_coa
-       ) LIMIT 1`
-    )
-    .get(accountName, business) as { id: number } | undefined;
-  if (scoped) return scoped.id;
-  return (db.prepare(`SELECT id FROM current_entities WHERE name = ? LIMIT 1`).get(accountName) as { id: number } | undefined)?.id;
+  const businessId = resolveStagingBusinessId(business);
+  if (businessId !== undefined) {
+    const coaRoot = Entity.getUnder('Chart of Accounts', businessId);
+    if (coaRoot) {
+      // The original biz_coa CTE includes the Chart of Accounts root node
+      // ITSELF (depth 0), not just its descendants — descendantsWithDepth
+      // does too, on both drivers (see kaappi-entity-driver.ts's own note on
+      // bringing it into parity with SqlEntityDriver for exactly this site).
+      const match = Entity.descendantsWithDepth(coaRoot.id).find((node) => node.name === accountName);
+      if (match) return match.id;
+    }
+  }
+  // Deliberately the same unscoped, unordered, no-disambiguation fallback
+  // the original trigger's own SQL had (`LIMIT 1`, no ORDER BY) — a known,
+  // pre-existing weakness (the one legacy business with no Chart of
+  // Accounts copy of its own), not something this conversion should "fix"
+  // by adding an ordering the original never had.
+  return Entity.get(accountName)?.id;
 }
 
 interface CommitStagedEntryOptions {
