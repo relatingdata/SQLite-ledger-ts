@@ -3194,9 +3194,9 @@ export function getEmployeeSchedule(employeeName: string): EmployeeScheduleLine[
 }
 
 export function getScheduleAtLocation(locationName: string): LocationScheduleLine[] {
-  const employeesRoot = db.prepare(`SELECT id FROM current_entities WHERE name = 'Employees'`).get() as { id: number } | undefined;
-  if (!employeesRoot) return [];
-  const employees = db.prepare(`SELECT name FROM current_entities WHERE parent_id = ?`).all(employeesRoot.id) as { name: string }[];
+  const employeesRootId = Entity.get('Employees')?.id;
+  if (employeesRootId === undefined) return [];
+  const employees = Entity.children(employeesRootId);
   const result: LocationScheduleLine[] = [];
   for (const { name: employee } of employees) {
     for (const line of getEmployeeSchedule(employee)) {
@@ -3216,14 +3216,11 @@ export function ensureAddressType(typeName: string, userId: UserId): void {
 }
 
 export function listAddressTypes(): string[] {
-  return db
-    .prepare(
-      `SELECT child.name FROM current_entities child
-       JOIN current_entities parent ON parent.id = child.parent_id AND parent.name = 'Address Types'
-       ORDER BY child.name`
-    )
-    .all()
-    .map((r) => (r as { name: string }).name);
+  const parentId = Entity.get('Address Types')?.id;
+  if (parentId === undefined) return [];
+  return Entity.children(parentId)
+    .map((c) => c.name)
+    .sort();
 }
 
 export function addTypedAddress(entityName: string, addressType: string, value: Partial<Contact>, userId: UserId): string {
@@ -3251,14 +3248,11 @@ export function ensurePhoneType(typeName: string, userId: UserId): void {
 }
 
 export function listPhoneTypes(): string[] {
-  return db
-    .prepare(
-      `SELECT child.name FROM current_entities child
-       JOIN current_entities parent ON parent.id = child.parent_id AND parent.name = 'Phone Types'
-       ORDER BY child.name`
-    )
-    .all()
-    .map((r) => (r as { name: string }).name);
+  const parentId = Entity.get('Phone Types')?.id;
+  if (parentId === undefined) return [];
+  return Entity.children(parentId)
+    .map((c) => c.name)
+    .sort();
 }
 
 export function addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId, businessName?: string | null): string {
@@ -3290,14 +3284,11 @@ export function ensureContactPersonType(typeName: string, userId: UserId): void 
 }
 
 export function listContactPersonTypes(): string[] {
-  return db
-    .prepare(
-      `SELECT child.name FROM current_entities child
-       JOIN current_entities parent ON parent.id = child.parent_id AND parent.name = 'Contact Person Types'
-       ORDER BY child.name`
-    )
-    .all()
-    .map((r) => (r as { name: string }).name);
+  const parentId = Entity.get('Contact Person Types')?.id;
+  if (parentId === undefined) return [];
+  return Entity.children(parentId)
+    .map((c) => c.name)
+    .sort();
 }
 
 export function addTypedContactPerson(entityName: string, contactType: string, value: { name: string; phone?: string | null; email?: string | null }, userId: UserId): string {
@@ -3318,10 +3309,10 @@ export function deleteTypedContactPerson(entityName: string, contactType: string
 
 function addTyped<T>(entityName: string, thingSuffix: string, type: string, value: T, save: (recordName: string, value: T) => void, userId: UserId): string {
   const recordName = `${entityName} — ${type} ${thingSuffix}`;
-  if (!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(recordName)) {
+  if (!Entity.get(recordName)) {
     create(requireEntity(entityName, typeRootName), typeEntityLinkRecordName, recordName, userId);
   }
-  const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number };
+  const record = Entity.get(recordName)!;
   supersedeEntity(record.id, { relation: type }, userId);
   save(recordName, value);
   return recordName;
@@ -3343,7 +3334,7 @@ function getTyped<T>(entityName: string, typeCategory: string, typeKey: string, 
 
 function deleteTyped(entityName: string, thingSuffix: string, type: string, userId: UserId): void {
   const recordName = `${entityName} — ${type} ${thingSuffix}`;
-  const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
+  const record = Entity.get(recordName);
   if (record) Entity.relate(record.id, null, userId);
 }
 
@@ -3388,7 +3379,7 @@ export function getEntityLink(entityName: string, linkType: string): string | un
 
 export function deleteEntityLink(entityName: string, linkType: string, userId: UserId): void {
   const recordName = `${entityName} — ${linkType}`;
-  const record = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(recordName) as { id: number } | undefined;
+  const record = Entity.get(recordName);
   if (record) {
     Entity.untag(record.id, linkType, userId);
   }
