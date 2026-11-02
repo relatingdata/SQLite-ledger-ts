@@ -96,6 +96,12 @@ export const Entity = {
   findAll(filter: { relationId?: number | null; nameSuffix?: string; underTagNamed?: string }): EntityNode[] {
     return entityDriver.findAll(filter);
   },
+  findByNameContaining(fragment: string, parentId?: number): EntityNode[] {
+    return entityDriver.findByNameContaining(fragment, parentId);
+  },
+  getMany(ids: number[]): EntityNode[] {
+    return entityDriver.getMany(ids);
+  },
 };
 
 export const Link = {

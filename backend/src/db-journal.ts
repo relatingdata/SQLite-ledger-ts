@@ -49,9 +49,23 @@ export interface StagedLine {
 }
 
 function findLedgerScopedAccount(ledger: LedgerName, accountName: string): number | undefined {
-  const coaLeaf = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(accountName) as { id: number } | undefined;
+  const coaLeaf = Entity.get(accountName);
   if (!coaLeaf) return undefined;
   return Entity.getUnder(ledger, coaLeaf.id)?.id;
+}
+
+// The one place this file resolves a business name to its entity — every
+// other business lookup below goes through this, not a fresh SQL query.
+function resolveBusinessEntity(business: string) {
+  return Entity.get(business, 'Businesses');
+}
+
+// Same for "business + ledger name" -> the ledger's own entity, via the
+// real Businesses -> <business> -> Ledgers -> <ledger> chain.
+function resolveLedgerEntity(business: string, ledger: string) {
+  const businessEntity = resolveBusinessEntity(business);
+  const ledgersRoot = businessEntity ? Entity.getUnder('Ledgers', businessEntity.id) : undefined;
+  return ledgersRoot ? Entity.getUnder(ledger, ledgersRoot.id) : undefined;
 }
 
 export function stageLine(line: StagedLine): void {
@@ -108,8 +122,8 @@ export function createRecurringJournal(
 ): void {
   assertPeriodOpen(business, ledger, startDate);
 
-  const businessId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).get(business) as { id: number } | undefined)?.id;
-  const ledgerId = (db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = ?)`).get(ledger, businessId) as { id: number } | undefined)?.id;
+  const businessId = resolveBusinessEntity(business)?.id;
+  const ledgerId = resolveLedgerEntity(business, ledger)?.id;
   if (!businessId) throw new ValidationError(`No business named "${business}".`);
   if (!ledgerId) throw new ValidationError(`No ledger named "${ledger}".`);
 
@@ -282,9 +296,9 @@ export function clockInToProject(employeeName: EmployeeName, projectExpenseAccou
   const contact = getContact(employeeName);
   if (!contact) throw new ValidationError(`No real contact named "${employeeName}".`);
   if (!contact.wage_minor_per_hour) throw new ValidationError(`"${employeeName}" has no real, configured hourly wage rate yet — set one on the Contacts page first.`);
-  const employee = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(employeeName) as { id: number } | undefined;
+  const employee = Entity.get(employeeName);
   if (!employee) throw new ValidationError(`No employee named "${employeeName}".`);
-  const alreadyClocked = db.prepare(`SELECT 1 FROM current_entities WHERE parent_id = ? AND name LIKE 'Clocked In — %' AND relation_id IS NOT NULL`).get(employee.id);
+  const alreadyClocked = Entity.findByNameContaining('Clocked In — ', employee.id).some((e) => e.relation_id !== null);
   if (alreadyClocked) throw new ValidationError(`"${employeeName}" is already clocked in on a real project — clock out first.`);
 
   const clockedInAt = new Date().toISOString();
@@ -308,13 +322,9 @@ export function clockInToProject(employeeName: EmployeeName, projectExpenseAccou
 }
 
 function getOpenProjectClockEntity(employeeName: string): { id: number; po_reference: string; project_expense_account: string; clocked_in_at: string } | undefined {
-  const row = db
-    .prepare(
-      `SELECT c.id, c.name FROM current_entities c
-       JOIN current_entities emp ON emp.id = c.parent_id
-       WHERE emp.name = ? AND c.name LIKE 'Clocked In — %' AND c.relation_id IS NOT NULL`
-    )
-    .get(employeeName) as { id: number; name: string } | undefined;
+  const employee = Entity.get(employeeName);
+  if (!employee) return undefined;
+  const row = Entity.findByNameContaining('Clocked In — ', employee.id).find((e) => e.relation_id !== null);
   if (!row) return undefined;
   const [, poReference, projectExpenseAccount, clockedInAt] = row.name.split(' — ');
   return { id: row.id, po_reference: poReference, project_expense_account: projectExpenseAccount, clocked_in_at: clockedInAt };
@@ -590,42 +600,76 @@ export interface JournalSummary {
   currency: string | null;
 }
 
+// posted_by resolution (shared by listJournalEntries/getJournalEntry): the
+// same COALESCE(u.name, CASE WHEN user_id = 1 THEN 'admin' ELSE NULL END)
+// the old SQL's LEFT JOIN did — a real, currently-existing child of
+// 'System Users' wins; user_id 1 (the system/seed user) falls back to the
+// literal "admin"; anything else resolves to null, same as the original.
+function resolvePostedBy(userId: number, usersRoot: ReturnType<typeof Entity.get>): string | null {
+  const userNode = Entity.get(userId);
+  return (userNode && usersRoot && userNode.parent_id === usersRoot.id ? userNode.name : null) ?? (userId === 1 ? 'admin' : null);
+}
+
 export function listJournalEntries(business: BusinessName, ledger: LedgerName, limit = 100, offset = 0): JournalSummary[] {
-  return db
+  const businessEntity = resolveBusinessEntity(business);
+  const ledgerEntity = resolveLedgerEntity(business, ledger);
+  if (!businessEntity || !ledgerEntity) return [];
+  const usersRoot = Entity.get('System Users');
+  const rows = db
     .prepare(
       `SELECT jo.journal_id, jo.transdate AS occurrence_date, jo.reference, jo.description,
-              biz.name AS business, led.name AS ledger, j.recurrence, COALESCE(u.name, CASE WHEN jo.user_id = 1 THEN 'admin' ELSE NULL END) AS posted_by,
-              a.currency AS currency,
+              j.recurrence, jo.user_id AS user_id, a.currency AS currency,
               COALESCE(SUM(CASE WHEN jo.amount_minor > 0 THEN jo.amount_minor ELSE 0 END), 0) AS total_debit_minor,
               COALESCE(SUM(CASE WHEN jo.amount_minor < 0 THEN -jo.amount_minor ELSE 0 END), 0) AS total_credit_minor
        FROM journal_occurrences jo
        JOIN journal j ON j.id = jo.journal_id
-       JOIN current_entities biz ON biz.id = jo.business_id
-       JOIN current_entities led ON led.id = jo.ledger_id
        JOIN account a ON a.entity_id = jo.account_id
-       LEFT JOIN current_entities u ON u.id = jo.user_id AND u.parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')
-       WHERE biz.name = ? AND led.name = ?
+       WHERE jo.business_id = ? AND jo.ledger_id = ?
        GROUP BY jo.journal_id, jo.transdate, a.currency
        ORDER BY jo.transdate DESC, jo.journal_id DESC
        LIMIT ? OFFSET ?`
     )
-    .all(business, ledger, limit, offset) as JournalSummary[];
+    .all(businessEntity.id, ledgerEntity.id, limit, offset) as {
+    journal_id: number;
+    occurrence_date: string | null;
+    reference: string;
+    description: string;
+    recurrence: string;
+    user_id: number;
+    currency: string | null;
+    total_debit_minor: number;
+    total_credit_minor: number;
+  }[];
+  return rows.map((r) => ({
+    journal_id: r.journal_id,
+    occurrence_date: r.occurrence_date,
+    reference: r.reference,
+    description: r.description,
+    business,
+    ledger,
+    recurrence: r.recurrence,
+    posted_by: resolvePostedBy(r.user_id, usersRoot) as string,
+    total_debit_minor: r.total_debit_minor,
+    total_credit_minor: r.total_credit_minor,
+    currency: r.currency,
+  }));
 }
 
 export function countJournalEntries(business: BusinessName, ledger: LedgerName): number {
+  const businessEntity = resolveBusinessEntity(business);
+  const ledgerEntity = resolveLedgerEntity(business, ledger);
+  if (!businessEntity || !ledgerEntity) return 0;
   const row = db
     .prepare(
       `SELECT COUNT(*) AS total FROM (
          SELECT 1
          FROM journal_occurrences jo
-         JOIN current_entities biz ON biz.id = jo.business_id
-         JOIN current_entities led ON led.id = jo.ledger_id
          JOIN account a ON a.entity_id = jo.account_id
-         WHERE biz.name = ? AND led.name = ?
+         WHERE jo.business_id = ? AND jo.ledger_id = ?
          GROUP BY jo.journal_id, jo.transdate, a.currency
        )`
     )
-    .get(business, ledger) as { total: number };
+    .get(businessEntity.id, ledgerEntity.id) as { total: number };
   return row.total;
 }
 
@@ -634,46 +678,60 @@ export interface JournalDetail extends JournalSummary {
 }
 
 export function getJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string): JournalDetail | undefined {
+  const businessEntity = resolveBusinessEntity(business);
+  const ledgerEntity = resolveLedgerEntity(business, ledger);
+  if (!businessEntity || !ledgerEntity) return undefined;
+
   const header = db
     .prepare(
-      `SELECT jo.journal_id, jo.transdate AS occurrence_date, jo.reference, jo.description,
-              biz.name AS business, led.name AS ledger, j.recurrence, COALESCE(u.name, CASE WHEN jo.user_id = 1 THEN 'admin' ELSE NULL END) AS posted_by
+      `SELECT jo.journal_id, jo.transdate AS occurrence_date, jo.reference, jo.description, j.recurrence, jo.user_id AS user_id
        FROM journal_occurrences jo
        JOIN journal j ON j.id = jo.journal_id
-       JOIN current_entities biz ON biz.id = jo.business_id
-       JOIN current_entities led ON led.id = jo.ledger_id
-       LEFT JOIN current_entities u ON u.id = jo.user_id AND u.parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')
-       WHERE jo.journal_id = ? AND jo.transdate = ? AND biz.name = ? AND led.name = ?
+       WHERE jo.journal_id = ? AND jo.transdate = ? AND jo.business_id = ? AND jo.ledger_id = ?
        LIMIT 1`
     )
-    .get(journalId, occurrenceDate, business, ledger) as
-    | {
-        journal_id: number;
-        occurrence_date: string;
-        reference: string;
-        description: string;
-        business: string;
-        ledger: string;
-        recurrence: string;
-        posted_by: string;
-      }
+    .get(journalId, occurrenceDate, businessEntity.id, ledgerEntity.id) as
+    | { journal_id: number; occurrence_date: string; reference: string; description: string; recurrence: string; user_id: number }
     | undefined;
   if (!header) return undefined;
 
-  const lines = db
+  const usersRoot = Entity.get('System Users');
+  const posted_by = resolvePostedBy(header.user_id, usersRoot) as string;
+
+  const rawLines = db
     .prepare(
-      `SELECT e.name AS account, a.accountnumber, jo.amount_minor, jo.memo
+      `SELECT jo.account_id AS account_id, a.accountnumber, jo.amount_minor, jo.memo
        FROM journal_occurrences jo
-       JOIN current_entities e ON e.id = jo.account_id
-       LEFT JOIN account a ON a.entity_id = e.id
+       LEFT JOIN account a ON a.entity_id = jo.account_id
        WHERE jo.journal_id = ? AND jo.transdate = ?`
     )
-    .all(journalId, occurrenceDate) as { account: string; accountnumber: string | null; amount_minor: number; memo: string }[];
+    .all(journalId, occurrenceDate) as { account_id: number; accountnumber: string | null; amount_minor: number; memo: string }[];
+  // The original query INNER JOINed current_entities for the account name,
+  // so a line whose account entity no longer resolves was silently
+  // dropped — getMany + filter reproduces that exactly, rather than a
+  // LEFT JOIN's "keep the row with an empty name" behavior.
+  const accountNodes = new Map(Entity.getMany(rawLines.map((l) => l.account_id)).map((n) => [n.id, n] as const));
+  const lines = rawLines
+    .filter((l) => accountNodes.has(l.account_id))
+    .map((l) => ({ account: accountNodes.get(l.account_id)!.name, accountnumber: l.accountnumber, amount_minor: l.amount_minor, memo: l.memo }));
 
   const total_debit_minor = lines.filter((l) => l.amount_minor > 0).reduce((s, l) => s + l.amount_minor, 0);
   const total_credit_minor = lines.filter((l) => l.amount_minor < 0).reduce((s, l) => s - l.amount_minor, 0);
 
-  return { ...header, lines, total_debit_minor, total_credit_minor, currency: null };
+  return {
+    journal_id: header.journal_id,
+    occurrence_date: header.occurrence_date,
+    reference: header.reference,
+    description: header.description,
+    business,
+    ledger,
+    recurrence: header.recurrence,
+    posted_by,
+    lines,
+    total_debit_minor,
+    total_credit_minor,
+    currency: null,
+  };
 }
 
 export interface PeriodLockStatus {
@@ -688,21 +746,15 @@ export interface LedgerDateRange {
 }
 
 export function getLedgerDateRange(businessName: BusinessName, ledgerName: LedgerName): LedgerDateRange {
+  const ledgerEntity = resolveLedgerEntity(businessName, ledgerName);
   const row = db
-    .prepare(
-      `SELECT MIN(j.transdate) AS earliest, MAX(j.transdate) AS latest
-       FROM journal j
-       WHERE j.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))
-         AND j.reference NOT LIKE 'CLOSE-%'`
-    )
-    .get(ledgerName, businessName) as { earliest: string | null; latest: string | null };
+    .prepare(`SELECT MIN(transdate) AS earliest, MAX(transdate) AS latest FROM journal WHERE ledger_id = ? AND reference NOT LIKE 'CLOSE-%'`)
+    .get(ledgerEntity?.id ?? -1) as { earliest: string | null; latest: string | null };
   return row;
 }
 
 export function getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus {
-  const ledgerEntity = db
-    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
-    .get(ledger, business) as { id: number } | undefined;
+  const ledgerEntity = resolveLedgerEntity(business, ledger);
   if (!ledgerEntity) return { locked_through_date: null, changed_by: null, changed_at: null };
   const lockEntityPrefix = `${business} — ${ledger} — Period Lock`;
   const row = db
@@ -715,11 +767,7 @@ export function getPeriodLockStatus(business: BusinessName, ledger: LedgerName):
 }
 
 function ensurePeriodLockEntity(business: BusinessName, ledger: LedgerName, userId: UserId): { id: number; name: string } {
-  // Same real, confirmed "missing 'Ledgers' level" bug as
-  // getPeriodLockStatus just above, fixed the same way.
-  const ledgerEntity = db
-    .prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')))`)
-    .get(ledger, business) as { id: number } | undefined;
+  const ledgerEntity = resolveLedgerEntity(business, ledger);
   if (!ledgerEntity) throw new ValidationError(`No real ledger "${ledger}" under business "${business}".`);
   const lockEntityPrefix = `${business} — ${ledger} — Period Lock`;
   const existing = db
@@ -753,12 +801,13 @@ export function reverseJournalEntry(business: BusinessName, ledger: LedgerName, 
   if (!original) throw new NotFoundError(`No entry found for journal ${journalId} on ${occurrenceDate}.`);
 
   const reversalReference = `${original.reference}-REV-${occurrenceDate}`;
+  const businessEntity = resolveBusinessEntity(original.business);
+  const ledgerEntity = resolveLedgerEntity(original.business, original.ledger);
 
-  const alreadyReversed = db
-    .prepare(
-      `SELECT 1 FROM journal WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))`
-    )
-    .get(reversalReference, original.business, original.ledger, original.business);
+  const alreadyReversed =
+    businessEntity && ledgerEntity
+      ? db.prepare(`SELECT 1 FROM journal WHERE reference = ? AND business_id = ? AND ledger_id = ?`).get(reversalReference, businessEntity.id, ledgerEntity.id)
+      : undefined;
   if (alreadyReversed) {
     throw new PostingError(`${original.reference} (${occurrenceDate}) has already been reversed — reverse the reversal itself if this needs undoing again.`);
   }
@@ -779,7 +828,7 @@ export function reverseJournalEntry(business: BusinessName, ledger: LedgerName, 
   }
   postJournalEntry(reversalReference, asBusinessName(original.business), asLedgerName(original.ledger), userId);
 
-  db.prepare(
-    `UPDATE journal SET reversal_of = ? WHERE reference = ? AND business_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')) AND ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))`
-  ).run(journalId, reversalReference, original.business, original.ledger, original.business);
+  if (businessEntity && ledgerEntity) {
+    db.prepare(`UPDATE journal SET reversal_of = ? WHERE reference = ? AND business_id = ? AND ledger_id = ?`).run(journalId, reversalReference, businessEntity.id, ledgerEntity.id);
+  }
 }
