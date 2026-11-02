@@ -5,6 +5,16 @@ import { db } from './db.js';
 import { getHierarchyParent, getBusinessHierarchy } from './db.js';
 import { buildProfitAndLossFromBalances, getLedgerBalances, type ProfitAndLoss } from './db-reports.js';
 import type { BusinessName, LedgerName } from './db.js';
+import { Entity } from './primitives.js';
+
+// Same business/ledger id resolution pattern as db-journal.ts/db-reports.ts's
+// identical local helpers, duplicated here per Stage C discipline.
+function resolveLedgerEntityId(business: string, ledger: string): number | undefined {
+  const businessId = Entity.get(business, 'Businesses')?.id;
+  if (businessId === undefined) return undefined;
+  const ledgersRoot = Entity.getUnder('Ledgers', businessId);
+  return ledgersRoot ? Entity.getUnder(ledger, ledgersRoot.id)?.id : undefined;
+}
 
 // 'Category', 'Division', or any other business-defined grouping flows
 // through the same, single generic Hierarchy branch below — only
@@ -30,9 +40,8 @@ const CONSOLIDATED_KEY = 'Consolidated';
 const NO_LOCATION_KEY = '(No location)';
 
 function loadEntityIndex(): Map<number, { name: string; parent_id: number | null }> {
-  const rows = db.prepare(`SELECT id, name, parent_id FROM current_entities`).all() as { id: number; name: string; parent_id: number | null }[];
   const index = new Map<number, { name: string; parent_id: number | null }>();
-  for (const r of rows) index.set(r.id, { name: r.name, parent_id: r.parent_id });
+  for (const e of Entity.findAll({})) index.set(e.id, { name: e.name, parent_id: e.parent_id });
   return index;
 }
 
@@ -45,15 +54,9 @@ function stripLocationSuffix(name: string): string {
 }
 
 function locationForAccount(accountName: string): string | undefined {
-  const row = db
-    .prepare(
-      `SELECT target.name AS location_name
-       FROM current_entities child
-       JOIN current_entities target ON target.id = child.relation_id
-       WHERE child.name = ?`
-    )
-    .get(`${accountName} — Hierarchy: Location`) as { location_name: string } | undefined;
-  return row?.location_name;
+  const child = Entity.get(`${accountName} — Hierarchy: Location`);
+  if (!child || child.relation_id === null) return undefined;
+  return Entity.get(child.relation_id)?.name;
 }
 
 function resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number, { name: string; parent_id: number | null }>): string {
@@ -86,6 +89,7 @@ function resolveItemKey(axis: MatrixAxis, itemName: string, locationName: string
 
 export function getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix {
   const entityIndex = loadEntityIndex();
+  const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
 
   const rows = db
     .prepare(
@@ -106,13 +110,13 @@ export function getSalesCogsMatrix(businessName: BusinessName, ledgerName: Ledge
        JOIN sales_cogs_accounts sca ON sca.id = a.entity_id
        JOIN journal_occurrences jo ON jo.account_id = a.entity_id
        JOIN journal j ON j.id = jo.journal_id
-       WHERE jo.ledger_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Ledgers' AND parent_id = (SELECT id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses'))))
+       WHERE jo.ledger_id = ?
          AND (? IS NULL OR jo.transdate >= ?)
          AND (? IS NULL OR jo.transdate <= ?)
          AND j.reference NOT LIKE 'CLOSE-%'
        GROUP BY a.entity_id`
     )
-    .all(ledgerName, businessName, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as { id: number; name: string; balance_minor: number }[];
+    .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as { id: number; name: string; balance_minor: number }[];
 
   const cellMap = new Map<string, MatrixCell>();
   let totalSalesMinor = 0;
