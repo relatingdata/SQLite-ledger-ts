@@ -2288,7 +2288,7 @@ export function ensureItemTierLocationLeaf(tierItemName: string, locationName: L
     setHierarchyParent(leafItemName, 'COGS Product', cogsAccount, userId);
     setHierarchyParent(salesAccount, 'Location', locationName, userId);
     setHierarchyParent(cogsAccount, 'Location', locationName, userId);
-    leafRow = { id: createdLeaf.id, name: leafItemName };
+    leafRow = { id: createdLeaf.id, name: leafItemName, parent_id: salesRow!.id, relation_id: null };
   }
   return { leafItemName, leafItemId: leafRow.id, salesAccount, salesAccountId: salesRow!.id, cogsAccount, cogsAccountId: cogsRow!.id };
 }
@@ -3379,7 +3379,7 @@ export function setEntityLink(entityName: string, linkType: string, targetName: 
   let record = Entity.getUnder(recordName, parentNode.id);
   if (!record) {
     const created = create(parentNode, typeEntityLinkRecordName, recordName, userId);
-    record = { id: created.id, name: created.name };
+    record = { id: created.id, name: created.name, parent_id: parentNode.id, relation_id: null };
   }
   Entity.tag(record.id, linkType, userId);
   supersedeEntity(record.id, targetId != null ? { relationId: targetId } : { relation: targetName }, userId);

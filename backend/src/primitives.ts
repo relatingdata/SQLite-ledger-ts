@@ -3,10 +3,6 @@
 // multiline comments.
 import { db } from './db.js';
 import {
-  createEntityRaw as _createEntity,
-  supersedeEntity as _supersedeEntity,
-  revokeEntity as _revokeEntity,
-  getEntity as _getEntity,
   setEntityLink,
   getEntityLink,
   deleteEntityLink,
@@ -16,46 +12,48 @@ import {
   asBusinessName,
   asLedgerName,
   type UserId,
-  type EntityNode,
 } from './db.js';
+import { entityDriver } from './entity-driver-select.js';
+import type { EntityNode } from './entity-driver.js';
 
+// Every method below that used to be inline SQL (or a direct db.ts call) is
+// now a one-line delegation to entityDriver — the ONE place that knows
+// which concrete storage (SQL today, Kaappi, anything else later) actually
+// backs "entities". See /root/.claude/plans/stateful-snacking-adleman.md.
+// ensureUnder/tag/untag/clearAttr stay exactly as they were: pure
+// compositions over the other Entity methods, not raw storage access, so
+// they need no driver involvement of their own.
 export const Entity = {
   create(name: string, parent: string | number, userId: UserId): EntityNode {
-    return typeof parent === 'number' ? _createEntity({ name, parentId: parent }, userId) : _createEntity({ name, parent }, userId);
+    return entityDriver.create(name, parent, userId);
   },
 
-  get(idOrName: number | string, parent?: string): { id: number; name: string; parent_id: number | null; relation_id: number | null } | undefined {
-    if (typeof idOrName === 'number') return _getEntity(idOrName) ?? undefined;
-    if (parent === undefined) {
-      return db.prepare(`SELECT id, name, parent_id, relation_id FROM current_entities WHERE name = ?`).get(idOrName) as any;
-    }
-    return db
-      .prepare(`SELECT id, name, parent_id, relation_id FROM current_entities WHERE name = ? AND parent_id = (SELECT id FROM current_entities WHERE name = ?)`)
-      .get(idOrName, parent) as any;
+  get(idOrName: number | string, parent?: string): EntityNode | undefined {
+    return entityDriver.get(idOrName, parent);
   },
 
-  getUnder(name: string, parentId: number): { id: number; name: string } | undefined {
-    return db.prepare(`SELECT id, name FROM current_entities WHERE name = ? AND parent_id = ?`).get(name, parentId) as any;
+  getUnder(name: string, parentId: number): EntityNode | undefined {
+    return entityDriver.getUnder(name, parentId);
   },
 
-  ensureUnder(name: string, parentId: number, userId: UserId): { id: number; name: string } {
-    return Entity.getUnder(name, parentId) ?? { id: _createEntity({ name, parentId }, userId).id, name };
+  ensureUnder(name: string, parentId: number, userId: UserId): EntityNode {
+    return Entity.getUnder(name, parentId) ?? Entity.create(name, parentId, userId);
   },
 
   rename(id: number, name: string, userId: UserId): void {
-    _supersedeEntity(id, { name }, userId);
+    entityDriver.rename(id, name, userId);
   },
   reparent(id: number, parent: string, userId: UserId): void {
-    _supersedeEntity(id, { parent }, userId);
+    entityDriver.reparent(id, parent, userId);
   },
   relate(id: number, target: string | null, userId: UserId, targetId?: number): void {
-    _supersedeEntity(id, targetId !== undefined ? { relationId: targetId } : { relation: target }, userId);
+    entityDriver.relate(id, target, userId, targetId);
   },
   revoke(id: number, userId: UserId): void {
-    _revokeEntity(id, userId);
+    entityDriver.revoke(id, userId);
   },
-  children(parentId: number): { id: number; name: string }[] {
-    return db.prepare(`SELECT id, name FROM current_entities WHERE parent_id = ?`).all(parentId) as any;
+  children(parentId: number): EntityNode[] {
+    return entityDriver.children(parentId);
   },
   tag(id: number, tagName: string, userId: UserId): void {
     const tagNode = Entity.ensureUnder(tagName, id, userId);
@@ -66,19 +64,13 @@ export const Entity = {
     if (tagNode) Entity.relate(tagNode.id, null, userId);
   },
   hasTag(id: number, tagName: string): boolean {
-    const row = db.prepare(`SELECT relation_id FROM current_entities WHERE parent_id = ? AND name = ?`).get(id, tagName) as { relation_id: number | null } | undefined;
-    return row?.relation_id != null;
+    return entityDriver.hasTag(id, tagName);
   },
   setAttr(id: number, attrType: string, value: string, userId: UserId): void {
-    const typeNode = Entity.ensureUnder(attrType, id, userId);
-    const existing = Entity.children(typeNode.id)[0];
-    if (existing) Entity.rename(existing.id, value, userId);
-    else Entity.create(value, typeNode.id, userId);
+    entityDriver.setAttr(id, attrType, value, userId);
   },
   getAttr(id: number, attrType: string): string | undefined {
-    const typeNode = Entity.getUnder(attrType, id);
-    if (!typeNode) return undefined;
-    return Entity.children(typeNode.id)[0]?.name;
+    return entityDriver.getAttr(id, attrType);
   },
   clearAttr(id: number, attrType: string, userId: UserId): void {
     const typeNode = Entity.getUnder(attrType, id);

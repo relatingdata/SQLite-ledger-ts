@@ -4,7 +4,7 @@ import { getLanguages, getLocalizedText, setTranslation, getDefaultLanguage, set
   asUserId, ensureVocabularyAlternate,
 } from '../db.js';
 import { requireAuth, requireRole } from '../auth-middleware.js';
-import { Entity as KaappiEntity } from '../entity-client.js';
+import { Entity } from '../primitives.js';
 
 export const i18nRouter = Router();
 
@@ -99,7 +99,7 @@ const vocabularyPreferenceSchema = z.object({
   preferredAlternateName: z.string().min(1),
 });
 
-i18nRouter.post('/vocabulary-preference', requireAuth, async (req, res) => {
+i18nRouter.post('/vocabulary-preference', requireAuth, (req, res) => {
   const parsed = vocabularyPreferenceSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
@@ -113,13 +113,16 @@ i18nRouter.post('/vocabulary-preference', requireAuth, async (req, res) => {
     //
     // Both lookups below are entity reads (existence-by-name, name-by-id)
     // with nothing to do with account/journal/journal_line, so per the
-    // approved Kaappi-integration plan they go through entity-client
-    // (a Kaappi subprocess) rather than raw SQL against `current_entities`
-    // — this route is Phase 1's one migrated call site.
-    const alreadyExists = (await KaappiEntity.getByName(preferredAlternateName)) !== null;
+    // approved entity-storage-isolation plan they go through primitives.ts's
+    // Entity object (entityDriver underneath — SQL by default, or a Kaappi
+    // subprocess under ENTITY_DRIVER=kaappi) rather than raw SQL against
+    // `current_entities` directly — this route is Phase 1's one migrated
+    // call site, now routed through the shared driver instead of calling
+    // the Kaappi subprocess client directly.
+    const alreadyExists = Entity.get(preferredAlternateName) !== undefined;
     if (!alreadyExists) {
       if (scope !== 'business') return res.status(400).json({ error: 'A genuinely new name can only be added for a real business, not a user preference alone.' });
-      const businessName = await KaappiEntity.getName(scopeId);
+      const businessName = Entity.get(scopeId)?.name;
       if (!businessName) return res.status(400).json({ error: 'No real business with that id.' });
       ensureVocabularyAlternate(conceptName, preferredAlternateName, businessName, asUserId(1));
     }
