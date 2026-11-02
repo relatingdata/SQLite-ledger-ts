@@ -85,15 +85,15 @@ export interface QuotationRecord {
 const QUOTATIONS_ROOT = 'Quotations and RFQs';
 
 function ensureQuotationsRoot(): { id: number } {
-  const applicationId = (db.prepare(`SELECT id FROM current_entities WHERE name = 'Application'`).get() as { id: number } | undefined)?.id;
+  const applicationId = Entity.get('Application')?.id;
   if (!applicationId) throw new ValidationError('No real "Application" root — this installation is not fully seeded.');
-  const existing = db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(QUOTATIONS_ROOT, applicationId) as { id: number } | undefined;
+  const existing = Entity.getUnder(QUOTATIONS_ROOT, applicationId);
   if (existing) return existing;
   return { id: createSystemEntity(QUOTATIONS_ROOT, applicationId) };
 }
 
 function getQuotationEntityId(reference: string): number | undefined {
-  const root = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(QUOTATIONS_ROOT) as { id: number } | undefined;
+  const root = Entity.get(QUOTATIONS_ROOT);
   if (!root) return undefined;
   return Entity.getUnder(reference, root.id)?.id;
 }
@@ -102,16 +102,17 @@ function getQuotationEntityId(reference: string): number | undefined {
 // unique per business/ledger, same guarantee so_staging's PK used to
 // give — looked up directly rather than threading a journal id through
 // every function, since createRecurringJournal (deliberately
-// unmodified) doesn't hand one back.
+// unmodified) doesn't hand one back. Business/ledger names are resolved
+// to ids via Entity.get first (the one seam that knows how "entities"
+// are actually stored); the journal table itself is never an entity, so
+// the SQL against it stays plain, id-only SQL.
 function findJournal(business: string, ledger: string, reference: string): { id: number; transdate: string } | undefined {
-  return db
-    .prepare(
-      `SELECT j.id AS id, j.transdate AS transdate FROM journal j
-       JOIN current_entities b ON b.id = j.business_id AND b.name = ?
-       JOIN current_entities l ON l.id = j.ledger_id AND l.name = ?
-       WHERE j.reference = ?`
-    )
-    .get(business, ledger, reference) as { id: number; transdate: string } | undefined;
+  const businessId = Entity.get(business)?.id;
+  const ledgerId = Entity.get(ledger)?.id;
+  if (businessId === undefined || ledgerId === undefined) return undefined;
+  return db.prepare(`SELECT id, transdate FROM journal WHERE business_id = ? AND ledger_id = ? AND reference = ?`).get(businessId, ledgerId, reference) as
+    | { id: number; transdate: string }
+    | undefined;
 }
 
 function readQuotation(reference: string): QuotationRecord | undefined {
@@ -237,11 +238,11 @@ export function getQuotation(reference: string): QuotationRecord | undefined {
 }
 
 export function listQuotations(business: BusinessName, ledger: LedgerName, direction?: QuotationDirection): QuotationRecord[] {
-  const root = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(QUOTATIONS_ROOT) as { id: number } | undefined;
+  const root = Entity.get(QUOTATIONS_ROOT);
   if (!root) return [];
-  const rows = db.prepare(`SELECT name AS reference FROM current_entities WHERE parent_id = ?`).all(root.id) as { reference: string }[];
+  const rows = Entity.children(root.id);
   return rows
-    .map((r) => readQuotation(r.reference))
+    .map((r) => readQuotation(r.name))
     .filter((q): q is QuotationRecord => !!q && q.business === business && q.ledger === ledger && (!direction || q.direction === direction))
     .sort((a, b) => (b.transdate ?? '').localeCompare(a.transdate ?? ''));
 }
