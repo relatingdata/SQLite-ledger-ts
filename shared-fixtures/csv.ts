@@ -19,7 +19,12 @@ export function unescapeAscii(text: string): string {
   return text.replace(/\\u\{([0-9a-fA-F]+)\}/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)));
 }
 
-function splitCsvLine(line: string): string[] {
+// Exported (was file-private) now that the live backend<->frontend call
+// protocol (backend/src/call-dispatch.ts, frontend/src/lib/api.ts) needs the
+// exact same line-level CSV encoding step-runner.ts/the e2e fixtures already
+// use - one real codec, shared by the test harness and the live app alike,
+// never a second, parallel implementation.
+export function splitCsvLine(line: string): string[] {
   const fields: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -46,7 +51,7 @@ function splitCsvLine(line: string): string[] {
   return fields;
 }
 
-function csvField(value: string): string {
+export function csvField(value: string): string {
   const escaped = escapeAscii(value);
   if (escaped.includes(',') || escaped.includes('"') || escaped.includes('\n')) {
     return '"' + escaped.replace(/"/g, '""') + '"';

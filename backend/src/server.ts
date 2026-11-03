@@ -10,6 +10,7 @@ import { matrixReportsRouter } from './routes/matrix-reports.js';
 import { menuRouter } from './routes/menu.js';
 import { i18nRouter } from './routes/i18n.js';
 import { businessesRouter } from './routes/businesses.js';
+import { callRouter } from './routes/call.js';
 import { journalRouter } from './routes/journal.js';
 import { contactsRouter } from './routes/contacts.js';
 import { itemsRouter } from './routes/items.js';
@@ -55,6 +56,13 @@ app.use('/api/reports/matrix', requireAuth, matrixReportsRouter);
 app.use('/api/menu', requireAuth, menuRouter);
 app.use('/api/i18n', i18nRouter);
 app.use('/api/businesses', requireAuth, businessesRouter);
+// The new ASCII-CSV call protocol (see routes/call.ts, call-dispatch.ts) -
+// its own plain-text body parser, deliberately not express.json(): this
+// path carries no JSON in either direction. requireAuth still applies;
+// per-screen role checks (e.g. Create Business's Administrator-only gate)
+// live inside call-dispatch.ts itself, same information req.user already
+// carries.
+app.use('/api/call', requireAuth, express.text({ type: () => true }), callRouter);
 app.use('/api/journal', requireAuth, journalRouter);
 app.use('/api/arap', requireAuth, requireRole('Administrator', 'Bookkeeper'), arAPRouter);
 app.use('/api/quotations', requireAuth, requireRole('Administrator', 'Bookkeeper'), quotationsRouter);

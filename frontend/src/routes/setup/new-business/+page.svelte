@@ -121,8 +121,7 @@
         entityStructure.value,
         entityStructure.needsPartners && partnerNames.length > 0 ? partnerNames : undefined,
         financialYearStart || undefined,
-        reportingFrequency.value,
-        'Create Business'
+        reportingFrequency.value
       );
       const answered = Object.fromEntries(Object.entries(questionAnswers).filter(([, v]) => v && v.trim()));
       if (Object.keys(answered).length > 0) {

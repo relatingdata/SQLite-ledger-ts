@@ -84,6 +84,73 @@ export async function checkVersion(): Promise<void> {
   }
 }
 
+// Minimal ASCII-CSV line codec, mirroring shared-fixtures/csv.ts's
+// escaping exactly (duplicated, not imported, since the frontend has its
+// own Vite build separate from the backend/shared-fixtures package) -
+// the wire format for the new direct, no-JSON call protocol
+// (call-dispatch.ts/routes/call.ts). Per direct instruction: the
+// screen's own name is the backend call, looked up with a plain
+// property read there, never eval - an unrecognized name just fails
+// cleanly (see callScreen below).
+function escapeAscii(text: string): string {
+  return Array.from(text)
+    .map((ch) => {
+      const code = ch.codePointAt(0)!;
+      return code < 128 ? ch : '\\u{' + code.toString(16) + '}';
+    })
+    .join('');
+}
+function unescapeAscii(text: string): string {
+  return text.replace(/\\u\{([0-9a-fA-F]+)\}/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)));
+}
+function csvField(value: string): string {
+  const escaped = escapeAscii(value);
+  if (escaped.includes(',') || escaped.includes('"') || escaped.includes('\n')) return '"' + escaped.replace(/"/g, '""') + '"';
+  return escaped;
+}
+function splitCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') inQuotes = false;
+      else current += ch;
+    } else if (ch === '"') inQuotes = true;
+    else if (ch === ',') {
+      fields.push(current);
+      current = '';
+    } else current += ch;
+  }
+  fields.push(current);
+  return fields;
+}
+
+// Calls the one, generic /api/call endpoint: screenName plus its
+// positional values (see call-dispatch.ts for each screen's own,
+// documented order), no JSON anywhere, in either direction.
+async function callScreen<T>(screenName: string, values: (string | undefined)[], parseResult: (fields: string[]) => T): Promise<T> {
+  const current = auth.current;
+  const headers: Record<string, string> = { 'Content-Type': 'text/csv' };
+  if (current) headers.Authorization = `Bearer ${current.token}`;
+  const line = [screenName, ...values.map((v) => v ?? '')].map(csvField).join(',');
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/call`, { method: 'POST', headers, body: line });
+  } catch {
+    throw new ApiError(0, `Can't reach the backend at ${BASE}. Make sure it's running (cd backend && npm run dev).`);
+  }
+  if (res.status === 401) auth.clear();
+  const text = await res.text();
+  const fields = splitCsvLine(text.split('\n')[0] ?? '').map(unescapeAscii);
+  if (fields[0] === 'error') throw new ApiError(res.status, fields[1] ?? res.statusText);
+  return parseResult(fields.slice(1));
+}
+
 async function request<T>(path: string, init?: RequestInit, screenName?: string): Promise<T> {
   const current = auth.current;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -466,6 +533,11 @@ export const createProfitCenter = (businessName: string, profitCenterName: strin
 export const setSessionProfitCenter = (profitCenterName: string | null) =>
   request<void>('/auth/session/profit-center', { method: 'POST', body: JSON.stringify({ profitCenterName }) });
 export type ReportingFrequency = 'annual' | 'biannual' | 'quarterly' | 'monthly';
+// Converted off the old JSON '/businesses' route onto the new, direct,
+// no-JSON call protocol (per direct instruction - see
+// backend/src/call-dispatch.ts's "Create Business" entry for the exact
+// positional order this must match). businessAdmin.password is shown
+// exactly once, never recoverable later — see docs/pm-frontend-reference.md.
 export const createBusiness = (
   businessName: string,
   financialYearLabel: string,
@@ -474,14 +546,18 @@ export const createBusiness = (
   entityStructure?: 'sole_trader' | 'partnership' | 'llc' | 'unlimited_liability' | 'publicly_traded',
   partnerNames?: string[],
   financialYearStart?: string,
-  reportingFrequency?: ReportingFrequency,
-  screenName?: string
+  reportingFrequency?: ReportingFrequency
 ) =>
-  // businessAdmin.password is shown exactly once, never recoverable later — see docs/pm-frontend-reference.md.
-  request<{ business: BusinessName; actualLedger: string; budgetLedger: string; businessAdmin: { username: string; password: string } }>('/businesses', {
-    method: 'POST',
-    body: JSON.stringify({ businessName, financialYearLabel, coaPrototype, secondaryCurrencies, entityStructure, partnerNames, financialYearStart, reportingFrequency }),
-  }, screenName);
+  callScreen(
+    'Create Business',
+    [businessName, financialYearLabel, coaPrototype, secondaryCurrencies?.join('|'), entityStructure, partnerNames?.join('|'), financialYearStart, reportingFrequency],
+    (f): { business: BusinessName; actualLedger: string; budgetLedger: string; businessAdmin: { username: string; password: string } } => ({
+      business: f[0] as BusinessName,
+      actualLedger: f[1],
+      budgetLedger: f[2],
+      businessAdmin: { username: f[3], password: f[4] },
+    })
+  );
 export const getCoaPrototypeAccounts = (language: string) => request<string[]>(`/businesses/coa-prototype/${encodeURIComponent(language)}`);
 export interface ReportingPeriod { label: string; startDate: string; endDate: string; }
 export const getReportingPeriods = (businessName: string, asOf?: string) =>
