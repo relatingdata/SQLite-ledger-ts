@@ -884,9 +884,33 @@ export interface Contact {
   preferred_language: string | null;
 }
 
-export const getContact = (name: string) => request<Contact | null>(`/contacts/${encodeURIComponent(name)}`);
+const CONTACT_FIELD_ORDER: (keyof Contact)[] = [
+  'business_name', 'phone', 'email', 'address_line1', 'address_line2', 'city', 'region', 'postal_code', 'country',
+  'payment_terms_days', 'credit_limit_minor', 'wage_minor_per_hour', 'salary_minor_per_year', 'preferred_language',
+];
+export const getContact = (name: string) =>
+  callRow('getContact', [name], (f): Contact | null => {
+    if (f[0] === '0') return null;
+    return {
+      business_name: f[1] || null,
+      phone: f[2] || null,
+      email: f[3] || null,
+      address_line1: f[4] || null,
+      address_line2: f[5] || null,
+      city: f[6] || null,
+      region: f[7] || null,
+      postal_code: f[8] || null,
+      country: f[9] || null,
+      payment_terms_days: f[10] === '' ? null : Number(f[10]),
+      credit_limit_minor: f[11] === '' ? null : Number(f[11]),
+      wage_minor_per_hour: f[12] === '' ? null : Number(f[12]),
+      salary_minor_per_year: f[13] === '' ? null : Number(f[13]),
+      reminder_level: Number(f[14]),
+      preferred_language: f[15] || null,
+    };
+  });
 export const setContact = (name: string, contact: Partial<Contact>) =>
-  request<void>(`/contacts/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(contact) });
+  callRow('setContact', [name, ...CONTACT_FIELD_ORDER.map((field) => (contact[field] == null ? undefined : String(contact[field])))], () => undefined);
 
 export interface CreditStatus {
   balanceMinor: number;
@@ -894,7 +918,12 @@ export interface CreditStatus {
   overLimit: boolean;
   remainingMinor: number | null;
 }
-export const getCreditStatus = (name: string) => request<CreditStatus>(`/contacts/${encodeURIComponent(name)}/credit-status`);
+export const getCreditStatus = (name: string) =>
+  callRow(
+    'getCreditStatus',
+    [name],
+    (f): CreditStatus => ({ balanceMinor: Number(f[0]), limitMinor: f[1] === '' ? null : Number(f[1]), overLimit: f[2] === 'true', remainingMinor: f[3] === '' ? null : Number(f[3]) })
+  );
 
 export interface TypedAddress {
   address_type: string;
@@ -907,11 +936,25 @@ export interface TypedAddress {
   postal_code: string | null;
   country: string | null;
 }
-export const getTypedAddresses = (name: string) => request<TypedAddress[]>(`/contacts/${encodeURIComponent(name)}/addresses`);
+export const getTypedAddresses = (name: string) =>
+  callTable('getTypedAddresses', [name], (f): TypedAddress => ({
+    address_type: f.address_type,
+    record_name: f.record_name,
+    business_name: f.business_name || null,
+    address_line1: f.address_line1 || null,
+    address_line2: f.address_line2 || null,
+    city: f.city || null,
+    region: f.region || null,
+    postal_code: f.postal_code || null,
+    country: f.country || null,
+  }));
 export const setTypedAddress = (name: string, address: Partial<TypedAddress> & { address_type: string }) =>
-  request<void>(`/contacts/${encodeURIComponent(name)}/addresses`, { method: 'PUT', body: JSON.stringify(address) });
-export const deleteTypedAddress = (name: string, addressType: string) =>
-  request<void>(`/contacts/${encodeURIComponent(name)}/addresses/${encodeURIComponent(addressType)}`, { method: 'DELETE' });
+  callRow(
+    'setTypedAddress',
+    [name, address.address_type, address.business_name ?? undefined, address.address_line1 ?? undefined, address.address_line2 ?? undefined, address.city ?? undefined, address.region ?? undefined, address.postal_code ?? undefined, address.country ?? undefined],
+    () => undefined
+  );
+export const deleteTypedAddress = (name: string, addressType: string) => callRow('deleteTypedAddress', [name, addressType], () => undefined);
 
 export interface TypedPhone {
   phone_type: string;
@@ -919,11 +962,11 @@ export interface TypedPhone {
   phone: string | null;
   business_name: string | null;
 }
-export const getTypedPhones = (name: string) => request<TypedPhone[]>(`/contacts/${encodeURIComponent(name)}/phones`);
+export const getTypedPhones = (name: string) =>
+  callTable('getTypedPhones', [name], (f): TypedPhone => ({ phone_type: f.phone_type, record_name: f.record_name, phone: f.phone || null, business_name: f.business_name || null }));
 export const setTypedPhone = (name: string, phoneType: string, phone: string, businessName?: string | null) =>
-  request<void>(`/contacts/${encodeURIComponent(name)}/phones`, { method: 'PUT', body: JSON.stringify({ phone_type: phoneType, phone, business_name: businessName ?? null }) });
-export const deleteTypedPhone = (name: string, phoneType: string) =>
-  request<void>(`/contacts/${encodeURIComponent(name)}/phones/${encodeURIComponent(phoneType)}`, { method: 'DELETE' });
+  callRow('setTypedPhone', [name, phoneType, phone, businessName ?? undefined], () => undefined);
+export const deleteTypedPhone = (name: string, phoneType: string) => callRow('deleteTypedPhone', [name, phoneType], () => undefined);
 
 export interface ContactPerson {
   contact_type: string;
@@ -932,16 +975,16 @@ export interface ContactPerson {
   phone: string | null;
   email: string | null;
 }
-export const listContactPersonTypes = () => request<string[]>('/contacts/contact-person-types');
-export const listAddressTypes = () => request<string[]>('/contacts/address-types');
+export const listContactPersonTypes = () => callTable('listContactPersonTypes', [], (f) => f.name);
+export const listAddressTypes = () => callTable('listAddressTypes', [], (f) => f.name);
 export const getLocationTypes = () => request<string[]>('/locations/types');
 export const createLocationType = (name: string) => request<{ name: string }>('/locations/types', { method: 'POST', body: JSON.stringify({ name }) });
-export const listPhoneTypes = () => request<string[]>('/contacts/phone-types');
-export const getTypedContactPersons = (name: string) => request<ContactPerson[]>(`/contacts/${encodeURIComponent(name)}/contact-persons`);
+export const listPhoneTypes = () => callTable('listPhoneTypes', [], (f) => f.name);
+export const getTypedContactPersons = (name: string) =>
+  callTable('getTypedContactPersons', [name], (f): ContactPerson => ({ contact_type: f.contact_type, record_name: f.record_name, name: f.name || null, phone: f.phone || null, email: f.email || null }));
 export const setTypedContactPerson = (name: string, contactType: string, value: { name: string; phone?: string | null; email?: string | null }) =>
-  request<void>(`/contacts/${encodeURIComponent(name)}/contact-persons`, { method: 'PUT', body: JSON.stringify({ contact_type: contactType, ...value }) });
-export const deleteTypedContactPerson = (name: string, contactType: string) =>
-  request<void>(`/contacts/${encodeURIComponent(name)}/contact-persons/${encodeURIComponent(contactType)}`, { method: 'DELETE' });
+  callRow('setTypedContactPerson', [name, contactType, value.name, value.phone ?? undefined, value.email ?? undefined], () => undefined);
+export const deleteTypedContactPerson = (name: string, contactType: string) => callRow('deleteTypedContactPerson', [name, contactType], () => undefined);
 
 export interface RecurringJournalLine {
   account: AccountName;

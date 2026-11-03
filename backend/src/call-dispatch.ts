@@ -16,6 +16,7 @@ import type { AuthenticatedUser } from './auth.js';
 import { csvField, splitCsvLine, unescapeAscii } from '../../shared-fixtures/csv.js';
 import { arapFunctions } from './call-dispatch/arap.js';
 import { businessesFunctions } from './call-dispatch/businesses.js';
+import { contactsFunctions } from './call-dispatch/contacts.js';
 import { customerRegistrationFunctions } from './call-dispatch/customer-registration.js';
 import { departmentsFunctions } from './call-dispatch/departments.js';
 import { entitiesFunctions } from './call-dispatch/entities.js';
@@ -137,6 +138,7 @@ export type BackendCall = (values: string[], user: AuthenticatedUser | undefined
 export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
   ...arapFunctions,
   ...businessesFunctions,
+  ...contactsFunctions,
   ...customerRegistrationFunctions,
   ...departmentsFunctions,
   ...entitiesFunctions,
