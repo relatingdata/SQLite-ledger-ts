@@ -4,6 +4,7 @@ import { db, getQualifiedDisplayName, getCombinationDisplayName, resolveBusiness
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
 import { ValidationError, getEntityTree, stageLine, postJournalEntry, getHierarchyGroups, getHierarchyParent, getHierarchyChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, getBusinessHomeCurrency, getAccountProfitCenter, setActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
+import type { EntityNode } from './entity-driver.js';
 
 export interface ReportRow {
   report: string;
@@ -39,54 +40,102 @@ function resolveBusinessReportsCoaRootId(business: string): number {
   return globalCoa.id;
 }
 
+// Replaces a `WITH RECURSIVE coa_walk ... current_entities` CTE joined to
+// `account` in the same statement — a category-4 site, and the most
+// involved one in this file (6 distinct entity roles: the walked node
+// itself, its category, the category's relation target, the resolved
+// report, the node's own relation target, and that relation target's own
+// parent). The tree walk now happens via the EntityDriver; every
+// id-to-name/parent/relation resolution below is a direct port of the
+// original SQL's own JOIN conditions, preserving its exact one-hop/two-hop
+// report disambiguation and its "ledger-scoped account displays its
+// parent's name instead of its own" override. combination_ids is the one
+// other approved JSON exception (see getTrialBalance's identical note
+// below) — EntityNode deliberately doesn't carry it, so it's read
+// directly off current_entities by id, a plain single-table lookup, not a
+// category-4 join.
 export function getBusinessReports(business: string): ReportRow[] {
   const rootId = resolveBusinessReportsCoaRootId(business);
-  return db
-    .prepare(
-      `WITH RECURSIVE coa_walk(id, name, depth, category_id, combination_ids, parent_id, relation_id) AS (
-        SELECT e.id, e.name, 0, e.id, e.combination_ids, e.parent_id, e.relation_id
-        FROM current_entities e
-        WHERE e.parent_id = ?
-        UNION ALL
-        SELECT e.id, e.name, w.depth + 1, w.category_id, e.combination_ids, e.parent_id, e.relation_id
-        FROM current_entities e JOIN coa_walk w ON e.parent_id = w.id
-      )
-      SELECT
-        rpt.name AS report,
-        cat.name AS category,
-        COALESCE(parent_e.name, w.name) AS account,
-        w.id AS account_id,
-        w.depth,
-        w.combination_ids,
-        a.accountnumber,
-        a.balance_minor
-      FROM coa_walk w
-      JOIN current_entities cat ON cat.id = w.category_id
-      -- The normal, real, two-hop case (a business-scoped category's
-      -- relation_id points at its GLOBAL counterpart, whose own
-      -- relation_id finally points at the report) breaks down for the
-      -- one legacy business falling back to the GLOBAL Chart of
-      -- Accounts directly above: there, cat IS already the global
-      -- category, so cat.relation_id points straight at the report,
-      -- one hop, not two. Disambiguated here by checking whether
-      -- cat.relation_id's own target is itself a real report (a
-      -- direct child of "Business Reports") - if so, that target IS
-      -- the report (one hop); otherwise it's the intermediate global
-      -- category, and ITS relation_id is the report (two hops), the
-      -- original, real shape this query already handled.
-      JOIN current_entities cat_relation ON cat_relation.id = cat.relation_id
-      JOIN current_entities rpt ON rpt.id = CASE
-        WHEN cat_relation.parent_id = (SELECT id FROM current_entities WHERE name = 'Business Reports') THEN cat_relation.id
-        ELSE cat_relation.relation_id
-      END
-      LEFT JOIN account a ON a.entity_id = w.id
-      LEFT JOIN current_entities rel ON rel.id = w.relation_id
-      LEFT JOIN current_entities rel_parent ON rel_parent.id = rel.parent_id AND rel_parent.name = 'Ledgers'
-      LEFT JOIN current_entities parent_e ON parent_e.id = w.parent_id AND rel_parent.id IS NOT NULL
-      WHERE w.depth >= 1
-      ORDER BY report, category, COALESCE(parent_e.name, w.name)`
-    )
-    .all(rootId) as ReportRow[];
+  const businessReportsRoot = Entity.get('Business Reports');
+  const categories = Entity.children(rootId);
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
+
+  type WalkNode = { id: number; name: string; depth: number; categoryId: number; parent_id: number | null; relation_id: number | null };
+  const walk: WalkNode[] = [];
+  for (const category of categories) {
+    for (const node of Entity.descendantsWithDepth(category.id)) {
+      walk.push({ id: node.id, name: node.name, depth: node.depth, categoryId: category.id, parent_id: node.parent_id, relation_id: node.relation_id });
+    }
+  }
+
+  // Per-category report resolution (cat -> cat_relation -> rpt) — small
+  // cardinality (one real top-level category at a time), each resolved
+  // once and reused by every row under it. A category with no resolvable
+  // report (missing relation_id, or a relation target with no report of
+  // its own) is dropped entirely below, matching the original's INNER
+  // JOINs on cat_relation/rpt.
+  const reportByCategoryId = new Map<number, EntityNode>();
+  for (const category of categories) {
+    if (category.relation_id === null) continue;
+    const catRelation = Entity.get(category.relation_id);
+    if (!catRelation) continue;
+    const isOneHop = businessReportsRoot !== undefined && catRelation.parent_id === businessReportsRoot.id;
+    const rpt = isOneHop ? catRelation : catRelation.relation_id !== null ? Entity.get(catRelation.relation_id) : undefined;
+    if (rpt) reportByCategoryId.set(category.id, rpt);
+  }
+
+  // Batch-resolve every walked row's own relation target (`rel`) and
+  // parent (`parent_e`) — the ledger-scoped-account display-name override.
+  const relIds = [...new Set(walk.map((w) => w.relation_id).filter((id): id is number => id !== null))];
+  const relById = new Map(Entity.getMany(relIds).map((e) => [e.id, e]));
+  const relParentIds = [...new Set([...relById.values()].map((rel) => rel.parent_id).filter((id): id is number => id !== null))];
+  const relParentById = new Map(Entity.getMany(relParentIds).map((e) => [e.id, e]));
+  const parentIds = [...new Set(walk.map((w) => w.parent_id).filter((id): id is number => id !== null))];
+  const parentById = new Map(Entity.getMany(parentIds).map((e) => [e.id, e]));
+
+  const walkIds = walk.map((w) => w.id);
+  const combinationIdsById = new Map(
+    walkIds.length === 0
+      ? []
+      : (db.prepare(`SELECT id, combination_ids FROM current_entities WHERE id IN (${walkIds.map(() => '?').join(',')})`).all(...walkIds) as { id: number; combination_ids: string | null }[]).map(
+          (r) => [r.id, r.combination_ids] as const
+        )
+  );
+  const accountById = new Map(
+    walkIds.length === 0
+      ? []
+      : (db.prepare(`SELECT entity_id, accountnumber, balance_minor FROM account WHERE entity_id IN (${walkIds.map(() => '?').join(',')})`).all(...walkIds) as {
+          entity_id: number;
+          accountnumber: string | null;
+          balance_minor: number;
+        }[]
+        ).map((a) => [a.entity_id, a] as const)
+  );
+
+  const result: ReportRow[] = [];
+  for (const w of walk) {
+    if (w.depth < 1) continue;
+    const rpt = reportByCategoryId.get(w.categoryId);
+    if (!rpt) continue;
+    const category = categoryById.get(w.categoryId)!;
+    const rel = w.relation_id !== null ? relById.get(w.relation_id) : undefined;
+    const relParent = rel && rel.parent_id !== null ? relParentById.get(rel.parent_id) : undefined;
+    const relParentIsLedgers = relParent?.name === 'Ledgers';
+    const parentE = relParentIsLedgers && w.parent_id !== null ? parentById.get(w.parent_id) : undefined;
+    const account = accountById.get(w.id);
+    result.push({
+      report: rpt.name,
+      category: category.name,
+      account: parentE?.name ?? w.name,
+      account_id: w.id,
+      depth: w.depth,
+      combination_ids: combinationIdsById.get(w.id) ?? null,
+      accountnumber: account?.accountnumber ?? null,
+      balance_minor: account?.balance_minor ?? null,
+    });
+  }
+  result.sort((a, b) => a.report.localeCompare(b.report) || a.category.localeCompare(b.category) || a.account.localeCompare(b.account));
+  return result;
 }
 
 export interface ChartRow {
@@ -145,54 +194,64 @@ export function resolveCashAtBankAccount(business: BusinessName, currency: strin
   return ensureCurrencyAccount(currencyBase.id, effectiveCurrency, userId);
 }
 
+// Structural plumbing the hierarchy/contact-type link mechanisms create as
+// real, named child entities of their own (e.g. "Acme Corp — Contact
+// Type: Customer") — never real accounts, excluded from the linked-rows
+// walk below the same way this report already only shows real CoA
+// leaves, not its own internal wiring.
+function isStructuralWiringName(name: string): boolean {
+  return name.includes(' — Hierarchy: ') || name.includes(' — Contact Type: ');
+}
+
+// Replaces a `WITH RECURSIVE walk ... current_entities` CTE this file used
+// to run inline (twice — once per call site below), joined to `account`
+// in the same statement: a category-4 site. The tree walk itself (depth +
+// " > "-joined path, exactly matching the original SQL's own path-building)
+// now happens here via the EntityDriver; only the resulting plain id list
+// crosses back into SQL, to read `account.accountnumber`/`balance_minor`
+// by id — a plain, non-entity table lookup, not a current_entities join.
+// `excludeStructuralWiring` reproduces the second call site's own
+// recursive-step filter: a node that fails the check is both excluded AND
+// never descended into, same as the original CTE's recursive branch
+// (its WHERE clause doesn't apply to the root/base case either way).
+function walkChartTree(rootId: number, excludeStructuralWiring: boolean): Omit<ChartRow, 'accountnumber' | 'balance_minor'>[] {
+  const root = Entity.get(rootId);
+  if (!root) return [];
+  const out: Omit<ChartRow, 'accountnumber' | 'balance_minor'>[] = [];
+  function recurse(node: EntityNode, depth: number, path: string): void {
+    out.push({ id: node.id, name: node.name, depth, path });
+    for (const child of Entity.children(node.id)) {
+      if (excludeStructuralWiring && isStructuralWiringName(child.name)) continue;
+      recurse(child, depth + 1, `${path} > ${child.name}`);
+    }
+  }
+  recurse(root, 0, root.name);
+  return out;
+}
+
+function withAccountData(nodes: Omit<ChartRow, 'accountnumber' | 'balance_minor'>[]): ChartRow[] {
+  if (nodes.length === 0) return [];
+  const ids = nodes.map((n) => n.id);
+  const accountRows = db
+    .prepare(`SELECT entity_id, accountnumber, balance_minor FROM account WHERE entity_id IN (${ids.map(() => '?').join(',')})`)
+    .all(...ids) as { entity_id: number; accountnumber: string | null; balance_minor: number }[];
+  const accountByEntityId = new Map(accountRows.map((a) => [a.entity_id, a]));
+  return nodes.map((n) => {
+    const account = accountByEntityId.get(n.id);
+    return { ...n, accountnumber: account?.accountnumber ?? null, balance_minor: account?.balance_minor ?? null };
+  });
+}
+
 export function getChartOfAccounts(business: string): ChartRow[] {
   const rootId = resolveBusinessReportsCoaRootId(business);
-  const rows = db
-    .prepare(
-      `WITH RECURSIVE walk(id, name, depth, path) AS (
-        SELECT e.id, e.name, 0, e.name
-        FROM current_entities e
-        WHERE e.id = ?
-        UNION ALL
-        SELECT e.id, e.name, w.depth + 1, w.path || ' > ' || e.name
-        FROM current_entities e JOIN walk w ON e.parent_id = w.id
-      )
-      SELECT w.id, w.name, w.depth, w.path, a.accountnumber, a.balance_minor
-      FROM walk w
-      LEFT JOIN account a ON a.entity_id = w.id
-      WHERE w.depth >= 1
-      ORDER BY w.path`
-    )
-    .all(rootId) as ChartRow[];
+  const rows = withAccountData(walkChartTree(rootId, false)).filter((r) => r.depth >= 1);
 
   const linkedRows: ChartRow[] = [];
   for (const row of rows) {
     for (const childRootName of getHierarchyChildren(row.name, 'Header Account')) {
       const childRoot = Entity.get(childRootName);
       if (!childRoot) continue;
-      const descendants = db
-        .prepare(
-          `WITH RECURSIVE walk(id, name, depth, path) AS (
-            SELECT e.id, e.name, 0, e.name
-            FROM current_entities e WHERE e.id = ?
-            UNION ALL
-            SELECT e.id, e.name, w.depth + 1, w.path || ' > ' || e.name
-            FROM current_entities e JOIN walk w ON e.parent_id = w.id
-            -- Structural plumbing the hierarchy/contact-type link
-            -- mechanisms create as real, named child entities of their
-            -- own (e.g. "Acme Corp — Contact Type: Customer") — never
-            -- real accounts, so excluded here the same way this report
-            -- already only shows real CoA leaves, not its own internal
-            -- wiring.
-            WHERE e.name NOT LIKE '% — Hierarchy: %' AND e.name NOT LIKE '% — Contact Type: %'
-          )
-          SELECT w.id, w.name, w.depth, w.path, a.accountnumber, a.balance_minor
-          FROM walk w
-          LEFT JOIN account a ON a.entity_id = w.id
-          WHERE w.depth >= 1
-          ORDER BY w.path`
-        )
-        .all(childRoot.id) as ChartRow[];
+      const descendants = withAccountData(walkChartTree(childRoot.id, true)).filter((r) => r.depth >= 1);
       for (const d of descendants) {
         linkedRows.push({ ...d, depth: row.depth + d.depth, path: `${row.path} > ${d.path}` });
       }
@@ -225,6 +284,56 @@ function resolveAccountHierarchyGroup(accountName: string, hierarchyPath: string
   return current;
 }
 
+// Both of these replace a `WITH RECURSIVE ... current_entities` CTE this
+// file used to run inline — a category-4 join (current_entities joined
+// against account/journal in the same statement), so the walk itself now
+// happens here via the EntityDriver, and only a plain id list crosses back
+// into SQL (`a.entity_id IN (...)`), keeping the financial query itself
+// entity-backend-agnostic. `exactly(name)` guards each `findAll` nameSuffix
+// lookup down to a true exact match (nameSuffix is `LIKE '%suffix'` under
+// the hood, so e.g. a hypothetical "Our Chart of Accounts" would also
+// match the suffix — there's no such entity in this domain, but filtering
+// exactly in TS costs nothing and removes the possibility outright).
+function exactly<T extends { name: string }>(name: string, nodes: T[]): T[] {
+  return nodes.filter((n) => n.name === name);
+}
+
+// The real, chart-of-accounts subtree(s) — every business has its own
+// "Chart of Accounts" root (plus one global template under Application),
+// so, matching the original SQL's unscoped `WHERE name = 'Chart of
+// Accounts'`, this walks every entity with that exact name, not just one
+// business's. A root's own descent stops at (but still includes) any
+// entity with a `contact` row — that entity's own sub-ledger detail isn't
+// walked further, same as the original CTE's `WHERE NOT EXISTS (SELECT 1
+// FROM contact WHERE entity_id = r.id)` guard on the *parent* side of the
+// recursive step.
+function realAccountIds(): Set<number> {
+  const roots = exactly('Chart of Accounts', Entity.findAll({ nameSuffix: 'Chart of Accounts' }));
+  const contactEntityIds = new Set((db.prepare(`SELECT entity_id FROM contact`).all() as { entity_id: number }[]).map((r) => r.entity_id));
+  const ids = new Set<number>();
+  function walk(id: number): void {
+    if (ids.has(id)) return;
+    ids.add(id);
+    if (contactEntityIds.has(id)) return;
+    for (const child of Entity.children(id)) walk(child.id);
+  }
+  for (const root of roots) walk(root.id);
+  return ids;
+}
+
+// The full "Customers"/"Vendors" subtrees — every descendant, unlike
+// realAccountIds above, which stops at a contact-bearing node. Matches the
+// original CTE's unconditional recursive descent.
+function contactAccountIds(): Set<number> {
+  const ids = new Set<number>();
+  for (const rootName of ['Customers', 'Vendors']) {
+    for (const root of exactly(rootName, Entity.findAll({ nameSuffix: rootName }))) {
+      for (const node of Entity.descendantsWithDepth(root.id)) ids.add(node.id);
+    }
+  }
+  return ids;
+}
+
 export function getLedgerBalancesByHierarchyStructural(
   businessName: BusinessName,
   ledgerName: LedgerName,
@@ -234,36 +343,30 @@ export function getLedgerBalancesByHierarchyStructural(
   excludeCloseEntries = false
 ): Map<number, Map<string | null, number>> {
   const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
+  const accountIds = [...realAccountIds()];
+  if (accountIds.length === 0) return new Map();
   const rows = db
     .prepare(
-      `WITH RECURSIVE real_accounts(id) AS (
-         SELECT id FROM current_entities WHERE name = 'Chart of Accounts'
-         UNION ALL
-         SELECT e.id FROM current_entities e
-         JOIN real_accounts r ON e.parent_id = r.id
-         WHERE NOT EXISTS (SELECT 1 FROM contact WHERE entity_id = r.id)
-       )
-       SELECT a.entity_id AS id, e.name AS account_name,
-              SUM(jo.amount_minor) AS balance_minor
+      `SELECT a.entity_id AS id, SUM(jo.amount_minor) AS balance_minor
        FROM account a
-       JOIN current_entities e ON e.id = a.entity_id
-       JOIN real_accounts ra ON ra.id = a.entity_id
        JOIN journal_occurrences jo ON jo.account_id = a.entity_id
        JOIN journal j ON j.id = jo.journal_id
        WHERE jo.ledger_id = ?
          AND (? IS NULL OR jo.transdate >= ?)
          AND (? IS NULL OR jo.transdate <= ?)
          AND (? = 0 OR j.reference NOT LIKE 'CLOSE-%')
+         AND a.entity_id IN (${accountIds.map(() => '?').join(',')})
        GROUP BY a.entity_id`
     )
-    .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, excludeCloseEntries ? 1 : 0) as {
+    .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, excludeCloseEntries ? 1 : 0, ...accountIds) as {
     id: number;
-    account_name: string;
     balance_minor: number;
   }[];
+  const nameById = new Map(Entity.getMany(rows.map((r) => r.id)).map((e) => [e.id, e.name]));
   const result = new Map<number, Map<string | null, number>>();
   for (const r of rows) {
-    const group = resolveAccountHierarchyGroup(r.account_name, hierarchyPath) ?? null;
+    const accountName = nameById.get(r.id);
+    const group = accountName !== undefined ? (resolveAccountHierarchyGroup(accountName, hierarchyPath) ?? null) : null;
     if (!result.has(r.id)) result.set(r.id, new Map());
     result.get(r.id)!.set(group, r.balance_minor);
   }
@@ -284,38 +387,23 @@ export function getLedgerBalancesByLocationStructural(
 
 export function getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, number> {
   const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
+  const accountIds = [...new Set([...realAccountIds(), ...contactAccountIds()])];
+  if (accountIds.length === 0) return new Map();
   const rows = db
     .prepare(
-      `WITH RECURSIVE real_accounts(id) AS (
-         SELECT id FROM current_entities WHERE name = 'Chart of Accounts'
-         UNION ALL
-         SELECT e.id FROM current_entities e
-         JOIN real_accounts r ON e.parent_id = r.id
-         WHERE NOT EXISTS (SELECT 1 FROM contact WHERE entity_id = r.id)
-       ),
-       contact_accounts(id) AS (
-         SELECT id FROM current_entities WHERE name IN ('Customers', 'Vendors')
-         UNION ALL
-         SELECT e.id FROM current_entities e JOIN contact_accounts c ON e.parent_id = c.id
-       ),
-       reportable_accounts(id) AS (
-         SELECT id FROM real_accounts
-         UNION
-         SELECT id FROM contact_accounts
-       )
-       SELECT a.entity_id AS id,
+      `SELECT a.entity_id AS id,
               COALESCE(SUM(CASE WHEN jo.ledger_id = ?
                                  AND (? IS NULL OR jo.transdate >= ?)
                                  AND (? IS NULL OR jo.transdate <= ?)
                                  AND (? = 0 OR j.reference NOT LIKE 'CLOSE-%')
                                  THEN jo.amount_minor ELSE 0 END), 0) AS balance_minor
        FROM account a
-       JOIN reportable_accounts ra ON ra.id = a.entity_id
        LEFT JOIN journal_occurrences jo ON jo.account_id = a.entity_id
        LEFT JOIN journal j ON j.id = jo.journal_id
+       WHERE a.entity_id IN (${accountIds.map(() => '?').join(',')})
        GROUP BY a.entity_id`
     )
-    .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, excludeCloseEntries ? 1 : 0) as {
+    .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null, excludeCloseEntries ? 1 : 0, ...accountIds) as {
     id: number;
     balance_minor: number;
   }[];
@@ -454,25 +542,33 @@ export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerNa
   const equity_tree: CategoryTreeNode[] = equity.map((l) => ({ name: l.name, accountnumber: l.accountnumber, is_leaf: true, debit_minor: l.debit_minor, credit_minor: l.credit_minor, is_contra: l.is_contra, children: [] }));
 
   const balanceSheetLedgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
+  // Was a `WITH RECURSIVE walk ... current_entities` CTE — a category-4
+  // join (current_entities' own id-walk feeding a journal_occurrences
+  // filter in the same statement). The walk now happens via the
+  // EntityDriver; only the resulting plain id list crosses back into SQL.
+  // Unscoped exact-name lookup (possibly several matches, same as the
+  // original SQL's unscoped `WHERE name IN (...)`) — see `exactly` above.
   const sumHierarchyDescendants = (headerAccountName: string): number => {
     const hierarchyChildren = getHierarchyChildren(headerAccountName, 'Header Account');
     const startNames = [headerAccountName, ...hierarchyChildren];
-    const alreadyCapturedIds = [...new Set(rows.map((r) => r.account_id))];
+    const alreadyCapturedIds = new Set(rows.map((r) => r.account_id));
+    const walkIds = new Set<number>();
+    for (const name of startNames) {
+      for (const root of exactly(name, Entity.findAll({ nameSuffix: name }))) {
+        for (const node of Entity.descendantsWithDepth(root.id)) walkIds.add(node.id);
+      }
+    }
+    const targetIds = [...walkIds].filter((id) => !alreadyCapturedIds.has(id));
+    if (targetIds.length === 0) return 0;
     const row = db
       .prepare(
-        `WITH RECURSIVE walk(id) AS (
-           SELECT id FROM current_entities WHERE name IN (${startNames.map(() => '?').join(',')})
-           UNION ALL
-           SELECT e.id FROM current_entities e JOIN walk w ON e.parent_id = w.id
-         )
-         SELECT COALESCE(SUM(jo.amount_minor), 0) AS total
+        `SELECT COALESCE(SUM(jo.amount_minor), 0) AS total
          FROM journal_occurrences jo
-         WHERE jo.account_id IN (SELECT id FROM walk)
-           AND jo.account_id NOT IN (${alreadyCapturedIds.length ? alreadyCapturedIds.map(() => '?').join(',') : 'NULL'})
+         WHERE jo.account_id IN (${targetIds.map(() => '?').join(',')})
            AND jo.ledger_id = ?
            AND (? IS NULL OR jo.transdate <= ?)`
       )
-      .get(...startNames, ...alreadyCapturedIds, balanceSheetLedgerId, asOfDate ?? null, asOfDate ?? null) as { total: number };
+      .get(...targetIds, balanceSheetLedgerId, asOfDate ?? null, asOfDate ?? null) as { total: number };
     return row.total;
   };
 
@@ -1065,13 +1161,16 @@ export interface SalesReport {
 export function getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): SalesReport {
   const businessId = resolveBusinessEntityId(business) ?? -1;
   const ledgerId = resolveLedgerEntityId(business, ledger) ?? -1;
-  const rows = db
+  // item_name is resolved below via Entity.getMany, not joined in SQL here
+  // (current_entities is a category-4 join site — SQL returns ids only,
+  // the driver resolves names, the join happens in TypeScript, so this
+  // stays backend-agnostic for entities).
+  const rawRows = db
     .prepare(
-      `SELECT i.invoice_date, i.reference, pe.name AS item_name, l.description,
+      `SELECT i.invoice_date, i.reference, l.description,
               l.quantity, l.unit_price_minor, l.amount_minor, l.item_id
        FROM invoice_detail_line l
        JOIN invoice i ON i.id = l.invoice_id
-       LEFT JOIN current_entities pe ON pe.id = l.item_id
        WHERE i.business_id = ?
          AND i.ledger_id = ?
          AND i.invoice_type = 'AR'
@@ -1081,7 +1180,14 @@ export function getSalesReport(business: BusinessName, ledger: LedgerName, fromD
          AND (? IS NULL OR i.invoice_date <= ?)
        ORDER BY i.invoice_date, i.reference, l.line_order`
     )
-    .all(businessId, ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as (SalesReportLine & { item_id: number | null })[];
+    .all(businessId, ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as (Omit<SalesReportLine, 'item_name'> & { item_id: number | null })[];
+
+  const itemIds = [...new Set(rawRows.map((r) => r.item_id).filter((id): id is number => id !== null))];
+  const itemNameById = new Map(Entity.getMany(itemIds).map((e) => [e.id, e.name]));
+  const rows: (SalesReportLine & { item_id: number | null })[] = rawRows.map((r) => ({
+    ...r,
+    item_name: r.item_id !== null ? (itemNameById.get(r.item_id) ?? null) : null,
+  }));
 
   const entities = getEntityTree();
   // Category is a genuinely optional, generic Hierarchy tag here — the

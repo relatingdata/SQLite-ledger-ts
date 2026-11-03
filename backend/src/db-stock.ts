@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import { db } from './db.js';
 import { ensureStorageCapacityStructure, ensureLocationStorageRoot, resolveBusinessLocationsRootId } from './db.js';
 import { Entity, Link, Balance } from './primitives.js';
+import type { EntityNode } from './entity-driver.js';
 import { Session } from './session-context.js';
 import {
   NotFoundError,
@@ -307,6 +308,95 @@ export function setItemLocationLevelDetails(itemName: ItemName, locationName: Lo
   }
 }
 
+// Mirrors getEntityLink's own exact semantics (db.ts) — the active-tag
+// check, not just the link record's own relation_id — but exposes the
+// target's full EntityNode instead of only its name. The public
+// Link.get/getHierarchyParent API returns a name only, and a location
+// name is not guaranteed globally unique, so re-resolving a location
+// purely by name afterward would risk landing on the wrong same-named
+// location. Not a category-4 join (no account/journal/invoice/contact
+// table involved) — a narrow, deliberate exception for a lookup the
+// current EntityDriver interface doesn't yet expose by id, same class as
+// the already-accepted combination_ids/created_at/created_by raw reads
+// elsewhere in this engagement.
+function resolveHierarchyLocationLink(leafName: string): EntityNode | undefined {
+  const recordName = `${leafName} — Hierarchy: Location`;
+  return db
+    .prepare(
+      `SELECT target.id, target.name, target.parent_id, target.relation_id
+       FROM current_entities child
+       JOIN current_entities target ON target.id = child.relation_id
+       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Hierarchy: Location' AND tag.relation_id IS NOT NULL
+       WHERE child.name = ?`
+    )
+    .get(recordName) as EntityNode | undefined;
+}
+
+// Guards a `findAll({ nameSuffix })` lookup down to a true exact match
+// (nameSuffix is `LIKE '%suffix'` under the hood) — same helper and same
+// reasoning as db-reports.ts's identical function.
+function exactly<T extends { name: string }>(name: string, nodes: T[]): T[] {
+  return nodes.filter((n) => n.name === name);
+}
+
+// The full "Sales Revenue" subtree(s) — every descendant, unscoped (there
+// may be more than one entity named "Sales Revenue", same as the original
+// SQL's own unscoped `WHERE e.name = 'Sales Revenue'`).
+function salesRevenueAccountIds(): Set<number> {
+  const ids = new Set<number>();
+  for (const root of exactly('Sales Revenue', Entity.findAll({ nameSuffix: 'Sales Revenue' }))) {
+    for (const node of Entity.descendantsWithDepth(root.id)) ids.add(node.id);
+  }
+  return ids;
+}
+
+interface QtyLocationAccountRow {
+  leafId: number;
+  item: string;
+  itemId: number;
+  location: string;
+  locationId: number;
+  locationParentId: number | null;
+  balance_minor: number;
+}
+
+// Shared by getLocationCapacityStatus / getInventoryListingByLocation /
+// getStockMovementReport's movementRows / countInventoryListing — all four
+// used to run their own, near-identical category-4 current_entities join
+// (leaf/item/link/loc joined against `account` in one statement) to read
+// the same real, per-location quantity accounts (a leaf entity named
+// "{item} — {location} — Qty", a child of the item, hierarchy-location-
+// linked to the location — see ensureItemLocationQuantityAccount, db.ts).
+// The walk + join now happens once here via the EntityDriver (plus
+// resolveHierarchyLocationLink above for the link itself); each call site
+// below filters/maps these shared rows instead of repeating its own SQL.
+function allQtyLocationAccounts(): QtyLocationAccountRow[] {
+  const qtyLeaves = Entity.findAll({ nameSuffix: ' — Qty' });
+  if (qtyLeaves.length === 0) return [];
+  const leafIds = qtyLeaves.map((l) => l.id);
+  const balanceByLeafId = new Map(
+    (
+      db.prepare(`SELECT entity_id, balance_minor FROM account WHERE entity_id IN (${leafIds.map(() => '?').join(',')})`).all(...leafIds) as {
+        entity_id: number;
+        balance_minor: number;
+      }[]
+    ).map((a) => [a.entity_id, a.balance_minor])
+  );
+  const itemById = new Map(Entity.getMany(qtyLeaves.map((l) => l.parent_id).filter((id): id is number => id !== null)).map((e) => [e.id, e]));
+
+  const rows: QtyLocationAccountRow[] = [];
+  for (const leaf of qtyLeaves) {
+    const balance_minor = balanceByLeafId.get(leaf.id);
+    if (balance_minor === undefined) continue; // original INNER JOIN account
+    const item = leaf.parent_id !== null ? itemById.get(leaf.parent_id) : undefined;
+    if (!item) continue; // original INNER JOIN item
+    const location = resolveHierarchyLocationLink(leaf.name);
+    if (!location) continue; // original INNER JOIN link/loc
+    rows.push({ leafId: leaf.id, item: item.name, itemId: item.id, location: location.name, locationId: location.id, locationParentId: location.parent_id, balance_minor });
+  }
+  return rows;
+}
+
 export interface LocationCapacityStatus {
   bottleQuantity: number;
   bottleCapacity: number | null;
@@ -322,17 +412,9 @@ export function getLocationCapacityStatus(locationName: LocationName): LocationC
   // account balance directly — see ensureItemLocationQuantityAccount,
   // db.ts, and docs/pm-domain-reference.md, "Quantity-on-hand by
   // location: real per-location accounts, not a side-channel column".
-  const rows = db
-    .prepare(
-      `SELECT item.name AS item, acct.balance_minor AS qty
-       FROM current_entities leaf
-       JOIN account acct ON acct.entity_id = leaf.id
-       JOIN current_entities item ON item.id = leaf.parent_id
-       JOIN current_entities link ON link.name = leaf.name || ' — Hierarchy: Location'
-       JOIN current_entities loc ON loc.id = link.relation_id
-       WHERE leaf.name LIKE '% — Qty' AND loc.name = ?`
-    )
-    .all(locationName) as { item: string; qty: number }[];
+  const rows = allQtyLocationAccounts()
+    .filter((r) => r.location === locationName)
+    .map((r) => ({ item: r.item, qty: r.balance_minor }));
 
   const bottleQuantity = rows.reduce((s, r) => s + r.qty, 0);
   const cartonQuantity = rows.reduce((s, r) => {
@@ -472,22 +554,57 @@ export interface StorageSpaceLocationGroup {
 }
 
 // See docs/pm-stock-api.md § "The Storage Space Report"
+const STORAGE_KINDS = ['Installed', 'Occupied', 'Remaining'] as const;
+
 export function getStorageSpaceReport(): StorageSpaceLocationGroup[] {
-  const rows = db
-    .prepare(
-      `SELECT loc.name AS location, a.currency AS currency, kind.name AS kind, SUM(jl.amount_minor) AS balance_minor
-       FROM journal j
-       JOIN journal_line jl ON jl.journal_id = j.id
-       JOIN account a ON a.entity_id = jl.account_id
-       JOIN current_entities leaf ON leaf.id = jl.account_id
-       JOIN current_entities kind ON kind.id = leaf.parent_id
-       JOIN current_entities capacity ON capacity.id = kind.parent_id
-       JOIN current_entities loc ON loc.id = capacity.parent_id
-       WHERE j.business_id = ? AND capacity.name = 'Storage Capacity' AND kind.name IN ('Installed', 'Occupied', 'Remaining') AND a.currency IS NOT NULL
-       GROUP BY loc.name, a.currency, kind.name
-       HAVING SUM(jl.amount_minor) != 0`
-    )
-    .all(Session.Business.id) as { location: string; currency: string; kind: string; balance_minor: number }[];
+  // Was a category-4 join across four current_entities levels (leaf ->
+  // kind -> capacity -> loc) against journal/journal_line/account in one
+  // statement. The parent-chain walk (unscoped — there may be more than
+  // one entity named "Storage Capacity", same as the original's own
+  // unscoped `capacity.name = 'Storage Capacity'`) now happens via the
+  // EntityDriver; only the resulting leaf-id-to-(location,kind) map
+  // crosses back into SQL, which otherwise stays a plain
+  // journal/journal_line/account query. The final (location, currency,
+  // kind) grouping — which can combine more than one leaf account — is
+  // done here in TS instead of SQL's GROUP BY, with the `!= 0` filter
+  // applied after that combination, exactly matching the original's own
+  // grouping granularity (not a per-account one).
+  const leafContext = new Map<number, { location: string; kind: string }>();
+  for (const capacity of exactly('Storage Capacity', Entity.findAll({ nameSuffix: 'Storage Capacity' }))) {
+    if (capacity.parent_id === null) continue;
+    const loc = Entity.get(capacity.parent_id);
+    if (!loc) continue;
+    for (const kind of Entity.children(capacity.id)) {
+      if (!(STORAGE_KINDS as readonly string[]).includes(kind.name)) continue;
+      for (const leaf of Entity.children(kind.id)) {
+        leafContext.set(leaf.id, { location: loc.name, kind: kind.name });
+      }
+    }
+  }
+  const leafIds = [...leafContext.keys()];
+  const perAccountRows =
+    leafIds.length === 0
+      ? []
+      : (db
+          .prepare(
+            `SELECT jl.account_id, a.currency AS currency, SUM(jl.amount_minor) AS balance_minor
+             FROM journal j
+             JOIN journal_line jl ON jl.journal_id = j.id
+             JOIN account a ON a.entity_id = jl.account_id
+             WHERE j.business_id = ? AND a.currency IS NOT NULL AND jl.account_id IN (${leafIds.map(() => '?').join(',')})
+             GROUP BY jl.account_id, a.currency`
+          )
+          .all(Session.Business.id, ...leafIds) as { account_id: number; currency: string; balance_minor: number }[]);
+
+  const grouped = new Map<string, { location: string; currency: string; kind: string; balance_minor: number }>();
+  for (const r of perAccountRows) {
+    const ctx = leafContext.get(r.account_id)!;
+    const key = `${ctx.location}|${r.currency}|${ctx.kind}`;
+    const existing = grouped.get(key);
+    if (existing) existing.balance_minor += r.balance_minor;
+    else grouped.set(key, { location: ctx.location, currency: r.currency, kind: ctx.kind, balance_minor: r.balance_minor });
+  }
+  const rows = [...grouped.values()].filter((r) => r.balance_minor !== 0);
 
   const groups = new Map<string, StorageSpaceLocationGroup>();
   for (const r of rows) {
@@ -520,21 +637,11 @@ export function getInventoryListingByLocation(business?: BusinessName, hierarchy
   // and the movement report" ("Business-scoping is not yet complete end to
   // end") for the pre-existing, acknowledged limits of this scoping.
   const locationsRootId = resolveBusinessLocationsRootId(resolvedBusiness);
-  const qtyRows = locationsRootId
-    ? (db
-        .prepare(
-          `SELECT item.name AS item, loc.name AS location, acct.balance_minor AS quantity_on_hand
-           FROM current_entities leaf
-           JOIN account acct ON acct.entity_id = leaf.id
-           JOIN current_entities item ON item.id = leaf.parent_id
-           JOIN current_entities link ON link.name = leaf.name || ' — Hierarchy: Location'
-           JOIN current_entities loc ON loc.id = link.relation_id
-           WHERE leaf.name LIKE '% — Qty'
-             AND loc.parent_id = ?
-             AND acct.balance_minor != 0
-           ORDER BY loc.name, item.name`
-        )
-        .all(locationsRootId) as { item: string; location: string; quantity_on_hand: number }[])
+  const qtyRows: { item: string; location: string; quantity_on_hand: number }[] = locationsRootId
+    ? allQtyLocationAccounts()
+        .filter((r) => r.locationParentId === locationsRootId && r.balance_minor !== 0)
+        .map((r) => ({ item: r.item, location: r.location, quantity_on_hand: r.balance_minor }))
+        .sort((a, b) => a.location.localeCompare(b.location) || a.item.localeCompare(b.item))
     : [];
   // getItemLocation has no business parameter — see docs/pm-stock-api.md § "Stock listing and the movement report" ("Business-scoping is not yet complete end to end")
   const rows: InventoryListingRow[] = qtyRows.map((r) => {
@@ -639,19 +746,24 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
   // inventory VALUE account carries the same Location tag, but is never a
   // quantity movement. See docs/pm-domain-reference.md, "Quantity-on-hand
   // by location: real per-location accounts, not a side-channel column".
-  const movementRows = db
+  // Was a category-4 current_entities join; now the SQL stays entity-free
+  // (plain journal/journal_line by ledger+date) and every account_id is
+  // matched against the shared qty-location map built above.
+  const qtyAccountByLeafId = new Map(allQtyLocationAccounts().map((r) => [r.leafId, r]));
+  const movementRowsRaw = db
     .prepare(
-      `SELECT jl.journal_id, j.reference, item.name AS item, loc.name AS location, jl.amount_minor AS quantity, j.transdate AS date
+      `SELECT jl.journal_id, j.reference, jl.account_id, jl.amount_minor AS quantity, j.transdate AS date
        FROM journal_line jl
        JOIN journal j ON j.id = jl.journal_id
-       JOIN current_entities leaf ON leaf.id = jl.account_id
-       JOIN current_entities item ON item.id = leaf.parent_id
-       JOIN current_entities link ON link.name = leaf.name || ' — Hierarchy: Location'
-       JOIN current_entities loc ON loc.id = link.relation_id
-       WHERE j.ledger_id = ? ${dateFilter} AND leaf.name LIKE '% — Qty'
-       ORDER BY j.transdate, loc.name, item.name`
+       WHERE j.ledger_id = ? ${dateFilter}`
     )
-    .all(ledgerId, ...dateParams) as { journal_id: number; reference: string; item: string; location: string; quantity: number; date: string }[];
+    .all(ledgerId, ...dateParams) as { journal_id: number; reference: string; account_id: number; quantity: number; date: string }[];
+  const movementRows = movementRowsRaw
+    .flatMap((r) => {
+      const acct = qtyAccountByLeafId.get(r.account_id);
+      return acct ? [{ journal_id: r.journal_id, reference: r.reference, item: acct.item, location: acct.location, quantity: r.quantity, date: r.date }] : [];
+    })
+    .sort((a, b) => a.date.localeCompare(b.date) || a.location.localeCompare(b.location) || a.item.localeCompare(b.item));
   const movementsByJournalId = new Map<number, typeof movementRows>();
   for (const r of movementRows) {
     if (!movementsByJournalId.has(r.journal_id)) movementsByJournalId.set(r.journal_id, []);
@@ -694,26 +806,23 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
     }
   }
 
-  const salesPostings = db
+  // Was a category-4 `WITH RECURSIVE ancestors ... current_entities`
+  // CTE joined to journal/journal_line in the same statement — the
+  // ancestor walk now happens via the EntityDriver (salesRevenueAccountIds
+  // below); only the resulting plain id set and the resolved account
+  // names cross back into/out of SQL.
+  const salesAccountIds = salesRevenueAccountIds();
+  const salesPostingsRaw = db
     .prepare(
-      `WITH RECURSIVE ancestors(id, orig) AS (
-         SELECT id, id FROM current_entities
-         UNION ALL
-         SELECT e.parent_id, a.orig FROM current_entities e JOIN ancestors a ON e.id = a.id WHERE e.parent_id IS NOT NULL
-       ),
-       sales_accounts AS (
-         SELECT DISTINCT orig AS id FROM ancestors a
-         JOIN current_entities e ON e.id = a.id
-         WHERE e.name = 'Sales Revenue'
-       )
-       SELECT j2.reference AS ref, e2.name AS account, jl2.amount_minor AS amount
+      `SELECT j2.reference AS ref, jl2.account_id, jl2.amount_minor AS amount
        FROM journal_line jl2
        JOIN journal j2 ON j2.id = jl2.journal_id
-       JOIN current_entities e2 ON e2.id = jl2.account_id
-       JOIN sales_accounts sa ON sa.id = e2.id
        WHERE j2.ledger_id = ? AND jl2.amount_minor < 0 ${dateFilter.replace(/j\./g, 'j2.')}`
     )
-    .all(ledgerId, ...dateParams) as { ref: string; account: string; amount: number }[];
+    .all(ledgerId, ...dateParams) as { ref: string; account_id: number; amount: number }[];
+  const relevantSalesRows = salesPostingsRaw.filter((r) => salesAccountIds.has(r.account_id));
+  const salesAccountNameById = new Map(Entity.getMany(relevantSalesRows.map((r) => r.account_id)).map((e) => [e.id, e.name]));
+  const salesPostings = relevantSalesRows.map((r) => ({ ref: r.ref, account: salesAccountNameById.get(r.account_id)!, amount: r.amount }));
   const salesByRefAndItem = new Map<string, number>();
   for (const s of salesPostings) {
     const itemFromAccount = s.account.replace(/ — .+$/, '').replace(/ \([^)]*\)$/, '');
@@ -750,18 +859,7 @@ export function countInventoryListing(): number {
   // reads — see ensureItemLocationQuantityAccount, db.ts.
   const locationsRootId = resolveBusinessLocationsRootId(asBusinessName(Session.Business.name));
   if (!locationsRootId) return 0;
-  const row = db
-    .prepare(
-      `SELECT COUNT(*) AS total FROM (
-         SELECT 1 FROM current_entities leaf
-         JOIN account acct ON acct.entity_id = leaf.id
-         JOIN current_entities link ON link.name = leaf.name || ' — Hierarchy: Location'
-         JOIN current_entities loc ON loc.id = link.relation_id
-         WHERE leaf.name LIKE '% — Qty' AND loc.parent_id = ? AND acct.balance_minor != 0
-       )`
-    )
-    .get(locationsRootId) as { total: number };
-  return row.total;
+  return allQtyLocationAccounts().filter((r) => r.locationParentId === locationsRootId && r.balance_minor !== 0).length;
 }
 
 export function setItemLocationLevels(
