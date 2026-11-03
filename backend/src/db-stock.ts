@@ -29,7 +29,6 @@ import {
   setHierarchyParent,
   setEntityLink,
   stageLine,
-  supersedeEntity,
   create,
   requireEntity,
   typeRootName,
@@ -171,7 +170,7 @@ export function setLocation(name: string, location: Location, business?: Busines
     create(requireEntity('Location Type', typeRootName), typeLocationTypeMarkerName, typeRecordName, asUserId(1));
   }
   const typeRecord = Entity.get(typeRecordName)!;
-  supersedeEntity(typeRecord.id, { relation: location.location_type }, asUserId(1));
+  Entity.relate(typeRecord.id, location.location_type, asUserId(1));
 
   const billingRecordName = `Is Billing Address — ${name} → Billing Address`;
   if (location.is_billing_address) {
@@ -182,7 +181,7 @@ export function setLocation(name: string, location: Location, business?: Busines
       create(requireEntity('Is Billing Address', typeRootName), typeIsBillingAddressMarkerName, billingRecordName, asUserId(1));
     }
     const billingRecord = Entity.get(billingRecordName)!;
-    supersedeEntity(billingRecord.id, { relation: 'Billing Address' }, asUserId(1));
+    Entity.relate(billingRecord.id, 'Billing Address', asUserId(1));
   } else {
     const existing = Entity.get(billingRecordName);
     if (existing) Entity.relate(existing.id, null, asUserId(1));
@@ -1246,7 +1245,7 @@ export function createStockTake(locationName: LocationName, takeDate: string, us
       takeId,
       userId
     );
-    supersedeEntity(lineEntity.id, { relation: p.item_name }, userId);
+    Entity.relate(lineEntity.id, p.item_name, userId);
   }
 
   return takeId;
@@ -1299,7 +1298,7 @@ export function recordStockTakeCount(stockTakeId: number, itemName: ItemName, co
   if (!line) throw new ValidationError(`"${itemName}" is not on this stock take sheet.`);
   const row = Entity.get(line.id)!;
   const newName = row.name.replace(/counted:\d*$/, `counted:${countedQuantity}`);
-  supersedeEntity(line.id, { name: newName }, asUserId(1));
+  Entity.rename(line.id, newName, asUserId(1));
 }
 
 export function completeStockTake(
@@ -1341,7 +1340,7 @@ export function completeStockTake(
   }
 
   const takeRow = Entity.get(stockTakeId)!;
-  supersedeEntity(stockTakeId, { name: takeRow.name.replace(/ — draft$/, ' — completed') }, userId);
+  Entity.rename(stockTakeId, takeRow.name.replace(/ — draft$/, ' — completed'), userId);
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
@@ -1567,8 +1566,8 @@ export function placeOrder(
   for (const name of [qtyName, valueName]) {
     if (!Entity.get(name)) createSystemEntity(name, ordersId);
   }
-  if (vendor) supersedeEntity(Entity.get(qtyName)!.id, { relation: vendor }, userId);
-  if (item) supersedeEntity(Entity.get(valueName)!.id, { relation: item }, userId);
+  if (vendor) Entity.relate(Entity.get(qtyName)!.id, vendor, userId);
+  if (item) Entity.relate(Entity.get(valueName)!.id, item, userId);
   if (location) setHierarchyParent(qtyName, 'Location', location, userId);
   postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueName), priceMinor, userId, transdate);
   if (item) {

@@ -29,7 +29,7 @@ const sqlFiles = findFiles(root, '.sql');
 const allTables: { name: string; file: string }[] = [];
 for (const file of sqlFiles) {
   const content = fs.readFileSync(file, 'utf-8');
-  for (const m of content.matchAll(/^CREATE TABLE (\w+)/gm)) {
+  for (const m of content.matchAll(/^CREATE TABLE (?:IF NOT EXISTS )?(\w+)/gm)) {
     allTables.push({ name: m[1], file: path.relative(root, file) });
   }
 }

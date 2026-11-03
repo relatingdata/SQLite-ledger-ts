@@ -1,6 +1,6 @@
 import { db } from './db.js';
 import {
-  supersedeEntity, setTranslation, setContactType, mergeContactDetail, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeCustomerName, typeProviderName, type UserId, type EntityUpdate } from './db.js';
+  setTranslation, setContactType, mergeContactDetail, setHierarchyParent, setEntityLink, instantiateChartOfAccounts, copyChartOfAccountsInto, asBusinessName, asUserId, create, requireEntity, requireEntityById, typeRootName, typeVocabularyWordName, typeExpenseCategoryName, typeMenuSectionName, typeMenuLinkName, typeMenuLinkFlagName, typeBusinessTypeName, typeBusinessTypeQuestionsRootName, typeBusinessTypeQuestionName, typeBusinessContactsRootName, typeChartOfAccountsRootName, typeBusinessName, typeCustomerName, typeProviderName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 
 // Every real seed function below acts as this one, real, direct admin
@@ -957,7 +957,7 @@ function migrateForCogsTag() {
   if (!Entity.get('COGS')) {
     create(requireEntity('Business Reports', typeRootName), typeRootName, 'COGS', SEED_USER_ID);
   }
-  supersedeEntity(cogs.id, { relation: 'COGS' }, SEED_USER_ID);
+  Entity.relate(cogs.id, 'COGS', SEED_USER_ID);
 }
 migrateForCogsTag();
 
@@ -975,7 +975,7 @@ function migrateForCashCustomerAndProvider() {
   const staleCashSale = customersRootId !== undefined ? Entity.getUnder('Cash Sale', customersRootId) : undefined;
   const hasCashCustomer = customersRootId !== undefined && !!Entity.getUnder('Cash', customersRootId);
   if (staleCashSale && !hasCashCustomer) {
-    supersedeEntity(staleCashSale.id, { name: 'Cash' }, SEED_USER_ID);
+    Entity.rename(staleCashSale.id, 'Cash', SEED_USER_ID);
   } else if (!hasCashCustomer) {
     const customer = create(requireEntity('Customers', typeRootName), typeCustomerName, 'Cash', SEED_USER_ID);
     mergeContactDetail(customer.id, { payment_terms_days: 0 });
@@ -1197,7 +1197,7 @@ function migrateForMenuEntities() {
       const sectionEntity = create(requireEntity('Menu', typeRootName), typeMenuSectionName, sectionName, SEED_USER_ID);
       const existingSectionVocabWord = Entity.get(section.label);
       if (existingSectionVocabWord) {
-        supersedeEntity(sectionEntity.id, { relation: section.label }, SEED_USER_ID);
+        Entity.relate(sectionEntity.id, section.label, SEED_USER_ID);
       }
     }
 
@@ -1238,7 +1238,7 @@ function migrateForMenuEntities() {
 
       const existingVocabWord = Entity.get(link.label);
       if (existingVocabWord) {
-        supersedeEntity(linkEntity.id, { relation: link.label }, SEED_USER_ID);
+        Entity.relate(linkEntity.id, link.label, SEED_USER_ID);
       }
     }
   }
@@ -1252,10 +1252,11 @@ function migrateForMenuEntities() {
  * Sale/Purchase screens they belong next to, in Accounts
  * Receivable/Accounts Payable. The `sections` array above already
  * reflects this as the real, current layout for a brand-new database;
- * this function reparents the existing entities (via supersedeEntity,
- * the same rename/reparent primitive already used above for
- * Vocabulary-collision handling) for a database that was seeded under
- * the old layout, so nothing here needs a reset-db to pick this up.
+ * this function reparents the existing entities (via Entity.rename/
+ * Entity.reparent/Entity.relate, the same driver-backed primitives
+ * already used above for Vocabulary-collision handling) for a database
+ * that was seeded under the old layout, so nothing here needs a
+ * reset-db to pick this up.
  * Deliberately runs BEFORE migrateForMenuEntities() below: it renames/
  * reparents each stale entity to the exact name its NEW location would
  * otherwise auto-create, so migrateForMenuEntities()'s own per-item
@@ -1284,9 +1285,16 @@ function migrateForMenuReorg(): void {
     // otherwise keeps winning over the renamed entity's own bare name
     // in getMenuTree()'s real_label fallback (confirmed directly,
     // by inspecting the raw rows after a first, incomplete attempt).
-    const update: EntityUpdate = { name: newName, parent: `Menu Section: ${newSectionLabel}` };
-    if (newRelation !== undefined) update.relation = newRelation;
-    supersedeEntity(row.id, update, SEED_USER_ID);
+    // Three separate driver calls instead of one combined EntityUpdate row —
+    // same final state (rename + reparent + optional relate), just one more
+    // historical version per field than the single raw INSERT INTO
+    // entity_update this replaced would have produced. Each of
+    // rename/reparent/relate already only ever touches its own one field
+    // (confirmed directly by reading entities.sld), so this is behaviorally
+    // identical on both drivers, not an approximation.
+    Entity.rename(row.id, newName, SEED_USER_ID);
+    Entity.reparent(row.id, `Menu Section: ${newSectionLabel}`, SEED_USER_ID);
+    if (newRelation !== undefined && newRelation !== null) Entity.relate(row.id, newRelation, SEED_USER_ID);
   }
 
   ensureSection('test');

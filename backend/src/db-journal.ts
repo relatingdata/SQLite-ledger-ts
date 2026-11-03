@@ -13,7 +13,6 @@ import {
   asProviderName,
   asItemName,
   asLocationName,
-  supersedeEntity,
   getContact,
   setHierarchyParent,
   setRelationship,
@@ -964,34 +963,44 @@ export function getPeriodLockStatus(business: BusinessName, ledger: LedgerName):
   const ledgerEntity = resolveLedgerEntity(business, ledger);
   if (!ledgerEntity) return { locked_through_date: null, changed_by: null, changed_at: null };
   const lockEntityPrefix = `${business} — ${ledger} — Period Lock`;
-  const row = db
-    .prepare(`SELECT name, created_at, created_by FROM current_entities WHERE name LIKE ? AND parent_id = ?`)
-    .get(`${lockEntityPrefix}%`, ledgerEntity.id) as { name: string; created_at: string; created_by: number } | undefined;
+  // Genuine substring search (the prefix-match "%" is a suffix wildcard on a
+  // known literal prefix, so findByNameContaining's own "%fragment%" isn't
+  // quite it either — but since this node is always the ONLY current child
+  // of this ledger whose name starts with lockEntityPrefix, by construction
+  // (ensurePeriodLockEntity below never creates a second one), scoping to
+  // this ledger's children and filtering by prefix in TypeScript is exactly
+  // equivalent, not an approximation.
+  const row = Entity.children(ledgerEntity.id).find((e) => e.name.startsWith(lockEntityPrefix));
   if (!row) return { locked_through_date: null, changed_by: null, changed_at: null };
+  // created_at/created_by aren't part of EntityNode/EntityDriver at all (no
+  // driver method exposes them) — a genuine interface gap, not something
+  // this conversion can route through entityDriver honestly. Left as one
+  // narrow, by-id raw read rather than silently calling db.ts's getEntity
+  // (the SQL backing primitive proper, not a sanctioned general-purpose
+  // helper) to fetch the same two fields.
+  const timestamps = db.prepare(`SELECT created_at, created_by FROM current_entities WHERE id = ?`).get(row.id) as { created_at: string; created_by: number };
   const suffix = row.name.slice(lockEntityPrefix.length);
   const throughDate = suffix.startsWith(' — Locked through ') ? suffix.slice(' — Locked through '.length) : null;
-  return { locked_through_date: throughDate, changed_by: row.created_by, changed_at: row.created_at };
+  return { locked_through_date: throughDate, changed_by: timestamps.created_by, changed_at: timestamps.created_at };
 }
 
 function ensurePeriodLockEntity(business: BusinessName, ledger: LedgerName, userId: UserId): { id: number; name: string } {
   const ledgerEntity = resolveLedgerEntity(business, ledger);
   if (!ledgerEntity) throw new ValidationError(`No real ledger "${ledger}" under business "${business}".`);
   const lockEntityPrefix = `${business} — ${ledger} — Period Lock`;
-  const existing = db
-    .prepare(`SELECT id, name FROM current_entities WHERE name LIKE ? AND parent_id = ?`)
-    .get(`${lockEntityPrefix}%`, ledgerEntity.id) as { id: number; name: string } | undefined;
+  const existing = Entity.children(ledgerEntity.id).find((e) => e.name.startsWith(lockEntityPrefix));
   if (existing) return existing;
   return Entity.create(`${lockEntityPrefix} — Open`, ledgerEntity.id, userId);
 }
 
 export function closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string, userId: UserId): void {
   const lockEntity = ensurePeriodLockEntity(business, ledger, userId);
-  supersedeEntity(lockEntity.id, { name: `${business} — ${ledger} — Period Lock — Locked through ${throughDate}` }, userId);
+  Entity.rename(lockEntity.id, `${business} — ${ledger} — Period Lock — Locked through ${throughDate}`, userId);
 }
 
 export function reopenPeriod(business: BusinessName, ledger: LedgerName, userId: UserId): void {
   const lockEntity = ensurePeriodLockEntity(business, ledger, userId);
-  supersedeEntity(lockEntity.id, { name: `${business} — ${ledger} — Period Lock — Open` }, userId);
+  Entity.rename(lockEntity.id, `${business} — ${ledger} — Period Lock — Open`, userId);
 }
 
 export function assertPeriodOpen(business: BusinessName, ledger: LedgerName, transdate: string): void {
