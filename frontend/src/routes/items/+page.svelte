@@ -128,9 +128,9 @@
       if (builtLines.length > 0) {
         const valueReference = `${reference}-VALUE`;
         for (const line of builtLines) {
-          await stageLine({ reference: valueReference, business, ledger, account: asAccountName(line.account), amount_minor: line.amount_minor }, 'Receive Into Storage');
+          await stageLine({ reference: valueReference, business, ledger, account: asAccountName(line.account), amount_minor: line.amount_minor });
         }
-        await postJournalEntry(valueReference, business, ledger, 'Receive Into Storage');
+        await postJournalEntry(valueReference, business, ledger);
       }
       receiveMessage = translations.current['Stock received.'] ?? 'Stock received.';
       receiveQuantity = '';
@@ -327,7 +327,7 @@
     addingItem = true;
     itemAddError = '';
     try {
-      await createEntity({ name: newItemNameField, parentId: root.id }, 'Create Entity');
+      await createEntity({ name: newItemNameField, parentId: root.id });
       // setItem ensures the item row exists immediately — see docs/pm-frontend-reference.md.
       await setItem(newItemNameField, { description: null, unit_of_measure: null, upc: null });
       await setHierarchyTag(newItemNameField, 'Category', categoryName);
@@ -356,7 +356,7 @@
     addingItem = true;
     itemAddError = '';
     try {
-      await createEntity({ name: newItemNameField, parentId: root.id }, 'Create Entity');
+      await createEntity({ name: newItemNameField, parentId: root.id });
       await setItem(newItemNameField, { description: null, unit_of_measure: null, upc: null });
       const created = newItemNameField;
       newItemNameField = '';
@@ -464,7 +464,7 @@
         packageQuantity: sourcePackageQty ? Math.round(Math.abs(Number(sourcePackageQty))) : null,
         isPreferred: sourcePreferred,
         preferenceNotes: sourceNotes || null,
-      }, 'Set Item Cost and Pack Size');
+      });
       sources = await listItemSources(asItemName(selectedName));
       if (session.current?.businessName) items = (await listItems(session.current.businessName)).rows;
       sourceManufacturer = '';

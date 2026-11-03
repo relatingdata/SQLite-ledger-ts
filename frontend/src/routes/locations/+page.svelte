@@ -109,15 +109,15 @@
       });
       const reference = freshReference('STORAGE-OPEN');
       for (const line of built.spaceLines) {
-        await stageLine({ reference, business, ledger, account: asAccountName(line.account), accountId: line.accountId, amount_minor: line.amount_minor }, 'Open Container');
+        await stageLine({ reference, business, ledger, account: asAccountName(line.account), accountId: line.accountId, amount_minor: line.amount_minor });
       }
-      await postJournalEntry(reference, business, ledger, 'Open Container');
+      await postJournalEntry(reference, business, ledger);
       if (built.valueLines.length > 0) {
         const valueReference = `${reference}-ITEM-VALUE`;
         for (const line of built.valueLines) {
-          await stageLine({ reference: valueReference, business, ledger, account: asAccountName(line.account), accountId: line.accountId, amount_minor: line.amount_minor }, 'Open Container');
+          await stageLine({ reference: valueReference, business, ledger, account: asAccountName(line.account), accountId: line.accountId, amount_minor: line.amount_minor });
         }
-        await postJournalEntry(valueReference, business, ledger, 'Open Container');
+        await postJournalEntry(valueReference, business, ledger);
       }
       storageActionMessage = translations.current['Container opened.'] ?? 'Container opened.';
       openContainerUnitsProduced = '';

@@ -131,7 +131,7 @@
           taxAccount,
           paymentMethod,
           transdate,
-        }, 'Cash Purchase');
+        });
         result = { invoiceId: res.invoiceId, reference: res.reference, totalMinor: res.totalMinor };
       } else {
         const res = await completePosSale({
@@ -143,7 +143,7 @@
           taxAccount,
           paymentMethod,
           transdate,
-        }, 'Cash Sale');
+        });
         result = { invoiceId: res.invoiceId, reference: res.reference, totalMinor: res.totalMinor };
       }
       lines = [];

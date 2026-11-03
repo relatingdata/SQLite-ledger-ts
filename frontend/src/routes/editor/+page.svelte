@@ -247,9 +247,9 @@
     try {
       // Routes to createProvider/createCustomer, not plain createEntity — see docs/pm-frontend-reference.md.
       if (newParent === 'Accounts Payable' && !newRelation) {
-        await createProvider(newName, 'Create Provider');
+        await createProvider(newName);
       } else if (newParent === 'Customers' && !newRelation) {
-        await createCustomer(newName, 'Create Customer');
+        await createCustomer(newName);
       } else {
         await createEntity({
           name: newName,

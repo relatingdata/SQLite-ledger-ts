@@ -58,11 +58,16 @@ app.use('/api/i18n', i18nRouter);
 app.use('/api/businesses', requireAuth, businessesRouter);
 // The new ASCII-CSV call protocol (see routes/call.ts, call-dispatch.ts) -
 // its own plain-text body parser, deliberately not express.json(): this
-// path carries no JSON in either direction. requireAuth still applies;
-// per-screen role checks (e.g. Create Business's Administrator-only gate)
-// live inside call-dispatch.ts itself, same information req.user already
-// carries.
-app.use('/api/call', requireAuth, express.text({ type: () => true }), callRouter);
+// path carries no JSON in either direction. Deliberately NOT mounted
+// with requireAuth: some real functions (customer self-registration/
+// login at a self-service terminal) must stay public, same as
+// authRouter/i18nRouter already mix public and gated routes on one
+// mount. attachUser (above) still sets req.user whenever a valid token
+// is present; every function that needs one calls requireAuth/
+// requireRole/requireGlobalRole itself (call-dispatch.ts), the same
+// checks the old per-path middleware made, just explicit per call
+// instead of implicit per mount.
+app.use('/api/call', express.text({ type: () => true }), callRouter);
 app.use('/api/journal', requireAuth, journalRouter);
 app.use('/api/arap', requireAuth, requireRole('Administrator', 'Bookkeeper'), arAPRouter);
 app.use('/api/quotations', requireAuth, requireRole('Administrator', 'Bookkeeper'), quotationsRouter);

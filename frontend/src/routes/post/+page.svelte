@@ -182,9 +182,9 @@
             account: asAccountName(line.account),
             amount_minor: line.amount_minor,
             memo: line.memo,
-          }, 'Stage Journal Line');
+          });
         }
-        await postJournalEntry(reference, asBusinessName(business), asLedgerName(ledger), 'Post Journal Entry');
+        await postJournalEntry(reference, asBusinessName(business), asLedgerName(ledger));
       } else {
         await createRecurringJournal(
           asBusinessName(business),

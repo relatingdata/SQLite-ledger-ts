@@ -3,43 +3,64 @@
 // parser - deliberately not express.json() - since this path carries no
 // JSON at all, in either direction.
 //
-// Request body: one CSV line, `screenName,value1,value2,...` - plain
+// Request body: a first CSV line, `screenName,value1,value2,...` - plain
 // positional values, in the exact order the matching BACKEND_FUNCTIONS
 // entry expects them (documented at each entry in call-dispatch.ts).
-// Deliberately NOT shared-fixtures/screens.csv's own field list:
-// screens.csv describes a screen's real DOM fields for UI-driven test
-// automation, which for "Create Business" is a different, narrower set
-// (businessType/homeCurrency, no entityStructure/partnerNames/
-// financialYearStart/reportingFrequency) than the real backend
-// function's own full parameter list this protocol has to carry -
-// confirmed by direct inspection, not assumed. Reusing it here would
-// silently drop real parameters, so this protocol defines its own
-// positional order per screen instead.
+// Deliberately NOT shared-fixtures/screens.csv's own field list in
+// general: screens.csv describes a screen's real DOM fields for
+// UI-driven test automation, which for several real screens (confirmed
+// directly, e.g. "Create Business") is a different, narrower set than
+// the real backend function's own full parameter list this protocol has
+// to carry. This protocol defines its own positional order per function
+// instead, documented at each BACKEND_FUNCTIONS entry.
 //
-// Response body: one CSV line. First field is "ok" or "error". On
-// success, the remaining fields are the result's own values in a
-// screen-specific, fixed order (today: Create Business only, documented
-// inline below). On error, field 2 is the error message and the HTTP
-// status code carries the real status (401/403/404/409/500), same as
-// the JSON routes already do.
+// Some real functions (completePosSale, completeCashPurchase, and
+// others with a genuine, caller-variable-length array-of-records input -
+// a shopping cart's lines, a journal's lines, an invoice's lines) can't
+// fit that one scalar line alone. For these, every body line AFTER the
+// first is one more record of that array, in the exact column order that
+// BACKEND_FUNCTIONS entry documents for its own line-items - the same
+// "extra lines are more rows" idea the table RESPONSE already uses,
+// applied to the request side. A function that takes no such array
+// simply never reads the lineItems parameter, and zero extra lines is
+// exactly "no records" - not an error.
+//
+// Response body, two shapes, both built by the BACKEND_FUNCTIONS entry
+// itself (call-dispatch.ts's CallResult), never guessed here:
+//   - a scalar result: one line, "ok,value1,value2,...".
+//   - a tabular/list result (anything that's really an array of
+//     records - most GETs): line 1 is bare "ok", line 2 is the header
+//     row, lines 3+ are one data row each (possibly zero). Line count
+//     alone disambiguates the two: a scalar result is always exactly
+//     one line; a table result is always at least two.
+// On error: one line, "error,message" - the real HTTP status code
+// (401/403/404/409/500) carries the actual status, same as the old
+// JSON routes.
 import { Router } from 'express';
-import { splitCsvLine, csvField, unescapeAscii } from '../../../shared-fixtures/csv.js';
+import { splitCsvLine, csvField, unescapeAscii, writeCsv } from '../../../shared-fixtures/csv.js';
 import { callBackendFunction, CallError } from '../call-dispatch.js';
 
 export const callRouter = Router();
 
 callRouter.post('/', (req, res) => {
   const body = typeof req.body === 'string' ? req.body : '';
-  const line = body.split('\n')[0] ?? '';
+  const bodyLines = body.split('\n').filter((l) => l.length > 0);
+  const line = bodyLines[0] ?? '';
   const parts = splitCsvLine(line).map(unescapeAscii);
   const screenName = parts[0];
   if (!screenName) {
-    res.status(400).type('text/csv').send('error,' + csvField('Request body must be one CSV line: screenName,value1,value2,...'));
+    res.status(400).type('text/csv').send('error,' + csvField('Request body must be at least one CSV line: screenName,value1,value2,...'));
     return;
   }
+  const lineItems = bodyLines.slice(1).map((l) => splitCsvLine(l).map(unescapeAscii));
   try {
-    const result = callBackendFunction(screenName, parts.slice(1), req.user);
-    res.type('text/csv').send('ok,' + resultToCsvFields(screenName, result).map(csvField).join(','));
+    const result = callBackendFunction(screenName, parts.slice(1), req.user, lineItems);
+    if (result.kind === 'row') {
+      res.type('text/csv').send('ok,' + result.values.map(csvField).join(','));
+    } else {
+      const rows = result.rows.map((r) => Object.fromEntries(result.header.map((h, i) => [h, r[i] ?? ''])));
+      res.type('text/csv').send('ok\n' + writeCsv(rows, result.header));
+    }
   } catch (err) {
     if (err instanceof CallError) {
       res.status(err.status).type('text/csv').send('error,' + csvField(err.message));
@@ -49,15 +70,3 @@ callRouter.post('/', (req, res) => {
     res.status(500).type('text/csv').send('error,' + csvField('Internal error.'));
   }
 });
-
-// Per-screen result shape - a plain, fixed field order, same spirit as
-// screens.csv's own field order for requests. Only "Create Business" is
-// converted so far; extend this alongside BACKEND_FUNCTIONS as further
-// screens move onto this protocol.
-function resultToCsvFields(screenName: string, result: unknown): string[] {
-  if (screenName === 'Create Business') {
-    const r = result as { business: string; actualLedger: string; budgetLedger: string; businessAdmin: { username: string; password: string } };
-    return [r.business, r.actualLedger, r.budgetLedger, r.businessAdmin.username, r.businessAdmin.password];
-  }
-  return [];
-}

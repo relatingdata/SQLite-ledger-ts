@@ -130,14 +130,18 @@ function splitCsvLine(line: string): string[] {
   return fields;
 }
 
-// Calls the one, generic /api/call endpoint: screenName plus its
-// positional values (see call-dispatch.ts for each screen's own,
-// documented order), no JSON anywhere, in either direction.
-async function callScreen<T>(screenName: string, values: (string | undefined)[], parseResult: (fields: string[]) => T): Promise<T> {
+// Calls the one, generic /api/call endpoint: name plus its positional
+// values (see backend/src/call-dispatch/*.ts for each function's own,
+// documented order), no JSON anywhere, in either direction. Returns the
+// raw response lines (already CSV-split and unescaped); callRow/
+// callTable below interpret them per backend/src/routes/call.ts's two
+// response shapes (a scalar 'row' is always exactly one line, a 'table'
+// is always at least two: header, then zero or more data rows).
+async function callRaw(name: string, values: (string | undefined)[]): Promise<string[][]> {
   const current = auth.current;
   const headers: Record<string, string> = { 'Content-Type': 'text/csv' };
   if (current) headers.Authorization = `Bearer ${current.token}`;
-  const line = [screenName, ...values.map((v) => v ?? '')].map(csvField).join(',');
+  const line = [name, ...values.map((v) => v ?? '')].map(csvField).join(',');
   let res: Response;
   try {
     res = await fetch(`${BASE}/call`, { method: 'POST', headers, body: line });
@@ -145,11 +149,60 @@ async function callScreen<T>(screenName: string, values: (string | undefined)[],
     throw new ApiError(0, `Can't reach the backend at ${BASE}. Make sure it's running (cd backend && npm run dev).`);
   }
   if (res.status === 401) auth.clear();
-  const text = await res.text();
-  const fields = splitCsvLine(text.split('\n')[0] ?? '').map(unescapeAscii);
-  if (fields[0] === 'error') throw new ApiError(res.status, fields[1] ?? res.statusText);
-  return parseResult(fields.slice(1));
+  const lines = text_lines(await res.text());
+  const firstFields = splitCsvLine(lines[0] ?? '').map(unescapeAscii);
+  if (firstFields[0] === 'error') throw new ApiError(res.status, firstFields[1] ?? res.statusText);
+  return lines.map((l) => splitCsvLine(l).map(unescapeAscii));
 }
+function text_lines(text: string): string[] {
+  return text.split('\n').filter((l) => l.length > 0);
+}
+
+// A scalar result: exactly one response line, "ok,value1,value2,...".
+async function callRow<T>(name: string, values: (string | undefined)[], parseResult: (fields: string[]) => T): Promise<T> {
+  const lines = await callRaw(name, values);
+  return parseResult(lines[0].slice(1));
+}
+
+// A tabular/list result: line 1 is bare "ok", line 2 is the header row,
+// lines 3+ are one data row each (possibly zero rows).
+async function callTable<T>(name: string, values: (string | undefined)[], parseRow: (fields: Record<string, string>) => T): Promise<T[]> {
+  const lines = await callRaw(name, values);
+  if (lines.length < 2) return [];
+  const header = lines[1];
+  return lines.slice(2).map((fields) => parseRow(Object.fromEntries(header.map((h, i) => [h, fields[i] ?? '']))));
+}
+
+// Same wire call as callRaw, but for a function whose real input
+// includes a genuine, caller-variable-length array of records (a
+// shopping cart's lines, a journal's lines) - every lineItems row
+// becomes one more CSV line in the request body, after the first
+// (see backend/src/routes/call.ts). Each row's own column order is
+// documented at that function's BACKEND_FUNCTIONS entry.
+async function callRawWithLines(name: string, values: (string | undefined)[], lineItems: (string | undefined)[][]): Promise<string[][]> {
+  const current = auth.current;
+  const headers: Record<string, string> = { 'Content-Type': 'text/csv' };
+  if (current) headers.Authorization = `Bearer ${current.token}`;
+  const firstLine = [name, ...values.map((v) => v ?? '')].map(csvField).join(',');
+  const itemLines = lineItems.map((item) => item.map((v) => csvField(v ?? '')).join(','));
+  const body = [firstLine, ...itemLines].join('\n');
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/call`, { method: 'POST', headers, body });
+  } catch {
+    throw new ApiError(0, `Can't reach the backend at ${BASE}. Make sure it's running (cd backend && npm run dev).`);
+  }
+  if (res.status === 401) auth.clear();
+  const lines = text_lines(await res.text());
+  const firstFields = splitCsvLine(lines[0] ?? '').map(unescapeAscii);
+  if (firstFields[0] === 'error') throw new ApiError(res.status, firstFields[1] ?? res.statusText);
+  return lines.map((l) => splitCsvLine(l).map(unescapeAscii));
+}
+async function callRowWithLines<T>(name: string, values: (string | undefined)[], lineItems: (string | undefined)[][], parseResult: (fields: string[]) => T): Promise<T> {
+  const lines = await callRawWithLines(name, values, lineItems);
+  return parseResult(lines[0].slice(1));
+}
+
 
 async function request<T>(path: string, init?: RequestInit, screenName?: string): Promise<T> {
   const current = auth.current;
@@ -193,36 +246,64 @@ export interface EntityNode {
   is_postable_account: boolean;
 }
 
+function parseEntityNode(f: Record<string, string>): EntityNode {
+  return {
+    id: Number(f.id),
+    name: f.name,
+    parent_id: f.parent_id === '' ? null : Number(f.parent_id),
+    relation_id: f.relation_id === '' ? null : Number(f.relation_id),
+    accountnumber: f.accountnumber || null,
+    balance_minor: f.balance_minor === '' ? null : Number(f.balance_minor),
+    currency: f.currency || null,
+    depth: Number(f.depth),
+    is_postable_account: f.is_postable_account === 'true',
+  };
+}
 // business scopes the tree to just that business's own subtree - a performance fix for screens
 // that only ever need one business's locations/items/contacts/ledgers, not the whole system's
 // entity tree (every business, every CoA prototype, all vocabulary). Omitted, unchanged: the
 // full tree, still needed by admin-style screens (Entity Tree, CoA prototype pickers).
-export const getEntityTree = (business?: string) =>
-  request<EntityNode[]>(`/entities${business ? `?business=${encodeURIComponent(business)}` : ''}`);
+export const getEntityTree = (business?: string) => callTable('getEntityTree', [business], parseEntityNode);
 
 export interface HierarchyLinkPointingAt {
   entityName: string;
   hierarchyName: string;
 }
-export const getHierarchyLinksPointingAt = (entityId: number) => request<HierarchyLinkPointingAt[]>(`/entities/${entityId}/hierarchy-links`);
+function parseHierarchyLinkPointingAt(f: Record<string, string>): HierarchyLinkPointingAt {
+  return { entityName: f.entityName, hierarchyName: f.hierarchyName };
+}
+export const getHierarchyLinksPointingAt = (entityId: number) => callTable('getHierarchyLinksPointingAt', [String(entityId)], parseHierarchyLinkPointingAt);
 
-export const createEntity = (data: { name: string; parent?: string | null; parentId?: number | null; relation?: string | null; accountnumber?: string | null }, screenName?: string) =>
-  request<EntityNode>('/entities', { method: 'POST', body: JSON.stringify(data) }, screenName);
+function parseEntityNodeRow(f: string[]): EntityNode {
+  return {
+    id: Number(f[0]),
+    name: f[1],
+    parent_id: f[2] === '' ? null : Number(f[2]),
+    relation_id: f[3] === '' ? null : Number(f[3]),
+    accountnumber: f[4] || null,
+    balance_minor: f[5] === '' ? null : Number(f[5]),
+    currency: f[6] || null,
+    depth: 0,
+    is_postable_account: false,
+  };
+}
+export const createEntity = (data: { name: string; parent?: string | null; parentId?: number | null; relation?: string | null; accountnumber?: string | null }) =>
+  callRow('createEntity', [data.name, data.parent ?? undefined, data.parentId != null ? String(data.parentId) : undefined, data.relation ?? undefined, data.accountnumber ?? undefined], parseEntityNodeRow);
 export const setEntityRelationship = (entityName: string, relationshipType: string, targetName: string) =>
-  request<void>('/entities/relationship', { method: 'POST', body: JSON.stringify({ entityName, relationshipType, targetName }) });
+  callRow('setEntityRelationship', [entityName, relationshipType, targetName], () => undefined);
 
 // See docs/pm-frontend-reference.md.
-export const createProvider = (name: string, screenName?: string) => request<EntityNode>('/entities/contact', { method: 'POST', body: JSON.stringify({ type: 'vendor', name }) }, screenName);
-export const createCustomer = (name: string, screenName?: string) => request<EntityNode>('/entities/contact', { method: 'POST', body: JSON.stringify({ type: 'customer', name }) }, screenName);
-export const createEmployeeContact = (name: string, placeOfEmployment: string, screenName?: string) =>
-  request<EntityNode>('/entities/contact', { method: 'POST', body: JSON.stringify({ type: 'employee', name, placeOfEmployment }) }, screenName);
+export const createProvider = (name: string) => callRow('createProvider', [name], (f) => ({ id: Number(f[0]) }));
+export const createCustomer = (name: string) => callRow('createCustomer', [name], (f) => ({ id: Number(f[0]) }));
+export const createEmployeeContact = (name: string, placeOfEmployment: string) =>
+  callRow('createEmployeeContact', [name, placeOfEmployment], (f) => ({ id: Number(f[0]) }));
 
 export const supersedeEntity = (
   id: number,
   data: { name?: string; parent?: string | null; relation?: string | null; accountnumber?: string | null }
-) => request<EntityNode>(`/entities/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+) => callRow('supersedeEntity', [String(id), data.name ?? undefined, data.parent ?? undefined, data.relation ?? undefined, data.accountnumber ?? undefined], parseEntityNodeRow);
 
-export const revokeEntity = (id: number) => request<void>(`/entities/${id}`, { method: 'DELETE' });
+export const revokeEntity = (id: number) => callRow('revokeEntity', [String(id)], () => undefined);
 
 export interface ReportRow {
   report: string;
@@ -377,7 +458,33 @@ export interface MenuSectionRow {
   label: string;
   links: MenuLinkRow[];
 }
-export const getMenuTree = (businessName?: string) => request<MenuSectionRow[]>(`/menu${businessName ? `?business=${encodeURIComponent(businessName)}` : ''}`);
+// Converted off the old JSON '/menu' route onto the call protocol.
+// getMenuTree's two-level sections->links shape arrives flattened (one
+// row per link, a no-link section as one row with empty link_* fields)
+// - reassembled into the same MenuSectionRow[] shape every caller
+// already expects, so no component needs to change.
+export const getMenuTree = async (businessName?: string): Promise<MenuSectionRow[]> => {
+  const flatRows = await callTable('getMenuTree', [businessName], (f) => f);
+  const sections = new Map<string, MenuSectionRow>();
+  for (const f of flatRows) {
+    let section = sections.get(f.section_key);
+    if (!section) {
+      section = { key: f.section_key, label: f.section_label, links: [] };
+      sections.set(f.section_key, section);
+    }
+    if (f.link_key) {
+      section.links.push({
+        key: f.link_key,
+        href: f.link_href,
+        label: f.link_label,
+        notImplemented: f.link_notImplemented === 'true',
+        isSubheading: f.link_isSubheading === 'true',
+        requiredRoles: f.link_requiredRoles ? f.link_requiredRoles.split('|') : null,
+      });
+    }
+  }
+  return [...sections.values()];
+};
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
 // export const setMenuOverride = (menuItemKey: string, scope: 'business' | 'user', scopeId: number, overrideLabel: string | null, hidden: boolean) =>
 //   request<{ ok: true }>('/menu/override', { method: 'POST', body: JSON.stringify({ menuItemKey, scope, scopeId, overrideLabel, hidden }) });
@@ -438,84 +545,112 @@ export interface LedgerDateRange {
 }
 export const getLedgerDateRange = (business: BusinessName, ledger: LedgerName) => request<LedgerDateRange>(`/reports/ledger-date-range?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}`);
 
-export const getLanguages = () => request<{ id: number; name: string }[]>('/i18n/languages');
-export const getLanguageDirection = (language: string) => request<{ direction: 'LTR' | 'RTL' }>(`/i18n/language-direction/${encodeURIComponent(language)}`);
-export const setLanguageDirection = (language: string, direction: 'LTR' | 'RTL' | null) =>
-  request<void>(`/i18n/language-direction/${encodeURIComponent(language)}`, { method: 'PUT', body: JSON.stringify({ direction }) });
-export const getDefaultLanguage = () => request<{ language: string | null }>('/i18n/default-language');
-export const setDefaultLanguage = (language: string) =>
-  request<void>('/i18n/default-language', { method: 'PUT', body: JSON.stringify({ language }) });
-export const getLocalizedText = (language: string, businessName?: string) =>
-  request<Record<string, string>>(`/i18n/text/${encodeURIComponent(language)}${businessName ? `?business=${encodeURIComponent(businessName)}` : ''}`);
+export const getLanguages = () => callTable('getLanguages', [], (f) => ({ id: Number(f.id), name: f.name }));
+export const getLanguageDirection = (language: string) => callRow('getLanguageDirection', [language], (f): { direction: 'LTR' | 'RTL' } => ({ direction: f[0] as 'LTR' | 'RTL' }));
+export const setLanguageDirection = (language: string, direction: 'LTR' | 'RTL' | null) => callRow('setLanguageDirection', [language, direction ?? ''], () => undefined);
+export const getDefaultLanguage = () => callRow('getDefaultLanguage', [], (f): { language: string | null } => ({ language: f[0] || null }));
+export const setDefaultLanguage = (language: string) => callRow('setDefaultLanguage', [language], () => undefined);
+export const getLocalizedText = async (language: string, businessName?: string): Promise<Record<string, string>> => {
+  const rows = await callTable('getLocalizedText', [language, businessName], (f) => ({ entity: f.entity, text: f.text }));
+  return Object.fromEntries(rows.map((r) => [r.entity, r.text]));
+};
 
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
-// export const getVocabularyAlternates = (word: string) => request<string[]>(`/i18n/vocabulary-alternates/${encodeURIComponent(word)}`);
+// export const getVocabularyAlternates = (word: string) => callTable('getVocabularyAlternates', [word], (f) => f.name);
 
 export interface ConceptWithAlternates {
   headerAccountName: string;
   alternates: string[];
   defaultAlternate: string;
 }
-export const getConceptsWithAlternates = () => request<ConceptWithAlternates[]>('/i18n/concepts-with-alternates');
+export const getConceptsWithAlternates = () =>
+  callTable('getConceptsWithAlternates', [], (f): ConceptWithAlternates => ({ headerAccountName: f.headerAccountName, alternates: decodeStringList(f.alternates), defaultAlternate: f.defaultAlternate }));
 
 export interface VocabularyWord {
   name: string;
   translations: Record<string, string>;
 }
-export const getVocabularyWords = () => request<VocabularyWord[]>('/i18n/vocabulary-words');
+export const getVocabularyWords = async (): Promise<VocabularyWord[]> => {
+  const rows = await callTable('getVocabularyWords', [], (f) => ({ word: f.word, language: f.language, text: f.text }));
+  const byWord = new Map<string, Record<string, string>>();
+  const order: string[] = [];
+  for (const r of rows) {
+    if (!byWord.has(r.word)) {
+      byWord.set(r.word, {});
+      order.push(r.word);
+    }
+    if (r.language !== '') byWord.get(r.word)![r.language] = r.text;
+  }
+  return order.map((name) => ({ name, translations: byWord.get(name)! }));
+};
 // Name-based — see deleteTranslationConcept in db.ts. Refuses (409) while
 // the word is still genuinely translated anywhere, or is a real hierarchy/
 // vocabulary-alternate target.
-export const deleteVocabularyWord = (word: string) => request<void>(`/i18n/vocabulary-words/${encodeURIComponent(word)}`, { method: 'DELETE' });
+export const deleteVocabularyWord = (word: string) => callRow('deleteVocabularyWord', [word], () => undefined);
 
 export const setVocabularyPreference = (conceptName: string, scope: 'business' | 'user', scopeId: number, preferredAlternateName: string) =>
-  request<{ ok: true }>('/i18n/vocabulary-preference', { method: 'POST', body: JSON.stringify({ conceptName, scope, scopeId, preferredAlternateName }) });
+  callRow('setVocabularyPreference', [conceptName, scope, String(scopeId), preferredAlternateName], (): { ok: true } => ({ ok: true }));
 
 export const deleteVocabularyPreference = (conceptName: string, scope: 'business' | 'user', scopeId: number) =>
-  request<{ ok: true }>('/i18n/vocabulary-preference', { method: 'DELETE', body: JSON.stringify({ conceptName, scope, scopeId }) });
-export const setTranslation = (entity: string, language: string, text: string) =>
-  request<void>('/i18n/translations', { method: 'POST', body: JSON.stringify({ entity, language, text }) });
+  callRow('deleteVocabularyPreference', [conceptName, scope, String(scopeId)], (): { ok: true } => ({ ok: true }));
+export const setTranslation = (entity: string, language: string, text: string) => callRow('setTranslation', [entity, language, text], () => undefined);
 
 export interface HierarchyGroupRecord {
   name: string;
   parentName: string | null;
 }
 // Generic replacement for the former, privileged getDivisions() — see docs/pm-frontend-reference.md.
-export const getHierarchyGroups = (hierarchyName: string) => request<HierarchyGroupRecord[]>(`/hierarchy/groups?name=${encodeURIComponent(hierarchyName)}`);
+export const getHierarchyGroups = (hierarchyName: string) =>
+  callTable('getHierarchyGroups', [hierarchyName], (f): HierarchyGroupRecord => ({ name: f.name, parentName: f.parentName || null }));
 
 export interface HierarchyGroupingWithValues {
   grouping: string;
   values: string[];
 }
-export const getHierarchy = (business: string) => request<HierarchyGroupingWithValues[]>(`/hierarchy?business=${encodeURIComponent(business)}`);
-export const getProductShapes = (business: string) => request<[string, string][][]>(`/hierarchy/shapes?business=${encodeURIComponent(business)}`);
+export const getHierarchy = async (business: string): Promise<HierarchyGroupingWithValues[]> => {
+  const rows = await callTable('getHierarchy', [business], (f) => ({ grouping: f.grouping, value: f.value }));
+  const byGrouping = new Map<string, string[]>();
+  const order: string[] = [];
+  for (const r of rows) {
+    if (!byGrouping.has(r.grouping)) {
+      byGrouping.set(r.grouping, []);
+      order.push(r.grouping);
+    }
+    if (r.value !== '') byGrouping.get(r.grouping)!.push(r.value);
+  }
+  return order.map((grouping) => ({ grouping, values: byGrouping.get(grouping)! }));
+};
+export const getProductShapes = async (business: string): Promise<[string, string][][]> => {
+  const rows = await callTable('getProductShapes', [business], (f) => f.shape);
+  return rows.map((encoded) => decodeShape(encoded) ?? []);
+};
 export const createHierarchyGrouping = (business: string, groupingName: string) =>
-  request<{ name: string }>('/hierarchy/groupings', { method: 'POST', body: JSON.stringify({ business, groupingName }) });
+  callRow('createHierarchyGrouping', [business, groupingName], (f): { name: string } => ({ name: f[0] }));
 export const createHierarchyValue = (business: string, groupingName: string, valueName: string, parentValueName?: string | null) =>
-  request<{ name: string }>('/hierarchy/values', { method: 'POST', body: JSON.stringify({ business, groupingName, valueName, parentValueName }) });
+  callRow('createHierarchyValue', [business, groupingName, valueName, parentValueName ?? undefined], (f): { name: string } => ({ name: f[0] }));
 export const defineProductShape = (business: string, dimensions: [string, string][]) =>
-  request<{ dimensions: [string, string][] }>('/hierarchy/shapes', { method: 'POST', body: JSON.stringify({ business, dimensions }) });
+  callRow('defineProductShape', [business, encodeShape(dimensions)], (f): { dimensions: [string, string][] } => ({ dimensions: decodeShape(f[0]) ?? [] }));
 // Name-based, like the creators just above — getHierarchy's own
 // HierarchyGroupingWithValues shape carries no entity ids. See
 // deleteHierarchyGrouping/deleteHierarchyValue in db.ts.
-export const deleteHierarchyGrouping = (business: string, groupingName: string) =>
-  request<void>(`/hierarchy/groupings?business=${encodeURIComponent(business)}&groupingName=${encodeURIComponent(groupingName)}`, { method: 'DELETE' });
+export const deleteHierarchyGrouping = (business: string, groupingName: string) => callRow('deleteHierarchyGrouping', [business, groupingName], () => undefined);
 export const deleteHierarchyValue = (business: string, groupingName: string, valueName: string) =>
-  request<void>(`/hierarchy/values?business=${encodeURIComponent(business)}&groupingName=${encodeURIComponent(groupingName)}&valueName=${encodeURIComponent(valueName)}`, { method: 'DELETE' });
+  callRow('deleteHierarchyValue', [business, groupingName, valueName], () => undefined);
 
 // Generic entity-to-hierarchy-value tagging — see docs/pm-frontend-reference.md.
 export const setHierarchyTag = (entityName: string, hierarchyName: string, parentName: string) =>
-  request<{ entityName: string; hierarchyName: string; parentName: string }>('/hierarchy/parent', { method: 'POST', body: JSON.stringify({ entityName, hierarchyName, parentName }) });
+  callRow('setHierarchyTag', [entityName, hierarchyName, parentName], (f): { entityName: string; hierarchyName: string; parentName: string } => ({ entityName: f[0], hierarchyName: f[1], parentName: f[2] }));
 export const getHierarchyTag = (entityName: string, hierarchyName: string) =>
-  request<{ parentName: string | null }>(`/hierarchy/parent?entityName=${encodeURIComponent(entityName)}&hierarchyName=${encodeURIComponent(hierarchyName)}`);
-export const deleteHierarchyTag = (entityName: string, hierarchyName: string) =>
-  request<void>(`/hierarchy/parent?entityName=${encodeURIComponent(entityName)}&hierarchyName=${encodeURIComponent(hierarchyName)}`, { method: 'DELETE' });
+  callRow('getHierarchyTag', [entityName, hierarchyName], (f): { parentName: string | null } => ({ parentName: f[0] || null }));
+export const deleteHierarchyTag = (entityName: string, hierarchyName: string) => callRow('deleteHierarchyTag', [entityName, hierarchyName], () => undefined);
 // Every real tag for one named hierarchy in one call (entity name ->
 // value name) — builds a real display tree (e.g. Category in the Items
 // catalog) without one request per item or per value. See
 // getHierarchyAssignments in db.ts.
-export const getHierarchyAssignments = (hierarchyName: string) =>
-  request<Record<string, string>>(`/hierarchy/assignments?hierarchyName=${encodeURIComponent(hierarchyName)}`);
+export const getHierarchyAssignments = async (hierarchyName: string): Promise<Record<string, string>> => {
+  const rows = await callTable('getHierarchyAssignments', [hierarchyName], (f) => ({ entityName: f.entityName, parentName: f.parentName }));
+  return Object.fromEntries(rows.map((r) => [r.entityName, r.parentName]));
+};
 
 export const getBusinesses = () => request<{ id: number; name: string }[]>('/businesses');
 export const getBusinessTypes = () => request<{ name: string; questions: string[] }[]>('/businesses/types');
@@ -548,7 +683,7 @@ export const createBusiness = (
   financialYearStart?: string,
   reportingFrequency?: ReportingFrequency
 ) =>
-  callScreen(
+  callRow(
     'Create Business',
     [businessName, financialYearLabel, coaPrototype, secondaryCurrencies?.join('|'), entityStructure, partnerNames?.join('|'), financialYearStart, reportingFrequency],
     (f): { business: BusinessName; actualLedger: string; budgetLedger: string; businessAdmin: { username: string; password: string } } => ({
@@ -612,23 +747,18 @@ export interface StagedLine {
   memo?: string;
 }
 
-export const stageLine = (line: StagedLine, screenName?: string) => request<void>('/journal/staging', { method: 'POST', body: JSON.stringify(line) }, screenName);
+export const stageLine = (line: StagedLine) =>
+  callRow('stageLine', [line.reference, line.business, line.ledger, line.description, line.transdate, line.account, line.accountId != null ? String(line.accountId) : undefined, String(line.amount_minor), line.memo], () => undefined);
 
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
 // export const getStagedLines = (reference: string, business: BusinessName, ledger: LedgerName) =>
-//   request<StagedLine[]>(
-//     `/journal/staging/${encodeURIComponent(reference)}/${encodeURIComponent(business)}/${encodeURIComponent(ledger)}`
-//   );
+//   callTable('getStagedLines', [reference, business, ledger], (f): StagedLine => ({ ... }));
 
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
 // export const removeStagedLine = (reference: string, business: BusinessName, ledger: LedgerName, account: AccountName) =>
-//   request<void>(
-//     `/journal/staging/${encodeURIComponent(reference)}/${encodeURIComponent(business)}/${encodeURIComponent(ledger)}/${encodeURIComponent(account)}`,
-//     { method: 'DELETE' }
-//   );
+//   callRow('removeStagedLine', [reference, business, ledger, account], () => undefined);
 
-export const postJournalEntry = (reference: string, business: BusinessName, ledger: LedgerName, screenName?: string) =>
-  request<void>('/journal/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) }, screenName);
+export const postJournalEntry = (reference: string, business: BusinessName, ledger: LedgerName) => callRow('postJournalEntry', [reference, business, ledger], () => undefined);
 
 export interface JournalSummary {
   journal_id: number;
@@ -641,18 +771,44 @@ export interface JournalSummary {
   total_debit_minor: number;
   total_credit_minor: number;
 }
+function parseJournalSummary(f: Record<string, string>): JournalSummary {
+  return {
+    journal_id: Number(f.journal_id),
+    occurrence_date: f.occurrence_date || null,
+    reference: f.reference,
+    description: f.description,
+    business: f.business as BusinessName,
+    ledger: f.ledger as LedgerName,
+    recurrence: f.recurrence,
+    total_debit_minor: Number(f.total_debit_minor),
+    total_credit_minor: Number(f.total_credit_minor),
+  };
+}
 
-export const listJournalEntries = (business: BusinessName, ledger: LedgerName, limit = 100, offset = 0) =>
-  request<{ rows: JournalSummary[]; totalCount: number }>(
-    `/journal?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}&limit=${limit}&offset=${offset}`
-  );
+export const listJournalEntries = async (business: BusinessName, ledger: LedgerName, limit = 100, offset = 0): Promise<{ rows: JournalSummary[]; totalCount: number }> => {
+  const lines = await callRaw('listJournalEntries', [business, ledger, String(limit), String(offset)]);
+  if (lines.length < 2) return { rows: [], totalCount: 0 };
+  const header = lines[1];
+  const parsed = lines.slice(2).map((fields) => Object.fromEntries(header.map((h, i) => [h, fields[i] ?? ''])));
+  const totalCount = parsed.length > 0 ? Number(parsed[0].totalCount) : 0;
+  const rows = parsed[0]?.reference === '' ? [] : parsed.map(parseJournalSummary);
+  return { rows, totalCount };
+};
 
 export interface JournalDetail extends JournalSummary {
   lines: { account: AccountName; accountnumber: string | null; amount_minor: number; memo: string }[];
 }
 
 export const getJournalEntry = (business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string) =>
-  request<JournalDetail>(`/journal/${journalId}/${occurrenceDate}?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}`);
+  callRow('getJournalEntry', [business, ledger, String(journalId), occurrenceDate], (f): JournalDetail => ({
+    ...parseJournalSummary({ journal_id: f[0], occurrence_date: f[1], reference: f[2], description: f[3], business: f[4], ledger: f[5], recurrence: f[6], total_debit_minor: f[8], total_credit_minor: f[9] }),
+    lines: decodeRecordList(['account', 'accountnumber', 'amount_minor', 'memo'], f[11]).map((l) => ({
+      account: l.account as AccountName,
+      accountnumber: l.accountnumber || null,
+      amount_minor: Number(l.amount_minor),
+      memo: l.memo,
+    })),
+  }));
 
 export interface TrialBalanceComparisonRow {
   id: number;
@@ -788,10 +944,12 @@ export const createRecurringJournal = (
   description?: string,
   recurrenceCount?: number
 ) =>
-  request<void>('/journal/recurring', {
-    method: 'POST',
-    body: JSON.stringify({ business, ledger, reference, startDate, recurrence, lines, description, recurrenceCount }),
-  });
+  callRowWithLines(
+    'createRecurringJournal',
+    [business, ledger, reference, startDate, recurrence, description, recurrenceCount != null ? String(recurrenceCount) : undefined],
+    lines.map((l) => [l.account, String(l.amount_minor), l.memo, l.effective_date]),
+    () => undefined
+  );
 
 export interface ARAPBaseInput {
   reference: string;
@@ -808,17 +966,15 @@ export interface ARAPBaseInput {
 // — confirmed dead (no references anywhere), and their backend route/table/trigger removed too.
 
 export const stageARReceipt = (input: ARAPBaseInput & { customer: string }) =>
-  request<void>('/arap/ar-receipt/stage', { method: 'POST', body: JSON.stringify(input) });
-export const postARReceipt = (reference: string, business: BusinessName, ledger: LedgerName) =>
-  request<void>('/arap/ar-receipt/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+  callRow('stageARReceipt', [input.reference, input.business, input.ledger, input.customer, String(input.amount_minor), input.transdate, input.description], () => undefined);
+export const postARReceipt = (reference: string, business: BusinessName, ledger: LedgerName) => callRow('postARReceipt', [reference, business, ledger], () => undefined);
 
 // stageAPPurchase/postAPPurchase removed entirely (docs/canned-journal-to-frontend-design.md)
 // — confirmed dead (no references anywhere), and their backend route/table/trigger removed too.
 
 export const stageAPPayment = (input: ARAPBaseInput & { vendor: string }) =>
-  request<void>('/arap/ap-payment/stage', { method: 'POST', body: JSON.stringify(input) });
-export const postAPPayment = (reference: string, business: BusinessName, ledger: LedgerName) =>
-  request<void>('/arap/ap-payment/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+  callRow('stageAPPayment', [input.reference, input.business, input.ledger, input.vendor, String(input.amount_minor), input.transdate, input.description], () => undefined);
+export const postAPPayment = (reference: string, business: BusinessName, ledger: LedgerName) => callRow('postAPPayment', [reference, business, ledger], () => undefined);
 
 export interface LoginResponse {
   token: string;
@@ -861,10 +1017,7 @@ export const unsetUserRoleInBusiness = (business: string, username: string, role
   request<void>(`/auth/businesses/${encodeURIComponent(business)}/role-matrix/${encodeURIComponent(username)}/${encodeURIComponent(roleName)}`, { method: 'DELETE' });
 
 export const reverseJournalEntry = (business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, reversalDate?: string) =>
-  request<void>(`/journal/${journalId}/${occurrenceDate}/reverse`, {
-    method: 'POST',
-    body: JSON.stringify({ business, ledger, reversalDate }),
-  });
+  callRow('reverseJournalEntry', [business, ledger, String(journalId), occurrenceDate, reversalDate], () => undefined);
 
 export interface PurchaseOrderInput {
   reference: string;
@@ -878,10 +1031,10 @@ export interface PurchaseOrderInput {
   transdate?: string;
   description?: string;
 }
-export const stagePurchaseOrder = (input: PurchaseOrderInput, screenName?: string) =>
-  request<void>('/stock/po/stage', { method: 'POST', body: JSON.stringify(input) }, screenName);
-export const postPurchaseOrder = (reference: string, business: BusinessName, ledger: LedgerName, screenName?: string) =>
-  request<void>('/stock/po/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) }, screenName);
+export const stagePurchaseOrder = (input: PurchaseOrderInput) =>
+  callRow('stagePurchaseOrder', [input.reference, input.business, input.ledger, input.vendor, input.item, String(input.quantity), String(input.price_minor), input.location, input.transdate, input.description], () => undefined);
+export const postPurchaseOrder = (reference: string, business: BusinessName, ledger: LedgerName) =>
+  callRow('postPurchaseOrder', [reference, business, ledger], () => undefined);
 
 export interface OrderReceiptInput {
   reference: string;
@@ -898,9 +1051,13 @@ export interface OrderReceiptInput {
   description?: string;
 }
 export const stageOrderReceipt = (input: OrderReceiptInput) =>
-  request<void>('/stock/stock-receipt/stage', { method: 'POST', body: JSON.stringify(input) });
+  callRow(
+    'stageOrderReceipt',
+    [input.reference, input.business, input.ledger, input.po_reference, input.item, input.item_qty, input.vendor, String(input.quantity), String(input.value_minor), input.tax_minor === undefined ? undefined : String(input.tax_minor), input.transdate, input.description],
+    () => undefined
+  );
 export const postOrderReceipt = (reference: string, business: BusinessName, ledger: LedgerName) =>
-  request<void>('/stock/stock-receipt/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+  callRow('postOrderReceipt', [reference, business, ledger], () => undefined);
 
 export interface SalesOrderInput {
   reference: string;
@@ -915,9 +1072,9 @@ export interface SalesOrderInput {
   description?: string;
 }
 export const stageSalesOrder = (input: SalesOrderInput) =>
-  request<void>('/stock/so/stage', { method: 'POST', body: JSON.stringify(input) });
+  callRow('stageSalesOrder', [input.reference, input.business, input.ledger, input.customer, input.item, String(input.quantity), String(input.price_minor), input.location, input.transdate, input.description], () => undefined);
 export const postSalesOrder = (reference: string, business: BusinessName, ledger: LedgerName) =>
-  request<void>('/stock/so/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+  callRow('postSalesOrder', [reference, business, ledger], () => undefined);
 
 // Quotations (AR, to a customer) and RFQs (AP, to a provider) — each is
 // a real Sales/Purchase Order staged exactly as one would be, just not
@@ -940,16 +1097,36 @@ export interface QuotationRecord {
   description?: string | null;
   expiryDate?: string | null;
 }
-export const listQuotations = (business: BusinessName, ledger: LedgerName, direction?: QuotationDirection) =>
-  request<QuotationRecord[]>(`/quotations?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${direction ? `&direction=${direction}` : ''}`);
-export const getQuotation = (reference: string) => request<QuotationRecord>(`/quotations/${encodeURIComponent(reference)}`);
+function parseQuotationRecord(f: Record<string, string>): QuotationRecord {
+  return {
+    reference: f.reference,
+    direction: f.direction as QuotationDirection,
+    status: f.status as QuotationStatus,
+    business: f.business,
+    ledger: f.ledger,
+    customer: f.customer || undefined,
+    vendor: f.vendor || undefined,
+    item: f.item,
+    quantity: Number(f.quantity),
+    price_minor: Number(f.price_minor),
+    location: f.location || null,
+    transdate: f.transdate || null,
+    description: f.description || null,
+    expiryDate: f.expiryDate || null,
+  };
+}
+export const listQuotations = (business: BusinessName, ledger: LedgerName, direction?: QuotationDirection) => callTable('listQuotations', [business, ledger, direction], parseQuotationRecord);
+export const getQuotation = async (reference: string): Promise<QuotationRecord> => {
+  const rows = await callTable('getQuotation', [reference], parseQuotationRecord);
+  return rows[0];
+};
 export const createQuotation = (input: SalesOrderInput & { expiryDate?: string }) =>
-  request<void>('/quotations/quotation', { method: 'PUT', body: JSON.stringify(input) });
+  callRow('createQuotation', [input.reference, input.business, input.ledger, input.customer, input.item, String(input.quantity), String(input.price_minor), input.location, input.transdate, input.description, input.expiryDate], () => undefined);
 export const createRfq = (input: PurchaseOrderInput & { expiryDate?: string }) =>
-  request<void>('/quotations/rfq', { method: 'PUT', body: JSON.stringify(input) });
-export const markQuotationSent = (reference: string) => request<void>(`/quotations/${encodeURIComponent(reference)}/sent`, { method: 'POST' });
-export const acceptQuotation = (reference: string) => request<void>(`/quotations/${encodeURIComponent(reference)}/accept`, { method: 'POST' });
-export const rejectQuotation = (reference: string) => request<void>(`/quotations/${encodeURIComponent(reference)}/reject`, { method: 'POST' });
+  callRow('createRfq', [input.reference, input.business, input.ledger, input.vendor, input.item, String(input.quantity), String(input.price_minor), input.location, input.transdate, input.description, input.expiryDate], () => undefined);
+export const markQuotationSent = (reference: string) => callRow('markQuotationSent', [reference], () => undefined);
+export const acceptQuotation = (reference: string) => callRow('acceptQuotation', [reference], () => undefined);
+export const rejectQuotation = (reference: string) => callRow('rejectQuotation', [reference], () => undefined);
 
 export interface OrderDispatchInput {
   reference: string;
@@ -967,12 +1144,30 @@ export interface OrderDispatchInput {
   description?: string;
 }
 export const stageOrderDispatch = (input: OrderDispatchInput) =>
-  request<void>('/stock/stock-dispatch/stage', { method: 'POST', body: JSON.stringify(input) });
+  callRow(
+    'stageOrderDispatch',
+    [
+      input.reference,
+      input.business,
+      input.ledger,
+      input.so_reference,
+      input.item,
+      input.item_qty,
+      input.customer,
+      String(input.quantity),
+      input.unit_cost_minor === undefined ? undefined : String(input.unit_cost_minor),
+      String(input.sale_price_minor),
+      input.tax_minor === undefined ? undefined : String(input.tax_minor),
+      input.transdate,
+      input.description,
+    ],
+    () => undefined
+  );
 export const postOrderDispatch = (reference: string, business: BusinessName, ledger: LedgerName) =>
-  request<void>('/stock/stock-dispatch/post', { method: 'POST', body: JSON.stringify({ reference, business, ledger }) });
+  callRow('postOrderDispatch', [reference, business, ledger], () => undefined);
 
 export const getOrderStatus = (reference: string) =>
-  request<{ quantity: number; value_minor: number }>(`/stock/order-status/${encodeURIComponent(reference)}`);
+  callRow('getOrderStatus', [reference], (f) => ({ quantity: Number(f[0]), value_minor: Number(f[1]) }));
 
 export interface PeriodLockStatus {
   locked_through_date: string | null;
@@ -980,11 +1175,13 @@ export interface PeriodLockStatus {
   changed_at: string | null;
 }
 export const getPeriodStatus = (business: BusinessName, ledger: LedgerName) =>
-  request<PeriodLockStatus>(`/period/status?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}`);
-export const closePeriod = (business: BusinessName, ledger: LedgerName, throughDate: string) =>
-  request<void>('/period/close', { method: 'POST', body: JSON.stringify({ business, ledger, throughDate }) });
-export const reopenPeriod = (business: BusinessName, ledger: LedgerName) =>
-  request<void>('/period/reopen', { method: 'POST', body: JSON.stringify({ business, ledger }) });
+  callRow(
+    'getPeriodStatus',
+    [business, ledger],
+    (f): PeriodLockStatus => ({ locked_through_date: f[0] || null, changed_by: f[1] ? Number(f[1]) : null, changed_at: f[2] || null })
+  );
+export const closePeriod = (business: BusinessName, ledger: LedgerName, throughDate: string) => callRow('closePeriod', [business, ledger, throughDate], () => undefined);
+export const reopenPeriod = (business: BusinessName, ledger: LedgerName) => callRow('reopenPeriod', [business, ledger], () => undefined);
 
 export const changeOwnPassword = (currentPassword: string, newPassword: string) =>
   request<void>('/auth/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) });
@@ -1022,14 +1219,14 @@ export interface ItemSummary {
 //   request<void>(`/items/${encodeURIComponent(itemName)}/storage-origin`, { method: 'PUT', body: JSON.stringify({ origin }) });
 
 export type BomComponent = { component: string; quantity: number; unit: string };
-export const getBomComponents = (itemName: string) => request<{ components: BomComponent[] }>(`/items/${encodeURIComponent(itemName)}/bom`);
-export const setBomComponent = (itemName: string, business: string, componentItem: string, quantity: number, unit: string) =>
-  request<{ components: BomComponent[] }>(`/items/${encodeURIComponent(itemName)}/bom`, {
-    method: 'PUT',
-    body: JSON.stringify({ business, componentItem, quantity, unit }),
-  });
-export const deleteBomComponent = (itemName: string, componentItem: string) =>
-  request<void>(`/items/${encodeURIComponent(itemName)}/bom/${encodeURIComponent(componentItem)}`, { method: 'DELETE' });
+function parseBomComponent(f: Record<string, string>): BomComponent {
+  return { component: f.component, quantity: Number(f.quantity), unit: f.unit };
+}
+export const getBomComponents = async (itemName: string): Promise<{ components: BomComponent[] }> => ({ components: await callTable('getBomComponents', [itemName], parseBomComponent) });
+export const setBomComponent = async (itemName: string, business: string, componentItem: string, quantity: number, unit: string): Promise<{ components: BomComponent[] }> => ({
+  components: await callTable('setBomComponent', [itemName, business, componentItem, String(quantity), unit], parseBomComponent),
+});
+export const deleteBomComponent = (itemName: string, componentItem: string) => callRow('deleteBomComponent', [itemName, componentItem], () => undefined);
 export interface ItemSource {
   id: number;
   item_id: number;
@@ -1059,9 +1256,26 @@ export interface ItemSourceInput {
 }
 
 // business is required — items are scoped per business, see docs/pm-frontend-reference.md.
-export const listItems = (business: string, limit?: number, offset = 0) =>
-  request<{ rows: ItemSummary[]; totalCount: number }>(`/items?business=${encodeURIComponent(business)}${limit != null ? `&limit=${limit}&offset=${offset}` : ''}`);
-export const getItem = (name: string) => request<Item | null>(`/items/${encodeURIComponent(name)}`);
+export const listItems = async (business: string, limit?: number, offset = 0): Promise<{ rows: ItemSummary[]; totalCount: number }> => {
+  const lines = await callRaw('listItems', [business, limit != null ? String(limit) : undefined, limit != null ? String(offset) : undefined]);
+  if (lines.length < 2) return { rows: [], totalCount: 0 };
+  const header = lines[1];
+  const parsed = lines.slice(2).map((fields) => Object.fromEntries(header.map((h, i) => [h, fields[i] ?? ''])));
+  const totalCount = parsed.length > 0 ? Number(parsed[0].totalCount) : 0;
+  const rows: ItemSummary[] = parsed[0]?.name === '' ? [] : parsed.map((f) => ({
+    name: f.name,
+    description: f.description || null,
+    unit_of_measure: f.unit_of_measure || null,
+    upc: f.upc || null,
+    retail_price_minor: f.retail_price_minor ? Number(f.retail_price_minor) : null,
+    source_count: Number(f.source_count),
+    storage_origin: (f.storage_origin || null) as 'Hot' | 'Cold' | null,
+    product: f.product || null,
+  }));
+  return { rows, totalCount };
+};
+export const getItem = (name: string) =>
+  callRow('getItem', [name], (f): Item | null => (f[0] === '0' ? null : { description: f[1] || null, unit_of_measure: f[2] || null, upc: f[3] || null }));
 
 export interface ProductSummary {
   name: string;
@@ -1075,11 +1289,44 @@ export interface ProductSummary {
 // export const setItemProduct = (itemName: string, productName: string | null) =>
 //   request<void>('/products/item-assignment', { method: 'PUT', body: JSON.stringify({ itemName, productName }) });
 export const setItem = (name: string, item: Partial<Item>) =>
-  request<void>(`/items/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify(item) });
-export const listItemSources = (itemName: ItemName) => request<ItemSource[]>(`/items/${encodeURIComponent(itemName)}/sources`);
-export const addOrUpdateItemSource = (itemName: ItemName, source: ItemSourceInput, screenName?: string) =>
-  request<void>(`/items/${encodeURIComponent(itemName)}/sources`, { method: 'POST', body: JSON.stringify(source) }, screenName);
-export const deleteItemSource = (id: number) => request<void>(`/items/sources/${id}`, { method: 'DELETE' });
+  callRow('setItem', [name, item.description ?? undefined, item.unit_of_measure ?? undefined, item.upc ?? undefined], () => undefined);
+function parseItemSource(f: Record<string, string>): ItemSource {
+  return {
+    id: Number(f.id),
+    item_id: Number(f.item_id),
+    item_name: f.item_name,
+    manufacturer_id: f.manufacturer_id ? Number(f.manufacturer_id) : null,
+    manufacturer_name: f.manufacturer_name || null,
+    vendor_id: Number(f.vendor_id),
+    vendor_name: f.vendor_name,
+    vendor_sku: f.vendor_sku || null,
+    vendor_upc: f.vendor_upc || null,
+    price_minor: f.price_minor ? Number(f.price_minor) : null,
+    currency: f.currency || null,
+    package_quantity: f.package_quantity ? Number(f.package_quantity) : null,
+    is_preferred: f.is_preferred === 'true',
+    preference_notes: f.preference_notes || null,
+  };
+}
+export const listItemSources = (itemName: ItemName) => callTable('listItemSources', [itemName], parseItemSource);
+export const addOrUpdateItemSource = (itemName: ItemName, source: ItemSourceInput) =>
+  callRow(
+    'addOrUpdateItemSource',
+    [
+      itemName,
+      source.manufacturerName ?? undefined,
+      source.vendorName,
+      source.vendorSku ?? undefined,
+      source.vendorUpc ?? undefined,
+      source.priceMinor != null ? String(source.priceMinor) : undefined,
+      source.currency ?? undefined,
+      source.packageQuantity != null ? String(source.packageQuantity) : undefined,
+      source.isPreferred ? 'true' : undefined,
+      source.preferenceNotes ?? undefined,
+    ],
+    () => undefined
+  );
+export const deleteItemSource = (id: number) => callRow('deleteItemSource', [String(id)], () => undefined);
 
 // ---------------------------------------------------------------------------
 // Invoices — real multi-line invoices, Credit Notes/Debit Memos, payment
@@ -1267,7 +1514,12 @@ export const writeOffItems = (input: {
   inventoryAccount: string;
   reason: string;
   transdate?: string;
-}) => request<void>('/stock-lots/write-off', { method: 'POST', body: JSON.stringify(input) });
+}) =>
+  callRow(
+    'writeOffItems',
+    [input.business, input.ledger, input.reference, input.itemName, String(input.quantity), String(input.unitCostMinor), input.writeOffExpenseAccount, input.inventoryAccount, input.reason, input.transdate],
+    () => undefined
+  );
 
 export const receiveLot = (input: {
   business: BusinessName;
@@ -1278,7 +1530,12 @@ export const receiveLot = (input: {
   receivedDate: string;
   expirationDate?: string | null;
   quantity: number;
-}) => request<void>('/stock-lots/lots', { method: 'POST', body: JSON.stringify(input) });
+}) =>
+  callRow(
+    'receiveLot',
+    [input.business, input.ledger, input.reference, input.itemName, input.lotNumber, input.receivedDate, input.expirationDate ?? undefined, String(input.quantity)],
+    () => undefined
+  );
 
 export interface ExpiringLot {
   item: string;
@@ -1288,7 +1545,13 @@ export interface ExpiringLot {
   days_until_expiration: number;
 }
 export const getExpiringStock = (asOfDate?: string, withinDays = 30) =>
-  request<ExpiringLot[]>(`/stock-lots/lots/expiring?withinDays=${withinDays}${asOfDate ? `&asOfDate=${asOfDate}` : ''}`);
+  callTable('getExpiringStock', [asOfDate, String(withinDays)], (f) => ({
+    item: f.item,
+    lot_number: f.lot_number,
+    expiration_date: f.expiration_date,
+    quantity_on_hand: Number(f.quantity_on_hand),
+    days_until_expiration: Number(f.days_until_expiration),
+  }));
 
 // ---------------------------------------------------------------------------
 // Locations, per-location stock, transfers, below-reorder, and Stock Takes
@@ -1314,12 +1577,13 @@ export interface EmployeeClock {
   project_expense_account: string;
   clocked_in_at: string;
 }
+const parseEmployeeClock = (f: string[]): EmployeeClock => ({ employee: f[0], po_reference: f[1], project_expense_account: f[2], clocked_in_at: f[3] });
 export const clockInToProject = (employeeName: EmployeeName, projectExpenseAccount: string, business: BusinessName, ledger: LedgerName) =>
-  request<EmployeeClock>('/projects/clock-in', { method: 'POST', body: JSON.stringify({ employeeName, projectExpenseAccount, business, ledger }) });
+  callRow('clockInToProject', [employeeName, projectExpenseAccount, business, ledger], parseEmployeeClock);
 export const clockOutOfProject = (employeeName: EmployeeName, business: BusinessName, ledger: LedgerName) =>
-  request<void>('/projects/clock-out', { method: 'POST', body: JSON.stringify({ employeeName, business, ledger }) });
+  callRow('clockOutOfProject', [employeeName, business, ledger], () => undefined);
 export const getOpenProjectClock = (employeeName: EmployeeName) =>
-  request<EmployeeClock | null>(`/projects/open-clock?employeeName=${encodeURIComponent(employeeName)}`);
+  callRow('getOpenProjectClock', [employeeName], (f): EmployeeClock | null => (f[0] ? parseEmployeeClock(f) : null));
 export const getLocationByName = (name: string) => request<LocationRecord>(`/locations/${encodeURIComponent(name)}`);
 // Scoped by business, like createLocation — see docs/pm-frontend-reference.md.
 export const saveLocation = (name: string, input: LocationInput, business: string) =>
@@ -1343,11 +1607,9 @@ export interface DepartmentRecord {
   id: number;
   name: string;
 }
-export const listDepartments = (business: string) => request<DepartmentRecord[]>(`/departments?business=${encodeURIComponent(business)}`);
-export const createDepartment = (business: string, name: string) =>
-  request<DepartmentRecord>('/departments', { method: 'POST', body: JSON.stringify({ business, name }) });
-export const deleteDepartment = (name: string, business: string) =>
-  request<void>(`/departments/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'DELETE' });
+export const listDepartments = (business: string) => callTable('listDepartments', [business], (f) => ({ id: Number(f.id), name: f.name }));
+export const createDepartment = (business: string, name: string) => callRow('createDepartment', [business, name], (f) => ({ id: Number(f[0]), name: f[1] }));
+export const deleteDepartment = (name: string, business: string) => callRow('deleteDepartment', [name, business], () => undefined);
 
 export interface OrgChartEmployee {
   name: string;
@@ -1363,16 +1625,31 @@ export interface OrgChartStructure {
   departments: OrgChartDepartment[];
   unassignedEmployees: OrgChartEmployee[];
 }
-export const getOrgChartStructure = (business: string) => request<OrgChartStructure>(`/departments/org-chart?business=${encodeURIComponent(business)}`);
+export const getOrgChartStructure = async (business: string): Promise<OrgChartStructure> => {
+  const rawRows = await callTable('getOrgChartStructure', [business], (f) => f);
+  const departments: OrgChartDepartment[] = [];
+  const byName = new Map<string, OrgChartDepartment>();
+  const unassignedEmployees: OrgChartEmployee[] = [];
+  for (const r of rawRows) {
+    if (r.section === 'unassigned') {
+      unassignedEmployees.push({ name: r.employeeName, location: r.location || null, managerName: r.managerName || null });
+      continue;
+    }
+    let dept = byName.get(r.department);
+    if (!dept) {
+      dept = { name: r.department, employees: [] };
+      byName.set(r.department, dept);
+      departments.push(dept);
+    }
+    if (r.employeeName !== '') dept.employees.push({ name: r.employeeName, location: r.location || null, managerName: r.managerName || null });
+  }
+  return { business, departments, unassignedEmployees };
+};
 
-export const setEmployeeDepartment = (employeeName: string, departmentName: string) =>
-  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/department`, { method: 'PUT', body: JSON.stringify({ departmentName }) });
-export const deleteEmployeeDepartment = (employeeName: string) =>
-  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/department`, { method: 'DELETE' });
-export const setEmployeeManager = (employeeName: string, managerName: string) =>
-  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/manager`, { method: 'PUT', body: JSON.stringify({ managerName }) });
-export const deleteEmployeeManager = (employeeName: string) =>
-  request<void>(`/departments/employees/${encodeURIComponent(employeeName)}/manager`, { method: 'DELETE' });
+export const setEmployeeDepartment = (employeeName: string, departmentName: string) => callRow('setEmployeeDepartment', [employeeName, departmentName], () => undefined);
+export const deleteEmployeeDepartment = (employeeName: string) => callRow('deleteEmployeeDepartment', [employeeName], () => undefined);
+export const setEmployeeManager = (employeeName: string, managerName: string) => callRow('setEmployeeManager', [employeeName, managerName], () => undefined);
+export const deleteEmployeeManager = (employeeName: string) => callRow('deleteEmployeeManager', [employeeName], () => undefined);
 
 // Reuses the Hierarchy/Product mechanism — see docs/pm-frontend-reference.md.
 export const convertStorageSpace = (input: {
@@ -1434,9 +1711,8 @@ export interface PosTerminalRecord {
   name: string;
   currency: string | null;
 }
-export const getPosTerminals = (locationName: string) => request<PosTerminalRecord[]>(`/pos/terminals/${encodeURIComponent(locationName)}`);
-export const createPosTerminal = (locationName: string, terminalName: string, currency?: string) =>
-  request<void>(`/pos/terminals/${encodeURIComponent(locationName)}`, { method: 'POST', body: JSON.stringify({ terminalName, currency }) });
+export const getPosTerminals = (locationName: string) => callTable('getPosTerminals', [locationName], (f) => ({ name: f.name, currency: f.currency || null }));
+export const createPosTerminal = (locationName: string, terminalName: string, currency?: string) => callRow('createPosTerminal', [locationName, terminalName, currency], () => undefined);
 
 export interface OpenHoursLine {
   day: string;
@@ -1623,7 +1899,53 @@ export const completeStockTake = (
 // POS terminal
 // ---------------------------------------------------------------------------
 
-export const lookupItemByUpc = (upc: string) => request<ItemSummary>(`/pos/lookup/${encodeURIComponent(upc)}`);
+function decodeStringList(encoded: string): string[] {
+  if (encoded === '') return [];
+  return splitCsvLine(encoded).map(unescapeAscii);
+}
+function decodeShape(encoded: string): [string, string][] | undefined {
+  if (encoded === '') return undefined;
+  const flat = decodeStringList(encoded);
+  const pairs: [string, string][] = [];
+  for (let i = 0; i < flat.length; i += 2) pairs.push([flat[i], flat[i + 1]]);
+  return pairs;
+}
+function encodeStringList(values: string[] | undefined): string {
+  if (!values || values.length === 0) return '';
+  return values.map(csvField).join(',');
+}
+function encodeShape(shape: [string, string][] | undefined): string {
+  if (!shape || shape.length === 0) return '';
+  return encodeStringList(shape.flat());
+}
+// Matches call-dispatch.ts's own encodeRecordList/decodeRecordList exactly
+// — a real response can nest a whole further array of records inside one
+// field (journal.ts's previewCloseBooks: lines[]/groupBreakdown[]/
+// profitCenterBreakdown[]), encoded by reusing encodeStringList one level
+// deeper rather than inventing a new scheme.
+function decodeRecordList(fields: string[], encoded: string): Record<string, string>[] {
+  return decodeStringList(encoded).map((lineEncoded) => {
+    const values = decodeStringList(lineEncoded);
+    return Object.fromEntries(fields.map((f, i) => [f, values[i] ?? '']));
+  });
+}
+function encodeRecordList<T>(fields: (keyof T & string)[], records: T[]): string {
+  return encodeStringList(records.map((r) => encodeStringList(fields.map((f) => (r[f] === null || r[f] === undefined ? '' : String(r[f]))))));
+}
+
+export const lookupItemByUpc = (upc: string) =>
+  callRow('lookupByUpc', [upc], (f): ItemSummary => ({
+    name: f[0],
+    description: f[1] || null,
+    unit_of_measure: f[2] || null,
+    upc: f[3] || null,
+    retail_price_minor: f[4] ? Number(f[4]) : null,
+    source_count: Number(f[5]),
+    storage_origin: (f[6] || null) as 'Hot' | 'Cold' | null,
+    product: f[7] || null,
+    combinationValues: f[8] ? decodeStringList(f[8]) : undefined,
+    combinationShape: f[9] ? decodeShape(f[9]) : undefined,
+  }));
 
 export interface PosSaleLineInput {
   itemName: ItemName;
@@ -1652,7 +1974,13 @@ export const completePosSale = (input: {
   cashTenderedMinor?: number;
   transdate?: string;
   terminalName?: string;
-}, screenName?: string) => request<PosSaleResult>('/pos/complete-sale', { method: 'POST', body: JSON.stringify(input) }, screenName);
+}) =>
+  callRowWithLines(
+    'completePosSale',
+    [input.business, input.ledger, input.locationName, input.customerName, input.revenueAccount, input.taxAccount, input.paymentMethod, input.cashTenderedMinor === undefined ? undefined : String(input.cashTenderedMinor), input.transdate, input.terminalName],
+    input.lines.map((l) => [l.itemName, String(l.quantity), l.unitPriceMinor === undefined ? undefined : String(l.unitPriceMinor), String(l.taxMinor), l.tier, encodeStringList(l.combinationValues), encodeShape(l.combinationShape)]),
+    (f): PosSaleResult => ({ invoiceId: Number(f[0]), reference: f[1], totalMinor: Number(f[2]), changeDueMinor: Number(f[3]) })
+  );
 
 export interface CashPurchaseLineInput {
   itemName: ItemName;
@@ -1674,7 +2002,13 @@ export const completeCashPurchase = (input: {
   taxAccount: string;
   paymentMethod?: string;
   transdate?: string;
-}, screenName?: string) => request<CashPurchaseResult>('/pos/complete-cash-purchase', { method: 'POST', body: JSON.stringify(input) }, screenName);
+}) =>
+  callRowWithLines(
+    'completeCashPurchase',
+    [input.business, input.ledger, input.locationName, input.vendorName, input.taxAccount, input.paymentMethod, input.transdate],
+    input.lines.map((l) => [l.itemName, String(l.quantity), String(l.unitPriceMinor), String(l.taxMinor)]),
+    (f): CashPurchaseResult => ({ invoiceId: Number(f[0]), reference: f[1], totalMinor: Number(f[2]) })
+  );
 
 export const receiveStock = (input: {
   business: BusinessName;
@@ -1683,7 +2017,13 @@ export const receiveStock = (input: {
   locationName: LocationName;
   lines: { itemName: string; quantity: number }[];
   transdate?: string;
-}, screenName?: string) => request<void>('/pos/receive-stock', { method: 'POST', body: JSON.stringify(input) }, screenName);
+}) =>
+  callRowWithLines(
+    'receiveStock',
+    [input.business, input.ledger, input.reference, input.locationName, input.transdate],
+    input.lines.map((l) => [l.itemName, String(l.quantity)]),
+    () => undefined
+  );
 
 export const dispatchStock = (input: {
   business: BusinessName;
@@ -1692,7 +2032,13 @@ export const dispatchStock = (input: {
   locationName: LocationName;
   lines: { itemName: string; quantity: number }[];
   transdate?: string;
-}, screenName?: string) => request<void>('/pos/dispatch-stock', { method: 'POST', body: JSON.stringify(input) }, screenName);
+}) =>
+  callRowWithLines(
+    'dispatchStock',
+    [input.business, input.ledger, input.reference, input.locationName, input.transdate],
+    input.lines.map((l) => [l.itemName, String(l.quantity)]),
+    () => undefined
+  );
 
 export interface PayWagesResult {
   invoiceId: number;
@@ -1710,14 +2056,47 @@ export const payEmployeeWages = (input: {
   wagesExpenseAccount?: string;
   paymentMethod?: string;
   transdate?: string;
-}) => request<PayWagesResult>('/pos/pay-wages', { method: 'POST', body: JSON.stringify(input) });
+}) =>
+  callRow(
+    'payEmployeeWages',
+    [input.business, input.ledger, input.employeeName, input.hours === undefined ? undefined : String(input.hours), input.wagesExpenseAccount, input.paymentMethod, input.transdate],
+    (f): PayWagesResult => ({ invoiceId: Number(f[0]), reference: f[1], grossMinor: Number(f[2]), medicareLevyMinor: Number(f[3]), superannuationMinor: Number(f[4]), netMinor: Number(f[5]) })
+  );
 
 export interface OrganizationChart {
   business: BusinessName;
   companyWideEmployees: string[];
   groups: { group: HierarchyGroupName; locations: { location: string; employees: string[] }[] }[];
 }
-export const getOrganizationChart = (businessName: string) => request<OrganizationChart>(`/pos/org-chart/${encodeURIComponent(businessName)}`);
+export const getOrganizationChart = async (businessName: string): Promise<OrganizationChart> => {
+  const rawRows = await callTable('getOrganizationChart', [businessName], (f) => f);
+  const companyWideEmployees: string[] = [];
+  const groups: { group: HierarchyGroupName; locations: { location: string; employees: string[] }[] }[] = [];
+  const groupByName = new Map<string, { group: HierarchyGroupName; locations: { location: string; employees: string[] }[] }>();
+  const locByKey = new Map<string, { location: string; employees: string[] }>();
+  for (const r of rawRows) {
+    if (r.section === 'company') {
+      companyWideEmployees.push(r.employee);
+      continue;
+    }
+    let g = groupByName.get(r.group);
+    if (!g) {
+      g = { group: r.group as HierarchyGroupName, locations: [] };
+      groupByName.set(r.group, g);
+      groups.push(g);
+    }
+    if (r.location === '') continue; // a group with zero locations — nothing further to add
+    const key = `${r.group}\u0000${r.location}`;
+    let loc = locByKey.get(key);
+    if (!loc) {
+      loc = { location: r.location, employees: [] };
+      locByKey.set(key, loc);
+      g.locations.push(loc);
+    }
+    if (r.employee !== '') loc.employees.push(r.employee);
+  }
+  return { business: businessName as BusinessName, companyWideEmployees, groups };
+};
 
 export interface CloseBooksResult {
   reference: string;
@@ -1726,8 +2105,24 @@ export interface CloseBooksResult {
   groupBreakdown: { group: HierarchyGroupName | null; netIncomeMinor: number }[];
   profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[]; // per Profit Center, mirroring groupBreakdown
 }
+function parseGroupBreakdown(f: string): { group: HierarchyGroupName | null; netIncomeMinor: number }[] {
+  return decodeRecordList(['group', 'netIncomeMinor'], f).map((r) => ({ group: (r.group || null) as HierarchyGroupName | null, netIncomeMinor: Number(r.netIncomeMinor) }));
+}
+function parseProfitCenterBreakdown(f: string): { profitCenter: string | null; netIncomeMinor: number }[] {
+  return decodeRecordList(['profitCenter', 'netIncomeMinor'], f).map((r) => ({ profitCenter: r.profitCenter || null, netIncomeMinor: Number(r.netIncomeMinor) }));
+}
 export const closeBooks = (input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string; hierarchyPath?: string[] }) =>
-  request<CloseBooksResult>('/journal/close-books', { method: 'POST', body: JSON.stringify(input) });
+  callRow(
+    'closeBooks',
+    [input.business, input.ledger, input.asOfDate, input.retainedEarningsAccount, input.hierarchyPath?.length ? encodeStringList(input.hierarchyPath) : undefined],
+    (f): CloseBooksResult => ({
+      reference: f[0],
+      netIncomeMinor: Number(f[1]),
+      accountsZeroed: Number(f[2]),
+      groupBreakdown: parseGroupBreakdown(f[3]),
+      profitCenterBreakdown: parseProfitCenterBreakdown(f[4]),
+    })
+  );
 
 export interface CloseBooksPreview {
   lines: {
@@ -1741,7 +2136,17 @@ export interface CloseBooksPreview {
   profitCenterBreakdown: { profitCenter: string | null; netIncomeMinor: number }[];
 }
 export const previewCloseBooks = (input: { business: BusinessName; ledger: LedgerName; asOfDate: string; retainedEarningsAccount: string; hierarchyPath?: string[] }) =>
-  request<CloseBooksPreview>('/journal/preview-close-books', { method: 'POST', body: JSON.stringify(input) });
+  callRow(
+    'previewCloseBooks',
+    [input.business, input.ledger, input.asOfDate, input.retainedEarningsAccount, input.hierarchyPath?.length ? encodeStringList(input.hierarchyPath) : undefined],
+    (f): CloseBooksPreview => ({
+      lines: decodeRecordList(['account', 'accountId', 'amount_minor'], f[0]).map((l) => ({ account: l.account as AccountName, accountId: l.accountId ? Number(l.accountId) : undefined, amount_minor: Number(l.amount_minor) })),
+      netIncomeMinor: Number(f[1]),
+      accountsZeroed: Number(f[2]),
+      groupBreakdown: parseGroupBreakdown(f[3]),
+      profitCenterBreakdown: parseProfitCenterBreakdown(f[4]),
+    })
+  );
 
 // Mirrors the Close Books canned journal split, for Rollover — see docs/pm-frontend-reference.md.
 export interface ResolvedRollover {
@@ -1750,10 +2155,17 @@ export interface ResolvedRollover {
   accountsCarriedForward: number;
 }
 export const resolveRolloverLines = (input: { business: BusinessName; oldLedger: LedgerName; newLedger: LedgerName; asOfDate: string }) =>
-  request<ResolvedRollover>('/journal/resolve-rollover-lines', { method: 'POST', body: JSON.stringify(input) });
+  callRow(
+    'resolveRolloverLines',
+    [input.business, input.oldLedger, input.newLedger, input.asOfDate],
+    (f): ResolvedRollover => ({
+      reference: f[0],
+      lines: decodeRecordList(['account', 'amount_minor'], f[1]).map((l) => ({ account: l.account as AccountName, amount_minor: Number(l.amount_minor) })),
+      accountsCarriedForward: Number(f[2]),
+    })
+  );
 
-export const createLedger = (business: BusinessName, ledger: LedgerName) =>
-  request<{ ledger: string }>('/journal/create-ledger', { method: 'POST', body: JSON.stringify({ business, ledger }) });
+export const createLedger = (business: BusinessName, ledger: LedgerName) => callRow('createLedger', [business, ledger], (f): { ledger: string } => ({ ledger: f[0] }));
 
 // ---------------------------------------------------------------------------
 // Customer self-registration and verification
@@ -1774,7 +2186,24 @@ export interface CustomerRegistrationInput {
   card_label?: string | null;
 }
 export const registerCustomer = (input: CustomerRegistrationInput) =>
-  request<{ status: string }>('/customers/register', { method: 'POST', body: JSON.stringify(input) });
+  callRow(
+    'registerCustomer',
+    [
+      input.name,
+      input.email,
+      input.phone ?? undefined,
+      input.address_line1 ?? undefined,
+      input.address_line2 ?? undefined,
+      input.city ?? undefined,
+      input.region ?? undefined,
+      input.postal_code ?? undefined,
+      input.country ?? undefined,
+      input.preferred_language ?? undefined,
+      input.password,
+      input.card_label ?? undefined,
+    ],
+    (fields) => ({ status: fields[0] })
+  );
 
 export interface PendingCustomer {
   name: string;
@@ -1782,9 +2211,8 @@ export interface PendingCustomer {
   phone: string | null;
   card_label: string | null;
 }
-export const listPendingCustomers = () => request<PendingCustomer[]>('/customer-verification/pending');
-export const verifyCustomer = (name: string, approve: boolean) =>
-  request<void>(`/customer-verification/${encodeURIComponent(name)}/verify`, { method: 'POST', body: JSON.stringify({ approve }) });
+export const listPendingCustomers = () => callTable('listPendingCustomers', [], (f) => ({ name: f.name, email: f.email || null, phone: f.phone || null, card_label: f.card_label || null }));
+export const verifyCustomer = (name: string, approve: boolean) => callRow('verifyCustomer', [name, String(approve)], () => undefined);
 
 // ---------------------------------------------------------------------------
 // Stock listing — every item/location combination with real stock

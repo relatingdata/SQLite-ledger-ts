@@ -98,9 +98,9 @@
             ledger,
             account: asAccountName(line.account),
             amount_minor: line.amount_minor,
-          }, 'Transfer Items');
+          });
         }
-        await postJournalEntry(valueReference, business, ledger, 'Transfer Items');
+        await postJournalEntry(valueReference, business, ledger);
       }
       values.quantity = '';
       values.reference = '';
