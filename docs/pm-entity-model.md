@@ -533,58 +533,76 @@ individual debit or credit line here first, all sharing the same
 (below) finds every line belonging to one transaction and acts on all
 of them together, atomically, in one `INSERT`.
 
-### `post_journal_entry_insert` — the trigger behind every balanced posting
+### `commitStagedEntry` — TypeScript orchestration behind every balanced posting (formerly `post_journal_entry_insert`/`post_quantity_movement_insert`)
 
-An `INSTEAD OF INSERT` trigger on an otherwise-empty view
-(`post_journal_entry`). A posting function's last step is always:
-stage every line, then `INSERT INTO post_journal_entry (reference,
-business, ledger, user_id) VALUES (...)` — a single-row insert
-carrying no financial data itself, just the signal "everything for
-this reference is staged, post it now." In order, the trigger:
+**Stage D of `/root/.claude/plans/stateful-snacking-adleman.md` removed
+both trigger/view pairs this section used to describe** —
+`post_journal_entry`/`post_journal_entry_insert` and
+`post_quantity_movement`/`post_quantity_movement_insert`. Both fused
+entity resolution (business/ledger/account id lookup) into
+financial-posting SQL inside one atomic trigger body, which the
+`EntityDriver` isolation effort (letting a non-SQL backend, Kaappi
+today, stand in for SQL behind one seam) could not tolerate: a driver
+call may need to call out to that non-SQL backend, which must never
+happen inside an open SQLite transaction. Their combined logic now
+lives as one shared TypeScript function, `commitStagedEntry`
+(`backend/src/db-journal.ts`), called two ways — see
+`docs/pm-journal-api.md`, "The three posting paths," for the full
+detail, including the `resolveStagingBusinessId`/
+`resolveStagingLedgerId`/`resolveStagedAccountId` entity-resolution
+helpers that replaced the triggers' own `COALESCE` chains. In order,
+`commitStagedEntry` still performs exactly the same eight steps the
+old triggers did, just as ordinary TypeScript, with entity resolution
+happening *before* its own `db.transaction(...)` opens rather than
+fused into the same atomic SQL statement:
 
 1. **Refuses to post nothing** — aborts if no staged rows exist for
    this reference/business/ledger.
 2. **Refuses to post into a closed period** — checks the most recent
    `period_lock_history` row for this business/ledger; aborts if the
    staged transaction date falls on or before the locked-through date.
-3. **Refuses to post an entry that doesn't balance, per currency** —
-   groups staged lines by account currency (an account with no
-   explicit currency, or one that doesn't exist yet, is its own group)
-   and aborts if any group's sum isn't zero. A transaction can span
-   currencies (buying EUR with USD is one entry, two independently-
-   balanced groups) but can't blend them into one combined sum.
+3. **Refuses to post an entry that doesn't balance, per currency**
+   (ordinary postings only — see below) — groups staged lines by
+   account currency (an account with no explicit currency, or one that
+   doesn't exist yet, is its own group) and aborts if any group's sum
+   isn't zero. A transaction can span currencies (buying EUR with USD
+   is one entry, two independently-balanced groups) but can't blend
+   them into one combined sum.
 4. **Auto-creates any account that doesn't exist yet.**
 5. **Inserts the `journal` header row.**
 6. **Inserts every `journal_line` row**, one per staged line.
 7. **Updates every affected account's running balance**
-   (`balance_minor`), summed per account, in the same trigger
-   execution.
+   (`balance_minor`), per line rather than one bulk `SUM`-based update
+   (mathematically equivalent, proven by the `journal_line_unique_ordinary`
+   index guaranteeing at most one line per account per entry).
 8. **Deletes the now-posted staging rows** for that reference/
    business/ledger.
 
-All eight steps happen inside one SQLite trigger body — atomic; there
-is no intermediate, half-posted state.
+All eight steps happen inside one `db.transaction(...)` call —
+atomic; there is no intermediate, half-posted state, same guarantee
+the old trigger body gave.
 
-### `post_quantity_movement_insert` — the deliberately separate sibling
-
-A second `INSTEAD OF INSERT` trigger, on its own otherwise-empty view
-(`post_quantity_movement`), sharing the same `journal_entry_staging`
-table and writing to the same `journal`/`journal_line`/`account`
-tables — through its own separate trigger, because a quantity
+**`postJournalEntry`** calls `commitStagedEntry` with
+`{ requireBalance: true, includeBankReference: true }` (step 3's
+balance check applies, and `journal_line` carries `bank_reference`).
+**`commitStagedQuantityMovement`** calls it with
+`{ requireBalance: false, includeBankReference: false }` — a quantity
 movement (stock received, dispatched, transferred, written off) is
 not a balanced, double-entry transaction: it's a single line against
 one product's own quantity-tracking account ("+50 bottles received"),
 not a debit-here/credit-there relationship between two accounts.
 Forcing it to sum to zero would mean inventing a fake, meaningless
-offsetting account. These two triggers are the *only* two paths that
-ever write to `journal`, `journal_line`, and `account`; every posting
-screen ultimately goes through one or the other.
+offsetting account. `commitStagedEntry` (via these two entry points)
+is still the *only* code path that ever writes to `journal`,
+`journal_line`, and `account` — enforced mechanically by
+`make check-journal-staging-only`; every posting screen ultimately
+goes through one or the other.
 
 ### Every other `INSTEAD OF INSERT` trigger in the schema
 
 The same mechanism — an otherwise-empty view, backed by a trigger
-that does the real work — is used throughout, not just for financial
-posting:
+that does the real work — is still used throughout for everything
+*except* the financial commit step above, which moved to TypeScript:
 
 | View | What its trigger does |
 |---|---|
@@ -594,7 +612,7 @@ posting:
 | `account_entry` | Sets an account's account number/currency |
 | `contact_entry` | Sets an entity's address/phone/contact-person/payment-terms fields — and a location's city/capacity/timezone and a part's description/unit/UPC/retail price too, since neither is a separate table (below) |
 | `translation_entry` | Sets a vocabulary translation |
-| `ar_sale_post` / `ar_receipt_post` / `ap_purchase_post` / `ap_payment_post` | Purpose-built shortcuts — each stages its own lines internally, then posts through the same mechanism as `post_journal_entry_insert` |
+| `ar_sale_post` / `ar_receipt_post` / `ap_purchase_post` / `ap_payment_post` | Purpose-built shortcuts — each stages its own lines internally; `ar_receipt_post_insert`/`ap_payment_post_insert` used to also chain straight into `post_journal_entry` themselves, but now only build the two-line `journal_entry_staging` entry — `postARReceipt`/`postAPPayment` call `postJournalEntry(...)` explicitly in TypeScript right after, the same stage-then-commit shape every other screen uses |
 
 ### Division, location, and part are genuinely just entities — no dedicated table
 
@@ -701,6 +719,51 @@ Nearly every other `get*` function is built by composing these —
 reading an entity's tree position, its relation, and its contact
 fields, then joining against whatever additional tables
 (`journal_line`, `part`, `account`) a particular report needs.
+
+### `EntityDriver` / `entityDriver` — the one seam entity storage goes through
+
+Per `/root/.claude/plans/stateful-snacking-adleman.md` ("Isolate entity
+storage behind one driver interface"): `primitives.ts`'s `Entity`
+object (the real public surface everything above calls) does not touch
+SQL directly any more. Every one of its methods — `create`, `get`,
+`getUnder`, `rename`, `reparent`, `relate`, `revoke`, `children`,
+`hasTag`, `setAttr`/`getAttr`, plus the Stage C additions `getMany`,
+`findAll`, `findByNameContaining`, `descendantsWithDepth` — is a
+one-line delegation to `entityDriver`, an `EntityDriver`-typed instance
+exported by `backend/src/entity-driver-select.ts`. That file reads
+`ENTITY_DRIVER=sql|kaappi` (default `sql`) and is the *only* module
+permitted to import both concrete implementations:
+
+- **`SqlEntityDriver`** (`backend/src/drivers/sql-entity-driver.ts`,
+  the committed default) — direct ports of the same SQL this file used
+  to run inline, delegating `create`/`rename`/`reparent`/`relate`/
+  `revoke`/`get` to the backing-primitive functions
+  (`createEntityRaw`/`supersedeEntity`/`revokeEntity`/`getEntity`,
+  below) that pre-date this refactor and must never be touched by
+  anything else.
+- **`KaappiEntityDriver`** (`backend/src/drivers/kaappi-entity-driver.ts`)
+  — backed by a Kaappi (Scheme) subprocess (see the separate
+  `kaappi-experiment` tree's own `entity-model`/`entity-server`), reached
+  synchronously via a worker thread + `Atomics.wait` bridge
+  (`drivers/kaappi-worker.ts`), since `EntityDriver` itself is a
+  synchronous interface but the subprocess is naturally async IPC. The
+  worker thread also owns a write-ahead log (`kaappi_wal`, one JSON blob
+  row in the same SQLite file) so a killed/restarted Kaappi process
+  replays back to exactly where it left off.
+
+**Why this matters for anything reading this chapter**: a raw SQL query
+against `current_entities`/`account`/`journal` in the same statement
+("category 4" in the plan's own terms — most financial reports, and a
+deliberately-untouched remainder of `db.ts`/`db-stock.ts`/
+`db-reports.ts`) is invisible to `ENTITY_DRIVER=kaappi`, because
+Kaappi-mode entity writes never touch SQL's `entities` table at all —
+confirmed directly, not theoretical, the first time a real, live,
+multi-step session was run under that driver. `ENTITY_DRIVER=sql`
+remains the only committed, supported default; `kaappi` is a real,
+working alternative for pure entity-graph operations and ordinary
+financial postings (`commitStagedEntry`'s own entity resolution was
+converted for exactly this reason — see `docs/pm-journal-api.md`), not
+yet for anything that reads entities via a raw join.
 
 ## `backend/src/db.ts` — the data model, write primitives, and the Hierarchy/Product cartesian mechanism
 

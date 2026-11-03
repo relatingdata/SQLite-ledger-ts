@@ -208,7 +208,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `requireAuth` | `backend/src/auth-middleware.ts` | `backend/src/routes/auth.ts`, `backend/src/routes/i18n.ts`, `backend/src/server.ts` | `function requireAuth(req: Request, res: Response, next: NextFunction): void` |
 | `resetReminderLevel` | `backend/src/db.ts` | `backend/src/routes/invoices.ts` | `function resetReminderLevel(customerName: string): void` |
 | `resolveDispatchLocation` | `backend/src/db.ts` | `backend/src/routes/pos.ts` | `function resolveDispatchLocation(itemName: ItemName, logicalLocationName: LocationName): LocationName` |
-| `resolveItemId` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function resolveItemId(itemName: ItemName): number \| undefined` |
+| `resolveItemId` | `backend/src/db.ts` | `backend/src/db-stock.ts`, `backend/src/drivers/sql-entity-driver.ts`, `backend/src/entity-driver.ts` | `function resolveItemId(itemName: ItemName): number \| undefined` |
 | `saveBusinessTypeAnswers` | `backend/src/db.ts` | `backend/src/routes/businesses.ts` | `function saveBusinessTypeAnswers(businessName: BusinessName, answers: Record<string, string>, userId: UserId): void` |
 | `seedRemainingData` | `backend/src/db-seed.ts` | `backend/src/db.ts` | `function seedRemainingData(): void` |
 | `setEmployeeSchedule` | `backend/src/db.ts` | `backend/src/routes/locations.ts` | `function setEmployeeSchedule(employeeName: string, locationName: string, schedule: ScheduleLine[]): void` |

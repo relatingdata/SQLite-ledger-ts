@@ -20,8 +20,8 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 484 functions (425 exported); 452 are called from production code; 22 only from tests or tooling; 10 from nowhere the compiler could find.
-- **Frontend library:** 276 functions (260 exported); 261 are called from production code; 2 only from tests or tooling; 13 from nowhere the compiler could find.
+- **Backend:** 573 functions (478 exported); 514 are called from production code; 22 only from tests or tooling; 37 from nowhere the compiler could find.
+- **Frontend library:** 283 functions (267 exported); 267 are called from production code; 2 only from tests or tooling; 14 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -30,13 +30,15 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 - `backend/src/db-journal.ts`: `ensureLocationScopedAccount`
 - `backend/src/db-reports.ts`: `getLedgerBalancesByLocationStructural`
 - `backend/src/db.ts`: `typeCategoryOrItemsRootName.validate`
-- `backend/src/primitives.ts`: `Entity.revoke`, `Entity.setRelationId`, `Link.mark`, `Link.unmark`, `Link.isMarked`, `Link.withTarget`, `Detail.delete`
+- `backend/src/drivers/kaappi-entity-driver.ts`: `KaappiEntityDriver.create`, `KaappiEntityDriver.get`, `KaappiEntityDriver.getUnder`, `KaappiEntityDriver.rename`, `KaappiEntityDriver.reparent`, `KaappiEntityDriver.relate`, `KaappiEntityDriver.revoke`, `KaappiEntityDriver.hasTag`, `KaappiEntityDriver.setAttr`, `KaappiEntityDriver.getAttr`, `KaappiEntityDriver.resolveAncestor`, `KaappiEntityDriver.descendantsWithDepth`, `KaappiEntityDriver.getMany`, `KaappiEntityDriver.findAll`, `KaappiEntityDriver.findByNameContaining`
+- `backend/src/drivers/sql-entity-driver.ts`: `SqlEntityDriver.getByName`, `SqlEntityDriver.reparent`, `SqlEntityDriver.relate`, `SqlEntityDriver.revoke`, `SqlEntityDriver.hasTag`, `SqlEntityDriver.setAttr`, `SqlEntityDriver.getAttr`, `SqlEntityDriver.resolveAncestor`, `SqlEntityDriver.descendantsWithDepth`, `SqlEntityDriver.ancestorChain`, `SqlEntityDriver.getMany`, `SqlEntityDriver.findAll`, `SqlEntityDriver.findByNameContaining`
+- `backend/src/primitives.ts`: `Entity.setRelationId`, `Link.mark`, `Link.unmark`, `Link.isMarked`, `Link.withTarget`, `Detail.delete`
 
 ### Frontend library: functions with no callers found
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `getProfitAndLossByHierarchy`, `createProfitCenter`, `setSessionProfitCenter`, `openStorageContainer`, `receiveItems`, `transferItems`, `closeBooks`
+- `frontend/src/lib/api.ts`: `getProfitAndLossByHierarchy`, `createProfitCenter`, `setSessionProfitCenter`, `getQuotation`, `openStorageContainer`, `receiveItems`, `transferItems`, `closeBooks`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -91,7 +93,7 @@ Called from: production: routes/auth.ts ((module level) ×9); routes/businesses.
 getUserDetail(userId: number): UserDetail | undefined
 ```
 
-Called from: production: auth.ts (changeOwnPassword ×1, changePassword ×1, getSessionUser ×1, login ×1, setOwnDateFormat ×1, setOwnNumberFormat ×1, and 2 more)
+Called from: production: auth.ts (getSessionUser ×1, login ×1)
 
 **`setUserDetail`**
 
@@ -99,7 +101,7 @@ Called from: production: auth.ts (changeOwnPassword ×1, changePassword ×1, get
 setUserDetail(userId: number, detail: UserDetail): void
 ```
 
-Called from: production: auth.ts (changePassword ×1, createUser ×1, setOwnDateFormat ×1, setOwnNumberFormat ×1, setOwnPageSize ×1, setUserActive ×1)
+Called from: production: auth.ts (createUser ×1)
 
 **`getUserRoleNames`**
 
@@ -311,6 +313,22 @@ findLedgerScopedAccount(ledger: LedgerName, accountName: string): number | undef
 
 Called from: production: db-journal.ts (stageLine ×1)
 
+**`resolveBusinessEntity`**
+
+```
+resolveBusinessEntity(business: string): EntityNode
+```
+
+Called from: production: db-journal.ts (countJournalEntries ×1, createRecurringJournal ×1, getJournalEntry ×1, listJournalEntries ×1, resolveLedgerEntity ×1, reverseJournalEntry ×1)
+
+**`resolveLedgerEntity`**
+
+```
+resolveLedgerEntity(business: string, ledger: string): EntityNode
+```
+
+Called from: production: db-journal.ts (countJournalEntries ×1, createRecurringJournal ×1, ensurePeriodLockEntity ×1, getJournalEntry ×1, getLedgerDateRange ×1, getPeriodLockStatus ×1, and 2 more)
+
 **`stageLine`** *(exported)*
 
 ```
@@ -333,7 +351,7 @@ Called from: production: routes/journal.ts ((module level) ×1) · tests: 4 call
 createRecurringJournal(business: BusinessName, ledger: LedgerName, reference: string, startDate: string, recurrence: Recurrence, lines: RecurringJournalLine[], userId: UserId, description?: string, recurrenceCount?: number): void
 ```
 
-Called from: production: routes/journal.ts ((module level) ×1) · tests: 10 call(s) in 1 file(s)
+Called from: production: db-quotations.ts (draftQuotation ×1); routes/journal.ts ((module level) ×1) · tests: 12 call(s) in 1 file(s)
 
 **`ensureLocationScopedAccount`** *(exported)*
 
@@ -495,13 +513,61 @@ removeStagedLine(reference: string, business: BusinessName, ledger: LedgerName, 
 
 Called from: production: routes/journal.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
 
+**`resolveStagingBusinessId`**
+
+```
+resolveStagingBusinessId(business: string): number | undefined
+```
+
+Called from: production: db-journal.ts (commitStagedEntry ×1, resolveStagedAccountId ×1)
+
+**`resolveStagingLedgerId`**
+
+```
+resolveStagingLedgerId(ledger: string, businessId: number | undefined): number | undefined
+```
+
+Called from: production: db-journal.ts (commitStagedEntry ×1)
+
+**`resolveStagedAccountId`**
+
+```
+resolveStagedAccountId(business: string, accountName: string): number | undefined
+```
+
+Called from: production: db-journal.ts (commitStagedEntry ×1)
+
+**`commitStagedEntry`**
+
+```
+commitStagedEntry(reference: string, business: string, ledger: string, userId: UserId, opts: CommitStagedEntryOptions): void
+```
+
+Called from: production: db-journal.ts (commitStagedQuantityMovement ×1, postJournalEntry ×1)
+
 **`postJournalEntry`** *(exported)*
 
 ```
 postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
-Called from: production: db-journal.ts (postOrderDispatch ×2, postOrderReceipt ×1, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×1, completeStockTake ×1, dispatchItems ×2, ensureLocationCapacityAccount ×1, receiveItems ×2, receiveStockPhysical ×1, and 2 more); db.ts (allocatePayment ×1, completePosSale ×1, convertStorageSpace ×1, openStorageContainer ×2, payEmployeeWages ×2, postInvoice ×1); routes/journal.ts ((module level) ×1) · tests: 77 call(s) in 1 file(s) · tooling: 15 call(s) in 8 file(s)
+Called from: production: db-journal.ts (postAPPayment ×1, postARReceipt ×1, postOrderDispatch ×2, postOrderReceipt ×1, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×1, completeStockTake ×1, dispatchItems ×2, ensureLocationCapacityAccount ×1, receiveItems ×2, receiveStockPhysical ×1, and 2 more); db.ts (allocatePayment ×1, completePosSale ×1, convertStorageSpace ×1, openStorageContainer ×2, payEmployeeWages ×2, postInvoice ×1); routes/journal.ts ((module level) ×1) · tests: 77 call(s) in 1 file(s) · tooling: 15 call(s) in 8 file(s)
+
+**`commitStagedQuantityMovement`** *(exported)*
+
+```
+commitStagedQuantityMovement(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: db-stock.ts (postStagedQuantityMovement ×1); primitives.ts (Balance.post ×1) · tests: 1 call(s) in 1 file(s)
+
+**`resolvePostedBy`**
+
+```
+resolvePostedBy(userId: number, usersRoot: ReturnType<typeof Entity.get>): string | null
+```
+
+Called from: production: db-journal.ts (getJournalEntry ×1, listJournalEntries ×1)
 
 **`listJournalEntries`** *(exported)*
 
@@ -541,7 +607,7 @@ Called from: production: routes/reports.ts ((module level) ×1) · tests: 2 call
 getPeriodLockStatus(business: BusinessName, ledger: LedgerName): PeriodLockStatus
 ```
 
-Called from: production: db-journal.ts (assertPeriodOpen ×1); routes/period.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: db-journal.ts (assertPeriodOpen ×1, commitStagedEntry ×1); routes/period.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
 
 **`ensurePeriodLockEntity`**
 
@@ -581,9 +647,17 @@ Called from: production: db-journal.ts (createRecurringJournal ×1); db-stock.ts
 reverseJournalEntry(business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, userId: UserId, reversalDate?: string): void
 ```
 
-Called from: production: routes/journal.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s)
+Called from: production: db-quotations.ts (rejectQuotation ×1); routes/journal.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s)
 
 ### `backend/src/db-matrix-reports.ts`
+
+**`resolveLedgerEntityId`**
+
+```
+resolveLedgerEntityId(business: string, ledger: string): number | undefined
+```
+
+Called from: production: db-matrix-reports.ts (getSalesCogsMatrix ×1)
 
 **`loadEntityIndex`**
 
@@ -665,7 +739,113 @@ getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues
 
 Called from: production: routes/matrix-reports.ts ((module level) ×1)
 
+### `backend/src/db-quotations.ts`
+
+**`ensureQuotationsRoot`**
+
+```
+ensureQuotationsRoot(): { id: number; }
+```
+
+Called from: production: db-quotations.ts (draftQuotation ×1)
+
+**`getQuotationEntityId`**
+
+```
+getQuotationEntityId(reference: string): number | undefined
+```
+
+Called from: production: db-quotations.ts (acceptQuotation ×1, markQuotationSent ×1, readQuotation ×1, rejectQuotation ×1)
+
+**`findJournal`**
+
+```
+findJournal(business: string, ledger: string, reference: string): { id: number; transdate: string; } | undefined
+```
+
+Called from: production: db-quotations.ts (rejectQuotation ×1)
+
+**`readQuotation`**
+
+```
+readQuotation(reference: string): QuotationRecord | undefined
+```
+
+Called from: production: db-quotations.ts (acceptQuotation ×1, getQuotation ×1, listQuotations ×1, rejectQuotation ×1)
+
+**`draftQuotation`**
+
+```
+draftQuotation(direction: QuotationDirection, input: QuotationInput, userId: UserId, expiryDate: string | null | undefined, recurrence: Recurrence, recurrenceCount: number | undefined): void
+```
+
+Called from: production: db-quotations.ts (createQuotation ×1, createRfq ×1)
+
+**`createQuotation`** *(exported)*
+
+```
+createQuotation(input: QuotationInput, userId: UserId, expiryDate?: string | null, recurrence?: Recurrence, recurrenceCount?: number): void
+```
+
+Called from: production: routes/quotations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`createRfq`** *(exported)*
+
+```
+createRfq(input: QuotationInput, userId: UserId, expiryDate?: string | null, recurrence?: Recurrence, recurrenceCount?: number): void
+```
+
+Called from: production: routes/quotations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getQuotation`** *(exported)*
+
+```
+getQuotation(reference: string): QuotationRecord | undefined
+```
+
+Called from: production: routes/quotations.ts ((module level) ×1) · tests: 5 call(s) in 1 file(s)
+
+**`listQuotations`** *(exported)*
+
+```
+listQuotations(business: BusinessName, ledger: LedgerName, direction?: QuotationDirection): QuotationRecord[]
+```
+
+Called from: production: routes/quotations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`markQuotationSent`** *(exported)*
+
+```
+markQuotationSent(reference: string, userId: UserId): void
+```
+
+Called from: production: routes/quotations.ts ((module level) ×1)
+
+**`acceptQuotation`** *(exported)*
+
+```
+acceptQuotation(reference: string, userId: UserId): void
+```
+
+Called from: production: routes/quotations.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
+
+**`rejectQuotation`** *(exported)*
+
+```
+rejectQuotation(reference: string, userId: UserId, asOfDate?: string): void
+```
+
+Called from: production: routes/quotations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s)
+
 ### `backend/src/db-reports.ts`
+
+**`resolveBusinessReportsCoaRootId`**
+
+```
+resolveBusinessReportsCoaRootId(business: string): number
+```
+
+Called from: production: db-reports.ts (getBusinessReports ×1, getChartOfAccounts ×1)
 
 **`getBusinessReports`** *(exported)*
 
@@ -681,7 +861,7 @@ Called from: production: db-reports.ts (buildProfitAndLossFromBalances ×1, comp
 setAccountCurrency(accountName: string, currency: string | null, entityId?: number): void
 ```
 
-Called from: production: db-reports.ts (ensureCurrencyAccount ×1); db-stock.ts (dispatchItems ×2, ensureLocationCapacityAccount ×3, receiveItems ×2, receiveStockPhysical ×2, setTerminalCurrency ×1, transferItems ×2, and 1 more); db.ts (buildBankCurrencyStructure ×1, convertStorageSpace ×4, ensureChild ×1, ensureItemLocationQuantityAccount ×1, openStorageContainer ×4, resolveOpenContainerAccounts ×4) · tests: 9 call(s) in 1 file(s)
+Called from: production: db-reports.ts (ensureCurrencyAccount ×1); db-stock.ts (dispatchItems ×2, ensureLocationCapacityAccount ×3, receiveItems ×2, receiveStockPhysical ×2, setTerminalCurrency ×1, transferItems ×2, and 1 more); db.ts (buildBankCurrencyStructure ×1, convertStorageSpace ×4, ensureChild ×1, ensureItemLocationQuantityAccount ×1, openStorageContainer ×4, resolveOpenContainerAccounts ×4) · tests: 13 call(s) in 1 file(s)
 
 **`ensureCurrencyAccount`** *(exported)*
 
@@ -714,6 +894,22 @@ getChartOfAccounts(business: string): ChartRow[]
 ```
 
 Called from: production: routes/reports.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+
+**`resolveBusinessEntityId`**
+
+```
+resolveBusinessEntityId(business: string): number | undefined
+```
+
+Called from: production: db-reports.ts (getSalesReport ×1, resolveLedgerEntityId ×1)
+
+**`resolveLedgerEntityId`**
+
+```
+resolveLedgerEntityId(business: string, ledger: string): number | undefined
+```
+
+Called from: production: db-reports.ts (getBalanceSheet ×1, getLedgerBalances ×1, getLedgerBalancesByHierarchyStructural ×1, getSalesReport ×1)
 
 **`resolveAccountHierarchyGroup`**
 
@@ -909,7 +1105,7 @@ Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, 
 postQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, userId: UserId, transdate?: string, locationName?: LocationName, accountId?: number): void
 ```
 
-Called from: production: db-journal.ts (postOrderDispatch ×1, postOrderReceipt ×1); db-stock.ts (fulfillOrder ×2, placeOrder ×3, receiveLot ×1); db.ts (postInvoice ×1) · tests: 9 call(s) in 1 file(s)
+Called from: production: db-journal.ts (postOrderDispatch ×1, postOrderReceipt ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (consumeFromLots ×2, fulfillOrder ×3, placeOrder ×3, receiveLot ×3); db.ts (postInvoice ×1) · tests: 9 call(s) in 1 file(s)
 
 **`getLocationTypes`** *(exported)*
 
@@ -949,7 +1145,7 @@ Called from: production: db-stock.ts (ensureLocationCapacityAccount ×1, getInve
 todayAtLocation(locationName: LocationName): string
 ```
 
-Called from: production: db-stock.ts (dispatchItems ×1, postQuantityMovement ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1, transferStock ×1); db.ts (completeCashPurchase ×1, completePosSale ×1)
+Called from: production: db-stock.ts (dispatchItems ×1, postQuantityMovement ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1, transferStock ×1); db.ts (completeCashPurchase ×1, completePosSale ×1) · tests: 2 call(s) in 1 file(s)
 
 **`getItemLocation`** *(exported)*
 
@@ -957,7 +1153,7 @@ Called from: production: db-stock.ts (dispatchItems ×1, postQuantityMovement ×
 getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels
 ```
 
-Called from: production: db-stock.ts (completeStockTake ×1, createStockTake ×1, dispatchItems ×1, getInventoryListingByLocation ×1, transferItems ×1, transferStock ×1); db.ts (completePosSale ×1, getPickingList ×1, getRestockPickingList ×1); routes/locations.ts ((module level) ×1) · tests: 23 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+Called from: production: db-stock.ts (completeStockTake ×1, createStockTake ×1, dispatchItems ×1, getInventoryListingByLocation ×1, transferItems ×1, transferStock ×1); db.ts (completePosSale ×1, getPickingList ×1, getRestockPickingList ×1); routes/locations.ts ((module level) ×1) · tests: 23 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
 
 **`setItemLocationLevelDetails`** *(exported)*
 
@@ -1093,7 +1289,7 @@ Called from: production: routes/locations.ts ((module level) ×1) · tests: 1 ca
 setItemLocationLevels(itemName: ItemName, locationName: LocationName, levels: { minLevel?: number | null; maxLevel?: number | null; reorderLevel?: number | null; shelfSide?: string | null; rack?: string | null; level?: number | null; }, business?: BusinessName, ledger?: LedgerName, userId?: UserId): void
 ```
 
-Called from: production: routes/locations.ts ((module level) ×1) · tests: 8 call(s) in 1 file(s)
+Called from: production: routes/locations.ts ((module level) ×1) · tests: 8 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`ensureUnitsTrackingBaseAccounts`** *(exported)*
 
@@ -1109,7 +1305,7 @@ Called from: production: db-stock.ts (dispatchItems ×1, receiveItems ×1, recei
 receiveItems(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void
 ```
 
-Called from: production: db.ts (completeCashPurchase ×1); routes/locations.ts ((module level) ×1); routes/pos.ts ((module level) ×1) · tests: 58 call(s) in 1 file(s) · tooling: 7 call(s) in 3 file(s)
+Called from: production: db.ts (completeCashPurchase ×1); routes/locations.ts ((module level) ×1); routes/pos.ts ((module level) ×1) · tests: 58 call(s) in 1 file(s) · tooling: 8 call(s) in 3 file(s)
 
 **`receiveStockPhysical`** *(exported)*
 
@@ -1231,6 +1427,30 @@ writeOffItems(business: BusinessName, ledger: LedgerName, reference: string, ite
 
 Called from: production: routes/stock-lots.ts ((module level) ×1) · tests: 4 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
+**`ensureStockLotsRoot`**
+
+```
+ensureStockLotsRoot(): { id: number; }
+```
+
+Called from: production: db-stock.ts (ensureLotAccount ×1)
+
+**`ensureLotAccount`**
+
+```
+ensureLotAccount(lotAccountName: string): void
+```
+
+Called from: production: db-stock.ts (receiveLot ×2)
+
+**`lotBalance`**
+
+```
+lotBalance(lotAccountName: string): number
+```
+
+Called from: production: db-stock.ts (consumeFromLots ×2, getExpiringStock ×1)
+
 **`receiveLot`** *(exported)*
 
 ```
@@ -1242,7 +1462,7 @@ Called from: production: routes/stock-lots.ts ((module level) ×1) · tests: 3 c
 **`consumeFromLots`** *(exported)*
 
 ```
-consumeFromLots(itemName: ItemName, quantity: number): { lot_number: string; consumed: number; expiration_date: string | null; cost_basis_minor: number | null; }[]
+consumeFromLots(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, quantity: number, userId: UserId, transdate?: string): { lot_number: string; consumed: number; expiration_date: string | null; cost_basis_minor: number | null; }[]
 ```
 
 Called from: production: routes/stock-lots.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
@@ -1261,7 +1481,7 @@ Called from: production: routes/stock-lots.ts ((module level) ×1) · tests: 1 c
 createSystemEntity(name: string, parentId: number | null): number
 ```
 
-Called from: production: db-stock.ts (placeOrder ×1)
+Called from: production: db-quotations.ts (ensureQuotationsRoot ×1); db-stock.ts (ensureLotAccount ×1, ensureStockLotsRoot ×1, placeOrder ×1)
 
 **`placeOrder`** *(exported)*
 
@@ -1270,6 +1490,14 @@ placeOrder(orderReference: string, business: BusinessName, ledger: LedgerName, q
 ```
 
 Called from: production: db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`resolveOrderItem`**
+
+```
+resolveOrderItem(orderReference: string): ItemName | undefined
+```
+
+Called from: production: db-stock.ts (fulfillOrder ×1, getOrderStatus ×1)
 
 **`fulfillOrder`** *(exported)*
 
@@ -1303,7 +1531,7 @@ Called from: nowhere the compiler could find.
 asUserId(id: number): UserId
 ```
 
-Called from: production: db-journal.ts (clockOutOfProject ×1); db-seed.ts ((module level) ×1); db-stock.ts (createSystemEntity ×1, recordStockTakeCount ×1, setItemLocationLevelDetails ×1, setLocation ×7, transferItems ×19); db.ts (addOrUpdateItemSource ×3, allocatePayment ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, listDepartments ×1, and 8 more); routes/arap.ts ((module level) ×2); routes/auth.ts ((module level) ×6); routes/businesses.ts ((module level) ×6); routes/contacts.ts ((module level) ×6); and 16 more file(s) · tests: 16 call(s) in 3 file(s) · tooling: 44 call(s) in 5 file(s)
+Called from: production: db-journal.ts (clockOutOfProject ×1); db-seed.ts ((module level) ×1); db-stock.ts (createSystemEntity ×1, getOrderStatus ×1, recordStockTakeCount ×1, setItemLocationLevelDetails ×1, setLocation ×7, transferItems ×19); db.ts (addOrUpdateItemSource ×3, allocatePayment ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, listDepartments ×1, and 8 more); routes/arap.ts ((module level) ×2); routes/auth.ts ((module level) ×6); routes/businesses.ts ((module level) ×6); routes/contacts.ts ((module level) ×6); and 17 more file(s) · tests: 16 call(s) in 3 file(s) · tooling: 45 call(s) in 5 file(s)
 
 **`asEntityId`** *(exported)*
 
@@ -1319,7 +1547,7 @@ Called from: production: db.ts (create ×1, createDepartment ×1, createLocation
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: auth-middleware.ts (requireRole ×1); db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-seed.ts (migrateForPerBusinessChartOfAccounts ×1); db-stock.ts (completeStockTake ×4, countInventoryListing ×1, getInventoryListingByLocation ×1, writeOffItems ×3); db.ts (allocatePayment ×3, completePosSale ×2, dispatchOrderFromPickingList ×1, payEmployeeWages ×7, postInvoice ×6); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4); and 15 more file(s) · tests: 36 call(s) in 3 file(s) · tooling: 9 call(s) in 4 file(s)
+Called from: production: auth-middleware.ts (requireRole ×1); db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-quotations.ts (draftQuotation ×2, rejectQuotation ×2); db-seed.ts (migrateForPerBusinessChartOfAccounts ×1); db-stock.ts (completeStockTake ×4, countInventoryListing ×1, getInventoryListingByLocation ×1, writeOffItems ×3); db.ts (allocatePayment ×3, completePosSale ×2, dispatchOrderFromPickingList ×1, getBusinesses ×1, payEmployeeWages ×7, postInvoice ×7); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×2); and 17 more file(s) · tests: 36 call(s) in 3 file(s) · tooling: 9 call(s) in 4 file(s)
 
 **`asLedgerName`** *(exported)*
 
@@ -1327,7 +1555,7 @@ Called from: production: auth-middleware.ts (requireRole ×1); db-journal.ts (po
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: db-journal.ts (postLocation ×1, postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-stock.ts (completeStockTake ×2, writeOffItems ×2); db.ts (allocatePayment ×3, completePosSale ×2, createAndConfigureLocation ×1, createBusiness ×2, dispatchOrderFromPickingList ×1, getActiveLedger ×1, and 2 more); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×1); routes/arap.ts ((module level) ×4); routes/invoices.ts ((module level) ×9); routes/journal.ts ((module level) ×16, canPostToLedger ×1); and 8 more file(s) · tests: 20 call(s) in 1 file(s) · tooling: 29 call(s) in 3 file(s)
+Called from: production: db-journal.ts (postLocation ×1, postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×2); db-quotations.ts (draftQuotation ×2, rejectQuotation ×2); db-stock.ts (completeStockTake ×2, writeOffItems ×2); db.ts (allocatePayment ×3, completePosSale ×2, createAndConfigureLocation ×1, createBusiness ×2, dispatchOrderFromPickingList ×1, getActiveLedger ×1, and 3 more); invoice.ts (generateInvoicePdf ×1); primitives.ts (Balance.post ×2); routes/arap.ts ((module level) ×4); routes/invoices.ts ((module level) ×9); and 10 more file(s) · tests: 20 call(s) in 1 file(s) · tooling: 29 call(s) in 3 file(s)
 
 **`asAccountName`** *(exported)*
 
@@ -1335,7 +1563,7 @@ Called from: production: db-journal.ts (postLocation ×1, postOrderDispatch ×5,
 asAccountName(name: string): AccountName
 ```
 
-Called from: production: db-journal.ts (postOrderDispatch ×6, postOrderReceipt ×4, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×2, completeStockTake ×4, dispatchItems ×6, ensureLocationCapacityAccount ×2, fulfillOrder ×2, placeOrder ×3, and 6 more); db.ts (allocatePayment ×2, completePosSale ×2, convertStorageSpace ×4, openStorageContainer ×6, payEmployeeWages ×4, postInvoice ×5); primitives.ts (Balance.post ×1); routes/journal.ts ((module level) ×2); routes/locations.ts ((module level) ×1); routes/pos.ts ((module level) ×3); and 2 more file(s) · tests: 228 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
+Called from: production: db-journal.ts (postOrderDispatch ×6, postOrderReceipt ×4, reverseJournalEntry ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×2, completeStockTake ×4, consumeFromLots ×2, dispatchItems ×6, ensureLocationCapacityAccount ×2, fulfillOrder ×3, and 7 more); db.ts (allocatePayment ×2, completePosSale ×2, convertStorageSpace ×4, openStorageContainer ×6, payEmployeeWages ×4, postInvoice ×5); primitives.ts (Balance.post ×1); routes/journal.ts ((module level) ×2); routes/locations.ts ((module level) ×1); and 3 more file(s) · tests: 228 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
 
 **`asLocationName`** *(exported)*
 
@@ -1343,7 +1571,7 @@ Called from: production: db-journal.ts (postOrderDispatch ×6, postOrderReceipt 
 asLocationName(name: string): LocationName
 ```
 
-Called from: production: db-journal.ts (postLocation ×2, postPurchaseOrder ×1, postSalesOrder ×1); db-stock.ts (createStockTake ×1, getInventoryListingByLocation ×2, getStockOutRiskReport ×1); db.ts (completeCashPurchase ×1, completePosSale ×1, createAndConfigureLocation ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×2, resolveDispatchLocation ×1); routes/invoices.ts ((module level) ×2); routes/locations.ts ((module level) ×17); routes/pos.ts ((module level) ×5) · tests: 9 call(s) in 2 file(s) · tooling: 10 call(s) in 1 file(s)
+Called from: production: db-journal.ts (postLocation ×2, postPurchaseOrder ×1, postSalesOrder ×1); db-quotations.ts (draftQuotation ×1); db-stock.ts (createStockTake ×1, getInventoryListingByLocation ×2, getStockOutRiskReport ×1); db.ts (completeCashPurchase ×1, completePosSale ×1, createAndConfigureLocation ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×2, resolveDispatchLocation ×1); routes/invoices.ts ((module level) ×2); routes/locations.ts ((module level) ×17); routes/pos.ts ((module level) ×5) · tests: 9 call(s) in 2 file(s) · tooling: 13 call(s) in 2 file(s)
 
 **`asEmployeeName`** *(exported)*
 
@@ -1375,7 +1603,7 @@ Called from: production: db-journal.ts (postPurchaseOrder ×1); routes/arap.ts (
 asItemName(name: string): ItemName
 ```
 
-Called from: production: db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-stock.ts (completeStockTake ×5, createStockTake ×2, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockOutRiskReport ×2); db.ts (completeCashPurchase ×2, completePosSale ×15, createInvoice ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×1, getPickingList ×1, and 2 more); routes/items.ts ((module level) ×2); routes/locations.ts ((module level) ×14); routes/pos.ts ((module level) ×2); routes/stock-lots.ts ((module level) ×3) · tests: 156 call(s) in 2 file(s) · tooling: 7 call(s) in 1 file(s)
+Called from: production: db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (completeStockTake ×5, createStockTake ×2, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockOutRiskReport ×2, resolveOrderItem ×1); db.ts (completeCashPurchase ×2, completePosSale ×15, createInvoice ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×1, getPickingList ×1, and 2 more); routes/items.ts ((module level) ×2); routes/locations.ts ((module level) ×14); routes/pos.ts ((module level) ×2); routes/stock-lots.ts ((module level) ×3) · tests: 156 call(s) in 2 file(s) · tooling: 10 call(s) in 2 file(s)
 
 **`getEntityTree`** *(exported)*
 
@@ -1383,7 +1611,7 @@ Called from: production: db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×
 getEntityTree(businessName?: string): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null; })[]
 ```
 
-Called from: production: db-reports.ts (getSalesReport ×1); db.ts (getBusinessConfigurationReport ×1, getHierarchyChain ×1, isDescendantOf ×1); routes/entities.ts ((module level) ×1); routes/locations.ts ((module level) ×1) · tests: 52 call(s) in 1 file(s) · tooling: 16 call(s) and 1 reference(s) in 7 file(s)
+Called from: production: db-reports.ts (getSalesReport ×1); db.ts (getBusinessConfigurationReport ×1, getHierarchyChain ×1, isDescendantOf ×1); routes/entities.ts ((module level) ×1); routes/locations.ts ((module level) ×1) · tests: 53 call(s) in 1 file(s) · tooling: 19 call(s) and 2 reference(s) in 8 file(s)
 
 **`orderSiblingsByDisplayOrderPreJoined`**
 
@@ -1399,7 +1627,7 @@ Called from: production: db.ts (getEntityTree ×1)
 getEntity(id: number): EntityNode | undefined
 ```
 
-Called from: production: db.ts (createEntityRaw ×1, getQualifiedDisplayName ×2, reorderSiblings ×1, reorderSiblingsBulk ×1, revokeEntity ×2, supersedeEntity ×2); routes/entities.ts ((module level) ×2) · tests: 18 call(s) in 1 file(s)
+Called from: production: db.ts (createEntityRaw ×1, getQualifiedDisplayName ×2, reorderSiblings ×1, reorderSiblingsBulk ×1, revokeEntity ×2, supersedeEntity ×2); drivers/sql-entity-driver.ts (SqlEntityDriver.get ×1); routes/entities.ts ((module level) ×2) · tests: 18 call(s) in 1 file(s)
 
 **`getEntityHistory`** *(exported)*
 
@@ -1431,7 +1659,7 @@ Called from: production: db-stock.ts (consumeFromLots ×1, createStockTake ×1, 
 requireEntity<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand>
 ```
 
-Called from: production: db-reports.ts (resolveCashAtBankAccount ×2); db-seed.ts (ensureSection ×1, migrateForBusinessTypes ×6, migrateForCashCustomerAndProvider ×2, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 6 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×4, convertStorageSpace ×2, copyChartOfAccountsInto ×1, createBusiness ×4, and 28 more) · tests: 222 call(s) in 2 file(s) · tooling: 58 call(s) in 19 file(s)
+Called from: production: db-reports.ts (resolveCashAtBankAccount ×2); db-seed.ts (ensureSection ×1, migrateForBusinessTypes ×6, migrateForCashCustomerAndProvider ×2, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 6 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×4, convertStorageSpace ×2, copyChartOfAccountsInto ×1, createBusiness ×4, and 28 more) · tests: 222 call(s) in 2 file(s) · tooling: 65 call(s) in 19 file(s)
 
 **`requireGlobalCoaCategory`** *(exported)*
 
@@ -1447,7 +1675,7 @@ Called from: tests: 9 call(s) in 1 file(s)
 requireEntityById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand>
 ```
 
-Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenuEntities ×3); db.ts (addFinancialStatementNote ×1, copyChildren ×2, createItem ×1, nominateBankAccount ×1, setEntityLink ×1, setMenuOverride ×1, and 1 more) · tests: 19 call(s) in 1 file(s)
+Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenuEntities ×3); db.ts (addFinancialStatementNote ×1, copyChildren ×2, createItem ×1, nominateBankAccount ×1, setEntityLink ×1, setMenuOverride ×1, and 1 more) · tests: 19 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`create`** *(exported)*
 
@@ -1455,7 +1683,7 @@ Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenu
 create<TParentBrand extends string, TChildBrand extends string>(parent: TypedNode<TParentBrand>, type: TypeDescriptor<TChildBrand>, name: string, userId: UserId): TypedNode<TChildBrand>
 ```
 
-Called from: production: db-seed.ts (ensureSection ×1, migrateForBusinessTypes ×7, migrateForCashCustomerAndProvider ×2, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 6 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, copyChildren ×3, createBusiness ×5, createContact ×1, createItem ×2, and 20 more) · tests: 185 call(s) in 1 file(s) · tooling: 58 call(s) in 19 file(s)
+Called from: production: db-seed.ts (ensureSection ×1, migrateForBusinessTypes ×7, migrateForCashCustomerAndProvider ×2, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 6 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, copyChildren ×3, createBusiness ×5, createContact ×1, createItem ×2, and 20 more) · tests: 189 call(s) in 1 file(s) · tooling: 63 call(s) in 19 file(s)
 
 **`isGenuineCategoryOrItemsRoot`** *(exported)*
 
@@ -1471,7 +1699,7 @@ Called from: production: db.ts (typeCategoryOrItemsRootName.validate ×1)
 createEntityRaw(input: NewEntity, userId: UserId): EntityNode
 ```
 
-Called from: production: routes/entities.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: drivers/sql-entity-driver.ts (SqlEntityDriver.create ×2); routes/entities.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`supersedeEntity`** *(exported)*
 
@@ -1479,7 +1707,7 @@ Called from: production: routes/entities.ts ((module level) ×1) · tests: 6 cal
 supersedeEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode
 ```
 
-Called from: production: auth.ts (login ×1, setUserRoles ×1); db-journal.ts (closePeriod ×1, reopenPeriod ×1); db-seed.ts (migrateForCashCustomerAndProvider ×1, migrateForCogsTag ×1, migrateForMenuEntities ×2, moveLink ×1); db-stock.ts (completeStockTake ×1, createStockTake ×1, placeOrder ×2, recordStockTakeCount ×1, setLocation ×2); db.ts (addOrUpdateItemSource ×1, addTyped ×1, copyChildren ×1, createBusiness ×2, createInvoice ×2, setActiveLedger ×1, and 9 more); routes/entities.ts ((module level) ×1) · tests: 13 call(s) in 1 file(s) · tooling: 12 call(s) in 7 file(s)
+Called from: production: db-journal.ts (closePeriod ×1, reopenPeriod ×1); db-seed.ts (migrateForCashCustomerAndProvider ×1, migrateForCogsTag ×1, migrateForMenuEntities ×2, moveLink ×1); db-stock.ts (completeStockTake ×1, createStockTake ×1, placeOrder ×2, recordStockTakeCount ×1, setLocation ×2); db.ts (addOrUpdateItemSource ×1, addTyped ×1, copyChildren ×1, createBusiness ×2, createInvoice ×2, setActiveLedger ×1, and 9 more); drivers/sql-entity-driver.ts (SqlEntityDriver.relate ×1, SqlEntityDriver.rename ×1, SqlEntityDriver.reparent ×1); routes/entities.ts ((module level) ×1) · tests: 13 call(s) in 1 file(s) · tooling: 12 call(s) in 7 file(s)
 
 **`listLineTypes`** *(exported)*
 
@@ -1567,7 +1795,7 @@ Called from: production: db.ts (reorderSiblings ×1, reorderSiblingsBulk ×1)
 setRelationship(entityName: string, relationshipType: string, targetName: string, userId: UserId): void
 ```
 
-Called from: production: db-journal.ts (postLocation ×1); db.ts (createAndConfigureLocation ×2, createEmployee ×1); routes/entities.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s)
+Called from: production: db-journal.ts (postLocation ×1); db.ts (createAndConfigureLocation ×2, createEmployee ×1); routes/entities.ts ((module level) ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`getRelationship`** *(exported)*
 
@@ -1580,7 +1808,7 @@ Called from: tests: 3 call(s) in 1 file(s)
 **`getEntitiesWithRelationship`** *(exported)*
 
 ```
-getEntitiesWithRelationship(relationshipType: string): { source: string; target: string; }[]
+getEntitiesWithRelationship(relationshipType: string): { source: string; target: string; sourceId: number; targetId: number; }[]
 ```
 
 Called from: production: db.ts (getHierarchy ×1, getOrganizationChart ×3, getOrgChartStructure ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
@@ -1599,7 +1827,7 @@ Called from: production: primitives.ts (Hierarchy.buildTree ×1)
 resolveBusinessLocationsRootId(businessName: string): number | undefined
 ```
 
-Called from: production: db-stock.ts (countInventoryListing ×1, ensureLocationCapacityAccount ×1, getInventoryListingByLocation ×1, getLocation ×1, setLocation ×1); db.ts (createLocation ×1, deleteLocation ×1, ensureItemLocationQuantityAccount ×1, getBusinessConfigurationReport ×1, getOrganizationChart ×1, openStorageContainer ×1, and 1 more); routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: db-stock.ts (countInventoryListing ×1, ensureLocationCapacityAccount ×1, getInventoryListingByLocation ×1, getLocation ×1, setLocation ×1); db.ts (createLocation ×1, deleteLocation ×1, ensureItemLocationQuantityAccount ×1, getBusinessConfigurationReport ×1, getOrganizationChart ×1, openStorageContainer ×1, and 1 more); routes/locations.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
 
 **`getOrganizationChart`** *(exported)*
 
@@ -1615,7 +1843,7 @@ Called from: production: routes/pos.ts ((module level) ×1) · tests: 1 call(s) 
 revokeEntity(id: number, userId: UserId): void
 ```
 
-Called from: production: auth.ts (setUserRoles ×2); db.ts (deleteDepartment ×3, deleteHierarchyGrouping ×1, deleteHierarchyValue ×1, deleteLocation ×1, deleteTranslationConcept ×1); routes/entities.ts ((module level) ×1) · tests: 13 call(s) in 1 file(s)
+Called from: production: db.ts (deleteDepartment ×3, deleteHierarchyGrouping ×1, deleteHierarchyValue ×1, deleteLocation ×1, deleteTranslationConcept ×1); drivers/sql-entity-driver.ts (SqlEntityDriver.revoke ×1); routes/entities.ts ((module level) ×1) · tests: 13 call(s) in 1 file(s)
 
 **`getCreditStatus`** *(exported)*
 
@@ -1744,6 +1972,14 @@ dispatchRestockFromPickingList(runReference: string, business: BusinessName, led
 ```
 
 Called from: production: routes/locations.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`resolveBusinessAndLedgerIds`**
+
+```
+resolveBusinessAndLedgerIds(business: BusinessName, ledger: LedgerName): { businessId: number; ledgerId: number; }
+```
+
+Called from: production: db.ts (countInvoices ×1, getCashFlowForecast ×1, listInvoices ×1, postInvoice ×1)
 
 **`listInvoices`** *(exported)*
 
@@ -1903,7 +2139,7 @@ Called from: production: db.ts (createProfitCenter ×1, defineProductShape ×1, 
 ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): { id: number; name: string; }
 ```
 
-Called from: production: db.ts (createAndConfigureLocation ×1, defineProductShape ×1, deleteHierarchyValue ×1, ensureHierarchyValue ×1); routes/hierarchy.ts ((module level) ×1) · tests: 9 call(s) in 2 file(s) · tooling: 6 call(s) in 1 file(s)
+Called from: production: db.ts (createAndConfigureLocation ×1, defineProductShape ×1, deleteHierarchyValue ×1, ensureHierarchyValue ×1); routes/hierarchy.ts ((module level) ×1) · tests: 9 call(s) in 2 file(s) · tooling: 8 call(s) in 2 file(s)
 
 **`ensureHierarchyValue`** *(exported)*
 
@@ -1911,7 +2147,7 @@ Called from: production: db.ts (createAndConfigureLocation ×1, defineProductSha
 ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): { id: number; name: string; }
 ```
 
-Called from: production: db.ts (createAndConfigureLocation ×1, ensureProductInstance ×1); routes/hierarchy.ts ((module level) ×1) · tests: 28 call(s) in 2 file(s) · tooling: 7 call(s) in 1 file(s)
+Called from: production: db.ts (createAndConfigureLocation ×1, ensureProductInstance ×1); routes/hierarchy.ts ((module level) ×1) · tests: 28 call(s) in 2 file(s) · tooling: 9 call(s) in 2 file(s)
 
 **`deleteHierarchyValue`** *(exported)*
 
@@ -2087,7 +2323,7 @@ Called from: production: db-stock.ts (dispatchItems ×1, receiveItems ×1, resol
 ensureItemTier(baseProductName: ItemName, tier: string, userId: UserId, business?: BusinessName): { tierItemName: string; tierItemId: number; salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
 ```
 
-Called from: production: db.ts (completePosSale ×4) · tests: 7 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+Called from: production: db.ts (completePosSale ×4) · tests: 7 call(s) in 1 file(s)
 
 **`ensureItemTierLocationLeaf`** *(exported)*
 
@@ -2135,7 +2371,7 @@ Called from: production: db-reports.ts (getTrialBalance ×1, toLine ×1) · test
 ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number; }
 ```
 
-Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, placeOrder ×1, receiveItems ×1, receiveStockPhysical ×1, writeOffItems ×1)
+Called from: production: db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (completeStockTake ×1, dispatchItems ×1, fulfillOrder ×1, getOrderStatus ×1, placeOrder ×1, receiveItems ×1, and 2 more)
 
 **`getHierarchyGroupForLocation`** *(exported)*
 
@@ -2249,6 +2485,14 @@ getAccountsPostedTo(reference: string): string[]
 
 Called from: tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
+**`contactFieldAttrName`**
+
+```
+contactFieldAttrName(field: string): string | undefined
+```
+
+Called from: production: db.ts (mergeContactDetail ×1)
+
 **`mergeContactDetail`** *(exported)*
 
 ```
@@ -2263,7 +2507,7 @@ Called from: production: db-seed.ts (migrateForCashCustomerAndProvider ×2); db-
 setContact(entityName: string, contact: Partial<Contact>): void
 ```
 
-Called from: production: db.ts (addTypedAddress ×1, addTypedContactPerson ×1, addTypedPhone ×1, registerCustomer ×1); routes/contacts.ts ((module level) ×1) · tests: 20 call(s) in 1 file(s) · tooling: 7 call(s) in 3 file(s)
+Called from: production: db.ts (addTypedAddress ×1, addTypedContactPerson ×1, addTypedPhone ×1, registerCustomer ×1); routes/contacts.ts ((module level) ×1) · tests: 20 call(s) in 1 file(s) · tooling: 8 call(s) in 3 file(s)
 
 **`setPosPin`** *(exported)*
 
@@ -2420,7 +2664,7 @@ Called from: production: routes/contacts.ts ((module level) ×1)
 **`addTypedPhone`** *(exported)*
 
 ```
-addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId): string
+addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId, businessName?: string | null): string
 ```
 
 Called from: production: routes/contacts.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s)
@@ -2607,7 +2851,7 @@ Called from: tests: 1 call(s) in 1 file(s)
 setHierarchyParent(entityName: string, hierarchyName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void
 ```
 
-Called from: production: db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db-stock.ts (placeOrder ×1); db.ts (createAndConfigureLocation ×1, ensureContactTypeHeaderAccounts ×1, ensureItemLocationInventoryAccount ×1, ensureItemLocationLeaf ×2, ensureItemLocationQuantityAccount ×1, ensureItemTier ×1, and 2 more); routes/hierarchy.ts ((module level) ×2) · tests: 36 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
+Called from: production: db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db-stock.ts (placeOrder ×1); db.ts (createAndConfigureLocation ×1, ensureContactTypeHeaderAccounts ×1, ensureItemLocationInventoryAccount ×1, ensureItemLocationLeaf ×2, ensureItemLocationQuantityAccount ×1, ensureItemTier ×1, and 2 more); routes/hierarchy.ts ((module level) ×2) · tests: 36 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
 
 **`getHierarchyParent`** *(exported)*
 
@@ -2671,7 +2915,7 @@ Called from: production: db.ts (createCustomer ×1, createEmployee ×1, createPr
 createProvider(name: string, userId: UserId): { id: number; }
 ```
 
-Called from: production: db.ts (ensureCurrencyExchangeItem ×1); routes/entities.ts ((module level) ×1) · tests: 11 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: db.ts (ensureCurrencyExchangeItem ×1); routes/entities.ts ((module level) ×1) · tests: 12 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`createCustomer`** *(exported)*
 
@@ -2679,7 +2923,7 @@ Called from: production: db.ts (ensureCurrencyExchangeItem ×1); routes/entities
 createCustomer(name: string, userId: UserId): { id: number; }
 ```
 
-Called from: production: routes/entities.ts ((module level) ×1) · tests: 17 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: routes/entities.ts ((module level) ×1) · tests: 18 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`createEmployee`** *(exported)*
 
@@ -2711,7 +2955,7 @@ Called from: production: db-stock.ts (allItemCategories ×1); routes/hierarchy.t
 getEntityLinksPointingAt(targetName: string): { entityName: string; linkType: string; }[]
 ```
 
-Called from: production: db.ts (deleteDepartment ×1, getHierarchyLinksPointingAt ×1, revokeEntity ×1) · tests: 2 call(s) in 1 file(s)
+Called from: production: db.ts (deleteDepartment ×1, getHierarchyLinksPointingAt ×1, revokeEntity ×1) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`getEntitiesWithLink`** *(exported)*
 
@@ -2855,7 +3099,7 @@ Called from: production: db.ts (ensureItemLocationQuantityAccount ×1, ensureIte
 getItem(entityName: string): Item | undefined
 ```
 
-Called from: production: db.ts (ensureItemLocationQuantityAccount ×1, ensureItemQuantityAccounts ×1); routes/items.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: db.ts (ensureItemLocationQuantityAccount ×1, ensureItemQuantityAccounts ×1); routes/items.ts ((module level) ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`setItem`** *(exported)*
 
@@ -2863,7 +3107,7 @@ Called from: production: db.ts (ensureItemLocationQuantityAccount ×1, ensureIte
 setItem(entityName: string, item: Partial<Item>): void
 ```
 
-Called from: production: db.ts (createItem ×2); routes/items.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s) · tooling: 8 call(s) in 5 file(s)
+Called from: production: db.ts (createItem ×2); routes/items.ts ((module level) ×1) · tests: 3 call(s) in 1 file(s) · tooling: 10 call(s) in 6 file(s)
 
 **`listItems`** *(exported)*
 
@@ -2920,6 +3164,14 @@ getItemPriceForCurrency(itemName: string, currency: string | null, productInstan
 ```
 
 Called from: production: db.ts (completePosSale ×1) · tests: 5 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`requireBusinessId`**
+
+```
+requireBusinessId(businessName: string): number
+```
+
+Called from: production: db.ts (setBusinessHomeCurrency ×1, setBusinessReportingPeriod ×1)
 
 **`setBusinessHomeCurrency`** *(exported)*
 
@@ -3263,7 +3515,7 @@ Called from: production: db-journal.ts (postLocation ×1); db.ts (createAndConfi
 createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId, group?: string, groupingName?: string): TypedNode<"LocationEntityName">
 ```
 
-Called from: tests: 8 call(s) in 2 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: tests: 8 call(s) in 2 file(s) · tooling: 2 call(s) in 2 file(s)
 
 **`deleteLocation`** *(exported)*
 
@@ -3473,6 +3725,438 @@ getChartOfAccountsPrototype(language: string): string[]
 
 Called from: production: routes/businesses.ts ((module level) ×1)
 
+### `backend/src/drivers/kaappi-entity-driver.ts`
+
+**`n`**
+
+```
+n(v: number | null | undefined): WireValue
+```
+
+Called from: production: drivers/kaappi-entity-driver.ts (KaappiEntityDriver.create ×1, KaappiEntityDriver.findAll ×1, KaappiEntityDriver.relate ×1)
+
+**`KaappiEntityDriver.readPayload`** *(exported)*
+
+```
+KaappiEntityDriver.readPayload(): string
+```
+
+Called from: production: drivers/kaappi-entity-driver.ts ((module level) ×1, KaappiEntityDriver.callSync ×1)
+
+**`KaappiEntityDriver.callSync`** *(exported)*
+
+```
+KaappiEntityDriver.callSync(method: string, args: WireValue[]): unknown
+```
+
+Called from: production: drivers/kaappi-entity-driver.ts (KaappiEntityDriver.ancestorChain ×1, KaappiEntityDriver.children ×1, KaappiEntityDriver.create ×1, KaappiEntityDriver.findAll ×1, KaappiEntityDriver.findByNameContaining ×1, KaappiEntityDriver.get ×1, and 11 more)
+
+**`KaappiEntityDriver.create`** *(exported)*
+
+```
+KaappiEntityDriver.create(name: string, parent: string | number, userId: UserId): EntityNode
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.get`** *(exported)*
+
+```
+KaappiEntityDriver.get(idOrName: number | string, parent?: string): EntityNode | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.getByName`** *(exported)*
+
+```
+KaappiEntityDriver.getByName(name: string, parent?: string): EntityNode | undefined
+```
+
+Called from: production: drivers/kaappi-entity-driver.ts (KaappiEntityDriver.get ×1)
+
+**`KaappiEntityDriver.getUnder`** *(exported)*
+
+```
+KaappiEntityDriver.getUnder(name: string, parentId: number): EntityNode | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.rename`** *(exported)*
+
+```
+KaappiEntityDriver.rename(id: number, name: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.reparent`** *(exported)*
+
+```
+KaappiEntityDriver.reparent(id: number, parent: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.relate`** *(exported)*
+
+```
+KaappiEntityDriver.relate(id: number, target: string | null, userId: UserId, targetId?: number): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.revoke`** *(exported)*
+
+```
+KaappiEntityDriver.revoke(_id: number, _userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.children`** *(exported)*
+
+```
+KaappiEntityDriver.children(parentId: number): EntityNode[]
+```
+
+Called from: production: drivers/kaappi-entity-driver.ts (KaappiEntityDriver.descendantsWithDepth ×1)
+
+**`KaappiEntityDriver.hasTag`** *(exported)*
+
+```
+KaappiEntityDriver.hasTag(id: number, tagName: string): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.setAttr`** *(exported)*
+
+```
+KaappiEntityDriver.setAttr(id: number, attrType: string, value: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.getAttr`** *(exported)*
+
+```
+KaappiEntityDriver.getAttr(id: number, attrType: string): string | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.resolveAncestor`** *(exported)*
+
+```
+KaappiEntityDriver.resolveAncestor(startId: number, stopAt: (name: string) => boolean): EntityNode | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.ancestorChain`** *(exported)*
+
+```
+KaappiEntityDriver.ancestorChain(id: number): EntityNode[]
+```
+
+Called from: production: drivers/kaappi-entity-driver.ts (KaappiEntityDriver.resolveAncestor ×1)
+
+**`KaappiEntityDriver.descendantsWithDepth`** *(exported)*
+
+```
+KaappiEntityDriver.descendantsWithDepth(rootId: number | null): (EntityNode & { depth: number; })[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.getMany`** *(exported)*
+
+```
+KaappiEntityDriver.getMany(ids: number[]): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.findAll`** *(exported)*
+
+```
+KaappiEntityDriver.findAll(filter: { relationId?: number | null; nameSuffix?: string; underTagNamed?: string; }): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.findByNameContaining`** *(exported)*
+
+```
+KaappiEntityDriver.findByNameContaining(fragment: string, parentId?: number): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`KaappiEntityDriver.mustResolveByName`** *(exported)*
+
+```
+KaappiEntityDriver.mustResolveByName(name: string): number
+```
+
+Called from: production: drivers/kaappi-entity-driver.ts (KaappiEntityDriver.create ×1, KaappiEntityDriver.relate ×1, KaappiEntityDriver.reparent ×1)
+
+**`KaappiEntityDriver.mustGetName`** *(exported)*
+
+```
+KaappiEntityDriver.mustGetName(id: number): string
+```
+
+Called from: production: drivers/kaappi-entity-driver.ts (KaappiEntityDriver.ancestorChain ×1, KaappiEntityDriver.children ×1, KaappiEntityDriver.descendantsWithDepth ×1)
+
+### `backend/src/drivers/kaappi-worker.ts`
+
+**`writePayload`**
+
+```
+writePayload(text: string): boolean
+```
+
+Called from: production: drivers/kaappi-worker.ts (main ×4)
+
+**`EntityClient.ensureStarted`**
+
+```
+EntityClient.ensureStarted(): Promise<void>
+```
+
+Called from: production: drivers/kaappi-worker.ts (EntityClient.call ×1, main ×1)
+
+**`EntityClient.spawnChild`**
+
+```
+EntityClient.spawnChild(): Promise<void>
+```
+
+Called from: production: drivers/kaappi-worker.ts (EntityClient.ensureStarted ×1, EntityClient.handleExit ×1)
+
+**`EntityClient.handleLine`**
+
+```
+EntityClient.handleLine(line: string): void
+```
+
+Called from: production: drivers/kaappi-worker.ts (EntityClient.spawnChild ×1)
+
+**`EntityClient.handleExit`**
+
+```
+EntityClient.handleExit(code: number | null, signal: NodeJS.Signals | null): void
+```
+
+Called from: production: drivers/kaappi-worker.ts (EntityClient.spawnChild ×1)
+
+**`EntityClient.call`**
+
+```
+EntityClient.call(method: string, args: JsonValue[]): Promise<JsonValue>
+```
+
+Called from: production: drivers/kaappi-worker.ts (main ×4)
+
+**`ensureWalTable`**
+
+```
+ensureWalTable(): void
+```
+
+Called from: production: drivers/kaappi-worker.ts (main ×1)
+
+**`readWalOps`**
+
+```
+readWalOps(): JsonOp[]
+```
+
+Called from: production: drivers/kaappi-worker.ts (appendWalOp ×1, main ×1)
+
+**`appendWalOp`**
+
+```
+appendWalOp(op: JsonOp): void
+```
+
+Called from: production: drivers/kaappi-worker.ts (main ×2)
+
+**`main`**
+
+```
+main(): Promise<void>
+```
+
+Called from: production: drivers/kaappi-worker.ts ((module level) ×1)
+
+### `backend/src/drivers/sql-entity-driver.ts`
+
+**`toNode`**
+
+```
+toNode(row: { id: number; name: string; parent_id: number | null; relation_id: number | null; }): EntityNode
+```
+
+Called from: production: drivers/sql-entity-driver.ts (SqlEntityDriver.children (as a value), SqlEntityDriver.create ×1, SqlEntityDriver.descendantsWithDepth ×1, SqlEntityDriver.findAll (as a value), SqlEntityDriver.findByNameContaining (as a value), SqlEntityDriver.get ×3, and 2 more)
+
+**`SqlEntityDriver.create`** *(exported)*
+
+```
+SqlEntityDriver.create(name: string, parent: string | number, userId: UserId): EntityNode
+```
+
+Called from: production: drivers/sql-entity-driver.ts (SqlEntityDriver.setAttr ×2)
+
+**`SqlEntityDriver.get`** *(exported)*
+
+```
+SqlEntityDriver.get(idOrName: number | string, parent?: string): EntityNode | undefined
+```
+
+Called from: production: drivers/sql-entity-driver.ts (SqlEntityDriver.ancestorChain ×2, SqlEntityDriver.getByName ×1, SqlEntityDriver.resolveAncestor ×2)
+
+**`SqlEntityDriver.getByName`** *(exported)*
+
+```
+SqlEntityDriver.getByName(name: string, parent?: string): EntityNode | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.getUnder`** *(exported)*
+
+```
+SqlEntityDriver.getUnder(name: string, parentId: number): EntityNode | undefined
+```
+
+Called from: production: drivers/sql-entity-driver.ts (SqlEntityDriver.getAttr ×1, SqlEntityDriver.setAttr ×1)
+
+**`SqlEntityDriver.rename`** *(exported)*
+
+```
+SqlEntityDriver.rename(id: number, name: string, userId: UserId): void
+```
+
+Called from: production: drivers/sql-entity-driver.ts (SqlEntityDriver.setAttr ×1)
+
+**`SqlEntityDriver.reparent`** *(exported)*
+
+```
+SqlEntityDriver.reparent(id: number, parent: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.relate`** *(exported)*
+
+```
+SqlEntityDriver.relate(id: number, target: string | null, userId: UserId, targetId?: number): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.revoke`** *(exported)*
+
+```
+SqlEntityDriver.revoke(id: number, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.children`** *(exported)*
+
+```
+SqlEntityDriver.children(parentId: number): EntityNode[]
+```
+
+Called from: production: drivers/sql-entity-driver.ts (SqlEntityDriver.getAttr ×1, SqlEntityDriver.setAttr ×1)
+
+**`SqlEntityDriver.hasTag`** *(exported)*
+
+```
+SqlEntityDriver.hasTag(id: number, tagName: string): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.setAttr`** *(exported)*
+
+```
+SqlEntityDriver.setAttr(id: number, attrType: string, value: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.getAttr`** *(exported)*
+
+```
+SqlEntityDriver.getAttr(id: number, attrType: string): string | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.resolveAncestor`** *(exported)*
+
+```
+SqlEntityDriver.resolveAncestor(startId: number, stopAt: (name: string) => boolean): EntityNode | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.descendantsWithDepth`** *(exported)*
+
+```
+SqlEntityDriver.descendantsWithDepth(rootId: number | null): (EntityNode & { depth: number; })[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.ancestorChain`** *(exported)*
+
+```
+SqlEntityDriver.ancestorChain(id: number): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.getMany`** *(exported)*
+
+```
+SqlEntityDriver.getMany(ids: number[]): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.findAll`** *(exported)*
+
+```
+SqlEntityDriver.findAll(filter: { relationId?: number | null; nameSuffix?: string; underTagNamed?: string; }): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`SqlEntityDriver.findByNameContaining`** *(exported)*
+
+```
+SqlEntityDriver.findByNameContaining(fragment: string, parentId?: number): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+### `backend/src/entity-driver-select.ts`
+
+**`selectDriver`**
+
+```
+selectDriver(): EntityDriver
+```
+
+Called from: production: entity-driver-select.ts ((module level) ×1)
+
 ### `backend/src/invoice.ts`
 
 **`money`**
@@ -3517,31 +4201,31 @@ Called from: production: auth.ts (changeOwnPassword ×1, login ×1); db.ts (auth
 Entity.create(name: string, parent: string | number, userId: UserId): EntityNode
 ```
 
-Called from: production: auth.ts (createUser ×1, login ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, ensureLocationScopedAccount ×1, ensurePeriodLockEntity ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveCashAtBankAccount ×2, resolveRolloverLines ×1); db-stock.ts (createLocationType ×1, createPosTerminal ×2, createStockTake ×2, createSystemEntity ×1, ensureLocationCapacityAccount ×3, receiveLot ×1, and 2 more); db.ts (addOrUpdateItemSource ×1, allocatePayment ×1, createInvoice ×2, createProfitCenter ×1, defineProductShape ×1, ensureActiveLedgerMarker ×1, and 20 more); primitives.ts (Detail.set ×1, Entity.setAttr ×1, Link.mark ×1)
+Called from: production: auth.ts (createUser ×1, login ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, ensureLocationScopedAccount ×1, ensurePeriodLockEntity ×1); db-quotations.ts (draftQuotation ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveCashAtBankAccount ×2, resolveRolloverLines ×1); db-stock.ts (createLocationType ×1, createPosTerminal ×2, createStockTake ×2, createSystemEntity ×1, ensureLocationCapacityAccount ×3, receiveLot ×1, and 2 more); db.ts (addOrUpdateItemSource ×1, allocatePayment ×1, create ×1, createInvoice ×2, createProfitCenter ×1, defineProductShape ×1, and 21 more); primitives.ts (Detail.set ×1, Entity.ensureUnder ×1, Link.mark ×1)
 
 **`Entity.get`** *(exported)*
 
 ```
-Entity.get(idOrName: number | string, parent?: string): { id: number; name: string; parent_id: number | null; relation_id: number | null; } | undefined
+Entity.get(idOrName: number | string, parent?: string): EntityNode | undefined
 ```
 
-Called from: production: db-journal.ts (ensureLocationScopedAccount ×2); db-stock.ts (createLocationType ×1, createPosTerminal ×2, getItemLocation ×1, getLevelFigure ×1, setItemLocationLevelDetails ×3, setItemSourceLeadTime ×1); db.ts (addTaskDependency ×1, deleteBomComponent ×1, ensureAddressType ×1, ensureContactPersonType ×1, ensureCurrencyExchangeItem ×2, ensureItemSalesCogsAccounts ×1, and 2 more); primitives.ts (Detail.delete ×1, Detail.list ×1, Detail.set ×1, Link.mark ×1, Link.unmark ×1)
+Called from: production: auth.ts (createUser ×1, findSessionByToken ×1, getSessionUser ×1, getUserDetail ×2, getUserRoleMatrix ×1, getUserRoleNames ×1, and 6 more); db-journal.ts (clockInToProject ×1, ensureLocationScopedAccount ×2, findLedgerScopedAccount ×1, getJournalEntry ×1, getOpenProjectClockEntity ×1, listJournalEntries ×1, and 4 more); db-matrix-reports.ts (locationForAccount ×2, resolveLedgerEntityId ×1); db-quotations.ts (ensureQuotationsRoot ×1, findJournal ×2, getQuotationEntityId ×1, listQuotations ×1); db-reports.ts (buildProfitAndLossFromBalances ×1, computeCloseLines ×1, ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, getChartOfAccounts ×1, resolveBusinessEntityId ×1, and 3 more); db-seed.ts (ensureSection ×1, hasEntity ×3, migrateForBusinessTypes ×4, migrateForCashCustomerAndProvider ×2, migrateForCoaTranslations ×1, migrateForCogsTag ×2, and 9 more); db-stock.ts (completeStockTake ×1, createLocationType ×1, createPosTerminal ×2, createStockTake ×2, ensureLotAccount ×1, ensureStockLotsRoot ×2, and 22 more); db.ts (addOrUpdateItemSource ×3, addTaskDependency ×1, addTyped ×2, allocatePayment ×1, authenticateCustomer ×1, checkEInvoiceDiscrepancies ×3, and 91 more); and 2 more file(s)
 
 **`Entity.getUnder`** *(exported)*
 
 ```
-Entity.getUnder(name: string, parentId: number): { id: number; name: string; } | undefined
+Entity.getUnder(name: string, parentId: number): EntityNode | undefined
 ```
 
-Called from: production: auth.ts (createUser ×1, setUserRoles ×1); db-journal.ts (findLedgerScopedAccount ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveCashAtBankAccount ×2, resolveRolloverLines ×1); db-stock.ts (ensureLocationCapacityAccount ×3, ensureUnitsTrackingBaseAccounts ×2, receiveLot ×1, setLevelFigure ×1); db.ts (addOrUpdateItemSource ×1, createBusiness ×1, createLedger ×1, createProfitCenter ×1, defineProductShape ×1, deleteDepartment ×3, and 23 more); primitives.ts (Detail.delete ×2, Detail.list ×1, Detail.set ×1, Entity.ensureUnder ×1, Entity.getAttr ×1, Entity.untag ×1)
+Called from: production: auth.ts (createUser ×1, getUserRoleMatrix ×1, setUserRoles ×1, unsetUserRoleInBusiness ×6); db-journal.ts (findLedgerScopedAccount ×1, resolveLedgerEntity ×2, resolveStagedAccountId ×1, resolveStagingBusinessId ×1, resolveStagingLedgerId ×2); db-matrix-reports.ts (resolveLedgerEntityId ×2); db-quotations.ts (draftQuotation ×1, ensureQuotationsRoot ×1, getQuotationEntityId ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveBusinessReportsCoaRootId ×2, resolveCashAtBankAccount ×2, resolveLedgerEntityId ×2, resolveRolloverLines ×3); db-seed.ts (migrateForBusinessTypes ×4, migrateForCashCustomerAndProvider ×3, migrateForMenuEntities ×1); db-stock.ts (ensureLocationCapacityAccount ×4, ensureUnitsTrackingBaseAccounts ×2, getLocation ×1, getStockMovementReport ×2, receiveLot ×1, setLevelFigure ×1, and 1 more); db.ts (addFinancialStatementNote ×1, addOrUpdateItemSource ×1, confirmPickedLine ×2, confirmRestockPickedLine ×2, copyChildren ×3, create ×1, and 57 more); and 1 more file(s)
 
 **`Entity.ensureUnder`** *(exported)*
 
 ```
-Entity.ensureUnder(name: string, parentId: number, userId: UserId): { id: number; name: string; }
+Entity.ensureUnder(name: string, parentId: number, userId: UserId): EntityNode
 ```
 
-Called from: production: db-stock.ts (setItemLocationLevelDetails ×1); db.ts (buildBankCurrencyStructure ×3, createDepartment ×1, ensureDepartmentAccounts ×2, ensureDepartmentsRoot ×1, ensureItemInventoryAccount ×1, ensureItemSalesCogsAccounts ×1, and 2 more); primitives.ts (Detail.set ×1, Entity.setAttr ×1, Entity.tag ×1)
+Called from: production: db-stock.ts (setItemLocationLevelDetails ×1); db.ts (buildBankCurrencyStructure ×3, createDepartment ×1, ensureDepartmentAccounts ×2, ensureDepartmentsRoot ×1, ensureItemInventoryAccount ×1, ensureItemSalesCogsAccounts ×1, and 3 more); primitives.ts (Detail.set ×1, Entity.tag ×1)
 
 **`Entity.rename`** *(exported)*
 
@@ -3549,7 +4233,7 @@ Called from: production: db-stock.ts (setItemLocationLevelDetails ×1); db.ts (b
 Entity.rename(id: number, name: string, userId: UserId): void
 ```
 
-Called from: production: db.ts (deleteDepartment ×3, setTranslation ×1); primitives.ts (Entity.setAttr ×1)
+Called from: production: db.ts (deleteDepartment ×3, setTranslation ×1)
 
 **`Entity.reparent`** *(exported)*
 
@@ -3565,7 +4249,7 @@ Called from: production: db.ts (revokeEntity ×1)
 Entity.relate(id: number, target: string | null, userId: UserId, targetId?: number): void
 ```
 
-Called from: production: auth.ts (getSessionUser ×1, logout ×1, setUserActive ×1); db-journal.ts (clockInToProject ×1, clockOutOfProject ×1); db-reports.ts (resolveRolloverLines ×1); db-stock.ts (setLocation ×3); db.ts (copyChildren ×1, defineProductShape ×1, deleteTyped ×1, ensureItemLocationLeaf ×1, ensureItemSalesCogsAccounts ×1, ensureItemTierLocationLeaf ×1, and 1 more); primitives.ts (Detail.delete ×1, Detail.set ×1, Entity.tag ×1, Entity.untag ×1, Link.mark ×1, Link.unmark ×1)
+Called from: production: auth.ts (getSessionUser ×1, login ×1, logout ×1, setUserActive ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, clockOutOfProject ×1); db-reports.ts (resolveRolloverLines ×1); db-stock.ts (setLocation ×3); db.ts (copyChildren ×1, defineProductShape ×1, deleteTyped ×1, ensureItemLocationLeaf ×1, ensureItemSalesCogsAccounts ×1, ensureItemTierLocationLeaf ×1, and 2 more); primitives.ts (Detail.delete ×1, Detail.set ×1, Entity.tag ×1, Entity.untag ×1, Link.mark ×1, Link.unmark ×1)
 
 **`Entity.revoke`** *(exported)*
 
@@ -3573,15 +4257,15 @@ Called from: production: auth.ts (getSessionUser ×1, logout ×1, setUserActive 
 Entity.revoke(id: number, userId: UserId): void
 ```
 
-Called from: nowhere the compiler could find.
+Called from: production: auth.ts (setUserRoles ×2); primitives.ts (Entity.clearAttr ×1)
 
 **`Entity.children`** *(exported)*
 
 ```
-Entity.children(parentId: number): { id: number; name: string; }[]
+Entity.children(parentId: number): EntityNode[]
 ```
 
-Called from: production: db-reports.ts (resolveCashAtBankAccount ×1); db.ts (listDepartments ×1); primitives.ts (Detail.list ×1, Entity.getAttr ×1, Entity.setAttr ×1)
+Called from: production: auth.ts (getUserRoleNames ×1, listRoles ×1, listUsers ×1, setUserActive ×1, setUserRoles ×1); db-quotations.ts (listQuotations ×1); db-reports.ts (resolveBusinessReportsCoaRootId ×1, resolveCashAtBankAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×4, migrateForPerBusinessChartOfAccounts ×1); db-stock.ts (getItemLeadTimes ×1, getLocationTypes ×1, getStockTake ×1, setLocation ×1); db.ts (addFinancialStatementNote ×1, buildNode ×1, copyChildren ×2, getBusinesses ×1, getBusinessHierarchy ×2, getBusinessProductShapes ×2, and 19 more); primitives.ts (Detail.list ×1, Entity.clearAttr ×1)
 
 **`Entity.tag`** *(exported)*
 
@@ -3589,7 +4273,7 @@ Called from: production: db-reports.ts (resolveCashAtBankAccount ×1); db.ts (li
 Entity.tag(id: number, tagName: string, userId: UserId): void
 ```
 
-Called from: production: auth.ts (setUserRoles ×1); db-stock.ts (setItemSourceLeadTime ×1); db.ts (addOrUpdateItemSource ×1, addTaskDependency ×1, postBomComponents ×1, setEntityLink ×1, setMenuOverride ×1, setVocabularyPreference ×1, and 1 more)
+Called from: production: auth.ts (setUserRoles ×1); db-stock.ts (setItemSourceLeadTime ×1); db.ts (addOrUpdateItemSource ×1, addTaskDependency ×1, mergeContactDetail ×1, nominateLocationCurrency ×1, postBomComponents ×1, setEntityLink ×1, and 3 more)
 
 **`Entity.untag`** *(exported)*
 
@@ -3605,7 +4289,7 @@ Called from: production: db.ts (deleteBomComponent ×1, deleteEntityLink ×1, de
 Entity.hasTag(id: number, tagName: string): boolean
 ```
 
-Called from: production: db.ts (deleteItemSource ×1, resolveOverride ×2, signOff ×1)
+Called from: production: auth.ts (getUserRoleNames ×1, setUserRoles ×1); db-stock.ts (getItemLeadTimes ×1); db.ts (deleteItemSource ×1, getLocationCurrencies ×1, resolveOverride ×2, signOff ×1, signOn ×1)
 
 **`Entity.setAttr`** *(exported)*
 
@@ -3613,7 +4297,7 @@ Called from: production: db.ts (deleteItemSource ×1, resolveOverride ×2, signO
 Entity.setAttr(id: number, attrType: string, value: string, userId: UserId): void
 ```
 
-Called from: production: db-stock.ts (setItemSourceLeadTime ×1); db.ts (addTaskDependency ×1, postBomComponents ×2, setVocabularyPreference ×1, signOff ×1)
+Called from: production: auth.ts (changePassword ×1, login ×1, setOwnDateFormat ×1, setOwnNumberFormat ×1, setOwnPageSize ×1, setSessionBusiness ×1, and 3 more); db-quotations.ts (acceptQuotation ×1, draftQuotation ×12, markQuotationSent ×1, rejectQuotation ×1); db-stock.ts (receiveLot ×2, setItemSourceLeadTime ×1); db.ts (addTaskDependency ×1, mergeContactDetail ×1, postBomComponents ×2, setBusinessHomeCurrency ×1, setBusinessReportingPeriod ×2, setVocabularyPreference ×1, and 1 more)
 
 **`Entity.getAttr`** *(exported)*
 
@@ -3621,7 +4305,15 @@ Called from: production: db-stock.ts (setItemSourceLeadTime ×1); db.ts (addTask
 Entity.getAttr(id: number, attrType: string): string | undefined
 ```
 
-Called from: production: db-stock.ts (getItemLeadTimes ×1); db.ts (getBomComponents ×2, getTaskDependencies ×1, parseShiftEntity ×1)
+Called from: production: auth.ts (changeOwnPassword ×1, changePassword ×1, findSessionByToken ×3, getUserDetail ×5, listUsers ×1, setOwnDateFormat ×1, and 3 more); db-quotations.ts (readQuotation ×12); db-stock.ts (consumeFromLots ×1, getExpiringStock ×1, getItemLeadTimes ×1); db.ts (getBomComponents ×2, getBusinessHomeCurrency ×1, getBusinessReportingPeriod ×2, getTaskDependencies ×1, parseShiftEntity ×1)
+
+**`Entity.clearAttr`** *(exported)*
+
+```
+Entity.clearAttr(id: number, attrType: string, userId: UserId): void
+```
+
+Called from: production: db.ts (mergeContactDetail ×1)
 
 **`Entity.setDetailJson`** *(exported)*
 
@@ -3629,7 +4321,7 @@ Called from: production: db-stock.ts (getItemLeadTimes ×1); db.ts (getBomCompon
 Entity.setDetailJson(id: number, detailJson: string): void
 ```
 
-Called from: production: auth.ts (login ×1, setSessionBusiness ×1, setSessionProfitCenter ×1, setUserDetail ×1); db-stock.ts (consumeFromLots ×1, receiveLot ×2); db.ts (addFinancialStatementNote ×1, addOrUpdateItemSource ×2, allocatePayment ×1, createInvoice ×2, mergeContactDetail ×1, nominateBankAccount ×1, and 4 more)
+Called from: production: db.ts (addFinancialStatementNote ×1, addOrUpdateItemSource ×2, allocatePayment ×1, createInvoice ×2, nominateBankAccount ×1, recordInvoiceLine ×2)
 
 **`Entity.mergeDetailJson`** *(exported)*
 
@@ -3654,6 +4346,38 @@ Entity.setCombinationIds(id: number, combinationIdsJson: string): void
 ```
 
 Called from: production: db.ts (ensureCombinationAccountLeaf ×1, ensureProductInstance ×1)
+
+**`Entity.findAll`** *(exported)*
+
+```
+Entity.findAll(filter: { relationId?: number | null; nameSuffix?: string; underTagNamed?: string; }): EntityNode[]
+```
+
+Called from: production: auth.ts (getUserRoleMatrix ×1); db-matrix-reports.ts (loadEntityIndex ×1); db-reports.ts (buildProfitAndLossFromBalances ×1); db.ts (resolveDispatchLocation ×1)
+
+**`Entity.findByNameContaining`** *(exported)*
+
+```
+Entity.findByNameContaining(fragment: string, parentId?: number): EntityNode[]
+```
+
+Called from: production: db-journal.ts (clockInToProject ×1, getOpenProjectClockEntity ×1); db-stock.ts (consumeFromLots ×1, getExpiringStock ×1)
+
+**`Entity.getMany`** *(exported)*
+
+```
+Entity.getMany(ids: number[]): EntityNode[]
+```
+
+Called from: production: db-journal.ts (getJournalEntry ×1); db-reports.ts (getTrialBalanceComparison ×1); db-stock.ts (allPreferredProviders ×1); db.ts (getAccountsPostedTo ×1, getCombinationDisplayName ×1, getLocalizedText ×1)
+
+**`Entity.descendantsWithDepth`** *(exported)*
+
+```
+Entity.descendantsWithDepth(rootId: number | null): (EntityNode & { depth: number; })[]
+```
+
+Called from: production: db-journal.ts (resolveStagedAccountId ×1)
 
 **`Link.set`** *(exported)*
 
@@ -3961,7 +4685,7 @@ Called from: production: auth-middleware.ts (attachUser ×1) · tests: 1 call(s)
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×3, routes/arap/ar-sale ×3, routes/items ×2, routes/locations ×2, routes/pos ×1, and 12 more
+Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×3, routes/arap/ar-sale ×3, routes/arap/quotations ×3, routes/arap/rfq ×3, routes/items ×2, and 14 more
 
 **`asLedgerName`** *(exported)*
 
@@ -3969,7 +4693,7 @@ Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStore
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×2, routes/items ×1, routes/locations ×1, routes/post ×4, routes/projects ×2, and 10 more
+Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×2, routes/arap/quotations ×2, routes/arap/rfq ×2, routes/items ×1, routes/locations ×1, and 12 more
 
 **`asAccountName`** *(exported)*
 
@@ -4041,7 +4765,7 @@ Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte
 request<T>(path: string, init?: RequestInit, screenName?: string): Promise<T>
 ```
 
-Called from: production: api.ts (addOrUpdateItemSource ×1, allocatePaymentToInvoice ×1, apiLogin ×1, apiLogout ×1, buildBankCurrencyStructure ×1, changeOwnPassword ×1, and 201 more)
+Called from: production: api.ts (acceptQuotation ×1, addOrUpdateItemSource ×1, allocatePaymentToInvoice ×1, apiLogin ×1, apiLogout ×1, buildBankCurrencyStructure ×1, and 208 more)
 
 **`getEntityTree`** *(exported)*
 
@@ -4049,7 +4773,7 @@ Called from: production: api.ts (addOrUpdateItemSource ×1, allocatePaymentToInv
 getEntityTree(business?: string): Promise<EntityNode[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/contacts ×1, routes/editor ×1, routes/hr ×1, routes/invoices ×1, routes/items ×3, and 15 more
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/contacts ×1, routes/editor ×1, routes/hr ×1, and 17 more
 
 **`getHierarchyLinksPointingAt`** *(exported)*
 
@@ -4417,7 +5141,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 getBusinesses(): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/post ×1, routes/projects ×1, routes/session ×1, routes/setup/periods ×1, and 5 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/post ×1, routes/projects ×1, and 7 more
 
 **`getBusinessTypes`** *(exported)*
 
@@ -4441,7 +5165,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/new-busi
 getLedgers(businessName: string): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/post ×1, routes/projects ×1, routes/reports/compare ×1, routes/reports/trial-balance ×1, and 7 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/post ×1, routes/projects ×1, and 9 more
 
 **`getActiveLedger`** *(exported)*
 
@@ -4630,7 +5354,7 @@ Called from: Svelte pages (by name in the file's imports): PhoneList.svelte ×0
 **`setTypedPhone`** *(exported)*
 
 ```
-setTypedPhone(name: string, phoneType: string, phone: string): Promise<void>
+setTypedPhone(name: string, phoneType: string, phone: string, businessName?: string | null): Promise<void>
 ```
 
 Called from: Svelte pages (by name in the file's imports): PhoneList.svelte ×1
@@ -4890,6 +5614,62 @@ postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName): P
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/stock/so ×1
+
+**`listQuotations`** *(exported)*
+
+```
+listQuotations(business: BusinessName, ledger: LedgerName, direction?: QuotationDirection): Promise<QuotationRecord[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1
+
+**`getQuotation`** *(exported)*
+
+```
+getQuotation(reference: string): Promise<QuotationRecord>
+```
+
+Called from: nowhere the compiler could find.
+
+**`createQuotation`** *(exported)*
+
+```
+createQuotation(input: SalesOrderInput & { expiryDate?: string; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1
+
+**`createRfq`** *(exported)*
+
+```
+createRfq(input: PurchaseOrderInput & { expiryDate?: string; }): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/rfq ×1
+
+**`markQuotationSent`** *(exported)*
+
+```
+markQuotationSent(reference: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1
+
+**`acceptQuotation`** *(exported)*
+
+```
+acceptQuotation(reference: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1
+
+**`rejectQuotation`** *(exported)*
+
+```
+rejectQuotation(reference: string): Promise<void>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1
 
 **`stageOrderDispatch`** *(exported)*
 
@@ -5217,7 +5997,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/write-of
 listLocations(business: BusinessName): Promise<LocationRecord[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/items ×1, routes/locations ×1, routes/pos ×1, routes/stock/po ×1, and 4 more
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/items ×1, routes/locations ×1, and 6 more
 
 **`clockInToProject`** *(exported)*
 
@@ -5791,7 +6571,7 @@ Called from: production: entityTree.ts (filterToItems ×2)
 filterToItems(entities: EntityNode[]): EntityNode[]
 ```
 
-Called from: tests: 1 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/stock/po ×1, routes/stock/so ×1, routes/stock/stock-dispatch ×1, routes/stock/stock-receipt ×1
+Called from: tests: 1 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/stock/po ×1, routes/stock/so ×1, routes/stock/stock-dispatch ×1, routes/stock/stock-receipt ×1
 
 ### `frontend/src/lib/format.ts`
 
@@ -5825,7 +6605,7 @@ Called from: production: format.ts (formatAmount ×1)
 formatAmount(smallestUnits: number, numberFormat: string, unitCode?: string): string
 ```
 
-Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×4, routes/contacts ×8, and 31 more
+Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×4, routes/arap/quotations ×1, and 33 more
 
 **`formatDate`** *(exported)*
 
@@ -6031,7 +6811,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/new-ne
 parseMinorUnits(text: string): number
 ```
 
-Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×0, routes/arap/ar-sale ×0, routes/post ×2, routes/stock/po ×2, routes/stock/so ×2, routes/stock/stock-dispatch ×3, routes/stock/stock-receipt ×3
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×0, routes/arap/ar-sale ×0, routes/arap/quotations ×2, routes/arap/rfq ×2, routes/post ×2, routes/stock/po ×2, routes/stock/so ×2, and 2 more
 
 **`parseQuantity`** *(exported)*
 
@@ -6039,7 +6819,7 @@ Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte
 parseQuantity(text: string): number
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/po ×2, routes/stock/so ×2, routes/stock/stock-dispatch ×2, routes/stock/stock-receipt ×1
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×2, routes/arap/rfq ×2, routes/stock/po ×2, routes/stock/so ×2, routes/stock/stock-dispatch ×2, routes/stock/stock-receipt ×1
 
 ### `frontend/src/lib/org-chart-layout.ts`
 

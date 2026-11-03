@@ -2,33 +2,90 @@
 
 ## The three posting paths
 
+**Updated for Stage D of
+`/root/.claude/plans/stateful-snacking-adleman.md`**: the two posting
+triggers this section used to describe —
+`post_journal_entry`/`post_journal_entry_insert` and
+`post_quantity_movement`/`post_quantity_movement_insert` — no longer
+exist in `00-core.sql` at all. Both fused entity resolution into
+financial-posting SQL inside one atomic, untestable-in-TypeScript
+trigger body; the plan's own `EntityDriver` isolation effort (moving
+entity storage behind one driver interface, so SQL isn't the only thing
+that can ever back "entities") could not tolerate that fusion, since a
+driver call may need to call out to a non-SQL backend (Kaappi today),
+which must never happen inside an open SQLite transaction. Both
+triggers' bodies now live as ordinary TypeScript in this file, as
+`commitStagedEntry` — one shared function, called two ways:
+
 1. **Ordinary financial postings** (the vast majority): a screen-
-   specific staging table's own `INSTEAD OF INSERT` trigger copies
-   rows into `journal_entry_staging`, then `INSERT INTO
-   post_journal_entry` fires `post_journal_entry_insert`, which
-   validates the entry balances (per currency) and the period is
-   open, then writes `journal` + `journal_line`, updates
-   `account.balance_minor`, then clears staging.
+   specific staging table's own `INSTEAD OF INSERT` trigger still
+   copies rows into `journal_entry_staging` exactly as before (that
+   part of the pipeline is untouched), but the commit step itself is
+   now `postJournalEntry(reference, business, ledger, userId)`, a plain
+   TypeScript call into `commitStagedEntry(..., { requireBalance: true,
+   includeBankReference: true })` — it validates the entry balances
+   (per currency) and the period is open, then writes `journal` +
+   `journal_line`, updates `account.balance_minor`, then clears
+   staging, in that order, inside one `db.transaction(...)`. Entity
+   resolution (business/ledger/account ids, via
+   `resolveStagingBusinessId`/`resolveStagingLedgerId`/
+   `resolveStagedAccountId` below) happens first, before that
+   transaction ever opens.
 2. **Quantity movements** (stock received/dispatched/transferred): the
-   same staging + trigger pair, but `post_quantity_movement` instead
-   of `post_journal_entry` — a quantity movement is a single line
-   against one product's own tracking account, not a two-sided,
-   balanced transaction, so it isn't forced through the balance check.
+   same staging pipeline, but the commit step is the new, separately
+   exported `commitStagedQuantityMovement(reference, business, ledger,
+   userId)`, calling the same shared `commitStagedEntry` with `{
+   requireBalance: false, includeBankReference: false }` — a quantity
+   movement is a single line against one product's own tracking
+   account, not a two-sided, balanced transaction, so it isn't forced
+   through the balance check, and its own `journal_line` insert never
+   carried a `bank_reference` either. `Balance.post`
+   (`primitives.ts`) and `db-stock.ts`'s `postStagedQuantityMovement`
+   both call this directly now, in place of the old
+   `INSERT INTO post_quantity_movement`.
 3. **Recurring journals**: `createRecurringJournal` writes directly to
    `journal`/`journal_line`, never staged at all — deliberately, not a
    gap. A recurring entry's real "balance" was never the kind of thing
-   `journal_entry_staging`/`post_journal_entry` exist to check once:
+   `journal_entry_staging`/`commitStagedEntry` exist to check once:
    `journal_occurrences` (00-core.sql) expands the one stored line set
    into every scheduled occurrence at read time, resolving each line to
    whichever `effective_date` is current as of that occurrence — the
    same mechanism every report, the journal list, and account balances
    already read through for every ledger, recurring or not. Routing a
-   12-month schedule through the ordinary trigger would try to apply
-   its whole staged sum once, immediately, which is simply the wrong
-   operation for a template with its own expansion view — not a stricter
-   version of the same one. See `RecurringJournalLine`/`Recurrence`/
-   `createRecurringJournal` below for what *was* a real gap here (now
-   fixed) and what's still open.
+   12-month schedule through the ordinary commit step would try to
+   apply its whole staged sum once, immediately, which is simply the
+   wrong operation for a template with its own expansion view — not a
+   stricter version of the same one. See `RecurringJournalLine`/
+   `Recurrence`/`createRecurringJournal` below for what *was* a real
+   gap here (now fixed) and what's still open.
+
+### `resolveStagingBusinessId` / `resolveStagingLedgerId` /
+### `resolveStagedAccountId` / `commitStagedEntry`
+
+Entity resolution for a staged entry, ported from the two removed
+triggers' own shared `COALESCE` chains: business/ledger id lookup, and
+the per-line account fallback (a business-scoped Chart-of-Accounts walk
+first, then a bare, unscoped name lookup as a last resort for the one
+legacy business with no CoA copy of its own — deliberately still
+unordered/undisambiguated, matching the original trigger's own
+`LIMIT 1` with no `ORDER BY`, a known, pre-existing weakness, not
+something this conversion tried to fix). Originally raw, read-only SQL
+directly against `current_entities` ("byte-for-byte identical to the
+replaced trigger"); converted to go through `Entity.get`/`getUnder`/
+`descendantsWithDepth` (Stage E) once it was confirmed none of the
+three actually joins `current_entities` against `account`/`journal` in
+the same statement (the real category-4 pattern the plan reserves for
+raw SQL) and all three already run before `commitStagedEntry`'s own
+write transaction opens — the exact ordering the plan calls for, so
+routing them through a driver that may call out to a non-SQL backend is
+safe here. This was also the fix that unblocked ordinary postings under
+`ENTITY_DRIVER=kaappi` — until converted, every business/account
+created live under that driver was invisible to these three functions,
+since Kaappi-mode entity writes never touch `current_entities` at all.
+`commitStagedEntry` itself (the lock check, balance validation, account
+vivification, `journal`/`journal_line` writes, balance updates, staging
+cleanup) stays exactly as Stage D wrote it — only the entity-resolution
+helpers above changed.
 
 ## `StagedLine` / `stageLine`
 
@@ -125,10 +182,19 @@ mirror (AR/AP, a counterparty name).
 
 AR Sale, AR Receipt, AP Purchase, and AP Payment are each a
 purpose-built form with its own staging table (customer/vendor,
-amount, date), posting through the same, atomic `post_journal_entry`
-mechanism. Two functions per form: `stage...` (plain insert) and
+amount, date), posting through the same `commitStagedEntry` mechanism
+every other ordinary posting uses (see "The three posting paths"
+above). Two functions per form: `stage...` (plain insert) and
 `post...` (fires the form's `INSTEAD OF INSERT` trigger, which builds
-the two-line entry and posts it).
+the two-line `journal_entry_staging` entry).
+
+**Stage D change**: that per-form trigger used to also directly
+`INSERT INTO post_journal_entry` itself, chaining straight into the
+now-removed posting trigger. With that trigger gone, `postARReceipt`/
+`postAPPayment` now call `postJournalEntry(...)` explicitly in
+TypeScript, right after their own trigger-insert step — the same
+stage-then-commit shape every other screen already uses, just made
+explicit instead of implicit in one trigger chaining into another.
 
 **`stageARSale`/`postARSale` and `stageAPPurchase`/`postAPPurchase` no
 longer exist** (see the canned-journal-to-frontend design) — confirmed
