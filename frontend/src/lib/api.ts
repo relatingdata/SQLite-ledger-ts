@@ -652,19 +652,17 @@ export const getHierarchyAssignments = async (hierarchyName: string): Promise<Re
   return Object.fromEntries(rows.map((r) => [r.entityName, r.parentName]));
 };
 
-export const getBusinesses = () => request<{ id: number; name: string }[]>('/businesses');
-export const getBusinessTypes = () => request<{ name: string; questions: string[] }[]>('/businesses/types');
+export const getBusinesses = () => callTable('getBusinesses', [], (f) => ({ id: Number(f.id), name: f.name }));
+export const getBusinessTypes = () => callTable('getBusinessTypes', [], (f) => ({ name: f.name, questions: decodeStringList(f.questions) }));
 export const saveBusinessTypeAnswers = (businessName: string, answers: Record<string, string>) =>
-  request<void>(`/businesses/${encodeURIComponent(businessName)}/business-type-answers`, { method: 'POST', body: JSON.stringify({ answers }) });
-export const getLedgers = (businessName: string) =>
-  request<{ id: number; name: string }[]>(`/businesses/${encodeURIComponent(businessName)}/ledgers`);
+  callRow('saveBusinessTypeAnswers', [businessName, encodeRecordList(['key', 'value'], Object.entries(answers).map(([key, value]) => ({ key, value })))], () => undefined);
+export const getLedgers = (businessName: string) => callTable('getLedgers', [businessName], (f) => ({ id: Number(f.id), name: f.name }));
 // Session/ledger/Profit Center pickers — see docs/pm-frontend-reference.md.
 export const getActiveLedger = (businessName: string) =>
-  request<{ activeLedger: string | null }>(`/businesses/${encodeURIComponent(businessName)}/active-ledger`);
-export const getProfitCenters = (businessName: string) =>
-  request<{ id: number; name: string }[]>(`/businesses/${encodeURIComponent(businessName)}/profit-centers`);
+  callRow('getActiveLedger', [businessName], (f): { activeLedger: string | null } => ({ activeLedger: f[0] || null }));
+export const getProfitCenters = (businessName: string) => callTable('getProfitCenters', [businessName], (f) => ({ id: Number(f.id), name: f.name }));
 export const createProfitCenter = (businessName: string, profitCenterName: string) =>
-  request<{ id: number; name: string }>(`/businesses/${encodeURIComponent(businessName)}/profit-centers`, { method: 'POST', body: JSON.stringify({ profitCenterName }) });
+  callRow('createProfitCenter', [businessName, profitCenterName], (f) => ({ id: Number(f[0]), name: f[1] }));
 export const setSessionProfitCenter = (profitCenterName: string | null) =>
   request<void>('/auth/session/profit-center', { method: 'POST', body: JSON.stringify({ profitCenterName }) });
 export type ReportingFrequency = 'annual' | 'biannual' | 'quarterly' | 'monthly';
@@ -693,13 +691,13 @@ export const createBusiness = (
       businessAdmin: { username: f[3], password: f[4] },
     })
   );
-export const getCoaPrototypeAccounts = (language: string) => request<string[]>(`/businesses/coa-prototype/${encodeURIComponent(language)}`);
+export const getCoaPrototypeAccounts = (language: string) => callTable('getCoaPrototypeAccounts', [language], (f) => f.name);
 export interface ReportingPeriod { label: string; startDate: string; endDate: string; }
 export const getReportingPeriods = (businessName: string, asOf?: string) =>
-  request<ReportingPeriod[]>(`/businesses/${encodeURIComponent(businessName)}/reporting-periods${asOf ? `?asOf=${encodeURIComponent(asOf)}` : ''}`);
+  callTable('getReportingPeriods', [businessName, asOf], (f): ReportingPeriod => ({ label: f.label, startDate: f.startDate, endDate: f.endDate }));
 
 export const nominateBankAccount = (businessName: string, bankAccountName: string, routingDetail: string, accountNumber: string) =>
-  request<{ id: number }>(`/businesses/${encodeURIComponent(businessName)}/bank-accounts`, { method: 'POST', body: JSON.stringify({ bankAccountName, routingDetail, accountNumber }) });
+  callRow('nominateBankAccount', [businessName, bankAccountName, routingDetail, accountNumber], (f) => ({ id: Number(f[0]) }));
 
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
 // export const getNominatedBankAccounts = (businessName: string) =>
@@ -721,7 +719,24 @@ export interface BusinessConfigurationReport {
 }
 
 export const getBusinessConfigurationReport = (businessName: string) =>
-  request<BusinessConfigurationReport>(`/businesses/${encodeURIComponent(businessName)}/configuration-report`);
+  callRow(
+    'getBusinessConfigurationReport',
+    [businessName],
+    (f): BusinessConfigurationReport => ({
+      businessName: f[0],
+      addresses: decodeRecordList(['address_type', 'address_line1', 'city'], f[1]).map((r) => ({ address_type: r.address_type, address1: r.address_line1 || undefined, city: r.city || undefined })),
+      phones: decodeRecordList(['phone_type', 'phone'], f[2]).map((r) => ({ phone_type: r.phone_type, phone: r.phone || undefined })),
+      ownerOrPartners: decodeStringList(f[3]),
+      bankAccounts: decodeRecordList(['name', 'routingDetail', 'accountNumber'], f[4]).map((r) => ({ name: r.name, routingDetail: r.routingDetail, accountNumber: r.accountNumber })),
+      homeCurrency: f[5] || null,
+      secondaryCurrencies: decodeStringList(f[6]),
+      hierarchies: decodeRecordList(['grouping', 'values'], f[7]).map((r) => ({ grouping: r.grouping, values: decodeStringList(r.values) })),
+      locations: decodeRecordList(['name', 'city', 'locationType'], f[8]).map((r) => ({ name: r.name, city: r.city, locationType: r.locationType })),
+      categories: decodeStringList(f[9]),
+      chartOfAccountsPrototype: f[11] || null,
+      notes: decodeRecordList(['name', 'text'], f[10]).map((r) => ({ name: r.name, text: r.text })),
+    })
+  );
 
 export const buildBankCurrencyStructure = (
   businessName: string,
@@ -730,10 +745,11 @@ export const buildBankCurrencyStructure = (
   selections: { bankAccountName: string; currency: string }[],
   homeCurrency: string
 ) =>
-  request<void>(`/businesses/${encodeURIComponent(businessName)}/bank-currency-structure`, {
-    method: 'POST',
-    body: JSON.stringify({ headerName, leafKind, selections, homeCurrency }),
-  });
+  callRow(
+    'buildBankCurrencyStructure',
+    [businessName, headerName, leafKind, encodeRecordList(['bankAccountName', 'currency'], selections), homeCurrency],
+    () => undefined
+  );
 
 export interface StagedLine {
   reference: string;
