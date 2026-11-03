@@ -1,26 +1,34 @@
 # sql-ledger-ts
 
-A small application over a deliberately minimal schema: **one entities
-table**, one `account` extension, one `translation` extension, and a
-journal/journal_line/staging trio for postings. See `backend/schema.sql`
-for the full design notes — every structural decision is explained there,
-in comments, next to the SQL it applies to.
+A double-entry ledger application over a deliberately minimal SQLite
+schema: **one entities table** carrying the entire structural tree
+(businesses, accounts, locations, items, vocabulary, users —
+everything), plus small, typed extension tables (`account`,
+`translation`, a journal/journal_line/staging trio for postings) for
+the data that doesn't fit the tree shape. See
+`backend/schema/00-core.sql` (the 15 core tables, each decision
+explained in comments next to the SQL it applies to) and
+`backend/schema/30-coa-links.sql` (the Chart-of-Accounts linking
+views) for the full design notes.
 
 **New to this app?** See [`USER_GUIDE.md`](./USER_GUIDE.md) — a
 walkthrough for actually using it, with a real, verified sample business
 (its own Actual and Budget ledgers, real transactions posted to each,
-real report numbers). This README is the developer/schema reference.
-For the story behind why a business ends up needing this kind of
-software, and each screen introduced in the order a real business
-would actually need it, see [`docs/user-manual.md`](./docs/user-manual.md).
-For a real design (not yet built) on how a foreign-currency receipt or
-payment should work in this app's own architecture, see
-[`docs/foreign-currency-receipts-and-payments.md`](./docs/foreign-currency-receipts-and-payments.md).
-For a real, staged plan (not yet built) taking Wine Retail Business from
-a sole trader through a partnership to an incorporated company —
-written specifically to exercise the parts of this app a routine month
-of trading doesn't reach — see
-[`docs/business-evolution-plan.md`](./docs/business-evolution-plan.md).
+real report numbers). For the story behind why a business ends up needing
+this kind of software, and each screen introduced in the order a real
+business would actually need it, see
+[`docs/user-manual.md`](./docs/user-manual.md) (`make manual` builds the
+PDF).
+
+This README is the developer quick-start. For the real, current
+technical specification — the entity model, the EntityDriver storage
+boundary, every API and report, build/test tooling — see the
+**Programmer's Manual** (`docs/pm-*.md`, built as one PDF via `make
+programmer-manual`), starting with
+[`docs/pm-system-overview.md`](./docs/pm-system-overview.md). The design
+rationale and rejected approaches behind how the system got this way
+live in the separate Historical Design & Decision Log (`make
+historical-manual`), not repeated here.
 
 ## Quick start
 
@@ -29,17 +37,21 @@ make install
 make dev      # backend :3001, frontend :5173, together
 ```
 
-### Running under Node or Deno instead of Bun
+### Running under Node, Bun, or Deno
 
-This project defaults to Bun, but runs identically under Node (≥22.5) or Deno (≥2.x) too — some organizations' own corporate policy requires one of these specifically. Override `RUNTIME` on any `make` command:
+This project runs identically under Node (default), Bun, or Deno — some
+organizations' own corporate policy requires one of these specifically.
+Override `RUNTIME` on any `make` command:
 
 ```bash
-make install RUNTIME=node
-make dev RUNTIME=node
+make install RUNTIME=bun
+make dev RUNTIME=bun
 make test RUNTIME=deno
 ```
 
-See `docs/multi-runtime-support.md` for the real mechanism behind this (a small SQLite/test-framework adapter — everything else in the stack is already runtime-agnostic), the measured pass/fail results per runtime, and real, measured timing for the full test suite under each one.
+See `docs/multi-runtime-support.md` for the real mechanism behind this (a
+small SQLite/test-framework adapter — everything else in the stack is
+already runtime-agnostic).
 
 ### If `make install` warns about blocked install scripts
 
@@ -61,10 +73,10 @@ cd frontend && npm approve-scripts --allow-scripts-pending && npm install
 
 `backend/data/entities.sqlite` is real, per-install runtime data —
 deliberately not committed to git (see `.gitignore`) — regenerated
-fresh from `schema.sql` automatically the first time the backend
-starts. If a previous run was interrupted mid-write (a killed process,
-a full disk, a crash), the leftover file can be left corrupt, and
-since `make install` never touches this file, a corrupt one will
+fresh from `backend/schema/*.sql` automatically the first time the
+backend starts. If a previous run was interrupted mid-write (a killed
+process, a full disk, a crash), the leftover file can be left corrupt,
+and since `make install` never touches this file, a corrupt one will
 silently persist across reinstalls. Fix — delete it and let the
 backend recreate a fresh one:
 
@@ -75,10 +87,10 @@ make dev
 
 Open http://localhost:5173 — you'll land on a login screen. The default
 account is **username `admin`, password `changeme123`** — this is
-intentionally not a secret (it's in this README and in `schema.sql` in
-plain sight), it exists only so the first login works at all. **Change
-it immediately** via Setup → Users, or create your own Administrator
-account and deactivate this one.
+intentionally not a secret (it's in this README and in
+`backend/schema/00-core.sql` in plain sight), it exists only so the
+first login works at all. **Change it immediately** via Setup → Users,
+or create your own Administrator account and deactivate this one.
 
 Or manually, in two terminals:
 
@@ -91,71 +103,95 @@ Open http://localhost:5173.
 
 ## What's here
 
+24 backend route modules (`backend/src/routes/`) and 84 frontend pages
+(`frontend/src/routes/`). The full, current screen-by-screen and
+API-by-API reference lives in the Programmer's Manual and User Manual
+above; highlights:
+
 - **Choose business, ledger, and language** (`/session`) — the actual
   startup choice screen: every other page redirects here first if
-  nothing's been chosen yet, persisted via localStorage (fine here —
-  this is a real standalone app, not a Claude artifact). The chosen
-  language drives `translations` (`src/lib/translations.ts`), read
-  through `Save`/`Delete`/`Debit`/`Credit`/etc. wherever those vocabulary
-  words appear in the UI (the Structured Editor's buttons, the Post
-  Journal Entry form's field labels) — falling back to English for
-  anything not yet translated in the chosen language, same as the
-  backend's `localized_text` view does.
+  nothing's been chosen yet, persisted via localStorage. The chosen
+  language drives `translations`, read through `Save`/`Delete`/`Debit`/
+  `Credit`/etc. wherever those vocabulary words appear in the UI,
+  falling back to English for anything not yet translated.
 - **Entity Tree Report** (`/`) — the whole entity table, walked from its
-  one root, in hierarchy order, rendered with `@keenmate/svelte-treeview`.
-- **Structured Editor** (`/editor`) — create, rename, reparent, change the relation of,
-  or delete any entity; assign account numbers.
-- **Journal Entries** (`/journal`, `/journal/[id]`) — list and full detail
-  of every posted transaction.
-- **Post Journal Entry** (`/post`) — stage lines one at a time, then post
-  atomically: the whole entry is validated to sum to zero and moved to
-  the real tables, or none of it is, staging left untouched either way.
-  Defaults to the business/ledger chosen at the picker.
-- **Reports** (`/reports`):
-  - **Trial Balance** — every posted account, debit or credit.
-  - **Balance Sheet** — Assets, Liabilities, Equity, with a real
-    Assets = Liabilities + Equity check, including a synthetic *Current
-    Year Earnings* line for any net income not yet formally closed to
-    Retained Earnings (without it the equation only holds at the instant
-    books are closed — a real bug an early test caught: `62345 != 0`).
-  - **Profit and Loss Statement** — Income, Expenses, and Net Income.
-  - **Compare Ledgers** — Actual vs. a budget or scenario, side by side
-    (Trial Balance and P&L both), with a variance column.
+  one root, in hierarchy order.
+- **Structured Editor** (`/editor`) — create, rename, reparent, change
+  the relation of, or delete any entity; assign account numbers.
+- **Journal Entries** (`/journal`, `/journal/[id]`) and **Post Journal
+  Entry** (`/post`) — stage lines one at a time, then post atomically:
+  the whole entry is validated to sum to zero and moved to the real
+  tables, or none of it is.
+- **Reports** (`/reports`) — Trial Balance, Balance Sheet (with a real
+  Assets = Liabilities + Equity check, including a synthetic *Current
+  Year Earnings* line for income not yet closed), Profit & Loss,
+  Compare Ledgers (Actual vs. a budget or scenario), Sales Report,
+  multi-dimensional (hierarchy/location/division) breakdowns, and
+  Business Reports (Balance Sheet/P&L mapped through a business's own
+  Chart of Accounts).
+- **Stock control** — locations, storage capacity/occupancy, stock
+  receipts/dispatches/takes, inventory listings and movement reports,
+  a Hierarchy/Product cartesian combination mechanism (barcode
+  resolution, combination-specific pricing).
+- **AP/AR** — contacts (customers/vendors), invoices, quotations,
+  payment allocation.
+- **POS** — point-of-sale terminals and sales, with tiers, locations,
+  and item combinations.
+- **Matrix / business reports, departments, projects, period
+  management** — each with its own route module and db-logic file (see
+  `backend/src/routes/` and `backend/src/db-*.ts`).
+- **Setup** — authentication and role-based authorization
+  (`users`/`roles`/`user_roles`/`sessions` as dedicated infrastructure
+  tables, not entities), three roles (Administrator, Bookkeeper,
+  Read-Only) enforced on every route.
 
-## Schema highlights (see `backend/schema.sql` for the full story)
+## The EntityDriver storage boundary
+
+Every entity read/write in the backend goes through one `EntityDriver`
+interface (`backend/src/entity-driver.ts`), not raw SQL scattered
+through the codebase. `backend/src/entity-driver-select.ts` is the one
+module allowed to choose between implementations, via `ENTITY_DRIVER=
+sql|kaappi` (default `sql`):
+
+- `SqlEntityDriver` (`backend/src/drivers/sql-entity-driver.ts`) —
+  today's real, default, production path: the entity tree lives in the
+  same SQLite database as everything else.
+- `KaappiEntityDriver` (`backend/src/drivers/kaappi-entity-driver.ts`)
+  — an experimental alternative backing the entity tree with a Kaappi
+  Scheme subprocess instead of SQL, proving the storage choice really
+  is swappable behind one boundary (a future non-SQL or even
+  logic-programming backend is a real, intended direction, not
+  speculative). Not the default, not yet feature-complete (some
+  report-adjacent paths still read SQL's `current_entities` directly
+  for financial-join reasons, a documented, scoped gap) — a real,
+  running proof, not a finished product.
+
+See `docs/entities-append-only-redesign.md` and the Programmer's Manual
+for the full rationale and status.
+
+## Schema highlights
 
 - `entities(id, name, parent_id, relation_id)` — no `entity_type_id`, no
   type/instance distinction. A category, a business, a customer, a piece
-  of UI vocabulary are all just rows here.
+  of UI vocabulary are all just rows here. Entity history is append-only
+  (`entity_entry`/`entity_update`), never an in-place `UPDATE`.
 - `account` and `translation` are genuine *extensions* of specific
   entities (not competing concepts) — `account` 1:1 via shared primary
   key, `translation` 1:many, both looked up by name through their own
-  views (`account_entry`, `translation_entry`).
+  views.
 - Money is always integer minor units (`amount_minor`, `balance_minor`), never
   a float.
-- Posting a transaction is one atomic operation (`post_journal_entry`) —
-  it validates, vivifies any not-yet-seen account, moves staged lines to
-  the permanent tables, updates balances, and clears staging, or none of
-  that happens at all.
+- Posting a transaction is one atomic operation — it validates, vivifies
+  any not-yet-seen account, moves staged lines to the permanent tables,
+  updates balances, and clears staging, or none of that happens at all.
 - i18n: `Save`/`Cancel`/etc. exist as single, global vocabulary entities;
-  translating one is one row in `translation`, read back through
-  `localized_text` with automatic fallback to the canonical (English)
-  name for anything not yet translated. Three languages are seeded:
-  English (canonical, needs no translation row), German (15 of the 16
-  vocabulary words translated, including `Soll`/`Haben` — the actual
-  standard German accounting terms for Debit/Credit, not a literal
-  word-for-word guess), and Klingon (`Save` → `choq`, real attested
-  vocabulary from *The Klingon Dictionary* — everything else falls back
-  to English, same mechanism as any partially-translated language, no
-  special-casing).
+  translating one is one row in `translation`, read back with automatic
+  fallback to the canonical (English) name for anything not yet
+  translated.
 
 ## Frontend stack
 
-Svelte 5 + SvelteKit 2. The Entity Tree Report page uses
-[`@keenmate/svelte-treeview`](https://github.com/KeenMate/svelte-treeview)
-for the actual tree rendering — real entity data is converted from the
-flat `parent_id` structure into the library's dot-separated path format
-via `src/lib/treeAdapter.ts`.
+Svelte 5 + SvelteKit 2.
 
 ## Current state (for someone reviewing this as a snapshot)
 
@@ -164,87 +200,72 @@ real SQL-Ledger PostgreSQL schema — what's covered, what's partial, and
 what's an honest, named gap (payroll and audit trail specifically).
 
 **Fully built, tested, wired into the UI:** entities/account/translation/
-journal/staging schema; atomic posting with genuine per-ledger isolation;
-business reports via `relation_id`; trial balance, balance sheet, P&L,
-and Actual-vs-another-ledger comparison; the session picker; the full
-vocabulary sweep (every nav label, heading, column header sourced from
-`Vocabulary`, not hardcoded); Setup/Structured Editor; **contacts**
-(phone/address, a 1:1 extension exactly like `account`, wired into the
-editor, with a documented full-replace-not-merge upsert behavior).
+journal/staging schema with append-only entity history; the EntityDriver
+storage boundary (SQL by default, an experimental Kaappi-backed
+alternative behind it); atomic posting with genuine per-ledger isolation;
+the full report suite (Trial Balance, Balance Sheet, P&L, Compare
+Ledgers, Sales Report, multi-dimensional/structural breakdowns, Business
+Reports); stock control (locations, capacity/occupancy, receipts/
+dispatches/takes, movement reports, the Hierarchy/Product cartesian
+mechanism); AP/AR (contacts, invoices, quotations, payment allocation);
+POS; departments/projects/period management; Setup/Structured Editor;
+the full vocabulary sweep (every nav label, heading, column header
+sourced from translated vocabulary, not hardcoded); authentication and
+role-based authorization (three roles, enforced on every route).
 
-**Schema built and numerically proven, no execution engine or UI yet:**
-transaction templates (`template_field`/`template_line`/
-`template_override`) — a "Credit Sale" template exists as real data,
-with fields and a GL mapping that computes to a genuinely balanced
-6-line entry (verified against the actual schema, not just a prototype).
-What's missing: the backend function that takes user-entered field
-values, evaluates the formulas, and posts through `post_journal_entry`;
-the master/override resolution wired to routes; any entry-screen UI.
+**Known gap, open and not yet scoped:** the remaining
+raw-SQL-joined-against-entities sites in `db-matrix-reports.ts`,
+`db-quotations.ts`, and `auth.ts` haven't yet been migrated onto the
+EntityDriver boundary, so they stay invisible to the experimental Kaappi
+driver (SQL remains the default and fully-featured path regardless).
+**Not yet built:** an audit trail of who did what, and self-service
+password changes for non-administrators (currently only an
+Administrator can reset a password, including their own).
 
-**Discussed, designed in direction, not started:** AP/AR entry screens,
-stock control, profit centers, business legal structure and recursive
-ownership, per-division default language, a scoped-down BPMN-like
-workflow engine (sequential/parallel/exclusive flow, user tasks tied to
-roles, durable per-instance state) — the natural next step once
-authentication and roles exist, since routing rules need someone to
-route to.
-
-**Now built:** authentication and role-based authorization —
-`users`/`roles`/`user_roles`/`sessions` as dedicated tables (not
-entities, deliberately — auth is infrastructure, not accounting domain
-data), scrypt-hashed passwords, session tokens, and three roles
-(Administrator, Bookkeeper, Read-Only) enforced on every route. Verified
-live: a Read-Only user can read the journal but is correctly blocked
-(403) from posting. **Not yet built:** an audit trail of who did what,
-and self-service password changes for non-administrators (currently
-only an Administrator can reset a password, including their own).
+**A real, deliberate policy, not an oversight**: this app does not
+support upgrading an existing database in place. Every schema change
+lives in `backend/schema/*.sql` itself, applied fresh via `make
+reset-db` — never a conditional "does this old database have the new
+column yet?" migration function.
 
 ## Testing
 
-`backend/test/` — 187 backend tests across two files (`db.test.ts`,
-`auth.test.ts`), plus 24 frontend tests, all via a runtime-agnostic
-test adapter (`bun:test`/`node:test`, see
-`docs/multi-runtime-support.md`). Run with `make test` — real,
-measured wall-clock time: **~27s under bun, ~34s under node, ~44s
-under deno** (`make test RUNTIME=<name>`).
+Run with `make test` (`make test RUNTIME=bun`/`RUNTIME=deno` to switch).
+**Current count, measured directly against a freshly-reset database**:
+247 backend tests (`backend/test/db.test.ts`, `backend/test/
+auth.test.ts`, `backend/scripts/step-runner.test.ts`) and 28 frontend
+tests, 275 total, all passing under both Node (~115s) and Bun (~87s).
+Bun's own default per-test timeout (5000ms) is too tight for a couple of
+the slower report tests once the suite's shared db has accumulated many
+businesses' worth of entities — `make test RUNTIME=bun` raises it
+(`--timeout 20000`) rather than mask anything; this is a timeout-budget
+fix, not a behavior change, and all three runtimes exercise the exact
+same test files. Deno is supported per `docs/multi-runtime-support.md`
+but wasn't independently re-measured in this pass (not installed in
+every environment).
 
-- `db.test.ts` — the bulk of the suite: entity CRUD, financial
-  statements, i18n, staging/posting (including atomicity and the
-  isolation bug that was once real, proven fixed), recurring journals,
-  multi-dimensional reporting, the Hierarchy/Product cartesian
-  mechanism (barcode-to-combination resolution, combination-specific
-  pricing, rename-safety), and the realistic transaction set (cash
-  purchase/sale, AR sale/receipt, AP purchase/payment, POS sales with
-  tiers/locations/combinations) checked through every statement.
-- `auth.test.ts` — password hashing, login/logout, session validation
-  and expiry, role assignment, deactivation killing live sessions
-  immediately, and duplicate-username/short-password rejection.
-- `frontend/test/journalGrid.test.ts` — the General Journal grid's pure
-  logic (auto-balancing trailing row, the feedback-loop bug from before,
-  proven fixed).
+Unit tests are the right tool for proving a specific mechanism correct
+in isolation against small, synthetic scenarios. They are the *wrong*
+tool for catching a bug that only shows up once real, large-scale,
+interrelated data exists — see `docs/testing.md` for real examples of
+bugs only the simulation below ever caught.
 
-Two further, real, direct checks beyond the unit suite:
+Beyond the unit suite:
 
-- `make playwright-smoke` — a real, minimal e2e check: every one of
-  the app's 78 real routes, loaded in a real, live browser, confirmed
-  to render without an unhandled error. **~86 seconds** measured
-  directly, including real dev-server startup.
-- `make test-e2e` — a full, real month of simulated wine-retail
-  trading (hundreds of purchase orders, several thousand retail
-  sales, stock takes, a year-end close), verified against dozens of
-  exact, expected figures. **~101 seconds** measured directly under
-  bun — dramatically faster than earlier in this project's history
-  (10+ minutes), a direct, real result of the `getEntityTree()`
-  performance fixes documented in
-  `docs/cartesian-account-linking-plan.md`.
-
-**A real, deliberate policy, not an oversight**: this app no longer
-supports upgrading an existing database in place. Every real schema
-change lives only in `schema.sql` itself — a new column, table, or
-trigger is a direct edit there, applied fresh via `make reset-db`,
-never a separate, conditional "does this old database have the new
-column yet?" migration function. `db-seed.ts` still runs real, pure
-data-seeding logic at startup (real entities, translations, and demo
-data that's genuinely easier to generate programmatically than as
-static SQL) — but it's no longer framed as migrating anything, and
-never does schema surgery.
+- `make test-e2e` — resets the database and runs a full, deterministic,
+  seeded-PRNG month of simulated wine-retail trading (hundreds of
+  purchase orders, several thousand retail sales, stock takes, a
+  year-end close), then checks the result against exact, documented
+  expected figures (`backend/scripts/verify-simulation.ts`,
+  `docs/testing.md`). **Known, open issue, not caused by anything in
+  this session's changes**: this currently fails a number of its own
+  checks (confirmed, via an isolated worktree at an earlier commit, to
+  predate the most recent EntityDriver migration work — not a
+  regression from it). Needs its own dedicated investigation; treat its
+  current failing state as real and unresolved, not as noise to ignore.
+- `make test-e2e-tutorial` (and `-browser`/`-text` variants) — a
+  CSV-driven tutorial fixture (`shared-fixtures/tutorial-steps.csv`)
+  replayed through the real API, a real driven browser, or a real
+  driven text UI, step by step.
+- `e2e/` — a separate Playwright suite (`make e2e-spec-smoke`,
+  `make e2e-spec-all`) exercising real routes in a real, live browser.

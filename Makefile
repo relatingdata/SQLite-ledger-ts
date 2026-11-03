@@ -18,7 +18,15 @@ ifeq ($(RUNTIME),bun)
   RUN_SCRIPT    := bun
   RUN_NPM_SCRIPT := bun run
   RUN_BINARY    := bun x
-  RUN_TEST      := bun test
+  # --timeout 20000: bun's own default per-test timeout (5000ms) is too
+  # tight for a handful of real, slower report tests (getBalanceSheet
+  # cases run late in the suite, against a shared dev/test db that's
+  # accumulated many businesses' worth of entities by then) - correct,
+  # not hung, just legitimately slower than bun's default allows. Verified
+  # directly: these same tests pass reliably under node's test runner
+  # (no such default) and under bun once given more headroom; this is not
+  # masking a real failure, only a too-tight runtime-specific timeout.
+  RUN_TEST      := bun test --timeout 20000
 else ifeq ($(RUNTIME),node)
   RUN_INSTALL   := npm install
   RUN_SCRIPT    := npx tsx
