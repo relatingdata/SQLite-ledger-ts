@@ -1859,7 +1859,16 @@ export interface LocationRecord extends LocationInput {
   name: string;
 }
 
-export const listLocations = (business: BusinessName) => request<LocationRecord[]>(`/locations?business=${encodeURIComponent(business)}`);
+export const listLocations = (business: BusinessName) =>
+  callTable('listLocations', [business], (f): LocationRecord => ({
+    name: f.name,
+    city: f.city,
+    location_type: f.location_type,
+    is_billing_address: f.is_billing_address === 'true',
+    bottle_capacity: f.bottle_capacity === '' ? null : Number(f.bottle_capacity),
+    carton_capacity: f.carton_capacity === '' ? null : Number(f.carton_capacity),
+    timezone: f.timezone,
+  }));
 
 export interface EmployeeClock {
   employee: string;
@@ -1874,21 +1883,37 @@ export const clockOutOfProject = (employeeName: EmployeeName, business: Business
   callRow('clockOutOfProject', [employeeName, business, ledger], () => undefined);
 export const getOpenProjectClock = (employeeName: EmployeeName) =>
   callRow('getOpenProjectClock', [employeeName], (f): EmployeeClock | null => (f[0] ? parseEmployeeClock(f) : null));
-export const getLocationByName = (name: string) => request<LocationRecord>(`/locations/${encodeURIComponent(name)}`);
+export const getLocationByName = (name: string) =>
+  callRow('getLocationByName', [name], (f): LocationRecord => ({
+    name: f[0],
+    city: f[1],
+    location_type: f[2],
+    is_billing_address: f[3] === 'true',
+    bottle_capacity: f[4] === '' ? null : Number(f[4]),
+    carton_capacity: f[5] === '' ? null : Number(f[5]),
+    timezone: f[6],
+  }));
 // Scoped by business, like createLocation — see docs/pm-frontend-reference.md.
 export const saveLocation = (name: string, input: LocationInput, business: string) =>
-  request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'PUT', body: JSON.stringify(input) });
+  callRow(
+    'saveLocation',
+    [name, business, input.city, input.location_type, String(input.is_billing_address), input.bottle_capacity == null ? '' : String(input.bottle_capacity), input.carton_capacity == null ? '' : String(input.carton_capacity), input.timezone],
+    () => undefined
+  );
 
 // A single atomic server-side request — see docs/pm-frontend-reference.md.
-export const createLocation = (name: string, business: string, input: LocationInput, screenName?: string) =>
-  request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'POST', body: JSON.stringify(input) }, screenName);
+export const createLocation = (name: string, business: string, input: LocationInput) =>
+  callRow(
+    'createLocation',
+    [name, business, input.city, input.location_type, String(input.is_billing_address), input.bottle_capacity == null ? '' : String(input.bottle_capacity), input.carton_capacity == null ? '' : String(input.carton_capacity), input.timezone],
+    () => undefined
+  );
 
 // Name-based, since listLocations's own LocationRecord carries no entity id
 // — see deleteLocation in db.ts. revokeEntity's own guards (capacity
 // account, inventory, journal_line postings, a Division tag) do the real
 // safety work.
-export const deleteLocation = (name: string, business: string) =>
-  request<void>(`/locations/${encodeURIComponent(name)}?business=${encodeURIComponent(business)}`, { method: 'DELETE' });
+export const deleteLocation = (name: string, business: string) => callRow('deleteLocation', [name, business], () => undefined);
 
 // Department CRUD + Employee ↔ Department/Manager — mirrors deleteLocation's
 // own business-scoped, name-based conventions. See backend/src/routes/departments.ts
@@ -1951,7 +1976,12 @@ export const convertStorageSpace = (input: {
   toValues: string[];
   quantity: number;
   reference?: string;
-}) => request<void>('/locations/convert-storage', { method: 'POST', body: JSON.stringify(input) });
+}) =>
+  callRow(
+    'convertStorageSpace',
+    [input.business, input.ledger, input.itemName, encodeShape(input.definitionDimensions), encodeStringList(input.fromValues), encodeStringList(input.toValues), String(input.quantity), input.reference],
+    () => undefined
+  );
 
 export const openStorageContainer = (input: {
   business: string;
@@ -1989,13 +2019,30 @@ export const resolveOpenContainerAccounts = (input: {
   definitionDimensions: [string, string][];
   containerValues: string[];
   unitValues: string[];
-}, screenName?: string) =>
-  request<ResolvedOpenContainerAccounts>('/locations/resolve-open-container-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
+}) =>
+  callRow(
+    'resolveOpenContainerAccounts',
+    [input.business, input.location, input.item, encodeShape(input.definitionDimensions), encodeStringList(input.containerValues), encodeStringList(input.unitValues)],
+    (f): ResolvedOpenContainerAccounts => ({
+      containerSpaceAccount: f[0],
+      containerOccupiedAccount: f[1],
+      unitSpaceAccount: f[2],
+      unitOccupiedAccount: f[3],
+      containerSpaceAccountId: Number(f[4]),
+      containerOccupiedAccountId: Number(f[5]),
+      unitSpaceAccountId: Number(f[6]),
+      unitOccupiedAccountId: Number(f[7]),
+      inventoryFromAccount: f[8],
+      inventoryToAccount: f[9],
+      inventoryFromAccountId: Number(f[10]),
+      inventoryToAccountId: Number(f[11]),
+      unitCostMinor: f[12] === '' ? null : Number(f[12]),
+    })
+  );
 
 // See docs/pm-frontend-reference.md.
-export const getLocationCurrencies = (locationName: string) => request<string[]>(`/locations/${encodeURIComponent(locationName)}/currencies`);
-export const nominateLocationCurrency = (locationName: string, currencyCode: string) =>
-  request<void>(`/locations/${encodeURIComponent(locationName)}/currencies`, { method: 'POST', body: JSON.stringify({ currencyCode }) });
+export const getLocationCurrencies = (locationName: string) => callRow('getLocationCurrencies', [locationName], (f) => decodeStringList(f[0]));
+export const nominateLocationCurrency = (locationName: string, currencyCode: string) => callRow('nominateLocationCurrency', [locationName, currencyCode], () => undefined);
 
 export interface PosTerminalRecord {
   name: string;
@@ -2009,9 +2056,10 @@ export interface OpenHoursLine {
   opens_at: string;
   closes_at: string;
 }
-export const getLocationOpenHours = (locationName: LocationName) => request<OpenHoursLine[]>(`/locations/${encodeURIComponent(locationName)}/open-hours`);
+export const getLocationOpenHours = (locationName: LocationName) =>
+  callTable('getLocationOpenHours', [locationName], (f): OpenHoursLine => ({ day: f.day, opens_at: f.opens_at, closes_at: f.closes_at }));
 export const setLocationOpenHours = (locationName: LocationName, hours: OpenHoursLine[]) =>
-  request<void>(`/locations/${encodeURIComponent(locationName)}/open-hours`, { method: 'PUT', body: JSON.stringify({ hours }) });
+  callRowWithLines('setLocationOpenHours', [locationName], hours.map((h) => [h.day, h.opens_at, h.closes_at]), () => undefined);
 
 export interface ScheduleLine {
   day: string;
@@ -2026,9 +2074,10 @@ export interface LocationScheduleLine extends ScheduleLine {
 }
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
 // export const getScheduleAtLocation = (locationName: LocationName) => request<LocationScheduleLine[]>(`/locations/${encodeURIComponent(locationName)}/schedule`);
-export const getEmployeeSchedule = (employeeName: EmployeeName) => request<EmployeeScheduleLine[]>(`/locations/employees/${encodeURIComponent(employeeName)}/schedule`);
+export const getEmployeeSchedule = (employeeName: EmployeeName) =>
+  callTable('getEmployeeSchedule', [employeeName], (f): EmployeeScheduleLine => ({ location: f.location, day: f.day, starts_at: f.starts_at, ends_at: f.ends_at }));
 export const setEmployeeSchedule = (employeeName: EmployeeName, locationName: LocationName, schedule: ScheduleLine[]) =>
-  request<void>(`/locations/employees/${encodeURIComponent(employeeName)}/schedule`, { method: 'PUT', body: JSON.stringify({ locationName, schedule }) });
+  callRowWithLines('setEmployeeSchedule', [employeeName, locationName], schedule.map((s) => [s.day, s.starts_at, s.ends_at]), () => undefined);
 
 export interface ItemLocationLevels {
   quantity_on_hand: number;
@@ -2040,37 +2089,72 @@ export interface ItemLocationLevels {
   level: number | null;
 }
 export const getItemLocation = (itemName: ItemName, locationName: LocationName) =>
-  request<ItemLocationLevels>(`/locations/${encodeURIComponent(locationName)}/items/${encodeURIComponent(itemName)}`);
+  callRow('getItemLocation', [itemName, locationName], (f): ItemLocationLevels => ({
+    quantity_on_hand: Number(f[0]),
+    min_level: f[1] === '' ? null : Number(f[1]),
+    max_level: f[2] === '' ? null : Number(f[2]),
+    reorder_level: f[3] === '' ? null : Number(f[3]),
+    shelf_side: f[4] || null,
+    rack: f[5] || null,
+    level: f[6] === '' ? null : Number(f[6]),
+  }));
 export const setItemLocationLevels = (
   itemName: ItemName,
   locationName: LocationName,
   levels: { minLevel?: number | null; maxLevel?: number | null; reorderLevel?: number | null; shelfSide?: string | null; rack?: string | null; level?: number | null },
   businessName: string,
   ledgerName?: string
-) => request<void>(`/locations/${encodeURIComponent(locationName)}/items/${encodeURIComponent(itemName)}`, { method: 'PUT', body: JSON.stringify({ ...levels, business: businessName, ledger: ledgerName }) });
+) =>
+  callRow(
+    'setItemLocationLevels',
+    [
+      itemName,
+      locationName,
+      levels.minLevel == null ? '' : String(levels.minLevel),
+      levels.maxLevel == null ? '' : String(levels.maxLevel),
+      levels.reorderLevel == null ? '' : String(levels.reorderLevel),
+      levels.shelfSide ?? '',
+      levels.rack ?? '',
+      levels.level == null ? '' : String(levels.level),
+      businessName,
+      ledgerName,
+    ],
+    () => undefined
+  );
 
 export const receiveItems = (
   locationName: LocationName,
-  input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] },
-  screenName?: string
-) => request<void>(`/locations/${encodeURIComponent(locationName)}/receive`, { method: 'POST', body: JSON.stringify(input) }, screenName);
+  input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] }
+) =>
+  callRow(
+    'receiveItems',
+    [locationName, input.business, input.ledger, input.reference, input.itemName, String(input.quantity), input.transdate, encodeStringList(input.combinationValues), encodeShape(input.combinationShape)],
+    () => undefined
+  );
 
 // The narrow, physical-only half of the canned journal pattern — see docs/pm-frontend-reference.md.
 export const receiveIntoStorageStock = (
   locationName: LocationName,
-  input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] },
-  screenName?: string
-) => request<void>(`/locations/${encodeURIComponent(locationName)}/receive-stock`, { method: 'POST', body: JSON.stringify(input) }, screenName);
+  input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string; combinationValues?: string[]; combinationShape?: [string, string][] }
+) =>
+  callRow(
+    'receiveIntoStorageStock',
+    [locationName, input.business, input.ledger, input.reference, input.itemName, String(input.quantity), input.transdate, encodeStringList(input.combinationValues), encodeShape(input.combinationShape)],
+    () => undefined
+  );
 
 export interface ResolvedReceiveAccounts {
   inventoryAccount: string;
   payableAccount: string;
   unitCostMinor: number | null;
 }
-export const resolveReceiveAccounts = (
-  input: { business: BusinessName; itemName: ItemName; combinationValues?: string[]; combinationShape?: [string, string][] },
-  screenName?: string
-) => request<ResolvedReceiveAccounts | null>('/locations/resolve-receive-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
+export const resolveReceiveAccounts = (input: { business: BusinessName; itemName: ItemName; combinationValues?: string[]; combinationShape?: [string, string][] }) =>
+  callRow(
+    'resolveReceiveAccounts',
+    [input.business, input.itemName, encodeStringList(input.combinationValues), encodeShape(input.combinationShape)],
+    (f): ResolvedReceiveAccounts | null =>
+      f[0] === '0' ? null : { inventoryAccount: f[1], payableAccount: f[2], unitCostMinor: f[3] === '' ? null : Number(f[3]) }
+  );
 
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
 // export const dispatchItems = (
@@ -2078,20 +2162,28 @@ export const resolveReceiveAccounts = (
 //   input: { business: BusinessName; ledger: LedgerName; reference: string; itemName: ItemName; quantity: number; transdate?: string }
 // ) => request<void>(`/locations/${encodeURIComponent(locationName)}/dispatch`, { method: 'POST', body: JSON.stringify(input) });
 
-export const transferItems = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string }, screenName?: string) =>
-  request<void>('/locations/transfer', { method: 'POST', body: JSON.stringify(input) }, screenName);
+export const transferItems = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string }) =>
+  callRow('transferItems', [input.business, input.ledger, input.itemName, input.fromLocationName, input.toLocationName, String(input.quantity), input.reference, undefined], () => undefined);
 
 // The narrow, physical-only half of the canned journal pattern — see docs/pm-frontend-reference.md.
-export const transferStock = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string; transdate?: string }, screenName?: string) =>
-  request<void>('/locations/transfer-stock', { method: 'POST', body: JSON.stringify(input) }, screenName);
+export const transferStock = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string; transdate?: string }) =>
+  callRow(
+    'transferStock',
+    [input.business, input.ledger, input.itemName, input.fromLocationName, input.toLocationName, String(input.quantity), input.reference, input.transdate],
+    () => undefined
+  );
 
 export interface ResolvedTransferAccounts {
   fromInventoryAccount: string;
   toInventoryAccount: string;
   unitCostMinor: number | null;
 }
-export const resolveTransferAccounts = (input: { business: BusinessName; itemName: ItemName; fromLocationName: string; toLocationName: string }, screenName?: string) =>
-  request<ResolvedTransferAccounts>('/locations/resolve-transfer-accounts', { method: 'POST', body: JSON.stringify(input) }, screenName);
+export const resolveTransferAccounts = (input: { business: BusinessName; itemName: ItemName; fromLocationName: string; toLocationName: string }) =>
+  callRow('resolveTransferAccounts', [input.business, input.itemName, input.fromLocationName, input.toLocationName], (f): ResolvedTransferAccounts => ({
+    fromInventoryAccount: f[0],
+    toInventoryAccount: f[1],
+    unitCostMinor: f[2] === '' ? null : Number(f[2]),
+  }));
 
 export interface BelowReorderRow {
   item: string;
@@ -2101,7 +2193,15 @@ export interface BelowReorderRow {
   min_level: number | null;
   max_level: number | null;
 }
-export const getBelowReorderStock = () => request<BelowReorderRow[]>('/reports/below-reorder');
+export const getBelowReorderStock = () =>
+  callTable('getBelowReorderStock', [], (f): BelowReorderRow => ({
+    item: f.item,
+    location: f.location,
+    quantity_on_hand: Number(f.quantity_on_hand),
+    reorder_level: Number(f.reorder_level),
+    min_level: f.min_level === '' ? null : Number(f.min_level),
+    max_level: f.max_level === '' ? null : Number(f.max_level),
+  }));
 export interface StockOutRiskRow {
   item: string;
   location: string;
@@ -2111,10 +2211,19 @@ export interface StockOutRiskRow {
   shortest_lead_time_days: number | null;
   at_risk: boolean;
 }
-export const getStockOutRiskReport = (windowDays = 2) => request<StockOutRiskRow[]>(`/reports/stock-out-risk?windowDays=${windowDays}`);
+export const getStockOutRiskReport = (windowDays = 2) =>
+  callTable('getStockOutRiskReport', [String(windowDays)], (f): StockOutRiskRow => ({
+    item: f.item,
+    location: f.location,
+    quantity_on_hand: Number(f.quantity_on_hand),
+    daily_consumption_rate: Number(f.daily_consumption_rate),
+    days_until_stockout: f.days_until_stockout === '' ? null : Number(f.days_until_stockout),
+    shortest_lead_time_days: f.shortest_lead_time_days === '' ? null : Number(f.shortest_lead_time_days),
+    at_risk: f.at_risk === 'true',
+  }));
 // UNUSED (checkpoint 426): no references found anywhere. Commented out, not deleted. See docs/unused-functions.md
 // export const setItemSourceLeadTime = (item: string, vendor: string, days: number) =>
-//   request<void>('/reports/stock-out-risk/lead-time', { method: 'POST', body: JSON.stringify({ item, vendor, days }) });
+//   callRow('setItemSourceLeadTime', [item, vendor, String(days)], () => undefined);
 
 export interface PickingListLine {
   invoiceLineId: number;
@@ -2129,13 +2238,25 @@ export interface RestockLineInput {
   item: string;
   quantity: number;
 }
-export const getRestockPickingList = (runReference: string, warehouseName: string, lines: RestockLineInput[]) =>
-  request<PickingListLine[]>(`/locations/restock/${encodeURIComponent(runReference)}/picking-list`, {
-    method: 'POST',
-    body: JSON.stringify({ warehouseName, lines }),
+export const getRestockPickingList = async (runReference: string, warehouseName: string, lines: RestockLineInput[]): Promise<PickingListLine[]> => {
+  const rawLines = await callRawWithLines('getRestockPickingList', [runReference, warehouseName], lines.map((l) => [l.item, String(l.quantity)]));
+  if (rawLines.length < 2) return [];
+  const header = rawLines[1];
+  return rawLines.slice(2).map((fields) => {
+    const f = Object.fromEntries(header.map((h, i) => [h, fields[i] ?? '']));
+    return {
+      invoiceLineId: Number(f.invoiceLineId),
+      item: f.item,
+      quantity: Number(f.quantity),
+      shelfSide: f.shelfSide || null,
+      rack: f.rack || null,
+      level: f.level === '' ? null : Number(f.level),
+      picked: f.picked === 'true',
+    };
   });
+};
 export const confirmRestockPickedLine = (runReference: string, item: string, business: BusinessName, ledger: LedgerName) =>
-  request<void>(`/locations/restock/${encodeURIComponent(runReference)}/confirm-picked`, { method: 'POST', body: JSON.stringify({ item, business, ledger }) });
+  callRow('confirmRestockPickedLine', [runReference, item, business, ledger], () => undefined);
 export const dispatchRestockRun = (
   runReference: string,
   business: BusinessName,
@@ -2145,10 +2266,7 @@ export const dispatchRestockRun = (
   lines: RestockLineInput[],
   transdate?: string
 ) =>
-  request<void>(`/locations/restock/${encodeURIComponent(runReference)}/dispatch`, {
-    method: 'POST',
-    body: JSON.stringify({ business, ledger, warehouseName, retailOutletName, lines, transdate }),
-  });
+  callRowWithLines('dispatchRestockRun', [runReference, business, ledger, warehouseName, retailOutletName, transdate], lines.map((l) => [l.item, String(l.quantity)]), () => undefined);
 
 export interface StockTakeLine {
   id: number;
@@ -2168,10 +2286,25 @@ export interface StockTake {
 }
 
 export const createStockTake = (locationName: LocationName, takeDate: string, businessName?: string) =>
-  request<{ id: number }>('/stock-takes', { method: 'POST', body: JSON.stringify({ locationName, takeDate, business: businessName }) });
-export const getStockTake = (id: number) => request<StockTake>(`/stock-takes/${id}`);
+  callRow('createStockTake', [locationName, takeDate, businessName], (f) => ({ id: Number(f[0]) }));
+export const getStockTake = (id: number) =>
+  callRow('getStockTake', [String(id)], (f): StockTake => ({
+    id: Number(f[0]),
+    location: f[1],
+    take_date: f[2],
+    status: f[3] as 'draft' | 'completed',
+    lines: decodeRecordList(['id', 'item', 'shelf_side', 'rack', 'level', 'expected_quantity', 'counted_quantity'], f[4]).map((r) => ({
+      id: Number(r.id),
+      item: r.item,
+      shelf_side: r.shelf_side || null,
+      rack: r.rack || null,
+      level: r.level === '' ? null : Number(r.level),
+      expected_quantity: Number(r.expected_quantity),
+      counted_quantity: r.counted_quantity === '' ? null : Number(r.counted_quantity),
+    })),
+  }));
 export const recordStockTakeCount = (id: number, itemName: ItemName, countedQuantity: number) =>
-  request<void>(`/stock-takes/${id}/count`, { method: 'POST', body: JSON.stringify({ itemName, countedQuantity }) });
+  callRow('recordStockTakeCount', [String(id), itemName, String(countedQuantity)], () => undefined);
 export const completeStockTake = (
   id: number,
   business: BusinessName,
@@ -2180,10 +2313,11 @@ export const completeStockTake = (
   inventoryAccount: string,
   unitCostMinorByItem: Record<string, number>
 ) =>
-  request<void>(`/stock-takes/${id}/complete`, {
-    method: 'POST',
-    body: JSON.stringify({ business, ledger, varianceExpenseAccount, inventoryAccount, unitCostMinorByItem }),
-  });
+  callRow(
+    'completeStockTake',
+    [String(id), business, ledger, varianceExpenseAccount, inventoryAccount, encodeRecordList(['key', 'value'], Object.entries(unitCostMinorByItem).map(([key, value]) => ({ key, value: String(value) })))],
+    () => undefined
+  );
 
 // ---------------------------------------------------------------------------
 // POS terminal
@@ -2547,8 +2681,44 @@ export interface InventoryListingLocationGroup {
   total_on_hand: number;
   capacity: LocationCapacityStatus;
 }
-export const getInventoryListingByLocation = (businessName: string, hierarchyName?: string) =>
-  request<InventoryListingLocationGroup[]>(`/stock-listing/by-location?business=${encodeURIComponent(businessName)}${hierarchyName ? `&hierarchyName=${encodeURIComponent(hierarchyName)}` : ''}`);
+export const getInventoryListingByLocation = async (businessName: string, hierarchyName?: string): Promise<InventoryListingLocationGroup[]> => {
+  const flatRows = await callTable('getInventoryListingByLocation', [businessName, hierarchyName], (f) => f);
+  const groups: InventoryListingLocationGroup[] = [];
+  const byLocation = new Map<string, InventoryListingLocationGroup>();
+  for (const f of flatRows) {
+    let group = byLocation.get(f.location);
+    if (!group) {
+      group = {
+        location: f.location,
+        city: f.city || null,
+        group: (f.group || null) as HierarchyGroupName | null,
+        rows: [],
+        total_on_hand: Number(f.total_on_hand),
+        capacity: {
+          bottleQuantity: Number(f.bottleQuantity),
+          bottleCapacity: f.bottleCapacity === '' ? null : Number(f.bottleCapacity),
+          bottleOverCapacity: f.bottleOverCapacity === 'true',
+          cartonQuantity: Number(f.cartonQuantity),
+          cartonCapacity: f.cartonCapacity === '' ? null : Number(f.cartonCapacity),
+          cartonOverCapacity: f.cartonOverCapacity === 'true',
+        },
+      };
+      byLocation.set(f.location, group);
+      groups.push(group);
+    }
+    if (f.item !== '') {
+      group.rows.push({
+        item: f.item,
+        location: f.location,
+        quantity_on_hand: Number(f.quantity_on_hand),
+        min_level: f.min_level === '' ? null : Number(f.min_level),
+        max_level: f.max_level === '' ? null : Number(f.max_level),
+        reorder_level: f.reorder_level === '' ? null : Number(f.reorder_level),
+      });
+    }
+  }
+  return groups;
+};
 
 // Storage Capacity accounts sit outside Chart of Accounts — see docs/pm-frontend-reference.md.
 export interface StorageSpaceCurrencyRow {
@@ -2562,7 +2732,29 @@ export interface StorageSpaceLocationGroup {
   location: string;
   currencies: StorageSpaceCurrencyRow[];
 }
-export const getStorageSpaceReport = () => request<StorageSpaceLocationGroup[]>('/stock-listing/storage-space');
+export const getStorageSpaceReport = async (): Promise<StorageSpaceLocationGroup[]> => {
+  const flatRows = await callTable('getStorageSpaceReport', [], (f) => f);
+  const groups: StorageSpaceLocationGroup[] = [];
+  const byLocation = new Map<string, StorageSpaceLocationGroup>();
+  for (const f of flatRows) {
+    let group = byLocation.get(f.location);
+    if (!group) {
+      group = { location: f.location, currencies: [] };
+      byLocation.set(f.location, group);
+      groups.push(group);
+    }
+    if (f.currency !== '') {
+      group.currencies.push({
+        currency: f.currency,
+        installed_minor: Number(f.installed_minor),
+        occupied_minor: Number(f.occupied_minor),
+        remaining_minor: Number(f.remaining_minor),
+        balanced: f.balanced === 'true',
+      });
+    }
+  }
+  return groups;
+};
 
 export interface StockMovementRow {
   item: string;
@@ -2591,6 +2783,32 @@ export interface StockMovementReport {
   sales: StockSaleRow[];
 }
 export const getStockMovementReport = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, hierarchyName?: string) =>
-  request<StockMovementReport>(
-    `/stock-listing/movement?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}${hierarchyName ? `&hierarchyName=${encodeURIComponent(hierarchyName)}` : ''}`
-  );
+  callRow('getStockMovementReport', [business, ledger, fromDate, toDate, hierarchyName], (f): StockMovementReport => ({
+    receipts: decodeRecordList(['item', 'category', 'quantity', 'date', 'location', 'group', 'vendor'], f[0]).map((r) => ({
+      item: r.item,
+      category: r.category || null,
+      quantity: Number(r.quantity),
+      date: r.date,
+      location: r.location,
+      group: (r.group || null) as HierarchyGroupName | null,
+      vendor: r.vendor || null,
+    })),
+    transfers: decodeRecordList(['item', 'category', 'quantity', 'date', 'from_location', 'to_location'], f[1]).map((r) => ({
+      item: r.item,
+      category: r.category || null,
+      quantity: Number(r.quantity),
+      date: r.date,
+      from_location: r.from_location,
+      to_location: r.to_location,
+    })),
+    sales: decodeRecordList(['item', 'category', 'quantity', 'date', 'location', 'group', 'vendor', 'amount_minor'], f[2]).map((r) => ({
+      item: r.item,
+      category: r.category || null,
+      quantity: Number(r.quantity),
+      date: r.date,
+      location: r.location,
+      group: (r.group || null) as HierarchyGroupName | null,
+      vendor: r.vendor || null,
+      amount_minor: Number(r.amount_minor),
+    })),
+  }));

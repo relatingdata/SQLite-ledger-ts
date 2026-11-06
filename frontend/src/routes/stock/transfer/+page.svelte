@@ -76,7 +76,7 @@
         toLocationName: asLocationName(toLocation),
         quantity,
         reference,
-      }, 'Transfer Items');
+      });
       const resolved = await resolveTransferAccounts({
         business,
         itemName: asItemName(itemName),

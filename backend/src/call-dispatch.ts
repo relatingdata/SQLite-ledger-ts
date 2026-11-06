@@ -26,6 +26,7 @@ import { i18nFunctions } from './call-dispatch/i18n.js';
 import { invoicesFunctions } from './call-dispatch/invoices.js';
 import { itemsFunctions } from './call-dispatch/items.js';
 import { journalFunctions } from './call-dispatch/journal.js';
+import { locationsFunctions } from './call-dispatch/locations.js';
 import { matrixReportsFunctions } from './call-dispatch/matrix-reports.js';
 import { menuFunctions } from './call-dispatch/menu.js';
 import { periodFunctions } from './call-dispatch/period.js';
@@ -229,6 +230,7 @@ export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
   ...invoicesFunctions,
   ...itemsFunctions,
   ...journalFunctions,
+  ...locationsFunctions,
   ...matrixReportsFunctions,
   ...menuFunctions,
   ...periodFunctions,

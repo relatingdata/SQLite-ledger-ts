@@ -117,7 +117,7 @@
         quantity,
         combinationValues,
         combinationShape,
-      }, 'Receive Into Storage');
+      });
       const resolved = await resolveReceiveAccounts({
         business,
         itemName: asItemName(selectedName),

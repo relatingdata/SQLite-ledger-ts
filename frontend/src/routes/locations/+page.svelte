@@ -209,7 +209,7 @@
         bottle_capacity: null,
         carton_capacity: null,
         timezone: String(v.timezone ?? 'UTC'),
-      }, 'Create Location');
+      });
     } catch (e) {
       throw e instanceof ApiError ? e : new Error('Could not create location.');
     }

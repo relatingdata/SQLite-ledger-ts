@@ -202,8 +202,7 @@
         bottle_capacity: parseOptionalInt(values.bottleCapacity),
         carton_capacity: parseOptionalInt(values.cartonCapacity),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      },
-      'Business Structure Popup'
+      }
     );
     addingLocationForm = false;
     newLocationValues = { name: '', city: '', locationType: 'Retail', bottleCapacity: '', cartonCapacity: '' };
