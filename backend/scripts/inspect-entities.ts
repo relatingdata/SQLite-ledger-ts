@@ -7,9 +7,15 @@
 // mutating db.ts function.
 //
 // Usage:
-//   tsx scripts/inspect-entities.ts tree [--business NAME] [--root NAME] [--depth N]
+//   tsx scripts/inspect-entities.ts tree [--business NAME] [--root NAME] [--depth N] [--format text|lisp]
 //   tsx scripts/inspect-entities.ts search <substring> [--business NAME]
 //   tsx scripts/inspect-entities.ts show <exact-name>
+//
+// --format lisp: the same real tree, pretty-printed as an indented Lisp
+// s-expression (one node per `(name :key val ...)` form, nested exactly
+// as the entity graph nests) instead of the default indented-text form —
+// useful alongside this engagement's own Kaappi/Scheme entity-driver work,
+// where the tree's real, eventual home is a Lisp process.
 //
 // See docs/pm-testing-e2e.md and docs/tui-design.md — "entity-tree
 // inspection tool".
@@ -49,19 +55,72 @@ function printTree(rows: Row[], rootId: number | null, indent: string, depth: nu
   }
 }
 
+// A bare Lisp symbol can't contain unescaped whitespace/parens/quotes —
+// quoted as a real Scheme string literal when it needs that, rather than
+// pretending every entity name is a bare symbol.
+function lispAtom(name: string): string {
+  if (/^[A-Za-z0-9_+\-*/.!?<>=]+$/.test(name)) return name;
+  return `"${name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function lispKeys(r: Row): string {
+  const bits: string[] = [];
+  if (r.accountnumber) bits.push(`:acct ${lispAtom(r.accountnumber)}`);
+  if (r.is_postable_account) bits.push(':postable #t');
+  if (r.balance_minor !== null) bits.push(`:balance ${(r.balance_minor / 100).toFixed(2)}${r.currency ? ` :currency ${lispAtom(r.currency)}` : ''}`);
+  return bits.length ? ` ${bits.join(' ')}` : '';
+}
+
+/** Same recursive walk as printTree, but emitting one Lisp s-expression
+ * node per entity — `(name :key val ... child1 child2 ...)` — instead of
+ * indented plain text. */
+function printLispTree(rows: Row[], rootId: number | null, indent: string, depth: number, maxDepth: number): void {
+  if (depth > maxDepth) return;
+  for (const child of childrenOf(rows, rootId)) {
+    const grandchildren = depth < maxDepth ? childrenOf(rows, child.id) : [];
+    if (grandchildren.length === 0) {
+      console.log(`${indent}(${lispAtom(child.name)}${lispKeys(child)})`);
+    } else {
+      console.log(`${indent}(${lispAtom(child.name)}${lispKeys(child)}`);
+      printLispTree(rows, child.id, indent + '  ', depth + 1, maxDepth);
+      console.log(`${indent} )`);
+    }
+  }
+}
+
 function cmdTree(args: string[]): void {
   const business = flagValue(args, '--business');
   const rootName = flagValue(args, '--root');
   const maxDepth = flagValue(args, '--depth') ? Number(flagValue(args, '--depth')) : Infinity;
+  const format = flagValue(args, '--format') ?? 'text';
+  if (format !== 'text' && format !== 'lisp') {
+    console.error(`--format must be "text" or "lisp", got "${format}".`);
+    process.exitCode = 1;
+    return;
+  }
   const rows = loadTree(business);
+  const walk = format === 'lisp' ? printLispTree : printTree;
   if (!rootName) {
-    printTree(rows, null, '', 0, maxDepth);
+    if (format === 'lisp') console.log('(entity-tree');
+    walk(rows, null, format === 'lisp' ? '  ' : '', 0, maxDepth);
+    if (format === 'lisp') console.log(')');
     return;
   }
   const root = rows.find((r) => r.name === rootName);
   if (!root) {
     console.error(`No entity named "${rootName}" found${business ? ` under business "${business}"` : ''}.`);
     process.exitCode = 1;
+    return;
+  }
+  if (format === 'lisp') {
+    const children = childrenOf(rows, root.id);
+    if (children.length === 0 || maxDepth < 1) {
+      console.log(`(${lispAtom(root.name)}${lispKeys(root)})`);
+    } else {
+      console.log(`(${lispAtom(root.name)}${lispKeys(root)}`);
+      printLispTree(rows, root.id, '  ', 1, maxDepth);
+      console.log(' )');
+    }
     return;
   }
   console.log(`${root.name}${describeRow(root)}  (id=${root.id})`);
@@ -133,7 +192,7 @@ function usage(): void {
   console.error(
     [
       'Usage:',
-      '  tsx scripts/inspect-entities.ts tree [--business NAME] [--root NAME] [--depth N]',
+      '  tsx scripts/inspect-entities.ts tree [--business NAME] [--root NAME] [--depth N] [--format text|lisp]',
       '  tsx scripts/inspect-entities.ts search <substring> [--business NAME]',
       '  tsx scripts/inspect-entities.ts show <exact-name>',
     ].join('\n')
