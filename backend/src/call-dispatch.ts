@@ -31,6 +31,7 @@ import { posFunctions } from './call-dispatch/pos.js';
 import { productsFunctions } from './call-dispatch/products.js';
 import { projectsFunctions } from './call-dispatch/projects.js';
 import { quotationsFunctions } from './call-dispatch/quotations.js';
+import { reportsFunctions } from './call-dispatch/reports.js';
 import { stockFunctions } from './call-dispatch/stock.js';
 import { stockLotsFunctions } from './call-dispatch/stock-lots.js';
 
@@ -133,6 +134,77 @@ export function decodeRecordList(fields: string[], encoded: string): Record<stri
   });
 }
 
+// A real tree (CategoryTreeNode in db-reports.ts: a genuine, arbitrary-
+// depth recursive structure, each node carrying its own children of the
+// exact same shape) needs the same recursive-codec-reuse idea taken one
+// step further than encodeRecordList's fixed "apply it twice" - here the
+// codec calls itself again on each node's own children, however deep the
+// real tree actually goes, rather than a hand-counted number of levels.
+// Lives alongside encodeRecordList for the same reason: reports.ts
+// (Balance Sheet/Profit and Loss's own category trees) is the first real
+// caller, flagged as deferred design work back when matrix-reports.ts's
+// getProfitAndLossByAxis was left unconverted for exactly this reason.
+export interface WireCategoryTreeNode {
+  name: string;
+  accountnumber: string | null;
+  is_leaf: boolean;
+  debit_minor: number;
+  credit_minor: number;
+  is_contra: boolean;
+  children: WireCategoryTreeNode[];
+}
+export function encodeCategoryTree(nodes: WireCategoryTreeNode[]): string {
+  return encodeStringList(
+    nodes.map((n) => encodeStringList([n.name, n.accountnumber ?? '', String(n.is_leaf), String(n.debit_minor), String(n.credit_minor), String(n.is_contra), encodeCategoryTree(n.children)]))
+  );
+}
+export function decodeCategoryTree(encoded: string): WireCategoryTreeNode[] {
+  return decodeStringList(encoded).map((lineEncoded) => {
+    const f = decodeStringList(lineEncoded);
+    return {
+      name: f[0],
+      accountnumber: f[1] || null,
+      is_leaf: f[2] === 'true',
+      debit_minor: Number(f[3]),
+      credit_minor: Number(f[4]),
+      is_contra: f[5] === 'true',
+      children: decodeCategoryTree(f[6]),
+    };
+  });
+}
+
+// A fully generic tree (Hierarchy.buildTree's own HierarchyTreeNode,
+// backing the unused-by-any-live-caller /drill-down endpoint): "own"/
+// "total" are a caller-supplied Record<string, number> of unknown shape,
+// not a fixed set of fields - encoded as a flat (key,value) list via
+// encodeRecordList, same technique as i18n.ts's getLocalizedText for a
+// dynamically-keyed map, nested inside the same self-recursive tree codec
+// as encodeCategoryTree above.
+export interface WireGenericTreeNode {
+  name: string;
+  accountId: number | null;
+  own: Record<string, number>;
+  total: Record<string, number>;
+  children: WireGenericTreeNode[];
+}
+function encodeNumberMap(m: Record<string, number>): string {
+  return encodeRecordList(['key', 'value'], Object.entries(m).map(([key, value]) => ({ key, value: String(value) })));
+}
+function decodeNumberMap(encoded: string): Record<string, number> {
+  return Object.fromEntries(decodeRecordList(['key', 'value'], encoded).map((r) => [r.key, Number(r.value)]));
+}
+export function encodeGenericTree(nodes: WireGenericTreeNode[]): string {
+  return encodeStringList(
+    nodes.map((n) => encodeStringList([n.name, n.accountId == null ? '' : String(n.accountId), encodeNumberMap(n.own), encodeNumberMap(n.total), encodeGenericTree(n.children)]))
+  );
+}
+export function decodeGenericTree(encoded: string): WireGenericTreeNode[] {
+  return decodeStringList(encoded).map((lineEncoded) => {
+    const f = decodeStringList(lineEncoded);
+    return { name: f[0], accountId: f[1] === '' ? null : Number(f[1]), own: decodeNumberMap(f[2]), total: decodeNumberMap(f[3]), children: decodeGenericTree(f[4]) };
+  });
+}
+
 export type BackendCall = (values: string[], user: AuthenticatedUser | undefined, lineItems: string[][]) => CallResult;
 
 export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
@@ -153,6 +225,7 @@ export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
   ...productsFunctions,
   ...projectsFunctions,
   ...quotationsFunctions,
+  ...reportsFunctions,
   ...stockFunctions,
   ...stockLotsFunctions,
 };

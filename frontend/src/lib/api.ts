@@ -344,9 +344,21 @@ export interface CashPositionByCurrency {
   headroom_minor: number | null;
 }
 export const getBankAccounts = (business: BusinessName, ledger: LedgerName) =>
-  request<BankAccountRow[]>(`/reports/bank-accounts?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}`);
+  callTable('getBankAccounts', [business, ledger], (f): BankAccountRow => ({
+    name: f.name,
+    accountnumber: f.accountnumber || null,
+    balance_minor: Number(f.balance_minor),
+    currency: f.currency || null,
+    overdraft_limit_minor: f.overdraft_limit_minor === '' ? null : Number(f.overdraft_limit_minor),
+    scope: f.scope,
+  }));
 export const getCashPosition = (business: BusinessName, ledger: LedgerName) =>
-  request<CashPositionByCurrency[]>(`/reports/cash-position?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}`);
+  callTable('getCashPosition', [business, ledger], (f): CashPositionByCurrency => ({
+    currency: f.currency || null,
+    total_balance_minor: Number(f.total_balance_minor),
+    total_overdraft_limit_minor: f.total_overdraft_limit_minor === '' ? null : Number(f.total_overdraft_limit_minor),
+    headroom_minor: f.headroom_minor === '' ? null : Number(f.headroom_minor),
+  }));
 
 export interface ForecastLine {
   date: string;
@@ -367,14 +379,28 @@ export interface CashFlowForecast {
   first_shortfall_amount_minor: number | null;
 }
 export const getCashFlowForecast = (business: BusinessName, ledger: LedgerName, asOfDate?: string, horizonDays?: number) =>
-  request<CashFlowForecast>(
-    `/reports/cash-flow-forecast?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${asOfDate ? `&asOfDate=${asOfDate}` : ''}${horizonDays ? `&horizonDays=${horizonDays}` : ''}`
-  );
+  callRow('getCashFlowForecast', [business, ledger, asOfDate, horizonDays ? String(horizonDays) : undefined], (f): CashFlowForecast => ({
+    as_of_date: f[0],
+    horizon_end_date: f[1],
+    starting_cash_minor: Number(f[2]),
+    overdraft_limit_minor: f[3] === '' ? null : Number(f[3]),
+    lines: decodeRecordList(['date', 'description', 'amount_minor', 'source'], f[4]).map((l) => ({
+      date: l.date,
+      description: l.description,
+      amount_minor: Number(l.amount_minor),
+      source: l.source as 'AR' | 'AP' | 'recurring',
+    })),
+    ending_cash_minor: Number(f[5]),
+    lowest_projected_balance_minor: Number(f[6]),
+    lowest_balance_date: f[7],
+    first_shortfall_date: f[8] || null,
+    first_shortfall_amount_minor: f[9] === '' ? null : Number(f[9]),
+  }));
 
 export const registerBankAccount = (accountName: string, business: BusinessName, scopeName: string, overdraftLimitMinor: number | null) =>
-  request<void>(`/reports/bank-accounts/${encodeURIComponent(accountName)}`, { method: 'PUT', body: JSON.stringify({ business, scopeName, overdraftLimitMinor }) });
+  callRow('registerBankAccount', [accountName, business, scopeName, overdraftLimitMinor != null ? String(overdraftLimitMinor) : undefined], () => undefined);
 export const unregisterBankAccount = (accountName: string) =>
-  request<void>(`/reports/bank-accounts/${encodeURIComponent(accountName)}`, { method: 'DELETE' });
+  callRow('unregisterBankAccount', [accountName], () => undefined);
 
 
 export interface TrialBalanceRow {
@@ -399,7 +425,25 @@ export interface TrialBalance {
   by_currency: TrialBalanceCurrencySubtotal[];
 }
 export const getTrialBalance = (business: BusinessName, ledger: LedgerName, asOfDate?: string) =>
-  request<TrialBalance>(`/reports/trial-balance?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${asOfDate ? `&asOfDate=${asOfDate}` : ''}`);
+  callRow('getTrialBalance', [business, ledger, asOfDate], (f): TrialBalance => ({
+    rows: decodeRecordList(['id', 'name', 'accountnumber', 'debit_minor', 'credit_minor', 'currency', 'has_quantity_postings'], f[0]).map((r) => ({
+      id: Number(r.id),
+      name: r.name,
+      accountnumber: r.accountnumber || null,
+      debit_minor: Number(r.debit_minor),
+      credit_minor: Number(r.credit_minor),
+      currency: r.currency || null,
+      has_quantity_postings: r.has_quantity_postings === 'true',
+    })),
+    total_debit_minor: Number(f[1]),
+    total_credit_minor: Number(f[2]),
+    by_currency: decodeRecordList(['currency', 'total_debit_minor', 'total_credit_minor', 'balanced'], f[3]).map((r) => ({
+      currency: r.currency || null,
+      total_debit_minor: Number(r.total_debit_minor),
+      total_credit_minor: Number(r.total_credit_minor),
+      balanced: r.balanced === 'true',
+    })),
+  }));
 
 export interface SalesReportLine {
   invoice_date: string;
@@ -422,11 +466,32 @@ export interface SalesReport {
   total_amount_minor: number;
 }
 export const getSalesReport = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string) =>
-  request<SalesReport>(
-    `/reports/sales?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
-  );
+  callRow('getSalesReport', [business, ledger, fromDate, toDate], (f): SalesReport => ({
+    detailed: decodeRecordList(['invoice_date', 'reference', 'item_name', 'description', 'quantity', 'unit_price_minor', 'amount_minor'], f[0]).map((r) => ({
+      invoice_date: r.invoice_date,
+      reference: r.reference,
+      item_name: r.item_name || null,
+      description: r.description,
+      quantity: r.quantity === '' ? null : Number(r.quantity),
+      unit_price_minor: r.unit_price_minor === '' ? null : Number(r.unit_price_minor),
+      amount_minor: Number(r.amount_minor),
+    })),
+    category_summary: decodeRecordList(['category', 'quantity', 'amount_minor'], f[1]).map((r) => ({
+      category: r.category,
+      quantity: Number(r.quantity),
+      amount_minor: Number(r.amount_minor),
+    })),
+    total_quantity: Number(f[2]),
+    total_amount_minor: Number(f[3]),
+  }));
 
-export interface StatementLine {
+// Named AccountStatementLine (not StatementLine) to avoid colliding with
+// the unrelated, invoice-based StatementLine interface declared later in
+// this file for Customer Statements (arap.ts) - TypeScript silently merges
+// two same-named top-level interfaces in one module, which had been
+// quietly requiring the union of both shapes' fields until these report
+// functions' real object literals exposed it.
+export interface AccountStatementLine {
   name: string;
   accountnumber: string | null;
   debit_minor: number;
@@ -434,9 +499,9 @@ export interface StatementLine {
   is_contra: boolean;
 }
 export interface BalanceSheet {
-  assets: StatementLine[];
-  liabilities: StatementLine[];
-  equity: StatementLine[];
+  assets: AccountStatementLine[];
+  liabilities: AccountStatementLine[];
+  equity: AccountStatementLine[];
   assets_tree: CategoryTreeNode[];
   liabilities_tree: CategoryTreeNode[];
   equity_tree: CategoryTreeNode[];
@@ -492,8 +557,30 @@ export const getMenuTree = async (businessName?: string): Promise<MenuSectionRow
 // export const deleteMenuOverride = (menuItemKey: string, scope: 'business' | 'user', scopeId: number) =>
 //   request<{ ok: true }>('/menu/override', { method: 'DELETE', body: JSON.stringify({ menuItemKey, scope, scopeId }) });
 
+const STATEMENT_LINE_FIELDS = ['name', 'accountnumber', 'debit_minor', 'credit_minor', 'is_contra'];
+function decodeStatementLines(encoded: string): AccountStatementLine[] {
+  return decodeRecordList(STATEMENT_LINE_FIELDS, encoded).map((r) => ({
+    name: r.name,
+    accountnumber: r.accountnumber || null,
+    debit_minor: Number(r.debit_minor),
+    credit_minor: Number(r.credit_minor),
+    is_contra: r.is_contra === 'true',
+  }));
+}
+
 export const getBalanceSheet = (business: BusinessName, ledger: LedgerName, asOfDate?: string) =>
-  request<BalanceSheet>(`/reports/balance-sheet?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${asOfDate ? `&asOfDate=${asOfDate}` : ''}`);
+  callRow('getBalanceSheet', [business, ledger, asOfDate], (f): BalanceSheet => ({
+    assets: decodeStatementLines(f[0]),
+    liabilities: decodeStatementLines(f[1]),
+    equity: decodeStatementLines(f[2]),
+    assets_tree: decodeCategoryTree(f[3]),
+    liabilities_tree: decodeCategoryTree(f[4]),
+    equity_tree: decodeCategoryTree(f[5]),
+    total_assets_minor: Number(f[6]),
+    total_liabilities_minor: Number(f[7]),
+    total_equity_minor: Number(f[8]),
+    balanced: f[9] === 'true',
+  }));
 
 export interface CategoryTreeNode {
   name: string;
@@ -505,10 +592,10 @@ export interface CategoryTreeNode {
   children: CategoryTreeNode[];
 }
 export interface ProfitAndLoss {
-  income: StatementLine[];
-  expenses: StatementLine[];
-  cogs_expenses: StatementLine[];
-  operating_expenses: StatementLine[];
+  income: AccountStatementLine[];
+  expenses: AccountStatementLine[];
+  cogs_expenses: AccountStatementLine[];
+  operating_expenses: AccountStatementLine[];
   income_tree: CategoryTreeNode[];
   cogs_tree: CategoryTreeNode[];
   operating_expenses_tree: CategoryTreeNode[];
@@ -517,9 +604,32 @@ export interface ProfitAndLoss {
   gross_profit_minor: number;
   net_income_minor: number;
 }
+// Matches call-dispatch/reports.ts's own encodeProfitAndLoss exactly - one
+// shared decoder reused by the plain getProfitAndLoss row response, each
+// row of getProfitAndLossByHierarchy's table, and each node of
+// getProfitAndLossByHierarchyTree's recursive tree below.
+function decodeProfitAndLoss(encoded: string): ProfitAndLoss {
+  const f = decodeStringList(encoded);
+  return {
+    income: decodeStatementLines(f[0]),
+    expenses: decodeStatementLines(f[1]),
+    cogs_expenses: decodeStatementLines(f[2]),
+    operating_expenses: decodeStatementLines(f[3]),
+    income_tree: decodeCategoryTree(f[4]),
+    cogs_tree: decodeCategoryTree(f[5]),
+    operating_expenses_tree: decodeCategoryTree(f[6]),
+    total_income_minor: Number(f[7]),
+    total_expenses_minor: Number(f[8]),
+    gross_profit_minor: Number(f[9]),
+    net_income_minor: Number(f[10]),
+  };
+}
+
 export const getProfitAndLoss = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, group?: string, hierarchyPath?: string[], hierarchyName?: string) =>
-  request<ProfitAndLoss>(
-    `/reports/profit-and-loss?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}${group ? `&group=${encodeURIComponent(group)}` : ''}${hierarchyPath && hierarchyPath.length > 0 ? `&hierarchyPath=${encodeURIComponent(hierarchyPath.join(','))}` : ''}${hierarchyName ? `&hierarchyName=${encodeURIComponent(hierarchyName)}` : ''}`
+  callRow(
+    'getProfitAndLoss',
+    [business, ledger, fromDate, toDate, group, hierarchyPath && hierarchyPath.length > 0 ? hierarchyPath.join(',') : undefined, hierarchyName],
+    (f): ProfitAndLoss => decodeProfitAndLoss(f[0])
   );
 
 export interface ProfitAndLossByGroup {
@@ -527,23 +637,34 @@ export interface ProfitAndLossByGroup {
   profitAndLoss: ProfitAndLoss;
 }
 export const getProfitAndLossByHierarchy = (business: BusinessName, ledger: LedgerName, hierarchyPath: string[], fromDate?: string, toDate?: string) =>
-  request<ProfitAndLossByGroup[]>(
-    `/reports/profit-and-loss-by-hierarchy?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}&hierarchyPath=${encodeURIComponent(hierarchyPath.join(','))}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
-  );
+  callTable('getProfitAndLossByHierarchy', [business, ledger, hierarchyPath.join(','), fromDate, toDate], (f): ProfitAndLossByGroup => ({
+    group: (f.group || null) as HierarchyGroupName | null,
+    profitAndLoss: decodeProfitAndLoss(f.profitAndLoss),
+  }));
 
 export interface ProfitAndLossByGroupNode extends ProfitAndLossByGroup {
   children: ProfitAndLossByGroupNode[];
 }
+// Matches call-dispatch/reports.ts's own encodeProfitAndLossByGroupTree -
+// a genuine, arbitrary-depth group tree where every node also carries a
+// full ProfitAndLoss (itself containing three more arbitrary-depth
+// category trees), decoded by the same self-recursive technique as
+// decodeCategoryTree.
+function decodeProfitAndLossByGroupTree(encoded: string): ProfitAndLossByGroupNode[] {
+  return decodeStringList(encoded).map((lineEncoded) => {
+    const f = decodeStringList(lineEncoded);
+    return { group: (f[0] || null) as HierarchyGroupName | null, profitAndLoss: decodeProfitAndLoss(f[1]), children: decodeProfitAndLossByGroupTree(f[2]) };
+  });
+}
 export const getProfitAndLossByHierarchyTree = (business: BusinessName, ledger: LedgerName, hierarchyPath: string[], hierarchyName?: string, fromDate?: string, toDate?: string) =>
-  request<ProfitAndLossByGroupNode[]>(
-    `/reports/profit-and-loss-by-hierarchy-tree?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}&hierarchyPath=${encodeURIComponent(hierarchyPath.join(','))}${hierarchyName ? `&hierarchyName=${encodeURIComponent(hierarchyName)}` : ''}${fromDate ? `&fromDate=${fromDate}` : ''}${toDate ? `&toDate=${toDate}` : ''}`
-  );
+  callRow('getProfitAndLossByHierarchyTree', [business, ledger, hierarchyPath.join(','), hierarchyName, fromDate, toDate], (f): ProfitAndLossByGroupNode[] => decodeProfitAndLossByGroupTree(f[0]));
 
 export interface LedgerDateRange {
   earliest: string | null;
   latest: string | null;
 }
-export const getLedgerDateRange = (business: BusinessName, ledger: LedgerName) => request<LedgerDateRange>(`/reports/ledger-date-range?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}`);
+export const getLedgerDateRange = (business: BusinessName, ledger: LedgerName) =>
+  callRow('getLedgerDateRange', [business, ledger], (f): LedgerDateRange => ({ earliest: f[0] || null, latest: f[1] || null }));
 
 export const getLanguages = () => callTable('getLanguages', [], (f) => ({ id: Number(f.id), name: f.name }));
 export const getLanguageDirection = (language: string) => callRow('getLanguageDirection', [language], (f): { direction: 'LTR' | 'RTL' } => ({ direction: f[0] as 'LTR' | 'RTL' }));
@@ -841,7 +962,19 @@ export interface TrialBalanceComparison {
   rows: TrialBalanceComparisonRow[];
 }
 export const getTrialBalanceComparison = (business: BusinessName, a: string, b: string) =>
-  request<TrialBalanceComparison>(`/reports/trial-balance-comparison?business=${encodeURIComponent(business)}&a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`);
+  callRow('getTrialBalanceComparison', [business, a, b], (f): TrialBalanceComparison => ({
+    ledgerA: f[0],
+    ledgerB: f[1],
+    rows: decodeRecordList(['id', 'name', 'accountnumber', 'a_debit_minor', 'a_credit_minor', 'b_debit_minor', 'b_credit_minor'], f[2]).map((r) => ({
+      id: Number(r.id),
+      name: r.name,
+      accountnumber: r.accountnumber || null,
+      a_debit_minor: Number(r.a_debit_minor),
+      a_credit_minor: Number(r.a_credit_minor),
+      b_debit_minor: Number(r.b_debit_minor),
+      b_credit_minor: Number(r.b_credit_minor),
+    })),
+  }));
 
 export interface ProfitAndLossComparisonLine {
   name: string;
@@ -863,8 +996,33 @@ export interface ProfitAndLossComparison {
   b_net_income_minor: number;
   net_income_variance_minor: number;
 }
+const COMPARISON_LINE_FIELDS = ['name', 'accountnumber', 'a_minor', 'b_minor', 'variance_minor'];
 export const getProfitAndLossComparison = (business: BusinessName, a: string, b: string) =>
-  request<ProfitAndLossComparison>(`/reports/profit-and-loss-comparison?business=${encodeURIComponent(business)}&a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`);
+  callRow('getProfitAndLossComparison', [business, a, b], (f): ProfitAndLossComparison => ({
+    ledgerA: f[0],
+    ledgerB: f[1],
+    income: decodeRecordList(COMPARISON_LINE_FIELDS, f[2]).map((r) => ({
+      name: r.name,
+      accountnumber: r.accountnumber || null,
+      a_minor: Number(r.a_minor),
+      b_minor: Number(r.b_minor),
+      variance_minor: Number(r.variance_minor),
+    })),
+    expenses: decodeRecordList(COMPARISON_LINE_FIELDS, f[3]).map((r) => ({
+      name: r.name,
+      accountnumber: r.accountnumber || null,
+      a_minor: Number(r.a_minor),
+      b_minor: Number(r.b_minor),
+      variance_minor: Number(r.variance_minor),
+    })),
+    a_total_income_minor: Number(f[4]),
+    b_total_income_minor: Number(f[5]),
+    a_total_expenses_minor: Number(f[6]),
+    b_total_expenses_minor: Number(f[7]),
+    a_net_income_minor: Number(f[8]),
+    b_net_income_minor: Number(f[9]),
+    net_income_variance_minor: Number(f[10]),
+  }));
 
 export interface Contact {
   business_name: string | null;
@@ -1990,6 +2148,17 @@ function decodeRecordList(fields: string[], encoded: string): Record<string, str
 }
 function encodeRecordList<T>(fields: (keyof T & string)[], records: T[]): string {
   return encodeStringList(records.map((r) => encodeStringList(fields.map((f) => (r[f] === null || r[f] === undefined ? '' : String(r[f]))))));
+}
+
+// Matches call-dispatch.ts's own encodeCategoryTree/decodeCategoryTree
+// exactly — a genuine, arbitrary-depth recursive tree (Balance Sheet/
+// Profit and Loss's own category trees), decoded by calling itself again
+// on each node's own encoded children, however deep the real tree goes.
+function decodeCategoryTree(encoded: string): CategoryTreeNode[] {
+  return decodeStringList(encoded).map((lineEncoded) => {
+    const f = decodeStringList(lineEncoded);
+    return { name: f[0], accountnumber: f[1] || null, is_leaf: f[2] === 'true', debit_minor: Number(f[3]), credit_minor: Number(f[4]), is_contra: f[5] === 'true', children: decodeCategoryTree(f[6]) };
+  });
 }
 
 export const lookupItemByUpc = (upc: string) =>
