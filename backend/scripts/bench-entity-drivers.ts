@@ -25,13 +25,23 @@
 //
 // See docs/pm-testing-e2e.md and
 // /root/.claude/plans/stateful-snacking-adleman.md for why this
-// comparison matters: KaappiEntityDriver's own header already discloses
-// real, structural gaps (descendantsWithDepth walks one entity-children
-// call plus one entity-get-name call per child, rather than one SQL CTE;
-// entity-model's entities.sld backs children/by-name/descendants lookups
-// with a linear `filter` over every entity, versus SQL's indexed
-// entities_parent_id/entities_name_lookup B-trees) — this is the direct,
-// timed proof of what those structural facts cost in practice.
+// comparison matters, and for the up-to-date picture of what's fixed vs.
+// still a real, disclosed gap. As of this session: entity-model's
+// entities.sld now backs entity-children/entity-get-by-name-anywhere with
+// a materialized per-box children list and a name->boxes hash index
+// (previously a linear `filter` over every entity), and
+// KaappiEntityDriver.descendantsWithDepth now calls the native, recursive
+// entity-descendants primitive plus one entity-get-many, instead of its
+// own TS-side one-entity-children-call-per-parent BFS — 2 round trips
+// total regardless of subtree size, down from O(subtree size). Measured
+// effect (this session, same disposable bootstrapped db copy both times):
+// descendantsWithDepth over the full "Application" subtree went from
+// 1079x slower than SQL to 128.7x slower (absolute: ~9s -> 1.67s); the
+// smaller single-business subtree went from 102x to 12.3x. Still real
+// gaps, not closed: entity-children/entity-descendants are still an
+// interpreted Scheme walk, not an indexed B-tree, and every call still
+// crosses the worker-thread + subprocess + JSON boundary — see
+// kaappi-entity-driver.ts's own header for what remains disclosed there.
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';

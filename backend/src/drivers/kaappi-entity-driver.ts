@@ -43,6 +43,22 @@
 //    underlying full-scan primitives, and protocol.md for the (hasX, x)
 //    pair convention used to carry a three-way-optional filter argument
 //    over JSON.
+//  - `descendantsWithDepth` fixed this session: previously its own TS-side
+//    BFS cost one entity-children round trip per parent plus one
+//    entity-get-name round trip per child — O(subtree size) round trips.
+//    Now uses the native, wire-exposed entity-descendants primitive (one
+//    call, whole subtree) plus entity-get-many (one call, every record),
+//    exactly 2 round trips regardless of subtree size; depth is then
+//    reconstructed in-process from each record's parent_id. See
+//    bench-entity-drivers.ts's header for the measured before/after.
+//    Remaining, still-real gap: entity-descendants/entity-children are
+//    still an interpreted Scheme walk over a materialized list, not an
+//    indexed B-tree, and this is still 2 worker-thread+subprocess+JSON
+//    round trips, not 0 — SQL's own single recursive CTE stays faster in
+//    absolute terms. Also: a real, pre-existing bug in entity-descendants
+//    itself (entities.sld) was found and fixed in the course of this —
+//    `(apply append (map ...))` crashed past 255 direct children (Kaappi's
+//    own apply-argument limit), fixed with SRFI 1's append-map.
 import { Worker } from 'node:worker_threads';
 import type { EntityDriver, EntityNode } from '../entity-driver.js';
 import type { UserId } from '../db.js';
@@ -235,31 +251,62 @@ export class KaappiEntityDriver implements EntityDriver {
     if (rootId == null) {
       throw new Error('KaappiEntityDriver.descendantsWithDepth: whole-tree walk (rootId=null) is not supported — Kaappi has no global "root" to start from.');
     }
-    // Includes the root itself at depth 0 — confirmed, not assumed, to match
-    // SqlEntityDriver's own CTE (`SELECT id, 0 FROM current_entities WHERE id
-    // = ?` as the walk's base case), once db-journal.ts's resolveStagedAccountId
-    // became the first real call site relying on that exact parity (its own
-    // biz_coa CTE includes the Chart-of-Accounts root the same way). This
-    // driver's own earlier version left the root out — previously just a
-    // flagged, unverified assumption with nothing depending on it either way.
-    const result: (EntityNode & { depth: number })[] = [{ id: rootId, name: this.mustGetName(rootId), parent_id: null, relation_id: null, depth: 0 }];
-    const seen = new Set<number>([rootId]);
-    let frontier = [rootId];
-    let depth = 0;
-    while (frontier.length > 0) {
-      const nextFrontier: number[] = [];
-      for (const parentId of frontier) {
-        for (const child of this.children(parentId)) {
-          if (seen.has(child.id)) continue;
-          seen.add(child.id);
-          result.push({ ...child, depth: depth + 1 });
-          nextFrontier.push(child.id);
+    // Fixed this session: the previous version reimplemented its own
+    // TS-side BFS, costing one entity-children round trip PER PARENT plus
+    // one entity-get-name round trip PER CHILD — O(subtree size) worker/
+    // subprocess round trips. entity-descendants is already a native,
+    // single-call, wire-exposed Scheme primitive (confirmed by reading
+    // entity-model/entities.sld and server.scm's h-entity-descendants
+    // directly — it's `(apply append (map (lambda (c) (cons c
+    // (entity-descendants c))) (entity-children parent)))`, recursive
+    // entirely on the Scheme side) that returns every descendant ext-id in
+    // ONE round trip. Paired with entity-get-many (also one round trip,
+    // already implemented) to fetch every record — including parent_id,
+    // needed to reconstruct depth — this reduces the whole operation to
+    // exactly 2 round trips total, regardless of subtree size, matching
+    // the shape of SqlEntityDriver's own single recursive CTE far more
+    // closely than the old per-node BFS did. Depth is then computed
+    // in-process via a cheap, no-round-trip pass over the already-fetched
+    // flat id->record map — a real algorithmic cost (O(n) in the worst
+    // case if a parent is processed before its own parent's depth is
+    // known, handled below by re-queuing), but entirely local, not a
+    // network/subprocess cost.
+    const descendantIds = this.callSync('entity-descendants', [rootId]) as number[];
+    const allIds = [rootId, ...descendantIds];
+    const records = this.getMany(allIds);
+    const byId = new Map<number, EntityNode>(records.map((r) => [r.id, r]));
+
+    const depthOf = new Map<number, number>([[rootId, 0]]);
+    // Children can come back from entity-descendants in any order (it's a
+    // pre-order walk over entity-children, not breadth-first), so a
+    // parent's depth may not be known yet on a given pass — re-queue
+    // anything not yet resolvable rather than assuming top-down order.
+    let pending = descendantIds;
+    while (pending.length > 0) {
+      const stillPending: number[] = [];
+      for (const id of pending) {
+        const rec = byId.get(id);
+        const parentId = rec?.parent_id;
+        if (parentId != null && depthOf.has(parentId)) {
+          depthOf.set(id, depthOf.get(parentId)! + 1);
+        } else {
+          stillPending.push(id);
         }
       }
-      frontier = nextFrontier;
-      depth += 1;
+      if (stillPending.length === pending.length) {
+        // No progress this pass — every remaining id's parent is outside
+        // the fetched set (shouldn't happen for a real descendant of
+        // rootId, since every ancestor up to rootId must itself be a
+        // descendant too) or missing entirely. Don't loop forever;
+        // surface it as a real error instead of silently dropping nodes.
+        throw new Error(
+          `KaappiEntityDriver.descendantsWithDepth: could not resolve depth for entit${stillPending.length === 1 ? 'y' : 'ies'} ${stillPending.join(', ')} — parent not found within rootId ${rootId}'s own fetched descendant set.`
+        );
+      }
+      pending = stillPending;
     }
-    return result;
+
+    return allIds.map((id) => ({ ...byId.get(id)!, depth: depthOf.get(id)! }));
   }
 
   getMany(ids: number[]): EntityNode[] {
