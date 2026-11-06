@@ -784,8 +784,7 @@ export const getActiveLedger = (businessName: string) =>
 export const getProfitCenters = (businessName: string) => callTable('getProfitCenters', [businessName], (f) => ({ id: Number(f.id), name: f.name }));
 export const createProfitCenter = (businessName: string, profitCenterName: string) =>
   callRow('createProfitCenter', [businessName, profitCenterName], (f) => ({ id: Number(f[0]), name: f[1] }));
-export const setSessionProfitCenter = (profitCenterName: string | null) =>
-  request<void>('/auth/session/profit-center', { method: 'POST', body: JSON.stringify({ profitCenterName }) });
+export const setSessionProfitCenter = (profitCenterName: string | null) => callRow('setSessionProfitCenter', [profitCenterName ?? undefined], () => undefined);
 export type ReportingFrequency = 'annual' | 'biannual' | 'quarterly' | 'monthly';
 // Converted off the old JSON '/businesses' route onto the new, direct,
 // no-JSON call protocol (per direct instruction - see
@@ -1199,9 +1198,12 @@ export interface LoginResponse {
 }
 
 export const apiLogin = (username: string, password: string) =>
-  request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+  callRow('login', [username, password], (f): LoginResponse => ({
+    token: f[0],
+    user: { id: Number(f[1]), username: f[2], roles: decodeStringList(f[3]), page_size: Number(f[4]), number_format: f[5], date_format: f[6] },
+  }));
 
-export const apiLogout = () => request<void>('/auth/logout', { method: 'POST' });
+export const apiLogout = () => callRow('logout', [], () => undefined);
 
 export interface UserSummary {
   id: number;
@@ -1210,16 +1212,13 @@ export interface UserSummary {
   roles: string[];
 }
 
-export const getUsers = () => request<UserSummary[]>('/auth/users');
-export const getRoles = () => request<{ id: number; name: string }[]>('/auth/roles');
+export const getUsers = () => callTable('getUsers', [], (f): UserSummary => ({ id: Number(f.id), username: f.username, active: f.active === 'true', roles: decodeStringList(f.roles) }));
+export const getRoles = () => callTable('getRoles', [], (f) => ({ id: Number(f.id), name: f.name }));
 export const createUserAccount = (username: string, password: string, roles: string[]) =>
-  request<UserSummary>('/auth/users', { method: 'POST', body: JSON.stringify({ username, password, roles }) });
-export const setUserRolesApi = (userId: number, roles: string[]) =>
-  request<void>(`/auth/users/${userId}/roles`, { method: 'PUT', body: JSON.stringify({ roles }) });
-export const setUserActiveApi = (userId: number, active: boolean) =>
-  request<void>(`/auth/users/${userId}/active`, { method: 'PUT', body: JSON.stringify({ active }) });
-export const changeUserPassword = (userId: number, password: string) =>
-  request<void>(`/auth/users/${userId}/password`, { method: 'PUT', body: JSON.stringify({ password }) });
+  callRow('createUser', [username, password, encodeStringList(roles)], (f): UserSummary => ({ id: Number(f[0]), username: f[1], active: f[2] === 'true', roles: decodeStringList(f[3]) }));
+export const setUserRolesApi = (userId: number, roles: string[]) => callRow('setUserRolesApi', [String(userId), encodeStringList(roles)], () => undefined);
+export const setUserActiveApi = (userId: number, active: boolean) => callRow('setUserActiveApi', [String(userId), String(active)], () => undefined);
+export const changeUserPassword = (userId: number, password: string) => callRow('changeUserPassword', [String(userId), password], () => undefined);
 
 // See docs/pm-frontend-reference.md.
 export interface UserRoleMatrix {
@@ -1227,11 +1226,14 @@ export interface UserRoleMatrix {
   roles: string[];
   assignments: { user: string; role: string }[];
 }
-export const getUserRoleMatrix = (business: string) => request<UserRoleMatrix>(`/auth/businesses/${encodeURIComponent(business)}/role-matrix`);
-export const setUserRoleInBusiness = (business: string, username: string, roleName: string) =>
-  request<void>(`/auth/businesses/${encodeURIComponent(business)}/role-matrix/${encodeURIComponent(username)}/${encodeURIComponent(roleName)}`, { method: 'PUT' });
-export const unsetUserRoleInBusiness = (business: string, username: string, roleName: string) =>
-  request<void>(`/auth/businesses/${encodeURIComponent(business)}/role-matrix/${encodeURIComponent(username)}/${encodeURIComponent(roleName)}`, { method: 'DELETE' });
+export const getUserRoleMatrix = (business: string) =>
+  callRow('getUserRoleMatrix', [business], (f): UserRoleMatrix => ({
+    users: decodeStringList(f[0]),
+    roles: decodeStringList(f[1]),
+    assignments: decodeRecordList(['user', 'role'], f[2]).map((r) => ({ user: r.user, role: r.role })),
+  }));
+export const setUserRoleInBusiness = (business: string, username: string, roleName: string) => callRow('setUserRoleInBusiness', [business, username, roleName], () => undefined);
+export const unsetUserRoleInBusiness = (business: string, username: string, roleName: string) => callRow('unsetUserRoleInBusiness', [business, username, roleName], () => undefined);
 
 export const reverseJournalEntry = (business: BusinessName, ledger: LedgerName, journalId: number, occurrenceDate: string, reversalDate?: string) =>
   callRow('reverseJournalEntry', [business, ledger, String(journalId), occurrenceDate, reversalDate], () => undefined);
@@ -1400,17 +1402,15 @@ export const getPeriodStatus = (business: BusinessName, ledger: LedgerName) =>
 export const closePeriod = (business: BusinessName, ledger: LedgerName, throughDate: string) => callRow('closePeriod', [business, ledger, throughDate], () => undefined);
 export const reopenPeriod = (business: BusinessName, ledger: LedgerName) => callRow('reopenPeriod', [business, ledger], () => undefined);
 
-export const changeOwnPassword = (currentPassword: string, newPassword: string) =>
-  request<void>('/auth/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword, newPassword }) });
+export const changeOwnPassword = (currentPassword: string, newPassword: string) => callRow('changeOwnPassword', [currentPassword, newPassword], () => undefined);
 
 export const getRecordingStatus = () => request<{ recording: boolean }>('/recording');
 export const startRecording = () => request<{ recording: boolean }>('/recording/start', { method: 'POST' });
 export const stopRecording = () => request<{ recording: boolean }>('/recording/stop', { method: 'POST' });
 
-export const setOwnPageSize = (pageSize: number) => request<void>('/auth/me/page-size', { method: 'PUT', body: JSON.stringify({ pageSize }) });
-export const setOwnNumberFormat = (numberFormat: string) =>
-  request<void>('/auth/me/number-format', { method: 'PUT', body: JSON.stringify({ numberFormat }) });
-export const setOwnDateFormat = (dateFormat: string) => request<void>('/auth/me/date-format', { method: 'PUT', body: JSON.stringify({ dateFormat }) });
+export const setOwnPageSize = (pageSize: number) => callRow('setOwnPageSize', [String(pageSize)], () => undefined);
+export const setOwnNumberFormat = (numberFormat: string) => callRow('setOwnNumberFormat', [numberFormat], () => undefined);
+export const setOwnDateFormat = (dateFormat: string) => callRow('setOwnDateFormat', [dateFormat], () => undefined);
 
 export interface Item {
   description: string | null;

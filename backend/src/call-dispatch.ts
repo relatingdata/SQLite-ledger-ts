@@ -15,6 +15,7 @@
 import type { AuthenticatedUser } from './auth.js';
 import { csvField, splitCsvLine, unescapeAscii } from '../../shared-fixtures/csv.js';
 import { arapFunctions } from './call-dispatch/arap.js';
+import { authFunctions } from './call-dispatch/auth.js';
 import { businessesFunctions } from './call-dispatch/businesses.js';
 import { contactsFunctions } from './call-dispatch/contacts.js';
 import { customerRegistrationFunctions } from './call-dispatch/customer-registration.js';
@@ -205,10 +206,18 @@ export function decodeGenericTree(encoded: string): WireGenericTreeNode[] {
   });
 }
 
-export type BackendCall = (values: string[], user: AuthenticatedUser | undefined, lineItems: string[][]) => CallResult;
+// token: the raw bearer token of THIS request, if any - distinct from
+// `user` (the session it currently resolves to). Only auth.ts's own
+// logout/setSessionBusiness/setSessionProfitCenter need it (they end or
+// mutate the current session by its own token, not by user id); every
+// other function simply never reads this parameter, the same "a function
+// declared with fewer parameters satisfies a type that declares more"
+// trick already used for lineItems.
+export type BackendCall = (values: string[], user: AuthenticatedUser | undefined, lineItems: string[][], token: string | undefined) => CallResult;
 
 export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
   ...arapFunctions,
+  ...authFunctions,
   ...businessesFunctions,
   ...contactsFunctions,
   ...customerRegistrationFunctions,
@@ -230,8 +239,8 @@ export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
   ...stockLotsFunctions,
 };
 
-export function callBackendFunction(name: string, values: string[], user: AuthenticatedUser | undefined, lineItems: string[][] = []): CallResult {
+export function callBackendFunction(name: string, values: string[], user: AuthenticatedUser | undefined, lineItems: string[][] = [], token: string | undefined = undefined): CallResult {
   const fn = BACKEND_FUNCTIONS[name];
   if (!fn) throw new CallError(404, `No real backend function named "${name}".`);
-  return fn(values, user, lineItems);
+  return fn(values, user, lineItems, token);
 }

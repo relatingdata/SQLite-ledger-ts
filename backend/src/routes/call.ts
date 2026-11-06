@@ -53,8 +53,10 @@ callRouter.post('/', (req, res) => {
     return;
   }
   const lineItems = bodyLines.slice(1).map((l) => splitCsvLine(l).map(unescapeAscii));
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : undefined;
   try {
-    const result = callBackendFunction(screenName, parts.slice(1), req.user, lineItems);
+    const result = callBackendFunction(screenName, parts.slice(1), req.user, lineItems, token);
     if (result.kind === 'row') {
       res.type('text/csv').send('ok,' + result.values.map(csvField).join(','));
     } else {
