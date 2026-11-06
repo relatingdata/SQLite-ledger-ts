@@ -27,6 +27,7 @@
     "@types/luxon": "^3.7.5",
     "@types/node": "22.10.2",
     "@types/pdfmake": "^0.3.3",
+    "biwascheme": "^0.8.3",
     "tsx": "4.23.1",
     "typescript": "5.5.3"
   }
