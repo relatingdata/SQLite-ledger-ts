@@ -23,6 +23,7 @@ import { departmentsFunctions } from './call-dispatch/departments.js';
 import { entitiesFunctions } from './call-dispatch/entities.js';
 import { hierarchyFunctions } from './call-dispatch/hierarchy.js';
 import { i18nFunctions } from './call-dispatch/i18n.js';
+import { invoicesFunctions } from './call-dispatch/invoices.js';
 import { itemsFunctions } from './call-dispatch/items.js';
 import { journalFunctions } from './call-dispatch/journal.js';
 import { matrixReportsFunctions } from './call-dispatch/matrix-reports.js';
@@ -225,6 +226,7 @@ export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
   ...entitiesFunctions,
   ...hierarchyFunctions,
   ...i18nFunctions,
+  ...invoicesFunctions,
   ...itemsFunctions,
   ...journalFunctions,
   ...matrixReportsFunctions,

@@ -1594,6 +1594,44 @@ export interface Invoice {
   total_tax_minor: number;
 }
 
+const INVOICE_LINE_FIELDS = ['id', 'description', 'quantity', 'unitPriceMinor', 'amountMinor', 'taxMinor', 'itemName', 'dispatchReference'];
+function decodeInvoiceLines(encoded: string): (InvoiceLine & { id: number })[] {
+  return decodeRecordList(INVOICE_LINE_FIELDS, encoded).map((r) => ({
+    id: Number(r.id),
+    description: r.description,
+    quantity: r.quantity === '' ? null : Number(r.quantity),
+    unitPriceMinor: r.unitPriceMinor === '' ? null : Number(r.unitPriceMinor),
+    amountMinor: Number(r.amountMinor),
+    taxMinor: Number(r.taxMinor),
+    itemName: r.itemName || null,
+    dispatchReference: r.dispatchReference || null,
+  }));
+}
+// Matches call-dispatch/invoices.ts's own encodeInvoice exactly - shared
+// by getInvoiceById (one invoice) and listInvoices (an array of them).
+function decodeInvoice(encoded: string): Invoice {
+  const f = decodeStringList(encoded);
+  return {
+    id: Number(f[0]),
+    invoice_type: f[1] as 'AR' | 'AP',
+    document_type: f[2] as 'invoice' | 'credit_note' | 'debit_memo',
+    references_invoice_id: f[3] === '' ? null : Number(f[3]),
+    business: f[4] as BusinessName,
+    ledger: f[5] as LedgerName,
+    reference: f[6],
+    counterparty: f[7],
+    invoice_date: f[8],
+    due_date: f[9] || null,
+    description: f[10],
+    status: f[11] as 'draft' | 'posted' | 'void',
+    posted_by: f[12] || null,
+    source: f[13] as 'manual' | 'pos',
+    lines: decodeInvoiceLines(f[14]),
+    total_amount_minor: Number(f[15]),
+    total_tax_minor: Number(f[16]),
+  };
+}
+
 export const listInvoices = (
   business: BusinessName,
   ledger: LedgerName,
@@ -1602,37 +1640,35 @@ export const listInvoices = (
   limit = 50,
   offset = 0
 ) =>
-  request<{ rows: Invoice[]; totalCount: number }>(
-    `/invoices?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${invoiceType ? `&type=${invoiceType}` : ''}&source=${source}&limit=${limit}&offset=${offset}`
+  callRow('listInvoices', [business, ledger, invoiceType, source, String(limit), String(offset)], (f): { rows: Invoice[]; totalCount: number } => ({
+    totalCount: Number(f[0]),
+    rows: decodeStringList(f[1]).map(decodeInvoice),
+  }));
+export const getInvoiceById = (id: number) =>
+  callRow('getInvoiceById', [String(id)], (f): Invoice => {
+    if (f[0] !== '1') throw new ApiError(404, 'No such invoice.');
+    return decodeInvoice(f[1]);
+  });
+export const createInvoice = (input: InvoiceInput) =>
+  callRowWithLines(
+    'createInvoice',
+    [input.invoiceType, input.business, input.ledger, input.reference, input.counterpartyName, input.invoiceDate, input.description],
+    input.lines.map((l) => [l.description, l.quantity != null ? String(l.quantity) : undefined, l.unitPriceMinor != null ? String(l.unitPriceMinor) : undefined, String(l.amountMinor), l.taxMinor != null ? String(l.taxMinor) : undefined, l.itemName ?? undefined, l.dispatchReference ?? undefined]),
+    (f): { id: number } => ({ id: Number(f[0]) })
   );
-export const getInvoiceById = (id: number) => request<Invoice>(`/invoices/${id}`);
-export const createInvoice = (input: InvoiceInput) => request<{ id: number }>('/invoices', { method: 'POST', body: JSON.stringify(input) });
 export const postInvoiceById = (id: number, revenueOrExpenseAccount: string, taxAccount: string, restockInventory = false) =>
-  request<void>(`/invoices/${id}/post`, { method: 'POST', body: JSON.stringify({ revenueOrExpenseAccount, taxAccount, restockInventory }) });
-export const getInvoiceOutstanding = (id: number) => request<{ outstanding_minor: number }>(`/invoices/${id}/outstanding`);
+  callRow('postInvoiceById', [String(id), revenueOrExpenseAccount, taxAccount, String(restockInventory)], () => undefined);
+export const getInvoiceOutstanding = (id: number) => callRow('getInvoiceOutstanding', [String(id)], (f): { outstanding_minor: number } => ({ outstanding_minor: Number(f[0]) }));
 export const allocatePaymentToInvoice = (id: number, paymentReference: string, allocatedMinor: number, allocationDate: string, paymentAccount: string) =>
-  request<void>(`/invoices/${id}/allocate`, { method: 'POST', body: JSON.stringify({ paymentReference, allocatedMinor, allocationDate, paymentAccount }) });
+  callRow('allocatePaymentToInvoice', [String(id), paymentReference, String(allocatedMinor), allocationDate, paymentAccount], () => undefined);
 
-/** A real, exported UBL 2.1 XML document — fetched as raw text, not
- * through the generic, JSON-only request() helper, since this
- * endpoint returns a real XML file, not a JSON body. */
-export async function exportInvoiceAsEInvoice(id: number): Promise<string> {
-  const current = auth.current;
-  const headers: Record<string, string> = {};
-  if (current) headers.Authorization = `Bearer ${current.token}`;
-  const res = await fetch(`${BASE}/invoices/${id}/e-invoice`, { headers });
-  if (!res.ok) {
-    let message = res.statusText;
-    try {
-      const body = await res.json();
-      message = body.error?.message ?? body.error ?? message;
-    } catch {
-      /* ignore parse failure */
-    }
-    throw new ApiError(res.status, message);
-  }
-  return res.text();
-}
+/** A real, exported UBL 2.1 XML document - now travels back as one
+ * ordinary, csvField-escaped call-protocol row value (handles embedded
+ * commas/quotes/newlines exactly like any other string) instead of a raw
+ * fetch of a separate XML endpoint; the one live caller already builds
+ * its own Blob/download link client-side from the returned text, so
+ * nothing about that behavior changes. */
+export const exportInvoiceAsEInvoice = (id: number) => callRow('exportInvoiceAsEInvoice', [String(id)], (f): string => f[0]);
 
 export interface EInvoiceDiscrepancy {
   field: string;
@@ -1644,7 +1680,10 @@ export interface ImportEInvoiceResult {
   discrepancies: EInvoiceDiscrepancy[];
 }
 export const importEInvoice = (xml: string, business: BusinessName, ledger: LedgerName, vendorName: ProviderName, poReference?: string) =>
-  request<ImportEInvoiceResult>('/invoices/import-e-invoice', { method: 'POST', body: JSON.stringify({ xml, business, ledger, vendorName, poReference }) });
+  callRow('importEInvoice', [xml, business, ledger, vendorName, poReference], (f): ImportEInvoiceResult => ({
+    invoiceId: Number(f[0]),
+    discrepancies: decodeRecordList(['field', 'poValue', 'invoiceValue'], f[1]).map((r) => ({ field: r.field, poValue: r.poValue, invoiceValue: r.invoiceValue })),
+  }));
 
 export interface AgedRow {
   invoice_id: number;
@@ -1662,13 +1701,22 @@ export interface AgedSummaryRow {
   oldest_days_overdue: number;
 }
 export const getAgedInvoices = (business: BusinessName, ledger: LedgerName, invoiceType: 'AR' | 'AP', asOfDate?: string) =>
-  request<AgedRow[]>(
-    `/reports/aged?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}&type=${invoiceType}${asOfDate ? `&asOfDate=${asOfDate}` : ''}`
-  );
+  callTable('getAgedInvoices', [business, ledger, invoiceType, asOfDate], (f): AgedRow => ({
+    invoice_id: Number(f.invoice_id),
+    reference: f.reference,
+    counterparty: f.counterparty,
+    invoice_date: f.invoice_date,
+    due_date: f.due_date || null,
+    outstanding_minor: Number(f.outstanding_minor),
+    days_overdue: Number(f.days_overdue),
+    bucket: f.bucket,
+  }));
 export const getAgedSummary = (business: BusinessName, ledger: LedgerName, invoiceType: 'AR' | 'AP', asOfDate?: string) =>
-  request<AgedSummaryRow[]>(
-    `/reports/aged/summary?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}&type=${invoiceType}${asOfDate ? `&asOfDate=${asOfDate}` : ''}`
-  );
+  callTable('getAgedSummary', [business, ledger, invoiceType, asOfDate], (f): AgedSummaryRow => ({
+    counterparty: f.counterparty,
+    outstanding_minor: Number(f.outstanding_minor),
+    oldest_days_overdue: Number(f.oldest_days_overdue),
+  }));
 
 export interface StatementLine {
   invoice_id: number;
@@ -1687,9 +1735,21 @@ export interface CustomerStatement {
   total_outstanding_minor: number;
 }
 export const getCustomerStatement = (business: BusinessName, ledger: LedgerName, customer: string, asOfDate?: string) =>
-  request<CustomerStatement>(
-    `/reports/statement?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}&customer=${encodeURIComponent(customer)}${asOfDate ? `&asOfDate=${asOfDate}` : ''}`
-  );
+  callRow('getCustomerStatement', [business, ledger, customer, asOfDate], (f): CustomerStatement => ({
+    customer: f[0],
+    as_of_date: f[1],
+    lines: decodeRecordList(['invoice_id', 'reference', 'invoice_date', 'due_date', 'total_minor', 'paid_minor', 'outstanding_minor', 'status'], f[2]).map((r) => ({
+      invoice_id: Number(r.invoice_id),
+      reference: r.reference,
+      invoice_date: r.invoice_date,
+      due_date: r.due_date || null,
+      total_minor: Number(r.total_minor),
+      paid_minor: Number(r.paid_minor),
+      outstanding_minor: Number(r.outstanding_minor),
+      status: r.status as 'Paid' | 'Outstanding' | 'Partially paid',
+    })),
+    total_outstanding_minor: Number(f[3]),
+  }));
 
 export interface HistoryLine {
   invoice_reference: string;
@@ -1701,7 +1761,15 @@ export interface HistoryLine {
   amount_minor: number;
 }
 export const getCounterpartyHistory = (business: BusinessName, ledger: LedgerName, counterparty: string) =>
-  request<HistoryLine[]>(`/reports/history?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}&counterparty=${encodeURIComponent(counterparty)}`);
+  callTable('getCounterpartyHistory', [business, ledger, counterparty], (f): HistoryLine => ({
+    invoice_reference: f.invoice_reference,
+    invoice_date: f.invoice_date,
+    document_type: f.document_type as 'invoice' | 'credit_note' | 'debit_memo',
+    description: f.description,
+    quantity: f.quantity === '' ? null : Number(f.quantity),
+    unit_price_minor: f.unit_price_minor === '' ? null : Number(f.unit_price_minor),
+    amount_minor: Number(f.amount_minor),
+  }));
 
 export interface ReminderCandidate {
   counterparty: string;
@@ -1711,10 +1779,15 @@ export interface ReminderCandidate {
   oldest_days_overdue: number;
 }
 export const getReminderCandidates = (business: BusinessName, ledger: LedgerName, asOfDate?: string) =>
-  request<ReminderCandidate[]>(`/reminders?business=${encodeURIComponent(business)}&ledger=${encodeURIComponent(ledger)}${asOfDate ? `&asOfDate=${asOfDate}` : ''}`);
-export const sendReminder = (counterparty: string) =>
-  request<{ new_level: number }>(`/reminders/${encodeURIComponent(counterparty)}/send`, { method: 'POST' });
-export const resetReminder = (counterparty: string) => request<void>(`/reminders/${encodeURIComponent(counterparty)}/reset`, { method: 'POST' });
+  callTable('getReminderCandidates', [business, ledger, asOfDate], (f): ReminderCandidate => ({
+    counterparty: f.counterparty,
+    current_level: Number(f.current_level),
+    next_level: Number(f.next_level),
+    outstanding_minor: Number(f.outstanding_minor),
+    oldest_days_overdue: Number(f.oldest_days_overdue),
+  }));
+export const sendReminder = (counterparty: string) => callRow('sendReminder', [counterparty], (f): { new_level: number } => ({ new_level: Number(f[0]) }));
+export const resetReminder = (counterparty: string) => callRow('resetReminder', [counterparty], () => undefined);
 
 // ---------------------------------------------------------------------------
 // Stock write-offs and lot/expiration tracking
