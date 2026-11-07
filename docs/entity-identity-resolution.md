@@ -127,10 +127,10 @@ interface and function pair (`ARSaleInput`/`postARSale`,
 `ARReceiptInput`/`postARReceipt`, `APPurchaseInput`/`postAPPurchase`,
 `APPaymentInput`/`postAPPayment`), `PosSaleInput`/`completePosSale`,
 `closeBooks`/`reverseJournalEntry`'s own account/division fields, and
-the backend routes accepting these as request-body strings
-(`routes/arap.ts`, `routes/pos.ts`, `routes/journal.ts`,
-`routes/reports.ts`, `routes/matrix-reports.ts`,
-`routes/businesses.ts`).
+the backend call-dispatch entries accepting these as positional
+ASCII-CSV call args (`call-dispatch/arap.ts`, `call-dispatch/pos.ts`,
+`call-dispatch/journal.ts`, `call-dispatch/reports.ts`,
+`call-dispatch/matrix-reports.ts`, `call-dispatch/businesses.ts`).
 
 **Wave 2 — the single most widely-used function, and stock movement.**
 `postJournalEntry` itself — called from more places than any other

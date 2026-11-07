@@ -281,7 +281,7 @@ Confirmed directly, empirically, before this was fixed: every business shared on
 
 **A word and its translations stay owned by the one, real, global Vocabulary by default, and are never copied into a business's own Vocabulary just because that business adopted the CoA prototype carrying them** — a business's own real `Vocabulary` entry for a category/account name is created only for a structural category (the `copyChartOfAccountsInto` branch above), never eagerly for every ordinary, prototype-tagged leaf account (an earlier attempt did this eagerly and was reverted directly, per instruction: "the words and their translations stay in the global Vocabulary and do not get copied"). A leaf account's name stays resolved through the global word until the moment someone actually chooses to change it.
 
-**`ensureVocabularyAlternate(conceptName, desiredText, businessName, userId)`** (`backend/src/db.ts`) is the real mechanism for that moment — called from `POST /api/vocabulary-preference` (`backend/src/routes/i18n.ts`) only when the requested `preferredAlternateName` is not yet a known entity anywhere:
+**`ensureVocabularyAlternate(conceptName, desiredText, businessName, userId)`** (`backend/src/db.ts`) is the real mechanism for that moment — called from the `setVocabularyPreference` call-dispatch entry (`backend/src/call-dispatch/i18n.ts`) only when the requested `preferredAlternateName` is not yet a known entity anywhere:
 
 1. Check whether an entity named `desiredText` already exists **anywhere** — if a real, global synonym with that exact text already exists for some other concept, reuse that same, real entity; never create a redundant, duplicate one.
 2. Only if no such entity exists at all, create a new one under this one business's own `Vocabulary` (never the global one).
@@ -549,8 +549,9 @@ root, at any real depth — Category nesting stays genuinely unbounded).
 Two real call sites still use generic `createEntity` directly, both
 matching the same, real principle: a genuinely open-ended tool should
 stay generic, not be forced into a specific `TypeDescriptor` that
-would defeat its own purpose. `routes/entities.ts`'s own Entity Tree
-Editor endpoint (an administrator may be creating any real kind, not
+would defeat its own purpose. `call-dispatch/entities.ts`'s own
+`createEntity` dispatch entry, backing the Entity Tree Editor (an
+administrator may be creating any real kind, not
 known in advance), and `primitives.ts`'s own `Entity.create` itself —
 the two generic primitives this document describes, side by side,
 each real and correct for what it does.
@@ -616,43 +617,53 @@ Per direct instruction: every real `typeXxxName` constant (`backend/src/db.ts`) 
 
 `asUserId`, `asEntityId`, `asDivisionName`, `asLocationName`, `asEmployeeName`, `asCustomerName`, `asProviderName`, `asItemName` (`backend/src/db.ts`) are the real, direct, run-time-free branding functions paired with the `TypeDescriptor` constants above — each takes a plain string (or number, for the two `Id` cases) and returns it branded as the matching real type, purely a compile-time cast with no real, runtime validation of its own (validation, where it exists, is the paired `TypeDescriptor`'s own, separate `validate`/`validNames` check, applied by `fetch`, not by these). Used at the one, real boundary where an untyped value (a route's own `req.params`, a raw database row) first becomes a real, typed value the rest of this codebase's own functions can trust.
 
-## Every Express router constant, documented directly
+## Every call-dispatch domain file, documented directly
 
-Per direct instruction: every real `xxxRouter` constant (`backend/src/routes/*.ts`) is a real, plain Express `Router()` instance, mounted at its own real path in `backend/src/server.ts` — each documented here by its own real mount path and real purpose, rather than repeating the same explanation for each:
+The per-path Express routers this section used to document (one
+`xxxRouter` constant per domain, each its own mounted path) are gone —
+task #239/#245 deleted them once every real endpoint had a verified
+replacement. Every real frontend<->backend call now goes through one
+generic endpoint, `POST /api/call` (`backend/src/routes/call.ts`), with
+the call's own name looked up directly in `BACKEND_FUNCTIONS`
+(`backend/src/call-dispatch.ts`) — an ordinary object-property read, never
+`eval`. Each domain still has its own file, merged into that one map, so
+this table documents the same real purpose per domain as before, just by
+`call-dispatch/*.ts` file instead of by router/mount path:
 
-| Router | File | Mounted at | Real purpose |
-|---|---|---|---|
-| `authRouter` | `auth.ts` | `/api/auth` | Login, logout, session/business selection, own-user settings — public `/login`, everything else its own, per-route `requireAuth`. |
-| `entitiesRouter` | `entities.ts` | `/api/entities` | The Entity Tree Editor's own, real, generic create/reorder/relationship endpoints. |
-| `reportsRouter` | `reports.ts` | `/api/reports` | Trial Balance, Balance Sheet, Profit and Loss, and the other real, general financial reports. |
-| `matrixReportsRouter` | `matrix-reports.ts` | `/api/reports/matrix` | Sales/COGS and Stock-on-Hand matrix reports, by real division/location axis. |
-| `menuRouter` | `menu.ts` | `/api/menu` | This business's own, real, configured menu tree, with any real, per-role overrides applied. |
-| `i18nRouter` | `i18n.ts` | `/api/i18n` | Real languages, translations, and text direction — the one, real, public (no login required) router, since the login page itself needs translated text. |
-| `businessesRouter` | `businesses.ts` | `/api/businesses` | Create/list real businesses, business types, bank accounts, and the Business Configuration Report. |
-| `journalRouter` | `journal.ts` | `/api/journal` | Real, posted Journal Entries — listing and detail. |
-| `contactsRouter` | `contacts.ts` | `/api/contacts` | Real, named contacts and their own real, typed views (Vendor/Customer/Employee). |
-| `itemsRouter` | `items.ts` | `/api/items` | Real, sellable/stockable items, categories, and vendor sources. |
-| `productsRouter` | `products.ts` | `/api/products` | Real product groupings above individual items, for reporting. |
-| `invoicesRouter` | `invoices.ts` | `/api/invoices` | Real AR/AP invoices — creation, listing, e-invoicing (UBL) export/import. |
-| `agedRouter` | `invoices.ts` | `/api/reports/aged` | Aged Payables/Receivables. |
-| `statementRouter` | `invoices.ts` | `/api/reports/statement` | A real customer/vendor's own account statement. |
-| `historyRouter` | `invoices.ts` | `/api/reports/history` | A real contact's own real transaction history. |
-| `remindersRouter` | `invoices.ts` | `/api/reminders` | Real, scheduled payment-reminder tracking. |
-| `stockLotsRouter` | `stock-lots.ts` | `/api/stock-lots` | Real, lot-tracked stock detail. |
-| `locationsRouter` | `locations.ts` | `/api/locations` | Real locations — creation, currencies, receiving/dispatch, transfer, restocking, open hours/schedule. |
-| `belowReorderRouter` | `locations.ts` | `/api/reports/below-reorder` | Real items genuinely below their own, real reorder point. |
-| `stockOutRiskRouter` | `locations.ts` | `/api/reports/stock-out-risk` | Real items at genuine risk of a real stock-out, by real, projected usage. |
-| `stockListingRouter` | `locations.ts` | `/api/stock-listing` | The real, full Inventory Listing report. |
-| `stockTakesRouter` | `locations.ts` | `/api/stock-takes` | Real, physical stock-take counts and their own real reconciliation. |
-| `posRouter` | `pos.ts` | `/api/pos` | Real Point-of-Sale terminals, sign-on/off, and real sales. |
-| `customerRegistrationRouter` | `customer-registration.ts` | `/api/customers` | Real, public, self-service customer registration — deliberately no staff login required. |
-| `customerVerificationRouter` | `customer-registration.ts` | `/api/customer-verification` | Verifying a real, pending customer registration. |
-| `arAPRouter` | `arap.ts` | `/api/arap` | Cash Purchase/Cash Sale — the real, direct, one-step AR/AP posting screens. |
-| `projectsRouter` | `projects.ts` | `/api/projects` | Real projects and their own real tasks. |
-| `stockRouter` | `stock.ts` | `/api/stock` | Real stock receipts, write-offs, and expiration tracking. |
-| `invoiceRouter` | `invoice.ts` | `/api/invoice` | A real, single invoice's own real outstanding balance. |
-| `periodRouter` | `period.ts` | `/api/period` | Real financial-period/year-end configuration. |
-| `hierarchyRouter` | `hierarchy.ts` | `/api/hierarchy` | This business's own real, named Hierarchies (e.g. Division/Category) and their groups — the generic replacement for the former, privileged `/api/divisions` router (retired; see §14 of `docs/multi-dimensional-reporting.md`) — plus Vocabulary. |
+| File | Real purpose |
+|---|---|
+| `auth.ts` | Login, logout, session/business selection, own-user settings — `login` genuinely public, everything else its own, per-call `requireAuth`/`requireRole`/`requireGlobalRole`. |
+| `entities.ts` | The Entity Tree Editor's own, real, generic create/reorder/relationship calls. |
+| `reports.ts` | Trial Balance, Balance Sheet, Profit and Loss, and the other real, general financial reports. |
+| `matrix-reports.ts` | Sales/COGS and Stock-on-Hand matrix reports, by real division/location axis. |
+| `menu.ts` | This business's own, real, configured menu tree, with any real, per-role overrides applied. |
+| `i18n.ts` | Real languages, translations, and text direction — several of its calls are the one, real, genuinely public (no login required) calls in the whole system, since the login page itself needs translated text. |
+| `businesses.ts` | Create/list real businesses, business types, bank accounts, and the Business Configuration Report. |
+| `journal.ts` | Real, posted Journal Entries — listing and detail. |
+| `contacts.ts` | Real, named contacts and their own real, typed views (Vendor/Customer/Employee). |
+| `items.ts` | Real, sellable/stockable items, categories, and vendor sources. |
+| `products.ts` | Real product groupings above individual items, for reporting. |
+| `invoices.ts` | Real AR/AP invoices — creation, listing, e-invoicing (UBL) export/import, PDF export, aged Payables/Receivables, customer/vendor account statements, contact transaction history, and scheduled payment-reminder tracking (all of these were separate routers before; they are one domain file here). |
+| `stock-lots.ts` | Real, lot-tracked stock detail. |
+| `locations.ts` | Real locations — creation, currencies, receiving/dispatch, transfer, restocking, open hours/schedule, below-reorder and stock-out-risk reports, the full Inventory Listing report, and stock-take counts/reconciliation (also previously several separate routers). |
+| `pos.ts` | Real Point-of-Sale terminals, sign-on/off, and real sales. |
+| `customer-registration.ts` | Real, public, self-service customer registration (deliberately no staff login required) and verifying a pending registration. |
+| `arap.ts` | Cash Purchase/Cash Sale — the real, direct, one-step AR/AP posting screens. |
+| `projects.ts` | Real projects and their own real tasks. |
+| `stock.ts` | Real stock receipts, write-offs, and expiration tracking. |
+| `period.ts` | Real financial-period/year-end configuration. |
+| `hierarchy.ts` | This business's own real, named Hierarchies (e.g. Division/Category) and their groups — the generic replacement for the former, privileged `/api/divisions` router (retired; see §14 of `docs/multi-dimensional-reporting.md`) — plus Vocabulary. |
+| `departments.ts` | Real departments, org-chart structure, and employee/manager assignment. |
+| `quotations.ts` | Real quotations and RFQs — drafting, sending, accepting/rejecting. |
+
+Two files outside `call-dispatch/` are still real, plain Express routers,
+kept mounted in `backend/src/server.ts` deliberately (never converted to
+this protocol): `routes/call.ts` itself (the one real protocol endpoint)
+and `routes/recording.ts` (the screen-action-recording toggle used by test
+tooling — infrastructure, not a business "screen"). `docs/role-routes-matrix.md`
+(generated directly from every real `requireRole`/`requireGlobalRole`
+call in `call-dispatch/*.ts` — see `make role-routes-matrix`) documents
+exactly which role each real call requires.
 
 ## Location/stock capacity functions, documented directly
 

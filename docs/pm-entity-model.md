@@ -268,9 +268,9 @@ a copy here that could go stale), grouped by purpose:
 
 Two call sites deliberately still use generic `createEntity` directly
 rather than a specific `TypeDescriptor`, since a genuinely open-ended
-tool should stay generic: the Entity Tree Editor's own endpoint
-(`routes/entities.ts`, an administrator may create any kind) and
-`primitives.ts`'s own `Entity.create`.
+tool should stay generic: the Entity Tree Editor's own `createEntity`
+call-dispatch entry (`call-dispatch/entities.ts`, an administrator may
+create any kind) and `primitives.ts`'s own `Entity.create`.
 
 ### Primitive implementation notes
 
@@ -491,22 +491,23 @@ correction: generally not), not one blanket rule applied everywhere.
    `editParent`, `editRelation`) — plain reactive variables, no
    client-side database or cache.
 2. **On Save**: the component calls a typed function from
-   `frontend/src/lib/api.ts` (`updateEntity(id, { name, parent,
-   relation })`) — a thin wrapper around `fetch`, sending an HTTP
-   `PATCH`.
-3. **The backend route** (`backend/src/routes/entities.ts`) validates
-   the request shape (`zod`) and calls the corresponding function in
-   `backend/src/db.ts`.
-4. **`updateEntity` (db.ts)** runs the SQL above — inserting into
+   `frontend/src/lib/api.ts` (`supersedeEntity(id, { name, parent,
+   relation, accountnumber })`) — encodes one ASCII-CSV line (`callRow`)
+   and posts it to the one, generic `POST /api/call` endpoint.
+3. **The backend call-dispatch entry** (`supersedeEntity` in
+   `backend/src/call-dispatch/entities.ts`) validates the fields and
+   calls the corresponding function in `backend/src/db.ts`.
+4. **`supersedeEntity` (db.ts)** runs the SQL above — inserting into
    `entity_update`, never mutating a row in place.
 5. **The response**: the backend returns the freshly re-read, current
-   state of that entity (`getEntity`, reading back from
-   `current_entities`), and the frontend replaces its local copy with
-   it — what's on screen always reflects what was actually,
-   successfully committed, never just what was optimistically typed.
+   state of that entity (the same row `supersedeEntity` itself
+   returns, reading back from `current_entities`) as one more
+   ASCII-CSV row, and the frontend replaces its local copy with it —
+   what's on screen always reflects what was actually, successfully
+   committed, never just what was optimistically typed.
 
-No separate "ORM layer" at any point: a Svelte component, an HTTP
-call, an Express route, a SQL statement — each its own readable
+No separate "ORM layer" at any point: a Svelte component, one ASCII-CSV
+call, a call-dispatch entry, a SQL statement — each its own readable
 piece.
 
 ### `journal_entry_staging` — the one shared staging table

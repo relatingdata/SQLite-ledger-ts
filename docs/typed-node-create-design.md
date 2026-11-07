@@ -160,8 +160,9 @@ entire test file (`backend/test/db.test.ts`, 274 real call sites) are
 all now free of generic `createEntity` calls. Two, real, explicitly
 documented exceptions remain, both matching this skill's own rule 4
 (a genuinely open-ended value/purpose is correctly left generic):
-`routes/entities.ts`'s own Entity Tree Editor endpoint (an
-administrator may be creating any real kind, not known in advance),
+`call-dispatch/entities.ts`'s own `createEntity` dispatch entry,
+backing the Entity Tree Editor (an administrator may be creating any
+real kind, not known in advance),
 and `primitives.ts`'s own `Entity.create` - a separate, real,
 deliberate "five primitives" abstraction layer this application was
 already being migrated toward, documented in that file's own header

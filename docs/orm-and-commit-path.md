@@ -68,20 +68,22 @@ worked example:
    `editParent`, `editRelation` — plain, real, reactive variables, not
    backed by any real, client-side database or cache.
 2. **On Save**: the component calls a real, typed function from
-   `frontend/src/lib/api.ts` (`updateEntity(id, { name, parent,
-   relation })`), which is a thin, direct wrapper around the browser's
-   own `fetch`, sending a real HTTP `PATCH` request to the backend.
-3. **The backend route** (`backend/src/routes/entities.ts`) receives
-   this request, validates its own shape (via `zod`), and calls the
-   real, corresponding function in `backend/src/db.ts`.
-4. **`updateEntity` (db.ts)** runs the real, direct SQL shown above —
+   `frontend/src/lib/api.ts` (`supersedeEntity(id, { name, parent,
+   relation, accountnumber })`), which encodes the call as one real
+   ASCII-CSV line (`callRow`) and posts it to the one, real, generic
+   `POST /api/call` endpoint — no JSON, no per-field HTTP verb.
+3. **The backend call-dispatch entry** (`supersedeEntity` in
+   `backend/src/call-dispatch/entities.ts`) receives this line,
+   validates its own fields, and calls the real, corresponding
+   `supersedeEntity` function in `backend/src/db.ts`.
+4. **`supersedeEntity` (db.ts)** runs the real, direct SQL shown above —
    inserting into `entity_update`, never mutating a row in place.
 5. **The response**: the backend returns the real, freshly re-read,
-   current state of that entity (via `getEntity`, which reads back
-   from `current_entities`), and the frontend replaces its own, local
-   copy with it — so what's on screen always reflects what was
-   actually, successfully committed, not just what was optimistically
-   typed.
+   current state of that entity (the same row `supersedeEntity` itself
+   returns) as one more ASCII-CSV row, and the frontend
+   replaces its own, local copy with it — so what's on screen always
+   reflects what was actually, successfully committed, not just what
+   was optimistically typed.
 
 There is no real, separate "ORM layer" at any point in this chain —
 each step is a real, direct, individually readable piece: a Svelte
