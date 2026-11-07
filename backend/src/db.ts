@@ -988,34 +988,75 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
 }
 
 export function getInvoice(id: number): Invoice | undefined {
-  const row = db
+  // Was a category-4 site: one statement joining invoice/journal against
+  // current_entities four times (biz/led/cp/u). The SQL below returns only
+  // numeric ids (plus journal's own user_id, needed for the posted_by
+  // fallback); every name is resolved afterward via Entity.getMany, same
+  // "ids out, join in TS" pattern as db-reports.ts/db-stock.ts.
+  const idRow = db
     .prepare(
-      `SELECT i.id, i.invoice_type, i.document_type, i.references_invoice_id, biz.name AS business, led.name AS ledger, i.reference,
-              cp.name AS counterparty, i.invoice_date, i.due_date, i.description, i.status, COALESCE(u.name, CASE WHEN j.user_id = 1 THEN 'admin' ELSE NULL END) AS posted_by, i.source
+      `SELECT i.id, i.invoice_type, i.document_type, i.references_invoice_id, i.business_id, i.ledger_id, i.counterparty_id,
+              i.reference, i.invoice_date, i.due_date, i.description, i.status, i.posted_journal_id, i.source, j.user_id AS posted_user_id
        FROM invoice i
-       JOIN current_entities biz ON biz.id = i.business_id
-       JOIN current_entities led ON led.id = i.ledger_id
-       JOIN current_entities cp ON cp.id = i.counterparty_id
        LEFT JOIN journal j ON j.id = i.posted_journal_id
-       LEFT JOIN current_entities u ON u.id = j.user_id AND u.parent_id = (SELECT id FROM current_entities WHERE name = 'System Users')
        WHERE i.id = ?`
     )
-    .get(id) as Omit<Invoice, 'lines' | 'total_amount_minor' | 'total_tax_minor'> | undefined;
-  if (!row) return undefined;
+    .get(id) as
+    | (Omit<Invoice, 'lines' | 'total_amount_minor' | 'total_tax_minor' | 'business' | 'ledger' | 'counterparty' | 'posted_by'> & {
+        business_id: number;
+        ledger_id: number;
+        counterparty_id: number;
+        posted_journal_id: number | null;
+        posted_user_id: number | null;
+      })
+    | undefined;
+  if (!idRow) return undefined;
 
-  const lines = db
-    .prepare(
-      `SELECT idl.id, idl.description, idl.quantity, idl.unit_price_minor AS unitPriceMinor, idl.amount_minor AS amountMinor,
-              idl.tax_minor AS taxMinor, idl.dispatch_reference AS dispatchReference, p.name AS itemName
-       FROM invoice_detail_line idl
-       LEFT JOIN current_entities p ON p.id = idl.item_id
-       WHERE idl.invoice_id = ?
-       ORDER BY idl.line_order`
-    )
-    .all(id) as (InvoiceLineInput & { id: number })[];
+  // posted_journal_id is destructured out too — it was only ever selected
+  // to drive the journal join above, never one of Invoice's own fields.
+  const { business_id, ledger_id, counterparty_id, posted_user_id, posted_journal_id: _posted_journal_id, ...rest } = idRow;
+  const byId = new Map(Entity.getMany([business_id, ledger_id, counterparty_id]).map((e) => [e.id, e.name]));
+  const business = byId.get(business_id);
+  const ledger = byId.get(ledger_id);
+  const counterparty = byId.get(counterparty_id);
+  // Original used INNER JOINs for biz/led/cp — if any no longer resolves,
+  // the whole row vanished from the original result set too.
+  if (business === undefined || ledger === undefined || counterparty === undefined) return undefined;
+
+  // COALESCE(u.name, CASE WHEN j.user_id = 1 THEN 'admin' ELSE NULL END),
+  // where u required BOTH a matching id AND parent_id = 'System Users' —
+  // a scoped lookup Entity.getMany alone can't express, so it's checked
+  // explicitly here instead.
+  let posted_by: string | null = null;
+  if (posted_user_id != null) {
+    const systemUsersRootId = Entity.get('System Users')?.id;
+    const u = systemUsersRootId != null ? Entity.getMany([posted_user_id]).find((e) => e.parent_id === systemUsersRootId) : undefined;
+    posted_by = u ? u.name : posted_user_id === 1 ? 'admin' : null;
+  }
+
+  const itemIds = db
+    .prepare(`SELECT DISTINCT item_id FROM invoice_detail_line WHERE invoice_id = ? AND item_id IS NOT NULL`)
+    .all(id)
+    .map((r) => (r as { item_id: number }).item_id);
+  const itemNameById = new Map(Entity.getMany(itemIds).map((e) => [e.id, e.name]));
+  const lines = (
+    db
+      .prepare(
+        `SELECT idl.id, idl.description, idl.quantity, idl.unit_price_minor AS unitPriceMinor, idl.amount_minor AS amountMinor,
+                idl.tax_minor AS taxMinor, idl.dispatch_reference AS dispatchReference, idl.item_id AS itemId
+         FROM invoice_detail_line idl
+         WHERE idl.invoice_id = ?
+         ORDER BY idl.line_order`
+      )
+      .all(id) as ((InvoiceLineInput & { id: number; itemId: number | null }))[]
+  ).map(({ itemId, ...line }) => ({ ...line, itemName: itemId != null ? itemNameById.get(itemId) : undefined }));
 
   return {
-    ...row,
+    ...rest,
+    business,
+    ledger,
+    counterparty,
+    posted_by,
     lines,
     total_amount_minor: lines.reduce((s, l) => s + l.amountMinor, 0),
     total_tax_minor: lines.reduce((s, l) => s + (l.taxMinor ?? 0), 0),
@@ -1643,13 +1684,21 @@ export function getCounterpartyHistory(business: BusinessName, ledger: LedgerNam
 
 export function getItemByUpc(upc: string): ItemSummary | undefined {
   if (!upc) return undefined;
-  return db
+  // Was a category-4 site (contact JOIN current_entities for the name) —
+  // contact.entity_id is already the real numeric id, so the name is
+  // resolved via Entity.get afterward instead.
+  const row = db
     .prepare(
-      `SELECT e.name, p.item_description AS description, p.item_unit_of_measure AS unit_of_measure, p.item_upc AS upc, p.item_retail_price_minor AS retail_price_minor,
-              (SELECT COUNT(*) FROM item_source ps WHERE ps.item_id = e.id) AS source_count
-       FROM contact p JOIN current_entities e ON e.id = p.entity_id WHERE p.item_upc = ?`
+      `SELECT entity_id, item_description AS description, item_unit_of_measure AS unit_of_measure, item_upc AS upc, item_retail_price_minor AS retail_price_minor,
+              (SELECT COUNT(*) FROM item_source ps WHERE ps.item_id = contact.entity_id) AS source_count
+       FROM contact WHERE item_upc = ?`
     )
-    .get(upc) as ItemSummary | undefined;
+    .get(upc) as (Omit<ItemSummary, 'name'> & { entity_id: number }) | undefined;
+  if (!row) return undefined;
+  const { entity_id, ...rest } = row;
+  const name = Entity.get(entity_id)?.name;
+  if (name === undefined) return undefined; // original INNER JOIN current_entities
+  return { ...rest, name };
 }
 
 export interface PosSaleLineInput {
@@ -1974,13 +2023,18 @@ export function climbInstanceTree(instanceId: number): { combinationValues: stri
   const row = db.prepare(`SELECT combination_ids FROM current_entities WHERE id = ?`).get(instanceId) as { combination_ids: string | null } | undefined;
   if (!row?.combination_ids) return { combinationValues: [], combinationShape: [] };
   const ids = JSON.parse(row.combination_ids) as number[];
-  const rows = db
-    .prepare(`SELECT e.id, e.name, g.name AS grouping_name FROM current_entities e LEFT JOIN current_entities g ON g.id = e.parent_id WHERE e.id IN (${ids.map(() => '?').join(',')})`)
-    .all(...ids) as { id: number; name: string; grouping_name: string | null }[];
-  const byId = new Map(rows.map((r) => [r.id, r]));
+  // Was a self-join on current_entities (e LEFT JOIN current_entities g ON
+  // g.id = e.parent_id) — Entity.getMany already returns parent_id on every
+  // record, so the "grouping" (each id's own parent's name) needs only a
+  // second Entity.getMany over those parent ids, no SQL join at all.
+  const records = Entity.getMany(ids);
+  const byId = new Map(records.map((r) => [r.id, r]));
+  const parentIds = records.map((r) => r.parent_id).filter((pid): pid is number => pid !== null);
+  const parentNameById = new Map(Entity.getMany(parentIds).map((p) => [p.id, p.name]));
   const combinationValues = ids.map((id) => byId.get(id)?.name ?? '?');
   const combinationShape: [string, string][] = ids.map((id) => {
-    const grouping = byId.get(id)?.grouping_name ?? '?';
+    const parentId = byId.get(id)?.parent_id;
+    const grouping = (parentId != null ? parentNameById.get(parentId) : undefined) ?? '?';
     return [grouping, grouping];
   });
   return { combinationValues, combinationShape };
@@ -1988,18 +2042,16 @@ export function climbInstanceTree(instanceId: number): { combinationValues: stri
 
 export function getCombinationByUpc(upc: string): { itemName: string; combinationValues: string[]; combinationShape: [string, string][] } | undefined {
   if (!upc) return undefined;
-  const row = db
-    .prepare(
-      `SELECT item_e.name AS item_name, ps.product_instance_id
-       FROM item_source ps
-       JOIN current_entities item_e ON item_e.id = ps.item_id
-       WHERE ps.vendor_upc = ? AND ps.product_instance_id != 0
-       LIMIT 1`
-    )
-    .get(upc) as { item_name: string; product_instance_id: number } | undefined;
+  // Was a category-4 site (item_source JOIN current_entities for the item
+  // name) — item_source.item_id is already the real numeric id.
+  const row = db.prepare(`SELECT item_id, product_instance_id FROM item_source WHERE vendor_upc = ? AND product_instance_id != 0 LIMIT 1`).get(upc) as
+    | { item_id: number; product_instance_id: number }
+    | undefined;
   if (!row) return undefined;
+  const itemName = Entity.get(row.item_id)?.name;
+  if (itemName === undefined) return undefined; // original INNER JOIN current_entities
   const { combinationValues, combinationShape } = climbInstanceTree(row.product_instance_id);
-  return { itemName: row.item_name, combinationValues, combinationShape };
+  return { itemName, combinationValues, combinationShape };
 }
 
 export function resolveBusinessCoaAccountId(businessName: BusinessName, accountName: string): number {
@@ -3770,11 +3822,19 @@ export interface BankAccountRow {
 }
 
 export function getBankAccounts(business: BusinessName, ledger: LedgerName): BankAccountRow[] {
+  // Was a category-4 site: one statement joining `account` against
+  // current_entities five times over (e/link/linktag/bizlink/bizlinktag).
+  // The link-record walk itself is pure entity-graph work (no financial
+  // table involved) so it stays as SQL, just with `account` removed from
+  // this statement entirely — it returns ids directly (not names), which
+  // also removes the need for the old, separately-commented "deliberately
+  // not Entity.get(r.name)" re-lookup below: these ids are already the
+  // real, correctly-scoped ones the join resolved, not a name that could
+  // collide across businesses.
   const rows = db
     .prepare(
-      `SELECT e.name, a.accountnumber, a.currency, a.overdraft_limit_minor
-       FROM account a
-       JOIN current_entities e ON e.id = a.entity_id
+      `SELECT e.id, e.name
+       FROM current_entities e
        JOIN current_entities link ON link.name = e.name || ' — Bank Account'
        JOIN current_entities linktag ON linktag.parent_id = link.id AND linktag.name = 'Bank Account' AND linktag.relation_id IS NOT NULL
        JOIN current_entities bizlink ON bizlink.name = e.name || ' — Bank Account Business'
@@ -3782,23 +3842,31 @@ export function getBankAccounts(business: BusinessName, ledger: LedgerName): Ban
        WHERE bizlink.relation_id = (SELECT id FROM current_entities WHERE name = ?)
        ORDER BY e.name`
     )
-    .all(business) as { name: string; accountnumber: string | null; currency: string | null; overdraft_limit_minor: number | null }[];
+    .all(business) as { id: number; name: string }[];
+  const ids = rows.map((r) => r.id);
+  const accountById = new Map(
+    ids.length === 0
+      ? []
+      : (
+          db
+            .prepare(`SELECT entity_id, accountnumber, currency, overdraft_limit_minor FROM account WHERE entity_id IN (${ids.map(() => '?').join(',')})`)
+            .all(...ids) as { entity_id: number; accountnumber: string | null; currency: string | null; overdraft_limit_minor: number | null }[]
+        ).map((a) => [a.entity_id, a])
+  );
   const balances = getLedgerBalances(business, ledger);
-  return rows.map((r) => {
-    // Deliberately NOT Entity.get(r.name): account names are unique only
-    // within their own business's chart of accounts, never globally —
-    // same reasoning as forecastCashPosition's own bank-account id
-    // lookup elsewhere in this file.
-    const accountId = (db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(r.name) as { id: number }).id;
-    return {
-      name: r.name,
-      accountnumber: r.accountnumber,
-      balance_minor: balances.get(accountId) ?? 0,
-      currency: r.currency,
-      overdraft_limit_minor: r.overdraft_limit_minor,
-      scope: getEntityLink(r.name, 'Bank Account')!,
-    };
-  });
+  return rows
+    .filter((r) => accountById.has(r.id)) // original INNER JOIN account
+    .map((r) => {
+      const account = accountById.get(r.id)!;
+      return {
+        name: r.name,
+        accountnumber: account.accountnumber,
+        balance_minor: balances.get(r.id) ?? 0,
+        currency: account.currency,
+        overdraft_limit_minor: account.overdraft_limit_minor,
+        scope: getEntityLink(r.name, 'Bank Account')!,
+      };
+    });
 }
 
 export interface CashPositionByCurrency {
@@ -3997,14 +4065,16 @@ export interface PendingCustomer {
 }
 
 export function listPendingCustomers(): PendingCustomer[] {
-  return db
-    .prepare(
-      `SELECT e.name, c.email, c.phone, c.card_label
-       FROM contact c JOIN current_entities e ON e.id = c.entity_id
-       WHERE c.verification_status = 'pending'
-       ORDER BY e.name`
-    )
-    .all() as PendingCustomer[];
+  // Was a category-4 site (contact JOIN current_entities for the name) —
+  // contact.entity_id is already the real numeric id.
+  const rows = db.prepare(`SELECT entity_id, email, phone, card_label FROM contact WHERE verification_status = 'pending'`).all() as (Omit<PendingCustomer, 'name'> & {
+    entity_id: number;
+  })[];
+  const nameById = new Map(Entity.getMany(rows.map((r) => r.entity_id)).map((e) => [e.id, e.name]));
+  return rows
+    .map(({ entity_id, ...rest }) => ({ ...rest, name: nameById.get(entity_id) }))
+    .filter((r): r is PendingCustomer => r.name !== undefined) // original INNER JOIN current_entities
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)); // same plain ordering as SQLite's own ORDER BY e.name
 }
 
 export function verifyCustomer(customerName: string, approve: boolean): void {
@@ -4196,21 +4266,34 @@ export interface ItemSource {
 }
 
 export function listItemSources(itemName: string): ItemSource[] {
+  // Was a category-4 site (item_source joined against current_entities
+  // three times). item_e's own bare, unordered `name = ?` scan is
+  // preserved exactly (not swapped for Entity.get, same deliberate
+  // reasoning as setRelationship's own comment above about this being
+  // load-bearing) so the item itself resolves the same way it always did;
+  // vendor_id/manufacturer_id are then resolved via Entity.getMany, with
+  // no current_entities join left in the SQL at all.
+  const itemRow = db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(itemName) as { id: number } | undefined;
+  if (!itemRow) return [];
   const rows = db
     .prepare(
-      `SELECT ps.id, ps.item_id, item_e.name AS item_name,
-              ps.manufacturer_id, mfr_e.name AS manufacturer_name,
-              ps.vendor_id, vendor_e.name AS vendor_name,
-              ps.vendor_sku, ps.vendor_upc, ps.price_minor, ps.currency, ps.package_quantity, ps.is_preferred, ps.preference_notes
-       FROM item_source ps
-       JOIN current_entities item_e ON item_e.id = ps.item_id
-       JOIN current_entities vendor_e ON vendor_e.id = ps.vendor_id
-       LEFT JOIN current_entities mfr_e ON mfr_e.id = ps.manufacturer_id
-       WHERE item_e.name = ?
-       ORDER BY ps.is_preferred DESC, vendor_e.name`
+      `SELECT id, item_id, manufacturer_id, vendor_id, vendor_sku, vendor_upc, price_minor, currency, package_quantity, is_preferred, preference_notes
+       FROM item_source
+       WHERE item_id = ?
+       ORDER BY is_preferred DESC`
     )
-    .all(itemName) as (Omit<ItemSource, 'is_preferred'> & { is_preferred: number })[];
-  return rows.map((r) => ({ ...r, is_preferred: !!r.is_preferred }));
+    .all(itemRow.id) as (Omit<ItemSource, 'is_preferred' | 'item_name' | 'manufacturer_name' | 'vendor_name'> & { is_preferred: number })[];
+  const nameById = new Map(Entity.getMany([itemRow.id, ...rows.flatMap((r) => [r.vendor_id, r.manufacturer_id].filter((id): id is number => id != null))]).map((e) => [e.id, e.name]));
+  return rows
+    .map((r) => ({
+      ...r,
+      item_name: itemName,
+      vendor_name: nameById.get(r.vendor_id),
+      manufacturer_name: r.manufacturer_id != null ? nameById.get(r.manufacturer_id) : null,
+      is_preferred: !!r.is_preferred,
+    }))
+    .filter((r): r is ItemSource => r.vendor_name !== undefined) // original INNER JOIN current_entities vendor_e
+    .sort((a, b) => (b.is_preferred ? 1 : 0) - (a.is_preferred ? 1 : 0) || (a.vendor_name! < b.vendor_name! ? -1 : a.vendor_name! > b.vendor_name! ? 1 : 0));
 }
 
 export interface ItemSourceInput {
