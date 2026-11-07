@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { getSessionUser, getSessionBusiness, getSessionProfitCenter, userHasBusinessAdminRole, type AuthenticatedUser } from './auth.js';
+import { getSessionUser, getSessionBusiness, getSessionProfitCenter, userMayActAsRole, type AuthenticatedUser } from './auth.js';
 import { asBusinessName } from './db.js';
 import { runInSessionContext } from './session-context.js';
 import { requireEntity as fetchEntity, typeBusinessName, typeRootName } from './db.js';
@@ -50,11 +50,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// The Business Admin matrix fallback is implemented once, in auth.ts's
+// own userMayActAsRole - shared with call-dispatch.ts's own requireRole,
+// so the two real role-gating surfaces can never again silently drift
+// apart the way they once did (see userMayActAsRole's own comment).
 export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) return res.status(401).json({ error: 'Not logged in.' });
-    if (req.user.roles.some((r) => roles.includes(r))) return next();
-    if (req.businessName && userHasBusinessAdminRole(asBusinessName(req.businessName), req.user.username)) return next();
+    if (userMayActAsRole(req.user, roles, req.businessName ? asBusinessName(req.businessName) : undefined)) return next();
     return res.status(403).json({ error: `Requires one of: ${roles.join(', ')}.` });
   };
 }

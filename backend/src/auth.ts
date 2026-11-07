@@ -175,6 +175,24 @@ export function userHasBusinessAdminRole(businessName: BusinessName, username: s
   }
 }
 
+// The one, real implementation of "may this user act under one of these
+// roles" - shared by both the Express-middleware requireRole
+// (auth-middleware.ts) and the ASCII-CSV call-dispatch requireRole
+// (call-dispatch.ts), so the Business Admin matrix fallback can never
+// again silently drift out of sync between the two real surfaces the
+// way it once did. A real, found-and-fixed bug: call-dispatch.ts's own
+// requireRole carried a comment claiming it already mirrored this
+// fallback, but never actually implemented it - every one of the ~136
+// real requireRole-guarded calls in the whole ASCII-CSV rollout silently
+// dropped it, confirmed live (a real Business-Admin-only user 403'd on
+// createLocationType before this fix). Centralizing the real check here,
+// called by both surfaces, removes the possibility of the two drifting
+// apart again - there is now only one real implementation to keep correct.
+export function userMayActAsRole(user: AuthenticatedUser, roles: string[], businessName: BusinessName | null | undefined): boolean {
+  if (user.roles.some((r) => roles.includes(r))) return true;
+  return !!businessName && userHasBusinessAdminRole(businessName, user.username);
+}
+
 export function provisionBusinessAdminUser(businessName: BusinessName, createdBy: UserId): { username: string; password: string } {
   const username = `${businessName} Admin`;
   const password = crypto.randomBytes(24).toString('base64').replace(/[/+=]/g, '').slice(0, 16);

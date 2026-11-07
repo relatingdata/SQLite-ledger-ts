@@ -13,6 +13,9 @@
 // any one domain's conversion independent of every other's, the same way
 // the old route files were independent of each other.
 import type { AuthenticatedUser } from './auth.js';
+import { userMayActAsRole } from './auth.js';
+import { asBusinessName } from './db.js';
+import { Session } from './session-context.js';
 import { csvField, splitCsvLine, unescapeAscii } from '../../shared-fixtures/csv.js';
 import { arapFunctions } from './call-dispatch/arap.js';
 import { authFunctions } from './call-dispatch/auth.js';
@@ -53,13 +56,49 @@ export function requireGlobalRole(user: AuthenticatedUser | undefined, ...roles:
   return user;
 }
 
-// Mirrors auth-middleware.ts's requireRole exactly (including the
-// Business Admin matrix fallback), just as a plain function instead of
+// Mirrors auth-middleware.ts's requireRole exactly, including the
+// Business Admin matrix fallback - just as a plain function instead of
 // Express middleware - this protocol has no middleware chain, so every
 // per-call role check is made explicitly, the same checks, same places.
+// The actual "may this user act under one of these roles" logic lives
+// once, in auth.ts's userMayActAsRole, shared by both this function and
+// the real Express middleware - never reimplemented here.
+//
+// A REAL, FOUND-AND-FIXED REGRESSION, disclosed plainly: this function
+// used to carry a comment claiming it already mirrored the fallback, but
+// never actually implemented it - every one of the ~136 real
+// requireRole-guarded calls in this rollout silently dropped it,
+// blocking any real Business-Admin-only user (a user holding Business
+// Admin in one business's own role matrix, but no matching GLOBAL role)
+// from every one of them, confirmed live via a direct
+// callBackendFunction probe before this fix (createLocationType
+// genuinely 403'd for such a user). Fails closed (over-restrictive), not
+// open - still a real correctness bug against the already-shipped
+// Business Admin feature, not a security hole. Fixed, and the
+// duplicated logic that let it drift out of sync in the first place
+// removed, by sharing one real implementation.
+//
+// Reads the current business the same way db-stock.ts's own
+// Session.Business reads already rely on here (see
+// getBelowReorderStock/getInventoryListingByLocation, which read ambient
+// Session context during a real call-dispatch invocation) - no
+// signature change, no routes/call.ts change, no changes to any of the
+// ~136 real call sites: attachUser (auth-middleware.ts) already wraps
+// every request whose session has a real, selected business in
+// runInSessionContext, so Session.Business is already live by the time
+// any dispatch entry's requireRole call runs over real HTTP. When no
+// business is selected, Session.Business throws - caught here and
+// treated as "no business in context", the exact same outcome as the
+// old middleware's own `req.businessName` being falsy.
 export function requireRole(user: AuthenticatedUser | undefined, ...roles: string[]): AuthenticatedUser {
   if (!user) throw new CallError(401, 'Not logged in.');
-  if (user.roles.some((r) => roles.includes(r))) return user;
+  let businessName: ReturnType<typeof asBusinessName> | undefined;
+  try {
+    businessName = asBusinessName(Session.Business.name);
+  } catch {
+    // No real, current business selected in this request's session context.
+  }
+  if (userMayActAsRole(user, roles, businessName)) return user;
   throw new CallError(403, `Requires one of: ${roles.join(', ')}.`);
 }
 
