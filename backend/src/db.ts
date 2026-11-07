@@ -557,7 +557,9 @@ function orderSiblingsByDisplayOrder<T extends { id: number; name: string }>(sib
 }
 
 export function reorderSiblings(entityId: EntityId, direction: 'up' | 'down', userId: UserId): void {
-  const entity = getEntity(entityId);
+  // Entity.get (entityDriver-backed), not the SQL-only getEntity — only
+  // entity.parent_id is read below, which every driver's get() carries.
+  const entity = Entity.get(entityId);
   if (!entity) throw new NotFoundError(`Entity ${entityId} not found.`);
   const rawSiblings =
     entity.parent_id != null
@@ -575,7 +577,8 @@ export function reorderSiblings(entityId: EntityId, direction: 'up' | 'down', us
 export function reorderSiblingsBulk(entityIds: number[], direction: 'up' | 'down', userId: UserId): void {
   if (entityIds.length === 0) return;
   const entities = entityIds.map((id) => {
-    const e = getEntity(id);
+    // Entity.get (entityDriver-backed) — same reasoning as reorderSiblings above.
+    const e = Entity.get(id);
     if (!e) throw new NotFoundError(`Entity ${id} not found.`);
     return e;
   });
@@ -624,10 +627,10 @@ export function setRelationship(entityName: string, relationshipType: string, ta
   // entity instead of the intended one, breaking getOrganizationChart's
   // test). The original's explicit ORDER BY id ASC LIMIT 1 is load-bearing.
   const record = db.prepare(`SELECT id FROM current_entities WHERE name = ? ORDER BY id ASC LIMIT 1`).get(recordName) as { id: number };
-  supersedeEntity(record.id, { relation: targetName }, userId);
+  Entity.relate(record.id, targetName, userId);
   const entity = db.prepare(`SELECT id FROM current_entities WHERE name = ? ORDER BY id ASC LIMIT 1`).get(entityName) as { id: number } | undefined;
   if (!entity) throw new NotFoundError(`No entity named "${entityName}".`);
-  supersedeEntity(entity.id, { relation: recordName }, userId);
+  Entity.relate(entity.id, recordName, userId);
 }
 
 export function getRelationship(entityName: string): Relationship | undefined {
@@ -941,7 +944,7 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
   return db.transaction((): number => {
   const invoicesRoot = ensureSystemInvoicesRoot(userId);
   const invoiceEntity = Entity.create(`${input.business} — ${input.ledger} — ${input.reference}`, invoicesRoot.id, userId);
-  supersedeEntity(invoiceEntity.id, { relation: input.counterpartyName }, userId);
+  Entity.relate(invoiceEntity.id, input.counterpartyName, userId);
   const invoiceId = invoiceEntity.id;
   Entity.setDetailJson(
     invoiceId,
@@ -965,7 +968,7 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
   input.lines.forEach((line, i) => {
     const itemId = line.itemName ? resolveItemId(asItemName(line.itemName)) : null;
     const lineEntity = Entity.create(`Line — ${i}`, invoiceId, userId);
-    if (itemId) supersedeEntity(lineEntity.id, { relation: line.itemName }, userId);
+    if (itemId) Entity.relate(lineEntity.id, line.itemName ?? null, userId);
     Entity.setDetailJson(
       lineEntity.id,
       JSON.stringify({
@@ -1870,14 +1873,14 @@ export function deleteHierarchyValue(businessName: BusinessName, groupingName: s
   const grouping = ensureHierarchyGrouping(businessName, groupingName, userId);
   const value = Entity.getUnder(valueName, grouping.id);
   if (!value) throw new NotFoundError(`No real value named "${valueName}" under "${groupingName}".`);
-  revokeEntity(value.id, userId);
+  Entity.revoke(value.id, userId);
 }
 
 export function deleteHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): void {
   const hierarchyRoot = ensureBusinessRoot(businessName, 'Hierarchy', userId);
   const grouping = Entity.getUnder(groupingName, hierarchyRoot.id);
   if (!grouping) throw new NotFoundError(`No real hierarchy grouping named "${groupingName}" for "${businessName}".`);
-  revokeEntity(grouping.id, userId);
+  Entity.revoke(grouping.id, userId);
 }
 
 export function createProfitCenter(businessName: BusinessName, profitCenterName: string, userId: UserId): { id: number; name: string } {
@@ -2347,10 +2350,11 @@ export function getHierarchyGroupForAccount(accountName: AccountName, hierarchyN
 }
 
 export function getQualifiedDisplayName(entityId: number): string {
-  const entity = getEntity(entityId);
+  // Entity.get (entityDriver-backed) — only name/parent_id are read below.
+  const entity = Entity.get(entityId);
   if (!entity) return '';
   if (entity.parent_id == null) return entity.name;
-  const parent = getEntity(entity.parent_id);
+  const parent = Entity.get(entity.parent_id);
   if (!parent || entity.name.startsWith(`${parent.name} — `)) return entity.name;
   return `${parent.name} — ${entity.name}`;
 }
@@ -3040,7 +3044,7 @@ export function signOn(employeeName: string, locationName: string): PosShift {
   if (alreadyOpen) throw new ValidationError(`"${employeeName}" is already signed on somewhere — sign off first.`);
   const signedOnAt = new Date().toISOString();
   const shiftEntity = Entity.create(`${employeeName} — Shift — ${signedOnAt}`, employee.id, asUserId(1));
-  supersedeEntity(shiftEntity.id, { relation: locationName }, asUserId(1));
+  Entity.relate(shiftEntity.id, locationName, asUserId(1));
   Entity.tag(shiftEntity.id, 'Open', asUserId(1));
   return { id: shiftEntity.id, employee: employeeName, location: locationName, signed_on_at: signedOnAt, signed_off_at: null };
 }
@@ -3114,7 +3118,7 @@ export function setLocationOpenHours(locationName: string, hours: OpenHoursLine[
     const recordName = `${locationName} — ${h.day}: ${h.opens_at}–${h.closes_at}`;
     if (!Entity.get(recordName)) create(requireEntity(locationName, typeRootName), typeOpenHoursRecordName, recordName, asUserId(1));
     const record = Entity.get(recordName)!;
-    supersedeEntity(record.id, { relation: h.day }, asUserId(1));
+    Entity.relate(record.id, h.day, asUserId(1));
   }
 }
 
@@ -3189,13 +3193,20 @@ export function setEmployeeSchedule(employeeName: string, locationName: string, 
   for (const existing of getEmployeeSchedule(employeeName).filter((e) => e.location === locationName)) {
     const recordName = `${employeeName} — ${existing.day} at ${locationName}: ${existing.starts_at}–${existing.ends_at}`;
     const record = Entity.get(recordName);
-    if (record) supersedeEntity(record.id, { name: `${recordName} (replaced)`, relation: null }, asUserId(1));
+    if (record) {
+      // Split into two single-field Entity calls (rename then clear the
+      // relation) — same two writes supersedeEntity's own combined update
+      // used to make in one entity_update row, just as two historical
+      // versions instead of one, same precedent as db-seed.ts's moveLink.
+      Entity.rename(record.id, `${recordName} (replaced)`, asUserId(1));
+      Entity.relate(record.id, null, asUserId(1));
+    }
   }
   for (const s of schedule) {
     const recordName = `${employeeName} — ${s.day} at ${locationName}: ${s.starts_at}–${s.ends_at}`;
     if (!Entity.get(recordName)) create(requireEntity(employeeName, typeRootName), typeScheduleRecordName, recordName, asUserId(1));
     const record = Entity.get(recordName)!;
-    supersedeEntity(record.id, { relation: s.day }, asUserId(1));
+    Entity.relate(record.id, s.day, asUserId(1));
   }
 }
 
@@ -3337,7 +3348,7 @@ function addTyped<T>(entityName: string, thingSuffix: string, type: string, valu
     create(requireEntity(entityName, typeRootName), typeEntityLinkRecordName, recordName, userId);
   }
   const record = Entity.get(recordName)!;
-  supersedeEntity(record.id, { relation: type }, userId);
+  Entity.relate(record.id, type, userId);
   save(recordName, value);
   return recordName;
 }
@@ -3383,7 +3394,7 @@ export function setEntityLink(entityName: string, linkType: string, targetName: 
     record = { id: created.id, name: created.name, parent_id: parentNode.id, relation_id: null };
   }
   Entity.tag(record.id, linkType, userId);
-  supersedeEntity(record.id, targetId != null ? { relationId: targetId } : { relation: targetName }, userId);
+  Entity.relate(record.id, targetName, userId, targetId);
   return recordName;
 }
 
@@ -4043,7 +4054,7 @@ export function createProduct(name: string, parent: string, userId: UserId): voi
 }
 
 export function setItemProduct(itemName: string, productName: string | null, userId: UserId): void {
-  supersedeEntity(resolveIdOrThrow(itemName), { parent: productName ?? 'Items' }, userId);
+  Entity.reparent(resolveIdOrThrow(itemName), productName ?? 'Items', userId);
 }
 
 function resolveIdOrThrow(name: string): number {
@@ -4244,7 +4255,7 @@ export function addOrUpdateItemSource(input: ItemSourceInput): void {
     Entity.setDetailJson(existing.id, detail);
   } else {
     const created = Entity.create(sourceName, itemId, asUserId(1));
-    supersedeEntity(created.id, { relation: input.vendorName }, asUserId(1));
+    Entity.relate(created.id, input.vendorName, asUserId(1));
     Entity.setDetailJson(created.id, detail);
     Entity.tag(created.id, 'Item Source', asUserId(1));
   }
@@ -4491,7 +4502,7 @@ export function setDefaultLanguage(languageName: string, userId: UserId): void {
   const languageId = Entity.get(languageName)?.id;
   if (!languageId) throw new ValidationError(`No language named "${languageName}".`);
   const application = Entity.get('Application')!;
-  supersedeEntity(application.id, { relation: languageName }, userId);
+  Entity.relate(application.id, languageName, userId);
 }
 
 export interface MenuLinkRow {
@@ -4703,7 +4714,7 @@ export function setVocabularyPreference(conceptName: string, scope: 'business' |
   const prefName = `${conceptName} — Preference — ${scope}:${scopeId}`;
   const existing = Entity.getUnder(prefName, conceptId);
   const record = existing ?? Entity.create(prefName, conceptId, asUserId(1));
-  supersedeEntity(record.id, { relation: preferredAlternateName }, asUserId(1));
+  Entity.relate(record.id, preferredAlternateName, asUserId(1));
   Entity.tag(record.id, scope, asUserId(1));
   Entity.setAttr(record.id, 'Scope Id', String(scopeId), asUserId(1));
 }
@@ -4866,7 +4877,7 @@ export function deleteTranslationConcept(conceptName: string, userId: UserId): v
   // whole codebase already accepts some append-only history cruft
   // elsewhere), not something this change introduces new risk for beyond
   // that one narrow case.
-  revokeEntity(conceptId, userId);
+  Entity.revoke(conceptId, userId);
 }
 
 export function getTranslation(conceptName: string, languageName: string): string | null {
@@ -4907,7 +4918,7 @@ export function setActiveLedger(businessName: BusinessName, ledgerName: LedgerNa
   const ledgersRoot = requireEntity('Ledgers', typeRootName, business);
   const ledger = requireEntity(ledgerName, typeLedgerName, ledgersRoot);
   const marker = ensureActiveLedgerMarker(business.id, userId);
-  supersedeEntity(marker.id, { relationId: ledger.id }, userId);
+  Entity.relate(marker.id, null, userId, ledger.id);
 }
 
 export function getActiveLedger(businessName: BusinessName): LedgerName | null {
@@ -4978,7 +4989,7 @@ export function deleteLocation(businessName: BusinessName, locationName: string,
   if (!locationsRootId) throw new NotFoundError(`"${businessName}" has no Locations root.`);
   const location = Entity.getUnder(locationName, locationsRootId);
   if (!location) throw new NotFoundError(`No real location named "${locationName}" for "${businessName}".`);
-  revokeEntity(location.id, userId);
+  Entity.revoke(location.id, userId);
 }
 
 // Department — a new, genuinely different concept from Location, not a
@@ -5080,14 +5091,14 @@ export function deleteDepartment(businessName: BusinessName, departmentName: str
     // already checked above using its real, original name).
     if (payroll) {
       Entity.rename(payroll.id, `${departmentName} — Payroll (#${payroll.id})`, userId);
-      revokeEntity(payroll.id, userId);
+      Entity.revoke(payroll.id, userId);
     }
     if (otherExpenses) {
       Entity.rename(otherExpenses.id, `${departmentName} — Other Expenses (#${otherExpenses.id})`, userId);
-      revokeEntity(otherExpenses.id, userId);
+      Entity.revoke(otherExpenses.id, userId);
     }
     Entity.rename(department.id, `${departmentName} (#${department.id})`, userId);
-    revokeEntity(department.id, userId);
+    Entity.revoke(department.id, userId);
   })();
 }
 
@@ -5305,7 +5316,7 @@ export function setupEquityStructure(businessName: BusinessName, structure: Enti
   const businessEquity = requireEntity('Equity', typeRootName, businessCoa);
   const tag = (accountName: string) => {
     if (coaPrototype) {
-      supersedeEntity(Entity.getUnder(accountName, businessEquity.id)!.id, { relation: coaPrototype }, userId);
+      Entity.relate(Entity.getUnder(accountName, businessEquity.id)!.id, coaPrototype, userId);
     }
   };
   const ensure = (accountName: string) => {
@@ -5395,7 +5406,7 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
           if (child.name === 'Cost of Goods Sold') {
             Entity.relate(mirrorId, 'COGS', userId);
           } else {
-            supersedeEntity(mirrorId, { relationId: child.id }, userId);
+            Entity.relate(mirrorId, null, userId, child.id);
           }
         }
         copyChildren(child.id, mirrorId);
@@ -5448,7 +5459,7 @@ export function createBusiness(
   create(ledgersRoot, typeLedgerName, budgetLedger, userId);
   setActiveLedger(businessName, actualLedger, userId);
   if (coaPrototype) {
-    supersedeEntity(business.id, { relation: coaPrototype }, userId);
+    Entity.relate(business.id, coaPrototype, userId);
   }
   instantiateChartOfAccounts(businessName, coaPrototype, userId);
   for (const currency of secondaryCurrencies ?? []) {
@@ -5459,7 +5470,7 @@ export function createBusiness(
     db.prepare(`INSERT INTO account (entity_id) VALUES (?) ON CONFLICT (entity_id) DO NOTHING`).run(account.id);
     db.prepare(`UPDATE account SET currency = ? WHERE entity_id = ?`).run(currency, account.id);
     if (coaPrototype) {
-      supersedeEntity(account.id, { relation: coaPrototype }, userId);
+      Entity.relate(account.id, coaPrototype, userId);
     }
   }
   if (entityStructure) {
