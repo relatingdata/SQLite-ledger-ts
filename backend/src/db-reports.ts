@@ -307,7 +307,9 @@ function exactly<T extends { name: string }>(name: string, nodes: T[]): T[] {
 // walked further, same as the original CTE's `WHERE NOT EXISTS (SELECT 1
 // FROM contact WHERE entity_id = r.id)` guard on the *parent* side of the
 // recursive step.
-function realAccountIds(): Set<number> {
+// Exported for getEntityTree (db.ts), which needs the exact same
+// contact-stopping real-accounts walk for its own is_postable_account flag.
+export function realAccountIds(): Set<number> {
   const roots = exactly('Chart of Accounts', Entity.findAll({ nameSuffix: 'Chart of Accounts' }));
   const contactEntityIds = new Set((db.prepare(`SELECT entity_id FROM contact`).all() as { entity_id: number }[]).map((r) => r.entity_id));
   const ids = new Set<number>();

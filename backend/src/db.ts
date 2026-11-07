@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { hashPassword, verifyPassword } from './password.js';
 import { Entity, Detail } from './primitives.js';
-import { getLedgerBalances, ensureCurrencyAccount, resolveCashAtBankAccount, setAccountCurrency } from './db-reports.js';
+import { getLedgerBalances, ensureCurrencyAccount, resolveCashAtBankAccount, setAccountCurrency, realAccountIds } from './db-reports.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, '..', 'data');
@@ -163,49 +163,69 @@ export interface EntityNode {
 // still required by callers such as the Entity Tree admin screen and CoA-prototype pickers.
 // See docs/pm-domain-reference.md.
 export function getEntityTree(businessName?: string): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null })[] {
-  // Stage C (see /root/.claude/plans/stateful-snacking-adleman.md): only the
-  // business-name resolution above is converted to Entity.get. The walk/
-  // real_accounts CTEs and the lt_record/do_record/account/contact joins
-  // below stay raw SQL — this is the plan's own flagged "single most
-  // complex call site," combining pure entity-graph recursion (category 2)
-  // with financial/contact-table joins (category 4) in one query; splitting
-  // it into driver calls plus TS-side joins would mean re-deriving this
-  // exact recursive walk and its ordering in TypeScript, a substantial
-  // rewrite with real behavior-equivalence risk, not a mechanical
-  // call-site replacement. Isolated in its own commit per the plan.
+  // Was the plan's own flagged "single most complex call site" — pure
+  // entity-graph recursion (category 2) combined with account/contact
+  // joins (category 4) in one statement. The walk itself now goes through
+  // Entity.descendantsWithDepth, the exact driver primitive lifted from
+  // this function's own former `walk` CTE (see drivers/sql-entity-driver.ts,
+  // which notes it was lifted from here — same base case, same recursive
+  // step, same ORDER BY). The real_accounts walk reuses db-reports.ts's
+  // already-built, already-tested realAccountIds() (the identical
+  // contact-stopping descent this function's own `real_accounts` CTE did).
+  // account/contact resolution and the pure-entity-graph (current_entities-
+  // only, no account/contact table) line-type/display-order lookups are now
+  // batched by id, scoped to just the walked ids, rather than joined once
+  // per row for the whole tree.
   const businessRow = businessName ? Entity.get(businessName, 'Businesses') : undefined;
   if (businessName && !businessRow) return []; // unknown business — scoped query, so an empty tree rather than silently falling back to everything
-  const rows = db
+  const walked = Entity.descendantsWithDepth(businessRow ? businessRow.id : null);
+  if (walked.length === 0) return [];
+  const ids = walked.map((w) => w.id);
+  const placeholders = ids.map(() => '?').join(',');
+  const accountById = new Map(
+    (
+      db.prepare(`SELECT entity_id, accountnumber, balance_minor, currency FROM account WHERE entity_id IN (${placeholders})`).all(...ids) as {
+        entity_id: number;
+        accountnumber: string | null;
+        balance_minor: number | null;
+        currency: string | null;
+      }[]
+    ).map((r) => [r.entity_id, r] as const)
+  );
+  const contactIds = new Set((db.prepare(`SELECT entity_id FROM contact WHERE entity_id IN (${placeholders})`).all(...ids) as { entity_id: number }[]).map((r) => r.entity_id));
+  const realAccountIdSet = realAccountIds();
+  // Pure entity-graph (current_entities only — no account/contact join, so
+  // not itself category-4), kept as SQL exactly as the original did, just
+  // scoped to the walked ids instead of running once per every row.
+  const ltdoRows = db
     .prepare(
-      `WITH RECURSIVE walk(id, depth) AS (
-         SELECT id, 0 FROM current_entities WHERE ${businessRow ? 'id = ?' : 'parent_id IS NULL'}
-         UNION ALL
-         SELECT e.id, w.depth + 1 FROM current_entities e JOIN walk w ON e.parent_id = w.id
-       ),
-       real_accounts(id) AS (
-         SELECT id FROM current_entities WHERE name = 'Chart of Accounts'
-         UNION ALL
-         SELECT e.id FROM current_entities e
-         JOIN real_accounts r ON e.parent_id = r.id
-         WHERE NOT EXISTS (SELECT 1 FROM contact WHERE entity_id = r.id)
-       )
-       SELECT e.id, e.name, e.parent_id, e.relation_id, a.accountnumber, a.balance_minor, a.currency, w.depth,
-              (ra.id IS NOT NULL AND p.entity_id IS NULL) AS is_postable_account,
-              lt_target.name AS line_type,
-              do_target.name AS display_order_next
-       FROM walk w
-       JOIN current_entities e ON e.id = w.id
-       LEFT JOIN account a ON a.entity_id = e.id
-       LEFT JOIN real_accounts ra ON ra.id = e.id
-       LEFT JOIN contact p ON p.entity_id = e.id
+      `SELECT e.id, lt_target.name AS line_type, do_target.name AS display_order_next
+       FROM current_entities e
        LEFT JOIN current_entities lt_record ON lt_record.name = e.name || ' — Line Type'
        LEFT JOIN current_entities lt_target ON lt_target.id = lt_record.relation_id
        LEFT JOIN current_entities do_record ON do_record.name = e.name || ' — Display Order'
        LEFT JOIN current_entities do_target ON do_target.id = do_record.relation_id
-       ORDER BY w.depth, e.name`
+       WHERE e.id IN (${placeholders})`
     )
-    .all(...(businessRow ? [businessRow.id] : [])) as (EntityNode & { depth: number; is_postable_account: number; line_type: string | null; display_order_next: string | null })[];
-  const withFlags = rows.map((r) => ({ ...r, is_postable_account: !!r.is_postable_account }));
+    .all(...ids) as { id: number; line_type: string | null; display_order_next: string | null }[];
+  const ltdoById = new Map(ltdoRows.map((r) => [r.id, r]));
+  const withFlags = walked.map((w) => {
+    const acc = accountById.get(w.id);
+    const ltdo = ltdoById.get(w.id);
+    return {
+      id: w.id,
+      name: w.name,
+      parent_id: w.parent_id,
+      relation_id: w.relation_id,
+      accountnumber: acc?.accountnumber ?? null,
+      balance_minor: acc?.balance_minor ?? null,
+      currency: acc?.currency ?? null,
+      depth: w.depth,
+      is_postable_account: realAccountIdSet.has(w.id) && !contactIds.has(w.id),
+      line_type: ltdo?.line_type ?? null,
+      display_order_next: ltdo?.display_order_next ?? null,
+    };
+  });
   const byParent = new Map<number | null, typeof withFlags>();
   for (const r of withFlags) {
     const list = byParent.get(r.parent_id) ?? [];
