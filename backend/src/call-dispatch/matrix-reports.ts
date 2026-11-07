@@ -1,20 +1,29 @@
 // Converted from routes/matrix-reports.ts. Mounted (old route) with plain
 // requireAuth, no specific role — replicated here as requireAuth only.
 //
-// getProfitAndLossByAxis is DELIBERATELY NOT converted yet: its real
-// result (ProfitAndLossByAxisNode[]) nests a full ProfitAndLoss per node
-// (income/expenses/cogs_expenses/operating_expenses as flat StatementLine[]
-// lists PLUS three arbitrary-depth CategoryTreeNode[] trees), repeated once
-// per outer node and once per inner child. Flattening an arbitrary-depth
-// tree to CSV needs a general depth/parent-path encoding that the plain,
-// non-axis getProfitAndLoss/getBalanceSheet (reports.ts, task #235) will
-// need too — designing it once, for both, when reports.ts is converted,
-// rather than inventing a one-off here that reports.ts would then have to
-// either duplicate or redo. Its old JSON route stays mounted and working
-// until that design exists. See the plan file for this note.
-import { getSalesCogsMatrix, getStockOnHandMatrix, getAxisValues, type MatrixAxis } from '../db-matrix-reports.js';
+// getProfitAndLossByAxis was the one endpoint left unconverted in this
+// file, deliberately deferred until reports.ts (task #235) designed a
+// general arbitrary-depth tree encoding (its own ProfitAndLossByGroupNode
+// tree needed exactly the same shape: a full ProfitAndLoss, itself three
+// arbitrary-depth CategoryTreeNode[] trees, repeated at every node of a
+// further, outer tree). That design now exists — encodeProfitAndLoss,
+// exported from reports.ts — so this reuses it directly rather than
+// re-deriving it, applying the same recursive-reuse principle
+// encodeProfitAndLossByGroupTree itself used: ProfitAndLossByAxisNode has
+// the identical {label, profitAndLoss, children} shape (key instead of
+// group, and always a real string, never null) and only one level deep in
+// practice (getProfitAndLossByAxis never gives grandchildren a non-empty
+// children array), but the encoder below is written genuinely recursively
+// anyway, matching the real, declared ProfitAndLossByAxisNode type rather
+// than assuming today's one-level-deep behavior.
+import { getSalesCogsMatrix, getStockOnHandMatrix, getAxisValues, getProfitAndLossByAxis, type MatrixAxis, type ProfitAndLossByAxisNode } from '../db-matrix-reports.js';
 import { asBusinessName, asLedgerName } from '../db.js';
-import { CallError, requireAuth, table, type BackendCall } from '../call-dispatch.js';
+import { CallError, encodeStringList, requireAuth, row, table, type BackendCall } from '../call-dispatch.js';
+import { encodeProfitAndLoss } from './reports.js';
+
+function encodeProfitAndLossByAxis(nodes: ProfitAndLossByAxisNode[]): string {
+  return encodeStringList(nodes.map((n) => encodeStringList([n.key, encodeProfitAndLoss(n.profitAndLoss), encodeProfitAndLossByAxis(n.children)])));
+}
 
 export const matrixReportsFunctions: Record<string, BackendCall> = {
   // Positional args: [0] business, [1] ledger, [2] rowAxis, [3] colAxis, [4] fromDate, [5] toDate.
@@ -81,5 +90,28 @@ export const matrixReportsFunctions: Record<string, BackendCall> = {
       else for (const value of values) rows.push({ axis, value });
     }
     return table(['axis', 'value'], rows);
+  },
+
+  // Positional args: [0] business, [1] ledger, [2] outerAxis, [3] innerAxis,
+  // [4] fromDate, [5] toDate, [6] outerFilter, [7] innerFilter. A single
+  // row, field 0 the whole encoded node tree — same "whole tree in one
+  // field" shape as reports.ts's getProfitAndLossByHierarchyTree, reusing
+  // its own encodeProfitAndLoss building block.
+  getProfitAndLossByAxis: (v, user) => {
+    requireAuth(user);
+    const [business, ledger, outerAxis, innerAxis, fromDate, toDate, outerFilter, innerFilter] = v;
+    if (!business || !ledger) throw new CallError(400, 'business and ledger are both required.');
+    if (!outerAxis || !innerAxis) throw new CallError(400, 'outerAxis and innerAxis are both required.');
+    const nodes = getProfitAndLossByAxis(
+      asBusinessName(business),
+      asLedgerName(ledger),
+      fromDate || undefined,
+      toDate || undefined,
+      outerAxis as MatrixAxis,
+      innerAxis as MatrixAxis,
+      outerFilter || undefined,
+      innerFilter || undefined
+    );
+    return row(encodeProfitAndLossByAxis(nodes));
   },
 };

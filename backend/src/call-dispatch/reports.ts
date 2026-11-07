@@ -49,7 +49,9 @@ const STATEMENT_LINE_FIELDS: ('name' | 'accountnumber' | 'debit_minor' | 'credit
 // and once per node inside a ProfitAndLossByGroupNode tree
 // (getProfitAndLossByHierarchyTree) — one shared encode/decode pair, used
 // both ways, rather than two separate encodings for the same shape.
-function encodeProfitAndLoss(pl: ProfitAndLoss): string {
+// Exported for matrix-reports.ts's getProfitAndLossByAxis, which embeds
+// the exact same ProfitAndLoss shape at every node of its own axis tree.
+export function encodeProfitAndLoss(pl: ProfitAndLoss): string {
   return encodeStringList([
     encodeRecordList(STATEMENT_LINE_FIELDS, pl.income),
     encodeRecordList(STATEMENT_LINE_FIELDS, pl.expenses),
