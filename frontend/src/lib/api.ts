@@ -1134,8 +1134,8 @@ export interface ContactPerson {
 }
 export const listContactPersonTypes = () => callTable('listContactPersonTypes', [], (f) => f.name);
 export const listAddressTypes = () => callTable('listAddressTypes', [], (f) => f.name);
-export const getLocationTypes = () => request<string[]>('/locations/types');
-export const createLocationType = (name: string) => request<{ name: string }>('/locations/types', { method: 'POST', body: JSON.stringify({ name }) });
+export const getLocationTypes = () => callTable('getLocationTypes', [], (f): string => f.name);
+export const createLocationType = (name: string) => callRow('createLocationType', [name], (f): { name: string } => ({ name: f[0] }));
 export const listPhoneTypes = () => callTable('listPhoneTypes', [], (f) => f.name);
 export const getTypedContactPersons = (name: string) =>
   callTable('getTypedContactPersons', [name], (f): ContactPerson => ({ contact_type: f.contact_type, record_name: f.record_name, name: f.name || null, phone: f.phone || null, email: f.email || null }));
@@ -1994,7 +1994,23 @@ export const openStorageContainer = (input: {
   unitValues: string[];
   unitsProduced: number;
   reference?: string;
-}, screenName?: string) => request<void>('/locations/open-container', { method: 'POST', body: JSON.stringify(input) }, screenName);
+}) =>
+  callRow(
+    'openStorageContainer',
+    [
+      input.business,
+      input.ledger,
+      input.location,
+      input.item,
+      encodeShape(input.definitionDimensions),
+      encodeStringList(input.containerValues),
+      String(input.cartonsOpened),
+      encodeStringList(input.unitValues),
+      String(input.unitsProduced),
+      input.reference,
+    ],
+    () => undefined
+  );
 
 // The frontend-driven canned journal pattern — see docs/pm-frontend-reference.md.
 export interface ResolvedOpenContainerAccounts {
