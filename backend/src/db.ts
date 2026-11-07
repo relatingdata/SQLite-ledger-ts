@@ -4100,23 +4100,34 @@ export interface ProductSummary {
 }
 
 export function listProducts(): ProductSummary[] {
-  return db
+  // Was a category-4 site: the whole items-tree recursive walk joined
+  // current_entities/contact directly in one statement. The walk itself
+  // is pure entity-graph work (self-joins on current_entities only) and
+  // stays as SQL; itemCount is now computed afterward by checking, in one
+  // batched query, which of each product's direct children (via
+  // Entity.children) have a contact row — no current_entities join left
+  // in that part at all.
+  const products = db
     .prepare(
       `WITH RECURSIVE items_tree(id) AS (
          SELECT id FROM current_entities WHERE name = 'Items' OR name LIKE '% Items'
          UNION ALL
          SELECT e.id FROM current_entities e JOIN items_tree t ON e.parent_id = t.id
        )
-       SELECT p.name, COUNT(i.id) AS itemCount
-       FROM current_entities p
-       JOIN items_tree pt ON pt.id = p.id
-       JOIN current_entities i ON i.parent_id = p.id
-       JOIN contact c ON c.entity_id = i.id
-       WHERE p.name != 'Items'
-       GROUP BY p.id
-       ORDER BY p.name`
+       SELECT p.id, p.name FROM current_entities p JOIN items_tree pt ON pt.id = p.id WHERE p.name != 'Items'`
     )
-    .all() as ProductSummary[];
+    .all() as { id: number; name: string }[];
+  const childIdsByProduct = new Map(products.map((p) => [p.id, Entity.children(p.id).map((c) => c.id)]));
+  const allChildIds = [...childIdsByProduct.values()].flat();
+  const contactfulIds = new Set(
+    allChildIds.length === 0
+      ? []
+      : (db.prepare(`SELECT entity_id FROM contact WHERE entity_id IN (${allChildIds.map(() => '?').join(',')})`).all(...allChildIds) as { entity_id: number }[]).map((r) => r.entity_id)
+  );
+  return products
+    .map((p) => ({ name: p.name, itemCount: (childIdsByProduct.get(p.id) ?? []).filter((id) => contactfulIds.has(id)).length }))
+    .filter((p) => p.itemCount > 0) // original INNER JOIN contact + GROUP BY: a product with zero contactful children produced no row at all
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
 export function createProduct(name: string, parent: string, userId: UserId): void {
@@ -4176,6 +4187,14 @@ export interface ItemSummary {
 
 export function listItems(businessName: BusinessName, limit?: number, offset = 0): ItemSummary[] {
   const businessId = Entity.get(businessName, 'Businesses')?.id ?? -1;
+  // Was a category-4 site: the items-tree walk joined current_entities/
+  // contact directly, with pagination applied to the joined result. The
+  // walk stays as SQL (current_entities only, ids+parent_id only);
+  // contact fields and the parent's name are now resolved afterward via
+  // batched queries / Entity.getMany, with the original's INNER JOIN
+  // semantics (contact required, parent required) preserved as explicit
+  // filters, and LIMIT/OFFSET reapplied in TS after that same filtering
+  // and ordering.
   const rows = db
     .prepare(
       `WITH RECURSIVE items_tree(id) AS (
@@ -4183,37 +4202,80 @@ export function listItems(businessName: BusinessName, limit?: number, offset = 0
          UNION ALL
          SELECT e.id FROM current_entities e JOIN items_tree t ON e.parent_id = t.id
        )
-       SELECT e.name, p.item_description AS description, p.item_unit_of_measure AS unit_of_measure, p.item_upc AS upc, p.item_retail_price_minor AS retail_price_minor,
-              (SELECT COUNT(*) FROM item_source ps WHERE ps.item_id = e.id) AS source_count,
-              parent.name AS parentName
-       FROM current_entities e
-       JOIN items_tree pt ON pt.id = e.id
-       JOIN contact p ON p.entity_id = e.id
-       JOIN current_entities parent ON parent.id = e.parent_id
-       WHERE e.name != 'Items' AND e.name NOT LIKE '% Items'
-       ORDER BY e.name
-       LIMIT ? OFFSET ?`
+       SELECT e.id, e.name, e.parent_id FROM current_entities e JOIN items_tree pt ON pt.id = e.id
+       WHERE e.name != 'Items' AND e.name NOT LIKE '% Items'`
     )
-    .all(businessId, limit ?? -1, offset) as (ItemSummary & { parentName: string })[];
-  return rows.map((r) => ({ ...r, storage_origin: getItemStorageOrigin(asItemName(r.name)) ?? null, product: r.parentName === 'Items' || r.parentName.endsWith(' Items') ? null : r.parentName }));
+    .all(businessId) as { id: number; name: string; parent_id: number | null }[];
+  const ids = rows.map((r) => r.id);
+  const contactById = new Map(
+    ids.length === 0
+      ? []
+      : (
+          db
+            .prepare(
+              `SELECT entity_id, item_description, item_unit_of_measure, item_upc, item_retail_price_minor FROM contact WHERE entity_id IN (${ids.map(() => '?').join(',')})`
+            )
+            .all(...ids) as { entity_id: number; item_description: string | null; item_unit_of_measure: string | null; item_upc: string | null; item_retail_price_minor: number | null }[]
+        ).map((c) => [c.entity_id, c] as const)
+  );
+  const sourceCountById = new Map(
+    ids.length === 0
+      ? []
+      : (
+          db
+            .prepare(`SELECT item_id, COUNT(*) AS cnt FROM item_source WHERE item_id IN (${ids.map(() => '?').join(',')}) GROUP BY item_id`)
+            .all(...ids) as { item_id: number; cnt: number }[]
+        ).map((r) => [r.item_id, r.cnt] as const)
+  );
+  const parentIds = [...new Set(rows.map((r) => r.parent_id).filter((id): id is number => id !== null))];
+  const parentNameById = new Map(Entity.getMany(parentIds).map((p) => [p.id, p.name]));
+
+  const resolved: (ItemSummary & { parentName: string })[] = [];
+  for (const r of rows) {
+    const c = contactById.get(r.id);
+    if (!c) continue; // original INNER JOIN contact
+    const parentName = r.parent_id != null ? parentNameById.get(r.parent_id) : undefined;
+    if (parentName === undefined) continue; // original INNER JOIN current_entities parent
+    resolved.push({
+      name: r.name,
+      description: c.item_description,
+      unit_of_measure: c.item_unit_of_measure,
+      upc: c.item_upc,
+      retail_price_minor: c.item_retail_price_minor,
+      source_count: sourceCountById.get(r.id) ?? 0,
+      parentName,
+    } as ItemSummary & { parentName: string });
+  }
+  resolved.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  const paged = limit !== undefined && limit >= 0 ? resolved.slice(offset, offset + limit) : resolved.slice(offset);
+  return paged.map((r) => ({
+    ...r,
+    storage_origin: getItemStorageOrigin(asItemName(r.name)) ?? null,
+    product: r.parentName === 'Items' || r.parentName.endsWith(' Items') ? null : r.parentName,
+  }));
 }
 
 export function countItems(businessName: BusinessName): number {
   const businessId = Entity.get(businessName, 'Businesses')?.id ?? -1;
-  const row = db
-    .prepare(
-      `WITH RECURSIVE items_tree(id) AS (
-         SELECT id FROM current_entities WHERE parent_id = ? AND (name = 'Items' OR name LIKE '% Items')
-         UNION ALL
-         SELECT e.id FROM current_entities e JOIN items_tree t ON e.parent_id = t.id
-       )
-       SELECT COUNT(*) AS total
-       FROM current_entities e
-       JOIN items_tree pt ON pt.id = e.id
-       JOIN contact p ON p.entity_id = e.id
-       WHERE e.name != 'Items' AND e.name NOT LIKE '% Items'`
-    )
-    .get(businessId) as { total: number };
+  // Was a category-4 site (see listItems/listProducts just above): the
+  // items-tree walk stays as SQL (current_entities only); whether each
+  // candidate id has a contact row is now resolved afterward via one
+  // batched query, no current_entities join left.
+  const ids = (
+    db
+      .prepare(
+        `WITH RECURSIVE items_tree(id) AS (
+           SELECT id FROM current_entities WHERE parent_id = ? AND (name = 'Items' OR name LIKE '% Items')
+           UNION ALL
+           SELECT e.id FROM current_entities e JOIN items_tree t ON e.parent_id = t.id
+         )
+         SELECT e.id FROM current_entities e JOIN items_tree pt ON pt.id = e.id
+         WHERE e.name != 'Items' AND e.name NOT LIKE '% Items'`
+      )
+      .all(businessId) as { id: number }[]
+  ).map((r) => r.id);
+  if (ids.length === 0) return 0;
+  const row = db.prepare(`SELECT COUNT(*) AS total FROM contact WHERE entity_id IN (${ids.map(() => '?').join(',')})`).get(...ids) as { total: number };
   return row.total;
 }
 
