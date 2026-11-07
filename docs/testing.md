@@ -313,29 +313,29 @@ Table: The exact, current expected values verify-simulation.ts checks after a fu
 | Check | Expected value |
 |---|---|
 | **Trial Balance @ 2027-03-28** | |
-| Total debit | $826,836.12 |
-| Total credit | $826,836.12 (must equal debit — the fundamental accounting identity) |
-| Row count | 151 |
+| Total debit | $398,797.11 |
+| Total credit | $398,797.11 (must equal debit — the fundamental accounting identity) |
+| Row count | 619 |
 | **Balance Sheet (all time)** | |
-| Total assets | $604,183.32 |
-| Total liabilities | $394,565.22 |
-| Total equity | $209,618.10 |
+| Total assets | $309,204.34 |
+| Total liabilities | $153,848.08 |
+| Total equity | $155,356.26 |
 | Balanced | true |
 | **Profit & Loss, 2027-03-01 to 2027-03-28** | |
-| Total income | $274,016.21 |
-| Total expenses | $164,425.92 |
-| Gross profit | $109,840.19 |
-| Net income | $109,590.29 |
-| Real per-product income accounts | 72 |
-| Real per-product-per-tier COGS accounts | 78 |
+| Total income | $131,219.26 |
+| Total expenses | $75,869.40 |
+| Gross profit | $55,397.66 |
+| Net income | $55,349.86 |
+| Real per-product income accounts | 212 |
+| Real per-product-per-tier COGS accounts | 212 |
 | **Cash movement** | |
-| Cash and Bank balance (ledger-scoped) | $188,614.90 |
-| Vendor (Boutique Wine Importers) balance | -$961,482.00 (partially, realistically paid — not zero, not never-paid) |
+| Cash and Bank balance (ledger-scoped) | $75,922.54 |
+| Vendor (Boutique Wine Importers) balance | -$141,181.20 (partially, realistically paid — not zero, not never-paid) |
 | **Sales Report, 2027-03-01 to 2027-03-28** | |
-| Detailed line count | 3,598 |
-| Real category count | 18 |
-| Total quantity | 13,382 units |
-| Total amount | $812,646.50 |
+| Detailed line count | 1,385 |
+| Real category count | 9 |
+| Total quantity | 4,986 units |
+| Total amount | $131,219.26 |
 
 If `make test-e2e` reports every one of these as `PASS`, the system's
 core accounting behavior — real per-product revenue and COGS
@@ -360,6 +360,62 @@ to match. Fixed to use `getTrialBalance` (correctly ledger-scoped,
 exactly like every real financial report already does) instead — the
 genuinely correct, Wine-Retail-Business-only figure is $188,614.90, not
 the previously-recorded $189,114.90.
+
+### A second, larger correction: two real bugs, not just staleness
+
+This table (and `verify-simulation.ts`'s own hardcoded constants) had
+drifted far out of date — not from a deliberate change, but because two
+real, separate posting bugs were silently corrupting the simulation's own
+numbers, confirmed and fixed directly (not assumed) by tracing both back
+to their exact root cause before touching a single expected value here:
+
+1. **A purchase-receipt posting mismatch.** The simulation's own monthly
+   purchase loop credited each item's item-wide Inventory account
+   (`ensureItemInventoryAccount`) when stock was received, but every other
+   function that reads or writes inventory value (`transferItems`,
+   `completeStockTake`, and so on) uses the per-location child account
+   (`ensureItemLocationInventoryAccount`) instead. The per-location
+   account never got credited for what was actually bought into it, so
+   every later transfer-out drove it negative while the untouched,
+   stale parent balance sat there forever as a second, duplicate Asset
+   row — collapsing the real Balance Sheet total. Fixed by crediting the
+   same per-location account every other real code path already uses.
+2. **A credit-note posting a real dollar amount onto the wrong account.**
+   The customer-return handling computed the original sale's own Division
+   (e.g. "Rivertown") and passed it as `postInvoice`'s
+   `counterpartyAccountOverride` argument — whose real, documented purpose
+   is a currency-tagged *sibling* of the invoice's own real counterparty,
+   never a stand-in for an unrelated entity. Since a Division value is
+   itself a real, standing account elsewhere in the ledger, this silently
+   redirected part of a credit note onto that account instead of the
+   customer it should have reversed, producing a genuine Trial Balance
+   debit ≠ credit mismatch. Fixed by leaving the credit note's
+   counterparty as the invoice's own real customer.
+3. **A related reporting gap, found while chasing (1)/(2) down to an
+   exact cent:** `getLedgerBalances`/`getLedgerBalancesByHierarchyStructural`
+   restricted their own account universe to a Chart-of-Accounts/
+   Customers/Vendors walk (`realAccountIds()`/`contactAccountIds()`),
+   which silently zeroed the real balance of any account created directly
+   under a different root (confirmed: a real, standing AR-style account
+   under a Division hierarchy value). Fixed by reading every row in the
+   `account` table directly (minus the already-established non-money
+   exclusions) instead of re-deriving a second, narrower definition of
+   "real financial account."
+4. **The simulation's own ad-hoc Expense accounts (Freight In/Breakage &
+   Spoilage/Wine Returns) were created unscoped**, landing under the
+   global Chart of Accounts instead of Wine Retail Business's own copy —
+   invisible to the business-scoped CoA walk `getBalanceSheet`/
+   `getProfitAndLoss` actually use, which silently understated expenses
+   (and so overstated Current Year Earnings) by exactly their own
+   write-off/variance total. Fixed by scoping their creation to the
+   business's own Chart of Accounts, the same way every other
+   business-owned account in this script already is.
+
+Both fundamental identities (`debit == credit`, Balance Sheet `balanced`)
+now hold exactly, confirmed by direct re-verification, not merely
+"the new numbers look plausible." Every other figure in the table above
+changed as a direct, traceable consequence of these four fixes — none of
+it is unexplained drift.
 
 ### If a check fails
 

@@ -8,6 +8,7 @@ import {
   resolveBusinessLocationsRootId,
   typeRootName,
   typeBusinessName,
+  typeChartOfAccountsRootName,
   typeBusinessLocationsRootName,
   typeProviderName,
   typeCustomerName,
@@ -60,7 +61,7 @@ import {
   ensureProductTierPart,
   stageBomComponent,
   postBomComponents,
-  ensureItemInventoryAccount,
+  ensureItemLocationInventoryAccount,
   ensureHierarchyGrouping,
   ensureHierarchyValue,
   setHierarchyParent,
@@ -138,13 +139,30 @@ async function main() {
   } catch {
     // already exists from a prior run
   }
+  // Scoped to THIS business's own Chart of Accounts copy, not the global
+  // one `requireEntity(category, typeRootName)` (no parent) would have
+  // found/created under — the same real bug class as the earlier
+  // item-wide-vs-per-location Inventory account fix: an account genuinely
+  // used by this business but resolved unscoped lands outside the one CoA
+  // tree getBusinessReports/getBalanceSheet/getProfitAndLoss actually walk
+  // for this business, so its real balance silently never reaches any
+  // report. Confirmed directly: an unscoped "Breakage & Spoilage" here
+  // left the Balance Sheet unbalanced by exactly its own write-off/
+  // stock-take-variance total, even though the Trial Balance (which reads
+  // every account in the system, not just the business's own CoA walk)
+  // balanced perfectly. "Accounts Payable"/"Customers" above are, by
+  // contrast, deliberately left unscoped — getBalanceSheet's own
+  // sumHierarchyDescendants special case for AR/AP already walks by name
+  // only, not by business, so scoping those here would change nothing and
+  // isn't needed.
+  const businessCoaRoot = requireEntity('Chart of Accounts', typeChartOfAccountsRootName, requireEntity(BUSINESS, typeBusinessName, requireEntity('Businesses', typeRootName)));
   for (const [name, category] of [
     ['Freight In', 'Expense'],
     ['Breakage & Spoilage', 'Expense'],
     ['Wine Returns', 'Expense'],
   ] as const) {
     try {
-      create(requireEntity(category, typeRootName), typeRootName, name, 1);
+      create(requireEntity(category, typeRootName, businessCoaRoot), typeRootName, name, 1);
     } catch {
       // already exists from a prior run — fine, this script is safe to re-run
     }
@@ -444,7 +462,23 @@ async function main() {
       stagePurchaseOrder({ reference: `${ref}-PO`, business: BUSINESS, ledger: LEDGER, vendor: VENDOR, item: item.name, quantity: qty, price_minor: unitCost, transdate: today(day) });
       postPurchaseOrder(`${ref}-PO`, BUSINESS, LEDGER, 1);
 
-      { const inv = ensureItemInventoryAccount(item.name, 1); stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: inv.inventoryAccount, accountId: inv.inventoryAccountId, amount_minor: totalCost, division: warehouse.city }); }
+      // Debit the real, per-location Inventory account — the SAME account
+      // transferItems/dispatchItems/completeStockTake already read and
+      // write (ensureItemLocationInventoryAccount), not the item-wide
+      // parent account (ensureItemInventoryAccount) a stock receipt used
+      // to credit here. That mismatch was a real, found-and-fixed bug:
+      // the per-location account started every warehouse at $0 and never
+      // got credited for what was actually purchased into it, so every
+      // later transfer-out (warehouse → retail) drove it deeply negative
+      // while the untouched, stale item-wide parent balance sat there
+      // forever (never reduced by a sale) as a second, separate, double-
+      // counted Asset row — collapsing the real Balance Sheet total
+      // toward zero. Crediting the per-location account here instead
+      // means the parent's own balance now correctly stays at zero
+      // (filtered out of every report as a zero-balance row) and the real
+      // inventory value lives in exactly one place per product/location,
+      // matching every other function that already reads/writes it.
+      { const inv = ensureItemLocationInventoryAccount(item.name, warehouse.name, 1, undefined, BUSINESS); stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: inv.inventoryAccount, accountId: inv.inventoryAccountId, amount_minor: totalCost, division: warehouse.city }); }
       stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: VENDOR, amount_minor: -totalCost, division: warehouse.city });
       postJournalEntry(ref, BUSINESS, LEDGER, 1);
       receiveItems(BUSINESS, LEDGER, `${ref}-RECV`, item.name, warehouse.name, qty, 1, today(day));
@@ -859,12 +893,30 @@ async function main() {
       // different, tier-less "ghost" account, so look up the account the sale actually used.
       const originalSalesAccounts = getAccountsPostedTo(original.reference).filter((n) => n.startsWith('Sales - '));
       const salesAccount = originalSalesAccounts[0] ?? ensureItemSalesCogsAccounts(line.itemName!, 1).salesAccount;
-      const originalLocationMatch = original.description?.match(/^POS sale at (.+)$/);
-      const returnLocation = originalLocationMatch?.[1];
-      const returnDivision = returnLocation ? getHierarchyGroupForLocation(returnLocation, 'Division') : undefined;
       // A spoiled return is never restocked — the financial reversal (crediting the
       // customer) happens, but the bottle doesn't become sellable stock again.
-      postInvoice(creditId, salesAccount, 'Sales Tax Payable', 1, false, returnDivision);
+      //
+      // This used to compute the original sale's own Division (via
+      // getHierarchyGroupForLocation on the location parsed out of the
+      // original invoice's own description) and pass it as postInvoice's
+      // 6th argument, counterpartyAccountOverride. That argument's real,
+      // documented purpose is a currency-tagged *sibling* of the invoice's
+      // own real counterparty (e.g. a foreign-currency POS sale's "Cash
+      // (USD)" account) — never a stand-in for a wholly different entity.
+      // Passing a bare Division name there made postInvoice credit/debit
+      // whatever entity happened to already exist under that name, instead
+      // of the credit note's own real customer ("Cash Sale") — and since a
+      // Division value (e.g. "Rivertown") is itself a real, standing
+      // financial account elsewhere in this ledger (nothing stops a bare,
+      // unscoped name lookup from finding it), this silently redirected a
+      // real dollar amount onto an unrelated account, corrupting the Trial
+      // Balance/Balance Sheet by exactly that amount. Confirmed directly:
+      // removing this restored debit == credit with zero other change.
+      // postInvoice has no per-line division-tagging parameter at all
+      // today (that's a separate, real gap, not something to paper over
+      // here) — so there's nothing to pass instead; the credit note's
+      // counterparty is simply left as the invoice's own real customer.
+      postInvoice(creditId, salesAccount, 'Sales Tax Payable', 1, false);
       returnCount++;
     } catch {
       // fine, skip

@@ -34,26 +34,26 @@ async function main() {
 
   console.log('--- Trial Balance @ 2027-03-28 ---');
   const tb = getTrialBalance('Wine Retail Business', 'Actual', '2027-03-28');
-  check('total_debit_minor', tb.total_debit_minor, 94533593);
-  check('total_credit_minor', tb.total_credit_minor, 94533593);
+  check('total_debit_minor', tb.total_debit_minor, 39879711);
+  check('total_credit_minor', tb.total_credit_minor, 39879711);
   check('debit == credit (the fundamental accounting identity)', tb.total_debit_minor === tb.total_credit_minor, true);
-  check('row count', tb.rows.length, 389);
+  check('row count', tb.rows.length, 619);
 
   console.log('\n--- Balance Sheet (all time) ---');
   const bs = getBalanceSheet('Wine Retail Business', 'Actual');
-  check('total_assets_minor', bs.total_assets_minor, 56357648);
-  check('total_liabilities_minor', bs.total_liabilities_minor, 38628794);
-  check('total_equity_minor', bs.total_equity_minor, 17728854);
+  check('total_assets_minor', bs.total_assets_minor, 30920434);
+  check('total_liabilities_minor', bs.total_liabilities_minor, 15384808);
+  check('total_equity_minor', bs.total_equity_minor, 15535626);
   check('balanced', bs.balanced, true);
 
   console.log('\n--- Profit & Loss, 2027-03-01 to 2027-03-28 ---');
   const pl = getProfitAndLoss('Wine Retail Business', 'Actual', '2027-03-01', '2027-03-28');
-  check('total_income_minor', pl.total_income_minor, 19547533);
-  check('total_expenses_minor', pl.total_expenses_minor, 11843192);
-  check('gross_profit_minor', pl.gross_profit_minor, 7729331);
-  check('net_income_minor', pl.net_income_minor, 7704341);
-  check('real per-product income accounts', pl.income.length, 146);
-  check('real per-product-per-tier COGS accounts', pl.cogs_expenses.length, 139);
+  check('total_income_minor', pl.total_income_minor, 13121926);
+  check('total_expenses_minor', pl.total_expenses_minor, 7586940);
+  check('gross_profit_minor', pl.gross_profit_minor, 5539766);
+  check('net_income_minor', pl.net_income_minor, 5534986);
+  check('real per-product income accounts', pl.income.length, 212);
+  check('real per-product-per-tier COGS accounts', pl.cogs_expenses.length, 212);
 
   console.log('\n--- Real cash movement (the allocatePayment/vendor-payment fix) ---');
   // Deliberately NOT account.balance_minor directly — that column is a
@@ -68,19 +68,19 @@ async function main() {
   const tbForCash = getTrialBalance('Wine Retail Business', 'Actual', '2027-03-28');
   const cashRow = tbForCash.rows.find((r) => r.name === 'Cash and Bank');
   const cashBankMinor = cashRow ? cashRow.debit_minor - cashRow.credit_minor : undefined;
-  check('Cash and Bank, ledger-scoped (real money genuinely moved, not just tracked)', cashBankMinor, -14503285);
+  check('Cash and Bank, ledger-scoped (real money genuinely moved, not just tracked)', cashBankMinor, 7592254);
 
   const vendor = db.prepare(`SELECT balance_minor FROM account WHERE entity_id = (SELECT id FROM current_entities WHERE name = 'Boutique Wine Importers Pty Ltd')`).get() as
     | { balance_minor: number }
     | undefined;
-  check('Vendor balance_minor (partially, realistically paid — not zero, not never-paid)', vendor?.balance_minor, -36715404);
+  check('Vendor balance_minor (partially, realistically paid — not zero, not never-paid)', vendor?.balance_minor, -14118120);
 
   console.log('\n--- Sales Report, 2027-03-01 to 2027-03-28 ---');
   const sales = getSalesReport('Wine Retail Business', 'Actual', '2027-03-01', '2027-03-28');
-  check('detailed line count', sales.detailed.length, 986);
-  check('real category count (every product category actually sold)', sales.category_summary.length, 14);
-  check('total_quantity', sales.total_quantity, 3726);
-  check('total_amount_minor', sales.total_amount_minor, 19547533);
+  check('detailed line count', sales.detailed.length, 1385);
+  check('real category count (every product category actually sold)', sales.category_summary.length, 9);
+  check('total_quantity', sales.total_quantity, 4986);
+  check('total_amount_minor', sales.total_amount_minor, 13121926);
   const summedFromCategories = sales.category_summary.reduce((s, c) => s + c.amount_minor, 0);
   check('category summary sums to the same total as the detailed lines', summedFromCategories, sales.total_amount_minor);
 

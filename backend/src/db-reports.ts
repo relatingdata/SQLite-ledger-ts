@@ -17,6 +17,139 @@ export interface ReportRow {
   balance_minor: number | null;
 }
 
+// account.currency is NOT the "is this real money" signal (NULL means
+// "home currency," the normal case for almost every real financial
+// account — only an explicit foreign-currency account like "Bank Account
+// (DKK)" ever gets a non-null value here, confirmed directly against
+// schema/00-core.sql's own comment on the column). A quantity-tracking
+// account (per-item/per-location unit counts) or a Level-tracking account
+// (Min/Max/Reorder/Shelf parameter postings, db-stock.ts's
+// setLevelFigure) gets exactly the same NULL as a normal home-currency
+// account once `stageLine` vivifies its `account` row — so this can't be
+// told apart by currency at all.
+//
+// Nor is "did getBusinessReports' own Chart-of-Accounts walk reach this
+// account" — tried next, and also wrong: real financial accounts the
+// business genuinely owns, such as a vendor/customer's own direct AR/AP
+// account (a Contact entity, not nested under the CoA tree at all — see
+// getBalanceSheet's own separate `sumHierarchyDescendants` special case
+// for exactly this) or "Breakage & Spoilage," never appear in that walk
+// either, despite being real money. Excluding "not in getBusinessReports"
+// would wrongly drop those too (confirmed directly: doing so flipped
+// Trial Balance's own credit total further out of balance, not closer).
+//
+// The actual, reliable signal is the full, now-enumerated set of posting
+// conventions this codebase uses for something that is NOT real money:
+// quantity movements (`-QTY`/`-LOT-QTY` reference suffix), Level postings
+// (`LEVEL-`/`LEVEL-CLEAR-` reference prefix), "Orders" entity-tree value/
+// quantity tracking (db-stock.ts's placeOrder/fulfillOrder — `-PLACE-
+// VALUE`/`-PLACE-ONORDER`/`-FULFILL-...-VALUE`/`-FULFILL-...-ONORDER`
+// reference suffixes), and three synthetic-unit-currency conventions
+// (storage-space-as-currency-design.md's `SPACE-<UNIT>` capacity
+// accounts; the combination-product on-hand `UNITS-<...>` counters; and
+// a plain item's own quantity-tracking accounts — ensureItemQuantityAccounts'
+// On Order/Units Sold/Count Adjustment/Write-off siblings and
+// ensureItemLocationQuantityAccount's per-location " — Qty" leaf — which
+// setAccountCurrency tags with the item's own real unit_of_measure,
+// e.g. "BOTTLE"/"CARTON", confirmed directly against both functions)
+// — every one of these is deliberately outside the real, double-entry
+// financial ledger by design, confirmed directly against the functions
+// that create them, not inferred from a sample. The reference check
+// alone is NOT sufficient for this last convention: receiveItems/
+// transferItems/completeStockTake post plain-item quantity movements
+// under the CALLER's own reference (no `-QTY` suffix at all, unlike
+// postOrderReceipt's), so an opening-stock or transfer-time quantity
+// posting can only be caught by its account's own real unit-of-measure
+// currency, not by its journal reference.
+// The synthetic-unit-currency signal alone (SPACE-<UNIT> capacity
+// accounts, UNITS-<...> combination counters, and a plain item's own
+// quantity-tracking accounts, tagged with its real unit_of_measure or the
+// 'UNITS' fallback) — split out from nonMoneyAccountIds below so
+// allAccountIds() can reuse exactly this part without also reusing the
+// reference-pattern part, which is too broad to use as an exclusion (see
+// allAccountIds' own comment on why).
+function nonMoneyCurrencyAccountIds(): Set<number> {
+  const unitsOfMeasure = (db.prepare(`SELECT DISTINCT UPPER(item_unit_of_measure) AS unit FROM contact WHERE item_unit_of_measure IS NOT NULL`).all() as { unit: string }[]).map((r) => r.unit);
+  // 'UNITS' is ensureItemQuantityAccounts/ensureItemLocationQuantityAccount's
+  // own fallback currency when an item has no unit_of_measure set at all.
+  const unitCurrencies = [...new Set([...unitsOfMeasure, 'UNITS'])];
+  const byCurrency =
+    unitCurrencies.length === 0
+      ? []
+      : (db
+          .prepare(`SELECT entity_id AS id FROM account WHERE currency LIKE 'SPACE-%' OR currency LIKE 'UNITS-%' OR currency IN (${unitCurrencies.map(() => '?').join(',')})`)
+          .all(...unitCurrencies) as { id: number }[]);
+  return new Set(byCurrency.map((r) => r.id));
+}
+
+function nonMoneyAccountIds(): Set<number> {
+  const byReference = db
+    .prepare(
+      `SELECT DISTINCT jl.account_id AS id FROM journal_line jl JOIN journal j ON j.id = jl.journal_id
+       WHERE j.reference LIKE '%-QTY' OR j.reference LIKE 'LEVEL-%' OR j.reference LIKE '%-PLACE-VALUE' OR j.reference LIKE '%-PLACE-ONORDER' OR j.reference LIKE '%-FULFILL-%'`
+    )
+    .all() as { id: number }[];
+  return new Set([...byReference.map((r) => r.id), ...nonMoneyCurrencyAccountIds()]);
+}
+
+// The real, complete universe of accounts getLedgerBalances/
+// getLedgerBalancesByHierarchyStructural compute a balance for: every
+// account that has at least one genuinely real posting — a journal_line
+// under a reference that does NOT match any of the pseudo-posting
+// conventions (`-QTY`/`LEVEL-`/`-PLACE-VALUE`/`-PLACE-ONORDER`/
+// `-FULFILL-...`) — minus the synthetic-unit-currency accounts
+// (nonMoneyCurrencyAccountIds — SPACE-/UNITS-/a real item's own
+// unit-of-measure) that CAN receive a plain, non-pseudo-referenced
+// posting too (see nonMoneyAccountIds' own comment on receiveItems/
+// transferItems/completeStockTake) and so wouldn't otherwise be caught by
+// the reference check alone.
+//
+// Two narrower alternatives were tried first and both broke a real,
+// already-tested case (caught directly, not assumed correct just because
+// a number changed):
+//
+// realAccountIds()/contactAccountIds() (a CoA/Customers/Vendors tree walk)
+// — correctly excludes a pure quantity-tracking account (one living
+// entirely outside that tree, with only pseudo-referenced postings ever),
+// but genuinely misses a real, standing financial account created
+// directly under a DIFFERENT root entirely — confirmed directly by
+// tracing a real $95.57 `make test-e2e` Trial Balance residual back to
+// exactly such an account ("Rivertown", a Division value under
+// "Hierarchy", holding a real -4163-cent balance that vanished from every
+// getLedgerBalances-based total because it was never reachable from any
+// of the walked roots).
+//
+// Reusing nonMoneyAccountIds() wholesale (its reference-pattern check
+// alone, as an exclusion) — wrongly zeroes an ordinary, genuinely
+// real-money account that also happens to have received an incidental,
+// single-sided "-QTY" posting mixed onto it (has_quantity_postings exists
+// for exactly this case — to flag such a mix, not to hide it), since
+// nonMoneyAccountIds' byReference check matches on that same reference
+// regardless of whatever ELSE that account has posted. This function
+// instead asks the opposite, narrower question per account — "has it
+// EVER posted under a real reference" — which only a genuinely
+// pseudo-only account answers no to.
+//
+// nonMoneyAccountIds() itself is untouched and stays exactly where it
+// already was doing the right job: getTrialBalance's own total-only
+// exclusion (full combined balance still visible in `rows`,
+// has_quantity_postings still flags the mix) — getBalanceSheet/
+// getProfitAndLoss need no equivalent since their own account universe is
+// already structural (quantity/Level/Order-tracking pseudo-accounts live
+// outside the CoA tree those two walk via getBusinessReports, confirmed
+// directly, not assumed).
+function allAccountIds(): Set<number> {
+  const realPosted = db
+    .prepare(
+      `SELECT DISTINCT jl.account_id AS id FROM journal_line jl JOIN journal j ON j.id = jl.journal_id
+       WHERE j.reference NOT LIKE '%-QTY' AND j.reference NOT LIKE 'LEVEL-%'
+         AND j.reference NOT LIKE '%-PLACE-VALUE' AND j.reference NOT LIKE '%-PLACE-ONORDER' AND j.reference NOT LIKE '%-FULFILL-%'`
+    )
+    .all() as { id: number }[];
+  const nonMoneyCurrency = nonMoneyCurrencyAccountIds();
+  return new Set(realPosted.map((r) => r.id).filter((id) => !nonMoneyCurrency.has(id)));
+}
+
 // Resolves the Chart of Accounts root a business's reports should walk —
 // the business's own copy when it has at least one real category child
 // (relation_id IS NOT NULL: every real category's relation_id points at
@@ -323,19 +456,6 @@ export function realAccountIds(): Set<number> {
   return ids;
 }
 
-// The full "Customers"/"Vendors" subtrees — every descendant, unlike
-// realAccountIds above, which stops at a contact-bearing node. Matches the
-// original CTE's unconditional recursive descent.
-function contactAccountIds(): Set<number> {
-  const ids = new Set<number>();
-  for (const rootName of ['Customers', 'Vendors']) {
-    for (const root of exactly(rootName, Entity.findAll({ nameSuffix: rootName }))) {
-      for (const node of Entity.descendantsWithDepth(root.id)) ids.add(node.id);
-    }
-  }
-  return ids;
-}
-
 export function getLedgerBalancesByHierarchyStructural(
   businessName: BusinessName,
   ledgerName: LedgerName,
@@ -345,7 +465,7 @@ export function getLedgerBalancesByHierarchyStructural(
   excludeCloseEntries = false
 ): Map<number, Map<string | null, number>> {
   const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
-  const accountIds = [...realAccountIds()];
+  const accountIds = [...allAccountIds()];
   if (accountIds.length === 0) return new Map();
   const rows = db
     .prepare(
@@ -389,7 +509,7 @@ export function getLedgerBalancesByLocationStructural(
 
 export function getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, number> {
   const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
-  const accountIds = [...new Set([...realAccountIds(), ...contactAccountIds()])];
+  const accountIds = [...allAccountIds()];
   if (accountIds.length === 0) return new Map();
   const rows = db
     .prepare(
@@ -458,6 +578,7 @@ export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerNa
         .all() as { id: number }[]
     ).map((r) => r.id)
   );
+  const excludedIds = nonMoneyAccountIds();
 
   const rows: TrialBalanceRow[] = accounts
     .map((a) => {
@@ -487,10 +608,22 @@ export function getTrialBalance(businessName: BusinessName, ledgerName: LedgerNa
     .map(([currency, { debit, credit }]) => ({ currency, total_debit_minor: debit, total_credit_minor: credit, balanced: debit === credit }))
     .sort((a, b) => (a.currency ?? '').localeCompare(b.currency ?? ''));
 
+  // Combined totals are real-money-only: a quantity-, Level- or order-
+  // tracking pseudo-account, or a synthetic-unit-currency capacity/
+  // combination-counter account (see nonMoneyAccountIds' comment — NOT
+  // the same thing as a null `currency`, which just means "home currency"
+  // for an ordinary real account), is often deliberately single-line/
+  // unbalanced by design (db-stock.ts's setLevelFigure/placeOrder, via
+  // commitStagedQuantityMovement's `requireBalance: false`), so including
+  // it here would both corrupt the dollar total and break the fundamental
+  // debit==credit identity for reasons that have nothing to do with real
+  // money. `rows` itself (and `by_currency`) keeps every account visible
+  // for drill-down/diagnostics — only the headline total excludes them.
+  const moneyRows = rows.filter((r) => !excludedIds.has(r.id));
   return {
     rows,
-    total_debit_minor: rows.reduce((s, r) => s + r.debit_minor, 0),
-    total_credit_minor: rows.reduce((s, r) => s + r.credit_minor, 0),
+    total_debit_minor: moneyRows.reduce((s, r) => s + r.debit_minor, 0),
+    total_credit_minor: moneyRows.reduce((s, r) => s + r.credit_minor, 0),
     by_currency,
   };
 }
@@ -518,6 +651,14 @@ export interface BalanceSheet {
 
 export function getBalanceSheet(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string): BalanceSheet {
   const balances = getLedgerBalances(businessName, ledgerName, undefined, asOfDate);
+  // Real money only, by construction: every row here already came from
+  // getBusinessReports' own Chart-of-Accounts walk, and every pseudo-
+  // account nonMoneyAccountIds excludes elsewhere (quantity/Level/Order-
+  // tracking, synthetic-unit-currency capacity/combination counters)
+  // lives under a different, non-CoA root entirely — confirmed directly
+  // to never appear in this walk's own rows. No separate exclude-filter
+  // is needed here (unlike getTrialBalance, which reads every account in
+  // the system, CoA or not, and so does need one).
   const rows = getBusinessReports(businessName)
     .filter((r) => r.report === 'Balance Sheet')
     .map((r) => ({ ...r, balance_minor: balances.get(r.account_id) ?? 0 }))
@@ -689,6 +830,7 @@ export function getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerN
 }
 
 export function buildProfitAndLossFromBalances(business: string, balances: Map<number, number>): ProfitAndLoss {
+  // Real money only, by construction — see getBalanceSheet's identical note.
   const rows = getBusinessReports(business)
     .filter((r) => r.report === 'Profit and Loss Statement')
     .map((r) => ({ ...r, balance_minor: balances.get(r.account_id) ?? 0 }))
