@@ -215,7 +215,14 @@ export function decodeGenericTree(encoded: string): WireGenericTreeNode[] {
 // other function simply never reads this parameter, the same "a function
 // declared with fewer parameters satisfies a type that declares more"
 // trick already used for lineItems.
-export type BackendCall = (values: string[], user: AuthenticatedUser | undefined, lineItems: string[][], token: string | undefined) => CallResult;
+// Return type is CallResult | Promise<CallResult> — a deliberate, narrow
+// extension (exportInvoicePdf is the one real function needing it: a PDF
+// is built via pdfmake's own async getBuffer()). Every pre-existing
+// synchronous entry still type-checks unmodified (a function returning T
+// satisfies a type returning T | Promise<T>); routes/call.ts's handler
+// awaits the result either way, which works identically for a plain,
+// non-Promise value.
+export type BackendCall = (values: string[], user: AuthenticatedUser | undefined, lineItems: string[][], token: string | undefined) => CallResult | Promise<CallResult>;
 
 export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
   ...arapFunctions,
@@ -243,7 +250,7 @@ export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
   ...stockLotsFunctions,
 };
 
-export function callBackendFunction(name: string, values: string[], user: AuthenticatedUser | undefined, lineItems: string[][] = [], token: string | undefined = undefined): CallResult {
+export function callBackendFunction(name: string, values: string[], user: AuthenticatedUser | undefined, lineItems: string[][] = [], token: string | undefined = undefined): CallResult | Promise<CallResult> {
   const fn = BACKEND_FUNCTIONS[name];
   if (!fn) throw new CallError(404, `No real backend function named "${name}".`);
   return fn(values, user, lineItems, token);

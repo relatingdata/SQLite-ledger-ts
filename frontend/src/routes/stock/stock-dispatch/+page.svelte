@@ -4,7 +4,7 @@
   import { formatAmount } from '$lib/format';
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
-  import { getBusinesses, getLedgers, getEntityTree, getOrderStatus, stageOrderDispatch, postOrderDispatch, asBusinessName, asLedgerName, ApiError, type EntityNode } from '$lib/api';
+  import { getBusinesses, getLedgers, getEntityTree, getOrderStatus, stageOrderDispatch, postOrderDispatch, exportInvoicePdf, asBusinessName, asLedgerName, ApiError, type EntityNode } from '$lib/api';
   import { parseMinorUnits, parseQuantity } from '$lib/money';
   import { filterToItems } from '$lib/entityTree';
 
@@ -31,6 +31,8 @@
   let reference = $state('');
   let transdate = $state(new Date().toISOString().slice(0, 10));
   let description = $state('');
+  let lastDispatch: { reference: string; customer: string; transdate: string } | null = $state(null);
+  let downloadingPdf = $state(false);
 
   onMount(async () => {
     try {
@@ -95,6 +97,7 @@
       });
       await postOrderDispatch(reference, asBusinessName(business), asLedgerName(ledger));
       message = `Dispatch ${reference} recorded against ${soReference}.`;
+      lastDispatch = { reference, customer, transdate };
       reference = '';
       quantity = '';
       unitCost = '';
@@ -106,6 +109,36 @@
       error = e instanceof ApiError ? e.message : 'Could not record this dispatch.';
     } finally {
       saving = false;
+    }
+  }
+
+  async function downloadDispatchInvoicePdf() {
+    if (!lastDispatch) return;
+    downloadingPdf = true;
+    error = '';
+    try {
+      const base64 = await exportInvoicePdf({
+        invoiceReference: lastDispatch.reference,
+        customerName: lastDispatch.customer,
+        date: lastDispatch.transdate,
+        business,
+        ledger,
+        lineReferences: [lastDispatch.reference],
+      });
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${lastDispatch.reference}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : 'Could not generate the invoice PDF.';
+    } finally {
+      downloadingPdf = false;
     }
   }
 </script>
@@ -120,7 +153,16 @@
   <p>Loading…</p>
 {:else}
     {#if error}<p class="error">{error}</p>{/if}
-    {#if message}<p class="success">{message}</p>{/if}
+    {#if message}
+      <p class="success">
+        {message}
+        {#if lastDispatch}
+          <button class="btn-link" onclick={downloadDispatchInvoicePdf} disabled={downloadingPdf}>
+            {downloadingPdf ? (translations.current['Generating…'] ?? 'Generating…') : (translations.current['Download invoice PDF'] ?? 'Download invoice PDF')}
+          </button>
+        {/if}
+      </p>
+    {/if}
 
     <p class="context-line">
       <strong>{business}</strong> — {ledger}
@@ -247,6 +289,22 @@
 
   .success {
     color: var(--credit);
+  }
+
+  .btn-link {
+    margin-left: 0.6rem;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--link, var(--credit));
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .btn-link:disabled {
+    cursor: default;
+    opacity: 0.6;
   }
 
   .so-status {

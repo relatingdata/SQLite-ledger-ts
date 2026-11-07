@@ -42,7 +42,7 @@ import { callBackendFunction, CallError } from '../call-dispatch.js';
 
 export const callRouter = Router();
 
-callRouter.post('/', (req, res) => {
+callRouter.post('/', async (req, res) => {
   const body = typeof req.body === 'string' ? req.body : '';
   const bodyLines = body.split('\n').filter((l) => l.length > 0);
   const line = bodyLines[0] ?? '';
@@ -56,7 +56,11 @@ callRouter.post('/', (req, res) => {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : undefined;
   try {
-    const result = callBackendFunction(screenName, parts.slice(1), req.user, lineItems, token);
+    // await works identically whether the dispatch entry returned a plain
+    // CallResult or a Promise<CallResult> (see call-dispatch.ts's
+    // BackendCall comment) — this one line of plumbing is the whole
+    // async extension.
+    const result = await callBackendFunction(screenName, parts.slice(1), req.user, lineItems, token);
     if (result.kind === 'row') {
       res.type('text/csv').send('ok,' + result.values.map(csvField).join(','));
     } else {

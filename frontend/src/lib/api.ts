@@ -1670,6 +1670,18 @@ export const allocatePaymentToInvoice = (id: number, paymentReference: string, a
  * nothing about that behavior changes. */
 export const exportInvoiceAsEInvoice = (id: number) => callRow('exportInvoiceAsEInvoice', [String(id)], (f): string => f[0]);
 
+// Returns the PDF as a base64 string (invoice.ts's own routes/invoice.ts
+// counterpart streamed a binary file; the CSV call-dispatch protocol
+// carries no binary, so the buffer is base64-encoded as one ordinary
+// field — decode it back into bytes for a real download, same "build the
+// download link client-side" approach as exportInvoiceAsEInvoice above).
+export const exportInvoicePdf = (input: { invoiceReference: string; customerName: string; date: string; business: string; ledger: string; lineReferences: string[] }) =>
+  callRow(
+    'exportInvoicePdf',
+    [input.invoiceReference, input.customerName, input.date, input.business, input.ledger, encodeStringList(input.lineReferences)],
+    (f): string => f[0]
+  );
+
 export interface EInvoiceDiscrepancy {
   field: string;
   poValue: string;

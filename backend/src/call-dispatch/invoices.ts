@@ -34,7 +34,8 @@ import {
   asUserId,
   type Invoice,
 } from '../db.js';
-import { CallError, encodeRecordList, encodeStringList, requireAuth, requireRole, row, table, type BackendCall } from '../call-dispatch.js';
+import { generateInvoicePdf } from '../invoice.js';
+import { CallError, decodeStringList, encodeRecordList, encodeStringList, requireAuth, requireRole, row, table, type BackendCall } from '../call-dispatch.js';
 
 const INVOICE_LINE_FIELDS: ('id' | 'description' | 'quantity' | 'unitPriceMinor' | 'amountMinor' | 'taxMinor' | 'itemName' | 'dispatchReference')[] = [
   'id',
@@ -399,6 +400,41 @@ export const invoicesFunctions: Record<string, BackendCall> = {
     } catch (err) {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
       throw err;
+    }
+  },
+
+  // Converted from routes/invoice.ts (singular — a separate file/router
+  // from this one, never part of this rollout until now: it builds a PDF
+  // via invoice.ts's own generateInvoicePdf, over a set of already-posted
+  // "invoice line" references recorded by postOrderReceipt/
+  // postOrderDispatch — db-journal.ts's recordInvoiceLine — not the AR/AP
+  // Invoice entity this file's other functions manage. Async (pdfmake's
+  // own getBuffer() is a Promise) — the one real function in this whole
+  // rollout needing BackendCall's new CallResult | Promise<CallResult>
+  // return type. A PDF is binary, so the buffer is carried back as one
+  // base64-encoded row value rather than invented as a new, separate wire
+  // shape — the frontend decodes it back into a Blob for download, the
+  // same "client builds its own download link" precedent as
+  // exportInvoiceAsEInvoice just above. The old route's catch-all (any
+  // error, not just a specific type, becomes a 404 with that error's own
+  // message) is replicated exactly, since generateInvoicePdf throws a
+  // plain Error (not NotFoundError/ValidationError) for a reference that
+  // was never actually posted. requireRole, not just requireAuth — matches
+  // the old route's own mount-level gate exactly
+  // (app.use('/api/invoice', requireAuth, requireRole('Administrator',
+  // 'Bookkeeper'), invoiceRouter) in server.ts).
+  exportInvoicePdf: async (v, user) => {
+    const authed = requireRole(user, 'Administrator', 'Bookkeeper');
+    const [invoiceReference, customerName, date, business, ledger, lineReferencesEncoded] = v;
+    const lineReferences = decodeStringList(lineReferencesEncoded);
+    if (!invoiceReference || !customerName || !date || !business || !ledger || lineReferences.length === 0) {
+      throw new CallError(400, 'invoiceReference, customerName, date, business, ledger, and at least one lineReference are all required.');
+    }
+    try {
+      const buffer = await generateInvoicePdf({ invoiceReference, customerName, date, business, ledger, lineReferences, postedBy: authed.username });
+      return row(buffer.toString('base64'));
+    } catch (err) {
+      throw new CallError(404, err instanceof Error ? err.message : 'Could not generate this invoice.');
     }
   },
 };
