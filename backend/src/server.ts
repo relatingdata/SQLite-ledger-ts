@@ -4,38 +4,13 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
-import { entitiesRouter } from './routes/entities.js';
-import { reportsRouter } from './routes/reports.js';
-import { matrixReportsRouter } from './routes/matrix-reports.js';
-import { menuRouter } from './routes/menu.js';
-import { i18nRouter } from './routes/i18n.js';
-import { businessesRouter } from './routes/businesses.js';
 import { callRouter } from './routes/call.js';
-import { journalRouter } from './routes/journal.js';
-import { contactsRouter } from './routes/contacts.js';
-import { itemsRouter } from './routes/items.js';
-import { productsRouter } from './routes/products.js';
-import { invoicesRouter, agedRouter, historyRouter, remindersRouter, statementRouter } from './routes/invoices.js';
-import { stockLotsRouter } from './routes/stock-lots.js';
-import { locationsRouter, belowReorderRouter, stockOutRiskRouter, stockListingRouter, stockTakesRouter } from './routes/locations.js';
-import { hierarchyRouter } from './routes/hierarchy.js';
-import { departmentsRouter } from './routes/departments.js';
-import { posRouter } from './routes/pos.js';
-import { arAPRouter } from './routes/arap.js';
-import { quotationsRouter } from './routes/quotations.js';
-import { customerRegistrationRouter, customerVerificationRouter } from './routes/customer-registration.js';
-import { authRouter } from './routes/auth.js';
-import { stockRouter } from './routes/stock.js';
-import { invoiceRouter } from './routes/invoice.js';
-import { periodRouter } from './routes/period.js';
-import { projectsRouter } from './routes/projects.js';
 import { recordingRouter } from './routes/recording.js';
 import { recordingMiddleware } from './recording.js';
-import { attachUser, requireAuth, requireRole } from './auth-middleware.js';
+import { attachUser, requireAuth } from './auth-middleware.js';
 
 const app = express();
 app.use(cors());
-app.use(express.json());
 app.use(attachUser);
 app.use(recordingMiddleware);
 
@@ -47,53 +22,33 @@ function getDbVersion(): string {
   return (db.prepare('SELECT version FROM db_version WHERE id = 1').get() as { version: string }).version;
 }
 
+// Every real screen now goes through the one ASCII-CSV call protocol
+// below (see routes/call.ts, call-dispatch.ts) — the per-path JSON
+// Express routers this backend used to mount (entities/reports/menu/
+// i18n/businesses/journal/contacts/items/products/invoices/stock-lots/
+// locations/hierarchy/departments/pos/arap/quotations/
+// customer-registration/auth/stock/invoice/period/projects, 24 files in
+// all) are deleted, per task #239/#245 — their last endpoints
+// (locations.ts's getLocationTypes/createLocationType/
+// openStorageContainer, matrix-reports.ts's getProfitAndLossByAxis,
+// invoice.ts's /pdf) were confirmed converted and verified live
+// immediately before this deletion. express.json() goes with them: the
+// only two things still mounted that take a request body at all are
+// /api/call (its own express.text(), never JSON) and the recording
+// start/stop endpoints below, which take no body either. health and
+// recording stay on their own small routes — infrastructure/tooling,
+// not business "screens", so never in scope for this protocol.
 app.get('/api/health', (_req, res) => res.json({ ok: true, appVersion: getAppVersion(), dbVersion: getDbVersion() }));
-app.use('/api/auth', authRouter); // has its own per-route requireAuth — /login must stay public
 app.use('/api/recording', requireAuth, recordingRouter);
-app.use('/api/entities', requireAuth, entitiesRouter);
-app.use('/api/reports', requireAuth, reportsRouter);
-app.use('/api/reports/matrix', requireAuth, matrixReportsRouter);
-app.use('/api/menu', requireAuth, menuRouter);
-app.use('/api/i18n', i18nRouter);
-app.use('/api/businesses', requireAuth, businessesRouter);
-// The new ASCII-CSV call protocol (see routes/call.ts, call-dispatch.ts) -
-// its own plain-text body parser, deliberately not express.json(): this
-// path carries no JSON in either direction. Deliberately NOT mounted
-// with requireAuth: some real functions (customer self-registration/
-// login at a self-service terminal) must stay public, same as
-// authRouter/i18nRouter already mix public and gated routes on one
-// mount. attachUser (above) still sets req.user whenever a valid token
-// is present; every function that needs one calls requireAuth/
-// requireRole/requireGlobalRole itself (call-dispatch.ts), the same
-// checks the old per-path middleware made, just explicit per call
-// instead of implicit per mount.
+// Deliberately NOT mounted with requireAuth: some real functions
+// (customer self-registration/login at a self-service terminal) must
+// stay public, same as the old authRouter/i18nRouter mixed public and
+// gated routes on one mount. attachUser (above) still sets req.user
+// whenever a valid token is present; every function that needs one
+// calls requireAuth/requireRole/requireGlobalRole itself
+// (call-dispatch.ts), the same checks the old per-path middleware made,
+// just explicit per call instead of implicit per mount.
 app.use('/api/call', express.text({ type: () => true }), callRouter);
-app.use('/api/journal', requireAuth, journalRouter);
-app.use('/api/arap', requireAuth, requireRole('Administrator', 'Bookkeeper'), arAPRouter);
-app.use('/api/quotations', requireAuth, requireRole('Administrator', 'Bookkeeper'), quotationsRouter);
-app.use('/api/contacts', requireAuth, contactsRouter);
-app.use('/api/items', requireAuth, itemsRouter);
-app.use('/api/products', requireAuth, productsRouter);
-app.use('/api/invoices', requireAuth, invoicesRouter);
-app.use('/api/reports/aged', requireAuth, agedRouter);
-app.use('/api/reports/statement', requireAuth, statementRouter);
-app.use('/api/reports/history', requireAuth, historyRouter);
-app.use('/api/reminders', requireAuth, remindersRouter);
-app.use('/api/stock-lots', requireAuth, stockLotsRouter);
-app.use('/api/locations', requireAuth, locationsRouter);
-app.use('/api/reports/below-reorder', requireAuth, belowReorderRouter);
-app.use('/api/reports/stock-out-risk', requireAuth, stockOutRiskRouter);
-app.use('/api/stock-listing', requireAuth, stockListingRouter);
-app.use('/api/stock-takes', requireAuth, stockTakesRouter);
-app.use('/api/pos', requireAuth, posRouter);
-app.use('/api/customers', customerRegistrationRouter); // public — self-service terminal, no staff login
-app.use('/api/customer-verification', requireAuth, customerVerificationRouter);
-app.use('/api/projects', requireAuth, projectsRouter);
-app.use('/api/stock', requireAuth, requireRole('Administrator', 'Bookkeeper'), stockRouter);
-app.use('/api/invoice', requireAuth, requireRole('Administrator', 'Bookkeeper'), invoiceRouter);
-app.use('/api/period', requireAuth, periodRouter);
-app.use('/api/hierarchy', requireAuth, hierarchyRouter);
-app.use('/api/departments', requireAuth, departmentsRouter);
 
 const PORT = 3001;
 const server = app.listen(PORT, () => {
