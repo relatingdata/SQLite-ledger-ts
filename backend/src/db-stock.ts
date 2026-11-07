@@ -350,7 +350,10 @@ function salesRevenueAccountIds(): Set<number> {
   return ids;
 }
 
-interface QtyLocationAccountRow {
+// Exported for db-matrix-reports.ts's getStockOnHandMatrix, which needs
+// the exact same leaf/item/link/loc shape (same reasoning as every other
+// shared-shape reuse in this file — one real query, not a duplicate).
+export interface QtyLocationAccountRow {
   leafId: number;
   item: string;
   itemId: number;
@@ -370,7 +373,7 @@ interface QtyLocationAccountRow {
 // The walk + join now happens once here via the EntityDriver (plus
 // resolveHierarchyLocationLink above for the link itself); each call site
 // below filters/maps these shared rows instead of repeating its own SQL.
-function allQtyLocationAccounts(): QtyLocationAccountRow[] {
+export function allQtyLocationAccounts(): QtyLocationAccountRow[] {
   const qtyLeaves = Entity.findAll({ nameSuffix: ' — Qty' });
   if (qtyLeaves.length === 0) return [];
   const leafIds = qtyLeaves.map((l) => l.id);

@@ -4,6 +4,7 @@
 import { db } from './db.js';
 import { getHierarchyParent, getBusinessHierarchy } from './db.js';
 import { buildProfitAndLossFromBalances, getLedgerBalances, type ProfitAndLoss } from './db-reports.js';
+import { allQtyLocationAccounts } from './db-stock.js';
 import type { BusinessName, LedgerName } from './db.js';
 import { Entity } from './primitives.js';
 
@@ -90,24 +91,20 @@ function resolveItemKey(axis: MatrixAxis, itemName: string, locationName: string
 export function getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix {
   const entityIndex = loadEntityIndex();
   const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
+  // The original query's WITH RECURSIVE ancestors + current_entities joins
+  // did two jobs at once: (1) find every account entity descending from a
+  // "Sales Revenue"/"Cost of Goods Sold" entity, and (2) read each account's
+  // own name for the isSales check. Both are pure entity-graph work —
+  // accountIdsUnderNamed (below) does (1) in TypeScript via entityIndex
+  // (already loaded for resolveKey below), and entityIndex itself already
+  // carries every entity's name for (2) — so the SQL below needs no
+  // current_entities join at all, only account/journal_occurrences/journal.
+  const salesCogsIds = accountIdsUnderNamed(entityIndex, ['Sales Revenue', 'Cost of Goods Sold']);
 
   const rows = db
     .prepare(
-      `WITH RECURSIVE ancestors(id, orig) AS (
-         SELECT id, id FROM current_entities
-         UNION ALL
-         SELECT e.parent_id, a.orig FROM current_entities e JOIN ancestors a ON e.id = a.id WHERE e.parent_id IS NOT NULL
-       ),
-       sales_cogs_accounts AS (
-         SELECT DISTINCT orig AS id FROM ancestors a
-         JOIN current_entities e ON e.id = a.id
-         WHERE e.name IN ('Sales Revenue', 'Cost of Goods Sold')
-       )
-       SELECT a.entity_id AS id, e.name AS name,
-              SUM(jo.amount_minor) AS balance_minor
+      `SELECT a.entity_id AS id, SUM(jo.amount_minor) AS balance_minor
        FROM account a
-       JOIN current_entities e ON e.id = a.entity_id
-       JOIN sales_cogs_accounts sca ON sca.id = a.entity_id
        JOIN journal_occurrences jo ON jo.account_id = a.entity_id
        JOIN journal j ON j.id = jo.journal_id
        WHERE jo.ledger_id = ?
@@ -116,15 +113,16 @@ export function getSalesCogsMatrix(businessName: BusinessName, ledgerName: Ledge
          AND j.reference NOT LIKE 'CLOSE-%'
        GROUP BY a.entity_id`
     )
-    .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as { id: number; name: string; balance_minor: number }[];
+    .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as { id: number; balance_minor: number }[];
 
   const cellMap = new Map<string, MatrixCell>();
   let totalSalesMinor = 0;
   let totalCogsMinor = 0;
 
   for (const r of rows) {
-    if (r.balance_minor === 0) continue;
-    const isSales = r.name.startsWith('Sales - ');
+    if (r.balance_minor === 0 || !salesCogsIds.has(r.id)) continue;
+    const name = entityIndex.get(r.id)?.name ?? '';
+    const isSales = name.startsWith('Sales - ');
     const rowKey = resolveKey(rowAxis, r.id, entityIndex);
     const colKey = resolveKey(colAxis, r.id, entityIndex);
     const key = `${rowKey}\u0000${colKey}`;
@@ -170,48 +168,72 @@ export function getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): 
   // way locationForAccount above reads it, via the " — Hierarchy: Location"
   // link record. See docs/pm-domain-reference.md, "Quantity-on-hand by
   // location: real per-location accounts, not a side-channel column".
-  const rows = db
-    .prepare(
-      `SELECT item.id AS item_id, item.name AS item_name, loc.name AS location_name,
-              acct.balance_minor AS quantity_on_hand, p.item_retail_price_minor AS retail_price_minor,
-              (SELECT ps.price_minor FROM item_source ps WHERE ps.item_id = item.id ORDER BY ps.is_preferred DESC, ps.id ASC LIMIT 1) AS package_cost_minor,
-              (SELECT ps.package_quantity FROM item_source ps WHERE ps.item_id = item.id ORDER BY ps.is_preferred DESC, ps.id ASC LIMIT 1) AS package_quantity
-       FROM current_entities leaf
-       JOIN account acct ON acct.entity_id = leaf.id
-       JOIN current_entities item ON item.id = leaf.parent_id
-       JOIN current_entities link ON link.name = leaf.name || ' — Hierarchy: Location'
-       JOIN current_entities loc ON loc.id = link.relation_id
-       JOIN contact p ON p.entity_id = item.id
-       WHERE leaf.name LIKE '% — Qty'
-         AND acct.balance_minor != 0`
-    )
-    .all() as {
-    item_id: number;
-    item_name: string;
-    location_name: string;
-    quantity_on_hand: number;
-    retail_price_minor: number | null;
-    package_cost_minor: number | null;
-    package_quantity: number | null;
-  }[];
+  //
+  // This used to be one raw SQL statement joining current_entities four
+  // times (leaf/item/link/loc) plus contact — a category-4 site. The
+  // leaf/item/link/loc walk is exactly db-stock.ts's own
+  // allQtyLocationAccounts() shape (same entity graph, same business
+  // reasoning), so it's reused here rather than duplicated; only the
+  // contact/item_source lookups (keyed by the now-already-resolved
+  // itemId, no current_entities join needed) stay as plain SQL.
+  const qtyRows = allQtyLocationAccounts().filter((r) => r.balance_minor !== 0);
+  const itemIds = [...new Set(qtyRows.map((r) => r.itemId))];
+
+  // The original query INNER JOINed contact (every row needed a matching
+  // contact record to appear at all) — contactItemIds preserves that
+  // exactly, rather than silently defaulting a missing contact to a $0
+  // retail price.
+  const contactRows =
+    itemIds.length === 0
+      ? []
+      : (
+          db
+            .prepare(`SELECT entity_id, item_retail_price_minor FROM contact WHERE entity_id IN (${itemIds.map(() => '?').join(',')})`)
+            .all(...itemIds) as { entity_id: number; item_retail_price_minor: number | null }[]
+        );
+  const contactItemIds = new Set(contactRows.map((c) => c.entity_id));
+  const retailPriceByItemId = new Map(contactRows.map((c) => [c.entity_id, c.item_retail_price_minor]));
+  const costByItemId = new Map(
+    itemIds.length === 0
+      ? []
+      : (
+          db
+            .prepare(
+              `SELECT item_id, price_minor AS package_cost_minor, package_quantity
+               FROM item_source
+               WHERE item_id IN (${itemIds.map(() => '?').join(',')})
+               ORDER BY item_id, is_preferred DESC, id ASC`
+            )
+            .all(...itemIds) as { item_id: number; package_cost_minor: number | null; package_quantity: number | null }[]
+        )
+          // first row per item_id after the ORDER BY above is the preferred
+          // (or, failing that, lowest-id) source — same tie-break as the
+          // original correlated subqueries, just taken from one batched
+          // query's first-seen row per item instead of N per-item ones.
+          .filter((r, i, arr) => arr.findIndex((x) => x.item_id === r.item_id) === i)
+          .map((r) => [r.item_id, r])
+  );
 
   const cellMap = new Map<string, StockOnHandCell>();
   let totalValueAtCostMinor = 0;
   let totalRealizableValueMinor = 0;
 
-  for (const r of rows) {
-    const rowKey = resolveItemKey(rowAxis, r.item_name, r.location_name);
-    const colKey = resolveItemKey(colAxis, r.item_name, r.location_name);
+  for (const r of qtyRows) {
+    if (!contactItemIds.has(r.itemId)) continue; // original INNER JOIN contact
+    const rowKey = resolveItemKey(rowAxis, r.item, r.location);
+    const colKey = resolveItemKey(colAxis, r.item, r.location);
 
     const key = `${rowKey}\u0000${colKey}`;
     if (!cellMap.has(key)) {
       cellMap.set(key, { rowKey, colKey, quantityBottles: 0, valueAtCostMinor: 0, lastCostMinor: null, averageCostMinor: null, realizableValueMinor: 0 });
     }
     const cell = cellMap.get(key)!;
-    const costMinor = r.package_cost_minor && r.package_quantity ? Math.round(r.package_cost_minor / r.package_quantity) : 0;
-    const valueAtCost = r.quantity_on_hand * costMinor;
-    const realizable = r.quantity_on_hand * (r.retail_price_minor ?? 0);
-    cell.quantityBottles += r.quantity_on_hand;
+    const cost = costByItemId.get(r.itemId);
+    const costMinor = cost?.package_cost_minor && cost?.package_quantity ? Math.round(cost.package_cost_minor / cost.package_quantity) : 0;
+    const retailPriceMinor = retailPriceByItemId.get(r.itemId) ?? 0;
+    const valueAtCost = r.balance_minor * costMinor;
+    const realizable = r.balance_minor * retailPriceMinor;
+    cell.quantityBottles += r.balance_minor;
     cell.valueAtCostMinor += valueAtCost;
     cell.realizableValueMinor += realizable;
     cell.lastCostMinor = costMinor || null;
@@ -229,10 +251,16 @@ export interface ProfitAndLossByAxisNode {
   children: ProfitAndLossByAxisNode[];
 }
 
-function plAccountIds(entityIndex: Map<number, { name: string; parent_id: number | null }>): Set<number> {
+// Every entity id that is, or is a descendant of, an entity whose name is
+// one of `rootNames` — pure entity-graph work, no SQL. Shared by
+// plAccountIds (roots: Income/Expense) and getSalesCogsMatrix's own
+// Sales Revenue/Cost of Goods Sold lookup, same one-helper-not-two
+// discipline as every other shared shape in this rollout.
+function accountIdsUnderNamed(entityIndex: Map<number, { name: string; parent_id: number | null }>, rootNames: string[]): Set<number> {
+  const rootNameSet = new Set(rootNames);
   const rootIds = new Set<number>();
   for (const [id, e] of entityIndex.entries()) {
-    if (e.name === 'Income' || e.name === 'Expense') rootIds.add(id);
+    if (rootNameSet.has(e.name)) rootIds.add(id);
   }
   const result = new Set<number>();
   for (const [id] of entityIndex.entries()) {
@@ -248,6 +276,10 @@ function plAccountIds(entityIndex: Map<number, { name: string; parent_id: number
     }
   }
   return result;
+}
+
+function plAccountIds(entityIndex: Map<number, { name: string; parent_id: number | null }>): Set<number> {
+  return accountIdsUnderNamed(entityIndex, ['Income', 'Expense']);
 }
 
 export function getProfitAndLossByAxis(
