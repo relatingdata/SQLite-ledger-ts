@@ -109,15 +109,70 @@ async function main(): Promise<void> {
   // FIRST forces the whole chain to finish initializing in its natural
   // order; the two driver imports right after this just reuse the
   // already-initialized modules from Node's module cache.
-  await import('../src/db.js');
-  const [{ SqlEntityDriver }, { KaappiEntityDriver }] = await Promise.all([
+  const { db } = await import('../src/db.js');
+
+  // Real, found-this-session gotcha: db.ts's own module-load side effect
+  // (seedRemainingData(), db.ts:106) runs UNCONDITIONALLY on every fresh
+  // import, regardless of SEED_DEMO_BUSINESSES, and is a backfill/
+  // migration step — it's allowed to genuinely create a few new
+  // entities the FIRST time it meets an older db snapshot that predates
+  // some since-added vocabulary/translation entry. If kaappi_wal was
+  // captured by an EARLIER, separate process (e.g. a prior, separate
+  // `migrate-entities-to-kaappi.ts` invocation) and THIS process's own
+  // seedRemainingData() then adds a few more rows via the plain,
+  // default SqlEntityDriver (which never touches kaappi_wal — only
+  // KaappiEntityDriver/MemoryEntityDriver append to it, on their OWN
+  // mutations), SQL's live view and the frozen WAL snapshot silently
+  // diverge by exactly those few rows. Re-snapshotting the WAL HERE, in
+  // THIS process, immediately after db.ts has already finished its own
+  // import-time seeding and before either alternate driver is
+  // constructed, closes that gap entirely — there is no process
+  // boundary left for anything to drift across. This duplicates
+  // migrate-entities-to-kaappi.ts's own op-building loop rather than
+  // importing that script directly, because that script's own `main()`
+  // runs unconditionally at import time AND calls `db.close()` at the
+  // end, which would tear down the very connection this benchmark goes
+  // on to use.
+  type JsonOp = [string, ...(string | number | boolean | null)[]];
+  function resyncWalFromEntitiesTable(): void {
+    db.exec(`CREATE TABLE IF NOT EXISTS kaappi_wal (id INTEGER PRIMARY KEY CHECK (id = 1), ops_json TEXT NOT NULL DEFAULT '[]')`);
+    db.exec(`INSERT OR IGNORE INTO kaappi_wal (id, ops_json) VALUES (1, '[]')`);
+    const rows = db
+      .prepare(`SELECT row_id, entity_id, name, parent_id, relation_id, created_by FROM entities ORDER BY row_id`)
+      .all() as { entity_id: number; name: string; parent_id: number | null; relation_id: number | null; created_by: number }[];
+    const ops: JsonOp[] = [];
+    const lastSeen = new Map<number, { name: string; parent_id: number | null; relation_id: number | null }>();
+    for (const row of rows) {
+      const prev = lastSeen.get(row.entity_id);
+      if (!prev) {
+        ops.push(['create', row.entity_id, row.name, row.parent_id, row.relation_id, row.created_by]);
+      } else {
+        if (row.name !== prev.name) ops.push(['rename', row.entity_id, row.name, row.created_by]);
+        if (row.parent_id !== prev.parent_id) ops.push(['reparent', row.entity_id, row.parent_id, row.created_by]);
+        if (row.relation_id !== prev.relation_id) ops.push(['relate', row.entity_id, row.relation_id, row.created_by]);
+      }
+      lastSeen.set(row.entity_id, { name: row.name, parent_id: row.parent_id, relation_id: row.relation_id });
+    }
+    db.prepare(`UPDATE kaappi_wal SET ops_json = ? WHERE id = 1`).run(JSON.stringify(ops));
+    console.log(`re-synced kaappi_wal in-process from ${rows.length} rows / ${lastSeen.size} entities (closes the cross-process drift gap described above).`);
+  }
+  resyncWalFromEntitiesTable();
+
+  const [{ SqlEntityDriver }, { KaappiEntityDriver }, { MemoryEntityDriver }] = await Promise.all([
     import('../src/drivers/sql-entity-driver.js'),
     import('../src/drivers/kaappi-entity-driver.js'),
+    import('../src/drivers/memory-entity-driver.js'),
   ]);
 
   const sql = new SqlEntityDriver();
   console.log('starting Kaappi subprocess + WAL replay (this is a one-time cost, excluded from every timed run below)...');
   const kaappi = new KaappiEntityDriver();
+  // MemoryEntityDriver's own construction (replaying the SAME kaappi_wal
+  // op log into its in-process box/version model) is also a one-time cost
+  // excluded from every timed run below — but unlike Kaappi's, it's pure
+  // in-process JS with no subprocess to spawn, so it's not separately
+  // narrated the way Kaappi's startup is.
+  const memory = new MemoryEntityDriver();
 
   // A real, large subtree every tutorial-fixture db has: Application ->
   // Business Reports / Business Type (prototype CoAs) / Vocabulary /
@@ -138,37 +193,70 @@ async function main(): Promise<void> {
   console.log(`\nBenchmarking against: ${dbPath}`);
   console.log(`runs per operation: ${runs} (plus one untimed warm-up each)\n`);
 
-  const results: { op: string; sqlMs: number; kaappiMs: number; ratio: number }[] = [];
+  const results: { op: string; sqlMs: number; kaappiMs: number; memoryMs: number; kaappiRatio: number; memoryRatio: number }[] = [];
 
-  function compare(op: string, sqlFn: () => void, kaappiFn: () => void): void {
+  // Normalizes a result for comparison: neither driver's ordering
+  // contract is identical (SqlEntityDriver's descendantsWithDepth orders
+  // by depth then name; MemoryEntityDriver's follows BFS insertion order;
+  // `children`/`getMany` make no ordering promise on either side), so a
+  // raw JSON.stringify of the two results can legitimately differ in
+  // order while agreeing on content — sort by id first so the check is
+  // about the real result set, not an incidental, undocumented order.
+  function normalize(rows: unknown): string {
+    if (!Array.isArray(rows)) return JSON.stringify(rows);
+    return JSON.stringify([...rows].sort((a: any, b: any) => (a.id ?? 0) - (b.id ?? 0)));
+  }
+
+  function compare(op: string, sqlFn: () => void, kaappiFn: () => void, memoryFn: () => void): void {
+    // Correctness check BEFORE timing, same discipline as every other
+    // comparison this engagement has run — a misbehaving driver that
+    // happens to be fast is not a result worth reporting.
+    const sqlCheck = normalize(sqlFn());
+    const memoryCheck = normalize(memoryFn());
+    if (sqlCheck !== memoryCheck) {
+      console.error(`MISMATCH on "${op}": SqlEntityDriver and MemoryEntityDriver returned different results. Aborting rather than reporting a misleading number.\nsql:    ${sqlCheck}\nmemory: ${memoryCheck}`);
+      process.exit(1);
+    }
     const sqlResult = timeRuns(op, runs, sqlFn);
     const kaappiResult = timeRuns(op, runs, kaappiFn);
-    results.push({ op, sqlMs: sqlResult.avgMs, kaappiMs: kaappiResult.avgMs, ratio: kaappiResult.avgMs / sqlResult.avgMs });
+    const memoryResult = timeRuns(op, runs, memoryFn);
+    results.push({
+      op,
+      sqlMs: sqlResult.avgMs,
+      kaappiMs: kaappiResult.avgMs,
+      memoryMs: memoryResult.avgMs,
+      kaappiRatio: kaappiResult.avgMs / sqlResult.avgMs,
+      memoryRatio: memoryResult.avgMs / sqlResult.avgMs,
+    });
   }
 
   compare(
     'getByName("Application" under "Root")',
     () => sql.getByName('Application', 'Root'),
-    () => kaappi.getByName('Application', 'Root')
+    () => kaappi.getByName('Application', 'Root'),
+    () => memory.getByName('Application', 'Root')
   );
 
   compare(
     `children(Application) — direct children only`,
     () => sql.children(applicationNode.id),
-    () => kaappi.children(applicationNode.id)
+    () => kaappi.children(applicationNode.id),
+    () => memory.children(applicationNode.id)
   );
 
   compare(
     `descendantsWithDepth(Application) — full subtree walk`,
     () => sql.descendantsWithDepth(applicationNode.id),
-    () => kaappi.descendantsWithDepth(applicationNode.id)
+    () => kaappi.descendantsWithDepth(applicationNode.id),
+    () => memory.descendantsWithDepth(applicationNode.id)
   );
 
   if (firstBusiness) {
     compare(
       `descendantsWithDepth(first business) — smaller subtree`,
       () => sql.descendantsWithDepth(firstBusiness.id),
-      () => kaappi.descendantsWithDepth(firstBusiness.id)
+      () => kaappi.descendantsWithDepth(firstBusiness.id),
+      () => memory.descendantsWithDepth(firstBusiness.id)
     );
   }
 
@@ -176,24 +264,40 @@ async function main(): Promise<void> {
   compare(
     `getMany(50 ids)`,
     () => sql.getMany(sampleIds),
-    () => kaappi.getMany(sampleIds)
+    () => kaappi.getMany(sampleIds),
+    () => memory.getMany(sampleIds)
   );
 
-  console.log('operation'.padEnd(55), 'sql (ms)'.padStart(10), 'kaappi (ms)'.padStart(12), 'kaappi/sql'.padStart(11));
+  console.log(
+    'operation'.padEnd(55),
+    'sql (ms)'.padStart(10),
+    'kaappi (ms)'.padStart(12),
+    'memory (ms)'.padStart(12),
+    'kaappi/sql'.padStart(11),
+    'memory/sql'.padStart(11)
+  );
   for (const r of results) {
     console.log(
       r.op.padEnd(55),
       r.sqlMs.toFixed(3).padStart(10),
       r.kaappiMs.toFixed(3).padStart(12),
-      `${r.ratio.toFixed(1)}x`.padStart(11)
+      r.memoryMs.toFixed(3).padStart(12),
+      `${r.kaappiRatio.toFixed(1)}x`.padStart(11),
+      `${r.memoryRatio.toFixed(2)}x`.padStart(11)
     );
   }
 
-  const slower = results.filter((r) => r.ratio > 1);
-  const faster = results.filter((r) => r.ratio <= 1);
+  const kaappiSlower = results.filter((r) => r.kaappiRatio > 1);
+  const kaappiFaster = results.filter((r) => r.kaappiRatio <= 1);
+  const memorySlower = results.filter((r) => r.memoryRatio > 1);
+  const memoryFaster = results.filter((r) => r.memoryRatio <= 1);
   console.log(
-    `\n${slower.length}/${results.length} operations: Kaappi slower than SQL.` +
-      (faster.length ? ` ${faster.length} operation(s) where Kaappi was not slower.` : '')
+    `\n${kaappiSlower.length}/${results.length} operations: Kaappi slower than SQL.` +
+      (kaappiFaster.length ? ` ${kaappiFaster.length} operation(s) where Kaappi was not slower.` : '')
+  );
+  console.log(
+    `${memorySlower.length}/${results.length} operations: MemoryEntityDriver slower than SQL.` +
+      (memoryFaster.length ? ` ${memoryFaster.length} operation(s) where MemoryEntityDriver was as fast or faster.` : '')
   );
 
   process.exit(0); // KaappiEntityDriver's worker is unref'd but this is explicit, not relied-upon
