@@ -33,6 +33,7 @@ import { locationsFunctions } from './call-dispatch/locations.js';
 import { matrixReportsFunctions } from './call-dispatch/matrix-reports.js';
 import { menuFunctions } from './call-dispatch/menu.js';
 import { periodFunctions } from './call-dispatch/period.js';
+import { plantFunctions } from './call-dispatch/plant.js';
 import { posFunctions } from './call-dispatch/pos.js';
 import { productsFunctions } from './call-dispatch/products.js';
 import { projectsFunctions } from './call-dispatch/projects.js';
@@ -280,6 +281,7 @@ export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
   ...matrixReportsFunctions,
   ...menuFunctions,
   ...periodFunctions,
+  ...plantFunctions,
   ...posFunctions,
   ...productsFunctions,
   ...projectsFunctions,

@@ -74,6 +74,8 @@ export const typeLedgerName: TypeDescriptor<'LedgerName'> = { brand: 'LedgerName
 export const typeBusinessLocationsRootName: TypeDescriptor<'BusinessLocationsRootName'> = { brand: 'BusinessLocationsRootName' };
 export const typeBusinessItemsRootName: TypeDescriptor<'BusinessItemsRootName'> = { brand: 'BusinessItemsRootName' };
 export const typeBusinessContactsRootName: TypeDescriptor<'BusinessContactsRootName'> = { brand: 'BusinessContactsRootName' };
+export const typeBusinessPlantRootName: TypeDescriptor<'BusinessPlantRootName'> = { brand: 'BusinessPlantRootName' };
+export const typePlantItemName: TypeDescriptor<'PlantItemName'> = { brand: 'PlantItemName' };
 export const typeLineTypeMarkerName: TypeDescriptor<'LineTypeMarkerName'> = { brand: 'LineTypeMarkerName' };
 export const typeStorageOriginMarkerName: TypeDescriptor<'StorageOriginMarkerName'> = { brand: 'StorageOriginMarkerName' };
 export const typeTextDirectionMarkerName: TypeDescriptor<'TextDirectionMarkerName'> = { brand: 'TextDirectionMarkerName' };
@@ -3726,6 +3728,120 @@ export function createEmployee(name: string, placeOfEmployment: string, userId: 
   return entity;
 }
 
+// Plant — hired/owned equipment, modeled as a per-business root (same
+// shape as Items/Locations in PER_BUSINESS_ROOTS above), clockable like
+// an Employee (see clockPlantIn/clockPlantOut, db-journal.ts). Its own
+// Hourly Rate stands in for an Employee's `contact.wage_minor_per_hour` —
+// Plant isn't a contact, so this is a plain Entity.setAttr, not a SQL
+// column.
+export function createPlantItem(
+  name: string,
+  business: BusinessName,
+  hourlyRateMinor: number,
+  ownedOrHired: 'Owned' | 'Hired',
+  userId: UserId,
+  hireVendor?: string
+): { id: number } {
+  const plantRoot = requireEntity('Plant', typeBusinessPlantRootName, requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName)));
+  const entity = create(plantRoot, typePlantItemName, name, userId);
+  Entity.setAttr(entity.id, 'Hourly Rate', String(hourlyRateMinor), userId);
+  Entity.setAttr(entity.id, 'Owned or Hired', ownedOrHired, userId);
+  if (hireVendor) Entity.setAttr(entity.id, 'Hire Vendor', hireVendor, userId);
+  return entity;
+}
+
+export interface PlantItemRecord {
+  name: string;
+  hourlyRateMinor: number;
+  ownedOrHired: 'Owned' | 'Hired';
+  hireVendor?: string;
+}
+
+export function getPlantItem(name: string): PlantItemRecord | undefined {
+  const entity = Entity.get(name);
+  if (!entity) return undefined;
+  const rate = Entity.getAttr(entity.id, 'Hourly Rate');
+  if (rate == null) return undefined;
+  return {
+    name,
+    hourlyRateMinor: Number(rate),
+    ownedOrHired: (Entity.getAttr(entity.id, 'Owned or Hired') as 'Owned' | 'Hired' | undefined) ?? 'Owned',
+    hireVendor: Entity.getAttr(entity.id, 'Hire Vendor'),
+  };
+}
+
+export function listPlant(business: BusinessName): string[] {
+  const businessEntity = requireEntity(business, typeBusinessName, requireEntity('Businesses', typeRootName));
+  const plantRoot = Entity.getUnder('Plant', businessEntity.id);
+  if (!plantRoot) return [];
+  return Entity.children(plantRoot.id).map((c) => c.name);
+}
+
+// Skills — a lazy, idempotent, global taxonomy (same idiom as
+// db-quotations.ts's own ensureQuotationsRoot/createSystemEntity), tagged
+// onto a contact (Employee or external contractor) with a real,
+// pairing-specific rate: Shape B (setEntityLink) + Shape A (Entity.setAttr)
+// composed exactly as BOM already does for its own assembly->component
+// link, just tagged 'Skill' instead of 'BOM'.
+const SKILLS_ROOT = 'Skills';
+
+function ensureSkillsRoot(): { id: number } {
+  const applicationId = Entity.get('Application')?.id;
+  if (!applicationId) throw new ValidationError('No real "Application" root — this installation is not fully seeded.');
+  const existing = Entity.getUnder(SKILLS_ROOT, applicationId);
+  if (existing) return existing;
+  return { id: createSystemEntity(SKILLS_ROOT, applicationId) };
+}
+
+export function ensureSkill(name: string, userId: UserId): { id: number } {
+  const root = ensureSkillsRoot();
+  const existing = Entity.getUnder(name, root.id);
+  if (existing) return existing;
+  return create(requireEntityById(root.id, typeRootName), typeRootName, name, userId);
+}
+
+export function listSkills(): string[] {
+  const root = ensureSkillsRoot();
+  return Entity.children(root.id).map((c) => c.name);
+}
+
+export function tagSkill(contactName: string, skillName: string, rateMinorPerHour: number, userId: UserId): void {
+  ensureSkill(skillName, userId);
+  const linkType = `Skill — ${skillName}`;
+  setEntityLink(contactName, linkType, skillName, userId);
+  const record = Entity.get(`${contactName} — ${linkType}`, contactName);
+  if (record) {
+    Entity.tag(record.id, 'Skill', userId);
+    Entity.setAttr(record.id, 'Rate', String(rateMinorPerHour), userId);
+  }
+}
+
+export function untagSkill(contactName: string, skillName: string, userId: UserId): void {
+  const linkType = `Skill — ${skillName}`;
+  const record = Entity.get(`${contactName} — ${linkType}`, contactName);
+  if (record) Entity.untag(record.id, 'Skill', userId);
+  deleteEntityLink(contactName, linkType, userId);
+}
+
+export interface SkillAssignment {
+  skill: string;
+  rateMinorPerHour: number;
+}
+
+export function getSkills(contactName: string): SkillAssignment[] {
+  const rows = db
+    .prepare(
+      `SELECT child.id, target.name AS skill
+       FROM current_entities child
+       JOIN current_entities parent ON parent.id = child.parent_id
+       JOIN current_entities target ON target.id = child.relation_id
+       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Skill' AND tag.relation_id IS NOT NULL
+       WHERE parent.name = ?`
+    )
+    .all(contactName) as { id: number; skill: string }[];
+  return rows.map((row) => ({ skill: row.skill, rateMinorPerHour: Number(Entity.getAttr(row.id, 'Rate') ?? 0) }));
+}
+
 export function getHierarchyChildren(parentName: string, hierarchyName: string): string[] {
   const rows = db
     .prepare(
@@ -5647,6 +5763,10 @@ export const PER_BUSINESS_ROOTS: { name: string; type: TypeDescriptor<string> }[
   { name: 'Vocabulary', type: typeRootName },
   { name: 'Ledgers', type: typeRootName },
   { name: 'Profit Centers', type: typeRootName },
+  // Added for the Manufacturing/Project Builder tutorials (Recipe
+  // widening): a per-business root for hired/owned equipment, same
+  // shape as Items/Locations above. See docs/pm-project-builder.md.
+  { name: 'Plant', type: typeBusinessPlantRootName },
 ];
 
 export function createBusiness(
@@ -5731,6 +5851,6 @@ export function getChartOfAccountsPrototype(language: string): string[] {
 export * from './db-journal.js';
 import { stageLine, postJournalEntry } from './db-journal.js';
 export * from './db-stock.js';
-import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, type Location as StockLocation } from './db-stock.js';
+import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, createSystemEntity, type Location as StockLocation } from './db-stock.js';
 export * from './db-quotations.js';
 

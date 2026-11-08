@@ -4461,6 +4461,90 @@ test('stageBomComponent/postBomComponents/getBomComponents: Recipe widening — 
   assert.equal(updatedLabour?.scheduledStart, '2027-03-04');
 });
 
+test('createPlantItem/getPlantItem/listPlant: a real, per-business Plant root, same shape as Items/Locations', () => {
+  const biz = fx.freshBusiness('PlantTest Co');
+  const excavator = fx.uniqueName('PlantTest Excavator');
+  db.createPlantItem(excavator, biz.business, 15000, 'Owned', fx.userId);
+
+  const plant = db.getPlantItem(excavator);
+  assert.equal(plant?.hourlyRateMinor, 15000);
+  assert.equal(plant?.ownedOrHired, 'Owned');
+  assert.equal(plant?.hireVendor, undefined);
+  assert.deepEqual(db.listPlant(biz.business), [excavator]);
+
+  const crane = fx.uniqueName('PlantTest Tower Crane');
+  db.createPlantItem(crane, biz.business, 42000, 'Hired', fx.userId, 'PlantTest Crane Hire Pty Ltd');
+  const hiredPlant = db.getPlantItem(crane);
+  assert.equal(hiredPlant?.ownedOrHired, 'Hired');
+  assert.equal(hiredPlant?.hireVendor, 'PlantTest Crane Hire Pty Ltd');
+  assert.deepEqual(db.listPlant(biz.business).sort(), [crane, excavator].sort());
+
+  // A second business's own Plant root is genuinely separate — no cross-business leakage.
+  const biz2 = fx.freshBusiness('PlantTest Other Co');
+  assert.deepEqual(db.listPlant(biz2.business), []);
+});
+
+test('clockPlantIn/clockPlantOut/getOpenPlantClock: Plant\'s own clock, a direct structural copy of the real Employee clock-in/out', () => {
+  const biz = fx.freshBusiness('PlantClockTest Co');
+  const excavator = fx.uniqueName('PlantClockTest Excavator');
+  db.createPlantItem(excavator, biz.business, 10000, 'Owned', fx.userId);
+
+  assert.equal(db.getOpenPlantClock(excavator), undefined, 'not clocked in yet');
+
+  const clockIn = db.clockPlantIn(excavator, db.asAccountName('Cost of Goods Sold'), biz.business, biz.actualLedger, fx.userId);
+  assert.equal(clockIn.plant, excavator);
+  assert.ok(clockIn.po_reference.startsWith('PLANT-CLOCK-'));
+
+  const open = db.getOpenPlantClock(excavator);
+  assert.equal(open?.po_reference, clockIn.po_reference);
+
+  assert.throws(() => db.clockPlantIn(excavator, db.asAccountName('Cost of Goods Sold'), biz.business, biz.actualLedger, fx.userId), /already clocked in/, 'a real, already-clocked-in Plant item cannot clock in twice');
+
+  db.clockPlantOut(excavator, biz.business, biz.actualLedger, fx.userId);
+  assert.equal(db.getOpenPlantClock(excavator), undefined, 'clocked out — no open clock remains');
+  assert.throws(() => db.clockPlantOut(excavator, biz.business, biz.actualLedger, fx.userId), /not currently clocked in/);
+});
+
+test('ensureSkill/listSkills/tagSkill/untagSkill/getSkills: a real, pairing-specific rate per contact+skill, on top of the same setEntityLink shape BOM already uses', () => {
+  const location = fx.uniqueName('SkillTest Location');
+  db.createEntityRaw({ name: location, parent: 'Locations' }, fx.userId);
+  const carpenter = fx.uniqueName('SkillTest Carpenter Jones');
+  db.createEmployee(carpenter, location, fx.userId);
+
+  assert.deepEqual(db.getSkills(carpenter), []);
+
+  db.tagSkill(carpenter, 'Framing', 6500, fx.userId);
+  db.tagSkill(carpenter, 'Roofing', 7000, fx.userId);
+  assert.ok(db.listSkills().includes('Framing'));
+  assert.ok(db.listSkills().includes('Roofing'));
+
+  const skills = db.getSkills(carpenter).sort((a, b) => a.skill.localeCompare(b.skill));
+  assert.equal(skills.length, 2);
+  assert.deepEqual(skills[0], { skill: 'Framing', rateMinorPerHour: 6500 });
+  assert.deepEqual(skills[1], { skill: 'Roofing', rateMinorPerHour: 7000 });
+
+  // Re-tagging the same pairing with a different rate replaces it, same
+  // replace-in-place idiom BOM already uses for a re-staged component.
+  db.tagSkill(carpenter, 'Framing', 8000, fx.userId);
+  const updated = db.getSkills(carpenter);
+  assert.equal(updated.length, 2, 'still exactly two real skills, not three');
+  assert.equal(updated.find((s) => s.skill === 'Framing')?.rateMinorPerHour, 8000);
+
+  db.untagSkill(carpenter, 'Roofing', fx.userId);
+  assert.deepEqual(db.getSkills(carpenter).map((s) => s.skill), ['Framing']);
+
+  // The same Skill taxonomy is shared across every contact — a second
+  // employee tagged with the SAME real "Framing" skill gets their own,
+  // independent rate, not the first employee's.
+  const location2 = fx.uniqueName('SkillTest Location Two');
+  db.createEntityRaw({ name: location2, parent: 'Locations' }, fx.userId);
+  const apprentice = fx.uniqueName('SkillTest Apprentice Smith');
+  db.createEmployee(apprentice, location2, fx.userId);
+  db.tagSkill(apprentice, 'Framing', 3000, fx.userId);
+  assert.equal(db.getSkills(apprentice).find((s) => s.skill === 'Framing')?.rateMinorPerHour, 3000);
+  assert.equal(db.getSkills(carpenter).find((s) => s.skill === 'Framing')?.rateMinorPerHour, 8000, 'the first employee\'s own rate is untouched by the second\'s');
+});
+
 test('createProjectTask/getProjectTasks/addTaskDependency/getTaskDependencies: real project scheduling with zero new tables, per direct, absolute instruction', () => {
   const projectName = fx.uniqueName('PmTest Riverside Build');
   db.create(db.requireEntity('Projects', db.typeRootName), db.typeRootName, projectName, fx.userId);

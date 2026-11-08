@@ -22,6 +22,7 @@ import {
   ensureLocationCapacityAccount,
   getActiveLedger,
   resolveBusinessCoaAccountId,
+  getPlantItem,
   type Location as StockLocation,
   type BusinessName,
   type LedgerName,
@@ -370,6 +371,83 @@ export function getOpenProjectClockForEmployee(employeeName: EmployeeName): Empl
   const open = getOpenProjectClockEntity(employeeName);
   if (!open) return undefined;
   return { employee: employeeName, po_reference: open.po_reference, project_expense_account: open.project_expense_account, clocked_in_at: open.clocked_in_at };
+}
+
+// Plant's own clock-in/out — a direct structural copy of
+// clockInToProject/clockOutOfProject above, substituting the Plant
+// item's own Hourly Rate (Entity.setAttr-backed, db.ts's getPlantItem)
+// for contact.wage_minor_per_hour. `vendor` here is the Plant item's own
+// name, cast the exact same loose way the employee clock already casts
+// an Employee name as a ProviderName (asProviderName is a pure brand, no
+// runtime "must be a real AP contact" check) — confirmed by reading
+// placeOrder/postPurchaseOrder directly before reusing this shape.
+export interface PlantClock {
+  plant: string;
+  po_reference: string;
+  project_expense_account: string;
+  clocked_in_at: string;
+}
+
+export function clockPlantIn(plantName: string, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): PlantClock {
+  const plant = getPlantItem(plantName);
+  if (!plant) throw new ValidationError(`No real Plant item named "${plantName}" — create it first.`);
+  const entity = Entity.get(plantName);
+  if (!entity) throw new ValidationError(`No entity named "${plantName}".`);
+  const alreadyClocked = Entity.findByNameContaining('Clocked In — ', entity.id).some((e) => e.relation_id !== null);
+  if (alreadyClocked) throw new ValidationError(`"${plantName}" is already clocked in on a real project — clock out first.`);
+
+  const clockedInAt = new Date().toISOString();
+  const poReference = `PLANT-CLOCK-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  stagePurchaseOrder({
+    reference: poReference,
+    business,
+    ledger,
+    vendor: plant.hireVendor ?? plantName,
+    item: projectExpenseAccount,
+    quantity: 1,
+    price_minor: plant.hourlyRateMinor,
+    transdate: clockedInAt.slice(0, 10),
+    description: `${plantName}'s own real, standing time order against ${projectExpenseAccount}, accepted at clock-in`,
+  });
+  postPurchaseOrder(poReference, business, ledger, userId);
+
+  const clockEntity = Entity.create(`Clocked In — ${poReference} — ${projectExpenseAccount} — ${clockedInAt}`, entity.id, userId);
+  Entity.relate(clockEntity.id, 'Active', userId);
+  return { plant: plantName, po_reference: poReference, project_expense_account: projectExpenseAccount, clocked_in_at: clockedInAt };
+}
+
+export function clockPlantOut(plantName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+  const open = getOpenProjectClockEntity(plantName);
+  if (!open) throw new ValidationError(`"${plantName}" is not currently clocked in on any real project.`);
+
+  const plant = getPlantItem(plantName)!;
+  const clockedOutAt = new Date();
+  const clockedInAt = new Date(open.clocked_in_at);
+  const realHoursWorked = Math.max(0, (clockedOutAt.getTime() - clockedInAt.getTime()) / (1000 * 60 * 60));
+  const valueMinor = Math.round(realHoursWorked * plant.hourlyRateMinor);
+
+  const receiptReference = `${open.po_reference}-RECEIPT`;
+  stageOrderReceipt({
+    reference: receiptReference,
+    business,
+    ledger,
+    po_reference: open.po_reference,
+    item: open.project_expense_account,
+    vendor: plant.hireVendor ?? plantName,
+    quantity: realHoursWorked,
+    value_minor: valueMinor,
+    transdate: clockedOutAt.toISOString().slice(0, 10),
+    description: `${realHoursWorked.toFixed(2)} real hours, clock-in to clock-out, at ${plantName}'s own real hourly rate — real delivery of the standing time order accepted at clock-in, now genuinely liable to payment`,
+  });
+  postOrderReceipt(receiptReference, business, ledger, userId);
+
+  Entity.relate(open.id, null, asUserId(1));
+}
+
+export function getOpenPlantClock(plantName: string): PlantClock | undefined {
+  const open = getOpenProjectClockEntity(plantName);
+  if (!open) return undefined;
+  return { plant: plantName, po_reference: open.po_reference, project_expense_account: open.project_expense_account, clocked_in_at: open.clocked_in_at };
 }
 
 export interface OrderReceiptInput {

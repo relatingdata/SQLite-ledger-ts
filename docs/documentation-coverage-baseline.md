@@ -389,3 +389,30 @@ anywhere in the manual despite the protocol itself being documented:
 - `decodeCategoryTree`
 - `encodeGenericTree`
 - `decodeGenericTree`
+
+Found 2026-11-08, Stage 2 of the Manufacturing/Project Builder tutorial
+build (see the live plan at the time:
+"Three tutorial chapters: Retail (existing), Manufacturing, Project
+Builder — with real Recipe/Plant/Skill/Project backend"). Plant and
+Skill are new, real, genuinely working mechanisms (unit-tested and
+proven over a live `callBackendFunction` round trip) — not a doc gap
+caused by carelessness, but a deliberate, temporary sequencing choice:
+`docs/pm-project-builder.md` is planned to document this whole
+mechanism — Recipe/Plant/Skill/Project/Milestone/contention together,
+once the rest of it exists (Stage 7) — rather than writing a partial
+chapter now that would itself go stale by the time Stage 3-7 land.
+Expected to close when that chapter is written.
+- `plantFunctions`
+- `createPlantItem`
+- `getPlantItem`
+- `listPlant`
+- `clockPlantIn`
+- `clockPlantOut`
+- `getOpenPlantClock`
+- `ensureSkill`
+- `listSkills`
+- `tagSkill`
+- `untagSkill`
+- `getSkills`
+- `typeBusinessPlantRootName`
+- `typePlantItemName`
