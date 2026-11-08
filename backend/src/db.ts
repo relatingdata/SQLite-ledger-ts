@@ -3492,20 +3492,55 @@ export function deleteEntityLink(entityName: string, linkType: string, userId: U
   }
 }
 
-export function stageBomComponent(input: {
-  assemblyItem: string; business: string; componentItem: string; quantity: number; unit: string;
-}): void {
+export type BomLineKind = 'Material' | 'Labour' | 'Plant';
+
+export interface BomComponentInput {
+  assemblyItem: string;
+  business: string;
+  componentItem: string; // a component Item (Material), or a resource name (Labour: employee/contractor; Plant: a Plant item)
+  quantity: number;
+  unit: string;
+  kind?: BomLineKind; // default 'Material' — every pre-existing caller is unaffected
+  durationHours?: number;
+  scheduledStart?: string;
+  scheduledEnd?: string;
+}
+
+export interface BomComponentLine {
+  component: string;
+  quantity: number;
+  unit: string;
+  kind: BomLineKind;
+  durationHours?: number;
+  scheduledStart?: string;
+  scheduledEnd?: string;
+}
+
+export function stageBomComponent(input: BomComponentInput): void {
+  const kind = input.kind ?? 'Material';
   db.prepare(
-    `INSERT INTO assembly_bom_staging (assembly_item, business, component_item, quantity, unit)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT (assembly_item, business, component_item) DO UPDATE SET quantity = ?, unit = ?`
-  ).run(input.assemblyItem, input.business, input.componentItem, input.quantity, input.unit, input.quantity, input.unit);
+    `INSERT INTO assembly_bom_staging
+       (assembly_item, business, component_item, quantity, unit, kind, duration_hours, scheduled_start, scheduled_end)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT (assembly_item, business, component_item) DO UPDATE SET
+       quantity = ?, unit = ?, kind = ?, duration_hours = ?, scheduled_start = ?, scheduled_end = ?`
+  ).run(
+    input.assemblyItem, input.business, input.componentItem, input.quantity, input.unit,
+    kind, input.durationHours ?? null, input.scheduledStart ?? null, input.scheduledEnd ?? null,
+    input.quantity, input.unit, kind, input.durationHours ?? null, input.scheduledStart ?? null, input.scheduledEnd ?? null
+  );
 }
 
 export function postBomComponents(assemblyItem: string, business: string, userId: UserId): void {
   const rows = db
-    .prepare(`SELECT component_item, quantity, unit FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`)
-    .all(assemblyItem, business) as { component_item: string; quantity: number; unit: string }[];
+    .prepare(
+      `SELECT component_item, quantity, unit, kind, duration_hours, scheduled_start, scheduled_end
+       FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`
+    )
+    .all(assemblyItem, business) as {
+      component_item: string; quantity: number; unit: string; kind: BomLineKind;
+      duration_hours: number | null; scheduled_start: string | null; scheduled_end: string | null;
+    }[];
   for (const row of rows) {
     const linkType = `BOM — ${row.component_item}`;
     setEntityLink(assemblyItem, linkType, row.component_item, userId);
@@ -3514,6 +3549,12 @@ export function postBomComponents(assemblyItem: string, business: string, userId
       Entity.tag(record.id, 'BOM', userId);
       Entity.setAttr(record.id, 'Quantity', String(row.quantity), userId);
       Entity.setAttr(record.id, 'Unit', row.unit, userId);
+      // Additive — only ever written for a Labour/Plant line, never for the
+      // plain Material lines every pre-existing caller still posts.
+      if (row.kind !== 'Material') Entity.setAttr(record.id, 'Kind', row.kind, userId);
+      if (row.duration_hours != null) Entity.setAttr(record.id, 'Duration', String(row.duration_hours), userId);
+      if (row.scheduled_start) Entity.setAttr(record.id, 'Scheduled Start', row.scheduled_start, userId);
+      if (row.scheduled_end) Entity.setAttr(record.id, 'Scheduled End', row.scheduled_end, userId);
     }
   }
   db.prepare(`DELETE FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`).run(assemblyItem, business);
@@ -3526,7 +3567,7 @@ export function deleteBomComponent(assemblyItem: string, componentItem: string, 
   deleteEntityLink(assemblyItem, linkType, userId);
 }
 
-export function getBomComponents(assemblyItem: string): { component: string; quantity: number; unit: string }[] {
+export function getBomComponents(assemblyItem: string): BomComponentLine[] {
   const rows = db
     .prepare(
       `SELECT child.id, target.name AS component
@@ -3537,11 +3578,19 @@ export function getBomComponents(assemblyItem: string): { component: string; qua
        WHERE parent.name = ?`
     )
     .all(assemblyItem) as { id: number; component: string }[];
-  return rows.map((row) => ({
-    component: row.component,
-    quantity: Number(Entity.getAttr(row.id, 'Quantity') ?? 0),
-    unit: Entity.getAttr(row.id, 'Unit') ?? '',
-  }));
+  return rows.map((row) => {
+    const kind = (Entity.getAttr(row.id, 'Kind') as BomLineKind | undefined) ?? 'Material';
+    const durationRaw = Entity.getAttr(row.id, 'Duration');
+    return {
+      component: row.component,
+      quantity: Number(Entity.getAttr(row.id, 'Quantity') ?? 0),
+      unit: Entity.getAttr(row.id, 'Unit') ?? '',
+      kind,
+      durationHours: durationRaw != null ? Number(durationRaw) : undefined,
+      scheduledStart: Entity.getAttr(row.id, 'Scheduled Start'),
+      scheduledEnd: Entity.getAttr(row.id, 'Scheduled End'),
+    };
+  });
 }
 
 export function createProjectTask(

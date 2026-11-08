@@ -4396,6 +4396,69 @@ test('stageBomComponent/postBomComponents/getBomComponents: a real Bill of Mater
   const updated = db.getBomComponents(assembly);
   assert.equal(updated.length, 2, 'still exactly two real components, not three');
   assert.equal(updated.find((c) => c.component === gin)?.quantity, 45, 'the real, updated quantity replaced the old one');
+
+  // Every real line posted above omitted `kind` entirely — confirms the
+  // widening below is additive, not a breaking change to this test.
+  for (const c of updated) assert.equal(c.kind, 'Material', 'an omitted kind defaults to Material, unaffected by the Recipe widening');
+});
+
+test('stageBomComponent/postBomComponents/getBomComponents: Recipe widening — Labour and Plant lines carry a real kind/duration/schedule, Material stays the default', () => {
+  const biz = fx.freshBusiness('RecipeTest Co');
+  const assembly = fx.uniqueName('RecipeTest Medium Dwelling — Framing Stage');
+  const timber = fx.uniqueName('RecipeTest Timber Frame Kit');
+  const carpenter = fx.uniqueName('RecipeTest Carpenter Jones');
+  const crane = fx.uniqueName('RecipeTest Tower Crane');
+  db.createItem(assembly, 'Items', fx.userId, biz.business);
+  db.createItem(timber, 'Items', fx.userId, biz.business);
+  // Labour/Plant lines name a resource (an employee/contractor or a Plant
+  // item), not a component Item — `setEntityLink`/`getBomComponents`
+  // place no constraint on what kind of entity the target is, so a plain
+  // Item entity stands in for "a real, resolvable name" here without
+  // needing the real Plant/Skill machinery this test predates.
+  db.createItem(carpenter, 'Items', fx.userId, biz.business);
+  db.createItem(crane, 'Items', fx.userId, biz.business);
+
+  db.stageBomComponent({ assemblyItem: assembly, business: biz.business, componentItem: timber, quantity: 1, unit: 'kit' });
+  db.stageBomComponent({
+    assemblyItem: assembly, business: biz.business, componentItem: carpenter, quantity: 1, unit: 'hour',
+    kind: 'Labour', durationHours: 16, scheduledStart: '2027-03-01', scheduledEnd: '2027-03-03',
+  });
+  db.stageBomComponent({
+    assemblyItem: assembly, business: biz.business, componentItem: crane, quantity: 1, unit: 'hour',
+    kind: 'Plant', durationHours: 8, scheduledStart: '2027-03-02', scheduledEnd: '2027-03-02',
+  });
+  db.postBomComponents(assembly, biz.business, fx.userId);
+
+  const lines = db.getBomComponents(assembly);
+  assert.equal(lines.length, 3, 'all three real lines — one Material, one Labour, one Plant — were posted');
+
+  const material = lines.find((l) => l.component === timber);
+  assert.equal(material?.kind, 'Material', 'a plain component, given no kind, defaults to Material');
+  assert.equal(material?.durationHours, undefined, 'Material lines carry no duration');
+
+  const labour = lines.find((l) => l.component === carpenter);
+  assert.equal(labour?.kind, 'Labour');
+  assert.equal(labour?.durationHours, 16);
+  assert.equal(labour?.scheduledStart, '2027-03-01');
+  assert.equal(labour?.scheduledEnd, '2027-03-03');
+
+  const plant = lines.find((l) => l.component === crane);
+  assert.equal(plant?.kind, 'Plant');
+  assert.equal(plant?.durationHours, 8);
+  assert.equal(plant?.scheduledStart, '2027-03-02');
+
+  // Re-staging the same Labour line with a different schedule, same as
+  // the existing Material re-stage case above, must replace it in place.
+  db.stageBomComponent({
+    assemblyItem: assembly, business: biz.business, componentItem: carpenter, quantity: 1, unit: 'hour',
+    kind: 'Labour', durationHours: 24, scheduledStart: '2027-03-04', scheduledEnd: '2027-03-07',
+  });
+  db.postBomComponents(assembly, biz.business, fx.userId);
+  const reposted = db.getBomComponents(assembly);
+  assert.equal(reposted.length, 3, 'still exactly three real lines, not four');
+  const updatedLabour = reposted.find((l) => l.component === carpenter);
+  assert.equal(updatedLabour?.durationHours, 24, 'the real, updated duration replaced the old one');
+  assert.equal(updatedLabour?.scheduledStart, '2027-03-04');
 });
 
 test('createProjectTask/getProjectTasks/addTaskDependency/getTaskDependencies: real project scheduling with zero new tables, per direct, absolute instruction', () => {

@@ -1196,12 +1196,23 @@ CREATE TABLE journal_entry_staging (
 -- (via a TypeScript function, not a SQL trigger) rather than
 -- reimplementing createEntity's own real uniqueness/vocabulary
 -- validation logic a second time in raw SQL.
+-- Widened (additive, backward-compatible) for Recipe lines: a line is
+-- 'Material' by default (unchanged behavior for every pre-existing
+-- caller) or 'Labour'/'Plant', in which case component_item names a
+-- resource (an employee/contractor or a Plant item) rather than a
+-- component item, and duration_hours/scheduled_start/scheduled_end carry
+-- its real time dimension. See docs/pm-manufacturing-tutorial.md and
+-- docs/pm-project-builder.md.
 CREATE TABLE assembly_bom_staging (
-  assembly_item  TEXT NOT NULL,
-  business       TEXT NOT NULL,
-  component_item TEXT NOT NULL,
-  quantity       REAL NOT NULL,
-  unit           TEXT NOT NULL, -- ml, g, unit, nip, glass
+  assembly_item   TEXT NOT NULL,
+  business        TEXT NOT NULL,
+  component_item  TEXT NOT NULL,
+  quantity        REAL NOT NULL,
+  unit            TEXT NOT NULL, -- ml, g, unit, nip, glass, hour
+  kind            TEXT NOT NULL DEFAULT 'Material', -- 'Material' | 'Labour' | 'Plant'
+  duration_hours  REAL,
+  scheduled_start TEXT,
+  scheduled_end   TEXT,
   PRIMARY KEY (assembly_item, business, component_item)
 );
 
