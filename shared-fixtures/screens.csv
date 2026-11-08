@@ -225,3 +225,40 @@ Set Employee Manager Via Structure Popup,data,/setup/business-structure,.box:has
 Set Employee Manager Via Structure Popup,data,/setup/business-structure,.box:has-text('Jordan Lee');;.side-panel button:has-text('Reports to'),setEmployeeManagerViaStructurePopup,key:Enter,3,managerName,.inline-panel select,select
 Delete Department Via Structure Popup,data,/setup/business-structure,.box:has-text('Temp Dept');;key:Delete,deleteDepartmentViaStructurePopup,,1,businessName,,text
 Delete Department Via Structure Popup,data,/setup/business-structure,.box:has-text('Temp Dept');;key:Delete,deleteDepartmentViaStructurePopup,,2,departmentName,,text
+Receive Stock Quantity,data,,,receiveStockQuantitySimple,,1,reference,,text
+Receive Stock Quantity,data,,,receiveStockQuantitySimple,,2,businessName,,text
+Receive Stock Quantity,data,,,receiveStockQuantitySimple,,3,ledger,,text
+Receive Stock Quantity,data,,,receiveStockQuantitySimple,,4,itemName,,text
+Receive Stock Quantity,data,,,receiveStockQuantitySimple,,5,locationName,,text
+Receive Stock Quantity,data,,,receiveStockQuantitySimple,,6,quantity,,text
+Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,1,reference,,text
+Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,2,businessName,,text
+Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,3,ledger,,text
+Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,4,itemName,,text
+Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,5,locationName,,text
+Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,6,quantity,,text
+Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Check Bom Components Recorded,data,,,,,1,assemblyItem,,text
+Check Bom Components Recorded,data,,,,,2,expectedCount,,text
+Check Stock Nonnegative,data,,,,,1,businessName,,text
+Ensure Item Inventory Account,data,,,ensureItemInventoryAccountSimple,,1,businessName,,text
+Ensure Item Inventory Account,data,,,ensureItemInventoryAccountSimple,,2,itemName,,text

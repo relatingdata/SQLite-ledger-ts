@@ -1013,6 +1013,82 @@ locations of each type, staff, an assembly, a full
 order→receive→transfer→sell→stocktake→year-end-close cycle. No
 browser — this is the right level to prove a lifecycle like this at.
 
+## Manufacturing tutorial — a second, real business
+
+A wholly separate real business ("Tutorial Window & Door Manufacturing"),
+proving the same `step-runner.ts`/`screens.csv` mechanism, and the Recipe-
+widened BOM (`stageBomComponent`/`postBomComponents`/`getBomComponents` —
+see Part 3's domain reference), work identically for a genuinely
+different kind of business, not just the Retail one above. Narrated for
+the person using the application in
+`docs/user-manual-ch4-manufacturing-tutorial.md`.
+
+```
+make test-e2e-manufacturing-tutorial          # fast — API path only, no browser
+make test-e2e-manufacturing-tutorial-browser  # same fixture, driven through a real browser
+make test-e2e-manufacturing-full              # the "full" tier — see below
+```
+
+Fixture files: `shared-fixtures/manufacturing-tutorial-steps.csv` +
+`.control.csv` — the exact, same positional-CSV shape as the Retail
+tutorial's own `tutorial-steps.csv`, read by the exact, same
+`step-runner.ts`. New `API_REGISTRY` entries this fixture needed:
+`ensureItemInventoryAccountSimple` (provisions a real, Balance-Sheet-
+classified Inventory account for an item — see the note below),
+`setBomComponentSimple` (the exact, real, Material-only
+`stageBomComponent`/`postBomComponents` pair the pre-existing, unmodified
+`items/+page.svelte` "Bill of Materials" UI card already calls — this
+chapter needed zero frontend changes), and `receiveStockQuantitySimple`/
+`dispatchStockQuantitySimple` (`db-stock.ts`'s own `receiveItems`/
+`dispatchItems`, called one line at a time). New `VERIFY_REGISTRY`
+entries: `bom_components_recorded`, `stock_on_hand_nonnegative`.
+
+The fixture simulates assembly itself as a real stock dispatch (raw
+materials out of "Raw Materials Store") plus a real stock receive
+(finished assemblies into "Finished Goods Store"), using these same,
+existing `receiveItems`/`dispatchItems` functions — deliberately never a
+new "Assemble" posting action. A real reclassification journal entry per
+assembly moves its own, real, BOM-computed cost from the consumed raw
+materials' own accounts into the assembly's own account, using the exact,
+same "an item is itself a real, postable account" convention
+`db-journal.ts`'s own `postOrderReceipt`/`postOrderDispatch` already use
+(`asAccountName(staged.item)`).
+
+**A real, confirmed gap, found live while building this chapter, and its
+fix**: posting a journal line directly to a bare item name, before that
+item has ever been given a real Chart-of-Accounts parent, still succeeds
+— the name resolves to the item entity itself, and the entry still posts
+and still balances the Trial Balance — but that entity was never parented
+under the business's own CoA "Inventory" node, so the posted value never
+reaches the Balance Sheet's own Asset walk (Trial Balance balances;
+Assets stop reconciling to Liabilities + Equity). The fix: call `db.ts`'s
+own `ensureItemInventoryAccount(itemName, userId, undefined, business)`
+once, immediately after creating an item and before its first real $
+posting — the exact, real mechanism POS/Purchase-Order flows already rely
+on. Calling it late, after a bad posting has already happened, does not
+retroactively fix it — it only creates a second, duplicate, differently-
+parented entity of the same name, which is worse. Both this fixture and
+`simulate-manufacturing-cycles.ts` (below) call it up front, right after
+every item is created.
+
+### Full / volume — the Manufacturing cycle simulation
+
+Per the user's own "lighter now" answer (a bespoke, Retail-style golden-
+figure volume simulation for Manufacturing, mirroring the Wine Retail
+Business one below, is explicitly deferred, future work), this chapter's
+own "full" tier is `backend/scripts/simulate-manufacturing-cycles.ts` —
+a real, looped simulation (3 repeated purchase/assemble/sell cycles
+against one fresh db), verified entirely via computed invariants, never
+a hardcoded dollar figure: the Trial Balance balances; no on-hand
+quantity anywhere ever goes negative; each raw material's own real
+leftover buffer stock, after 3 cycles, exactly matches
+`(purchased − consumed) × cycles`, computed from the same, real BOM
+ratios the fixture itself uses; every assembly produced across all 3
+cycles was also sold, so Finished Goods Store holds none of it
+afterward; net income is positive. Run via `make test-e2e-manufacturing-
+full` (which resets the database first) or directly via `node --import
+tsx backend/scripts/simulate-manufacturing-cycles.ts`.
+
 ## The full browser test suite
 
 ```

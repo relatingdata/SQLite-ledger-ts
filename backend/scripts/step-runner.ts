@@ -115,6 +115,63 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.postJournalEntry(a.reference, a.businessName as any, a.ledger as any, userId);
   },
+  // Manufacturing tutorial (Stage 6): mirrors items/+page.svelte's real
+  // Bill of Materials card's addBomComponent() handler exactly — one
+  // real Material-only component line, staged then immediately posted
+  // (the same two real backend calls call-dispatch/items.ts's own
+  // setBomComponent dispatch entry makes). kind/durationHours/
+  // scheduledStart/scheduledEnd/priceMinor are all deliberately left
+  // undefined here — proving the widened, Stage-1 BOM mechanism still
+  // works exactly as it always did for a Material-only caller.
+  // Manufacturing tutorial (Stage 6): provisions a real, properly
+  // classified Inventory (Asset) account for an item - db.ts's own
+  // ensureItemInventoryAccount, the exact, real mechanism POS/Purchase-
+  // Order flows already use before their first real $ posting against
+  // an item. Done once, right after the item is created, before any
+  // Stage Journal Line against it - a real, confirmed gap found live:
+  // posting a journal line to a bare item name BEFORE this call still
+  // succeeds (the name resolves to the item entity itself), but that
+  // entity was never parented under the business's own CoA "Inventory"
+  // node, so it posts a real, balanced journal entry that the Balance
+  // Sheet's own Asset walk never finds - trial balance balances, but
+  // assets stop reconciling to liabilities+equity. Calling this first
+  // avoids ever creating a second, duplicate, differently-parented
+  // entity of the same name later.
+  ensureItemInventoryAccountSimple: (a) => {
+    db.ensureItemInventoryAccount(a.itemName as any, db.asUserId(1), undefined, a.businessName as any);
+  },
+  setBomComponentSimple: (a) => {
+    const userId = db.asUserId(1);
+    db.stageBomComponent({
+      assemblyItem: a.assemblyItem,
+      business: a.businessName,
+      componentItem: a.componentItem,
+      quantity: Number(a.quantity),
+      unit: a.unit,
+    });
+    db.postBomComponents(a.assemblyItem, a.businessName as any, userId);
+  },
+  // Manufacturing tutorial (Stage 6): pure, real location-quantity
+  // movement — db-stock.ts's own receiveItems/dispatchItems, the same
+  // real functions pos.ts's own receiveStock/dispatchStock dispatch
+  // entries call (one line at a time here, matching this fixture's own
+  // "one row, one real call" convention rather than that dispatch
+  // entry's batched lineItems protocol). Deliberately posts NO dollar
+  // value (that's its own, separate "Stage/Post Journal Line" step in
+  // this fixture) — models raw materials arriving, raw materials
+  // consumed by an assembly, the finished assembly arriving, and a
+  // finished assembly leaving to a customer, all with this one, same
+  // real pair of functions, per the plan's own "simulate assembly as a
+  // stock dispatch + stock receive using EXISTING dispatch/receive
+  // functions" instruction.
+  receiveStockQuantitySimple: (a) => {
+    const userId = db.asUserId(1);
+    db.receiveItems(a.businessName as any, a.ledger as any, a.reference, a.itemName as any, a.locationName as any, Number(a.quantity), userId, a.transdate || undefined);
+  },
+  dispatchStockQuantitySimple: (a) => {
+    const userId = db.asUserId(1);
+    db.dispatchItems(a.businessName as any, a.ledger as any, a.reference, a.itemName as any, a.locationName as any, Number(a.quantity), userId, a.transdate || undefined);
+  },
   // The generic (name, parent) shape, matching POST /entities — shared by several screens (Create Item among them).
   createEntitySimple: (a) => {
     db.createEntityRaw({ name: a.name, parent: a.parent || undefined }, db.asUserId(1));
@@ -439,6 +496,17 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // real `journal` table after a real, UI-driven Purchase Order.
   purchase_order_posted: (a) => db.listJournalEntries(a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), 500, 0).some((j) => j.reference === `${a.reference}-PLACE-VALUE`),
   item_source_registered: (a) => db.listItemSources(a.itemName).some((s) => s.vendor_name === a.providerName),
+  // Manufacturing tutorial (Stage 6): confirms a real, posted assembly's
+  // BOM lines genuinely round-tripped through Stage 1's widened
+  // stageBomComponent/postBomComponents/getBomComponents, Material-only,
+  // exactly as many lines as the tutorial staged.
+  bom_components_recorded: (a) => db.getBomComponents(a.assemblyItem).length === Number(a.expectedCount),
+  // Manufacturing tutorial (Stage 6): a real, computed invariant check
+  // (never a hardcoded golden figure) — no location's real on-hand
+  // quantity for any item has gone negative, the basic sanity check a
+  // real raw-material-consumed/finished-goods-produced assembly flow
+  // must never violate.
+  stock_on_hand_nonnegative: (a) => db.getInventoryListingByLocation(a.businessName as any).every((g) => g.rows.every((r) => r.quantity_on_hand >= 0)),
   // Real, structural checks on a real, live Trial Balance/Profit and
   // Loss report - never a hand-computed "golden" figure that would go
   // stale the moment an earlier step's own numbers change. See the

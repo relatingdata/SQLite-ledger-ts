@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -185,6 +185,39 @@ test-e2e-tutorial: reset-db
 test-e2e-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real, augmented tutorial fixture via the real, driven UI path..."
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive
+
+# The Manufacturing tutorial (Stage 6 of the three-tutorial-chapters
+# plan, docs/user-manual-ch4-manufacturing-tutorial.md) - a wholly
+# separate, real business ("Tutorial Window & Door Manufacturing")
+# from the Retail one above, proving the widened, Stage-1 BOM
+# mechanism (Material-only here) and every ordinary posting path
+# underneath it work identically for a genuinely different kind of
+# business. Same real step-runner.ts/screens.csv mechanism as
+# test-e2e-tutorial, a wholly separate fixture file.
+test-e2e-manufacturing-tutorial: reset-db
+	@echo "Running the real Manufacturing tutorial fixture via the API path..."
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/manufacturing-tutorial-steps.csv --path api --non-interactive
+
+# The exact, same, real Manufacturing tutorial fixture, driven through
+# an actual, real, live browser - genuinely proving the real
+# "Bill of Materials" UI card on items/+page.svelte (already live,
+# unmodified, Material-only), not just the backend functions behind it.
+test-e2e-manufacturing-tutorial-browser: reset-db ensure-servers
+	@echo "Running the real Manufacturing tutorial fixture via the real, driven UI path..."
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/manufacturing-tutorial-steps.csv --path ui --non-interactive
+
+# The Manufacturing chapter's own "full" tier, per the user's own
+# "lighter now" answer: a real, looped simulation (3 repeated
+# purchase/assemble/sell cycles against one fresh db), verified via
+# computed invariants (trial balance balanced, raw-material
+# consumption matches each BOM's own real ratio, no negative
+# inventory) - never a hardcoded golden figure. A bespoke, Retail-
+# style golden-figure volume simulation for Manufacturing is
+# explicitly deferred, future work (see the plan's own "Open,
+# deliberately deferred" section).
+test-e2e-manufacturing-full: reset-db
+	@echo "Running the real, looped Manufacturing simulation (3 cycles) with computed-invariant checks..."
+	cd backend && $(RUN_SCRIPT) scripts/simulate-manufacturing-cycles.ts
 
 # The real, CSV-driven tutorial fixture's own text-frontend path —
 # step-runner.ts --path text, driving a real tui/src/cli.tsx process

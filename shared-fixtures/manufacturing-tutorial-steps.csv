@@ -1,0 +1,200 @@
+# Manufacturing tutorial (Stage 6 of the three-tutorial-chapters plan).
+# Logs in - no accounting, no entities beyond the session.
+"Login","admin","changeme123"
+# Chooses the working business before a new one exists.
+"Select Business","admin"
+# Creates a wholly new, real business - a window/door manufacturer,
+# never a retailer - to prove the widened, Stage-1 BOM mechanism (and
+# every ordinary posting path underneath it) works identically for a
+# genuinely different kind of business, not just Retail's own.
+"Create Business","Tutorial Window & Door Manufacturing","2026-27","Sole Trader","AUD","English / generic",""
+# The real, post-creation banking wizard, exactly as the Retail
+# tutorial uses it.
+"Nominate Bank Account","Tutorial Window & Door Manufacturing","Western Trade Bank","063-112","987654"
+"Build Bank Currency Structure","Tutorial Window & Door Manufacturing","Western Trade Bank","AUD","true"
+# Moves the session into the new business.
+"Switch Session","Tutorial Window & Door Manufacturing","Actual"
+# Opening capital - $20,000.00 (2,000,000 minor units) of real owner's
+# cash, before any real trading - the same real, two-staged-lines-
+# then-one-post sequence the Retail tutorial uses.
+"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","2000000"
+"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Window & Door Manufacturing","Actual","Owner's Equity","-2000000"
+"Post Journal Entry","JE-OWNER-CAPITAL","Tutorial Window & Door Manufacturing","Actual"
+# Two real, distinct storage locations - raw materials in one,
+# finished assemblies in the other - genuinely different from
+# Retail's own single-shop-floor model.
+"Create Location","Tutorial Window & Door Manufacturing","Raw Materials Store","Adelaide","Warehouse","","",""
+"Create Location","Tutorial Window & Door Manufacturing","Finished Goods Store","Adelaide","Warehouse","","",""
+# One real supplier of raw aluminum/glass/timber/hardware, one real
+# trade customer buying finished assemblies.
+"Create Provider","Tutorial Window & Door Manufacturing","Statewide Timber & Glass Supplies","Accounts Payable"
+"Create Customer","Tutorial Window & Door Manufacturing","BuildRight Constructions Pty Ltd","Customers"
+# Six real raw material items, no category - the inputs to every
+# assembly's own Recipe/BOM below. Each is immediately provisioned with
+# a real, properly classified Inventory (Asset) account - db.ts's own
+# ensureItemInventoryAccount - before any real $ posting ever names it,
+# so every later Stage Journal Line against it resolves to a real,
+# Balance-Sheet-classified account, not a bare, unclassified item node.
+"Create Item No Category","Tutorial Window & Door Manufacturing","Aluminum Extrusion"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Aluminum Extrusion"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Glass Pane"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Glass Pane"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Hardware Kit"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Hardware Kit"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Timber Stile"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Timber Stile"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Timber Rail"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Timber Rail"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Door Hardware Kit"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Door Hardware Kit"
+# Four real assembly items - per the original request's own "wooden
+# and aluminum windows and frames and front/rear and internal doors
+# and frames".
+"Create Item No Category","Tutorial Window & Door Manufacturing","Aluminum Window Frame"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Aluminum Window Frame"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Wooden Front Door Frame"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Wooden Front Door Frame"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Wooden Rear Door Frame"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Wooden Rear Door Frame"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Wooden Internal Door Frame"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Wooden Internal Door Frame"
+# Recipe/BOM for the Aluminum Window Frame - the exact, same, real,
+# Material-only setBomComponent the pre-existing items/+page.svelte
+# UI already calls, proving Stage 1's widened BOM did not regress the
+# Material-only path at all.
+"Set Bom Component For Aluminum Window Frame","Aluminum Window Frame","Tutorial Window & Door Manufacturing","Aluminum Extrusion","4","ea"
+"Set Bom Component For Aluminum Window Frame","Aluminum Window Frame","Tutorial Window & Door Manufacturing","Glass Pane","1","ea"
+"Set Bom Component For Aluminum Window Frame","Aluminum Window Frame","Tutorial Window & Door Manufacturing","Hardware Kit","1","ea"
+# Recipe/BOM for the Wooden Front Door Frame - a full external
+# lockset (Door Hardware Kit included).
+"Set Bom Component For Wooden Front Door Frame","Wooden Front Door Frame","Tutorial Window & Door Manufacturing","Timber Stile","2","ea"
+"Set Bom Component For Wooden Front Door Frame","Wooden Front Door Frame","Tutorial Window & Door Manufacturing","Timber Rail","3","ea"
+"Set Bom Component For Wooden Front Door Frame","Wooden Front Door Frame","Tutorial Window & Door Manufacturing","Door Hardware Kit","1","ea"
+# Recipe/BOM for the Wooden Rear Door Frame - the same real shape as
+# the Front Door Frame (both external doors), a genuinely separate
+# assembly item with its own, separately-recorded BOM lines.
+"Set Bom Component For Wooden Rear Door Frame","Wooden Rear Door Frame","Tutorial Window & Door Manufacturing","Timber Stile","2","ea"
+"Set Bom Component For Wooden Rear Door Frame","Wooden Rear Door Frame","Tutorial Window & Door Manufacturing","Timber Rail","3","ea"
+"Set Bom Component For Wooden Rear Door Frame","Wooden Rear Door Frame","Tutorial Window & Door Manufacturing","Door Hardware Kit","1","ea"
+# Recipe/BOM for the Wooden Internal Door Frame - deliberately
+# simpler, no external lockset (Door Hardware Kit) - a real, visible
+# BOM variant between door types, per the original request's own
+# "front/rear and internal doors and frames".
+"Set Bom Component For Wooden Internal Door Frame","Wooden Internal Door Frame","Tutorial Window & Door Manufacturing","Timber Stile","2","ea"
+"Set Bom Component For Wooden Internal Door Frame","Wooden Internal Door Frame","Tutorial Window & Door Manufacturing","Timber Rail","2","ea"
+# Confirms every one of the four real BOMs just recorded genuinely
+# round-tripped, Material-only, through Stage 1's widened
+# stageBomComponent/postBomComponents/getBomComponents.
+"Check Bom Components Recorded","Aluminum Window Frame","3"
+"Check Bom Components Recorded","Wooden Front Door Frame","3"
+"Check Bom Components Recorded","Wooden Rear Door Frame","3"
+"Check Bom Components Recorded","Wooden Internal Door Frame","2"
+# Purchases raw materials with real cash, and receives them, with
+# real quantity, into the Raw Materials Store - one real journal
+# entry (value) plus one real quantity receipt per raw material,
+# bought with enough buffer stock above what this run's own assembly
+# below actually consumes.
+"Stage Journal Line","JE-BUY-ALEXT","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","8000"
+"Stage Journal Line","JE-BUY-ALEXT","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-8000"
+"Post Journal Entry","JE-BUY-ALEXT","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV-ALEXT","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","Raw Materials Store","10"
+"Stage Journal Line","JE-BUY-GLASS","Tutorial Window & Door Manufacturing","Actual","Glass Pane","10000"
+"Stage Journal Line","JE-BUY-GLASS","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-10000"
+"Post Journal Entry","JE-BUY-GLASS","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV-GLASS","Tutorial Window & Door Manufacturing","Actual","Glass Pane","Raw Materials Store","4"
+"Stage Journal Line","JE-BUY-HWKIT","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","6000"
+"Stage Journal Line","JE-BUY-HWKIT","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-6000"
+"Post Journal Entry","JE-BUY-HWKIT","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV-HWKIT","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","Raw Materials Store","4"
+"Stage Journal Line","JE-BUY-TSTILE","Tutorial Window & Door Manufacturing","Actual","Timber Stile","9600"
+"Stage Journal Line","JE-BUY-TSTILE","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-9600"
+"Post Journal Entry","JE-BUY-TSTILE","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV-TSTILE","Tutorial Window & Door Manufacturing","Actual","Timber Stile","Raw Materials Store","8"
+"Stage Journal Line","JE-BUY-TRAIL","Tutorial Window & Door Manufacturing","Actual","Timber Rail","10000"
+"Stage Journal Line","JE-BUY-TRAIL","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-10000"
+"Post Journal Entry","JE-BUY-TRAIL","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV-TRAIL","Tutorial Window & Door Manufacturing","Actual","Timber Rail","Raw Materials Store","10"
+"Stage Journal Line","JE-BUY-DHWKIT","Tutorial Window & Door Manufacturing","Actual","Door Hardware Kit","18000"
+"Stage Journal Line","JE-BUY-DHWKIT","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-18000"
+"Post Journal Entry","JE-BUY-DHWKIT","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV-DHWKIT","Tutorial Window & Door Manufacturing","Actual","Door Hardware Kit","Raw Materials Store","4"
+# Assembly - exactly per the plan's own instruction, simulated as a
+# real stock dispatch (raw materials out of Raw Materials Store) plus
+# a real stock receive (finished assemblies into Finished Goods
+# Store), using the EXISTING dispatch/receive functions - never a new
+# "Assemble" posting action. One real reclassification journal entry
+# per assembly moves its own, real, BOM-computed cost from the
+# consumed raw materials' own accounts into the assembly's own
+# account - the exact, same "an item is itself a real, postable
+# account" convention db-journal.ts's own postOrderReceipt/
+# postOrderDispatch already use (asAccountName(staged.item)) - so the
+# real dollar value of inventory on hand tracks the real physical
+# movement, never a hardcoded, invented pair of inventory accounts.
+"Dispatch Stock Quantity","ASM-ALEXT","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","Raw Materials Store","8"
+"Dispatch Stock Quantity","ASM-GLASS","Tutorial Window & Door Manufacturing","Actual","Glass Pane","Raw Materials Store","2"
+"Dispatch Stock Quantity","ASM-HWKIT","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","Raw Materials Store","2"
+"Dispatch Stock Quantity","ASM-TSTILE","Tutorial Window & Door Manufacturing","Actual","Timber Stile","Raw Materials Store","6"
+"Dispatch Stock Quantity","ASM-TRAIL","Tutorial Window & Door Manufacturing","Actual","Timber Rail","Raw Materials Store","8"
+"Dispatch Stock Quantity","ASM-DHWKIT","Tutorial Window & Door Manufacturing","Actual","Door Hardware Kit","Raw Materials Store","2"
+"Receive Stock Quantity","ASM-RECV-ALWIN","Tutorial Window & Door Manufacturing","Actual","Aluminum Window Frame","Finished Goods Store","2"
+"Receive Stock Quantity","ASM-RECV-FRONT","Tutorial Window & Door Manufacturing","Actual","Wooden Front Door Frame","Finished Goods Store","1"
+"Receive Stock Quantity","ASM-RECV-REAR","Tutorial Window & Door Manufacturing","Actual","Wooden Rear Door Frame","Finished Goods Store","1"
+"Receive Stock Quantity","ASM-RECV-INT","Tutorial Window & Door Manufacturing","Actual","Wooden Internal Door Frame","Finished Goods Store","1"
+"Stage Journal Line","JE-RECLASS-ALWIN","Tutorial Window & Door Manufacturing","Actual","Aluminum Window Frame","14400"
+"Stage Journal Line","JE-RECLASS-ALWIN","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","-6400"
+"Stage Journal Line","JE-RECLASS-ALWIN","Tutorial Window & Door Manufacturing","Actual","Glass Pane","-5000"
+"Stage Journal Line","JE-RECLASS-ALWIN","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","-3000"
+"Post Journal Entry","JE-RECLASS-ALWIN","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-RECLASS-FRONT","Tutorial Window & Door Manufacturing","Actual","Wooden Front Door Frame","9900"
+"Stage Journal Line","JE-RECLASS-FRONT","Tutorial Window & Door Manufacturing","Actual","Timber Stile","-2400"
+"Stage Journal Line","JE-RECLASS-FRONT","Tutorial Window & Door Manufacturing","Actual","Timber Rail","-3000"
+"Stage Journal Line","JE-RECLASS-FRONT","Tutorial Window & Door Manufacturing","Actual","Door Hardware Kit","-4500"
+"Post Journal Entry","JE-RECLASS-FRONT","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-RECLASS-REAR","Tutorial Window & Door Manufacturing","Actual","Wooden Rear Door Frame","9900"
+"Stage Journal Line","JE-RECLASS-REAR","Tutorial Window & Door Manufacturing","Actual","Timber Stile","-2400"
+"Stage Journal Line","JE-RECLASS-REAR","Tutorial Window & Door Manufacturing","Actual","Timber Rail","-3000"
+"Stage Journal Line","JE-RECLASS-REAR","Tutorial Window & Door Manufacturing","Actual","Door Hardware Kit","-4500"
+"Post Journal Entry","JE-RECLASS-REAR","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-RECLASS-INT","Tutorial Window & Door Manufacturing","Actual","Wooden Internal Door Frame","4400"
+"Stage Journal Line","JE-RECLASS-INT","Tutorial Window & Door Manufacturing","Actual","Timber Stile","-2400"
+"Stage Journal Line","JE-RECLASS-INT","Tutorial Window & Door Manufacturing","Actual","Timber Rail","-2000"
+"Post Journal Entry","JE-RECLASS-INT","Tutorial Window & Door Manufacturing","Actual"
+"Check Stock Nonnegative","Tutorial Window & Door Manufacturing"
+# Sells every finished assembly to the one real trade customer -
+# real revenue plus real, BOM-costed COGS, posted as two separate,
+# real journal entries, then a real stock dispatch out of Finished
+# Goods Store - exactly mirroring Retail's own Cash Sale shape, just
+# with assemblies instead of bottles.
+"Stage Journal Line","JE-SALE-ALWIN","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","30000"
+"Stage Journal Line","JE-SALE-ALWIN","Tutorial Window & Door Manufacturing","Actual","Sales Revenue","-30000"
+"Post Journal Entry","JE-SALE-ALWIN","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-COGS-ALWIN","Tutorial Window & Door Manufacturing","Actual","Cost of Goods Sold","14400"
+"Stage Journal Line","JE-COGS-ALWIN","Tutorial Window & Door Manufacturing","Actual","Aluminum Window Frame","-14400"
+"Post Journal Entry","JE-COGS-ALWIN","Tutorial Window & Door Manufacturing","Actual"
+"Dispatch Stock Quantity","SALE-ALWIN","Tutorial Window & Door Manufacturing","Actual","Aluminum Window Frame","Finished Goods Store","2"
+"Stage Journal Line","JE-SALE-FRONT","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","18000"
+"Stage Journal Line","JE-SALE-FRONT","Tutorial Window & Door Manufacturing","Actual","Sales Revenue","-18000"
+"Post Journal Entry","JE-SALE-FRONT","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-COGS-FRONT","Tutorial Window & Door Manufacturing","Actual","Cost of Goods Sold","9900"
+"Stage Journal Line","JE-COGS-FRONT","Tutorial Window & Door Manufacturing","Actual","Wooden Front Door Frame","-9900"
+"Post Journal Entry","JE-COGS-FRONT","Tutorial Window & Door Manufacturing","Actual"
+"Dispatch Stock Quantity","SALE-FRONT","Tutorial Window & Door Manufacturing","Actual","Wooden Front Door Frame","Finished Goods Store","1"
+"Stage Journal Line","JE-SALE-REAR","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","18000"
+"Stage Journal Line","JE-SALE-REAR","Tutorial Window & Door Manufacturing","Actual","Sales Revenue","-18000"
+"Post Journal Entry","JE-SALE-REAR","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-COGS-REAR","Tutorial Window & Door Manufacturing","Actual","Cost of Goods Sold","9900"
+"Stage Journal Line","JE-COGS-REAR","Tutorial Window & Door Manufacturing","Actual","Wooden Rear Door Frame","-9900"
+"Post Journal Entry","JE-COGS-REAR","Tutorial Window & Door Manufacturing","Actual"
+"Dispatch Stock Quantity","SALE-REAR","Tutorial Window & Door Manufacturing","Actual","Wooden Rear Door Frame","Finished Goods Store","1"
+"Stage Journal Line","JE-SALE-INT","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","9000"
+"Stage Journal Line","JE-SALE-INT","Tutorial Window & Door Manufacturing","Actual","Sales Revenue","-9000"
+"Post Journal Entry","JE-SALE-INT","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-COGS-INT","Tutorial Window & Door Manufacturing","Actual","Cost of Goods Sold","4400"
+"Stage Journal Line","JE-COGS-INT","Tutorial Window & Door Manufacturing","Actual","Wooden Internal Door Frame","-4400"
+"Post Journal Entry","JE-COGS-INT","Tutorial Window & Door Manufacturing","Actual"
+"Dispatch Stock Quantity","SALE-INT","Tutorial Window & Door Manufacturing","Actual","Wooden Internal Door Frame","Finished Goods Store","1"
+# Real, structural report checks - never a hardcoded golden figure.
+"Check Stock Nonnegative","Tutorial Window & Door Manufacturing"
+"Check Trial Balance Balanced","Tutorial Window & Door Manufacturing","Actual",""
+"Check Balance Sheet Balanced","Tutorial Window & Door Manufacturing","Actual",""
+"Check Profit And Loss Positive","Tutorial Window & Door Manufacturing","Actual","2026-07-01","2027-06-30"
