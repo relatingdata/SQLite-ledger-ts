@@ -175,12 +175,26 @@ backend function directly, in-process. **`--path api` issues no real
 HTTP request at all** — it is a deliberate shortcut around the real
 HTTP shape, for testing speed.
 
-The real HTTP layer (what a genuine browser session, or the Admin
-recording feature, actually produces) is the Express app
-(`backend/src/server.ts`): `cors()` → `express.json()` →
-`attachUser` → one router per `/api/...` prefix, most behind
-`requireAuth`. A logged-in `POST /api/journal/create-ledger` with a
-JSON body is the true shape of "a backend action."
+The real HTTP layer (what a genuine browser session actually produces)
+is the Express app (`backend/src/server.ts`): `cors()` → `attachUser`
+→ `recordingMiddleware` → almost everything through one single,
+generic endpoint, `POST /api/call` (`backend/src/routes/call.ts`),
+mounted with a plain-text body parser, not `express.json()` — there is
+no JSON body parser anywhere in this app any more. The body is one
+ASCII-CSV line, `screenName,value1,value2,...` (optionally followed by
+more lines for a caller-variable-length array argument — "line items").
+The dispatcher looks the screen name up in `BACKEND_FUNCTIONS`
+(`backend/src/call-dispatch/*.ts`, one file per domain) and calls that
+function directly with the positional values; each function enforces
+its own auth/role gate internally (`requireAuth`/`requireRole`/
+`requireGlobalRole` from `call-dispatch.ts`), since the `/api/call`
+mount itself carries no blocking auth middleware (some screens are
+genuinely public, e.g. customer self-registration). The only other real
+routers left are `/api/recording` (`routes/recording.ts`) and
+`/api/health`. A logged-in `POST /api/call` with body
+`createLedger,Wine Retail Business,Budget 2027` is the true shape of
+"a backend action" today — not a REST-style per-resource path with a
+JSON body.
 
 ### The two paths test genuinely different surfaces — and must assert differently
 
@@ -188,15 +202,16 @@ A critical, settled design point: `--path api` and `--path ui` are not
 two ways of testing the same moments.
 
 - **`--path api` (direct HTTP replay)**: every row IS independently
-  real. A `Stage Journal Line` row really sends its own
-  `POST /journal/staging`, and the server really holds it durably the
-  moment that call returns — valid to assert mid-sequence server state
-  here (`GET /journal/staging/:reference/:business/:ledger`).
+  real. A `Stage Journal Line` row really calls `BACKEND_FUNCTIONS.stageLine`
+  (via `POST /api/call` with body `stageLine,...`), and the server
+  really holds it durably the moment that call returns — valid to
+  assert mid-sequence server state here (`getStagedLines`, itself a
+  `/api/call` dispatch entry, not a separate GET route).
 - **`--path ui` (driving the live browser)**: nothing is real, and
   nothing should be asserted, until the one final "Save" click. The
   real General Journal page holds every line being built only in
   client-side state — the server receives *zero* calls for an
-  unbalanced, incomplete entry, and all of `POST /journal/staging` ×N
+  unbalanced, incomplete entry, and all of `stageLine` ×N
   + `POST /journal/post` fire together, back to back, only on Save.
   Any `Stage Journal Line` row's UI action is "fill the builder row,
   press insert" (no submit, no network call expected); only the final

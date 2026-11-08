@@ -519,11 +519,18 @@ part alongside the existing base product (never re-parenting the
 shared, ambiguous one — re-parenting breaks the moment a product has
 more than one tier, since the second tier can no longer resolve its
 own flat posting root). Wired into the live POS sale posting path.
-The `real_accounts` recursive CTE (`getLedgerBalances` and relatives)
-stops walking the moment it reaches an entity with a real `part` row —
-never descending into that part's own quantity-domain children
-("On Order"/"Units Sold"), which would otherwise corrupt a Trial
-Balance/Balance Sheet total with unit counts instead of money.
+`realAccountIds()` (`db-reports.ts`, used by `getBusinessReports`/
+`getChartOfAccounts`/`getEntityTree`'s Chart-of-Accounts tree walk) stops
+walking the moment it reaches an entity with a real `part` row — never
+descending into that part's own quantity-domain children ("On Order"/
+"Units Sold"), which would otherwise corrupt the displayed tree with unit
+counts instead of money. `getLedgerBalances` itself no longer walks the
+Chart of Accounts at all — it reads every account with at least one
+genuinely real posting (`allAccountIds()`, see `pm-reports-reference.md`)
+and gets the same protection a different way: a quantity-domain child's
+postings are always referenced `-QTY`/tagged with a synthetic unit
+currency, so they're excluded by what they *are*, not by where they sit
+in the tree.
 
 ### "Header Account": the Accounts Receivable/Payable case
 
