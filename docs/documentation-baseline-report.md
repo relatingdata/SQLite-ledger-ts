@@ -55,7 +55,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `callRouter` | `backend/src/routes/call.ts` | `backend/src/server.ts` | `const callRouter = Router();` |
 | `recordingRouter` | `backend/src/routes/recording.ts` | `backend/src/recording.ts`, `backend/src/server.ts` | `const recordingRouter = Router();` |
 
-## Functions (195, alphabetical)
+## Functions (198, alphabetical)
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
@@ -68,7 +68,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `addTypedPhone` | `backend/src/db.ts` | `backend/src/call-dispatch/contacts.ts` | `function addTypedPhone(entityName: string, phoneType: string, number: string, userId: UserId, businessName?: string \| null): string` |
 | `adjustLocationCapacity` | `backend/src/db-stock.ts` | (none) | `function adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void` |
 | `allQtyLocationAccounts` | `backend/src/db-stock.ts` | `backend/src/db-matrix-reports.ts` | `function allQtyLocationAccounts(): QtyLocationAccountRow[]` |
-| `asAccountName` | `backend/src/db.ts` | `backend/src/call-dispatch/journal.ts`, `backend/src/call-dispatch/locations.ts`, `backend/src/call-dispatch/plant.ts`, `backend/src/call-dispatch/pos.ts`, `backend/src/call-dispatch/projects.ts`, `backend/src/call-dispatch/stock-lots.ts`, `backend/src/db-journal.ts`, `backend/src/db-quotations.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `function asAccountName(name: string): AccountName` |
+| `asAccountName` | `backend/src/db.ts` | `backend/src/call-dispatch/journal.ts`, `backend/src/call-dispatch/locations.ts`, `backend/src/call-dispatch/plant.ts`, `backend/src/call-dispatch/pos.ts`, `backend/src/call-dispatch/projects.ts`, `backend/src/call-dispatch/stock-lots.ts`, `backend/src/db-journal.ts`, `backend/src/db-projects.ts`, `backend/src/db-quotations.ts`, `backend/src/db-reports.ts`, `backend/src/db-stock.ts`, `backend/src/primitives.ts` | `function asAccountName(name: string): AccountName` |
 | `asCustomerName` | `backend/src/db.ts` | `backend/src/call-dispatch/arap.ts`, `backend/src/call-dispatch/invoices.ts`, `backend/src/call-dispatch/pos.ts` | `function asCustomerName(name: string): CustomerName` |
 | `asEmployeeName` | `backend/src/db.ts` | `backend/src/call-dispatch/projects.ts` | `function asEmployeeName(name: string): EmployeeName` |
 | `asEntityId` | `backend/src/db.ts` | `backend/src/call-dispatch/entities.ts` | `function asEntityId(id: number): EntityId` |
@@ -84,8 +84,8 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `changePassword` | `backend/src/auth.ts` | `backend/src/call-dispatch/auth.ts` | `function changePassword(userId: number, newPassword: string): void` |
 | `checkEInvoiceDiscrepancies` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[]` |
 | `checkMilestoneAchievability` | `backend/src/db-projects.ts` | `backend/src/call-dispatch/projects.ts`, `backend/src/db-quotations.ts` | `function checkMilestoneAchievability(projectName: string, userId: UserId): ` |
-| `clockPlantIn` | `backend/src/db-journal.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/db.ts` | `function clockPlantIn(plantName: string, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): PlantClock` |
-| `clockPlantOut` | `backend/src/db-journal.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/db.ts` | `function clockPlantOut(plantName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
+| `clockPlantIn` | `backend/src/db-journal.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/db-projects.ts`, `backend/src/db.ts` | `function clockPlantIn(plantName: string, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): PlantClock` |
+| `clockPlantOut` | `backend/src/db-journal.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/db-projects.ts`, `backend/src/db.ts` | `function clockPlantOut(plantName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `countInvoices` | `backend/src/db.ts` | `backend/src/call-dispatch/invoices.ts` | `function countInvoices(business: BusinessName, ledger: LedgerName, invoiceType?: 'AR' \| 'AP', source: 'manual' \| 'pos' \| 'all' = 'manual'): number` |
 | `countItems` | `backend/src/db.ts` | `backend/src/call-dispatch/items.ts` | `function countItems(businessName: BusinessName): number` |
 | `createLiveProject` | `backend/src/db-projects.ts` | `backend/src/call-dispatch/projects.ts`, `backend/src/db-quotations.ts` | `function createLiveProject(name: string, business: BusinessName, client: string, requestedStart: string, targetCompletionDate: string, userId: UserId): ` |
@@ -128,6 +128,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `ensureStorageCapacityStructure` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function ensureStorageCapacityStructure(parentEntity: { id: number; name: string }, userId: UserId): ` |
 | `exportInvoiceAsUbl` | `backend/src/db.ts` | `backend/src/call-dispatch/invoices.ts` | `function exportInvoiceAsUbl(invoiceId: number): string` |
 | `findNextAvailableWindow` | `backend/src/db-projects.ts` | (none) | `function findNextAvailableWindow(resourceName: string, business: BusinessName, desiredStart: string, durationDays: number, excludeProject?: string): ScheduleResolution` |
+| `getAccountBalanceMinor` | `backend/src/db.ts` | `backend/src/db-projects.ts` | `function getAccountBalanceMinor(accountName: string): number` |
 | `getAccountsPostedTo` | `backend/src/db.ts` | (none) | `function getAccountsPostedTo(reference: string): string[]` |
 | `getActiveShiftsAtLocation` | `backend/src/db.ts` | (none) | `function getActiveShiftsAtLocation(locationName: string): PosShift[]` |
 | `getAgingBuckets` | `backend/src/db.ts` | (none) | `function getAgingBuckets(paymentTermsDays: number \| null): AgingBucket[]` |
@@ -173,6 +174,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getPickingList` | `backend/src/db.ts` | `backend/src/call-dispatch/invoices.ts` | `function getPickingList(invoiceId: number, locationName: LocationName): PickingListLine[]` |
 | `getPlantItem` | `backend/src/db.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/db-journal.ts` | `function getPlantItem(name: string): PlantItemRecord \| undefined` |
 | `getProfitAndLossByAxis` | `backend/src/db-matrix-reports.ts` | `backend/src/call-dispatch/matrix-reports.ts`, `backend/src/call-dispatch/reports.ts`, `backend/src/call-dispatch.ts`, `backend/src/server.ts` | `function getProfitAndLossByAxis(businessName: BusinessName, ledgerName: LedgerName, fromDate: string \| undefined, toDate: string \| undefined, outerAxis: MatrixAxis, innerAxis: MatrixAxis, outerFilter?: string, innerFilter?: string): ProfitAndLossByAxisNode[]` |
+| `getProjectCostReport` | `backend/src/db-projects.ts` | `backend/src/call-dispatch/projects.ts`, `backend/src/db.ts` | `function getProjectCostReport(projectName: string): ProjectCostReport` |
 | `getProjectTasks` | `backend/src/db.ts` | (none) | `function getProjectTasks(projectName: string): ` |
 | `getPrototypeLines` | `backend/src/db-prototypes.ts` | `backend/src/call-dispatch/prototypes.ts` | `function getPrototypeLines(prototypeName: string): BomComponentLine[]` |
 | `getQuotationLines` | `backend/src/db-quotations.ts` | `backend/src/call-dispatch/quotations.ts` | `function getQuotationLines(reference: string): BomComponentLine[]` |
@@ -212,6 +214,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `parseUblInvoice` | `backend/src/db.ts` | (none) | `function parseUblInvoice(xml: string): UblImportResult` |
 | `postBomComponents` | `backend/src/db.ts` | `backend/src/call-dispatch/items.ts`, `backend/src/db-projects.ts`, `backend/src/db-prototypes.ts`, `backend/src/db-quotations.ts` | `function postBomComponents(assemblyItem: string, business: string, userId: UserId): void` |
 | `previewCloseBooks` | `backend/src/db-reports.ts` | `backend/src/call-dispatch/journal.ts`, `backend/src/call-dispatch/locations.ts`, `backend/src/call-dispatch.ts` | `function previewCloseBooks(businessName: BusinessName, ledger: LedgerName, asOfDate: string, retainedEarningsAccount: string, hierarchyPath: string[] = []): CloseBooksPreview` |
+| `provisionProjectProfitCenter` | `backend/src/db-projects.ts` | `backend/src/call-dispatch/projects.ts`, `backend/src/db-quotations.ts`, `backend/src/db.ts` | `function provisionProjectProfitCenter(projectName: string, business: BusinessName, userId: UserId): ` |
 | `recordingMiddleware` | `backend/src/recording.ts` | `backend/src/server.ts` | `function recordingMiddleware(req: import('express').Request, res: import('express').Response, next: import('express').NextFunction): void` |
 | `recordReminderSent` | `backend/src/db.ts` | `backend/src/call-dispatch/invoices.ts` | `function recordReminderSent(customerName: string): number` |
 | `recordStockTakeCount` | `backend/src/db-stock.ts` | `backend/src/call-dispatch/locations.ts` | `function recordStockTakeCount(stockTakeId: number, itemName: ItemName, countedQuantity: number): void` |
@@ -286,4 +289,4 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `stockFunctions` | `backend/src/call-dispatch/stock.ts` | `backend/src/call-dispatch.ts` | `const stockFunctions = {   // Positional args: [0] reference, [1] business, [2] ledger, [3] vendor,   // [4] item, [5] quantity, [6] price_minor, [7] location, [8] transdate,   // [9] description.   stagePurchaseOrder: (v, user) => {     requireRole(user, 'Administrator', 'Bookkeeper');` |
 | `stockLotsFunctions` | `backend/src/call-dispatch/stock-lots.ts` | `backend/src/call-dispatch.ts` | `const stockLotsFunctions = {   // Positional args: [0] business, [1] ledger, [2] reference, [3] itemName,   // [4] quantity, [5] unitCostMinor, [6] writeOffExpenseAccount,   // [7] inventoryAccount, [8] reason, [9] transdate.   // (writeOffItems also takes locationName/combinationValues/   // combinationShape, but the old route's own schema never carried   // those either — not ported here, matching real prior behavior.)   writeOffItems: (v, user) => {     const admin = requireRole(user, 'Administrator', 'Bookkeeper');` |
 
-264 real, tracked baseline names reported (41 TypeDescriptor constants, 2 router constants, 195 functions, 26 other constants) out of 362 total names in the baseline file.
+267 real, tracked baseline names reported (41 TypeDescriptor constants, 2 router constants, 198 functions, 26 other constants) out of 365 total names in the baseline file.

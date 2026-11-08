@@ -32,6 +32,9 @@ import {
   stageBomComponent,
   postBomComponents,
   getBomComponents,
+  createProfitCenter,
+  resolvePostingRoot,
+  getAccountBalanceMinor,
   type BusinessName,
   type UserId,
   type BomComponentLine,
@@ -64,6 +67,10 @@ export interface LiveProjectRecord {
   requestedStart: string;
   targetCompletionDate: string;
   scheduleRisk?: string;
+  // Additive, Stage-5 widening: set by provisionProjectProfitCenter,
+  // below — undefined for a project that has never had one provisioned.
+  profitCenter?: string;
+  projectExpenseAccount?: string;
 }
 
 export function getLiveProject(name: string): LiveProjectRecord | undefined {
@@ -77,12 +84,68 @@ export function getLiveProject(name: string): LiveProjectRecord | undefined {
     requestedStart: Entity.getAttr(entity.id, 'Requested Start') ?? '',
     targetCompletionDate: Entity.getAttr(entity.id, 'Target Completion Date') ?? '',
     scheduleRisk: Entity.getAttr(entity.id, 'Schedule Risk'),
+    profitCenter: Entity.getAttr(entity.id, 'Profit Center'),
+    projectExpenseAccount: Entity.getAttr(entity.id, 'Project Expense Account'),
   };
 }
 
 export function listLiveProjects(business: BusinessName): string[] {
   const root = liveProjectsRoot(business);
   return Entity.children(root.id).map((c) => c.name);
+}
+
+// Stage 5 — per-project cost-vs-price tracking. One dedicated real
+// Profit Center per project (createProfitCenter, unmodified, existing)
+// plus one real, dedicated Expense account scoped under it via the
+// SAME, already-proven resolvePostingRoot/resolveProfitCenterGroupNode
+// mechanism every other Profit-Center-scoped posting (Sales/COGS/
+// Inventory) already uses — zero new posting logic, zero change to
+// clockInToProject/clockPlantIn's own signatures. That account's own
+// name becomes the real `projectExpenseAccount` a caller passes to
+// clockInToProject (labour) and clockPlantIn (plant): both post directly
+// to it via an ordinary journal line (postOrderReceipt's own
+// `stageLine({ account: asAccountName(staged.item), ... })`), so its
+// real, live `account.balance_minor` IS the project's real, actual
+// labour+plant cost, read back by getProjectCostReport below — the
+// existing reporting join, not a new one.
+export function provisionProjectProfitCenter(projectName: string, business: BusinessName, userId: UserId): { profitCenterName: string; expenseAccountName: string } {
+  const project = requireEntity(projectName, typeLiveProjectName);
+  const profitCenterName = `${projectName} — Profit Center`;
+  createProfitCenter(business, profitCenterName, userId);
+  const expenseGroup = resolvePostingRoot('Expense', userId, business, profitCenterName);
+  const expenseAccountName = `${projectName} — Labour & Plant`;
+  Entity.ensureUnder(expenseAccountName, expenseGroup.id, userId);
+  Entity.setAttr(project.id, 'Profit Center', profitCenterName, userId);
+  Entity.setAttr(project.id, 'Project Expense Account', expenseAccountName, userId);
+  return { profitCenterName, expenseAccountName };
+}
+
+export interface ProjectCostReport {
+  projectName: string;
+  quotedTotalMinor: number;
+  actualCostMinor: number;
+  marginMinor: number;
+}
+
+// The quoted total is every Recipe line's own priceMinor (Stage 4's
+// widening); the actual cost is the real, live balance of the project's
+// own Profit-Center-scoped Expense account (provisionProjectProfitCenter,
+// above) — real labour (clockInToProject/clockOutOfProject) and real
+// plant (clockPlantIn/clockPlantOut) costs land there as ordinary,
+// ledger-posted journal lines, never a separate, parallel number.
+// Material-line cost is deliberately NOT included here — Recipe
+// Material lines flow through the ordinary, pre-existing PO/receipt/
+// Inventory path, which is a real cost but not yet routed through this
+// project's own Profit Center (left for a future round, per the plan's
+// own stated scope — this round's story is the Labour/Plant contention
+// one).
+export function getProjectCostReport(projectName: string): ProjectCostReport {
+  const project = getLiveProject(projectName);
+  if (!project) throw new ValidationError(`No real Live Project named "${projectName}".`);
+  const lines = getBomComponents(projectName);
+  const quotedTotalMinor = lines.reduce((sum, l) => sum + (l.priceMinor ?? 0), 0);
+  const actualCostMinor = project.projectExpenseAccount ? Math.abs(getAccountBalanceMinor(project.projectExpenseAccount)) : 0;
+  return { projectName, quotedTotalMinor, actualCostMinor, marginMinor: quotedTotalMinor - actualCostMinor };
 }
 
 export type MilestoneType = 'Plans Submission' | 'Inspection' | 'Invoicing';

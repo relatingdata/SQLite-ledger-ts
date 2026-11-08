@@ -6950,6 +6950,67 @@ test('Project Proposal Prototypes: a reusable library instantiated into a real Q
   assert.throws(() => db.instantiateProjectProposal(fx.uniqueName('No Such Prototype'), fx.uniqueName('REF'), customerA, biz.business, biz.actualLedger, itemName, '2027-05-01', fx.userId), db.ValidationError, 'instantiating from an unknown prototype is rejected');
 });
 
+test('provisionProjectProfitCenter/getProjectCostReport: a real Project\'s own Profit Center isolates its real labour/plant cost from every other business activity, compared against the Recipe lines\' own quoted price', () => {
+  const biz = fx.freshBusiness('ProjectCostTest Co');
+  const projectName = fx.uniqueName('ProjectCostTest Project');
+  db.createLiveProject(projectName, biz.business, 'ProjectCostTest Client', '2027-07-01', '2027-09-01', fx.userId);
+
+  const crewName = fx.uniqueName('ProjectCostTest Crew');
+  db.createEmployee(crewName, biz.business, fx.userId);
+  const excavatorName = fx.uniqueName('ProjectCostTest Excavator');
+  db.createPlantItem(excavatorName, biz.business, 8000, 'Owned', fx.userId);
+
+  // The quoted detail: 10 hours labour @ a real, quoted $5,000, plus one
+  // Plant line @ $320 — the real figures getProjectCostReport compares
+  // actual cost against.
+  db.stageBomComponent({ assemblyItem: projectName, business: biz.business, componentItem: crewName, quantity: 1, unit: 'crew', kind: 'Labour', durationHours: 10, priceMinor: 500000 });
+  db.stageBomComponent({ assemblyItem: projectName, business: biz.business, componentItem: excavatorName, quantity: 1, unit: 'unit', kind: 'Plant', durationHours: 4, priceMinor: 32000 });
+  db.postBomComponents(projectName, biz.business, fx.userId);
+
+  const { profitCenterName, expenseAccountName } = db.provisionProjectProfitCenter(projectName, biz.business, fx.userId);
+  assert.ok(db.getProfitCenters(biz.business).some((p) => p.name === profitCenterName), 'a real, dedicated Profit Center now exists for this project');
+  assert.equal(db.getLiveProject(projectName)?.profitCenter, profitCenterName);
+  assert.equal(db.getLiveProject(projectName)?.projectExpenseAccount, expenseAccountName);
+
+  const before = db.getProjectCostReport(projectName);
+  assert.equal(before.quotedTotalMinor, 532000);
+  assert.equal(before.actualCostMinor, 0, 'no real cost has posted yet');
+  assert.equal(before.marginMinor, 532000);
+
+  // A real cost, posted directly to the project's own real Expense
+  // account via an ordinary journal entry — the exact same, real
+  // mechanism clockInToProject/clockOutOfProject and clockPlantIn/
+  // clockPlantOut already post labour/plant cost through (an ordinary
+  // `stageLine({ account: ..., amount_minor: ... })` debit, confirmed by
+  // reading postOrderReceipt directly) — isolated here from the
+  // clock-timing mechanism's own real-wall-clock dependency, so this
+  // test deterministically proves the REPORTING half: the account's own
+  // real, live balance is exactly what getProjectCostReport reads back.
+  const costReference = fx.uniqueName('PROJECT-COST-POSTING');
+  db.stageLine({ reference: costReference, business: biz.business, ledger: biz.actualLedger, transdate: '2027-07-10', account: db.asAccountName(expenseAccountName), amount_minor: 480000 });
+  db.stageLine({ reference: costReference, business: biz.business, ledger: biz.actualLedger, transdate: '2027-07-10', account: db.asAccountName('Cash and Bank'), amount_minor: -480000 });
+  db.postJournalEntry(costReference, biz.business, biz.actualLedger, fx.userId);
+
+  const after = db.getProjectCostReport(projectName);
+  assert.equal(after.actualCostMinor, 480000, 'the real, posted cost is read back exactly');
+  assert.equal(after.quotedTotalMinor, 532000, 'the quoted total is unaffected by the real posting');
+  assert.equal(after.marginMinor, 52000);
+
+  // A completely unrelated project's own real cost never leaks into this one's report.
+  const otherBiz = fx.freshBusiness('ProjectCostTest Other Co');
+  const otherProject = fx.uniqueName('ProjectCostTest Other Project');
+  db.createLiveProject(otherProject, otherBiz.business, 'Other Client', '2027-07-01', '2027-09-01', fx.userId);
+  const { expenseAccountName: otherExpenseAccount } = db.provisionProjectProfitCenter(otherProject, otherBiz.business, fx.userId);
+  const otherCostReference = fx.uniqueName('PROJECT-COST-POSTING-OTHER');
+  db.stageLine({ reference: otherCostReference, business: otherBiz.business, ledger: otherBiz.actualLedger, transdate: '2027-07-10', account: db.asAccountName(otherExpenseAccount), amount_minor: 999900 });
+  db.stageLine({ reference: otherCostReference, business: otherBiz.business, ledger: otherBiz.actualLedger, transdate: '2027-07-10', account: db.asAccountName('Cash and Bank'), amount_minor: -999900 });
+  db.postJournalEntry(otherCostReference, otherBiz.business, otherBiz.actualLedger, fx.userId);
+  assert.equal(db.getProjectCostReport(projectName).actualCostMinor, 480000, 'an unrelated project\'s own real cost never leaks into this one\'s report');
+  assert.equal(db.getProjectCostReport(otherProject).actualCostMinor, 999900);
+
+  assert.throws(() => db.getProjectCostReport(fx.uniqueName('No Such Project')), db.ValidationError, 'a real cost report for an unknown project is rejected');
+});
+
 test('createRecurringJournal now rejects a start-date entry that is balanced in flat total but NOT balanced within either real currency — the exact gap docs/pm-journal-api.md used to document as open', () => {
   const biz = fx.freshBusiness('RecurringCurrencyGapTest Co');
   const usdCash = fx.uniqueName('RecurringCurrencyGapTest Cash (USD)');

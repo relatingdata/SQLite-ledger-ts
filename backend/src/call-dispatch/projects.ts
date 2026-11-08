@@ -12,6 +12,8 @@ import {
   getResourceBookings,
   scheduleProjectRecipeLines,
   checkMilestoneAchievability,
+  provisionProjectProfitCenter,
+  getProjectCostReport,
   type MilestoneType,
 } from '../db-projects.js';
 import { CallError, requireAuth, requireRole, row, table, type BackendCall } from '../call-dispatch.js';
@@ -75,7 +77,40 @@ export const projectsFunctions: Record<string, BackendCall> = {
     if (!name) throw new CallError(400, 'name is required.');
     const project = getLiveProject(name);
     if (!project) return row();
-    return row(project.name, project.client, project.requestedStart, project.targetCompletionDate, project.scheduleRisk ?? '');
+    return row(project.name, project.client, project.requestedStart, project.targetCompletionDate, project.scheduleRisk ?? '', project.profitCenter ?? '', project.projectExpenseAccount ?? '');
+  },
+  // Positional args: [0] projectName, [1] business. Provisions a real,
+  // dedicated Profit Center + Expense account for this project — called
+  // automatically by acceptQuotation when a Project Proposal has lines,
+  // exposed here too for a project created directly (e.g. by the
+  // Project Builder tutorial's own seed steps, not via a Proposal).
+  provisionProjectProfitCenter: (v, user) => {
+    const u = requireRole(user, 'Administrator', 'Bookkeeper');
+    const [projectName, business] = v;
+    if (!projectName || !business) throw new CallError(400, 'projectName and business are both required.');
+    try {
+      const result = provisionProjectProfitCenter(projectName, asBusinessName(business), asUserId(u.id));
+      return row(result.profitCenterName, result.expenseAccountName);
+    } catch (e) {
+      if (e instanceof ValidationError) throw new CallError(409, e.message);
+      throw e;
+    }
+  },
+  // Positional args: [0] projectName. The real, quoted-vs-actual margin —
+  // quoted from the Recipe lines' own priceMinor, actual from the real,
+  // live balance of the project's own Profit-Center-scoped Expense
+  // account (Stage 5).
+  getProjectCostReport: (v, user) => {
+    requireRole(user, 'Administrator', 'Bookkeeper');
+    const [projectName] = v;
+    if (!projectName) throw new CallError(400, 'projectName is required.');
+    try {
+      const report = getProjectCostReport(projectName);
+      return row(String(report.quotedTotalMinor), String(report.actualCostMinor), String(report.marginMinor));
+    } catch (e) {
+      if (e instanceof ValidationError) throw new CallError(404, e.message);
+      throw e;
+    }
   },
   // Positional args: [0] business.
   listLiveProjects: (v, user) => {

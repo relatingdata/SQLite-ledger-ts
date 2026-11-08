@@ -451,3 +451,14 @@ expected to close when `docs/pm-project-builder.md` is written (Stage 7).
 - `prototypesFunctions`
 - `typeBusinessPrototypeRootName`
 - `typePrototypeName`
+
+Found 2026-11-08, Stage 5 of the same build (per-project cost-vs-price
+tracking via a real, dedicated Profit Center + Expense account —
+db-projects.ts's provisionProjectProfitCenter/getProjectCostReport, and
+db.ts's getAccountBalanceMinor, the generic account-balance read helper
+they're built on). Same deliberate, temporary sequencing choice as
+Stages 2-4's entries above — expected to close when
+`docs/pm-project-builder.md` is written (Stage 7).
+- `provisionProjectProfitCenter`
+- `getProjectCostReport`
+- `getAccountBalanceMinor`

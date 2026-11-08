@@ -54,7 +54,7 @@ import { createRecurringJournal, reverseJournalEntry, type Recurrence } from './
 // Proposal creates the real Live Project + Milestones and schedules its
 // Labour/Plant lines — db-projects.ts, imported directly (not via db.ts's
 // own barrel re-export) to keep the dependency direction one-way.
-import { createLiveProject, createMilestone, scheduleProjectRecipeLines, checkMilestoneAchievability } from './db-projects.js';
+import { createLiveProject, createMilestone, scheduleProjectRecipeLines, checkMilestoneAchievability, provisionProjectProfitCenter } from './db-projects.js';
 
 export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
 export type QuotationDirection = 'AR' | 'AP';
@@ -352,6 +352,11 @@ export function acceptQuotation(
     const business = asBusinessName(quotation.business);
     createLiveProject(projectDetails.projectName, business, client, quotation.transdate, projectDetails.targetCompletionDate, userId);
     createMilestone(projectDetails.projectName, 'Invoicing', projectDetails.targetCompletionDate, userId);
+    // Stage 5: one dedicated real Profit Center + Expense account per
+    // accepted Project Proposal, so every real labour/plant clock-in/out
+    // against this project lands as a real, isolated cost, comparable to
+    // the quoted price above.
+    provisionProjectProfitCenter(projectDetails.projectName, business, userId);
     for (const line of lines) {
       stageBomComponent({
         assemblyItem: projectDetails.projectName,

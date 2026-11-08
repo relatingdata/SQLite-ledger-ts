@@ -884,6 +884,18 @@ export interface CreditStatus {
     remainingMinor: number | null;
 }
 
+// Exported (Stage 5, Project Builder work) — the exact, same real
+// `SELECT balance_minor FROM account WHERE entity_id = ?` idiom
+// getCreditStatus already uses, generalized to any named account, for a
+// real Project's own cost-vs-price report (db-projects.ts's
+// getProjectCostReport). Returns 0, never throws, for an account with no
+// real `account` row yet (never posted to).
+export function getAccountBalanceMinor(accountName: string): number {
+  const entityId = Entity.get(accountName)?.id;
+  const accountRow = entityId !== undefined ? (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(entityId) as { balance_minor: number } | undefined) : undefined;
+  return accountRow?.balance_minor ?? 0;
+}
+
 export function getCreditStatus(entityName: string): CreditStatus {
   const entityId = Entity.get(entityName)?.id;
   const accountRow = entityId !== undefined ? (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(entityId) as { balance_minor: number } | undefined) : undefined;
@@ -1827,7 +1839,12 @@ export function getHierarchyChain(leafName: ItemName | LocationName): HierarchyC
 // those are never real account structure, only ever a generic,
 // optional setHierarchyParent tag read back by the matrix-report
 // engine (db-matrix-reports.ts), exactly alike for every one of them.
-function resolvePostingRoot(rootName: string, userId: UserId, business?: BusinessName, profitCenter?: string): { name: string; id: number } {
+// Exported (Stage 5, Project Builder work) — the one, already-proven,
+// generic "resolve a CoA root, optionally scoped under a real Profit
+// Center" primitive, reused as-is by db-projects.ts's
+// provisionProjectProfitCenter rather than duplicating this resolution
+// logic a second time.
+export function resolvePostingRoot(rootName: string, userId: UserId, business?: BusinessName, profitCenter?: string): { name: string; id: number } {
   let currentParent = rootName;
   let currentParentId = business ? resolveBusinessCoaAccountId(business, rootName) : Entity.get(rootName)?.id ?? null;
   if (profitCenter && business && currentParentId) {
