@@ -4545,6 +4545,108 @@ test('ensureSkill/listSkills/tagSkill/untagSkill/getSkills: a real, pairing-spec
   assert.equal(db.getSkills(carpenter).find((s) => s.skill === 'Framing')?.rateMinorPerHour, 8000, 'the first employee\'s own rate is untouched by the second\'s');
 });
 
+test('createLiveProject/getLiveProject/listLiveProjects: a real Project entity, distinct from the pre-existing "Projects" Vocabulary label and from clockInToProject\'s own account-name-only "project"', () => {
+  const biz = fx.freshBusiness('LiveProjectTest Co');
+  const project = fx.uniqueName('LiveProjectTest 123 Oak St');
+  db.createLiveProject(project, biz.business, 'LiveProjectTest Client A', '2027-03-01', '2027-06-30', fx.userId);
+
+  const record = db.getLiveProject(project);
+  assert.equal(record?.client, 'LiveProjectTest Client A');
+  assert.equal(record?.requestedStart, '2027-03-01');
+  assert.equal(record?.targetCompletionDate, '2027-06-30');
+  assert.equal(record?.scheduleRisk, undefined, 'no real risk flagged yet');
+  assert.deepEqual(db.listLiveProjects(biz.business), [project]);
+
+  assert.throws(() => db.createLiveProject(project, biz.business, 'LiveProjectTest Client A', '2027-03-01', '2027-06-30', fx.userId), /already exists/);
+
+  // Confirms the real, deliberate naming choice — the pre-existing
+  // "Projects" Vocabulary label is untouched, and the project itself
+  // does not collide with it or with any bare, unscoped lookup.
+  assert.equal(db.getLiveProject('Projects'), undefined);
+});
+
+test('createMilestone/getMilestones: real construction-stage gates, Plans Submission/Inspection/Invoicing', () => {
+  const biz = fx.freshBusiness('MilestoneTest Co');
+  const project = fx.uniqueName('MilestoneTest 45 River Rd');
+  db.createLiveProject(project, biz.business, 'MilestoneTest Client', '2027-01-01', '2027-04-30', fx.userId);
+
+  db.createMilestone(project, 'Plans Submission', '2027-01-15', fx.userId);
+  db.createMilestone(project, 'Inspection', '2027-02-10', fx.userId, 'Footings Inspection');
+  db.createMilestone(project, 'Invoicing', '2027-04-30', fx.userId, 'Final Invoice');
+
+  const milestones = db.getMilestones(project);
+  assert.equal(milestones.length, 3);
+  assert.equal(milestones.find((m) => m.milestoneType === 'Plans Submission')?.dueDate, '2027-01-15');
+  const inspection = milestones.find((m) => m.name.includes('Footings Inspection'));
+  assert.equal(inspection?.milestoneType, 'Inspection');
+  assert.equal(inspection?.scheduleRisk, undefined);
+});
+
+test('findNextAvailableWindow/scheduleProjectRecipeLines/checkMilestoneAchievability: a real Plant double-booking across two live Projects is auto-rescheduled into the future, never blocked, and warns only when a Milestone becomes unachievable', () => {
+  const biz = fx.freshBusiness('ContentionTest Co');
+  db.createPlantItem('ContentionTest Excavator', biz.business, 15000, 'Owned', fx.userId);
+
+  const projectA = fx.uniqueName('ContentionTest Project A');
+  db.createLiveProject(projectA, biz.business, 'Client A', '2027-03-01', '2027-06-30', fx.userId);
+  db.stageBomComponent({
+    assemblyItem: projectA, business: biz.business, componentItem: 'ContentionTest Excavator', quantity: 1, unit: 'hour',
+    kind: 'Plant', durationHours: 40, scheduledStart: '2027-03-01', scheduledEnd: '2027-03-06',
+  });
+  db.postBomComponents(projectA, biz.business, fx.userId);
+
+  // Project A gets the excavator exactly when it asked for it — no other
+  // live project has booked it yet.
+  const resolvedA = db.scheduleProjectRecipeLines(projectA, biz.business, fx.userId);
+  assert.equal(resolvedA[0].pushedOut, false);
+  assert.equal(resolvedA[0].scheduledStart, '2027-03-01');
+  const achievableA = db.checkMilestoneAchievability(projectA, fx.userId);
+  assert.equal(achievableA.achievable, true);
+  assert.equal(db.getLiveProject(projectA)?.scheduleRisk, undefined);
+
+  // Project B, a SECOND, real, overlapping client, wants the SAME
+  // excavator over dates that genuinely collide with Project A's
+  // already-resolved booking, with a tight client-wanted completion date.
+  const projectB = fx.uniqueName('ContentionTest Project B');
+  db.createLiveProject(projectB, biz.business, 'Client B', '2027-03-03', '2027-03-05', fx.userId);
+  db.createMilestone(projectB, 'Invoicing', '2027-03-10', fx.userId, 'Final Invoice');
+  db.stageBomComponent({
+    assemblyItem: projectB, business: biz.business, componentItem: 'ContentionTest Excavator', quantity: 1, unit: 'hour',
+    kind: 'Plant', durationHours: 16, scheduledStart: '2027-03-03', scheduledEnd: '2027-03-05',
+  });
+  db.postBomComponents(projectB, biz.business, fx.userId);
+
+  const resolvedB = db.scheduleProjectRecipeLines(projectB, biz.business, fx.userId);
+  assert.equal(resolvedB[0].pushedOut, true, 'a real conflict with Project A\'s own booking must push this line into the future, never block it');
+  assert.equal(resolvedB[0].conflictingProject, projectA);
+  assert.ok(resolvedB[0].scheduledStart! >= '2027-03-06', 'the real, resolved start must fall on or after Project A\'s own booking ends');
+
+  // The real, posted line itself reflects the resolved window, not the
+  // originally-desired one — getBomComponents is the one real source of
+  // truth, re-read fresh, not trusted from scheduleProjectRecipeLines's
+  // own return value alone.
+  const postedLine = db.getBomComponents(projectB)[0];
+  assert.equal(postedLine.scheduledStart, resolvedB[0].scheduledStart);
+
+  const achievableB = db.checkMilestoneAchievability(projectB, fx.userId);
+  assert.equal(achievableB.achievable, false, 'the real push-out now falls after Client B\'s own wanted completion date');
+  assert.ok(achievableB.completionDate > achievableB.targetCompletionDate);
+
+  const projectBRecord = db.getLiveProject(projectB);
+  assert.ok(projectBRecord?.scheduleRisk, 'a real, visible Schedule Risk warning was set on the Project — never a block');
+  assert.match(projectBRecord!.scheduleRisk!, /double-booked/);
+
+  const finalMilestone = db.getMilestones(projectB).find((m) => m.milestoneType === 'Invoicing');
+  assert.ok(finalMilestone?.scheduleRisk, 'the same real warning reached the Project\'s own final Milestone');
+
+  // getResourceBookings, read independently, confirms both real bookings
+  // exist and that excluding a project correctly omits its own lines.
+  const bookings = db.getResourceBookings('ContentionTest Excavator', biz.business);
+  assert.equal(bookings.length, 2);
+  const bookingsExcludingB = db.getResourceBookings('ContentionTest Excavator', biz.business, projectB);
+  assert.equal(bookingsExcludingB.length, 1);
+  assert.equal(bookingsExcludingB[0].project, projectA);
+});
+
 test('createProjectTask/getProjectTasks/addTaskDependency/getTaskDependencies: real project scheduling with zero new tables, per direct, absolute instruction', () => {
   const projectName = fx.uniqueName('PmTest Riverside Build');
   db.create(db.requireEntity('Projects', db.typeRootName), db.typeRootName, projectName, fx.userId);

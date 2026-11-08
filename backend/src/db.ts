@@ -76,6 +76,19 @@ export const typeBusinessItemsRootName: TypeDescriptor<'BusinessItemsRootName'> 
 export const typeBusinessContactsRootName: TypeDescriptor<'BusinessContactsRootName'> = { brand: 'BusinessContactsRootName' };
 export const typeBusinessPlantRootName: TypeDescriptor<'BusinessPlantRootName'> = { brand: 'BusinessPlantRootName' };
 export const typePlantItemName: TypeDescriptor<'PlantItemName'> = { brand: 'PlantItemName' };
+// Named "Live Projects", deliberately NOT "Projects" — a real, pre-existing,
+// unrelated entity named "Projects" already exists (a Vocabulary/menu
+// label, schema/00-core.sql row 394, `notImplemented: true`), and the
+// existing createProjectTask/getProjectTasks mechanism (further above)
+// already resolves a bare, unscoped `requireEntity('Projects', typeRootName)`
+// against it in its own tests. A second, real, per-business root sharing
+// that exact name would make every unscoped `Entity.get('Projects')`/
+// `requireEntity('Projects', ...)` call genuinely ambiguous — confirmed by
+// reading requireEntity's own resolution (a bare resolveId(name), no
+// parent scope unless one is passed) before picking a name, not assumed.
+export const typeBusinessLiveProjectsRootName: TypeDescriptor<'BusinessLiveProjectsRootName'> = { brand: 'BusinessLiveProjectsRootName' };
+export const typeLiveProjectName: TypeDescriptor<'LiveProjectName'> = { brand: 'LiveProjectName' };
+export const typeMilestoneName: TypeDescriptor<'MilestoneName'> = { brand: 'MilestoneName' };
 export const typeLineTypeMarkerName: TypeDescriptor<'LineTypeMarkerName'> = { brand: 'LineTypeMarkerName' };
 export const typeStorageOriginMarkerName: TypeDescriptor<'StorageOriginMarkerName'> = { brand: 'StorageOriginMarkerName' };
 export const typeTextDirectionMarkerName: TypeDescriptor<'TextDirectionMarkerName'> = { brand: 'TextDirectionMarkerName' };
@@ -5767,6 +5780,11 @@ export const PER_BUSINESS_ROOTS: { name: string; type: TypeDescriptor<string> }[
   // widening): a per-business root for hired/owned equipment, same
   // shape as Items/Locations above. See docs/pm-project-builder.md.
   { name: 'Plant', type: typeBusinessPlantRootName },
+  // A real Project (not the account-name-only "project" of
+  // clockInToProject, and not the pre-existing "Projects" Vocabulary
+  // label) — created when a multi-line Project Proposal is accepted.
+  // See db-projects.ts.
+  { name: 'Live Projects', type: typeBusinessLiveProjectsRootName },
 ];
 
 export function createBusiness(
@@ -5853,4 +5871,5 @@ import { stageLine, postJournalEntry } from './db-journal.js';
 export * from './db-stock.js';
 import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, createSystemEntity, type Location as StockLocation } from './db-stock.js';
 export * from './db-quotations.js';
+export * from './db-projects.js';
 

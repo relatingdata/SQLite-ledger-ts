@@ -416,3 +416,20 @@ Expected to close when that chapter is written.
 - `getSkills`
 - `typeBusinessPlantRootName`
 - `typePlantItemName`
+
+Found 2026-11-08, Stage 3 of the same build (Live Project/Milestone/
+scheduling-contention engine, db-projects.ts). Same deliberate,
+temporary sequencing choice as Stage 2's Plant/Skill entry just above —
+expected to close when `docs/pm-project-builder.md` is written (Stage 7).
+- `createLiveProject`
+- `getLiveProject`
+- `listLiveProjects`
+- `createMilestone`
+- `getMilestones`
+- `getResourceBookings`
+- `findNextAvailableWindow`
+- `scheduleProjectRecipeLines`
+- `checkMilestoneAchievability`
+- `typeBusinessLiveProjectsRootName`
+- `typeLiveProjectName`
+- `typeMilestoneName`
