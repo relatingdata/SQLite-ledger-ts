@@ -212,7 +212,8 @@ two ways of testing the same moments.
   real General Journal page holds every line being built only in
   client-side state — the server receives *zero* calls for an
   unbalanced, incomplete entry, and all of `stageLine` ×N
-  + `POST /journal/post` fire together, back to back, only on Save.
+  + `postJournalEntry` fire together, back to back (each its own
+  `POST /api/call`), only on Save.
   Any `Stage Journal Line` row's UI action is "fill the builder row,
   press insert" (no submit, no network call expected); only the final
   `Post Journal Entry` row carries a `submit_selector`.
@@ -557,8 +558,8 @@ converted: by the point those two steps run in `tutorial-steps.csv`
 existing row (observed: "Business Type") instead of empty space. With
 the wrong `Parent` select filled, `newParent` on the real New-entity
 form stayed empty, so `createNew()` fell through to plain
-`createEntity()` (`POST /api/entities`) instead of `createProvider()`/
-`createCustomer()` (`POST /api/entities/contact`) — silently creating a
+`createEntity` (the `call-dispatch/entities.ts` dispatch key, via
+`POST /api/call`) instead of `createProvider`/`createCustomer` — silently creating a
 plain entity that never shows up as a provider, which only surfaced
 several steps later as an unrelated-looking `selectOption` timeout on
 `/items`' own provider dropdown. Fixed by pointing the `open_selector`
@@ -674,8 +675,8 @@ clean browser-path run** (not merely assumed clean from an earlier
 session's commit message — the Makefile passes no
 `--fallback-to-api`, so a UI failure hard-fails rather than masking,
 and this run had in fact not been exercised cleanly in some time):
-business-scoping `GET /entities` (`getEntityTree(businessName)`,
-`backend/src/db.ts`) looked a business up via
+business-scoping `getEntityTree(businessName)` (`backend/src/db.ts`,
+dispatched via `call-dispatch/entities.ts`'s `getEntityTree`) looked a business up via
 `WHERE name = ? AND parent_id IS NULL` — but no real business entity
 is ever a top-level, `parent_id IS NULL` row; every one sits under the
 real `"Businesses"` entity (the same, established pattern every other
@@ -880,7 +881,8 @@ a unit test checks an exact expected value.
 `make test-e2e` runs, in order:
 
 1. `make reset-db` — a clean, empty database, reinitialized from
-   `schema.sql`.
+   `backend/schema/00-core.sql`/`30-coa-links.sql` plus the unconditional
+   TypeScript seeding in `seedRemainingData()` (`db-seed.ts`).
 2. The simulation — a full month of real trading for Wine Retail
    Business, posted through the same functions the real frontend
    calls (never raw SQL). See `docs/simulation-prompt.md` for the full
@@ -990,9 +992,11 @@ names are genuinely written in its own language:
 
 `language-parameterized.spec.ts` and `coa-prototype-filtering.spec.ts`
 exercise these. Current gap: their sample data isn't yet cleanly
-separated at the file level the way vocabulary translations are — all
-four currently live together in
-`backend/schema/20-demo-bmw-peugeot.sql` and `00-core.sql`.
+separated the way it once was as its own SQL file — the German BMW /
+French Peugeot/Ditta/Schweizer demo data and the per-language
+vocabulary/translations it depends on are both seeded together in
+TypeScript (`seedRemainingData()`, `backend/src/db-seed.ts`), not split
+into separate files at all any more.
 
 ```
 make test-e2e-browser-languages   # runs the month simulation, then verifies every language against it in a real browser

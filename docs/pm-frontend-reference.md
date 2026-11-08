@@ -494,7 +494,7 @@ relation change — always gets its own explicit confirmation showing
 both the current and proposed parent together. This is the exact
 guard rail that would have caught an accidental attempt elsewhere in
 this project to re-parent Customers under Accounts Receivable before
-it was ever written to `schema.sql`.
+it was ever written to `backend/schema/00-core.sql`.
 
 This page also opts into the shared Esc-with-warning mechanism
 (`$lib/dirty-state` / `hasUnsavedEdit` — see the State chapter above).
@@ -517,7 +517,7 @@ duplicates. The create-provider path specifically (per
 provider is genuinely tagged with its own Contact Type, not just
 structurally parented. `setContact` always sends the complete current
 form state — it's a full replace, not a partial merge (see
-`schema.sql`'s note on `contact_entry`) — so a partial send would
+`backend/schema/00-core.sql`'s note on `contact_entry`) — so a partial send would
 silently wipe whatever field isn't included.
 
 ## `frontend/src/routes/login/+page.svelte` — the login screen

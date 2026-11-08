@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# A real, project-local, tracked pre-commit gate — not the host
+# platform's own stop-hook (that's shared infrastructure outside this
+# repo's control, and only checks for uncommitted changes, nothing about
+# documentation content). Added in direct response to a real, found
+# failure: the Programmer's Manual's source chapters (docs/pm-*.md) kept
+# describing deleted routes/files long after the real code moved on, and
+# nothing caught it automatically — someone had to remember to run
+# `make verify-fresh` by hand.
+#
+# Enable it once per clone with:
+#   git config core.hooksPath githooks
+#
+# Only runs the (cheap, real, mechanical) doc checks, and only when a
+# commit actually touches something that could make them fail — backend
+# source (coverage) or the manual's own source chapters (staleness).
+# Skips entirely, silently, for a commit that touches neither, so this
+# never slows down unrelated work.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+staged() { git diff --cached --name-only --diff-filter=ACM; }
+
+touches_backend_src=false
+touches_docs=false
+while IFS= read -r f; do
+  case "$f" in
+    backend/src/*) touches_backend_src=true ;;
+    docs/pm-*.md) touches_docs=true ;;
+  esac
+done < <(staged)
+
+if ! $touches_backend_src && ! $touches_docs; then
+  exit 0
+fi
+
+echo "pre-commit: backend/src or docs/pm-*.md changed — running doc coverage/staleness checks..."
+
+fail=0
+if ! make check-docs-staleness; then
+  fail=1
+fi
+if $touches_backend_src; then
+  if ! make check-docs-coverage; then
+    fail=1
+  fi
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "pre-commit: FAILED — fix the doc issue(s) above, or 'git commit --no-verify' to override (only if this is a deliberate, disclosed exception, not a shortcut)."
+  exit 1
+fi
+
+exit 0

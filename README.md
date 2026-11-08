@@ -37,6 +37,23 @@ make install
 make dev      # backend :3001, frontend :5173, together
 ```
 
+### Keeping the Programmer's Manual honest
+
+The Programmer's Manual (`docs/programmer-manual.md`, assembled from
+`docs/pm-*.md`) is this project's own stated source of truth for how the
+system actually works — and it has drifted stale before (describing
+deleted routes/files long after the real code moved on) because nothing
+caught it automatically. A tracked, project-local pre-commit hook runs
+`make check-docs-staleness` (and, for backend changes, `make
+check-docs-coverage`) whenever a commit touches `backend/src/` or
+`docs/pm-*.md`. Enable it once per clone:
+
+```bash
+git config core.hooksPath githooks
+```
+
+See `scripts/check-docs-staleness.ts` for exactly what it checks.
+
 ### Running under Node, Bun, or Deno
 
 This project runs identically under Node (default), Bun, or Deno — some

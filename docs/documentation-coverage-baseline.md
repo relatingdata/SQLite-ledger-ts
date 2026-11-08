@@ -338,3 +338,54 @@ are the two largest, most recently-built, most user-visible gaps. -->
 - `release`
 - `/reports/storage-space`
 - `/setup/business-structure`
+
+Found 2026-11-08, while building `check-docs-staleness` (the coverage
+check's new counterpart): 38 real, genuinely undocumented names left
+behind by the ASCII-CSV `POST /api/call` migration (the whole,
+multi-session `call-dispatch/*.ts` rollout) and the recursive-codec
+work it needed — `make check-docs-coverage` evidently hadn't been run
+to a clean pass since before most of these existed. Not caused by
+today's work; added here, honestly, rather than silently absorbed.
+Each per-domain `BACKEND_FUNCTIONS` registry constant:
+- `arapFunctions`
+- `authFunctions`
+- `businessesFunctions`
+- `contactsFunctions`
+- `customerRegistrationFunctions`
+- `departmentsFunctions`
+- `entitiesFunctions`
+- `hierarchyFunctions`
+- `i18nFunctions`
+- `invoicesFunctions`
+- `itemsFunctions`
+- `journalFunctions`
+- `locationsFunctions`
+- `matrixReportsFunctions`
+- `menuFunctions`
+- `periodFunctions`
+- `posFunctions`
+- `productsFunctions`
+- `projectsFunctions`
+- `quotationsFunctions`
+- `reportsFunctions`
+- `stockLotsFunctions`
+- `stockFunctions`
+
+The dispatch plumbing and shared wire-encoding helpers
+(`call-dispatch.ts`/`routes/call.ts`), none of which has its own prose
+anywhere in the manual despite the protocol itself being documented:
+- `callBackendFunction`
+- `callRouter`
+- `userMayActAsRole`
+- `allQtyLocationAccounts`
+- `encodeProfitAndLoss`
+- `encodeStringList`
+- `decodeStringList`
+- `encodeShape`
+- `decodeShape`
+- `encodeRecordList`
+- `decodeRecordList`
+- `encodeCategoryTree`
+- `decodeCategoryTree`
+- `encodeGenericTree`
+- `decodeGenericTree`

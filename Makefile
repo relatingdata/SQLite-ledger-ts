@@ -419,7 +419,7 @@ verify-fresh: reset-db
 	@# Every independent gate runs and reports; one failing gate must never
 	@# hide the others (make normally stops at the first failure, which
 	@# silently masked two of these for a long time).
-	@fail=0; for g in check-docs-coverage check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only; do \
+	@fail=0; for g in check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only; do \
 	  $(MAKE) $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
 	done; exit $$fail
 
@@ -433,6 +433,17 @@ check-schema-table-count:
 check-docs-coverage: docs/documentation-baseline-report.md
 	$(RUN_SCRIPT) scripts/build-programmer-manual.ts
 	$(RUN_SCRIPT) scripts/check-docs-coverage.ts
+
+# A real, mechanical staleness check - the counterpart to
+# check-docs-coverage above. Coverage only ever catches a MISSING
+# mention; it says nothing about whether an EXISTING mention is still
+# true. Added directly in response to a real, found failure: several
+# pm-*.md chapters kept describing deleted per-path JSON Express routes
+# long after the whole app moved onto the ASCII-CSV POST /api/call
+# protocol, and nothing caught it. See scripts/check-docs-staleness.ts
+# for exactly what it checks and why each check is shaped the way it is.
+check-docs-staleness:
+	$(RUN_SCRIPT) scripts/check-docs-staleness.ts
 
 check-journal-staging-only:
 	$(RUN_SCRIPT) scripts/check-journal-staging-only.ts

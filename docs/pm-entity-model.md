@@ -406,8 +406,9 @@ A word and its translations stay owned by the one, global Vocabulary
 by default; a business's own `Vocabulary` entry is created only for a
 structural category, never eagerly for an ordinary leaf account.
 `ensureVocabularyAlternate(conceptName, desiredText, businessName,
-userId)` (`backend/src/db.ts`, called from `POST
-/api/vocabulary-preference`) is the one mechanism that creates a
+userId)` (`backend/src/db.ts`, called from `setVocabularyPreference`,
+the `call-dispatch/i18n.ts` dispatch key reached via `POST /api/call`)
+is the one mechanism that creates a
 business-local alternate name, only when the requested text isn't
 already a known entity anywhere.
 
@@ -440,8 +441,9 @@ business's "Notes to the Financial Statements" area.
 business's own setup captured — Name, Addresses, Phones,
 Owner(s)/Partner(s), Banking Details, Currencies, Divisions,
 Locations, Categories (deliberately never Item Details — see the
-Inventory Catalog/Listing reports for those). Reachable via `GET
-/businesses/:name/configuration-report` and `/reports/business-configuration`.
+Inventory Catalog/Listing reports for those). Reachable via the
+`getBusinessConfigurationReport` dispatch key (`call-dispatch/businesses.ts`,
+via `POST /api/call`).
 
 ## How data actually moves
 
@@ -732,8 +734,10 @@ SQL directly any more. Every one of its methods — `create`, `get`,
 `findAll`, `findByNameContaining`, `descendantsWithDepth` — is a
 one-line delegation to `entityDriver`, an `EntityDriver`-typed instance
 exported by `backend/src/entity-driver-select.ts`. That file reads
-`ENTITY_DRIVER=sql|kaappi` (default `sql`) and is the *only* module
-permitted to import both concrete implementations:
+`ENTITY_DRIVER=sql|kaappi|memory` (default `sql`) and is the *only*
+module (besides the deliberately-exempted `bench-entity-drivers.ts`/
+`bench-biwascheme.ts` benchmark scripts) permitted to import more than
+one concrete implementation:
 
 - **`SqlEntityDriver`** (`backend/src/drivers/sql-entity-driver.ts`,
   the committed default) — direct ports of the same SQL this file used
@@ -751,20 +755,55 @@ permitted to import both concrete implementations:
   worker thread also owns a write-ahead log (`kaappi_wal`, one JSON blob
   row in the same SQLite file) so a killed/restarted Kaappi process
   replays back to exactly where it left off.
+- **`MemoryEntityDriver`** (`backend/src/drivers/memory-entity-driver.ts`)
+  — the same box/version/materialized-children/name-hash-index
+  architecture as `KaappiEntityDriver`, but hosted directly in the
+  backend's own process: zero IPC and zero interpreter overhead, just
+  plain TypeScript over in-memory `Map`s. Reuses the SAME `kaappi_wal`
+  table for durability (replays it on startup, appends to it on every
+  write), so a database bootstrapped once via `migrate-entities-to-kaappi.ts`
+  is readable by either `kaappi` or `memory` interchangeably. Faster
+  than both other drivers on every benchmarked operation (see
+  `bench-entity-drivers.ts`), but `revoke()` throws — SQL's real
+  `revokeEntity` is a business-rule wrapper (live-children/
+  journal-postings/incoming-links/ledger guards), not a pure storage
+  primitive, and reimplementing all of that independently here would
+  risk real drift from `db.ts`'s own logic.
 
-**Why this matters for anything reading this chapter**: a raw SQL query
-against `current_entities`/`account`/`journal` in the same statement
-("category 4" in the plan's own terms — most financial reports, and a
-deliberately-untouched remainder of `db.ts`/`db-stock.ts`/
-`db-reports.ts`) is invisible to `ENTITY_DRIVER=kaappi`, because
-Kaappi-mode entity writes never touch SQL's `entities` table at all —
-confirmed directly, not theoretical, the first time a real, live,
-multi-step session was run under that driver. `ENTITY_DRIVER=sql`
-remains the only committed, supported default; `kaappi` is a real,
-working alternative for pure entity-graph operations and ordinary
-financial postings (`commitStagedEntry`'s own entity resolution was
-converted for exactly this reason — see `docs/pm-journal-api.md`), not
-yet for anything that reads entities via a raw join.
+**Why this matters for anything reading this chapter**: any raw SQL
+query that joins `current_entities` to another table in the same
+statement is invisible to `ENTITY_DRIVER=kaappi`, because Kaappi-mode
+entity writes never touch SQL's `entities` table at all — confirmed
+directly, not theoretical, the first time a real, live, multi-step
+session was run under that driver. The plan's own "category 4" —
+`current_entities` joined to `account`/`journal`/`invoice`/`contact`
+in one statement — has since been fully converted across
+`db-reports.ts`, `db-stock.ts`, `db-matrix-reports.ts`, and `db.ts`
+itself (every raw-SQL/`supersedeEntity`/`revokeEntity`/`getEntity`
+bypass site, not just category-4 joins). What's left, and genuinely
+still raw SQL by deliberate design rather than oversight, is a large
+number of *pure* `current_entities`-self-join sites (schedule lookups,
+BOM/dependency walks, bank-account/vocabulary-preference lookups, line
+types, and more) that never touch `account`/`journal`/`invoice`/
+`contact` at all — out of category-4's stated scope from the start,
+left as SQL because `EntityDriver` doesn't (yet) expose a generic
+enough primitive for each one's specific shape. These are still a real
+raw join against `current_entities`, so they're just as invisible
+under Kaappi mode as a category-4 site ever was. One financial report,
+`getTrialBalance` (`db-reports.ts`), keeps exactly one such join too —
+a narrow, explicitly-approved exception, needing `combination_ids`
+directly alongside an account's identity, which `EntityNode`/`getMany`
+deliberately don't carry. `ENTITY_DRIVER=sql` remains the only
+committed, supported default; `kaappi` is a real, working alternative
+for pure entity-graph operations reached through `EntityDriver`'s own
+interface, most of `getLedgerBalances`'/`getBusinessReports`'
+entity-id resolution (post category-4 migration — the SQL returns ids
+only, `EntityDriver.getMany` resolves names, the join happens in
+TypeScript), and ordinary financial postings (`commitStagedEntry`'s
+own entity resolution was converted for exactly this reason — see
+`docs/pm-journal-api.md`) — not yet for `getTrialBalance`'s own
+`combination_ids` exception or any of the self-join sites just
+described.
 
 ## `backend/src/db.ts` — the data model, write primitives, and the Hierarchy/Product cartesian mechanism
 

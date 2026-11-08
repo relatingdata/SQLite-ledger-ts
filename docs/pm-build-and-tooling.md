@@ -99,16 +99,22 @@ adjustment/breakage or order-placement entry (e.g. crediting "On
 Order" when a PO is placed, before stock has moved) is intentionally
 one line on its own and is never expected to balance.
 
-## `backend/schema/` — structural schema and seed data
+## `backend/schema/` — structural schema
 
-Split into `00-core.sql` (every table, view, trigger, and
-entity-creation statement), `10-vocab-{language}.sql` (one file per
-supported language's translations), `20-demo-bmw-peugeot.sql` (the
-German BMW / French Peugeot/Ditta/Schweizer demo ledger data), and
-`30-coa-links.sql` (linking every business to its Chart of Accounts
-prototype — depends on entities from both core and the demo block, so
-it loads last). `db.ts` loads these, concatenated, in this exact,
-dependency-safe order.
+Only two real files remain here today: `00-core.sql` (every table,
+view, trigger, and entity-creation statement) and `30-coa-links.sql`
+(linking every business to its Chart of Accounts prototype). `db.ts`
+loads both, in that order, on every fresh database.
+
+Per-language vocabulary/translations and the German BMW / French
+Peugeot/Ditta/Schweizer demo ledger data no longer live in separate
+SQL files at all — both moved into TypeScript, seeded unconditionally
+on every module load by `seedRemainingData()` (`backend/src/db-seed.ts`,
+called from `db.ts`). This also means `seedRemainingData()` is a real
+backfill step, not a one-time fresh-db seed: it runs on every import,
+so it can genuinely add a few new entities (a since-added vocabulary
+word, say) to an *existing*, non-fresh database too — worth knowing
+before assuming a database's entity count is frozen between runs.
 
 ## This project ships no Python and no stray TypeScript/Playwright loaders
 
@@ -163,6 +169,7 @@ wired in after it.
 | `check-schema-table-count` | A pure, mechanical count of every `CREATE TABLE` across every `.sql` file in the project — fails unless the permanent (non-staging) count is exactly 4, matching `entities`, `account`, `journal`, `journal_line` by name. Staging tables are counted and reported separately. Unbypassable, wired into `verify-fresh`. |
 | `check-no-python` | No `.py` file, and no build file that invokes python |
 | `check-docs-coverage` | Rebuilds the Programmer's Manual, then checks every tracked name is genuinely documented |
+| `check-docs-staleness` | The coverage check's counterpart — not "is everything mentioned" but "is everything mentioned still true." Flags any `docs/pm-*.md` reference to a file that doesn't exist anywhere in the real source tree (checked by basename), or to an HTTP route other than the app's three real, current mounts (`/api/call`/`/api/health`/`/api/recording`). Also wired into a tracked, project-local pre-commit hook (`githooks/pre-commit`, enabled via `git config core.hooksPath githooks` — see the README) so a commit touching `backend/src/` or `docs/pm-*.md` can't silently leave the manual pointing at something that no longer exists. |
 | `check-db-consistency` | See above |
 
 A fact worth holding onto precisely because it is not visible from any

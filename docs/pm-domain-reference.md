@@ -37,8 +37,9 @@ returning `undefined` silently.
 current business onto the session entity's own `detail_json`
 (alongside `expires_at`), the same database-backed session record
 `req.user` already comes from — no WebSocket or persistent connection
-needed. `POST /api/session/business` is the one route a person's
-business selection reaches this session through.
+needed. `setSessionBusiness` (`call-dispatch/auth.ts`, via `POST /api/call`)
+is the one dispatch entry a person's business selection reaches this
+session through.
 
 **Deliberate boundary**: this is an HTTP-layer concern only.
 `db.ts`/`db-stock.ts`'s own 100+ business-taking functions keep
@@ -397,8 +398,8 @@ view through one specific type; creating "a new vendor" means,
 underneath: create the contact entity under `Contacts`, then
 `setContactType(name, 'Vendor', userId)`. `createContact<TBrand>`
 (`backend/src/db.ts`) is the one shared implementation behind
-`createProvider`/`createCustomer`/`createEmployee`, consolidated
-behind one route (`POST /entities/contact`).
+`createProvider`/`createCustomer`/`createEmployeeContact`, each its
+own dispatch key in `call-dispatch/entities.ts` (via `POST /api/call`).
 
 **Open question, not yet decided**: whether two contacts can share one
 address/phone record, or whether each must always hold its own,
@@ -946,7 +947,8 @@ A per-business pointer at "the one ledger ordinary trading posts into
 right now," flipped by `rolloverToNewPeriod` (see
 `pm-reports-reference.md`) — deliberately *not* a hard lock on the old
 ledger, which stays postable forever for corrections. It's the
-frontend's Session screen default and the one fact `POST /post`
+frontend's Session screen default and the one fact `requirePostableLedger`
+(the shared helper `stageLine`/`postJournalEntry` call, `call-dispatch/journal.ts`)
 checks before allowing a posting into a different ledger. Stored as a
 dedicated marker entity (a direct child of the business), pointing at
 the ledger entity **by id**, never by bare name — a ledger's own name
@@ -966,8 +968,9 @@ a business's own `PER_BUSINESS_ROOTS` (Locations, Items, Contacts,
 Vocabulary, Ledgers, Profit Centers) are all children of the business
 entity, so passing a `businessName` anchors the recursive walk at that
 business's own entity instead of the system root, returning just its
-subtree. `GET /entities?business=<name>` carries this through over
-HTTP; `frontend/src/lib/api.ts`'s `getEntityTree(business?)` wraps it.
+subtree. The `getEntityTree` dispatch key (`call-dispatch/entities.ts`,
+via `POST /api/call`) carries this through; `frontend/src/lib/api.ts`'s
+`getEntityTree(business?)` wraps it.
 Unscoped remains the default everywhere it was already in use — this
 is purely additive. The Items catalog and Business Structure popup
 were the first callers updated, since an unscoped entity tree (every
@@ -1035,8 +1038,8 @@ February's real, shorter length).
 **Where this surfaces**: `setup/new-business/+page.svelte` gets a real
 date field and a frequency `<select>`, alongside (not replacing) the
 pre-existing free-text `financialYearLabel`, which still only names
-the Budget ledger. `GET /businesses/:businessName/reporting-periods`
-exposes `getReportingPeriods` over HTTP; the Close Books/Rollover
+the Budget ledger. The `getReportingPeriods` dispatch key
+(`call-dispatch/businesses.ts`, via `POST /api/call`) exposes it; the Close Books/Rollover
 screen (`setup/yearend/+page.svelte`) shows a "Reporting period"
 picker when the current business has any (`[]` otherwise, so the
 section doesn't render at all for a business with no stored period),
@@ -1215,14 +1218,15 @@ Confirmed directly: `createAndConfigureLocation`'s own internal
 (the one that tags a brand-new location with its division at creation
 time) and `BusinessStructurePopup.svelte`'s `confirmMoveLocation`
 (`setHierarchyTag(node.name, DIVISION, destination)`, no entity id
-available to pass even if the frontend wanted to — the `POST
-/hierarchy/parent` route's own schema has no `entityId` field at all)
+available to pass even if the frontend wanted to — the `setHierarchyTag`
+dispatch entry's own positional args (`call-dispatch/hierarchy.ts`) have
+no `entityId` field at all)
 both call through this same, real, currently-live code path without
 an explicit `entityId`, so either can — not deterministically, but
 depending on SQLite's unordered row selection for the bare `name`
 lookup — tag the wrong node. Not fixed here (fixing it properly needs
 either an `entityId` field threaded all the way through the
-`/hierarchy/parent` route and its two frontend callers, or a less
+`setHierarchyTag` dispatch entry and its two frontend callers, or a less
 collision-prone naming scheme for the Storage-capacity tree, both
 larger than the Insert/Enter/Escape/Delete idiom retrofit this was
 found during) — flagged here for whoever next touches Location-to-
@@ -1311,9 +1315,11 @@ shape carries the entity id `revokeEntity` needs directly:
   call `revokeEntity`. A grouping with live values is already blocked
   by the existing children check; a value some entity (most commonly a
   Location) is still tagged with is now caught by the new
-  incoming-links check. Routed through `DELETE /hierarchy/groupings`
-  and `DELETE /hierarchy/values` (query-param, matching this router's
-  existing `DELETE /hierarchy/parent` convention).
+  incoming-links check. Reached via the `deleteHierarchyGrouping` and
+  `deleteHierarchyValue` dispatch entries (`call-dispatch/hierarchy.ts`,
+  via `POST /api/call`) — the same file's `deleteHierarchyTag` entry is
+  the untag-only counterpart to `setHierarchyTag` mentioned above, a
+  separate operation from either of these.
 - `getTranslationsReferencing`/`deleteTranslationConcept` (db.ts) — the
   Translations screen's own words list (`getVocabularyWords`) is also
   id-less. `getTranslationsReferencing(conceptName)` lists every
@@ -1341,8 +1347,8 @@ shape carries the entity id `revokeEntity` needs directly:
   here rather than silently worked around: a brand-new word later
   created with this *exact*, same text would collide with this
   orphaned value when `create()` tries to auto-create its own new
-  English identity translation. Routed through `DELETE
-  /i18n/vocabulary-words/:word`.
+  English identity translation. Reached via the `deleteVocabularyWord`
+  dispatch entry (`call-dispatch/i18n.ts`, via `POST /api/call`).
 
 Verified: `tsc --noEmit` clean (backend and frontend), `svelte-check`
 0 errors, backend unit tests 223/223 plus 4 new regression tests (227
