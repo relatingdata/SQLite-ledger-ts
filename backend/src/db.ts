@@ -89,6 +89,12 @@ export const typePlantItemName: TypeDescriptor<'PlantItemName'> = { brand: 'Plan
 export const typeBusinessLiveProjectsRootName: TypeDescriptor<'BusinessLiveProjectsRootName'> = { brand: 'BusinessLiveProjectsRootName' };
 export const typeLiveProjectName: TypeDescriptor<'LiveProjectName'> = { brand: 'LiveProjectName' };
 export const typeMilestoneName: TypeDescriptor<'MilestoneName'> = { brand: 'MilestoneName' };
+// A library of reusable, named Recipe-line templates (e.g. "Small/Medium/
+// Large Dwelling") that a new multi-line Quotation ("Project Proposal") is
+// instantiated from — refined over time via updatePrototypeLine as real
+// projects complete. See db-prototypes.ts.
+export const typeBusinessPrototypeRootName: TypeDescriptor<'BusinessPrototypeRootName'> = { brand: 'BusinessPrototypeRootName' };
+export const typePrototypeName: TypeDescriptor<'PrototypeName'> = { brand: 'PrototypeName' };
 export const typeLineTypeMarkerName: TypeDescriptor<'LineTypeMarkerName'> = { brand: 'LineTypeMarkerName' };
 export const typeStorageOriginMarkerName: TypeDescriptor<'StorageOriginMarkerName'> = { brand: 'StorageOriginMarkerName' };
 export const typeTextDirectionMarkerName: TypeDescriptor<'TextDirectionMarkerName'> = { brand: 'TextDirectionMarkerName' };
@@ -3519,6 +3525,12 @@ export interface BomComponentInput {
   durationHours?: number;
   scheduledStart?: string;
   scheduledEnd?: string;
+  // Additive, Stage-4 widening: a per-line quoted/costed price, for
+  // Project Proposal lines (db-quotations.ts's addQuotationLine) and
+  // Prototype lines (db-prototypes.ts). Written the same way Duration
+  // already is — only when present — so every pre-existing Material-only
+  // caller (Manufacturing included) is unaffected.
+  priceMinor?: number;
 }
 
 export interface BomComponentLine {
@@ -3529,32 +3541,33 @@ export interface BomComponentLine {
   durationHours?: number;
   scheduledStart?: string;
   scheduledEnd?: string;
+  priceMinor?: number;
 }
 
 export function stageBomComponent(input: BomComponentInput): void {
   const kind = input.kind ?? 'Material';
   db.prepare(
     `INSERT INTO assembly_bom_staging
-       (assembly_item, business, component_item, quantity, unit, kind, duration_hours, scheduled_start, scheduled_end)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       (assembly_item, business, component_item, quantity, unit, kind, duration_hours, scheduled_start, scheduled_end, price_minor)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (assembly_item, business, component_item) DO UPDATE SET
-       quantity = ?, unit = ?, kind = ?, duration_hours = ?, scheduled_start = ?, scheduled_end = ?`
+       quantity = ?, unit = ?, kind = ?, duration_hours = ?, scheduled_start = ?, scheduled_end = ?, price_minor = ?`
   ).run(
     input.assemblyItem, input.business, input.componentItem, input.quantity, input.unit,
-    kind, input.durationHours ?? null, input.scheduledStart ?? null, input.scheduledEnd ?? null,
-    input.quantity, input.unit, kind, input.durationHours ?? null, input.scheduledStart ?? null, input.scheduledEnd ?? null
+    kind, input.durationHours ?? null, input.scheduledStart ?? null, input.scheduledEnd ?? null, input.priceMinor ?? null,
+    input.quantity, input.unit, kind, input.durationHours ?? null, input.scheduledStart ?? null, input.scheduledEnd ?? null, input.priceMinor ?? null
   );
 }
 
 export function postBomComponents(assemblyItem: string, business: string, userId: UserId): void {
   const rows = db
     .prepare(
-      `SELECT component_item, quantity, unit, kind, duration_hours, scheduled_start, scheduled_end
+      `SELECT component_item, quantity, unit, kind, duration_hours, scheduled_start, scheduled_end, price_minor
        FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`
     )
     .all(assemblyItem, business) as {
       component_item: string; quantity: number; unit: string; kind: BomLineKind;
-      duration_hours: number | null; scheduled_start: string | null; scheduled_end: string | null;
+      duration_hours: number | null; scheduled_start: string | null; scheduled_end: string | null; price_minor: number | null;
     }[];
   for (const row of rows) {
     const linkType = `BOM — ${row.component_item}`;
@@ -3570,6 +3583,7 @@ export function postBomComponents(assemblyItem: string, business: string, userId
       if (row.duration_hours != null) Entity.setAttr(record.id, 'Duration', String(row.duration_hours), userId);
       if (row.scheduled_start) Entity.setAttr(record.id, 'Scheduled Start', row.scheduled_start, userId);
       if (row.scheduled_end) Entity.setAttr(record.id, 'Scheduled End', row.scheduled_end, userId);
+      if (row.price_minor != null) Entity.setAttr(record.id, 'Price Minor', String(row.price_minor), userId);
     }
   }
   db.prepare(`DELETE FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`).run(assemblyItem, business);
@@ -3596,6 +3610,7 @@ export function getBomComponents(assemblyItem: string): BomComponentLine[] {
   return rows.map((row) => {
     const kind = (Entity.getAttr(row.id, 'Kind') as BomLineKind | undefined) ?? 'Material';
     const durationRaw = Entity.getAttr(row.id, 'Duration');
+    const priceRaw = Entity.getAttr(row.id, 'Price Minor');
     return {
       component: row.component,
       quantity: Number(Entity.getAttr(row.id, 'Quantity') ?? 0),
@@ -3604,6 +3619,7 @@ export function getBomComponents(assemblyItem: string): BomComponentLine[] {
       durationHours: durationRaw != null ? Number(durationRaw) : undefined,
       scheduledStart: Entity.getAttr(row.id, 'Scheduled Start'),
       scheduledEnd: Entity.getAttr(row.id, 'Scheduled End'),
+      priceMinor: priceRaw != null ? Number(priceRaw) : undefined,
     };
   });
 }
@@ -5785,6 +5801,9 @@ export const PER_BUSINESS_ROOTS: { name: string; type: TypeDescriptor<string> }[
   // label) — created when a multi-line Project Proposal is accepted.
   // See db-projects.ts.
   { name: 'Live Projects', type: typeBusinessLiveProjectsRootName },
+  // A per-business library of Project Proposal prototypes (Small/Medium/
+  // Large Dwelling, etc.) — see db-prototypes.ts.
+  { name: 'Project Proposal Prototypes', type: typeBusinessPrototypeRootName },
 ];
 
 export function createBusiness(
@@ -5872,4 +5891,5 @@ export * from './db-stock.js';
 import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, createSystemEntity, type Location as StockLocation } from './db-stock.js';
 export * from './db-quotations.js';
 export * from './db-projects.js';
+export * from './db-prototypes.js';
 

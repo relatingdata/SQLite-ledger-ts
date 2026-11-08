@@ -39,12 +39,22 @@ import {
   asBusinessName,
   asLedgerName,
   asAccountName,
+  stageBomComponent,
+  postBomComponents,
+  getBomComponents,
+  type BomLineKind,
+  type BomComponentLine,
   type BusinessName,
   type LedgerName,
   type UserId,
 } from './db.js';
 import { postQuantityMovement } from './db-stock.js';
 import { createRecurringJournal, reverseJournalEntry, type Recurrence } from './db-journal.js';
+// Stage 4 (Recipe/Project Builder work): accepting a multi-line Project
+// Proposal creates the real Live Project + Milestones and schedules its
+// Labour/Plant lines — db-projects.ts, imported directly (not via db.ts's
+// own barrel re-export) to keep the dependency direction one-way.
+import { createLiveProject, createMilestone, scheduleProjectRecipeLines, checkMilestoneAchievability } from './db-projects.js';
 
 export type QuotationStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
 export type QuotationDirection = 'AR' | 'AP';
@@ -63,6 +73,11 @@ export interface QuotationInput {
   location?: string;
   transdate: string;
   description?: string;
+  // Additive, Stage-4 widening: the client's own wanted completion date for
+  // a multi-line Project Proposal. Ignored (and never written) by any
+  // plain, line-less Quotation/RFQ — every pre-existing caller (Retail
+  // included) is unaffected.
+  targetCompletionDate?: string;
 }
 
 export interface QuotationRecord {
@@ -80,6 +95,7 @@ export interface QuotationRecord {
   transdate: string;
   description?: string | null;
   expiryDate?: string | null;
+  targetCompletionDate?: string | null;
 }
 
 const QUOTATIONS_ROOT = 'Quotations and RFQs';
@@ -131,6 +147,7 @@ function readQuotation(reference: string): QuotationRecord | undefined {
   const location = Entity.getAttr(entityId, 'Location') ?? null;
   const description = Entity.getAttr(entityId, 'Description') ?? null;
   const expiryDate = Entity.getAttr(entityId, 'Expiry Date') ?? null;
+  const targetCompletionDate = Entity.getAttr(entityId, 'Target Completion Date') ?? null;
 
   return {
     reference,
@@ -147,6 +164,7 @@ function readQuotation(reference: string): QuotationRecord | undefined {
     transdate,
     description,
     expiryDate,
+    targetCompletionDate,
   };
 }
 
@@ -211,6 +229,7 @@ function draftQuotation(
   if (input.location) Entity.setAttr(entity.id, 'Location', input.location, userId);
   if (input.description) Entity.setAttr(entity.id, 'Description', input.description, userId);
   if (expiryDate) Entity.setAttr(entity.id, 'Expiry Date', expiryDate, userId);
+  if (input.targetCompletionDate) Entity.setAttr(entity.id, 'Target Completion Date', input.targetCompletionDate, userId);
 }
 
 export function createQuotation(
@@ -247,6 +266,48 @@ export function listQuotations(business: BusinessName, ledger: LedgerName, direc
     .sort((a, b) => (b.transdate ?? '').localeCompare(a.transdate ?? ''));
 }
 
+// Attaches one real Recipe-shaped child line directly under the
+// Quotation's OWN existing entity (already resolvable via Entity.get,
+// since draftQuotation already hangs its scalar attrs off that same
+// node) — a direct call-through to the existing, unmodified Stage-1 BOM
+// mechanism (stageBomComponent/postBomComponents), parameterized by the
+// quotation's own reference instead of an assembly item. This is the
+// ONLY way to widen Quotation with real, multi-line detail without
+// violating this file's own stated "no new SQL table/JSON" constraint —
+// reusing Stage 1's mechanism verbatim, not inventing a second one. A
+// plain, line-less Quotation/RFQ (Retail included) never calls this, so
+// it is unaffected.
+export function addQuotationLine(
+  reference: string,
+  kind: BomLineKind,
+  resourceOrItemName: string,
+  quantity: number,
+  unit: string,
+  priceMinor: number,
+  userId: UserId,
+  durationHours?: number,
+  scheduledStart?: string
+): void {
+  const quotation = readQuotation(reference);
+  if (!quotation) throw new NotFoundError(`No real quotation/RFQ named "${reference}".`);
+  stageBomComponent({
+    assemblyItem: reference,
+    business: quotation.business,
+    componentItem: resourceOrItemName,
+    quantity,
+    unit,
+    kind,
+    priceMinor,
+    durationHours,
+    scheduledStart,
+  });
+  postBomComponents(reference, quotation.business, userId);
+}
+
+export function getQuotationLines(reference: string): BomComponentLine[] {
+  return getBomComponents(reference);
+}
+
 // A pure status marker (the quote has gone to the customer/provider,
 // nothing posted changes) — kept distinct from draft so a UI can show
 // "awaiting response" vs "not yet sent".
@@ -259,14 +320,55 @@ export function markQuotationSent(reference: string, userId: UserId): void {
 // Accepting is a pure status flip — the real commitment (the journal
 // entry and the On Order quantity posting) was created back at draft
 // time, so there is no separate "convert to order" posting step left
-// to perform.
-export function acceptQuotation(reference: string, userId: UserId): void {
+// to perform. ADDITIVELY (Stage 4): when this Quotation carries real
+// Recipe lines (addQuotationLine, above) — i.e. it is a Project Proposal,
+// not a plain quote — and the caller opts in with `projectDetails`, this
+// also creates the real Live Project + an Invoicing Milestone
+// (db-projects.ts, Stage 3) and copies every line onto the Project under
+// ITS OWN name (deliberately NOT the quotation's own reference — a Live
+// Project and its originating Quotation coexist as two separate,
+// same-business entities, and reusing one bare name for both would be
+// exactly the kind of unscoped-resolution collision db.ts's own
+// typeBusinessLiveProjectsRootName comment already warns about), then
+// runs scheduleProjectRecipeLines/checkMilestoneAchievability for its
+// real, as-accepted schedule. A plain, line-less Quotation/RFQ (Retail
+// included), or any caller that omits `projectDetails`, triggers none of
+// this — purely the original status flip.
+export function acceptQuotation(
+  reference: string,
+  userId: UserId,
+  projectDetails?: { projectName: string; targetCompletionDate: string }
+): void {
   const quotation = readQuotation(reference);
   if (!quotation) throw new NotFoundError(`No real quotation/RFQ named "${reference}".`);
   if (quotation.status === 'accepted') throw new ValidationError(`"${reference}" has already been accepted.`);
   if (quotation.status === 'rejected' || quotation.status === 'expired') throw new ValidationError(`"${reference}" is ${quotation.status} and can no longer be accepted.`);
   const entityId = getQuotationEntityId(reference)!;
   Entity.setAttr(entityId, 'Status', 'accepted', userId);
+
+  const lines = getBomComponents(reference);
+  if (lines.length > 0 && projectDetails) {
+    const client = quotation.customer ?? quotation.vendor ?? 'Unknown Client';
+    const business = asBusinessName(quotation.business);
+    createLiveProject(projectDetails.projectName, business, client, quotation.transdate, projectDetails.targetCompletionDate, userId);
+    createMilestone(projectDetails.projectName, 'Invoicing', projectDetails.targetCompletionDate, userId);
+    for (const line of lines) {
+      stageBomComponent({
+        assemblyItem: projectDetails.projectName,
+        business: quotation.business,
+        componentItem: line.component,
+        quantity: line.quantity,
+        unit: line.unit,
+        kind: line.kind,
+        durationHours: line.durationHours,
+        scheduledStart: line.scheduledStart,
+        priceMinor: line.priceMinor,
+      });
+    }
+    postBomComponents(projectDetails.projectName, quotation.business, userId);
+    scheduleProjectRecipeLines(projectDetails.projectName, business, userId);
+    checkMilestoneAchievability(projectDetails.projectName, userId);
+  }
 }
 
 // Rejecting/expiring reverses the real commitment: the journal entry

@@ -1213,6 +1213,9 @@ CREATE TABLE assembly_bom_staging (
   duration_hours  REAL,
   scheduled_start TEXT,
   scheduled_end   TEXT,
+  -- Additive, Stage-4 widening (Recipe/Project Proposal work): a per-line
+  -- quoted/costed price. NULL for every pre-existing Material-only caller.
+  price_minor     REAL,
   PRIMARY KEY (assembly_item, business, component_item)
 );
 

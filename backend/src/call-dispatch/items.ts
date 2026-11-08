@@ -142,19 +142,21 @@ export const itemsFunctions: Record<string, BackendCall> = {
     const [itemName] = v;
     if (!itemName) throw new CallError(400, 'itemName is required.');
     return table(
-      ['component', 'quantity', 'unit', 'kind', 'durationHours', 'scheduledStart', 'scheduledEnd'],
-      getBomComponents(itemName).map((l) => ({ ...l, durationHours: l.durationHours ?? '', scheduledStart: l.scheduledStart ?? '', scheduledEnd: l.scheduledEnd ?? '' }))
+      ['component', 'quantity', 'unit', 'kind', 'durationHours', 'scheduledStart', 'scheduledEnd', 'priceMinor'],
+      getBomComponents(itemName).map((l) => ({ ...l, durationHours: l.durationHours ?? '', scheduledStart: l.scheduledStart ?? '', scheduledEnd: l.scheduledEnd ?? '', priceMinor: l.priceMinor ?? '' }))
     );
   },
   // Positional args: [0] itemName, [1] business, [2] componentItem,
   // [3] quantity, [4] unit, [5] kind? ('Material' default — every
   // pre-existing caller omits this and is unaffected), [6] durationHours?,
   // [7] scheduledStart?, [8] scheduledEnd? (Labour/Plant Recipe lines
-  // only). Stages then immediately posts, same two-step real sequence as
-  // the old route handler, then returns the full, updated component list.
+  // only), [9] priceMinor? (Stage-4 widening — a Recipe/Project Proposal
+  // line's quoted/costed price). Stages then immediately posts, same
+  // two-step real sequence as the old route handler, then returns the
+  // full, updated component list.
   setBomComponent: (v, user) => {
     const admin = requireRole(user, 'Administrator', 'Bookkeeper');
-    const [itemName, business, componentItem, quantityRaw, unit, kindRaw, durationRaw, scheduledStart, scheduledEnd] = v;
+    const [itemName, business, componentItem, quantityRaw, unit, kindRaw, durationRaw, scheduledStart, scheduledEnd, priceMinorRaw] = v;
     if (!itemName || !business || !componentItem || !quantityRaw || !unit) {
       throw new CallError(400, 'itemName, business, componentItem, quantity and unit are all required.');
     }
@@ -168,11 +170,12 @@ export const itemsFunctions: Record<string, BackendCall> = {
         durationHours: durationRaw ? Number(durationRaw) : undefined,
         scheduledStart: scheduledStart || undefined,
         scheduledEnd: scheduledEnd || undefined,
+        priceMinor: priceMinorRaw ? Number(priceMinorRaw) : undefined,
       });
       postBomComponents(itemName, business, asUserId(admin.id));
       return table(
-        ['component', 'quantity', 'unit', 'kind', 'durationHours', 'scheduledStart', 'scheduledEnd'],
-        getBomComponents(itemName).map((l) => ({ ...l, durationHours: l.durationHours ?? '', scheduledStart: l.scheduledStart ?? '', scheduledEnd: l.scheduledEnd ?? '' }))
+        ['component', 'quantity', 'unit', 'kind', 'durationHours', 'scheduledStart', 'scheduledEnd', 'priceMinor'],
+        getBomComponents(itemName).map((l) => ({ ...l, durationHours: l.durationHours ?? '', scheduledStart: l.scheduledStart ?? '', scheduledEnd: l.scheduledEnd ?? '', priceMinor: l.priceMinor ?? '' }))
       );
     } catch (err) {
       if (err instanceof ValidationError || err instanceof NotFoundError) throw new CallError(400, err.message);

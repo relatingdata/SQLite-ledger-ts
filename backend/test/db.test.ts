@@ -6794,6 +6794,162 @@ test('an RFQ (AP) is the same real future-dated journal entry and On Order posti
   assert.throws(() => db.rejectQuotation(reference, fx.userId), db.ValidationError, 'an already-rejected RFQ cannot be rejected again');
 });
 
+test('addQuotationLine/getQuotationLines: a Quotation widened into a real, multi-line Project Proposal — Material/Labour/Plant lines all round-trip through the exact same Stage-1 BOM mechanism, staged under the quotation\'s own reference, not an assembly item', () => {
+  const biz = fx.freshBusiness('ProposalLinesTest Co');
+  const { itemName } = fx.freshItem(biz.business, 'ProposalLinesTest Header Item');
+  const customerName = fx.uniqueName('ProposalLinesTest Customer');
+  db.createCustomer(customerName, fx.userId);
+  const reference = fx.uniqueName('PROPOSAL');
+  const { itemName: timberName } = fx.freshItem(biz.business, 'Timber Stile');
+  const framingCrew = fx.uniqueName('Framing Crew');
+  db.createEmployee(framingCrew, biz.business, fx.userId);
+  const excavatorName = fx.uniqueName('ProposalLinesTest Excavator');
+  db.createPlantItem(excavatorName, biz.business, 15000, 'Owned', fx.userId);
+
+  db.createQuotation(
+    { reference, business: biz.business, ledger: biz.actualLedger, customer: customerName, item: itemName, quantity: 1, price_minor: 0, transdate: '2027-02-01' },
+    fx.userId
+  );
+  assert.deepEqual(db.getQuotationLines(reference), [], 'a freshly drafted proposal carries no Recipe lines yet');
+
+  db.addQuotationLine(reference, 'Material', timberName, 40, 'unit', 120000, fx.userId);
+  db.addQuotationLine(reference, 'Labour', framingCrew, 1, 'crew', 480000, fx.userId, 24, '2027-03-01');
+  db.addQuotationLine(reference, 'Plant', excavatorName, 1, 'unit', 60000, fx.userId, 8, '2027-02-20');
+
+  const lines = db.getQuotationLines(reference);
+  assert.equal(lines.length, 3);
+  const material = lines.find((l) => l.component === timberName)!;
+  assert.equal(material.kind, 'Material');
+  assert.equal(material.priceMinor, 120000);
+  assert.equal(material.durationHours, undefined, 'a Material line never carries a duration');
+  const labour = lines.find((l) => l.component === framingCrew)!;
+  assert.equal(labour.kind, 'Labour');
+  assert.equal(labour.durationHours, 24);
+  assert.equal(labour.scheduledStart, '2027-03-01');
+  assert.equal(labour.priceMinor, 480000);
+  const plant = lines.find((l) => l.component === excavatorName)!;
+  assert.equal(plant.kind, 'Plant');
+  assert.equal(plant.durationHours, 8);
+  assert.equal(plant.priceMinor, 60000);
+
+  // Re-adding the same resource replaces its line in place, same idiom
+  // Stage 1's own BOM re-stage already uses for a revised quantity.
+  db.addQuotationLine(reference, 'Labour', framingCrew, 1, 'crew', 500000, fx.userId, 32, '2027-03-05');
+  const relines = db.getQuotationLines(reference);
+  assert.equal(relines.length, 3, 'replacing an existing line never adds a duplicate');
+  const relabour = relines.find((l) => l.component === framingCrew)!;
+  assert.equal(relabour.durationHours, 32);
+  assert.equal(relabour.priceMinor, 500000);
+});
+
+test('acceptQuotation: accepting a multi-line Project Proposal with real projectDetails creates the real Live Project and an Invoicing Milestone, and schedules every Labour/Plant line — a plain, line-less Quotation (Retail\'s own shape) is completely unaffected', () => {
+  const biz = fx.freshBusiness('ProposalAcceptTest Co');
+  const { itemName } = fx.freshItem(biz.business, 'ProposalAcceptTest Header Item');
+  const customerName = fx.uniqueName('ProposalAcceptTest Customer');
+  db.createCustomer(customerName, fx.userId);
+  const reference = fx.uniqueName('PROPOSAL-ACCEPT');
+  const projectName = fx.uniqueName('ProposalAcceptTest Project');
+  const crewName = fx.uniqueName('ProposalAcceptTest Crew');
+  db.createEmployee(crewName, biz.business, fx.userId);
+  const { itemName: timberName } = fx.freshItem(biz.business, 'ProposalAcceptTest Timber');
+
+  db.createQuotation(
+    {
+      reference, business: biz.business, ledger: biz.actualLedger, customer: customerName, item: itemName,
+      quantity: 1, price_minor: 0, transdate: '2027-04-01', targetCompletionDate: '2027-06-01',
+    },
+    fx.userId
+  );
+  db.addQuotationLine(reference, 'Labour', crewName, 1, 'crew', 300000, fx.userId, 40, '2027-04-10');
+  db.addQuotationLine(reference, 'Material', timberName, 20, 'unit', 50000, fx.userId);
+
+  // A plain accept, with no projectDetails, stays a pure status flip —
+  // zero regression to every pre-existing caller.
+  const plainReference = fx.uniqueName('PROPOSAL-PLAIN-ACCEPT');
+  db.createQuotation(
+    { reference: plainReference, business: biz.business, ledger: biz.actualLedger, customer: customerName, item: itemName, quantity: 1, price_minor: 1000, transdate: '2027-04-01' },
+    fx.userId
+  );
+  db.acceptQuotation(plainReference, fx.userId);
+  assert.equal(db.getQuotation(plainReference)?.status, 'accepted');
+  assert.equal(db.listLiveProjects(biz.business).includes(plainReference), false, 'a plain accept with no projectDetails never creates a Live Project');
+
+  db.acceptQuotation(reference, fx.userId, { projectName, targetCompletionDate: '2027-06-01' });
+  assert.equal(db.getQuotation(reference)?.status, 'accepted');
+
+  const project = db.getLiveProject(projectName);
+  assert.ok(project, 'accepting with projectDetails creates the real Live Project');
+  assert.equal(project?.client, customerName);
+  assert.equal(project?.targetCompletionDate, '2027-06-01');
+
+  const milestones = db.getMilestones(projectName);
+  assert.ok(milestones.some((m) => m.milestoneType === 'Invoicing'), 'an Invoicing Milestone is created at acceptance');
+
+  const projectLines = db.getBomComponents(projectName);
+  assert.equal(projectLines.length, 2, 'every Recipe line is copied from the proposal onto the real Live Project');
+  const crew = projectLines.find((l) => l.component === crewName)!;
+  assert.equal(crew.kind, 'Labour');
+  assert.ok(crew.scheduledStart, 'the Labour line has a real, resolved schedule after acceptance');
+  assert.equal(crew.priceMinor, 300000, 'the quoted price travels with the line onto the real Live Project');
+
+  assert.throws(() => db.acceptQuotation(reference, fx.userId, { projectName: fx.uniqueName('Irrelevant'), targetCompletionDate: '2099-01-01' }), db.ValidationError, 'an already-accepted proposal cannot be accepted again');
+});
+
+test('Project Proposal Prototypes: a reusable library instantiated into a real Quotation, refined via updatePrototypeLine — which only ever changes FUTURE instantiations, never a past, already-copied one', () => {
+  const biz = fx.freshBusiness('PrototypeTest Co');
+  const { itemName } = fx.freshItem(biz.business, 'PrototypeTest Header Item');
+  const customerA = fx.uniqueName('PrototypeTest Customer A');
+  const customerB = fx.uniqueName('PrototypeTest Customer B');
+  db.createCustomer(customerA, fx.userId);
+  db.createCustomer(customerB, fx.userId);
+  const prototypeName = fx.uniqueName('PrototypeTest Medium Dwelling');
+  const { itemName: timberName } = fx.freshItem(biz.business, 'PrototypeTest Timber');
+  const roofingCrew = fx.uniqueName('PrototypeTest Roofing Crew');
+  db.createEmployee(roofingCrew, biz.business, fx.userId);
+
+  assert.equal(db.listPrototypes(biz.business).includes(prototypeName), false);
+  db.createPrototype(prototypeName, biz.business, fx.userId);
+  assert.ok(db.listPrototypes(biz.business).includes(prototypeName));
+  assert.throws(() => db.createPrototype(prototypeName, biz.business, fx.userId), db.ValidationError, 'a duplicate prototype name is rejected');
+
+  db.addPrototypeLine(prototypeName, biz.business, 'Material', timberName, 50, 'unit', 150000, fx.userId);
+  db.addPrototypeLine(prototypeName, biz.business, 'Labour', roofingCrew, 1, 'crew', 400000, fx.userId, 40, '2027-05-01');
+  assert.equal(db.getPrototypeLines(prototypeName).length, 2);
+
+  const referenceA = fx.uniqueName('PROPOSAL-FROM-PROTOTYPE-A');
+  db.instantiateProjectProposal(prototypeName, referenceA, customerA, biz.business, biz.actualLedger, itemName, '2027-05-01', fx.userId, '2027-08-01');
+  const linesA = db.getQuotationLines(referenceA);
+  assert.equal(linesA.length, 2, 'every real prototype line is copied onto the freshly instantiated proposal');
+  const roofingA = linesA.find((l) => l.component === roofingCrew)!;
+  assert.equal(roofingA.durationHours, 40);
+  assert.equal(roofingA.priceMinor, 400000);
+  assert.equal(db.getQuotation(referenceA)?.customer, customerA);
+  assert.equal(db.getQuotation(referenceA)?.targetCompletionDate, '2027-08-01');
+
+  // The bounded, explicit, human-driven revision — never automatic
+  // learning from profitability.
+  db.updatePrototypeLine(prototypeName, biz.business, roofingCrew, fx.userId, 56, 520000);
+  const updated = db.getPrototypeLines(prototypeName).find((l) => l.component === roofingCrew)!;
+  assert.equal(updated.durationHours, 56, 'the prototype itself is now revised');
+  assert.equal(updated.priceMinor, 520000);
+
+  // The already-instantiated Proposal A is a real, independent copy —
+  // completely untouched by the later prototype revision.
+  const roofingAAfter = db.getQuotationLines(referenceA).find((l) => l.component === roofingCrew)!;
+  assert.equal(roofingAAfter.durationHours, 40, 'a past instantiation never retroactively changes');
+  assert.equal(roofingAAfter.priceMinor, 400000);
+
+  // A NEW instantiation, made after the revision, picks up the new figures.
+  const referenceB = fx.uniqueName('PROPOSAL-FROM-PROTOTYPE-B');
+  db.instantiateProjectProposal(prototypeName, referenceB, customerB, biz.business, biz.actualLedger, itemName, '2027-06-01', fx.userId);
+  const roofingB = db.getQuotationLines(referenceB).find((l) => l.component === roofingCrew)!;
+  assert.equal(roofingB.durationHours, 56, 'a future instantiation reflects the revised prototype');
+  assert.equal(roofingB.priceMinor, 520000);
+
+  assert.throws(() => db.updatePrototypeLine(prototypeName, biz.business, 'No Such Resource', fx.userId, 1), db.ValidationError, 'revising a line that was never added is rejected');
+  assert.throws(() => db.instantiateProjectProposal(fx.uniqueName('No Such Prototype'), fx.uniqueName('REF'), customerA, biz.business, biz.actualLedger, itemName, '2027-05-01', fx.userId), db.ValidationError, 'instantiating from an unknown prototype is rejected');
+});
+
 test('createRecurringJournal now rejects a start-date entry that is balanced in flat total but NOT balanced within either real currency — the exact gap docs/pm-journal-api.md used to document as open', () => {
   const biz = fx.freshBusiness('RecurringCurrencyGapTest Co');
   const usdCash = fx.uniqueName('RecurringCurrencyGapTest Cash (USD)');

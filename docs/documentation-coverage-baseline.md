@@ -433,3 +433,21 @@ expected to close when `docs/pm-project-builder.md` is written (Stage 7).
 - `typeBusinessLiveProjectsRootName`
 - `typeLiveProjectName`
 - `typeMilestoneName`
+
+Found 2026-11-08, Stage 4 of the same build (Quotation widened into a
+multi-line Project Proposal, plus Project Proposal Prototypes —
+db-quotations.ts's addQuotationLine/getQuotationLines,
+db-prototypes.ts, call-dispatch/prototypes.ts). Same deliberate,
+temporary sequencing choice as Stages 2/3's entries just above —
+expected to close when `docs/pm-project-builder.md` is written (Stage 7).
+- `addQuotationLine`
+- `getQuotationLines`
+- `createPrototype`
+- `listPrototypes`
+- `addPrototypeLine`
+- `getPrototypeLines`
+- `updatePrototypeLine`
+- `instantiateProjectProposal`
+- `prototypesFunctions`
+- `typeBusinessPrototypeRootName`
+- `typePrototypeName`

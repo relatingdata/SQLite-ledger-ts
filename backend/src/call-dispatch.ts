@@ -37,6 +37,7 @@ import { plantFunctions } from './call-dispatch/plant.js';
 import { posFunctions } from './call-dispatch/pos.js';
 import { productsFunctions } from './call-dispatch/products.js';
 import { projectsFunctions } from './call-dispatch/projects.js';
+import { prototypesFunctions } from './call-dispatch/prototypes.js';
 import { quotationsFunctions } from './call-dispatch/quotations.js';
 import { reportsFunctions } from './call-dispatch/reports.js';
 import { stockFunctions } from './call-dispatch/stock.js';
@@ -285,6 +286,7 @@ export const BACKEND_FUNCTIONS: Record<string, BackendCall> = {
   ...posFunctions,
   ...productsFunctions,
   ...projectsFunctions,
+  ...prototypesFunctions,
   ...quotationsFunctions,
   ...reportsFunctions,
   ...stockFunctions,
