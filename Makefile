@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -1379,6 +1379,19 @@ test-e2e-tutorial-docs: test-e2e-tutorial tutorial-section-user-manual check-doc
 entity-tree-svg:
 	cd backend && $(RUN_SCRIPT) scripts/generate-entity-tree-svg.ts ../entity_tree.svg
 	@echo "Built entity_tree.svg"
+
+# Same as above, but keeps only the first SAMPLE children (default 2)
+# of every real parent, plus one synthetic "... (K more)" node per
+# truncated parent — a genuinely small, readable illustration of every
+# real entity TYPE (every set of siblings under one parent) instead of
+# the whole, sprawling tree. Optionally scoped to one real business
+# (BUSINESS=<name>) so the sample descends into that business's own
+# Items/Locations/Plant/Skills/Projects instead of getting lost in the
+# global Application root's own, alphabetically-earlier siblings.
+# Usage: make entity-tree-sample-svg [SAMPLE=2] [BUSINESS="<name>"].
+entity-tree-sample-svg:
+	cd backend && $(RUN_SCRIPT) scripts/generate-entity-tree-svg.ts ../entity_tree_sample.svg --sample $(if $(SAMPLE),$(SAMPLE),2) $(if $(BUSINESS),--business "$(BUSINESS)",) $(if $(MAXDEPTH),--max-depth $(MAXDEPTH),)
+	@echo "Built entity_tree_sample.svg"
 # A real, generic, reusable search across real source files, per the
 # absolute Makefile-only-execution rule - replaces ad-hoc grep.
 # Usage: make search PATTERN=foo [DIR=frontend/src]
