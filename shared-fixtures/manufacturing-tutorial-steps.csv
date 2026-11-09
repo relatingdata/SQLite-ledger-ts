@@ -193,6 +193,317 @@
 "Stage Journal Line","JE-COGS-INT","Tutorial Window & Door Manufacturing","Actual","Wooden Internal Door Frame","-4400"
 "Post Journal Entry","JE-COGS-INT","Tutorial Window & Door Manufacturing","Actual"
 "Dispatch Stock Quantity","SALE-INT","Tutorial Window & Door Manufacturing","Actual","Wooden Internal Door Frame","Finished Goods Store","1"
+# --- Builder house-door orders (extends Stage 6's own manufacturing
+# scenario with real, complete, deliverable door UNITS - not just bare
+# frames - built through a genuine second BOM level: a frame assembly
+# (as above) becomes itself a component of a "Unit - Complete" assembly
+# that adds the door slab, hinge/latch hardware, and a packaging kit -
+# so "framed, with hardware, packaged ready for delivery-truck pickup"
+# is a literal, mechanical BOM structure, never a cosmetic description.
+# A few real builder orders - two houses for the existing trade
+# customer, plus a multi-unit job for a second, new builder - each a
+# complete house door package (external front/rear doors, several
+# internal doors, one aluminum/glass sliding patio door), using the
+# exact same Stage/Post Journal Line + Dispatch Stock Quantity pair
+# every other real sale in this fixture already uses.
+# Eight further raw materials - the parts a bare frame still lacks
+# before it is a complete, sellable door: the door slab itself (two
+# grades), the aluminum sliding-door sill/track, a weatherseal kit for
+# external/patio units, a hinge set and (for internal doors) a simpler
+# latch kit than the external Door Hardware Kit, and a generic
+# packaging kit - the real, physical "packaged ready for delivery-truck
+# pickup" step, consumed into every complete unit below.
+"Create Item No Category","Tutorial Window & Door Manufacturing","Door Slab - External"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Door Slab - External"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Door Slab - Internal"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Door Slab - Internal"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Aluminum Sill"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Aluminum Sill"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Sliding Door Track Kit"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Sliding Door Track Kit"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Weatherseal Kit"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Weatherseal Kit"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Hinge Set"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Hinge Set"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Internal Door Latch Kit"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Internal Door Latch Kit"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Packaging Kit"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Packaging Kit"
+# One further frame-level assembly - the Aluminum Patio Door Frame
+# (glass and aluminum, sliding) - and four new "Unit - Complete" items,
+# one per door type actually ordered below. Each "Unit - Complete" is
+# itself an assembly whose own BOM takes an already-assembled frame as
+# one of its components - a genuine, real, second BOM level, not a
+# flat list of raw materials repeated with a new name.
+"Create Item No Category","Tutorial Window & Door Manufacturing","Aluminum Patio Door Frame"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Aluminum Patio Door Frame"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Front Door Unit - Complete"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Front Door Unit - Complete"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Rear Door Unit - Complete"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Rear Door Unit - Complete"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Internal Door Unit - Complete"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Internal Door Unit - Complete"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Sliding Patio Door Unit - Complete"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Sliding Patio Door Unit - Complete"
+# Recipe/BOM for the Aluminum Patio Door Frame - two sliding glass
+# panels (double the Aluminum Window Frame's own single pane) riding on
+# a real aluminum sill/track, genuinely wider in aluminum extrusion
+# than a window frame.
+"Set Bom Component For Aluminum Patio Door Frame","Aluminum Patio Door Frame","Tutorial Window & Door Manufacturing","Aluminum Extrusion","8","ea"
+"Set Bom Component For Aluminum Patio Door Frame","Aluminum Patio Door Frame","Tutorial Window & Door Manufacturing","Glass Pane","2","ea"
+"Set Bom Component For Aluminum Patio Door Frame","Aluminum Patio Door Frame","Tutorial Window & Door Manufacturing","Aluminum Sill","1","ea"
+"Set Bom Component For Aluminum Patio Door Frame","Aluminum Patio Door Frame","Tutorial Window & Door Manufacturing","Sliding Door Track Kit","1","ea"
+"Check Bom Components Recorded","Aluminum Patio Door Frame","4"
+# Recipe/BOM for the Front Door Unit - Complete - the existing Wooden
+# Front Door Frame itself as a real component (the genuine second BOM
+# level), plus the external door slab, a hinge set, and the packaging
+# kit that makes it ready for delivery-truck pickup.
+"Set Bom Component For Front Door Unit - Complete","Front Door Unit - Complete","Tutorial Window & Door Manufacturing","Wooden Front Door Frame","1","ea"
+"Set Bom Component For Front Door Unit - Complete","Front Door Unit - Complete","Tutorial Window & Door Manufacturing","Door Slab - External","1","ea"
+"Set Bom Component For Front Door Unit - Complete","Front Door Unit - Complete","Tutorial Window & Door Manufacturing","Hinge Set","1","ea"
+"Set Bom Component For Front Door Unit - Complete","Front Door Unit - Complete","Tutorial Window & Door Manufacturing","Packaging Kit","1","ea"
+"Check Bom Components Recorded","Front Door Unit - Complete","4"
+# Recipe/BOM for the Rear Door Unit - Complete - the same real shape as
+# the Front Door Unit (both external doors), built on the existing
+# Wooden Rear Door Frame, its own separately-recorded BOM lines.
+"Set Bom Component For Rear Door Unit - Complete","Rear Door Unit - Complete","Tutorial Window & Door Manufacturing","Wooden Rear Door Frame","1","ea"
+"Set Bom Component For Rear Door Unit - Complete","Rear Door Unit - Complete","Tutorial Window & Door Manufacturing","Door Slab - External","1","ea"
+"Set Bom Component For Rear Door Unit - Complete","Rear Door Unit - Complete","Tutorial Window & Door Manufacturing","Hinge Set","1","ea"
+"Set Bom Component For Rear Door Unit - Complete","Rear Door Unit - Complete","Tutorial Window & Door Manufacturing","Packaging Kit","1","ea"
+"Check Bom Components Recorded","Rear Door Unit - Complete","4"
+# Recipe/BOM for the Internal Door Unit - Complete - built on the
+# existing Wooden Internal Door Frame, with the lighter internal door
+# slab and the simpler Internal Door Latch Kit (a passage set, not the
+# external Door Hardware Kit already inside the frame it's built from) -
+# a real, visible hardware difference between an external and an
+# internal complete unit.
+"Set Bom Component For Internal Door Unit - Complete","Internal Door Unit - Complete","Tutorial Window & Door Manufacturing","Wooden Internal Door Frame","1","ea"
+"Set Bom Component For Internal Door Unit - Complete","Internal Door Unit - Complete","Tutorial Window & Door Manufacturing","Door Slab - Internal","1","ea"
+"Set Bom Component For Internal Door Unit - Complete","Internal Door Unit - Complete","Tutorial Window & Door Manufacturing","Internal Door Latch Kit","1","ea"
+"Set Bom Component For Internal Door Unit - Complete","Internal Door Unit - Complete","Tutorial Window & Door Manufacturing","Hinge Set","1","ea"
+"Set Bom Component For Internal Door Unit - Complete","Internal Door Unit - Complete","Tutorial Window & Door Manufacturing","Packaging Kit","1","ea"
+"Check Bom Components Recorded","Internal Door Unit - Complete","5"
+# Recipe/BOM for the Sliding Patio Door Unit - Complete - built on the
+# new Aluminum Patio Door Frame, plus a lock/handle (the same Hardware
+# Kit the Aluminum Window Frame already uses) and its own weatherseal
+# kit.
+"Set Bom Component For Sliding Patio Door Unit - Complete","Sliding Patio Door Unit - Complete","Tutorial Window & Door Manufacturing","Aluminum Patio Door Frame","1","ea"
+"Set Bom Component For Sliding Patio Door Unit - Complete","Sliding Patio Door Unit - Complete","Tutorial Window & Door Manufacturing","Hardware Kit","1","ea"
+"Set Bom Component For Sliding Patio Door Unit - Complete","Sliding Patio Door Unit - Complete","Tutorial Window & Door Manufacturing","Weatherseal Kit","1","ea"
+"Set Bom Component For Sliding Patio Door Unit - Complete","Sliding Patio Door Unit - Complete","Tutorial Window & Door Manufacturing","Packaging Kit","1","ea"
+"Check Bom Components Recorded","Sliding Patio Door Unit - Complete","4"
+# Purchases enough of the 8 new raw materials, and more of six existing
+# raw materials, to build every complete door unit the three real
+# builder orders below actually need, with a real cash purchase plus a
+# real quantity receipt per material - the same pair every other
+# purchase in this fixture already uses.
+"Stage Journal Line","JE-BUY2-DS-E","Tutorial Window & Door Manufacturing","Actual","Door Slab - External","120000"
+"Stage Journal Line","JE-BUY2-DS-E","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-120000"
+"Post Journal Entry","JE-BUY2-DS-E","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-DS-E","Tutorial Window & Door Manufacturing","Actual","Door Slab - External","Raw Materials Store","8"
+"Stage Journal Line","JE-BUY2-DS-I","Tutorial Window & Door Manufacturing","Actual","Door Slab - Internal","105000"
+"Stage Journal Line","JE-BUY2-DS-I","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-105000"
+"Post Journal Entry","JE-BUY2-DS-I","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-DS-I","Tutorial Window & Door Manufacturing","Actual","Door Slab - Internal","Raw Materials Store","15"
+"Stage Journal Line","JE-BUY2-AS","Tutorial Window & Door Manufacturing","Actual","Aluminum Sill","24000"
+"Stage Journal Line","JE-BUY2-AS","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-24000"
+"Post Journal Entry","JE-BUY2-AS","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-AS","Tutorial Window & Door Manufacturing","Actual","Aluminum Sill","Raw Materials Store","6"
+"Stage Journal Line","JE-BUY2-SDTK","Tutorial Window & Door Manufacturing","Actual","Sliding Door Track Kit","72000"
+"Stage Journal Line","JE-BUY2-SDTK","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-72000"
+"Post Journal Entry","JE-BUY2-SDTK","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-SDTK","Tutorial Window & Door Manufacturing","Actual","Sliding Door Track Kit","Raw Materials Store","6"
+"Stage Journal Line","JE-BUY2-WK","Tutorial Window & Door Manufacturing","Actual","Weatherseal Kit","15000"
+"Stage Journal Line","JE-BUY2-WK","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-15000"
+"Post Journal Entry","JE-BUY2-WK","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-WK","Tutorial Window & Door Manufacturing","Actual","Weatherseal Kit","Raw Materials Store","6"
+"Stage Journal Line","JE-BUY2-HS","Tutorial Window & Door Manufacturing","Actual","Hinge Set","42000"
+"Stage Journal Line","JE-BUY2-HS","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-42000"
+"Post Journal Entry","JE-BUY2-HS","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-HS","Tutorial Window & Door Manufacturing","Actual","Hinge Set","Raw Materials Store","28"
+"Stage Journal Line","JE-BUY2-IDLK","Tutorial Window & Door Manufacturing","Actual","Internal Door Latch Kit","52500"
+"Stage Journal Line","JE-BUY2-IDLK","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-52500"
+"Post Journal Entry","JE-BUY2-IDLK","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-IDLK","Tutorial Window & Door Manufacturing","Actual","Internal Door Latch Kit","Raw Materials Store","15"
+"Stage Journal Line","JE-BUY2-PK","Tutorial Window & Door Manufacturing","Actual","Packaging Kit","28000"
+"Stage Journal Line","JE-BUY2-PK","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-28000"
+"Post Journal Entry","JE-BUY2-PK","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-PK","Tutorial Window & Door Manufacturing","Actual","Packaging Kit","Raw Materials Store","28"
+"Stage Journal Line","JE-BUY2-TS","Tutorial Window & Door Manufacturing","Actual","Timber Stile","50400"
+"Stage Journal Line","JE-BUY2-TS","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-50400"
+"Post Journal Entry","JE-BUY2-TS","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-TS","Tutorial Window & Door Manufacturing","Actual","Timber Stile","Raw Materials Store","42"
+"Stage Journal Line","JE-BUY2-TR","Tutorial Window & Door Manufacturing","Actual","Timber Rail","50000"
+"Stage Journal Line","JE-BUY2-TR","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-50000"
+"Post Journal Entry","JE-BUY2-TR","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-TR","Tutorial Window & Door Manufacturing","Actual","Timber Rail","Raw Materials Store","50"
+"Stage Journal Line","JE-BUY2-DHK","Tutorial Window & Door Manufacturing","Actual","Door Hardware Kit","36000"
+"Stage Journal Line","JE-BUY2-DHK","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-36000"
+"Post Journal Entry","JE-BUY2-DHK","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-DHK","Tutorial Window & Door Manufacturing","Actual","Door Hardware Kit","Raw Materials Store","8"
+"Stage Journal Line","JE-BUY2-AE","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","27200"
+"Stage Journal Line","JE-BUY2-AE","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-27200"
+"Post Journal Entry","JE-BUY2-AE","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-AE","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","Raw Materials Store","34"
+"Stage Journal Line","JE-BUY2-GP","Tutorial Window & Door Manufacturing","Actual","Glass Pane","25000"
+"Stage Journal Line","JE-BUY2-GP","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-25000"
+"Post Journal Entry","JE-BUY2-GP","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-GP","Tutorial Window & Door Manufacturing","Actual","Glass Pane","Raw Materials Store","10"
+"Stage Journal Line","JE-BUY2-HK","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","9000"
+"Stage Journal Line","JE-BUY2-HK","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-9000"
+"Post Journal Entry","JE-BUY2-HK","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV2-HK","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","Raw Materials Store","6"
+# A second, real assembly round for the frame-level items - genuinely
+# new Front/Rear/Internal Door Frame stock and the first-ever Aluminum
+# Patio Door Frame stock, dispatched from real raw materials and
+# received as real finished (frame-level) goods, exactly the same real
+# dispatch/receive pair Stage 6's own original assembly round used.
+"Dispatch Stock Quantity","ASM2-TSTILE","Tutorial Window & Door Manufacturing","Actual","Timber Stile","Raw Materials Store","40"
+"Dispatch Stock Quantity","ASM2-TRAIL","Tutorial Window & Door Manufacturing","Actual","Timber Rail","Raw Materials Store","47"
+"Dispatch Stock Quantity","ASM2-DHWKIT","Tutorial Window & Door Manufacturing","Actual","Door Hardware Kit","Raw Materials Store","7"
+"Dispatch Stock Quantity","ASM2-ALEXT","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","Raw Materials Store","32"
+"Dispatch Stock Quantity","ASM2-GLASS","Tutorial Window & Door Manufacturing","Actual","Glass Pane","Raw Materials Store","8"
+"Dispatch Stock Quantity","ASM2-ALSILL","Tutorial Window & Door Manufacturing","Actual","Aluminum Sill","Raw Materials Store","4"
+"Dispatch Stock Quantity","ASM2-TRACK","Tutorial Window & Door Manufacturing","Actual","Sliding Door Track Kit","Raw Materials Store","4"
+"Receive Stock Quantity","ASM2-RECV-FRONT","Tutorial Window & Door Manufacturing","Actual","Wooden Front Door Frame","Finished Goods Store","4"
+"Receive Stock Quantity","ASM2-RECV-REAR","Tutorial Window & Door Manufacturing","Actual","Wooden Rear Door Frame","Finished Goods Store","3"
+"Receive Stock Quantity","ASM2-RECV-INT","Tutorial Window & Door Manufacturing","Actual","Wooden Internal Door Frame","Finished Goods Store","13"
+"Receive Stock Quantity","ASM2-RECV-PATIO","Tutorial Window & Door Manufacturing","Actual","Aluminum Patio Door Frame","Finished Goods Store","4"
+# Reclassifies the real, BOM-computed cost of each new frame batch from
+# the raw materials it consumed into the frame's own account - one
+# journal entry per frame type, the exact same reclassification shape
+# Stage 6's own original assembly round already uses.
+"Stage Journal Line","JE-RECLASS2-FRONT","Tutorial Window & Door Manufacturing","Actual","Wooden Front Door Frame","39600"
+"Stage Journal Line","JE-RECLASS2-FRONT","Tutorial Window & Door Manufacturing","Actual","Timber Stile","-9600"
+"Stage Journal Line","JE-RECLASS2-FRONT","Tutorial Window & Door Manufacturing","Actual","Timber Rail","-12000"
+"Stage Journal Line","JE-RECLASS2-FRONT","Tutorial Window & Door Manufacturing","Actual","Door Hardware Kit","-18000"
+"Post Journal Entry","JE-RECLASS2-FRONT","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-RECLASS2-REAR","Tutorial Window & Door Manufacturing","Actual","Wooden Rear Door Frame","29700"
+"Stage Journal Line","JE-RECLASS2-REAR","Tutorial Window & Door Manufacturing","Actual","Timber Stile","-7200"
+"Stage Journal Line","JE-RECLASS2-REAR","Tutorial Window & Door Manufacturing","Actual","Timber Rail","-9000"
+"Stage Journal Line","JE-RECLASS2-REAR","Tutorial Window & Door Manufacturing","Actual","Door Hardware Kit","-13500"
+"Post Journal Entry","JE-RECLASS2-REAR","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-RECLASS2-INT","Tutorial Window & Door Manufacturing","Actual","Wooden Internal Door Frame","57200"
+"Stage Journal Line","JE-RECLASS2-INT","Tutorial Window & Door Manufacturing","Actual","Timber Stile","-31200"
+"Stage Journal Line","JE-RECLASS2-INT","Tutorial Window & Door Manufacturing","Actual","Timber Rail","-26000"
+"Post Journal Entry","JE-RECLASS2-INT","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-RECLASS-PATIO","Tutorial Window & Door Manufacturing","Actual","Aluminum Patio Door Frame","109600"
+"Stage Journal Line","JE-RECLASS-PATIO","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","-25600"
+"Stage Journal Line","JE-RECLASS-PATIO","Tutorial Window & Door Manufacturing","Actual","Glass Pane","-20000"
+"Stage Journal Line","JE-RECLASS-PATIO","Tutorial Window & Door Manufacturing","Actual","Aluminum Sill","-16000"
+"Stage Journal Line","JE-RECLASS-PATIO","Tutorial Window & Door Manufacturing","Actual","Sliding Door Track Kit","-48000"
+"Post Journal Entry","JE-RECLASS-PATIO","Tutorial Window & Door Manufacturing","Actual"
+"Check Stock Nonnegative","Tutorial Window & Door Manufacturing"
+# The real, second-level assembly - each frame (now itself real,
+# on-hand finished-goods stock) plus its own door slab, hinge/latch
+# hardware, and packaging kit, dispatched together and received as one
+# real, complete, installable, packaged door unit. This is the literal
+# mechanism behind "framed, with hardware, packaged ready for
+# delivery-truck pickup" - never a cosmetic item name.
+"Dispatch Stock Quantity","ASM-UNIT-FRONTFRAME","Tutorial Window & Door Manufacturing","Actual","Wooden Front Door Frame","Finished Goods Store","4"
+"Dispatch Stock Quantity","ASM-UNIT-FRONTSLAB","Tutorial Window & Door Manufacturing","Actual","Door Slab - External","Raw Materials Store","4"
+"Dispatch Stock Quantity","ASM-UNIT-FRONTHINGE","Tutorial Window & Door Manufacturing","Actual","Hinge Set","Raw Materials Store","4"
+"Dispatch Stock Quantity","ASM-UNIT-FRONTPACK","Tutorial Window & Door Manufacturing","Actual","Packaging Kit","Raw Materials Store","4"
+"Receive Stock Quantity","ASM-UNIT-RECV-FRONT","Tutorial Window & Door Manufacturing","Actual","Front Door Unit - Complete","Finished Goods Store","4"
+"Dispatch Stock Quantity","ASM-UNIT-REARFRAME","Tutorial Window & Door Manufacturing","Actual","Wooden Rear Door Frame","Finished Goods Store","3"
+"Dispatch Stock Quantity","ASM-UNIT-REARSLAB","Tutorial Window & Door Manufacturing","Actual","Door Slab - External","Raw Materials Store","3"
+"Dispatch Stock Quantity","ASM-UNIT-REARHINGE","Tutorial Window & Door Manufacturing","Actual","Hinge Set","Raw Materials Store","3"
+"Dispatch Stock Quantity","ASM-UNIT-REARPACK","Tutorial Window & Door Manufacturing","Actual","Packaging Kit","Raw Materials Store","3"
+"Receive Stock Quantity","ASM-UNIT-RECV-REAR","Tutorial Window & Door Manufacturing","Actual","Rear Door Unit - Complete","Finished Goods Store","3"
+"Dispatch Stock Quantity","ASM-UNIT-INTFRAME","Tutorial Window & Door Manufacturing","Actual","Wooden Internal Door Frame","Finished Goods Store","13"
+"Dispatch Stock Quantity","ASM-UNIT-INTSLAB","Tutorial Window & Door Manufacturing","Actual","Door Slab - Internal","Raw Materials Store","13"
+"Dispatch Stock Quantity","ASM-UNIT-INTLATCH","Tutorial Window & Door Manufacturing","Actual","Internal Door Latch Kit","Raw Materials Store","13"
+"Dispatch Stock Quantity","ASM-UNIT-INTHINGE","Tutorial Window & Door Manufacturing","Actual","Hinge Set","Raw Materials Store","13"
+"Dispatch Stock Quantity","ASM-UNIT-INTPACK","Tutorial Window & Door Manufacturing","Actual","Packaging Kit","Raw Materials Store","13"
+"Receive Stock Quantity","ASM-UNIT-RECV-INT","Tutorial Window & Door Manufacturing","Actual","Internal Door Unit - Complete","Finished Goods Store","13"
+"Dispatch Stock Quantity","ASM-UNIT-PATIOFRAME","Tutorial Window & Door Manufacturing","Actual","Aluminum Patio Door Frame","Finished Goods Store","4"
+"Dispatch Stock Quantity","ASM-UNIT-PATIOHW","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","Raw Materials Store","4"
+"Dispatch Stock Quantity","ASM-UNIT-PATIOSEAL","Tutorial Window & Door Manufacturing","Actual","Weatherseal Kit","Raw Materials Store","4"
+"Dispatch Stock Quantity","ASM-UNIT-PATIOPACK","Tutorial Window & Door Manufacturing","Actual","Packaging Kit","Raw Materials Store","4"
+"Receive Stock Quantity","ASM-UNIT-RECV-PATIO","Tutorial Window & Door Manufacturing","Actual","Sliding Patio Door Unit - Complete","Finished Goods Store","4"
+# Reclassifies each complete unit's own real, BOM-computed cost - the
+# frame it was built on plus its slab/hardware/packaging - into the
+# complete unit's own account.
+"Stage Journal Line","JE-RECLASS-FRONTUNIT","Tutorial Window & Door Manufacturing","Actual","Front Door Unit - Complete","109600"
+"Stage Journal Line","JE-RECLASS-FRONTUNIT","Tutorial Window & Door Manufacturing","Actual","Wooden Front Door Frame","-39600"
+"Stage Journal Line","JE-RECLASS-FRONTUNIT","Tutorial Window & Door Manufacturing","Actual","Door Slab - External","-60000"
+"Stage Journal Line","JE-RECLASS-FRONTUNIT","Tutorial Window & Door Manufacturing","Actual","Hinge Set","-6000"
+"Stage Journal Line","JE-RECLASS-FRONTUNIT","Tutorial Window & Door Manufacturing","Actual","Packaging Kit","-4000"
+"Post Journal Entry","JE-RECLASS-FRONTUNIT","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-RECLASS-REARUNIT","Tutorial Window & Door Manufacturing","Actual","Rear Door Unit - Complete","82200"
+"Stage Journal Line","JE-RECLASS-REARUNIT","Tutorial Window & Door Manufacturing","Actual","Wooden Rear Door Frame","-29700"
+"Stage Journal Line","JE-RECLASS-REARUNIT","Tutorial Window & Door Manufacturing","Actual","Door Slab - External","-45000"
+"Stage Journal Line","JE-RECLASS-REARUNIT","Tutorial Window & Door Manufacturing","Actual","Hinge Set","-4500"
+"Stage Journal Line","JE-RECLASS-REARUNIT","Tutorial Window & Door Manufacturing","Actual","Packaging Kit","-3000"
+"Post Journal Entry","JE-RECLASS-REARUNIT","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-RECLASS-INTUNIT","Tutorial Window & Door Manufacturing","Actual","Internal Door Unit - Complete","226200"
+"Stage Journal Line","JE-RECLASS-INTUNIT","Tutorial Window & Door Manufacturing","Actual","Wooden Internal Door Frame","-57200"
+"Stage Journal Line","JE-RECLASS-INTUNIT","Tutorial Window & Door Manufacturing","Actual","Door Slab - Internal","-91000"
+"Stage Journal Line","JE-RECLASS-INTUNIT","Tutorial Window & Door Manufacturing","Actual","Internal Door Latch Kit","-45500"
+"Stage Journal Line","JE-RECLASS-INTUNIT","Tutorial Window & Door Manufacturing","Actual","Hinge Set","-19500"
+"Stage Journal Line","JE-RECLASS-INTUNIT","Tutorial Window & Door Manufacturing","Actual","Packaging Kit","-13000"
+"Post Journal Entry","JE-RECLASS-INTUNIT","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-RECLASS-PATIOUNIT","Tutorial Window & Door Manufacturing","Actual","Sliding Patio Door Unit - Complete","129600"
+"Stage Journal Line","JE-RECLASS-PATIOUNIT","Tutorial Window & Door Manufacturing","Actual","Aluminum Patio Door Frame","-109600"
+"Stage Journal Line","JE-RECLASS-PATIOUNIT","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","-6000"
+"Stage Journal Line","JE-RECLASS-PATIOUNIT","Tutorial Window & Door Manufacturing","Actual","Weatherseal Kit","-10000"
+"Stage Journal Line","JE-RECLASS-PATIOUNIT","Tutorial Window & Door Manufacturing","Actual","Packaging Kit","-4000"
+"Post Journal Entry","JE-RECLASS-PATIOUNIT","Tutorial Window & Door Manufacturing","Actual"
+"Check Stock Nonnegative","Tutorial Window & Door Manufacturing"
+# A second, real trade customer - a different builder, so "a few
+# builders' orders" below is genuinely plural, not the same one
+# customer buying three times.
+"Create Customer","Tutorial Window & Door Manufacturing","Coastal Home Builders Pty Ltd","Customers"
+# Order A - BuildRight Constructions, 14 Henley Beach Road: a full
+# house package - one front door, one rear door, four internal doors,
+# one aluminum/glass sliding patio door - each a complete, packaged
+# unit, sold at this fixture's own flat per-unit trade price list.
+"Stage Journal Line","JE-SALE-HOUSEA","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","308000"
+"Stage Journal Line","JE-SALE-HOUSEA","Tutorial Window & Door Manufacturing","Actual","Sales Revenue","-308000"
+"Post Journal Entry","JE-SALE-HOUSEA","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-COGS-HOUSEA","Tutorial Window & Door Manufacturing","Actual","Cost of Goods Sold","156800"
+"Stage Journal Line","JE-COGS-HOUSEA","Tutorial Window & Door Manufacturing","Actual","Front Door Unit - Complete","-27400"
+"Stage Journal Line","JE-COGS-HOUSEA","Tutorial Window & Door Manufacturing","Actual","Rear Door Unit - Complete","-27400"
+"Stage Journal Line","JE-COGS-HOUSEA","Tutorial Window & Door Manufacturing","Actual","Internal Door Unit - Complete","-69600"
+"Stage Journal Line","JE-COGS-HOUSEA","Tutorial Window & Door Manufacturing","Actual","Sliding Patio Door Unit - Complete","-32400"
+"Post Journal Entry","JE-COGS-HOUSEA","Tutorial Window & Door Manufacturing","Actual"
+"Dispatch Stock Quantity","SALE-A-FRONT","Tutorial Window & Door Manufacturing","Actual","Front Door Unit - Complete","Finished Goods Store","1"
+"Dispatch Stock Quantity","SALE-A-REAR","Tutorial Window & Door Manufacturing","Actual","Rear Door Unit - Complete","Finished Goods Store","1"
+"Dispatch Stock Quantity","SALE-A-INT","Tutorial Window & Door Manufacturing","Actual","Internal Door Unit - Complete","Finished Goods Store","4"
+"Dispatch Stock Quantity","SALE-A-PATIO","Tutorial Window & Door Manufacturing","Actual","Sliding Patio Door Unit - Complete","Finished Goods Store","1"
+# Order B - BuildRight Constructions, 22 Henley Beach Road: a smaller
+# granny-flat build - one front door (no separate rear entry), three
+# internal doors, one sliding patio door.
+"Stage Journal Line","JE-SALE-HOUSEB","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","226000"
+"Stage Journal Line","JE-SALE-HOUSEB","Tutorial Window & Door Manufacturing","Actual","Sales Revenue","-226000"
+"Post Journal Entry","JE-SALE-HOUSEB","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-COGS-HOUSEB","Tutorial Window & Door Manufacturing","Actual","Cost of Goods Sold","112000"
+"Stage Journal Line","JE-COGS-HOUSEB","Tutorial Window & Door Manufacturing","Actual","Front Door Unit - Complete","-27400"
+"Stage Journal Line","JE-COGS-HOUSEB","Tutorial Window & Door Manufacturing","Actual","Internal Door Unit - Complete","-52200"
+"Stage Journal Line","JE-COGS-HOUSEB","Tutorial Window & Door Manufacturing","Actual","Sliding Patio Door Unit - Complete","-32400"
+"Post Journal Entry","JE-COGS-HOUSEB","Tutorial Window & Door Manufacturing","Actual"
+"Dispatch Stock Quantity","SALE-B-FRONT","Tutorial Window & Door Manufacturing","Actual","Front Door Unit - Complete","Finished Goods Store","1"
+"Dispatch Stock Quantity","SALE-B-INT","Tutorial Window & Door Manufacturing","Actual","Internal Door Unit - Complete","Finished Goods Store","3"
+"Dispatch Stock Quantity","SALE-B-PATIO","Tutorial Window & Door Manufacturing","Actual","Sliding Patio Door Unit - Complete","Finished Goods Store","1"
+# Order C - Coastal Home Builders Pty Ltd, Seaview Townhouses (a block
+# of two): the second, genuinely different builder's own order, scaled
+# for two identical dwellings - two of every door type this block's own
+# two townhouses both need.
+"Stage Journal Line","JE-SALE-HOUSEC","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","552000"
+"Stage Journal Line","JE-SALE-HOUSEC","Tutorial Window & Door Manufacturing","Actual","Sales Revenue","-552000"
+"Post Journal Entry","JE-SALE-HOUSEC","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-COGS-HOUSEC","Tutorial Window & Door Manufacturing","Actual","Cost of Goods Sold","278800"
+"Stage Journal Line","JE-COGS-HOUSEC","Tutorial Window & Door Manufacturing","Actual","Front Door Unit - Complete","-54800"
+"Stage Journal Line","JE-COGS-HOUSEC","Tutorial Window & Door Manufacturing","Actual","Rear Door Unit - Complete","-54800"
+"Stage Journal Line","JE-COGS-HOUSEC","Tutorial Window & Door Manufacturing","Actual","Internal Door Unit - Complete","-104400"
+"Stage Journal Line","JE-COGS-HOUSEC","Tutorial Window & Door Manufacturing","Actual","Sliding Patio Door Unit - Complete","-64800"
+"Post Journal Entry","JE-COGS-HOUSEC","Tutorial Window & Door Manufacturing","Actual"
+"Dispatch Stock Quantity","SALE-C-FRONT","Tutorial Window & Door Manufacturing","Actual","Front Door Unit - Complete","Finished Goods Store","2"
+"Dispatch Stock Quantity","SALE-C-REAR","Tutorial Window & Door Manufacturing","Actual","Rear Door Unit - Complete","Finished Goods Store","2"
+"Dispatch Stock Quantity","SALE-C-INT","Tutorial Window & Door Manufacturing","Actual","Internal Door Unit - Complete","Finished Goods Store","6"
+"Dispatch Stock Quantity","SALE-C-PATIO","Tutorial Window & Door Manufacturing","Actual","Sliding Patio Door Unit - Complete","Finished Goods Store","2"
+"Check Stock Nonnegative","Tutorial Window & Door Manufacturing"
+
 # Real, structural report checks - never a hardcoded golden figure.
 "Check Stock Nonnegative","Tutorial Window & Door Manufacturing"
 "Check Trial Balance Balanced","Tutorial Window & Door Manufacturing","Actual",""

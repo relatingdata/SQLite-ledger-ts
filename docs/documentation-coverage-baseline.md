@@ -334,6 +334,7 @@ are the two largest, most recently-built, most user-visible gaps. -->
 - `test-one`
 - `tutorial-section-user-manual`
 - `entity-tree-svg`
+- `entity-tree-sample-svg`
 - `untrack`
 - `release`
 - `/reports/storage-space`

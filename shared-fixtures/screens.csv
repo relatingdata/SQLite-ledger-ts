@@ -257,6 +257,31 @@ Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wo
 Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
 Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
 Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
 Check Bom Components Recorded,data,,,,,1,assemblyItem,,text
 Check Bom Components Recorded,data,,,,,2,expectedCount,,text
 Check Stock Nonnegative,data,,,,,1,businessName,,text
