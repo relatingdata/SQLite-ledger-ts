@@ -27,6 +27,7 @@ const PARTS: Parts = [
   ['Part 3 --- Core Domain Reference', [
     'pm-domain-reference.md',
     'pm-domain-concepts.md',
+    'pm-project-builder.md',
   ]],
   ['Part 4 --- Backend API Reference', [
     'pm-journal-api.md',

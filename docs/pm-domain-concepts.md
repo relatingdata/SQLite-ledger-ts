@@ -31,10 +31,15 @@ Receipt or Stock Dispatch line with its quantity tracking turned off.
 
 ## Projects
 
-There is **no separate "Project" entity type**. A project is just the
-*name of an Expense Chart-of-Accounts account* — whatever account a
-business already uses for, say, "Downtown Renovation" or "Client X
-Consulting."
+Two, genuinely separate mechanisms both answer to the word "project" in
+this app, and neither replaced the other.
+
+### The original, account-name-only "project"
+
+A project is just the *name of an Expense Chart-of-Accounts account* —
+whatever account a business already uses for, say, "Downtown
+Renovation" or "Client X Consulting." Unchanged by the Project Builder
+work below.
 
 - **Where**: `backend/src/db-journal.ts` — `clockInToProject`,
   `clockOutOfProject`, `getOpenProjectClockForEmployee`. Dispatched via
@@ -54,9 +59,46 @@ Consulting."
   pattern used throughout this app, not a bespoke "project" schema.
 - **What this means**: "assign staff to a project" works, in the narrow
   sense of "an employee can clock time against a named expense
-  account and that cost posts for real." There is no project record
-  with its own start/end dates, budget, status, or site — the account
-  name *is* the project's only identity.
+  account and that cost posts for real." Used on its own, there is no
+  project record with its own start/end dates, budget, status, or site
+  — the account name *is* the project's only identity.
+
+### Live Project — a real project entity, built for Project Builder
+
+`clockInToProject`'s own `projectExpenseAccount` parameter is still
+just an account name with no runtime check that it belongs to anything
+— but since the Project Builder work (see `docs/pm-project-builder.md`
+for the full mechanism), a real **Live Project** entity now exists too,
+and the two compose: a Live Project's own, automatically provisioned
+Expense account is exactly the kind of account name `clockInToProject`/
+`clockPlantIn` already take, so real labour/plant time clocked against
+a Live Project lands as a real cost on it, with zero change to either
+clock function's own signature.
+
+- **Where**: `backend/src/db-projects.ts` (`createLiveProject`,
+  `getLiveProject`, `listLiveProjects`, `createMilestone`,
+  `getMilestones`, `getResourceBookings`, `findNextAvailableWindow`,
+  `scheduleProjectRecipeLines`, `checkMilestoneAchievability`,
+  `provisionProjectProfitCenter`, `getProjectCostReport`). Dispatched
+  via `call-dispatch/projects.ts` and `call-dispatch/plant.ts`/
+  `call-dispatch/prototypes.ts`.
+- **A real entity, not an account name**: `PER_BUSINESS_ROOTS`'s own
+  `Live Projects` root (`db.ts`) — a Live Project carries its own
+  `Client`/`Requested Start`/`Target Completion Date`/`Schedule Risk`/
+  `Profit Center`/`Project Expense Account` attributes, and its own
+  child `Milestone` entities (`Plans Submission`/`Inspection`/
+  `Invoicing`, each with its own `Due Date` and possible `Schedule
+  Risk`). It is created automatically when a multi-line Project
+  Proposal (a widened Quotation, see below) is accepted.
+- **What this means**: a Live Project has a real start/target-
+  completion date, a real set of Milestones, a real dedicated Profit
+  Center and Expense account comparing its quoted price to its actual
+  labour/plant cost, and a real, computed Schedule Risk when a genuine
+  resource double-booking pushes its completion past what the client
+  wanted — everything the plain, account-name-only mechanism above
+  deliberately does not have. See `docs/pm-project-builder.md` for the
+  Recipe/Plant/Skill/Prototype/contention mechanism this is built on,
+  and the Project Builder tutorial chapter for a full, worked example.
 
 ## Staff allocation / scheduling beyond project clock-in
 
@@ -71,9 +113,18 @@ schedule are entirely independent facts today.
 
 ## Gantt charts, task dependencies, multi-project overviews
 
-**None of this exists.** There is no task entity, no task-dependency
-graph, no project budget, no Gantt-style timeline, and no screen that
-shows more than one project/employee at a time.
+**Still no Gantt chart, task-dependency graph, or screen that shows
+more than one project/employee at a time.** What changed: Live
+Project's own `findNextAvailableWindow`/`getResourceBookings`
+(`db-projects.ts`, see above and `docs/pm-project-builder.md`) IS a
+real, working cross-project awareness — it reads every OTHER live
+project's own real Labour/Plant bookings for a named resource before
+resolving a new one, and pushes a genuine conflict into the future
+rather than ignoring it. That is real resource contention across
+projects, computed on demand; it is not a Gantt-style timeline, has no
+notion of a task or a dependency edge between two tasks, and has no UI
+of its own — the Project Builder tutorial's own narration (never a
+rendered chart) is how this is currently seen.
 
 `docs/construction-project-management-plan.md` is a **design document
 only** — a deliberately honest scoping of what a real construction/

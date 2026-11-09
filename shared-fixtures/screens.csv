@@ -262,3 +262,62 @@ Check Bom Components Recorded,data,,,,,2,expectedCount,,text
 Check Stock Nonnegative,data,,,,,1,businessName,,text
 Ensure Item Inventory Account,data,,,ensureItemInventoryAccountSimple,,1,businessName,,text
 Ensure Item Inventory Account,data,,,ensureItemInventoryAccountSimple,,2,itemName,,text
+Create Plant Item,data,,,createPlantItemSimple,,1,name,,text
+Create Plant Item,data,,,createPlantItemSimple,,2,businessName,,text
+Create Plant Item,data,,,createPlantItemSimple,,3,hourlyRateMinor,,text
+Create Plant Item,data,,,createPlantItemSimple,,4,ownedOrHired,,text
+Create Plant Item,data,,,createPlantItemSimple,,5,hireVendor,,text
+Ensure Skill,data,,,ensureSkillSimple,,1,skillName,,text
+Tag Skill,data,,,tagSkillSimple,,1,contactName,,text
+Tag Skill,data,,,tagSkillSimple,,2,skillName,,text
+Tag Skill,data,,,tagSkillSimple,,3,rateMinorPerHour,,text
+Set Employee Wage,data,,,setEmployeeWageSimple,,1,employeeName,,text
+Set Employee Wage,data,,,setEmployeeWageSimple,,2,wageMinorPerHour,,text
+Create Prototype,data,,,createPrototypeSimple,,1,prototypeName,,text
+Create Prototype,data,,,createPrototypeSimple,,2,businessName,,text
+Add Prototype Line,data,,,addPrototypeLineSimple,,1,prototypeName,,text
+Add Prototype Line,data,,,addPrototypeLineSimple,,2,businessName,,text
+Add Prototype Line,data,,,addPrototypeLineSimple,,3,kind,,text
+Add Prototype Line,data,,,addPrototypeLineSimple,,4,resourceOrItemName,,text
+Add Prototype Line,data,,,addPrototypeLineSimple,,5,quantity,,text
+Add Prototype Line,data,,,addPrototypeLineSimple,,6,unit,,text
+Add Prototype Line,data,,,addPrototypeLineSimple,,7,priceMinor,,text
+Add Prototype Line,data,,,addPrototypeLineSimple,,8,durationHours,,text
+Add Prototype Line,data,,,addPrototypeLineSimple,,9,scheduledStart,,text
+Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,1,prototypeName,,text
+Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,2,reference,,text
+Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,3,client,,text
+Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,4,businessName,,text
+Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,5,ledger,,text
+Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,6,headerItem,,text
+Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,7,transdate,,text
+Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,8,targetCompletionDate,,text
+Accept Project Proposal,data,,,acceptProjectProposalSimple,,1,reference,,text
+Accept Project Proposal,data,,,acceptProjectProposalSimple,,2,projectName,,text
+Accept Project Proposal,data,,,acceptProjectProposalSimple,,3,targetCompletionDate,,text
+Clock In To Project,data,,,clockInToProjectSimple,,1,employeeName,,text
+Clock In To Project,data,,,clockInToProjectSimple,,2,projectExpenseAccount,,text
+Clock In To Project,data,,,clockInToProjectSimple,,3,businessName,,text
+Clock In To Project,data,,,clockInToProjectSimple,,4,ledger,,text
+Clock Out Of Project,data,,,clockOutOfProjectSimple,,1,employeeName,,text
+Clock Out Of Project,data,,,clockOutOfProjectSimple,,2,businessName,,text
+Clock Out Of Project,data,,,clockOutOfProjectSimple,,3,ledger,,text
+Clock Plant In,data,,,clockPlantInSimple,,1,plantName,,text
+Clock Plant In,data,,,clockPlantInSimple,,2,projectExpenseAccount,,text
+Clock Plant In,data,,,clockPlantInSimple,,3,businessName,,text
+Clock Plant In,data,,,clockPlantInSimple,,4,ledger,,text
+Clock Plant Out,data,,,clockPlantOutSimple,,1,plantName,,text
+Clock Plant Out,data,,,clockPlantOutSimple,,2,businessName,,text
+Clock Plant Out,data,,,clockPlantOutSimple,,3,ledger,,text
+Update Prototype Line,data,,,updatePrototypeLineSimple,,1,prototypeName,,text
+Update Prototype Line,data,,,updatePrototypeLineSimple,,2,businessName,,text
+Update Prototype Line,data,,,updatePrototypeLineSimple,,3,resourceOrItemName,,text
+Update Prototype Line,data,,,updatePrototypeLineSimple,,4,newDurationHours,,text
+Update Prototype Line,data,,,updatePrototypeLineSimple,,5,newPriceMinor,,text
+Check Schedule Risk Absent,data,,,,,1,projectName,,text
+Check Schedule Risk Flagged,data,,,,,1,projectName,,text
+Check Project Margin Sign,data,,,,,1,projectName,,text
+Check Project Margin Sign,data,,,,,2,expectedSign,,text
+Check Prototype Line Updated,data,,,,,1,prototypeName,,text
+Check Prototype Line Updated,data,,,,,2,component,,text
+Check Prototype Line Updated,data,,,,,3,expectedPriceMinor,,text

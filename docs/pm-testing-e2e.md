@@ -1089,6 +1089,87 @@ afterward; net income is positive. Run via `make test-e2e-manufacturing-
 full` (which resets the database first) or directly via `node --import
 tsx backend/scripts/simulate-manufacturing-cycles.ts`.
 
+## Project Builder tutorial — a third, real business
+
+A third, wholly separate real business ("Tutorial Dwelling
+Construction"), proving the same `step-runner.ts`/`screens.csv`
+mechanism, and the Recipe/Plant/Skill/Prototype/Live Project/Milestone/
+scheduling-contention engine (see `docs/pm-project-builder.md` for the
+full mechanism), work together end to end. Narrated for the person
+using the application in
+`docs/user-manual-ch5-project-builder-tutorial.md`.
+
+```
+make test-e2e-project-builder-tutorial          # fast — API path only, no browser
+make test-e2e-project-builder-tutorial-browser  # same fixture, driven through a real browser
+make test-e2e-project-builder-full              # the "full" tier — see below
+```
+
+Fixture files: `shared-fixtures/project-builder-tutorial-steps.csv` +
+`.control.csv` (93 steps) — the exact, same positional-CSV shape every
+other tutorial fixture uses, read by the exact, same `step-runner.ts`.
+New `API_REGISTRY` entries this fixture needed: `createPlantItemSimple`/
+`ensureSkillSimple`/`tagSkillSimple`/`setEmployeeWageSimple` (Plant and
+Skill setup); `createPrototypeSimple`/`addPrototypeLineSimple`/
+`updatePrototypeLineSimple` (the Prototype library); `instantiateProjectProposalSimple`/
+`acceptProjectProposalSimple` (turning a Prototype into a real, accepted
+Live Project); `clockInToProjectSimple`/`clockOutOfProjectSimple`/
+`clockPlantInSimple`/`clockPlantOutSimple` (real labour/plant cost posted
+against a project). New `VERIFY_REGISTRY` entries: `schedule_risk_absent`/
+`schedule_risk_flagged` (the real, computed Schedule Risk check),
+`project_margin_sign` (a project's quoted-vs-actual cost comparison),
+`prototype_line_updated` (confirms a bounded, explicit prototype revision
+took effect).
+
+The fixture's own narrative deliberately instantiates two Live Projects
+("123 Oak St", "456 River Road") from the SAME Medium Dwelling prototype,
+with overlapping dates on the same shared Labour/Plant resources — Project
+A is accepted first (no real conflict yet, resolves exactly as requested,
+`schedule_risk_absent`), and Project B, accepted second against a
+deliberately tighter client-wanted date, gets every colliding Labour/Plant
+line genuinely pushed into the future by the real scheduling engine,
+missing its own client's wanted date and raising a real, computed
+`schedule_risk_flagged`. Direct cost-simulation journal entries then give
+Project A a positive margin and Project B a negative one
+(`project_margin_sign`), and a final `Update Prototype Line` call on the
+Medium Dwelling template's own Tower Crane line is confirmed via
+`prototype_line_updated`.
+
+**A real, found-and-fixed bug surfaced by actually running this
+fixture**: `getOpenProjectClockEntity` (`backend/src/db-journal.ts`)
+parsed a clock entity's own name (`Clocked In — <po reference> —
+<project expense account> — <clocked-in-at>`) with a naive, fixed 4-way
+`split(' — ')` — which silently misparsed the moment a real project
+expense account name (`provisionProjectProfitCenter`'s own
+`${projectName} — Labour & Plant` naming convention) contained its own
+`" — "`, producing `NaN` hours worked and a `NOT NULL` constraint failure
+on `clockOutOfProject`/`clockPlantOut`. Fixed by parsing from both ends
+(`poReference` is always the second segment, `clockedInAt` always the
+last, everything in between is the real account name) rather than a fixed
+positional split — see `docs/pm-project-builder.md` for the full account.
+Locked in with a permanent unit test in `backend/test/db.test.ts`
+exercising both the Employee and Plant clock paths against a real account
+name containing `" — "`, not just a disposable verify-then-delete script.
+
+### Full / volume — the Project Builder cycle simulation
+
+Per the user's own "lighter now" answer (a bespoke, Retail-style
+golden-figure volume simulation for Project Builder, mirroring the Wine
+Retail Business one below, is explicitly deferred, future work), this
+chapter's own "full" tier is
+`backend/scripts/simulate-project-builder-cycles.ts` — a real, looped
+simulation (3 repeated overlapping-project-pair cycles, each in its own
+non-overlapping two-year date window, against one fresh db), verified
+entirely via computed invariants, never a hardcoded dollar figure: the
+Trial Balance balances; every Profit Center's own totals reconcile to its
+own project's postings only; a real Schedule Risk is raised exactly where
+a real resource double-booking was engineered in that cycle, and nowhere
+else; every accepted Project Proposal has at least its own real Invoicing
+Milestone; net income across all 3 cycles is positive. Run via `make
+test-e2e-project-builder-full` (which resets the database first) or
+directly via `node --import tsx
+backend/scripts/simulate-project-builder-cycles.ts`.
+
 ## The full browser test suite
 
 ```

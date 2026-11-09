@@ -4505,6 +4505,34 @@ test('clockPlantIn/clockPlantOut/getOpenPlantClock: Plant\'s own clock, a direct
   assert.throws(() => db.clockPlantOut(excavator, biz.business, biz.actualLedger, fx.userId), /not currently clocked in/);
 });
 
+test('clockInToProject/clockOutOfProject and clockPlantIn/clockPlantOut: a real project expense account whose own name contains " — " (provisionProjectProfitCenter\'s own `${projectName} — Labour & Plant` naming) round-trips correctly — a real, found-and-fixed bug: the clock entity\'s own name encodes po_reference/account/clockedInAt positionally, separated by the same " — ", and a naive 4-way split silently misparsed clockedInAt as a fragment of the account\'s own name once the account name carried its own " — "', () => {
+  const biz = fx.freshBusiness('EmDashClockTest Co');
+  const location = fx.uniqueName('EmDashClockTest Location');
+  db.createEntityRaw({ name: location, parent: 'Locations' }, fx.userId);
+  const employee = fx.uniqueName('EmDashClockTest Employee');
+  db.createEmployee(employee, location, fx.userId);
+  db.setContact(employee, { wage_minor_per_hour: 5000 });
+  const excavator = fx.uniqueName('EmDashClockTest Excavator');
+  db.createPlantItem(excavator, biz.business, 10000, 'Owned', fx.userId);
+
+  const projectName = fx.uniqueName('EmDashClockTest Project');
+  db.createLiveProject(projectName, biz.business, 'Some Client', '2027-01-01', '2027-12-31', fx.userId);
+  const { expenseAccountName } = db.provisionProjectProfitCenter(projectName, biz.business, fx.userId);
+  assert.ok(expenseAccountName.includes(' — '), 'the real naming convention this is meant to guard — if it ever changes to not contain " — ", this assertion should be revisited, not silently pass for the wrong reason');
+
+  const clockIn = db.clockInToProject(employee, db.asAccountName(expenseAccountName), biz.business, biz.actualLedger, fx.userId);
+  assert.equal(clockIn.project_expense_account, expenseAccountName, 'the account name must round-trip through the clock entity\'s own name whole, not truncated at its first " — "');
+  const open = db.getOpenProjectClockForEmployee(employee);
+  assert.equal(open?.project_expense_account, expenseAccountName);
+  assert.doesNotThrow(() => db.clockOutOfProject(employee, biz.business, biz.actualLedger, fx.userId), 'clocking out must not throw — the bug this guards against corrupted clockedInAt into a non-date fragment, producing NaN hours worked and a NOT NULL constraint failure on the resulting stock receipt');
+  assert.equal(db.getOpenProjectClockForEmployee(employee), undefined, 'clocked out — no open clock remains');
+
+  const plantClockIn = db.clockPlantIn(excavator, db.asAccountName(expenseAccountName), biz.business, biz.actualLedger, fx.userId);
+  assert.equal(plantClockIn.project_expense_account, expenseAccountName);
+  assert.doesNotThrow(() => db.clockPlantOut(excavator, biz.business, biz.actualLedger, fx.userId));
+  assert.equal(db.getOpenPlantClock(excavator), undefined, 'clocked out — no open clock remains');
+});
+
 test('ensureSkill/listSkills/tagSkill/untagSkill/getSkills: a real, pairing-specific rate per contact+skill, on top of the same setEntityLink shape BOM already uses', () => {
   const location = fx.uniqueName('SkillTest Location');
   db.createEntityRaw({ name: location, parent: 'Locations' }, fx.userId);

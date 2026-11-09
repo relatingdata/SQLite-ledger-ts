@@ -1,0 +1,159 @@
+# Project Builder tutorial (Stage 7 of the three-tutorial-chapters plan).
+# Logs in - no accounting, no entities beyond the session.
+"Login","admin","changeme123"
+# Chooses the working business before a new one exists.
+"Select Business","admin"
+# A third, genuinely different kind of business - a dwelling builder,
+# neither Retail nor Manufacturing - to prove the Recipe/Plant/Skill/
+# Project/Milestone/contention mechanism (Stages 1-5) generalizes to a
+# real services business whose own "inventory" is Labour and Plant time.
+"Create Business","Tutorial Dwelling Construction","2026-27","Sole Trader","AUD","English / generic",""
+"Nominate Bank Account","Tutorial Dwelling Construction","Western Trade Bank","063-112","987654"
+"Build Bank Currency Structure","Tutorial Dwelling Construction","Western Trade Bank","AUD","true"
+"Switch Session","Tutorial Dwelling Construction","Actual"
+# Opening capital - $50,000.00 (5,000,000 minor units).
+"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Dwelling Construction","Actual","Cash and Bank","5000000"
+"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Dwelling Construction","Actual","Owner's Equity","-5000000"
+"Post Journal Entry","JE-OWNER-CAPITAL","Tutorial Dwelling Construction","Actual"
+# One real site store for the (small amount of) material this chapter
+# actually receives - the real contention story below is about Labour/
+# Plant, not materials, so materials stay deliberately minimal.
+"Create Location","Tutorial Dwelling Construction","Site Store","Adelaide","Warehouse","","",""
+"Create Provider","Tutorial Dwelling Construction","Statewide Building Supplies","Accounts Payable"
+"Create Customer","Tutorial Dwelling Construction","Oak St Family Trust","Customers"
+"Create Customer","Tutorial Dwelling Construction","Riverside Developments","Customers"
+# The real Item every Project Proposal in this business quotes under -
+# the construction job itself, never priced by $/unit the way a bottle
+# of wine is - the real detail is in its own Recipe lines, below.
+"Create Item No Category","Tutorial Dwelling Construction","Dwelling Construction Contract"
+# Two real materials - provisioned with a real, properly classified
+# Inventory (Asset) account before any real $ purchase posting ever
+# names them, exactly as Stage 6's own Manufacturing chapter does.
+"Create Item No Category","Tutorial Dwelling Construction","Concrete Footings"
+"Ensure Item Inventory Account","Tutorial Dwelling Construction","Concrete Footings"
+"Create Item No Category","Tutorial Dwelling Construction","Timber Frame Kit"
+"Ensure Item Inventory Account","Tutorial Dwelling Construction","Timber Frame Kit"
+# Three real Plant items - one owned, one hired (with its own real hire
+# vendor), one owned - the equipment every Recipe's own Plant-kind line
+# below books time against.
+"Create Plant Item","20T Excavator","Tutorial Dwelling Construction","15000","Owned",""
+"Create Plant Item","Tower Crane","Tutorial Dwelling Construction","20000","Hired","BuildCo Hire"
+"Create Plant Item","Scaffolding Rig","Tutorial Dwelling Construction","5000","Owned",""
+# A real, global named-skill taxonomy - the full set named in this
+# chapter's own plan, even though only a few are tagged onto a real
+# employee below (Design/Roofing/Plumbing — Licensed are seeded for a
+# believable, reusable library, same spirit as the three prototypes
+# further down).
+"Ensure Skill","Design"
+"Ensure Skill","Site Management"
+"Ensure Skill","Framing"
+"Ensure Skill","Roofing"
+"Ensure Skill","Electrical — Licensed"
+"Ensure Skill","Plumbing — Licensed"
+"Ensure Skill","General Labour"
+# Three real employees, each a real, costed resource - a wage rate (set
+# directly, since Create Employee's own screen carries no wage field
+# yet) and a real Skill tag with its own pairing-specific rate.
+"Create Employee","Tutorial Dwelling Construction","Jordan Smith","Site Store"
+"Set Employee Wage","Jordan Smith","6000"
+"Tag Skill","Jordan Smith","Site Management","6000"
+"Create Employee","Tutorial Dwelling Construction","Casey Brown","Site Store"
+"Set Employee Wage","Casey Brown","9000"
+"Tag Skill","Casey Brown","Electrical — Licensed","9000"
+"Create Employee","Tutorial Dwelling Construction","Morgan Lee","Site Store"
+"Set Employee Wage","Morgan Lee","5000"
+"Tag Skill","Morgan Lee","Framing","5000"
+"Tag Skill","Morgan Lee","General Labour","5000"
+# A real library of three Project Proposal Prototypes - Small/Medium/
+# Large Dwelling - each a reusable, named set of Recipe lines (Material/
+# Labour/Plant) a real proposal is instantiated from, never typed in
+# fresh every time. Small and Large exist to prove the library genuinely
+# holds more than one template; the real contention story below runs on
+# Medium, instantiated twice.
+"Create Prototype","Small Dwelling","Tutorial Dwelling Construction"
+"Add Prototype Line","Small Dwelling","Tutorial Dwelling Construction","Material","Concrete Footings","1","lot","400000","",""
+"Add Prototype Line","Small Dwelling","Tutorial Dwelling Construction","Labour","Morgan Lee","1","contract","250000","40","2027-04-01"
+"Add Prototype Line","Small Dwelling","Tutorial Dwelling Construction","Plant","20T Excavator","1","booking","150000","8","2027-04-01"
+"Check Bom Components Recorded","Small Dwelling","3"
+"Create Prototype","Medium Dwelling","Tutorial Dwelling Construction"
+"Add Prototype Line","Medium Dwelling","Tutorial Dwelling Construction","Material","Concrete Footings","1","lot","800000","",""
+"Add Prototype Line","Medium Dwelling","Tutorial Dwelling Construction","Material","Timber Frame Kit","1","lot","1200000","",""
+"Add Prototype Line","Medium Dwelling","Tutorial Dwelling Construction","Labour","Jordan Smith","1","contract","300000","40","2027-01-06"
+"Add Prototype Line","Medium Dwelling","Tutorial Dwelling Construction","Plant","20T Excavator","1","booking","450000","24","2027-01-06"
+"Add Prototype Line","Medium Dwelling","Tutorial Dwelling Construction","Labour","Casey Brown","1","contract","180000","16","2027-02-10"
+"Add Prototype Line","Medium Dwelling","Tutorial Dwelling Construction","Plant","Tower Crane","1","booking","200000","8","2027-01-20"
+"Add Prototype Line","Medium Dwelling","Tutorial Dwelling Construction","Labour","Morgan Lee","1","contract","500000","80","2027-01-13"
+"Check Bom Components Recorded","Medium Dwelling","7"
+"Create Prototype","Large Dwelling","Tutorial Dwelling Construction"
+"Add Prototype Line","Large Dwelling","Tutorial Dwelling Construction","Material","Timber Frame Kit","2","lot","2400000","",""
+"Add Prototype Line","Large Dwelling","Tutorial Dwelling Construction","Labour","Morgan Lee","1","contract","900000","160","2027-05-01"
+"Add Prototype Line","Large Dwelling","Tutorial Dwelling Construction","Plant","Tower Crane","1","booking","380000","16","2027-05-05"
+"Add Prototype Line","Large Dwelling","Tutorial Dwelling Construction","Plant","Scaffolding Rig","1","booking","100000","40","2027-05-01"
+"Check Bom Components Recorded","Large Dwelling","4"
+# Project A - instantiated from Medium Dwelling, accepted first, so it
+# books the excavator/crane/licensed-electrician/site-manager/labourer
+# slots the Medium Dwelling template always asks for, with no real
+# conflict yet - the client's own wanted date has plenty of room.
+"Instantiate Project Proposal","Medium Dwelling","PROP-A","Oak St Family Trust","Tutorial Dwelling Construction","Actual","Dwelling Construction Contract","2027-01-02","2027-03-15"
+"Accept Project Proposal","PROP-A","123 Oak St","2027-03-15"
+"Check Schedule Risk Absent","123 Oak St"
+# Project B - a different client, instantiated from the SAME Medium
+# Dwelling template, so it asks for the exact same real resources on
+# the exact same real dates Project A already holds - a genuine,
+# engineered double-booking, not a contrived one. Its own client wants
+# a fast turnaround, which the real contention now makes unachievable.
+"Instantiate Project Proposal","Medium Dwelling","PROP-B","Riverside Developments","Tutorial Dwelling Construction","Actual","Dwelling Construction Contract","2027-01-10","2027-02-10"
+"Accept Project Proposal","PROP-B","456 River Road","2027-02-10"
+"Check Schedule Risk Flagged","456 River Road"
+# A real, small amount of material delivered for the build - purchase
+# then receipt, the same two real steps every other tutorial's own
+# purchases use.
+"Stage Journal Line","JE-BUY-FOOTINGS","Tutorial Dwelling Construction","Actual","Concrete Footings","400000"
+"Stage Journal Line","JE-BUY-FOOTINGS","Tutorial Dwelling Construction","Actual","Cash and Bank","-400000"
+"Post Journal Entry","JE-BUY-FOOTINGS","Tutorial Dwelling Construction","Actual"
+"Receive Stock Quantity","RCV-FOOTINGS","Tutorial Dwelling Construction","Actual","Concrete Footings","Site Store","1"
+"Stage Journal Line","JE-BUY-TIMBER","Tutorial Dwelling Construction","Actual","Timber Frame Kit","1200000"
+"Stage Journal Line","JE-BUY-TIMBER","Tutorial Dwelling Construction","Actual","Cash and Bank","-1200000"
+"Post Journal Entry","JE-BUY-TIMBER","Tutorial Dwelling Construction","Actual"
+"Receive Stock Quantity","RCV-TIMBER","Tutorial Dwelling Construction","Actual","Timber Frame Kit","Site Store","1"
+# Real labour/plant clock-in/clock-out, proving the live mechanism posts
+# a real cost directly to each project's own, dedicated Profit-Center-
+# scoped Expense account - one real cycle per project.
+"Clock In To Project","Jordan Smith","123 Oak St — Labour & Plant","Tutorial Dwelling Construction","Actual"
+"Clock Out Of Project","Jordan Smith","Tutorial Dwelling Construction","Actual"
+"Clock Plant In","20T Excavator","123 Oak St — Labour & Plant","Tutorial Dwelling Construction","Actual"
+"Clock Plant Out","20T Excavator","Tutorial Dwelling Construction","Actual"
+"Clock In To Project","Casey Brown","456 River Road — Labour & Plant","Tutorial Dwelling Construction","Actual"
+"Clock Out Of Project","Casey Brown","Tutorial Dwelling Construction","Actual"
+"Clock Plant In","Tower Crane","456 River Road — Labour & Plant","Tutorial Dwelling Construction","Actual"
+"Clock Plant Out","Tower Crane","Tutorial Dwelling Construction","Actual"
+# The real, accumulated labour+plant cost each project incurs over its
+# own full, real multi-week build - a single clock-in/clock-out cycle a
+# moment apart can only ever prove the mechanism works, not stand in
+# for weeks of real site time, so the bulk of each project's own real
+# cost is posted directly to its own Expense account here, the same
+# "Stage Journal Line"/"Post Journal Entry" pair every other real cost
+# in this application already uses. Project A comes in under its own
+# quote; Project B, delayed by the real double-booking above, comes in
+# over its own quote - the real, computed business case for investing
+# in a second excavator crew or another licensed electrician.
+"Stage Journal Line","JE-PROJ-A-COSTS","Tutorial Dwelling Construction","Actual","123 Oak St — Labour & Plant","3200000"
+"Stage Journal Line","JE-PROJ-A-COSTS","Tutorial Dwelling Construction","Actual","Cash and Bank","-3200000"
+"Post Journal Entry","JE-PROJ-A-COSTS","Tutorial Dwelling Construction","Actual"
+"Stage Journal Line","JE-PROJ-B-COSTS","Tutorial Dwelling Construction","Actual","456 River Road — Labour & Plant","3700000"
+"Stage Journal Line","JE-PROJ-B-COSTS","Tutorial Dwelling Construction","Actual","Cash and Bank","-3700000"
+"Post Journal Entry","JE-PROJ-B-COSTS","Tutorial Dwelling Construction","Actual"
+"Check Project Margin Sign","123 Oak St","positive"
+"Check Project Margin Sign","456 River Road","negative"
+# The lesson learned - a bounded, explicit, human-driven revision of
+# the Medium Dwelling template's own Tower Crane line, never automatic
+# learning from profitability. Every future Medium Dwelling proposal now
+# quotes a longer, more realistic crane booking and a higher price for
+# it, reflecting what this chapter's own real schedule blowout taught
+# the business - Project A and Project B's own, already-accepted
+# proposals are completely unaffected by this.
+"Update Prototype Line","Medium Dwelling","Tutorial Dwelling Construction","Tower Crane","12","260000"
+"Check Prototype Line Updated","Medium Dwelling","Tower Crane","260000"
+"Check Trial Balance Balanced","Tutorial Dwelling Construction","Actual","2027-06-30"
+"Check Balance Sheet Balanced","Tutorial Dwelling Construction","Actual","2027-06-30"
+"Check Profit And Loss Positive","Tutorial Dwelling Construction","Actual","2026-07-01","2027-06-30"

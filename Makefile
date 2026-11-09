@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -218,6 +218,48 @@ test-e2e-manufacturing-tutorial-browser: reset-db ensure-servers
 test-e2e-manufacturing-full: reset-db
 	@echo "Running the real, looped Manufacturing simulation (3 cycles) with computed-invariant checks..."
 	cd backend && $(RUN_SCRIPT) scripts/simulate-manufacturing-cycles.ts
+
+# The Project Builder tutorial (Stage 7 of the three-tutorial-chapters
+# plan, docs/user-manual-ch5-project-builder-tutorial.md /
+# docs/pm-project-builder.md) - a third, real business ("Tutorial
+# Dwelling Construction") proving the Recipe/Plant/Skill/Project/
+# Milestone/scheduling-contention mechanism (Stages 1-5): a library of
+# Project Proposal Prototypes, two real projects instantiated from the
+# same template, a genuine resource double-booking auto-rescheduled
+# into the future (never blocked), a real Schedule Risk raised only
+# where the client's own wanted date is genuinely missed, real
+# Profit-Center-scoped cost tracking, and one bounded, human-driven
+# prototype revision. Same real step-runner.ts/screens.csv mechanism as
+# the other two tutorials, a wholly separate fixture file.
+test-e2e-project-builder-tutorial: reset-db
+	@echo "Running the real Project Builder tutorial fixture via the API path..."
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/project-builder-tutorial-steps.csv --path api --non-interactive
+
+# The exact, same, real Project Builder tutorial fixture, driven through
+# an actual, real, live browser. Every new Stage 2-7 entity (Plant,
+# Skill, Prototype, Live Project) has no dedicated frontend UI yet (see
+# docs/pm-project-builder.md), so every new screen in this fixture is,
+# like Stage 6's own stock-quantity-movement screens, api-path only
+# (blank ui_path/open_selector/submit_selector) - this target mainly
+# re-proves the handful of real, pre-existing UI screens this fixture
+# also exercises (Create Business, Create Location/Provider/Customer/
+# Item, Post, the three report pages).
+test-e2e-project-builder-tutorial-browser: reset-db ensure-servers
+	@echo "Running the real Project Builder tutorial fixture via the real, driven UI path..."
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/project-builder-tutorial-steps.csv --path ui --non-interactive
+
+# The Project Builder chapter's own "full" tier, per the user's own
+# "lighter now" answer: a real, looped simulation (2-3 repeated
+# overlapping-project-pair cycles against one fresh db), verified via
+# computed invariants (every Profit Center's own totals reconcile to
+# its own project's postings only, a Schedule Risk is raised if and
+# only if a real overlap was genuinely engineered, no Milestone is ever
+# silently skipped) - never a hardcoded golden figure. A bespoke,
+# Retail-style golden-figure volume simulation for Project Builder is
+# explicitly deferred, future work.
+test-e2e-project-builder-full: reset-db
+	@echo "Running the real, looped Project Builder simulation (3 overlapping project-pair cycles) with computed-invariant checks..."
+	cd backend && $(RUN_SCRIPT) scripts/simulate-project-builder-cycles.ts
 
 # The real, CSV-driven tutorial fixture's own text-frontend path —
 # step-runner.ts --path text, driving a real tui/src/cli.tsx process

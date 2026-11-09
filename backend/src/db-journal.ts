@@ -330,12 +330,32 @@ export function clockInToProject(employeeName: EmployeeName, projectExpenseAccou
   return { employee: employeeName, po_reference: poReference, project_expense_account: projectExpenseAccount, clocked_in_at: clockedInAt };
 }
 
+// Real, found-and-fixed bug (Project Builder tutorial, Stage 7): a
+// clock entity's own name is `Clocked In — ${poReference} — ${account} —
+// ${clockedInAt}`, but a real Profit-Center-scoped project expense
+// account (provisionProjectProfitCenter, db-projects.ts) is itself named
+// `${projectName} — Labour & Plant` — it carries its own " — ", so a
+// naive 4-way split(' — ') silently misparses every field after
+// poReference once a real account name like that is used (confirmed:
+// the account name truncates and clockedInAt ends up as a non-date
+// fragment of the account's own name, producing NaN hours worked and a
+// NOT NULL constraint failure on the resulting stock receipt). poReference
+// never contains " — " (it's always `CLOCK-<timestamp>-<random>` or
+// `PLANT-CLOCK-<timestamp>-<random>`) and clockedInAt never contains it
+// either (always a bare ISO timestamp), so only the account name in the
+// middle can genuinely vary in how many " — "-separated segments it has —
+// splitting from both ends and rejoining whatever is left in the middle
+// handles any real account name, not just ones with zero em dashes of
+// their own.
 function getOpenProjectClockEntity(employeeName: string): { id: number; po_reference: string; project_expense_account: string; clocked_in_at: string } | undefined {
   const employee = Entity.get(employeeName);
   if (!employee) return undefined;
   const row = Entity.findByNameContaining('Clocked In — ', employee.id).find((e) => e.relation_id !== null);
   if (!row) return undefined;
-  const [, poReference, projectExpenseAccount, clockedInAt] = row.name.split(' — ');
+  const parts = row.name.split(' — ');
+  const poReference = parts[1];
+  const clockedInAt = parts[parts.length - 1];
+  const projectExpenseAccount = parts.slice(2, parts.length - 1).join(' — ');
   return { id: row.id, po_reference: poReference, project_expense_account: projectExpenseAccount, clocked_in_at: clockedInAt };
 }
 

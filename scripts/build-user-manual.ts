@@ -19,7 +19,11 @@ const PARTS: [string, string[]][] = [
     'user-manual-ch1-introduction.md',
     'user-manual-ch2-configuration.md',
   ]],
-  ['Tutorial', ['user-manual-ch3-tutorial.md', 'user-manual-ch4-manufacturing-tutorial.md']],
+  ['Tutorial', [
+    'user-manual-ch3-tutorial.md',
+    'user-manual-ch4-manufacturing-tutorial.md',
+    'user-manual-ch5-project-builder-tutorial.md',
+  ]],
   ['Appendix --- Every Screen in the Application', [
     'user-manual-appendix-screens.md',
     'user-manual-appendix-step-runner.md',

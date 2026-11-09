@@ -306,7 +306,7 @@ A real, honest note on where this stands today: the setup screen above is real a
 \clearpage
 # Chapter 3 --- Tutorial: Building a Real Wine Retail Business, Start to Finish
 
-This chapter walks through one, single, real, worked exercise --- setting a brand-new wine retail business up entirely through this application's own real interface, from the very first login through its first real posted transactions, checking the real, live figures at each step along the way. Every numbered step below is exercised, end to end, by this project's own automated Tutorial test (`make test-e2e-tutorial-browser`, driven by `shared-fixtures/tutorial-steps.csv`) --- the same, real, data-driven test-runner described in the Programmer's Manual, never a separate, hand-maintained script. Every screenshot below is real and current, captured directly from a live, passing run of this exact tutorial. A step whose own screenhot is not shown is marked plainly, with the real reason --- either its UI path has not yet been wired into the automated test (it is still exercised at the API layer only), or a real, confirmed application bug currently blocks that one screen --- rather than shown with a stale or substitute image.
+This chapter walks through one, single, real, worked exercise --- setting a brand-new wine retail business up entirely through this application's own real interface, from the very first login through its first real posted transactions, checking the real, live figures at each step along the way. Every numbered step below is exercised, end to end, by this project's own automated Tutorial test (`make test-e2e-tutorial-browser`, driven by `shared-fixtures/tutorial-steps.csv`) --- the same, real, data-driven test-runner described in the Programmer's Manual, never a separate, hand-maintained script. Every screenshot below is real and current, captured directly from a live, passing run of this exact tutorial. A step whose own screenshot is not shown is marked plainly: most run through the real UI the same as every other step, simply with no screenshot yet configured for them; exactly one (creating a new ledger at rollover) has no UI screen at all, by design --- the only place a new ledger is ever created is inline, as part of the Rollover screen's own flow, so that one step runs at the API layer directly.
 
 This tutorial's own business trades in a home currency (AUD) but, at creation, also nominates a further currency (NZD) it is willing to accept --- a real, further note on multi-currency follows at the end of this chapter. It also, deliberately, starts from as little real structure as a business can have --- one location, one item, no divisions, no categories --- trades like that for real, for the last two months of its very first financial year, then genuinely closes its books and rolls over into a new one, before growing into a proper multi-location wine retailer, through the real **Business Structure** popup, rather than arriving already fully built.
 
@@ -350,11 +350,11 @@ A business starts with one location selling one item --- not a fully-built org c
 
 ![The retail outlet, Main Street Cellar, created with its own real shelf and carton capacity, no division yet.](manual-images-tutorial/retail_created.png)
 
-The **Items Catalog** then creates the simplest possible item: a block of **Ice**, under a brand-new **General** category --- no tiers, no combinations, no registered cost. Every further item this tutorial creates has more going on than this one does.
+The **Items Catalog** then creates the simplest possible item: a block of **Ice**, with genuinely no category at all --- not even a "General" catch-all. The system itself must be able to operate with zero hierarchy (no categories, divisions, or profit centers), and this is the real, live proof: the "+ Item (no category)" action adds Ice directly under the Items root, no category ever created or selected.
 
-*Screenshot not shown --- a real, confirmed performance issue (noted below) occasionally makes this one screen take longer to render than the automated test's own screenshot capture allows; this step is still exercised, end to end, by the automated Tutorial test's API-path run.*
+![Ice created, with no category at all.](manual-images-tutorial/item_ice_created.png)
 
-The owner runs this single-item Ice stall for real, for the last two months of this first financial year, before building anything further. **Cash Purchase** brings in 1,000 bags of Ice at $1.00 each ($1,000.00 total), paid cash on the spot, and **Cash Sale** sells all 1,000 of them straight back out at $2.00 each ($2,000.00 total) --- a $1,000.00 gross profit, exactly a 50% margin, and the first real revenue this business has ever recorded, before it has grown into anything more than a single location and a single item.
+The owner runs this single-item Ice stall for real, for the last two months of this first financial year, before building anything further. **Cash Purchase** brings in 1,000 bags of Ice at $1.00 each ($1,000.00 total), paid cash on the spot --- booked straight to Ice's own real Inventory account, an asset, since Ice has never been given a registered unit cost (that comes later, for Amber Ale and Highland Single Malt) and so earns no automatic Cost of Goods Sold leg here. **Cash Sale** then sells all 1,000 bags straight back out at $2.00 each ($2,000.00 total), recognized as pure Sales revenue --- the first real revenue this business has ever recorded, before it has grown into anything more than a single location and a single item.
 
 ![The Ice stock purchased for cash, 1,000 bags at $1.00 each.](manual-images-tutorial/cash_purchase_ice_done.png)
 
@@ -370,9 +370,21 @@ Before growing any further, the owner stops and genuinely closes the books on th
 
 First, the real, live Trial Balance and Profit and Loss for the still-open `Actual` ledger are checked --- a real, structural confirmation (balanced), and a real, recorded net income figure, kept so that the same checks just after Close Books below can prove closing the books never changes the P&L already reported for this same, real period.
 
-**Close Books** then closes `Actual`'s own Income and Expense accounts --- Sales, Cost of Goods Sold, and this one Rent expense --- into **Retained Earnings**, as of `2027-06-30`, the end of this business's first real financial year. The owner's real review follows immediately: the Trial Balance, still genuinely balanced, and the Balance Sheet it underlies; and the Profit and Loss for these same two months, its net income figure exactly unchanged from what was recorded just before closing --- a real $1,000.00 gross profit on Ice, less $100.00 of rent, for a real $900.00 net income, the whole of this business's own first year.
+While the figures are already open, the same business's own **New New P&L** screen --- Reports → New New P&L --- shows the same, real Profit and Loss grouped two ways at once: an **Outer grouping** and an **Inner grouping**, each independently set to Item, Category, Location, or any further hierarchy the business has configured, or left **Consolidated** to fold that side into a single row. With nothing configured yet beyond the Ice stall itself --- no Category, no Division, nothing --- grouping by **Item** still resolves every real account to its own row: Ice's own, genuinely positive $2,000.00, and Rent's own real $(100.00), summing to exactly the $1,900.00 net income already recorded above. Item itself only becomes a real choice for Outer once Inner is set to something on the opposite side of the "Hierarchy redundancy guard" described in the Programmer's Manual --- here, simply switching Inner to **Consolidated** first.
+
+![Grouped by Item against Consolidated --- Ice and Rent, each its own real row, summing to the Ice business's own recorded net income.](manual-images-tutorial/pl_by_item_single_row.png)
+
+**Close Books** then closes `Actual`'s own Income and Expense accounts --- Sales and this one Rent expense --- into **Retained Earnings**, as of `2027-06-30`, the end of this business's first real financial year. Ice's own $1,000.00 purchase cost stays exactly where it was booked, in its Inventory account on the Balance Sheet, unexpensed --- Close Books never touches a real asset account.
 
 ![The Ice business's own books, closed as of 2027-06-30.](manual-images-tutorial/ice_phase_books_closed.png)
+
+The owner's real review follows immediately --- all three of the business's own real reports, checked and captured fresh right after closing, not merely checked at the API layer: the Trial Balance, still genuinely balanced; the Profit and Loss for these same two months, its net income figure exactly unchanged from what was recorded just before closing --- a real $2,000.00 in Ice sales, less $100.00 of rent, for a real $1,900.00 net income, the whole of this business's own first year (Ice's $1,000.00 purchase cost sits unexpensed in Inventory, so it never reaches this report at all); and the Balance Sheet it underlies, its own real Assets and Liabilities-plus-Equity genuinely equal.
+
+![The Trial Balance, still balanced, right after closing.](manual-images-tutorial/ice_trial_balance_after_close.png)
+
+![The Profit and Loss for the Ice business's own first year, net income unchanged by closing.](manual-images-tutorial/ice_profit_and_loss_after_close.png)
+
+![The Balance Sheet, genuinely balanced, right after closing.](manual-images-tutorial/ice_balance_sheet_after_close.png)
 
 A new ledger, `Actual 2027-28`, is then created structurally, before any posting into it, and **Rollover To New Period** posts the real, final, balanced opening entry into it --- the new period never references or posts against the old one. The new ledger's own opening Trial Balance is checked balanced, and its own Profit and Loss checked genuinely zero: Income and Expense are never carried forward across a rollover, only the real, "used" Balance Sheet accounts are. This old ledger's own trial balance total is recorded one final time here too, so that the very last check in this chapter can prove nothing that follows ever touches it again.
 
@@ -418,13 +430,27 @@ One further growth step, on the popup's "Item Categories" tab: a **Whiskey** cat
 
 ## Creating the next items
 
-The **Items Catalog** creates two further items: **Amber Ale 330ml**, under a new **Beer** category, typed inline the same way Ice's own category was; and **Highland Single Malt 700ml**, under the **Whiskey** category --- already sitting there in the dropdown, exactly as the Business Structure popup left it, so this screen simply selects it rather than creating anything new. Neither screen sets a cost or selling price yet --- no cost/price field exists here; that is set separately below, once a real supplier exists for the item to be costed against.
+The **Items Catalog** creates two further items. Unlike Ice, both get a real category --- but creating a brand-new category is now its own, separate, real step: with nothing selected in the tree, Insert opens a plain "new top-level category" form, used here to create **Beer**.
 
-![Amber Ale 330ml created, under a new Beer category.](manual-images-tutorial/item_amber_ale_created.png)
+![A new Beer category, created on its own, before any item sits inside it.](manual-images-tutorial/category_beer_created.png)
 
-![Highland Single Malt 700ml created, selecting the already-existing Whiskey category.](manual-images-tutorial/item_highland_single_malt_created.png)
+**Amber Ale 330ml** is then added under it --- the category selected in the tree, then Insert again, this time adding an item within it. **Highland Single Malt 700ml** goes under **Whiskey** instead --- already sitting there in the tree, exactly as the Business Structure popup left it earlier in this chapter, so no further category needs creating here. Neither screen sets a cost or selling price yet --- no cost/price field exists here; that is set separately below, once a real supplier exists for the item to be costed against.
+
+![Amber Ale 330ml added under the new Beer category.](manual-images-tutorial/item_amber_ale_created.png)
+
+![Highland Single Malt 700ml added under the already-existing Whiskey category.](manual-images-tutorial/item_highland_single_malt_created.png)
 
 **A real, confirmed performance note**: at the time of this printing, creating an item on a business with a large, real chart-of-accounts/vocabulary tree could take tens of real seconds on this one screen, even though every real backend call involved returns in well under half a second --- a genuine client-side rendering defect, found and fixed during this same tutorial's own development (see the Programmer's Manual for the full, real root cause and fix).
+
+## Tagging items by Size and Packaging --- and why their names already read correctly
+
+"Amber Ale 330ml" and "Highland Single Malt 700ml" each carry two further, real facts in their own name --- a **Size** (`330ml`, `700ml`) and a **Packaging** (both, here, `Glass Bottle`) --- and both are registered as real, further Hierarchy groupings, the exact, same generic mechanism this business's own Category and Division already use (see "Growing the business, through the Business Structure popup" above, and the Programmer's Manual for the full, generic design). Tagging an item this way never changes the item's own real identity or its own real Sales/Cost of Goods Sold/Inventory accounts --- it is a further, independent, lateral fact, read back purely by reports.
+
+**Why not reuse the existing "Container" grouping for Packaging?** This business already has a real, different grouping named "Container," used by Open Container below for converting a sealed carton into individual bottles (Carton ↔ Bottle). Reusing that same name for "glass bottle versus aluminium can" would have silently mixed two unrelated meanings into one grouping --- so this further concept is named **Packaging** instead, kept genuinely distinct.
+
+Because Size and Packaging are now real, further Hierarchy groupings --- not just a Category or a Division --- the New New P&L screen ("Reviewing the full wine retailer's own figures," below) already offers either one as a further, real Outer or Inner grouping choice, exactly the way it already offers Category and Division: no further setup is needed for a new grouping to become a selectable report axis.
+
+**A real naming convention worth following, once a Sales Item's full identity is genuinely a combination of several such facts**: supply the values in English's own standard adjective order --- **Opinion, Size, Age, Shape, Colour, Origin, Material, Purpose** (the mnemonic **OSASCOMP**) --- so a combined name built by joining them (as, for example, the Cartesian-Product-Builder mechanism described in `docs/sales-item-cartesian-product.md` already does) reads the way a person would naturally say it. A small, red, Italian, leather bag, named by joining its own Size, Colour, Origin, and Material facts in that order, reads correctly for free; joining them in a different order would build a real, working, but unnaturally-ordered name instead. This is a documentation and naming convention only --- nothing in this application enforces an order, since the underlying mechanism simply joins whichever order it is given. See `docs/sales-item-cartesian-product.md` for the full design note, including a further, worked secondhand/thrift-shop example.
 
 ## Creating the first supplier
 
@@ -434,15 +460,15 @@ The **Items Catalog** creates two further items: **Amber Ale 330ml**, under a ne
 
 ## Setting the item's real cost and pack size
 
-*Screenshot not shown --- this screen's UI path has not yet been wired into the automated Tutorial test; this step is currently exercised at the API layer only.*
-
 Amber Ale's real cost and real pack size are registered against this specific supplier --- $84.00 per carton, 24 bottles per carton --- before a Purchase Order can be placed against it. No generic, supplier-independent cost mechanism exists: the same item can genuinely cost a different amount from a different supplier, and each is tracked separately.
+
+![Amber Ale's real cost and pack size, registered against Highland Brewing Co.](manual-images-tutorial/item_cost_set.png)
 
 ## Placing the Purchase Order
 
-*Screenshot not shown --- this screen's UI path has not yet been wired into the automated Tutorial test; this step is currently exercised at the API layer only.*
-
 **An important, real detail, easy to get wrong**: a real order placed with a supplier is always for a whole number of real cartons --- never a raw, arbitrary bottle count. This tutorial's own Purchase Order for Amber Ale 330ml, reference `PO-AMBER-1`, is placed as 4 real cartons at $84.00 per carton --- the same, real $3.50-per-bottle cost as registered above, just expressed the way an actual invoice from a real supplier would state it.
+
+![The Purchase Order placed, 4 cartons at $84.00 each.](manual-images-tutorial/purchase_order_placed.png)
 
 ## Receiving and paying for the stock
 
@@ -460,27 +486,33 @@ A real stock transfer moves part of what Head Office received through to Main St
 
 ## Selling at the retail outlet
 
-*Screenshot not shown --- this screen's UI path has not yet been wired into the automated Tutorial test; this step is currently exercised at the API layer only.*
+*Screenshot not shown --- this step is exercised end to end through the real UI by the automated Tutorial test, with no screenshot yet configured.*
 
-A real POS sale, run twice, sells 2 bottles of Amber Ale 330ml at a time at $5.00 per bottle --- a real cost of $3.50 marked up to a real selling price of $5.00, so the live Profit & Loss shows a genuine profit once this retail markup is actually sold through.
+A real POS sale, run twice, sells 2 bottles of Amber Ale 330ml at a time at $5.00 per bottle --- a real cost of $3.50 marked up to a real selling price of $5.00, so the live Profit & Loss shows a genuine profit once this retail markup is actually sold through. The second sale reuses the exact, same real register screen right after the first --- its own "Sale complete" receipt view, shown after any sale, is dismissed with "New sale" before the second sale's own fields are filled in.
 
 ## Creating a named customer and recording a cash sale
 
-*Screenshot not shown --- a real, confirmed application bug currently blocks this screen's UI path (see below); this step is currently exercised at the API layer only.*
+*Screenshot not shown --- this step is exercised end to end through the real UI by the automated Tutorial test, with no screenshot yet configured for either screen.*
 
 Not every real sale goes through the POS register. A local restaurant, **Riverside Restaurant**, phones in an order for half a carton (12 bottles) of Amber Ale, to be paid cash on the spot when collected. Staff still creates the real, named customer account under the **Customers** parent, for the business's own records --- but since Cash Sale always posts to the business's own "Cash" customer, the sale itself is recorded there, the same real, immediate screen Cash Purchase's own counterpart: a genuine Sales Invoice to "Cash", Accounts Receivable briefly open, paid off in full the same instant. Invoicing a sale directly to Riverside Restaurant's own account --- for a business that extends it real, ongoing credit --- would instead use **AR Sale**, Chapter 1's on-account screen.
 
-**A real, confirmed bug, reported, not yet fixed**: the real dropdown used to choose a new entity's parent (here, `Customers`) does not always show the plain name it should. A translation/label lookup can resolve `Customers` to a long, decorated menu-help string instead of leaving it as the plain word `Customers`, which currently prevents this one step from completing through the real UI. See the Programmer's Manual for the full, real detail.
-
 ## Receiving sealed stock directly at retail, then opening a carton
 
-*Screenshots not shown --- these screens' UI paths have not yet been wired into the automated Tutorial test; both steps are currently exercised at the API layer only.*
+*Screenshots not shown --- both steps are exercised end to end through the real UI by the automated Tutorial test, with no screenshot yet configured for either.*
 
 Highland Single Malt 700ml is received sealed directly at Main Street Cellar --- 1 carton, 24 bottles --- stored under a **Secure** storage grouping. **Open Container** then converts that one sealed carton into 24 individual, sellable bottles on the shelf --- a real, ordinary internal stock movement between the item's own "Carton" and "Bottle" forms, mirrored against the location's own storage-space accounts, with no contra accounting involved.
 
 ## Reviewing the full wine retailer's own figures
 
 With the wine retailer now fully built out and trading --- still entirely within `Actual 2027-28`, the ledger created by the rollover above --- its own real Trial Balance is checked balanced one final time, and its own Profit and Loss checked genuinely positive, covering everything from the second capital investment through every sale made above.
+
+The same **New New P&L** screen now shows this fuller business. Left at its own default **Outer grouping**, **Location**, and switched to **Category** for the **Inner grouping**, Main Street Cellar's own real row appears --- carrying the Beer category's own real Sales and Cost of Goods Sold activity, Amber Ale 330ml tagged into it earlier in this chapter. Rows start collapsed; clicking one opens its own real Inner breakdown underneath. A genuine Category-outer/Item-inner crossing --- Beer's own row opening directly onto Amber Ale's --- is never offered by this screen at all: Category and Item are the same hierarchy (Item Categorization) at two levels of grain, the same way Location and Division are, and the screen's own "Hierarchy redundancy guard" refuses to cross either one against itself as a second, independent dimension, rather than silently showing something redundant. See the Programmer's Manual for the full design. That same Category→Item relationship is still real, and still proven --- just one level below this screen, by `getHierarchyParent`'s own generic lookup resolving Amber Ale directly under Beer, exactly the same mechanism a Division resolves a Location's own further groupings by.
+
+![Grouped by Location against Category --- Main Street Cellar's own row, carrying Beer's real activity.](manual-images-tutorial/pl_by_category_detailed.png)
+
+A further, real grouping --- **Division** --- exists once the Business Structure popup has created one, as this chapter's own `Adelaide Metro` was, earlier. Grouped by **Division** against **Consolidated** --- reached by setting Inner to Consolidated first, the one, always-selectable value on either side, which is what actually lets Division appear as a real Outer choice at all --- Adelaide Metro's own single, real row covers both of this business's own locations at once, and its own total matches this same section's Profit and Loss above exactly: no matter which real hierarchy a report slices this business by, summing every one of its own outer rows always comes back to the same, one, real, whole-business net income.
+
+![Grouped by Division against Consolidated --- Adelaide Metro's own single row, covering the whole business.](manual-images-tutorial/pl_by_division_consolidated.png)
 
 One last, real proof closes this chapter out: `Actual`'s own trial balance total, recorded right after the rollover, is checked once more here, at the very end --- exactly unchanged. None of this full wine-retail build-out, however much of it there genuinely is, ever once touches the Ice business's own, already-closed first year.
 
@@ -497,6 +529,232 @@ This tutorial's own business, **Tutorial Wine Retail Business**, nominated a fur
 A real sale through `Border Store USD Till` posts entirely within its own real `USD` group --- Sales Revenue, Sales Tax, Cost of Goods Sold, and Cash all as `USD`-tagged siblings of their own, ordinary, home-currency counterparts --- and the Trial Balance, checked immediately after, shows this outlet's own real `AUD` and `USD` activity as two, separate, genuinely unconverted currency groups, each independently balancing on its own. The Profit and Loss statement, reviewed next, offers a choice: this same `USD` activity shown in its own real, native column, an already-converted column, or folded into one, single, converted total --- see "Reporting across more than one currency" in Chapter 2 for the full, worked account names and amounts.
 
 \clearpage
+
+# Chapter 4 — A Second Business: Manufacturing
+
+The Retail tutorial (Chapter 3) walked through a wine retailer: buy
+bottles, sell bottles. This application is not limited to retail —
+this chapter walks through a genuinely different kind of business, a
+window and door manufacturer, to show the same application handling a
+real, physical production process: raw materials in, assemblies out,
+assemblies sold.
+
+## Setting up the business
+
+We create a brand-new business, "Tutorial Window & Door Manufacturing",
+exactly the same way Chapter 3 created the wine retailer — the same
+"Create Business" screen, the same banking wizard. Instead of one shop
+floor, this business has two real storage locations: a "Raw Materials
+Store" (everything bought from suppliers lands here) and a "Finished
+Goods Store" (everything built and ready to sell lives here).
+
+One real supplier, Statewide Timber & Glass Supplies, and one real
+trade customer, BuildRight Constructions Pty Ltd, round out the setup.
+
+## Items and the Bill of Materials
+
+Six raw materials are created — Aluminum Extrusion, Glass Pane, and
+Hardware Kit for windows; Timber Stile, Timber Rail, and Door Hardware
+Kit for doors — alongside four assemblies: the Aluminum Window Frame,
+and three door frames (Wooden Front, Wooden Rear, and Wooden Internal
+Door Frame).
+
+Each assembly's own **Bill of Materials** — the same "Bill of
+Materials" card already on the Items page, used here for the first
+time by this tutorial — records exactly which raw materials, and how
+many of each, go into building one unit:
+
+| Assembly | Components |
+|---|---|
+| Aluminum Window Frame | 4 × Aluminum Extrusion, 1 × Glass Pane, 1 × Hardware Kit |
+| Wooden Front Door Frame | 2 × Timber Stile, 3 × Timber Rail, 1 × Door Hardware Kit |
+| Wooden Rear Door Frame | 2 × Timber Stile, 3 × Timber Rail, 1 × Door Hardware Kit |
+| Wooden Internal Door Frame | 2 × Timber Stile, 2 × Timber Rail |
+
+Notice the Internal Door Frame's own Bill of Materials is deliberately
+simpler than the Front/Rear ones — no external lockset (Door Hardware
+Kit) is needed on a door that never faces the weather. This is a real,
+visible example of how one Bill of Materials can vary, line by line,
+between otherwise-similar products.
+
+## Buying raw materials
+
+Raw materials are bought from the supplier with real cash and received
+into the Raw Materials Store, exactly the same two real steps (a
+journal entry, then a stock receipt) any purchase in this application
+uses — buy a little more of each raw material than this run's own
+production actually needs, so there is a real, visible buffer of stock
+left over afterward.
+
+## Assembling
+
+Assembly itself is modeled as two real, physical stock movements: the
+exact raw materials a batch of assemblies needs come out of the Raw
+Materials Store, and the finished assemblies go into the Finished
+Goods Store. A journal entry records the real cost of what moved — the
+assembly's own account is debited for its Bill of Materials' real,
+computed cost, and each raw material's own account is credited for
+the portion it contributed. Nothing is invented here: the Bill of
+Materials you set up above is the one and only source for how much of
+each raw material gets consumed, and for how much the finished
+assembly is worth.
+
+## Selling
+
+Finished assemblies are sold to BuildRight Constructions for a real
+sale price, and a real Cost of Goods Sold entry is posted using the
+assembly's own cost — then the sold assemblies physically leave the
+Finished Goods Store. Trial Balance, Balance Sheet, and Profit and
+Loss all check out, exactly the way they did for the wine retailer in
+Chapter 3 — a different business, the same real accounting underneath.
+
+## Running it yourself
+
+```
+make test-e2e-manufacturing-tutorial          # fast — no browser
+make test-e2e-manufacturing-tutorial-browser  # the same tutorial, through a real browser
+```
+
+And, for a heavier, repeated proof — the same purchase/assemble/sell
+cycle run three times in a row against one fresh database, checked by
+real, computed rules (nothing left negative, every raw material's own
+leftover buffer stock adds up correctly, every assembly produced was
+also sold, the business is profitable) rather than one fixed, hardcoded
+number:
+
+```
+make test-e2e-manufacturing-full
+```
+
+# Chapter 5 — A Third Business: Project Builder
+
+Chapters 3 and 4 showed two kinds of business that sell a finished
+thing — bottles of wine, window and door frames. This chapter shows a
+third kind: a dwelling-construction business that sells a whole
+*project*, built up out of labour and hired equipment as well as
+materials, scheduled against real dates a client cares about, and
+costed against a dedicated budget for that one job. It also shows what
+happens when two such projects compete for the same crew and the same
+excavator at the same time — a real, everyday business problem, and
+the whole reason this chapter exists.
+
+## Setting up the business
+
+We create "Tutorial Dwelling Construction" the same way Chapters 3 and
+4 created their own businesses. One storage location, "Site Store",
+holds the materials bought in for a job. Two clients — "Oak St Family
+Trust" and "Riverside Developments" — will each commission a dwelling.
+
+## Plant and Skills
+
+Two new kinds of resource exist here that neither Retail nor
+Manufacturing needed:
+
+- **Plant** — real, named equipment the business owns or hires, each
+  with its own hourly rate: a 20-tonne excavator, a tower crane, and a
+  set of scaffolding.
+- **Skills** — a tagged capability on a real person, each carrying its
+  own hourly rate for that person: Site Management, Electrical —
+  Licensed, Framing, and General Labour, tagged onto three real
+  employees (Jordan Smith, Casey Brown, Morgan Lee) at their own
+  individual wage rates.
+
+Both are set up once and then reused across however many projects the
+business takes on.
+
+## The Prototype library
+
+Rather than design every new dwelling's own labour, plant, and
+material requirements from scratch, the business keeps a small library
+of **Project Proposal Prototypes** — reusable templates for a Small,
+Medium, and Large Dwelling, each recording a standard recipe of
+material, labour, and plant lines (what's needed, how long it takes,
+what it costs) refined from real projects the business has already
+built. A new client quote starts from whichever prototype fits, not a
+blank page.
+
+## Two clients, the same template, overlapping dates
+
+"123 Oak St" and "456 River Road" are both quoted from the exact same
+Medium Dwelling prototype — same crew, same excavator, same tower
+crane, same standard duration. Project A (123 Oak St) is instantiated
+and accepted first, with no other work competing for those resources
+yet, so it is scheduled exactly as requested and comfortably finishes
+within its client's wanted date.
+
+Project B (456 River Road) is instantiated from the same prototype
+with dates that genuinely collide with Project A's already-booked
+excavator and licensed electrician — and with a noticeably tighter
+client-wanted completion date on top of that. Accepting Project B
+never fails and never blocks: the scheduling engine simply looks at
+what Project A has already booked, and pushes Project B's own
+conflicting labour and plant lines into the next real, available
+window after that conflict clears. That is the one, deliberate rule
+behind all of this: a double-booking is always resolved into the
+future, never refused.
+
+The real consequence shows up on Project B, not Project A: with its
+excavator and electrician time pushed out, Project B's completion date
+now lands *after* what its own client wanted. The business sees this
+as a real, computed **Schedule Risk** on the project and its Invoicing
+Milestone — a plain warning, not a failure, and not something anyone
+had to notice by eye. Project A, never touched by any conflict, carries
+no such risk.
+
+## Running the jobs
+
+Both projects get a dedicated Profit Center of their own the moment
+they're accepted — a clean, separate ledger of exactly what each job
+costs, never mixed with the other. Materials are bought and received
+into Site Store; an employee and a piece of plant each clock in and
+out against their own project, posting real labour and plant cost
+straight to that project's own account.
+
+## Quoted price versus real cost
+
+At the end of the job, each project's own cost report compares what it
+was quoted against what it actually cost to deliver. Project A, which
+ran to its original plan, comes in with a healthy, positive margin.
+Project B — the one whose schedule was pushed out by the double-
+booking — comes in over budget, with a **negative** margin. This is
+the real, computed evidence behind the business case: an occasional
+real resource clash like this one is now a measurable cost, not just a
+feeling, and it's the kind of number that argues for hiring a second
+crew or buying a second excavator rather than running every job through
+one.
+
+## A lesson fed back into the library
+
+Having seen the real cost of the Medium Dwelling prototype's own tower
+crane line run longer (and pricier) than the template assumed, the
+business owner makes one deliberate, explicit change: `Update Prototype
+Line` revises the Medium Dwelling template's tower crane duration and
+price for every *future* quote built from it. This is a human decision,
+made once, on purpose — nothing in this application watches a
+project's own profitability and silently rewrites a prototype on its
+own. Projects already quoted and accepted keep exactly the lines they
+were quoted with; only the next dwelling built from this template
+starts from the corrected figures.
+
+## Running it yourself
+
+```
+make test-e2e-project-builder-tutorial          # fast — no browser
+make test-e2e-project-builder-tutorial-browser  # the same tutorial, through a real browser
+```
+
+And, for a heavier, repeated proof — the same overlapping-project-pair
+cycle run three times in a row against one fresh database, each cycle
+on its own, non-overlapping dates, checked by real, computed rules
+(every Profit Center's own totals reconcile to its own project's
+postings only, a Schedule Risk is raised exactly where a real
+double-booking was engineered and nowhere else, every accepted project
+has its own real Invoicing Milestone, and the business as a whole stays
+profitable) rather than one fixed, hardcoded number:
+
+```
+make test-e2e-project-builder-full
+```
 # Appendix --- Every Screen in the Application
 
 A real, complete reference of every real screen this application has a route for, grouped by the same, real top-level section the menu itself uses --- whether that screen is genuinely working today, or still a real, honestly-labeled gap. A screen marked "Not yet implemented" shows a real, direct placeholder in the running application (with its own description of what it would do), rather than being hidden from the menu entirely --- so the full, real shape of the application is always visible, not just the parts already built.
@@ -537,7 +795,7 @@ A real, complete reference of every real screen this application has a route for
 | AR Receipt | Implemented |
 | Sales Invoices | Implemented |
 | Sales Order | Implemented |
-| Quotations | Not yet implemented |
+| Quotations | Implemented |
 | Stock Dispatch | Implemented |
 | Generate Sales Invoices | Not yet implemented |
 | Reminders | Implemented |
@@ -562,7 +820,7 @@ A real, complete reference of every real screen this application has a route for
 | AP Payment | Implemented |
 | Purchase Invoices | Implemented |
 | Purchase Order | Implemented |
-| RFQ (Request for Quotation) | Not yet implemented |
+| RFQ (Request for Quotation) | Implemented |
 | Stock Receipt | Implemented |
 | Generate Purchase Orders | Not yet implemented |
 | Vendors | Implemented |

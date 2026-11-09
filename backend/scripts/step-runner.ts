@@ -172,6 +172,109 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.dispatchItems(a.businessName as any, a.ledger as any, a.reference, a.itemName as any, a.locationName as any, Number(a.quantity), userId, a.transdate || undefined);
   },
+  // Project Builder tutorial (Stage 7): Plant and Skill, db.ts's own
+  // createPlantItem/ensureSkill/tagSkill — real per-business equipment
+  // and a real, global named-skill taxonomy tagged onto a contact with
+  // its own pairing-specific rate.
+  createPlantItemSimple: (a) => {
+    db.createPlantItem(a.name, a.businessName as any, Number(a.hourlyRateMinor), a.ownedOrHired as 'Owned' | 'Hired', db.asUserId(1), a.hireVendor || undefined);
+  },
+  ensureSkillSimple: (a) => {
+    db.ensureSkill(a.skillName, db.asUserId(1));
+  },
+  tagSkillSimple: (a) => {
+    db.tagSkill(a.contactName, a.skillName, Number(a.rateMinorPerHour), db.asUserId(1));
+  },
+  // Sets a real employee's hourly wage without disturbing any other
+  // contact field already on record — db.ts's own setContact replaces
+  // the WHOLE contact record, so this reads the real, current one back
+  // first (createEmployee's own contact row, or whatever an earlier
+  // step already set) and only changes wage_minor_per_hour. Required
+  // before clockInToProject, which refuses an employee with no real,
+  // configured wage rate.
+  setEmployeeWageSimple: (a) => {
+    const existing = db.getContact(a.employeeName) ?? {};
+    db.setContact(a.employeeName, { ...existing, wage_minor_per_hour: Number(a.wageMinorPerHour) });
+  },
+  // Project Proposal Prototypes (Stage 4/7) — db-prototypes.ts's own
+  // createPrototype/addPrototypeLine, reusing Stage 1's BOM mechanism
+  // verbatim, staged under the prototype's own entity.
+  createPrototypeSimple: (a) => {
+    db.createPrototype(a.prototypeName, a.businessName as any, db.asUserId(1));
+  },
+  addPrototypeLineSimple: (a) => {
+    db.addPrototypeLine(
+      a.prototypeName,
+      a.businessName as any,
+      a.kind as db.BomLineKind,
+      a.resourceOrItemName,
+      Number(a.quantity),
+      a.unit,
+      Number(a.priceMinor),
+      db.asUserId(1),
+      a.durationHours ? Number(a.durationHours) : undefined,
+      a.scheduledStart || undefined
+    );
+  },
+  // Copies a prototype's own Recipe lines onto a brand-new Quotation —
+  // db-prototypes.ts's own instantiateProjectProposal.
+  instantiateProjectProposalSimple: (a) => {
+    db.instantiateProjectProposal(
+      a.prototypeName,
+      a.reference,
+      a.client,
+      a.businessName as any,
+      a.ledger,
+      a.headerItem,
+      a.transdate,
+      db.asUserId(1),
+      a.targetCompletionDate || undefined
+    );
+  },
+  // Accepting a multi-line Project Proposal — db-quotations.ts's own
+  // acceptQuotation, opted into Stage 3/4/5's project-creation path by
+  // passing real projectDetails (never done by any plain, line-less
+  // Quotation/RFQ caller, which is unaffected). Creates the real Live
+  // Project + Invoicing Milestone + Profit Center, copies every Recipe
+  // line onto it, and resolves each real Labour/Plant line's actual
+  // schedule via findNextAvailableWindow — flagging (never blocking) a
+  // real Schedule Risk if a genuine resource double-booking pushes the
+  // resolved completion date past the client's own wanted date.
+  acceptProjectProposalSimple: (a) => {
+    db.acceptQuotation(a.reference, db.asUserId(1), { projectName: a.projectName, targetCompletionDate: a.targetCompletionDate });
+  },
+  // Labour/Plant clock-in/out — db-journal.ts's own clockInToProject/
+  // clockOutOfProject/clockPlantIn/clockPlantOut, posted directly
+  // against a Live Project's own, real Profit-Center-scoped Expense
+  // account (provisionProjectProfitCenter, run automatically by
+  // acceptProjectProposalSimple above).
+  clockInToProjectSimple: (a) => {
+    db.clockInToProject(a.employeeName as any, a.projectExpenseAccount as any, a.businessName as any, a.ledger as any, db.asUserId(1));
+  },
+  clockOutOfProjectSimple: (a) => {
+    db.clockOutOfProject(a.employeeName as any, a.businessName as any, a.ledger as any, db.asUserId(1));
+  },
+  clockPlantInSimple: (a) => {
+    db.clockPlantIn(a.plantName, a.projectExpenseAccount as any, a.businessName as any, a.ledger as any, db.asUserId(1));
+  },
+  clockPlantOutSimple: (a) => {
+    db.clockPlantOut(a.plantName, a.businessName as any, a.ledger as any, db.asUserId(1));
+  },
+  // A bounded, explicit, human-driven revision of a Project Proposal
+  // Prototype — db-prototypes.ts's own updatePrototypeLine. Never
+  // automatic learning from project profitability, per direct
+  // instruction — the tutorial's own narration decides the new
+  // duration/price, exactly as a real business owner would.
+  updatePrototypeLineSimple: (a) => {
+    db.updatePrototypeLine(
+      a.prototypeName,
+      a.businessName as any,
+      a.resourceOrItemName,
+      db.asUserId(1),
+      a.newDurationHours ? Number(a.newDurationHours) : undefined,
+      a.newPriceMinor ? Number(a.newPriceMinor) : undefined
+    );
+  },
   // The generic (name, parent) shape, matching POST /entities — shared by several screens (Create Item among them).
   createEntitySimple: (a) => {
     db.createEntityRaw({ name: a.name, parent: a.parent || undefined }, db.asUserId(1));
@@ -507,6 +610,38 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // real raw-material-consumed/finished-goods-produced assembly flow
   // must never violate.
   stock_on_hand_nonnegative: (a) => db.getInventoryListingByLocation(a.businessName as any).every((g) => g.rows.every((r) => r.quantity_on_hand >= 0)),
+  // Project Builder tutorial (Stage 7): the real, never-blocking warning
+  // the whole contention engine exists to raise — set by
+  // checkMilestoneAchievability (run automatically inside
+  // acceptProjectProposalSimple) only when a real resource
+  // double-booking pushed the resolved completion date past the
+  // client's own wanted date. Asserts BOTH directions: a project with
+  // no real conflict must show no risk, and one with a genuine,
+  // engineered double-booking must.
+  schedule_risk_absent: (a) => {
+    const project = db.getLiveProject(a.projectName);
+    return !!project && !project.scheduleRisk;
+  },
+  schedule_risk_flagged: (a) => {
+    const project = db.getLiveProject(a.projectName);
+    return !!project && !!project.scheduleRisk;
+  },
+  // Project Builder tutorial (Stage 7): the real, computed quoted-vs-
+  // actual margin (db-projects.ts's own getProjectCostReport, Stage 5) —
+  // checked by sign against what the tutorial's own postings are
+  // deliberately built to produce, never a hardcoded dollar figure.
+  project_margin_sign: (a) => {
+    const report = db.getProjectCostReport(a.projectName);
+    return a.expectedSign === 'positive' ? report.marginMinor > 0 : report.marginMinor < 0;
+  },
+  // Project Builder tutorial (Stage 7): confirms updatePrototypeLine's
+  // own, explicit, human-driven revision genuinely landed — checked
+  // against the exact value the tutorial's own step just asked for, not
+  // an unrelated magic number.
+  prototype_line_updated: (a) => {
+    const line = db.getPrototypeLines(a.prototypeName).find((l) => l.component === a.component);
+    return !!line && line.priceMinor === Number(a.expectedPriceMinor);
+  },
   // Real, structural checks on a real, live Trial Balance/Profit and
   // Loss report - never a hand-computed "golden" figure that would go
   // stale the moment an earlier step's own numbers change. See the
