@@ -1353,6 +1353,24 @@ tutorial-section-user-manual-tui: test-e2e-tutorial ensure-servers
 	  -H manual-header-includes.tex -f markdown+raw_tex --resource-path=.
 	@echo "Built sql-ledger-ts_Tutorial_Section_TUI.pdf"
 
+# The Manufacturing tutorial's own sibling to the target above - builds
+# the real "Tutorial Window & Door Manufacturing" business the fast way
+# first (test-e2e-manufacturing-tutorial, --path api, including its own
+# real builder house-door orders), starts the real backend/frontend
+# servers, then drives the real, separately-running TUI process live to
+# capture each real, built screen this business actually exercises.
+# Deliberately depends on test-e2e-manufacturing-tutorial, never
+# test-e2e-tutorial (above) or test-e2e-project-builder-tutorial - only
+# one tutorial's own business may be seeded in the database a given
+# capture run actually reads from.
+tutorial-section-user-manual-manufacturing-tui: test-e2e-manufacturing-tutorial ensure-servers
+	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
+	cd backend && $(RUN_SCRIPT) scripts/capture-manufacturing-tui-transcripts.ts
+	cd docs && pandoc user-manual-ch4b-manufacturing-tutorial-tui.md -o ../sql-ledger-ts_Manufacturing_Tutorial_Section_TUI.pdf \
+	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
+	  -H manual-header-includes.tex -f markdown+raw_tex --resource-path=.
+	@echo "Built sql-ledger-ts_Manufacturing_Tutorial_Section_TUI.pdf"
+
 # The one, real command that proves the Tutorial still passes, on
 # both its real paths, AND leaves every real manual it feeds already
 # brought back up to date from that exact, same, fresh run - per
