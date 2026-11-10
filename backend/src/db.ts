@@ -512,6 +512,27 @@ export function supersedeEntity(id: number, input: EntityUpdate, userId: UserId)
   return getEntity(id)!;
 }
 
+// Name-based wrapper over supersedeEntity's own rename - the exact, real
+// operation Setup -> Chart of Accounts' own "Rename" fieldset already
+// calls (by id, after a tree click there); this just resolves the id by
+// name first, for callers (fixtures, scripts) with only a name in hand.
+// Entity.get(name) with no parent is a GLOBAL, unqualified lookup
+// (backend/src/drivers/sql-entity-driver.ts: `WHERE name = ?`, no
+// parent_id filter) - confirmed live to collide not just across
+// siblings (two Departments' own, identically-named, auto-provisioned
+// "Payroll" leaves) but against wholly unrelated, pre-existing system
+// entities that happen to share the same bare word (e.g. a Vocabulary
+// entry, or an "English"-locale translation string, both also named
+// literally "Payroll"), resolving to an arbitrary one of them. Pass
+// `parent` whenever the caller knows it (every department-leaf rename
+// here does) - Entity.get(name, parent) is parent-scoped and collides
+// with nothing.
+export function renameEntityByName(oldName: string, newName: string, userId: UserId, parent?: string): void {
+  const entity = Entity.get(oldName, parent);
+  if (!entity) throw new NotFoundError(`No real entity named "${oldName}"${parent ? ` under "${parent}"` : ''}.`);
+  supersedeEntity(entity.id, { name: newName }, userId);
+}
+
 export interface Relationship {
   type: string;
   target: string;

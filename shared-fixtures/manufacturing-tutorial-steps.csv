@@ -503,6 +503,307 @@
 "Dispatch Stock Quantity","SALE-C-INT","Tutorial Window & Door Manufacturing","Actual","Internal Door Unit - Complete","Finished Goods Store","6"
 "Dispatch Stock Quantity","SALE-C-PATIO","Tutorial Window & Door Manufacturing","Actual","Sliding Patio Door Unit - Complete","Finished Goods Store","2"
 "Check Stock Nonnegative","Tutorial Window & Door Manufacturing"
+# --- Factory expansion: a real Factory location, real Departments/
+# Employees for the eight workshops behind every assembly above, real
+# Divisions/Categories/Process tags across every real location and
+# item, ~10 more real suppliers, and two real bulk 6.1m raw-material
+# lengths cut on-site via fractional BOM lines - the exact, real,
+# REAL-typed assembly_bom_staging.quantity column (backend/schema/00-
+# core.sql) already supports a non-integer component quantity, so
+# '1/6 of a 6.1m length per cut Aluminum Extrusion piece' is a literal
+# BOM line, never an invented mechanism. The leftover cut stock and
+# the two spare frames below, both real, on-hand, unsold buffer stock,
+# are what's left of a normal day's real cutting/assembly output once
+# the three builder orders above (a modest slice of it) are filled.
+# A third real location - the actual production floor, distinct from
+# both the raw-material warehouse and the finished-goods warehouse.
+"Create Location","Tutorial Window & Door Manufacturing","Factory","Adelaide","Warehouse","","",""
+# Two real Divisions - the warehousing locations grouped apart from
+# the one real production floor - tagged via the Business Structure
+# popup's own real 'New Division'/'Move...' actions, exactly like the
+# Retail tutorial's own Division use.
+"Add Division Via Structure Popup","Tutorial Window & Door Manufacturing","Production"
+"Add Division Via Structure Popup","Tutorial Window & Door Manufacturing","Warehousing"
+"Move Raw Materials Store To Division","Tutorial Window & Door Manufacturing","Raw Materials Store","Warehousing"
+"Move Factory To Division","Tutorial Window & Door Manufacturing","Factory","Production"
+"Move Finished Goods Store To Division","Tutorial Window & Door Manufacturing","Finished Goods Store","Warehousing"
+# Eight real workshops, modelled as real, postable Departments (per
+# the earlier feasibility check: a literal BOM 'Labour/Plant' line has
+# no real UI on the Items page's own BOM card - only the separate
+# Project Builder/Recipe system wires that kind - so a workshop's own
+# real wage/overhead cost is a real Department posting instead, not a
+# BOM line). Each department auto-provisions two real, postable
+# accounts named literally 'Payroll'/'Other Expenses' (db.ts's own
+# createAndConfigureDepartment) - renamed immediately, one department
+# at a time, via the real Setup -> Chart of Accounts 'Rename' feature
+# (driven here by name rather than a tree click - see db.ts's own
+# renameEntityByName), since every department reuses those same two
+# literal leaf names and the journal's own account picker resolves a
+# bare name globally, not per-department.
+"Create Department Via Structure Popup","Tutorial Window & Door Manufacturing","Aluminum Cutting"
+"Rename Entity","Tutorial Window & Door Manufacturing","Payroll","Aluminum Cutting — Payroll","Aluminum Cutting"
+"Rename Entity","Tutorial Window & Door Manufacturing","Other Expenses","Aluminum Cutting — Other Expenses","Aluminum Cutting"
+"Create Department Via Structure Popup","Tutorial Window & Door Manufacturing","Aluminum Assembly"
+"Rename Entity","Tutorial Window & Door Manufacturing","Payroll","Aluminum Assembly — Payroll","Aluminum Assembly"
+"Rename Entity","Tutorial Window & Door Manufacturing","Other Expenses","Aluminum Assembly — Other Expenses","Aluminum Assembly"
+"Create Department Via Structure Popup","Tutorial Window & Door Manufacturing","Wood Cutting"
+"Rename Entity","Tutorial Window & Door Manufacturing","Payroll","Wood Cutting — Payroll","Wood Cutting"
+"Rename Entity","Tutorial Window & Door Manufacturing","Other Expenses","Wood Cutting — Other Expenses","Wood Cutting"
+"Create Department Via Structure Popup","Tutorial Window & Door Manufacturing","Wood Assembly"
+"Rename Entity","Tutorial Window & Door Manufacturing","Payroll","Wood Assembly — Payroll","Wood Assembly"
+"Rename Entity","Tutorial Window & Door Manufacturing","Other Expenses","Wood Assembly — Other Expenses","Wood Assembly"
+"Create Department Via Structure Popup","Tutorial Window & Door Manufacturing","Glass Cutting"
+"Rename Entity","Tutorial Window & Door Manufacturing","Payroll","Glass Cutting — Payroll","Glass Cutting"
+"Rename Entity","Tutorial Window & Door Manufacturing","Other Expenses","Glass Cutting — Other Expenses","Glass Cutting"
+"Create Department Via Structure Popup","Tutorial Window & Door Manufacturing","Glazing"
+"Rename Entity","Tutorial Window & Door Manufacturing","Payroll","Glazing — Payroll","Glazing"
+"Rename Entity","Tutorial Window & Door Manufacturing","Other Expenses","Glazing — Other Expenses","Glazing"
+"Create Department Via Structure Popup","Tutorial Window & Door Manufacturing","Door Framing & Lock Fitting"
+"Rename Entity","Tutorial Window & Door Manufacturing","Payroll","Door Framing & Lock Fitting — Payroll","Door Framing & Lock Fitting"
+"Rename Entity","Tutorial Window & Door Manufacturing","Other Expenses","Door Framing & Lock Fitting — Other Expenses","Door Framing & Lock Fitting"
+"Create Department Via Structure Popup","Tutorial Window & Door Manufacturing","Packaging"
+"Rename Entity","Tutorial Window & Door Manufacturing","Payroll","Packaging — Payroll","Packaging"
+"Rename Entity","Tutorial Window & Door Manufacturing","Other Expenses","Packaging — Other Expenses","Packaging"
+# Ten real employees/skilled craftsmen, all based at the Factory,
+# assigned to their own workshop's Department, with the floor
+# supervisor and the two-hand Packaging bay reporting lines set via
+# the same real Org Chart 'Reports to...' action.
+"Create Employee","Tutorial Window & Door Manufacturing","Mia Carrington","Factory"
+"Create Employee","Tutorial Window & Door Manufacturing","Noah Bartlett","Factory"
+"Create Employee","Tutorial Window & Door Manufacturing","Olivia Tran","Factory"
+"Create Employee","Tutorial Window & Door Manufacturing","Liam Petrakis","Factory"
+"Create Employee","Tutorial Window & Door Manufacturing","Ava Sorensen","Factory"
+"Create Employee","Tutorial Window & Door Manufacturing","Ethan Marsh","Factory"
+"Create Employee","Tutorial Window & Door Manufacturing","Isla Nguyen","Factory"
+"Create Employee","Tutorial Window & Door Manufacturing","Jack Fenwick","Factory"
+"Create Employee","Tutorial Window & Door Manufacturing","Grace Oyelaran","Factory"
+"Create Employee","Tutorial Window & Door Manufacturing","Marcus Oduya","Factory"
+"Assign Employee Department Via Structure Popup","Tutorial Window & Door Manufacturing","Mia Carrington","Aluminum Cutting"
+"Assign Employee Department Via Structure Popup","Tutorial Window & Door Manufacturing","Noah Bartlett","Aluminum Assembly"
+"Assign Employee Department Via Structure Popup","Tutorial Window & Door Manufacturing","Olivia Tran","Wood Cutting"
+"Assign Employee Department Via Structure Popup","Tutorial Window & Door Manufacturing","Liam Petrakis","Wood Assembly"
+"Assign Employee Department Via Structure Popup","Tutorial Window & Door Manufacturing","Ava Sorensen","Glass Cutting"
+"Assign Employee Department Via Structure Popup","Tutorial Window & Door Manufacturing","Ethan Marsh","Glazing"
+"Assign Employee Department Via Structure Popup","Tutorial Window & Door Manufacturing","Isla Nguyen","Door Framing & Lock Fitting"
+"Assign Employee Department Via Structure Popup","Tutorial Window & Door Manufacturing","Jack Fenwick","Packaging"
+"Assign Employee Department Via Structure Popup","Tutorial Window & Door Manufacturing","Grace Oyelaran","Door Framing & Lock Fitting"
+"Assign Employee Department Via Structure Popup","Tutorial Window & Door Manufacturing","Marcus Oduya","Packaging"
+"Set Employee Manager Via Structure Popup","Tutorial Window & Door Manufacturing","Mia Carrington","Grace Oyelaran"
+"Set Employee Manager Via Structure Popup","Tutorial Window & Door Manufacturing","Noah Bartlett","Grace Oyelaran"
+"Set Employee Manager Via Structure Popup","Tutorial Window & Door Manufacturing","Olivia Tran","Grace Oyelaran"
+"Set Employee Manager Via Structure Popup","Tutorial Window & Door Manufacturing","Liam Petrakis","Grace Oyelaran"
+"Set Employee Manager Via Structure Popup","Tutorial Window & Door Manufacturing","Ava Sorensen","Grace Oyelaran"
+"Set Employee Manager Via Structure Popup","Tutorial Window & Door Manufacturing","Ethan Marsh","Grace Oyelaran"
+"Set Employee Manager Via Structure Popup","Tutorial Window & Door Manufacturing","Isla Nguyen","Grace Oyelaran"
+"Set Employee Manager Via Structure Popup","Tutorial Window & Door Manufacturing","Jack Fenwick","Grace Oyelaran"
+"Set Employee Manager Via Structure Popup","Tutorial Window & Door Manufacturing","Marcus Oduya","Grace Oyelaran"
+# ~10 more real suppliers, each mapped to the specific raw materials
+# they'd realistically sell - purely additive (no existing posting
+# names a provider), so this carries zero risk to any figure above.
+"Create Provider","Tutorial Window & Door Manufacturing","Southern Cross Aluminum Extrusions","Accounts Payable"
+"Create Provider","Tutorial Window & Door Manufacturing","Adelaide Hills Timber Mill","Accounts Payable"
+"Create Provider","Tutorial Window & Door Manufacturing","Barossa Glass & Glazing Supplies","Accounts Payable"
+"Create Provider","Tutorial Window & Door Manufacturing","Precision Hardware Wholesale","Accounts Payable"
+"Create Provider","Tutorial Window & Door Manufacturing","Coastal Sealants & Weatherproofing","Accounts Payable"
+"Create Provider","Tutorial Window & Door Manufacturing","TrackMaster Sliding Systems","Accounts Payable"
+"Create Provider","Tutorial Window & Door Manufacturing","Hinge & Latch Co","Accounts Payable"
+"Create Provider","Tutorial Window & Door Manufacturing","SA Door Slab Manufacturing","Accounts Payable"
+"Create Provider","Tutorial Window & Door Manufacturing","PackRight Industrial Packaging","Accounts Payable"
+"Create Provider","Tutorial Window & Door Manufacturing","Metro Fasteners & Fixings","Accounts Payable"
+# Two real bulk raw materials - the 6.1 metre lengths the factory
+# actually buys timber and aluminum extrusion in - each immediately
+# provisioned with a real Inventory account, same as every other item.
+"Create Item No Category","Tutorial Window & Door Manufacturing","Aluminum Extrusion Length (6.1m)"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Aluminum Extrusion Length (6.1m)"
+"Create Item No Category","Tutorial Window & Door Manufacturing","Timber Length (6.1m)"
+"Ensure Item Inventory Account","Tutorial Window & Door Manufacturing","Timber Length (6.1m)"
+# Fractional BOM lines - a real, 'REAL'-typed quantity column, never a
+# new mechanism - making the EXISTING Aluminum Extrusion/Timber Stile/
+# Timber Rail items themselves real, second-tier assemblies, each cut
+# from a real bulk length: 6 extrusion pieces per 6.1m aluminum
+# length, 4 stiles or 5 rails per 6.1m timber length (a real, visible
+# different cutting yield for the same bulk board).
+"Set Bom Component For Aluminum Extrusion","Aluminum Extrusion","Tutorial Window & Door Manufacturing","Aluminum Extrusion Length (6.1m)","0.1667","ea"
+"Check Bom Components Recorded","Aluminum Extrusion","1"
+"Set Bom Component For Timber Stile","Timber Stile","Tutorial Window & Door Manufacturing","Timber Length (6.1m)","0.25","ea"
+"Check Bom Components Recorded","Timber Stile","1"
+"Set Bom Component For Timber Rail","Timber Rail","Tutorial Window & Door Manufacturing","Timber Length (6.1m)","0.2","ea"
+"Check Bom Components Recorded","Timber Rail","1"
+# Five real Item Categories, and every real item (the 23 above, plus
+# the 2 new bulk lengths) tagged into one - via the Business
+# Structure popup's own real 'New top-level category' action for each
+# value, then the generic, already-proven Tag Item Hierarchy action
+# (data-kind, no UI selectors yet - the same, documented exception
+# the earlier feasibility check already found and flagged) for each
+# item, since there is no dedicated UI control for tagging an
+# EXISTING item into a category after its own creation.
+"Add Category Via Structure Popup","Tutorial Window & Door Manufacturing","Raw Materials"
+"Add Category Via Structure Popup","Tutorial Window & Door Manufacturing","Hardware & Fittings"
+"Add Category Via Structure Popup","Tutorial Window & Door Manufacturing","Bulk Lengths"
+"Add Category Via Structure Popup","Tutorial Window & Door Manufacturing","Frame Assemblies"
+"Add Category Via Structure Popup","Tutorial Window & Door Manufacturing","Complete Units"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Glass Pane","Category","Raw Materials"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Timber Stile","Category","Raw Materials"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Timber Rail","Category","Raw Materials"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Aluminum Extrusion","Category","Raw Materials"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Aluminum Sill","Category","Raw Materials"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Door Slab - External","Category","Raw Materials"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Door Slab - Internal","Category","Raw Materials"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Hardware Kit","Category","Hardware & Fittings"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Door Hardware Kit","Category","Hardware & Fittings"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Sliding Door Track Kit","Category","Hardware & Fittings"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Weatherseal Kit","Category","Hardware & Fittings"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Hinge Set","Category","Hardware & Fittings"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Internal Door Latch Kit","Category","Hardware & Fittings"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Packaging Kit","Category","Hardware & Fittings"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Aluminum Extrusion Length (6.1m)","Category","Bulk Lengths"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Timber Length (6.1m)","Category","Bulk Lengths"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Aluminum Window Frame","Category","Frame Assemblies"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Wooden Front Door Frame","Category","Frame Assemblies"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Wooden Rear Door Frame","Category","Frame Assemblies"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Wooden Internal Door Frame","Category","Frame Assemblies"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Aluminum Patio Door Frame","Category","Frame Assemblies"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Front Door Unit - Complete","Category","Complete Units"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Rear Door Unit - Complete","Category","Complete Units"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Internal Door Unit - Complete","Category","Complete Units"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Sliding Patio Door Unit - Complete","Category","Complete Units"
+# A real Other Hierarchy - 'Process' - the production stage each item
+# belongs to, independent of (coarser than) the eight Departments'
+# own workshop-level granularity.
+"Create Hierarchy Grouping","Tutorial Window & Door Manufacturing","Process"
+"Create Hierarchy Value","Tutorial Window & Door Manufacturing","Process","Cutting"
+"Create Hierarchy Value","Tutorial Window & Door Manufacturing","Process","Glazing"
+"Create Hierarchy Value","Tutorial Window & Door Manufacturing","Process","Framing & Lock Fitting"
+"Create Hierarchy Value","Tutorial Window & Door Manufacturing","Process","Packaging"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Aluminum Extrusion Length (6.1m)","Process","Cutting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Timber Length (6.1m)","Process","Cutting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Aluminum Extrusion","Process","Cutting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Timber Stile","Process","Cutting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Timber Rail","Process","Cutting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Glass Pane","Process","Glazing"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Aluminum Window Frame","Process","Glazing"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Aluminum Patio Door Frame","Process","Glazing"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Weatherseal Kit","Process","Glazing"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Aluminum Sill","Process","Framing & Lock Fitting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Wooden Front Door Frame","Process","Framing & Lock Fitting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Wooden Rear Door Frame","Process","Framing & Lock Fitting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Wooden Internal Door Frame","Process","Framing & Lock Fitting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Hardware Kit","Process","Framing & Lock Fitting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Door Hardware Kit","Process","Framing & Lock Fitting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Sliding Door Track Kit","Process","Framing & Lock Fitting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Hinge Set","Process","Framing & Lock Fitting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Internal Door Latch Kit","Process","Framing & Lock Fitting"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Packaging Kit","Process","Packaging"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Door Slab - External","Process","Packaging"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Door Slab - Internal","Process","Packaging"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Front Door Unit - Complete","Process","Packaging"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Rear Door Unit - Complete","Process","Packaging"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Internal Door Unit - Complete","Process","Packaging"
+"Tag Item Hierarchy","Tutorial Window & Door Manufacturing","Sliding Patio Door Unit - Complete","Process","Packaging"
+# A weekly wage run and a small overhead run against every real
+# Department's own, now-renamed Payroll/Other Expenses accounts - the
+# same real two-staged-then-posted journal entry shape as every other
+# posting in this fixture, just with eight/eight lines instead of a
+# handful.
+"Stage Journal Line","JE-WAGES-WK1","Tutorial Window & Door Manufacturing","Actual","Aluminum Cutting — Payroll","115000"
+"Stage Journal Line","JE-WAGES-WK1","Tutorial Window & Door Manufacturing","Actual","Aluminum Assembly — Payroll","115000"
+"Stage Journal Line","JE-WAGES-WK1","Tutorial Window & Door Manufacturing","Actual","Wood Cutting — Payroll","110000"
+"Stage Journal Line","JE-WAGES-WK1","Tutorial Window & Door Manufacturing","Actual","Wood Assembly — Payroll","110000"
+"Stage Journal Line","JE-WAGES-WK1","Tutorial Window & Door Manufacturing","Actual","Glass Cutting — Payroll","115000"
+"Stage Journal Line","JE-WAGES-WK1","Tutorial Window & Door Manufacturing","Actual","Glazing — Payroll","115000"
+"Stage Journal Line","JE-WAGES-WK1","Tutorial Window & Door Manufacturing","Actual","Door Framing & Lock Fitting — Payroll","265000"
+"Stage Journal Line","JE-WAGES-WK1","Tutorial Window & Door Manufacturing","Actual","Packaging — Payroll","185000"
+"Stage Journal Line","JE-WAGES-WK1","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-1130000"
+"Post Journal Entry","JE-WAGES-WK1","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-OVERHEAD-WK1","Tutorial Window & Door Manufacturing","Actual","Aluminum Cutting — Other Expenses","12000"
+"Stage Journal Line","JE-OVERHEAD-WK1","Tutorial Window & Door Manufacturing","Actual","Aluminum Assembly — Other Expenses","12000"
+"Stage Journal Line","JE-OVERHEAD-WK1","Tutorial Window & Door Manufacturing","Actual","Wood Cutting — Other Expenses","12000"
+"Stage Journal Line","JE-OVERHEAD-WK1","Tutorial Window & Door Manufacturing","Actual","Wood Assembly — Other Expenses","12000"
+"Stage Journal Line","JE-OVERHEAD-WK1","Tutorial Window & Door Manufacturing","Actual","Glass Cutting — Other Expenses","12000"
+"Stage Journal Line","JE-OVERHEAD-WK1","Tutorial Window & Door Manufacturing","Actual","Glazing — Other Expenses","12000"
+"Stage Journal Line","JE-OVERHEAD-WK1","Tutorial Window & Door Manufacturing","Actual","Door Framing & Lock Fitting — Other Expenses","12000"
+"Stage Journal Line","JE-OVERHEAD-WK1","Tutorial Window & Door Manufacturing","Actual","Packaging — Other Expenses","12000"
+"Stage Journal Line","JE-OVERHEAD-WK1","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-96000"
+"Post Journal Entry","JE-OVERHEAD-WK1","Tutorial Window & Door Manufacturing","Actual"
+# Bulk aluminum: 3 real 6.1m lengths bought and received, real-
+# transferred to the Factory, cut there into 18 real Aluminum
+# Extrusion pieces (dispatch/receive, exactly like every other real
+# assembly step above), reclassified at cost, then most of the cut
+# stock transferred back to Raw Materials Store as real, on-hand
+# buffer - the real, physical 'raw materials in, cut stock and
+# finished goods out' flow through a real Factory floor.
+"Stage Journal Line","JE-BUY3-ALBULK","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion Length (6.1m)","1350000"
+"Stage Journal Line","JE-BUY3-ALBULK","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-1350000"
+"Post Journal Entry","JE-BUY3-ALBULK","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV3-ALBULK","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion Length (6.1m)","Raw Materials Store","3"
+"Transfer Items","Tutorial Window & Door Manufacturing","Aluminum Extrusion Length (6.1m)","Raw Materials Store","Factory","3","TRANSFER-ALBULK-1","Actual"
+"Dispatch Stock Quantity","CUT-ALBULK","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion Length (6.1m)","Factory","3"
+"Receive Stock Quantity","CUT-RECV-ALEXT","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","Factory","18"
+"Stage Journal Line","JE-RECLASS3-ALCUT","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","1350000"
+"Stage Journal Line","JE-RECLASS3-ALCUT","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion Length (6.1m)","-1350000"
+"Post Journal Entry","JE-RECLASS3-ALCUT","Tutorial Window & Door Manufacturing","Actual"
+"Transfer Items","Tutorial Window & Door Manufacturing","Aluminum Extrusion","Factory","Raw Materials Store","10","TRANSFER-ALCUT-BUFFER","Actual"
+# Bulk timber: 10 real 6.1m lengths, 6 cut Stile-grade, 4 cut Rail-
+# grade from the exact same bulk item - a real, different yield per
+# cutting pattern, same board - reclassified at cost per batch, then
+# transferred back to Raw Materials Store as real buffer stock.
+"Stage Journal Line","JE-BUY3-TBULK","Tutorial Window & Door Manufacturing","Actual","Timber Length (6.1m)","3000000"
+"Stage Journal Line","JE-BUY3-TBULK","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-3000000"
+"Post Journal Entry","JE-BUY3-TBULK","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV3-TBULK","Tutorial Window & Door Manufacturing","Actual","Timber Length (6.1m)","Raw Materials Store","10"
+"Transfer Items","Tutorial Window & Door Manufacturing","Timber Length (6.1m)","Raw Materials Store","Factory","10","TRANSFER-TBULK-1","Actual"
+"Dispatch Stock Quantity","CUT-TBULK-STILE","Tutorial Window & Door Manufacturing","Actual","Timber Length (6.1m)","Factory","6"
+"Receive Stock Quantity","CUT-RECV-TSTILE","Tutorial Window & Door Manufacturing","Actual","Timber Stile","Factory","24"
+"Stage Journal Line","JE-RECLASS3-TSTILE","Tutorial Window & Door Manufacturing","Actual","Timber Stile","1800000"
+"Stage Journal Line","JE-RECLASS3-TSTILE","Tutorial Window & Door Manufacturing","Actual","Timber Length (6.1m)","-1800000"
+"Post Journal Entry","JE-RECLASS3-TSTILE","Tutorial Window & Door Manufacturing","Actual"
+"Dispatch Stock Quantity","CUT-TBULK-RAIL","Tutorial Window & Door Manufacturing","Actual","Timber Length (6.1m)","Factory","4"
+"Receive Stock Quantity","CUT-RECV-TRAIL","Tutorial Window & Door Manufacturing","Actual","Timber Rail","Factory","20"
+"Stage Journal Line","JE-RECLASS3-TRAIL","Tutorial Window & Door Manufacturing","Actual","Timber Rail","1200000"
+"Stage Journal Line","JE-RECLASS3-TRAIL","Tutorial Window & Door Manufacturing","Actual","Timber Length (6.1m)","-1200000"
+"Post Journal Entry","JE-RECLASS3-TRAIL","Tutorial Window & Door Manufacturing","Actual"
+"Transfer Items","Tutorial Window & Door Manufacturing","Timber Stile","Factory","Raw Materials Store","24","TRANSFER-TSTILE-BUFFER","Actual"
+"Transfer Items","Tutorial Window & Door Manufacturing","Timber Rail","Factory","Raw Materials Store","20","TRANSFER-TRAIL-BUFFER","Actual"
+# A small extra batch - two more Aluminum Window Frames, built at the
+# Factory from eight of the freshly-cut Aluminum Extrusion pieces
+# still sitting there plus a little fresh glass/hardware real-
+# transferred in - then real-transferred, finished, to the Finished
+# Goods Store: the real Factory -> Finished Goods Store leg of the
+# same flow, and two more spare, unsold, on-hand frames - a small
+# piece of a normal day's real buffer beyond the three orders above.
+"Stage Journal Line","JE-BUY3-GLASS","Tutorial Window & Door Manufacturing","Actual","Glass Pane","500000"
+"Stage Journal Line","JE-BUY3-GLASS","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-500000"
+"Post Journal Entry","JE-BUY3-GLASS","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV3-GLASS","Tutorial Window & Door Manufacturing","Actual","Glass Pane","Raw Materials Store","2"
+"Stage Journal Line","JE-BUY3-HWKIT","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","300000"
+"Stage Journal Line","JE-BUY3-HWKIT","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","-300000"
+"Post Journal Entry","JE-BUY3-HWKIT","Tutorial Window & Door Manufacturing","Actual"
+"Receive Stock Quantity","RECV3-HWKIT","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","Raw Materials Store","2"
+"Transfer Items","Tutorial Window & Door Manufacturing","Glass Pane","Raw Materials Store","Factory","2","TRANSFER-GLASS-TOFACTORY","Actual"
+"Transfer Items","Tutorial Window & Door Manufacturing","Hardware Kit","Raw Materials Store","Factory","2","TRANSFER-HWKIT-TOFACTORY","Actual"
+"Dispatch Stock Quantity","MINI-ALEXT","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","Factory","8"
+"Dispatch Stock Quantity","MINI-GLASS","Tutorial Window & Door Manufacturing","Actual","Glass Pane","Factory","2"
+"Dispatch Stock Quantity","MINI-HWKIT","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","Factory","2"
+"Receive Stock Quantity","MINI-RECV-ALWIN","Tutorial Window & Door Manufacturing","Actual","Aluminum Window Frame","Factory","2"
+"Stage Journal Line","JE-RECLASS-MINIALWIN","Tutorial Window & Door Manufacturing","Actual","Aluminum Window Frame","1400000"
+"Stage Journal Line","JE-RECLASS-MINIALWIN","Tutorial Window & Door Manufacturing","Actual","Aluminum Extrusion","-600000"
+"Stage Journal Line","JE-RECLASS-MINIALWIN","Tutorial Window & Door Manufacturing","Actual","Glass Pane","-500000"
+"Stage Journal Line","JE-RECLASS-MINIALWIN","Tutorial Window & Door Manufacturing","Actual","Hardware Kit","-300000"
+"Post Journal Entry","JE-RECLASS-MINIALWIN","Tutorial Window & Door Manufacturing","Actual"
+"Transfer Items","Tutorial Window & Door Manufacturing","Aluminum Window Frame","Factory","Finished Goods Store","2","TRANSFER-MINIALWIN-TOFGS","Actual"
+# A small, same-day spot sale of those same two extra frames to the
+# existing BuildRight account, at this fixture's own flat trade price -
+# most of today's real cut/buffer stock (the Timber Stile/Rail and
+# Aluminum Extrusion left over above) still sits on hand unsold; these
+# two just happened to move the same day.
+"Stage Journal Line","JE-SALE-MINIALWIN","Tutorial Window & Door Manufacturing","Actual","Cash and Bank","3000000"
+"Stage Journal Line","JE-SALE-MINIALWIN","Tutorial Window & Door Manufacturing","Actual","Sales Revenue","-3000000"
+"Post Journal Entry","JE-SALE-MINIALWIN","Tutorial Window & Door Manufacturing","Actual"
+"Stage Journal Line","JE-COGS-MINIALWIN","Tutorial Window & Door Manufacturing","Actual","Cost of Goods Sold","1400000"
+"Stage Journal Line","JE-COGS-MINIALWIN","Tutorial Window & Door Manufacturing","Actual","Aluminum Window Frame","-1400000"
+"Post Journal Entry","JE-COGS-MINIALWIN","Tutorial Window & Door Manufacturing","Actual"
+"Dispatch Stock Quantity","SALE-MINIALWIN","Tutorial Window & Door Manufacturing","Actual","Aluminum Window Frame","Finished Goods Store","2"
+"Check Stock Nonnegative","Tutorial Window & Door Manufacturing"
 
 # Real, structural report checks - never a hardcoded golden figure.
 "Check Stock Nonnegative","Tutorial Window & Door Manufacturing"

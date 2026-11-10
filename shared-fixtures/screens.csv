@@ -225,6 +225,19 @@ Set Employee Manager Via Structure Popup,data,/setup/business-structure,.box:has
 Set Employee Manager Via Structure Popup,data,/setup/business-structure,.box:has-text('Jordan Lee');;.side-panel button:has-text('Reports to'),setEmployeeManagerViaStructurePopup,key:Enter,3,managerName,.inline-panel select,select
 Delete Department Via Structure Popup,data,/setup/business-structure,.box:has-text('Temp Dept');;key:Delete,deleteDepartmentViaStructurePopup,,1,businessName,,text
 Delete Department Via Structure Popup,data,/setup/business-structure,.box:has-text('Temp Dept');;key:Delete,deleteDepartmentViaStructurePopup,,2,departmentName,,text
+Rename Entity,data,,,renameEntitySimple,,1,businessName,,text
+Rename Entity,data,,,renameEntitySimple,,2,oldName,,text
+Rename Entity,data,,,renameEntitySimple,,3,newName,,text
+Rename Entity,data,,,renameEntitySimple,,4,parentName,,text
+Move Raw Materials Store To Division,data,/setup/business-structure,.box:has-text('Raw Materials Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
+Move Raw Materials Store To Division,data,/setup/business-structure,.box:has-text('Raw Materials Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
+Move Raw Materials Store To Division,data,/setup/business-structure,.box:has-text('Raw Materials Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.inline-panel select,select
+Move Factory To Division,data,/setup/business-structure,.box:has-text('Factory');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
+Move Factory To Division,data,/setup/business-structure,.box:has-text('Factory');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
+Move Factory To Division,data,/setup/business-structure,.box:has-text('Factory');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.inline-panel select,select
+Move Finished Goods Store To Division,data,/setup/business-structure,.box:has-text('Finished Goods Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
+Move Finished Goods Store To Division,data,/setup/business-structure,.box:has-text('Finished Goods Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
+Move Finished Goods Store To Division,data,/setup/business-structure,.box:has-text('Finished Goods Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.inline-panel select,select
 Receive Stock Quantity,data,,,receiveStockQuantitySimple,,1,reference,,text
 Receive Stock Quantity,data,,,receiveStockQuantitySimple,,2,businessName,,text
 Receive Stock Quantity,data,,,receiveStockQuantitySimple,,3,ledger,,text
@@ -282,6 +295,21 @@ Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-
 Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
 Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
 Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
 Check Bom Components Recorded,data,,,,,1,assemblyItem,,text
 Check Bom Components Recorded,data,,,,,2,expectedCount,,text
 Check Stock Nonnegative,data,,,,,1,businessName,,text

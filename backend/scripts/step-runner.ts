@@ -484,6 +484,17 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.deleteDepartment(a.businessName as any, a.departmentName, userId);
   },
+  // Setup -> Chart of Accounts' own real "Rename" fieldset, by name
+  // instead of a tree click - the same, real supersedeEntity({name})
+  // that screen's own rename() handler calls. data-kind, no real
+  // ui_path/selectors wired yet (the same, documented exception Tag
+  // Item Hierarchy already uses) - selecting a tree node by name in
+  // that page isn't a simple field-fill, so --path ui falls back to
+  // this real API call too rather than a half-built browser automation.
+  renameEntitySimple: (a) => {
+    const userId = db.asUserId(1);
+    db.renameEntityByName(a.oldName, a.newName, userId, a.parentName || undefined);
+  },
   receiveStockWithCombination: (a) => {
     const userId = db.asUserId(1);
     db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);

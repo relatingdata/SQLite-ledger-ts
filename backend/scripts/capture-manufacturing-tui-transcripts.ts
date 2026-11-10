@@ -17,15 +17,28 @@
 // a terminal's own natural "screenshot" is its real text output, not
 // a bitmap of it.
 //
+// Full, GUI-matching screen parity with the Retail tutorial's own 18-
+// screen TUI chapter (capture-tui-transcripts.ts) - per direct
+// correction ("lacking a lot of screens and details... should be full
+// like the GUI screens"), this no longer skips Purchase/Purchase
+// Order/Payment/AR Sale/POS Terminal, or the Item Categories/Other
+// Hierarchies Business Structure tabs, on the earlier (wrong) reasoning
+// that they're "identical" to the Retail chapter's own. They are the
+// same real screens, but every one of them now shows this business's
+// own real, different data: three real locations (Raw Materials Store,
+// Factory, Finished Goods Store) in every picker, eight real
+// Departments/ten real Employees in the Org Chart, five real Item
+// Categories, and a real "Process" Other Hierarchy.
+//
 // Deliberately does not drive any transaction to completion on these
-// data-entry screens (Cash Purchase, Cash Sale, New Business) — each
-// is captured exactly as it first opens, real labels and real, live
-// picker data (this business's own Raw Materials Store/Finished Goods
-// Store locations) included, without posting anything that would
-// change the real seeded figures the Balance Sheet capture below (and
+// data-entry screens (Purchase, Cash Purchase, AR Sale, Cash Sale,
+// Payment, Purchase Order, New Business) — each is captured exactly as
+// it first opens, real labels and real, live picker data included,
+// without posting anything that would change the real seeded figures
+// the Balance Sheet capture below (and
 // docs/user-manual-ch4-manufacturing-tutorial.md's own figures) both
-// depend on. New Business is captured only at its first, real step
-// and then cancelled (Escape) before any create call.
+// depend on. New Business is captured only at its first, real step and
+// then cancelled (Escape) before any create call.
 import { TuiTest } from '@microsoft/tui-test';
 import { writeFileSync, mkdirSync } from 'fs';
 import { press, typeAndEnter, findItemByText, navigateMenuGenerically } from './text-driver-helpers.js';
@@ -56,14 +69,15 @@ async function returnToMenu(terminal: TuiTest) {
 async function main() {
   const terminal = await TuiTest.ephemeral('tui-capture-manufacturing');
   // Taller than the retail capture's own default (80x30) — this
-  // business's real Balance Sheet carries 15 real raw-material/assembly
-  // inventory accounts (far more than the wine retailer's two), which
-  // genuinely doesn't fit a 30-row terminal without scrolling the
-  // screen's own top border and heading out of the real, captured
-  // scrollback. rows/cols belong on run()'s own SpawnOptions, not
-  // ephemeral()'s ClientOptions — passing them to ephemeral() (as this
-  // script's own first draft, and the retail capture script, both did)
-  // is silently a no-op.
+  // business's real Balance Sheet carries far more real raw-material/
+  // assembly inventory accounts (now 25 real items plus eight real
+  // Department Payroll/Other Expenses pairs) than the wine retailer's
+  // two, which genuinely doesn't fit a 30-row terminal without
+  // scrolling the screen's own top border and heading out of the real,
+  // captured scrollback. rows/cols belong on run()'s own SpawnOptions,
+  // not ephemeral()'s ClientOptions — passing them to ephemeral() (as
+  // this script's own first draft, and the retail capture script, both
+  // did) is silently a no-op.
   await terminal.run('npx', ['tsx', 'src/cli.tsx'], { cwd: '../tui', rows: 44, cols: 100 });
   await sleep(1000);
 
@@ -93,15 +107,16 @@ async function main() {
 
   // General Journal — the real screen every Stage/Post Journal Line step
   // in the manufacturing fixture (owner's capital, raw-material
-  // purchases, BOM reclass entries, and all three builder-order sales)
-  // posts through.
+  // purchases, BOM reclass entries, weekly wages/overhead across eight
+  // real Departments, and every real builder-order sale) posts through.
   await navigateMenuGenerically(terminal, 'General Journal');
   await sleep(400);
   await dump(terminal, '05-general-journal');
   await returnToMenu(terminal);
 
   // Balance Sheet — the real, final state after every purchase,
-  // two-level assembly, and all three builder orders have posted.
+  // bulk-length cut, two-level assembly, and every real builder order
+  // have posted.
   await navigateMenuGenerically(terminal, 'Balance Sheet');
   await sleep(600);
   await dump(terminal, '06-balance-sheet');
@@ -114,37 +129,75 @@ async function main() {
   await press(terminal, 'Escape');
   await returnToMenu(terminal);
 
-  // Business Structure — Org Chart tab. This business's own two real
-  // locations (Raw Materials Store, Finished Goods Store) were never
-  // assigned a Division, so both land under "Unassigned" — a real,
-  // honest result, not the richer Divisions the Retail tutorial grew.
+  // Business Structure — three real tabs, all three now genuinely
+  // populated (per the earlier "lacking... screens" correction, never
+  // skipped as merely "identical" to the Retail chapter's own):
+  //   Org Chart - this business's own three real locations (Raw
+  //   Materials Store, Factory, Finished Goods Store), tagged into two
+  //   real Divisions (Production/Warehousing), plus eight real
+  //   Departments (the eight workshops) and ten real Employees.
+  //   Item Categories - five real categories (Raw Materials, Hardware
+  //   & Fittings, Bulk Lengths, Frame Assemblies, Complete Units), every
+  //   real item tagged into one.
+  //   Other Hierarchies - a real "Process" grouping (Cutting, Glazing,
+  //   Framing & Lock Fitting, Packaging), the same real items tagged by
+  //   production stage.
   await navigateMenuGenerically(terminal, 'Business Structure');
   await sleep(500);
   await dump(terminal, '08-business-structure-org-chart');
+  await press(terminal, 'Right');
+  await sleep(400);
+  await dump(terminal, '09-business-structure-item-categories');
+  await press(terminal, 'Right');
+  await sleep(400);
+  await dump(terminal, '10-business-structure-other-hierarchies');
   await returnToMenu(terminal);
 
-  // Cash Purchase — captured only for its own real location picker,
-  // which genuinely lists this manufacturer's two real locations
-  // rather than a retailer's shop floor.
+  // Purchasing screens - real, live picker data: eleven real suppliers
+  // (Statewide Timber & Glass Supplies plus ten more, each mapped to
+  // the specific raw materials they'd realistically sell) and three
+  // real locations.
+  await navigateMenuGenerically(terminal, 'Purchase');
+  await sleep(400);
+  await dump(terminal, '11-purchase');
+  await returnToMenu(terminal);
+
   await navigateMenuGenerically(terminal, 'Cash Purchase');
   await sleep(400);
-  await dump(terminal, '09-cash-purchase');
+  await dump(terminal, '12-cash-purchase');
   await returnToMenu(terminal);
 
-  // Cash Sale — same real location picker, from the selling side.
+  await navigateMenuGenerically(terminal, 'Purchase Order');
+  await sleep(400);
+  await dump(terminal, '13-purchase-order');
+  await returnToMenu(terminal);
+
+  await navigateMenuGenerically(terminal, 'Payment');
+  await sleep(400);
+  await dump(terminal, '14-payment');
+  await returnToMenu(terminal);
+
+  // Sales screens - two real trade customers (BuildRight Constructions
+  // Pty Ltd, Coastal Home Builders Pty Ltd).
+  await navigateMenuGenerically(terminal, 'Sale');
+  await sleep(400);
+  await dump(terminal, '15-ar-sale');
+  await returnToMenu(terminal);
+
   await navigateMenuGenerically(terminal, 'Cash Sale');
   await sleep(400);
-  await dump(terminal, '10-cash-sale');
+  await dump(terminal, '16-cash-sale');
   await returnToMenu(terminal);
 
-  // Customers — a real, read-only browse, including both real trade
-  // customers the fixture creates: BuildRight Constructions Pty Ltd
-  // (two of the three builder orders) and Coastal Home Builders Pty
-  // Ltd (the second, genuinely different builder).
   await navigateMenuGenerically(terminal, 'Customers');
   await sleep(500);
-  await dump(terminal, '11-customers');
+  await dump(terminal, '17-customers');
   await returnToMenu(terminal);
+
+  // POS Terminal
+  await navigateMenuGenerically(terminal, 'POS Terminal');
+  await sleep(500);
+  await dump(terminal, '18-pos-terminal');
 
   await terminal.close();
   console.log('done');

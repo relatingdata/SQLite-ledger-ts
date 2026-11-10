@@ -508,6 +508,19 @@ correction: generally not), not one blanket rule applied everywhere.
    what's on screen always reflects what was actually, successfully
    committed, never just what was optimistically typed.
 
+**`renameEntityByName(oldName, newName, userId, parent?)`** (`backend/src/db.ts`) is a thin,
+name-based wrapper over `supersedeEntity`, for callers (fixtures, scripts) that only have a name in
+hand, not an id: it resolves `Entity.get(oldName, parent)` first, then calls `supersedeEntity(entity.
+id, { name: newName }, userId)` — the exact, same operation the Chart of Accounts "Rename" fieldset
+above performs by id after a tree click. `Entity.get(name)` with no `parent` is a genuinely *global*
+lookup (`backend/src/drivers/sql-entity-driver.ts`: `WHERE name = ?`, no `parent_id` filter at all) —
+confirmed live to collide not only across siblings sharing one literal name (several Departments'
+own, identically auto-provisioned "Payroll"/"Other Expenses" leaves) but against wholly unrelated,
+pre-existing system entities sharing the same bare word (a Vocabulary entry, an "English"-locale
+translation string, also both named literally "Payroll"), silently renaming whichever one SQLite
+happens to return. Always pass `parent` when it's known; `Entity.get(name, parent)` is parent-scoped
+and collides with nothing.
+
 No separate "ORM layer" at any point: a Svelte component, one ASCII-CSV
 call, a call-dispatch entry, a SQL statement — each its own readable
 piece.

@@ -41,6 +41,19 @@ changes, every other field carried forward unchanged. A thin, direct rename of t
 `updateEntity` was deleted entirely, not deprecated or aliased, across every file in the repository
 (backend, frontend, tests, scripts) — confirmed directly, zero occurrences remain anywhere.
 
+**`renameEntityByName(oldName, newName, userId, parent?)`** (`backend/src/db.ts`) — a thin, name-based
+wrapper over `supersedeEntity`, for callers (fixtures, scripts) with only a name in hand rather than
+an id: resolves `Entity.get(oldName, parent)` first, then calls `supersedeEntity(entity.id, { name:
+newName }, userId)`. The real Setup → Chart of Accounts "Rename" fieldset calls `supersedeEntity`
+directly, by id, after a tree click; this is the same operation, just addressed by name. Confirmed
+live, the hard way: `Entity.get(name)` with no `parent` is a genuinely *global*, unqualified lookup
+(`backend/src/drivers/sql-entity-driver.ts`'s own `WHERE name = ?`, no `parent_id` filter) — it
+collides not only across siblings sharing a literal name (several Departments' own, identically
+auto-provisioned "Payroll"/"Other Expenses" leaves) but against wholly unrelated, pre-existing system
+entities that happen to share the same bare word (a Vocabulary entry, an "English"-locale translation
+string, both also named literally "Payroll"), silently renaming the wrong one. Always pass `parent`
+when the caller knows it; `Entity.get(name, parent)` is parent-scoped and collides with nothing.
+
 ## A second, parallel rename, confirmed necessary by direct, later correction: `deleteEntity` → `revokeEntity`
 
 Per direct, absolute correction after this chapter's own first version: **there is no delete
