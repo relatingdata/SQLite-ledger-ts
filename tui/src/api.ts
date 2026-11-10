@@ -9,7 +9,7 @@
 // optional polish, it is what makes the TUI able to log in at all.
 // See docs/tui-design.md ("Why this is a thin client, not a second
 // frontend") for why this is a port, not a reimplementation.
-import { loadSession, saveSession, type SessionState } from './session.js';
+import { loadSession, saveSession, type SessionState } from './session.ts';
 
 const BASE = 'http://localhost:3001/api';
 
@@ -615,6 +615,34 @@ function parseItemSource(f: Record<string, string>): ItemSource {
 }
 export const listItemSources = (itemName: string) => callTable('listItemSources', [itemName], parseItemSource);
 
+export interface Item {
+  description: string | null;
+  unit_of_measure: string | null;
+  upc: string | null;
+}
+// setItem requires the entity to already exist (no createItem is exposed
+// here, same real, confirmed-live limit as the rest of this file — a new
+// item is created today only via the Structured Editor or an API-side
+// fixture step, matching Customers.svelte's own, real limit on new
+// customers).
+export const getItem = (name: string) =>
+  callRow('getItem', [name], (f): Item | null => (f[0] === '0' ? null : { description: f[1] || null, unit_of_measure: f[2] || null, upc: f[3] || null }));
+export const setItem = (name: string, item: Partial<Item>) =>
+  callRow('setItem', [name, item.description ?? undefined, item.unit_of_measure ?? undefined, item.upc ?? undefined], () => undefined);
+
+export interface BomComponent {
+  component: string;
+  quantity: number;
+  unit: string;
+}
+function parseBomComponent(f: Record<string, string>): BomComponent {
+  return { component: f.component, quantity: Number(f.quantity), unit: f.unit };
+}
+export const getBomComponents = (itemName: string) => callTable('getBomComponents', [itemName], parseBomComponent);
+export const setBomComponent = (itemName: string, business: string, componentItem: string, quantity: number, unit: string) =>
+  callTable('setBomComponent', [itemName, business, componentItem, String(quantity), unit], parseBomComponent);
+export const deleteBomComponent = (itemName: string, componentItem: string) => callRow('deleteBomComponent', [itemName, componentItem], () => undefined);
+
 // --- Invoices (AP Purchase uses the real, shared AR/AP invoice mechanism) -
 // Mirrors frontend/src/lib/api.ts's own Invoices section.
 
@@ -818,6 +846,56 @@ export const dispatchStock = (input: { business: BusinessName; ledger: LedgerNam
     input.lines.map((l) => [l.itemName, String(l.quantity)]),
     () => undefined
   );
+
+// --- Transfer Items -----------------------------------------------------
+// Mirrors frontend/src/routes/stock/transfer/+page.svelte's own two-step,
+// canned-journal pattern exactly: transferStock moves the real, physical
+// stock between the two real locations (the narrow, physical-only half),
+// then — only when the item has a known unit cost — resolveTransferAccounts
+// resolves the two real, location-scoped Inventory accounts so the
+// matching real VALUE entry (a balanced two-line debit/credit, built
+// here rather than imported from the web app's own separate
+// canned-journal module) can be staged and posted as its own, separate
+// General Journal entry, exactly like the web screen's own submit().
+
+export interface ItemLocationLevels {
+  quantity_on_hand: number;
+  min_level: number | null;
+  max_level: number | null;
+  reorder_level: number | null;
+  shelf_side: string | null;
+  rack: string | null;
+  level: number | null;
+}
+export const getItemLocation = (itemName: string, locationName: string) =>
+  callRow('getItemLocation', [itemName, locationName], (f): ItemLocationLevels => ({
+    quantity_on_hand: Number(f[0]),
+    min_level: f[1] === '' ? null : Number(f[1]),
+    max_level: f[2] === '' ? null : Number(f[2]),
+    reorder_level: f[3] === '' ? null : Number(f[3]),
+    shelf_side: f[4] || null,
+    rack: f[5] || null,
+    level: f[6] === '' ? null : Number(f[6]),
+  }));
+
+export const transferStock = (input: { business: BusinessName; ledger: LedgerName; itemName: string; fromLocationName: string; toLocationName: string; quantity: number; reference: string; transdate?: string }) =>
+  callRow(
+    'transferStock',
+    [input.business, input.ledger, input.itemName, input.fromLocationName, input.toLocationName, String(input.quantity), input.reference, input.transdate],
+    () => undefined
+  );
+
+export interface ResolvedTransferAccounts {
+  fromInventoryAccount: string;
+  toInventoryAccount: string;
+  unitCostMinor: number | null;
+}
+export const resolveTransferAccounts = (input: { business: BusinessName; itemName: string; fromLocationName: string; toLocationName: string }) =>
+  callRow('resolveTransferAccounts', [input.business, input.itemName, input.fromLocationName, input.toLocationName], (f): ResolvedTransferAccounts => ({
+    fromInventoryAccount: f[0],
+    toInventoryAccount: f[1],
+    unitCostMinor: f[2] === '' ? null : Number(f[2]),
+  }));
 
 // --- Cash Sale / POS Terminal -------------------------------------------------
 // Mirrors frontend/src/lib/api.ts's own completePosSale — the same real

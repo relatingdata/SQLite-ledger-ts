@@ -1,4 +1,8 @@
 node_modules/
+# A symlink to the root node_modules/ above (git's dir-match pattern
+# doesn't follow it since it's a symlink, not a real directory) -
+# excluded explicitly rather than committed.
+tui/node_modules
 dist/
 .svelte-kit/
 backend/data/*.sqlite
