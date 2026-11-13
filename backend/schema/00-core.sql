@@ -1054,6 +1054,40 @@ CREATE TABLE journal (
 -- inspecting the raw journal_line rows, not by inspection alone.
 CREATE UNIQUE INDEX journal_reference_unique ON journal(reference, business_id, ledger_id);
 
+-- A posted entry's header is append-only, same discipline as
+-- entities (entities_no_update/entities_no_delete above) — with one,
+-- real, narrow exception: reverseJournalEntry (backend/src/db-journal.ts)
+-- stamps reversal_of on the new reversing entry it just posted, to
+-- point back at the original it reverses. Every other column on
+-- every row, on every journal, is permanently fixed the moment it's
+-- inserted — the same "permanently, never reassignable" guarantee
+-- user_id already carries in English in the comment above, now
+-- actually enforced rather than merely documented.
+CREATE TRIGGER journal_no_delete BEFORE DELETE ON journal
+BEGIN
+  SELECT RAISE(ABORT, 'journal is append-only: DELETE is never permitted. Reverse the entry instead.');
+END;
+
+CREATE TRIGGER journal_no_update BEFORE UPDATE OF
+  id, business_id, ledger_id, reference, description, transdate,
+  user_id, generated_from, recurrence, recurrence_count
+ON journal
+BEGIN
+  SELECT RAISE(ABORT, 'journal is append-only: only reversal_of may ever be set, and only once. Reverse the entry instead of editing it.');
+END;
+
+-- reversal_of itself is write-once — set exactly once, by exactly one
+-- caller (reverseJournalEntry), on exactly the new reversing entry it
+-- just posted. A second attempt to change it (double-reversing the
+-- same entry, or un-reversing one) is exactly the kind of mistake
+-- this guard exists to catch, not a legitimate use the trigger above
+-- deliberately left open.
+CREATE TRIGGER journal_reversal_of_write_once BEFORE UPDATE OF reversal_of ON journal
+WHEN OLD.reversal_of IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'journal.reversal_of is write-once: this entry has already been stamped as a reversal.');
+END;
+
 CREATE TABLE journal_line (
   journal_id     INTEGER NOT NULL REFERENCES journal(id),
   account_id     INTEGER NOT NULL REFERENCES account(entity_id),
@@ -1095,6 +1129,22 @@ CREATE TABLE journal_line (
 -- "Quantity-on-hand by location: real per-location accounts, not a
 -- side-channel column".
 CREATE UNIQUE INDEX journal_line_unique_ordinary ON journal_line(journal_id, account_id, effective_date);
+
+-- journal_line is append-only, no exception at all — unlike journal's
+-- own single reversal_of carve-out, nothing anywhere in this codebase
+-- ever UPDATEs or DELETEs a line. Confirmed directly: no UPDATE/DELETE
+-- against journal_line exists in backend/src at all. Correcting a
+-- posted line means reversing the whole entry and posting a new one,
+-- never touching the original line.
+CREATE TRIGGER journal_line_no_update BEFORE UPDATE ON journal_line
+BEGIN
+  SELECT RAISE(ABORT, 'journal_line is append-only: UPDATE is never permitted. Reverse the entry instead.');
+END;
+
+CREATE TRIGGER journal_line_no_delete BEFORE DELETE ON journal_line
+BEGIN
+  SELECT RAISE(ABORT, 'journal_line is append-only: DELETE is never permitted. Reverse the entry instead.');
+END;
 
 -- Expands every journal into its actual occurrences: for 'once', just
 -- itself; for a recurring journal, one row per scheduled date, with each
