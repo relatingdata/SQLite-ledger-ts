@@ -27,7 +27,6 @@ import {
   ensureCombinationAccountLeaf,
   resolveBusinessCoaAccountId,
   resolveItemId,
-  setHierarchyParent,
   setEntityLink,
   stageLine,
   create,
@@ -59,7 +58,7 @@ import {
 // resolved from one of these per-location accounts; it is otherwise unused
 // here directly. See docs/pm-domain-reference.md, "Quantity-on-hand by
 // location: real per-location accounts, not a side-channel column".
-export function stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, accountId?: number): void {
+export function stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, accountId?: number, memo?: string): void {
   const resolvedAccountId =
     accountId ??
     (
@@ -79,7 +78,7 @@ export function stageQuantityMovementLine(business: BusinessName, ledger: Ledger
   db.prepare(
     `INSERT INTO journal_entry_staging (reference, business, ledger, description, transdate, account, account_id, amount_minor, memo)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(reference, business, ledger, 'Quantity movement', transdate, account, resolvedAccountId, deltaQuantity, '');
+  ).run(reference, business, ledger, 'Quantity movement', transdate, account, resolvedAccountId, deltaQuantity, memo ?? '');
 }
 
 export function postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void {
@@ -106,11 +105,12 @@ export function postQuantityMovement(
   userId: UserId,
   transdate?: string,
   locationName?: LocationName,
-  accountId?: number
+  accountId?: number,
+  memo?: string
 ): void {
   const date = transdate ?? (locationName ? todayAtLocation(locationName) : new Date().toISOString().slice(0, 10));
   assertPeriodOpen(business, ledger, date);
-  stageQuantityMovementLine(business, ledger, reference, account, deltaQuantity, date, accountId);
+  stageQuantityMovementLine(business, ledger, reference, account, deltaQuantity, date, accountId, memo);
   postStagedQuantityMovement(business, ledger, reference, userId);
 }
 
@@ -1648,6 +1648,52 @@ export function createSystemEntity(name: string, parentId: number | null): numbe
   return Entity.create(name, parentId, asUserId(1)).id;
 }
 
+// A shared, auto-vivified fallback pair for an order with no real catalog
+// item (a pure value/time commitment — e.g. a service PO, or a labor/plant
+// time-clock "order", db-journal.ts's clockInToProject/clockPlantIn) —
+// ONE pair of accounts reused by every item-less order, never one freshly
+// minted per order. Which order owns which slice of it lives purely in the
+// journal's own reference (read back by a reference-LIKE sum, same as the
+// per-item case below), never in a side entity.
+function ensureSharedOnOrderAccounts(userId: UserId): { onOrderQtyAccountId: number; onOrderValueAccountId: number } {
+  const ordersId = Entity.get('Orders')!.id;
+  const qty = Entity.ensureUnder('On Order Qty', ordersId, userId);
+  const value = Entity.ensureUnder('On Order Value', ordersId, userId);
+  return { onOrderQtyAccountId: qty.id, onOrderValueAccountId: value.id };
+}
+
+// Pure SQL, no Entity.*/entityDriver call at all — the exact account an
+// order's own placement posted to is simply whichever account its own
+// `${orderReference}-PLACE-ONORDER`/`-PLACE-VALUE` journal line already
+// hit; every later fulfillment or status read just looks that up
+// directly, rather than re-deriving "which item/shared account was this"
+// from a side entity (removed per direct instruction — "no separate
+// entities should be created to track details already tracked in the
+// journal entries"). Because this never touches Entity.*/entityDriver, it
+// is also safe to call from inside a db.transaction() if one is ever
+// needed here — unlike placeOrder's own account resolution, which still
+// calls ensureItemQuantityAccounts/ensureSharedOnOrderAccounts (Entity.*)
+// and so must stay outside any transaction, for the same cross-process
+// deadlock reason documented there.
+function resolveOrderAccounts(orderReference: string): {
+  qtyAccountId: number | undefined;
+  qtyAccountName: string | undefined;
+  valueAccountId: number | undefined;
+  valueAccountName: string | undefined;
+} {
+  const findBy = (reference: string): { account_id: number; name: string } | undefined =>
+    db
+      .prepare(
+        `SELECT jl.account_id AS account_id, ce.name AS name
+         FROM journal j JOIN journal_line jl ON jl.journal_id = j.id JOIN current_entities ce ON ce.id = jl.account_id
+         WHERE j.reference = ? LIMIT 1`
+      )
+      .get(reference) as { account_id: number; name: string } | undefined;
+  const qtyRow = findBy(`${orderReference}-PLACE-ONORDER`);
+  const valueRow = findBy(`${orderReference}-PLACE-VALUE`);
+  return { qtyAccountId: qtyRow?.account_id, qtyAccountName: qtyRow?.name, valueAccountId: valueRow?.account_id, valueAccountName: valueRow?.name };
+}
+
 export function placeOrder(
   orderReference: string,
   business: BusinessName,
@@ -1660,8 +1706,8 @@ export function placeOrder(
   item?: ItemName,
   location?: LocationName
 ): void {
-  // Entity setup (configuration) deliberately happens BEFORE/outside any
-  // db.transaction() below, never inside one alongside it — under
+  // Account resolution (configuration) deliberately happens BEFORE/outside
+  // any db.transaction() below, never inside one alongside it — under
   // ENTITY_DRIVER=gleam, an Entity.*/entityDriver call goes out over real
   // HTTP to storage_engine, which writes the same, real entities.sqlite
   // through its OWN, separate SQLite connection. A still-open
@@ -1669,48 +1715,43 @@ export function placeOrder(
   // write lock; calling out to a second, independent writer for the
   // SAME file while that lock is held is a real deadlock, not just
   // contention — confirmed directly, the hard way, running the real
-  // tutorial e2e suite (it hung for exactly this function's own
-  // busy-timeout ceiling, every time, before this fix). Accounting
-  // (direct SQL, inside postQuantityMovement's own transaction) and
-  // configuration (entity setup, here) now have genuinely separate
-  // commit boundaries, never interleaved in one transaction — the
-  // same distinction the storage-engine integration's own design was
-  // asked to keep.
-  const qtyName = `${orderReference} Qty`;
-  const valueName = `${orderReference} Value`;
-  const ordersId = Entity.get('Orders')!.id;
-  for (const name of [qtyName, valueName]) {
-    if (!Entity.get(name)) createSystemEntity(name, ordersId);
-  }
-  if (vendor) Entity.relate(Entity.get(qtyName)!.id, vendor, userId);
-  if (item) Entity.relate(Entity.get(valueName)!.id, item, userId);
-  if (location) setHierarchyParent(qtyName, 'Location', location, userId);
-  const onOrderAccounts = item ? ensureItemQuantityAccounts(item, userId) : undefined;
+  // tutorial e2e suite. Accounting (direct SQL, inside
+  // postQuantityMovement's own transaction) and configuration (account
+  // resolution, here) now have genuinely separate commit boundaries,
+  // never interleaved in one transaction — the same distinction the
+  // storage-engine integration's own design was asked to keep.
+  //
+  // Direct instruction: "when an order is placed the Item and Location
+  // must obviously exist" — placeOrder never creates either; it only
+  // requires them, same as always, now actually enforced for location
+  // (previously only implicit, via setHierarchyParent's own lookup).
+  if (location && !Entity.get(location)) throw new ValidationError(`No location named "${location}" — it must already exist.`);
 
-  postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueName), priceMinor, userId, transdate);
-  if (onOrderAccounts) {
-    // The item's own, real On Order account (ensureItemQuantityAccounts)
-    // already carries this exact quantity — posting it a second time to
-    // `${orderReference} Qty` as well would just be the same number
-    // recorded twice. Only post it there when there's no item (the
-    // qtyName entity is then the only place this number exists at all).
-    postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(onOrderAccounts.onOrderAccount), quantity, userId, transdate, undefined, onOrderAccounts.onOrderAccountId);
+  let qtyAccountName: string, qtyAccountId: number, valueAccountName: string, valueAccountId: number;
+  if (item) {
+    const accounts = ensureItemQuantityAccounts(item, userId);
+    qtyAccountName = accounts.onOrderAccount;
+    qtyAccountId = accounts.onOrderAccountId;
+    valueAccountName = accounts.onOrderValueAccount;
+    valueAccountId = accounts.onOrderValueAccountId;
   } else {
-    postQuantityMovement(business, ledger, `${orderReference}-PLACE`, asAccountName(qtyName), quantity, userId, transdate);
+    const accounts = ensureSharedOnOrderAccounts(userId);
+    qtyAccountName = 'On Order Qty';
+    qtyAccountId = accounts.onOrderQtyAccountId;
+    valueAccountName = 'On Order Value';
+    valueAccountId = accounts.onOrderValueAccountId;
   }
-}
 
-// An order known to have a real item (the `${orderReference} Value`
-// entity's own relation — set by placeOrder above, the same real
-// relation every entity already has, read back exactly as
-// checkEInvoiceDiscrepancies already does) tracks quantity on that
-// item's own On Order account instead of a second, duplicate number on
-// `${orderReference} Qty`.
-function resolveOrderItem(orderReference: string): ItemName | undefined {
-  const row = Entity.get(`${orderReference} Value`);
-  if (!row?.relation_id) return undefined;
-  const item = Entity.get(row.relation_id);
-  return item ? asItemName(item.name) : undefined;
+  // vendor is no longer stored via a side relation (there is no longer a
+  // per-order entity to relate it to) — it's carried as the -PLACE-VALUE
+  // line's own memo instead, the real journal entry itself, read back by
+  // checkEInvoiceDiscrepancies (db.ts) via plain SQL. location, deferred
+  // per direct instruction ("the cartesian product of location x item x
+  // storage... business rule... stocking levels" is a later, separate
+  // task): not yet a further axis on which account this posts to, beyond
+  // being required to exist above.
+  postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueAccountName), priceMinor, userId, transdate, undefined, valueAccountId, vendor ?? undefined);
+  postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(qtyAccountName), quantity, userId, transdate, undefined, qtyAccountId);
 }
 
 export function fulfillOrder(
@@ -1723,37 +1764,28 @@ export function fulfillOrder(
   userId: UserId,
   transdate?: string
 ): void {
-  // Same deadlock reason as placeOrder above: resolveOrderItem and
-  // ensureItemQuantityAccounts both call into Entity.*/entityDriver
-  // (ensureItemQuantityAccounts can itself create new entities on first
-  // use), so they must run before/outside any db.transaction() — never
-  // inside one alongside direct-SQL accounting writes.
-  const item = resolveOrderItem(orderReference);
-  const onOrderAccounts = item ? ensureItemQuantityAccounts(item, userId) : undefined;
-
-  postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-VALUE`, asAccountName(`${orderReference} Value`), -valueFulfilledMinor, userId, transdate);
-  if (onOrderAccounts) {
-    postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-ONORDER`, asAccountName(onOrderAccounts.onOrderAccount), -quantityFulfilled, userId, transdate, undefined, onOrderAccounts.onOrderAccountId);
-  } else {
-    postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}`, asAccountName(`${orderReference} Qty`), -quantityFulfilled, userId, transdate);
+  // Pure SQL (resolveOrderAccounts), no Entity.*/entityDriver call at all —
+  // unlike placeOrder, nothing here needs to run outside a transaction for
+  // the cross-process deadlock reason; there simply isn't one left.
+  const { qtyAccountId, qtyAccountName, valueAccountId, valueAccountName } = resolveOrderAccounts(orderReference);
+  if (valueAccountId != null) {
+    postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-VALUE`, asAccountName(valueAccountName!), -valueFulfilledMinor, userId, transdate, undefined, valueAccountId);
+  }
+  if (qtyAccountId != null) {
+    postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-ONORDER`, asAccountName(qtyAccountName!), -quantityFulfilled, userId, transdate, undefined, qtyAccountId);
   }
 }
 
 export function getOrderStatus(orderReference: string): { quantity: number; value_minor: number } {
-  const item = resolveOrderItem(orderReference);
-  let qty: number;
-  if (item) {
-    const { onOrderAccountId } = ensureItemQuantityAccounts(item, asUserId(1));
-    qty =
-      (db.prepare(`SELECT SUM(jl.amount_minor) AS total FROM journal j JOIN journal_line jl ON jl.journal_id = j.id WHERE j.reference LIKE ? AND jl.account_id = ?`).get(`${orderReference}%`, onOrderAccountId) as {
+  const { qtyAccountId, valueAccountId } = resolveOrderAccounts(orderReference);
+  const sumFor = (accountId: number | undefined): number => {
+    if (accountId == null) return 0;
+    return (
+      db.prepare(`SELECT SUM(jl.amount_minor) AS total FROM journal j JOIN journal_line jl ON jl.journal_id = j.id WHERE j.reference LIKE ? AND jl.account_id = ?`).get(`${orderReference}%`, accountId) as {
         total: number | null;
-      }).total ?? 0;
-  } else {
-    const qtyEntity = Entity.get(`${orderReference} Qty`);
-    qty = qtyEntity ? (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(qtyEntity.id) as { balance_minor: number } | undefined)?.balance_minor ?? 0 : 0;
-  }
-  const valueEntity = Entity.get(`${orderReference} Value`);
-  const value = valueEntity ? (db.prepare(`SELECT balance_minor FROM account WHERE entity_id = ?`).get(valueEntity.id) as { balance_minor: number } | undefined)?.balance_minor ?? 0 : 0;
-  return { quantity: qty, value_minor: value };
+      }
+    ).total ?? 0;
+  };
+  return { quantity: sumFor(qtyAccountId), value_minor: sumFor(valueAccountId) };
 }
 

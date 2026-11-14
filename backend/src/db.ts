@@ -1262,16 +1262,25 @@ export interface EInvoiceDiscrepancy {
 
 export function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[] {
   if (!poReference) return [];
-  const poProvider = Entity.get(`${poReference} Qty`);
-  const poItem = Entity.get(`${poReference} Value`);
+  // The PO's own vendor used to be recoverable only via a per-order
+  // entity's own relation (placeOrder created one, specifically to carry
+  // this). Per direct instruction ("no separate entities should be
+  // created to track details already tracked in the journal entries"),
+  // placeOrder (db-stock.ts) no longer creates that entity at all — the
+  // vendor is simply the memo on its own `${poReference}-PLACE-VALUE`
+  // journal line (set directly by placeOrder), read back here the same
+  // way every other journal detail already is: plain SQL, no entity.
+  const placedLine = db
+    .prepare(`SELECT jl.memo AS memo FROM journal j JOIN journal_line jl ON jl.journal_id = j.id WHERE j.reference = ? LIMIT 1`)
+    .get(`${poReference}-PLACE-VALUE`) as { memo: string } | undefined;
   const discrepancies: EInvoiceDiscrepancy[] = [];
-  if (poProvider?.relation_id) {
-    const providerName = Entity.get(poProvider.relation_id)?.name;
-    if (providerName && providerName !== parsed.supplierName) {
+  if (placedLine?.memo) {
+    const providerName = placedLine.memo;
+    if (providerName !== parsed.supplierName) {
       discrepancies.push({ field: 'Provider', poValue: providerName, invoiceValue: parsed.supplierName });
     }
   }
-  const status = poItem ? getOrderStatus(poReference) : null;
+  const status = placedLine ? getOrderStatus(poReference) : null;
   if (status) {
     const invoiceLineTotal = parsed.lines.reduce((s, l) => s + l.amountMinor, 0);
     if (Math.abs(invoiceLineTotal - status.value_minor) > parsed.lines.length) {
@@ -2502,24 +2511,41 @@ export function getQualifiedDisplayName(entityId: number): string {
   return `${parent.name} — ${entity.name}`;
 }
 
-export function ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number } {
+export function ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; onOrderValueAccount: string; onOrderValueAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number } {
   const itemId = resolveIdOrThrow(itemName);
   const unit = (getItem(itemName)?.unit_of_measure || 'UNITS').toUpperCase();
-  function ensureChild(childName: string): { name: string; id: number } {
+  function ensureChild(childName: string, currency?: string): { name: string; id: number } {
     let entity = Entity.getUnder(childName, itemId);
     if (!entity) {
       entity = Entity.create(childName, itemId, userId);
-      setAccountCurrency(entity.name, unit, entity.id);
+      // currency omitted => money (the account's home/reporting currency,
+      // NULL — same default every real COA account gets), used for
+      // 'On Order Value' below; every other sibling here is a QUANTITY
+      // account, tagged with the item's own unit of measure.
+      if (currency) setAccountCurrency(entity.name, currency, entity.id);
     }
     return { name: entity.name, id: entity.id };
   }
-  const onOrder = ensureChild('On Order');
-  const unitsSold = ensureChild('Units Sold');
-  const countAdjustment = ensureChild('Count Adjustment');
-  const writeOff = ensureChild('Write-off');
+  const onOrder = ensureChild('On Order', unit);
+  // The item's own real, auto-vivified value-tracking account for goods on
+  // order — direct instruction: "no separate entities should be created to
+  // track details already tracked in the journal entries... the accounts
+  // should be auto created when posted to". placeOrder (db-stock.ts) used
+  // to mint a brand-new entity PER ORDER for this ("{ref} Value"); every
+  // order against this item now posts to this one, shared, per-item
+  // account instead, same as the quantity side already did via On Order —
+  // which order is which lives purely in the journal's own reference, read
+  // back via a reference-LIKE sum (db-stock.ts's getOrderStatus), never in
+  // a side entity.
+  const onOrderValue = ensureChild('On Order Value');
+  const unitsSold = ensureChild('Units Sold', unit);
+  const countAdjustment = ensureChild('Count Adjustment', unit);
+  const writeOff = ensureChild('Write-off', unit);
   return {
     onOrderAccount: onOrder.name,
     onOrderAccountId: onOrder.id,
+    onOrderValueAccount: onOrderValue.name,
+    onOrderValueAccountId: onOrderValue.id,
     unitsSoldAccount: unitsSold.name,
     unitsSoldAccountId: unitsSold.id,
     countAdjustmentAccount: countAdjustment.name,

@@ -1162,7 +1162,7 @@ test('a partial receipt against a purchase order leaves a genuine, correctly-siz
   assert.deepEqual(db.getOrderStatus(poRef), { quantity: 0, value_minor: 0 }, 'PO fully closed once the back order is later fulfilled');
 });
 
-test('a real Purchase Order still knows its real vendor and item after posting — no extra table, the same real relation every entity already has', () => {
+test('a real Purchase Order still knows its real vendor and item after posting — carried by its own real journal entry, no per-order entity of any kind', () => {
   const biz = fx.freshBusiness('PORelationTest Co');
   const vendorName = fx.uniqueName('PORelationTest Vendor');
   const itemName = fx.uniqueName('PORelationTest Wine');
@@ -1185,16 +1185,25 @@ test('a real Purchase Order still knows its real vendor and item after posting �
   // the real, direct proof this doesn't come from staging still being
   // there.
   const stillStaged = db.db.prepare(`SELECT 1 FROM po_staging WHERE reference = ?`).get(ref);
-  assert.equal(stillStaged, undefined, 'the real staging row is genuinely gone — what follows must come from the real, posted entities themselves');
+  assert.equal(stillStaged, undefined, 'the real staging row is genuinely gone — what follows must come from the real, posted journal entry itself');
 
-  const entities = db.getEntityTree();
-  const byId = new Map(entities.map((e) => [e.id, e]));
-  const qtyEntity = entities.find((e) => e.name === `${ref} Qty`);
-  const valueEntity = entities.find((e) => e.name === `${ref} Value`);
-  assert.ok(qtyEntity && valueEntity);
+  // Direct instruction: "no separate entities should be created to track
+  // details already tracked in the journal entries". placeOrder no
+  // longer mints a `${ref} Qty`/`${ref} Value` entity pair at all — the
+  // vendor is the `${ref}-PLACE-VALUE` line's own memo, and the item is
+  // simply which real, auto-vivified per-item account (On Order) the
+  // `${ref}-PLACE-ONORDER` line hit.
+  assert.equal(db.getEntityTree().some((e) => e.name === `${ref} Qty` || e.name === `${ref} Value`), false, 'no per-order tracking entity of any kind must exist any more');
 
-  assert.equal(byId.get(qtyEntity!.relation_id!)?.name, vendorName, "the real Qty entity's own relation must carry the real vendor");
-  assert.equal(byId.get(valueEntity!.relation_id!)?.name, itemName, "the real Value entity's own relation must carry the real item");
+  const valueLine = db.db.prepare(`SELECT jl.memo AS memo FROM journal j JOIN journal_line jl ON jl.journal_id = j.id WHERE j.reference = ?`).get(`${ref}-PLACE-VALUE`) as { memo: string };
+  assert.equal(valueLine.memo, vendorName, "the real vendor lives directly on the PO's own -PLACE-VALUE journal line, not a side entity");
+
+  const qtyLine = db.db.prepare(`SELECT ce.name AS account_name, ce.parent_id AS parent_id FROM journal j JOIN journal_line jl ON jl.journal_id = j.id JOIN current_entities ce ON ce.id = jl.account_id WHERE j.reference = ?`).get(
+    `${ref}-PLACE-ONORDER`
+  ) as { account_name: string; parent_id: number | null };
+  assert.equal(qtyLine.account_name, 'On Order', "the real item is simply which real, per-item On Order account this PO's quantity line posted to");
+  const itemId = (db.db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(itemName) as { id: number }).id;
+  assert.equal(qtyLine.parent_id, itemId, "that On Order account is a direct, real child of the real item itself");
 });
 
 test('getLocationCapacityStatus: a real location\'s own, current real stock checked against its own, real configured capacity — found to be purely informational and never enforced anywhere, per docs/TODO.md', () => {
