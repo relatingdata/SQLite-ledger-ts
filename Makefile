@@ -146,8 +146,16 @@ frontend: web-frontend
 text-frontend:
 	cd tui && $(RUN_NPM_SCRIPT) dev
 
+# ENTITY_DRIVER=sql here (overriding the real app's new `gleam` default
+# — see entity-driver-select.ts) because every one of these test files
+# gives itself its OWN fresh, isolated tmp sqlite file via DB_PATH before
+# importing db.ts; GleamEntityDriver talks to storage_engine's own single,
+# already-running, long-lived HTTP server, which can't follow a different
+# DB_PATH per test file the way an in-process SQL connection can. Testing
+# storage_engine itself is `gleam test` (its own suite) and the e2e
+# targets below, both against the one, real, shared database.
 test:
-	cd backend && $(RUN_TEST) test/*.test.ts scripts/*.test.ts
+	cd backend && ENTITY_DRIVER=sql $(RUN_TEST) test/*.test.ts scripts/*.test.ts
 	cd frontend && $(RUN_TEST) test/*.test.ts
 
 # End-to-end verification against real, deterministic business data —
@@ -175,7 +183,7 @@ test-e2e: reset-db
 # that whole code path (and flag) is gone now — boot never seeds a
 # demo business at all — so there is nothing left to guard against
 # here.
-test-e2e-tutorial: reset-db
+test-e2e-tutorial: reset-db ensure-storage-engine
 	@echo "Running the real, augmented tutorial fixture via the API path..."
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path api --non-interactive
 
@@ -194,7 +202,7 @@ test-e2e-tutorial-browser: reset-db ensure-servers
 # underneath it work identically for a genuinely different kind of
 # business. Same real step-runner.ts/screens.csv mechanism as
 # test-e2e-tutorial, a wholly separate fixture file.
-test-e2e-manufacturing-tutorial: reset-db
+test-e2e-manufacturing-tutorial: reset-db ensure-storage-engine
 	@echo "Running the real Manufacturing tutorial fixture via the API path..."
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/manufacturing-tutorial-steps.csv --path api --non-interactive
 
@@ -231,7 +239,7 @@ test-e2e-manufacturing-full: reset-db
 # Profit-Center-scoped cost tracking, and one bounded, human-driven
 # prototype revision. Same real step-runner.ts/screens.csv mechanism as
 # the other two tutorials, a wholly separate fixture file.
-test-e2e-project-builder-tutorial: reset-db
+test-e2e-project-builder-tutorial: reset-db ensure-storage-engine
 	@echo "Running the real Project Builder tutorial fixture via the API path..."
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/project-builder-tutorial-steps.csv --path api --non-interactive
 
@@ -378,6 +386,9 @@ e2e-spec-one:
 PID_DIR ?= /tmp/sql-ledger-ts-pids
 BACKEND_PID := $(PID_DIR)/backend.pid
 FRONTEND_PID := $(PID_DIR)/frontend.pid
+STORAGE_ENGINE_PID := $(PID_DIR)/storage-engine.pid
+STORAGE_ENGINE_PORT ?= 8090
+STORAGE_ENGINE_DB_PATH := $(CURDIR)/backend/data/entities.sqlite
 
 define BACKEND_HEALTHY
 [ -f $(BACKEND_PID) ] && kill -0 $$(cat $(BACKEND_PID)) 2>/dev/null && curl -sf http://localhost:3001/api/health > /dev/null 2>&1
@@ -385,11 +396,20 @@ endef
 define FRONTEND_HEALTHY
 [ -f $(FRONTEND_PID) ] && kill -0 $$(cat $(FRONTEND_PID)) 2>/dev/null && curl -sf http://localhost:5173 > /dev/null 2>&1
 endef
+# No /health route of its own (the smallest-possible HTTP server this
+# engine deliberately is, per its own README) — GET /entities answering
+# with ANY real HTTP response (200, or 404 before the schema exists yet)
+# is a genuine, live sign the server itself is up; only a connection
+# failure means it isn't.
+define STORAGE_ENGINE_HEALTHY
+[ -f $(STORAGE_ENGINE_PID) ] && kill -0 $$(cat $(STORAGE_ENGINE_PID)) 2>/dev/null && [ "$$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://localhost:$(STORAGE_ENGINE_PORT)/entities)" != "000" ]
+endef
 
 servers-status:
 	@mkdir -p $(PID_DIR)
 	@if $(BACKEND_HEALTHY); then echo "backend: healthy (pid $$(cat $(BACKEND_PID)))"; else echo "backend: not running/healthy"; fi
 	@if $(FRONTEND_HEALTHY); then echo "frontend: healthy (pid $$(cat $(FRONTEND_PID)))"; else echo "frontend: not running/healthy"; fi
+	@if $(STORAGE_ENGINE_HEALTHY); then echo "storage_engine: healthy (pid $$(cat $(STORAGE_ENGINE_PID)))"; else echo "storage_engine: not running/healthy"; fi
 
 # Starts only whichever real server (if either) isn't already up and
 # healthy - a perfectly good, already-running server is never
@@ -414,6 +434,27 @@ ensure-servers:
 	  ( cd frontend && setsid nohup $(RUN_NPM_SCRIPT) dev > /tmp/sql-ledger-ts-frontend.log 2>&1 < /dev/null & echo $$! > $(FRONTEND_PID) ); \
 	  for i in $$(seq 1 30); do curl -sf http://localhost:5173 > /dev/null 2>&1 && break; sleep 1; done; \
 	fi
+	$(MAKE) ensure-storage-engine
+
+# Starts storage_engine (the Gleam/BEAM storage engine backing
+# ENTITY_DRIVER=gleam, the real backend's own default) pointed at the
+# SAME, real, live backend/data/entities.sqlite file the backend itself
+# uses — never a separate file. Deliberately run AFTER the backend
+# block above (inside ensure-servers) or after reset-db's own schema
+# bootstrap (for the API-path e2e targets, which call this directly
+# without ensure-servers): db.ts's full schema+seed must always be the
+# first thing to ever touch a freshly-reset database file, never
+# storage_engine's own, much smaller one (see bootstrap-schema.ts's
+# header for exactly why that ordering is load-bearing, not cosmetic).
+ensure-storage-engine:
+	@mkdir -p $(PID_DIR)
+	@if $(STORAGE_ENGINE_HEALTHY); then \
+	  echo "storage_engine already healthy, reusing (pid $$(cat $(STORAGE_ENGINE_PID)))"; \
+	else \
+	  echo "starting storage_engine (db=$(STORAGE_ENGINE_DB_PATH), port=$(STORAGE_ENGINE_PORT))..."; \
+	  ( cd /home/claude/storage_engine && STORAGE_ENGINE_DB_PATH=$(STORAGE_ENGINE_DB_PATH) STORAGE_ENGINE_PORT=$(STORAGE_ENGINE_PORT) setsid nohup gleam run > /tmp/sql-ledger-ts-storage-engine.log 2>&1 < /dev/null & echo $$! > $(STORAGE_ENGINE_PID) ); \
+	  for i in $$(seq 1 30); do [ "$$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://localhost:$(STORAGE_ENGINE_PORT)/entities)" != "000" ] && break; sleep 1; done; \
+	fi
 
 # Historically a distinct, SEED_DEMO_BUSINESSES=false detached-server
 # variant of ensure-servers, for driving the real UI path against a
@@ -437,8 +478,14 @@ stop-servers:
 	  kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; \
 	  rm -f $(FRONTEND_PID); echo "frontend stopped"; \
 	fi
+	@if [ -f $(STORAGE_ENGINE_PID) ]; then \
+	  PID=$$(cat $(STORAGE_ENGINE_PID)); \
+	  kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; \
+	  rm -f $(STORAGE_ENGINE_PID); echo "storage_engine stopped"; \
+	fi
 	@sh scripts/safe-pkill.sh "tsx watch src/server.ts"
 	@sh scripts/safe-pkill.sh "vite dev"
+	@sh scripts/safe-pkill.sh "storage_engine.main" 2>/dev/null || true
 
 # A real, fast, minimal smoke layer - every real route visited once,
 # checking only that it loads without a real, unhandled error. See
@@ -797,7 +844,13 @@ reset-db:
 		echo "Preserved the outgoing database at backend/data/archive/ before removing it."; \
 	fi
 	rm -f backend/data/entities.sqlite backend/data/entities.sqlite-wal backend/data/entities.sqlite-shm
-	@echo "Database removed — it will reinitialize from backend/schema/*.sql on next backend start."
+	@if [ -f $(STORAGE_ENGINE_PID) ]; then \
+		PID=$$(cat $(STORAGE_ENGINE_PID)); \
+		kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; \
+		rm -f $(STORAGE_ENGINE_PID); echo "storage_engine stopped (file it had open is gone now anyway)."; \
+	fi
+	cd backend && $(RUN_SCRIPT) scripts/bootstrap-schema.ts
+	@echo "Database removed and reinitialized fresh from backend/schema/*.sql."
 
 # Builds the User Manual PDF from its own, single, real Markdown
 # source (docs/user-manual.md) — pandoc + xelatex, real, automatic

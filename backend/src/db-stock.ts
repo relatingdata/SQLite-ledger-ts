@@ -1660,7 +1660,22 @@ export function placeOrder(
   item?: ItemName,
   location?: LocationName
 ): void {
-  db.transaction(() => {
+  // Entity setup (configuration) deliberately happens BEFORE/outside any
+  // db.transaction() below, never inside one alongside it — under
+  // ENTITY_DRIVER=gleam, an Entity.*/entityDriver call goes out over real
+  // HTTP to storage_engine, which writes the same, real entities.sqlite
+  // through its OWN, separate SQLite connection. A still-open
+  // better-sqlite3 write transaction already holds this file's one
+  // write lock; calling out to a second, independent writer for the
+  // SAME file while that lock is held is a real deadlock, not just
+  // contention — confirmed directly, the hard way, running the real
+  // tutorial e2e suite (it hung for exactly this function's own
+  // busy-timeout ceiling, every time, before this fix). Accounting
+  // (direct SQL, inside postQuantityMovement's own transaction) and
+  // configuration (entity setup, here) now have genuinely separate
+  // commit boundaries, never interleaved in one transaction — the
+  // same distinction the storage-engine integration's own design was
+  // asked to keep.
   const qtyName = `${orderReference} Qty`;
   const valueName = `${orderReference} Value`;
   const ordersId = Entity.get('Orders')!.id;
@@ -1670,19 +1685,19 @@ export function placeOrder(
   if (vendor) Entity.relate(Entity.get(qtyName)!.id, vendor, userId);
   if (item) Entity.relate(Entity.get(valueName)!.id, item, userId);
   if (location) setHierarchyParent(qtyName, 'Location', location, userId);
+  const onOrderAccounts = item ? ensureItemQuantityAccounts(item, userId) : undefined;
+
   postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueName), priceMinor, userId, transdate);
-  if (item) {
+  if (onOrderAccounts) {
     // The item's own, real On Order account (ensureItemQuantityAccounts)
     // already carries this exact quantity — posting it a second time to
     // `${orderReference} Qty` as well would just be the same number
     // recorded twice. Only post it there when there's no item (the
     // qtyName entity is then the only place this number exists at all).
-    const { onOrderAccount, onOrderAccountId } = ensureItemQuantityAccounts(item, userId);
-    postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(onOrderAccount), quantity, userId, transdate, undefined, onOrderAccountId);
+    postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(onOrderAccounts.onOrderAccount), quantity, userId, transdate, undefined, onOrderAccounts.onOrderAccountId);
   } else {
     postQuantityMovement(business, ledger, `${orderReference}-PLACE`, asAccountName(qtyName), quantity, userId, transdate);
   }
-  })();
 }
 
 // An order known to have a real item (the `${orderReference} Value`

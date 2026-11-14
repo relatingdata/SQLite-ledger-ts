@@ -17,6 +17,18 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const dbPath = process.env.DB_PATH ?? path.join(dataDir, 'entities.sqlite');
 export const db = new Database(dbPath);
+// Matters now specifically because storage_engine's own sqlite3 CLI
+// subprocess (ENTITY_DRIVER=gleam's real backing store) is a genuinely
+// separate SQLite client against this SAME file — without a
+// busy_timeout, whichever of the two loses a close write race gets an
+// immediate "database is locked" instead of briefly waiting its turn.
+// 20s matches storage_engine's own `.timeout` (see sqlite_cli_ffi.erl's
+// run_script) — confirmed directly that 5s wasn't always enough under
+// real write contention from the full tutorial e2e suite, and that
+// ledger.gleam's own process.call timeout (the actor's own, SEPARATE
+// outer timeout) must stay comfortably ABOVE this one, never equal to
+// it, or the two race each other.
+db.exec('PRAGMA busy_timeout = 20000');
 if (process.env.DB_VERBOSE) {
   const realPrepare = db.prepare.bind(db);
   db.prepare = ((sql: string) => {
