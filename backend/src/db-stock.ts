@@ -27,6 +27,7 @@ import {
   ensureCombinationAccountLeaf,
   resolveBusinessCoaAccountId,
   resolveItemId,
+  getItem,
   setEntityLink,
   stageLine,
   create,
@@ -913,6 +914,15 @@ export function ensureUnitsTrackingBaseAccounts(business: BusinessName, userId: 
 }
 
 // Docs: docs/storage-space-as-currency-design.md § 24. Code and tests: where to look
+// Per direct instruction: services "may not be stored" — a service item
+// (is_storable === false) has no physical quantity to receive, dispatch
+// or transfer, only an ordered/fulfilled value (placeOrder/fulfillOrder).
+function assertItemIsStorable(itemName: ItemName, verb: string): void {
+  if (getItem(itemName)?.is_storable === false) {
+    throw new ValidationError(`"${itemName}" is a service item, not a stored item — it can't be ${verb}.`);
+  }
+}
+
 export function receiveItems(
   business: BusinessName,
   ledger: LedgerName,
@@ -928,6 +938,7 @@ export function receiveItems(
   if (quantity <= 0) throw new ValidationError('Received quantity must be positive.');
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
+  assertItemIsStorable(itemName, 'received');
   const locationId = Entity.get(locationName)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
@@ -985,6 +996,7 @@ export function receiveStockPhysical(input: ReceiveStockPhysicalInput, userId: U
   if (quantity <= 0) throw new ValidationError('Received quantity must be positive.');
   const itemId = resolveItemId(itemName);
   if (!itemId) throw new ValidationError(`No item named "${itemName}".`);
+  assertItemIsStorable(itemName, 'received');
   const locationId = Entity.get(locationName)?.id;
   if (!locationId) throw new ValidationError(`No location named "${locationName}".`);
 
@@ -1057,6 +1069,7 @@ export function dispatchItems(
     throw new ValidationError(`Only ${current.quantity_on_hand} of "${itemName}" on hand at "${locationName}" — cannot dispatch ${quantity}.`);
   }
   resolveItemId(itemName); // validates the real item exists; throws otherwise
+  assertItemIsStorable(itemName, 'dispatched');
   const date = transdate ?? todayAtLocation(locationName);
   assertPeriodOpen(business, ledger, date);
   db.transaction(() => {
@@ -1120,6 +1133,7 @@ export function transferItems(
     throw new ValidationError(`Only ${current.quantity_on_hand} of "${itemName}" on hand at "${fromLocationName}" — cannot transfer ${quantity}.`);
   }
   resolveItemId(itemName); // validates the real item exists; throws otherwise
+  assertItemIsStorable(itemName, 'transferred');
   for (const loc of [fromLocationName, toLocationName]) {
     if (!Entity.get(loc)) throw new ValidationError(`No location named "${loc}".`);
   }

@@ -23,6 +23,7 @@ import {
   getActiveLedger,
   resolveBusinessCoaAccountId,
   getPlantItem,
+  ensureServiceItem,
   type Location as StockLocation,
   type BusinessName,
   type LedgerName,
@@ -312,12 +313,20 @@ export function clockInToProject(employeeName: EmployeeName, projectExpenseAccou
 
   const clockedInAt = new Date().toISOString();
   const poReference = `CLOCK-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  // Per direct instruction: "services for manufacturing or building should
+  // be no different from items" — the order's own TRACKING role
+  // (placeOrder's `item` param, via stagePurchaseOrder/postPurchaseOrder)
+  // is now a real, is_storable=false "Labour" service item, not the real
+  // GL account pretending to be one. projectExpenseAccount itself is
+  // completely unchanged below — it stays the real financial posting
+  // target at clock-out (stageOrderReceipt's own `item` field).
+  const laborItem = ensureServiceItem('Labour', business, userId);
   stagePurchaseOrder({
     reference: poReference,
     business,
     ledger,
     vendor: employeeName,
-    item: projectExpenseAccount,
+    item: laborItem,
     quantity: 1,
     price_minor: contact.wage_minor_per_hour,
     transdate: clockedInAt.slice(0, 10),
@@ -418,12 +427,16 @@ export function clockPlantIn(plantName: string, projectExpenseAccount: AccountNa
 
   const clockedInAt = new Date().toISOString();
   const poReference = `PLANT-CLOCK-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+  // Same real-service-item tracking swap as clockInToProject above, using
+  // a real, is_storable=false "Plant Hire" item in place of the real GL
+  // account; projectExpenseAccount is unchanged as the real posting target.
+  const plantHireItem = ensureServiceItem('Plant Hire', business, userId);
   stagePurchaseOrder({
     reference: poReference,
     business,
     ledger,
     vendor: plant.hireVendor ?? plantName,
-    item: projectExpenseAccount,
+    item: plantHireItem,
     quantity: 1,
     price_minor: plant.hourlyRateMinor,
     transdate: clockedInAt.slice(0, 10),

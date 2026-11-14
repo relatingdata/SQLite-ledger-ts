@@ -3147,6 +3147,7 @@ function contactFieldAttrName(field: string): string | undefined {
     item_unit_of_measure: 'Item Unit Of Measure',
     item_upc: 'Item UPC',
     item_retail_price_minor: 'Item Retail Price Minor',
+    item_is_storable: 'Item Is Storable',
   };
   return map[field];
 }
@@ -4439,6 +4440,15 @@ export interface Item {
   unit_of_measure: string | null;
   upc: string | null;
     retail_price_minor: number | null;
+  // Per direct instruction: "services for manufacturing or building
+  // should be no different from items except they may not be stored" —
+  // true (the default, via the schema view's own COALESCE, so every
+  // existing item is completely unaffected) for an ordinary, physical,
+  // stocked item; false for a service item (labour, plant hire, a
+  // subcontracted trade) that is never received, dispatched, transferred
+  // or counted, only ordered/fulfilled against (placeOrder/fulfillOrder,
+  // db-stock.ts) and possibly prepaid (a standing order against it).
+  is_storable: boolean;
 }
 
 export function getItem(entityName: string): Item | undefined {
@@ -4446,11 +4456,11 @@ export function getItem(entityName: string): Item | undefined {
   if (entityId === undefined) return undefined;
   const row = db
     .prepare(
-      `SELECT item_description AS description, item_unit_of_measure AS unit_of_measure, item_upc AS upc, item_retail_price_minor AS retail_price_minor
+      `SELECT item_description AS description, item_unit_of_measure AS unit_of_measure, item_upc AS upc, item_retail_price_minor AS retail_price_minor, item_is_storable AS is_storable
        FROM contact WHERE entity_id = ?`
     )
-    .get(entityId) as Item | undefined;
-  return row;
+    .get(entityId) as (Omit<Item, 'is_storable'> & { is_storable: number }) | undefined;
+  return row ? { ...row, is_storable: row.is_storable !== 0 } : undefined;
 }
 
 export function setItem(entityName: string, item: Partial<Item>): void {
@@ -4461,6 +4471,11 @@ export function setItem(entityName: string, item: Partial<Item>): void {
     item_unit_of_measure: item.unit_of_measure ?? null,
     item_upc: item.upc ?? null,
     item_retail_price_minor: item.retail_price_minor ?? null,
+    // Only ever written when explicitly false (a service item) — left
+    // unset (null, reading back as the view's own default of storable)
+    // for an ordinary item, same "don't touch what wasn't asked about"
+    // discipline mergeContactDetail already has for every other field.
+    item_is_storable: item.is_storable === false ? 0 : item.is_storable === true ? 1 : null,
   });
 }
 
@@ -4569,11 +4584,28 @@ export function countItems(businessName: BusinessName): number {
   return row.total;
 }
 
-export function createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId, businessName?: BusinessName): void {
+export function createItem(
+  name: string,
+  parentCategoryOrItemsRoot: string,
+  userId: UserId,
+  businessName?: BusinessName,
+  // Per direct instruction: "services for manufacturing or building should
+  // be no different from items except they may not be stored" — defaults
+  // to true (an ordinary, physical, stocked item) so every existing call
+  // site is completely unaffected; pass false for a service item (labour,
+  // plant hire) that is never received/dispatched/transferred/counted.
+  isStorable: boolean = true
+): void {
+  // Only ever written when explicitly false (a service item) — left
+  // unset for an ordinary item, same discipline setItem's own mapping
+  // uses, so a later setItem({ ... } /* no is_storable */) call never
+  // revokes a real "1" value entity into the shared Revoked bucket and
+  // collides there with an unrelated attr's own revoked "1"/"0".
+  const storableField = isStorable === false ? { is_storable: false as const } : {};
   if (!businessName) {
     const parent = requireEntity(parentCategoryOrItemsRoot, typeCategoryOrItemsRootName);
     create(parent, typeItemName, name, userId);
-    setItem(name, { description: null, unit_of_measure: null, upc: null });
+    setItem(name, { description: null, unit_of_measure: null, upc: null, ...storableField });
     return;
   }
   const itemsRoot = requireEntity('Items', typeRootName, requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName)));
@@ -4582,7 +4614,20 @@ export function createItem(name: string, parentCategoryOrItemsRoot: string, user
       ? itemsRoot
       : requireEntityById(requireDescendantIdByName(itemsRoot.id, parentCategoryOrItemsRoot), typeCategoryOrItemsRootName);
   create(parent, typeItemName, name, userId);
-  setItem(name, { description: null, unit_of_measure: null, upc: null });
+  setItem(name, { description: null, unit_of_measure: null, upc: null, ...storableField });
+}
+
+// Lazy get-or-create for a real, is_storable=false service item (e.g.
+// "Labour", "Plant Hire") directly under a business's own Items root —
+// same "vivify on first real use" discipline as ensureItemQuantityAccounts
+// and every other ensure* helper here, so repeated clock-ins never throw
+// on "already exists" and no service items are eagerly seeded up front.
+export function ensureServiceItem(name: string, businessName: BusinessName, userId: UserId): ItemName {
+  const itemsRoot = requireEntity('Items', typeRootName, requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName)));
+  if (!Entity.getUnder(name, itemsRoot.id)) {
+    createItem(name, 'Items', userId, businessName, false);
+  }
+  return asItemName(name);
 }
 
 function requireDescendantIdByName(ancestorId: number, name: string): number {

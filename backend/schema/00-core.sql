@@ -809,7 +809,14 @@ SELECT
   (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Item Description' ORDER BY v.id LIMIT 1) AS item_description,
   (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Item Unit Of Measure' ORDER BY v.id LIMIT 1) AS item_unit_of_measure,
   (SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Item UPC' ORDER BY v.id LIMIT 1) AS item_upc,
-  CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Item Retail Price Minor' ORDER BY v.id LIMIT 1) AS INTEGER) AS item_retail_price_minor
+  CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Item Retail Price Minor' ORDER BY v.id LIMIT 1) AS INTEGER) AS item_retail_price_minor,
+  -- Per direct instruction: "services for manufacturing or building
+  -- should be no different from items except they may not be stored" —
+  -- an ordinary, physical, stocked item simply never sets this detail at
+  -- all, so COALESCE defaults an absent value to 1 (storable), the same
+  -- "every existing item is unaffected" guarantee every other item_*
+  -- column added here after the fact already gets.
+  COALESCE(CAST((SELECT v.name FROM current_entities c JOIN current_entities v ON v.parent_id = c.id WHERE c.parent_id = e.id AND c.name = 'Item Is Storable' ORDER BY v.id LIMIT 1) AS INTEGER), 1) AS item_is_storable
 FROM current_entities e
 WHERE EXISTS (SELECT 1 FROM current_entities tag WHERE tag.parent_id = e.id AND tag.name = 'Contact' AND tag.relation_id IS NOT NULL);
 
