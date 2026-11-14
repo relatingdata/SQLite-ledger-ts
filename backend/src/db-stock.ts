@@ -49,6 +49,7 @@ import {
   type ItemName,
   type ProviderName,
   type LocationName,
+  type Recurrence,
 } from './db.js';
 
 // `locationName` no longer tags a journal_line (the location_id column was
@@ -81,7 +82,7 @@ export function stageQuantityMovementLine(business: BusinessName, ledger: Ledger
   ).run(reference, business, ledger, 'Quantity movement', transdate, account, resolvedAccountId, deltaQuantity, memo ?? '');
 }
 
-export function postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void {
+export function postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId, recurrence?: Recurrence, recurrenceCount?: number): void {
   // Stage D: post_quantity_movement_insert (00-core.sql) is gone — this now
   // calls the shared TypeScript orchestration (db-journal.ts) directly.
   // commitStagedQuantityMovement already wraps failures as PostingError, so
@@ -89,7 +90,7 @@ export function postStagedQuantityMovement(business: BusinessName, ledger: Ledge
   // thrown from deeper in the stack (a genuine bug) still surfaces as one,
   // matching this function's pre-existing contract.
   try {
-    commitStagedQuantityMovement(reference, business, ledger, userId);
+    commitStagedQuantityMovement(reference, business, ledger, userId, recurrence, recurrenceCount);
   } catch (err) {
     if (err instanceof PostingError) throw err;
     throw new PostingError(err instanceof Error ? err.message : String(err));
@@ -106,12 +107,14 @@ export function postQuantityMovement(
   transdate?: string,
   locationName?: LocationName,
   accountId?: number,
-  memo?: string
+  memo?: string,
+  recurrence?: Recurrence,
+  recurrenceCount?: number
 ): void {
   const date = transdate ?? (locationName ? todayAtLocation(locationName) : new Date().toISOString().slice(0, 10));
   assertPeriodOpen(business, ledger, date);
   stageQuantityMovementLine(business, ledger, reference, account, deltaQuantity, date, accountId, memo);
-  postStagedQuantityMovement(business, ledger, reference, userId);
+  postStagedQuantityMovement(business, ledger, reference, userId, recurrence, recurrenceCount);
 }
 
 export interface Location {
@@ -1680,18 +1683,27 @@ function resolveOrderAccounts(orderReference: string): {
   qtyAccountName: string | undefined;
   valueAccountId: number | undefined;
   valueAccountName: string | undefined;
+  recurrence: Recurrence;
 } {
-  const findBy = (reference: string): { account_id: number; name: string } | undefined =>
+  const findBy = (reference: string): { account_id: number; name: string; recurrence: Recurrence } | undefined =>
     db
       .prepare(
-        `SELECT jl.account_id AS account_id, ce.name AS name
+        `SELECT jl.account_id AS account_id, ce.name AS name, j.recurrence AS recurrence
          FROM journal j JOIN journal_line jl ON jl.journal_id = j.id JOIN current_entities ce ON ce.id = jl.account_id
          WHERE j.reference = ? LIMIT 1`
       )
-      .get(reference) as { account_id: number; name: string } | undefined;
+      .get(reference) as { account_id: number; name: string; recurrence: Recurrence } | undefined;
   const qtyRow = findBy(`${orderReference}-PLACE-ONORDER`);
   const valueRow = findBy(`${orderReference}-PLACE-VALUE`);
-  return { qtyAccountId: qtyRow?.account_id, qtyAccountName: qtyRow?.name, valueAccountId: valueRow?.account_id, valueAccountName: valueRow?.name };
+  return {
+    qtyAccountId: qtyRow?.account_id,
+    qtyAccountName: qtyRow?.name,
+    valueAccountId: valueRow?.account_id,
+    valueAccountName: valueRow?.name,
+    // Both legs are placed together with the same recurrence (placeOrder,
+    // below) — either row's own, whichever actually exists, reports it.
+    recurrence: qtyRow?.recurrence ?? valueRow?.recurrence ?? 'once',
+  };
 }
 
 export function placeOrder(
@@ -1704,7 +1716,21 @@ export function placeOrder(
   transdate?: string,
   vendor?: ProviderName,
   item?: ItemName,
-  location?: LocationName
+  location?: LocationName,
+  // A standing order (direct instruction: "potentially recurring for
+  // standing orders... should already be part of the existing recurring
+  // journal framework") — reuses createRecurringJournal's own schema
+  // (journal.recurrence/recurrence_count, journal_occurrences) rather
+  // than a second scheduling mechanism, via commitStagedEntry's own
+  // recurrence support (db-journal.ts) — not createRecurringJournal
+  // itself, whose balanced-lines API can't express placeOrder's
+  // deliberately single-sided quantity/value "on order" posting.
+  // getOrderStatus (below) sums a recurring order's own occurrences up
+  // to today via journal_occurrences; a 'once' order (the default, and
+  // every order placed before this existed) is completely unaffected —
+  // same raw journal_line sum as always.
+  recurrence?: Recurrence,
+  recurrenceCount?: number
 ): void {
   // Account resolution (configuration) deliberately happens BEFORE/outside
   // any db.transaction() below, never inside one alongside it — under
@@ -1750,8 +1776,8 @@ export function placeOrder(
   // storage... business rule... stocking levels" is a later, separate
   // task): not yet a further axis on which account this posts to, beyond
   // being required to exist above.
-  postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueAccountName), priceMinor, userId, transdate, undefined, valueAccountId, vendor ?? undefined);
-  postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(qtyAccountName), quantity, userId, transdate, undefined, qtyAccountId);
+  postQuantityMovement(business, ledger, `${orderReference}-PLACE-VALUE`, asAccountName(valueAccountName), priceMinor, userId, transdate, undefined, valueAccountId, vendor ?? undefined, recurrence, recurrenceCount);
+  postQuantityMovement(business, ledger, `${orderReference}-PLACE-ONORDER`, asAccountName(qtyAccountName), quantity, userId, transdate, undefined, qtyAccountId, undefined, recurrence, recurrenceCount);
 }
 
 export function fulfillOrder(
@@ -1777,13 +1803,34 @@ export function fulfillOrder(
 }
 
 export function getOrderStatus(orderReference: string): { quantity: number; value_minor: number } {
-  const { qtyAccountId, valueAccountId } = resolveOrderAccounts(orderReference);
+  const { qtyAccountId, valueAccountId, recurrence } = resolveOrderAccounts(orderReference);
+  // A 'once' order (every order placed before standing orders existed,
+  // and the overwhelming majority today) sums the raw journal/journal_line
+  // tables directly, unconditionally — no date filter, matching this
+  // function's own, already-tested behavior exactly (an order dated in
+  // the future still shows as outstanding immediately; per direct
+  // instruction, placeOrder posts for real now, not deferred). A standing
+  // order's own PLACE leg is a genuine SCHEDULE, not one row — only
+  // journal_occurrences (createRecurringJournal's own expansion) knows
+  // its real occurrences-to-date, so it, and only it, needs that view
+  // instead, filtered to what's actually due by today. Every FULFILL leg
+  // fulfillOrder posts (always recurrence='once', even against a
+  // standing order's own account) still has exactly one occurrence in
+  // journal_occurrences, same as it always had, so this stays correct for
+  // both legs together.
   const sumFor = (accountId: number | undefined): number => {
     if (accountId == null) return 0;
+    if (recurrence === 'once') {
+      return (
+        db
+          .prepare(`SELECT SUM(jl.amount_minor) AS total FROM journal j JOIN journal_line jl ON jl.journal_id = j.id WHERE j.reference LIKE ? AND jl.account_id = ?`)
+          .get(`${orderReference}%`, accountId) as { total: number | null }
+      ).total ?? 0;
+    }
     return (
-      db.prepare(`SELECT SUM(jl.amount_minor) AS total FROM journal j JOIN journal_line jl ON jl.journal_id = j.id WHERE j.reference LIKE ? AND jl.account_id = ?`).get(`${orderReference}%`, accountId) as {
-        total: number | null;
-      }
+      db
+        .prepare(`SELECT SUM(jo.amount_minor) AS total FROM journal_occurrences jo WHERE jo.reference LIKE ? AND jo.account_id = ? AND jo.transdate <= date('now')`)
+        .get(`${orderReference}%`, accountId) as { total: number | null }
     ).total ?? 0;
   };
   return { quantity: sumFor(qtyAccountId), value_minor: sumFor(valueAccountId) };

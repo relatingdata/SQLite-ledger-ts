@@ -772,6 +772,18 @@ interface CommitStagedEntryOptions {
   // Only post_journal_entry_insert's journal_line insert carries bank_reference;
   // post_quantity_movement_insert's own INSERT INTO journal_line omits that column entirely.
   includeBankReference: boolean;
+  // Stamps journal.recurrence/recurrence_count directly, the same columns
+  // createRecurringJournal (below) sets — reused here, rather than
+  // reinventing a second scheduling mechanism, for db-stock.ts's
+  // placeOrder: a standing order's own quantity/value "on order" posting
+  // is deliberately single-sided (requireBalance: false), which
+  // createRecurringJournal's own balanced-lines API cannot express, so
+  // placeOrder stamps recurrence through this lower-level path instead —
+  // same schema, same journal_occurrences expansion, different entry
+  // point for a different shape of entry. Omitted/undefined means
+  // 'once'/null, exactly like every other caller today.
+  recurrence?: Recurrence;
+  recurrenceCount?: number;
 }
 
 // Stage D: the shared orchestration both post_journal_entry_insert and
@@ -836,13 +848,15 @@ function commitStagedEntry(reference: string, business: string, ledger: string, 
       db.prepare(`INSERT OR IGNORE INTO account (entity_id) VALUES (?)`).run(s.resolvedAccountId!);
     }
 
-    db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES (?, ?, ?, ?, ?, ?)`).run(
+    db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id, recurrence, recurrence_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
       businessId ?? null,
       ledgerId ?? null,
       reference,
       description,
       transdate,
-      userId
+      userId,
+      opts.recurrence ?? 'once',
+      opts.recurrenceCount ?? null
     );
     const journalId = (
       db.prepare(`SELECT id FROM journal WHERE reference = ? AND business_id = ? AND ledger_id = ?`).get(reference, businessId, ledgerId) as { id: number }
@@ -867,7 +881,15 @@ function commitStagedEntry(reference: string, business: string, ledger: string, 
           s.memo
         );
       }
-      db.prepare(`UPDATE account SET balance_minor = balance_minor + ? WHERE entity_id = ?`).run(s.amount_minor, s.resolvedAccountId!);
+      // Same rule createRecurringJournal already follows: a recurring
+      // entry's balance effect is read exclusively via journal_occurrences
+      // (expanded per schedule date), never via this running cache column
+      // — updating it here for a recurring entry would only ever reflect
+      // this one, first occurrence, silently wrong from the second
+      // occurrence on. Untouched (as already) for the 'once' case.
+      if ((opts.recurrence ?? 'once') === 'once') {
+        db.prepare(`UPDATE account SET balance_minor = balance_minor + ? WHERE entity_id = ?`).run(s.amount_minor, s.resolvedAccountId!);
+      }
     }
 
     db.prepare(`DELETE FROM journal_entry_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
@@ -882,9 +904,9 @@ export function postJournalEntry(reference: string, business: BusinessName, ledg
   }
 }
 
-export function commitStagedQuantityMovement(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+export function commitStagedQuantityMovement(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId, recurrence?: Recurrence, recurrenceCount?: number): void {
   try {
-    commitStagedEntry(reference, business, ledger, userId, { requireBalance: false, includeBankReference: false });
+    commitStagedEntry(reference, business, ledger, userId, { requireBalance: false, includeBankReference: false, recurrence, recurrenceCount });
   } catch (err) {
     throw new PostingError(err instanceof Error ? err.message : String(err));
   }
