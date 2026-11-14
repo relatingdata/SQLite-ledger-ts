@@ -18,13 +18,13 @@ Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has
 Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),2,bankAccountName,,text
 Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),3,currency,input[placeholder='e.g. AUD'],text
 Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),4,confirmCombination,table input[type=checkbox],check
-Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,1,businessName,,text
-Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,2,locationName,.generic-form fieldset >> nth=0 >> input,text
-Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,3,city,.generic-form fieldset >> nth=1 >> input,text
-Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,4,locationType,.generic-form fieldset >> nth=2 >> select,select
-Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,5,division,,text
-Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,6,bottleCapacity,,text
-Create Location,data,/locations,.list-toolbar .empty;;key:Insert,createAndConfigureLocation,key:Enter,7,cartonCapacity,,text
+Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,1,businessName,,text
+Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,2,locationName,.generic-form fieldset >> nth=0 >> input,text
+Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,3,city,.generic-form fieldset >> nth=1 >> input,text
+Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,4,locationType,.generic-form fieldset >> nth=2 >> select,select
+Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,5,division,,text
+Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,6,bottleCapacity,,text
+Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,7,cartonCapacity,,text
 Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,1,businessName,,text
 Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,2,employeeName,input[placeholder='Employee name'],text
 Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,3,locationName,,text
@@ -252,64 +252,64 @@ Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,5,locationName,,text
 Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,6,quantity,,text
 Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
 Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,select >> nth=3,select
+Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
 Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,select >> nth=4,select
+Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
 Check Bom Components Recorded,data,,,,,1,assemblyItem,,text
 Check Bom Components Recorded,data,,,,,2,expectedCount,,text
 Check Stock Nonnegative,data,,,,,1,businessName,,text
