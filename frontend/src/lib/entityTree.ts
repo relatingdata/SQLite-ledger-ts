@@ -20,8 +20,19 @@ export function isDescendantOf(entity: EntityNode, ancestorName: string, allEnti
   return false;
 }
 
-// See docs/pm-frontend-reference.md.
-const INTERNAL_ITEM_RECORD_NAMES = new Set(['On Order', 'Units Sold', 'Count Adjustment', 'Write-off', 'Item Source']);
+// See docs/pm-frontend-reference.md. 'Contact' is here for the exact same
+// reason as the others: mergeContactDetail (backend/src/db.ts) reuses the
+// generic Entity.tag(id, 'Contact', userId) primitive to hold an item's own
+// flat attributes (item_description, item_retail_price_minor, …) under a
+// literal "Contact" child of the item itself — nothing to do with a real,
+// human Contact. Without it here, any item that has ever had one of those
+// fields set gains a non-internal child, fails filterToItems's own isLeaf
+// check, and vanishes from every item picker (Purchase Order, RFQ,
+// Quotation, Stock Receipt, Stock Dispatch, Sales Order) — while the bare
+// "Contact" child itself, having no children of its own and sitting under
+// Items, wrongly passes as a fake item in its place. A real, confirmed
+// regression, found via make test-e2e-tutorial-browser.
+const INTERNAL_ITEM_RECORD_NAMES = new Set(['On Order', 'Units Sold', 'Count Adjustment', 'Write-off', 'Item Source', 'Contact']);
 
 // See docs/pm-frontend-reference.md.
 function looksLikeSourceRecordName(name: string): boolean {

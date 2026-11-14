@@ -48,6 +48,20 @@ test('filterToItems excludes every non-product leaf, and does NOT require is_pos
   assert.deepEqual(names, ['Merlot 2021', 'Shiraz 2021'], 'only the two real wine products, not Cash and Bank or Sales Revenue — the exact reported bug');
 });
 
+test('filterToItems still finds a tagged item once mergeContactDetail has given it its own "Contact" attribute-holder child — the real stock/po tutorial regression', () => {
+  const entities: EntityNode[] = [
+    node({ id: 10, name: 'Items', parent_id: null }),
+    node({ id: 11, name: 'Beer', parent_id: 10 }),
+    node({ id: 12, name: 'Amber Ale 330ml', parent_id: 11 }),
+    node({ id: 13, name: 'Amber Ale 330ml — Hierarchy: Category', parent_id: 12 }),
+    node({ id: 14, name: 'Contact', parent_id: 12 }), // mergeContactDetail's own generic attribute-holder tag, not a real Contact
+  ];
+
+  const result = filterToItems(entities);
+  const names = result.map((e) => e.name).sort();
+  assert.deepEqual(names, ['Amber Ale 330ml'], 'the real item is found as a leaf, and its own "Contact" attribute-holder child never shows up as a fake item in its place');
+});
+
 test('isDescendantOf never infinite-loops on a malformed/cyclic tree', () => {
   const entities: EntityNode[] = [node({ id: 1, name: 'A', parent_id: 2 }), node({ id: 2, name: 'B', parent_id: 1 })];
   assert.equal(isDescendantOf(entities[0], 'Items', entities), false);
