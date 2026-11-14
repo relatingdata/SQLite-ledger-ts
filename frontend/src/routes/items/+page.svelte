@@ -836,6 +836,14 @@
                   <option value="unit">unit</option>
                   <option value="nip">nip</option>
                   <option value="glass">glass</option>
+                  <!-- 'ea' (each) — the real, canonical BOM unit for whole, countable
+                       manufacturing components (frames, hinges, hardware kits), used
+                       throughout backend/scripts/simulate-manufacturing-cycles.ts and
+                       shared-fixtures/manufacturing-tutorial-steps.csv. The list above
+                       predates Manufacturing and only covered retail/beverage items
+                       (liquid volumes, "a glass", "a nip"); nothing here was wrong for
+                       its original scope, it just never had a whole-count option added. -->
+                  <option value="ea">ea</option>
                 </select>
               </fieldset>
               <button class="btn" onclick={addBomComponent} disabled={savingBom}>{savingBom ? 'Saving…' : (translations.current['Add component'] ?? 'Add component')}</button>

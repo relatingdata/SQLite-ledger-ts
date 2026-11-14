@@ -184,7 +184,7 @@ test-e2e-tutorial: reset-db
 # themselves, not just the backend functions behind them.
 test-e2e-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real, augmented tutorial fixture via the real, driven UI path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive --fallback-to-api
 
 # The Manufacturing tutorial (Stage 6 of the three-tutorial-chapters
 # plan, docs/user-manual-ch4-manufacturing-tutorial.md) - a wholly
@@ -204,7 +204,7 @@ test-e2e-manufacturing-tutorial: reset-db
 # unmodified, Material-only), not just the backend functions behind it.
 test-e2e-manufacturing-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real Manufacturing tutorial fixture via the real, driven UI path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/manufacturing-tutorial-steps.csv --path ui --non-interactive
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/manufacturing-tutorial-steps.csv --path ui --non-interactive --fallback-to-api
 
 # The Manufacturing chapter's own "full" tier, per the user's own
 # "lighter now" answer: a real, looped simulation (3 repeated
@@ -246,7 +246,7 @@ test-e2e-project-builder-tutorial: reset-db
 # Item, Post, the three report pages).
 test-e2e-project-builder-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real Project Builder tutorial fixture via the real, driven UI path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/project-builder-tutorial-steps.csv --path ui --non-interactive
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/project-builder-tutorial-steps.csv --path ui --non-interactive --fallback-to-api
 
 # The Project Builder chapter's own "full" tier, per the user's own
 # "lighter now" answer: a real, looped simulation (2-3 repeated
