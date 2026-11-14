@@ -1,21 +1,38 @@
-import { test } from '../test/test-runtime.ts';
+import { test, after } from '../test/test-runtime.ts';
 import assert from 'node:assert/strict';
-import { writeFileSync, mkdtempSync } from 'fs';
+import { writeFileSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import {
-  parseCsvLine,
-  loadScreens,
-  loadSteps,
-  lintSteps,
-  runStepViaApi,
-  type Screen,
-} from './step-runner.ts';
-import { getEntityTree } from '../src/db.ts';
+import type { Screen } from './step-runner.ts';
 
 function tempDir(): string {
   return mkdtempSync(join(tmpdir(), 'step-runner-test-'));
 }
+
+// step-runner.ts statically imports db.ts, so (unlike a plain top-level
+// `process.env.DB_PATH = ...`, which would run too late — ES module
+// imports are hoisted/evaluated before this file's own top-level code)
+// this file must set DB_PATH *before* dynamically importing step-runner.ts,
+// the same pattern db.test.ts uses, or runStepViaApi's "real createBusiness"
+// test below writes "StepRunnerUnitTest Co" into the real, shared
+// backend/data/entities.sqlite — harmless the first time, but a second run
+// then fails with "already exists under this real, same parent."
+const tmpDbPath = join(tmpdir(), `sql-ledger-ts-step-runner-test-${process.pid}-${Date.now()}.sqlite`);
+process.env.DB_PATH = tmpDbPath;
+process.env.SEED_DEMO_BUSINESSES = 'false';
+
+const { parseCsvLine, loadScreens, loadSteps, lintSteps, runStepViaApi } = await import('./step-runner.ts');
+const { getEntityTree } = await import('../src/db.ts');
+
+after(() => {
+  try {
+    rmSync(tmpDbPath, { force: true });
+    rmSync(`${tmpDbPath}-wal`, { force: true });
+    rmSync(`${tmpDbPath}-shm`, { force: true });
+  } catch {
+    // best-effort cleanup only
+  }
+});
 
 test('parseCsvLine: plain fields', () => {
   assert.deepEqual(parseCsvLine('a,b,c'), ['a', 'b', 'c']);

@@ -1723,16 +1723,20 @@ export function fulfillOrder(
   userId: UserId,
   transdate?: string
 ): void {
-  db.transaction(() => {
-  postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-VALUE`, asAccountName(`${orderReference} Value`), -valueFulfilledMinor, userId, transdate);
+  // Same deadlock reason as placeOrder above: resolveOrderItem and
+  // ensureItemQuantityAccounts both call into Entity.*/entityDriver
+  // (ensureItemQuantityAccounts can itself create new entities on first
+  // use), so they must run before/outside any db.transaction() — never
+  // inside one alongside direct-SQL accounting writes.
   const item = resolveOrderItem(orderReference);
-  if (item) {
-    const { onOrderAccount, onOrderAccountId } = ensureItemQuantityAccounts(item, userId);
-    postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-ONORDER`, asAccountName(onOrderAccount), -quantityFulfilled, userId, transdate, undefined, onOrderAccountId);
+  const onOrderAccounts = item ? ensureItemQuantityAccounts(item, userId) : undefined;
+
+  postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-VALUE`, asAccountName(`${orderReference} Value`), -valueFulfilledMinor, userId, transdate);
+  if (onOrderAccounts) {
+    postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}-ONORDER`, asAccountName(onOrderAccounts.onOrderAccount), -quantityFulfilled, userId, transdate, undefined, onOrderAccounts.onOrderAccountId);
   } else {
     postQuantityMovement(business, ledger, `${orderReference}-FULFILL-${fulfillingReference}`, asAccountName(`${orderReference} Qty`), -quantityFulfilled, userId, transdate);
   }
-  })();
 }
 
 export function getOrderStatus(orderReference: string): { quantity: number; value_minor: number } {
