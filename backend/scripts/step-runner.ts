@@ -13,6 +13,13 @@ import { getProfitAndLossByAxis } from '../src/db-matrix-reports.js';
 import * as auth from '../src/auth.js';
 import { unescapeAscii } from '../../shared-fixtures/csv.js';
 import { press, typeAndEnter, findItemByText, navigateMenuGenerically } from './text-driver-helpers.js';
+import { CORE_API_REGISTRY, CORE_VERIFY_REGISTRY, coreSessionStep, resetCore } from '../src/core/screens.js';
+
+// Which middleware serves the API path: the simplified core (two stores,
+// four calls - backend/src/core/, docs/pm-core-middleware.md) or the
+// original db.ts functions. The fixtures and screens.csv are the same for
+// both. `MIDDLEWARE=core` selects the core; anything else, the original.
+export const USE_CORE = process.env.MIDDLEWARE === 'core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -893,13 +900,18 @@ export function runStepViaApi(step: Step, screens: Map<string, Screen>): { ok: b
   try {
     const screen = screens.get(step.screen_name);
     const args = buildArgs(step, screen);
+    const apiRegistry = USE_CORE ? CORE_API_REGISTRY : API_REGISTRY;
+    const verifyRegistry = USE_CORE ? CORE_VERIFY_REGISTRY : VERIFY_REGISTRY;
+    // The core has no ambient session: signing in and choosing a business
+    // and ledger select the instance every later step is served by.
+    if (USE_CORE && screen?.screen_kind === 'session') coreSessionStep(step.screen_name, args);
     if (screen?.api_function) {
-      const fn = API_REGISTRY[screen.api_function];
+      const fn = apiRegistry[screen.api_function];
       if (!fn) return { ok: false, error: `No real API registry entry for "${screen.api_function}".` };
       fn(args);
     }
     if (step.verify) {
-      const verifyFn = VERIFY_REGISTRY[step.verify];
+      const verifyFn = verifyRegistry[step.verify];
       if (!verifyFn) return { ok: false, error: `No real verify registry entry for "${step.verify}".` };
       if (!verifyFn(args)) return { ok: false, error: `Verify "${step.verify}" returned false.` };
     }
@@ -1200,6 +1212,10 @@ async function main() {
     return;
   }
 
+  // A fixture always builds its own business from scratch, so the core
+  // starts each whole run from a fresh installation.
+  if (USE_CORE && path === 'api' && skipN === 0 && !onlyN) resetCore(true);
+
   if (args.includes('--pretty')) {
     console.log(prettyPrintSteps(args.includes('--steps') && !onlyN ? allSteps.slice(0, stepsArg) : allSteps, screens));
     return;
@@ -1256,6 +1272,8 @@ async function main() {
   let recordingUsername: string | undefined;
   const recordedExpectations: { screen_name: string; values: string[] }[] = [];
 
+  // A run with any failed step exits non-zero, so `make` and CI see it.
+  let failedSteps = 0;
   let index = 0;
   while (index < allSteps.length) {
     const batch = allSteps.slice(index, index + (nonInteractive ? allSteps.length : stepsArg));
@@ -1304,6 +1322,7 @@ async function main() {
           : `   ↳ ❌ ${step.index}: ${step.screen_name} (api fallback also failed): ${apiResult.error} [${fallbackMs}ms]`);
         result = apiResult;
       }
+      if (!result.ok) failedSteps += 1;
       if (!result.ok && !nonInteractive) {
         const cont = await prompt('Step failed. Continue anyway? [y/N] ');
         if (cont.trim().toLowerCase() !== 'y') { if (browser) await browser.close(); return; }
@@ -1370,7 +1389,8 @@ async function main() {
     }
     console.log(`Per-step timing written to ${timingFile} (${rows.length} row(s)).`);
   }
-  console.log(`\nDone - ${allSteps.length} step(s) processed.`);
+  console.log(`\nDone - ${allSteps.length} step(s) processed${failedSteps > 0 ? `, ${failedSteps} FAILED` : ''}.`);
+  if (failedSteps > 0) process.exitCode = 1;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

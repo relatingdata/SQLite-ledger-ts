@@ -23,6 +23,7 @@ const PARTS: Parts = [
   ['Part 2 --- The Entity Model', [
     'storage-model-specification.md',
     'pm-entity-model.md',
+    'pm-core-middleware.md',
   ]],
   ['Part 3 --- Core Domain Reference', [
     'pm-domain-reference.md',

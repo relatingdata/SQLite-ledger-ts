@@ -20,7 +20,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 884 functions (778 exported); 563 are called from production code; 39 only from tests or tooling; 282 from nowhere the compiler could find.
+- **Backend:** 1252 functions (1091 exported); 797 are called from production code; 52 only from tests or tooling; 403 from nowhere the compiler could find.
 - **Frontend library:** 328 functions (268 exported); 312 are called from production code; 2 only from tests or tooling; 14 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
@@ -44,16 +44,20 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 - `backend/src/call-dispatch/matrix-reports.ts`: `matrixReportsFunctions.getSalesCogsMatrix`, `matrixReportsFunctions.getStockOnHandMatrix`, `matrixReportsFunctions.getAxisValues`, `matrixReportsFunctions.getProfitAndLossByAxis`
 - `backend/src/call-dispatch/menu.ts`: `menuFunctions.getMenuTree`, `menuFunctions.setMenuOverride`, `menuFunctions.deleteMenuOverride`
 - `backend/src/call-dispatch/period.ts`: `periodFunctions.getPeriodStatus`, `periodFunctions.closePeriod`, `periodFunctions.reopenPeriod`
+- `backend/src/call-dispatch/plant.ts`: `plantFunctions.createPlantItem`, `plantFunctions.listPlant`, `plantFunctions.getPlantItem`, `plantFunctions.clockPlantIn`, `plantFunctions.clockPlantOut`, `plantFunctions.getOpenPlantClock`, `plantFunctions.ensureSkill`, `plantFunctions.listSkills`, `plantFunctions.tagSkill`, `plantFunctions.untagSkill`, `plantFunctions.getSkills`
 - `backend/src/call-dispatch/pos.ts`: `posFunctions.lookupByUpc`, `posFunctions.completePosSale`, `posFunctions.completeCashPurchase`, `posFunctions.receiveStock`, `posFunctions.dispatchStock`, `posFunctions.payEmployeeWages`, `posFunctions.getOrganizationChart`, `posFunctions.getPosTerminals`, `posFunctions.createPosTerminal`
 - `backend/src/call-dispatch/products.ts`: `productsFunctions.listProducts`, `productsFunctions.createProduct`, `productsFunctions.setItemProduct`
-- `backend/src/call-dispatch/projects.ts`: `projectsFunctions.clockInToProject`, `projectsFunctions.clockOutOfProject`, `projectsFunctions.getOpenProjectClock`
-- `backend/src/call-dispatch/quotations.ts`: `quotationsFunctions.listQuotations`, `quotationsFunctions.getQuotation`, `quotationsFunctions.createQuotation`, `quotationsFunctions.createRfq`, `quotationsFunctions.markQuotationSent`, `quotationsFunctions.acceptQuotation`, `quotationsFunctions.rejectQuotation`
+- `backend/src/call-dispatch/projects.ts`: `projectsFunctions.clockInToProject`, `projectsFunctions.clockOutOfProject`, `projectsFunctions.getOpenProjectClock`, `projectsFunctions.createLiveProject`, `projectsFunctions.getLiveProject`, `projectsFunctions.provisionProjectProfitCenter`, `projectsFunctions.getProjectCostReport`, `projectsFunctions.listLiveProjects`, `projectsFunctions.createMilestone`, `projectsFunctions.getMilestones`, `projectsFunctions.getResourceBookings`, `projectsFunctions.scheduleProjectRecipeLines`
+- `backend/src/call-dispatch/prototypes.ts`: `prototypesFunctions.createPrototype`, `prototypesFunctions.listPrototypes`, `prototypesFunctions.addPrototypeLine`, `prototypesFunctions.getPrototypeLines`, `prototypesFunctions.updatePrototypeLine`, `prototypesFunctions.instantiateProjectProposal`
+- `backend/src/call-dispatch/quotations.ts`: `quotationsFunctions.listQuotations`, `quotationsFunctions.getQuotation`, `quotationsFunctions.createQuotation`, `quotationsFunctions.createRfq`, `quotationsFunctions.addQuotationLine`, `quotationsFunctions.getQuotationLines`, `quotationsFunctions.markQuotationSent`, `quotationsFunctions.acceptQuotation`, `quotationsFunctions.rejectQuotation`
 - `backend/src/call-dispatch/reports.ts`: `reportsFunctions.getBusinessReports`, `reportsFunctions.getChartOfAccounts`, `reportsFunctions.getBankAccounts`, `reportsFunctions.getCashPosition`, `reportsFunctions.getCashFlowForecast`, `reportsFunctions.registerBankAccount`, `reportsFunctions.unregisterBankAccount`, `reportsFunctions.getSalesReport`, `reportsFunctions.getTrialBalance`, `reportsFunctions.getBalanceSheet`, `reportsFunctions.getLedgerDateRange`, `reportsFunctions.getProfitAndLoss`, `reportsFunctions.getDrillDown`, `reportsFunctions.getProfitAndLossByHierarchy`, `reportsFunctions.getProfitAndLossByHierarchyTree`, `reportsFunctions.getTrialBalanceComparison`, `reportsFunctions.getProfitAndLossComparison`
 - `backend/src/call-dispatch/stock-lots.ts`: `stockLotsFunctions.writeOffItems`, `stockLotsFunctions.receiveLot`, `stockLotsFunctions.consumeFromLots`, `stockLotsFunctions.getExpiringStock`
 - `backend/src/call-dispatch/stock.ts`: `stockFunctions.stagePurchaseOrder`, `stockFunctions.postPurchaseOrder`, `stockFunctions.getOrderStatus`, `stockFunctions.stageOrderReceipt`, `stockFunctions.postOrderReceipt`, `stockFunctions.stageSalesOrder`, `stockFunctions.postSalesOrder`, `stockFunctions.stageOrderDispatch`, `stockFunctions.postOrderDispatch`
+- `backend/src/core/screens.ts`: `CORE_API_REGISTRY.createBusiness`, `CORE_API_REGISTRY.nominateBankAccountSimple`, `CORE_API_REGISTRY.buildBankCurrencyStructureSimple`, `CORE_API_REGISTRY.createAndConfigureLocation`, `CORE_API_REGISTRY.createEmployeeAt`, `CORE_API_REGISTRY.createProviderSimple`, `CORE_API_REGISTRY.createCustomerSimple`, `CORE_API_REGISTRY.setEmployeeWageSimple`, `CORE_API_REGISTRY.createPlantItemSimple`, `CORE_API_REGISTRY.ensureSkillSimple`, `CORE_API_REGISTRY.tagSkillSimple`, `CORE_API_REGISTRY.createUncategorizedItem`, `CORE_API_REGISTRY.createItemUnderCategory`, `CORE_API_REGISTRY.createItemAndCategory`, `CORE_API_REGISTRY.createCategorySimple`, `CORE_API_REGISTRY.addTopLevelCategoryViaStructurePopup`, `CORE_API_REGISTRY.addDivisionViaStructurePopup`, `CORE_API_REGISTRY.createHierarchyGroupingSimple`, `CORE_API_REGISTRY.createHierarchyValueSimple`, `CORE_API_REGISTRY.tagItemHierarchy`, `CORE_API_REGISTRY.setHierarchyTagSimple`, `CORE_API_REGISTRY.addDepartmentViaStructurePopup`, `CORE_API_REGISTRY.deleteDepartmentViaStructurePopup`, `CORE_API_REGISTRY.assignEmployeeDepartmentViaStructurePopup`, `CORE_API_REGISTRY.setEmployeeManagerViaStructurePopup`, `CORE_API_REGISTRY.renameEntitySimple`, `CORE_API_REGISTRY.createEntitySimple`, `CORE_API_REGISTRY.setTranslationSimple`, `CORE_API_REGISTRY.ensureItemInventoryAccountSimple`, `CORE_API_REGISTRY.setItemCostAndPackSize`, `CORE_API_REGISTRY.createPurchaseOrderInCartons`, `CORE_API_REGISTRY.stagePurchaseOrderSimple`, `CORE_API_REGISTRY.postPurchaseOrderSimple`, `CORE_API_REGISTRY.cashPurchaseSimple`, `CORE_API_REGISTRY.transferItemsSimple`, `CORE_API_REGISTRY.receiveStockQuantitySimple`, `CORE_API_REGISTRY.dispatchStockQuantitySimple`, `CORE_API_REGISTRY.receiveStockWithCombination`, `CORE_API_REGISTRY.openContainer`, `CORE_API_REGISTRY.setBomComponentSimple`, `CORE_API_REGISTRY.createPrototypeSimple`, `CORE_API_REGISTRY.addPrototypeLineSimple`, `CORE_API_REGISTRY.updatePrototypeLineSimple`, `CORE_API_REGISTRY.instantiateProjectProposalSimple`, `CORE_API_REGISTRY.acceptProjectProposalSimple`, `CORE_API_REGISTRY.clockInToProjectSimple`, `CORE_API_REGISTRY.clockOutOfProjectSimple`, `CORE_API_REGISTRY.clockPlantInSimple`, `CORE_API_REGISTRY.clockPlantOutSimple`, `CORE_API_REGISTRY.closeBooksSimple`, `CORE_API_REGISTRY.createLedgerSimple`, `CORE_API_REGISTRY.rolloverToNewPeriodSimple`, `CORE_API_REGISTRY.createUserSimple`, `CORE_API_REGISTRY.setUserRolesSimple`, `CORE_VERIFY_REGISTRY.business_exists`, `CORE_VERIFY_REGISTRY.location_exists`, `CORE_VERIFY_REGISTRY.cash_at_bank_exists`, `CORE_VERIFY_REGISTRY.transfer_landed`, `CORE_VERIFY_REGISTRY.purchase_order_posted`, `CORE_VERIFY_REGISTRY.item_source_registered`, `CORE_VERIFY_REGISTRY.bom_components_recorded`, `CORE_VERIFY_REGISTRY.stock_on_hand_nonnegative`, `CORE_VERIFY_REGISTRY.schedule_risk_absent`, `CORE_VERIFY_REGISTRY.schedule_risk_flagged`, `CORE_VERIFY_REGISTRY.project_margin_sign`, `CORE_VERIFY_REGISTRY.prototype_line_updated`, `CORE_VERIFY_REGISTRY.trial_balance_balanced`, `CORE_VERIFY_REGISTRY.balance_sheet_balanced`, `CORE_VERIFY_REGISTRY.record_trial_balance_total`, `CORE_VERIFY_REGISTRY.trial_balance_total_matches_recorded`, `CORE_VERIFY_REGISTRY.profit_and_loss_positive`, `CORE_VERIFY_REGISTRY.profit_and_loss_zero`, `CORE_VERIFY_REGISTRY.record_profit_and_loss_net_income`, `CORE_VERIFY_REGISTRY.profit_and_loss_net_income_matches_recorded`, `CORE_VERIFY_REGISTRY.profit_and_loss_by_item_single_row`, `CORE_VERIFY_REGISTRY.profit_and_loss_by_category_detailed`, `CORE_VERIFY_REGISTRY.profit_and_loss_by_division_consolidated`, `CORE_VERIFY_REGISTRY.user_has_exact_roles`, `CORE_VERIFY_REGISTRY.translation_matches`, `CORE_VERIFY_REGISTRY.entity_named_exists`, `CORE_VERIFY_REGISTRY.location_in_hierarchy_group`
 - `backend/src/db-journal.ts`: `ensureLocationScopedAccount`
 - `backend/src/db-reports.ts`: `getLedgerBalancesByLocationStructural`
 - `backend/src/db.ts`: `typeCategoryOrItemsRootName.validate`
+- `backend/src/drivers/gleam-entity-driver.ts`: `GleamEntityDriver.reparent`, `GleamEntityDriver.relate`, `GleamEntityDriver.revoke`, `GleamEntityDriver.hasTag`, `GleamEntityDriver.setAttr`, `GleamEntityDriver.getAttr`, `GleamEntityDriver.resolveAncestor`, `GleamEntityDriver.descendantsWithDepth`, `GleamEntityDriver.ancestorChain`, `GleamEntityDriver.getMany`, `GleamEntityDriver.findAll`, `GleamEntityDriver.findByNameContaining`
 - `backend/src/drivers/kaappi-entity-driver.ts`: `KaappiEntityDriver.create`, `KaappiEntityDriver.get`, `KaappiEntityDriver.getUnder`, `KaappiEntityDriver.rename`, `KaappiEntityDriver.reparent`, `KaappiEntityDriver.relate`, `KaappiEntityDriver.revoke`, `KaappiEntityDriver.hasTag`, `KaappiEntityDriver.setAttr`, `KaappiEntityDriver.getAttr`, `KaappiEntityDriver.resolveAncestor`, `KaappiEntityDriver.findAll`, `KaappiEntityDriver.findByNameContaining`
 - `backend/src/drivers/memory-entity-driver.ts`: `MemoryEntityDriver.resolveAncestor`, `MemoryEntityDriver.ancestorChain`
 - `backend/src/drivers/sql-entity-driver.ts`: `SqlEntityDriver.reparent`, `SqlEntityDriver.relate`, `SqlEntityDriver.revoke`, `SqlEntityDriver.hasTag`, `SqlEntityDriver.setAttr`, `SqlEntityDriver.getAttr`, `SqlEntityDriver.resolveAncestor`, `SqlEntityDriver.ancestorChain`, `SqlEntityDriver.findAll`, `SqlEntityDriver.findByNameContaining`
@@ -352,7 +356,7 @@ Called from: production: call-dispatch/auth.ts (authFunctions.changeUserPassword
 requireRole(user: AuthenticatedUser | undefined, ...roles: string[]): AuthenticatedUser
 ```
 
-Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/businesses.ts (businessesFunctions.buildBankCurrencyStructure ×1, businessesFunctions.createProfitCenter ×1, businessesFunctions.getBusinessConfigurationReport ×1, businessesFunctions.getNominatedBankAccounts ×1, businessesFunctions.nominateBankAccount ×1, businessesFunctions.saveBusinessTypeAnswers ×1); call-dispatch/contacts.ts (contactsFunctions.deleteTypedAddress ×1, contactsFunctions.deleteTypedContactPerson ×1, contactsFunctions.deleteTypedPhone ×1, contactsFunctions.setContact ×1, contactsFunctions.setTypedAddress ×1, contactsFunctions.setTypedContactPerson ×1, and 1 more); call-dispatch/customer-registration.ts (customerRegistrationFunctions.listPendingCustomers ×1, customerRegistrationFunctions.verifyCustomer ×1); call-dispatch/departments.ts (departmentsFunctions.createDepartment ×1, departmentsFunctions.deleteDepartment ×1, departmentsFunctions.deleteEmployeeDepartment ×1, departmentsFunctions.deleteEmployeeManager ×1, departmentsFunctions.setEmployeeDepartment ×1, departmentsFunctions.setEmployeeManager ×1); call-dispatch/entities.ts (entitiesFunctions.createCustomer ×1, entitiesFunctions.createEmployeeContact ×1, entitiesFunctions.createEntity ×1, entitiesFunctions.createProvider ×1, entitiesFunctions.reorderEntities ×1, entitiesFunctions.revokeEntity ×1, and 3 more); call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1, hierarchyFunctions.createHierarchyValue ×1, hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.deleteHierarchyGrouping ×1, hierarchyFunctions.deleteHierarchyTag ×1, hierarchyFunctions.deleteHierarchyValue ×1, and 1 more); call-dispatch/i18n.ts (i18nFunctions.deleteVocabularyWord ×1, i18nFunctions.setDefaultLanguage ×1, i18nFunctions.setLanguageDirection ×1); and 12 more file(s)
+Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/businesses.ts (businessesFunctions.buildBankCurrencyStructure ×1, businessesFunctions.createProfitCenter ×1, businessesFunctions.getBusinessConfigurationReport ×1, businessesFunctions.getNominatedBankAccounts ×1, businessesFunctions.nominateBankAccount ×1, businessesFunctions.saveBusinessTypeAnswers ×1); call-dispatch/contacts.ts (contactsFunctions.deleteTypedAddress ×1, contactsFunctions.deleteTypedContactPerson ×1, contactsFunctions.deleteTypedPhone ×1, contactsFunctions.setContact ×1, contactsFunctions.setTypedAddress ×1, contactsFunctions.setTypedContactPerson ×1, and 1 more); call-dispatch/customer-registration.ts (customerRegistrationFunctions.listPendingCustomers ×1, customerRegistrationFunctions.verifyCustomer ×1); call-dispatch/departments.ts (departmentsFunctions.createDepartment ×1, departmentsFunctions.deleteDepartment ×1, departmentsFunctions.deleteEmployeeDepartment ×1, departmentsFunctions.deleteEmployeeManager ×1, departmentsFunctions.setEmployeeDepartment ×1, departmentsFunctions.setEmployeeManager ×1); call-dispatch/entities.ts (entitiesFunctions.createCustomer ×1, entitiesFunctions.createEmployeeContact ×1, entitiesFunctions.createEntity ×1, entitiesFunctions.createProvider ×1, entitiesFunctions.reorderEntities ×1, entitiesFunctions.revokeEntity ×1, and 3 more); call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1, hierarchyFunctions.createHierarchyValue ×1, hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.deleteHierarchyGrouping ×1, hierarchyFunctions.deleteHierarchyTag ×1, hierarchyFunctions.deleteHierarchyValue ×1, and 1 more); call-dispatch/i18n.ts (i18nFunctions.deleteVocabularyWord ×1, i18nFunctions.setDefaultLanguage ×1, i18nFunctions.setLanguageDirection ×1); and 15 more file(s)
 
 **`requireAuth`** *(exported)*
 
@@ -360,7 +364,7 @@ Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1,
 requireAuth(user: AuthenticatedUser | undefined): AuthenticatedUser
 ```
 
-Called from: production: call-dispatch/auth.ts (authFunctions.changeOwnPassword ×1, authFunctions.getMe ×1, authFunctions.logout ×1, authFunctions.setOwnDateFormat ×1, authFunctions.setOwnNumberFormat ×1, authFunctions.setOwnPageSize ×1, and 2 more); call-dispatch/businesses.ts (businessesFunctions.getActiveLedger ×1, businessesFunctions.getBusinesses ×1, businessesFunctions.getBusinessTypes ×1, businessesFunctions.getCoaPrototypeAccounts ×1, businessesFunctions.getLedgers ×1, businessesFunctions.getProfitCenters ×1, and 1 more); call-dispatch/contacts.ts (contactsFunctions.getContact ×1, contactsFunctions.getCreditStatus ×1, contactsFunctions.getTypedAddresses ×1, contactsFunctions.getTypedContactPersons ×1, contactsFunctions.getTypedPhones ×1, contactsFunctions.listAddressTypes ×1, and 2 more); call-dispatch/departments.ts (departmentsFunctions.getOrgChartStructure ×1, departmentsFunctions.listDepartments ×1); call-dispatch/entities.ts (entitiesFunctions.getEntity ×1, entitiesFunctions.getEntityHistory ×1, entitiesFunctions.getEntityTree ×1, entitiesFunctions.getHierarchyLinksPointingAt ×1, entitiesFunctions.listLineTypes ×1); call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchy ×1, hierarchyFunctions.getHierarchyAssignments ×1, hierarchyFunctions.getHierarchyGroups ×1, hierarchyFunctions.getHierarchyTag ×1, hierarchyFunctions.getProductShapes ×1); call-dispatch/i18n.ts (i18nFunctions.deleteVocabularyPreference ×1, i18nFunctions.getConceptsWithAlternates ×1, i18nFunctions.getVocabularyWords ×1, i18nFunctions.setTranslation ×1, i18nFunctions.setVocabularyPreference ×1); call-dispatch/invoices.ts (invoicesFunctions.exportInvoiceAsEInvoice ×1, invoicesFunctions.getAgedInvoices ×1, invoicesFunctions.getAgedSummary ×1, invoicesFunctions.getCounterpartyHistory ×1, invoicesFunctions.getCustomerStatement ×1, invoicesFunctions.getInvoiceById ×1, and 4 more); and 8 more file(s)
+Called from: production: call-dispatch/auth.ts (authFunctions.changeOwnPassword ×1, authFunctions.getMe ×1, authFunctions.logout ×1, authFunctions.setOwnDateFormat ×1, authFunctions.setOwnNumberFormat ×1, authFunctions.setOwnPageSize ×1, and 2 more); call-dispatch/businesses.ts (businessesFunctions.getActiveLedger ×1, businessesFunctions.getBusinesses ×1, businessesFunctions.getBusinessTypes ×1, businessesFunctions.getCoaPrototypeAccounts ×1, businessesFunctions.getLedgers ×1, businessesFunctions.getProfitCenters ×1, and 1 more); call-dispatch/contacts.ts (contactsFunctions.getContact ×1, contactsFunctions.getCreditStatus ×1, contactsFunctions.getTypedAddresses ×1, contactsFunctions.getTypedContactPersons ×1, contactsFunctions.getTypedPhones ×1, contactsFunctions.listAddressTypes ×1, and 2 more); call-dispatch/departments.ts (departmentsFunctions.getOrgChartStructure ×1, departmentsFunctions.listDepartments ×1); call-dispatch/entities.ts (entitiesFunctions.getEntity ×1, entitiesFunctions.getEntityHistory ×1, entitiesFunctions.getEntityTree ×1, entitiesFunctions.getHierarchyLinksPointingAt ×1, entitiesFunctions.listLineTypes ×1); call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchy ×1, hierarchyFunctions.getHierarchyAssignments ×1, hierarchyFunctions.getHierarchyGroups ×1, hierarchyFunctions.getHierarchyTag ×1, hierarchyFunctions.getProductShapes ×1); call-dispatch/i18n.ts (i18nFunctions.deleteVocabularyPreference ×1, i18nFunctions.getConceptsWithAlternates ×1, i18nFunctions.getVocabularyWords ×1, i18nFunctions.setTranslation ×1, i18nFunctions.setVocabularyPreference ×1); call-dispatch/invoices.ts (invoicesFunctions.exportInvoiceAsEInvoice ×1, invoicesFunctions.getAgedInvoices ×1, invoicesFunctions.getAgedSummary ×1, invoicesFunctions.getCounterpartyHistory ×1, invoicesFunctions.getCustomerStatement ×1, invoicesFunctions.getInvoiceById ×1, and 4 more); and 9 more file(s)
 
 **`row`** *(exported)*
 
@@ -368,7 +372,7 @@ Called from: production: call-dispatch/auth.ts (authFunctions.changeOwnPassword 
 row(...values: (string | number | boolean | null | undefined)[]): CallResult
 ```
 
-Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/auth.ts (authFunctions.changeOwnPassword ×1, authFunctions.changeUserPassword ×1, authFunctions.createUser ×1, authFunctions.getMe ×1, authFunctions.getUserRoleMatrix ×1, authFunctions.login ×1, and 10 more); call-dispatch/businesses.ts ((module level) ×1, businessesFunctions.buildBankCurrencyStructure ×1, businessesFunctions.createProfitCenter ×1, businessesFunctions.getActiveLedger ×1, businessesFunctions.getBusinessConfigurationReport ×1, businessesFunctions.nominateBankAccount ×1, and 1 more); call-dispatch/contacts.ts (contactsFunctions.deleteTypedAddress ×1, contactsFunctions.deleteTypedContactPerson ×1, contactsFunctions.deleteTypedPhone ×1, contactsFunctions.getContact ×2, contactsFunctions.getCreditStatus ×1, contactsFunctions.setContact ×1, and 3 more); call-dispatch/customer-registration.ts (customerRegistrationFunctions.authenticateCustomer ×1, customerRegistrationFunctions.registerCustomer ×1, customerRegistrationFunctions.verifyCustomer ×1); call-dispatch/departments.ts (departmentsFunctions.createDepartment ×1, departmentsFunctions.deleteDepartment ×1, departmentsFunctions.deleteEmployeeDepartment ×1, departmentsFunctions.deleteEmployeeManager ×1, departmentsFunctions.setEmployeeDepartment ×1, departmentsFunctions.setEmployeeManager ×1); call-dispatch/entities.ts (entitiesFunctions.createCustomer ×1, entitiesFunctions.createEmployeeContact ×1, entitiesFunctions.createProvider ×1, entitiesFunctions.getEntity ×2, entitiesFunctions.reorderEntities ×1, entitiesFunctions.revokeEntity ×1, and 3 more); call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1, hierarchyFunctions.createHierarchyValue ×1, hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.deleteHierarchyGrouping ×1, hierarchyFunctions.deleteHierarchyTag ×1, hierarchyFunctions.deleteHierarchyValue ×1, and 2 more); and 15 more file(s)
+Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/auth.ts (authFunctions.changeOwnPassword ×1, authFunctions.changeUserPassword ×1, authFunctions.createUser ×1, authFunctions.getMe ×1, authFunctions.getUserRoleMatrix ×1, authFunctions.login ×1, and 10 more); call-dispatch/businesses.ts ((module level) ×1, businessesFunctions.buildBankCurrencyStructure ×1, businessesFunctions.createProfitCenter ×1, businessesFunctions.getActiveLedger ×1, businessesFunctions.getBusinessConfigurationReport ×1, businessesFunctions.nominateBankAccount ×1, and 1 more); call-dispatch/contacts.ts (contactsFunctions.deleteTypedAddress ×1, contactsFunctions.deleteTypedContactPerson ×1, contactsFunctions.deleteTypedPhone ×1, contactsFunctions.getContact ×2, contactsFunctions.getCreditStatus ×1, contactsFunctions.setContact ×1, and 3 more); call-dispatch/customer-registration.ts (customerRegistrationFunctions.authenticateCustomer ×1, customerRegistrationFunctions.registerCustomer ×1, customerRegistrationFunctions.verifyCustomer ×1); call-dispatch/departments.ts (departmentsFunctions.createDepartment ×1, departmentsFunctions.deleteDepartment ×1, departmentsFunctions.deleteEmployeeDepartment ×1, departmentsFunctions.deleteEmployeeManager ×1, departmentsFunctions.setEmployeeDepartment ×1, departmentsFunctions.setEmployeeManager ×1); call-dispatch/entities.ts (entitiesFunctions.createCustomer ×1, entitiesFunctions.createEmployeeContact ×1, entitiesFunctions.createProvider ×1, entitiesFunctions.getEntity ×2, entitiesFunctions.reorderEntities ×1, entitiesFunctions.revokeEntity ×1, and 3 more); call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1, hierarchyFunctions.createHierarchyValue ×1, hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.deleteHierarchyGrouping ×1, hierarchyFunctions.deleteHierarchyTag ×1, hierarchyFunctions.deleteHierarchyValue ×1, and 2 more); and 17 more file(s)
 
 **`table`** *(exported)*
 
@@ -376,7 +380,7 @@ Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1,
 table<T>(header: (keyof T & string)[], records: T[]): CallResult
 ```
 
-Called from: production: call-dispatch/auth.ts (authFunctions.getRoles ×1, authFunctions.getUsers ×1); call-dispatch/businesses.ts (businessesFunctions.getBusinesses ×1, businessesFunctions.getBusinessTypes ×1, businessesFunctions.getCoaPrototypeAccounts ×1, businessesFunctions.getLedgers ×1, businessesFunctions.getNominatedBankAccounts ×1, businessesFunctions.getProfitCenters ×1, and 1 more); call-dispatch/contacts.ts (contactsFunctions.getTypedAddresses ×1, contactsFunctions.getTypedContactPersons ×1, contactsFunctions.getTypedPhones ×1, contactsFunctions.listAddressTypes ×1, contactsFunctions.listContactPersonTypes ×1, contactsFunctions.listPhoneTypes ×1); call-dispatch/customer-registration.ts (customerRegistrationFunctions.listPendingCustomers ×1); call-dispatch/departments.ts (departmentsFunctions.getOrgChartStructure ×1, departmentsFunctions.listDepartments ×1); call-dispatch/entities.ts (entitiesFunctions.getEntityHistory ×1, entitiesFunctions.getEntityTree ×1, entitiesFunctions.getHierarchyLinksPointingAt ×1, entitiesFunctions.listLineTypes ×1); call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchy ×1, hierarchyFunctions.getHierarchyAssignments ×1, hierarchyFunctions.getHierarchyGroups ×1, hierarchyFunctions.getProductShapes ×1); call-dispatch/i18n.ts (i18nFunctions.getConceptsWithAlternates ×1, i18nFunctions.getLanguages ×1, i18nFunctions.getLocalizedText ×1, i18nFunctions.getVocabularyAlternates ×1, i18nFunctions.getVocabularyWords ×1); and 11 more file(s)
+Called from: production: call-dispatch/auth.ts (authFunctions.getRoles ×1, authFunctions.getUsers ×1); call-dispatch/businesses.ts (businessesFunctions.getBusinesses ×1, businessesFunctions.getBusinessTypes ×1, businessesFunctions.getCoaPrototypeAccounts ×1, businessesFunctions.getLedgers ×1, businessesFunctions.getNominatedBankAccounts ×1, businessesFunctions.getProfitCenters ×1, and 1 more); call-dispatch/contacts.ts (contactsFunctions.getTypedAddresses ×1, contactsFunctions.getTypedContactPersons ×1, contactsFunctions.getTypedPhones ×1, contactsFunctions.listAddressTypes ×1, contactsFunctions.listContactPersonTypes ×1, contactsFunctions.listPhoneTypes ×1); call-dispatch/customer-registration.ts (customerRegistrationFunctions.listPendingCustomers ×1); call-dispatch/departments.ts (departmentsFunctions.getOrgChartStructure ×1, departmentsFunctions.listDepartments ×1); call-dispatch/entities.ts (entitiesFunctions.getEntityHistory ×1, entitiesFunctions.getEntityTree ×1, entitiesFunctions.getHierarchyLinksPointingAt ×1, entitiesFunctions.listLineTypes ×1); call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchy ×1, hierarchyFunctions.getHierarchyAssignments ×1, hierarchyFunctions.getHierarchyGroups ×1, hierarchyFunctions.getProductShapes ×1); call-dispatch/i18n.ts (i18nFunctions.getConceptsWithAlternates ×1, i18nFunctions.getLanguages ×1, i18nFunctions.getLocalizedText ×1, i18nFunctions.getVocabularyAlternates ×1, i18nFunctions.getVocabularyWords ×1); and 14 more file(s)
 
 **`encodeStringList`** *(exported)*
 
@@ -2106,6 +2110,96 @@ periodFunctions.reopenPeriod(v: string[], user: AuthenticatedUser): CallResult
 
 Called from: nowhere the compiler could find.
 
+### `backend/src/call-dispatch/plant.ts`
+
+**`plantFunctions.createPlantItem`** *(exported)*
+
+```
+plantFunctions.createPlantItem(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`plantFunctions.listPlant`** *(exported)*
+
+```
+plantFunctions.listPlant(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`plantFunctions.getPlantItem`** *(exported)*
+
+```
+plantFunctions.getPlantItem(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`plantFunctions.clockPlantIn`** *(exported)*
+
+```
+plantFunctions.clockPlantIn(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`plantFunctions.clockPlantOut`** *(exported)*
+
+```
+plantFunctions.clockPlantOut(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`plantFunctions.getOpenPlantClock`** *(exported)*
+
+```
+plantFunctions.getOpenPlantClock(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`plantFunctions.ensureSkill`** *(exported)*
+
+```
+plantFunctions.ensureSkill(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`plantFunctions.listSkills`** *(exported)*
+
+```
+plantFunctions.listSkills(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`plantFunctions.tagSkill`** *(exported)*
+
+```
+plantFunctions.tagSkill(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`plantFunctions.untagSkill`** *(exported)*
+
+```
+plantFunctions.untagSkill(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`plantFunctions.getSkills`** *(exported)*
+
+```
+plantFunctions.getSkills(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
 ### `backend/src/call-dispatch/pos.ts`
 
 **`posFunctions.lookupByUpc`** *(exported)*
@@ -2232,6 +2326,128 @@ projectsFunctions.getOpenProjectClock(v: string[], user: AuthenticatedUser): Cal
 
 Called from: nowhere the compiler could find.
 
+**`projectsFunctions.createLiveProject`** *(exported)*
+
+```
+projectsFunctions.createLiveProject(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`projectsFunctions.getLiveProject`** *(exported)*
+
+```
+projectsFunctions.getLiveProject(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`projectsFunctions.provisionProjectProfitCenter`** *(exported)*
+
+```
+projectsFunctions.provisionProjectProfitCenter(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`projectsFunctions.getProjectCostReport`** *(exported)*
+
+```
+projectsFunctions.getProjectCostReport(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`projectsFunctions.listLiveProjects`** *(exported)*
+
+```
+projectsFunctions.listLiveProjects(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`projectsFunctions.createMilestone`** *(exported)*
+
+```
+projectsFunctions.createMilestone(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`projectsFunctions.getMilestones`** *(exported)*
+
+```
+projectsFunctions.getMilestones(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`projectsFunctions.getResourceBookings`** *(exported)*
+
+```
+projectsFunctions.getResourceBookings(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`projectsFunctions.scheduleProjectRecipeLines`** *(exported)*
+
+```
+projectsFunctions.scheduleProjectRecipeLines(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+### `backend/src/call-dispatch/prototypes.ts`
+
+**`prototypesFunctions.createPrototype`** *(exported)*
+
+```
+prototypesFunctions.createPrototype(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`prototypesFunctions.listPrototypes`** *(exported)*
+
+```
+prototypesFunctions.listPrototypes(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`prototypesFunctions.addPrototypeLine`** *(exported)*
+
+```
+prototypesFunctions.addPrototypeLine(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`prototypesFunctions.getPrototypeLines`** *(exported)*
+
+```
+prototypesFunctions.getPrototypeLines(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`prototypesFunctions.updatePrototypeLine`** *(exported)*
+
+```
+prototypesFunctions.updatePrototypeLine(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`prototypesFunctions.instantiateProjectProposal`** *(exported)*
+
+```
+prototypesFunctions.instantiateProjectProposal(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
 ### `backend/src/call-dispatch/quotations.ts`
 
 **`quotationsFunctions.listQuotations`** *(exported)*
@@ -2262,6 +2478,22 @@ Called from: nowhere the compiler could find.
 
 ```
 quotationsFunctions.createRfq(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`quotationsFunctions.addQuotationLine`** *(exported)*
+
+```
+quotationsFunctions.addQuotationLine(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
+
+**`quotationsFunctions.getQuotationLines`** *(exported)*
+
+```
+quotationsFunctions.getQuotationLines(v: string[], user: AuthenticatedUser): CallResult
 ```
 
 Called from: nowhere the compiler could find.
@@ -2552,6 +2784,2192 @@ stockFunctions.postOrderDispatch(v: string[], user: AuthenticatedUser): CallResu
 
 Called from: nowhere the compiler could find.
 
+### `backend/src/core/core.ts`
+
+**`Core.close`** *(exported)*
+
+```
+Core.close(): void
+```
+
+Called from: production: core/screens.ts (resetCore ×1) · tests: 1 call(s) in 1 file(s)
+
+**`Core.ensure`** *(exported)*
+
+```
+Core.ensure(name: string, parent: number | null, by: number): Node
+```
+
+Called from: production: core/core.ts (Core.copy ×2, Core.ensurePath ×1, Core.install ×13, Core.relate ×2, Instance.accountsRoot ×1, Instance.branch ×1, and 2 more); core/ops.ts (acceptProposal ×1, createBusiness ×2, instantiateProposal ×1, setLine ×1)
+
+**`Core.ensurePath`** *(exported)*
+
+```
+Core.ensurePath(from: number, path: string[], by: number): Node
+```
+
+Called from: production: core/core.ts (Core.install ×2)
+
+**`Core.at`** *(exported)*
+
+```
+Core.at(path: string[]): Node
+```
+
+Called from: production: core/core.ts (Core.business ×1, Instance.chartRoot ×1, Instance.globalBranch ×1); core/ops.ts (createBusiness ×1)
+
+**`Core.relate`** *(exported)*
+
+```
+Core.relate(thing: number, relation: string, target: Target, by: number): void
+```
+
+Called from: production: core/core.ts (Core.install ×4, Core.thing ×1, Instance.contactAccount ×1, Instance.instantiate ×1, Instance.localise ×1, Instance.post ×1, and 3 more); core/ops.ts (acceptProposal ×12, buildBankCurrencyStructure ×2, clockOff ×1, clockOn ×1, createBusiness ×2, createContact ×1, and 18 more)
+
+**`Core.related`** *(exported)*
+
+```
+Core.related(thing: number, relation: string): Node | undefined
+```
+
+Called from: production: core/core.ts (Core.instanceOf ×1, Core.is ×1, Core.kindOf ×1, Core.value ×1, Instance.contactAccount ×3, Instance.prototypeOf ×1, and 1 more); core/ops.ts (acceptProposal ×2, clockOff ×2, clockOn ×1, deleteDepartment ×2, plantClock ×1, projectMargin ×1, and 3 more); core/reports.ts (axisValue ×3, inventoryListing ×2) · tests: 2 call(s) in 1 file(s)
+
+**`Core.value`** *(exported)*
+
+```
+Core.value(thing: number, relation: string): string | undefined
+```
+
+Called from: production: core/core.ts (Core.number ×1, Instance.chartRoot ×1, Instance.contactAccount ×1, Instance.post ×1, Instance.sameProduct ×1, Instance.unitOf ×2, and 1 more); core/ops.ts (acceptProposal ×3, buildBankCurrencyStructure ×1, clockOff ×1, createBusiness ×1, getLines ×4, groupOf ×1, and 3 more); core/screens.ts (CORE_VERIFY_REGISTRY.purchase_order_posted ×1, CORE_VERIFY_REGISTRY.translation_matches ×1, coreSessionStep ×1) · tests: 4 call(s) in 1 file(s)
+
+**`Core.number`** *(exported)*
+
+```
+Core.number(thing: number, relation: string): number | undefined
+```
+
+Called from: production: core/ops.ts (capacityLines ×1, employeeClock ×1, getLines ×3, itemSource ×2, payWages ×4, plantClock ×1)
+
+**`Core.is`** *(exported)*
+
+```
+Core.is(thing: number, relation: string): boolean
+```
+
+Called from: production: core/core.ts (Core.open ×1, Core.things ×1, Instance.entriesMarked ×1, Instance.existing ×1, Instance.isHeader ×2) · tests: 2 call(s) in 1 file(s)
+
+**`Core.kind`** *(exported)*
+
+```
+Core.kind(name: string): number
+```
+
+Called from: production: core/core.ts (Core.thing ×1)
+
+**`Core.kindOf`** *(exported)*
+
+```
+Core.kindOf(id: number): string | undefined
+```
+
+Called from: production: core/core.ts (Core.findNamed ×1, Core.things ×1, Instance.existing ×1, walk ×1); core/ops.ts (mirror ×1)
+
+**`Core.thing`** *(exported)*
+
+```
+Core.thing(name: string, parent: number, kind: string, by: number): Node
+```
+
+Called from: production: core/core.ts (Core.install ×8, Instance.contactAccount ×1, Instance.folder ×1, Instance.groupValue ×1, Instance.instantiate ×1, Instance.localise ×1, and 4 more); core/ops.ts (acceptProposal ×2, buildBankCurrencyStructure ×2, createBusiness ×3, createDepartment ×2, createLedger ×1, createUser ×1, and 2 more); core/screens.ts (CORE_API_REGISTRY.createEntitySimple ×1)
+
+**`Core.things`** *(exported)*
+
+```
+Core.things(parent: number, kind?: string): Node[]
+```
+
+Called from: production: core/core.ts (Core.find ×1, Instance.accountNamed ×1, Instance.contactAccount ×1, Instance.entriesMarked ×1, Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, and 3 more); core/ops.ts (deleteDepartment ×3, getLines ×1, projects ×1, setEmployeeDepartment ×1); core/reports.ts (inventoryListing ×1) · tests: 3 call(s) in 1 file(s)
+
+**`Core.find`** *(exported)*
+
+```
+Core.find(under: number, match: (node: Node) => boolean): Node | undefined
+```
+
+Called from: production: core/core.ts (Core.findNamed ×1, Core.instanceOf ×1)
+
+**`Core.findNamed`** *(exported)*
+
+```
+Core.findNamed(under: number, name: string, kind?: string): Node | undefined
+```
+
+Called from: production: core/core.ts (Instance.accountNamed ×1, Instance.chartAccount ×1, Instance.existingProductAccount ×1, Instance.lookup ×2); core/screens.ts (CORE_VERIFY_REGISTRY.cash_at_bank_exists ×1) · tests: 3 call(s) in 1 file(s)
+
+**`Core.all`** *(exported)*
+
+```
+Core.all(under: number, kind?: string): Node[]
+```
+
+Called from: production: core/core.ts (Instance.statementAccounts ×1); core/ops.ts (deleteDepartment ×1, renameByName ×2, rollover ×1)
+
+**`Core.instanceOf`** *(exported)*
+
+```
+Core.instanceOf(under: number, prototype: number): Node | undefined
+```
+
+Called from: production: core/core.ts (Instance.chartAccount ×1, Instance.existingProductAccount ×1, Instance.instantiate ×1, Instance.lookup ×1)
+
+**`Core.copy`** *(exported)*
+
+```
+Core.copy(prototype: number, under: number, by: number): void
+```
+
+Called from: production: core/core.ts (Instance.copy ×1); core/ops.ts (acceptProposal ×1, instantiateProposal ×1)
+
+**`Core.install`** *(exported)*
+
+```
+Core.install(): void
+```
+
+Called from: production: core/core.ts ((module level) ×1)
+
+**`Core.business`** *(exported)*
+
+```
+Core.business(name: string): Node
+```
+
+Called from: production: core/core.ts (Core.open ×1); core/screens.ts (CORE_VERIFY_REGISTRY.business_exists ×1)
+
+**`Core.open`** *(exported)*
+
+```
+Core.open(user: string, business: string, ledger?: string): Instance
+```
+
+Called from: production: core/core.ts (Instance.forLedger ×1); core/ops.ts (createBusiness ×1); core/screens.ts (coreSessionStep ×1, instance ×1) · tests: 5 call(s) in 1 file(s)
+
+**`today`** *(exported)*
+
+```
+today(): string
+```
+
+Called from: production: core/core.ts (Instance.post ×1)
+
+**`Instance.forLedger`** *(exported)*
+
+```
+Instance.forLedger(name: string): Instance
+```
+
+Called from: production: core/ops.ts (rollover ×1) · tests: 1 call(s) in 1 file(s)
+
+**`Instance.create`** *(exported)*
+
+```
+Instance.create(name: string, parent: number): Node
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
+
+**`Instance.relate`** *(exported)*
+
+```
+Instance.relate(thing: number, relation: string, target: Target): void
+```
+
+Called from: production: core/ops.ts (lockLedger ×1); core/screens.ts (CORE_API_REGISTRY.setEmployeeWageSimple ×1, CORE_API_REGISTRY.setTranslationSimple ×1) · tests: 8 call(s) in 1 file(s)
+
+**`Instance.copy`** *(exported)*
+
+```
+Instance.copy(prototype: number, under: number): void
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
+
+**`Instance.post`** *(exported)*
+
+```
+Instance.post(reference: string, lines: Line[], options?: PostOptions): Node
+```
+
+Called from: production: core/ops.ts (acceptProposal ×1, clockOff ×1, clockOn ×1, closeBooks ×1, dispatchStock ×1, instantiateProposal ×1, and 12 more); core/screens.ts (postStaged ×1) · tests: 13 call(s) in 1 file(s)
+
+**`Instance.entry`** *(exported)*
+
+```
+Instance.entry(reference: string): Node | undefined
+```
+
+Called from: production: core/core.ts (Instance.freeReference ×1); core/ops.ts (acceptProposal ×1, delivery ×1, recipeOwner ×1, reverseEntry ×1); core/screens.ts (CORE_VERIFY_REGISTRY.purchase_order_posted ×1)
+
+**`Instance.freeReference`** *(exported)*
+
+```
+Instance.freeReference(reference: string): string
+```
+
+Called from: production: core/ops.ts (closeBooks ×1, transferStock ×1); core/screens.ts (CORE_API_REGISTRY.receiveStockWithCombination ×1)
+
+**`Instance.branch`** *(exported)*
+
+```
+Instance.branch(name: string): Node
+```
+
+Called from: production: core/core.ts (Instance.localise ×1, Instance.thingIn ×1); core/ops.ts (createLedger ×1, deleteDepartment ×1, projects ×1, usersFolder ×1); core/screens.ts (CORE_API_REGISTRY.createEntitySimple ×1)
+
+**`Instance.existingBranch`** *(exported)*
+
+```
+Instance.existingBranch(name: string): Node | undefined
+```
+
+Called from: production: core/core.ts (Instance.existing ×1, Instance.lookup ×1)
+
+**`Instance.globalBranch`** *(exported)*
+
+```
+Instance.globalBranch(name: string): Node | undefined
+```
+
+Called from: production: core/core.ts (Instance.lookup ×1)
+
+**`Instance.lookup`** *(exported)*
+
+```
+Instance.lookup(branch: string, name: string): { node: Node; local: boolean; } | undefined
+```
+
+Called from: production: core/core.ts (Instance.label ×1, Instance.localise ×1); core/screens.ts (CORE_VERIFY_REGISTRY.entity_named_exists ×1, CORE_VERIFY_REGISTRY.translation_matches ×1) · tests: 2 call(s) in 1 file(s)
+
+**`Instance.localise`** *(exported)*
+
+```
+Instance.localise(branch: string, name: string, kind: string): Node
+```
+
+Called from: production: core/ops.ts (createContact ×1, createLocation ×1, setUserRoles ×1); core/screens.ts (CORE_API_REGISTRY.setTranslationSimple ×1) · tests: 1 call(s) in 1 file(s)
+
+**`Instance.label`** *(exported)*
+
+```
+Instance.label(branch: string, name: string): string
+```
+
+Called from: tests: 3 call(s) in 1 file(s)
+
+**`Instance.thingIn`** *(exported)*
+
+```
+Instance.thingIn(branch: string, name: string, kind: string): Node
+```
+
+Called from: production: core/core.ts (Instance.grouping ×1); core/ops.ts (acceptProposal ×1, createContact ×1, createItem ×1, createLocation ×1, createPlant ×1, createPrototype ×1, and 2 more)
+
+**`Instance.existing`** *(exported)*
+
+```
+Instance.existing(branch: string, name: string): Node | undefined
+```
+
+Called from: production: core/core.ts (Instance.accountNamed ×2, Instance.anything ×1, Instance.require ×1); core/ops.ts (acceptProposal ×1, createPlant ×1, deleteDepartment ×1, recipeOwner ×3, serviceItem ×1, setEmployeeDepartment ×1)
+
+**`Instance.require`** *(exported)*
+
+```
+Instance.require(branch: string, name: string, what: string): Node
+```
+
+Called from: production: core/core.ts (Instance.contact ×1, Instance.item ×1, Instance.location ×1); core/ops.ts (buildBankCurrencyStructure ×1, instantiateProposal ×1, plantClock ×1, projectMargin ×1, scheduleRisk ×1, setUserRoles ×1, and 2 more); core/screens.ts (CORE_API_REGISTRY.addPrototypeLineSimple ×1, CORE_API_REGISTRY.updatePrototypeLineSimple ×1, CORE_VERIFY_REGISTRY.prototype_line_updated ×1)
+
+**`Instance.item`** *(exported)*
+
+```
+Instance.item(name: string): Node
+```
+
+Called from: production: core/ops.ts (instantiateProposal ×1, itemSource ×1, onOrder ×1, openContainer ×1, placePurchaseOrder ×1, product ×1, and 2 more); core/screens.ts (CORE_API_REGISTRY.ensureItemInventoryAccountSimple ×1, CORE_API_REGISTRY.setBomComponentSimple ×2) · tests: 2 call(s) in 1 file(s)
+
+**`Instance.location`** *(exported)*
+
+```
+Instance.location(name: string): Node
+```
+
+Called from: production: core/ops.ts (createEmployee ×1, openContainer ×1, product ×1, transferStock ×2); core/screens.ts (CORE_VERIFY_REGISTRY.location_exists ×1)
+
+**`Instance.contact`** *(exported)*
+
+```
+Instance.contact(name: string): Node
+```
+
+Called from: production: core/ops.ts (employeeClock ×1, instantiateProposal ×1, payment ×1, payWages ×1, placePurchaseOrder ×1, purchase ×1, and 5 more); core/screens.ts (CORE_API_REGISTRY.setEmployeeWageSimple ×1) · tests: 4 call(s) in 1 file(s)
+
+**`Instance.anything`** *(exported)*
+
+```
+Instance.anything(name: string): Node | undefined
+```
+
+Called from: production: core/ops.ts (groupOf ×1, setGroup ×1); core/screens.ts (CORE_VERIFY_REGISTRY.entity_named_exists ×1)
+
+**`Instance.grouping`** *(exported)*
+
+```
+Instance.grouping(name: string): Node
+```
+
+Called from: production: core/core.ts (Instance.groupValue ×1); core/screens.ts (CORE_API_REGISTRY.createHierarchyGroupingSimple ×1)
+
+**`Instance.groupValue`** *(exported)*
+
+```
+Instance.groupValue(grouping: string, value: string): Node
+```
+
+Called from: production: core/ops.ts (acceptProposal ×1, capacityAccount ×1, createDepartment ×1, setGroup ×1); core/screens.ts (CORE_API_REGISTRY.openContainer ×2, CORE_API_REGISTRY.receiveStockWithCombination ×1, ensureCategory ×1)
+
+**`Instance.accountsRoot`** *(exported)*
+
+```
+Instance.accountsRoot(): Node
+```
+
+Called from: production: core/core.ts (Instance.accountNamed ×1, Instance.chartAccount ×1, Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, Instance.folder ×1, Instance.instantiate ×1, and 2 more); core/ops.ts (mirror ×2, renameByName ×1, rollover ×1); core/reports.ts (inventoryListing ×1); core/screens.ts (CORE_VERIFY_REGISTRY.cash_at_bank_exists ×1) · tests: 6 call(s) in 1 file(s)
+
+**`Instance.chartRoot`** *(exported)*
+
+```
+Instance.chartRoot(): Node
+```
+
+Called from: production: core/core.ts (Instance.chartAccount ×1, Instance.existingProductAccount ×1, Instance.instantiate ×1)
+
+**`Instance.instantiate`** *(exported)*
+
+```
+Instance.instantiate(global: Node): Node
+```
+
+Called from: production: core/core.ts (Instance.chartAccount ×1)
+
+**`Instance.chartAccount`** *(exported)*
+
+```
+Instance.chartAccount(name: string): Node
+```
+
+Called from: production: core/core.ts (Instance.accountNamed ×1, Instance.contactAccount ×1, Instance.productAccount ×1); core/ops.ts (acceptProposal ×1, buildBankCurrencyStructure ×1, departmentFolder ×1)
+
+**`Instance.prototypeOf`** *(exported)*
+
+```
+Instance.prototypeOf(account: number): Node | undefined
+```
+
+Called from: production: core/core.ts (Instance.accountNamed ×1, Instance.isHeader ×1, Instance.statementAccounts ×1, Instance.typeOf ×1, Instance.unitOf ×1)
+
+**`Instance.isHeader`** *(exported)*
+
+```
+Instance.isHeader(account: number): boolean
+```
+
+Called from: production: core/core.ts (Instance.accountNamed ×2)
+
+**`Instance.unitOf`** *(exported)*
+
+```
+Instance.unitOf(account: number): string
+```
+
+Called from: production: core/core.ts (Instance.post ×1); core/ops.ts (closeBooks ×1, rollover ×1); core/reports.ts (moneyBalances ×1)
+
+**`Instance.typeOf`** *(exported)*
+
+```
+Instance.typeOf(account: number): string
+```
+
+Called from: production: core/ops.ts (payment ×1) · tests: 2 call(s) in 1 file(s)
+
+**`Instance.sameProduct`** *(exported)*
+
+```
+Instance.sameProduct(account: number, product: Product): boolean
+```
+
+Called from: production: core/core.ts (Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, Instance.productUnder ×1)
+
+**`Instance.productName`** *(exported)*
+
+```
+Instance.productName(product: Product): string
+```
+
+Called from: production: core/core.ts (Instance.productUnder ×2)
+
+**`Instance.productUnder`** *(exported)*
+
+```
+Instance.productUnder(parent: Node, product: Product, unit?: string): Node
+```
+
+Called from: production: core/core.ts (Instance.accountNamed ×2, Instance.memoAccount ×1, Instance.productAccount ×1, Instance.quantityAccount ×1)
+
+**`Instance.productAccount`** *(exported)*
+
+```
+Instance.productAccount(header: Header, product?: Product): Node
+```
+
+Called from: production: core/core.ts (Instance.accountNamed ×1); core/ops.ts (acceptProposal ×1, purchase ×2, sell ×3, stockTake ×2, transferStock ×2, writeOff ×2); core/screens.ts (CORE_API_REGISTRY.ensureItemInventoryAccountSimple ×1)
+
+**`Instance.existingProductAccount`** *(exported)*
+
+```
+Instance.existingProductAccount(header: Header, product: Product): Node | undefined
+```
+
+Called from: production: core/ops.ts (costOf ×1, stockTake ×1)
+
+**`Instance.folder`** *(exported)*
+
+```
+Instance.folder(path: string[]): Node
+```
+
+Called from: production: core/core.ts (Instance.memoAccount ×1, Instance.quantityAccount ×1)
+
+**`Instance.unitOfItem`** *(exported)*
+
+```
+Instance.unitOfItem(item: Node): string
+```
+
+Called from: production: core/core.ts (Instance.quantityAccount ×1)
+
+**`Instance.quantityAccount`** *(exported)*
+
+```
+Instance.quantityAccount(group: string, product: Product, unit?: string): Node
+```
+
+Called from: production: core/ops.ts (capacityAccount ×1, dispatchStock ×2, orderLines ×2, purchase ×2, receiveStock ×2, rollover ×1, and 4 more) · tests: 1 call(s) in 1 file(s)
+
+**`Instance.existingQuantityAccount`** *(exported)*
+
+```
+Instance.existingQuantityAccount(group: string, product: Product): Node | undefined
+```
+
+Called from: production: core/ops.ts (onHand ×1, onOrder ×1) · tests: 1 call(s) in 1 file(s)
+
+**`Instance.memoAccount`** *(exported)*
+
+```
+Instance.memoAccount(group: string, product: Product): Node
+```
+
+Called from: production: core/ops.ts (orderLines ×2)
+
+**`Instance.contactAccount`** *(exported)*
+
+```
+Instance.contactAccount(contact: Node): Node
+```
+
+Called from: production: core/core.ts (Instance.accountNamed ×1); core/ops.ts (acceptProposal ×1, payee ×2, payment ×1, payWages ×1, purchase ×1, sell ×1) · tests: 3 call(s) in 1 file(s)
+
+**`Instance.statementAccounts`** *(exported)*
+
+```
+Instance.statementAccounts(): { node: Node; type: string; }[]
+```
+
+Called from: production: core/ops.ts (closeBooks ×1, rollover ×1); core/reports.ts (moneyBalances ×1)
+
+**`Instance.accountNamed`** *(exported)*
+
+```
+Instance.accountNamed(name: string): Node
+```
+
+Called from: production: core/ops.ts (clockOn ×1, closeBooks ×1, payee ×1, payment ×1, payWages ×5, purchase ×2, and 2 more); core/screens.ts (postStaged ×1, stageLine ×1) · tests: 26 call(s) in 1 file(s)
+
+**`Instance.balance`** *(exported)*
+
+```
+Instance.balance(account: number): number
+```
+
+Called from: production: core/ops.ts (capacityLines ×1, costOf ×1, onHand ×1, onOrder ×1, projectMargin ×1, stockTake ×1); core/reports.ts (inventoryListing ×1) · tests: 9 call(s) in 1 file(s)
+
+**`Instance.entriesMarked`** *(exported)*
+
+```
+Instance.entriesMarked(relation: string): number[]
+```
+
+Called from: production: core/reports.ts (profitAndLoss ×1, profitAndLossByAxis ×1)
+
+**`Instance.sums`** *(exported)*
+
+```
+Instance.sums(range?: DateRange, excludeEntries?: number[]): Map<number, number>
+```
+
+Called from: production: core/ops.ts (closeBooks ×1, rollover ×1); core/reports.ts (moneyBalances ×1)
+
+### `backend/src/core/ops.ts`
+
+**`generated`**
+
+```
+generated(prefix: string): string
+```
+
+Called from: production: core/ops.ts (clockOn ×1, openContainer ×1, payment ×1, payWages ×1, purchase ×1, sell ×1, and 2 more)
+
+**`optional`**
+
+```
+optional(text: string | undefined): string | undefined
+```
+
+Called from: production: core/ops.ts (acceptProposal ×2, createBusiness ×1, createEmployee ×1, createLocation ×3, createPlant ×1, delivery ×1, and 10 more)
+
+**`createBusiness`** *(exported)*
+
+```
+createBusiness(inst: Instance, input: NewBusiness): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createBusiness ×1) · tests: 3 call(s) in 1 file(s)
+
+**`usersFolder`**
+
+```
+usersFolder(inst: Instance): Node
+```
+
+Called from: production: core/ops.ts (createUser ×2)
+
+**`createUser`** *(exported)*
+
+```
+createUser(inst: Instance, username: string, password: string, roles: string[]): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createUserSimple ×1) · tests: 1 call(s) in 1 file(s)
+
+**`userRoles`** *(exported)*
+
+```
+userRoles(inst: Instance, username: string): string[]
+```
+
+Called from: production: core/ops.ts (setUserRoles ×1); core/screens.ts (CORE_VERIFY_REGISTRY.user_has_exact_roles ×1) · tests: 4 call(s) in 1 file(s)
+
+**`setUserRoles`** *(exported)*
+
+```
+setUserRoles(inst: Instance, username: string, roles: string[]): void
+```
+
+Called from: production: core/ops.ts (createBusiness ×1, createUser ×1); core/screens.ts (CORE_API_REGISTRY.setUserRolesSimple ×1) · tests: 3 call(s) in 1 file(s)
+
+**`nominateBankAccount`** *(exported)*
+
+```
+nominateBankAccount(inst: Instance, name: string, routingDetail: string, accountNumber: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.nominateBankAccountSimple ×1)
+
+**`buildBankCurrencyStructure`** *(exported)*
+
+```
+buildBankCurrencyStructure(inst: Instance, bankAccountName: string, currency: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.buildBankCurrencyStructureSimple ×1)
+
+**`createLocation`** *(exported)*
+
+```
+createLocation(inst: Instance, input: NewLocation): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createAndConfigureLocation ×1) · tests: 2 call(s) in 1 file(s)
+
+**`createItem`** *(exported)*
+
+```
+createItem(inst: Instance, name: string, storable?: boolean): Node
+```
+
+Called from: production: core/ops.ts (serviceItem ×1); core/screens.ts (CORE_API_REGISTRY.createItemAndCategory ×1, CORE_API_REGISTRY.createItemUnderCategory ×1, CORE_API_REGISTRY.createUncategorizedItem ×1) · tests: 10 call(s) in 1 file(s)
+
+**`isStorable`** *(exported)*
+
+```
+isStorable(inst: Instance, item: Node): boolean
+```
+
+Called from: production: core/ops.ts (purchase ×1, requireStorable ×1, sell ×1)
+
+**`serviceItem`**
+
+```
+serviceItem(inst: Instance, name: string): Node
+```
+
+Called from: production: core/ops.ts (clockOn ×1)
+
+**`createContact`** *(exported)*
+
+```
+createContact(inst: Instance, name: string, type: string): Node
+```
+
+Called from: production: core/ops.ts (createEmployee ×1, createPlant ×1); core/screens.ts (CORE_API_REGISTRY.createCustomerSimple ×1, CORE_API_REGISTRY.createProviderSimple ×1) · tests: 4 call(s) in 1 file(s)
+
+**`createEmployee`** *(exported)*
+
+```
+createEmployee(inst: Instance, name: string, locationName?: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createEmployeeAt ×1) · tests: 1 call(s) in 1 file(s)
+
+**`setEmployeeManager`** *(exported)*
+
+```
+setEmployeeManager(inst: Instance, employeeName: string, managerName: string): void
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.setEmployeeManagerViaStructurePopup ×1)
+
+**`createPlant`** *(exported)*
+
+```
+createPlant(inst: Instance, name: string, hourlyRateMinor: number, ownedOrHired: string, hireVendor?: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createPlantItemSimple ×1)
+
+**`ensureSkill`** *(exported)*
+
+```
+ensureSkill(inst: Instance, name: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.ensureSkillSimple ×1)
+
+**`tagSkill`** *(exported)*
+
+```
+tagSkill(inst: Instance, contactName: string, skillName: string, rateMinorPerHour: number): void
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.tagSkillSimple ×1)
+
+**`setItemSource`** *(exported)*
+
+```
+setItemSource(inst: Instance, itemName: string, providerName: string, priceMinor: number, packageQuantity: number): void
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.setItemCostAndPackSize ×1)
+
+**`itemSource`** *(exported)*
+
+```
+itemSource(inst: Instance, itemName: string, providerName: string): { priceMinor: number; packageQuantity: number; } | undefined
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createPurchaseOrderInCartons ×1, CORE_VERIFY_REGISTRY.item_source_registered ×1)
+
+**`setGroup`** *(exported)*
+
+```
+setGroup(inst: Instance, thingName: string, grouping: string, value: string): void
+```
+
+Called from: production: core/ops.ts (createLocation ×1); core/screens.ts (CORE_API_REGISTRY.createItemAndCategory ×1, CORE_API_REGISTRY.createItemUnderCategory ×1, CORE_API_REGISTRY.setHierarchyTagSimple ×1, CORE_API_REGISTRY.tagItemHierarchy ×1)
+
+**`groupOf`** *(exported)*
+
+```
+groupOf(inst: Instance, thingName: string, grouping: string): string | undefined
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.location_in_hierarchy_group ×1)
+
+**`departmentFolder`**
+
+```
+departmentFolder(inst: Instance): Node
+```
+
+Called from: production: core/ops.ts (createDepartment ×1, deleteDepartment ×1)
+
+**`createDepartment`** *(exported)*
+
+```
+createDepartment(inst: Instance, name: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.addDepartmentViaStructurePopup ×1)
+
+**`deleteDepartment`** *(exported)*
+
+```
+deleteDepartment(inst: Instance, name: string): void
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.deleteDepartmentViaStructurePopup ×1)
+
+**`setEmployeeDepartment`** *(exported)*
+
+```
+setEmployeeDepartment(inst: Instance, employeeName: string, departmentName: string): void
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.assignEmployeeDepartmentViaStructurePopup ×1)
+
+**`renameByName`** *(exported)*
+
+```
+renameByName(inst: Instance, oldName: string, newName: string, parentName?: string): void
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.renameEntitySimple ×1) · tests: 1 call(s) in 1 file(s)
+
+**`setLine`** *(exported)*
+
+```
+setLine(inst: Instance, owner: Node, line: Partial<RecipeLine> & { component: string; }): void
+```
+
+Called from: production: core/ops.ts (acceptProposal ×1); core/screens.ts (CORE_API_REGISTRY.addPrototypeLineSimple ×1, CORE_API_REGISTRY.setBomComponentSimple ×1, CORE_API_REGISTRY.updatePrototypeLineSimple ×1) · tests: 2 call(s) in 1 file(s)
+
+**`getLines`** *(exported)*
+
+```
+getLines(inst: Instance, owner: Node): RecipeLine[]
+```
+
+Called from: production: core/ops.ts (acceptProposal ×2, instantiateProposal ×1, nextWindow ×1, projectMargin ×1); core/screens.ts (CORE_API_REGISTRY.updatePrototypeLineSimple ×1, CORE_VERIFY_REGISTRY.bom_components_recorded ×1, CORE_VERIFY_REGISTRY.prototype_line_updated ×1) · tests: 3 call(s) in 1 file(s)
+
+**`recipeOwner`** *(exported)*
+
+```
+recipeOwner(inst: Instance, name: string): Node | undefined
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.bom_components_recorded ×1)
+
+**`createPrototype`** *(exported)*
+
+```
+createPrototype(inst: Instance, name: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createPrototypeSimple ×1) · tests: 1 call(s) in 1 file(s)
+
+**`recipeTotal`**
+
+```
+recipeTotal(lines: RecipeLine[]): number
+```
+
+Called from: production: core/ops.ts (acceptProposal ×1, instantiateProposal ×1, projectMargin ×1)
+
+**`orderLines`**
+
+```
+orderLines(inst: Instance, side: "Purchase" | "Sales", item: Node, quantity: number, valueMinor: number): Line[]
+```
+
+Called from: production: core/ops.ts (clockOn ×1, delivery ×1, instantiateProposal ×1, placePurchaseOrder ×1)
+
+**`reversed`**
+
+```
+reversed(lines: Line[]): Line[]
+```
+
+Called from: production: core/ops.ts (acceptProposal ×1, clockOff ×1, delivery ×1, reverseEntry ×1)
+
+**`instantiateProposal`** *(exported)*
+
+```
+instantiateProposal(inst: Instance, prototypeName: string, reference: string, clientName: string, headerItemName: string, date: string, targetCompletionDate?: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.instantiateProjectProposalSimple ×1)
+
+**`addDays`**
+
+```
+addDays(date: string, days: number): string
+```
+
+Called from: production: core/ops.ts (nextWindow ×2)
+
+**`projects`**
+
+```
+projects(inst: Instance): Node[]
+```
+
+Called from: production: core/ops.ts (nextWindow ×1)
+
+**`nextWindow`**
+
+```
+nextWindow(inst: Instance, resource: string, wantedStart: string, days: number, exclude: Node): { start: string; end: string; }
+```
+
+Called from: production: core/ops.ts (acceptProposal ×1)
+
+**`acceptProposal`** *(exported)*
+
+```
+acceptProposal(inst: Instance, reference: string, projectName?: string, targetCompletionDate?: string): void
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.acceptProjectProposalSimple ×1)
+
+**`scheduleRisk`** *(exported)*
+
+```
+scheduleRisk(inst: Instance, projectName: string): string | undefined
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.schedule_risk_absent ×1, CORE_VERIFY_REGISTRY.schedule_risk_flagged ×1)
+
+**`projectMargin`** *(exported)*
+
+```
+projectMargin(inst: Instance, projectName: string): { quotedTotalMinor: number; actualCostMinor: number; marginMinor: number; }
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.project_margin_sign ×1)
+
+**`employeeClock`**
+
+```
+employeeClock(inst: Instance, name: string): Clockable
+```
+
+Called from: production: core/ops.ts (clockInToProject ×1, clockOutOfProject ×1)
+
+**`plantClock`**
+
+```
+plantClock(inst: Instance, name: string): Clockable
+```
+
+Called from: production: core/ops.ts (clockPlantIn ×1, clockPlantOut ×1)
+
+**`clockOn`**
+
+```
+clockOn(inst: Instance, clock: Clockable, projectExpenseAccount: string): Node
+```
+
+Called from: production: core/ops.ts (clockInToProject ×1, clockPlantIn ×1)
+
+**`clockOff`**
+
+```
+clockOff(inst: Instance, clock: Clockable): void
+```
+
+Called from: production: core/ops.ts (clockOutOfProject ×1, clockPlantOut ×1)
+
+**`clockInToProject`** *(exported)*
+
+```
+clockInToProject(inst: Instance, employee: string, account: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.clockInToProjectSimple ×1)
+
+**`clockOutOfProject`** *(exported)*
+
+```
+clockOutOfProject(inst: Instance, employee: string): void
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.clockOutOfProjectSimple ×1)
+
+**`clockPlantIn`** *(exported)*
+
+```
+clockPlantIn(inst: Instance, plant: string, account: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.clockPlantInSimple ×1)
+
+**`clockPlantOut`** *(exported)*
+
+```
+clockPlantOut(inst: Instance, plant: string): void
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.clockPlantOutSimple ×1)
+
+**`product`**
+
+```
+product(inst: Instance, itemName: string, locationName?: string): { item: Node; location?: Node; }
+```
+
+Called from: production: core/ops.ts (dispatchStock ×1, purchase ×1, receiveStock ×1, sell ×1, stockTake ×1, writeOff ×1)
+
+**`onHand`**
+
+```
+onHand(inst: Instance, of: Product): number
+```
+
+Called from: production: core/ops.ts (costOf ×1, requireOnHand ×1, stockTake ×1)
+
+**`capacityAccount`**
+
+```
+capacityAccount(inst: Instance, group: "Installed" | "Remaining" | "Occupied", location: Node, tier: Tier): Node
+```
+
+Called from: production: core/ops.ts (capacityLines ×3)
+
+**`capacityLines`**
+
+```
+capacityLines(inst: Instance, location: Node | undefined, tier: Tier, occupiedDelta: number): Line[]
+```
+
+Called from: production: core/ops.ts (dispatchStock ×1, openContainer ×2, purchase ×1, receiveStock ×1, sell ×1, stockTake ×1, and 2 more)
+
+**`requireStorable`**
+
+```
+requireStorable(inst: Instance, item: Node, verb: string): void
+```
+
+Called from: production: core/ops.ts (dispatchStock ×1, receiveStock ×1, stockTake ×1, transferStock ×1, writeOff ×1)
+
+**`requirePositive`**
+
+```
+requirePositive(quantity: number): void
+```
+
+Called from: production: core/ops.ts (dispatchStock ×1, placePurchaseOrder ×1, purchase ×1, receiveStock ×1, sell ×1, transferStock ×1, and 1 more)
+
+**`requireOnHand`**
+
+```
+requireOnHand(inst: Instance, of: Product, quantity: number, verb: string): void
+```
+
+Called from: production: core/ops.ts (dispatchStock ×1, sell ×1, transferStock ×1, writeOff ×1)
+
+**`about`**
+
+```
+about(of: Product): Record<string, number>
+```
+
+Called from: production: core/ops.ts (dispatchStock ×1, purchase ×1, receiveStock ×1, sell ×1, stockTake ×1, writeOff ×1)
+
+**`receiveStock`** *(exported)*
+
+```
+receiveStock(inst: Instance, reference: string, itemName: string, locationName: string | undefined, quantity: number, date?: string, extra?: Record<string, Node>): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.receiveStockQuantitySimple ×1, CORE_API_REGISTRY.receiveStockWithCombination ×1) · tests: 1 call(s) in 1 file(s)
+
+**`dispatchStock`** *(exported)*
+
+```
+dispatchStock(inst: Instance, reference: string, itemName: string, locationName: string | undefined, quantity: number, date?: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.dispatchStockQuantitySimple ×1)
+
+**`costOf`**
+
+```
+costOf(inst: Instance, of: Product, quantity: number): number
+```
+
+Called from: production: core/ops.ts (sell ×1, transferStock ×1, writeOff ×1)
+
+**`transferStock`** *(exported)*
+
+```
+transferStock(inst: Instance, reference: string, itemName: string, fromName: string, toName: string, quantity: number): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.transferItemsSimple ×1) · tests: 1 call(s) in 1 file(s)
+
+**`delivery`**
+
+```
+delivery(inst: Instance, side: "Purchase" | "Sales", trade: Trade, item: Node, valueMinor: number): { lines: Line[]; relations: Record<string, number>; }
+```
+
+Called from: production: core/ops.ts (purchase ×1, sell ×1)
+
+**`purchase`** *(exported)*
+
+```
+purchase(inst: Instance, trade: Trade): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.cashPurchaseSimple ×1) · tests: 7 call(s) in 1 file(s)
+
+**`sell`** *(exported)*
+
+```
+sell(inst: Instance, trade: Trade): Node
+```
+
+Called from: production: core/screens.ts (sale ×1) · tests: 8 call(s) in 1 file(s)
+
+**`payment`** *(exported)*
+
+```
+payment(inst: Instance, contactName: string, amountMinor: number, reference?: string): Node
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`placePurchaseOrder`** *(exported)*
+
+```
+placePurchaseOrder(inst: Instance, reference: string, providerName: string, itemName: string, quantity: number, valueMinor: number): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createPurchaseOrderInCartons ×1, CORE_API_REGISTRY.postPurchaseOrderSimple ×1) · tests: 1 call(s) in 1 file(s)
+
+**`onOrder`** *(exported)*
+
+```
+onOrder(inst: Instance, itemName: string): number
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`writeOff`** *(exported)*
+
+```
+writeOff(inst: Instance, itemName: string, quantity: number, locationName?: string, reference?: string): Node
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`stockTake`** *(exported)*
+
+```
+stockTake(inst: Instance, itemName: string, counted: number, locationName?: string, reference?: string): Node | undefined
+```
+
+Called from: tests: 3 call(s) in 1 file(s)
+
+**`openContainer`** *(exported)*
+
+```
+openContainer(inst: Instance, locationName: string, itemName: string, containersOpened: number, unitsProduced: number): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.openContainer ×1)
+
+**`payWages`** *(exported)*
+
+```
+payWages(inst: Instance, employeeName: string, hours?: number, paid?: boolean): Payslip
+```
+
+Called from: tests: 3 call(s) in 1 file(s)
+
+**`reverseEntry`** *(exported)*
+
+```
+reverseEntry(inst: Instance, reference: string, date?: string): Node
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`lockLedger`** *(exported)*
+
+```
+lockLedger(inst: Instance, through: string | null): void
+```
+
+Called from: tests: 2 call(s) in 1 file(s)
+
+**`closeBooks`** *(exported)*
+
+```
+closeBooks(inst: Instance, asOfDate: string, retainedEarningsAccount: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.closeBooksSimple ×1) · tests: 1 call(s) in 1 file(s)
+
+**`createLedger`** *(exported)*
+
+```
+createLedger(inst: Instance, name: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createLedgerSimple ×1) · tests: 1 call(s) in 1 file(s)
+
+**`mirror`**
+
+```
+mirror(from: Instance, to: Instance, account: Node): Node
+```
+
+Called from: production: core/ops.ts (rollover ×1)
+
+**`rollover`** *(exported)*
+
+```
+rollover(inst: Instance, newLedgerName: string, asOfDate: string): Node
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.rolloverToNewPeriodSimple ×1) · tests: 1 call(s) in 1 file(s)
+
+### `backend/src/core/reports.ts`
+
+**`moneyBalances`**
+
+```
+moneyBalances(inst: Instance, range: DateRange, excludeEntries?: number[]): MoneyBalance[]
+```
+
+Called from: production: core/reports.ts (balanceSheet ×1, profitAndLoss ×1, profitAndLossByAxis ×1, trialBalance ×1)
+
+**`trialBalance`** *(exported)*
+
+```
+trialBalance(inst: Instance, asOf?: string): TrialBalance
+```
+
+Called from: production: core/screens.ts (tb ×1) · tests: 5 call(s) in 1 file(s)
+
+**`summarise`**
+
+```
+summarise(balances: MoneyBalance[]): ProfitAndLoss
+```
+
+Called from: production: core/reports.ts (profitAndLoss ×1, profitAndLossByAxis ×2)
+
+**`profitAndLoss`** *(exported)*
+
+```
+profitAndLoss(inst: Instance, from?: string, to?: string): ProfitAndLoss
+```
+
+Called from: production: core/screens.ts (pl ×1) · tests: 11 call(s) in 1 file(s)
+
+**`balanceSheet`** *(exported)*
+
+```
+balanceSheet(inst: Instance, asOf?: string): BalanceSheet
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.balance_sheet_balanced ×1) · tests: 5 call(s) in 1 file(s)
+
+**`axisValue`**
+
+```
+axisValue(inst: Instance, account: Node, axis: string): string
+```
+
+Called from: production: core/reports.ts (group ×1)
+
+**`profitAndLossByAxis`** *(exported)*
+
+```
+profitAndLossByAxis(inst: Instance, from: string | undefined, to: string | undefined, outer: string, inner: string): AxisNode[]
+```
+
+Called from: production: core/screens.ts (axis ×1) · tests: 1 call(s) in 1 file(s)
+
+**`inventoryListing`** *(exported)*
+
+```
+inventoryListing(inst: Instance): InventoryGroup[]
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.stock_on_hand_nonnegative ×1, CORE_VERIFY_REGISTRY.transfer_landed ×1) · tests: 2 call(s) in 1 file(s)
+
+### `backend/src/core/screens.ts`
+
+**`openCore`** *(exported)*
+
+```
+openCore(path?: string): Core
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.business_exists ×1, coreSessionStep ×2, instance ×1)
+
+**`resetCore`** *(exported)*
+
+```
+resetCore(remove?: boolean, path?: string): void
+```
+
+Called from: tooling: 1 call(s) in 1 file(s)
+
+**`businessName`**
+
+```
+businessName(name: string): string
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createLedgerSimple ×1, CORE_API_REGISTRY.rolloverToNewPeriodSimple ×1, coreSessionStep ×1, inst ×1)
+
+**`instance`**
+
+```
+instance(business: string, ledger: string): Instance
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createLedgerSimple ×1, CORE_API_REGISTRY.rolloverToNewPeriodSimple ×1, coreSessionStep ×1, global ×1, inst ×1)
+
+**`inst`**
+
+```
+inst(a: Args): Instance
+```
+
+Called from: production: core/screens.ts (axis ×1, CORE_API_REGISTRY.acceptProjectProposalSimple ×1, CORE_API_REGISTRY.addDepartmentViaStructurePopup ×1, CORE_API_REGISTRY.addDivisionViaStructurePopup ×1, CORE_API_REGISTRY.addPrototypeLineSimple ×1, CORE_API_REGISTRY.addTopLevelCategoryViaStructurePopup ×1, and 66 more)
+
+**`global`**
+
+```
+global(): Instance
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createBusiness ×1)
+
+**`coreSessionStep`** *(exported)*
+
+```
+coreSessionStep(screenName: string, a: Args): void
+```
+
+Called from: tooling: 1 call(s) in 1 file(s)
+
+**`stageKey`**
+
+```
+stageKey(i: Instance, reference: string): string
+```
+
+Called from: production: core/screens.ts (postStaged ×1, stageLine ×1)
+
+**`stageLine`**
+
+```
+stageLine(a: Args): void
+```
+
+Called from: production: core/screens.ts ((module level) (as a value))
+
+**`postStaged`**
+
+```
+postStaged(a: Args): void
+```
+
+Called from: production: core/screens.ts ((module level) (as a value))
+
+**`list`**
+
+```
+list(text: string | undefined): string[]
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.createUserSimple ×1, CORE_API_REGISTRY.setUserRolesSimple ×1, CORE_VERIFY_REGISTRY.user_has_exact_roles ×1)
+
+**`ensureCategory`**
+
+```
+ensureCategory(i: Instance, grouping: string, value: string): void
+```
+
+Called from: production: core/screens.ts (CORE_API_REGISTRY.addDivisionViaStructurePopup ×1, CORE_API_REGISTRY.addTopLevelCategoryViaStructurePopup ×1, CORE_API_REGISTRY.createCategorySimple ×1, CORE_API_REGISTRY.createHierarchyValueSimple ×1)
+
+**`sale`**
+
+```
+sale(a: Args): void
+```
+
+Called from: production: core/screens.ts ((module level) (as a value))
+
+**`CORE_API_REGISTRY.createBusiness`** *(exported)*
+
+```
+CORE_API_REGISTRY.createBusiness(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.nominateBankAccountSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.nominateBankAccountSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.buildBankCurrencyStructureSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.buildBankCurrencyStructureSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createAndConfigureLocation`** *(exported)*
+
+```
+CORE_API_REGISTRY.createAndConfigureLocation(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createEmployeeAt`** *(exported)*
+
+```
+CORE_API_REGISTRY.createEmployeeAt(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createProviderSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.createProviderSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createCustomerSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.createCustomerSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.setEmployeeWageSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.setEmployeeWageSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createPlantItemSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.createPlantItemSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.ensureSkillSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.ensureSkillSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.tagSkillSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.tagSkillSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createUncategorizedItem`** *(exported)*
+
+```
+CORE_API_REGISTRY.createUncategorizedItem(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createItemUnderCategory`** *(exported)*
+
+```
+CORE_API_REGISTRY.createItemUnderCategory(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createItemAndCategory`** *(exported)*
+
+```
+CORE_API_REGISTRY.createItemAndCategory(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createCategorySimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.createCategorySimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.addTopLevelCategoryViaStructurePopup`** *(exported)*
+
+```
+CORE_API_REGISTRY.addTopLevelCategoryViaStructurePopup(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.addDivisionViaStructurePopup`** *(exported)*
+
+```
+CORE_API_REGISTRY.addDivisionViaStructurePopup(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createHierarchyGroupingSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.createHierarchyGroupingSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createHierarchyValueSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.createHierarchyValueSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.tagItemHierarchy`** *(exported)*
+
+```
+CORE_API_REGISTRY.tagItemHierarchy(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.setHierarchyTagSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.setHierarchyTagSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.addDepartmentViaStructurePopup`** *(exported)*
+
+```
+CORE_API_REGISTRY.addDepartmentViaStructurePopup(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.deleteDepartmentViaStructurePopup`** *(exported)*
+
+```
+CORE_API_REGISTRY.deleteDepartmentViaStructurePopup(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.assignEmployeeDepartmentViaStructurePopup`** *(exported)*
+
+```
+CORE_API_REGISTRY.assignEmployeeDepartmentViaStructurePopup(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.setEmployeeManagerViaStructurePopup`** *(exported)*
+
+```
+CORE_API_REGISTRY.setEmployeeManagerViaStructurePopup(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.renameEntitySimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.renameEntitySimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createEntitySimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.createEntitySimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.setTranslationSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.setTranslationSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.ensureItemInventoryAccountSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.ensureItemInventoryAccountSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.setItemCostAndPackSize`** *(exported)*
+
+```
+CORE_API_REGISTRY.setItemCostAndPackSize(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createPurchaseOrderInCartons`** *(exported)*
+
+```
+CORE_API_REGISTRY.createPurchaseOrderInCartons(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.stagePurchaseOrderSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.stagePurchaseOrderSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.postPurchaseOrderSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.postPurchaseOrderSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.cashPurchaseSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.cashPurchaseSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.transferItemsSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.transferItemsSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.receiveStockQuantitySimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.receiveStockQuantitySimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.dispatchStockQuantitySimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.dispatchStockQuantitySimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.receiveStockWithCombination`** *(exported)*
+
+```
+CORE_API_REGISTRY.receiveStockWithCombination(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.openContainer`** *(exported)*
+
+```
+CORE_API_REGISTRY.openContainer(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.setBomComponentSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.setBomComponentSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createPrototypeSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.createPrototypeSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.addPrototypeLineSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.addPrototypeLineSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.updatePrototypeLineSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.updatePrototypeLineSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.instantiateProjectProposalSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.instantiateProjectProposalSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.acceptProjectProposalSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.acceptProjectProposalSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.clockInToProjectSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.clockInToProjectSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.clockOutOfProjectSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.clockOutOfProjectSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.clockPlantInSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.clockPlantInSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.clockPlantOutSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.clockPlantOutSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.closeBooksSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.closeBooksSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createLedgerSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.createLedgerSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.rolloverToNewPeriodSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.rolloverToNewPeriodSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.createUserSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.createUserSimple(a: Args): Node
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_API_REGISTRY.setUserRolesSimple`** *(exported)*
+
+```
+CORE_API_REGISTRY.setUserRolesSimple(a: Args): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`tbKey`**
+
+```
+tbKey(a: Args): string
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.record_trial_balance_total ×1, CORE_VERIFY_REGISTRY.trial_balance_total_matches_recorded ×1)
+
+**`plKey`**
+
+```
+plKey(a: Args): string
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.profit_and_loss_net_income_matches_recorded ×1, CORE_VERIFY_REGISTRY.record_profit_and_loss_net_income ×1)
+
+**`pl`**
+
+```
+pl(a: Args): reports.ProfitAndLoss
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.profit_and_loss_by_division_consolidated ×1, CORE_VERIFY_REGISTRY.profit_and_loss_by_item_single_row ×1, CORE_VERIFY_REGISTRY.profit_and_loss_net_income_matches_recorded ×1, CORE_VERIFY_REGISTRY.profit_and_loss_positive ×1, CORE_VERIFY_REGISTRY.profit_and_loss_zero ×2, CORE_VERIFY_REGISTRY.record_profit_and_loss_net_income ×1)
+
+**`tb`**
+
+```
+tb(a: Args): reports.TrialBalance
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.record_trial_balance_total ×1, CORE_VERIFY_REGISTRY.trial_balance_balanced ×1, CORE_VERIFY_REGISTRY.trial_balance_total_matches_recorded ×1)
+
+**`axis`**
+
+```
+axis(a: Args, outer: string, inner: string): reports.AxisNode[]
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.profit_and_loss_by_category_detailed ×1, CORE_VERIFY_REGISTRY.profit_and_loss_by_division_consolidated ×1, CORE_VERIFY_REGISTRY.profit_and_loss_by_item_single_row ×1)
+
+**`exists`**
+
+```
+exists(read: () => unknown): boolean
+```
+
+Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.business_exists ×1, CORE_VERIFY_REGISTRY.location_exists ×1)
+
+**`CORE_VERIFY_REGISTRY.business_exists`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.business_exists(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.location_exists`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.location_exists(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.cash_at_bank_exists`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.cash_at_bank_exists(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.transfer_landed`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.transfer_landed(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.purchase_order_posted`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.purchase_order_posted(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.item_source_registered`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.item_source_registered(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.bom_components_recorded`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.bom_components_recorded(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.stock_on_hand_nonnegative`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.stock_on_hand_nonnegative(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.schedule_risk_absent`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.schedule_risk_absent(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.schedule_risk_flagged`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.schedule_risk_flagged(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.project_margin_sign`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.project_margin_sign(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.prototype_line_updated`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.prototype_line_updated(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.trial_balance_balanced`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.trial_balance_balanced(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.balance_sheet_balanced`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.balance_sheet_balanced(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.record_trial_balance_total`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.record_trial_balance_total(a: Args): true
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.trial_balance_total_matches_recorded`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.trial_balance_total_matches_recorded(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.profit_and_loss_positive`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.profit_and_loss_positive(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.profit_and_loss_zero`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.profit_and_loss_zero(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.record_profit_and_loss_net_income`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.record_profit_and_loss_net_income(a: Args): true
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.profit_and_loss_net_income_matches_recorded`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.profit_and_loss_net_income_matches_recorded(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.profit_and_loss_by_item_single_row`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.profit_and_loss_by_item_single_row(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.profit_and_loss_by_category_detailed`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.profit_and_loss_by_category_detailed(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.profit_and_loss_by_division_consolidated`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.profit_and_loss_by_division_consolidated(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.user_has_exact_roles`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.user_has_exact_roles(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.translation_matches`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.translation_matches(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.entity_named_exists`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.entity_named_exists(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`CORE_VERIFY_REGISTRY.location_in_hierarchy_group`** *(exported)*
+
+```
+CORE_VERIFY_REGISTRY.location_in_hierarchy_group(a: Args): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+### `backend/src/core/store.ts`
+
+**`Store.close`** *(exported)*
+
+```
+Store.close(): void
+```
+
+Called from: production: core/core.ts (Core.close ×1)
+
+**`Store.load`** *(exported)*
+
+```
+Store.load(): void
+```
+
+Called from: production: core/store.ts ((module level) ×1, Store.tx ×1)
+
+**`Store.index`** *(exported)*
+
+```
+Store.index(node: Node): void
+```
+
+Called from: production: core/store.ts (Store.create ×1, Store.load ×1)
+
+**`Store.tx`** *(exported)*
+
+```
+Store.tx<T>(fn: () => T): T
+```
+
+Called from: production: core/core.ts (Core.install ×1, Instance.copy ×1, Instance.create ×1, Instance.post ×1, Instance.relate ×1); core/ops.ts (acceptProposal ×1, buildBankCurrencyStructure ×1, clockOff ×1, clockOn ×1, closeBooks ×1, createBusiness ×1, and 34 more); core/screens.ts (CORE_API_REGISTRY.createEntitySimple ×1, CORE_API_REGISTRY.createHierarchyGroupingSimple ×1, CORE_API_REGISTRY.createItemAndCategory ×1, CORE_API_REGISTRY.createItemUnderCategory ×1, CORE_API_REGISTRY.ensureItemInventoryAccountSimple ×1, CORE_API_REGISTRY.openContainer ×1, and 4 more) · tests: 9 call(s) in 1 file(s)
+
+**`Store.get`** *(exported)*
+
+```
+Store.get(id: number): Node
+```
+
+Called from: production: core/core.ts (Core.copy ×1, Core.ensurePath ×1, Core.related ×1, Instance.instantiate ×1, Instance.post ×1, Instance.typeOf ×2); core/ops.ts (mirror ×2, renameByName ×1, rollover ×2); core/store.ts (Store.point ×1, Store.rename ×1)
+
+**`Store.child`** *(exported)*
+
+```
+Store.child(parent: number | null, name: string): Node | undefined
+```
+
+Called from: production: core/core.ts (Core.at ×2, Core.business ×1, Core.ensure ×1, Core.install ×2, Core.open ×4, Core.related ×1, and 9 more); core/ops.ts (acceptProposal ×1, createBusiness ×1, createUser ×1, getLines ×1, instantiateProposal ×1, itemSource ×1, and 3 more); core/reports.ts (inventoryListing ×2); core/store.ts (Store.create ×1, Store.rename ×1)
+
+**`Store.children`** *(exported)*
+
+```
+Store.children(parent: number): Node[]
+```
+
+Called from: production: core/core.ts (Core.copy ×1, Core.things ×1); core/ops.ts (mirror ×1, renameByName ×1, userRoles ×1)
+
+**`Store.create`** *(exported)*
+
+```
+Store.create(name: string, parent: number | null, by: number): Node
+```
+
+Called from: production: core/core.ts (Core.ensure ×1, Core.thing ×1); core/ops.ts (mirror ×1)
+
+**`Store.version`** *(exported)*
+
+```
+Store.version(node: Node, name: string, relation: number | null, by: number): void
+```
+
+Called from: production: core/store.ts (Store.point ×1, Store.rename ×1)
+
+**`Store.point`** *(exported)*
+
+```
+Store.point(id: number, target: number | null, by: number): void
+```
+
+Called from: production: core/core.ts (Core.copy ×1, Core.relate ×4)
+
+**`Store.rename`** *(exported)*
+
+```
+Store.rename(id: number, name: string, by: number): void
+```
+
+Called from: production: core/ops.ts (renameByName ×1) · tests: 1 call(s) in 1 file(s)
+
+**`Store.within`** *(exported)*
+
+```
+Store.within(id: number, ancestor: number): boolean
+```
+
+Called from: production: core/core.ts (Instance.post ×1) · tests: 1 call(s) in 1 file(s)
+
+**`Store.insertEntry`** *(exported)*
+
+```
+Store.insertEntry(entry: number, date: string, lines: Line[]): void
+```
+
+Called from: production: core/core.ts (Instance.post ×1)
+
+**`Store.entryDate`** *(exported)*
+
+```
+Store.entryDate(entry: number): string | undefined
+```
+
+Called from: production: core/ops.ts (acceptProposal ×1)
+
+**`Store.entryLines`** *(exported)*
+
+```
+Store.entryLines(entry: number): Line[]
+```
+
+Called from: production: core/ops.ts (acceptProposal ×1, clockOff ×1, reverseEntry ×1) · tests: 1 call(s) in 1 file(s)
+
+**`Store.balance`** *(exported)*
+
+```
+Store.balance(account: number): number
+```
+
+Called from: production: core/core.ts (Instance.balance ×1)
+
+**`Store.hasLines`** *(exported)*
+
+```
+Store.hasLines(account: number): boolean
+```
+
+Called from: production: core/ops.ts (deleteDepartment ×1)
+
+**`Store.sums`** *(exported)*
+
+```
+Store.sums(range?: DateRange, excludeEntries?: number[]): Map<number, number>
+```
+
+Called from: production: core/core.ts (Instance.sums ×1)
+
 ### `backend/src/db-journal.ts`
 
 **`findLedgerScopedAccount`**
@@ -2584,7 +5002,7 @@ Called from: production: db-journal.ts (countJournalEntries ×1, createRecurring
 stageLine(line: StagedLine): void
 ```
 
-Called from: production: call-dispatch/journal.ts (journalFunctions.stageLine ×1); db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×2, completeStockTake ×2, dispatchItems ×4, ensureLocationCapacityAccount ×2, receiveItems ×4, receiveStockPhysical ×2, and 2 more); db.ts (allocatePayment ×2, completePosSale ×2, convertStorageSpace ×4, openStorageContainer ×6, payEmployeeWages ×4, postInvoice ×4); primitives.ts (Balance.post ×1) · tests: 158 call(s) in 1 file(s) · tooling: 38 call(s) in 8 file(s)
+Called from: production: call-dispatch/journal.ts (journalFunctions.stageLine ×1); db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×2, completeStockTake ×2, dispatchItems ×4, ensureLocationCapacityAccount ×2, receiveItems ×4, receiveStockPhysical ×2, and 2 more); db.ts (allocatePayment ×2, completePosSale ×2, convertStorageSpace ×4, openStorageContainer ×6, payEmployeeWages ×4, postInvoice ×4); primitives.ts (Balance.post ×1) · tests: 162 call(s) in 1 file(s) · tooling: 40 call(s) in 10 file(s)
 
 **`getStagedLines`** *(exported)*
 
@@ -2648,7 +5066,7 @@ Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1)
 stagePurchaseOrder(input: PurchaseOrderInput): void
 ```
 
-Called from: production: call-dispatch/stock.ts (stockFunctions.stagePurchaseOrder ×1); db-journal.ts (clockInToProject ×1) · tests: 4 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
+Called from: production: call-dispatch/stock.ts (stockFunctions.stagePurchaseOrder ×1); db-journal.ts (clockInToProject ×1, clockPlantIn ×1) · tests: 4 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
 
 **`postPurchaseOrder`** *(exported)*
 
@@ -2656,7 +5074,7 @@ Called from: production: call-dispatch/stock.ts (stockFunctions.stagePurchaseOrd
 postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
-Called from: production: call-dispatch/stock.ts (stockFunctions.postPurchaseOrder ×1); db-journal.ts (clockInToProject ×1) · tests: 5 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
+Called from: production: call-dispatch/stock.ts (stockFunctions.postPurchaseOrder ×1); db-journal.ts (clockInToProject ×1, clockPlantIn ×1) · tests: 5 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
 
 **`clockInToProject`** *(exported)*
 
@@ -2664,7 +5082,7 @@ Called from: production: call-dispatch/stock.ts (stockFunctions.postPurchaseOrde
 clockInToProject(employeeName: EmployeeName, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): EmployeeClock
 ```
 
-Called from: production: call-dispatch/projects.ts (projectsFunctions.clockInToProject ×1)
+Called from: production: call-dispatch/projects.ts (projectsFunctions.clockInToProject ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`getOpenProjectClockEntity`**
 
@@ -2672,7 +5090,7 @@ Called from: production: call-dispatch/projects.ts (projectsFunctions.clockInToP
 getOpenProjectClockEntity(employeeName: string): { id: number; po_reference: string; project_expense_account: string; clocked_in_at: string; } | undefined
 ```
 
-Called from: production: db-journal.ts (clockOutOfProject ×1, getOpenProjectClockForEmployee ×1)
+Called from: production: db-journal.ts (clockOutOfProject ×1, clockPlantOut ×1, getOpenPlantClock ×1, getOpenProjectClockForEmployee ×1)
 
 **`clockOutOfProject`** *(exported)*
 
@@ -2680,7 +5098,7 @@ Called from: production: db-journal.ts (clockOutOfProject ×1, getOpenProjectClo
 clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
-Called from: production: call-dispatch/projects.ts (projectsFunctions.clockOutOfProject ×1)
+Called from: production: call-dispatch/projects.ts (projectsFunctions.clockOutOfProject ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`getOpenProjectClockForEmployee`** *(exported)*
 
@@ -2688,7 +5106,31 @@ Called from: production: call-dispatch/projects.ts (projectsFunctions.clockOutOf
 getOpenProjectClockForEmployee(employeeName: EmployeeName): EmployeeClock | undefined
 ```
 
-Called from: production: call-dispatch/projects.ts (projectsFunctions.getOpenProjectClock ×1)
+Called from: production: call-dispatch/projects.ts (projectsFunctions.getOpenProjectClock ×1) · tests: 2 call(s) in 1 file(s)
+
+**`clockPlantIn`** *(exported)*
+
+```
+clockPlantIn(plantName: string, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): PlantClock
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.clockPlantIn ×1) · tests: 3 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`clockPlantOut`** *(exported)*
+
+```
+clockPlantOut(plantName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.clockPlantOut ×1) · tests: 3 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`getOpenPlantClock`** *(exported)*
+
+```
+getOpenPlantClock(plantName: string): PlantClock | undefined
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.getOpenPlantClock ×1) · tests: 4 call(s) in 1 file(s)
 
 **`stageOrderReceipt`** *(exported)*
 
@@ -2696,7 +5138,7 @@ Called from: production: call-dispatch/projects.ts (projectsFunctions.getOpenPro
 stageOrderReceipt(input: OrderReceiptInput): void
 ```
 
-Called from: production: call-dispatch/stock.ts (stockFunctions.stageOrderReceipt ×1); db-journal.ts (clockOutOfProject ×1) · tests: 2 call(s) in 1 file(s)
+Called from: production: call-dispatch/stock.ts (stockFunctions.stageOrderReceipt ×1); db-journal.ts (clockOutOfProject ×1, clockPlantOut ×1) · tests: 2 call(s) in 1 file(s)
 
 **`postOrderReceipt`** *(exported)*
 
@@ -2704,7 +5146,7 @@ Called from: production: call-dispatch/stock.ts (stockFunctions.stageOrderReceip
 postOrderReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
-Called from: production: call-dispatch/stock.ts (stockFunctions.postOrderReceipt ×1); db-journal.ts (clockOutOfProject ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: call-dispatch/stock.ts (stockFunctions.postOrderReceipt ×1); db-journal.ts (clockOutOfProject ×1, clockPlantOut ×1) · tests: 3 call(s) in 1 file(s)
 
 **`stageLocation`** *(exported)*
 
@@ -2800,12 +5242,12 @@ Called from: production: db-journal.ts (commitStagedQuantityMovement ×1, postJo
 postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
-Called from: production: call-dispatch/journal.ts (journalFunctions.postJournalEntry ×1); db-journal.ts (postAPPayment ×1, postARReceipt ×1, postOrderDispatch ×2, postOrderReceipt ×1, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×1, completeStockTake ×1, dispatchItems ×2, ensureLocationCapacityAccount ×1, receiveItems ×2, receiveStockPhysical ×1, and 2 more); db.ts (allocatePayment ×1, completePosSale ×1, convertStorageSpace ×1, openStorageContainer ×2, payEmployeeWages ×2, postInvoice ×1) · tests: 77 call(s) in 1 file(s) · tooling: 15 call(s) in 8 file(s)
+Called from: production: call-dispatch/journal.ts (journalFunctions.postJournalEntry ×1); db-journal.ts (postAPPayment ×1, postARReceipt ×1, postOrderDispatch ×2, postOrderReceipt ×1, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×1, completeStockTake ×1, dispatchItems ×2, ensureLocationCapacityAccount ×1, receiveItems ×2, receiveStockPhysical ×1, and 2 more); db.ts (allocatePayment ×1, completePosSale ×1, convertStorageSpace ×1, openStorageContainer ×2, payEmployeeWages ×2, postInvoice ×1) · tests: 79 call(s) in 1 file(s) · tooling: 17 call(s) in 10 file(s)
 
 **`commitStagedQuantityMovement`** *(exported)*
 
 ```
-commitStagedQuantityMovement(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
+commitStagedQuantityMovement(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId, recurrence?: Recurrence, recurrenceCount?: number): void
 ```
 
 Called from: production: db-stock.ts (postStagedQuantityMovement ×1); primitives.ts (Balance.post ×1) · tests: 1 call(s) in 1 file(s)
@@ -2996,6 +5438,170 @@ getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues
 
 Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions.getAxisValues ×1)
 
+### `backend/src/db-projects.ts`
+
+**`liveProjectsRoot`**
+
+```
+liveProjectsRoot(business: BusinessName): TypedNode<"BusinessLiveProjectsRootName">
+```
+
+Called from: production: db-projects.ts (createLiveProject ×1, listLiveProjects ×1)
+
+**`createLiveProject`** *(exported)*
+
+```
+createLiveProject(name: string, business: BusinessName, client: string, requestedStart: string, targetCompletionDate: string, userId: UserId): { id: number; }
+```
+
+Called from: production: call-dispatch/projects.ts (projectsFunctions.createLiveProject ×1); db-quotations.ts (acceptQuotation ×1) · tests: 8 call(s) in 1 file(s)
+
+**`getLiveProject`** *(exported)*
+
+```
+getLiveProject(name: string): LiveProjectRecord | undefined
+```
+
+Called from: production: call-dispatch/projects.ts (projectsFunctions.getLiveProject ×1); db-projects.ts (checkMilestoneAchievability ×1, getProjectCostReport ×1) · tests: 7 call(s) in 1 file(s) · tooling: 4 call(s) in 2 file(s)
+
+**`listLiveProjects`** *(exported)*
+
+```
+listLiveProjects(business: BusinessName): string[]
+```
+
+Called from: production: call-dispatch/projects.ts (projectsFunctions.listLiveProjects ×1); db-projects.ts (getResourceBookings ×1) · tests: 2 call(s) in 1 file(s)
+
+**`provisionProjectProfitCenter`** *(exported)*
+
+```
+provisionProjectProfitCenter(projectName: string, business: BusinessName, userId: UserId): { profitCenterName: string; expenseAccountName: string; }
+```
+
+Called from: production: call-dispatch/projects.ts (projectsFunctions.provisionProjectProfitCenter ×1); db-quotations.ts (acceptQuotation ×1) · tests: 3 call(s) in 1 file(s)
+
+**`getProjectCostReport`** *(exported)*
+
+```
+getProjectCostReport(projectName: string): ProjectCostReport
+```
+
+Called from: production: call-dispatch/projects.ts (projectsFunctions.getProjectCostReport ×1) · tests: 5 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`createMilestone`** *(exported)*
+
+```
+createMilestone(projectName: string, milestoneType: MilestoneType, dueDate: string, userId: UserId, label?: string): { id: number; }
+```
+
+Called from: production: call-dispatch/projects.ts (projectsFunctions.createMilestone ×1); db-quotations.ts (acceptQuotation ×1) · tests: 4 call(s) in 1 file(s)
+
+**`getMilestones`** *(exported)*
+
+```
+getMilestones(projectName: string): MilestoneRecord[]
+```
+
+Called from: production: call-dispatch/projects.ts (projectsFunctions.getMilestones ×1); db-projects.ts (checkMilestoneAchievability ×1) · tests: 3 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`addDays`**
+
+```
+addDays(dateStr: string, days: number): string
+```
+
+Called from: production: db-projects.ts (findNextAvailableWindow ×2)
+
+**`getResourceBookings`** *(exported)*
+
+```
+getResourceBookings(resourceName: string, business: BusinessName, excludeProject?: string): ResourceBooking[]
+```
+
+Called from: production: call-dispatch/projects.ts (projectsFunctions.getResourceBookings ×1); db-projects.ts (findNextAvailableWindow ×1) · tests: 2 call(s) in 1 file(s)
+
+**`findNextAvailableWindow`** *(exported)*
+
+```
+findNextAvailableWindow(resourceName: string, business: BusinessName, desiredStart: string, durationDays: number, excludeProject?: string): ScheduleResolution
+```
+
+Called from: production: db-projects.ts (scheduleProjectRecipeLines ×1)
+
+**`scheduleProjectRecipeLines`** *(exported)*
+
+```
+scheduleProjectRecipeLines(projectName: string, business: BusinessName, userId: UserId): ScheduledLine[]
+```
+
+Called from: production: call-dispatch/projects.ts (projectsFunctions.scheduleProjectRecipeLines ×1); db-quotations.ts (acceptQuotation ×1) · tests: 2 call(s) in 1 file(s)
+
+**`checkMilestoneAchievability`** *(exported)*
+
+```
+checkMilestoneAchievability(projectName: string, userId: UserId): { achievable: boolean; completionDate: string; targetCompletionDate: string; }
+```
+
+Called from: production: call-dispatch/projects.ts (projectsFunctions.scheduleProjectRecipeLines ×1); db-quotations.ts (acceptQuotation ×1) · tests: 2 call(s) in 1 file(s)
+
+### `backend/src/db-prototypes.ts`
+
+**`prototypesRoot`**
+
+```
+prototypesRoot(business: BusinessName): TypedNode<"BusinessPrototypeRootName">
+```
+
+Called from: production: db-prototypes.ts (createPrototype ×1, listPrototypes ×1)
+
+**`createPrototype`** *(exported)*
+
+```
+createPrototype(name: string, business: BusinessName, userId: UserId): { id: number; }
+```
+
+Called from: production: call-dispatch/prototypes.ts (prototypesFunctions.createPrototype ×1) · tests: 2 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`listPrototypes`** *(exported)*
+
+```
+listPrototypes(business: BusinessName): string[]
+```
+
+Called from: production: call-dispatch/prototypes.ts (prototypesFunctions.listPrototypes ×1) · tests: 2 call(s) in 1 file(s)
+
+**`addPrototypeLine`** *(exported)*
+
+```
+addPrototypeLine(prototypeName: string, business: BusinessName, kind: BomLineKind, resourceOrItemName: string, quantity: number, unit: string, priceMinor: number, userId: UserId, durationHours?: number, scheduledStart?: string): void
+```
+
+Called from: production: call-dispatch/prototypes.ts (prototypesFunctions.addPrototypeLine ×1) · tests: 2 call(s) in 1 file(s) · tooling: 4 call(s) in 2 file(s)
+
+**`getPrototypeLines`** *(exported)*
+
+```
+getPrototypeLines(prototypeName: string): BomComponentLine[]
+```
+
+Called from: production: call-dispatch/prototypes.ts (prototypesFunctions.addPrototypeLine ×1, prototypesFunctions.getPrototypeLines ×1, prototypesFunctions.updatePrototypeLine ×1) · tests: 2 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`updatePrototypeLine`** *(exported)*
+
+```
+updatePrototypeLine(prototypeName: string, business: BusinessName, resourceOrItemName: string, userId: UserId, newDurationHours?: number, newPriceMinor?: number): void
+```
+
+Called from: production: call-dispatch/prototypes.ts (prototypesFunctions.updatePrototypeLine ×1) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`instantiateProjectProposal`** *(exported)*
+
+```
+instantiateProjectProposal(prototypeName: string, reference: string, client: string, business: BusinessName, ledger: string, headerItem: string, transdate: string, userId: UserId, targetCompletionDate?: string): void
+```
+
+Called from: production: call-dispatch/prototypes.ts (prototypesFunctions.instantiateProjectProposal ×1) · tests: 3 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
+
 ### `backend/src/db-quotations.ts`
 
 **`ensureQuotationsRoot`**
@@ -3028,7 +5634,7 @@ Called from: production: db-quotations.ts (rejectQuotation ×1)
 readQuotation(reference: string): QuotationRecord | undefined
 ```
 
-Called from: production: db-quotations.ts (acceptQuotation ×1, getQuotation ×1, listQuotations ×1, rejectQuotation ×1)
+Called from: production: db-quotations.ts (acceptQuotation ×1, addQuotationLine ×1, getQuotation ×1, listQuotations ×1, rejectQuotation ×1)
 
 **`draftQuotation`**
 
@@ -3044,7 +5650,7 @@ Called from: production: db-quotations.ts (createQuotation ×1, createRfq ×1)
 createQuotation(input: QuotationInput, userId: UserId, expiryDate?: string | null, recurrence?: Recurrence, recurrenceCount?: number): void
 ```
 
-Called from: production: call-dispatch/quotations.ts (quotationsFunctions.createQuotation ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/quotations.ts (quotationsFunctions.createQuotation ×1); db-prototypes.ts (instantiateProjectProposal ×1) · tests: 4 call(s) in 1 file(s)
 
 **`createRfq`** *(exported)*
 
@@ -3060,7 +5666,7 @@ Called from: production: call-dispatch/quotations.ts (quotationsFunctions.create
 getQuotation(reference: string): QuotationRecord | undefined
 ```
 
-Called from: production: call-dispatch/quotations.ts (quotationsFunctions.getQuotation ×1) · tests: 5 call(s) in 1 file(s)
+Called from: production: call-dispatch/quotations.ts (quotationsFunctions.getQuotation ×1) · tests: 9 call(s) in 1 file(s)
 
 **`listQuotations`** *(exported)*
 
@@ -3069,6 +5675,22 @@ listQuotations(business: BusinessName, ledger: LedgerName, direction?: Quotation
 ```
 
 Called from: production: call-dispatch/quotations.ts (quotationsFunctions.listQuotations ×1) · tests: 1 call(s) in 1 file(s)
+
+**`addQuotationLine`** *(exported)*
+
+```
+addQuotationLine(reference: string, kind: BomLineKind, resourceOrItemName: string, quantity: number, unit: string, priceMinor: number, userId: UserId, durationHours?: number, scheduledStart?: string): void
+```
+
+Called from: production: call-dispatch/quotations.ts (quotationsFunctions.addQuotationLine ×1) · tests: 6 call(s) in 1 file(s)
+
+**`getQuotationLines`** *(exported)*
+
+```
+getQuotationLines(reference: string): BomComponentLine[]
+```
+
+Called from: production: call-dispatch/quotations.ts (quotationsFunctions.addQuotationLine ×1, quotationsFunctions.getQuotationLines ×1) · tests: 6 call(s) in 1 file(s)
 
 **`markQuotationSent`** *(exported)*
 
@@ -3081,10 +5703,10 @@ Called from: production: call-dispatch/quotations.ts (quotationsFunctions.markQu
 **`acceptQuotation`** *(exported)*
 
 ```
-acceptQuotation(reference: string, userId: UserId): void
+acceptQuotation(reference: string, userId: UserId, projectDetails?: { projectName: string; targetCompletionDate: string; }): void
 ```
 
-Called from: production: call-dispatch/quotations.ts (quotationsFunctions.acceptQuotation ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: call-dispatch/quotations.ts (quotationsFunctions.acceptQuotation ×1) · tests: 6 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
 
 **`rejectQuotation`** *(exported)*
 
@@ -3270,7 +5892,7 @@ Called from: production: db-matrix-reports.ts (getAxisValues ×1, getProfitAndLo
 getTrialBalance(businessName: BusinessName, ledgerName: LedgerName, asOfDate?: string): TrialBalance
 ```
 
-Called from: production: call-dispatch/reports.ts (reportsFunctions.getTrialBalance ×1) · tests: 50 call(s) in 1 file(s) · tooling: 8 call(s) in 4 file(s)
+Called from: production: call-dispatch/reports.ts (reportsFunctions.getTrialBalance ×1) · tests: 50 call(s) in 1 file(s) · tooling: 10 call(s) in 6 file(s)
 
 **`getBalanceSheet`** *(exported)*
 
@@ -3294,7 +5916,7 @@ Called from: production: db-reports.ts (buildProfitAndLossFromBalances ×3, getB
 getProfitAndLoss(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries?: boolean): ProfitAndLoss
 ```
 
-Called from: production: call-dispatch/reports.ts (reportsFunctions.getProfitAndLoss ×1); db-reports.ts (getBalanceSheet ×1, getProfitAndLossComparison ×2) · tests: 12 call(s) in 1 file(s) · tooling: 10 call(s) in 4 file(s)
+Called from: production: call-dispatch/reports.ts (reportsFunctions.getProfitAndLoss ×1); db-reports.ts (getBalanceSheet ×1, getProfitAndLossComparison ×2) · tests: 12 call(s) in 1 file(s) · tooling: 12 call(s) in 6 file(s)
 
 **`buildProfitAndLossFromBalances`** *(exported)*
 
@@ -3407,7 +6029,7 @@ Called from: production: db.ts ((module level) ×1)
 **`stageQuantityMovementLine`** *(exported)*
 
 ```
-stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, accountId?: number): void
+stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, accountId?: number, memo?: string): void
 ```
 
 Called from: production: db-stock.ts (completeStockTake ×2, dispatchItems ×2, postQuantityMovement ×1, receiveItems ×2, receiveStockPhysical ×2, transferItems ×2, and 2 more)
@@ -3415,7 +6037,7 @@ Called from: production: db-stock.ts (completeStockTake ×2, dispatchItems ×2, 
 **`postStagedQuantityMovement`** *(exported)*
 
 ```
-postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId): void
+postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId, recurrence?: Recurrence, recurrenceCount?: number): void
 ```
 
 Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, postQuantityMovement ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1, and 2 more)
@@ -3423,10 +6045,10 @@ Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, 
 **`postQuantityMovement`** *(exported)*
 
 ```
-postQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, userId: UserId, transdate?: string, locationName?: LocationName, accountId?: number): void
+postQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, userId: UserId, transdate?: string, locationName?: LocationName, accountId?: number, memo?: string, recurrence?: Recurrence, recurrenceCount?: number): void
 ```
 
-Called from: production: db-journal.ts (postOrderDispatch ×1, postOrderReceipt ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (consumeFromLots ×2, fulfillOrder ×3, placeOrder ×3, receiveLot ×3); db.ts (postInvoice ×1) · tests: 9 call(s) in 1 file(s)
+Called from: production: db-journal.ts (postOrderDispatch ×1, postOrderReceipt ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (consumeFromLots ×2, fulfillOrder ×2, placeOrder ×2, receiveLot ×3); db.ts (postInvoice ×1) · tests: 9 call(s) in 1 file(s)
 
 **`getLocationTypes`** *(exported)*
 
@@ -3474,7 +6096,7 @@ Called from: production: db-stock.ts (dispatchItems ×1, postQuantityMovement ×
 getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels
 ```
 
-Called from: production: call-dispatch/locations.ts (locationsFunctions.getItemLocation ×1); db-stock.ts (completeStockTake ×1, createStockTake ×1, dispatchItems ×1, getInventoryListingByLocation ×1, transferItems ×1, transferStock ×1); db.ts (completePosSale ×1, getPickingList ×1, getRestockPickingList ×1) · tests: 23 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
+Called from: production: call-dispatch/locations.ts (locationsFunctions.getItemLocation ×1); db-stock.ts (completeStockTake ×1, createStockTake ×1, dispatchItems ×1, getInventoryListingByLocation ×1, transferItems ×1, transferStock ×1); db.ts (completePosSale ×1, getPickingList ×1, getRestockPickingList ×1) · tests: 23 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
 
 **`setItemLocationLevelDetails`** *(exported)*
 
@@ -3594,7 +6216,7 @@ Called from: production: call-dispatch/locations.ts (locationsFunctions.getStora
 getInventoryListingByLocation(business?: BusinessName, hierarchyName?: string): InventoryListingLocationGroup[]
 ```
 
-Called from: production: call-dispatch/locations.ts (locationsFunctions.getInventoryListingByLocation ×1); db-stock.ts (createStockTake ×1, getBelowReorderStock ×1, getInventoryListing ×1, getStockOutRiskReport ×1) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/locations.ts (locationsFunctions.getInventoryListingByLocation ×1); db-stock.ts (createStockTake ×1, getBelowReorderStock ×1, getInventoryListing ×1, getStockOutRiskReport ×1) · tests: 2 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
 
 **`allItemCategories`**
 
@@ -3652,13 +6274,21 @@ ensureUnitsTrackingBaseAccounts(business: BusinessName, userId: UserId): { onHan
 
 Called from: production: db-stock.ts (dispatchItems ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1, writeOffItems ×1)
 
+**`assertItemIsStorable`**
+
+```
+assertItemIsStorable(itemName: ItemName, verb: string): void
+```
+
+Called from: production: db-stock.ts (dispatchItems ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1)
+
 **`receiveItems`** *(exported)*
 
 ```
 receiveItems(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void
 ```
 
-Called from: production: call-dispatch/locations.ts (locationsFunctions.receiveItems ×1); call-dispatch/pos.ts (posFunctions.receiveStock ×1); db.ts (completeCashPurchase ×1) · tests: 58 call(s) in 1 file(s) · tooling: 8 call(s) in 3 file(s)
+Called from: production: call-dispatch/locations.ts (locationsFunctions.receiveItems ×1); call-dispatch/pos.ts (posFunctions.receiveStock ×1); db.ts (completeCashPurchase ×1) · tests: 58 call(s) in 1 file(s) · tooling: 11 call(s) in 4 file(s)
 
 **`receiveStockPhysical`** *(exported)*
 
@@ -3682,7 +6312,7 @@ Called from: production: call-dispatch/locations.ts (locationsFunctions.resolveR
 dispatchItems(business: BusinessName, ledger: LedgerName, reference: string, itemName: ItemName, locationName: LocationName, quantity: number, userId: UserId, transdate?: string, combinationValues?: string[], combinationShape?: [string, string][]): void
 ```
 
-Called from: production: call-dispatch/locations.ts (locationsFunctions.dispatchItems ×1); call-dispatch/pos.ts (posFunctions.dispatchStock ×1); db.ts (completePosSale ×1, dispatchOrderFromPickingList ×1) · tests: 8 call(s) in 1 file(s)
+Called from: production: call-dispatch/locations.ts (locationsFunctions.dispatchItems ×1); call-dispatch/pos.ts (posFunctions.dispatchStock ×1); db.ts (completePosSale ×1, dispatchOrderFromPickingList ×1) · tests: 8 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
 
 **`transferItems`** *(exported)*
 
@@ -3834,23 +6464,31 @@ Called from: production: call-dispatch/stock-lots.ts (stockLotsFunctions.getExpi
 createSystemEntity(name: string, parentId: number | null): number
 ```
 
-Called from: production: db-quotations.ts (ensureQuotationsRoot ×1); db-stock.ts (ensureLotAccount ×1, ensureStockLotsRoot ×1, placeOrder ×1)
+Called from: production: db-quotations.ts (ensureQuotationsRoot ×1); db-stock.ts (ensureLotAccount ×1, ensureStockLotsRoot ×1); db.ts (ensureSkillsRoot ×1)
+
+**`ensureSharedOnOrderAccounts`**
+
+```
+ensureSharedOnOrderAccounts(userId: UserId): { onOrderQtyAccountId: number; onOrderValueAccountId: number; }
+```
+
+Called from: production: db-stock.ts (placeOrder ×1)
+
+**`resolveOrderAccounts`**
+
+```
+resolveOrderAccounts(orderReference: string): { qtyAccountId: number | undefined; qtyAccountName: string | undefined; valueAccountId: number | undefined; valueAccountName: string | undefined; recurrence: Recurrence; }
+```
+
+Called from: production: db-stock.ts (fulfillOrder ×1, getOrderStatus ×1)
 
 **`placeOrder`** *(exported)*
 
 ```
-placeOrder(orderReference: string, business: BusinessName, ledger: LedgerName, quantity: number, priceMinor: number, userId: UserId, transdate?: string, vendor?: ProviderName, item?: ItemName, location?: LocationName): void
+placeOrder(orderReference: string, business: BusinessName, ledger: LedgerName, quantity: number, priceMinor: number, userId: UserId, transdate?: string, vendor?: ProviderName, item?: ItemName, location?: LocationName, recurrence?: Recurrence, recurrenceCount?: number): void
 ```
 
 Called from: production: db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
-
-**`resolveOrderItem`**
-
-```
-resolveOrderItem(orderReference: string): ItemName | undefined
-```
-
-Called from: production: db-stock.ts (fulfillOrder ×1, getOrderStatus ×1)
 
 **`fulfillOrder`** *(exported)*
 
@@ -3884,7 +6522,7 @@ Called from: nowhere the compiler could find.
 asUserId(id: number): UserId
 ```
 
-Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1); call-dispatch/auth.ts (authFunctions.changeOwnPassword ×1, authFunctions.setOwnDateFormat ×1, authFunctions.setOwnNumberFormat ×1, authFunctions.setOwnPageSize ×1, authFunctions.setUserRoleInBusiness ×1, authFunctions.unsetUserRoleInBusiness ×1); call-dispatch/businesses.ts ((module level) ×2, businessesFunctions.buildBankCurrencyStructure ×1, businessesFunctions.createProfitCenter ×1, businessesFunctions.nominateBankAccount ×1, businessesFunctions.saveBusinessTypeAnswers ×1); call-dispatch/contacts.ts (contactsFunctions.deleteTypedAddress ×1, contactsFunctions.deleteTypedContactPerson ×1, contactsFunctions.deleteTypedPhone ×1, contactsFunctions.setTypedAddress ×1, contactsFunctions.setTypedContactPerson ×1, contactsFunctions.setTypedPhone ×1); call-dispatch/customer-registration.ts (customerRegistrationFunctions.registerCustomer ×1); call-dispatch/departments.ts (departmentsFunctions.createDepartment ×1, departmentsFunctions.deleteDepartment ×1, departmentsFunctions.deleteEmployeeDepartment ×1, departmentsFunctions.deleteEmployeeManager ×1, departmentsFunctions.setEmployeeDepartment ×1, departmentsFunctions.setEmployeeManager ×1); call-dispatch/entities.ts (entitiesFunctions.createCustomer ×1, entitiesFunctions.createEmployeeContact ×1, entitiesFunctions.createEntity ×1, entitiesFunctions.createProvider ×1, entitiesFunctions.reorderEntities ×2, entitiesFunctions.revokeEntity ×1, and 3 more); call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1, hierarchyFunctions.createHierarchyValue ×2, hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.deleteHierarchyGrouping ×1, hierarchyFunctions.deleteHierarchyTag ×1, hierarchyFunctions.deleteHierarchyValue ×1, and 1 more); and 17 more file(s) · tests: 17 call(s) in 4 file(s) · tooling: 45 call(s) in 5 file(s)
+Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1); call-dispatch/auth.ts (authFunctions.changeOwnPassword ×1, authFunctions.setOwnDateFormat ×1, authFunctions.setOwnNumberFormat ×1, authFunctions.setOwnPageSize ×1, authFunctions.setUserRoleInBusiness ×1, authFunctions.unsetUserRoleInBusiness ×1); call-dispatch/businesses.ts ((module level) ×2, businessesFunctions.buildBankCurrencyStructure ×1, businessesFunctions.createProfitCenter ×1, businessesFunctions.nominateBankAccount ×1, businessesFunctions.saveBusinessTypeAnswers ×1); call-dispatch/contacts.ts (contactsFunctions.deleteTypedAddress ×1, contactsFunctions.deleteTypedContactPerson ×1, contactsFunctions.deleteTypedPhone ×1, contactsFunctions.setTypedAddress ×1, contactsFunctions.setTypedContactPerson ×1, contactsFunctions.setTypedPhone ×1); call-dispatch/customer-registration.ts (customerRegistrationFunctions.registerCustomer ×1); call-dispatch/departments.ts (departmentsFunctions.createDepartment ×1, departmentsFunctions.deleteDepartment ×1, departmentsFunctions.deleteEmployeeDepartment ×1, departmentsFunctions.deleteEmployeeManager ×1, departmentsFunctions.setEmployeeDepartment ×1, departmentsFunctions.setEmployeeManager ×1); call-dispatch/entities.ts (entitiesFunctions.createCustomer ×1, entitiesFunctions.createEmployeeContact ×1, entitiesFunctions.createEntity ×1, entitiesFunctions.createProvider ×1, entitiesFunctions.reorderEntities ×2, entitiesFunctions.revokeEntity ×1, and 3 more); call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1, hierarchyFunctions.createHierarchyValue ×2, hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.deleteHierarchyGrouping ×1, hierarchyFunctions.deleteHierarchyTag ×1, hierarchyFunctions.deleteHierarchyValue ×1, and 1 more); and 19 more file(s) · tests: 17 call(s) in 4 file(s) · tooling: 64 call(s) in 7 file(s)
 
 **`asEntityId`** *(exported)*
 
@@ -3900,7 +6538,7 @@ Called from: production: call-dispatch/entities.ts (entitiesFunctions.reorderEnt
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: auth-middleware.ts (requireRole ×1); call-dispatch.ts (requireRole ×1 (as a value)); call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/auth.ts (authFunctions.getUserRoleMatrix ×1, authFunctions.setUserRoleInBusiness ×1, authFunctions.unsetUserRoleInBusiness ×1); call-dispatch/businesses.ts ((module level) ×1, businessesFunctions.buildBankCurrencyStructure ×1, businessesFunctions.createProfitCenter ×1, businessesFunctions.getActiveLedger ×1, businessesFunctions.getBusinessConfigurationReport ×1, businessesFunctions.getLedgers ×1, and 4 more); call-dispatch/departments.ts (departmentsFunctions.createDepartment ×1, departmentsFunctions.deleteDepartment ×1, departmentsFunctions.getOrgChartStructure ×1, departmentsFunctions.listDepartments ×1); call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1, hierarchyFunctions.createHierarchyValue ×1, hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.deleteHierarchyGrouping ×1, hierarchyFunctions.deleteHierarchyValue ×1, hierarchyFunctions.getHierarchy ×1, and 1 more); call-dispatch/invoices.ts (invoicesFunctions.confirmPickedLine ×1, invoicesFunctions.getAgedInvoices ×1, invoicesFunctions.getAgedSummary ×1, invoicesFunctions.getCounterpartyHistory ×1, invoicesFunctions.getCustomerStatement ×1, invoicesFunctions.getReminderCandidates ×1, and 2 more); and 18 more file(s) · tests: 36 call(s) in 3 file(s) · tooling: 9 call(s) in 4 file(s)
+Called from: production: auth-middleware.ts (requireRole ×1); call-dispatch.ts (requireRole ×1 (as a value)); call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/auth.ts (authFunctions.getUserRoleMatrix ×1, authFunctions.setUserRoleInBusiness ×1, authFunctions.unsetUserRoleInBusiness ×1); call-dispatch/businesses.ts ((module level) ×1, businessesFunctions.buildBankCurrencyStructure ×1, businessesFunctions.createProfitCenter ×1, businessesFunctions.getActiveLedger ×1, businessesFunctions.getBusinessConfigurationReport ×1, businessesFunctions.getLedgers ×1, and 4 more); call-dispatch/departments.ts (departmentsFunctions.createDepartment ×1, departmentsFunctions.deleteDepartment ×1, departmentsFunctions.getOrgChartStructure ×1, departmentsFunctions.listDepartments ×1); call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1, hierarchyFunctions.createHierarchyValue ×1, hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.deleteHierarchyGrouping ×1, hierarchyFunctions.deleteHierarchyValue ×1, hierarchyFunctions.getHierarchy ×1, and 1 more); call-dispatch/invoices.ts (invoicesFunctions.confirmPickedLine ×1, invoicesFunctions.getAgedInvoices ×1, invoicesFunctions.getAgedSummary ×1, invoicesFunctions.getCounterpartyHistory ×1, invoicesFunctions.getCustomerStatement ×1, invoicesFunctions.getReminderCandidates ×1, and 2 more); and 20 more file(s) · tests: 36 call(s) in 3 file(s) · tooling: 11 call(s) in 6 file(s)
 
 **`asLedgerName`** *(exported)*
 
@@ -3908,7 +6546,7 @@ Called from: production: auth-middleware.ts (requireRole ×1); call-dispatch.ts 
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/invoices.ts (invoicesFunctions.confirmPickedLine ×1, invoicesFunctions.getAgedInvoices ×1, invoicesFunctions.getAgedSummary ×1, invoicesFunctions.getCounterpartyHistory ×1, invoicesFunctions.getCustomerStatement ×1, invoicesFunctions.getReminderCandidates ×1, and 2 more); call-dispatch/journal.ts (journalFunctions.closeBooks ×1, journalFunctions.createLedger ×1, journalFunctions.createRecurringJournal ×1, journalFunctions.getJournalEntry ×1, journalFunctions.getStagedLines ×1, journalFunctions.listJournalEntries ×2, and 8 more); call-dispatch/locations.ts (locationsFunctions.completeStockTake ×1, locationsFunctions.confirmRestockPickedLine ×1, locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.dispatchRestockRun ×1, locationsFunctions.openStorageContainer ×1, and 5 more); call-dispatch/matrix-reports.ts (matrixReportsFunctions.getAxisValues ×1, matrixReportsFunctions.getProfitAndLossByAxis ×1, matrixReportsFunctions.getSalesCogsMatrix ×1); call-dispatch/period.ts (periodFunctions.closePeriod ×1, periodFunctions.getPeriodStatus ×1, periodFunctions.reopenPeriod ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×1, posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); call-dispatch/projects.ts (projectsFunctions.clockInToProject ×1, projectsFunctions.clockOutOfProject ×1); and 10 more file(s) · tests: 20 call(s) in 1 file(s) · tooling: 29 call(s) in 3 file(s)
+Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/invoices.ts (invoicesFunctions.confirmPickedLine ×1, invoicesFunctions.getAgedInvoices ×1, invoicesFunctions.getAgedSummary ×1, invoicesFunctions.getCounterpartyHistory ×1, invoicesFunctions.getCustomerStatement ×1, invoicesFunctions.getReminderCandidates ×1, and 2 more); call-dispatch/journal.ts (journalFunctions.closeBooks ×1, journalFunctions.createLedger ×1, journalFunctions.createRecurringJournal ×1, journalFunctions.getJournalEntry ×1, journalFunctions.getStagedLines ×1, journalFunctions.listJournalEntries ×2, and 8 more); call-dispatch/locations.ts (locationsFunctions.completeStockTake ×1, locationsFunctions.confirmRestockPickedLine ×1, locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.dispatchRestockRun ×1, locationsFunctions.openStorageContainer ×1, and 5 more); call-dispatch/matrix-reports.ts (matrixReportsFunctions.getAxisValues ×1, matrixReportsFunctions.getProfitAndLossByAxis ×1, matrixReportsFunctions.getSalesCogsMatrix ×1); call-dispatch/period.ts (periodFunctions.closePeriod ×1, periodFunctions.getPeriodStatus ×1, periodFunctions.reopenPeriod ×1); call-dispatch/plant.ts (plantFunctions.clockPlantIn ×1, plantFunctions.clockPlantOut ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×1, posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); and 12 more file(s) · tests: 20 call(s) in 1 file(s) · tooling: 31 call(s) in 5 file(s)
 
 **`asAccountName`** *(exported)*
 
@@ -3916,7 +6554,7 @@ Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1,
 asAccountName(name: string): AccountName
 ```
 
-Called from: production: call-dispatch/journal.ts (journalFunctions.removeStagedLine ×1, journalFunctions.stageLine ×1); call-dispatch/locations.ts (locationsFunctions.completeStockTake ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×2); call-dispatch/projects.ts (projectsFunctions.clockInToProject ×1); call-dispatch/stock-lots.ts (stockLotsFunctions.writeOffItems ×1); db-journal.ts (postOrderDispatch ×6, postOrderReceipt ×4, reverseJournalEntry ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); and 3 more file(s) · tests: 228 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
+Called from: production: call-dispatch/journal.ts (journalFunctions.removeStagedLine ×1, journalFunctions.stageLine ×1); call-dispatch/locations.ts (locationsFunctions.completeStockTake ×1); call-dispatch/plant.ts (plantFunctions.clockPlantIn ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×2); call-dispatch/projects.ts (projectsFunctions.clockInToProject ×1); call-dispatch/stock-lots.ts (stockLotsFunctions.writeOffItems ×1); db-journal.ts (postOrderDispatch ×6, postOrderReceipt ×4, reverseJournalEntry ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); and 4 more file(s) · tests: 236 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
 
 **`asLocationName`** *(exported)*
 
@@ -3924,7 +6562,7 @@ Called from: production: call-dispatch/journal.ts (journalFunctions.removeStaged
 asLocationName(name: string): LocationName
 ```
 
-Called from: production: call-dispatch/invoices.ts (invoicesFunctions.dispatchOrderFromPickingList ×1, invoicesFunctions.getPickingList ×1); call-dispatch/locations.ts (locationsFunctions.createStockTake ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.dispatchRestockRun ×2, locationsFunctions.getItemLocation ×1, locationsFunctions.getRestockPickingList ×1, locationsFunctions.openStorageContainer ×1, and 7 more); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×1, posFunctions.createPosTerminal ×1, posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); db-journal.ts (postLocation ×2, postPurchaseOrder ×1, postSalesOrder ×1); db-quotations.ts (draftQuotation ×1); db-stock.ts (createStockTake ×1, getInventoryListingByLocation ×2, getStockOutRiskReport ×1); db.ts (completeCashPurchase ×1, completePosSale ×1, createAndConfigureLocation ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×2, resolveDispatchLocation ×1) · tests: 9 call(s) in 2 file(s) · tooling: 13 call(s) in 2 file(s)
+Called from: production: call-dispatch/invoices.ts (invoicesFunctions.dispatchOrderFromPickingList ×1, invoicesFunctions.getPickingList ×1); call-dispatch/locations.ts (locationsFunctions.createStockTake ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.dispatchRestockRun ×2, locationsFunctions.getItemLocation ×1, locationsFunctions.getRestockPickingList ×1, locationsFunctions.openStorageContainer ×1, and 7 more); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×1, posFunctions.createPosTerminal ×1, posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); db-journal.ts (postLocation ×2, postPurchaseOrder ×1, postSalesOrder ×1); db-quotations.ts (draftQuotation ×1); db-stock.ts (createStockTake ×1, getInventoryListingByLocation ×2, getStockOutRiskReport ×1); db.ts (completeCashPurchase ×1, completePosSale ×1, createAndConfigureLocation ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×2, resolveDispatchLocation ×1) · tests: 9 call(s) in 2 file(s) · tooling: 15 call(s) in 3 file(s)
 
 **`asEmployeeName`** *(exported)*
 
@@ -3956,7 +6594,7 @@ Called from: production: call-dispatch/arap.ts (arapFunctions.stageAPPayment ×1
 asItemName(name: string): ItemName
 ```
 
-Called from: production: call-dispatch/items.ts (itemsFunctions.getItemStorageOrigin ×1, itemsFunctions.setItemStorageOrigin ×1); call-dispatch/locations.ts (locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.getItemLocation ×1, locationsFunctions.openStorageContainer ×1, locationsFunctions.receiveIntoStorageStock ×1, locationsFunctions.receiveItems ×1, and 8 more); call-dispatch/pos.ts (posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); call-dispatch/stock-lots.ts (stockLotsFunctions.consumeFromLots ×1, stockLotsFunctions.receiveLot ×1, stockLotsFunctions.writeOffItems ×1); db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (completeStockTake ×5, createStockTake ×2, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockOutRiskReport ×2, resolveOrderItem ×1); db.ts (completeCashPurchase ×2, completePosSale ×15, createInvoice ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×1, getPickingList ×1, and 2 more) · tests: 156 call(s) in 2 file(s) · tooling: 10 call(s) in 2 file(s)
+Called from: production: call-dispatch/items.ts (itemsFunctions.getItemStorageOrigin ×1, itemsFunctions.setItemStorageOrigin ×1); call-dispatch/locations.ts (locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.getItemLocation ×1, locationsFunctions.openStorageContainer ×1, locationsFunctions.receiveIntoStorageStock ×1, locationsFunctions.receiveItems ×1, and 8 more); call-dispatch/pos.ts (posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); call-dispatch/stock-lots.ts (stockLotsFunctions.consumeFromLots ×1, stockLotsFunctions.receiveLot ×1, stockLotsFunctions.writeOffItems ×1); db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (completeStockTake ×5, createStockTake ×2, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockOutRiskReport ×2); db.ts (completeCashPurchase ×2, completePosSale ×15, createInvoice ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×1, ensureServiceItem ×1, and 3 more) · tests: 156 call(s) in 2 file(s) · tooling: 18 call(s) in 3 file(s)
 
 **`getEntityTree`** *(exported)*
 
@@ -3964,7 +6602,7 @@ Called from: production: call-dispatch/items.ts (itemsFunctions.getItemStorageOr
 getEntityTree(businessName?: string): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null; })[]
 ```
 
-Called from: production: call-dispatch/entities.ts (entitiesFunctions.getEntityTree ×1); call-dispatch/locations.ts (locationsFunctions.listLocations ×1); db-reports.ts (getSalesReport ×1); db.ts (getBusinessConfigurationReport ×1, getHierarchyChain ×1, isDescendantOf ×1) · tests: 53 call(s) in 1 file(s) · tooling: 19 call(s) and 2 reference(s) in 8 file(s)
+Called from: production: call-dispatch/entities.ts (entitiesFunctions.getEntityTree ×1); call-dispatch/locations.ts (locationsFunctions.listLocations ×1); db-reports.ts (getSalesReport ×1); db.ts (getBusinessConfigurationReport ×1, getHierarchyChain ×1, isDescendantOf ×1) · tests: 53 call(s) in 1 file(s) · tooling: 20 call(s) and 2 reference(s) in 9 file(s)
 
 **`orderSiblingsByDisplayOrderPreJoined`**
 
@@ -4012,7 +6650,7 @@ Called from: production: db-stock.ts (consumeFromLots ×1, createStockTake ×1, 
 requireEntity<TBrand extends string>(name: string, type: TypeDescriptor<TBrand>, parent?: TypedNode<string>): TypedNode<TBrand>
 ```
 
-Called from: production: db-reports.ts (resolveCashAtBankAccount ×2); db-seed.ts (ensureSection ×1, migrateForBusinessTypes ×6, migrateForCashCustomerAndProvider ×2, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 6 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×4, convertStorageSpace ×2, copyChartOfAccountsInto ×1, createBusiness ×4, and 28 more) · tests: 222 call(s) in 2 file(s) · tooling: 68 call(s) in 19 file(s)
+Called from: production: db-projects.ts (createMilestone ×1, liveProjectsRoot ×3, provisionProjectProfitCenter ×1); db-prototypes.ts (prototypesRoot ×3); db-reports.ts (resolveCashAtBankAccount ×2); db-seed.ts (ensureSection ×1, migrateForBusinessTypes ×6, migrateForCashCustomerAndProvider ×2, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 6 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, buildBankCurrencyStructure ×4, convertStorageSpace ×2, copyChartOfAccountsInto ×1, createBusiness ×4, and 31 more) · tests: 222 call(s) in 2 file(s) · tooling: 68 call(s) in 19 file(s)
 
 **`requireGlobalCoaCategory`** *(exported)*
 
@@ -4028,7 +6666,7 @@ Called from: tests: 9 call(s) in 1 file(s)
 requireEntityById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand>
 ```
 
-Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenuEntities ×3); db.ts (addFinancialStatementNote ×1, copyChildren ×2, createItem ×1, nominateBankAccount ×1, setEntityLink ×1, setMenuOverride ×1, and 1 more) · tests: 19 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenuEntities ×3); db.ts (addFinancialStatementNote ×1, copyChildren ×2, createItem ×1, ensureSkill ×1, nominateBankAccount ×1, setEntityLink ×1, and 2 more) · tests: 19 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`create`** *(exported)*
 
@@ -4036,7 +6674,7 @@ Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenu
 create<TParentBrand extends string, TChildBrand extends string>(parent: TypedNode<TParentBrand>, type: TypeDescriptor<TChildBrand>, name: string, userId: UserId): TypedNode<TChildBrand>
 ```
 
-Called from: production: db-seed.ts (ensureSection ×1, migrateForBusinessTypes ×7, migrateForCashCustomerAndProvider ×2, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 6 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, copyChildren ×3, createBusiness ×5, createContact ×1, createItem ×2, and 20 more) · tests: 189 call(s) in 1 file(s) · tooling: 63 call(s) in 19 file(s)
+Called from: production: db-projects.ts (createLiveProject ×1, createMilestone ×1); db-prototypes.ts (createPrototype ×1); db-seed.ts (ensureSection ×1, migrateForBusinessTypes ×7, migrateForCashCustomerAndProvider ×2, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 6 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, copyChildren ×3, createBusiness ×5, createContact ×1, createItem ×2, and 22 more) · tests: 189 call(s) in 1 file(s) · tooling: 63 call(s) in 19 file(s)
 
 **`isGenuineCategoryOrItemsRoot`** *(exported)*
 
@@ -4052,7 +6690,7 @@ Called from: production: db.ts (typeCategoryOrItemsRootName.validate ×1)
 createEntityRaw(input: NewEntity, userId: UserId): EntityNode
 ```
 
-Called from: production: call-dispatch/entities.ts (entitiesFunctions.createEntity ×1); drivers/sql-entity-driver.ts (SqlEntityDriver.create ×2) · tests: 6 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/entities.ts (entitiesFunctions.createEntity ×1); drivers/sql-entity-driver.ts (SqlEntityDriver.create ×2) · tests: 9 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`supersedeEntity`** *(exported)*
 
@@ -4060,7 +6698,15 @@ Called from: production: call-dispatch/entities.ts (entitiesFunctions.createEnti
 supersedeEntity(id: number, input: EntityUpdate, userId: UserId): EntityNode
 ```
 
-Called from: production: call-dispatch/entities.ts (entitiesFunctions.supersedeEntity ×1); drivers/sql-entity-driver.ts (SqlEntityDriver.relate ×1, SqlEntityDriver.rename ×1, SqlEntityDriver.reparent ×1) · tests: 13 call(s) in 1 file(s) · tooling: 12 call(s) in 7 file(s)
+Called from: production: call-dispatch/entities.ts (entitiesFunctions.supersedeEntity ×1); db.ts (renameEntityByName ×1); drivers/sql-entity-driver.ts (SqlEntityDriver.relate ×1, SqlEntityDriver.rename ×1, SqlEntityDriver.reparent ×1) · tests: 13 call(s) in 1 file(s) · tooling: 12 call(s) in 7 file(s)
+
+**`renameEntityByName`** *(exported)*
+
+```
+renameEntityByName(oldName: string, newName: string, userId: UserId, parent?: string): void
+```
+
+Called from: tooling: 1 call(s) in 1 file(s)
 
 **`listLineTypes`** *(exported)*
 
@@ -4196,7 +6842,15 @@ Called from: production: call-dispatch/pos.ts (posFunctions.getOrganizationChart
 revokeEntity(id: number, userId: UserId): void
 ```
 
-Called from: production: call-dispatch/entities.ts (entitiesFunctions.revokeEntity ×1); drivers/sql-entity-driver.ts (SqlEntityDriver.revoke ×1) · tests: 13 call(s) in 1 file(s)
+Called from: production: call-dispatch/entities.ts (entitiesFunctions.revokeEntity ×1); drivers/gleam-entity-driver.ts (GleamEntityDriver.revoke ×1); drivers/sql-entity-driver.ts (SqlEntityDriver.revoke ×1) · tests: 13 call(s) in 1 file(s)
+
+**`getAccountBalanceMinor`** *(exported)*
+
+```
+getAccountBalanceMinor(accountName: string): number
+```
+
+Called from: production: db-projects.ts (getProjectCostReport ×1)
 
 **`getCreditStatus`** *(exported)*
 
@@ -4430,13 +7084,13 @@ getHierarchyChain(leafName: ItemName | LocationName): HierarchyChainNode[]
 
 Called from: tests: 2 call(s) in 1 file(s)
 
-**`resolvePostingRoot`**
+**`resolvePostingRoot`** *(exported)*
 
 ```
 resolvePostingRoot(rootName: string, userId: UserId, business?: BusinessName, profitCenter?: string): { name: string; id: number; }
 ```
 
-Called from: production: db.ts (ensureItemSalesCogsAccounts ×2)
+Called from: production: db-projects.ts (provisionProjectProfitCenter ×1); db.ts (ensureItemSalesCogsAccounts ×2)
 
 **`ensureItemSalesCogsAccounts`** *(exported)*
 
@@ -4452,7 +7106,7 @@ Called from: production: db.ts (completePosSale ×2, ensureItemLocationLeaf ×1,
 ensureItemInventoryAccount(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { inventoryAccount: string; inventoryAccountId: number; }
 ```
 
-Called from: production: db-stock.ts (writeOffItems ×1); db.ts (completePosSale ×1, ensureItemLocationInventoryAccount ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: db-stock.ts (writeOffItems ×1); db.ts (completePosSale ×1, ensureItemLocationInventoryAccount ×1) · tests: 3 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
 
 **`ensureItemLocationInventoryAccount`** *(exported)*
 
@@ -4524,7 +7178,7 @@ Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.deleteHi
 createProfitCenter(businessName: BusinessName, profitCenterName: string, userId: UserId): { id: number; name: string; }
 ```
 
-Called from: production: call-dispatch/businesses.ts (businessesFunctions.createProfitCenter ×1) · tests: 4 call(s) in 1 file(s)
+Called from: production: call-dispatch/businesses.ts (businessesFunctions.createProfitCenter ×1); db-projects.ts (provisionProjectProfitCenter ×1) · tests: 4 call(s) in 1 file(s)
 
 **`getProfitCenters`** *(exported)*
 
@@ -4532,7 +7186,7 @@ Called from: production: call-dispatch/businesses.ts (businessesFunctions.create
 getProfitCenters(businessName: BusinessName): { id: number; name: string; }[]
 ```
 
-Called from: production: call-dispatch/businesses.ts (businessesFunctions.getProfitCenters ×1); db.ts (resolveProfitCenterGroupNode ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: call-dispatch/businesses.ts (businessesFunctions.getProfitCenters ×1); db.ts (resolveProfitCenterGroupNode ×1) · tests: 4 call(s) in 1 file(s)
 
 **`resolveProfitCenterGroupNode`**
 
@@ -4721,10 +7375,10 @@ Called from: production: db-reports.ts (getTrialBalance ×1, toLine ×1) · test
 **`ensureItemQuantityAccounts`** *(exported)*
 
 ```
-ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number; }
+ensureItemQuantityAccounts(itemName: ItemName, userId: UserId): { onOrderAccount: string; onOrderAccountId: number; onOrderValueAccount: string; onOrderValueAccountId: number; unitsSoldAccount: string; unitsSoldAccountId: number; countAdjustmentAccount: string; countAdjustmentAccountId: number; writeOffAccount: string; writeOffAccountId: number; }
 ```
 
-Called from: production: db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (completeStockTake ×1, dispatchItems ×1, fulfillOrder ×1, getOrderStatus ×1, placeOrder ×1, receiveItems ×1, and 2 more)
+Called from: production: db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (completeStockTake ×1, dispatchItems ×1, placeOrder ×1, receiveItems ×1, receiveStockPhysical ×1, writeOffItems ×1)
 
 **`getHierarchyGroupForLocation`** *(exported)*
 
@@ -4804,7 +7458,7 @@ Called from: production: call-dispatch/invoices.ts (invoicesFunctions.getReminde
 getContact(entityName: string): Contact | undefined
 ```
 
-Called from: production: call-dispatch/contacts.ts (contactsFunctions.getContact ×1); db-journal.ts (clockInToProject ×1, clockOutOfProject ×1); db.ts (completePosSale ×1, createInvoice ×1, getAgedInvoices ×1, getReminderCandidates ×1, getTypedAddresses ×1, getTypedContactPersons ×1, and 2 more); invoice.ts (generateInvoicePdf ×1) · tests: 11 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
+Called from: production: call-dispatch/contacts.ts (contactsFunctions.getContact ×1); db-journal.ts (clockInToProject ×1, clockOutOfProject ×1); db.ts (completePosSale ×1, createInvoice ×1, getAgedInvoices ×1, getReminderCandidates ×1, getTypedAddresses ×1, getTypedContactPersons ×1, and 2 more); invoice.ts (generateInvoicePdf ×1) · tests: 11 call(s) in 1 file(s) · tooling: 4 call(s) in 3 file(s)
 
 **`ensureInvoiceLinesRoot`**
 
@@ -4860,7 +7514,7 @@ Called from: production: db-seed.ts (migrateForCashCustomerAndProvider ×2); db-
 setContact(entityName: string, contact: Partial<Contact>): void
 ```
 
-Called from: production: call-dispatch/contacts.ts (contactsFunctions.setContact ×1); db.ts (addTypedAddress ×1, addTypedContactPerson ×1, addTypedPhone ×1, registerCustomer ×1) · tests: 20 call(s) in 1 file(s) · tooling: 8 call(s) in 3 file(s)
+Called from: production: call-dispatch/contacts.ts (contactsFunctions.setContact ×1); db.ts (addTypedAddress ×1, addTypedContactPerson ×1, addTypedPhone ×1, registerCustomer ×1) · tests: 21 call(s) in 1 file(s) · tooling: 11 call(s) in 5 file(s)
 
 **`setPosPin`** *(exported)*
 
@@ -5108,7 +7762,7 @@ Called from: production: db.ts (deleteTypedAddress ×1, deleteTypedContactPerson
 setEntityLink(entityName: string, linkType: string, targetName: string, userId: UserId, entityId?: number, targetId?: number): string
 ```
 
-Called from: production: db-seed.ts (migrateForMenuEntities ×1, migrateForMenuReorg ×1); db-stock.ts (setItemSourceLeadTime ×1); db.ts (addTaskDependency ×1, ensureVocabularyAlternate ×1, postBomComponents ×1, registerBankAccount ×2, relinkDisplayOrderChain ×1, setContactType ×1, and 7 more); primitives.ts (Link.set ×1) · tests: 2 call(s) in 1 file(s)
+Called from: production: db-seed.ts (migrateForMenuEntities ×1, migrateForMenuReorg ×1); db-stock.ts (setItemSourceLeadTime ×1); db.ts (addTaskDependency ×1, ensureVocabularyAlternate ×1, postBomComponents ×1, registerBankAccount ×2, relinkDisplayOrderChain ×1, setContactType ×1, and 8 more); primitives.ts (Link.set ×1) · tests: 2 call(s) in 1 file(s)
 
 **`getEntityLink`** *(exported)*
 
@@ -5124,15 +7778,15 @@ Called from: production: db.ts (getBankAccounts ×1, getEmployeeDepartment ×1, 
 deleteEntityLink(entityName: string, linkType: string, userId: UserId): void
 ```
 
-Called from: production: db.ts (deleteBomComponent ×1, deleteEmployeeDepartment ×1, deleteEmployeeManager ×1, deleteHierarchyParent ×1, deleteMenuOverride ×1, relinkDisplayOrderChain ×1, and 5 more); primitives.ts (Link.delete ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: db.ts (deleteBomComponent ×1, deleteEmployeeDepartment ×1, deleteEmployeeManager ×1, deleteHierarchyParent ×1, deleteMenuOverride ×1, relinkDisplayOrderChain ×1, and 6 more); primitives.ts (Link.delete ×1) · tests: 1 call(s) in 1 file(s)
 
 **`stageBomComponent`** *(exported)*
 
 ```
-stageBomComponent(input: { assemblyItem: string; business: string; componentItem: string; quantity: number; unit: string; }): void
+stageBomComponent(input: BomComponentInput): void
 ```
 
-Called from: production: call-dispatch/items.ts (itemsFunctions.setBomComponent ×1) · tests: 3 call(s) in 1 file(s) · tooling: 8 call(s) in 4 file(s)
+Called from: production: call-dispatch/items.ts (itemsFunctions.setBomComponent ×1); db-projects.ts (scheduleProjectRecipeLines ×1); db-prototypes.ts (addPrototypeLine ×1, instantiateProjectProposal ×1, updatePrototypeLine ×1); db-quotations.ts (acceptQuotation ×1, addQuotationLine ×1) · tests: 11 call(s) in 1 file(s) · tooling: 10 call(s) in 6 file(s)
 
 **`postBomComponents`** *(exported)*
 
@@ -5140,7 +7794,7 @@ Called from: production: call-dispatch/items.ts (itemsFunctions.setBomComponent 
 postBomComponents(assemblyItem: string, business: string, userId: UserId): void
 ```
 
-Called from: production: call-dispatch/items.ts (itemsFunctions.setBomComponent ×1) · tests: 2 call(s) in 1 file(s) · tooling: 5 call(s) in 4 file(s)
+Called from: production: call-dispatch/items.ts (itemsFunctions.setBomComponent ×1); db-projects.ts (scheduleProjectRecipeLines ×1); db-prototypes.ts (addPrototypeLine ×1, instantiateProjectProposal ×1, updatePrototypeLine ×1); db-quotations.ts (acceptQuotation ×1, addQuotationLine ×1) · tests: 7 call(s) in 1 file(s) · tooling: 7 call(s) in 6 file(s)
 
 **`deleteBomComponent`** *(exported)*
 
@@ -5153,10 +7807,10 @@ Called from: production: call-dispatch/items.ts (itemsFunctions.deleteBomCompone
 **`getBomComponents`** *(exported)*
 
 ```
-getBomComponents(assemblyItem: string): { component: string; quantity: number; unit: string; }[]
+getBomComponents(assemblyItem: string): BomComponentLine[]
 ```
 
-Called from: production: call-dispatch/items.ts (itemsFunctions.getBomComponents ×1, itemsFunctions.setBomComponent ×1) · tests: 3 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/items.ts (itemsFunctions.getBomComponents ×1, itemsFunctions.setBomComponent ×1); db-projects.ts (checkMilestoneAchievability ×1, getProjectCostReport ×1, getResourceBookings ×1, scheduleProjectRecipeLines ×1); db-prototypes.ts (getPrototypeLines ×1, instantiateProjectProposal ×1, updatePrototypeLine ×1); db-quotations.ts (acceptQuotation ×1, getQuotationLines ×1) · tests: 7 call(s) in 1 file(s) · tooling: 3 call(s) in 3 file(s)
 
 **`createProjectTask`** *(exported)*
 
@@ -5204,7 +7858,7 @@ Called from: tests: 1 call(s) in 1 file(s)
 setHierarchyParent(entityName: string, hierarchyName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void
 ```
 
-Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyValue ×1, hierarchyFunctions.setHierarchyTag ×1); db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db-stock.ts (placeOrder ×1); db.ts (createAndConfigureLocation ×1, ensureContactTypeHeaderAccounts ×1, ensureItemLocationInventoryAccount ×1, ensureItemLocationLeaf ×2, ensureItemLocationQuantityAccount ×1, ensureItemTier ×1, and 2 more) · tests: 36 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyValue ×1, hierarchyFunctions.setHierarchyTag ×1); db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db.ts (createAndConfigureLocation ×1, ensureContactTypeHeaderAccounts ×1, ensureItemLocationInventoryAccount ×1, ensureItemLocationLeaf ×2, ensureItemLocationQuantityAccount ×1, ensureItemTier ×1, and 2 more) · tests: 36 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
 
 **`getHierarchyParent`** *(exported)*
 
@@ -5268,7 +7922,7 @@ Called from: production: db.ts (createCustomer ×1, createEmployee ×1, createPr
 createProvider(name: string, userId: UserId): { id: number; }
 ```
 
-Called from: production: call-dispatch/entities.ts (entitiesFunctions.createProvider ×1); db.ts (ensureCurrencyExchangeItem ×1) · tests: 12 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/entities.ts (entitiesFunctions.createProvider ×1); db.ts (ensureCurrencyExchangeItem ×1) · tests: 12 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
 
 **`createCustomer`** *(exported)*
 
@@ -5276,7 +7930,7 @@ Called from: production: call-dispatch/entities.ts (entitiesFunctions.createProv
 createCustomer(name: string, userId: UserId): { id: number; }
 ```
 
-Called from: production: call-dispatch/entities.ts (entitiesFunctions.createCustomer ×1) · tests: 18 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/entities.ts (entitiesFunctions.createCustomer ×1) · tests: 22 call(s) in 1 file(s) · tooling: 4 call(s) in 3 file(s)
 
 **`createEmployee`** *(exported)*
 
@@ -5284,7 +7938,79 @@ Called from: production: call-dispatch/entities.ts (entitiesFunctions.createCust
 createEmployee(name: string, placeOfEmployment: string, userId: UserId): { id: number; }
 ```
 
-Called from: production: call-dispatch/entities.ts (entitiesFunctions.createEmployeeContact ×1) · tests: 2 call(s) in 2 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/entities.ts (entitiesFunctions.createEmployeeContact ×1) · tests: 9 call(s) in 2 file(s) · tooling: 3 call(s) in 2 file(s)
+
+**`createPlantItem`** *(exported)*
+
+```
+createPlantItem(name: string, business: BusinessName, hourlyRateMinor: number, ownedOrHired: "Owned" | "Hired", userId: UserId, hireVendor?: string): { id: number; }
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.createPlantItem ×1) · tests: 7 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`getPlantItem`** *(exported)*
+
+```
+getPlantItem(name: string): PlantItemRecord | undefined
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.getPlantItem ×1); db-journal.ts (clockPlantIn ×1, clockPlantOut ×1) · tests: 2 call(s) in 1 file(s)
+
+**`listPlant`** *(exported)*
+
+```
+listPlant(business: BusinessName): string[]
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.listPlant ×1) · tests: 3 call(s) in 1 file(s)
+
+**`ensureSkillsRoot`**
+
+```
+ensureSkillsRoot(): { id: number; }
+```
+
+Called from: production: db.ts (ensureSkill ×1, listSkills ×1)
+
+**`ensureSkill`** *(exported)*
+
+```
+ensureSkill(name: string, userId: UserId): { id: number; }
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.ensureSkill ×1); db.ts (tagSkill ×1) · tooling: 1 call(s) in 1 file(s)
+
+**`listSkills`** *(exported)*
+
+```
+listSkills(): string[]
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.listSkills ×1) · tests: 2 call(s) in 1 file(s)
+
+**`tagSkill`** *(exported)*
+
+```
+tagSkill(contactName: string, skillName: string, rateMinorPerHour: number, userId: UserId): void
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.tagSkill ×1) · tests: 4 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`untagSkill`** *(exported)*
+
+```
+untagSkill(contactName: string, skillName: string, userId: UserId): void
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.untagSkill ×1) · tests: 1 call(s) in 1 file(s)
+
+**`getSkills`** *(exported)*
+
+```
+getSkills(contactName: string): SkillAssignment[]
+```
+
+Called from: production: call-dispatch/plant.ts (plantFunctions.getSkills ×1) · tests: 6 call(s) in 1 file(s)
 
 **`getHierarchyChildren`** *(exported)*
 
@@ -5452,7 +8178,7 @@ Called from: production: db.ts (ensureItemLocationQuantityAccount ×1, ensureIte
 getItem(entityName: string): Item | undefined
 ```
 
-Called from: production: call-dispatch/items.ts (itemsFunctions.getItem ×1); db.ts (ensureItemLocationQuantityAccount ×1, ensureItemQuantityAccounts ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/items.ts (itemsFunctions.getItem ×1); db-stock.ts (assertItemIsStorable ×1); db.ts (ensureItemLocationQuantityAccount ×1, ensureItemQuantityAccounts ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`setItem`** *(exported)*
 
@@ -5481,10 +8207,18 @@ Called from: production: call-dispatch/items.ts (itemsFunctions.listItems ×1)
 **`createItem`** *(exported)*
 
 ```
-createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId, businessName?: BusinessName): void
+createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId, businessName?: BusinessName, isStorable?: boolean): void
 ```
 
-Called from: production: db.ts (ensureCurrencyExchangeItem ×1) · tests: 79 call(s) in 2 file(s) · tooling: 8 call(s) in 2 file(s)
+Called from: production: db.ts (ensureCurrencyExchangeItem ×1, ensureServiceItem ×1) · tests: 83 call(s) in 2 file(s) · tooling: 11 call(s) in 4 file(s)
+
+**`ensureServiceItem`** *(exported)*
+
+```
+ensureServiceItem(name: string, businessName: BusinessName, userId: UserId): ItemName
+```
+
+Called from: production: db-journal.ts (clockInToProject ×1, clockPlantIn ×1)
 
 **`requireDescendantIdByName`**
 
@@ -5868,7 +8602,7 @@ Called from: production: db-journal.ts (postLocation ×1); db.ts (createAndConfi
 createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId, group?: string, groupingName?: string): TypedNode<"LocationEntityName">
 ```
 
-Called from: tests: 8 call(s) in 2 file(s) · tooling: 2 call(s) in 2 file(s)
+Called from: tests: 8 call(s) in 2 file(s) · tooling: 5 call(s) in 4 file(s)
 
 **`deleteLocation`** *(exported)*
 
@@ -6060,7 +8794,7 @@ Called from: production: db-seed.ts (migrateForPerBusinessChartOfAccounts ×1); 
 createBusiness(businessName: BusinessName, financialYearLabel: string, userId: UserId, coaPrototype?: string, secondaryCurrencies?: string[], entityStructure?: EntityStructure, partnerNames?: string[], financialYearStart?: string, reportingFrequency?: ReportingFrequency): { business: BusinessName; actualLedger: LedgerName; budgetLedger: LedgerName; }
 ```
 
-Called from: production: call-dispatch/businesses.ts ((module level) ×1) · tests: 12 call(s) in 3 file(s) · tooling: 3 call(s) in 3 file(s)
+Called from: production: call-dispatch/businesses.ts ((module level) ×1) · tests: 12 call(s) in 3 file(s) · tooling: 5 call(s) in 5 file(s)
 
 **`createLedger`** *(exported)*
 
@@ -6077,6 +8811,234 @@ getChartOfAccountsPrototype(language: string): string[]
 ```
 
 Called from: production: call-dispatch/businesses.ts (businessesFunctions.getCoaPrototypeAccounts ×1)
+
+### `backend/src/drivers/gleam-entity-driver.ts`
+
+**`GleamEntityDriver.readPayload`** *(exported)*
+
+```
+GleamEntityDriver.readPayload(): string
+```
+
+Called from: production: drivers/gleam-entity-driver.ts ((module level) ×1, GleamEntityDriver.callSync ×1)
+
+**`GleamEntityDriver.callSync`** *(exported)*
+
+```
+GleamEntityDriver.callSync(method: "GET" | "POST", path: string, body?: unknown): { status: number; text: string; }
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.request ×1)
+
+**`GleamEntityDriver.request`** *(exported)*
+
+```
+GleamEntityDriver.request(method: "GET" | "POST", path: string, body?: unknown): { status: number; json: unknown; }
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.children ×1, GleamEntityDriver.create ×1, GleamEntityDriver.get ×1, GleamEntityDriver.getUnder ×1, GleamEntityDriver.lookupGlobal ×1, GleamEntityDriver.relate ×1, and 2 more)
+
+**`GleamEntityDriver.toNode`** *(exported)*
+
+```
+GleamEntityDriver.toNode(row: GleamNode): EntityNode
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.children ×1, GleamEntityDriver.descendantsWithDepth ×1, GleamEntityDriver.findAll ×1, GleamEntityDriver.findByNameContaining ×1, GleamEntityDriver.get ×1, GleamEntityDriver.getMany ×1, and 2 more)
+
+**`GleamEntityDriver.lookupGlobal`** *(exported)*
+
+```
+GleamEntityDriver.lookupGlobal(name: string): EntityNode[]
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.getByName ×1, GleamEntityDriver.mustResolveByName ×1)
+
+**`GleamEntityDriver.mustResolveByName`** *(exported)*
+
+```
+GleamEntityDriver.mustResolveByName(name: string): number
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.create ×1, GleamEntityDriver.getByName ×1, GleamEntityDriver.relate ×1, GleamEntityDriver.reparent ×1)
+
+**`GleamEntityDriver.create`** *(exported)*
+
+```
+GleamEntityDriver.create(name: string, parent: string | number, userId: UserId): EntityNode
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.setAttr ×2)
+
+**`GleamEntityDriver.get`** *(exported)*
+
+```
+GleamEntityDriver.get(idOrName: number | string, parent?: string): EntityNode | undefined
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.ancestorChain ×2, GleamEntityDriver.rename ×1, GleamEntityDriver.reparent ×1, GleamEntityDriver.resolveAncestor ×2)
+
+**`GleamEntityDriver.getByName`** *(exported)*
+
+```
+GleamEntityDriver.getByName(name: string, parent?: string): EntityNode | undefined
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.get ×1)
+
+**`GleamEntityDriver.getUnder`** *(exported)*
+
+```
+GleamEntityDriver.getUnder(name: string, parentId: number): EntityNode | undefined
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.getAttr ×1, GleamEntityDriver.getByName ×1, GleamEntityDriver.hasTag ×1, GleamEntityDriver.setAttr ×1)
+
+**`GleamEntityDriver.rename`** *(exported)*
+
+```
+GleamEntityDriver.rename(id: number, name: string, userId: UserId): void
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.setAttr ×1)
+
+**`GleamEntityDriver.reparent`** *(exported)*
+
+```
+GleamEntityDriver.reparent(id: number, parent: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.relate`** *(exported)*
+
+```
+GleamEntityDriver.relate(id: number, target: string | null, userId: UserId, targetId?: number): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.revoke`** *(exported)*
+
+```
+GleamEntityDriver.revoke(id: number, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.children`** *(exported)*
+
+```
+GleamEntityDriver.children(parentId: number): EntityNode[]
+```
+
+Called from: production: drivers/gleam-entity-driver.ts (GleamEntityDriver.getAttr ×1, GleamEntityDriver.setAttr ×1)
+
+**`GleamEntityDriver.hasTag`** *(exported)*
+
+```
+GleamEntityDriver.hasTag(id: number, tagName: string): boolean
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.setAttr`** *(exported)*
+
+```
+GleamEntityDriver.setAttr(id: number, attrType: string, value: string, userId: UserId): void
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.getAttr`** *(exported)*
+
+```
+GleamEntityDriver.getAttr(id: number, attrType: string): string | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.resolveAncestor`** *(exported)*
+
+```
+GleamEntityDriver.resolveAncestor(startId: number, stopAt: (name: string) => boolean): EntityNode | undefined
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.descendantsWithDepth`** *(exported)*
+
+```
+GleamEntityDriver.descendantsWithDepth(rootId: number | null): (EntityNode & { depth: number; })[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.ancestorChain`** *(exported)*
+
+```
+GleamEntityDriver.ancestorChain(id: number): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.getMany`** *(exported)*
+
+```
+GleamEntityDriver.getMany(ids: number[]): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.findAll`** *(exported)*
+
+```
+GleamEntityDriver.findAll(filter: { relationId?: number | null; nameSuffix?: string; underTagNamed?: string; }): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`GleamEntityDriver.findByNameContaining`** *(exported)*
+
+```
+GleamEntityDriver.findByNameContaining(fragment: string, parentId?: number): EntityNode[]
+```
+
+Called from: nowhere the compiler could find.
+
+### `backend/src/drivers/gleam-worker.ts`
+
+**`writePayload`**
+
+```
+writePayload(text: string): boolean
+```
+
+Called from: production: drivers/gleam-worker.ts ((module level) ×1, handleMessage ×2)
+
+**`doFetch`**
+
+```
+doFetch(msg: CallMessage): Promise<{ status: number; text: string; }>
+```
+
+Called from: production: drivers/gleam-worker.ts (handleMessage ×1)
+
+**`handleMessage`**
+
+```
+handleMessage(msg: CallMessage): Promise<void>
+```
+
+Called from: production: drivers/gleam-worker.ts ((module level) ×1)
+
+**`waitForServer`**
+
+```
+waitForServer(): Promise<boolean>
+```
+
+Called from: production: drivers/gleam-worker.ts ((module level) ×1)
 
 ### `backend/src/drivers/kaappi-entity-driver.ts`
 
@@ -6782,7 +9744,15 @@ Called from: nowhere the compiler could find.
 selectDriver(): EntityDriver
 ```
 
-Called from: production: entity-driver-select.ts ((module level) ×1)
+Called from: production: entity-driver-select.ts (getDriver ×1)
+
+**`getDriver`**
+
+```
+getDriver(): EntityDriver
+```
+
+Called from: production: entity-driver-select.ts (get ×1)
 
 ### `backend/src/invoice.ts`
 
@@ -6810,7 +9780,7 @@ Called from: production: call-dispatch/invoices.ts (invoicesFunctions.exportInvo
 hashPassword(password: string): string
 ```
 
-Called from: production: auth.ts (changePassword ×1, createUser ×1); db.ts (registerCustomer ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: auth.ts (changePassword ×1, createUser ×1); core/core.ts (Core.install ×1); core/ops.ts (createUser ×1); db.ts (registerCustomer ×1) · tests: 3 call(s) in 1 file(s)
 
 **`verifyPassword`** *(exported)*
 
@@ -6818,7 +9788,7 @@ Called from: production: auth.ts (changePassword ×1, createUser ×1); db.ts (re
 verifyPassword(password: string, stored: string): boolean
 ```
 
-Called from: production: auth.ts (changeOwnPassword ×1, login ×1); db.ts (authenticateCustomer ×1) · tests: 4 call(s) in 1 file(s)
+Called from: production: auth.ts (changeOwnPassword ×1, login ×1); core/screens.ts (coreSessionStep ×1); db.ts (authenticateCustomer ×1) · tests: 4 call(s) in 1 file(s)
 
 ### `backend/src/primitives.ts`
 
@@ -6828,7 +9798,7 @@ Called from: production: auth.ts (changeOwnPassword ×1, login ×1); db.ts (auth
 Entity.create(name: string, parent: string | number, userId: UserId): EntityNode
 ```
 
-Called from: production: auth.ts (createUser ×1, login ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, ensureLocationScopedAccount ×1, ensurePeriodLockEntity ×1); db-quotations.ts (draftQuotation ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveCashAtBankAccount ×2, resolveRolloverLines ×1); db-stock.ts (createLocationType ×1, createPosTerminal ×2, createStockTake ×2, createSystemEntity ×1, ensureLocationCapacityAccount ×3, receiveLot ×1, and 2 more); db.ts (addOrUpdateItemSource ×1, allocatePayment ×1, create ×1, createInvoice ×2, createProfitCenter ×1, defineProductShape ×1, and 21 more); primitives.ts (Detail.set ×1, Entity.ensureUnder ×1, Link.mark ×1)
+Called from: production: auth.ts (createUser ×1, login ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, clockPlantIn ×1, ensureLocationScopedAccount ×1, ensurePeriodLockEntity ×1); db-quotations.ts (draftQuotation ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveCashAtBankAccount ×2, resolveRolloverLines ×1); db-stock.ts (createLocationType ×1, createPosTerminal ×2, createStockTake ×2, createSystemEntity ×1, ensureLocationCapacityAccount ×3, receiveLot ×1, and 2 more); db.ts (addOrUpdateItemSource ×1, allocatePayment ×1, create ×1, createInvoice ×2, createProfitCenter ×1, defineProductShape ×1, and 21 more); primitives.ts (Detail.set ×1, Entity.ensureUnder ×1, Link.mark ×1)
 
 **`Entity.get`** *(exported)*
 
@@ -6836,7 +9806,7 @@ Called from: production: auth.ts (createUser ×1, login ×1, setUserRoles ×1); 
 Entity.get(idOrName: number | string, parent?: string): EntityNode | undefined
 ```
 
-Called from: production: auth.ts (createUser ×1, findSessionByToken ×1, getSessionUser ×1, getUserDetail ×2, getUserRoleMatrix ×1, getUserRoleNames ×1, and 6 more); call-dispatch/i18n.ts (i18nFunctions.setVocabularyPreference ×2); db-journal.ts (clockInToProject ×1, ensureLocationScopedAccount ×2, findLedgerScopedAccount ×1, getJournalEntry ×1, getOpenProjectClockEntity ×1, listJournalEntries ×1, and 4 more); db-matrix-reports.ts (locationForAccount ×2, resolveLedgerEntityId ×1); db-quotations.ts (ensureQuotationsRoot ×1, findJournal ×2, getQuotationEntityId ×1, listQuotations ×1); db-reports.ts (buildProfitAndLossFromBalances ×1, computeCloseLines ×1, ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, getBusinessReports ×3, getChartOfAccounts ×1, and 5 more); db-seed.ts (ensureSection ×1, hasEntity ×3, migrateForBusinessTypes ×4, migrateForCashCustomerAndProvider ×2, migrateForCoaTranslations ×1, migrateForCogsTag ×2, and 9 more); db-stock.ts (completeStockTake ×1, createLocationType ×1, createPosTerminal ×2, createStockTake ×2, ensureLotAccount ×1, ensureStockLotsRoot ×2, and 23 more); and 2 more file(s)
+Called from: production: auth.ts (createUser ×1, findSessionByToken ×1, getSessionUser ×1, getUserDetail ×2, getUserRoleMatrix ×1, getUserRoleNames ×1, and 6 more); call-dispatch/i18n.ts (i18nFunctions.setVocabularyPreference ×2); db-journal.ts (clockInToProject ×1, clockPlantIn ×1, ensureLocationScopedAccount ×2, findLedgerScopedAccount ×1, getJournalEntry ×1, getOpenProjectClockEntity ×1, and 5 more); db-matrix-reports.ts (locationForAccount ×2, resolveLedgerEntityId ×1); db-projects.ts (checkMilestoneAchievability ×2, getLiveProject ×1, getMilestones ×1); db-quotations.ts (ensureQuotationsRoot ×1, findJournal ×2, getQuotationEntityId ×1, listQuotations ×1); db-reports.ts (buildProfitAndLossFromBalances ×1, computeCloseLines ×1, ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, getBusinessReports ×3, getChartOfAccounts ×1, and 5 more); db-seed.ts (ensureSection ×1, hasEntity ×3, migrateForBusinessTypes ×4, migrateForCashCustomerAndProvider ×2, migrateForCoaTranslations ×1, migrateForCogsTag ×2, and 9 more); and 3 more file(s)
 
 **`Entity.getUnder`** *(exported)*
 
@@ -6844,7 +9814,7 @@ Called from: production: auth.ts (createUser ×1, findSessionByToken ×1, getSes
 Entity.getUnder(name: string, parentId: number): EntityNode | undefined
 ```
 
-Called from: production: auth.ts (createUser ×1, getUserRoleMatrix ×1, setUserRoles ×1, unsetUserRoleInBusiness ×6); db-journal.ts (findLedgerScopedAccount ×1, resolveLedgerEntity ×2, resolveStagedAccountId ×1, resolveStagingBusinessId ×1, resolveStagingLedgerId ×2); db-matrix-reports.ts (resolveLedgerEntityId ×2); db-quotations.ts (draftQuotation ×1, ensureQuotationsRoot ×1, getQuotationEntityId ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveBusinessReportsCoaRootId ×2, resolveCashAtBankAccount ×2, resolveLedgerEntityId ×2, resolveRolloverLines ×3); db-seed.ts (migrateForBusinessTypes ×4, migrateForCashCustomerAndProvider ×3, migrateForMenuEntities ×1); db-stock.ts (ensureLocationCapacityAccount ×4, ensureUnitsTrackingBaseAccounts ×2, getLocation ×1, getStockMovementReport ×2, receiveLot ×1, setLevelFigure ×1, and 1 more); db.ts (addFinancialStatementNote ×1, addOrUpdateItemSource ×1, confirmPickedLine ×2, confirmRestockPickedLine ×2, copyChildren ×3, create ×1, and 57 more); and 1 more file(s)
+Called from: production: auth.ts (createUser ×1, getUserRoleMatrix ×1, setUserRoles ×1, unsetUserRoleInBusiness ×6); db-journal.ts (findLedgerScopedAccount ×1, resolveLedgerEntity ×2, resolveStagedAccountId ×1, resolveStagingBusinessId ×1, resolveStagingLedgerId ×2); db-matrix-reports.ts (resolveLedgerEntityId ×2); db-projects.ts (createLiveProject ×1); db-prototypes.ts (createPrototype ×1); db-quotations.ts (draftQuotation ×1, ensureQuotationsRoot ×1, getQuotationEntityId ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveBusinessReportsCoaRootId ×2, resolveCashAtBankAccount ×2, resolveLedgerEntityId ×2, resolveRolloverLines ×3); db-seed.ts (migrateForBusinessTypes ×4, migrateForCashCustomerAndProvider ×3, migrateForMenuEntities ×1); and 3 more file(s)
 
 **`Entity.ensureUnder`** *(exported)*
 
@@ -6852,7 +9822,7 @@ Called from: production: auth.ts (createUser ×1, getUserRoleMatrix ×1, setUser
 Entity.ensureUnder(name: string, parentId: number, userId: UserId): EntityNode
 ```
 
-Called from: production: db-stock.ts (setItemLocationLevelDetails ×1); db.ts (buildBankCurrencyStructure ×3, createDepartment ×1, ensureDepartmentAccounts ×2, ensureDepartmentsRoot ×1, ensureItemInventoryAccount ×1, ensureItemSalesCogsAccounts ×1, and 3 more); primitives.ts (Detail.set ×1, Entity.tag ×1)
+Called from: production: db-projects.ts (provisionProjectProfitCenter ×1); db-stock.ts (ensureSharedOnOrderAccounts ×2, setItemLocationLevelDetails ×1); db.ts (buildBankCurrencyStructure ×3, createDepartment ×1, ensureDepartmentAccounts ×2, ensureDepartmentsRoot ×1, ensureItemInventoryAccount ×1, ensureItemSalesCogsAccounts ×1, and 3 more); primitives.ts (Detail.set ×1, Entity.tag ×1)
 
 **`Entity.rename`** *(exported)*
 
@@ -6876,7 +9846,7 @@ Called from: production: db-seed.ts (moveLink ×1); db.ts (revokeEntity ×1, set
 Entity.relate(id: number, target: string | null, userId: UserId, targetId?: number): void
 ```
 
-Called from: production: auth.ts (getSessionUser ×1, login ×1, logout ×1, setUserActive ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, clockOutOfProject ×1); db-reports.ts (resolveRolloverLines ×1); db-seed.ts (migrateForCogsTag ×1, migrateForMenuEntities ×2, moveLink ×1); db-stock.ts (createStockTake ×1, placeOrder ×2, setLocation ×5); db.ts (addOrUpdateItemSource ×1, addTyped ×1, copyChildren ×2, createBusiness ×2, createInvoice ×2, defineProductShape ×1, and 14 more); primitives.ts (Detail.delete ×1, Detail.set ×1, Entity.tag ×1, Entity.untag ×1, Link.mark ×1, Link.unmark ×1)
+Called from: production: auth.ts (getSessionUser ×1, login ×1, logout ×1, setUserActive ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, clockOutOfProject ×1, clockPlantIn ×1, clockPlantOut ×1); db-reports.ts (resolveRolloverLines ×1); db-seed.ts (migrateForCogsTag ×1, migrateForMenuEntities ×2, moveLink ×1); db-stock.ts (createStockTake ×1, setLocation ×5); db.ts (addOrUpdateItemSource ×1, addTyped ×1, copyChildren ×2, createBusiness ×2, createInvoice ×2, defineProductShape ×1, and 14 more); primitives.ts (Detail.delete ×1, Detail.set ×1, Entity.tag ×1, Entity.untag ×1, Link.mark ×1, Link.unmark ×1)
 
 **`Entity.revoke`** *(exported)*
 
@@ -6892,7 +9862,7 @@ Called from: production: auth.ts (setUserRoles ×2); db.ts (deleteDepartment ×3
 Entity.children(parentId: number): EntityNode[]
 ```
 
-Called from: production: auth.ts (getUserRoleNames ×1, listRoles ×1, listUsers ×1, setUserActive ×1, setUserRoles ×1); db-journal.ts (ensurePeriodLockEntity ×1, getPeriodLockStatus ×1); db-quotations.ts (listQuotations ×1); db-reports.ts (getBusinessReports ×1, recurse ×1, resolveBusinessReportsCoaRootId ×1, resolveCashAtBankAccount ×1, walk ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×4, migrateForPerBusinessChartOfAccounts ×1); db-stock.ts (getItemLeadTimes ×1, getLocationTypes ×1, getStockTake ×1, getStorageSpaceReport ×2, setLocation ×1); db.ts (addFinancialStatementNote ×1, buildNode ×1, copyChildren ×2, getBusinesses ×1, getBusinessHierarchy ×2, getBusinessProductShapes ×2, and 20 more); primitives.ts (Detail.list ×1, Entity.clearAttr ×1)
+Called from: production: auth.ts (getUserRoleNames ×1, listRoles ×1, listUsers ×1, setUserActive ×1, setUserRoles ×1); db-journal.ts (ensurePeriodLockEntity ×1, getPeriodLockStatus ×1); db-projects.ts (getMilestones ×1, listLiveProjects ×1); db-prototypes.ts (listPrototypes ×1); db-quotations.ts (listQuotations ×1); db-reports.ts (getBusinessReports ×1, recurse ×1, resolveBusinessReportsCoaRootId ×1, resolveCashAtBankAccount ×1, walk ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×4, migrateForPerBusinessChartOfAccounts ×1); db-stock.ts (getItemLeadTimes ×1, getLocationTypes ×1, getStockTake ×1, getStorageSpaceReport ×2, setLocation ×1); and 2 more file(s)
 
 **`Entity.tag`** *(exported)*
 
@@ -6900,7 +9870,7 @@ Called from: production: auth.ts (getUserRoleNames ×1, listRoles ×1, listUsers
 Entity.tag(id: number, tagName: string, userId: UserId): void
 ```
 
-Called from: production: auth.ts (setUserRoles ×1); db-stock.ts (setItemSourceLeadTime ×1); db.ts (addOrUpdateItemSource ×1, addTaskDependency ×1, mergeContactDetail ×1, nominateLocationCurrency ×1, postBomComponents ×1, setEntityLink ×1, and 3 more)
+Called from: production: auth.ts (setUserRoles ×1); db-stock.ts (setItemSourceLeadTime ×1); db.ts (addOrUpdateItemSource ×1, addTaskDependency ×1, mergeContactDetail ×1, nominateLocationCurrency ×1, postBomComponents ×1, setEntityLink ×1, and 4 more)
 
 **`Entity.untag`** *(exported)*
 
@@ -6908,7 +9878,7 @@ Called from: production: auth.ts (setUserRoles ×1); db-stock.ts (setItemSourceL
 Entity.untag(id: number, tagName: string, userId: UserId): void
 ```
 
-Called from: production: db.ts (deleteBomComponent ×1, deleteEntityLink ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, setMenuOverride ×1, and 1 more)
+Called from: production: db.ts (deleteBomComponent ×1, deleteEntityLink ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, setMenuOverride ×1, and 2 more)
 
 **`Entity.hasTag`** *(exported)*
 
@@ -6924,7 +9894,7 @@ Called from: production: auth.ts (getUserRoleNames ×1, setUserRoles ×1); db-st
 Entity.setAttr(id: number, attrType: string, value: string, userId: UserId): void
 ```
 
-Called from: production: auth.ts (changePassword ×1, login ×1, setOwnDateFormat ×1, setOwnNumberFormat ×1, setOwnPageSize ×1, setSessionBusiness ×1, and 3 more); db-quotations.ts (acceptQuotation ×1, draftQuotation ×12, markQuotationSent ×1, rejectQuotation ×1); db-stock.ts (receiveLot ×2, setItemSourceLeadTime ×1); db.ts (addTaskDependency ×1, mergeContactDetail ×1, postBomComponents ×2, setBusinessHomeCurrency ×1, setBusinessReportingPeriod ×2, setVocabularyPreference ×1, and 1 more)
+Called from: production: auth.ts (changePassword ×1, login ×1, setOwnDateFormat ×1, setOwnNumberFormat ×1, setOwnPageSize ×1, setSessionBusiness ×1, and 3 more); db-projects.ts (checkMilestoneAchievability ×2, createLiveProject ×3, createMilestone ×2, provisionProjectProfitCenter ×2); db-quotations.ts (acceptQuotation ×1, draftQuotation ×13, markQuotationSent ×1, rejectQuotation ×1); db-stock.ts (receiveLot ×2, setItemSourceLeadTime ×1); db.ts (addTaskDependency ×1, createPlantItem ×3, mergeContactDetail ×1, postBomComponents ×7, setBusinessHomeCurrency ×1, setBusinessReportingPeriod ×2, and 3 more)
 
 **`Entity.getAttr`** *(exported)*
 
@@ -6932,7 +9902,7 @@ Called from: production: auth.ts (changePassword ×1, login ×1, setOwnDateForma
 Entity.getAttr(id: number, attrType: string): string | undefined
 ```
 
-Called from: production: auth.ts (changeOwnPassword ×1, changePassword ×1, findSessionByToken ×3, getUserDetail ×5, listUsers ×1, setOwnDateFormat ×1, and 3 more); db-quotations.ts (readQuotation ×12); db-stock.ts (consumeFromLots ×1, getExpiringStock ×1, getItemLeadTimes ×1); db.ts (getBomComponents ×2, getBusinessHomeCurrency ×1, getBusinessReportingPeriod ×2, getTaskDependencies ×1, parseShiftEntity ×1)
+Called from: production: auth.ts (changeOwnPassword ×1, changePassword ×1, findSessionByToken ×3, getUserDetail ×5, listUsers ×1, setOwnDateFormat ×1, and 3 more); db-projects.ts (getLiveProject ×6, getMilestones ×3); db-quotations.ts (readQuotation ×13); db-stock.ts (consumeFromLots ×1, getExpiringStock ×1, getItemLeadTimes ×1); db.ts (getBomComponents ×7, getBusinessHomeCurrency ×1, getBusinessReportingPeriod ×2, getPlantItem ×3, getSkills ×1, getTaskDependencies ×1, and 1 more)
 
 **`Entity.clearAttr`** *(exported)*
 
@@ -6988,7 +9958,7 @@ Called from: production: auth.ts (getUserRoleMatrix ×1); db-matrix-reports.ts (
 Entity.findByNameContaining(fragment: string, parentId?: number): EntityNode[]
 ```
 
-Called from: production: db-journal.ts (clockInToProject ×1, getOpenProjectClockEntity ×1); db-stock.ts (consumeFromLots ×1, getExpiringStock ×1)
+Called from: production: db-journal.ts (clockInToProject ×1, clockPlantIn ×1, getOpenProjectClockEntity ×1); db-stock.ts (consumeFromLots ×1, getExpiringStock ×1)
 
 **`Entity.getMany`** *(exported)*
 
@@ -9388,7 +12358,7 @@ Called from: production: entityTree.ts (filterToItems ×2)
 filterToItems(entities: EntityNode[]): EntityNode[]
 ```
 
-Called from: tests: 1 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/stock/po ×1, routes/stock/so ×1, routes/stock/stock-dispatch ×1, routes/stock/stock-receipt ×1
+Called from: tests: 2 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/stock/po ×1, routes/stock/so ×1, routes/stock/stock-dispatch ×1, routes/stock/stock-receipt ×1
 
 ### `frontend/src/lib/format.ts`
 

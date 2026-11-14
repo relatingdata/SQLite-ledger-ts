@@ -55,7 +55,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `callRouter` | `backend/src/routes/call.ts` | `backend/src/server.ts` | `const callRouter = Router();` |
 | `recordingRouter` | `backend/src/routes/recording.ts` | `backend/src/recording.ts`, `backend/src/server.ts` | `const recordingRouter = Router();` |
 
-## Functions (198, alphabetical)
+## Functions (196, alphabetical)
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
@@ -84,8 +84,6 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `changePassword` | `backend/src/auth.ts` | `backend/src/call-dispatch/auth.ts` | `function changePassword(userId: number, newPassword: string): void` |
 | `checkEInvoiceDiscrepancies` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function checkEInvoiceDiscrepancies(parsed: UblImportResult, poReference?: string): EInvoiceDiscrepancy[]` |
 | `checkMilestoneAchievability` | `backend/src/db-projects.ts` | `backend/src/call-dispatch/projects.ts`, `backend/src/db-quotations.ts` | `function checkMilestoneAchievability(projectName: string, userId: UserId): ` |
-| `clockPlantIn` | `backend/src/db-journal.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/db-projects.ts`, `backend/src/db.ts` | `function clockPlantIn(plantName: string, projectExpenseAccount: AccountName, business: BusinessName, ledger: LedgerName, userId: UserId): PlantClock` |
-| `clockPlantOut` | `backend/src/db-journal.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/db-projects.ts`, `backend/src/db.ts` | `function clockPlantOut(plantName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void` |
 | `countInvoices` | `backend/src/db.ts` | `backend/src/call-dispatch/invoices.ts` | `function countInvoices(business: BusinessName, ledger: LedgerName, invoiceType?: 'AR' \| 'AP', source: 'manual' \| 'pos' \| 'all' = 'manual'): number` |
 | `countItems` | `backend/src/db.ts` | `backend/src/call-dispatch/items.ts` | `function countItems(businessName: BusinessName): number` |
 | `createLiveProject` | `backend/src/db-projects.ts` | `backend/src/call-dispatch/projects.ts`, `backend/src/db-quotations.ts` | `function createLiveProject(name: string, business: BusinessName, client: string, requestedStart: string, targetCompletionDate: string, userId: UserId): ` |
@@ -95,9 +93,9 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `createPosTerminal` | `backend/src/db-stock.ts` | `backend/src/call-dispatch/pos.ts` | `function createPosTerminal(terminalName: string, locationName: LocationName, userId: UserId): void` |
 | `createProduct` | `backend/src/db.ts` | `backend/src/call-dispatch/products.ts` | `function createProduct(name: string, parent: string, userId: UserId): void` |
 | `createProjectTask` | `backend/src/db.ts` | (none) | `function createProjectTask(projectName: string, taskName: string, plannedStart: string, plannedEnd: string, userId: UserId): void` |
-| `createPrototype` | `backend/src/db-prototypes.ts` | `backend/src/call-dispatch/prototypes.ts` | `function createPrototype(name: string, business: BusinessName, userId: UserId): ` |
+| `createPrototype` | `backend/src/core/ops.ts` | `backend/src/call-dispatch/prototypes.ts`, `backend/src/core/screens.ts`, `backend/src/db-prototypes.ts` | `function createPrototype(inst: Instance, name: string): Node` |
 | `createSystemEntity` | `backend/src/db-stock.ts` | `backend/src/db-quotations.ts`, `backend/src/db.ts` | `function createSystemEntity(name: string, parentId: number \| null): number` |
-| `createUser` | `backend/src/auth.ts` | `backend/src/call-dispatch/auth.ts` | `function createUser(username: string, password: string, roleNames: string[]): UserSummary` |
+| `createUser` | `backend/src/auth.ts` | `backend/src/call-dispatch/auth.ts`, `backend/src/core/ops.ts`, `backend/src/core/screens.ts` | `function createUser(username: string, password: string, roleNames: string[]): UserSummary` |
 | `decodeCategoryTree` | `backend/src/call-dispatch.ts` | (none) | `function decodeCategoryTree(encoded: string): WireCategoryTreeNode[]` |
 | `decodeGenericTree` | `backend/src/call-dispatch.ts` | (none) | `function decodeGenericTree(encoded: string): WireGenericTreeNode[]` |
 | `decodeRecordList` | `backend/src/call-dispatch.ts` | `backend/src/call-dispatch/businesses.ts`, `backend/src/call-dispatch/locations.ts` | `function decodeRecordList(fields: string[], encoded: string): Record<string, string>[]` |
@@ -124,7 +122,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `ensureLocationCapacityAccount` | `backend/src/db-stock.ts` | `backend/src/db-journal.ts`, `backend/src/db.ts` | `function ensureLocationCapacityAccount(business: BusinessName, ledger: LedgerName, locationName: LocationName, userId: UserId): ` |
 | `ensureLocationStorageRoot` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function ensureLocationStorageRoot(business: BusinessName, locationName: string, userId: UserId): ` |
 | `ensurePhoneType` | `backend/src/db.ts` | (none) | `function ensurePhoneType(typeName: string, userId: UserId): void` |
-| `ensureSkill` | `backend/src/db.ts` | `backend/src/call-dispatch/plant.ts` | `function ensureSkill(name: string, userId: UserId): ` |
+| `ensureSkill` | `backend/src/core/ops.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/core/screens.ts`, `backend/src/db.ts` | `function ensureSkill(inst: Instance, name: string): Node` |
 | `ensureStorageCapacityStructure` | `backend/src/db.ts` | `backend/src/db-stock.ts` | `function ensureStorageCapacityStructure(parentEntity: { id: number; name: string }, userId: UserId): ` |
 | `exportInvoiceAsUbl` | `backend/src/db.ts` | `backend/src/call-dispatch/invoices.ts` | `function exportInvoiceAsUbl(invoiceId: number): string` |
 | `findNextAvailableWindow` | `backend/src/db-projects.ts` | (none) | `function findNextAvailableWindow(resourceName: string, business: BusinessName, desiredStart: string, durationDays: number, excludeProject?: string): ScheduleResolution` |
@@ -192,7 +190,7 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `getTaskDependencies` | `backend/src/db.ts` | (none) | `function getTaskDependencies(dependentTask: string): ` |
 | `getTypedContactPersons` | `backend/src/db.ts` | `backend/src/call-dispatch/contacts.ts` | `function getTypedContactPersons(entityName: string): ContactPerson[]` |
 | `getVocabularyAlternates` | `backend/src/db.ts` | `backend/src/call-dispatch/i18n.ts` | `function getVocabularyAlternates(wordName: string): string[]` |
-| `hashPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/db.ts` | `function hashPassword(password: string): string` |
+| `hashPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/core/core.ts`, `backend/src/core/ops.ts`, `backend/src/db.ts` | `function hashPassword(password: string): string` |
 | `instantiateProjectProposal` | `backend/src/db-prototypes.ts` | `backend/src/call-dispatch/prototypes.ts` | `function instantiateProjectProposal(prototypeName: string, reference: string, client: string, business: BusinessName, ledger: string, headerItem: string, transdate: string, userId: UserId, targetCompletionDate?: string): void` |
 | `isGenuineCategoryOrItemsRoot` | `backend/src/db.ts` | (none) | `function isGenuineCategoryOrItemsRoot(name: string): boolean` |
 | `isRecording` | `backend/src/recording.ts` | `backend/src/routes/recording.ts` | `function isRecording(userId: number): boolean` |
@@ -241,24 +239,24 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `setPosPin` | `backend/src/db.ts` | (none) | `function setPosPin(employeeName: string, pin: string): void` |
 | `setTerminalCurrency` | `backend/src/db-stock.ts` | `backend/src/call-dispatch/pos.ts` | `function setTerminalCurrency(terminalName: string, currency: string \| null): void` |
 | `setUserActive` | `backend/src/auth.ts` | `backend/src/call-dispatch/auth.ts` | `function setUserActive(userId: number, active: boolean): void` |
-| `setUserRoles` | `backend/src/auth.ts` | `backend/src/call-dispatch/auth.ts` | `function setUserRoles(userId: number, roleNames: string[]): void` |
+| `setUserRoles` | `backend/src/auth.ts` | `backend/src/call-dispatch/auth.ts`, `backend/src/core/ops.ts`, `backend/src/core/screens.ts` | `function setUserRoles(userId: number, roleNames: string[]): void` |
 | `setVocabularyPreference` | `backend/src/db.ts` | `backend/src/call-dispatch/i18n.ts` | `function setVocabularyPreference(conceptName: string, scope: 'business' \| 'user', scopeId: number, preferredAlternateName: string): void` |
 | `signOff` | `backend/src/db.ts` | (none) | `function signOff(shiftId: number): void` |
 | `signOn` | `backend/src/db.ts` | (none) | `function signOn(employeeName: string, locationName: string): PosShift` |
 | `stageBomComponent` | `backend/src/db.ts` | `backend/src/call-dispatch/items.ts`, `backend/src/db-projects.ts`, `backend/src/db-prototypes.ts`, `backend/src/db-quotations.ts` | `function stageBomComponent(input: BomComponentInput): void` |
 | `startRecording` | `backend/src/recording.ts` | `backend/src/routes/recording.ts` | `function startRecording(userId: number, username: string): void` |
 | `stopRecording` | `backend/src/recording.ts` | `backend/src/routes/recording.ts` | `function stopRecording(userId: number): Promise<void>` |
-| `tagSkill` | `backend/src/db.ts` | `backend/src/call-dispatch/plant.ts` | `function tagSkill(contactName: string, skillName: string, rateMinorPerHour: number, userId: UserId): void` |
+| `tagSkill` | `backend/src/core/ops.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/core/screens.ts`, `backend/src/db.ts` | `function tagSkill(inst: Instance, contactName: string, skillName: string, rateMinorPerHour: number): void` |
 | `todayAtLocation` | `backend/src/db-stock.ts` | `backend/src/db.ts` | `function todayAtLocation(locationName: LocationName): string` |
 | `unregisterBankAccount` | `backend/src/db.ts` | `backend/src/call-dispatch/reports.ts` | `function unregisterBankAccount(accountName: string, userId: UserId): void` |
 | `untagSkill` | `backend/src/db.ts` | `backend/src/call-dispatch/plant.ts` | `function untagSkill(contactName: string, skillName: string, userId: UserId): void` |
 | `updatePrototypeLine` | `backend/src/db-prototypes.ts` | `backend/src/call-dispatch/prototypes.ts`, `backend/src/db.ts` | `function updatePrototypeLine(prototypeName: string, business: BusinessName, resourceOrItemName: string, userId: UserId, newDurationHours?: number, newPriceMinor?: number): void` |
 | `userMayActAsRole` | `backend/src/auth.ts` | `backend/src/auth-middleware.ts`, `backend/src/call-dispatch.ts` | `function userMayActAsRole(user: AuthenticatedUser, roles: string[], businessName: BusinessName \| null \| undefined): boolean` |
 | `verifyCustomer` | `backend/src/db.ts` | `backend/src/call-dispatch/customer-registration.ts` | `function verifyCustomer(customerName: string, approve: boolean): void` |
-| `verifyPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/db.ts` | `function verifyPassword(password: string, stored: string): boolean` |
+| `verifyPassword` | `backend/src/password.ts` | `backend/src/auth.ts`, `backend/src/core/screens.ts`, `backend/src/db.ts` | `function verifyPassword(password: string, stored: string): boolean` |
 | `verifyPosPin` | `backend/src/db.ts` | (none) | `function verifyPosPin(employeeName: string, pin: string): boolean` |
 
-## Other Constants (26, alphabetical)
+## Other Constants (28, alphabetical)
 
 | Name | Defined in | Referenced in | Declaration |
 |---|---|---|---|
@@ -266,6 +264,8 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `authFunctions` | `backend/src/call-dispatch/auth.ts` | `backend/src/call-dispatch.ts` | `const authFunctions = {   login: (v) => {     const [username, password] = v;` |
 | `BUSINESS_ADMIN_ROLE` | `backend/src/auth.ts` | (none) | `const BUSINESS_ADMIN_ROLE = 'Business Admin';` |
 | `businessesFunctions` | `backend/src/call-dispatch/businesses.ts` | `backend/src/call-dispatch.ts` | `const businessesFunctions = {   // Positional args: [0] businessName, [1] financialYearLabel, [2]   // coaPrototype, [3] secondaryCurrencies ('\|'-joined), [4]   // entityStructure, [5] partnerNames ('\|'-joined), [6]   // financialYearStart, [7] reportingFrequency. Any trailing arg may be   // '' for "not provided".   //   // Creating a business is the one, real, deliberately narrow operation   // Business Admin must never reach - see   // docs/business-admin-role-and-enforcement-design.md - hence   // requireGlobalRole, not an ordinary per-business role check.   'Create Business': (v, user) => {     const admin = requireGlobalRole(user, 'Administrator');` |
+| `clockPlantIn` | `backend/src/core/ops.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/core/screens.ts`, `backend/src/db-journal.ts`, `backend/src/db-projects.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts` | `const clockPlantIn = (inst: Instance, plant: string, account: string) => clockOn(inst, plantClock(inst, plant), account);` |
+| `clockPlantOut` | `backend/src/core/ops.ts` | `backend/src/call-dispatch/plant.ts`, `backend/src/core/screens.ts`, `backend/src/db-journal.ts`, `backend/src/db-projects.ts`, `backend/src/db.ts` | `const clockPlantOut = (inst: Instance, plant: string) => clockOff(inst, plantClock(inst, plant));` |
 | `contactsFunctions` | `backend/src/call-dispatch/contacts.ts` | `backend/src/call-dispatch.ts` | `const contactsFunctions = {   // No args.   listContactPersonTypes: (v, user) => {     requireAuth(user);` |
 | `customerRegistrationFunctions` | `backend/src/call-dispatch/customer-registration.ts` | `backend/src/call-dispatch.ts` | `const customerRegistrationFunctions = {   // Positional args, in CustomerRegistrationInput's own field order:   // [0] name, [1] email, [2] phone, [3] address_line1, [4] address_line2,   // [5] city, [6] region, [7] postal_code, [8] country, [9]   // preferred_language, [10] password, [11] card_label. Public.   registerCustomer: (v) => {     const [name, email, phone, address_line1, address_line2, city, region, postal_code, country, preferred_language, password, card_label] = v;` |
 | `departmentsFunctions` | `backend/src/call-dispatch/departments.ts` | `backend/src/call-dispatch.ts` | `const departmentsFunctions = {   // Positional args: [0] business. No role gate in the old route (just   // requireAuth on the whole mount) - replicated here as requireAuth only.   listDepartments: (v, user) => {     requireAuth(user);` |
@@ -289,4 +289,4 @@ Generated directly by `scripts/documentation-baseline-report.ts` (run via `make 
 | `stockFunctions` | `backend/src/call-dispatch/stock.ts` | `backend/src/call-dispatch.ts` | `const stockFunctions = {   // Positional args: [0] reference, [1] business, [2] ledger, [3] vendor,   // [4] item, [5] quantity, [6] price_minor, [7] location, [8] transdate,   // [9] description.   stagePurchaseOrder: (v, user) => {     requireRole(user, 'Administrator', 'Bookkeeper');` |
 | `stockLotsFunctions` | `backend/src/call-dispatch/stock-lots.ts` | `backend/src/call-dispatch.ts` | `const stockLotsFunctions = {   // Positional args: [0] business, [1] ledger, [2] reference, [3] itemName,   // [4] quantity, [5] unitCostMinor, [6] writeOffExpenseAccount,   // [7] inventoryAccount, [8] reason, [9] transdate.   // (writeOffItems also takes locationName/combinationValues/   // combinationShape, but the old route's own schema never carried   // those either — not ported here, matching real prior behavior.)   writeOffItems: (v, user) => {     const admin = requireRole(user, 'Administrator', 'Bookkeeper');` |
 
-267 real, tracked baseline names reported (41 TypeDescriptor constants, 2 router constants, 198 functions, 26 other constants) out of 366 total names in the baseline file.
+267 real, tracked baseline names reported (41 TypeDescriptor constants, 2 router constants, 196 functions, 28 other constants) out of 366 total names in the baseline file.

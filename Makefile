@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -183,16 +183,41 @@ test-e2e: reset-db
 # that whole code path (and flag) is gone now — boot never seeds a
 # demo business at all — so there is nothing left to guard against
 # here.
-test-e2e-tutorial: reset-db ensure-storage-engine
-	@echo "Running the real, augmented tutorial fixture via the API path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path api --non-interactive
+# Which middleware serves the three API-path tutorial targets below:
+# `core` (the default) is the simplified middleware - two stores, three
+# instance globals, four calls (backend/src/core/, docs/pm-core-
+# middleware.md); `legacy` is the original db.ts. The fixtures and
+# screens.csv are identical for both. The core keeps its own database
+# (backend/data/core.sqlite) and needs neither the legacy schema nor the
+# storage_engine server; the legacy path still needs both.
+#   make test-e2e-tutorial                     # the core
+#   make test-e2e-tutorial MIDDLEWARE=legacy   # the original
+# The browser-path targets always run against the original, because the
+# running backend server and the web frontend are not yet served by the
+# core.
+MIDDLEWARE ?= core
+ifeq ($(MIDDLEWARE),core)
+TUTORIAL_API_PREREQS := reset-db
+else
+TUTORIAL_API_PREREQS := reset-db ensure-storage-engine
+endif
+
+test-e2e-tutorial: $(TUTORIAL_API_PREREQS)
+	@echo "Running the real, augmented tutorial fixture via the API path ($(MIDDLEWARE) middleware)..."
+	cd backend && MIDDLEWARE=$(MIDDLEWARE) $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path api --non-interactive
+
+# All three tutorial fixtures, one after another, via the API path.
+test-e2e-tutorials:
+	$(MAKE) test-e2e-tutorial
+	$(MAKE) test-e2e-manufacturing-tutorial
+	$(MAKE) test-e2e-project-builder-tutorial
 
 # The exact, same, real tutorial fixture, driven through an actual,
 # real, live browser instead - genuinely proving the real UI screens
 # themselves, not just the backend functions behind them.
 test-e2e-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real, augmented tutorial fixture via the real, driven UI path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive --fallback-to-api
+	cd backend && MIDDLEWARE=legacy $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path ui --non-interactive --fallback-to-api
 
 # The Manufacturing tutorial (Stage 6 of the three-tutorial-chapters
 # plan, docs/user-manual-ch4-manufacturing-tutorial.md) - a wholly
@@ -202,9 +227,9 @@ test-e2e-tutorial-browser: reset-db ensure-servers
 # underneath it work identically for a genuinely different kind of
 # business. Same real step-runner.ts/screens.csv mechanism as
 # test-e2e-tutorial, a wholly separate fixture file.
-test-e2e-manufacturing-tutorial: reset-db ensure-storage-engine
-	@echo "Running the real Manufacturing tutorial fixture via the API path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/manufacturing-tutorial-steps.csv --path api --non-interactive
+test-e2e-manufacturing-tutorial: $(TUTORIAL_API_PREREQS)
+	@echo "Running the real Manufacturing tutorial fixture via the API path ($(MIDDLEWARE) middleware)..."
+	cd backend && MIDDLEWARE=$(MIDDLEWARE) $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/manufacturing-tutorial-steps.csv --path api --non-interactive
 
 # The exact, same, real Manufacturing tutorial fixture, driven through
 # an actual, real, live browser - genuinely proving the real
@@ -212,7 +237,7 @@ test-e2e-manufacturing-tutorial: reset-db ensure-storage-engine
 # unmodified, Material-only), not just the backend functions behind it.
 test-e2e-manufacturing-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real Manufacturing tutorial fixture via the real, driven UI path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/manufacturing-tutorial-steps.csv --path ui --non-interactive --fallback-to-api
+	cd backend && MIDDLEWARE=legacy $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/manufacturing-tutorial-steps.csv --path ui --non-interactive --fallback-to-api
 
 # The Manufacturing chapter's own "full" tier, per the user's own
 # "lighter now" answer: a real, looped simulation (3 repeated
@@ -239,9 +264,9 @@ test-e2e-manufacturing-full: reset-db
 # Profit-Center-scoped cost tracking, and one bounded, human-driven
 # prototype revision. Same real step-runner.ts/screens.csv mechanism as
 # the other two tutorials, a wholly separate fixture file.
-test-e2e-project-builder-tutorial: reset-db ensure-storage-engine
-	@echo "Running the real Project Builder tutorial fixture via the API path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/project-builder-tutorial-steps.csv --path api --non-interactive
+test-e2e-project-builder-tutorial: $(TUTORIAL_API_PREREQS)
+	@echo "Running the real Project Builder tutorial fixture via the API path ($(MIDDLEWARE) middleware)..."
+	cd backend && MIDDLEWARE=$(MIDDLEWARE) $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/project-builder-tutorial-steps.csv --path api --non-interactive
 
 # The exact, same, real Project Builder tutorial fixture, driven through
 # an actual, real, live browser. Every new Stage 2-7 entity (Plant,
@@ -254,7 +279,7 @@ test-e2e-project-builder-tutorial: reset-db ensure-storage-engine
 # Item, Post, the three report pages).
 test-e2e-project-builder-tutorial-browser: reset-db ensure-servers
 	@echo "Running the real Project Builder tutorial fixture via the real, driven UI path..."
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/project-builder-tutorial-steps.csv --path ui --non-interactive --fallback-to-api
+	cd backend && MIDDLEWARE=legacy $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/project-builder-tutorial-steps.csv --path ui --non-interactive --fallback-to-api
 
 # The Project Builder chapter's own "full" tier, per the user's own
 # "lighter now" answer: a real, looped simulation (2-3 repeated
@@ -844,6 +869,7 @@ reset-db:
 		echo "Preserved the outgoing database at backend/data/archive/ before removing it."; \
 	fi
 	rm -f backend/data/entities.sqlite backend/data/entities.sqlite-wal backend/data/entities.sqlite-shm
+	rm -f backend/data/core.sqlite backend/data/core.sqlite-wal backend/data/core.sqlite-shm
 	@if [ -f $(STORAGE_ENGINE_PID) ]; then \
 		PID=$$(cat $(STORAGE_ENGINE_PID)); \
 		kill -- -$$PID 2>/dev/null || kill $$PID 2>/dev/null || true; \
@@ -1488,6 +1514,7 @@ checkpoint:
 	@if [ -z "$(CHECKPOINT)" ]; then echo "Usage: make checkpoint CHECKPOINT=<number> (after writing COMMIT_MSG.txt)"; exit 1; fi
 	@if [ ! -f COMMIT_MSG.txt ]; then echo "Write the real, detailed commit message to COMMIT_MSG.txt first."; exit 1; fi
 	rm -f backend/data/entities.sqlite backend/data/entities.sqlite-wal backend/data/entities.sqlite-shm
+	rm -f backend/data/core.sqlite backend/data/core.sqlite-wal backend/data/core.sqlite-shm
 	git add -A
 	git commit -F COMMIT_MSG.txt
 	rm -f COMMIT_MSG.txt
