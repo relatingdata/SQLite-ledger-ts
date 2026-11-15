@@ -21,7 +21,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 ## Summary
 
 - **Backend:** 1187 functions (1016 exported); 813 are called from production code; 52 only from tests or tooling; 322 from nowhere the compiler could find.
-- **Frontend library:** 328 functions (268 exported); 312 are called from production code; 2 only from tests or tooling; 14 from nowhere the compiler could find.
+- **Frontend library:** 356 functions (287 exported); 313 are called from production code; 2 only from tests or tooling; 41 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -66,7 +66,9 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `getProfitAndLossByHierarchy`, `createProfitCenter`, `setSessionProfitCenter`, `getQuotation`, `openStorageContainer`, `receiveItems`, `transferItems`, `closeBooks`
+- `frontend/src/lib/api.ts`: `getProfitAndLossByHierarchy`, `createProfitCenter`, `setSessionProfitCenter`, `stagePurchaseOrder`, `postPurchaseOrder`, `getQuotation`, `openStorageContainer`, `getItemLocation`, `receiveItems`, `transferItems`, `transferStock`, `resolveTransferAccounts`, `receiveStock`, `dispatchStock`, `closeBooks`
+- `frontend/src/lib/canned-journal.ts`: `transferLines`
+- `frontend/src/lib/screen-runtime.ts`: `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.sameCityAsFrom`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.taxRate`, `actions.apPurchase`, `actions.arSale`, `actions.transfer`, `actions.purchaseOrder`, `actions.cashPurchase`, `actions.cashSale`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -9689,7 +9691,7 @@ Called from: production: auth-middleware.ts (attachUser ×1) · tests: 1 call(s)
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×3, routes/arap/ar-sale ×3, routes/arap/cash-purchase ×3, routes/arap/cash-sale ×3, routes/arap/quotations ×3, and 16 more
+Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×3, and 16 more
 
 **`asLedgerName`** *(exported)*
 
@@ -9697,7 +9699,7 @@ Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStore
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×2, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×2, routes/arap/rfq ×2, and 14 more
+Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/arap/quotations ×2, routes/arap/rfq ×2, routes/items ×1, routes/locations ×1, routes/post ×4, routes/projects ×2, and 8 more
 
 **`asAccountName`** *(exported)*
 
@@ -9705,7 +9707,7 @@ Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStore
 asAccountName(name: string): AccountName
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/ap-purchase ×0, routes/items ×1, routes/locations ×2, routes/pos ×1, routes/post ×2, routes/projects ×1, routes/setup/yearend ×2, routes/stock/po ×1, and 3 more
+Called from: Svelte pages (by name in the file's imports): routes/items ×1, routes/locations ×2, routes/pos ×1, routes/post ×2, routes/projects ×1, routes/setup/yearend ×2, routes/stock/stock-take ×1, routes/stock/write-offs ×1
 
 **`asLocationName`** *(exported)*
 
@@ -9713,7 +9715,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/ap-purcha
 asLocationName(name: string): LocationName
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/items ×1, routes/pos ×1, routes/setup/business-setup ×5, and 4 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, routes/items ×1, routes/pos ×1, routes/setup/business-setup ×5, routes/stock/listing ×1, routes/stock/stock-take ×1
 
 **`asEmployeeName`** *(exported)*
 
@@ -9729,7 +9731,7 @@ Called from: Svelte pages (by name in the file's imports): routes/hr ×1, routes
 asCustomerName(name: string): CustomerName
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ar-sale ×0, routes/arap/cash-sale ×1, routes/pos ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/pos ×1
 
 **`asProviderName`** *(exported)*
 
@@ -9737,7 +9739,7 @@ Called from: Svelte pages (by name in the file's imports): CashTransaction.svelt
 asProviderName(name: string): ProviderName
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×0, routes/arap/cash-purchase ×1, routes/invoices ×1, routes/items ×1, routes/stock/po ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/invoices ×1, routes/items ×1
 
 **`asItemName`** *(exported)*
 
@@ -9745,7 +9747,7 @@ Called from: Svelte pages (by name in the file's imports): CashTransaction.svelt
 asItemName(name: string): ItemName
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/items ×6, routes/pos ×2, routes/stock/listing ×1, routes/stock/po ×1, routes/stock/stock-take ×1, and 2 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/items ×6, routes/pos ×2, routes/stock/listing ×1, routes/stock/stock-take ×1, routes/stock/write-offs ×2
 
 **`compareVersions`** *(exported)*
 
@@ -9865,7 +9867,7 @@ Called from: production: api.ts (getEntityTree (as a value))
 getEntityTree(business?: string): Promise<EntityNode[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/contacts ×1, routes/editor ×1, routes/hr ×1, and 17 more
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/contacts ×1, routes/editor ×1, routes/hr ×1, routes/invoices ×1, routes/items ×3, and 14 more
 
 **`parseHierarchyLinkPointingAt`**
 
@@ -10273,7 +10275,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 getBusinesses(): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/post ×1, routes/projects ×1, and 7 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/post ×1, routes/projects ×1, routes/session ×1, routes/setup/periods ×1, and 4 more
 
 **`getBusinessTypes`** *(exported)*
 
@@ -10297,7 +10299,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/new-busi
 getLedgers(businessName: string): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 11 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 12 more
 
 **`getActiveLedger`** *(exported)*
 
@@ -10385,7 +10387,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/new-busi
 stageLine(line: StagedLine): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/items ×1, routes/locations ×2, routes/post ×1, routes/setup/yearend ×2, routes/stock/transfer ×1
+Called from: Svelte pages (by name in the file's imports): routes/items ×1, routes/locations ×2, routes/post ×1, routes/setup/yearend ×2
 
 **`postJournalEntry`** *(exported)*
 
@@ -10393,7 +10395,7 @@ Called from: Svelte pages (by name in the file's imports): routes/items ×1, rou
 postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/items ×1, routes/locations ×2, routes/post ×1, routes/setup/yearend ×2, routes/stock/transfer ×1
+Called from: Svelte pages (by name in the file's imports): routes/items ×1, routes/locations ×2, routes/post ×1, routes/setup/yearend ×2
 
 **`parseJournalSummary`**
 
@@ -10457,7 +10459,7 @@ Called from: Svelte pages (by name in the file's imports): routes/contacts ×1, 
 getCreditStatus(name: string): Promise<CreditStatus>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/ar-sale ×1, routes/contacts ×1
+Called from: Svelte pages (by name in the file's imports): routes/contacts ×1
 
 **`getTypedAddresses`** *(exported)*
 
@@ -10713,7 +10715,7 @@ Called from: Svelte pages (by name in the file's imports): routes/journal/[id]/[
 stagePurchaseOrder(input: PurchaseOrderInput): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/po ×1
+Called from: nowhere the compiler could find.
 
 **`postPurchaseOrder`** *(exported)*
 
@@ -10721,7 +10723,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/po ×1
 postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/po ×1
+Called from: nowhere the compiler could find.
 
 **`stageOrderReceipt`** *(exported)*
 
@@ -10961,7 +10963,7 @@ Called from: Svelte pages (by name in the file's imports): routes/items ×1
 listItems(business: string, limit?: number, offset?: number): Promise<{ rows: ItemSummary[]; totalCount: number; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/items ×5, routes/pos ×1, routes/stock/transfer ×1, and 1 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/items ×5, routes/pos ×1, routes/stock/write-offs ×1
 
 **`getItem`** *(exported)*
 
@@ -10993,7 +10995,7 @@ Called from: production: api.ts (listItemSources (as a value))
 listItemSources(itemName: ItemName): Promise<ItemSource[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/items ×2, routes/stock/po ×1
+Called from: Svelte pages (by name in the file's imports): routes/items ×2
 
 **`addOrUpdateItemSource`** *(exported)*
 
@@ -11049,7 +11051,7 @@ Called from: Svelte pages (by name in the file's imports): routes/invoices ×1
 createInvoice(input: InvoiceInput): Promise<{ id: number; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/invoices ×1
+Called from: Svelte pages (by name in the file's imports): routes/invoices ×1
 
 **`postInvoiceById`** *(exported)*
 
@@ -11057,7 +11059,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/ap-purcha
 postInvoiceById(id: number, revenueOrExpenseAccount: string, taxAccount: string, restockInventory?: boolean): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/invoices ×1
+Called from: Svelte pages (by name in the file's imports): routes/invoices ×1
 
 **`getInvoiceOutstanding`** *(exported)*
 
@@ -11185,7 +11187,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/write-of
 listLocations(business: BusinessName): Promise<LocationRecord[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 8 more
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/items ×1, routes/locations ×1, routes/pos ×1, routes/stock/restock ×1, and 2 more
 
 **`parseEmployeeClock`**
 
@@ -11409,7 +11411,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/business
 getItemLocation(itemName: ItemName, locationName: LocationName): Promise<ItemLocationLevels>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/transfer ×1
+Called from: nowhere the compiler could find.
 
 **`setItemLocationLevels`** *(exported)*
 
@@ -11457,7 +11459,7 @@ Called from: nowhere the compiler could find.
 transferStock(input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string; transdate?: string; }): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/transfer ×1
+Called from: nowhere the compiler could find.
 
 **`resolveTransferAccounts`** *(exported)*
 
@@ -11465,7 +11467,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/transfer
 resolveTransferAccounts(input: { business: BusinessName; itemName: ItemName; fromLocationName: string; toLocationName: string; }): Promise<ResolvedTransferAccounts>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/transfer ×1
+Called from: nowhere the compiler could find.
 
 **`getBelowReorderStock`** *(exported)*
 
@@ -11609,7 +11611,7 @@ Called from: Svelte pages (by name in the file's imports): routes/pos ×1
 completePosSale(input: { business: BusinessName; ledger: LedgerName; locationName: LocationName; customerName: CustomerName; lines: PosSaleLineInput[]; revenueAccount?: string; taxAccount: string; paymentMethod?: string; cashTenderedMinor?: number; transdate?: string; terminalName?: string; }): Promise<PosSaleResult>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/cash-sale ×1, routes/pos ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/pos ×1
 
 **`completeCashPurchase`** *(exported)*
 
@@ -11617,7 +11619,7 @@ Called from: Svelte pages (by name in the file's imports): CashTransaction.svelt
 completeCashPurchase(input: { business: BusinessName; ledger: LedgerName; locationName: LocationName; vendorName: ProviderName; lines: CashPurchaseLineInput[]; taxAccount: string; paymentMethod?: string; transdate?: string; }): Promise<CashPurchaseResult>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/cash-purchase ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1
 
 **`receiveStock`** *(exported)*
 
@@ -11625,7 +11627,7 @@ Called from: Svelte pages (by name in the file's imports): CashTransaction.svelt
 receiveStock(input: { business: BusinessName; ledger: LedgerName; reference: string; locationName: LocationName; lines: { itemName: string; quantity: number; }[]; transdate?: string; }): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/ap-purchase ×1
+Called from: nowhere the compiler could find.
 
 **`dispatchStock`** *(exported)*
 
@@ -11633,7 +11635,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/ap-purcha
 dispatchStock(input: { business: BusinessName; ledger: LedgerName; reference: string; locationName: LocationName; lines: { itemName: string; quantity: number; }[]; transdate?: string; }): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/ar-sale ×1
+Called from: nowhere the compiler could find.
 
 **`payEmployeeWages`** *(exported)*
 
@@ -11773,7 +11775,7 @@ Called from: production: auth.ts ((module level) ×1)
 transferLines(input: { quantity: number; fromInventoryAccount: string; toInventoryAccount: string; unitCostMinor: number | null; }): CannedLine[]
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/transfer ×1
+Called from: nowhere the compiler could find.
 
 **`openContainerLines`** *(exported)*
 
@@ -11839,7 +11841,7 @@ Called from: production: entityTree.ts (filterToItems ×2)
 filterToItems(entities: EntityNode[]): EntityNode[]
 ```
 
-Called from: tests: 2 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/stock/po ×1, routes/stock/so ×1, routes/stock/stock-dispatch ×1, routes/stock/stock-receipt ×1
+Called from: tests: 2 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/stock/so ×1, routes/stock/stock-dispatch ×1, routes/stock/stock-receipt ×1
 
 ### `frontend/src/lib/format.ts`
 
@@ -11873,7 +11875,7 @@ Called from: production: format.ts (formatAmount ×1)
 formatAmount(smallestUnits: number, numberFormat: string, unitCode?: string): string
 ```
 
-Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×4, routes/arap/cash-purchase ×1, and 35 more
+Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, and 36 more
 
 **`formatDate`** *(exported)*
 
@@ -12175,7 +12177,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/new-ne
 parseMinorUnits(text: string): number
 ```
 
-Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×0, routes/arap/ar-sale ×0, routes/arap/quotations ×2, routes/arap/rfq ×2, routes/post ×2, routes/stock/po ×2, routes/stock/so ×2, and 2 more
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×5, routes/arap/quotations ×2, routes/arap/rfq ×2, routes/post ×2, routes/stock/so ×2, routes/stock/stock-dispatch ×3, routes/stock/stock-receipt ×3
 
 **`parseQuantity`** *(exported)*
 
@@ -12183,7 +12185,7 @@ Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte
 parseQuantity(text: string): number
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×2, routes/arap/rfq ×2, routes/stock/po ×2, routes/stock/so ×2, routes/stock/stock-dispatch ×2, routes/stock/stock-receipt ×1
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×2, routes/arap/rfq ×2, routes/stock/so ×2, routes/stock/stock-dispatch ×2, routes/stock/stock-receipt ×1
 
 ### `frontend/src/lib/org-chart-layout.ts`
 
@@ -12212,6 +12214,232 @@ createPaginator<T>(fetchPage: (limit: number, offset: number) => Promise<FetchPa
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/journal ×0
+
+### `frontend/src/lib/screen-runtime.ts`
+
+**`t`**
+
+```
+t(word: string): any
+```
+
+Called from: production: screen-runtime.ts (actions.cashPurchase ×1, actions.cashSale ×1, actions.transfer ×1, onHandAtFrom ×1)
+
+**`named`**
+
+```
+named(es: { name: string; }[]): Choice[]
+```
+
+Called from: production: screen-runtime.ts (sources.customers ×1, sources.items ×1, sources.providers ×1)
+
+**`under`**
+
+```
+under(es: EntityNode[], parentName: string): EntityNode[]
+```
+
+Called from: production: screen-runtime.ts (sources.customers ×1, sources.providers ×1)
+
+**`sources.locations`** *(exported)*
+
+```
+sources.locations(business: string): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`sources.items`** *(exported)*
+
+```
+sources.items(business: string): Promise<Choice[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`sources.providers`** *(exported)*
+
+```
+sources.providers(): Promise<Choice[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`sources.customers`** *(exported)*
+
+```
+sources.customers(): Promise<Choice[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`sources.postableAccounts`** *(exported)*
+
+```
+sources.postableAccounts(): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`filters.sameCityAsFrom`** *(exported)*
+
+```
+filters.sameCityAsFrom(choices: Choice[], v: Values): Choice[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`onHandAtFrom`**
+
+```
+onHandAtFrom(v: Values): Promise<string>
+```
+
+Called from: production: screen-runtime.ts (reactions.fromLocationChanged ×1, reactions.onHand ×1)
+
+**`reactions.onHand`** *(exported)*
+
+```
+reactions.onHand(_c: Context, v: Values): Promise<{ info: string; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reactions.fromLocationChanged`** *(exported)*
+
+```
+reactions.fromLocationChanged(_c: Context, v: Values): Promise<{ values: { toLocation: string; }; info: string; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reactions.itemSources`** *(exported)*
+
+```
+reactions.itemSources(_c: Context, v: Values): Promise<{ choices: { provider: any; }; values?: undefined; } | { choices: { provider: any; }; values: { price?: string; provider: any; }; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reactions.providerPrice`** *(exported)*
+
+```
+reactions.providerPrice(_c: Context, v: Values): Promise<{ values?: undefined; } | { values: { price: string; }; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`subtotal`**
+
+```
+subtotal(lines: Line[]): number
+```
+
+Called from: production: screen-runtime.ts (totals.lineTax ×1, totals.taxRate ×1)
+
+**`totals.lineTax`** *(exported)*
+
+```
+totals.lineTax(lines: Line[]): { subtotalMinor: number; taxMinor: number; totalMinor: number; }
+```
+
+Called from: nowhere the compiler could find.
+
+**`totals.quantityTimesPrice`** *(exported)*
+
+```
+totals.quantityTimesPrice(_lines: Line[], values: Values): { subtotalMinor: number; taxMinor: number; totalMinor: number; }
+```
+
+Called from: nowhere the compiler could find.
+
+**`totals.taxRate`** *(exported)*
+
+```
+totals.taxRate(lines: Line[], values: Values): { subtotalMinor: number; taxMinor: number; totalMinor: number; }
+```
+
+Called from: nowhere the compiler could find.
+
+**`lineTaxAt`**
+
+```
+lineTaxAt(values: Values): (l: Line) => number
+```
+
+Called from: production: screen-runtime.ts (onAccount ×1)
+
+**`stockLines`**
+
+```
+stockLines(business: string, lines: Line[]): Promise<Line[]>
+```
+
+Called from: production: screen-runtime.ts (onAccount ×1)
+
+**`onAccount`**
+
+```
+onAccount(kind: "AP" | "AR", c: Context, v: Values, lines: Line[], counterparty: string, location: string, account: string, taxAccount: string): Promise<void>
+```
+
+Called from: production: screen-runtime.ts (actions.apPurchase ×1, actions.arSale ×1)
+
+**`itemLines`**
+
+```
+itemLines(lines: Line[]): { itemName: any; taxMinor: number; quantity: number; unitPriceMinor: number; }[]
+```
+
+Called from: production: screen-runtime.ts (actions.cashPurchase ×1, actions.cashSale ×1)
+
+**`actions.apPurchase`** *(exported)*
+
+```
+actions.apPurchase(c: Context, v: Values, lines: Line[]): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`actions.arSale`** *(exported)*
+
+```
+actions.arSale(c: Context, v: Values, lines: Line[]): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`actions.transfer`** *(exported)*
+
+```
+actions.transfer(c: Context, v: Values): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`actions.purchaseOrder`** *(exported)*
+
+```
+actions.purchaseOrder(c: Context, v: Values): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`actions.cashPurchase`** *(exported)*
+
+```
+actions.cashPurchase(c: Context, v: Values, lines: Line[]): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`actions.cashSale`** *(exported)*
+
+```
+actions.cashSale(c: Context, v: Values, lines: Line[]): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
 
 ### `frontend/src/lib/session.ts`
 

@@ -1329,7 +1329,9 @@ Root
    Field
    Heading
    Parameter
+   Rule
    Screen Ordered>/Root/Active
+   Tile
    Use
   Screens
    "/" :Screen Source="frontend/src/routes/+page.svelte"
@@ -1342,72 +1344,50 @@ Root
     - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n      { name: 'numberFormat', label: 'Number format', type: 'select', options: NUMBER_FORMAT_OPTIONS },\n      { name: 'dateFormat', label: 'Date format', type: 'select', options: DATE_FORMAT_OPTIONS },\n    ]}" "Prop onSubmit"="{saveFormats}" "Prop submitLabel"="Save format"
     - :Heading Text="Change password"
     - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n      { name: 'currentPassword', label: 'Current password', type: 'password', autocomplete: 'current-password' },\n      { name: 'newPassword', label: 'New password', type: 'password', autocomplete: 'new-password' },\n      { name: 'confirmPassword', label: 'Confirm new password', type: 'password', autocomplete: 'new-password' },\n    ]}" "Prop onSubmit"="{savePassword}" "Prop submitLabel"="Change password"
-   "/arap" :Screen Source="frontend/src/routes/arap/+page.svelte" Title="AR / AP"
-    - :Heading Text="AR / AP"
-   "/arap/ap-payment" :Screen Source="frontend/src/routes/arap/ap-payment/+page.svelte"
+   "/arap" :Screen Intro="Purpose-built entry screens for the most common transactions \u2014 each posts through the same atomic journal mechanism as everything else." Template=tiles Title="AR / AP"
+    - :Tile Description="Sell to a customer on credit \u2014 debits Accounts Receivable, credits Sales Revenue." Href="/arap/ar-sale" Title="AR Sale"
+    - :Tile Description="Record a payment received from a customer \u2014 debits Cash, credits their AR balance." Href="/arap/ar-receipt" Title="AR Receipt"
+    - :Tile Description="Buy from a provider on credit \u2014 debits an expense/asset account, credits Accounts Payable." Href="/arap/ap-purchase" Title="AP Purchase"
+    - :Tile Description="Pay a provider \u2014 debits their AP balance, credits Cash." Href="/arap/ap-payment" Title="AP Payment"
+   "/arap/ap-payment" :Screen Template=compose
     - :Use Component>/Root/Application/Components/PaymentReceipt "Prop direction"=payment
-   "/arap/ap-purchase" :Screen "Calls createInvoice">/Root/Application/Calls/createInvoice "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations "Calls postInvoiceById">/Root/Application/Calls/postInvoiceById "Calls receiveStock">/Root/Application/Calls/receiveStock Source="frontend/src/routes/arap/ap-purchase/+page.svelte" Title="AP Purchase"
-    - :Heading Text="AP Purchase"
-    - :Heading Text=Date
-    - :Field Bind=transdate Control=input Label=Date Type=date
-    - :Heading Text=Reference
-    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. PO-1001"
-    - :Heading Text=Provider
-    - :Field Bind=provider Control=select Label=Provider
-    - :Heading Text="Account (what this purchase was for)"
-    - :Field Bind=expenseAccount Control=select Label="Account (what this purchase was for)"
-    - :Heading Text="Tax %"
-    - :Field Bind=taxRate Control=input Label="Tax %" Placeholder=0
-    - :Heading Text=Location
-    - :Field Bind=purchaseLocation Control=select Label=Location
-    - :Heading Text=Description
-    - :Field Bind=description Control=input Label=Description Placeholder=optional
-    - :Column Label=Item
-    - :Column Label=Quantity
-    - :Column Label="Unit price"
-    - :Column Label=Storage
-    - :Field Bind=line.itemName Control=input Label="AP Purchase" Placeholder="e.g. Golden Lager 330ml"
-    - :Field Bind=line.quantity Control=input Label="AP Purchase" Type=number
-    - :Field Control=input Label="AP Purchase" Type=number
-    - :Action Handler="() => removeLine(line.key)" Label="\u2715"
-    - :Action Handler=save Label=Saving
-   "/arap/ar-receipt" :Screen Source="frontend/src/routes/arap/ar-receipt/+page.svelte"
-    - :Use Component>/Root/Application/Components/PaymentReceipt "Prop direction"=receipt
-   "/arap/ar-sale" :Screen "Calls createInvoice">/Root/Application/Calls/createInvoice "Calls dispatchStock">/Root/Application/Calls/dispatchStock "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getCreditStatus">/Root/Application/Calls/getCreditStatus "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations "Calls postInvoiceById">/Root/Application/Calls/postInvoiceById Source="frontend/src/routes/arap/ar-sale/+page.svelte" Title="AR Sale"
-    - :Heading Text="AR Sale"
-    - :Heading Text=Date
-    - :Field Bind=transdate Control=input Label=Date Type=date
-    - :Heading Text=Reference
-    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. INV-1001"
-    - :Heading Text=Customer
-    - :Field Bind=customer Control=select Label=Customer
-    - :Heading Text=Location
-    - :Field Bind=saleLocation Control=select Label=Location
-    - :Heading Text="Tax %"
-    - :Field Bind=taxRate Control=input Label="Tax %" Placeholder=0
-    - :Heading Text=Description
-    - :Field Bind=description Control=input Label=Description Placeholder=optional
-    - :Column Label=Item
-    - :Column Label=Quantity
-    - :Column Label="Unit price"
-    - :Column Label=Storage
-    - :Field Bind=line.itemName Control=input Label="AR Sale" Placeholder="e.g. Golden Lager 330ml"
-    - :Field Bind=line.quantity Control=input Label="AR Sale" Type=number
-    - :Field Control=input Label="AR Sale" Type=number
-    - :Action Handler="() => removeLine(line.key)" Label="\u2715"
-    - :Action Handler=save Label=Saving
-   "/arap/cash-purchase" :Screen "Done Label"="Purchase completed" "Fail Text"="Could not complete this purchase." Intro="A purchase from the 'Cash' provider \u2014 posted exactly like any on-account purchase, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to receive stock at, including a warehouse \u2014 possibly the start of a real wholesale channel." Party=Cash "Party Argument"=vendorName "Party Label"=Provider Submit>/Root/Application/Calls/completeCashPurchase "Submit Label"="Complete purchase" "Tax Account"="Sales Tax Payable" Template=line-items-transaction Title="Cash Purchase" "Total Label"="Total to pay"
+   "/arap/ap-purchase" :Screen Action=apPurchase "Fail Text"="Could not record this purchase." Intro="A purchase from a provider on credit \u2014 debits an expense or asset account, credits their Accounts Payable balance." "Submit Label"=Save Template=transaction Title="AP Purchase" "Total Label"="Total owed" Totals=taxRate
     - :Field Control=date Label=Date Name=transdate
-    - :Field Choices>/Root/Application/Calls/listLocations Control=choose Label="Receive at location" Name=locationName
+    - :Field Control=text Label=Reference Name=reference Placeholder="e.g. PO-1001" Reset=yes
+    - :Field Choices=providers Control=choose Empty="Select provider\u2026" Grow=yes Label=Provider Name=provider
+    - :Field Choices=postableAccounts Control=choose Empty="Select account\u2026" Grow=yes Label="Account (what this purchase was for)" Name=expenseAccount
+    - :Field Control=percent Label="Tax %" Name=taxRate Reset=yes
+    - :Field Choices=locations Control=choose Empty="Not yet known" Grow=yes Label=Location Name=purchaseLocation
+    - :Field Control=text Grow=yes Label=Description Name=description Placeholder=optional Reset=yes
+    - :Column Control=text Label=Item Name=itemName Placeholder="e.g. Golden Lager 330ml"
+    - :Column Control=number Default=1 Label=Quantity Min=1 Name=quantity
+    - :Column Control=money Label="Unit price" Name=unitPriceMinor
+    - :Column Control=storage-badge Label=Storage Name=storage
+   "/arap/ar-receipt" :Screen Template=compose
+    - :Use Component>/Root/Application/Components/PaymentReceipt "Prop direction"=receipt
+   "/arap/ar-sale" :Screen Action=arSale "Fail Text"="Could not record this sale." Intro="A sale to a customer on credit \u2014 debits their Accounts Receivable balance, credits Sales Revenue." "Submit Label"=Save Template=transaction Title="AR Sale" "Total Label"="Total owed" Totals=taxRate
+    - :Field Control=date Label=Date Name=transdate
+    - :Field Control=text Label=Reference Name=reference Placeholder="e.g. INV-1001" Reset=yes
+    - :Field Choices=customers Control=choose Empty="Select customer\u2026" Grow=yes Label=Customer Name=customer
+    - :Field Control=percent Label="Tax %" Name=taxRate Reset=yes
+    - :Field Choices=locations Control=choose Empty="Not yet known" Grow=yes Label=Location Name=saleLocation
+    - :Field Control=text Grow=yes Label=Description Name=description Placeholder=optional Reset=yes
+    - :Column Control=text Label=Item Name=itemName Placeholder="e.g. Golden Lager 330ml"
+    - :Column Control=number Default=1 Label=Quantity Min=1 Name=quantity
+    - :Column Control=money Label="Unit price" Name=unitPriceMinor
+    - :Column Control=storage-badge Label=Storage Name=storage
+   "/arap/cash-purchase" :Screen Action=cashPurchase "Fail Text"="Could not complete this purchase." Intro="A purchase from the 'Cash' provider \u2014 posted exactly like any on-account purchase, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to receive stock at, including a warehouse \u2014 possibly the start of a real wholesale channel." Party=Cash "Party Label"=Provider "Submit Label"="Complete purchase" Template=transaction Title="Cash Purchase" "Total Label"="Total to pay" Totals=lineTax
+    - :Field Control=date Label=Date Name=transdate
+    - :Field Choices=locations Control=choose Default=first Label="Receive at location" Name=locationName
     - :Column Control=text Label=Item Name=itemName Placeholder="e.g. Golden Lager 330ml"
     - :Column Control=number Default=1 Label=Quantity Min=1 Name=quantity
     - :Column Control=money Label="Unit price" Name=unitPriceMinor
     - :Column Control=money Label=Tax Name=taxMinor
     - :Column Control=storage-badge Label=Storage Name=storage
     - :Field Control=one-of Default=cash Label="Payment method" Name=paymentMethod Options="cash=Cash eft=EFT"
-   "/arap/cash-sale" :Screen "Done Label"="Sale completed" "Fail Text"="Could not complete this sale." Intro="A sale to the 'Cash' customer \u2014 posted exactly like any on-account sale, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to dispatch from, including a warehouse \u2014 possibly the start of a real wholesale channel. The everyday retail register is the real POS Terminal; this is the same real mechanism for a larger, non-register sale." Party=Cash "Party Argument"=customerName "Party Label"=Customer Submit>/Root/Application/Calls/completePosSale "Submit Label"="Complete sale" "Tax Account"="Sales Tax Payable" Template=line-items-transaction Title="Cash Sale" "Total Label"="Total owed"
+   "/arap/cash-sale" :Screen Action=cashSale "Fail Text"="Could not complete this sale." Intro="A sale to the 'Cash' customer \u2014 posted exactly like any on-account sale, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to dispatch from, including a warehouse \u2014 possibly the start of a real wholesale channel. The everyday retail register is the real POS Terminal; this is the same real mechanism for a larger, non-register sale." Party=Cash "Party Label"=Customer "Submit Label"="Complete sale" Template=transaction Title="Cash Sale" "Total Label"="Total owed" Totals=lineTax
     - :Field Control=date Label=Date Name=transdate
-    - :Field Choices>/Root/Application/Calls/listLocations Control=choose Label="Dispatch from location" Name=locationName
+    - :Field Choices=locations Control=choose Default=first Label="Dispatch from location" Name=locationName
     - :Column Control=text Label=Item Name=itemName Placeholder="e.g. Golden Lager 330ml"
     - :Column Control=number Default=1 Label=Quantity Min=1 Name=quantity
     - :Column Control=money Label="Unit price" Name=unitPriceMinor
@@ -1472,8 +1452,7 @@ Root
     - :Action Handler="() => doMarkSent(q)" Label="Mark sent"
     - :Action Handler="() => doAccept(q)" Label="Accept \u2192 Order"
     - :Action Handler="() => doReject(q)" Label=Reject
-   "/cash" :Screen Source="frontend/src/routes/cash/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Cash Sale and Cash Receipt \u2014 settling straight to Cash and Bank with no receivable ever created, unlike AR Sale/Receipt. Discussed alongside the tax and service work, not yet built." "Prop title"=Cash
+   "/cash" :Screen Description="Cash Sale and Cash Receipt \u2014 settling straight to Cash and Bank with no receivable ever created, unlike AR Sale/Receipt. Discussed alongside the tax and service work, not yet built." Template=not-implemented Title=Cash
    "/contacts" :Screen "Calls getContact">/Root/Application/Calls/getContact "Calls getCounterpartyHistory">/Root/Application/Calls/getCounterpartyHistory "Calls getCreditStatus">/Root/Application/Calls/getCreditStatus "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLanguages">/Root/Application/Calls/getLanguages "Calls setContact">/Root/Application/Calls/setContact Source="frontend/src/routes/contacts/+page.svelte" Title=Contacts
     - :Action Handler="() => goto('/contacts')" Label="Show everything (employees, customers, providers, manufacturers)"
     - :Action Handler="() => select(emp.name)"
@@ -1546,12 +1525,9 @@ Root
     - :Field Bind=newRelation Control=select Label=Relation
     - :Heading Text="Account Number"
     - :Field Bind=newAccountnumber Control=input Label="Account Number" Placeholder=optional
-   "/exchange-rates" :Screen Source="frontend/src/routes/exchange-rates/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Recording and looking up historical exchange rates for the real, working multi-currency mechanism already built \u2014 the rates themselves currently have to be known and entered directly on each transaction." "Prop title"="Exchange Rates"
-   "/gl/fx-adjustment" :Screen Source="frontend/src/routes/gl/fx-adjustment/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="A period-end revaluation of foreign-currency balances against a current exchange rate. Related to the real, working multi-currency validator already built, but this specific adjustment posting is not yet implemented." "Prop title"="FX Adjustment"
-   "/goods-services" :Screen Source="frontend/src/routes/goods-services/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="A dedicated product/service catalog \u2014 pricing, categories, barcodes \u2014 distinct from creating a stock item through the general Structured Editor." "Prop title"="Goods &amp; Services"
+   "/exchange-rates" :Screen Description="Recording and looking up historical exchange rates for the real, working multi-currency mechanism already built \u2014 the rates themselves currently have to be known and entered directly on each transaction." Template=not-implemented Title="Exchange Rates"
+   "/gl/fx-adjustment" :Screen Description="A period-end revaluation of foreign-currency balances against a current exchange rate. Related to the real, working multi-currency validator already built, but this specific adjustment posting is not yet implemented." Template=not-implemented Title="FX Adjustment"
+   "/goods-services" :Screen Description="A dedicated product/service catalog \u2014 pricing, categories, barcodes \u2014 distinct from creating a stock item through the general Structured Editor." Template=not-implemented Title="Goods &amp; Services"
    "/hr" :Screen "Calls getContact">/Root/Application/Calls/getContact "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getOrganizationChart">/Root/Application/Calls/getOrganizationChart "Calls payEmployeeWages">/Root/Application/Calls/payEmployeeWages Source="frontend/src/routes/hr/+page.svelte" Title="HR / Payroll"
     - :Heading Text="HR / Payroll"
     - :Action Handler="() => switchTab('pay')" Label="Pay Wages"
@@ -1692,8 +1668,7 @@ Root
     - :Heading Text=Unit
     - :Field Bind=bomUnit Control=select Label=Unit
     - :Action Handler=addBomComponent Label="Add component"
-   "/jobs" :Screen Source="frontend/src/routes/jobs/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="A Job differs from a Project in the original SQL-Ledger by tracking materials consumed (Stores Cards) alongside labor (Time Cards) \u2014 relevant for light manufacturing or service work, not yet built." "Prop title"=Jobs
+   "/jobs" :Screen Description="A Job differs from a Project in the original SQL-Ledger by tracking materials consumed (Stores Cards) alongside labor (Time Cards) \u2014 relevant for light manufacturing or service work, not yet built." Template=not-implemented Title=Jobs
    "/journal" :Screen "Calls listJournalEntries">/Root/Application/Calls/listJournalEntries Source="frontend/src/routes/journal/+page.svelte" Title="Journal Entries"
     - :Heading Text="Journal Entries"
     - :Column Label=Date
@@ -1763,12 +1738,9 @@ Root
     - :Heading Text=Language
     - :Field Bind=displayLanguage Control=select Label=Language
     - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n        { name: 'username', label: translations.current['Username'] ?? 'Username', type: 'text', autocomplete: 'username' },\n        { name: 'password', label: translations.current['Password'] ?? 'Password', type: 'password', autocomplete: 'current-password' },\n      ]}" "Prop onSubmit"="{submit}" "Prop savingLabel"="{translations.current['Logging in\u2026'] ?? 'Logging in\u2026'}" "Prop submitLabel"="{translations.current['Log in'] ?? 'Log in'}"
-   "/logistics/assembly-bom" :Screen Source="frontend/src/routes/logistics/assembly-bom/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Consuming a Bill of Materials' component items to produce a finished assembly \u2014 relevant if this ever needs to model a manufactured/kitted product, not just resold wine." "Prop title"="Assembly BOM Transfer"
-   "/order-entry/generate-invoices" :Screen Source="frontend/src/routes/order-entry/generate-invoices/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Consolidating open Sales Orders into real invoices automatically, mirroring Generate Purchase Orders on the sales side." "Prop title"="Generate Sales Invoices"
-   "/order-entry/generate-po" :Screen Source="frontend/src/routes/order-entry/generate-po/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Automatically proposing purchase orders from real reorder levels and stock on hand, staged for a human to actually approve, not auto-posted. Discussed at length but not yet built." "Prop title"="Generate Purchase Orders"
+   "/logistics/assembly-bom" :Screen Description="Consuming a Bill of Materials' component items to produce a finished assembly \u2014 relevant if this ever needs to model a manufactured/kitted product, not just resold wine." Template=not-implemented Title="Assembly BOM Transfer"
+   "/order-entry/generate-invoices" :Screen Description="Consolidating open Sales Orders into real invoices automatically, mirroring Generate Purchase Orders on the sales side." Template=not-implemented Title="Generate Sales Invoices"
+   "/order-entry/generate-po" :Screen Description="Automatically proposing purchase orders from real reorder levels and stock on hand, staged for a human to actually approve, not auto-posted. Discussed at length but not yet built." Template=not-implemented Title="Generate Purchase Orders"
    "/pos" :Screen "Calls completePosSale">/Root/Application/Calls/completePosSale "Calls createPosTerminal">/Root/Application/Calls/createPosTerminal "Calls getPosTerminals">/Root/Application/Calls/getPosTerminals "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations "Calls listPendingCustomers">/Root/Application/Calls/listPendingCustomers "Calls lookupByUpc">/Root/Application/Calls/lookupByUpc "Calls verifyCustomer">/Root/Application/Calls/verifyCustomer Source="frontend/src/routes/pos/+page.svelte" Title="POS Terminal"
     - :Heading Text="POS Terminal"
     - :Action Handler="() => (showPending = !showPending)" Label="customer registration"
@@ -1843,12 +1815,14 @@ Root
     - :Heading Text="Project (expense account)"
     - :Field Bind=projectExpenseAccount Control=select Label="Project (expense account)"
     - :Action Handler=clockIn Label="Clock in"
-   "/reconciliation" :Screen Source="frontend/src/routes/reconciliation/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Matching posted bank-account transactions against a real bank statement \u2014 a documented, confirmed gap (docs/TODO.md). Bank reconciliation itself, not the currency-conversion clearing accounts already built." "Prop title"=Reconciliation
-   "/recurring" :Screen Source="frontend/src/routes/recurring/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Scheduling a journal entry (a lease payment, a subscription) to post automatically on a repeating basis. The underlying self-healing migration infrastructure already treats &quot;recurring journals&quot; as a real concept; no user-facing screen exists yet." "Prop title"="Recurring Transactions"
-   "/reports" :Screen Source="frontend/src/routes/reports/+page.svelte" Title=Reports
-    - :Heading Text=Reports
+   "/reconciliation" :Screen Description="Matching posted bank-account transactions against a real bank statement \u2014 a documented, confirmed gap (docs/TODO.md). Bank reconciliation itself, not the currency-conversion clearing accounts already built." Template=not-implemented Title=Reconciliation
+   "/recurring" :Screen Description="Scheduling a journal entry (a lease payment, a subscription) to post automatically on a repeating basis. The underlying self-healing migration infrastructure already treats &quot;recurring journals&quot; as a real concept; no user-facing screen exists yet." Template=not-implemented Title="Recurring Transactions"
+   "/reports" :Screen Template=tiles Title=Reports
+    - :Tile Description="Every posted account, split into debit or credit." Href="/reports/trial-balance" Title="Trial Balance"
+    - :Tile Description="Assets, Liabilities, and Equity \u2014 including unclosed net income." Href="/reports/balance-sheet" Title="Balance Sheet"
+    - :Tile Description="Income and Expenses, and the resulting net income." Href="/reports/profit-and-loss" Title="Profit and Loss Statement"
+    - :Tile Description="Actual vs. a budget or scenario, side by side, with variance." Href="/reports/compare" Title="Compare Ledgers"
+    - :Tile Description="Each location's own, real, physical storage space \u2014 Installed, Occupied, and Remaining, per storage unit. Outside Chart of Accounts, so never on the Trial Balance." Href="/reports/storage-space" Title="Inventory and Storage"
    "/reports/aged" :Screen "Calls getAgedInvoices">/Root/Application/Calls/getAgedInvoices "Calls getAgedSummary">/Root/Application/Calls/getAgedSummary Source="frontend/src/routes/reports/aged/+page.svelte" Title=Aged
     - :Heading Text="Aged Receivables"
     - :Action Handler="() => { invoiceType = 'AR'; load(); }" Label=AR
@@ -2173,8 +2147,7 @@ Root
     - :Field Bind=newChildName Control=input Label="Add a new account under this one" Placeholder="e.g. Office Supplies"
     - :Heading Text=Rename
     - :Field Bind=renameValue Control=input Label=Rename
-   "/setup/currencies" :Screen Source="frontend/src/routes/setup/currencies/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Managing which currencies this business actually transacts in \u2014 registering a new currency's own Cash at Bank/Clearing/Gain-Loss accounts (ensureItemSalesCogsAccounts' currency equivalent, still a prototype) through a real screen instead of a script." "Prop title"=Currencies
+   "/setup/currencies" :Screen Description="Managing which currencies this business actually transacts in \u2014 registering a new currency's own Cash at Bank/Clearing/Gain-Loss accounts (ensureItemSalesCogsAccounts' currency equivalent, still a prototype) through a real screen instead of a script." Template=not-implemented Title=Currencies
    "/setup/hierarchy" :Screen "Calls createHierarchyGrouping">/Root/Application/Calls/createHierarchyGrouping "Calls createHierarchyValue">/Root/Application/Calls/createHierarchyValue "Calls deleteHierarchyGrouping">/Root/Application/Calls/deleteHierarchyGrouping "Calls deleteHierarchyValue">/Root/Application/Calls/deleteHierarchyValue "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getProductShapes">/Root/Application/Calls/getProductShapes Source="frontend/src/routes/setup/hierarchy/+page.svelte" Title=Hierarchies
     - :Heading Text=Hierarchies
     - :Heading Text=Groupings
@@ -2239,8 +2212,7 @@ Root
     - :Field Bind=throughDate Control=input Label="Close through date" Type=date
     - :Action Handler=doClose Label="Close period"
     - :Action Handler=doReopen Label="Reopen period"
-   "/setup/taxes" :Screen Source="frontend/src/routes/setup/taxes/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Configuring real tax rates and jurisdictions as their own maintained list, rather than the current fixed Sales Tax Payable account used throughout the simulation." "Prop title"=Taxes
+   "/setup/taxes" :Screen Description="Configuring real tax rates and jurisdictions as their own maintained list, rather than the current fixed Sales Tax Payable account used throughout the simulation." Template=not-implemented Title=Taxes
    "/setup/translations" :Screen "Calls createEntity">/Root/Application/Calls/createEntity "Calls deleteVocabularyWord">/Root/Application/Calls/deleteVocabularyWord "Calls getLanguageDirection">/Root/Application/Calls/getLanguageDirection "Calls getLanguages">/Root/Application/Calls/getLanguages "Calls getVocabularyWords">/Root/Application/Calls/getVocabularyWords "Calls revokeEntity">/Root/Application/Calls/revokeEntity "Calls setLanguageDirection">/Root/Application/Calls/setLanguageDirection "Calls setTranslation">/Root/Application/Calls/setTranslation Source="frontend/src/routes/setup/translations/+page.svelte" Title=Translations
     - :Heading Text=Translations
     - :Heading Text=Mode
@@ -2323,10 +2295,12 @@ Root
     - :Column Label=Credit
     - :Action Handler=rejectRollover Label=Reject
     - :Action Handler=acceptRollover Label="Accept and roll over"
-   "/shipping" :Screen Source="frontend/src/routes/shipping/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Freight, carrier details, and shipment tracking attached to a Stock Dispatch." "Prop title"=Shipping
-   "/stock" :Screen Source="frontend/src/routes/stock/+page.svelte" Title="Stock / Orders"
-    - :Heading Text="Stock / Orders"
+   "/shipping" :Screen Description="Freight, carrier details, and shipment tracking attached to a Stock Dispatch." Template=not-implemented Title=Shipping
+   "/stock" :Screen Intro="Purchase and Sales Orders are commitments only \u2014 placing one never touches a real account. Fulfilling one (a Stock Receipt or Dispatch) is what actually posts to the ledger." Template=tiles Title="Stock / Orders"
+    - :Tile Description="Commit to buying from a provider \u2014 memo only, until a Stock Receipt fulfills it." Href="/stock/po" Title="Purchase Order"
+    - :Tile Description="Fulfill a Purchase Order \u2014 receives goods or a service, real posting." Href="/stock/stock-receipt" Title="Stock Receipt"
+    - :Tile Description="A customer's committed order \u2014 memo only, until a Stock Dispatch fulfills it." Href="/stock/so" Title="Sales Order"
+    - :Tile Description="Fulfill a Sales Order \u2014 ships and invoices in one action, real posting." Href="/stock/stock-dispatch" Title="Stock Dispatch"
    "/stock/listing" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getInventoryListingByLocation">/Root/Application/Calls/getInventoryListingByLocation "Calls setItemLocationLevels">/Root/Application/Calls/setItemLocationLevels Source="frontend/src/routes/stock/listing/+page.svelte" Title="Inventory Listing"
     - :Heading Text="Inventory Listing"
     - :Action Handler="() => toggleGroup(dg.name)" Label="No group"
@@ -2339,27 +2313,15 @@ Root
     - :Field Bind=row.min_level Control=input Label="Inventory Listing" Type=number
     - :Field Bind=row.max_level Control=input Label="Inventory Listing" Type=number
     - :Field Bind=row.reorder_level Control=input Label="Inventory Listing" Type=number
-   "/stock/po" :Screen "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listItemSources">/Root/Application/Calls/listItemSources "Calls listLocations">/Root/Application/Calls/listLocations "Calls postPurchaseOrder">/Root/Application/Calls/postPurchaseOrder "Calls stagePurchaseOrder">/Root/Application/Calls/stagePurchaseOrder Source="frontend/src/routes/stock/po/+page.svelte" Title="Purchase Order"
-    - :Heading Text="Purchase Order"
-    - :Heading Text=Date
-    - :Field Bind=transdate Control=input Label=Date Type=date
-    - :Heading Text=Reference
-    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. PO-1001"
-    - :Heading Text=Item
-    - :Field Bind=item Control=select Label=Item
-    - :Heading Text=Provider
-    - :Field Bind=provider Control=select Label=Provider
-    - :Action Handler="() => (showAllProviders = false)" Label="Known suppliers only"
-    - :Action Handler="() => (showAllProviders = true)" Label="Show all providers"
-    - :Heading Text=Quantity
-    - :Field Bind=quantity Control=input Label=Quantity Placeholder=0
-    - :Heading Text="Price per unit"
-    - :Field Bind=price Control=input Label="Price per unit" Placeholder=0.00
-    - :Heading Text="Delivery location"
-    - :Field Bind=deliveryLocation Control=select Label="Delivery location"
-    - :Heading Text=Description
-    - :Field Bind=description Control=input Label=Description Placeholder=optional
-    - :Action Handler=save Label=Saving
+   "/stock/po" :Screen Action=purchaseOrder "Fail Text"="Could not place this order." Intro="Commits to buying from a provider \u2014 memo only, no real ledger effect until a Stock Receipt fulfills it (all or item)." "Submit Label"=Save Template=transaction Title="Purchase Order" "Total Label"="Total committed" Totals=quantityTimesPrice
+    - :Field Control=date Label=Date Name=transdate
+    - :Field Control=text Label=Reference Name=reference Placeholder="e.g. PO-1001" Reset=yes
+    - :Field Choices=items Control=choose Empty="Select item\u2026" Grow=yes Label=Item Name=item Reacts=itemSources
+    - :Field Choices=providers Control=choose Empty="Select provider\u2026" Grow=yes Label=Provider Name=provider Reacts=providerPrice "Show All Label"="Show all providers"
+    - :Field Control=quantity Label=Quantity Name=quantity Reset=yes
+    - :Field Control=amount Label="Price per unit" Name=price Reset=yes
+    - :Field Choices=locations Control=choose Empty="Not yet known" Grow=yes Label="Delivery location" Name=deliveryLocation
+    - :Field Control=text Grow=yes Label=Description Name=description Placeholder=optional Reset=yes
    "/stock/restock" :Screen "Calls confirmRestockPickedLine">/Root/Application/Calls/confirmRestockPickedLine "Calls dispatchRestockRun">/Root/Application/Calls/dispatchRestockRun "Calls getBelowReorderStock">/Root/Application/Calls/getBelowReorderStock "Calls getRestockPickingList">/Root/Application/Calls/getRestockPickingList "Calls listLocations">/Root/Application/Calls/listLocations Source="frontend/src/routes/stock/restock/+page.svelte" Title="Restock Retail Outlets"
     - :Heading Text="Restock Retail Outlets"
     - :Heading Text=Warehouse
@@ -2470,9 +2432,12 @@ Root
     - :Field Bind=inventoryAccount Control=input Label="Inventory account"
     - :Action Handler=submitComplete Label="Complete stock take"
     - :Action Handler="() => (take = null)" Label="Start a different sheet"
-   "/stock/transfer" :Screen "Calls getItemLocation">/Root/Application/Calls/getItemLocation "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations "Calls postJournalEntry">/Root/Application/Calls/postJournalEntry "Calls resolveTransferAccounts">/Root/Application/Calls/resolveTransferAccounts "Calls stageLine">/Root/Application/Calls/stageLine "Calls transferStock">/Root/Application/Calls/transferStock Source="frontend/src/routes/stock/transfer/+page.svelte" Title="Stock Transfer"
-    - :Heading Text="Stock Transfer"
-    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n        { name: 'item', label: 'Item', type: 'select', options: items.map((p) => p.name) },\n        { name: 'fromLocation', label: 'From location', type: 'select', options: locations.map((l) => l.name) },\n        { name: 'toLocation', label: 'To location', type: 'select', options: sameCity.map((l) => l.name) },\n        { name: 'quantity', label: 'Quantity', type: 'number' },\n        { name: 'reference', label: 'Reference', type: 'text' },\n      ]}" "Prop onSubmit"="{submit}" "Prop savingLabel"="Transferring\u2026" "Prop submitLabel"=Transfer
+   "/stock/transfer" :Screen Action=transfer "Fail Text"="Could not transfer." Intro="Move stock between two locations in the same city \u2014 a warehouse dispatching to its local retail outlets, for example. Not a sale: no revenue, no customer, just the item's own real Inventory value moving between the two real, location-scoped accounts it sits in, along with the physical stock itself." "Submit Label"=Transfer Template=transaction Title="Stock Transfer"
+    - :Field Choices=items Control=choose Empty="Select item\u2026" Label=Item Name=item Reacts=onHand
+    - :Field Choices=locations Control=choose Empty="Select location\u2026" Label="From location" Name=fromLocation Reacts=fromLocationChanged
+    - :Field Choices=locations Control=choose Empty="Select location\u2026" Filter=sameCityAsFrom Label="To location" Name=toLocation
+    - :Field Control=number Label=Quantity Name=quantity Reset=yes
+    - :Field Control=text Label=Reference Name=reference Reset=yes
    "/stock/write-offs" :Screen "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getExpiringStock">/Root/Application/Calls/getExpiringStock "Calls listItems">/Root/Application/Calls/listItems "Calls receiveLot">/Root/Application/Calls/receiveLot "Calls writeOffItems">/Root/Application/Calls/writeOffItems Source="frontend/src/routes/stock/write-offs/+page.svelte" Title="Stock Write-offs & Expiration"
     - :Heading Text="Write-offs & Expiration"
     - :Heading Text="Write off stock"
@@ -2515,9 +2480,34 @@ Root
     - :Column Label=Expires
     - :Column Label=Quantity
     - :Column Label=Days
-   "/vouchers/general-ledger" :Screen Source="frontend/src/routes/vouchers/general-ledger/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Batch approval for general journal entries \u2014 the same staged-then-approved workflow already used for journal_entry_staging, exposed as its own reviewable batch rather than one entry at a time." "Prop title"="General Ledger Batch"
-   "/vouchers/payable" :Screen Source="frontend/src/routes/vouchers/payable/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Batch approval of accounts payable \u2014 stage several provider bills for a second person to review and approve together, rather than one at a time. A documented, confirmed gap (docs/TODO.md)." "Prop title"="Payable Batch"
-   "/vouchers/payment" :Screen Source="frontend/src/routes/vouchers/payment/+page.svelte"
-    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Batch approval of a group of provider payments together, mirroring Payable Batch on the payment side." "Prop title"="Payment Batch"
+   "/vouchers/general-ledger" :Screen Description="Batch approval for general journal entries \u2014 the same staged-then-approved workflow already used for journal_entry_staging, exposed as its own reviewable batch rather than one entry at a time." Template=not-implemented Title="General Ledger Batch"
+   "/vouchers/payable" :Screen Description="Batch approval of accounts payable \u2014 stage several provider bills for a second person to review and approve together, rather than one at a time. A documented, confirmed gap (docs/TODO.md)." Template=not-implemented Title="Payable Batch"
+   "/vouchers/payment" :Screen Description="Batch approval of a group of provider payments together, mirroring Payable Batch on the payment side." Template=not-implemented Title="Payment Batch"
+  Styles Ordered>/Root/Active
+   - :Rule Selector=.tiles display=grid gap=1rem grid-template-columns="repeat(auto-fill, minmax(220px, 1fr))"
+   - :Rule Selector=.tile color="var(--ink)" display=block padding="1.1rem 1.2rem" text-decoration=none
+   - :Rule Selector=.tile border-color="var(--brass)"
+   - :Rule Selector=".tile h3" color="var(--brass-dark)" margin="0 0 0.4rem"
+   - :Rule Selector=".tile p" color="var(--ink-soft)" font-size="var(--font-size-base)" margin=0
+   - :Rule Selector=.dim color="var(--ink-soft)" font-size="var(--font-size-medium)"
+   - :Rule Selector=.link-button background=none border=none color="var(--accent, #2a5c8a)" cursor=pointer padding=0 text-decoration=underline
+   - :Rule Selector=.row align-items=flex-end display=flex flex-wrap=wrap gap=0.8rem margin-top=0.6rem
+   - :Rule Selector=.grow flex=1 min-width=180px
+   - :Rule Selector=.intro max-width=70ch
+   - :Rule Selector=.center-text text-align=center
+   - :Rule Selector=.context-line border-bottom="1px solid var(--rule)" color="var(--ink-soft)" font-size="var(--font-size-base)" margin="0 0 0.8rem" padding-bottom=0.6rem
+   - :Rule Selector=".row-3, .row-2" display=flex gap=1rem margin-top=0.6rem
+   - :Rule Selector=".row-3 fieldset, .row-2 fieldset" flex=1
+   - :Rule Selector=".lines-table th, .lines-table td" border-bottom="1px solid var(--rule)" padding="0.35rem 0.5rem" text-align=start
+   - :Rule Selector=.num text-align=end
+   - :Rule Selector=.num-input text-align=end width=6rem
+   - :Rule Selector=.storage-cell white-space=nowrap
+   - :Rule Selector=.storage-tag border-radius=4px display=inline-block font-size="var(--font-size-small)" font-weight=600 padding="0.1rem 0.5rem"
+   - :Rule Selector=.storage-tag.cold background="#e3f0fb" color="#1e5f8f"
+   - :Rule Selector=.storage-tag.shelf background="#f5efe3" color="#8a6a2a"
+   - :Rule Selector=.btn.small font-size="var(--font-size-small)" padding="0.2rem 0.5rem"
+   - :Rule Selector=.total-line color="var(--ink-soft)" font-size="var(--font-size-medium)" margin="0.8rem 0"
+   - :Rule Selector=.one-of align-items=center display=flex gap=1.2rem margin="0.8rem 0"
+   - :Rule Selector=".one-of label" align-items=center display=flex font-weight=normal gap=0.3rem
+   - :Rule Selector=.error color="var(--debit, #a33a2e)"
+   - :Rule Selector=.success background="#eaf5ea" border-radius=5px color="#2a5c2a" padding="0.5rem 0.7rem"

@@ -3,23 +3,28 @@
 ;;; Each template is an ordinary function, run while the application is
 ;;; generated: it takes a screen's configuration and returns the page's
 ;;; text. Smaller functions (a field, a column's header and cell, a money
-;;; input) are shared between templates. Nothing here is copied from the
-;;; old hand-written pages; what a page shows and calls comes from the
-;;; entities.
+;;; input) are shared between templates. Behaviour a screen names (its
+;;; choice sources, totals rule and action) lives in $lib/screen-runtime;
+;;; styling lives in the Rule entities (see app-css). The templates are
+;;; ASCII only: HTML entities and \u escapes stand for anything else.
 
 (defmodule app-svelte
   (export (screen 2)))
 
 (defun val (s id rel) (app-entities:value s id rel))
 (defun val (s id rel default) (app-entities:value s id rel default))
+(defun kind (s id) (app-entities:kind s id))
 
 ;; The page for a screen, by its Template.
 (defun screen (s id)
   (case (val s id #"Template")
-    (#"line-items-transaction" (line-items-transaction s id))
+    (#"transaction" (transaction s id))
+    (#"not-implemented" (not-implemented s id))
+    (#"tiles" (tiles s id))
+    (#"compose" (compose s id))
     (other (error (tuple 'no-template other (app-entities:name s id))))))
 
-;; --- text helpers ---------------------------------------------------------------
+;; --- text helpers ------------------------------------------------------------
 
 (defun js (bin)
   (let* ((a (binary:replace bin #"\\" #"\\\\" '(global)))
@@ -30,146 +35,206 @@
 ;; A word on screen: its translation, by vocabulary key.
 (defun t (word) (list #"{t(" (js word) #")}"))
 
-;; The branded-name wrapper the API module expects for a value of this name.
-(defun brand (name)
-  (case name
-    (#"business" #"asBusinessName")
-    (#"ledger" #"asLedgerName")
-    (#"locationName" #"asLocationName")
-    (#"vendorName" #"asProviderName")
-    (#"customerName" #"asCustomerName")
-    (#"itemName" #"asItemName")
-    (_ 'none)))
+(defun header (s id)
+  (list #"  // Generated from application/application.entities (screen " (app-entities:name s id) #",\n"
+        #"  // template " (val s id #"Template") #"). Not source: change the entities.\n"))
 
-(defun branded (name expr)
-  (case (brand name) ('none expr) (fn (list fn #"(" expr #")"))))
+;; --- small templates -------------------------------------------------------
 
-;; --- the line-items transaction template -----------------------------------------
+;; A screen that is not built yet: its title and what it will do.
+(defun not-implemented (s id)
+  (list #"<script lang='ts'>\n" (header s id)
+        #"  import NotImplemented from '$lib/NotImplemented.svelte';\n</script>\n\n"
+        #"<NotImplemented title={" (js (val s id #"Title")) #"} description={" (js (val s id #"Description" #"")) #"} />\n"))
+
+;; A section's index: one tile per screen in it, each a link with what the
+;; screen does.
+(defun tiles (s id)
+  (list #"<script lang='ts'>\n" (header s id)
+        #"  import '$lib/generated.css';\n"
+        #"  import { translations } from '$lib/state.svelte';\n"
+        #"  const t = (word: string) => translations.current[word] ?? word;\n</script>\n\n"
+        #"<svelte:head><title>" (t (val s id #"Title")) #"</title></svelte:head>\n\n"
+        #"<fieldset class='page-title generated'>\n"
+        #"  <legend>" (t (val s id #"Title")) #"</legend>\n"
+        (case (val s id #"Intro") ('undefined #"") (i (list #"  <p class='intro'>" (t i) #"</p>\n")))
+        #"  <div class='tiles'>\n"
+        (lists:map (lambda (tile)
+                     (list #"    <a class='card tile' href=" (js (val s tile #"Href")) #">"
+                           #"<h3>" (t (val s tile #"Title")) #"</h3><p>" (t (val s tile #"Description" #"")) #"</p></a>\n"))
+                   (lists:filter (lambda (p) (== (kind s p) #"Tile")) (app-entities:things s id)))
+        #"  </div>\n</fieldset>\n"))
+
+;; A screen that is one or more existing components, each with fixed props.
+(defun compose (s id)
+  (let ((uses (lists:filter (lambda (p) (== (kind s p) #"Use")) (app-entities:things s id))))
+    (list #"<script lang='ts'>\n" (header s id)
+          (lists:map (lambda (c) (list #"  import " c #" from '$lib/components/" c #".svelte';\n"))
+                     (lists:usort (lists:map (lambda (u) (app-entities:name s (app-entities:target s u #"Component"))) uses)))
+          #"</script>\n\n"
+          (lists:map (lambda (u)
+                       (list #"<" (app-entities:name s (app-entities:target s u #"Component"))
+                             (lists:filtermap (lambda (r)
+                                                (case r
+                                                  ((tuple (binary "Prop " (prop binary)) v) (tuple 'true (list #" " prop #"={" (js v) #"}")))
+                                                  (_ 'false)))
+                                              (app-entities:relations s u))
+                             #" />\n"))
+                     uses))))
+
+;; --- the transaction template ------------------------------------------------
 ;;
-;; Header fields, a grid of line items (one row per item, a blank row added
-;; whenever every row is filled), a total, more fields, and one submit
-;; call whose input object is built from the fields, the lines, the fixed
-;; contact and the session's business and ledger.
+;; Fields, then optionally a grid of line items (one row per item, a blank
+;; row added whenever every row has an item) with its totals, then the
+;; fields after the grid, and one button that runs the screen's Action.
 
-(defun line-items-transaction (s id)
+(defun transaction (s id)
   (let* ((parts (app-entities:things s id))
-         (fields (lists:filter (lambda (p) (== (app-entities:kind s p) #"Field")) parts))
-         (columns (lists:filter (lambda (p) (== (app-entities:kind s p) #"Column")) parts))
+         (fields (lists:filter (lambda (p) (== (kind s p) #"Field")) parts))
+         (columns (lists:filter (lambda (p) (== (kind s p) #"Column")) parts))
          (inputs (lists:filter (lambda (c) (=/= (val s c #"Control") #"storage-badge")) columns))
          (badge? (lists:any (lambda (c) (== (val s c #"Control") #"storage-badge")) columns))
-         (submit (app-entities:target s id #"Submit"))
-         (client (val s submit #"Client"))
-         (party-arg (val s id #"Party Argument"))
-         (choices (lists:filter (lambda (f) (== (val s f #"Control") #"choose")) fields))
-         (choice-clients (lists:map (lambda (f) (val s (app-entities:target s f #"Choices") #"Client")) choices))
-         (before (lists:takewhile (lambda (p) (=/= (app-entities:kind s p) #"Column")) parts))
-         (after (lists:filter (lambda (p) (and (== (app-entities:kind s p) #"Field") (not (lists:member p before)))) parts)))
+         (before (lists:takewhile (lambda (p) (=/= (kind s p) #"Column")) parts))
+         (after (lists:filter (lambda (p) (andalso (== (kind s p) #"Field") (not (lists:member p before)))) parts)))
     (list
-      (script s id fields inputs badge? client party-arg choices choice-clients)
-      #"\n"
-      #"<svelte:head><title>" (t (val s id #"Title")) #"</title></svelte:head>\n\n"
-      #"<fieldset class='page-title'>\n"
+      (transaction-script s id fields inputs badge?)
+      #"\n<svelte:head><title>" (t (val s id #"Title")) #"</title></svelte:head>\n\n"
+      #"<fieldset class='page-title generated'>\n"
       #"  <legend>" (t (val s id #"Title")) #"</legend>\n"
       #"  <p class='intro'>" (t (val s id #"Intro")) #"</p>\n\n"
       #"  {#if loading}\n    <p class='center-text'>Loading&hellip;</p>\n  {:else}\n"
-      #"    <p class='context-line'>\n"
-      #"      <strong>{business}</strong> &mdash; {ledger} &mdash; " (t (val s id #"Party Label")) #": <strong>" (t (val s id #"Party")) #"</strong>\n"
-      #"    </p>\n"
-      (lists:map (lambda (f) (field s f)) before)
-      (grid s inputs badge?)
-      #"    {#if lines.length > 0}\n"
-      #"      <p class='total-line'>" (t (val s id #"Total Label")) #": <strong>{fmt(totalMinor)}</strong> (" (t #"Tax") #": {fmt(taxMinor)})</p>\n"
-      #"    {/if}\n"
-      (lists:map (lambda (f) (field s f)) after)
+      #"    <p class='context-line'><strong>{business}</strong> &mdash; {ledger}"
+      (case (val s id #"Party Label")
+        ('undefined #"")
+        (label (list #" &mdash; " (t label) #": <strong>" (t (val s id #"Party")) #"</strong>")))
+      #"</p>\n"
+      #"    <div class='row'>\n" (lists:map (lambda (f) (field s f)) before) #"    </div>\n"
+      #"    {#if info}<p class='dim'>{info}</p>{/if}\n"
+      (if (== columns '()) #"" (grid s id inputs badge?))
+      (if (== after '()) #"" (list #"    <div class='row'>\n" (lists:map (lambda (f) (field s f)) after) #"    </div>\n"))
+      (if (andalso (== columns '()) (=/= (val s id #"Totals") 'undefined))
+        (list #"    {#if sums.totalMinor > 0}<p class='total-line'>" (t (val s id #"Total Label" #"Total")) #": <strong>{fmt(sums.totalMinor)}</strong></p>{/if}\n")
+        #"")
       #"    {#if error}<p class='error'>{error}</p>{/if}\n"
-      #"    {#if result}\n"
-      #"      <p class='success'>" (t (val s id #"Done Label")) #": {result.reference} &mdash; {fmt(result.totalMinor)}</p>\n"
-      #"    {/if}\n"
-      #"    <button class='btn' onclick={submit} disabled={submitting || lines.filter((l) => l.itemName.trim()).length === 0}>\n"
-      #"      {submitting ? 'Completing\\u2026' : t(" (js (val s id #"Submit Label")) #")}\n"
+      #"    {#if message}<p class='success'>{message}</p>{/if}\n"
+      #"    <button class='btn' onclick={submit} disabled={submitting" (if (== columns '()) #"" #" || filled.length === 0") #"}>\n"
+      #"      {submitting ? t('Saving') + '\\u2026' : t(" (js (val s id #"Submit Label" #"Save")) #")}\n"
       #"    </button>\n"
       #"  {/if}\n"
-      #"</fieldset>\n\n"
-      (style))))
+      #"</fieldset>\n")))
 
-(defun script (s id fields inputs badge? client party-arg choices choice-clients)
-  (let ((imports (lists:usort (++ (list #"getLedgers" client #"asBusinessName" #"asLedgerName" #"asItemName" #"ApiError")
-                                  choice-clients
-                                  (if badge? (list #"listItems" #"type ItemSummary") '())
-                                  (lists:filtermap (lambda (n) (case (brand n) ('none 'false) (b (tuple 'true b))))
-                                                   (cons party-arg (lists:map (lambda (f) (val s f #"Name")) fields)))))))
+(defun transaction-script (s id fields inputs badge?)
+  (let ((choices (lists:filter (lambda (f) (== (val s f #"Control") #"choose")) fields))
+        (lines? (=/= inputs '())))
     (list
-      #"<script lang='ts'>\n"
-      #"  // Generated from application/application.entities (screen " (app-entities:name s id) #",\n"
-      #"  // template line-items-transaction). Not source: change the entities.\n"
+      #"<script lang='ts'>\n" (header s id)
+      #"  import { onMount } from 'svelte';\n"
+      #"  import '$lib/generated.css';\n"
       #"  import { auth, session, translations } from '$lib/state.svelte';\n"
       #"  import { formatAmount } from '$lib/format';\n"
-      #"  import { onMount } from 'svelte';\n"
-      #"  import { " (lists:join #", " imports) #" } from '$lib/api';\n\n"
+      #"  import { getLedgers, asBusinessName, ApiError" (if badge? #", listItems, type ItemSummary" #"") #" } from '$lib/api';\n"
+      #"  import { sources, totals, actions, filters, reactions, Invalid, type Choice, type Patch } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  const fmt = (minor: number) => formatAmount(minor, auth.current?.user.number_format ?? '1 000.00');\n\n"
-      #"  let business = $state('');\n"
-      #"  let ledger = $state('');\n"
-      #"  let ledgers: { id: number; name: string }[] = $state([]);\n"
-      (if badge? #"  let items: ItemSummary[] = $state([]);\n" #"")
-      (lists:map (lambda (f) (field-state s f)) fields)
-      #"\n  type Line = { key: number; " (lists:map (lambda (c) (list (val s c #"Name") #": " (line-type s c) #"; ")) inputs) #"};\n"
-      #"  const newLine = (key: number): Line => ({ key, " (lists:join #", " (lists:map (lambda (c) (list (val s c #"Name") #": " (line-default s c))) inputs)) #" });\n"
-      #"  let lines: Line[] = $state([newLine(0)]);\n"
-      #"  let nextKey = 1;\n"
-      #"  // A blank row is added whenever every row has an item.\n"
-      #"  $effect(() => {\n    if (lines.length > 0 && lines.every((l) => l.itemName.trim())) lines = [...lines, newLine(nextKey++)];\n  });\n"
-      #"  const removeLine = (key: number) => (lines = lines.filter((l) => l.key !== key));\n"
-      #"  let subtotalMinor = $derived(lines.reduce((sum, l) => sum + l.quantity * l.unitPriceMinor, 0));\n"
-      #"  let taxMinor = $derived(lines.reduce((sum, l) => sum + l.taxMinor, 0));\n"
-      #"  let totalMinor = $derived(subtotalMinor + taxMinor);\n\n"
-      #"  let loading = $state(true);\n  let submitting = $state(false);\n  let error = $state('');\n"
-      #"  let result: { reference: string; totalMinor: number } | null = $state(null);\n\n"
-      (if badge?
-        (list #"  let itemsByName = $derived(new Map(items.map((i) => [i.name, i])));\n"
-              #"  const storageOf = (name: string) => (name.trim() ? (itemsByName.get(name)?.storage_origin ?? null) : null);\n\n")
-        #"")
-      #"  onMount(async () => {\n"
+      #"  let business = $state('');\n  let ledger = $state('');\n"
+      #"  let loading = $state(true);\n  let submitting = $state(false);\n"
+      #"  let error = $state('');\n  let message = $state('');\n\n"
+      #"  const initial = (): Record<string, string> => ({ "
+      (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": " (initial s f))) fields))
+      #" });\n"
+      #"  let values = $state(initial());\n"
+      #"  let choices: Record<string, Choice[]> = $state({});\n"
+      #"  // Choices a reaction has narrowed, unless the user asked to see all.\n"
+      #"  let narrowed: Record<string, Choice[] | undefined> = $state({});\n"
+      #"  let showAll: Record<string, boolean> = $state({});\n"
+      #"  let info = $state('');\n"
+      #"  const context = () => ({ business, ledger, party: " (js (val s id #"Party" #"")) #" });\n"
+      #"  const apply = (patch: Patch) => {\n"
+      #"    if (patch.values) Object.assign(values, patch.values);\n"
+      #"    if (patch.choices) for (const [k, v] of Object.entries(patch.choices)) narrowed[k] = v;\n"
+      #"    if (patch.info !== undefined) info = patch.info;\n"
+      #"  };\n"
+      (lists:map (lambda (f) (reaction s f)) (lists:filter (lambda (f) (=/= (val s f #"Reacts") 'undefined)) fields))
+      (if lines?
+        (lines-state s id inputs badge?)
+        (case (val s id #"Totals")
+          ('undefined #"")
+          (tot (list #"  let sums = $derived(totals." tot #"([], values));\n"))))
+      #"\n  onMount(async () => {\n"
       #"    try {\n"
       #"      if (!session.current) return;\n"
       #"      business = session.current.businessName;\n"
-      (if badge? #"      items = (await listItems(business)).rows;\n" #"")
-      #"      ledgers = await getLedgers(asBusinessName(business));\n"
+      #"      const ledgers = await getLedgers(asBusinessName(business));\n"
       #"      const current = session.current.ledgerName;\n"
       #"      ledger = ledgers.some((l) => l.name === current) ? current : (ledgers[0]?.name ?? '');\n"
-      (lists:zipwith (lambda (f c)
-                       (let ((n (val s f #"Name")))
-                         (list #"      " n #"Choices = await " c #"(asBusinessName(business));\n"
-                               #"      if (!" n #" && " n #"Choices.length > 0) " n #" = " n #"Choices[0].name;\n")))
-                     choices choice-clients)
+      (if badge? #"      items = (await listItems(business)).rows;\n" #"")
+      (lists:map (lambda (f) (load-choices s f)) choices)
       #"    } catch (e) {\n      error = e instanceof ApiError ? e.message : 'Failed to load.';\n"
       #"    } finally {\n      loading = false;\n    }\n  });\n\n"
       #"  async function submit() {\n"
-      #"    if (!business || !ledger" (lists:map (lambda (f) (list #" || !" (val s f #"Name"))) choices) #") return;\n"
-      #"    submitting = true;\n    error = '';\n    result = null;\n"
+      #"    error = '';\n    message = '';\n    submitting = true;\n"
       #"    try {\n"
-      #"      const filled = lines.filter((l) => l.itemName.trim()).map(({ key, ...l }) => ({ ...l, itemName: asItemName(l.itemName) }));\n"
-      #"      const res = await " client #"({\n"
-      #"        business: asBusinessName(business),\n"
-      #"        ledger: asLedgerName(ledger),\n"
-      (lists:map (lambda (f) (let ((n (val s f #"Name"))) (list #"        " n #": " (branded n n) #",\n"))) fields)
-      #"        " party-arg #": " (branded party-arg (js (val s id #"Party"))) #",\n"
-      #"        taxAccount: " (js (val s id #"Tax Account")) #",\n"
-      #"        lines: filled,\n"
-      #"      });\n"
-      #"      result = { reference: res.reference, totalMinor: res.totalMinor };\n"
-      #"      lines = [];\n"
-      #"    } catch (e) {\n      error = e instanceof ApiError ? e.message : t(" (js (val s id #"Fail Text")) #");\n"
+      #"      message = await actions." (val s id #"Action") #"(context(), values, "
+      (if lines? #"filled.map(({ key, ...l }) => l)" #"[]") #");\n"
+      (lists:filtermap (lambda (f) (case (val s f #"Reset")
+                                     ('undefined 'false)
+                                     (_ (tuple 'true (list #"      values." (val s f #"Name") #" = initial()." (val s f #"Name") #";\n")))))
+                       fields)
+      (if lines? #"      lines = [newLine(nextKey++)];\n" #"")
+      #"    } catch (e) {\n"
+      #"      error = e instanceof ApiError || e instanceof Invalid ? e.message : t(" (js (val s id #"Fail Text" #"Could not save.")) #");\n"
       #"    } finally {\n      submitting = false;\n    }\n  }\n"
       #"</script>\n")))
 
-(defun field-state (s f)
+;; A field that Reacts: when its value changes, run the named reaction and
+;; apply what it returns.
+(defun reaction (s f)
   (let ((n (val s f #"Name")))
-    (case (val s f #"Control")
-      (#"date" (list #"  let " n #" = $state(new Date().toISOString().slice(0, 10));\n"))
-      (#"choose" (list #"  let " n #" = $state('');\n  let " n #"Choices: { name: string }[] = $state([]);\n"))
-      (#"one-of" (list #"  let " n #" = $state(" (js (val s f #"Default" #"")) #");\n"))
-      (_ (list #"  let " n #" = $state('');\n")))))
+    (list #"  let last_" n #" = '';\n"
+          #"  $effect(() => {\n"
+          #"    const now = values." n #" ?? '';\n"
+          #"    if (now === last_" n #") return;\n"
+          #"    last_" n #" = now;\n"
+          #"    reactions." (val s f #"Reacts") #"(context(), $state.snapshot(values)).then(apply).catch(() => {});\n"
+          #"  });\n")))
+
+;; The choices a select shows: narrowed by a reaction, or filtered.
+(defun shown (s f)
+  (let* ((n (val s f #"Name"))
+         (all (list #"(choices." n #" ?? [])"))
+         (filtered (case (val s f #"Filter") ('undefined all) (fl (list #"filters." fl #"(" all #", values)")))))
+    (list #"(narrowed." n #" && !showAll." n #" ? narrowed." n #" : " filtered #")")))
+
+(defun initial (s f)
+  (case (tuple (val s f #"Control") (val s f #"Default"))
+    ((tuple #"date" _) #"new Date().toISOString().slice(0, 10)")
+    ((tuple _ 'undefined) #"''")
+    ((tuple #"choose" #"first") #"''")
+    ((tuple _ d) (js d))))
+
+(defun load-choices (s f)
+  (let ((n (val s f #"Name")))
+    (list #"      choices." n #" = await sources." (val s f #"Choices") #"(business);\n"
+          (if (== (val s f #"Default") #"first")
+            (list #"      if (!values." n #" && choices." n #".length > 0) values." n #" = choices." n #"[0].value;\n")
+            #""))))
+
+(defun lines-state (s id inputs badge?)
+  (list
+    #"  type Line = { key: number; " (lists:map (lambda (c) (list (val s c #"Name") #": " (line-type s c) #"; ")) inputs) #"};\n"
+    #"  const newLine = (key: number): Line => ({ key, "
+    (lists:join #", " (lists:map (lambda (c) (list (val s c #"Name") #": " (line-default s c))) inputs)) #" });\n"
+    #"  let lines: Line[] = $state([newLine(0)]);\n"
+    #"  let nextKey = 1;\n"
+    #"  $effect(() => {\n    if (lines.length > 0 && lines.every((l) => l.itemName.trim())) lines = [...lines, newLine(nextKey++)];\n  });\n"
+    #"  const removeLine = (key: number) => (lines = lines.filter((l) => l.key !== key));\n"
+    #"  let filled = $derived(lines.filter((l) => l.itemName.trim()));\n"
+    #"  let sums = $derived(totals." (val s id #"Totals" #"lineTax") #"(lines, values));\n"
+    (if badge?
+      (list #"  let items: ItemSummary[] = $state([]);\n"
+            #"  let itemsByName = $derived(new Map(items.map((i) => [i.name, i])));\n"
+            #"  const storageOf = (name: string) => (name.trim() ? (itemsByName.get(name)?.storage_origin ?? null) : null);\n")
+      #"")))
 
 (defun line-type (s c)
   (case (val s c #"Control") (#"text" #"string") (_ #"number")))
@@ -179,29 +244,42 @@
     (#"text" #"''")
     (_ (val s c #"Default" #"0"))))
 
-;; --- fields and columns ---------------------------------------------------------
+;; --- fields and columns ------------------------------------------------------
 
 (defun field (s f)
-  (let ((n (val s f #"Name"))
-        (label (t (val s f #"Label" (val s f #"Name")))))
+  (let* ((n (list #"values." (val s f #"Name")))
+         (label (t (val s f #"Label" (val s f #"Name"))))
+         (open (list #"      <fieldset" (if (== (val s f #"Grow") 'undefined) #"" #" class='grow'") #"><legend>" label #"</legend>")))
     (case (val s f #"Control")
-      (#"date"
-       (list #"    <div class='row-3'><fieldset><legend>" label #"</legend><input type='date' bind:value={" n #"} /></fieldset></div>\n"))
+      (#"date" (list open #"<input type='date' bind:value={" n #"} /></fieldset>\n"))
+      (#"percent" (list open #"<input bind:value={" n #"} placeholder='0' inputmode='decimal' /></fieldset>\n"))
+      (#"number" (list open #"<input type='number' value={" n #"} oninput={(e) => (" n #" = e.currentTarget.value)} /></fieldset>\n"))
+      (#"quantity" (list open #"<input bind:value={" n #"} placeholder='0' inputmode='numeric' /></fieldset>\n"))
+      (#"amount" (list open #"<input bind:value={" n #"} placeholder='0.00' inputmode='decimal' /></fieldset>\n"))
+      (#"textarea" (list open #"<textarea bind:value={" n #"}></textarea></fieldset>\n"))
       (#"choose"
-       (list #"    <div class='row-2'><fieldset><legend>" label #"</legend>\n"
-             #"      <select bind:value={" n #"}>{#each " n #"Choices as choice}<option value={t(choice.name)}>{t(choice.name)}</option>{/each}</select>\n"
-             #"    </fieldset></div>\n"))
+       (list open #"\n        <select bind:value={" n #"}>"
+             (case (val s f #"Empty") ('undefined #"") (e (list #"<option value=''>" (t e) #"</option>")))
+             #"{#each " (shown s f) #" as choice}<option value={t(choice.value)}>{t(choice.label)}</option>{/each}</select>\n"
+             (case (val s f #"Show All Label")
+               ('undefined #"")
+               (label (let ((n (val s f #"Name")))
+                        (list #"        {#if narrowed." n #"}<button type='button' class='link-button' onclick={() => (showAll." n #" = !showAll." n #")}>"
+                              #"{showAll." n #" ? t('Known only') : t(" (js label) #")}</button>{/if}\n"))))
+             #"      </fieldset>\n"))
       (#"one-of"
-       (list #"    <fieldset class='one-of'><legend>" label #"</legend>\n"
+       (list #"      <fieldset class='one-of'><legend>" label #"</legend>\n"
              ;; Options are "value=Label value=Label".
              (lists:map (lambda (o)
                           (let (((list v l) (binary:split o #"=")))
-                            (list #"      <label><input type='radio' bind:group={" n #"} value=" (js v) #" /> " (t l) #"</label>\n")))
+                            (list #"        <label><input type='radio' bind:group={" n #"} value=" (js v) #" /> " (t l) #"</label>\n")))
                         (binary:split (val s f #"Options" #"") #" " '(global trim_all)))
-             #"    </fieldset>\n"))
-      (_ (list #"    <fieldset><legend>" label #"</legend><input bind:value={" n #"} /></fieldset>\n")))))
+             #"      </fieldset>\n"))
+      (_ (list open #"<input type='text' bind:value={" n #"}"
+               (case (val s f #"Placeholder") ('undefined #"") (p (list #" placeholder=" (js p))))
+               #" /></fieldset>\n")))))
 
-(defun grid (s inputs badge?)
+(defun grid (s id inputs badge?)
   (list
     #"    <table class='lines-table'>\n      <thead><tr>"
     (lists:map (lambda (c) (list #"<th" (align s c) #">" (t (val s c #"Label")) #"</th>")) inputs)
@@ -214,7 +292,10 @@
             #"</span>{:else if storageOf(line.itemName) === 'Hot'}<span class='storage-tag shelf'>" (t #"Hot") #"</span>{/if}</td>\n")
       #"")
     #"            <td>{#if lines.length > 1}<button type='button' class='btn secondary small' onclick={() => removeLine(line.key)}>&#x2715;</button>{/if}</td>\n"
-    #"          </tr>\n        {/each}\n      </tbody>\n    </table>\n"))
+    #"          </tr>\n        {/each}\n      </tbody>\n    </table>\n"
+    #"    {#if sums.subtotalMinor > 0}\n"
+    #"      <p class='total-line'>" (t (val s id #"Total Label" #"Total")) #": <strong>{fmt(sums.totalMinor)}</strong> (" (t #"Tax") #": {fmt(sums.taxMinor)})</p>\n"
+    #"    {/if}\n"))
 
 (defun align (s c)
   (case (val s c #"Control") (#"text" #"") (_ #" class='num'")))
@@ -230,32 +311,3 @@
 (defun money-input (place)
   (list #"<input type='number' min='0' step='0.01' class='num-input' value={(" place #" / 100).toFixed(2)} "
         #"oninput={(e) => (" place #" = Math.round(Number(e.currentTarget.value) * 100))} />"))
-
-(defun style ()
-  #"<style>
-  .intro { max-width: 70ch; }
-  .center-text { text-align: center; }
-  .context-line {
-    font-size: var(--font-size-base);
-    color: var(--ink-soft);
-    margin: 0 0 0.8rem;
-    padding-bottom: 0.6rem;
-    border-bottom: 1px solid var(--rule);
-  }
-  .row-3, .row-2 { display: flex; gap: 1rem; margin-top: 0.6rem; }
-  .row-3 fieldset, .row-2 fieldset { flex: 1; }
-  .lines-table th, .lines-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--rule); text-align: start; }
-  .num { text-align: end; }
-  .num-input { width: 6rem; text-align: end; }
-  .storage-cell { white-space: nowrap; }
-  .storage-tag { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: var(--font-size-small); font-weight: 600; }
-  .storage-tag.cold { background: #e3f0fb; color: #1e5f8f; }
-  .storage-tag.shelf { background: #f5efe3; color: #8a6a2a; }
-  .btn.small { padding: 0.2rem 0.5rem; font-size: var(--font-size-small); }
-  .total-line { font-size: var(--font-size-medium); color: var(--ink-soft); margin: 0.8rem 0; }
-  .one-of { margin: 0.8rem 0; display: flex; align-items: center; gap: 1.2rem; }
-  .one-of label { display: flex; align-items: center; gap: 0.3rem; font-weight: normal; }
-  .error { color: var(--debit, #a33a2e); }
-  .success { padding: 0.5rem 0.7rem; border-radius: 5px; background: #eaf5ea; color: #2a5c2a; }
-</style>
-")

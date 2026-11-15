@@ -57,30 +57,57 @@ build output, ignored by git, written by `make generate`.
 (stamp: `application/.generated`); `dev`, `dev-verbose`, `web-frontend`,
 `test`, `ensure-servers` and `check-frontend` depend on it.
 
-### The `line-items-transaction` template
+### Templates
 
-Generates Cash Purchase (`/arap/cash-purchase`) and Cash Sale
-(`/arap/cash-sale`). From the screen it reads `Title`, `Intro`, `Party`
-(the fixed contact) and `Party Label`, `Party Argument` (the input key the
-contact goes in), `Tax Account`, `Submit` (the call; its `Client` is the
-API function used), `Submit Label`, `Done Label`, `Fail Text` and
-`Total Label`. Its things, in order:
+27 of the 84 routes are generated. Each screen names its template:
 
-| Kind | `Control` | Becomes |
+| Template | Screens | Reads |
 |---|---|---|
-| `Field` | `date` | A date input, today by default |
-| `Field` | `choose` | A select filled from the `Choices` call's client function |
-| `Field` | `one-of` | Radio buttons; `Options` is `value=Label value=Label` |
-| `Column` | `text` | A text cell (`Placeholder`); the line's `itemName` column is required |
-| `Column` | `number` | A number cell (`Min`, `Default`) |
-| `Column` | `money` | An amount typed as currency, held in minor units |
-| `Column` | `storage-badge` | The item's Cold/Hot storage tag (loads the item list) |
+| `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Stock Transfer | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
+| `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
+| `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
+| `not-implemented` | 16 screens not built yet | `Title`, `Description` |
 
-Fields before the first column go above the grid; the rest go below the
-total. On submit, the call gets the session's business and ledger, each
-field by its `Name`, the contact under `Party Argument`, the tax account
-and the filled lines. The test of the generated screens is the tutorials'
-browser path (`make test-e2e-tutorial-browser`).
+In `transaction`, fields before the first column go above the line grid
+and the rest below it. A `Field` has a `Name`, `Label` and `Control`:
+`text` (`Placeholder`), `date`, `number`, `quantity`, `amount`, `percent`,
+`textarea`, `choose` (choices from the named `Choices` source, an `Empty`
+option, `Default=first`, a `Filter`, `Show All Label`) or `one-of`
+(`Options` as `value=Label value=Label`). `Reset` clears it after a
+successful submit; `Reacts` names a reaction run whenever it changes. A
+`Column` is `text`, `number`, `money` or `storage-badge`.
+
+### Behaviour by name (`frontend/src/lib/screen-runtime.ts`)
+
+What a screen does is named in its configuration and written once, by
+hand, in the runtime module:
+
+- `sources`: a choose field's choices (`locations`, `items`, `providers`,
+  `customers`, `postableAccounts`);
+- `filters`: narrowing one field's choices by the others (`sameCityAsFrom`);
+- `reactions`: run when a field changes, returning a patch of values,
+  narrowed choices and an information line (`onHand`,
+  `fromLocationChanged`, `itemSources`, `providerPrice`);
+- `totals`: `lineTax`, `taxRate`, `quantityTimesPrice`;
+- `actions`: the backend calls a submit makes (`cashPurchase`, `cashSale`,
+  `apPurchase`, `arSale`, `transfer`, `purchaseOrder`). A validation
+  failure throws `Invalid`, whose message is shown.
+
+### Styling
+
+Styling is configuration too: one `Rule` entity per CSS rule under
+`Application/Styles`, its `Selector` and one relation per property. The
+generator writes them to `frontend/src/lib/generated.css`, every selector
+scoped under `.generated` (the class every generated page carries), so no
+hand-written page is affected. Templates emit class names only.
+
+### Checking the generated screens
+
+The tutorials' browser path is the test: `make test-e2e-tutorial-browser`
+(Retail) passes all 75 steps with the same UI results as the hand-written
+pages, Cash Purchase, Cash Sale, Purchase Order and Stock Transfer going
+through their generated pages; the other generated screens are checked by
+`svelte-check`.
 
 ## The ASCII form (`backend/src/entities/entities-text.ts`)
 
