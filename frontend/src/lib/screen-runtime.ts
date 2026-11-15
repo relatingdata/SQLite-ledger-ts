@@ -28,6 +28,12 @@ import {
   listItemSources,
   stagePurchaseOrder,
   postPurchaseOrder,
+  createQuotation,
+  createRfq,
+  listQuotations,
+  acceptQuotation,
+  rejectQuotation,
+  markQuotationSent,
   asAccountName,
   asBusinessName,
   asLedgerName,
@@ -45,7 +51,11 @@ export interface Context {
   ledger: string;
   /** The screen's fixed contact (its Party), if it has one. */
   party: string;
+  /** The screen's ledger side (its Side: AR or AP), if it has one. */
+  side?: string;
 }
+/** A record a screen lists: its fields as shown. */
+export type Row = Record<string, string>;
 export type Values = Record<string, string>;
 export interface Line {
   itemName: string;
@@ -289,6 +299,25 @@ export const actions: Record<string, (c: Context, v: Values, lines: Line[]) => P
     }
     return `${t('Transferred')} ${quantity} ${v.item}: ${v.fromLocation} \u2192 ${v.toLocation}.`;
   },
+  /** A quotation (side AR) or a request for quotation (side AP): an order
+   * staged but not posted until it is accepted. */
+  quotation: async (c, v) => {
+    if (!v.reference?.trim() || !v.party || !v.item || !v.quantity || !v.price) {
+      throw new Invalid(`Reference, ${c.side === 'AP' ? 'provider' : 'customer'}, item, quantity, and price are all required.`);
+    }
+    const common = {
+      reference: v.reference, business: asBusinessName(c.business), ledger: asLedgerName(c.ledger),
+      item: asAccountName(v.item), quantity: parseQuantity(v.quantity), price_minor: parseMinorUnits(v.price),
+      location: v.location ? asLocationName(v.location) : undefined, transdate: v.transdate,
+      description: v.description || undefined, expiryDate: v.expiryDate || undefined,
+    };
+    if (c.side === 'AP') {
+      await createRfq({ ...common, vendor: asProviderName(v.party) });
+      return `RFQ ${v.reference} drafted for ${v.party}.`;
+    }
+    await createQuotation({ ...common, customer: asCustomerName(v.party) });
+    return `Quotation ${v.reference} drafted for ${v.party}.`;
+  },
   purchaseOrder: async (c, v) => {
     if (!v.reference?.trim() || !v.provider || !v.item || !v.quantity || !v.price) {
       throw new Invalid('Reference, provider, item, quantity, and price are all required.');
@@ -309,5 +338,35 @@ export const actions: Record<string, (c: Context, v: Values, lines: Line[]) => P
     });
     await postPurchaseOrder(v.reference, business, ledger);
     return `Purchase Order ${v.reference} placed with ${v.provider}.`;
+  },
+};
+
+// --- records -------------------------------------------------------------------
+
+/** The records a screen lists below its form, refreshed after each action. */
+export const records: Record<string, (c: Context) => Promise<Row[]>> = {
+  quotations: async (c) =>
+    (await listQuotations(asBusinessName(c.business), asLedgerName(c.ledger), c.side === 'AP' ? 'AP' : 'AR')).map((q) => ({
+      reference: q.reference,
+      party: q.customer ?? q.vendor ?? '',
+      what: `${q.item} \u00d7 ${q.quantity}`,
+      status: q.status,
+      expires: q.expiryDate ?? '\u2014',
+    })),
+};
+
+/** What a listed record's buttons do; each returns the message to show. */
+export const commands: Record<string, (c: Context, row: Row) => Promise<string>> = {
+  markSent: async (_c, row) => {
+    await markQuotationSent(row.reference);
+    return '';
+  },
+  accept: async (c, row) => {
+    await acceptQuotation(row.reference);
+    return `${row.reference} accepted \u2014 a real ${c.side === 'AP' ? 'Purchase' : 'Sales'} Order now exists for it.`;
+  },
+  reject: async (_c, row) => {
+    await rejectQuotation(row.reference);
+    return `${row.reference} marked rejected.`;
   },
 };

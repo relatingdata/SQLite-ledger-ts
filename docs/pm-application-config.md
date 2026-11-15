@@ -60,11 +60,11 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-27 of the 84 routes are generated. Each screen names its template:
+29 of the 84 routes are generated. Each screen names its template:
 
 | Template | Screens | Reads |
 |---|---|---|
-| `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Stock Transfer | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
+| `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
 | `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
 | `not-implemented` | 16 screens not built yet | `Title`, `Description` |
@@ -78,6 +78,13 @@ option, `Default=first`, a `Filter`, `Show All Label`) or `one-of`
 successful submit; `Reacts` names a reaction run whenever it changes. A
 `Column` is `text`, `number`, `money` or `storage-badge`.
 
+A screen with `Records` also lists records below its form (Quotations and
+RFQ: `Records=quotations`), refreshed after each submit. Each `Entry`
+thing is a column (`Name`, `Label`, `Control` `text` or `status`), and each
+`Command` thing a button on every record whose status its `When` names
+(`Command`, `Label`, `Style`); `Empty Text` shows when there are none. A
+screen's `Side` (`AR` or `AP`) is passed to its actions and records.
+
 ### Variants
 
 A screen that differs from another only in a few places says so:
@@ -89,6 +96,8 @@ straight after the thing named by its `After`. `app-view` resolves this,
 and the templates see only the resolved screen. Cash Purchase and Cash
 Sale are variants of AP Purchase and AR Sale: `Party=Cash`, the line tax
 column, the payment method, and no reference, party or tax rate fields.
+RFQ is a variant of Quotations: `Side=AP`, providers instead of
+customers, its own title, intro and labels.
 
 ### Reading the configuration as Lisp
 
@@ -112,7 +121,9 @@ hand, in the runtime module:
 - `totals`: `lineTax`, `taxRate`, `quantityTimesPrice`;
 - `actions`: the backend calls a submit makes (`purchase` and `sale`, on
   account or, when the party is `Cash`, paid at once; `transfer`,
-  `purchaseOrder`). A validation
+  `purchaseOrder`, `quotation`);
+- `records`: what a screen lists (`quotations`), and `commands`: what its
+  record buttons do (`markSent`, `accept`, `reject`). A validation
   failure throws `Invalid`, whose message is shown.
 
 ### Styling

@@ -94,7 +94,7 @@
          (columns (lists:filter (lambda (p) (== (kind s p) #"Column")) parts))
          (inputs (lists:filter (lambda (c) (=/= (val s c #"Control") #"storage-badge")) columns))
          (badge? (lists:any (lambda (c) (== (val s c #"Control") #"storage-badge")) columns))
-         (before (lists:takewhile (lambda (p) (=/= (kind s p) #"Column")) parts))
+         (before (lists:filter (lambda (p) (== (kind s p) #"Field")) (lists:takewhile (lambda (p) (=/= (kind s p) #"Column")) parts)))
          (after (lists:filter (lambda (p) (andalso (== (kind s p) #"Field") (not (lists:member p before)))) parts)))
     (list
       (transaction-script s id fields inputs badge?)
@@ -120,6 +120,7 @@
       #"    <button class='btn' onclick={submit} disabled={submitting" (if (== columns '()) #"" #" || filled.length === 0") #"}>\n"
       #"      {submitting ? t('Saving') + '\\u2026' : t(" (js (val s id #"Submit Label" #"Save")) #")}\n"
       #"    </button>\n"
+      (if (records? s id) (record-list s id) #"")
       #"  {/if}\n"
       #"</fieldset>\n")))
 
@@ -133,7 +134,9 @@
       #"  import { auth, session, translations } from '$lib/state.svelte';\n"
       #"  import { formatAmount } from '$lib/format';\n"
       #"  import { getLedgers, asBusinessName, ApiError" (if badge? #", listItems, type ItemSummary" #"") #" } from '$lib/api';\n"
-      #"  import { sources, totals, actions, filters, reactions, Invalid, type Choice, type Patch } from '$lib/screen-runtime';\n\n"
+      #"  import { sources, totals, actions, filters, reactions, "
+      (if (records? s id) #"records, commands, type Row, " #"")
+      #"Invalid, type Choice, type Patch } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  const fmt = (minor: number) => formatAmount(minor, auth.current?.user.number_format ?? '1 000.00');\n\n"
       #"  let business = $state('');\n  let ledger = $state('');\n"
@@ -148,7 +151,8 @@
       #"  let narrowed: Record<string, Choice[] | undefined> = $state({});\n"
       #"  let showAll: Record<string, boolean> = $state({});\n"
       #"  let info = $state('');\n"
-      #"  const context = () => ({ business, ledger, party: " (js (val s id #"Party" #"")) #" });\n"
+      #"  const context = () => ({ business, ledger, party: " (js (val s id #"Party" #""))
+      (case (val s id #"Side") ('undefined #"") (side (list #", side: " (js side)))) #" });\n"
       #"  const apply = (patch: Patch) => {\n"
       #"    if (patch.values) Object.assign(values, patch.values);\n"
       #"    if (patch.choices) for (const [k, v] of Object.entries(patch.choices)) narrowed[k] = v;\n"
@@ -169,6 +173,7 @@
       #"      ledger = ledgers.some((l) => l.name === current) ? current : (ledgers[0]?.name ?? '');\n"
       (if badge? #"      items = (await listItems(business)).rows;\n" #"")
       (lists:map (lambda (f) (load-choices s f)) choices)
+      (if (records? s id) #"      await refresh();\n" #"")
       #"    } catch (e) {\n      error = e instanceof ApiError ? e.message : 'Failed to load.';\n"
       #"    } finally {\n      loading = false;\n    }\n  });\n\n"
       #"  async function submit() {\n"
@@ -181,10 +186,59 @@
                                      (_ (tuple 'true (list #"      values." (val s f #"Name") #" = initial()." (val s f #"Name") #";\n")))))
                        fields)
       (if lines? #"      lines = [newLine(nextKey++)];\n" #"")
+      (if (records? s id) #"      await refresh();\n" #"")
       #"    } catch (e) {\n"
       #"      error = e instanceof ApiError || e instanceof Invalid ? e.message : t(" (js (val s id #"Fail Text" #"Could not save.")) #");\n"
       #"    } finally {\n      submitting = false;\n    }\n  }\n"
+      (if (records? s id) (records-script s id) #"")
       #"</script>\n")))
+
+;; --- listed records ------------------------------------------------------------
+;;
+;; A screen with Records lists them below its form: one Entry per column,
+;; and per record a button for each Command whose When names its status.
+
+(defun records? (s id) (=/= (val s id #"Records") 'undefined))
+
+(defun records-script (s id)
+  (list
+    #"\n  let rows: Row[] = $state([]);\n"
+    #"  const refresh = async () => {\n    rows = await records." (val s id #"Records") #"(context());\n  };\n"
+    #"  async function run(command: string, row: Row) {\n"
+    #"    error = '';\n    message = '';\n"
+    #"    try {\n      message = await commands[command](context(), row);\n      await refresh();\n"
+    #"    } catch (e) {\n      error = e instanceof ApiError ? e.message : t(" (js (val s id #"Command Fail Text" #"Could not update this record.")) #");\n    }\n  }\n"))
+
+(defun record-list (s id)
+  (let* ((parts (app-view:things s id))
+         (entries (lists:filter (lambda (p) (== (kind s p) #"Entry")) parts))
+         (commands (lists:filter (lambda (p) (== (kind s p) #"Command")) parts)))
+    (list
+      #"    <table class='record-list'>\n      <thead><tr>"
+      (lists:map (lambda (e) (list #"<th>" (t (val s e #"Label")) #"</th>")) entries)
+      (if (== commands '()) #"" #"<th></th>")
+      #"</tr></thead>\n      <tbody>\n        {#each rows as row}\n          <tr>\n"
+      (lists:map (lambda (e) (list #"            <td>" (entry s e) #"</td>\n")) entries)
+      (if (== commands '()) #""
+        (list #"            <td class='record-actions'>\n"
+              (lists:map (lambda (c) (command s c)) commands)
+              #"            </td>\n"))
+      #"          </tr>\n        {:else}\n          <tr><td colspan='"
+      (integer_to_binary (+ (length entries) (if (== commands '()) 0 1)))
+      #"'>" (t (val s id #"Empty Text" #"Nothing yet.")) #"</td></tr>\n        {/each}\n      </tbody>\n    </table>\n")))
+
+(defun entry (s e)
+  (let ((n (val s e #"Name")))
+    (case (val s e #"Control")
+      (#"status" (list #"<span class='status status-{row." n #"}'>{t(row." n #")}</span>"))
+      (_ (list #"{row." n #"}")))))
+
+(defun command (s c)
+  (let ((statuses (binary:split (val s c #"When" #"") #" " '(global trim_all))))
+    (list #"              {#if " (if (== statuses '()) #"true"
+                                   (lists:join #" || " (lists:map (lambda (w) (list #"row.status === " (js w))) statuses)))
+          #"}<button class='btn secondary small" (case (val s c #"Style") ('undefined #"") (st (list #" " st)))
+          #"' onclick={() => run(" (js (val s c #"Command")) #", row)}>" (t (val s c #"Label")) #"</button>{/if}\n")))
 
 ;; A field that Reacts: when its value changes, run the named reaction and
 ;; apply what it returns.
@@ -207,6 +261,7 @@
 
 (defun initial (s f)
   (case (tuple (val s f #"Control") (val s f #"Default"))
+    ((tuple #"date" #"") #"''")
     ((tuple #"date" _) #"new Date().toISOString().slice(0, 10)")
     ((tuple _ 'undefined) #"''")
     ((tuple #"choose" #"first") #"''")

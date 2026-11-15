@@ -2,7 +2,7 @@
 ;;;
 ;;; A screen that is Variant Of another holds only what differs: its own
 ;;; values override the base screen's, and its things are merged with the
-;;; base's by Name. A thing with the same Name as a base thing overrides
+;;; base's by Kind and Name. A thing of the same Kind and Name as a base thing overrides
 ;;; that thing's values (or, marked Remove=yes, removes it); a thing whose Name
 ;;; the base does not have is added after the base's things.
 ;;;
@@ -54,18 +54,20 @@
 
 (defun hidden? (s id) (== (app-entities:value s id #"Remove") #"yes"))
 
+;; Things match by Kind and Name.
 (defun merge (s base-things own-things)
-  (let* ((name (lambda (h) (val s h #"Name")))
-         (own-named (lambda (n) (lists:filter (lambda (o) (andalso (=/= n 'undefined) (== (val s o #"Name") n))) own-things)))
+  (let* ((key (lambda (h) (tuple (val s h #"Kind") (val s h #"Name"))))
+         (own-for (lambda (b) (let ((k (funcall key b)))
+                                (lists:filter (lambda (o) (andalso (=/= (element 2 k) 'undefined) (== (funcall key o) k))) own-things))))
          (merged (lists:filtermap
                    (lambda (b)
-                     (case (funcall own-named (funcall name b))
+                     (case (funcall own-for b)
                        ((cons o _) (if (hidden? s o) 'false (tuple 'true (tuple 'merged o b))))
                        ('() (tuple 'true b))))
                    base-things))
-         (base-names (lists:map name base-things))
+         (base-keys (lists:map key base-things))
          (added (lists:filter (lambda (o) (andalso (not (hidden? s o))
-                                                   (not (lists:member (val s o #"Name") base-names))))
+                                                   (not (lists:member (funcall key o) base-keys))))
                               own-things)))
     (lists:foldl (lambda (a acc) (place s a acc)) merged added)))
 
