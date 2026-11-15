@@ -26,6 +26,16 @@ system is built on.
   Owns the database; the frontend never touches SQLite directly.
 - **Frontend** — `frontend/src/`, SvelteKit 5 + Svelte 5 (runes) + Vite,
   talks to the backend only over its HTTP API.
+- **Middleware** — the business rules that turn what a form carries into
+  journal entries and records — exists twice in the backend today: the
+  original (`db*.ts`, dispatched through `call-dispatch/`), which the web
+  and terminal frontends use, and the simplified **core**
+  (`backend/src/core/`), which the step runner and all three tutorials
+  use through its frontend API, and which serves `/api/call` when the
+  backend is started with `MIDDLEWARE=core`. See "The Core Middleware."
+- **Storage engine** — `storage_engine/`, a Gleam/BEAM service holding
+  the same two-store schema; the original middleware's entity driver uses
+  it (`ENTITY_DRIVER=gleam`).
 - Both are real npm workspaces (`backend`, `frontend`, `e2e`) under one
   root `package.json`; `make install` installs all three with one
   command.

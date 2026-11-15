@@ -92,6 +92,10 @@ What would genuinely be left for the owners if every real asset were converted t
 
 Real money spent to operate the business generally. See **Cost of Goods** and **Operating Expenses** for the two real kinds this app distinguishes. One of the five universal top-level Chart of Accounts categories.
 
+### FIFO (First In, First Out)
+
+How the cost of stock leaving is worked out during the year: it is taken from the oldest delivery still held at that location, at the price that delivery was bought at. See **Stock Layer** and Chapter 6.
+
 ### Financial year
 
 The one-year period a business's Budget ledger is prepared for (e.g. "2026-27") — free text, not computed from today's date, since a real fiscal year start genuinely varies by country.
@@ -156,6 +160,10 @@ The real equity account that accumulates a business's net income (or loss) over 
 
 Real income earned from actually doing business — selling items or services. One of the five universal top-level Chart of Accounts categories (labeled "Income" in this app's own Chart of Accounts, the same real thing).
 
+### Stock Layer
+
+One delivery of an item at a location that has not all been sold yet: so many units, at the price they were bought at. Sales, transfers and write-offs take from the oldest layer first. The year-end stock take merges an item's layers into one at their average cost.
+
 ### Trial Balance
 
 A real report listing every account's own real balance, split into its debit or credit side — the most basic real check that the books are internally consistent (total debits must equal total credits).
@@ -168,5 +176,8 @@ The exact same real thing, three different words for it. A vendor is created by 
 
 A real posting that zeroes every real Income and Expense account and transfers the net difference into Retained Earnings — the standard, real way a business "closes the books" for a period. Correctly handles multiple real divisions, rolling each one's own net income into its own real Retained Earnings line.
 
-\clearpage
+### Year-End Stock Take
 
+The count, item by item and location by location, that the year's accounts rest on. Each line is confirmed at a point-of-sale terminal, on a phone, or automatically at the books' quantity. Differences are written off or on at the average cost held, and a count confirmed after the new year has opened corrects both the old and the new ledger. See Chapter 6.
+
+\clearpage

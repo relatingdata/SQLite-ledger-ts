@@ -24,6 +24,9 @@ const PARTS: [string, string[]][] = [
     'user-manual-ch4-manufacturing-tutorial.md',
     'user-manual-ch5-project-builder-tutorial.md',
   ]],
+  ['Stock and the Financial Year', [
+    'user-manual-ch6-stock-and-year-end.md',
+  ]],
   ['Appendix --- Every Screen in the Application', [
     'user-manual-appendix-screens.md',
     'user-manual-appendix-step-runner.md',

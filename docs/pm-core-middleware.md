@@ -180,7 +180,10 @@ fields in `shared-fixtures/screens.csv` (checked by a unit test). Reads
 (`exists`, `getTrialBalance`, `getProfitAndLoss`, `getBalanceSheet`,
 `getProfitAndLossByAxis`, `getInventoryListing`, `getUserRoles`,
 `getRecipeLines`, `getProject`, `getEntry`, `getItemSource`, `getGroup`,
-`getTranslation`) are calls like any other.
+`getTranslation`, `getStockTakeSheet`) are calls like any other. The
+year-end count is confirmed with `confirmStockCount` (an empty count
+confirms the books' quantity) and `completeYearEndStockTake` (the
+automatic option).
 
 The server always mounts it at `/api/core/call`; started with
 `MIDDLEWARE=core` it also serves `/api/call`, otherwise `/api/call` stays

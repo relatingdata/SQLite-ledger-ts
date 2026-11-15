@@ -91,7 +91,7 @@ for (const chapter of chapters) {
 
 // --- Check 2: dead HTTP route references -------------------------------
 const routePattern = /\b(GET|POST|PUT|PATCH|DELETE)\s+(\/[\w/:_-]*)/g;
-const liveMounts = ['/api/call', '/api/health', '/api/recording'];
+const liveMounts = ['/api/call', '/api/core/call', '/api/health', '/api/recording'];
 
 for (const chapter of chapters) {
   const content = fs.readFileSync(path.join(docsDir, chapter), 'utf-8');

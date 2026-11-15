@@ -196,6 +196,23 @@ routers left are `/api/recording` (`routes/recording.ts`) and
 "a backend action" today — not a REST-style per-resource path with a
 JSON body.
 
+### The core middleware path: the frontend API
+
+On the core middleware (`MIDDLEWARE=core`, the default for
+`make test-e2e-tutorials`) the API path does **not** use
+`API_REGISTRY`. Every step goes through the core's frontend API, the same
+plain-text protocol a frontend speaks: `runStepViaFrontendApi`
+(`backend/scripts/core-api-client.ts`) turns the Login, Select Business
+and Switch Session screens into `login`, `selectBusiness` and
+`switchSession`, and every other screen into a call of its
+`api_function` with the step's values in `screens.csv` field order.
+Every verify is answered by API reads (`CORE_API_VERIFY`), never by
+reading the database directly. `CoreApiClient` sends the calls to
+`callCore` in-process by default, or over HTTP to
+`<STEP_RUNNER_API_URL>/api/core/call` when that variable is set
+(`make test-e2e-tutorials-http`). So on the core, `--path api` tests the
+real request shape after all.
+
 ### The two paths test genuinely different surfaces — and must assert differently
 
 A critical, settled design point: `--path api` and `--path ui` are not

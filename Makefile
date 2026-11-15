@@ -923,6 +923,7 @@ USER_MANUAL_CHAPTERS := \
 	docs/user-manual-ch2-configuration.md \
 	docs/user-manual-ch3-tutorial.md \
 	docs/user-manual-ch3b-tutorial-tui.md \
+	docs/user-manual-ch6-stock-and-year-end.md \
 	docs/user-manual-appendix-screens.md \
 	docs/user-manual-appendix-step-runner.md \
 	docs/user-manual-glossary.md \

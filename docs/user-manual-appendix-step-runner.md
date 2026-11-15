@@ -57,10 +57,41 @@ taking a picture of it, then back to instant again — all without anyone
 watching. This information goes in a second, small file alongside the data
 file, never mixed into the data file itself.
 
-## What's here today, and what's still to come
+## Which middleware it runs on
 
-Right now, the Step Runner's design has been finalized and written up in
-full, and its earlier, working parts (checking a file for problems, showing
-it in a readable form) exist for an older version of the file format. Bringing
-those, and the part that actually drives the screens, up to date with the
-format described above is in progress.
+The middleware is the set of business rules that turns what a form
+carries into journal entries and records. The Step Runner can run a data
+file on either of two:
+
+- **The new middleware** (the default). Each step is sent through the
+  same frontend API a web, terminal, point-of-sale or phone screen uses:
+  it signs in, chooses the business and ledger, then sends each screen's
+  values in the order of its fields. Every check it makes afterwards is a
+  read through that same API. By default this happens inside the Step
+  Runner itself; to send the steps to a running backend instead, set
+  `STEP_RUNNER_API_URL` to its address (for example
+  `http://localhost:3101`).
+- **The original middleware**, with `MIDDLEWARE=legacy`.
+
+From the project's root folder:
+
+```
+make test-e2e-tutorials                      # all three tutorials, new middleware
+make test-e2e-tutorials-http                 # the same, against a running backend
+make test-e2e-tutorials MIDDLEWARE=legacy    # the same, original middleware
+```
+
+A run with any failed step reports how many failed and ends with an
+error, so it cannot be mistaken for a pass.
+
+## What's here today
+
+Checking a file (`--lint`), showing it (`--pretty`), and running it
+step by step or all at once through the API, the browser (`--path ui`) or
+the terminal screens (`--path text`) all work today. The Retail,
+Manufacturing and Project Builder tutorials (743 steps in all) pass on both
+middlewares. The browser and terminal paths still run on the original
+middleware.
+
+\clearpage
+

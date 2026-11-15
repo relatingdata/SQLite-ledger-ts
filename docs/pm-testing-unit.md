@@ -65,9 +65,9 @@ multi-currency entry must balance independently per currency," or
 "`allocatePayment` must actually move Cash and Bank, not just record
 that a payment happened."
 
-**Current count**: 231 backend tests (`test/db.test.ts`: 200,
-`test/auth.test.ts`: 17, `scripts/step-runner.test.ts`: 14), 24
-frontend tests, all passing. Re-run `make test` rather than trusting
+**Current count**: 287 backend tests (among them `test/core.test.ts`:
+23 and `test/core-api.test.ts`: 3, the core middleware and its frontend
+API — see "The Core Middleware"), 24 frontend tests, all passing. Re-run `make test` rather than trusting
 this count going forward.
 
 Unit tests are the right tool for proving a specific mechanism is

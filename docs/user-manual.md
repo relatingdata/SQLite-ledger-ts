@@ -755,6 +755,133 @@ profitable) rather than one fixed, hardcoded number:
 ```
 make test-e2e-project-builder-full
 ```
+# Chapter 6 --- Stock, Its Cost, and the Year-End Stock Take
+
+This chapter describes how the application works out what your stock cost
+you, and how the stock take at the end of the financial year corrects the
+books. It applies to the new middleware (see "Which middleware runs" at the
+end of this chapter); the tutorials in Chapters 3 to 5 run on both.
+
+## Start small: one item, one place
+
+The smallest business this application serves is a sole trader who buys
+ice and sells it for cash. He needs one item, `Ice`, and nothing else: no
+locations, no categories, no customers. Buying 50 bags at $1.00 and selling
+40 at $2.00 gives him one Sales account, one Cost of Goods Sold account and
+one Inventory account, each simply called `Ice`, and a profit of $40.00.
+
+Even so, he should set up two locations — **Home** and **Stall**, say —
+as soon as he keeps stock in both. The application then keeps a separate
+count and a separate value for each place, so he can see what is left at
+the stall at the end of the day and what is still in the freezer at home,
+and a stock take can be checked place by place. Nothing else changes: the
+same purchase and sale screens simply ask which location.
+
+## What stock costs: first in, first out
+
+Every time stock arrives with a price — a cash purchase, a purchase on
+credit, a delivery against a purchase order — that delivery is kept as a
+**layer**: so many units at so much each, at that location.
+
+When stock leaves — a sale, a transfer to another location, a write-off —
+it is taken from the **oldest** layer first, at the price that layer was
+bought at. This is called *first in, first out* (FIFO).
+
+> **Example.** The stall buys 10 bags at $1.00, then 10 more at $1.30, and
+> sells 12. The cost of those 12 is 10 × $1.00 + 2 × $1.30 = $12.60. The 8
+> bags left are valued at $1.30 each, $10.40 in all.
+
+- **Transfers** between locations carry their layers with them. If 9 bags
+  leave Home — 8 bought at $1.30 and 1 at $1.60 — they arrive at the Stall
+  as those same two layers, not as 9 bags at a blended price.
+- **Write-offs** (broken, lost or expired stock) are costed the same way:
+  oldest first.
+- **Stock found** at a count during the year is valued at the price of the
+  most recent delivery.
+- Nothing extra is stored for any of this. The layers are read back from
+  the journal itself, so they always agree with the Inventory account.
+
+## The year-end stock take
+
+At the end of each financial year the business counts what it actually
+holds. The books are only as true as that count, so it matters.
+
+The count is taken **item by item, location by location**. For each line
+the application shows what the books say is there and lets you confirm the
+real figure.
+
+At the year-end stock take:
+
+- **Every line is recorded**, even when the count agrees with the books.
+- **A difference is valued at the average cost** of what was held at that
+  location — not at the oldest price. Missing stock is written off; extra
+  stock found is written on.
+- **From the count onwards, the stock is held at one average cost.**
+  For example, 5 bags left at $1.00 and 10 at $1.60 become 15 bags at $1.40.
+  The new year starts from that figure.
+
+### Three ways to confirm the count
+
+1. **At the point of sale.** A terminal at each location lists that
+   location's lines; staff enter the number counted for each item.
+2. **On a phone.** Someone walking the shelves confirms each line in the
+   same way. Leaving the number empty confirms what the books say.
+3. **Automatically.** Every line not yet confirmed by hand is confirmed at
+   the books' quantity in one go. This suits a sole trader whose stock
+   barely changes, or the slow-moving lines of a larger business.
+
+You can mix the three: count the busy lines at the terminal, a few on the
+phone, and confirm the rest automatically. A line counted twice keeps the
+later count.
+
+> **Does a small business have to count at all?** In Australia, a small
+> business may not need a formal stocktake if it estimates, in good faith
+> and in a way it can explain to the ATO, that the value of its stock
+> changed by $5,000 or less over the year (see the ATO's *simplified
+> trading stock rules*). The automatic option records that estimate as the
+> count. Check with your accountant before relying on it.
+
+### Trading carries on while you count
+
+Businesses rarely stop trading to count. The application lets you open
+the new financial year straight away — the new ledger starts with the
+quantities and values the books held — and keep selling in it while the
+count is finished.
+
+When a count confirmed later differs from the books, **both years are
+corrected**:
+
+- **The old year** gets the write-off (or write-on), dated at the year end,
+  so its profit and its closing stock are right. If its books were already
+  closed, the difference is closed into Retained Earnings as well, so the
+  old year still balances.
+- **The new year** gets the same correction to its *opening* stock —
+  quantity and value — against Retained Earnings, not against this year's
+  profit. Sales already made in the new year are not changed.
+
+> **Example.** The books held 15 bags worth $21.00 (an average of $1.40)
+> when the new year opened, and 3 have been sold since. The count, as at
+> the year end, finds 13. The old year writes off 2 bags at $1.40: its
+> profit falls by $2.80. The new year's opening stock falls by the same 2
+> bags and $2.80, against Retained Earnings; its own profit is untouched,
+> and it now holds 10 bags.
+
+Count as at the year-end date. If the count is taken a few days later,
+allow for what was sold or received in between before confirming it.
+
+## Which middleware runs
+
+The rules above belong to the new middleware: the business rules that turn
+what you enter on a form into journal entries and records. Today the step
+runner, and the backend started with `MIDDLEWARE=core`, use it; the web
+and terminal screens otherwise still use the original middleware, whose
+cost rules differ (it costs a sale at the item's registered unit cost).
+The year-end count is available through the new middleware's calls —
+`getStockTakeSheet`, `confirmStockCount` and `completeYearEndStockTake` —
+ready for a terminal or phone screen; those screens are still to be built.
+
+\clearpage
+
 # Appendix --- Every Screen in the Application
 
 A real, complete reference of every real screen this application has a route for, grouped by the same, real top-level section the menu itself uses --- whether that screen is genuinely working today, or still a real, honestly-labeled gap. A screen marked "Not yet implemented" shows a real, direct placeholder in the running application (with its own description of what it would do), rather than being hidden from the menu entirely --- so the full, real shape of the application is always visible, not just the parts already built.
@@ -1000,13 +1127,44 @@ taking a picture of it, then back to instant again — all without anyone
 watching. This information goes in a second, small file alongside the data
 file, never mixed into the data file itself.
 
-## What's here today, and what's still to come
+## Which middleware it runs on
 
-Right now, the Step Runner's design has been finalized and written up in
-full, and its earlier, working parts (checking a file for problems, showing
-it in a readable form) exist for an older version of the file format. Bringing
-those, and the part that actually drives the screens, up to date with the
-format described above is in progress.
+The middleware is the set of business rules that turns what a form
+carries into journal entries and records. The Step Runner can run a data
+file on either of two:
+
+- **The new middleware** (the default). Each step is sent through the
+  same frontend API a web, terminal, point-of-sale or phone screen uses:
+  it signs in, chooses the business and ledger, then sends each screen's
+  values in the order of its fields. Every check it makes afterwards is a
+  read through that same API. By default this happens inside the Step
+  Runner itself; to send the steps to a running backend instead, set
+  `STEP_RUNNER_API_URL` to its address (for example
+  `http://localhost:3101`).
+- **The original middleware**, with `MIDDLEWARE=legacy`.
+
+From the project's root folder:
+
+```
+make test-e2e-tutorials                      # all three tutorials, new middleware
+make test-e2e-tutorials-http                 # the same, against a running backend
+make test-e2e-tutorials MIDDLEWARE=legacy    # the same, original middleware
+```
+
+A run with any failed step reports how many failed and ends with an
+error, so it cannot be mistaken for a pass.
+
+## What's here today
+
+Checking a file (`--lint`), showing it (`--pretty`), and running it
+step by step or all at once through the API, the browser (`--path ui`) or
+the terminal screens (`--path text`) all work today. The Retail,
+Manufacturing and Project Builder tutorials (743 steps in all) pass on both
+middlewares. The browser and terminal paths still run on the original
+middleware.
+
+\clearpage
+
 # Glossary
 
 *Also available in [German](glossary.de.md) · [French](glossary.fr.md) · [Danish](glossary.da.md) · [Italian](glossary.it.md).*
@@ -1101,6 +1259,10 @@ What would genuinely be left for the owners if every real asset were converted t
 
 Real money spent to operate the business generally. See **Cost of Goods** and **Operating Expenses** for the two real kinds this app distinguishes. One of the five universal top-level Chart of Accounts categories.
 
+### FIFO (First In, First Out)
+
+How the cost of stock leaving is worked out during the year: it is taken from the oldest delivery still held at that location, at the price that delivery was bought at. See **Stock Layer** and Chapter 6.
+
 ### Financial year
 
 The one-year period a business's Budget ledger is prepared for (e.g. "2026-27") — free text, not computed from today's date, since a real fiscal year start genuinely varies by country.
@@ -1165,6 +1327,10 @@ The real equity account that accumulates a business's net income (or loss) over 
 
 Real income earned from actually doing business — selling items or services. One of the five universal top-level Chart of Accounts categories (labeled "Income" in this app's own Chart of Accounts, the same real thing).
 
+### Stock Layer
+
+One delivery of an item at a location that has not all been sold yet: so many units, at the price they were bought at. Sales, transfers and write-offs take from the oldest layer first. The year-end stock take merges an item's layers into one at their average cost.
+
 ### Trial Balance
 
 A real report listing every account's own real balance, split into its debit or credit side — the most basic real check that the books are internally consistent (total debits must equal total credits).
@@ -1177,8 +1343,11 @@ The exact same real thing, three different words for it. A vendor is created by 
 
 A real posting that zeroes every real Income and Expense account and transfers the net difference into Retained Earnings — the standard, real way a business "closes the books" for a period. Correctly handles multiple real divisions, rolling each one's own net income into its own real Retained Earnings line.
 
-\clearpage
+### Year-End Stock Take
 
+The count, item by item and location by location, that the year's accounts rest on. Each line is confirmed at a point-of-sale terminal, on a phone, or automatically at the books' quantity. Differences are written off or on at the average cost held, and a count confirmed after the new year has opened corrects both the old and the new ledger. See Chapter 6.
+
+\clearpage
 # Contributors
 
 This application, and this manual, are the real, direct product of a genuine, ongoing collaboration between a human reviewer and Claude, an AI assistant made by Anthropic --- every real design decision, every real correction, and every real piece of this project's own, honest documentation of its own mistakes reflects that direct, back-and-forth process, not a single, one-shot generation.
